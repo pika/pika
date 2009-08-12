@@ -57,6 +57,12 @@ DRIVER_METHODS = {
     "Tx.Rollback": ["Tx.RollbackOk"]
     }
 
+def fieldvalue(v):
+    if isinstance(v, unicode):
+        return repr(v.encode('ascii'))
+    else:
+        return repr(v)
+
 def normalize_separators(s):
     s = s.replace('-', '_')
     s = s.replace(' ', '_')
@@ -235,7 +241,7 @@ def gen(spec):
         print
 
     def fieldDeclList(fields):
-        return ''.join([", %s = %s" % (pyize(f.name), repr(f.defaultvalue)) for f in fields])
+        return ''.join([", %s = %s" % (pyize(f.name), fieldvalue(f.defaultvalue)) for f in fields])
 
     def fieldInitList(prefix, fields):
         if fields:
@@ -261,7 +267,7 @@ def gen(spec):
     for c in spec.allClasses():
         print 'class %s(rabbitmq.specbase.Class):' % (camel(c.name),)
         print "    INDEX = 0x%.04X ## %d" % (c.index, c.index)
-        print "    NAME = %s" % (repr(camel(c.name)),)
+        print "    NAME = %s" % (fieldvalue(camel(c.name)),)
         print
 
         for m in c.allMethods():
@@ -272,7 +278,7 @@ def gen(spec):
                    m.klass.index,
                    m.index,
                    methodid)
-            print "        NAME = %s" % (repr(m.structName(),))
+            print "        NAME = %s" % (fieldvalue(m.structName(),))
             print "        def __init__(self%s):" % (fieldDeclList(m.arguments),)
             print fieldInitList('            ', m.arguments)
             genDecodeMethodFields(m)
@@ -283,7 +289,7 @@ def gen(spec):
             print 'class %s(rabbitmq.specbase.Properties):' % (c.structName(),)
             print "    CLASS = %s" % (camel(c.name),)
             print "    INDEX = 0x%.04X ## %d" % (c.index, c.index)
-            print "    NAME = %s" % (repr(c.structName(),))
+            print "    NAME = %s" % (fieldvalue(c.structName(),))
 
             index = 0
             if c.fields:
