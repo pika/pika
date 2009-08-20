@@ -4,6 +4,7 @@ import socket
 import rabbitmq.spec as spec
 import rabbitmq.codec as codec
 import rabbitmq.channel as channel
+import rabbitmq.simplebuffer as simplebuffer
 from rabbitmq.exceptions import *
 
 class PlainCredentials:
@@ -36,7 +37,7 @@ class Connection(asyncore.dispatcher):
         self.credentials = credentials or PlainCredentials('guest', 'guest')
         self.virtual_host = virtual_host
         self.parameters = parameters or ConnectionParameters()
-        self.outbound_frames = []
+        self.outbound_buffer = simplebuffer.SimpleBuffer()
         self.frame_handler = self._login1
         self.connection_open = False
         self.connection_close = None
@@ -104,12 +105,11 @@ class Connection(asyncore.dispatcher):
                 self.frame_handler(frame)
 
     def writable(self):
-        return (len(self.outbound_frames) > 0)
+        return True if len(self.outbound_buffer) else False
 
     def handle_write(self):
-        frame = self.outbound_frames.pop(0)
-        #print 'Writing', frame
-        self.send(frame.marshal())
+        r = self.send(self.outbound_buffer.read())
+        self.outbound_buffer.consume(r)
 
     def _next_channel_number(self):
         tries = 0
@@ -136,7 +136,8 @@ class Connection(asyncore.dispatcher):
             del self.channels[channel_number]
 
     def send_frame(self, frame):
-        self.outbound_frames.append(frame)
+        self.outbound_buffer.write( frame.marshal() )
+        #print 'Wrote %r' % (frame, )
 
     def send_method(self, channel_number, method, content = None):
         self.send_frame(codec.FrameMethod(channel_number, method))
