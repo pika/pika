@@ -156,10 +156,10 @@ class Connection(asyncore.dispatcher):
             maxpiece = (self.state.frame_max - \
                         codec.ConnectionState.HEADER_SIZE - \
                         codec.ConnectionState.FOOTER_SIZE)
-            while body:
-                piecelen = min(len(body), maxpiece)
-                piece = body[:piecelen]
-                body = body[piecelen:]
+            body_buf = simplebuffer.SimpleBuffer( body )
+            while body_buf:
+                piecelen = min(len(body_buf), maxpiece)
+                piece = body_buf.read_and_consume( piecelen )
                 self.send_frame(codec.FrameBody(channel_number, piece))
 
     def _rpc(self, channel_number, method, acceptable_replies):
