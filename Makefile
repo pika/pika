@@ -11,9 +11,16 @@ rabbitmq/spec.py: codegen.py $(AMQP_CODEGEN_DIR)/amqp_codegen.py $(AMQP_SPEC_JSO
 
 clean:
 	rm -f rabbitmq/spec.py
-	rm -f rabbitmq/*.pyc
+	rm -f rabbitmq/*.pyc 
+	rm -f tests/*.pyc tests/.coverage
 
 codegen:
 	mkdir -p $@
 	cp -r "$(AMQP_CODEGEN_DIR)"/* $@
 	$(MAKE) -C $@ clean
+
+tests: test
+
+test: all
+	cd tests && PYTHONPATH=.. $(PYTHON) run.py ../rabbitmq rabbitmq
+	
