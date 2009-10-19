@@ -46,9 +46,6 @@ class RabbitDispatcher(asyncore.dispatcher):
         self.connection.outbound_buffer.consume(r)
 
 class AsyncoreConnection(rabbitmq.connection.Connection):
-    def __init__(self, *args, **kw):
-        rabbitmq.connection.Connection.__init__(self, *args, **kw)
-
     def reconnect_after(self, delay_sec):
         add_oneshot_timer_rel(delay_sec, self.reconnect)
 
