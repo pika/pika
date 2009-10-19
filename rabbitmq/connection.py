@@ -41,13 +41,15 @@ class Connection:
         self.channels = {}
         self.next_channel = 0
 
-        self.amqp_connect(host, port or spec.PORT)
+        self.connect(host, port or spec.PORT)
         self.send_frame(self._local_protocol_header())
 
         if wait_for_open:
             self.wait_for_open()
 
-    def amqp_connect(self, host, port):
+    def connect(self, host, port):
+        """Subclasses should override to set up the outbound
+        socket."""
         raise NotImplementedError('Subclass Responsibility')
 
     def _local_protocol_header(self):
@@ -56,8 +58,17 @@ class Connection:
                                          spec.PROTOCOL_VERSION[0],
                                          spec.PROTOCOL_VERSION[1])
 
-    def handle_connect(self):
-        ## TODO: split out into asyncore-specific subclass
+    def on_connected(self):
+        pass
+
+    def handle_connection_open(self):
+        """Subclasses may override to signal events on connection open."""
+        # TODO: revisit -- shouldn't this be a pluggable callback?
+        pass
+
+    def handle_connection_close(self):
+        """Subclasses may override to signal events on connection close."""
+        # TODO: revisit -- shouldn't this be a pluggable callback?
         pass
 
     def _set_connection_close(self, c):
@@ -65,6 +76,8 @@ class Connection:
             self.connection_close = c
             for chan in self.channels.values():
                 chan._set_channel_close(c)
+            self.connection_open = False
+            self.handle_connection_close()
 
     def close(self):
         if self.connection_open:
@@ -82,42 +95,23 @@ class Connection:
         event-dispatcher shutdown logic."""
         pass
 
-    def handle_close(self):
-        ## TODO: split out into asyncore-specific subclass
+    def on_disconnected(self):
         self._set_connection_close(spec.Connection.Close(reply_code = 0,
                                                          reply_text = 'Socket closed',
                                                          class_id = 0,
                                                          method_id = 0))
-        self.close() ## asyncore
 
-    def handle_read(self):
-        ## TODO: split out into asyncore-specific subclass
-        b = self.state.channel_max
+    def suggested_buffer_size(self):
+        b = self.state.frame_max
         if not b: b = 131072
+        return b
 
-        try:
-            buf = self.recv(b) ## asyncore
-        except socket.error:
-            self.handle_close()
-            raise
-
-        if not buf:
-            self.close() ## asyncore
-            return
-
+    def on_data_available(self, buf):
         while buf:
             (consumed_count, frame) = self.state.handle_input(buf)
             buf = buf[consumed_count:]
             if frame:
                 self.frame_handler(frame)
-
-    def writable(self):
-        return True if len(self.outbound_buffer) else False
-
-    def handle_write(self):
-        ## TODO: split out into asyncore-specific subclass
-        r = self.send(self.outbound_buffer.read())
-        self.outbound_buffer.consume(r)
 
     def _next_channel_number(self):
         tries = 0
@@ -211,6 +205,9 @@ class Connection:
         self.connection_open = True
         self.handle_connection_open()
 
+    def is_alive(self):
+        return self.connection_open and not self.connection_close
+
     def _install_channel0(self):
         c = channel.ChannelHandler(self, 0)
         c.async_map[spec.Connection.Close] = self._async_connection_close
@@ -230,17 +227,9 @@ class Connection:
         something to have been set by one of the event handlers."""
         raise NotImplementedError('Subclass Responsibility')
 
-    def handle_connection_open(self):
-        pass
-
-    def handle_connection_close(self):
-        pass
-
     def _async_connection_close(self, method_frame, header_frame, body):
-        self._set_connection_close(method_frame.method)
-        self.connection_open = False
         self.send_method(0, spec.Connection.CloseOk())
-        self.handle_connection_close()
+        self._set_connection_close(method_frame.method)
 
     def _generic_frame_handler(self, frame):
         #print "GENERIC_FRAME_HANDLER", frame
