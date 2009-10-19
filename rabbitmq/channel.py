@@ -1,5 +1,6 @@
 import rabbitmq.spec as spec
 import rabbitmq.codec as codec
+import rabbitmq.event as event
 
 class ChannelHandler:
     def __init__(self, connection, channel_number = None):
@@ -8,6 +9,8 @@ class ChannelHandler:
         self.frame_handler = self._handle_method
         self.channel_close = None
         self.async_map = {}
+
+        self.channel_state_change_event = event.Event()
 
         if channel_number is None:
             self.channel_number = connection._next_channel_number()
@@ -28,6 +31,11 @@ class ChannelHandler:
         if not self.channel_close:
             self.channel_close = c
             self.connection.reset_channel(self.channel_number)
+            self.channel_state_change_event.fire(self, False)
+
+    def addStateChangeHandler(self, handler, key = None):
+        self.channel_state_change_event.addHandler(handler, key)
+        handler(self, not self.channel_close)
 
     def wait_for_reply(self, acceptable_replies):
         if not acceptable_replies:
@@ -103,6 +111,9 @@ class Channel(spec.DriverMixin):
         handler.async_map[spec.Channel.Flow] = self._async_channel_flow
 
         self.handler._rpc(spec.Channel.Open(), [spec.Channel.OpenOk])
+
+    def addStateChangeHandler(self, handler, key = None):
+        self.handler.addStateChangeHandler(handler, key)
 
     def _async_basic_deliver(self, method_frame, header_frame, body):
         self.callbacks[method_frame.method.consumer_tag](method_frame.method,

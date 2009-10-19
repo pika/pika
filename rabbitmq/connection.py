@@ -4,6 +4,7 @@ import rabbitmq.spec as spec
 import rabbitmq.codec as codec
 import rabbitmq.channel as channel
 import rabbitmq.simplebuffer as simplebuffer
+import rabbitmq.event as event
 from rabbitmq.exceptions import *
 
 class PlainCredentials:
@@ -16,24 +17,34 @@ class PlainCredentials:
             return None
         return ('PLAIN', '\0%s\0%s' % (self.username, self.password))
 
-class ConnectionParameters:
-    def __init__(self, channel_max = 0, frame_max = 131072, heartbeat = 0):
-        self.channel_max = channel_max
-        self.frame_max = frame_max
-        self.heartbeat = heartbeat
+default_credentials = PlainCredentials('guest', 'guest')
 
-class Connection:
+class ConnectionParameters:
     def __init__(self,
                  host,
                  port = None,
                  virtual_host = "/",
                  credentials = None,
-                 parameters = None,
-                 wait_for_open = True):
-        self.state = codec.ConnectionState()
-        self.credentials = credentials or PlainCredentials('guest', 'guest')
+                 channel_max = 0,
+                 frame_max = 131072,
+                 heartbeat = 0):
+        self.host = host
+        self.port = port
         self.virtual_host = virtual_host
-        self.parameters = parameters or ConnectionParameters()
+        self.credentials = credentials
+        self.channel_max = channel_max
+        self.frame_max = frame_max
+        self.heartbeat = heartbeat
+
+    def __repr__(self):
+        import rabbitmq.specbase
+        return rabbitmq.specbase._codec_repr(self, lambda: ConnectionParameters(None))
+
+class Connection:
+    def __init__(self, parameters, wait_for_open = True):
+        self.parameters = parameters
+
+        self.state = codec.ConnectionState()
         self.outbound_buffer = simplebuffer.SimpleBuffer()
         self.frame_handler = self._login1
         self.connection_open = False
@@ -41,7 +52,9 @@ class Connection:
         self.channels = {}
         self.next_channel = 0
 
-        self.connect(host, port or spec.PORT)
+        self.connection_state_change_event = event.Event()
+
+        self.connect(self.parameters.host, self.parameters.port or spec.PORT)
         self.send_frame(self._local_protocol_header())
 
         if wait_for_open:
@@ -62,14 +75,17 @@ class Connection:
         pass
 
     def handle_connection_open(self):
-        """Subclasses may override to signal events on connection open."""
-        # TODO: revisit -- shouldn't this be a pluggable callback?
-        pass
+        self.connection_state_change_event.fire(self, True)
 
     def handle_connection_close(self):
-        """Subclasses may override to signal events on connection close."""
-        # TODO: revisit -- shouldn't this be a pluggable callback?
-        pass
+        self.connection_state_change_event.fire(self, False)
+
+    def addStateChangeHandler(self, handler, key = None):
+        self.connection_state_change_event.addHandler(handler, key)
+        handler(self, self.connection_open)
+
+    def delStateChangeHandler(self, key):
+        self.connection_state_change_event.delHandler(key)
 
     def _set_connection_close(self, c):
         if not self.connection_close:
@@ -174,7 +190,8 @@ class Connection:
             raise ProtocolVersionMismatch(self._local_protocol_header,
                                           frame)
 
-        response = self.credentials.response_for(frame.method)
+        credentials = self.parameters.credentials or default_credentials
+        response = credentials.response_for(frame.method)
         if not response:
             raise LoginError("No acceptable SASL mechanism for the given credentials",
                              credentials)
@@ -182,11 +199,13 @@ class Connection:
                                                       {"product": "RabbitMQ Python"},
                                                     mechanism = response[0],
                                                     response = response[1]))
-        self._erase_credentials()
+        self.erase_credentials()
         self.frame_handler = self._login2
 
-    def _erase_credentials(self):
-        self.credentials = None
+    def erase_credentials(self):
+        """Override if in some context you need the object to forget
+        its login credentials after successfully opening a connection."""
+        pass
 
     def _login2(self, frame):
         channel_max = combine_tuning(self.parameters.channel_max, frame.method.channel_max)
@@ -199,7 +218,8 @@ class Connection:
         self.frame_handler = self._generic_frame_handler
         self._install_channel0()
         self.known_hosts = \
-                         self._rpc(0, spec.Connection.Open(virtual_host = self.virtual_host,
+                         self._rpc(0, spec.Connection.Open(virtual_host = \
+                                                               self.parameters.virtual_host,
                                                            insist = True),
                                    [spec.Connection.OpenOk]).known_hosts
         self.connection_open = True
