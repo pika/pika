@@ -9,3 +9,6 @@ import rabbitmq.asyncore_adapter
 from rabbitmq.asyncore_adapter import \
     AsyncoreConnection
 asyncore_loop = rabbitmq.asyncore_adapter.loop
+
+from rabbitmq.blocking_adapter import \
+    BlockingConnection

@@ -1,4 +1,3 @@
-import socket
 import random
 
 import rabbitmq.spec as spec

@@ -16,7 +16,7 @@ class TestConcurrency(unittest.TestCase):
         tag = ch_a.basic_consume(handle_delivery, queue='test')
 
         ch_a.basic_publish(exchange='', routing_key="test", body="Hello World!",)
-
+        rabbitmq.asyncore_loop()
 
 if __name__ == '__main__':
     import run
