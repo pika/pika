@@ -6,8 +6,9 @@ Example of simple producer, creates one message and exits.
 import rabbitmq
 import asyncore
 
-conn = rabbitmq.AsyncoreConnection('127.0.0.1', 
-                                   credentials=rabbitmq.PlainCredentials('guest', 'guest'))
+conn = rabbitmq.AsyncoreConnection(rabbitmq.ConnectionParameters(
+        '127.0.0.1',
+        credentials=rabbitmq.PlainCredentials('guest', 'guest')))
 
 ch = conn.channel()
 ch.queue_declare(queue="test", durable=True, exclusive=False, auto_delete=False)
