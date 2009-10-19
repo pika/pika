@@ -34,9 +34,6 @@ Here goes the list of bugs, limitations, ideas and feature requests.
 
  o Do something when user/pass is bad.
  
- o Create an interpreter-friendly version, which blocks on every single
-   command, and without a need of running async_loop.
-
  o As we don't have any reasonable documentation, we should 
    give as many small examples as possible. It's pretty complicated
    to dig in some details, like:
