@@ -1,4 +1,3 @@
-import asyncore
 import socket
 
 import rabbitmq.spec as spec
@@ -23,7 +22,7 @@ class ConnectionParameters:
         self.frame_max = frame_max
         self.heartbeat = heartbeat
 
-class Connection(asyncore.dispatcher):
+class Connection:
     def __init__(self,
                  host,
                  port = None,
@@ -31,8 +30,6 @@ class Connection(asyncore.dispatcher):
                  credentials = None,
                  parameters = None,
                  wait_for_open = True):
-        asyncore.dispatcher.__init__(self)
-
         self.state = codec.ConnectionState()
         self.credentials = credentials or PlainCredentials('guest', 'guest')
         self.virtual_host = virtual_host
@@ -44,12 +41,14 @@ class Connection(asyncore.dispatcher):
         self.channels = {}
         self.next_channel = 0
 
-        self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.connect((host, port or spec.PORT))
+        self.amqp_connect(host, port or spec.PORT)
         self.send_frame(self._local_protocol_header())
 
         if wait_for_open:
             self.wait_for_open()
+
+    def amqp_connect(self, host, port):
+        raise NotImplementedError('Subclass Responsibility')
 
     def _local_protocol_header(self):
         return codec.FrameProtocolHeader(1,
@@ -58,6 +57,7 @@ class Connection(asyncore.dispatcher):
                                          spec.PROTOCOL_VERSION[1])
 
     def handle_connect(self):
+        ## TODO: split out into asyncore-specific subclass
         pass
 
     def _set_connection_close(self, c):
@@ -75,27 +75,34 @@ class Connection(asyncore.dispatcher):
                                       method_id = 0)
             self._rpc(0, c, [spec.Connection.CloseOk])
             self._set_connection_close(c)
-        asyncore.dispatcher.close(self)
+        self.shutdown_event_loop()
+
+    def shutdown_event_loop(self):
+        """Subclasses should override this as required to implement
+        event-dispatcher shutdown logic."""
+        pass
 
     def handle_close(self):
+        ## TODO: split out into asyncore-specific subclass
         self._set_connection_close(spec.Connection.Close(reply_code = 0,
                                                          reply_text = 'Socket closed',
                                                          class_id = 0,
                                                          method_id = 0))
-        self.close()
+        self.close() ## asyncore
 
     def handle_read(self):
+        ## TODO: split out into asyncore-specific subclass
         b = self.state.channel_max
         if not b: b = 131072
 
         try:
-            buf = self.recv(b)
+            buf = self.recv(b) ## asyncore
         except socket.error:
             self.handle_close()
             raise
 
         if not buf:
-            self.close()
+            self.close() ## asyncore
             return
 
         while buf:
@@ -108,6 +115,7 @@ class Connection(asyncore.dispatcher):
         return True if len(self.outbound_buffer) else False
 
     def handle_write(self):
+        ## TODO: split out into asyncore-specific subclass
         r = self.send(self.outbound_buffer.read())
         self.outbound_buffer.consume(r)
 
@@ -212,7 +220,15 @@ class Connection(asyncore.dispatcher):
 
     def wait_for_open(self):
         while not self.connection_open and not self.connection_close:
-            asyncore.loop(count = 1)
+            self.drain_events()
+
+    def drain_events(self):
+        """Subclasses should override as required to wait for a few
+        events -- perhaps running the dispatch loop once, or a small
+        number of times -- and dispatch them, and then to return
+        control to this method's caller, which will be waiting for
+        something to have been set by one of the event handlers."""
+        raise NotImplementedError('Subclass Responsibility')
 
     def handle_connection_open(self):
         pass

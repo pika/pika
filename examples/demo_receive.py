@@ -6,8 +6,8 @@ Example of simple consumer, waits one message, replies an ack and exits.
 import rabbitmq
 import asyncore
 
-conn = rabbitmq.Connection('127.0.0.1', 
-                        credentials=rabbitmq.PlainCredentials('guest', 'guest'))
+conn = rabbitmq.AsyncoreConnection('127.0.0.1', 
+                                   credentials=rabbitmq.PlainCredentials('guest', 'guest'))
 
 ch = conn.channel()
 ch.queue_declare(queue="test", durable=True, exclusive=False, auto_delete=False)

@@ -1,4 +1,3 @@
-import asyncore
 import rabbitmq.spec as spec
 import rabbitmq.codec as codec
 
@@ -38,7 +37,7 @@ class ChannelHandler:
         while True:
             self._ensure()
             while index >= len(self.inbound):
-                asyncore.loop(count = 1)
+                self.connection.drain_events()
             while index < len(self.inbound):
                 frame = self.inbound[index][0]
                 if isinstance(frame, codec.FrameMethod):

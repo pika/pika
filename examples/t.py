@@ -31,7 +31,7 @@ def handle_delivery(method, header, body):
         ch.close()
         c.close()
 
-c = rabbitmq.Connection('127.0.0.1')
+c = rabbitmq.AsyncoreConnection('127.0.0.1')
 ch = c.channel()
 ch.queue_declare(queue = "test")
 tag = ch.basic_consume(handle_delivery, queue = 'test')
