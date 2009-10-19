@@ -96,6 +96,7 @@ class ChannelHandler:
         return handler
 
     def _rpc(self, method, acceptable_replies):
+        self._ensure()
         return self.connection._rpc(self.channel_number, method, acceptable_replies)
 
 class Channel(spec.DriverMixin):

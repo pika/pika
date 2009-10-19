@@ -1,8 +1,11 @@
 import sys
 
+class EventHandlerError(Exception): pass
+
 class Event:
-    def __init__(self):
+    def __init__(self, report_failures = False):
         self.handlers = {}
+        self.report_failures = report_failures
 
     def addHandler(self, handler, key = None):
         if key is None:
@@ -20,4 +23,10 @@ class Event:
                 results[key] = self.handlers[key](*args, **kwargs)
             except:
                 errors[key] = sys.exc_info()
-        return (results, errors)
+
+        if self.report_failures:
+            return (results, errors)
+        elif errors:
+            raise EventHandlerError(errors)
+        else:
+            return results

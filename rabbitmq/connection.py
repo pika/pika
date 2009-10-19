@@ -106,6 +106,10 @@ class Connection:
             self._set_connection_close(c)
         self.shutdown_event_loop()
 
+    def ensure_closed(self):
+        if self.is_alive():
+            self.close()
+
     def shutdown_event_loop(self):
         """Subclasses should override this as required to implement
         event-dispatcher shutdown logic."""

@@ -38,7 +38,7 @@ class Relay:
     def handle_channel_state_change(self, ch, is_open):
         print 'Channel state change', ch.channel_number, ch.connection.parameters, ch.channel_close, is_open
         if not is_open:
-            ch.connection.close()
+            ch.connection.ensure_closed()
 
     def handle_target_connection_state_change(self, conn, is_connected):
         print 'Target state change', conn.parameters, is_connected
@@ -68,9 +68,9 @@ class Relay:
 
     def handle_source_connection_state_change(self, conn, is_connected):
         print 'Source state change', conn.parameters, is_connected
-        if is_connected:
-            self.reset_pending_lists()
+        self.reset_pending_lists()
 
+        if is_connected:
             self.source_ch = conn.channel()
             self.source_ch.addStateChangeHandler(self.handle_channel_state_change)
 
@@ -91,16 +91,14 @@ class Relay:
 
             self.queue_name = declare_ok.queue
 
-            print 'a'
             self.source_ch.queue_bind(queue = self.queue_name,
                                       exchange = self.exchange_name,
                                       routing_key = self.bind_routing_key)
 
-            self.source_tag = self.source_ch.basic_consume(self.handle_delivery,
-                                                           queue = self.queue_name)
-
             print 'Source connected to queue %s; %d messages waiting' % (self.queue_name,
                                                                          declare_ok.message_count)
+            self.source_tag = self.source_ch.basic_consume(self.handle_delivery,
+                                                           queue = self.queue_name)
         else:
             self.source_ch = None
             self.queue_name = None
