@@ -4,6 +4,7 @@ import socket
 import asyncore
 import time
 from heapq import heappush, heappop
+from errno import EAGAIN
 import rabbitmq.connection
 
 class RabbitDispatcher(asyncore.dispatcher):
@@ -22,9 +23,13 @@ class RabbitDispatcher(asyncore.dispatcher):
     def handle_read(self):
         try:
             buf = self.recv(self.connection.suggested_buffer_size())
-        except socket.error:
-            self.handle_close()
-            return
+        except socket.error, exn:
+            if exn.errno == EAGAIN:
+                # Weird, but happens very occasionally.
+                return
+            else:
+                self.handle_close()
+                return
 
         if not buf:
             self.close()
