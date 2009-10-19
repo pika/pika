@@ -3,6 +3,16 @@ class Class:
         return _codec_repr(self, self.__class__)
 
 class Method:
+    def _set_content(self, properties, body):
+        self._properties = properties
+        self._body = body
+
+    def get_properties(self):
+        return self._properties
+
+    def get_body(self):
+        return self._body
+
     def __repr__(self):
         return _codec_repr(self, self.__class__)
 

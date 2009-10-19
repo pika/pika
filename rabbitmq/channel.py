@@ -52,6 +52,9 @@ class ChannelHandler:
                 if isinstance(frame, codec.FrameMethod):
                     reply = frame.method
                     if reply.__class__ in acceptable_replies:
+                        (hframe, body) = self.inbound[index][1:3]
+                        if hframe is not None:
+                            reply._set_content(hframe.properties, body)
                         self.inbound[index:index+1] = []
                         return reply
                 index = index + 1
