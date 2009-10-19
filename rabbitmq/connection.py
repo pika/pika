@@ -151,7 +151,10 @@ class Connection:
 
     def addStateChangeHandler(self, handler, key = None):
         self.connection_state_change_event.addHandler(handler, key)
-        handler(self, self.connection_open)
+        if self.connection_open:
+            handler(self, True)
+        elif self.connection_close:
+            handler(self, False)
 
     def delStateChangeHandler(self, key):
         self.connection_state_change_event.delHandler(key)
