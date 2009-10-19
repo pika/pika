@@ -19,9 +19,9 @@ class Relay:
         self.bind_routing_key = bind_routing_key
         self.relay_durable = relay_durable
 
-        self.source_conn = rabbitmq.AsyncoreConnection(source_param[1])
+        self.source_conn = self.fresh_connection(source_param[1])
 
-        self.target_conns = dict((id, rabbitmq.AsyncoreConnection(p)) for (id, p) in target_params)
+        self.target_conns = dict((id, self.fresh_connection(p)) for (id, p) in target_params)
         self.target_conn_ids = dict((c, id) for (id, c) in self.target_conns.iteritems())
         self.target_chs = {}
 
@@ -30,6 +30,12 @@ class Relay:
         self.source_conn.addStateChangeHandler(self.handle_source_connection_state_change)
         for c in self.target_conns.itervalues():
             c.addStateChangeHandler(self.handle_target_connection_state_change)
+
+    def fresh_connection(self, parameters):
+        strategy = rabbitmq.SimpleReconnectionStrategy()
+        return rabbitmq.AsyncoreConnection(parameters,
+                                           wait_for_open = False,
+                                           reconnection_strategy = strategy)
 
     def reset_pending_lists(self):
         self.pending_deliveries = dict((c, []) for c in self.target_conns.itervalues())
@@ -222,4 +228,4 @@ if __name__ == "__main__":
                   options.binding_key,
                   options.durable_relay)
 
-    asyncore.loop()
+    rabbitmq.asyncore_loop()

@@ -1,4 +1,5 @@
 import socket
+import random
 
 import rabbitmq.spec as spec
 import rabbitmq.codec as codec
@@ -40,25 +41,91 @@ class ConnectionParameters:
         import rabbitmq.specbase
         return rabbitmq.specbase._codec_repr(self, lambda: ConnectionParameters(None))
 
-class Connection:
-    def __init__(self, parameters, wait_for_open = True):
-        self.parameters = parameters
+class SimpleReconnectionStrategy:
+    def __init__(self, initial_retry_delay = 1.0, multiplier = 2.0, max_delay = 30.0, jitter = 0.5):
+        self.initial_retry_delay = initial_retry_delay
+        self.multiplier = multiplier
+        self.max_delay = max_delay
+        self.jitter = jitter
 
-        self.state = codec.ConnectionState()
-        self.outbound_buffer = simplebuffer.SimpleBuffer()
-        self.frame_handler = self._login1
-        self.connection_open = False
-        self.connection_close = None
-        self.channels = {}
-        self.next_channel = 0
+        self._reset()
+
+    def _reset(self):
+        #print 'RESET'
+        self.current_delay = self.initial_retry_delay
+        self.attempts_since_last_success = 0
+
+    def can_reconnect(self):
+        return True
+
+    def on_connect_attempt(self, conn):
+        #print 'ATTEMPT', conn.parameters
+        self.attempts_since_last_success = self.attempts_since_last_success + 1
+
+    def on_transport_connected(self, conn):
+        #print 'TXCONNECTED', conn.parameters
+        pass
+
+    def on_transport_disconnected(self, conn):
+        #print "TXDISCONNECTED", conn.parameters, self.attempts_since_last_success
+        pass
+
+    def on_connection_open(self, conn):
+        #print 'CONNECTED', conn.parameters
+        self._reset()
+
+    def on_connection_closed(self, conn):
+        t = self.current_delay * ((random.random() * self.jitter) + 1)
+        #print "RETRYING %r IN %r SECONDS (%r attempts)" % (conn.parameters, t, self.attempts_since_last_success)
+        self.current_delay = min(self.max_delay, self.current_delay * self.multiplier)
+        conn.reconnect_after(t)
+
+class NullReconnectionStrategy:
+    def can_reconnect(self): return False
+    def on_connect_attempt(self, conn): pass
+    def on_transport_connected(self, conn): pass
+    def on_transport_disconnected(self, conn): pass
+    def on_connection_open(self, conn): pass
+    def on_connection_closed(self, conn): pass
+
+class Connection:
+    def __init__(self, parameters, wait_for_open = True, reconnection_strategy = None):
+        self.parameters = parameters
+        self.reconnection_strategy = reconnection_strategy or NullReconnectionStrategy()
 
         self.connection_state_change_event = event.Event()
 
-        self.connect(self.parameters.host, self.parameters.port or spec.PORT)
-        self.send_frame(self._local_protocol_header())
+        self._reset_per_connection_state()
+        self.reconnect()
 
         if wait_for_open:
             self.wait_for_open()
+
+    def _reset_per_connection_state(self):
+        self.state = codec.ConnectionState()
+        self.outbound_buffer = simplebuffer.SimpleBuffer()
+        self.frame_handler = self._login1
+        self.channels = {}
+        self.next_channel = 0
+        self.connection_open = False
+        self.connection_close = None
+
+    def reconnect_after(self, delay_sec):
+        """Subclasses should override to call self.reconnect() after
+        the specified number of seconds have elapsed, using a timer,
+        or a thread, or similar."""
+        raise NotImplementedError('Subclass Responsibility')
+
+    def reconnect(self):
+        self.ensure_closed()
+        self.reconnection_strategy.on_connect_attempt(self)
+        self._reset_per_connection_state()
+        try:
+            self.connect(self.parameters.host, self.parameters.port or spec.PORT)
+            self.send_frame(self._local_protocol_header())
+        except:
+            self.reconnection_strategy.on_connect_attempt_failure(self)
+            raise
 
     def connect(self, host, port):
         """Subclasses should override to set up the outbound
@@ -72,12 +139,14 @@ class Connection:
                                          spec.PROTOCOL_VERSION[1])
 
     def on_connected(self):
-        pass
+        self.reconnection_strategy.on_transport_connected(self)
 
     def handle_connection_open(self):
+        self.reconnection_strategy.on_connection_open(self)
         self.connection_state_change_event.fire(self, True)
 
     def handle_connection_close(self):
+        self.reconnection_strategy.on_connection_closed(self)
         self.connection_state_change_event.fire(self, False)
 
     def addStateChangeHandler(self, handler, key = None):
@@ -120,6 +189,7 @@ class Connection:
                                                          reply_text = 'Socket closed',
                                                          class_id = 0,
                                                          method_id = 0))
+        self.reconnection_strategy.on_transport_disconnected(self)
 
     def suggested_buffer_size(self):
         b = self.state.frame_max
@@ -240,7 +310,8 @@ class Connection:
         return channel.Channel(channel.ChannelHandler(self))
 
     def wait_for_open(self):
-        while not self.connection_open and not self.connection_close:
+        while (not self.connection_open) and \
+                (self.reconnection_strategy.can_reconnect() or (not self.connection_close)):
             self.drain_events()
 
     def drain_events(self):
