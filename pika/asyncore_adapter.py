@@ -5,7 +5,7 @@ import asyncore
 import time
 from heapq import heappush, heappop
 from errno import EAGAIN
-import rabbitmq.connection
+import pika.connection
 
 class RabbitDispatcher(asyncore.dispatcher):
     def __init__(self, connection):
@@ -45,7 +45,7 @@ class RabbitDispatcher(asyncore.dispatcher):
         r = self.send(fragment)
         self.connection.outbound_buffer.consume(r)
 
-class AsyncoreConnection(rabbitmq.connection.Connection):
+class AsyncoreConnection(pika.connection.Connection):
     def reconnect_after(self, delay_sec):
         add_oneshot_timer_rel(delay_sec, self.reconnect)
 

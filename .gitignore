@@ -1,2 +1,2 @@
 *.pyc
-rabbitmq/spec.py
+pika/spec.py

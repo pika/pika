@@ -1,12 +1,12 @@
 import unittest
-import rabbitmq
+import pika
 
 import thread
 
 class TestThreads(unittest.TestCase):
     def test_threads(self):
         def fun():
-            conn_a = rabbitmq.BlockingConnection(rabbitmq.ConnectionParameters('127.0.0.1'))
+            conn_a = pika.BlockingConnection(pika.ConnectionParameters('127.0.0.1'))
             ch_a = conn_a.channel()
             ch_a.queue_declare(queue="test", durable=True, \
                                 exclusive=False, auto_delete=False)

@@ -1,25 +1,25 @@
-import rabbitmq
+import pika
 import asyncore
 
 def t_codec():
-    import rabbitmq.spec
+    import pika.spec
     import datetime
 
-    p = rabbitmq.BasicProperties(content_type = 'text/plain',
-                                 delivery_mode = 2,
-                                 headers = {'hello': 'world',
-                                            'time': datetime.datetime.utcnow()})
-    print rabbitmq.BasicProperties()
+    p = pika.BasicProperties(content_type = 'text/plain',
+                             delivery_mode = 2,
+                             headers = {'hello': 'world',
+                                        'time': datetime.datetime.utcnow()})
+    print pika.BasicProperties()
     pe = ''.join(p.encode())
     print pe.encode('hex')
-    print rabbitmq.BasicProperties().decode(pe)
+    print pika.BasicProperties().decode(pe)
 
-    m = rabbitmq.spec.Connection.Start(server_properties = {"prop1": "hello",
+    m = pika.spec.Connection.Start(server_properties = {"prop1": "hello",
                                                             "prop2": 123})
     print m
     me = ''.join(m.encode())
     print me.encode('hex')
-    print rabbitmq.spec.Connection.Start().decode(me)
+    print pika.spec.Connection.Start().decode(me)
 
 # t_codec()
 
@@ -31,9 +31,9 @@ def handle_delivery(method, header, body):
         ch.close()
         c.close()
 
-c = rabbitmq.AsyncoreConnection('127.0.0.1')
+c = pika.AsyncoreConnection('127.0.0.1')
 ch = c.channel()
 ch.queue_declare(queue = "test")
 tag = ch.basic_consume(handle_delivery, queue = 'test')
-ch.basic_publish('', "test", "hello!", rabbitmq.BasicProperties(content_type = "text/plain"))
+ch.basic_publish('', "test", "hello!", pika.BasicProperties(content_type = "text/plain"))
 asyncore.loop()

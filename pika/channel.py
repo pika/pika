@@ -1,7 +1,7 @@
-import rabbitmq.spec as spec
-import rabbitmq.codec as codec
-import rabbitmq.event as event
-from rabbitmq.exceptions import *
+import pika.spec as spec
+import pika.codec as codec
+import pika.event as event
+from pika.exceptions import *
 
 class ChannelHandler:
     def __init__(self, connection, channel_number = None):

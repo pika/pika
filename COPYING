@@ -1,5 +1,6 @@
-This package, the RabbitMQ C client, is licensed under the MPL. For
-the MPL, please see LICENSE-MPL-RabbitMQ.
+This package, Pika, an AMQP client library for use with RabbitMQ and
+other AMQP servers, is licensed under the MPL. For the MPL, please see
+LICENSE-MPL-Pika.
 
 If you have any questions regarding licensing, please contact us at 
 info@rabbitmq.com.

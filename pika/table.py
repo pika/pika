@@ -3,7 +3,7 @@ import decimal
 import datetime
 import calendar
 
-from rabbitmq.exceptions import *
+from pika.exceptions import *
 
 def encode_table(pieces, table):
     length_index = len(pieces)

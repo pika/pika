@@ -1,7 +1,7 @@
 import socket
-import rabbitmq.connection
+import pika.connection
 
-class BlockingConnection(rabbitmq.connection.Connection):
+class BlockingConnection(pika.connection.Connection):
     def connect(self, host, port):
         self.socket = socket.socket()
         self.socket.connect((host, port))

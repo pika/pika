@@ -4,14 +4,14 @@ AMQP_SPEC_JSON_PATH=$(AMQP_CODEGEN_DIR)/amqp-0.8.json
 
 PYTHON=python
 
-all: rabbitmq/spec.py
+all: pika/spec.py
 
-rabbitmq/spec.py: codegen.py $(AMQP_CODEGEN_DIR)/amqp_codegen.py $(AMQP_SPEC_JSON_PATH)
+pika/spec.py: codegen.py $(AMQP_CODEGEN_DIR)/amqp_codegen.py $(AMQP_SPEC_JSON_PATH)
 	$(PYTHON) codegen.py body $(AMQP_SPEC_JSON_PATH) $@
 
 clean:
-	rm -f rabbitmq/spec.py
-	rm -f rabbitmq/*.pyc 
+	rm -f pika/spec.py
+	rm -f pika/*.pyc 
 	rm -f tests/*.pyc tests/.coverage
 
 codegen:
@@ -22,5 +22,4 @@ codegen:
 tests: test
 
 test: all
-	cd tests && PYTHONPATH=.. $(PYTHON) run.py ../rabbitmq rabbitmq
-	
+	cd tests && PYTHONPATH=.. $(PYTHON) run.py ../pika pika

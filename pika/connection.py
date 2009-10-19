@@ -1,11 +1,11 @@
 import random
 
-import rabbitmq.spec as spec
-import rabbitmq.codec as codec
-import rabbitmq.channel as channel
-import rabbitmq.simplebuffer as simplebuffer
-import rabbitmq.event as event
-from rabbitmq.exceptions import *
+import pika.spec as spec
+import pika.codec as codec
+import pika.channel as channel
+import pika.simplebuffer as simplebuffer
+import pika.event as event
+from pika.exceptions import *
 
 class PlainCredentials:
     def __init__(self, username, password):
@@ -37,8 +37,8 @@ class ConnectionParameters:
         self.heartbeat = heartbeat
 
     def __repr__(self):
-        import rabbitmq.specbase
-        return rabbitmq.specbase._codec_repr(self, lambda: ConnectionParameters(None))
+        import pika.specbase
+        return pika.specbase._codec_repr(self, lambda: ConnectionParameters(None))
 
 class SimpleReconnectionStrategy:
     def __init__(self, initial_retry_delay = 1.0, multiplier = 2.0, max_delay = 30.0, jitter = 0.5):
@@ -272,7 +272,7 @@ class Connection:
             raise LoginError("No acceptable SASL mechanism for the given credentials",
                              credentials)
         self.send_method(0, spec.Connection.StartOk(client_properties = \
-                                                      {"product": "RabbitMQ Python"},
+                                                      {"product": "Pika Python AMQP Client Library"},
                                                     mechanism = response[0],
                                                     response = response[1]))
         self.erase_credentials()

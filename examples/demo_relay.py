@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import rabbitmq
+import pika
 import asyncore
 
 class Relay:
@@ -32,10 +32,10 @@ class Relay:
             c.addStateChangeHandler(self.handle_target_connection_state_change)
 
     def fresh_connection(self, parameters):
-        strategy = rabbitmq.SimpleReconnectionStrategy()
-        return rabbitmq.AsyncoreConnection(parameters,
-                                           wait_for_open = False,
-                                           reconnection_strategy = strategy)
+        strategy = pika.SimpleReconnectionStrategy()
+        return pika.AsyncoreConnection(parameters,
+                                       wait_for_open = False,
+                                       reconnection_strategy = strategy)
 
     def reset_pending_lists(self):
         self.pending_deliveries = dict((c, []) for c in self.target_conns.itervalues())
@@ -183,13 +183,13 @@ if __name__ == "__main__":
             parser.exit()
 
         if parser.values.user:
-            creds = rabbitmq.PlainCredentials(parser.values.user, parser.values.password)
+            creds = pika.PlainCredentials(parser.values.user, parser.values.password)
         else:
             creds = None
-        return (id, rabbitmq.ConnectionParameters(hostname,
-                                                  parser.values.port or None,
-                                                  parser.values.virtual_host or "/",
-                                                  creds))
+        return (id, pika.ConnectionParameters(hostname,
+                                              parser.values.port or None,
+                                              parser.values.virtual_host or "/",
+                                              creds))
 
     def set_source(option, opt_str, value, parser):
         setattr(parser.values, "source", spec_for(value, parser))
@@ -228,4 +228,4 @@ if __name__ == "__main__":
                   options.binding_key,
                   options.durable_relay)
 
-    rabbitmq.asyncore_loop()
+    pika.asyncore_loop()

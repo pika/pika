@@ -1,7 +1,7 @@
 import struct
-import rabbitmq.spec as spec
+import pika.spec as spec
 
-from rabbitmq.exceptions import *
+from pika.exceptions import *
 
 class Frame:
     def __init__(self, frame_type, channel_number):
@@ -14,8 +14,8 @@ class Frame:
                payload + chr(spec.FRAME_END)
 
     def __repr__(self):
-        import rabbitmq.specbase
-        return rabbitmq.specbase._codec_repr(self, lambda: Frame(-1, -1))
+        import pika.specbase
+        return pika.specbase._codec_repr(self, lambda: Frame(-1, -1))
 
 class FrameMethod(Frame):
     def __init__(self, channel_number, method):
