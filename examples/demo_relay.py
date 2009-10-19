@@ -55,10 +55,13 @@ class Relay:
 
             for delivery in retry_list:
                 if self.attempt_delivery(conn, delivery):
-                    c = self.pending_acks[delivery[0].delivery_tag] - 1
-                    self.pending_acks[delivery[0].delivery_tag] = c
+                    dt = delivery[0].delivery_tag
+                    c = self.pending_acks[dt] - 1
+                    self.pending_acks[dt] = c
+                    print 'Remaining acks for dt %d: %d' % (dt, c)
                     if c == 0:
-                        self.source_ch.basic_ack(delivery_tag = method.delivery_tag)
+                        self.source_ch.basic_ack(delivery_tag = dt)
+                        del self.pending_acks[dt]
         else:
             self.target_chs.pop(conn, None)
             print 'Target disconnected', conn.parameters
@@ -66,6 +69,8 @@ class Relay:
     def handle_source_connection_state_change(self, conn, is_connected):
         print 'Source state change', conn.parameters, is_connected
         if is_connected:
+            self.reset_pending_lists()
+
             self.source_ch = conn.channel()
             self.source_ch.addStateChangeHandler(self.handle_channel_state_change)
 
@@ -96,8 +101,6 @@ class Relay:
 
             print 'Source connected to queue %s; %d messages waiting' % (self.queue_name,
                                                                          declare_ok.message_count)
-
-            self.reset_pending_lists()
         else:
             self.source_ch = None
             self.queue_name = None
@@ -147,6 +150,7 @@ class Relay:
                     retry_count = retry_count + 1
 
             if retry_count:
+                print 'Failed to deliver dt %d to %d targets' % (method.delivery_tag, retry_count)
                 self.pending_acks[method.delivery_tag] = retry_count
             else:
                 self.source_ch.basic_ack(delivery_tag = method.delivery_tag)
