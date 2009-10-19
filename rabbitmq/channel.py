@@ -1,6 +1,7 @@
 import rabbitmq.spec as spec
 import rabbitmq.codec as codec
 import rabbitmq.event as event
+from rabbitmq.exceptions import *
 
 class ChannelHandler:
     def __init__(self, connection, channel_number = None):
