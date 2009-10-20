@@ -266,6 +266,10 @@ class Connection:
             raise ProtocolVersionMismatch(self._local_protocol_header(),
                                           frame)
 
+        if (frame.method.version_major, frame.method.version_minor) != spec.PROTOCOL_VERSION:
+            raise ProtocolVersionMismatch(self._local_protocol_header(),
+                                          frame)
+
         credentials = self.parameters.credentials or default_credentials
         response = credentials.response_for(frame.method)
         if not response:
