@@ -6,6 +6,7 @@ class ChannelClosed(Exception): pass
 
 class ProtocolSyntaxError(Exception): pass
 class UnexpectedFrameError(ProtocolSyntaxError): pass
+class ProtocolVersionMismatch(ProtocolSyntaxError): pass
 class BodyTooLongError(ProtocolSyntaxError): pass
 class InvalidFrameError(ProtocolSyntaxError): pass
 class InvalidProtocolHeader(ProtocolSyntaxError): pass

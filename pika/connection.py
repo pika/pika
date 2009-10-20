@@ -263,7 +263,7 @@ class Connection:
 
     def _login1(self, frame):
         if isinstance(frame, codec.FrameProtocolHeader):
-            raise ProtocolVersionMismatch(self._local_protocol_header,
+            raise ProtocolVersionMismatch(self._local_protocol_header(),
                                           frame)
 
         credentials = self.parameters.credentials or default_credentials
