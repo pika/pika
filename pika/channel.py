@@ -78,12 +78,13 @@ class ChannelHandler:
         def handler(header_frame):
             if not isinstance(header_frame, codec.FrameHeader):
                 raise UnexpectedFrameError(header_frame)
-            self.frame_handler = self._make_body_handler(method_frame, header_frame)
+            self._install_body_handler(method_frame, header_frame)
         return handler
 
-    def _make_body_handler(self, method_frame, header_frame):
+    def _install_body_handler(self, method_frame, header_frame):
         seen_so_far = [0]
         body_fragments = []
+
         def handler(body_frame):
             if not isinstance(body_frame, codec.FrameBody):
                 raise UnexpectedFrameError(body_frame)
@@ -91,13 +92,19 @@ class ChannelHandler:
             seen_so_far[0] = seen_so_far[0] + len(fragment)
             body_fragments.append(fragment)
             if seen_so_far[0] == header_frame.body_size:
-                self.frame_handler = self._handle_method
-                self._handle_async(method_frame, header_frame, ''.join(body_fragments))
+                finish()
             elif seen_so_far[0] > header_frame.body_size:
                 raise BodyTooLongError()
             else:
                 pass
-        return handler
+        def finish():
+            self.frame_handler = self._handle_method
+            self._handle_async(method_frame, header_frame, ''.join(body_fragments))
+
+        if header_frame.body_size == 0:
+            finish()
+        else:
+            self.frame_handler = handler
 
     def _rpc(self, method, acceptable_replies):
         self._ensure()
