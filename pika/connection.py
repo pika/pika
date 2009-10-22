@@ -108,6 +108,9 @@ class Connection:
         self.next_channel = 0
         self.connection_open = False
         self.connection_close = None
+        self.bytes_sent = 0
+        self.bytes_received = 0
+        self.heartbeat_checker = None
 
     def delayed_call(self, delay_sec, callback):
         """Subclasses should override to call the callback after the
@@ -205,6 +208,7 @@ class Connection:
     def on_data_available(self, buf):
         while buf:
             (consumed_count, frame) = self.state.handle_input(buf)
+            self.bytes_received = self.bytes_received + consumed_count
             buf = buf[consumed_count:]
             if frame:
                 self.frame_handler(frame)
@@ -234,7 +238,9 @@ class Connection:
             del self.channels[channel_number]
 
     def send_frame(self, frame):
-        self.outbound_buffer.write( frame.marshal() )
+        marshalled_frame = frame.marshal()
+        self.bytes_sent = self.bytes_sent + len(marshalled_frame)
+        self.outbound_buffer.write(marshalled_frame)
         #print 'Wrote %r' % (frame, )
 
     def send_method(self, channel_number, method, content = None):
@@ -294,11 +300,14 @@ class Connection:
     def _login2(self, frame):
         channel_max = combine_tuning(self.parameters.channel_max, frame.method.channel_max)
         frame_max = combine_tuning(self.parameters.frame_max, frame.method.frame_max)
+        heartbeat = combine_tuning(self.parameters.heartbeat, frame.method.heartbeat)
+        if heartbeat:
+            self.heartbeat_checker = HeartbeatChecker(self, heartbeat)
         self.state.tune(channel_max, frame_max)
         self.send_method(0, spec.Connection.TuneOk(
             channel_max = channel_max,
             frame_max = frame_max,
-            heartbeat = combine_tuning(self.parameters.heartbeat, frame.method.heartbeat)))
+            heartbeat = heartbeat))
         self.frame_handler = self._generic_frame_handler
         self._install_channel0()
         self.known_hosts = \
@@ -339,7 +348,7 @@ class Connection:
     def _generic_frame_handler(self, frame):
         #print "GENERIC_FRAME_HANDLER", frame
         if isinstance(frame, codec.FrameHeartbeat):
-            self.send_frame(frame) # echo the heartbeat
+            pass # we already counted the received bytes for our heartbeat checker
         else:
             self.channels[frame.channel_number].frame_handler(frame)
 
@@ -347,3 +356,42 @@ def combine_tuning(a, b):
     if a == 0: return b
     if b == 0: return a
     return min(a, b)
+
+class HeartbeatChecker:
+    def __init__(self, connection, heartbeat_interval_sec):
+        self.previous_sent = 0
+        self.previous_received = 0
+        self.missed_heartbeat_count = 0
+        self.connection = connection
+        self.heartbeat_interval_sec = heartbeat_interval_sec
+        self.setup_timer()
+
+    def setup_timer(self):
+        self.connection.delayed_call(self.heartbeat_interval_sec, self.check_heartbeats)
+
+    def check_heartbeats(self):
+        if self.previous_sent == self.connection.bytes_sent:
+            # We need to send something. Send a heartbeat frame.
+            self.connection.send_frame(codec.FrameHeartbeat())
+
+        if self.previous_received == self.connection.bytes_received:
+            # The server has been silent a wee while. Bump our missed-heartbeat-counter.
+            self.missed_heartbeat_count = self.missed_heartbeat_count + 1
+        else:
+            # The server has said something. Reset our count.
+            self.missed_heartbeat_count = 0
+
+        # It's important to take the current value for bytes_sent,
+        # because if we sent a heartbeat before we don't want that
+        # counted as legit traffic for next time round.
+        self.previous_sent = self.connection.bytes_sent
+        self.previous_received = self.connection.bytes_received
+
+        if self.missed_heartbeat_count >= 2:
+            self.connection._disconnect_transport("Too many missed heartbeats")
+        elif self.connection.heartbeat_checker is self:
+            # Only install the timer again if the connection still
+            # thinks it cares about this instance.
+            self.setup_timer()
+        else:
+            pass
