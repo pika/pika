@@ -5,6 +5,7 @@ import pika.codec as codec
 import pika.channel as channel
 import pika.simplebuffer as simplebuffer
 import pika.event as event
+from pika.specbase import _codec_repr
 from pika.exceptions import *
 
 class PlainCredentials:
@@ -37,8 +38,7 @@ class ConnectionParameters:
         self.heartbeat = heartbeat
 
     def __repr__(self):
-        import pika.specbase
-        return pika.specbase._codec_repr(self, lambda: ConnectionParameters(None))
+        return _codec_repr(self, lambda: ConnectionParameters(None))
 
 class SimpleReconnectionStrategy:
     def __init__(self, initial_retry_delay = 1.0, multiplier = 2.0, max_delay = 30.0, jitter = 0.5):
