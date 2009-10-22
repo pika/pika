@@ -7,7 +7,7 @@ class BlockingConnection(pika.connection.Connection):
         self.socket.connect((host, port))
         self.on_connected()
 
-    def shutdown_event_loop(self):
+    def disconnect_transport(self):
         self.socket.close()
         self.on_disconnected()
 
@@ -28,11 +28,11 @@ class BlockingConnection(pika.connection.Connection):
                 # Weird, but happens very occasionally.
                 return
             else:
-                self.shutdown_event_loop()
+                self.disconnect_transport()
                 return
 
         if not buf:
-            self.close()
+            self.disconnect_transport()
             return
 
         self.on_data_available(buf)

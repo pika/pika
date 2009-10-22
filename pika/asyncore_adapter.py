@@ -54,7 +54,7 @@ class AsyncoreConnection(pika.connection.Connection):
         self.dispatcher.create_socket(socket.AF_INET, socket.SOCK_STREAM)
         self.dispatcher.connect((host, port or spec.PORT))
 
-    def shutdown_event_loop(self):
+    def disconnect_transport(self):
         self.dispatcher.close()
 
     def drain_events(self):

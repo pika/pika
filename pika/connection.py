@@ -175,16 +175,20 @@ class Connection:
                                       method_id = 0)
             self._rpc(0, c, [spec.Connection.CloseOk])
             self._set_connection_close(c)
-        self.shutdown_event_loop()
+        self._disconnect_transport()
 
     def ensure_closed(self):
         if self.is_alive():
             self.close()
 
-    def shutdown_event_loop(self):
-        """Subclasses should override this as required to implement
-        event-dispatcher shutdown logic."""
-        pass
+    def _disconnect_transport(self, reason = None):
+        self.disconnect_transport()
+        self.on_disconnected(reason)
+
+    def disconnect_transport(self):
+        """Subclasses should override this to cause the underlying
+        transport (socket) to close."""
+        raise NotImplementedError('Subclass Responsibility')
 
     def on_disconnected(self):
         self._set_connection_close(spec.Connection.Close(reply_code = 0,
