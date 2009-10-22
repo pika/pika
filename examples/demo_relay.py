@@ -171,6 +171,8 @@ if __name__ == "__main__":
                       help="set password number for subsequent server definitions")
     parser.add_option("-v", "--virtual-host",
                       help="set virtual-host for subsequent server definitions")
+    parser.add_option("-H", "--heartbeat", type="int", default=3,
+                      help="set heartbeat for subsequent server definitions")
 
     def spec_for(id_and_host, parser):
         try:
@@ -189,7 +191,8 @@ if __name__ == "__main__":
         return (id, pika.ConnectionParameters(hostname,
                                               parser.values.port or None,
                                               parser.values.virtual_host or "/",
-                                              creds))
+                                              creds,
+                                              heartbeat = parser.values.heartbeat or 0))
 
     def set_source(option, opt_str, value, parser):
         setattr(parser.values, "source", spec_for(value, parser))
