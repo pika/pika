@@ -77,7 +77,7 @@ class SimpleReconnectionStrategy:
         t = self.current_delay * ((random.random() * self.jitter) + 1)
         #print "RETRYING %r IN %r SECONDS (%r attempts)" % (conn.parameters, t, self.attempts_since_last_success)
         self.current_delay = min(self.max_delay, self.current_delay * self.multiplier)
-        conn.reconnect_after(t)
+        conn.delayed_call(t, conn.reconnect)
 
 class NullReconnectionStrategy:
     def can_reconnect(self): return False
@@ -109,10 +109,10 @@ class Connection:
         self.connection_open = False
         self.connection_close = None
 
-    def reconnect_after(self, delay_sec):
-        """Subclasses should override to call self.reconnect() after
-        the specified number of seconds have elapsed, using a timer,
-        or a thread, or similar."""
+    def delayed_call(self, delay_sec, callback):
+        """Subclasses should override to call the callback after the
+        specified number of seconds have elapsed, using a timer, or a
+        thread, or similar."""
         raise NotImplementedError('Subclass Responsibility')
 
     def reconnect(self):
