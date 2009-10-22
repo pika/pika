@@ -138,9 +138,9 @@ class Channel(spec.DriverMixin):
     def _async_channel_flow(self, method_frame, header_frame, body):
         raise "Unimplemented"
 
-    def close(self):
-        c = spec.Channel.Close(reply_code = 0,
-                               reply_text = 'Normal close',
+    def close(self, code = 0, text = 'Normal close'):
+        c = spec.Channel.Close(reply_code = code,
+                               reply_text = text,
                                class_id = 0,
                                method_id = 0)
         self.handler._rpc(c, [spec.Channel.CloseOk])

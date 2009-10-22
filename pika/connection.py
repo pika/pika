@@ -166,11 +166,11 @@ class Connection:
             self.connection_open = False
             self.handle_connection_close()
 
-    def close(self):
+    def close(self, code = 200, text = 'Normal shutdown'):
         if self.connection_open:
             self.connection_open = False
-            c = spec.Connection.Close(reply_code = 200,
-                                      reply_text = 'Normal shutdown',
+            c = spec.Connection.Close(reply_code = code,
+                                      reply_text = text,
                                       class_id = 0,
                                       method_id = 0)
             self._rpc(0, c, [spec.Connection.CloseOk])
@@ -190,9 +190,9 @@ class Connection:
         transport (socket) to close."""
         raise NotImplementedError('Subclass Responsibility')
 
-    def on_disconnected(self):
+    def on_disconnected(self, reason = 'Socket closed'):
         self._set_connection_close(spec.Connection.Close(reply_code = 0,
-                                                         reply_text = 'Socket closed',
+                                                         reply_text = reason,
                                                          class_id = 0,
                                                          method_id = 0))
         self.reconnection_strategy.on_transport_disconnected(self)
