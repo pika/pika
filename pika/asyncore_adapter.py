@@ -24,7 +24,7 @@ class RabbitDispatcher(asyncore.dispatcher):
         try:
             buf = self.recv(self.connection.suggested_buffer_size())
         except socket.error, exn:
-            if exn.errno == EAGAIN:
+            if hasattr(exn, 'errno') and (exn.errno == EAGAIN):
                 # Weird, but happens very occasionally.
                 return
             else:
