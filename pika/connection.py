@@ -61,6 +61,10 @@ class SimpleReconnectionStrategy:
         #print 'ATTEMPT', conn.parameters
         self.attempts_since_last_success = self.attempts_since_last_success + 1
 
+    def on_connect_attempt_failure(self, conn):
+        #print 'ATTEMPTFAILED', conn.parameters
+        pass
+
     def on_transport_connected(self, conn):
         #print 'TXCONNECTED', conn.parameters
         pass
@@ -82,6 +86,7 @@ class SimpleReconnectionStrategy:
 class NullReconnectionStrategy:
     def can_reconnect(self): return False
     def on_connect_attempt(self, conn): pass
+    def on_connect_attempt_failure(self, conn): pass
     def on_transport_connected(self, conn): pass
     def on_transport_disconnected(self, conn): pass
     def on_connection_open(self, conn): pass
