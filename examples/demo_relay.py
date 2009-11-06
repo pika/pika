@@ -163,8 +163,6 @@ if __name__ == "__main__":
     import optparse
     parser = optparse.OptionParser()
 
-    parser.add_option("-p", "--port", type="int",
-                      help="set port number for subsequent server definitions")
     parser.add_option("-U", "--user",
                       help="set username for subsequent server definitions")
     parser.add_option("-P", "--password",
@@ -175,11 +173,16 @@ if __name__ == "__main__":
                       help="set heartbeat for subsequent server definitions")
 
     def spec_for(id_and_host, parser):
-        try:
-            (id, hostname) = id_and_host.split(":", 1)
-        except:
+        pieces = id_and_host.split(":", 2)
+        if len(pieces) == 2:
+            (id, hostname) = pieces
+            portnumber = None
+        elif len(pieces) == 3:
+            (id, hostname, portnumber) = pieces
+            portnumber = int(portnumber)
+        else:
             print \
-                'Invalid identifier-and-hostname "%s": must be of the form "identifier:hostname"' %\
+                'Invalid identifier-and-hostname "%s": must be of the form "identifier:hostname" or "identifier:hostname:portnumber"' %\
                 (id_and_host,)
             parser.print_help()
             parser.exit()
@@ -189,7 +192,7 @@ if __name__ == "__main__":
         else:
             creds = None
         return (id, pika.ConnectionParameters(hostname,
-                                              parser.values.port or None,
+                                              portnumber or None,
                                               parser.values.virtual_host or "/",
                                               creds,
                                               heartbeat = parser.values.heartbeat or 0))
