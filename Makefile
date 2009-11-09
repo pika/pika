@@ -11,7 +11,7 @@ pika/spec.py: codegen.py $(AMQP_CODEGEN_DIR)/amqp_codegen.py $(AMQP_SPEC_JSON_PA
 
 # For dev work, when working from a git checkout
 codegen/amqp_codegen.py:
-	[ -d codegen ] && rmdir codegen
+	if [ -d codegen ]; then rmdir codegen; else true; fi
 	curl http://hg.rabbitmq.com/rabbitmq-codegen/archive/default.tar.bz2 | tar -jxvf -
 	mv rabbitmq-codegen-default codegen
 
