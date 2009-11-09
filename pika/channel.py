@@ -128,7 +128,8 @@ class Channel(spec.DriverMixin):
         self.handler.addStateChangeHandler(handler, key)
 
     def _async_basic_deliver(self, method_frame, header_frame, body):
-        self.callbacks[method_frame.method.consumer_tag](method_frame.method,
+        self.callbacks[method_frame.method.consumer_tag](self,
+                                                         method_frame.method,
                                                          header_frame.properties,
                                                          body)
 

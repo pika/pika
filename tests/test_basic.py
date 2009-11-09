@@ -9,7 +9,7 @@ class TestConcurrency(unittest.TestCase):
         ch_a.queue_declare(queue="test", durable=True, \
                             exclusive=False, auto_delete=False)
         
-        def handle_delivery(method, header, body):
+        def handle_delivery(_channel, method, header, body):
             ch_a.basic_ack(delivery_tag = method.delivery_tag)
             conn_a.close()
 

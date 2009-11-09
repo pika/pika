@@ -15,7 +15,7 @@ ch.queue_declare(queue="test", durable=True, exclusive=False, auto_delete=False)
 
 should_quit = False
 
-def handle_delivery(method, header, body):
+def handle_delivery(ch, method, header, body):
     print "method=%r" % (method,)
     print "header=%r" % (header,)
     print "  body=%r" % (body,)

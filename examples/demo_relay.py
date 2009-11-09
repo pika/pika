@@ -123,7 +123,7 @@ class Relay:
             self.pending_deliveries[conn].append(delivery)
             return False
 
-    def handle_delivery(self, method, header, body):
+    def handle_delivery(self, _channel, method, header, body):
         #print "method=%r" % (method,)
         #print "header=%r" % (header,)
         #print "  body=%r" % (body,)
