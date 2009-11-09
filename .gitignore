@@ -1,2 +1,3 @@
 *.pyc
 pika/spec.py
+codegen/
