@@ -3,11 +3,12 @@
 Example of simple consumer, waits one message, replies an ack and exits.
 '''
 
+import sys
 import pika
 import asyncore
 
 conn = pika.AsyncoreConnection(pika.ConnectionParameters(
-        '127.0.0.1',
+        sys.argv[1] if len(sys.argv) > 1 else '127.0.0.1',
         credentials = pika.PlainCredentials('guest', 'guest')))
 
 print 'Connected to %r' % (conn.server_properties,)

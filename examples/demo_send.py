@@ -3,11 +3,12 @@
 Example of simple producer, creates one message and exits.
 '''
 
+import sys
 import pika
 import asyncore
 
 conn = pika.AsyncoreConnection(pika.ConnectionParameters(
-        '127.0.0.1',
+        sys.argv[1] if len(sys.argv) > 1 else '127.0.0.1',
         credentials=pika.PlainCredentials('guest', 'guest')))
 
 ch = conn.channel()
