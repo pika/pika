@@ -107,6 +107,7 @@ class Connection:
 
     def _reset_per_connection_state(self):
         self.state = codec.ConnectionState()
+        self.server_properties = None
         self.outbound_buffer = simplebuffer.SimpleBuffer()
         self.frame_handler = self._login1
         self.channels = {}
@@ -284,6 +285,8 @@ class Connection:
         if (frame.method.version_major, frame.method.version_minor) != spec.PROTOCOL_VERSION:
             raise ProtocolVersionMismatch(self._local_protocol_header(),
                                           frame)
+
+        self.server_properties = frame.method.server_properties
 
         credentials = self.parameters.credentials or default_credentials
         response = credentials.response_for(frame.method)

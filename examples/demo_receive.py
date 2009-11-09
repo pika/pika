@@ -10,6 +10,8 @@ conn = pika.AsyncoreConnection(pika.ConnectionParameters(
         '127.0.0.1',
         credentials = pika.PlainCredentials('guest', 'guest')))
 
+print 'Connected to %r' % (conn.server_properties,)
+
 ch = conn.channel()
 ch.queue_declare(queue="test", durable=True, exclusive=False, auto_delete=False)
 
