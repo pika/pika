@@ -2,7 +2,20 @@ SIBLING_CODEGEN_DIR=../rabbitmq-codegen/
 AMQP_CODEGEN_DIR=$(shell [ -d $(SIBLING_CODEGEN_DIR) ] && echo $(SIBLING_CODEGEN_DIR) || echo codegen)
 AMQP_SPEC_JSON_PATH=$(AMQP_CODEGEN_DIR)/amqp-0.8.json
 
+ifeq ($(shell python -c 'import simplejson' 2>/dev/null && echo yes),yes)
 PYTHON=python
+else
+ifeq ($(shell python2.6 -c 'import simplejson' 2>/dev/null && echo yes),yes)
+PYTHON=python2.6
+else
+ifeq ($(shell python2.5 -c 'import simplejson' 2>/dev/null && echo yes),yes)
+PYTHON=python2.5
+else
+# Hmm. Missing simplejson?
+PYTHON=python
+endif
+endif
+endif
 
 all: pika/spec.py
 
