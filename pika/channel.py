@@ -44,8 +44,8 @@ class ChannelHandler:
             return
         index = 0
         while True:
-            self._ensure()
             while index >= len(self.inbound):
+                self._ensure()
                 self.connection.drain_events()
             while index < len(self.inbound):
                 frame = self.inbound[index][0]
