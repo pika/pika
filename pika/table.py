@@ -34,7 +34,8 @@ def encode_table(pieces, table):
             pieces.append(struct.pack('>cQ', 'T', calendar.timegm(value.utctimetuple())))
             tablesize = tablesize + 9
         elif isinstance(value, dict):
-            tablesize = tablesize + encode_table(pieces, value)
+            pieces.append(struct.pack('>c', 'F'))
+            tablesize = tablesize + 1 + encode_table(pieces, value)
         else:
             raise InvalidTableError("Unsupported field kind during encoding", key, value)
     pieces[length_index] = struct.pack('>I', tablesize)
