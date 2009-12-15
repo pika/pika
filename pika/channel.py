@@ -162,6 +162,9 @@ class Channel(spec.DriverMixin):
             tag = 'ctag' + str(self.next_consumer_tag)
             self.next_consumer_tag += 1
 
+        if tag in self.callbacks:
+            raise DuplicateConsumerTag(tag)
+
         self.callbacks[tag] = consumer
         return self.handler._rpc(spec.Basic.Consume(queue = queue,
                                                     consumer_tag = tag,
@@ -170,6 +173,9 @@ class Channel(spec.DriverMixin):
                                  [spec.Basic.ConsumeOk]).consumer_tag
 
     def basic_cancel(self, consumer_tag):
+        if not consumer_tag in self.callbacks:
+            raise UnknownConsumerTag(consumer_tag)
+
         self.handler._rpc(spec.Basic.Cancel(consumer_tag = consumer_tag),
                           [spec.Basic.CancelOk])
         del self.callbacks[consumer_tag]
