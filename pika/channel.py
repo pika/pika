@@ -156,9 +156,12 @@ class Channel(spec.DriverMixin):
                                                                immediate = immediate),
                                             (properties, body))
 
-    def basic_consume(self, consumer, queue = '', no_ack = False, exclusive = False):
-        tag = 'ctag' + str(self.next_consumer_tag)
-        self.next_consumer_tag = self.next_consumer_tag + 1
+    def basic_consume(self, consumer, queue = '', no_ack = False, exclusive = False, consumer_tag = None):
+        tag = consumer_tag
+        if not tag:
+            tag = 'ctag' + str(self.next_consumer_tag)
+            self.next_consumer_tag += 1
+
         self.callbacks[tag] = consumer
         return self.handler._rpc(spec.Basic.Consume(queue = queue,
                                                     consumer_tag = tag,
