@@ -1,25 +1,9 @@
 Here goes the list of bugs, limitations, ideas and feature requests.
 
-
  o We should at least pretend that we test the code. Test coverage
    below 80% is a shame.
 
- o The single most important thing: running many connections
-   doesn't work! You can run only a single connection.
-   As asyncore is global, you can't work around it by running
-   multiple threads.
-
- o There's no error handling. Once the lib fails, you receive
-   only a minor, badly structured traceback from asyncore.
-
  o If AMQP broker is dead, return nice and predictable exception.
-
- o If I want to use threads - I should be able to.
-   (or in other words: replace global asyncore with select)
-
- o Once every client dies - asyncore still loops. It should
-   exit after all the descriptors are closed. Or how do you
-   actually handle application exit?
 
  o There's no reasonable way of flushing connection. What to
    do if you want to send a million messages (which is not blocking)?
@@ -43,5 +27,3 @@ Here goes the list of bugs, limitations, ideas and feature requests.
      * how to get/set headers on message
 
  o SSL support?
-
-
