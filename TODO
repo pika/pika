@@ -1,5 +1,7 @@
 Here goes the list of bugs, limitations, ideas and feature requests.
 
+ o Proper asynchronous API.
+
  o We should at least pretend that we test the code. Test coverage
    below 80% is a shame.
 
