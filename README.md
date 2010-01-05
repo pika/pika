@@ -24,6 +24,22 @@ Pika provides adapters for
 Support for Twisted and `select()` (as distinct from `asyncore`) is on
 the horizon.
 
+## Roadmap
+
+ * Support continuation-passing-style, for asynchronous programming
+   (and, eventually, Twisted support)
+
+ * Fix up the slightly odd `ChannelHandler.inbound` queue: it plainly
+   wants to be something else (after all, when do we get a command we
+   don't understand? and why aren't we complaining with the
+   appropriate AMQP exception when we do?)
+
+ * Track `Channel.Flow` state for each channel. Emit events when it
+   changes.
+
+ * Complain when publishing to a flow-limited channel, either by a
+   thrown exception or a block-until-flow-control-goes-away option.
+
 ## Synchronous programming style, no concurrency
 
 This style of programming is especially appropriate for small scripts,
