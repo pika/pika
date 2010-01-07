@@ -6,10 +6,10 @@ from pika.exceptions import *
 class ChannelHandler:
     def __init__(self, connection, channel_number = None):
         self.connection = connection
-        self.inbound = []
         self.frame_handler = self._handle_method
         self.channel_close = None
         self.async_map = {}
+        self.reply_map = {}
 
         self.channel_state_change_event = event.Event()
 
@@ -42,29 +42,33 @@ class ChannelHandler:
         if not acceptable_replies:
             # One-way.
             return
-        index = 0
+        reply = [None]
+        def set_reply(r):
+            reply[0] = r
+        for possibility in acceptable_replies:
+            if possibility in self.reply_map:
+                raise RecursiveOperationDetected(possibility.NAME)
+            self.reply_map[possibility] = set_reply
         while True:
-            while index >= len(self.inbound):
-                self._ensure()
-                self.connection.drain_events()
-            while index < len(self.inbound):
-                frame = self.inbound[index][0]
-                if isinstance(frame, codec.FrameMethod):
-                    reply = frame.method
-                    if reply.__class__ in acceptable_replies:
-                        (hframe, body) = self.inbound[index][1:3]
-                        if hframe is not None:
-                            reply._set_content(hframe.properties, body)
-                        self.inbound[index:index+1] = []
-                        return reply
-                index = index + 1
+            self._ensure()
+            self.connection.drain_events()
+            if reply[0]: return reply[0]
 
     def _handle_async(self, method_frame, header_frame, body):
         method = method_frame.method
-        if method.__class__ in self.async_map:
-            self.async_map[method.__class__](method_frame, header_frame, body)
+        methodClass = method.__class__
+
+        if methodClass in self.reply_map:
+            if header_frame is not None:
+                method._set_content(header_frame.properties, body)
+            handler = self.reply_map[methodClass]
+            del self.reply_map[methodClass]
+            handler(method)
+        elif methodClass in self.async_map:
+            self.async_map[methodClass](method_frame, header_frame, body)
         else:
-            self.inbound.append((method_frame, header_frame, body))
+            self.connection.close(spec.NOT_IMPLEMENTED,
+                                  'Pika: method not implemented: ' + methodClass.NAME)
 
     def _handle_method(self, frame):
         if not isinstance(frame, codec.FrameMethod):
