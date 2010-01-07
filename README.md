@@ -29,17 +29,6 @@ the horizon.
  * Support continuation-passing-style, for asynchronous programming
    (and, eventually, Twisted support)
 
- * Fix up the slightly odd `ChannelHandler.inbound` queue: it plainly
-   wants to be something else (after all, when do we get a command we
-   don't understand? and why aren't we complaining with the
-   appropriate AMQP exception when we do?)
-
- * Track `Channel.Flow` state for each channel. Emit events when it
-   changes.
-
- * Complain when publishing to a flow-limited channel, either by a
-   thrown exception or a block-until-flow-control-goes-away option.
-
 ## Synchronous programming style, no concurrency
 
 This style of programming is especially appropriate for small scripts,
@@ -56,6 +45,40 @@ somewhat easy to reason about.
     ch.basic_publish(exchange="test_x", routing_key="", body="Hello World!")
     conn.close()
     asyncore.loop()
+
+### Dealing with Channel.Flow flow control
+
+Occasionally the server will decide it needs publishing clients to be
+quiet for a while so it can let messages drain. When it does so, it
+sends out a `Channel.Flow` command to connected clients, which are
+then expected to handle it and stop publishing messages until told (by
+another `Channel.Flow`) that they're allowed to resume.
+
+By default, Pika will honour `Channel.Flow` requests by setting an
+internal flag and throwing a `ContentTransmissionForbidden` exception
+if an application tries to publish a message when flow-control is in
+effect. An application has two approaches available for coping with
+this situation: it may supply `True` to the optional keyword argument
+`block_on_flow_control` to the `Channel.basic_publish` method, and/or
+it may register for notifications of flow-control state changes using
+the `Channel.addFlowChangeHandler` method.
+
+Use `block_on_flow_control` carefully: it enters a nested event loop
+if it needs to wait for flow-control to stop, so your entire
+application must be accordingly reentrant. Here's an example of a
+flow-control-blocking publish call:
+
+    ch.basic_publish(exchange="test_x", routing_key="", body="Hello World!",
+                     block_on_flow_control=True)
+
+Here's an example flow-control state change handler:
+
+    def my_flow_handler(the_channel, transmission_permitted):
+      if transmission_permitted:
+        print 'Transmission is now permitted on channel', the_channel
+      else:
+        print 'Transmission is temporarily NOT permitted on channel', the_channel
+    ch.addFlowChangeHandler(my_flow_handler)
 
 ## Synchronous programming style, with concurrency
 

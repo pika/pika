@@ -13,9 +13,6 @@ Here goes the list of bugs, limitations, ideas and feature requests.
    is flushed only after you enter asyncore or some other blocking
    request.
 
- o We should be able to handle "flow", probably user should
-   be able to set the callback function.
-
  o Handle UTF in password/username or message body. At least print nice error.
 
  o Do something when user/pass is bad.
