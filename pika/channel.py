@@ -10,8 +10,10 @@ class ChannelHandler:
         self.channel_close = None
         self.async_map = {}
         self.reply_map = {}
+        self.flow_active = True ## we are permitted to transmit, so True.
 
         self.channel_state_change_event = event.Event()
+        self.flow_active_change_event = event.Event()
 
         if channel_number is None:
             self.channel_number = connection._next_channel_number()
@@ -22,6 +24,12 @@ class ChannelHandler:
     def _async_channel_close(self, method_frame, header_frame, body):
         self._set_channel_close(method_frame.method)
         self.connection.send_method(self.channel_number, spec.Channel.CloseOk())
+
+    def _async_channel_flow(self, method_frame, header_frame, body):
+        self.flow_active = method_frame.method.active
+        self.flow_active_change_event.fire(self, self.flow_active)
+        self.connection.send_method(self.channel_number,
+                                    spec.Channel.FlowOk(active = self.flow_active))
 
     def _ensure(self):
         if self.channel_close:
@@ -37,6 +45,10 @@ class ChannelHandler:
     def addStateChangeHandler(self, handler, key = None):
         self.channel_state_change_event.addHandler(handler, key)
         handler(self, not self.channel_close)
+
+    def addFlowChangeHandler(self, handler, key = None):
+        self.flow_active_change_event.addHandler(handler, key)
+        handler(self, self.flow_active)
 
     def wait_for_reply(self, acceptable_replies):
         if not acceptable_replies:
@@ -114,6 +126,9 @@ class ChannelHandler:
         self._ensure()
         return self.connection._rpc(self.channel_number, method, acceptable_replies)
 
+    def content_transmission_forbidden(self):
+        return not self.flow_active
+
 class Channel(spec.DriverMixin):
     def __init__(self, handler):
         self.handler = handler
@@ -121,15 +136,18 @@ class Channel(spec.DriverMixin):
         self.next_consumer_tag = 0
 
         handler.async_map[spec.Channel.Close] = handler._async_channel_close
+        handler.async_map[spec.Channel.Flow] = handler._async_channel_flow
 
         handler.async_map[spec.Basic.Deliver] = self._async_basic_deliver
         handler.async_map[spec.Basic.Return] = self._async_basic_return
-        handler.async_map[spec.Channel.Flow] = self._async_channel_flow
 
         self.handler._rpc(spec.Channel.Open(), [spec.Channel.OpenOk])
 
     def addStateChangeHandler(self, handler, key = None):
         self.handler.addStateChangeHandler(handler, key)
+
+    def addFlowChangeHandler(self, handler, key = None):
+        self.handler.addFlowChangeHandler(handler, key)
 
     def _async_basic_deliver(self, method_frame, header_frame, body):
         self.callbacks[method_frame.method.consumer_tag](self,
@@ -140,9 +158,6 @@ class Channel(spec.DriverMixin):
     def _async_basic_return(self, method_frame, header_frame, body):
         raise NotImplementedError("Basic.Return")
 
-    def _async_channel_flow(self, method_frame, header_frame, body):
-        raise NotImplementedError("Channel.Flow")
-
     def close(self, code = 0, text = 'Normal close'):
         c = spec.Channel.Close(reply_code = code,
                                reply_text = text,
@@ -151,7 +166,13 @@ class Channel(spec.DriverMixin):
         self.handler._rpc(c, [spec.Channel.CloseOk])
         self.handler._set_channel_close(c)
 
-    def basic_publish(self, exchange, routing_key, body, properties = None, mandatory = False, immediate = False):
+    def basic_publish(self, exchange, routing_key, body, properties = None, mandatory = False, immediate = False, block_on_flow_control = False):
+        if self.handler.content_transmission_forbidden():
+            if block_on_flow_control:
+                while self.handler.content_transmission_forbidden():
+                    self.handler.connection.drain_events()
+            else:
+                raise ContentTransmissionForbidden(self)
         properties = properties or spec.BasicProperties()
         self.handler.connection.send_method(self.handler.channel_number,
                                             spec.Basic.Publish(exchange = exchange,
