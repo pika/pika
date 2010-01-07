@@ -57,11 +57,19 @@ another `Channel.Flow`) that they're allowed to resume.
 By default, Pika will honour `Channel.Flow` requests by setting an
 internal flag and throwing a `ContentTransmissionForbidden` exception
 if an application tries to publish a message when flow-control is in
-effect. An application has two approaches available for coping with
-this situation: it may supply `True` to the optional keyword argument
-`block_on_flow_control` to the `Channel.basic_publish` method, and/or
-it may register for notifications of flow-control state changes using
-the `Channel.addFlowChangeHandler` method.
+effect. An application has three approaches available for coping with
+this situation:
+
+ * it may supply `True` in the optional keyword argument
+   `block_on_flow_control` to the `Channel.basic_publish` method,
+   and/or
+
+ * it may register for notifications of flow-control state changes
+   using the `Channel.addFlowChangeHandler` method, and/or
+
+ * it may elect to catch the `ContentTransmissionForbidden` exception
+   thrown by `basic_publish` and take some kind of action at that
+   point.
 
 Use `block_on_flow_control` carefully: it enters a nested event loop
 if it needs to wait for flow-control to stop, so your entire
@@ -79,6 +87,14 @@ Here's an example flow-control state change handler:
       else:
         print 'Transmission is temporarily NOT permitted on channel', the_channel
     ch.addFlowChangeHandler(my_flow_handler)
+
+Here's an example of catching `ContentTransmissionForbidden`:
+
+    try:
+      ch.basic_publish(exchange="test_x", routing_key="", body="Hello World!")
+    except ContentTransmissionForbidden, e:
+      ## may requeue or retry later here, etc.
+      print 'Could not send message right now because of flow control'
 
 ## Synchronous programming style, with concurrency
 
