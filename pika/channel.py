@@ -134,10 +134,10 @@ class Channel(spec.DriverMixin):
                                                          body)
 
     def _async_basic_return(self, method_frame, header_frame, body):
-        raise "Unimplemented"
+        raise NotImplementedError("Basic.Return")
 
     def _async_channel_flow(self, method_frame, header_frame, body):
-        raise "Unimplemented"
+        raise NotImplementedError("Channel.Flow")
 
     def close(self, code = 0, text = 'Normal close'):
         c = spec.Channel.Close(reply_code = code,
