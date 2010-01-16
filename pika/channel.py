@@ -6,12 +6,14 @@ from pika.exceptions import *
 class ChannelHandler:
     def __init__(self, connection, channel_number = None):
         self.connection = connection
-        self.inbound = []
         self.frame_handler = self._handle_method
         self.channel_close = None
         self.async_map = {}
+        self.reply_map = {}
+        self.flow_active = True ## we are permitted to transmit, so True.
 
         self.channel_state_change_event = event.Event()
+        self.flow_active_change_event = event.Event()
 
         if channel_number is None:
             self.channel_number = connection._next_channel_number()
@@ -22,6 +24,12 @@ class ChannelHandler:
     def _async_channel_close(self, method_frame, header_frame, body):
         self._set_channel_close(method_frame.method)
         self.connection.send_method(self.channel_number, spec.Channel.CloseOk())
+
+    def _async_channel_flow(self, method_frame, header_frame, body):
+        self.flow_active = method_frame.method.active
+        self.flow_active_change_event.fire(self, self.flow_active)
+        self.connection.send_method(self.channel_number,
+                                    spec.Channel.FlowOk(active = self.flow_active))
 
     def _ensure(self):
         if self.channel_close:
@@ -38,33 +46,41 @@ class ChannelHandler:
         self.channel_state_change_event.addHandler(handler, key)
         handler(self, not self.channel_close)
 
+    def addFlowChangeHandler(self, handler, key = None):
+        self.flow_active_change_event.addHandler(handler, key)
+        handler(self, self.flow_active)
+
     def wait_for_reply(self, acceptable_replies):
         if not acceptable_replies:
             # One-way.
             return
-        index = 0
+        reply = [None]
+        def set_reply(r):
+            reply[0] = r
+        for possibility in acceptable_replies:
+            if possibility in self.reply_map:
+                raise RecursiveOperationDetected(possibility.NAME)
+            self.reply_map[possibility] = set_reply
         while True:
-            while index >= len(self.inbound):
-                self._ensure()
-                self.connection.drain_events()
-            while index < len(self.inbound):
-                frame = self.inbound[index][0]
-                if isinstance(frame, codec.FrameMethod):
-                    reply = frame.method
-                    if reply.__class__ in acceptable_replies:
-                        (hframe, body) = self.inbound[index][1:3]
-                        if hframe is not None:
-                            reply._set_content(hframe.properties, body)
-                        self.inbound[index:index+1] = []
-                        return reply
-                index = index + 1
+            self._ensure()
+            self.connection.drain_events()
+            if reply[0]: return reply[0]
 
     def _handle_async(self, method_frame, header_frame, body):
         method = method_frame.method
-        if method.__class__ in self.async_map:
-            self.async_map[method.__class__](method_frame, header_frame, body)
+        methodClass = method.__class__
+
+        if methodClass in self.reply_map:
+            if header_frame is not None:
+                method._set_content(header_frame.properties, body)
+            handler = self.reply_map[methodClass]
+            del self.reply_map[methodClass]
+            handler(method)
+        elif methodClass in self.async_map:
+            self.async_map[methodClass](method_frame, header_frame, body)
         else:
-            self.inbound.append((method_frame, header_frame, body))
+            self.connection.close(spec.NOT_IMPLEMENTED,
+                                  'Pika: method not implemented: ' + methodClass.NAME)
 
     def _handle_method(self, frame):
         if not isinstance(frame, codec.FrameMethod):
@@ -110,6 +126,9 @@ class ChannelHandler:
         self._ensure()
         return self.connection._rpc(self.channel_number, method, acceptable_replies)
 
+    def content_transmission_forbidden(self):
+        return not self.flow_active
+
 class Channel(spec.DriverMixin):
     def __init__(self, handler):
         self.handler = handler
@@ -117,15 +136,18 @@ class Channel(spec.DriverMixin):
         self.next_consumer_tag = 0
 
         handler.async_map[spec.Channel.Close] = handler._async_channel_close
+        handler.async_map[spec.Channel.Flow] = handler._async_channel_flow
 
         handler.async_map[spec.Basic.Deliver] = self._async_basic_deliver
         handler.async_map[spec.Basic.Return] = self._async_basic_return
-        handler.async_map[spec.Channel.Flow] = self._async_channel_flow
 
         self.handler._rpc(spec.Channel.Open(), [spec.Channel.OpenOk])
 
     def addStateChangeHandler(self, handler, key = None):
         self.handler.addStateChangeHandler(handler, key)
+
+    def addFlowChangeHandler(self, handler, key = None):
+        self.handler.addFlowChangeHandler(handler, key)
 
     def _async_basic_deliver(self, method_frame, header_frame, body):
         self.callbacks[method_frame.method.consumer_tag](self,
@@ -134,10 +156,7 @@ class Channel(spec.DriverMixin):
                                                          body)
 
     def _async_basic_return(self, method_frame, header_frame, body):
-        raise "Unimplemented"
-
-    def _async_channel_flow(self, method_frame, header_frame, body):
-        raise "Unimplemented"
+        raise NotImplementedError("Basic.Return")
 
     def close(self, code = 0, text = 'Normal close'):
         c = spec.Channel.Close(reply_code = code,
@@ -147,7 +166,13 @@ class Channel(spec.DriverMixin):
         self.handler._rpc(c, [spec.Channel.CloseOk])
         self.handler._set_channel_close(c)
 
-    def basic_publish(self, exchange, routing_key, body, properties = None, mandatory = False, immediate = False):
+    def basic_publish(self, exchange, routing_key, body, properties = None, mandatory = False, immediate = False, block_on_flow_control = False):
+        if self.handler.content_transmission_forbidden():
+            if block_on_flow_control:
+                while self.handler.content_transmission_forbidden():
+                    self.handler.connection.drain_events()
+            else:
+                raise ContentTransmissionForbidden(self)
         properties = properties or spec.BasicProperties()
         self.handler.connection.send_method(self.handler.channel_number,
                                             spec.Basic.Publish(exchange = exchange,
@@ -162,6 +187,9 @@ class Channel(spec.DriverMixin):
             tag = 'ctag' + str(self.next_consumer_tag)
             self.next_consumer_tag += 1
 
+        if tag in self.callbacks:
+            raise DuplicateConsumerTag(tag)
+
         self.callbacks[tag] = consumer
         return self.handler._rpc(spec.Basic.Consume(queue = queue,
                                                     consumer_tag = tag,
@@ -170,6 +198,9 @@ class Channel(spec.DriverMixin):
                                  [spec.Basic.ConsumeOk]).consumer_tag
 
     def basic_cancel(self, consumer_tag):
+        if not consumer_tag in self.callbacks:
+            raise UnknownConsumerTag(consumer_tag)
+
         self.handler._rpc(spec.Basic.Cancel(consumer_tag = consumer_tag),
                           [spec.Basic.CancelOk])
         del self.callbacks[consumer_tag]
