@@ -24,6 +24,9 @@
 ##   LLC. Portions created by Rabbit Technologies Ltd are Copyright
 ##   (C) 2007-2009 Rabbit Technologies Ltd.
 ##
+##   Portions created by Tony Garnock-Jones are Copyright (C)
+##   2009-2010 LShift Ltd and Tony Garnock-Jones.
+##
 ##   All Rights Reserved.
 ##
 ##   Contributor(s): ______________________________________.
