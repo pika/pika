@@ -29,6 +29,13 @@ the horizon.
  * Support continuation-passing-style, for asynchronous programming
    (and, eventually, Twisted support)
 
+## Licensing
+
+Pika is licensed under the MPL, and may also be used under the terms
+of the GPL. The full license text is included with the source code for
+the package. If you have any questions regarding licensing, please
+contact us at <info@rabbitmq.com>.
+
 ## Synchronous programming style, no concurrency
 
 This style of programming is especially appropriate for small scripts,
