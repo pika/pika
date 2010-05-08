@@ -61,8 +61,10 @@ conn = pika.AsyncoreConnection(pika.ConnectionParameters(
 
 print 'Connected to %r' % (conn.server_properties,)
 
+qname = sys.argv[2] if len(sys.argv) > 2 else 'test'
+
 ch = conn.channel()
-ch.queue_declare(queue="test", durable=True, exclusive=False, auto_delete=False)
+ch.queue_declare(queue=qname, durable=True, exclusive=False, auto_delete=False)
 
 should_quit = False
 
@@ -75,7 +77,7 @@ def handle_delivery(ch, method, header, body):
     global should_quit
     should_quit = True
 
-tag = ch.basic_consume(handle_delivery, queue = 'test')
+tag = ch.basic_consume(handle_delivery, queue = qname)
 while conn.is_alive() and not should_quit:
     asyncore.loop(count = 1)
 if conn.is_alive():
