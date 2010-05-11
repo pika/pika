@@ -1,6 +1,9 @@
 This package, Pika, an AMQP client library for use with RabbitMQ and
-other AMQP servers, is licensed under the MPL. For the MPL, please see
-LICENSE-MPL-Pika.
+other AMQP servers, is licensed under the MPL, and may also be used
+under the terms of the GPL. For the MPL, please see
+LICENSE-MPL-Pika. For the GPL, please see LICENSE-GPL-2.0. Please see
+also the license block near the top of each source file in the
+package.
 
 If you have any questions regarding licensing, please contact us at 
 info@rabbitmq.com.
