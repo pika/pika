@@ -74,5 +74,5 @@ def handle_delivery(ch, method, header, body):
     ch.basic_ack(delivery_tag = method.delivery_tag)
 
 ch.basic_consume(handle_delivery, queue = qname)
-asyncore.loop()
+pika.asyncore_loop()
 print 'Close reason:', conn.connection_close

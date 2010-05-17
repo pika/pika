@@ -72,5 +72,4 @@ ch.basic_publish(exchange='',
                  block_on_flow_control = True)
 
 conn.close()
-asyncore.loop()
-
+pika.asyncore_loop()

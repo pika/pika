@@ -80,7 +80,7 @@ def handle_delivery(ch, method, header, body):
 
 tag = ch.basic_consume(handle_delivery, queue = qname)
 while conn.is_alive() and not should_quit:
-    asyncore.loop(count = 1)
+    pika.asyncore_loop(count = 1)
 if conn.is_alive():
     ch.basic_cancel(tag)
     conn.close()
