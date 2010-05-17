@@ -63,3 +63,13 @@ from pika.blocking_adapter import \
 
 def repl_channel(host = '127.0.0.1', *args):
     return BlockingConnection(ConnectionParameters(host, *args)).channel()
+
+# Python 2.4 support: add struct.unpack_from if it's missing.
+try:
+    import struct
+    getattr(struct, "unpack_from")
+except AttributeError:
+    def _unpack_from(fmt, buf, offset=0):
+        slice = buffer(buf, offset, struct.calcsize(fmt))
+        return struct.unpack(fmt, slice)
+    struct.unpack_from = _unpack_from

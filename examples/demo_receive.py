@@ -56,12 +56,12 @@ import pika
 import asyncore
 
 conn = pika.AsyncoreConnection(pika.ConnectionParameters(
-        sys.argv[1] if len(sys.argv) > 1 else '127.0.0.1',
+        (len(sys.argv) > 1) and sys.argv[1] or '127.0.0.1',
         credentials = pika.PlainCredentials('guest', 'guest')))
 
 print 'Connected to %r' % (conn.server_properties,)
 
-qname = sys.argv[2] if len(sys.argv) > 2 else 'test'
+qname = (len(sys.argv) > 2) and sys.argv[2] or 'test'
 
 ch = conn.channel()
 ch.queue_declare(queue=qname, durable=True, exclusive=False, auto_delete=False)
