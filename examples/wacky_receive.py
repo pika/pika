@@ -48,7 +48,8 @@
 # ***** END LICENSE BLOCK *****
 
 '''
-Example of simple consumer, waits one message, replies an ack and exits.
+Example of simple consumer. Drains a queue of all waiting messages,
+acks them all, and exits. See demo_receive.py for a simpler example.
 '''
 
 import sys
@@ -57,8 +58,7 @@ import asyncore
 
 conn = pika.AsyncoreConnection(pika.ConnectionParameters(
         (len(sys.argv) > 1) and sys.argv[1] or '127.0.0.1',
-        credentials = pika.PlainCredentials('guest', 'guest'),
-        heartbeat = 10))
+        credentials = pika.PlainCredentials('guest', 'guest')))
 
 print 'Connected to %r' % (conn.server_properties,)
 
@@ -67,12 +67,22 @@ qname = (len(sys.argv) > 2) and sys.argv[2] or 'test'
 ch = conn.channel()
 ch.queue_declare(queue=qname, durable=True, exclusive=False, auto_delete=False)
 
+should_quit = False
+
 def handle_delivery(ch, method, header, body):
     print "method=%r" % (method,)
     print "header=%r" % (header,)
     print "  body=%r" % (body,)
     ch.basic_ack(delivery_tag = method.delivery_tag)
 
-ch.basic_consume(handle_delivery, queue = qname)
-asyncore.loop()
-print 'Close reason:', conn.connection_close
+    global should_quit
+    should_quit = True
+
+tag = ch.basic_consume(handle_delivery, queue = qname)
+while conn.is_alive() and not should_quit:
+    asyncore.loop(count = 1)
+if conn.is_alive():
+    ch.basic_cancel(tag)
+    conn.close()
+
+print conn.connection_close
