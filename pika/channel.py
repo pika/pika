@@ -57,7 +57,7 @@ class ChannelHandler:
         self.frame_handler = self._handle_method
         self.channel_close = None
         self.async_map = {}
-        self.reply_map = {}
+        self.reply_map = None
         self.flow_active = True ## we are permitted to transmit, so True.
 
         self.channel_state_change_event = event.Event()
@@ -102,13 +102,18 @@ class ChannelHandler:
         if not acceptable_replies:
             # One-way.
             return
+
+        if self.reply_map is not None:
+            raise RecursiveOperationDetected([p.NAME for p in acceptable_replies])
+
         reply = [None]
         def set_reply(r):
             reply[0] = r
+
+        self.reply_map = {}
         for possibility in acceptable_replies:
-            if possibility in self.reply_map:
-                raise RecursiveOperationDetected(possibility.NAME)
             self.reply_map[possibility] = set_reply
+
         while True:
             self._ensure()
             self.connection.drain_events()
@@ -122,7 +127,7 @@ class ChannelHandler:
             if header_frame is not None:
                 method._set_content(header_frame.properties, body)
             handler = self.reply_map[methodClass]
-            del self.reply_map[methodClass]
+            self.reply_map = None
             handler(method)
         elif methodClass in self.async_map:
             self.async_map[methodClass](method_frame, header_frame, body)
