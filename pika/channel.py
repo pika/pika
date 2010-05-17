@@ -123,7 +123,7 @@ class ChannelHandler:
         method = method_frame.method
         methodClass = method.__class__
 
-        if methodClass in self.reply_map:
+        if self.reply_map is not None and methodClass in self.reply_map:
             if header_frame is not None:
                 method._set_content(header_frame.properties, body)
             handler = self.reply_map[methodClass]
