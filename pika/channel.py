@@ -186,6 +186,7 @@ class Channel(spec.DriverMixin):
     def __init__(self, handler):
         self.handler = handler
         self.callbacks = {}
+        self.pending = {}
         self.next_consumer_tag = 0
 
         handler.async_map[spec.Channel.Close] = handler._async_channel_close
@@ -203,10 +204,20 @@ class Channel(spec.DriverMixin):
         self.handler.addFlowChangeHandler(handler, key)
 
     def _async_basic_deliver(self, method_frame, header_frame, body):
-        self.callbacks[method_frame.method.consumer_tag](self,
-                                                         method_frame.method,
-                                                         header_frame.properties,
-                                                         body)
+        """Cope with reentrancy. If a particular consumer is still active when another
+        delivery appears for it, queue the deliveries up until it finally exits."""
+        consumer_tag = method_frame.method.consumer_tag
+        if consumer_tag not in self.pending:
+            q = []
+            self.pending[consumer_tag] = q
+            consumer = self.callbacks[consumer_tag]
+            consumer(self, method_frame.method, header_frame.properties, body)
+            while q:
+                (m, p, b) = q.pop(0)
+                consumer(self, m, p, b)
+            del self.pending[consumer_tag]
+        else:
+            self.pending[consumer_tag].append((method_frame.method, header_frame.properties, body))
 
     def _async_basic_return(self, method_frame, header_frame, body):
         raise NotImplementedError("Basic.Return")
