@@ -103,7 +103,8 @@ class AsyncoreConnection(pika.connection.Connection):
         self.dispatcher.connect((host, port or spec.PORT))
 
     def disconnect_transport(self):
-        self.dispatcher.close()
+        if self.dispatcher:
+            self.dispatcher.close()
 
     def drain_events(self):
         loop(count = 1)
