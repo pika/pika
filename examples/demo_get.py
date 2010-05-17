@@ -74,7 +74,7 @@ while conn.is_alive():
     if isinstance(result, pika.spec.Basic.GetEmpty):
         pass
     elif isinstance(result, pika.spec.Basic.GetOk):
-        ch.basic_ack(result.delivery_tag)
+        ch.basic_ack(delivery_tag = result.delivery_tag)
     else:
         raise Exception("Hmm, that's unexpected. basic_get should have returned either "
                         "Basic.GetOk or Basic.GetEmpty",
