@@ -26,3 +26,6 @@ Here goes the list of bugs, limitations, ideas and feature requests.
      * how to get/set headers on message
 
  o SSL support?
+
+ o Cope with deliveries arriving for consumers that aren't
+   active. This can happen when basic_recover is called.
