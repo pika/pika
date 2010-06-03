@@ -28,8 +28,10 @@ codegen/amqp_codegen.py:
 	curl http://hg.rabbitmq.com/rabbitmq-codegen/archive/default.tar.bz2 | tar -jxvf -
 	mv rabbitmq-codegen-default codegen
 
-clean:
+regenclean: clean
 	rm -f pika/spec.py
+
+clean:
 	rm -f pika/*.pyc 
 	rm -f tests/*.pyc tests/.coverage
 

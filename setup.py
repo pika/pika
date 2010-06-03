@@ -46,7 +46,7 @@
 #
 # ***** END LICENSE BLOCK *****
 
-from distutils.core import setup
+from setuptools import setup
 import os
 
 try:

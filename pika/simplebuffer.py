@@ -60,6 +60,11 @@ try:
 except ImportError:
     import StringIO
 
+# Python 2.4 support: os lacks SEEK_END and friends
+try:
+    getattr(os, "SEEK_END")
+except AttributeError:
+    os.SEEK_SET, os.SEEK_CUR, os.SEEK_END = range(3)
 
 class SimpleBuffer:
     """
@@ -145,7 +150,7 @@ class SimpleBuffer:
 
     def __nonzero__(self):
         """ Are we empty? """
-        return True if self.size else False
+        return self.size > 0
 
     def __len__(self):
         return self.size
@@ -155,4 +160,4 @@ class SimpleBuffer:
 
     def __repr__(self):
         return '<SimpleBuffer of %i bytes, %i total size, %r%s>' % \
-                    (self.size, self.size + self.offset, self.read(16), '...' if self.size > 16 else '')
+                    (self.size, self.size + self.offset, self.read(16), (self.size > 16) and '...' or '')

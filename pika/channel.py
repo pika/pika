@@ -57,7 +57,7 @@ class ChannelHandler:
         self.frame_handler = self._handle_method
         self.channel_close = None
         self.async_map = {}
-        self.reply_map = {}
+        self.reply_map = None
         self.flow_active = True ## we are permitted to transmit, so True.
 
         self.channel_state_change_event = event.Event()
@@ -102,13 +102,18 @@ class ChannelHandler:
         if not acceptable_replies:
             # One-way.
             return
+
+        if self.reply_map is not None:
+            raise RecursiveOperationDetected([p.NAME for p in acceptable_replies])
+
         reply = [None]
         def set_reply(r):
             reply[0] = r
+
+        self.reply_map = {}
         for possibility in acceptable_replies:
-            if possibility in self.reply_map:
-                raise RecursiveOperationDetected(possibility.NAME)
             self.reply_map[possibility] = set_reply
+
         while True:
             self._ensure()
             self.connection.drain_events()
@@ -118,11 +123,11 @@ class ChannelHandler:
         method = method_frame.method
         methodClass = method.__class__
 
-        if methodClass in self.reply_map:
+        if self.reply_map is not None and methodClass in self.reply_map:
             if header_frame is not None:
                 method._set_content(header_frame.properties, body)
             handler = self.reply_map[methodClass]
-            del self.reply_map[methodClass]
+            self.reply_map = None
             handler(method)
         elif methodClass in self.async_map:
             self.async_map[methodClass](method_frame, header_frame, body)
@@ -181,6 +186,7 @@ class Channel(spec.DriverMixin):
     def __init__(self, handler):
         self.handler = handler
         self.callbacks = {}
+        self.pending = {}
         self.next_consumer_tag = 0
 
         handler.async_map[spec.Channel.Close] = handler._async_channel_close
@@ -198,10 +204,20 @@ class Channel(spec.DriverMixin):
         self.handler.addFlowChangeHandler(handler, key)
 
     def _async_basic_deliver(self, method_frame, header_frame, body):
-        self.callbacks[method_frame.method.consumer_tag](self,
-                                                         method_frame.method,
-                                                         header_frame.properties,
-                                                         body)
+        """Cope with reentrancy. If a particular consumer is still active when another
+        delivery appears for it, queue the deliveries up until it finally exits."""
+        consumer_tag = method_frame.method.consumer_tag
+        if consumer_tag not in self.pending:
+            q = []
+            self.pending[consumer_tag] = q
+            consumer = self.callbacks[consumer_tag]
+            consumer(self, method_frame.method, header_frame.properties, body)
+            while q:
+                (m, p, b) = q.pop(0)
+                consumer(self, m, p, b)
+            del self.pending[consumer_tag]
+        else:
+            self.pending[consumer_tag].append((method_frame.method, header_frame.properties, body))
 
     def _async_basic_return(self, method_frame, header_frame, body):
         raise NotImplementedError("Basic.Return")

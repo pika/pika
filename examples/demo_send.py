@@ -56,7 +56,7 @@ import pika
 import asyncore
 
 conn = pika.AsyncoreConnection(pika.ConnectionParameters(
-        sys.argv[1] if len(sys.argv) > 1 else '127.0.0.1',
+        (len(sys.argv) > 1) and sys.argv[1] or '127.0.0.1',
         credentials=pika.PlainCredentials('guest', 'guest')))
 
 ch = conn.channel()
@@ -72,5 +72,4 @@ ch.basic_publish(exchange='',
                  block_on_flow_control = True)
 
 conn.close()
-asyncore.loop()
-
+pika.asyncore_loop()

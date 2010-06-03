@@ -1,3 +1,3 @@
 *.pyc
-pika/spec.py
 codegen/
+pika.egg-info/

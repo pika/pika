@@ -48,17 +48,18 @@
 # ***** END LICENSE BLOCK *****
 
 '''
-Example of simple consumer, waits one message, replies an ack and exits.
+Example of the use of basic_get. NOT RECOMMENDED - use
+basic_consume instead if at all possible!
 '''
 
 import sys
 import pika
 import asyncore
+import time
 
 conn = pika.AsyncoreConnection(pika.ConnectionParameters(
         (len(sys.argv) > 1) and sys.argv[1] or '127.0.0.1',
-        credentials = pika.PlainCredentials('guest', 'guest'),
-        heartbeat = 10))
+        credentials = pika.PlainCredentials('guest', 'guest')))
 
 print 'Connected to %r' % (conn.server_properties,)
 
@@ -67,12 +68,15 @@ qname = (len(sys.argv) > 2) and sys.argv[2] or 'test'
 ch = conn.channel()
 ch.queue_declare(queue=qname, durable=True, exclusive=False, auto_delete=False)
 
-def handle_delivery(ch, method, header, body):
-    print "method=%r" % (method,)
-    print "header=%r" % (header,)
-    print "  body=%r" % (body,)
-    ch.basic_ack(delivery_tag = method.delivery_tag)
-
-ch.basic_consume(handle_delivery, queue = qname)
-pika.asyncore_loop()
-print 'Close reason:', conn.connection_close
+while conn.is_alive():
+    result = ch.basic_get(queue = qname)
+    print result
+    if isinstance(result, pika.spec.Basic.GetEmpty):
+        pass
+    elif isinstance(result, pika.spec.Basic.GetOk):
+        ch.basic_ack(delivery_tag = result.delivery_tag)
+    else:
+        raise Exception("Hmm, that's unexpected. basic_get should have returned either "
+                        "Basic.GetOk or Basic.GetEmpty",
+                        result)
+    time.sleep(1)

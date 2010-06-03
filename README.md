@@ -24,6 +24,26 @@ Pika provides adapters for
 Support for Twisted and `select()` (as distinct from `asyncore`) is on
 the horizon.
 
+## Installation via `pip` (and, optionally, `virtualenv`)
+
+You can install this package directly from github using `pip`:
+
+    pip install -e git://github.com/tonyg/pika.git#egg=pika
+
+If you are using `virtualenv` for context-specific Python module
+installations,
+
+    pip -E my_virtual_env install -e git://github.com/tonyg/pika.git#egg=pika
+
+or
+
+    virtualenv my_virtual_env
+    cd my_virtual_env
+    . bin/activate
+    ## Now you're already in the right virtual environment, so the next
+    ## command automatically installs pika to the correct context
+    pip install -e git://github.com/tonyg/pika.git#egg=pika
+
 ## Roadmap
 
  * Support continuation-passing-style, for asynchronous programming
