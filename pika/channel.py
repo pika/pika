@@ -223,12 +223,16 @@ class Channel(spec.DriverMixin):
         raise NotImplementedError("Basic.Return")
 
     def close(self, code = 0, text = 'Normal close'):
-        c = spec.Channel.Close(reply_code = code,
-                               reply_text = text,
-                               class_id = 0,
-                               method_id = 0)
-        self.handler._rpc(c, [spec.Channel.CloseOk])
+        try:
+            c = spec.Channel.Close(reply_code = code,
+                                   reply_text = text,
+                                   class_id = 0,
+                                   method_id = 0)
+            self.handler._rpc(c, [spec.Channel.CloseOk])
+        except ChannelClosed:
+            pass
         self.handler._set_channel_close(c)
+        return self.handler.channel_close
 
     def basic_publish(self, exchange, routing_key, body, properties = None, mandatory = False, immediate = False, block_on_flow_control = False):
         if self.handler.content_transmission_forbidden():
