@@ -54,6 +54,8 @@ import calendar
 from pika.exceptions import *
 
 def encode_table(pieces, table):
+    if table is None:
+        table = {}
     length_index = len(pieces)
     pieces.append(None) # placeholder
     tablesize = 0
