@@ -1329,8 +1329,27 @@ class Basic(pika.specbase.Class):
             pieces.append(struct.pack('B', bit_buffer))
             return pieces
 
-    class Recover(pika.specbase.Method):
+    class RecoverAsync(pika.specbase.Method):
         INDEX = 0x003C0064 ## 60, 100; 3932260
+        NAME = 'Basic.RecoverAsync'
+        def __init__(self, requeue = False):
+            self.requeue = requeue
+
+        def decode(self, encoded, offset = 0):
+            bit_buffer = struct.unpack_from('B', encoded, offset)[0]
+            offset = offset + 1
+            self.requeue = (bit_buffer & (1 << 0)) != 0
+            return self
+
+        def encode(self):
+            pieces = []
+            bit_buffer = 0;
+            if self.requeue: bit_buffer = bit_buffer | (1 << 0)
+            pieces.append(struct.pack('B', bit_buffer))
+            return pieces
+
+    class Recover(pika.specbase.Method):
+        INDEX = 0x003C006E ## 60, 110; 3932270
         NAME = 'Basic.Recover'
         def __init__(self, requeue = False):
             self.requeue = requeue
@@ -1346,6 +1365,18 @@ class Basic(pika.specbase.Class):
             bit_buffer = 0;
             if self.requeue: bit_buffer = bit_buffer | (1 << 0)
             pieces.append(struct.pack('B', bit_buffer))
+            return pieces
+
+    class RecoverOk(pika.specbase.Method):
+        INDEX = 0x003C006F ## 60, 111; 3932271
+        NAME = 'Basic.RecoverOk'
+        def __init__(self):
+            pass
+        def decode(self, encoded, offset = 0):
+            return self
+
+        def encode(self):
+            pieces = []
             return pieces
 
 class File(pika.specbase.Class):
@@ -2889,7 +2920,9 @@ methods = {
     0x003C0048: Basic.GetEmpty,
     0x003C0050: Basic.Ack,
     0x003C005A: Basic.Reject,
-    0x003C0064: Basic.Recover,
+    0x003C0064: Basic.RecoverAsync,
+    0x003C006E: Basic.Recover,
+    0x003C006F: Basic.RecoverOk,
     0x0046000A: File.Qos,
     0x0046000B: File.QosOk,
     0x00460014: File.Consume,
@@ -3001,9 +3034,13 @@ class DriverMixin:
         return self.handler._rpc(Basic.Reject(delivery_tag = delivery_tag, requeue = requeue),
                                  [])
 
+    def basic_recover_async(self, requeue = False):
+        return self.handler._rpc(Basic.RecoverAsync(requeue = requeue),
+                                 [])
+
     def basic_recover(self, requeue = False):
         return self.handler._rpc(Basic.Recover(requeue = requeue),
-                                 [])
+                                 [Basic.RecoverOk])
 
     def tx_select(self):
         return self.handler._rpc(Tx.Select(),

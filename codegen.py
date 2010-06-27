@@ -68,7 +68,8 @@ DRIVER_METHODS = {
     "Basic.Get": ["Basic.GetOk", "Basic.GetEmpty"],
     "Basic.Ack": [],
     "Basic.Reject": [],
-    "Basic.Recover": [],
+    "Basic.Recover": ["Basic.RecoverOk"],
+    "Basic.RecoverAsync": [],
     "Tx.Select": ["Tx.SelectOk"],
     "Tx.Commit": ["Tx.CommitOk"],
     "Tx.Rollback": ["Tx.RollbackOk"]
