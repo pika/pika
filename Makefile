@@ -1,6 +1,6 @@
 SIBLING_CODEGEN_DIR=../rabbitmq-codegen/
 AMQP_CODEGEN_DIR=$(shell [ -d $(SIBLING_CODEGEN_DIR) ] && echo $(SIBLING_CODEGEN_DIR) || echo codegen)
-AMQP_SPEC_JSON_PATH=$(AMQP_CODEGEN_DIR)/amqp-0.8.json
+AMQP_SPEC_JSON_FILES=$(AMQP_CODEGEN_DIR)/amqp-0.8.json $(AMQP_CODEGEN_DIR)/rabbitmq-0.8-extensions.json
 
 ifeq ($(shell python -c 'import simplejson' 2>/dev/null && echo yes),yes)
 PYTHON=python
@@ -19,8 +19,8 @@ endif
 
 all: pika/spec.py
 
-pika/spec.py: codegen.py $(AMQP_CODEGEN_DIR)/amqp_codegen.py $(AMQP_SPEC_JSON_PATH)
-	$(PYTHON) codegen.py spec $(AMQP_SPEC_JSON_PATH) $@
+pika/spec.py: codegen.py $(AMQP_CODEGEN_DIR)/amqp_codegen.py $(AMQP_SPEC_JSON_FILES)
+	$(PYTHON) codegen.py spec $(AMQP_SPEC_JSON_FILES) $@
 
 # For dev work, when working from a git checkout
 codegen/amqp_codegen.py:
