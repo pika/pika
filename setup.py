@@ -57,10 +57,10 @@ except:
     sys.exit(1)
 
 setup(name='pika',
-      version='0.1',
+      version='0.5',
       description='Pika Python AMQP Client Library',
       author='Tony Garnock-Jones',
       author_email='tonyg@rabbitmq.com',
-      url='http://www.rabbitmq.com/',
+      url='http://github.com/tonyg/pika#readme',
       packages=['pika'],
       )
