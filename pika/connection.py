@@ -389,7 +389,7 @@ class Connection:
                 (self.reconnection_strategy.can_reconnect() or (not self.connection_close)):
             self.drain_events()
 
-    def drain_events(self):
+    def drain_events(self, timeout=None):
         """Subclasses should override as required to wait for a few
         events -- perhaps running the dispatch loop once, or a small
         number of times -- and dispatch them, and then to return

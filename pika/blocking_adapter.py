@@ -59,18 +59,29 @@ class BlockingConnection(pika.connection.Connection):
         self.socket.close()
         self.on_disconnected()
 
+    def _recv(self, bufsize, timeout=None):
+        prev_timeout = self.socket.gettimeout()
+        self.socket.settimeout(timeout)
+        try:
+            return self.socket.recv(bufsize)
+        finally:
+            self.socket.settimeout(prev_timeout)
+
     def mainloop(self):
         while self.is_alive():
             self.drain_events()
 
-    def drain_events(self):
+    def drain_events(self, timeout=None):
         while self.outbound_buffer:
             fragment = self.outbound_buffer.read()
             r = self.socket.send(fragment)
             self.outbound_buffer.consume(r)
 
         try:
-            buf = self.socket.recv(self.suggested_buffer_size())
+            buf = self._recv(self.suggested_buffer_size(), timeout)
+        except socket.timeout:
+            # subclass of socket.error catched below, so re-raise.
+            raise
         except socket.error, exn:
             if exn.errno == EAGAIN:
                 # Weird, but happens very occasionally.
