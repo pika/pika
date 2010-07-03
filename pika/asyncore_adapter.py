@@ -107,7 +107,7 @@ class AsyncoreConnection(pika.connection.Connection):
             self.dispatcher.close()
 
     def drain_events(self, timeout=None):
-        loop(count = 1)
+        loop(count = 1, timeout = timeout)
 
 timer_heap = []
 
