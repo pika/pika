@@ -67,7 +67,7 @@ other AMQP 0-8 brokers.
 """
 
 setup(name='pika',
-      version='0.5',
+      version='0.5.1',
       description='Pika Python AMQP Client Library',
       long_description=long_description,
       author='Tony Garnock-Jones',
