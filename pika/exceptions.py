@@ -46,15 +46,21 @@
 #
 # ***** END LICENSE BLOCK *****
 
-class LoginError(Exception): pass
-class NoFreeChannels(Exception): pass
-class DuplicateConsumerTag(Exception): pass
-class UnknownConsumerTag(Exception): pass
-class RecursiveOperationDetected(Exception): pass
-class ContentTransmissionForbidden(Exception): pass
+class AMQPConnectionError(Exception): pass
+class LoginError(AMQPConnectionError): pass
+class NoFreeChannels(AMQPConnectionError): pass
+class ContentTransmissionForbidden(AMQPConnectionError): pass
+class ConnectionClosed(AMQPConnectionError): pass
 
-class ConnectionClosed(Exception): pass
-class ChannelClosed(Exception): pass
+
+class AMQPChannelError(Exception): pass
+class DuplicateConsumerTag(AMQPChannelError): pass
+class UnknownConsumerTag(AMQPChannelError): pass
+class ChannelClosed(AMQPChannelError): pass
+
+
+class RecursiveOperationDetected(Exception): pass
+
 
 class ProtocolSyntaxError(Exception): pass
 class UnexpectedFrameError(ProtocolSyntaxError): pass
