@@ -46,23 +46,25 @@
 #
 # ***** END LICENSE BLOCK *****
 
-class AMQPConnectionError(Exception): pass
+class AMQPError(Exception): pass
+
+class AMQPConnectionError(AMQPError): pass
 class LoginError(AMQPConnectionError): pass
 class NoFreeChannels(AMQPConnectionError): pass
 class ContentTransmissionForbidden(AMQPConnectionError): pass
 class ConnectionClosed(AMQPConnectionError): pass
 
 
-class AMQPChannelError(Exception): pass
+class AMQPChannelError(AMQPError): pass
 class DuplicateConsumerTag(AMQPChannelError): pass
 class UnknownConsumerTag(AMQPChannelError): pass
 class ChannelClosed(AMQPChannelError): pass
 
 
-class RecursiveOperationDetected(Exception): pass
+class RecursiveOperationDetected(AMQPError): pass
 
 
-class ProtocolSyntaxError(Exception): pass
+class ProtocolSyntaxError(AMQPError): pass
 class UnexpectedFrameError(ProtocolSyntaxError): pass
 class ProtocolVersionMismatch(ProtocolSyntaxError): pass
 class BodyTooLongError(ProtocolSyntaxError): pass
