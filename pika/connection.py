@@ -389,12 +389,19 @@ class Connection:
                 (self.reconnection_strategy.can_reconnect() or (not self.connection_close)):
             self.drain_events()
 
+    def flush_outbound(self):
+        """Subclasses should override to flush the contents of
+        outbound_buffer out along the socket."""
+        raise NotImplementedError('Subclass Responsibility')
+
     def drain_events(self, timeout=None):
         """Subclasses should override as required to wait for a few
         events -- perhaps running the dispatch loop once, or a small
         number of times -- and dispatch them, and then to return
         control to this method's caller, which will be waiting for
-        something to have been set by one of the event handlers."""
+        something to have been set by one of the event
+        handlers. Implementations should also take care to flush the
+        outbound_buffer before blocking on input!"""
         raise NotImplementedError('Subclass Responsibility')
 
     def _async_connection_close(self, method_frame, header_frame, body):

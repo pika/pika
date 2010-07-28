@@ -106,6 +106,10 @@ class AsyncoreConnection(pika.connection.Connection):
         if self.dispatcher:
             self.dispatcher.close()
 
+    def flush_outbound(self):
+        while self.outbound_buffer:
+            self.drain_events()
+
     def drain_events(self, timeout=None):
         loop(count = 1, timeout = timeout)
 
