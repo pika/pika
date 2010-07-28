@@ -7,12 +7,6 @@ Here goes the list of bugs, limitations, ideas and feature requests.
 
  o If AMQP broker is dead, return nice and predictable exception.
 
- o There's no reasonable way of flushing connection. What to
-   do if you want to send a million messages (which is not blocking)?
-   It ends up in creating huuuuge in-memory buffer which
-   is flushed only after you enter asyncore or some other blocking
-   request.
-
  o Handle UTF in password/username or message body. At least print nice error.
 
  o Do something when user/pass is bad.
