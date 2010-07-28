@@ -125,8 +125,12 @@ def next_event_timeout(default_timeout=None):
     cutoff = run_timers_internal()
     if timer_heap:
         timeout = timer_heap[0][0] - cutoff
+        if default_timeout is not None and timeout > default_timeout:
+            timeout = default_timeout
+    elif default_timeout is None:
+        timeout = 30.0 # default timeout
     else:
-        timeout = default_timeout or 30.0   #default timeout
+        timeout = default_timeout
     return timeout
 
 def log_timer_error(info):
