@@ -48,6 +48,7 @@
 
 import socket
 import pika.connection
+import errno
 
 class BlockingConnection(pika.connection.Connection):
     def connect(self, host, port):
@@ -71,11 +72,14 @@ class BlockingConnection(pika.connection.Connection):
         while self.is_alive():
             self.drain_events()
 
-    def drain_events(self, timeout=None):
+    def flush_outbound(self):
         while self.outbound_buffer:
             fragment = self.outbound_buffer.read()
             r = self.socket.send(fragment)
             self.outbound_buffer.consume(r)
+
+    def drain_events(self, timeout=None):
+        self.flush_outbound()
 
         try:
             buf = self._recv(self.suggested_buffer_size(), timeout)
@@ -83,7 +87,14 @@ class BlockingConnection(pika.connection.Connection):
             # subclass of socket.error catched below, so re-raise.
             raise
         except socket.error, exn:
-            if exn.errno == EAGAIN:
+            if hasattr(exn, 'errno'):
+                # 2.6 and newer have an errno field.
+                code = exn.errno
+            else:
+                # 2.5 and earlier do not, but place the errno in the first exn argument.
+                code = exn.args[0]
+
+            if code == errno.EAGAIN:
                 # Weird, but happens very occasionally.
                 return
             else:

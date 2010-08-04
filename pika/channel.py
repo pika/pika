@@ -98,9 +98,16 @@ class ChannelHandler:
         self.flow_active_change_event.addHandler(handler, key)
         handler(self, self.flow_active)
 
+    def flush_and_drain(self):
+        # Flush, and handle any traffic that's already arrived, but
+        # don't wait for more.
+        self.connection.flush_outbound()
+        self.connection.drain_events(timeout = 0)
+
     def wait_for_reply(self, acceptable_replies):
         if not acceptable_replies:
             # One-way.
+            self.flush_and_drain()
             return
 
         if self.reply_map is not None:
@@ -248,6 +255,7 @@ class Channel(spec.DriverMixin):
                                                                mandatory = mandatory,
                                                                immediate = immediate),
                                             (properties, body))
+        self.handler.flush_and_drain()
 
     def basic_consume(self, consumer, queue = '', no_ack = False, exclusive = False, consumer_tag = None):
         tag = consumer_tag
