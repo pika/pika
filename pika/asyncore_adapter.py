@@ -59,6 +59,7 @@ class RabbitDispatcher(asyncore.dispatcher):
     def __init__(self, connection):
         asyncore.dispatcher.__init__(self)
         self.connection = connection
+        self.max_write = connection.suggested_buffer_size()
 
     def handle_connect(self):
         self.connection.on_connected()
@@ -89,7 +90,7 @@ class RabbitDispatcher(asyncore.dispatcher):
         return bool(self.connection.outbound_buffer)
 
     def handle_write(self):
-        fragment = self.connection.outbound_buffer.read()
+        fragment = self.connection.outbound_buffer.read(self.max_write)
         r = self.send(fragment)
         self.connection.outbound_buffer.consume(r)
 

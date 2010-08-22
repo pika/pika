@@ -74,7 +74,7 @@ class BlockingConnection(pika.connection.Connection):
 
     def flush_outbound(self):
         while self.outbound_buffer:
-            fragment = self.outbound_buffer.read()
+            fragment = self.outbound_buffer.read(self.suggested_buffer_size())
             r = self.socket.send(fragment)
             self.outbound_buffer.consume(r)
 
