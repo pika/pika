@@ -46,6 +46,7 @@
 #
 # ***** END LICENSE BLOCK *****
 
+import logging
 import random
 
 import pika.spec as spec
@@ -141,6 +142,12 @@ class NullReconnectionStrategy:
     def on_connection_closed(self, conn): pass
 
 class Connection:
+
+    # Allow this to be overwritten by the client app
+    product = "Pika Python AMQP Client Library"
+
+    async = False
+    
     def __init__(self, parameters, wait_for_open = True, reconnection_strategy = None):
         self.parameters = parameters
         self.reconnection_strategy = reconnection_strategy or NullReconnectionStrategy()
@@ -415,6 +422,54 @@ class Connection:
         else:
             self.channels[frame.channel_number].frame_handler(frame)
 
+def AsyncConnection(Connection):
+
+    async = True
+
+    # Keep function signature the same as Connection but we will ignore wait_for_open
+    def __init__(self, parameters, wait_for_open = False, reconnection_strategy = None):
+        self.parameters = parameters
+        self.reconnection_strategy = reconnection_strategy or NullReconnectionStrategy()
+
+        self.connection_state_change_event = event.Event()
+
+        self._reset_per_connection_state()
+        self.reconnect()
+
+        if wait_for_open:
+            logging.warn("AsyncConnection received initialization parameter wait_for_open as true but is ignoring")
+            
+    def _login2(self, frame):
+        channel_max = combine_tuning(self.parameters.channel_max, frame.method.channel_max)
+        frame_max = combine_tuning(self.parameters.frame_max, frame.method.frame_max)
+        heartbeat = combine_tuning(self.parameters.heartbeat, frame.method.heartbeat)
+        if heartbeat:
+            self.heartbeat_checker = HeartbeatChecker(self, heartbeat)
+        self.state.tune(channel_max, frame_max)
+        self.send_method(0, spec.Connection.TuneOk(
+            channel_max = channel_max,
+            frame_max = frame_max,
+            heartbeat = heartbeat))
+        self.frame_handler = self._generic_frame_handler
+        self._install_channel0()
+        self.frame_handler = self._login3
+        self._rpc(self._login3, 0, spec.Connection.Open(virtual_host = \
+                                                          self.parameters.virtual_host,
+                                     insist = True),
+                                   [spec.Connection.OpenOk])
+    def _login3(self, response):
+        self.connection_open = True
+        self.handle_connection_open()
+    
+    def _rpc(self, callback, channel_number, method, acceptable_replies):
+        channel = self._ensure_channel(channel_number)
+        self.send_method(channel_number, method)
+        return channel.wait_for_reply(acceptable_replies)
+
+    def _install_channel0(self):
+        c = channel.AsyncChannelHandler(self, 0)
+        c.async_map[spec.Connection.Close] = self._async_connection_close
+        
 def combine_tuning(a, b):
     if a == 0: return b
     if b == 0: return a

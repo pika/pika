@@ -7,7 +7,7 @@ import time
 import tornado.ioloop
 import logging
 
-class TornadoConnection(pika.connection.Connection):
+class TornadoConnection(pika.connection.AsyncConnection):
 
     def delayed_call(self, delay_sec, callback):
         deadline = time.time() + delay_sec

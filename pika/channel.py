@@ -280,3 +280,31 @@ class Channel(spec.DriverMixin):
         self.handler._rpc(spec.Basic.Cancel(consumer_tag = consumer_tag),
                           [spec.Basic.CancelOk])
         del self.callbacks[consumer_tag]
+
+
+class AsyncChannelHandler(ChannelHandler):
+
+    def _rpc(self, callback, method, acceptable_replies):
+        self._ensure()
+        self.connection._rpc(callback, self.channel_number, method, acceptable_replies)
+
+class AsyncChannel(Channel, spec.AsyncDriverMixin):
+
+    def basic_consume(self, consumer, queue = '', no_ack = False, exclusive = False, consumer_tag = None):
+        tag = consumer_tag
+        if not tag:
+            tag = 'ctag' + str(self.next_consumer_tag)
+            self.next_consumer_tag += 1
+
+        if tag in self.callbacks:
+            raise DuplicateConsumerTag(tag)
+
+        self.callbacks[tag] = consumer
+        return self.handler._rpc(spec.Basic.Consume(queue = queue,
+                                                    consumer_tag = tag,
+                                                    no_ack = no_ack,
+                                                    exclusive = exclusive),
+                                 [spec.Basic.ConsumeOk]).consumer_tag
+
+    def on_basic_consume_rpc_result(self):
+        pass
