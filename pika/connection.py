@@ -422,9 +422,10 @@ class Connection:
         else:
             self.channels[frame.channel_number].frame_handler(frame)
 
-def AsyncConnection(Connection):
+class AsyncConnection(Connection):
 
     async = True
+    _async_rpc_callbacks = []
 
     # Keep function signature the same as Connection but we will ignore wait_for_open
     def __init__(self, parameters, wait_for_open = False, reconnection_strategy = None):
@@ -438,6 +439,9 @@ def AsyncConnection(Connection):
 
         if wait_for_open:
             logging.warn("AsyncConnection received initialization parameter wait_for_open as true but is ignoring")
+
+    def channel(self):
+        return channel.AsyncChannel(channel.AsyncChannelHandler(self))
             
     def _login2(self, frame):
         channel_max = combine_tuning(self.parameters.channel_max, frame.method.channel_max)
@@ -458,17 +462,27 @@ def AsyncConnection(Connection):
                                      insist = True),
                                    [spec.Connection.OpenOk])
     def _login3(self, response):
+    
+        # Need to get the known hosts data
         self.connection_open = True
         self.handle_connection_open()
     
     def _rpc(self, callback, channel_number, method, acceptable_replies):
+        if callback:
+            self._async_rpc_callbacks.append({'method': method, 'callback': callback, 'acceptable_replies': acceptable_replies})
         channel = self._ensure_channel(channel_number)
         self.send_method(channel_number, method)
-        return channel.wait_for_reply(acceptable_replies)
 
     def _install_channel0(self):
         c = channel.AsyncChannelHandler(self, 0)
         c.async_map[spec.Connection.Close] = self._async_connection_close
+
+    def wait_for_open(self):
+        logging.error("In AsyncConnection wait_for_open which should not be used")
+        
+    def drain_events(self):
+        logging.error("In AsyncConnection drain_events which should not fire")
+
         
 def combine_tuning(a, b):
     if a == 0: return b

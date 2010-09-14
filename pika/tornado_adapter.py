@@ -92,9 +92,3 @@ class TornadoConnection(pika.connection.AsyncConnection):
     def flush_outbound(self):
         #select.select([self.sock], [self.sock], [self.sock])
         pass
-        
-    def drain_events(self, timeout=None):
-        #print self.connection_open
-        #time.sleep(1)
-        #sys.exit(-1)
-        pass

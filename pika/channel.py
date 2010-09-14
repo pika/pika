@@ -288,8 +288,28 @@ class AsyncChannelHandler(ChannelHandler):
         self._ensure()
         self.connection._rpc(callback, self.channel_number, method, acceptable_replies)
 
+    def flush_and_drain(self):
+        # Flush, and handle any traffic that's already arrived, but
+        # don't wait for more.
+        self.connection.flush_outbound()
+        # Don't drain (or block in a wait for things to finish)
+
 class AsyncChannel(Channel, spec.AsyncDriverMixin):
 
+    def __init__(self, handler):
+        self.handler = handler
+        self.callbacks = {}
+        self.pending = {}
+        self.next_consumer_tag = 0
+
+        handler.async_map[spec.Channel.Close] = handler._async_channel_close
+        handler.async_map[spec.Channel.Flow] = handler._async_channel_flow
+
+        handler.async_map[spec.Basic.Deliver] = self._async_basic_deliver
+        handler.async_map[spec.Basic.Return] = self._async_basic_return
+
+        self.handler._rpc(None, spec.Channel.Open(), [spec.Channel.OpenOk])
+        
     def basic_consume(self, consumer, queue = '', no_ack = False, exclusive = False, consumer_tag = None):
         tag = consumer_tag
         if not tag:
