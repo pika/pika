@@ -122,7 +122,7 @@ class ConnectionState:
 
     def __init__(self):
         self.channel_max = None
-        self.frame_max = None
+        self.frame_max = 131144
         self._return_to_idle()
 
     def tune(self, channel_max, frame_max):

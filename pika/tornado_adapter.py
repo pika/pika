@@ -9,6 +9,8 @@ import logging
 
 class TornadoConnection(pika.connection.AsyncConnection):
 
+    product = "Pika/Tornado"
+
     def delayed_call(self, delay_sec, callback):
         deadline = time.time() + delay_sec
         self.io_loop.add_timeout(deadline, callback)

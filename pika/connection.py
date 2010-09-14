@@ -349,7 +349,7 @@ class Connection:
             raise LoginError("No acceptable SASL mechanism for the given credentials",
                              credentials)
         self.send_method(0, spec.Connection.StartOk(client_properties = \
-                                                      {"product": "Pika Python AMQP Client Library"},
+                                                      {"product": self.product},
                                                     mechanism = response[0],
                                                     response = response[1]))
         self.erase_credentials()
@@ -442,6 +442,20 @@ class AsyncConnection(Connection):
 
     def channel(self):
         return channel.AsyncChannel(channel.AsyncChannelHandler(self))
+
+
+    def close(self, code = 200, text = 'Normal shutdown'):
+        logging.info("Closing AsyncConnection: %s" % text)
+        if self.connection_open:
+            self.connection_open = False
+            c = spec.Connection.Close(reply_code = code,
+                                      reply_text = text,
+                                      class_id = 0,
+                                      method_id = 0)
+            self._rpc(None, 0, c, [spec.Connection.CloseOk])
+            self._set_connection_close(c)
+        self._disconnect_transport()
+
             
     def _login2(self, frame):
         channel_max = combine_tuning(self.parameters.channel_max, frame.method.channel_max)
@@ -454,18 +468,36 @@ class AsyncConnection(Connection):
             channel_max = channel_max,
             frame_max = frame_max,
             heartbeat = heartbeat))
-        self.frame_handler = self._generic_frame_handler
+        self.frame_handler = None
         self._install_channel0()
-        self.frame_handler = self._login3
         self._rpc(self._login3, 0, spec.Connection.Open(virtual_host = \
                                                           self.parameters.virtual_host,
                                      insist = True),
                                    [spec.Connection.OpenOk])
-    def _login3(self, response):
-    
-        # Need to get the known hosts data
+
+    def _login3(self, frame):
+        self.known_hosts = frame.method.known_hosts
         self.connection_open = True
         self.handle_connection_open()
+
+    def on_data_available(self, buf):
+        while buf:
+            (consumed_count, frame) = self.state.handle_input(buf)
+            self.bytes_received = self.bytes_received + consumed_count
+            buf = buf[consumed_count:]
+            if frame:
+                processed = False
+                for callback in self._async_rpc_callbacks:
+                    for acceptable_reply in callback['acceptable_replies']:
+                        if isinstance(frame.method, acceptable_reply):
+                            callback['callback'](frame)
+                            processed = True
+                            break
+                    if processed:
+                        break
+
+                if processed is False and self.frame_handler:
+                    self.frame_handler(frame)
     
     def _rpc(self, callback, channel_number, method, acceptable_replies):
         if callback:
