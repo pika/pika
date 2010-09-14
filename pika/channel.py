@@ -46,6 +46,8 @@
 #
 # ***** END LICENSE BLOCK *****
 
+import logging
+
 import pika.spec as spec
 import pika.codec as codec
 import pika.event as event
@@ -129,7 +131,6 @@ class ChannelHandler:
     def _handle_async(self, method_frame, header_frame, body):
         method = method_frame.method
         methodClass = method.__class__
-
         if self.reply_map is not None and methodClass in self.reply_map:
             if header_frame is not None:
                 method._set_content(header_frame.properties, body)
@@ -188,6 +189,19 @@ class ChannelHandler:
 
     def content_transmission_forbidden(self):
         return not self.flow_active
+
+
+class AsyncChannelHandler(ChannelHandler):
+
+    def _rpc(self, callback, method, acceptable_replies):
+        self._ensure()
+        self.connection._rpc(callback, self.channel_number, method, acceptable_replies)
+
+    def flush_and_drain(self):
+        # Flush, and handle any traffic that's already arrived, but
+        # don't wait for more.
+        self.connection.flush_outbound()
+        # Don't drain (or block in a wait for things to finish)
 
 
 class BaseChannel:
@@ -283,20 +297,8 @@ class BaseChannel:
                           [spec.Basic.CancelOk])
         del self.callbacks[consumer_tag]
 
-class AsyncChannelHandler(ChannelHandler):
 
-    def _rpc(self, callback, method, acceptable_replies):
-        self._ensure()
-        self.connection._rpc(callback, self.channel_number, method, acceptable_replies)
-
-    def flush_and_drain(self):
-        # Flush, and handle any traffic that's already arrived, but
-        # don't wait for more.
-        self.connection.flush_outbound()
-        # Don't drain (or block in a wait for things to finish)
-
-
-class Channel(BaseChannel, spec.DriverMixin)
+class Channel(BaseChannel, spec.DriverMixin):
     pass
 
 
@@ -307,30 +309,36 @@ class AsyncChannel(BaseChannel, spec.AsyncDriverMixin):
         self.callbacks = {}
         self.pending = {}
         self.next_consumer_tag = 0
-
+        
         handler.async_map[spec.Channel.Close] = handler._async_channel_close
         handler.async_map[spec.Channel.Flow] = handler._async_channel_flow
 
         handler.async_map[spec.Basic.Deliver] = self._async_basic_deliver
         handler.async_map[spec.Basic.Return] = self._async_basic_return
 
-        self.handler._rpc(None, spec.Channel.Open(), [spec.Channel.OpenOk])
-        
+        self.handler._rpc(self.on_event_ok, spec.Channel.Open(), [spec.Channel.OpenOk])
+    
+    def _rpc(self, callback, method, acceptable_replies):
+        self.handler._rpc(callback, method, acceptable_replies)
+
+    def on_event_ok(self, frame):
+        logging.debug("Event Ok: %s" % str(frame.method))
+
     def basic_consume(self, consumer, queue = '', no_ack = False, exclusive = False, consumer_tag = None):
         tag = consumer_tag
         if not tag:
             tag = 'ctag' + str(self.next_consumer_tag)
             self.next_consumer_tag += 1
-
         if tag in self.callbacks:
             raise DuplicateConsumerTag(tag)
-
         self.callbacks[tag] = consumer
-        return self.handler._rpc(spec.Basic.Consume(queue = queue,
-                                                    consumer_tag = tag,
-                                                    no_ack = no_ack,
-                                                    exclusive = exclusive),
-                                 [spec.Basic.ConsumeOk]).consumer_tag
-
-    def on_basic_consume_rpc_result(self):
-        pass
+        self.handler._rpc(self.on_consume_ok, spec.Basic.Consume(queue = queue,
+                                                   consumer_tag = tag,
+                                                   no_ack = no_ack,
+                                                   exclusive = exclusive),
+                          [spec.Basic.ConsumeOk])
+    
+    def on_consume_ok(self, frame):
+        logging.debug("Consume Ok: %s" % str(frame.method))
+        self.handler._make_header_handler(frame)
+        

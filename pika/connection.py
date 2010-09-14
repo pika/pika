@@ -468,8 +468,9 @@ class AsyncConnection(Connection):
             channel_max = channel_max,
             frame_max = frame_max,
             heartbeat = heartbeat))
-        self.frame_handler = None
+        self.frame_handler = self._generic_frame_handler
         self._install_channel0()
+        self.frame_handler = None
         self._rpc(self._login3, 0, spec.Connection.Open(virtual_host = \
                                                           self.parameters.virtual_host,
                                      insist = True),
@@ -489,16 +490,24 @@ class AsyncConnection(Connection):
                 processed = False
                 for callback in self._async_rpc_callbacks:
                     for acceptable_reply in callback['acceptable_replies']:
-                        if isinstance(frame.method, acceptable_reply):
-                            callback['callback'](frame)
-                            processed = True
-                            break
+                        try:
+                            if isinstance(frame.method, acceptable_reply):
+                                callback['callback'](frame)
+                                processed = True
+                                break
+                        except AttributeError:
+                            continue
                     if processed:
                         break
 
-                if processed is False and self.frame_handler:
-                    self.frame_handler(frame)
-    
+                if processed is False:
+                    if self.frame_handler:
+                        frame_handler = self.frame_handler
+                        self.frame_handler = None
+                        frame_handler(frame)
+                    else:
+                        self.channels[frame.channel_number].frame_handler(frame)
+
     def _rpc(self, callback, channel_number, method, acceptable_replies):
         if callback:
             self._async_rpc_callbacks.append({'method': method, 'callback': callback, 'acceptable_replies': acceptable_replies})
