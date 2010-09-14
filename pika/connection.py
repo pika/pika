@@ -141,12 +141,6 @@ class NullReconnectionStrategy:
     def on_connection_closed(self, conn): pass
 
 class Connection:
-
-    # Allow this to be overwritten by the client app
-    product = "Pika Python AMQP Client Library"
-    _async_rpc_callbacks = []
-
-
     def __init__(self, parameters, wait_for_open = True, reconnection_strategy = None):
         self.parameters = parameters
         self.reconnection_strategy = reconnection_strategy or NullReconnectionStrategy()
@@ -331,12 +325,6 @@ class Connection:
         self.send_method(channel_number, method)
         return channel.wait_for_reply(acceptable_replies)
 
-    def _async_rpc(self, callback, channel_number, method, acceptable_replies):
-        if callback:
-            self._async_rpc_callbacks.append({'method': method, 'callback': callback, 'acceptable_replies': acceptable_replies})
-        channel = self._ensure_channel(channel_number)
-        self.send_method(channel_number, method)
-
     def _login1(self, frame):
         if isinstance(frame, codec.FrameProtocolHeader):
             raise ProtocolVersionMismatch(self._local_protocol_header(),
@@ -354,7 +342,7 @@ class Connection:
             raise LoginError("No acceptable SASL mechanism for the given credentials",
                              credentials)
         self.send_method(0, spec.Connection.StartOk(client_properties = \
-                                                      {"product": self.product},
+                                                      {"product": "Pika Python AMQP Client Library"},
                                                     mechanism = response[0],
                                                     response = response[1]))
         self.erase_credentials()
@@ -378,12 +366,11 @@ class Connection:
             heartbeat = heartbeat))
         self.frame_handler = self._generic_frame_handler
         self._install_channel0()
-        self.frame_handler = self._login3
-        self._async_rpc(self._login3, 0, spec.Connection.Open(virtual_host = \
-                                               self.parameters.virtual_host,
-                                     insist = True),
-                                   [spec.Connection.OpenOk])
-    def _login3(self, response):
+        self.known_hosts = \
+                         self._rpc(0, spec.Connection.Open(virtual_host = \
+                                                               self.parameters.virtual_host,
+                                                           insist = True),
+                                   [spec.Connection.OpenOk]).known_hosts
         self.connection_open = True
         self.handle_connection_open()
 
@@ -422,7 +409,7 @@ class Connection:
         self._set_connection_close(method_frame.method)
 
     def _generic_frame_handler(self, frame):
-        print "GENERIC_FRAME_HANDLER", frame
+        #print "GENERIC_FRAME_HANDLER", frame
         if isinstance(frame, codec.FrameHeartbeat):
             pass # we already counted the received bytes for our heartbeat checker
         else:

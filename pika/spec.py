@@ -2991,7 +2991,7 @@ def has_content(methodNumber):
 
 class DriverMixin:
     def exchange_declare(self, ticket = 1, exchange = None, type = 'direct', passive = False, durable = False, auto_delete = False, internal = False, nowait = False, arguments = {}):
-        self.handler._async_rpc(None, Exchange.Declare(ticket = ticket, exchange = exchange, type = type, passive = passive, durable = durable, auto_delete = auto_delete, internal = internal, nowait = nowait, arguments = arguments),
+        return self.handler._rpc(Exchange.Declare(ticket = ticket, exchange = exchange, type = type, passive = passive, durable = durable, auto_delete = auto_delete, internal = internal, nowait = nowait, arguments = arguments),
                                  [Exchange.DeclareOk])
 
     def exchange_delete(self, ticket = 1, exchange = None, if_unused = False, nowait = False):
@@ -2999,11 +2999,11 @@ class DriverMixin:
                                  [Exchange.DeleteOk])
 
     def queue_declare(self, ticket = 1, queue = '', passive = False, durable = False, exclusive = False, auto_delete = False, nowait = False, arguments = {}):
-        return self.handler._async_rpc(self.handler.ugly_callback, Queue.Declare(ticket = ticket, queue = queue, passive = passive, durable = durable, exclusive = exclusive, auto_delete = auto_delete, nowait = nowait, arguments = arguments),
+        return self.handler._rpc(Queue.Declare(ticket = ticket, queue = queue, passive = passive, durable = durable, exclusive = exclusive, auto_delete = auto_delete, nowait = nowait, arguments = arguments),
                                  [Queue.DeclareOk])
 
     def queue_bind(self, ticket = 1, queue = None, exchange = None, routing_key = '', nowait = False, arguments = {}):
-        return self.handler._async_rpc(self.handler.ugly_callback, Queue.Bind(ticket = ticket, queue = queue, exchange = exchange, routing_key = routing_key, nowait = nowait, arguments = arguments),
+        return self.handler._rpc(Queue.Bind(ticket = ticket, queue = queue, exchange = exchange, routing_key = routing_key, nowait = nowait, arguments = arguments),
                                  [Queue.BindOk])
 
     def queue_purge(self, ticket = 1, queue = None, nowait = False):

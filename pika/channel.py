@@ -182,20 +182,12 @@ class ChannelHandler:
         else:
             self.frame_handler = handler
 
-    def _async_rpc(self, callback, method, acceptable_replies):
-        self._ensure()
-        return self.connection._async_rpc(callback, self.channel_number, method, acceptable_replies)
-
     def _rpc(self, method, acceptable_replies):
         self._ensure()
         return self.connection._rpc(self.channel_number, method, acceptable_replies)
 
     def content_transmission_forbidden(self):
         return not self.flow_active
-        
-    def ugly_callback(self, response):
-        pass
-
 
 class Channel(spec.DriverMixin):
     def __init__(self, handler):
@@ -210,15 +202,7 @@ class Channel(spec.DriverMixin):
         handler.async_map[spec.Basic.Deliver] = self._async_basic_deliver
         handler.async_map[spec.Basic.Return] = self._async_basic_return
 
-        self.handler._async_rpc(self.ugly_callback, spec.Channel.Open(), [spec.Channel.OpenOk])
-        
-        
-    def ugly_callback(self, response):
-        print "UGLY CALLBACK"
-        print "------------------------"
-        print response
-        print "------------------------"
-        pass
+        self.handler._rpc(spec.Channel.Open(), [spec.Channel.OpenOk])
 
     def addStateChangeHandler(self, handler, key = None):
         self.handler.addStateChangeHandler(handler, key)
@@ -283,12 +267,11 @@ class Channel(spec.DriverMixin):
             raise DuplicateConsumerTag(tag)
 
         self.callbacks[tag] = consumer
-        self.handler._async_rpc(self.ugly_callback, spec.Basic.Consume(queue = queue,
+        return self.handler._rpc(spec.Basic.Consume(queue = queue,
                                                     consumer_tag = tag,
                                                     no_ack = no_ack,
                                                     exclusive = exclusive),
-                                 [spec.Basic.ConsumeOk])
-        
+                                 [spec.Basic.ConsumeOk]).consumer_tag
 
     def basic_cancel(self, consumer_tag):
         if not consumer_tag in self.callbacks:
