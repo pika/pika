@@ -515,7 +515,9 @@ class AsyncConnection(Connection):
     def drain_events(self):
         logging.error("In AsyncConnection drain_events which should not fire")
 
-        
+    def on_basic_get(self, frame):
+        logging.debug("This should be extended if you would like to consumer basic_get messages")
+    
 def combine_tuning(a, b):
     if a == 0: return b
     if b == 0: return a

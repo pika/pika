@@ -189,7 +189,9 @@ class ChannelHandler:
     def content_transmission_forbidden(self):
         return not self.flow_active
 
-class Channel(spec.DriverMixin):
+
+class BaseChannel:
+
     def __init__(self, handler):
         self.handler = handler
         self.callbacks = {}
@@ -281,7 +283,6 @@ class Channel(spec.DriverMixin):
                           [spec.Basic.CancelOk])
         del self.callbacks[consumer_tag]
 
-
 class AsyncChannelHandler(ChannelHandler):
 
     def _rpc(self, callback, method, acceptable_replies):
@@ -294,7 +295,12 @@ class AsyncChannelHandler(ChannelHandler):
         self.connection.flush_outbound()
         # Don't drain (or block in a wait for things to finish)
 
-class AsyncChannel(Channel, spec.AsyncDriverMixin):
+
+class Channel(BaseChannel, spec.DriverMixin)
+    pass
+
+
+class AsyncChannel(BaseChannel, spec.AsyncDriverMixin):
 
     def __init__(self, handler):
         self.handler = handler
