@@ -321,6 +321,17 @@ class AsyncChannel(BaseChannel, spec.AsyncDriverMixin):
     def _rpc(self, callback, method, acceptable_replies):
         self.handler._rpc(callback, method, acceptable_replies)
 
+    def close(self, code = 0, text = 'Normal close'):
+        try:
+            c = spec.Channel.Close(reply_code = code,
+                                   reply_text = text,
+                                   class_id = 0,
+                                   method_id = 0)
+            self.handler._rpc(None, c, [spec.Channel.CloseOk])
+        except ChannelClosed:
+            pass
+        self.handler._set_channel_close(c)
+
     def on_event_ok(self, frame):
         logging.debug("Event Ok: %s" % str(frame.method))
 
