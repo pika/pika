@@ -48,6 +48,7 @@
 
 import logging
 import random
+import uuid
 
 import pika.spec as spec
 import pika.codec as codec
@@ -334,8 +335,7 @@ class Connection:
 
     def _login1(self, frame):
         if isinstance(frame, codec.FrameProtocolHeader):
-            raise ProtocolVersionMismatch(self._local_protocol_header(),
-                                          frame)
+            raise ProtocolVersionMismatch(self._local_protocol_header(), frame)
 
         if (frame.method.version_major, frame.method.version_minor) != spec.PROTOCOL_VERSION:
             raise ProtocolVersionMismatch(self._local_protocol_header(),
@@ -349,7 +349,7 @@ class Connection:
             raise LoginError("No acceptable SASL mechanism for the given credentials",
                              credentials)
         self.send_method(0, spec.Connection.StartOk(client_properties = \
-                                                      {"product": self.product},
+                                                    {"product": self.product},
                                                     mechanism = response[0],
                                                     response = response[1]))
         self.erase_credentials()
@@ -373,8 +373,7 @@ class Connection:
             heartbeat = heartbeat))
         self.frame_handler = self._generic_frame_handler
         self._install_channel0()
-        self.known_hosts = \
-                         self._rpc(0, spec.Connection.Open(virtual_host = \
+        self.known_hosts = self._rpc(0, spec.Connection.Open(virtual_host = \
                                                                self.parameters.virtual_host,
                                                            insist = True),
                                    [spec.Connection.OpenOk]).known_hosts
@@ -424,24 +423,21 @@ class Connection:
 
 class AsyncConnection(Connection):
 
-    async = True
-    _async_rpc_callbacks = []
-    on_connect_callback = None
-
     # Keep function signature the same as Connection but we will ignore wait_for_open
     def __init__(self, parameters, wait_for_open = False, reconnection_strategy = None, callback = None):
         self.parameters = parameters
         self.reconnection_strategy = reconnection_strategy or NullReconnectionStrategy()
 
+        self._async_rpc_callbacks = {}
+        
         if callback:
-            self._async_rpc_callbacks.append({'method': spec.Connection.Open, 'callback': callback, 'acceptable_replies': [spec.Connection.OpenOk]})
+            self.on_login3_callback = callback
+        else:
+            self.on_login3_callback = None
 
         self.connection_state_change_event = event.Event()
-
         self._reset_per_connection_state()
         self.reconnect()
-
-
         if wait_for_open:
             logging.warn("AsyncConnection received initialization parameter wait_for_open as true but is ignoring")
 
@@ -473,8 +469,8 @@ class AsyncConnection(Connection):
             channel_max = channel_max,
             frame_max = frame_max,
             heartbeat = heartbeat))
-        self._install_channel0()
         self.frame_handler = None
+        self._install_channel0()
         self._rpc(self._login3, 0, spec.Connection.Open(virtual_host = \
                                                           self.parameters.virtual_host,
                                      insist = True),
@@ -485,15 +481,19 @@ class AsyncConnection(Connection):
         self.known_hosts = frame.method.known_hosts
         self.connection_open = True
         self.handle_connection_open()
-
+        if self.on_login3_callback:
+            self.on_login3_callback()
+        
     def on_data_available(self, buf):
+        remove = []
         while buf:
             (consumed_count, frame) = self.state.handle_input(buf)
             self.bytes_received = self.bytes_received + consumed_count
             buf = buf[consumed_count:]
             if frame:
                 processed = False
-                for callback in self._async_rpc_callbacks:
+                for callback_id in self._async_rpc_callbacks:
+                    callback = self._async_rpc_callbacks[callback_id]
                     acceptable = False
                     for acceptable_reply in callback['acceptable_replies']:
                         acceptable = True
@@ -503,11 +503,13 @@ class AsyncConnection(Connection):
                         try:
                             if isinstance(frame.method, acceptable_reply) or \
                                frame.method == acceptable_reply:
+                                remove.append(callback_id)
                                 callback['callback'](frame)
                                 processed = True
                                 break
                         except AttributeError:
                             continue
+                    position =+ 1
 
                 if processed is False:
                     if self.frame_handler:
@@ -517,9 +519,14 @@ class AsyncConnection(Connection):
                     else:
                         self.channels[frame.channel_number].frame_handler(frame)
 
+        for callback_id in remove:
+            del(self._async_rpc_callbacks[callback_id])
+
     def _rpc(self, callback, channel_number, method, acceptable_replies):
         if callback:
-            self._async_rpc_callbacks.append({'method': method, 'callback': callback, 'acceptable_replies': acceptable_replies})
+            callback_id = str(uuid.uuid4())
+            self._async_rpc_callbacks[callback_id] = {'method': method, 'callback': callback, 'acceptable_replies': acceptable_replies}
+
         channel = self._ensure_channel(channel_number)
         self.send_method(channel_number, method)
 
