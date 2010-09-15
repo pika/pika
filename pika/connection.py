@@ -426,16 +426,20 @@ class AsyncConnection(Connection):
 
     async = True
     _async_rpc_callbacks = []
+    on_connect_callback = None
 
     # Keep function signature the same as Connection but we will ignore wait_for_open
-    def __init__(self, parameters, wait_for_open = False, reconnection_strategy = None):
+    def __init__(self, parameters, wait_for_open = False, reconnection_strategy = None, callback = None):
         self.parameters = parameters
         self.reconnection_strategy = reconnection_strategy or NullReconnectionStrategy()
+
+        self.on_connect_callback = callback
 
         self.connection_state_change_event = event.Event()
 
         self._reset_per_connection_state()
         self.reconnect()
+
 
         if wait_for_open:
             logging.warn("AsyncConnection received initialization parameter wait_for_open as true but is ignoring")
@@ -480,6 +484,8 @@ class AsyncConnection(Connection):
         self.known_hosts = frame.method.known_hosts
         self.connection_open = True
         self.handle_connection_open()
+        if self.on_connect_callback:
+            self.on_connect_callback()
 
     def on_data_available(self, buf):
         while buf:

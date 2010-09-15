@@ -10,7 +10,7 @@ import logging
 class TornadoConnection(pika.connection.AsyncConnection):
 
     product = "Pika/Tornado"
-
+    
     def delayed_call(self, delay_sec, callback):
         deadline = time.time() + delay_sec
         self.io_loop.add_timeout(deadline, callback)
@@ -27,7 +27,7 @@ class TornadoConnection(pika.connection.AsyncConnection):
         self.io_loop.add_handler(self.sock.fileno(), self._handle_events, events)
         
         self._handle_write()
-        
+  
     def wait_for_open(self):
         logging.debug("In wait for open")
         while (not self.connection_open) and \
