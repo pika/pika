@@ -494,7 +494,12 @@ class AsyncConnection(Connection):
             if frame:
                 processed = False
                 for callback in self._async_rpc_callbacks:
+                    acceptable = False
                     for acceptable_reply in callback['acceptable_replies']:
+                        acceptable = True
+                        break
+                        
+                    if acceptable is True:
                         try:
                             if isinstance(frame.method, acceptable_reply) or \
                                frame.method == acceptable_reply:
