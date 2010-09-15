@@ -84,7 +84,7 @@ class TornadoConnection(pika.connection.AsyncConnection):
             self.outbound_buffer.consume(r)
             
         # Loop on this ever 0.1 second
-        if add_time is True:
+        if add_timer is True:
             self.delayed_call(0.1, self._handle_write)
          
     def disconnect_transport(self):
