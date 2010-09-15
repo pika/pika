@@ -427,9 +427,8 @@ class AsyncConnection(Connection):
     def __init__(self, parameters, wait_for_open = False, reconnection_strategy = None, callback = None):
         self.parameters = parameters
         self.reconnection_strategy = reconnection_strategy or NullReconnectionStrategy()
-
         self._async_rpc_callbacks = {}
-        
+
         if callback:
             self.on_login3_callback = callback
         else:
@@ -440,6 +439,7 @@ class AsyncConnection(Connection):
         self.reconnect()
         if wait_for_open:
             logging.warn("AsyncConnection received initialization parameter wait_for_open as true but is ignoring")
+
 
     def channel(self):
         return channel.AsyncChannel(channel.AsyncChannelHandler(self))
@@ -483,6 +483,7 @@ class AsyncConnection(Connection):
         self.handle_connection_open()
         if self.on_login3_callback:
             self.on_login3_callback()
+
         
     def on_data_available(self, buf):
         remove = []
@@ -519,8 +520,10 @@ class AsyncConnection(Connection):
                     else:
                         self.channels[frame.channel_number].frame_handler(frame)
 
+        # Remove any processed callbacks
         for callback_id in remove:
-            del(self._async_rpc_callbacks[callback_id])
+            if self._async_rpc_callbacks.has_key(callback_id):
+                  del(self._async_rpc_callbacks[callback_id])
 
     def _rpc(self, callback, channel_number, method, acceptable_replies):
         if callback:
