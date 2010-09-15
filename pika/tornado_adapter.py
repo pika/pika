@@ -23,10 +23,11 @@ class TornadoConnection(pika.connection.AsyncConnection):
         self.io_loop = tornado.ioloop.IOLoop.instance()
         self.handle_connection_open()
           
-        events = tornado.ioloop.IOLoop.READ | tornado.ioloop.IOLoop.WRITE | tornado.ioloop.IOLoop.ERROR
+        events = tornado.ioloop.IOLoop.READ | tornado.ioloop.IOLoop.ERROR
         self.io_loop.add_handler(self.sock.fileno(), self._handle_events, events)
         
-        self._handle_write()
+        self.delayed_call(0.1, self._handle_write)
+        
   
     def wait_for_open(self):
         logging.debug("In wait for open")
@@ -74,19 +75,22 @@ class TornadoConnection(pika.connection.AsyncConnection):
         self.on_data_available(chunk)
         
     def _handle_write(self):
-        fragment = self.outbound_buffer.read()
-        try:
-            r = self.sock.send(fragment)
-        except socket.error, e:
-            if e[0] in (errno.EWOULDBLOCK, errno.EAGAIN):
-                return
-            else:
-                logging.warning("Write error on %d: %s",
-                                self.sock.fileno(), e)
-                self.close()
-                return
-                
-        self.outbound_buffer.consume(r)
+        if len(self.outbound_buffer):
+            fragment = self.outbound_buffer.read()
+            try:
+                r = self.sock.send(fragment)
+            except socket.error, e:
+                if e[0] in (errno.EWOULDBLOCK, errno.EAGAIN):
+                    return
+                else:
+                    logging.warning("Write error on %d: %s",
+                                    self.sock.fileno(), e)
+                    self.close()
+                    return
+                    
+            self.outbound_buffer.consume(r)
+        self.delayed_call(0.1, self._handle_write)
+          
          
     def disconnect_transport(self):
         self.sock.close()
