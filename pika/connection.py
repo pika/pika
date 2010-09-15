@@ -433,7 +433,8 @@ class AsyncConnection(Connection):
         self.parameters = parameters
         self.reconnection_strategy = reconnection_strategy or NullReconnectionStrategy()
 
-        self.on_connect_callback = callback
+        if callback:
+            self._async_rpc_callbacks.append({'method': spec.Connection.Open, 'callback': callback, 'acceptable_replies': [spec.Connection.OpenOk]})
 
         self.connection_state_change_event = event.Event()
 
@@ -472,7 +473,6 @@ class AsyncConnection(Connection):
             channel_max = channel_max,
             frame_max = frame_max,
             heartbeat = heartbeat))
-        self.frame_handler = self._generic_frame_handler
         self._install_channel0()
         self.frame_handler = None
         self._rpc(self._login3, 0, spec.Connection.Open(virtual_host = \
@@ -481,11 +481,10 @@ class AsyncConnection(Connection):
                                    [spec.Connection.OpenOk])
 
     def _login3(self, frame):
+        self.frame_handler = None
         self.known_hosts = frame.method.known_hosts
         self.connection_open = True
         self.handle_connection_open()
-        if self.on_connect_callback:
-            self.on_connect_callback()
 
     def on_data_available(self, buf):
         while buf:
@@ -497,14 +496,13 @@ class AsyncConnection(Connection):
                 for callback in self._async_rpc_callbacks:
                     for acceptable_reply in callback['acceptable_replies']:
                         try:
-                            if isinstance(frame.method, acceptable_reply):
+                            if isinstance(frame.method, acceptable_reply) or \
+                               frame.method == acceptable_reply:
                                 callback['callback'](frame)
                                 processed = True
                                 break
                         except AttributeError:
                             continue
-                    if processed:
-                        break
 
                 if processed is False:
                     if self.frame_handler:
