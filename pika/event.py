@@ -69,7 +69,7 @@ class Event:
         for key in self.handlers:
             try:
                 results[key] = self.handlers[key](*args, **kwargs)
-            except:
+            except Exception: # avoid catching SystemExit, KeyboardInterrupt
                 errors[key] = sys.exc_info()
 
         if self.report_failures:
