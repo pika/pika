@@ -48,7 +48,7 @@
 # ***** END LICENSE BLOCK *****
 
 '''
-Example of simple consumer, waits one message, replies an ack and exits.
+Example of simple consumer. Acks each message as it arrives.
 '''
 
 import sys
