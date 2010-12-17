@@ -60,6 +60,11 @@ class RabbitDispatcher(asyncore.dispatcher):
         asyncore.dispatcher.__init__(self)
         self.connection = connection
 
+    def create_socket(self, socket_domain, socket_type):
+        asyncore.dispatcher.create_socket(self, socket_domain, socket_type)
+        # Disable TCP nagling for improved latency.
+        self.socket.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
+
     def handle_connect(self):
         self.connection.on_connected()
 
