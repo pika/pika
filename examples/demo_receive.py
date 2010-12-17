@@ -60,6 +60,12 @@ conn = pika.AsyncoreConnection(pika.ConnectionParameters(
         credentials = pika.PlainCredentials('guest', 'guest'),
         heartbeat = 10))
 
+def handle_connection_state_change(conn, is_connected):
+    if not is_connected:
+        print 'Was disconnected from server:', conn.connection_close
+        sys.exit(1)
+conn.addStateChangeHandler(handle_connection_state_change)
+
 print 'Connected to %r' % (conn.server_properties,)
 
 qname = (len(sys.argv) > 2) and sys.argv[2] or 'test'
