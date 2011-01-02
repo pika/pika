@@ -46,7 +46,9 @@
 #
 # ***** END LICENSE BLOCK *****
 
+import logging
 import random
+import uuid
 
 import pika.spec as spec
 import pika.codec as codec
@@ -141,6 +143,12 @@ class NullReconnectionStrategy:
     def on_connection_closed(self, conn): pass
 
 class Connection:
+
+    # Allow this to be overwritten by the client app
+    product = "Pika Python AMQP Client Library"
+
+    async = False
+    
     def __init__(self, parameters, wait_for_open = True, reconnection_strategy = None):
         self.parameters = parameters
         self.reconnection_strategy = reconnection_strategy or NullReconnectionStrategy()
@@ -327,8 +335,7 @@ class Connection:
 
     def _login1(self, frame):
         if isinstance(frame, codec.FrameProtocolHeader):
-            raise ProtocolVersionMismatch(self._local_protocol_header(),
-                                          frame)
+            raise ProtocolVersionMismatch(self._local_protocol_header(), frame)
 
         if (frame.method.version_major, frame.method.version_minor) != spec.PROTOCOL_VERSION:
             raise ProtocolVersionMismatch(self._local_protocol_header(),
@@ -342,7 +349,7 @@ class Connection:
             raise LoginError("No acceptable SASL mechanism for the given credentials",
                              credentials)
         self.send_method(0, spec.Connection.StartOk(client_properties = \
-                                                      {"product": "Pika Python AMQP Client Library"},
+                                                    {"product": self.product},
                                                     mechanism = response[0],
                                                     response = response[1]))
         self.erase_credentials()
@@ -366,8 +373,7 @@ class Connection:
             heartbeat = heartbeat))
         self.frame_handler = self._generic_frame_handler
         self._install_channel0()
-        self.known_hosts = \
-                         self._rpc(0, spec.Connection.Open(virtual_host = \
+        self.known_hosts = self._rpc(0, spec.Connection.Open(virtual_host = \
                                                                self.parameters.virtual_host,
                                                            insist = True),
                                    [spec.Connection.OpenOk]).known_hosts
@@ -415,6 +421,131 @@ class Connection:
         else:
             self.channels[frame.channel_number].frame_handler(frame)
 
+class AsyncConnection(Connection):
+
+    # Keep function signature the same as Connection but we will ignore wait_for_open
+    def __init__(self, parameters, wait_for_open = False, reconnection_strategy = None, callback = None):
+        self.parameters = parameters
+        self.reconnection_strategy = reconnection_strategy or NullReconnectionStrategy()
+        self._async_rpc_callbacks = {}
+
+        if callback:
+            self.on_login3_callback = callback
+        else:
+            self.on_login3_callback = None
+
+        self.connection_state_change_event = event.Event()
+        self._reset_per_connection_state()
+        self.reconnect()
+        if wait_for_open:
+            logging.warn("AsyncConnection received initialization parameter wait_for_open as true but is ignoring")
+
+
+    def channel(self):
+        return channel.AsyncChannel(channel.AsyncChannelHandler(self))
+
+
+    def close(self, code = 200, text = 'Normal shutdown'):
+        logging.info("Closing AsyncConnection: %s" % text)
+        if self.connection_open:
+            self.connection_open = False
+            c = spec.Connection.Close(reply_code = code,
+                                      reply_text = text,
+                                      class_id = 0,
+                                      method_id = 0)
+            self._rpc(None, 0, c, [spec.Connection.CloseOk])
+            self._set_connection_close(c)
+        self._disconnect_transport()
+
+            
+    def _login2(self, frame):
+        channel_max = combine_tuning(self.parameters.channel_max, frame.method.channel_max)
+        frame_max = combine_tuning(self.parameters.frame_max, frame.method.frame_max)
+        heartbeat = combine_tuning(self.parameters.heartbeat, frame.method.heartbeat)
+        if heartbeat:
+            self.heartbeat_checker = HeartbeatChecker(self, heartbeat)
+        self.state.tune(channel_max, frame_max)
+        self.send_method(0, spec.Connection.TuneOk(
+            channel_max = channel_max,
+            frame_max = frame_max,
+            heartbeat = heartbeat))
+        self.frame_handler = None
+        self._install_channel0()
+        self._rpc(self._login3, 0, spec.Connection.Open(virtual_host = \
+                                                          self.parameters.virtual_host,
+                                     insist = True),
+                                   [spec.Connection.OpenOk])
+
+    def _login3(self, frame):
+        self.frame_handler = None
+        self.known_hosts = frame.method.known_hosts
+        self.connection_open = True
+        self.handle_connection_open()
+        if self.on_login3_callback:
+            self.on_login3_callback()
+
+        
+    def on_data_available(self, buf):
+        remove = []
+        while buf:
+            (consumed_count, frame) = self.state.handle_input(buf)
+            self.bytes_received = self.bytes_received + consumed_count
+            buf = buf[consumed_count:]
+            if frame:
+                processed = False
+                for callback_id in self._async_rpc_callbacks:
+                    callback = self._async_rpc_callbacks[callback_id]
+                    acceptable = False
+                    for acceptable_reply in callback['acceptable_replies']:
+                        acceptable = True
+                        break
+                        
+                    if acceptable is True:
+                        try:
+                            if isinstance(frame.method, acceptable_reply) or \
+                               frame.method == acceptable_reply:
+                                remove.append(callback_id)
+                                callback['callback'](frame)
+                                processed = True
+                                break
+                        except AttributeError:
+                            continue
+                    position =+ 1
+
+                if processed is False:
+                    if self.frame_handler:
+                        frame_handler = self.frame_handler
+                        self.frame_handler = None
+                        frame_handler(frame)
+                    else:
+                        self.channels[frame.channel_number].frame_handler(frame)
+
+        # Remove any processed callbacks
+        for callback_id in remove:
+            if self._async_rpc_callbacks.has_key(callback_id):
+                  del(self._async_rpc_callbacks[callback_id])
+
+    def _rpc(self, callback, channel_number, method, acceptable_replies):
+        if callback:
+            callback_id = str(uuid.uuid4())
+            self._async_rpc_callbacks[callback_id] = {'method': method, 'callback': callback, 'acceptable_replies': acceptable_replies}
+
+        channel = self._ensure_channel(channel_number)
+        self.send_method(channel_number, method)
+
+    def _install_channel0(self):
+        c = channel.AsyncChannelHandler(self, 0)
+        c.async_map[spec.Connection.Close] = self._async_connection_close
+
+    def wait_for_open(self):
+        logging.error("In AsyncConnection wait_for_open which should not be used")
+        
+    def drain_events(self):
+        logging.error("In AsyncConnection drain_events which should not fire")
+
+    def on_basic_get(self, frame):
+        logging.debug("This should be extended if you would like to consumer basic_get messages")
+    
 def combine_tuning(a, b):
     if a == 0: return b
     if b == 0: return a
