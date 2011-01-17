@@ -354,6 +354,7 @@ def generate(specPath):
     print
 
     print "def has_content(methodNumber):"
+    print
     for m in spec.allMethods():
         if m.hasContent:
             print '    if methodNumber == %s.INDEX:' % m.structName()
@@ -375,11 +376,12 @@ def generate(specPath):
             print
             print "    def %s(self%s):" % (pyize(m.klass.name + '_' + m.name),
                                            fieldDeclList(m.arguments))
-            print "        return self.handler._rpc(%s, %s(%s)," % \
+            print
+            print "        return self.handler.rpc(%s, %s(%s)," % \
                   (callback, m.structName(),
                    ', '.join(["%s=%s" % (pyize(f.name), pyize(f.name))
                              for f in m.arguments]))
-            print "                                 [%s])" % \
+            print "                                [%s])" % \
                   (', '.join(acceptable_replies),)
 
 if __name__ == "__main__":
