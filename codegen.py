@@ -113,29 +113,29 @@ def generate(specPath):
         type = spec.resolveDomain(unresolved_domain)
         if type == 'shortstr':
             print prefix + "length = struct.unpack_from('B', encoded, offset)[0]"
-            print prefix + "offset = offset + 1"
+            print prefix + "offset += offset"
             print prefix + "%s = encoded[offset : offset + length]" % (cLvalue,)
-            print prefix + "offset = offset + length"
+            print prefix + "offset += length"
         elif type == 'longstr':
             print prefix + "length = struct.unpack_from('>I', encoded, offset)[0]"
-            print prefix + "offset = offset + 4"
+            print prefix + "offset += 4"
             print prefix + "%s = encoded[offset : offset + length]" % (cLvalue,)
-            print prefix + "offset = offset + length"
+            print prefix + "offset += length"
         elif type == 'octet':
             print prefix + "%s = struct.unpack_from('B', encoded, offset)[0]" % (cLvalue,)
-            print prefix + "offset = offset + 1"
+            print prefix + "offset += 1"
         elif type == 'short':
             print prefix + "%s = struct.unpack_from('>H', encoded, offset)[0]" % (cLvalue,)
-            print prefix + "offset = offset + 2"
+            print prefix + "offset += 2"
         elif type == 'long':
             print prefix + "%s = struct.unpack_from('>I', encoded, offset)[0]" % (cLvalue,)
-            print prefix + "offset = offset + 4"
+            print prefix + "offset += 4"
         elif type == 'longlong':
             print prefix + "%s = struct.unpack_from('>Q', encoded, offset)[0]" % (cLvalue,)
-            print prefix + "offset = offset + 8"
+            print prefix + "offset += 8"
         elif type == 'timestamp':
             print prefix + "%s = struct.unpack_from('>Q', encoded, offset)[0]" % (cLvalue,)
-            print prefix + "offset = offset + 8"
+            print prefix + "offset += 8"
         elif type == 'bit':
             raise "Can't decode bit in genSingleDecode"
         elif type == 'table':
@@ -178,12 +178,12 @@ def generate(specPath):
                     bitindex = 0
                 if bitindex >= 8:
                     bitindex = 0
-                if bitindex == 0:
+                if not bitindex:
                     print "            bit_buffer = struct.unpack_from('B', encoded, offset)[0]"
-                    print "            offset = offset + 1"
+                    print "            offset += 1"
                 print "            self.%s = (bit_buffer & (1 << %d)) != 0" % \
                       (pyize(f.name), bitindex)
-                bitindex = bitindex + 1
+                bitindex += 1
             else:
                 bitindex = None
                 genSingleDecode("            ", "self.%s" % (pyize(f.name),), f.domain)
@@ -191,20 +191,20 @@ def generate(specPath):
         print
 
     def genDecodeProperties(c):
-        print "    def decode(self, encoded, offset = 0):"
+        print "    def decode(self, encoded, offset=0):"
         print "        flags = 0"
         print "        flagword_index = 0"
         print "        while True:"
         print "            partial_flags = struct.unpack_from('>H', encoded, offset)[0]"
-        print "            offset = offset + 2"
+        print "            offset += 2"
         print "            flags = flags | (partial_flags << (flagword_index * 16))"
-        print "            if (partial_flags & 1) == 0: break"
-        print "            flagword_index = flagword_index + 1"
+        print "            if not (partial_flags & 1): break"
+        print "            flagword_index += 1"
         for f in c.fields:
             if spec.resolveDomain(f.domain) == 'bit':
                 print "        self.%s = (flags & %s) != 0" % (pyize(f.name), flagName(c, f))
             else:
-                print "        if (flags & %s):" % (flagName(c, f),)
+                print "        if flags & %s:" % (flagName(c, f),)
                 genSingleDecode("            ", "self.%s" % (pyize(f.name),), f.domain)
                 print "        else:"
                 print "            self.%s = None" % (pyize(f.name),)
@@ -229,7 +229,7 @@ def generate(specPath):
                     bitindex = 0
                 print "            if self.%s: bit_buffer = bit_buffer | (1 << %d)" % \
                       (pyize(f.name), bitindex)
-                bitindex = bitindex + 1
+                bitindex += 1
             else:
                 finishBits()
                 bitindex = None
@@ -256,16 +256,16 @@ def generate(specPath):
         print "            if remainder != 0: partial_flags = partial_flags | 1"
         print "            flag_pieces.append(struct.pack('>H', partial_flags))"
         print "            flags = remainder"
-        print "            if flags == 0: break"
+        print "            if not flags: break"
         print "        return flag_pieces + pieces"
         print
 
     def fieldDeclList(fields):
-        return ''.join([", %s = %s" % (pyize(f.name), fieldvalue(f.defaultvalue)) for f in fields])
+        return ''.join([", %s=%s" % (pyize(f.name), fieldvalue(f.defaultvalue)) for f in fields])
 
     def fieldInitList(prefix, fields):
         if fields:
-            return ''.join(["%sself.%s = %s\n" % (prefix, pyize(f.name), pyize(f.name)) \
+            return ''.join(["%sself.%s=%s\n" % (prefix, pyize(f.name), pyize(f.name)) \
                             for f in fields])
         else:
             return '%spass' % (prefix,)
@@ -277,7 +277,7 @@ def generate(specPath):
     print 'import pika.table'
     print
     print "PROTOCOL_VERSION = (%d, %d)" % (spec.major, spec.minor)
-    print "PORT = %d" % (spec.port)
+    print "PORT = %d" % spec.port
     print
 
     for (c,v,cls) in spec.constants:
@@ -315,12 +315,12 @@ def generate(specPath):
             if c.fields:
                 for f in c.fields:
                     if index % 16 == 15:
-                        index = index + 1
+                        index += 1
                     shortnum = index / 16
                     partialindex = 15 - (index % 16)
                     bitindex = shortnum * 16 + partialindex
                     print '    %s = (1 << %d)' % (flagName(None, f), bitindex)
-                    index = index + 1
+                    index += 1
                 print
 
             print "    def __init__(self%s):" % (fieldDeclList(c.fields),)
@@ -352,11 +352,18 @@ def generate(specPath):
     for m in spec.allMethods():
         if m.structName() in DRIVER_METHODS:
             acceptable_replies = DRIVER_METHODS[m.structName()]
+
+            if m.isSynchronous:
+                callback = "None"
+            else:
+                callback = "self.on_event_ok"
+
             print "    def %s(self%s):" % (pyize(m.klass.name + '_' + m.name),
                                            fieldDeclList(m.arguments))
-            print "        return self.handler._rpc(%s(%s)," % \
-                  (m.structName(), ', '.join(["%s = %s" % (pyize(f.name), pyize(f.name))
-                                              for f in m.arguments]))
+            print "        return self.handler._rpc(%s, %s(%s)," % \
+                  (callback, m.structName(),
+                   ', '.join(["%s=%s" % (pyize(f.name), pyize(f.name))
+                             for f in m.arguments]))
             print "                                 [%s])" % \
                   (', '.join(acceptable_replies),)
             print

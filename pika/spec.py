@@ -4,21 +4,16 @@ import struct
 import pika.specbase
 import pika.table
 
-PROTOCOL_VERSION = (8, 0)
+PROTOCOL_VERSION = (0, 9)
 PORT = 5672
 
 FRAME_METHOD = 1
 FRAME_HEADER = 2
 FRAME_BODY = 3
-FRAME_OOB_METHOD = 4
-FRAME_OOB_HEADER = 5
-FRAME_OOB_BODY = 6
-FRAME_TRACE = 7
 FRAME_HEARTBEAT = 8
 FRAME_MIN_SIZE = 4096
 FRAME_END = 206
 REPLY_SUCCESS = 200
-NOT_DELIVERED = 310
 CONTENT_TOO_LARGE = 311
 NO_ROUTE = 312
 NO_CONSUMERS = 313
@@ -32,6 +27,7 @@ FRAME_ERROR = 501
 SYNTAX_ERROR = 502
 COMMAND_INVALID = 503
 CHANNEL_ERROR = 504
+UNEXPECTED_FRAME = 505
 RESOURCE_ERROR = 506
 NOT_ALLOWED = 530
 NOT_IMPLEMENTED = 540
@@ -44,27 +40,27 @@ class Connection(pika.specbase.Class):
     class Start(pika.specbase.Method):
         INDEX = 0x000A000A ## 10, 10; 655370
         NAME = 'Connection.Start'
-        def __init__(self, version_major = 0, version_minor = 8, server_properties = None, mechanisms = 'PLAIN', locales = 'en_US'):
-            self.version_major = version_major
-            self.version_minor = version_minor
-            self.server_properties = server_properties
-            self.mechanisms = mechanisms
-            self.locales = locales
+        def __init__(self, version_major=0, version_minor=9, server_properties=None, mechanisms='PLAIN', locales='en_US'):
+            self.version_major=version_major
+            self.version_minor=version_minor
+            self.server_properties=server_properties
+            self.mechanisms=mechanisms
+            self.locales=locales
 
         def decode(self, encoded, offset = 0):
             self.version_major = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += 1
             self.version_minor = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += 1
             (self.server_properties, offset) = pika.table.decode_table(encoded, offset)
             length = struct.unpack_from('>I', encoded, offset)[0]
-            offset = offset + 4
+            offset += 4
             self.mechanisms = encoded[offset : offset + length]
-            offset = offset + length
+            offset += length
             length = struct.unpack_from('>I', encoded, offset)[0]
-            offset = offset + 4
+            offset += 4
             self.locales = encoded[offset : offset + length]
-            offset = offset + length
+            offset += length
             return self
 
         def encode(self):
@@ -81,26 +77,26 @@ class Connection(pika.specbase.Class):
     class StartOk(pika.specbase.Method):
         INDEX = 0x000A000B ## 10, 11; 655371
         NAME = 'Connection.StartOk'
-        def __init__(self, client_properties = None, mechanism = 'PLAIN', response = None, locale = 'en_US'):
-            self.client_properties = client_properties
-            self.mechanism = mechanism
-            self.response = response
-            self.locale = locale
+        def __init__(self, client_properties=None, mechanism='PLAIN', response=None, locale='en_US'):
+            self.client_properties=client_properties
+            self.mechanism=mechanism
+            self.response=response
+            self.locale=locale
 
         def decode(self, encoded, offset = 0):
             (self.client_properties, offset) = pika.table.decode_table(encoded, offset)
             length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += offset
             self.mechanism = encoded[offset : offset + length]
-            offset = offset + length
+            offset += length
             length = struct.unpack_from('>I', encoded, offset)[0]
-            offset = offset + 4
+            offset += 4
             self.response = encoded[offset : offset + length]
-            offset = offset + length
+            offset += length
             length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += offset
             self.locale = encoded[offset : offset + length]
-            offset = offset + length
+            offset += length
             return self
 
         def encode(self):
@@ -117,14 +113,14 @@ class Connection(pika.specbase.Class):
     class Secure(pika.specbase.Method):
         INDEX = 0x000A0014 ## 10, 20; 655380
         NAME = 'Connection.Secure'
-        def __init__(self, challenge = None):
-            self.challenge = challenge
+        def __init__(self, challenge=None):
+            self.challenge=challenge
 
         def decode(self, encoded, offset = 0):
             length = struct.unpack_from('>I', encoded, offset)[0]
-            offset = offset + 4
+            offset += 4
             self.challenge = encoded[offset : offset + length]
-            offset = offset + length
+            offset += length
             return self
 
         def encode(self):
@@ -136,14 +132,14 @@ class Connection(pika.specbase.Class):
     class SecureOk(pika.specbase.Method):
         INDEX = 0x000A0015 ## 10, 21; 655381
         NAME = 'Connection.SecureOk'
-        def __init__(self, response = None):
-            self.response = response
+        def __init__(self, response=None):
+            self.response=response
 
         def decode(self, encoded, offset = 0):
             length = struct.unpack_from('>I', encoded, offset)[0]
-            offset = offset + 4
+            offset += 4
             self.response = encoded[offset : offset + length]
-            offset = offset + length
+            offset += length
             return self
 
         def encode(self):
@@ -155,18 +151,18 @@ class Connection(pika.specbase.Class):
     class Tune(pika.specbase.Method):
         INDEX = 0x000A001E ## 10, 30; 655390
         NAME = 'Connection.Tune'
-        def __init__(self, channel_max = 0, frame_max = 0, heartbeat = 0):
-            self.channel_max = channel_max
-            self.frame_max = frame_max
-            self.heartbeat = heartbeat
+        def __init__(self, channel_max=0, frame_max=0, heartbeat=0):
+            self.channel_max=channel_max
+            self.frame_max=frame_max
+            self.heartbeat=heartbeat
 
         def decode(self, encoded, offset = 0):
             self.channel_max = struct.unpack_from('>H', encoded, offset)[0]
-            offset = offset + 2
+            offset += 2
             self.frame_max = struct.unpack_from('>I', encoded, offset)[0]
-            offset = offset + 4
+            offset += 4
             self.heartbeat = struct.unpack_from('>H', encoded, offset)[0]
-            offset = offset + 2
+            offset += 2
             return self
 
         def encode(self):
@@ -179,18 +175,18 @@ class Connection(pika.specbase.Class):
     class TuneOk(pika.specbase.Method):
         INDEX = 0x000A001F ## 10, 31; 655391
         NAME = 'Connection.TuneOk'
-        def __init__(self, channel_max = 0, frame_max = 0, heartbeat = 0):
-            self.channel_max = channel_max
-            self.frame_max = frame_max
-            self.heartbeat = heartbeat
+        def __init__(self, channel_max=0, frame_max=0, heartbeat=0):
+            self.channel_max=channel_max
+            self.frame_max=frame_max
+            self.heartbeat=heartbeat
 
         def decode(self, encoded, offset = 0):
             self.channel_max = struct.unpack_from('>H', encoded, offset)[0]
-            offset = offset + 2
+            offset += 2
             self.frame_max = struct.unpack_from('>I', encoded, offset)[0]
-            offset = offset + 4
+            offset += 4
             self.heartbeat = struct.unpack_from('>H', encoded, offset)[0]
-            offset = offset + 2
+            offset += 2
             return self
 
         def encode(self):
@@ -203,22 +199,22 @@ class Connection(pika.specbase.Class):
     class Open(pika.specbase.Method):
         INDEX = 0x000A0028 ## 10, 40; 655400
         NAME = 'Connection.Open'
-        def __init__(self, virtual_host = '/', capabilities = '', insist = False):
-            self.virtual_host = virtual_host
-            self.capabilities = capabilities
-            self.insist = insist
+        def __init__(self, virtual_host='/', capabilities='', insist=False):
+            self.virtual_host=virtual_host
+            self.capabilities=capabilities
+            self.insist=insist
 
         def decode(self, encoded, offset = 0):
             length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += offset
             self.virtual_host = encoded[offset : offset + length]
-            offset = offset + length
+            offset += length
             length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += offset
             self.capabilities = encoded[offset : offset + length]
-            offset = offset + length
+            offset += length
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += 1
             self.insist = (bit_buffer & (1 << 0)) != 0
             return self
 
@@ -236,68 +232,42 @@ class Connection(pika.specbase.Class):
     class OpenOk(pika.specbase.Method):
         INDEX = 0x000A0029 ## 10, 41; 655401
         NAME = 'Connection.OpenOk'
-        def __init__(self, known_hosts = ''):
-            self.known_hosts = known_hosts
+        def __init__(self, known_hosts=''):
+            self.known_hosts=known_hosts
 
         def decode(self, encoded, offset = 0):
             length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += offset
             self.known_hosts = encoded[offset : offset + length]
-            offset = offset + length
+            offset += length
             return self
 
         def encode(self):
             pieces = []
-            pieces.append(struct.pack('B', len(self.known_hosts)))
-            pieces.append(self.known_hosts)
-            return pieces
-
-    class Redirect(pika.specbase.Method):
-        INDEX = 0x000A0032 ## 10, 50; 655410
-        NAME = 'Connection.Redirect'
-        def __init__(self, host = None, known_hosts = ''):
-            self.host = host
-            self.known_hosts = known_hosts
-
-        def decode(self, encoded, offset = 0):
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            self.host = encoded[offset : offset + length]
-            offset = offset + length
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            self.known_hosts = encoded[offset : offset + length]
-            offset = offset + length
-            return self
-
-        def encode(self):
-            pieces = []
-            pieces.append(struct.pack('B', len(self.host)))
-            pieces.append(self.host)
             pieces.append(struct.pack('B', len(self.known_hosts)))
             pieces.append(self.known_hosts)
             return pieces
 
     class Close(pika.specbase.Method):
-        INDEX = 0x000A003C ## 10, 60; 655420
+        INDEX = 0x000A0032 ## 10, 50; 655410
         NAME = 'Connection.Close'
-        def __init__(self, reply_code = None, reply_text = '', class_id = None, method_id = None):
-            self.reply_code = reply_code
-            self.reply_text = reply_text
-            self.class_id = class_id
-            self.method_id = method_id
+        def __init__(self, reply_code=None, reply_text='', class_id=None, method_id=None):
+            self.reply_code=reply_code
+            self.reply_text=reply_text
+            self.class_id=class_id
+            self.method_id=method_id
 
         def decode(self, encoded, offset = 0):
             self.reply_code = struct.unpack_from('>H', encoded, offset)[0]
-            offset = offset + 2
+            offset += 2
             length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += offset
             self.reply_text = encoded[offset : offset + length]
-            offset = offset + length
+            offset += length
             self.class_id = struct.unpack_from('>H', encoded, offset)[0]
-            offset = offset + 2
+            offset += 2
             self.method_id = struct.unpack_from('>H', encoded, offset)[0]
-            offset = offset + 2
+            offset += 2
             return self
 
         def encode(self):
@@ -310,7 +280,7 @@ class Connection(pika.specbase.Class):
             return pieces
 
     class CloseOk(pika.specbase.Method):
-        INDEX = 0x000A003D ## 10, 61; 655421
+        INDEX = 0x000A0033 ## 10, 51; 655411
         NAME = 'Connection.CloseOk'
         def __init__(self):
             pass
@@ -328,14 +298,14 @@ class Channel(pika.specbase.Class):
     class Open(pika.specbase.Method):
         INDEX = 0x0014000A ## 20, 10; 1310730
         NAME = 'Channel.Open'
-        def __init__(self, out_of_band = ''):
-            self.out_of_band = out_of_band
+        def __init__(self, out_of_band=''):
+            self.out_of_band=out_of_band
 
         def decode(self, encoded, offset = 0):
             length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += offset
             self.out_of_band = encoded[offset : offset + length]
-            offset = offset + length
+            offset += length
             return self
 
         def encode(self):
@@ -347,24 +317,31 @@ class Channel(pika.specbase.Class):
     class OpenOk(pika.specbase.Method):
         INDEX = 0x0014000B ## 20, 11; 1310731
         NAME = 'Channel.OpenOk'
-        def __init__(self):
-            pass
+        def __init__(self, channel_id=''):
+            self.channel_id=channel_id
+
         def decode(self, encoded, offset = 0):
+            length = struct.unpack_from('>I', encoded, offset)[0]
+            offset += 4
+            self.channel_id = encoded[offset : offset + length]
+            offset += length
             return self
 
         def encode(self):
             pieces = []
+            pieces.append(struct.pack('>I', len(self.channel_id)))
+            pieces.append(self.channel_id)
             return pieces
 
     class Flow(pika.specbase.Method):
         INDEX = 0x00140014 ## 20, 20; 1310740
         NAME = 'Channel.Flow'
-        def __init__(self, active = None):
-            self.active = active
+        def __init__(self, active=None):
+            self.active=active
 
         def decode(self, encoded, offset = 0):
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += 1
             self.active = (bit_buffer & (1 << 0)) != 0
             return self
 
@@ -378,12 +355,12 @@ class Channel(pika.specbase.Class):
     class FlowOk(pika.specbase.Method):
         INDEX = 0x00140015 ## 20, 21; 1310741
         NAME = 'Channel.FlowOk'
-        def __init__(self, active = None):
-            self.active = active
+        def __init__(self, active=None):
+            self.active=active
 
         def decode(self, encoded, offset = 0):
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += 1
             self.active = (bit_buffer & (1 << 0)) != 0
             return self
 
@@ -394,52 +371,26 @@ class Channel(pika.specbase.Class):
             pieces.append(struct.pack('B', bit_buffer))
             return pieces
 
-    class Alert(pika.specbase.Method):
-        INDEX = 0x0014001E ## 20, 30; 1310750
-        NAME = 'Channel.Alert'
-        def __init__(self, reply_code = None, reply_text = '', details = {}):
-            self.reply_code = reply_code
-            self.reply_text = reply_text
-            self.details = details
-
-        def decode(self, encoded, offset = 0):
-            self.reply_code = struct.unpack_from('>H', encoded, offset)[0]
-            offset = offset + 2
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            self.reply_text = encoded[offset : offset + length]
-            offset = offset + length
-            (self.details, offset) = pika.table.decode_table(encoded, offset)
-            return self
-
-        def encode(self):
-            pieces = []
-            pieces.append(struct.pack('>H', self.reply_code))
-            pieces.append(struct.pack('B', len(self.reply_text)))
-            pieces.append(self.reply_text)
-            pika.table.encode_table(pieces, self.details)
-            return pieces
-
     class Close(pika.specbase.Method):
         INDEX = 0x00140028 ## 20, 40; 1310760
         NAME = 'Channel.Close'
-        def __init__(self, reply_code = None, reply_text = '', class_id = None, method_id = None):
-            self.reply_code = reply_code
-            self.reply_text = reply_text
-            self.class_id = class_id
-            self.method_id = method_id
+        def __init__(self, reply_code=None, reply_text='', class_id=None, method_id=None):
+            self.reply_code=reply_code
+            self.reply_text=reply_text
+            self.class_id=class_id
+            self.method_id=method_id
 
         def decode(self, encoded, offset = 0):
             self.reply_code = struct.unpack_from('>H', encoded, offset)[0]
-            offset = offset + 2
+            offset += 2
             length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += offset
             self.reply_text = encoded[offset : offset + length]
-            offset = offset + length
+            offset += length
             self.class_id = struct.unpack_from('>H', encoded, offset)[0]
-            offset = offset + 2
+            offset += 2
             self.method_id = struct.unpack_from('>H', encoded, offset)[0]
-            offset = offset + 2
+            offset += 2
             return self
 
         def encode(self):
@@ -470,21 +421,21 @@ class Access(pika.specbase.Class):
     class Request(pika.specbase.Method):
         INDEX = 0x001E000A ## 30, 10; 1966090
         NAME = 'Access.Request'
-        def __init__(self, realm = '/data', exclusive = False, passive = True, active = True, write = True, read = True):
-            self.realm = realm
-            self.exclusive = exclusive
-            self.passive = passive
-            self.active = active
-            self.write = write
-            self.read = read
+        def __init__(self, realm='/data', exclusive=False, passive=True, active=True, write=True, read=True):
+            self.realm=realm
+            self.exclusive=exclusive
+            self.passive=passive
+            self.active=active
+            self.write=write
+            self.read=read
 
         def decode(self, encoded, offset = 0):
             length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += offset
             self.realm = encoded[offset : offset + length]
-            offset = offset + length
+            offset += length
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += 1
             self.exclusive = (bit_buffer & (1 << 0)) != 0
             self.passive = (bit_buffer & (1 << 1)) != 0
             self.active = (bit_buffer & (1 << 2)) != 0
@@ -508,12 +459,12 @@ class Access(pika.specbase.Class):
     class RequestOk(pika.specbase.Method):
         INDEX = 0x001E000B ## 30, 11; 1966091
         NAME = 'Access.RequestOk'
-        def __init__(self, ticket = 1):
-            self.ticket = ticket
+        def __init__(self, ticket=1):
+            self.ticket=ticket
 
         def decode(self, encoded, offset = 0):
             self.ticket = struct.unpack_from('>H', encoded, offset)[0]
-            offset = offset + 2
+            offset += 2
             return self
 
         def encode(self):
@@ -528,30 +479,30 @@ class Exchange(pika.specbase.Class):
     class Declare(pika.specbase.Method):
         INDEX = 0x0028000A ## 40, 10; 2621450
         NAME = 'Exchange.Declare'
-        def __init__(self, ticket = 1, exchange = None, type = 'direct', passive = False, durable = False, auto_delete = False, internal = False, nowait = False, arguments = {}):
-            self.ticket = ticket
-            self.exchange = exchange
-            self.type = type
-            self.passive = passive
-            self.durable = durable
-            self.auto_delete = auto_delete
-            self.internal = internal
-            self.nowait = nowait
-            self.arguments = arguments
+        def __init__(self, ticket=0, exchange=None, type='direct', passive=False, durable=False, auto_delete=False, internal=False, nowait=False, arguments={}):
+            self.ticket=ticket
+            self.exchange=exchange
+            self.type=type
+            self.passive=passive
+            self.durable=durable
+            self.auto_delete=auto_delete
+            self.internal=internal
+            self.nowait=nowait
+            self.arguments=arguments
 
         def decode(self, encoded, offset = 0):
             self.ticket = struct.unpack_from('>H', encoded, offset)[0]
-            offset = offset + 2
+            offset += 2
             length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += offset
             self.exchange = encoded[offset : offset + length]
-            offset = offset + length
+            offset += length
             length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += offset
             self.type = encoded[offset : offset + length]
-            offset = offset + length
+            offset += length
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += 1
             self.passive = (bit_buffer & (1 << 0)) != 0
             self.durable = (bit_buffer & (1 << 1)) != 0
             self.auto_delete = (bit_buffer & (1 << 2)) != 0
@@ -592,21 +543,21 @@ class Exchange(pika.specbase.Class):
     class Delete(pika.specbase.Method):
         INDEX = 0x00280014 ## 40, 20; 2621460
         NAME = 'Exchange.Delete'
-        def __init__(self, ticket = 1, exchange = None, if_unused = False, nowait = False):
-            self.ticket = ticket
-            self.exchange = exchange
-            self.if_unused = if_unused
-            self.nowait = nowait
+        def __init__(self, ticket=0, exchange=None, if_unused=False, nowait=False):
+            self.ticket=ticket
+            self.exchange=exchange
+            self.if_unused=if_unused
+            self.nowait=nowait
 
         def decode(self, encoded, offset = 0):
             self.ticket = struct.unpack_from('>H', encoded, offset)[0]
-            offset = offset + 2
+            offset += 2
             length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += offset
             self.exchange = encoded[offset : offset + length]
-            offset = offset + length
+            offset += length
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += 1
             self.if_unused = (bit_buffer & (1 << 0)) != 0
             self.nowait = (bit_buffer & (1 << 1)) != 0
             return self
@@ -634,6 +585,124 @@ class Exchange(pika.specbase.Class):
             pieces = []
             return pieces
 
+    class Bind(pika.specbase.Method):
+        INDEX = 0x0028001E ## 40, 30; 2621470
+        NAME = 'Exchange.Bind'
+        def __init__(self, ticket=0, destination=None, source=None, routing_key='', nowait=False, arguments={}):
+            self.ticket=ticket
+            self.destination=destination
+            self.source=source
+            self.routing_key=routing_key
+            self.nowait=nowait
+            self.arguments=arguments
+
+        def decode(self, encoded, offset = 0):
+            self.ticket = struct.unpack_from('>H', encoded, offset)[0]
+            offset += 2
+            length = struct.unpack_from('B', encoded, offset)[0]
+            offset += offset
+            self.destination = encoded[offset : offset + length]
+            offset += length
+            length = struct.unpack_from('B', encoded, offset)[0]
+            offset += offset
+            self.source = encoded[offset : offset + length]
+            offset += length
+            length = struct.unpack_from('B', encoded, offset)[0]
+            offset += offset
+            self.routing_key = encoded[offset : offset + length]
+            offset += length
+            bit_buffer = struct.unpack_from('B', encoded, offset)[0]
+            offset += 1
+            self.nowait = (bit_buffer & (1 << 0)) != 0
+            (self.arguments, offset) = pika.table.decode_table(encoded, offset)
+            return self
+
+        def encode(self):
+            pieces = []
+            pieces.append(struct.pack('>H', self.ticket))
+            pieces.append(struct.pack('B', len(self.destination)))
+            pieces.append(self.destination)
+            pieces.append(struct.pack('B', len(self.source)))
+            pieces.append(self.source)
+            pieces.append(struct.pack('B', len(self.routing_key)))
+            pieces.append(self.routing_key)
+            bit_buffer = 0;
+            if self.nowait: bit_buffer = bit_buffer | (1 << 0)
+            pieces.append(struct.pack('B', bit_buffer))
+            pika.table.encode_table(pieces, self.arguments)
+            return pieces
+
+    class BindOk(pika.specbase.Method):
+        INDEX = 0x0028001F ## 40, 31; 2621471
+        NAME = 'Exchange.BindOk'
+        def __init__(self):
+            pass
+        def decode(self, encoded, offset = 0):
+            return self
+
+        def encode(self):
+            pieces = []
+            return pieces
+
+    class Unbind(pika.specbase.Method):
+        INDEX = 0x00280028 ## 40, 40; 2621480
+        NAME = 'Exchange.Unbind'
+        def __init__(self, ticket=0, destination=None, source=None, routing_key='', nowait=False, arguments={}):
+            self.ticket=ticket
+            self.destination=destination
+            self.source=source
+            self.routing_key=routing_key
+            self.nowait=nowait
+            self.arguments=arguments
+
+        def decode(self, encoded, offset = 0):
+            self.ticket = struct.unpack_from('>H', encoded, offset)[0]
+            offset += 2
+            length = struct.unpack_from('B', encoded, offset)[0]
+            offset += offset
+            self.destination = encoded[offset : offset + length]
+            offset += length
+            length = struct.unpack_from('B', encoded, offset)[0]
+            offset += offset
+            self.source = encoded[offset : offset + length]
+            offset += length
+            length = struct.unpack_from('B', encoded, offset)[0]
+            offset += offset
+            self.routing_key = encoded[offset : offset + length]
+            offset += length
+            bit_buffer = struct.unpack_from('B', encoded, offset)[0]
+            offset += 1
+            self.nowait = (bit_buffer & (1 << 0)) != 0
+            (self.arguments, offset) = pika.table.decode_table(encoded, offset)
+            return self
+
+        def encode(self):
+            pieces = []
+            pieces.append(struct.pack('>H', self.ticket))
+            pieces.append(struct.pack('B', len(self.destination)))
+            pieces.append(self.destination)
+            pieces.append(struct.pack('B', len(self.source)))
+            pieces.append(self.source)
+            pieces.append(struct.pack('B', len(self.routing_key)))
+            pieces.append(self.routing_key)
+            bit_buffer = 0;
+            if self.nowait: bit_buffer = bit_buffer | (1 << 0)
+            pieces.append(struct.pack('B', bit_buffer))
+            pika.table.encode_table(pieces, self.arguments)
+            return pieces
+
+    class UnbindOk(pika.specbase.Method):
+        INDEX = 0x00280033 ## 40, 51; 2621491
+        NAME = 'Exchange.UnbindOk'
+        def __init__(self):
+            pass
+        def decode(self, encoded, offset = 0):
+            return self
+
+        def encode(self):
+            pieces = []
+            return pieces
+
 class Queue(pika.specbase.Class):
     INDEX = 0x0032 ## 50
     NAME = 'Queue'
@@ -641,25 +710,25 @@ class Queue(pika.specbase.Class):
     class Declare(pika.specbase.Method):
         INDEX = 0x0032000A ## 50, 10; 3276810
         NAME = 'Queue.Declare'
-        def __init__(self, ticket = 1, queue = '', passive = False, durable = False, exclusive = False, auto_delete = False, nowait = False, arguments = {}):
-            self.ticket = ticket
-            self.queue = queue
-            self.passive = passive
-            self.durable = durable
-            self.exclusive = exclusive
-            self.auto_delete = auto_delete
-            self.nowait = nowait
-            self.arguments = arguments
+        def __init__(self, ticket=0, queue='', passive=False, durable=False, exclusive=False, auto_delete=False, nowait=False, arguments={}):
+            self.ticket=ticket
+            self.queue=queue
+            self.passive=passive
+            self.durable=durable
+            self.exclusive=exclusive
+            self.auto_delete=auto_delete
+            self.nowait=nowait
+            self.arguments=arguments
 
         def decode(self, encoded, offset = 0):
             self.ticket = struct.unpack_from('>H', encoded, offset)[0]
-            offset = offset + 2
+            offset += 2
             length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += offset
             self.queue = encoded[offset : offset + length]
-            offset = offset + length
+            offset += length
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += 1
             self.passive = (bit_buffer & (1 << 0)) != 0
             self.durable = (bit_buffer & (1 << 1)) != 0
             self.exclusive = (bit_buffer & (1 << 2)) != 0
@@ -686,20 +755,20 @@ class Queue(pika.specbase.Class):
     class DeclareOk(pika.specbase.Method):
         INDEX = 0x0032000B ## 50, 11; 3276811
         NAME = 'Queue.DeclareOk'
-        def __init__(self, queue = None, message_count = None, consumer_count = None):
-            self.queue = queue
-            self.message_count = message_count
-            self.consumer_count = consumer_count
+        def __init__(self, queue=None, message_count=None, consumer_count=None):
+            self.queue=queue
+            self.message_count=message_count
+            self.consumer_count=consumer_count
 
         def decode(self, encoded, offset = 0):
             length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += offset
             self.queue = encoded[offset : offset + length]
-            offset = offset + length
+            offset += length
             self.message_count = struct.unpack_from('>I', encoded, offset)[0]
-            offset = offset + 4
+            offset += 4
             self.consumer_count = struct.unpack_from('>I', encoded, offset)[0]
-            offset = offset + 4
+            offset += 4
             return self
 
         def encode(self):
@@ -713,31 +782,31 @@ class Queue(pika.specbase.Class):
     class Bind(pika.specbase.Method):
         INDEX = 0x00320014 ## 50, 20; 3276820
         NAME = 'Queue.Bind'
-        def __init__(self, ticket = 1, queue = None, exchange = None, routing_key = '', nowait = False, arguments = {}):
-            self.ticket = ticket
-            self.queue = queue
-            self.exchange = exchange
-            self.routing_key = routing_key
-            self.nowait = nowait
-            self.arguments = arguments
+        def __init__(self, ticket=0, queue='', exchange=None, routing_key='', nowait=False, arguments={}):
+            self.ticket=ticket
+            self.queue=queue
+            self.exchange=exchange
+            self.routing_key=routing_key
+            self.nowait=nowait
+            self.arguments=arguments
 
         def decode(self, encoded, offset = 0):
             self.ticket = struct.unpack_from('>H', encoded, offset)[0]
-            offset = offset + 2
+            offset += 2
             length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += offset
             self.queue = encoded[offset : offset + length]
-            offset = offset + length
+            offset += length
             length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += offset
             self.exchange = encoded[offset : offset + length]
-            offset = offset + length
+            offset += length
             length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += offset
             self.routing_key = encoded[offset : offset + length]
-            offset = offset + length
+            offset += length
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += 1
             self.nowait = (bit_buffer & (1 << 0)) != 0
             (self.arguments, offset) = pika.table.decode_table(encoded, offset)
             return self
@@ -772,20 +841,20 @@ class Queue(pika.specbase.Class):
     class Purge(pika.specbase.Method):
         INDEX = 0x0032001E ## 50, 30; 3276830
         NAME = 'Queue.Purge'
-        def __init__(self, ticket = 1, queue = None, nowait = False):
-            self.ticket = ticket
-            self.queue = queue
-            self.nowait = nowait
+        def __init__(self, ticket=0, queue='', nowait=False):
+            self.ticket=ticket
+            self.queue=queue
+            self.nowait=nowait
 
         def decode(self, encoded, offset = 0):
             self.ticket = struct.unpack_from('>H', encoded, offset)[0]
-            offset = offset + 2
+            offset += 2
             length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += offset
             self.queue = encoded[offset : offset + length]
-            offset = offset + length
+            offset += length
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += 1
             self.nowait = (bit_buffer & (1 << 0)) != 0
             return self
 
@@ -802,12 +871,12 @@ class Queue(pika.specbase.Class):
     class PurgeOk(pika.specbase.Method):
         INDEX = 0x0032001F ## 50, 31; 3276831
         NAME = 'Queue.PurgeOk'
-        def __init__(self, message_count = None):
-            self.message_count = message_count
+        def __init__(self, message_count=None):
+            self.message_count=message_count
 
         def decode(self, encoded, offset = 0):
             self.message_count = struct.unpack_from('>I', encoded, offset)[0]
-            offset = offset + 4
+            offset += 4
             return self
 
         def encode(self):
@@ -818,22 +887,22 @@ class Queue(pika.specbase.Class):
     class Delete(pika.specbase.Method):
         INDEX = 0x00320028 ## 50, 40; 3276840
         NAME = 'Queue.Delete'
-        def __init__(self, ticket = 1, queue = None, if_unused = False, if_empty = False, nowait = False):
-            self.ticket = ticket
-            self.queue = queue
-            self.if_unused = if_unused
-            self.if_empty = if_empty
-            self.nowait = nowait
+        def __init__(self, ticket=0, queue='', if_unused=False, if_empty=False, nowait=False):
+            self.ticket=ticket
+            self.queue=queue
+            self.if_unused=if_unused
+            self.if_empty=if_empty
+            self.nowait=nowait
 
         def decode(self, encoded, offset = 0):
             self.ticket = struct.unpack_from('>H', encoded, offset)[0]
-            offset = offset + 2
+            offset += 2
             length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += offset
             self.queue = encoded[offset : offset + length]
-            offset = offset + length
+            offset += length
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += 1
             self.if_unused = (bit_buffer & (1 << 0)) != 0
             self.if_empty = (bit_buffer & (1 << 1)) != 0
             self.nowait = (bit_buffer & (1 << 2)) != 0
@@ -854,12 +923,12 @@ class Queue(pika.specbase.Class):
     class DeleteOk(pika.specbase.Method):
         INDEX = 0x00320029 ## 50, 41; 3276841
         NAME = 'Queue.DeleteOk'
-        def __init__(self, message_count = None):
-            self.message_count = message_count
+        def __init__(self, message_count=None):
+            self.message_count=message_count
 
         def decode(self, encoded, offset = 0):
             self.message_count = struct.unpack_from('>I', encoded, offset)[0]
-            offset = offset + 4
+            offset += 4
             return self
 
         def encode(self):
@@ -870,28 +939,28 @@ class Queue(pika.specbase.Class):
     class Unbind(pika.specbase.Method):
         INDEX = 0x00320032 ## 50, 50; 3276850
         NAME = 'Queue.Unbind'
-        def __init__(self, ticket = 1, queue = None, exchange = None, routing_key = '', arguments = {}):
-            self.ticket = ticket
-            self.queue = queue
-            self.exchange = exchange
-            self.routing_key = routing_key
-            self.arguments = arguments
+        def __init__(self, ticket=0, queue='', exchange=None, routing_key='', arguments={}):
+            self.ticket=ticket
+            self.queue=queue
+            self.exchange=exchange
+            self.routing_key=routing_key
+            self.arguments=arguments
 
         def decode(self, encoded, offset = 0):
             self.ticket = struct.unpack_from('>H', encoded, offset)[0]
-            offset = offset + 2
+            offset += 2
             length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += offset
             self.queue = encoded[offset : offset + length]
-            offset = offset + length
+            offset += length
             length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += offset
             self.exchange = encoded[offset : offset + length]
-            offset = offset + length
+            offset += length
             length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += offset
             self.routing_key = encoded[offset : offset + length]
-            offset = offset + length
+            offset += length
             (self.arguments, offset) = pika.table.decode_table(encoded, offset)
             return self
 
@@ -926,18 +995,18 @@ class Basic(pika.specbase.Class):
     class Qos(pika.specbase.Method):
         INDEX = 0x003C000A ## 60, 10; 3932170
         NAME = 'Basic.Qos'
-        def __init__(self, prefetch_size = 0, prefetch_count = 0, global_ = False):
-            self.prefetch_size = prefetch_size
-            self.prefetch_count = prefetch_count
-            self.global_ = global_
+        def __init__(self, prefetch_size=0, prefetch_count=0, global_=False):
+            self.prefetch_size=prefetch_size
+            self.prefetch_count=prefetch_count
+            self.global_=global_
 
         def decode(self, encoded, offset = 0):
             self.prefetch_size = struct.unpack_from('>I', encoded, offset)[0]
-            offset = offset + 4
+            offset += 4
             self.prefetch_count = struct.unpack_from('>H', encoded, offset)[0]
-            offset = offset + 2
+            offset += 2
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += 1
             self.global_ = (bit_buffer & (1 << 0)) != 0
             return self
 
@@ -965,32 +1034,34 @@ class Basic(pika.specbase.Class):
     class Consume(pika.specbase.Method):
         INDEX = 0x003C0014 ## 60, 20; 3932180
         NAME = 'Basic.Consume'
-        def __init__(self, ticket = 1, queue = None, consumer_tag = '', no_local = False, no_ack = False, exclusive = False, nowait = False):
-            self.ticket = ticket
-            self.queue = queue
-            self.consumer_tag = consumer_tag
-            self.no_local = no_local
-            self.no_ack = no_ack
-            self.exclusive = exclusive
-            self.nowait = nowait
+        def __init__(self, ticket=0, queue='', consumer_tag='', no_local=False, no_ack=False, exclusive=False, nowait=False, arguments={}):
+            self.ticket=ticket
+            self.queue=queue
+            self.consumer_tag=consumer_tag
+            self.no_local=no_local
+            self.no_ack=no_ack
+            self.exclusive=exclusive
+            self.nowait=nowait
+            self.arguments=arguments
 
         def decode(self, encoded, offset = 0):
             self.ticket = struct.unpack_from('>H', encoded, offset)[0]
-            offset = offset + 2
+            offset += 2
             length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += offset
             self.queue = encoded[offset : offset + length]
-            offset = offset + length
+            offset += length
             length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += offset
             self.consumer_tag = encoded[offset : offset + length]
-            offset = offset + length
+            offset += length
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += 1
             self.no_local = (bit_buffer & (1 << 0)) != 0
             self.no_ack = (bit_buffer & (1 << 1)) != 0
             self.exclusive = (bit_buffer & (1 << 2)) != 0
             self.nowait = (bit_buffer & (1 << 3)) != 0
+            (self.arguments, offset) = pika.table.decode_table(encoded, offset)
             return self
 
         def encode(self):
@@ -1006,19 +1077,20 @@ class Basic(pika.specbase.Class):
             if self.exclusive: bit_buffer = bit_buffer | (1 << 2)
             if self.nowait: bit_buffer = bit_buffer | (1 << 3)
             pieces.append(struct.pack('B', bit_buffer))
+            pika.table.encode_table(pieces, self.arguments)
             return pieces
 
     class ConsumeOk(pika.specbase.Method):
         INDEX = 0x003C0015 ## 60, 21; 3932181
         NAME = 'Basic.ConsumeOk'
-        def __init__(self, consumer_tag = None):
-            self.consumer_tag = consumer_tag
+        def __init__(self, consumer_tag=None):
+            self.consumer_tag=consumer_tag
 
         def decode(self, encoded, offset = 0):
             length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += offset
             self.consumer_tag = encoded[offset : offset + length]
-            offset = offset + length
+            offset += length
             return self
 
         def encode(self):
@@ -1030,17 +1102,17 @@ class Basic(pika.specbase.Class):
     class Cancel(pika.specbase.Method):
         INDEX = 0x003C001E ## 60, 30; 3932190
         NAME = 'Basic.Cancel'
-        def __init__(self, consumer_tag = None, nowait = False):
-            self.consumer_tag = consumer_tag
-            self.nowait = nowait
+        def __init__(self, consumer_tag=None, nowait=False):
+            self.consumer_tag=consumer_tag
+            self.nowait=nowait
 
         def decode(self, encoded, offset = 0):
             length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += offset
             self.consumer_tag = encoded[offset : offset + length]
-            offset = offset + length
+            offset += length
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += 1
             self.nowait = (bit_buffer & (1 << 0)) != 0
             return self
 
@@ -1056,14 +1128,14 @@ class Basic(pika.specbase.Class):
     class CancelOk(pika.specbase.Method):
         INDEX = 0x003C001F ## 60, 31; 3932191
         NAME = 'Basic.CancelOk'
-        def __init__(self, consumer_tag = None):
-            self.consumer_tag = consumer_tag
+        def __init__(self, consumer_tag=None):
+            self.consumer_tag=consumer_tag
 
         def decode(self, encoded, offset = 0):
             length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += offset
             self.consumer_tag = encoded[offset : offset + length]
-            offset = offset + length
+            offset += length
             return self
 
         def encode(self):
@@ -1075,26 +1147,26 @@ class Basic(pika.specbase.Class):
     class Publish(pika.specbase.Method):
         INDEX = 0x003C0028 ## 60, 40; 3932200
         NAME = 'Basic.Publish'
-        def __init__(self, ticket = 1, exchange = '', routing_key = '', mandatory = False, immediate = False):
-            self.ticket = ticket
-            self.exchange = exchange
-            self.routing_key = routing_key
-            self.mandatory = mandatory
-            self.immediate = immediate
+        def __init__(self, ticket=0, exchange='', routing_key='', mandatory=False, immediate=False):
+            self.ticket=ticket
+            self.exchange=exchange
+            self.routing_key=routing_key
+            self.mandatory=mandatory
+            self.immediate=immediate
 
         def decode(self, encoded, offset = 0):
             self.ticket = struct.unpack_from('>H', encoded, offset)[0]
-            offset = offset + 2
+            offset += 2
             length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += offset
             self.exchange = encoded[offset : offset + length]
-            offset = offset + length
+            offset += length
             length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += offset
             self.routing_key = encoded[offset : offset + length]
-            offset = offset + length
+            offset += length
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += 1
             self.mandatory = (bit_buffer & (1 << 0)) != 0
             self.immediate = (bit_buffer & (1 << 1)) != 0
             return self
@@ -1115,27 +1187,27 @@ class Basic(pika.specbase.Class):
     class Return(pika.specbase.Method):
         INDEX = 0x003C0032 ## 60, 50; 3932210
         NAME = 'Basic.Return'
-        def __init__(self, reply_code = None, reply_text = '', exchange = None, routing_key = None):
-            self.reply_code = reply_code
-            self.reply_text = reply_text
-            self.exchange = exchange
-            self.routing_key = routing_key
+        def __init__(self, reply_code=None, reply_text='', exchange=None, routing_key=None):
+            self.reply_code=reply_code
+            self.reply_text=reply_text
+            self.exchange=exchange
+            self.routing_key=routing_key
 
         def decode(self, encoded, offset = 0):
             self.reply_code = struct.unpack_from('>H', encoded, offset)[0]
-            offset = offset + 2
+            offset += 2
             length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += offset
             self.reply_text = encoded[offset : offset + length]
-            offset = offset + length
+            offset += length
             length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += offset
             self.exchange = encoded[offset : offset + length]
-            offset = offset + length
+            offset += length
             length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += offset
             self.routing_key = encoded[offset : offset + length]
-            offset = offset + length
+            offset += length
             return self
 
         def encode(self):
@@ -1152,31 +1224,31 @@ class Basic(pika.specbase.Class):
     class Deliver(pika.specbase.Method):
         INDEX = 0x003C003C ## 60, 60; 3932220
         NAME = 'Basic.Deliver'
-        def __init__(self, consumer_tag = None, delivery_tag = None, redelivered = False, exchange = None, routing_key = None):
-            self.consumer_tag = consumer_tag
-            self.delivery_tag = delivery_tag
-            self.redelivered = redelivered
-            self.exchange = exchange
-            self.routing_key = routing_key
+        def __init__(self, consumer_tag=None, delivery_tag=None, redelivered=False, exchange=None, routing_key=None):
+            self.consumer_tag=consumer_tag
+            self.delivery_tag=delivery_tag
+            self.redelivered=redelivered
+            self.exchange=exchange
+            self.routing_key=routing_key
 
         def decode(self, encoded, offset = 0):
             length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += offset
             self.consumer_tag = encoded[offset : offset + length]
-            offset = offset + length
+            offset += length
             self.delivery_tag = struct.unpack_from('>Q', encoded, offset)[0]
-            offset = offset + 8
+            offset += 8
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += 1
             self.redelivered = (bit_buffer & (1 << 0)) != 0
             length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += offset
             self.exchange = encoded[offset : offset + length]
-            offset = offset + length
+            offset += length
             length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += offset
             self.routing_key = encoded[offset : offset + length]
-            offset = offset + length
+            offset += length
             return self
 
         def encode(self):
@@ -1196,20 +1268,20 @@ class Basic(pika.specbase.Class):
     class Get(pika.specbase.Method):
         INDEX = 0x003C0046 ## 60, 70; 3932230
         NAME = 'Basic.Get'
-        def __init__(self, ticket = 1, queue = None, no_ack = False):
-            self.ticket = ticket
-            self.queue = queue
-            self.no_ack = no_ack
+        def __init__(self, ticket=0, queue='', no_ack=False):
+            self.ticket=ticket
+            self.queue=queue
+            self.no_ack=no_ack
 
         def decode(self, encoded, offset = 0):
             self.ticket = struct.unpack_from('>H', encoded, offset)[0]
-            offset = offset + 2
+            offset += 2
             length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += offset
             self.queue = encoded[offset : offset + length]
-            offset = offset + length
+            offset += length
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += 1
             self.no_ack = (bit_buffer & (1 << 0)) != 0
             return self
 
@@ -1226,29 +1298,29 @@ class Basic(pika.specbase.Class):
     class GetOk(pika.specbase.Method):
         INDEX = 0x003C0047 ## 60, 71; 3932231
         NAME = 'Basic.GetOk'
-        def __init__(self, delivery_tag = None, redelivered = False, exchange = None, routing_key = None, message_count = None):
-            self.delivery_tag = delivery_tag
-            self.redelivered = redelivered
-            self.exchange = exchange
-            self.routing_key = routing_key
-            self.message_count = message_count
+        def __init__(self, delivery_tag=None, redelivered=False, exchange=None, routing_key=None, message_count=None):
+            self.delivery_tag=delivery_tag
+            self.redelivered=redelivered
+            self.exchange=exchange
+            self.routing_key=routing_key
+            self.message_count=message_count
 
         def decode(self, encoded, offset = 0):
             self.delivery_tag = struct.unpack_from('>Q', encoded, offset)[0]
-            offset = offset + 8
+            offset += 8
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += 1
             self.redelivered = (bit_buffer & (1 << 0)) != 0
             length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += offset
             self.exchange = encoded[offset : offset + length]
-            offset = offset + length
+            offset += length
             length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += offset
             self.routing_key = encoded[offset : offset + length]
-            offset = offset + length
+            offset += length
             self.message_count = struct.unpack_from('>I', encoded, offset)[0]
-            offset = offset + 4
+            offset += 4
             return self
 
         def encode(self):
@@ -1267,14 +1339,14 @@ class Basic(pika.specbase.Class):
     class GetEmpty(pika.specbase.Method):
         INDEX = 0x003C0048 ## 60, 72; 3932232
         NAME = 'Basic.GetEmpty'
-        def __init__(self, cluster_id = ''):
-            self.cluster_id = cluster_id
+        def __init__(self, cluster_id=''):
+            self.cluster_id=cluster_id
 
         def decode(self, encoded, offset = 0):
             length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += offset
             self.cluster_id = encoded[offset : offset + length]
-            offset = offset + length
+            offset += length
             return self
 
         def encode(self):
@@ -1286,15 +1358,15 @@ class Basic(pika.specbase.Class):
     class Ack(pika.specbase.Method):
         INDEX = 0x003C0050 ## 60, 80; 3932240
         NAME = 'Basic.Ack'
-        def __init__(self, delivery_tag = 0, multiple = False):
-            self.delivery_tag = delivery_tag
-            self.multiple = multiple
+        def __init__(self, delivery_tag=0, multiple=False):
+            self.delivery_tag=delivery_tag
+            self.multiple=multiple
 
         def decode(self, encoded, offset = 0):
             self.delivery_tag = struct.unpack_from('>Q', encoded, offset)[0]
-            offset = offset + 8
+            offset += 8
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += 1
             self.multiple = (bit_buffer & (1 << 0)) != 0
             return self
 
@@ -1309,15 +1381,15 @@ class Basic(pika.specbase.Class):
     class Reject(pika.specbase.Method):
         INDEX = 0x003C005A ## 60, 90; 3932250
         NAME = 'Basic.Reject'
-        def __init__(self, delivery_tag = None, requeue = True):
-            self.delivery_tag = delivery_tag
-            self.requeue = requeue
+        def __init__(self, delivery_tag=None, requeue=True):
+            self.delivery_tag=delivery_tag
+            self.requeue=requeue
 
         def decode(self, encoded, offset = 0):
             self.delivery_tag = struct.unpack_from('>Q', encoded, offset)[0]
-            offset = offset + 8
+            offset += 8
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += 1
             self.requeue = (bit_buffer & (1 << 0)) != 0
             return self
 
@@ -1332,12 +1404,12 @@ class Basic(pika.specbase.Class):
     class RecoverAsync(pika.specbase.Method):
         INDEX = 0x003C0064 ## 60, 100; 3932260
         NAME = 'Basic.RecoverAsync'
-        def __init__(self, requeue = False):
-            self.requeue = requeue
+        def __init__(self, requeue=False):
+            self.requeue=requeue
 
         def decode(self, encoded, offset = 0):
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += 1
             self.requeue = (bit_buffer & (1 << 0)) != 0
             return self
 
@@ -1351,12 +1423,12 @@ class Basic(pika.specbase.Class):
     class Recover(pika.specbase.Method):
         INDEX = 0x003C006E ## 60, 110; 3932270
         NAME = 'Basic.Recover'
-        def __init__(self, requeue = False):
-            self.requeue = requeue
+        def __init__(self, requeue=False):
+            self.requeue=requeue
 
         def decode(self, encoded, offset = 0):
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += 1
             self.requeue = (bit_buffer & (1 << 0)) != 0
             return self
 
@@ -1379,358 +1451,21 @@ class Basic(pika.specbase.Class):
             pieces = []
             return pieces
 
-class File(pika.specbase.Class):
-    INDEX = 0x0046 ## 70
-    NAME = 'File'
-
-    class Qos(pika.specbase.Method):
-        INDEX = 0x0046000A ## 70, 10; 4587530
-        NAME = 'File.Qos'
-        def __init__(self, prefetch_size = 0, prefetch_count = 0, global_ = False):
-            self.prefetch_size = prefetch_size
-            self.prefetch_count = prefetch_count
-            self.global_ = global_
-
-        def decode(self, encoded, offset = 0):
-            self.prefetch_size = struct.unpack_from('>I', encoded, offset)[0]
-            offset = offset + 4
-            self.prefetch_count = struct.unpack_from('>H', encoded, offset)[0]
-            offset = offset + 2
-            bit_buffer = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            self.global_ = (bit_buffer & (1 << 0)) != 0
-            return self
-
-        def encode(self):
-            pieces = []
-            pieces.append(struct.pack('>I', self.prefetch_size))
-            pieces.append(struct.pack('>H', self.prefetch_count))
-            bit_buffer = 0;
-            if self.global_: bit_buffer = bit_buffer | (1 << 0)
-            pieces.append(struct.pack('B', bit_buffer))
-            return pieces
-
-    class QosOk(pika.specbase.Method):
-        INDEX = 0x0046000B ## 70, 11; 4587531
-        NAME = 'File.QosOk'
-        def __init__(self):
-            pass
-        def decode(self, encoded, offset = 0):
-            return self
-
-        def encode(self):
-            pieces = []
-            return pieces
-
-    class Consume(pika.specbase.Method):
-        INDEX = 0x00460014 ## 70, 20; 4587540
-        NAME = 'File.Consume'
-        def __init__(self, ticket = 1, queue = None, consumer_tag = '', no_local = False, no_ack = False, exclusive = False, nowait = False):
-            self.ticket = ticket
-            self.queue = queue
-            self.consumer_tag = consumer_tag
-            self.no_local = no_local
-            self.no_ack = no_ack
-            self.exclusive = exclusive
-            self.nowait = nowait
-
-        def decode(self, encoded, offset = 0):
-            self.ticket = struct.unpack_from('>H', encoded, offset)[0]
-            offset = offset + 2
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            self.queue = encoded[offset : offset + length]
-            offset = offset + length
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            self.consumer_tag = encoded[offset : offset + length]
-            offset = offset + length
-            bit_buffer = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            self.no_local = (bit_buffer & (1 << 0)) != 0
-            self.no_ack = (bit_buffer & (1 << 1)) != 0
-            self.exclusive = (bit_buffer & (1 << 2)) != 0
-            self.nowait = (bit_buffer & (1 << 3)) != 0
-            return self
-
-        def encode(self):
-            pieces = []
-            pieces.append(struct.pack('>H', self.ticket))
-            pieces.append(struct.pack('B', len(self.queue)))
-            pieces.append(self.queue)
-            pieces.append(struct.pack('B', len(self.consumer_tag)))
-            pieces.append(self.consumer_tag)
-            bit_buffer = 0;
-            if self.no_local: bit_buffer = bit_buffer | (1 << 0)
-            if self.no_ack: bit_buffer = bit_buffer | (1 << 1)
-            if self.exclusive: bit_buffer = bit_buffer | (1 << 2)
-            if self.nowait: bit_buffer = bit_buffer | (1 << 3)
-            pieces.append(struct.pack('B', bit_buffer))
-            return pieces
-
-    class ConsumeOk(pika.specbase.Method):
-        INDEX = 0x00460015 ## 70, 21; 4587541
-        NAME = 'File.ConsumeOk'
-        def __init__(self, consumer_tag = None):
-            self.consumer_tag = consumer_tag
-
-        def decode(self, encoded, offset = 0):
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            self.consumer_tag = encoded[offset : offset + length]
-            offset = offset + length
-            return self
-
-        def encode(self):
-            pieces = []
-            pieces.append(struct.pack('B', len(self.consumer_tag)))
-            pieces.append(self.consumer_tag)
-            return pieces
-
-    class Cancel(pika.specbase.Method):
-        INDEX = 0x0046001E ## 70, 30; 4587550
-        NAME = 'File.Cancel'
-        def __init__(self, consumer_tag = None, nowait = False):
-            self.consumer_tag = consumer_tag
-            self.nowait = nowait
-
-        def decode(self, encoded, offset = 0):
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            self.consumer_tag = encoded[offset : offset + length]
-            offset = offset + length
-            bit_buffer = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            self.nowait = (bit_buffer & (1 << 0)) != 0
-            return self
-
-        def encode(self):
-            pieces = []
-            pieces.append(struct.pack('B', len(self.consumer_tag)))
-            pieces.append(self.consumer_tag)
-            bit_buffer = 0;
-            if self.nowait: bit_buffer = bit_buffer | (1 << 0)
-            pieces.append(struct.pack('B', bit_buffer))
-            return pieces
-
-    class CancelOk(pika.specbase.Method):
-        INDEX = 0x0046001F ## 70, 31; 4587551
-        NAME = 'File.CancelOk'
-        def __init__(self, consumer_tag = None):
-            self.consumer_tag = consumer_tag
-
-        def decode(self, encoded, offset = 0):
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            self.consumer_tag = encoded[offset : offset + length]
-            offset = offset + length
-            return self
-
-        def encode(self):
-            pieces = []
-            pieces.append(struct.pack('B', len(self.consumer_tag)))
-            pieces.append(self.consumer_tag)
-            return pieces
-
-    class Open(pika.specbase.Method):
-        INDEX = 0x00460028 ## 70, 40; 4587560
-        NAME = 'File.Open'
-        def __init__(self, identifier = None, content_size = None):
-            self.identifier = identifier
-            self.content_size = content_size
-
-        def decode(self, encoded, offset = 0):
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            self.identifier = encoded[offset : offset + length]
-            offset = offset + length
-            self.content_size = struct.unpack_from('>Q', encoded, offset)[0]
-            offset = offset + 8
-            return self
-
-        def encode(self):
-            pieces = []
-            pieces.append(struct.pack('B', len(self.identifier)))
-            pieces.append(self.identifier)
-            pieces.append(struct.pack('>Q', self.content_size))
-            return pieces
-
-    class OpenOk(pika.specbase.Method):
-        INDEX = 0x00460029 ## 70, 41; 4587561
-        NAME = 'File.OpenOk'
-        def __init__(self, staged_size = None):
-            self.staged_size = staged_size
-
-        def decode(self, encoded, offset = 0):
-            self.staged_size = struct.unpack_from('>Q', encoded, offset)[0]
-            offset = offset + 8
-            return self
-
-        def encode(self):
-            pieces = []
-            pieces.append(struct.pack('>Q', self.staged_size))
-            return pieces
-
-    class Stage(pika.specbase.Method):
-        INDEX = 0x00460032 ## 70, 50; 4587570
-        NAME = 'File.Stage'
-        def __init__(self):
-            pass
-        def decode(self, encoded, offset = 0):
-            return self
-
-        def encode(self):
-            pieces = []
-            return pieces
-
-    class Publish(pika.specbase.Method):
-        INDEX = 0x0046003C ## 70, 60; 4587580
-        NAME = 'File.Publish'
-        def __init__(self, ticket = 1, exchange = '', routing_key = '', mandatory = False, immediate = False, identifier = None):
-            self.ticket = ticket
-            self.exchange = exchange
-            self.routing_key = routing_key
-            self.mandatory = mandatory
-            self.immediate = immediate
-            self.identifier = identifier
-
-        def decode(self, encoded, offset = 0):
-            self.ticket = struct.unpack_from('>H', encoded, offset)[0]
-            offset = offset + 2
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            self.exchange = encoded[offset : offset + length]
-            offset = offset + length
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            self.routing_key = encoded[offset : offset + length]
-            offset = offset + length
-            bit_buffer = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            self.mandatory = (bit_buffer & (1 << 0)) != 0
-            self.immediate = (bit_buffer & (1 << 1)) != 0
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            self.identifier = encoded[offset : offset + length]
-            offset = offset + length
-            return self
-
-        def encode(self):
-            pieces = []
-            pieces.append(struct.pack('>H', self.ticket))
-            pieces.append(struct.pack('B', len(self.exchange)))
-            pieces.append(self.exchange)
-            pieces.append(struct.pack('B', len(self.routing_key)))
-            pieces.append(self.routing_key)
-            bit_buffer = 0;
-            if self.mandatory: bit_buffer = bit_buffer | (1 << 0)
-            if self.immediate: bit_buffer = bit_buffer | (1 << 1)
-            pieces.append(struct.pack('B', bit_buffer))
-            pieces.append(struct.pack('B', len(self.identifier)))
-            pieces.append(self.identifier)
-            return pieces
-
-    class Return(pika.specbase.Method):
-        INDEX = 0x00460046 ## 70, 70; 4587590
-        NAME = 'File.Return'
-        def __init__(self, reply_code = 200, reply_text = '', exchange = None, routing_key = None):
-            self.reply_code = reply_code
-            self.reply_text = reply_text
-            self.exchange = exchange
-            self.routing_key = routing_key
-
-        def decode(self, encoded, offset = 0):
-            self.reply_code = struct.unpack_from('>H', encoded, offset)[0]
-            offset = offset + 2
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            self.reply_text = encoded[offset : offset + length]
-            offset = offset + length
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            self.exchange = encoded[offset : offset + length]
-            offset = offset + length
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            self.routing_key = encoded[offset : offset + length]
-            offset = offset + length
-            return self
-
-        def encode(self):
-            pieces = []
-            pieces.append(struct.pack('>H', self.reply_code))
-            pieces.append(struct.pack('B', len(self.reply_text)))
-            pieces.append(self.reply_text)
-            pieces.append(struct.pack('B', len(self.exchange)))
-            pieces.append(self.exchange)
-            pieces.append(struct.pack('B', len(self.routing_key)))
-            pieces.append(self.routing_key)
-            return pieces
-
-    class Deliver(pika.specbase.Method):
-        INDEX = 0x00460050 ## 70, 80; 4587600
-        NAME = 'File.Deliver'
-        def __init__(self, consumer_tag = None, delivery_tag = None, redelivered = False, exchange = None, routing_key = None, identifier = None):
-            self.consumer_tag = consumer_tag
-            self.delivery_tag = delivery_tag
-            self.redelivered = redelivered
-            self.exchange = exchange
-            self.routing_key = routing_key
-            self.identifier = identifier
-
-        def decode(self, encoded, offset = 0):
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            self.consumer_tag = encoded[offset : offset + length]
-            offset = offset + length
-            self.delivery_tag = struct.unpack_from('>Q', encoded, offset)[0]
-            offset = offset + 8
-            bit_buffer = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            self.redelivered = (bit_buffer & (1 << 0)) != 0
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            self.exchange = encoded[offset : offset + length]
-            offset = offset + length
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            self.routing_key = encoded[offset : offset + length]
-            offset = offset + length
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            self.identifier = encoded[offset : offset + length]
-            offset = offset + length
-            return self
-
-        def encode(self):
-            pieces = []
-            pieces.append(struct.pack('B', len(self.consumer_tag)))
-            pieces.append(self.consumer_tag)
-            pieces.append(struct.pack('>Q', self.delivery_tag))
-            bit_buffer = 0;
-            if self.redelivered: bit_buffer = bit_buffer | (1 << 0)
-            pieces.append(struct.pack('B', bit_buffer))
-            pieces.append(struct.pack('B', len(self.exchange)))
-            pieces.append(self.exchange)
-            pieces.append(struct.pack('B', len(self.routing_key)))
-            pieces.append(self.routing_key)
-            pieces.append(struct.pack('B', len(self.identifier)))
-            pieces.append(self.identifier)
-            return pieces
-
-    class Ack(pika.specbase.Method):
-        INDEX = 0x0046005A ## 70, 90; 4587610
-        NAME = 'File.Ack'
-        def __init__(self, delivery_tag = 0, multiple = False):
-            self.delivery_tag = delivery_tag
-            self.multiple = multiple
+    class Nack(pika.specbase.Method):
+        INDEX = 0x003C0078 ## 60, 120; 3932280
+        NAME = 'Basic.Nack'
+        def __init__(self, delivery_tag=0, multiple=False, requeue=True):
+            self.delivery_tag=delivery_tag
+            self.multiple=multiple
+            self.requeue=requeue
 
         def decode(self, encoded, offset = 0):
             self.delivery_tag = struct.unpack_from('>Q', encoded, offset)[0]
-            offset = offset + 8
+            offset += 8
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += 1
             self.multiple = (bit_buffer & (1 << 0)) != 0
+            self.requeue = (bit_buffer & (1 << 1)) != 0
             return self
 
         def encode(self):
@@ -1738,298 +1473,8 @@ class File(pika.specbase.Class):
             pieces.append(struct.pack('>Q', self.delivery_tag))
             bit_buffer = 0;
             if self.multiple: bit_buffer = bit_buffer | (1 << 0)
+            if self.requeue: bit_buffer = bit_buffer | (1 << 1)
             pieces.append(struct.pack('B', bit_buffer))
-            return pieces
-
-    class Reject(pika.specbase.Method):
-        INDEX = 0x00460064 ## 70, 100; 4587620
-        NAME = 'File.Reject'
-        def __init__(self, delivery_tag = None, requeue = True):
-            self.delivery_tag = delivery_tag
-            self.requeue = requeue
-
-        def decode(self, encoded, offset = 0):
-            self.delivery_tag = struct.unpack_from('>Q', encoded, offset)[0]
-            offset = offset + 8
-            bit_buffer = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            self.requeue = (bit_buffer & (1 << 0)) != 0
-            return self
-
-        def encode(self):
-            pieces = []
-            pieces.append(struct.pack('>Q', self.delivery_tag))
-            bit_buffer = 0;
-            if self.requeue: bit_buffer = bit_buffer | (1 << 0)
-            pieces.append(struct.pack('B', bit_buffer))
-            return pieces
-
-class Stream(pika.specbase.Class):
-    INDEX = 0x0050 ## 80
-    NAME = 'Stream'
-
-    class Qos(pika.specbase.Method):
-        INDEX = 0x0050000A ## 80, 10; 5242890
-        NAME = 'Stream.Qos'
-        def __init__(self, prefetch_size = 0, prefetch_count = 0, consume_rate = 0, global_ = False):
-            self.prefetch_size = prefetch_size
-            self.prefetch_count = prefetch_count
-            self.consume_rate = consume_rate
-            self.global_ = global_
-
-        def decode(self, encoded, offset = 0):
-            self.prefetch_size = struct.unpack_from('>I', encoded, offset)[0]
-            offset = offset + 4
-            self.prefetch_count = struct.unpack_from('>H', encoded, offset)[0]
-            offset = offset + 2
-            self.consume_rate = struct.unpack_from('>I', encoded, offset)[0]
-            offset = offset + 4
-            bit_buffer = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            self.global_ = (bit_buffer & (1 << 0)) != 0
-            return self
-
-        def encode(self):
-            pieces = []
-            pieces.append(struct.pack('>I', self.prefetch_size))
-            pieces.append(struct.pack('>H', self.prefetch_count))
-            pieces.append(struct.pack('>I', self.consume_rate))
-            bit_buffer = 0;
-            if self.global_: bit_buffer = bit_buffer | (1 << 0)
-            pieces.append(struct.pack('B', bit_buffer))
-            return pieces
-
-    class QosOk(pika.specbase.Method):
-        INDEX = 0x0050000B ## 80, 11; 5242891
-        NAME = 'Stream.QosOk'
-        def __init__(self):
-            pass
-        def decode(self, encoded, offset = 0):
-            return self
-
-        def encode(self):
-            pieces = []
-            return pieces
-
-    class Consume(pika.specbase.Method):
-        INDEX = 0x00500014 ## 80, 20; 5242900
-        NAME = 'Stream.Consume'
-        def __init__(self, ticket = 1, queue = None, consumer_tag = '', no_local = False, exclusive = False, nowait = False):
-            self.ticket = ticket
-            self.queue = queue
-            self.consumer_tag = consumer_tag
-            self.no_local = no_local
-            self.exclusive = exclusive
-            self.nowait = nowait
-
-        def decode(self, encoded, offset = 0):
-            self.ticket = struct.unpack_from('>H', encoded, offset)[0]
-            offset = offset + 2
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            self.queue = encoded[offset : offset + length]
-            offset = offset + length
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            self.consumer_tag = encoded[offset : offset + length]
-            offset = offset + length
-            bit_buffer = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            self.no_local = (bit_buffer & (1 << 0)) != 0
-            self.exclusive = (bit_buffer & (1 << 1)) != 0
-            self.nowait = (bit_buffer & (1 << 2)) != 0
-            return self
-
-        def encode(self):
-            pieces = []
-            pieces.append(struct.pack('>H', self.ticket))
-            pieces.append(struct.pack('B', len(self.queue)))
-            pieces.append(self.queue)
-            pieces.append(struct.pack('B', len(self.consumer_tag)))
-            pieces.append(self.consumer_tag)
-            bit_buffer = 0;
-            if self.no_local: bit_buffer = bit_buffer | (1 << 0)
-            if self.exclusive: bit_buffer = bit_buffer | (1 << 1)
-            if self.nowait: bit_buffer = bit_buffer | (1 << 2)
-            pieces.append(struct.pack('B', bit_buffer))
-            return pieces
-
-    class ConsumeOk(pika.specbase.Method):
-        INDEX = 0x00500015 ## 80, 21; 5242901
-        NAME = 'Stream.ConsumeOk'
-        def __init__(self, consumer_tag = None):
-            self.consumer_tag = consumer_tag
-
-        def decode(self, encoded, offset = 0):
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            self.consumer_tag = encoded[offset : offset + length]
-            offset = offset + length
-            return self
-
-        def encode(self):
-            pieces = []
-            pieces.append(struct.pack('B', len(self.consumer_tag)))
-            pieces.append(self.consumer_tag)
-            return pieces
-
-    class Cancel(pika.specbase.Method):
-        INDEX = 0x0050001E ## 80, 30; 5242910
-        NAME = 'Stream.Cancel'
-        def __init__(self, consumer_tag = None, nowait = False):
-            self.consumer_tag = consumer_tag
-            self.nowait = nowait
-
-        def decode(self, encoded, offset = 0):
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            self.consumer_tag = encoded[offset : offset + length]
-            offset = offset + length
-            bit_buffer = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            self.nowait = (bit_buffer & (1 << 0)) != 0
-            return self
-
-        def encode(self):
-            pieces = []
-            pieces.append(struct.pack('B', len(self.consumer_tag)))
-            pieces.append(self.consumer_tag)
-            bit_buffer = 0;
-            if self.nowait: bit_buffer = bit_buffer | (1 << 0)
-            pieces.append(struct.pack('B', bit_buffer))
-            return pieces
-
-    class CancelOk(pika.specbase.Method):
-        INDEX = 0x0050001F ## 80, 31; 5242911
-        NAME = 'Stream.CancelOk'
-        def __init__(self, consumer_tag = None):
-            self.consumer_tag = consumer_tag
-
-        def decode(self, encoded, offset = 0):
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            self.consumer_tag = encoded[offset : offset + length]
-            offset = offset + length
-            return self
-
-        def encode(self):
-            pieces = []
-            pieces.append(struct.pack('B', len(self.consumer_tag)))
-            pieces.append(self.consumer_tag)
-            return pieces
-
-    class Publish(pika.specbase.Method):
-        INDEX = 0x00500028 ## 80, 40; 5242920
-        NAME = 'Stream.Publish'
-        def __init__(self, ticket = 1, exchange = '', routing_key = '', mandatory = False, immediate = False):
-            self.ticket = ticket
-            self.exchange = exchange
-            self.routing_key = routing_key
-            self.mandatory = mandatory
-            self.immediate = immediate
-
-        def decode(self, encoded, offset = 0):
-            self.ticket = struct.unpack_from('>H', encoded, offset)[0]
-            offset = offset + 2
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            self.exchange = encoded[offset : offset + length]
-            offset = offset + length
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            self.routing_key = encoded[offset : offset + length]
-            offset = offset + length
-            bit_buffer = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            self.mandatory = (bit_buffer & (1 << 0)) != 0
-            self.immediate = (bit_buffer & (1 << 1)) != 0
-            return self
-
-        def encode(self):
-            pieces = []
-            pieces.append(struct.pack('>H', self.ticket))
-            pieces.append(struct.pack('B', len(self.exchange)))
-            pieces.append(self.exchange)
-            pieces.append(struct.pack('B', len(self.routing_key)))
-            pieces.append(self.routing_key)
-            bit_buffer = 0;
-            if self.mandatory: bit_buffer = bit_buffer | (1 << 0)
-            if self.immediate: bit_buffer = bit_buffer | (1 << 1)
-            pieces.append(struct.pack('B', bit_buffer))
-            return pieces
-
-    class Return(pika.specbase.Method):
-        INDEX = 0x00500032 ## 80, 50; 5242930
-        NAME = 'Stream.Return'
-        def __init__(self, reply_code = 200, reply_text = '', exchange = None, routing_key = None):
-            self.reply_code = reply_code
-            self.reply_text = reply_text
-            self.exchange = exchange
-            self.routing_key = routing_key
-
-        def decode(self, encoded, offset = 0):
-            self.reply_code = struct.unpack_from('>H', encoded, offset)[0]
-            offset = offset + 2
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            self.reply_text = encoded[offset : offset + length]
-            offset = offset + length
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            self.exchange = encoded[offset : offset + length]
-            offset = offset + length
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            self.routing_key = encoded[offset : offset + length]
-            offset = offset + length
-            return self
-
-        def encode(self):
-            pieces = []
-            pieces.append(struct.pack('>H', self.reply_code))
-            pieces.append(struct.pack('B', len(self.reply_text)))
-            pieces.append(self.reply_text)
-            pieces.append(struct.pack('B', len(self.exchange)))
-            pieces.append(self.exchange)
-            pieces.append(struct.pack('B', len(self.routing_key)))
-            pieces.append(self.routing_key)
-            return pieces
-
-    class Deliver(pika.specbase.Method):
-        INDEX = 0x0050003C ## 80, 60; 5242940
-        NAME = 'Stream.Deliver'
-        def __init__(self, consumer_tag = None, delivery_tag = None, exchange = None, queue = None):
-            self.consumer_tag = consumer_tag
-            self.delivery_tag = delivery_tag
-            self.exchange = exchange
-            self.queue = queue
-
-        def decode(self, encoded, offset = 0):
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            self.consumer_tag = encoded[offset : offset + length]
-            offset = offset + length
-            self.delivery_tag = struct.unpack_from('>Q', encoded, offset)[0]
-            offset = offset + 8
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            self.exchange = encoded[offset : offset + length]
-            offset = offset + length
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            self.queue = encoded[offset : offset + length]
-            offset = offset + length
-            return self
-
-        def encode(self):
-            pieces = []
-            pieces.append(struct.pack('B', len(self.consumer_tag)))
-            pieces.append(self.consumer_tag)
-            pieces.append(struct.pack('>Q', self.delivery_tag))
-            pieces.append(struct.pack('B', len(self.exchange)))
-            pieces.append(self.exchange)
-            pieces.append(struct.pack('B', len(self.queue)))
-            pieces.append(self.queue)
             return pieces
 
 class Tx(pika.specbase.Class):
@@ -2108,25 +1553,32 @@ class Tx(pika.specbase.Class):
             pieces = []
             return pieces
 
-class Dtx(pika.specbase.Class):
-    INDEX = 0x0064 ## 100
-    NAME = 'Dtx'
+class Confirm(pika.specbase.Class):
+    INDEX = 0x0055 ## 85
+    NAME = 'Confirm'
 
     class Select(pika.specbase.Method):
-        INDEX = 0x0064000A ## 100, 10; 6553610
-        NAME = 'Dtx.Select'
-        def __init__(self):
-            pass
+        INDEX = 0x0055000A ## 85, 10; 5570570
+        NAME = 'Confirm.Select'
+        def __init__(self, nowait=False):
+            self.nowait=nowait
+
         def decode(self, encoded, offset = 0):
+            bit_buffer = struct.unpack_from('B', encoded, offset)[0]
+            offset += 1
+            self.nowait = (bit_buffer & (1 << 0)) != 0
             return self
 
         def encode(self):
             pieces = []
+            bit_buffer = 0;
+            if self.nowait: bit_buffer = bit_buffer | (1 << 0)
+            pieces.append(struct.pack('B', bit_buffer))
             return pieces
 
     class SelectOk(pika.specbase.Method):
-        INDEX = 0x0064000B ## 100, 11; 6553611
-        NAME = 'Dtx.SelectOk'
+        INDEX = 0x0055000B ## 85, 11; 5570571
+        NAME = 'Confirm.SelectOk'
         def __init__(self):
             pass
         def decode(self, encoded, offset = 0):
@@ -2134,231 +1586,6 @@ class Dtx(pika.specbase.Class):
 
         def encode(self):
             pieces = []
-            return pieces
-
-    class Start(pika.specbase.Method):
-        INDEX = 0x00640014 ## 100, 20; 6553620
-        NAME = 'Dtx.Start'
-        def __init__(self, dtx_identifier = None):
-            self.dtx_identifier = dtx_identifier
-
-        def decode(self, encoded, offset = 0):
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            self.dtx_identifier = encoded[offset : offset + length]
-            offset = offset + length
-            return self
-
-        def encode(self):
-            pieces = []
-            pieces.append(struct.pack('B', len(self.dtx_identifier)))
-            pieces.append(self.dtx_identifier)
-            return pieces
-
-    class StartOk(pika.specbase.Method):
-        INDEX = 0x00640015 ## 100, 21; 6553621
-        NAME = 'Dtx.StartOk'
-        def __init__(self):
-            pass
-        def decode(self, encoded, offset = 0):
-            return self
-
-        def encode(self):
-            pieces = []
-            return pieces
-
-class Tunnel(pika.specbase.Class):
-    INDEX = 0x006E ## 110
-    NAME = 'Tunnel'
-
-    class Request(pika.specbase.Method):
-        INDEX = 0x006E000A ## 110, 10; 7208970
-        NAME = 'Tunnel.Request'
-        def __init__(self, meta_data = None):
-            self.meta_data = meta_data
-
-        def decode(self, encoded, offset = 0):
-            (self.meta_data, offset) = pika.table.decode_table(encoded, offset)
-            return self
-
-        def encode(self):
-            pieces = []
-            pika.table.encode_table(pieces, self.meta_data)
-            return pieces
-
-class Test(pika.specbase.Class):
-    INDEX = 0x0078 ## 120
-    NAME = 'Test'
-
-    class Integer(pika.specbase.Method):
-        INDEX = 0x0078000A ## 120, 10; 7864330
-        NAME = 'Test.Integer'
-        def __init__(self, integer_1 = None, integer_2 = None, integer_3 = None, integer_4 = None, operation = None):
-            self.integer_1 = integer_1
-            self.integer_2 = integer_2
-            self.integer_3 = integer_3
-            self.integer_4 = integer_4
-            self.operation = operation
-
-        def decode(self, encoded, offset = 0):
-            self.integer_1 = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            self.integer_2 = struct.unpack_from('>H', encoded, offset)[0]
-            offset = offset + 2
-            self.integer_3 = struct.unpack_from('>I', encoded, offset)[0]
-            offset = offset + 4
-            self.integer_4 = struct.unpack_from('>Q', encoded, offset)[0]
-            offset = offset + 8
-            self.operation = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            return self
-
-        def encode(self):
-            pieces = []
-            pieces.append(struct.pack('B', self.integer_1))
-            pieces.append(struct.pack('>H', self.integer_2))
-            pieces.append(struct.pack('>I', self.integer_3))
-            pieces.append(struct.pack('>Q', self.integer_4))
-            pieces.append(struct.pack('B', self.operation))
-            return pieces
-
-    class IntegerOk(pika.specbase.Method):
-        INDEX = 0x0078000B ## 120, 11; 7864331
-        NAME = 'Test.IntegerOk'
-        def __init__(self, result = None):
-            self.result = result
-
-        def decode(self, encoded, offset = 0):
-            self.result = struct.unpack_from('>Q', encoded, offset)[0]
-            offset = offset + 8
-            return self
-
-        def encode(self):
-            pieces = []
-            pieces.append(struct.pack('>Q', self.result))
-            return pieces
-
-    class String(pika.specbase.Method):
-        INDEX = 0x00780014 ## 120, 20; 7864340
-        NAME = 'Test.String'
-        def __init__(self, string_1 = None, string_2 = None, operation = None):
-            self.string_1 = string_1
-            self.string_2 = string_2
-            self.operation = operation
-
-        def decode(self, encoded, offset = 0):
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            self.string_1 = encoded[offset : offset + length]
-            offset = offset + length
-            length = struct.unpack_from('>I', encoded, offset)[0]
-            offset = offset + 4
-            self.string_2 = encoded[offset : offset + length]
-            offset = offset + length
-            self.operation = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            return self
-
-        def encode(self):
-            pieces = []
-            pieces.append(struct.pack('B', len(self.string_1)))
-            pieces.append(self.string_1)
-            pieces.append(struct.pack('>I', len(self.string_2)))
-            pieces.append(self.string_2)
-            pieces.append(struct.pack('B', self.operation))
-            return pieces
-
-    class StringOk(pika.specbase.Method):
-        INDEX = 0x00780015 ## 120, 21; 7864341
-        NAME = 'Test.StringOk'
-        def __init__(self, result = None):
-            self.result = result
-
-        def decode(self, encoded, offset = 0):
-            length = struct.unpack_from('>I', encoded, offset)[0]
-            offset = offset + 4
-            self.result = encoded[offset : offset + length]
-            offset = offset + length
-            return self
-
-        def encode(self):
-            pieces = []
-            pieces.append(struct.pack('>I', len(self.result)))
-            pieces.append(self.result)
-            return pieces
-
-    class Table(pika.specbase.Method):
-        INDEX = 0x0078001E ## 120, 30; 7864350
-        NAME = 'Test.Table'
-        def __init__(self, table = None, integer_op = None, string_op = None):
-            self.table = table
-            self.integer_op = integer_op
-            self.string_op = string_op
-
-        def decode(self, encoded, offset = 0):
-            (self.table, offset) = pika.table.decode_table(encoded, offset)
-            self.integer_op = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            self.string_op = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            return self
-
-        def encode(self):
-            pieces = []
-            pika.table.encode_table(pieces, self.table)
-            pieces.append(struct.pack('B', self.integer_op))
-            pieces.append(struct.pack('B', self.string_op))
-            return pieces
-
-    class TableOk(pika.specbase.Method):
-        INDEX = 0x0078001F ## 120, 31; 7864351
-        NAME = 'Test.TableOk'
-        def __init__(self, integer_result = None, string_result = None):
-            self.integer_result = integer_result
-            self.string_result = string_result
-
-        def decode(self, encoded, offset = 0):
-            self.integer_result = struct.unpack_from('>Q', encoded, offset)[0]
-            offset = offset + 8
-            length = struct.unpack_from('>I', encoded, offset)[0]
-            offset = offset + 4
-            self.string_result = encoded[offset : offset + length]
-            offset = offset + length
-            return self
-
-        def encode(self):
-            pieces = []
-            pieces.append(struct.pack('>Q', self.integer_result))
-            pieces.append(struct.pack('>I', len(self.string_result)))
-            pieces.append(self.string_result)
-            return pieces
-
-    class Content(pika.specbase.Method):
-        INDEX = 0x00780028 ## 120, 40; 7864360
-        NAME = 'Test.Content'
-        def __init__(self):
-            pass
-        def decode(self, encoded, offset = 0):
-            return self
-
-        def encode(self):
-            pieces = []
-            return pieces
-
-    class ContentOk(pika.specbase.Method):
-        INDEX = 0x00780029 ## 120, 41; 7864361
-        NAME = 'Test.ContentOk'
-        def __init__(self, content_checksum = None):
-            self.content_checksum = content_checksum
-
-        def decode(self, encoded, offset = 0):
-            self.content_checksum = struct.unpack_from('>I', encoded, offset)[0]
-            offset = offset + 4
-            return self
-
-        def encode(self):
-            pieces = []
-            pieces.append(struct.pack('>I', self.content_checksum))
             return pieces
 
 class BasicProperties(pika.specbase.Properties):
@@ -2380,118 +1607,118 @@ class BasicProperties(pika.specbase.Properties):
     FLAG_APP_ID = (1 << 3)
     FLAG_CLUSTER_ID = (1 << 2)
 
-    def __init__(self, content_type = None, content_encoding = None, headers = None, delivery_mode = None, priority = None, correlation_id = None, reply_to = None, expiration = None, message_id = None, timestamp = None, type = None, user_id = None, app_id = None, cluster_id = None):
-        self.content_type = content_type
-        self.content_encoding = content_encoding
-        self.headers = headers
-        self.delivery_mode = delivery_mode
-        self.priority = priority
-        self.correlation_id = correlation_id
-        self.reply_to = reply_to
-        self.expiration = expiration
-        self.message_id = message_id
-        self.timestamp = timestamp
-        self.type = type
-        self.user_id = user_id
-        self.app_id = app_id
-        self.cluster_id = cluster_id
+    def __init__(self, content_type=None, content_encoding=None, headers=None, delivery_mode=None, priority=None, correlation_id=None, reply_to=None, expiration=None, message_id=None, timestamp=None, type=None, user_id=None, app_id=None, cluster_id=None):
+        self.content_type=content_type
+        self.content_encoding=content_encoding
+        self.headers=headers
+        self.delivery_mode=delivery_mode
+        self.priority=priority
+        self.correlation_id=correlation_id
+        self.reply_to=reply_to
+        self.expiration=expiration
+        self.message_id=message_id
+        self.timestamp=timestamp
+        self.type=type
+        self.user_id=user_id
+        self.app_id=app_id
+        self.cluster_id=cluster_id
 
-    def decode(self, encoded, offset = 0):
+    def decode(self, encoded, offset=0):
         flags = 0
         flagword_index = 0
         while True:
             partial_flags = struct.unpack_from('>H', encoded, offset)[0]
-            offset = offset + 2
+            offset += 2
             flags = flags | (partial_flags << (flagword_index * 16))
-            if (partial_flags & 1) == 0: break
-            flagword_index = flagword_index + 1
-        if (flags & BasicProperties.FLAG_CONTENT_TYPE):
+            if not (partial_flags & 1): break
+            flagword_index += 1
+        if flags & BasicProperties.FLAG_CONTENT_TYPE:
             length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += offset
             self.content_type = encoded[offset : offset + length]
-            offset = offset + length
+            offset += length
         else:
             self.content_type = None
-        if (flags & BasicProperties.FLAG_CONTENT_ENCODING):
+        if flags & BasicProperties.FLAG_CONTENT_ENCODING:
             length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += offset
             self.content_encoding = encoded[offset : offset + length]
-            offset = offset + length
+            offset += length
         else:
             self.content_encoding = None
-        if (flags & BasicProperties.FLAG_HEADERS):
+        if flags & BasicProperties.FLAG_HEADERS:
             (self.headers, offset) = pika.table.decode_table(encoded, offset)
         else:
             self.headers = None
-        if (flags & BasicProperties.FLAG_DELIVERY_MODE):
+        if flags & BasicProperties.FLAG_DELIVERY_MODE:
             self.delivery_mode = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += 1
         else:
             self.delivery_mode = None
-        if (flags & BasicProperties.FLAG_PRIORITY):
+        if flags & BasicProperties.FLAG_PRIORITY:
             self.priority = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += 1
         else:
             self.priority = None
-        if (flags & BasicProperties.FLAG_CORRELATION_ID):
+        if flags & BasicProperties.FLAG_CORRELATION_ID:
             length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += offset
             self.correlation_id = encoded[offset : offset + length]
-            offset = offset + length
+            offset += length
         else:
             self.correlation_id = None
-        if (flags & BasicProperties.FLAG_REPLY_TO):
+        if flags & BasicProperties.FLAG_REPLY_TO:
             length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += offset
             self.reply_to = encoded[offset : offset + length]
-            offset = offset + length
+            offset += length
         else:
             self.reply_to = None
-        if (flags & BasicProperties.FLAG_EXPIRATION):
+        if flags & BasicProperties.FLAG_EXPIRATION:
             length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += offset
             self.expiration = encoded[offset : offset + length]
-            offset = offset + length
+            offset += length
         else:
             self.expiration = None
-        if (flags & BasicProperties.FLAG_MESSAGE_ID):
+        if flags & BasicProperties.FLAG_MESSAGE_ID:
             length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += offset
             self.message_id = encoded[offset : offset + length]
-            offset = offset + length
+            offset += length
         else:
             self.message_id = None
-        if (flags & BasicProperties.FLAG_TIMESTAMP):
+        if flags & BasicProperties.FLAG_TIMESTAMP:
             self.timestamp = struct.unpack_from('>Q', encoded, offset)[0]
-            offset = offset + 8
+            offset += 8
         else:
             self.timestamp = None
-        if (flags & BasicProperties.FLAG_TYPE):
+        if flags & BasicProperties.FLAG_TYPE:
             length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += offset
             self.type = encoded[offset : offset + length]
-            offset = offset + length
+            offset += length
         else:
             self.type = None
-        if (flags & BasicProperties.FLAG_USER_ID):
+        if flags & BasicProperties.FLAG_USER_ID:
             length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += offset
             self.user_id = encoded[offset : offset + length]
-            offset = offset + length
+            offset += length
         else:
             self.user_id = None
-        if (flags & BasicProperties.FLAG_APP_ID):
+        if flags & BasicProperties.FLAG_APP_ID:
             length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += offset
             self.app_id = encoded[offset : offset + length]
-            offset = offset + length
+            offset += length
         else:
             self.app_id = None
-        if (flags & BasicProperties.FLAG_CLUSTER_ID):
+        if flags & BasicProperties.FLAG_CLUSTER_ID:
             length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
+            offset += offset
             self.cluster_id = encoded[offset : offset + length]
-            offset = offset + length
+            offset += length
         else:
             self.cluster_id = None
         return self
@@ -2558,317 +1785,7 @@ class BasicProperties(pika.specbase.Properties):
             if remainder != 0: partial_flags = partial_flags | 1
             flag_pieces.append(struct.pack('>H', partial_flags))
             flags = remainder
-            if flags == 0: break
-        return flag_pieces + pieces
-
-class FileProperties(pika.specbase.Properties):
-    CLASS = File
-    INDEX = 0x0046 ## 70
-    NAME = 'FileProperties'
-    FLAG_CONTENT_TYPE = (1 << 15)
-    FLAG_CONTENT_ENCODING = (1 << 14)
-    FLAG_HEADERS = (1 << 13)
-    FLAG_PRIORITY = (1 << 12)
-    FLAG_REPLY_TO = (1 << 11)
-    FLAG_MESSAGE_ID = (1 << 10)
-    FLAG_FILENAME = (1 << 9)
-    FLAG_TIMESTAMP = (1 << 8)
-    FLAG_CLUSTER_ID = (1 << 7)
-
-    def __init__(self, content_type = None, content_encoding = None, headers = None, priority = None, reply_to = None, message_id = None, filename = None, timestamp = None, cluster_id = None):
-        self.content_type = content_type
-        self.content_encoding = content_encoding
-        self.headers = headers
-        self.priority = priority
-        self.reply_to = reply_to
-        self.message_id = message_id
-        self.filename = filename
-        self.timestamp = timestamp
-        self.cluster_id = cluster_id
-
-    def decode(self, encoded, offset = 0):
-        flags = 0
-        flagword_index = 0
-        while True:
-            partial_flags = struct.unpack_from('>H', encoded, offset)[0]
-            offset = offset + 2
-            flags = flags | (partial_flags << (flagword_index * 16))
-            if (partial_flags & 1) == 0: break
-            flagword_index = flagword_index + 1
-        if (flags & FileProperties.FLAG_CONTENT_TYPE):
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            self.content_type = encoded[offset : offset + length]
-            offset = offset + length
-        else:
-            self.content_type = None
-        if (flags & FileProperties.FLAG_CONTENT_ENCODING):
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            self.content_encoding = encoded[offset : offset + length]
-            offset = offset + length
-        else:
-            self.content_encoding = None
-        if (flags & FileProperties.FLAG_HEADERS):
-            (self.headers, offset) = pika.table.decode_table(encoded, offset)
-        else:
-            self.headers = None
-        if (flags & FileProperties.FLAG_PRIORITY):
-            self.priority = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-        else:
-            self.priority = None
-        if (flags & FileProperties.FLAG_REPLY_TO):
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            self.reply_to = encoded[offset : offset + length]
-            offset = offset + length
-        else:
-            self.reply_to = None
-        if (flags & FileProperties.FLAG_MESSAGE_ID):
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            self.message_id = encoded[offset : offset + length]
-            offset = offset + length
-        else:
-            self.message_id = None
-        if (flags & FileProperties.FLAG_FILENAME):
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            self.filename = encoded[offset : offset + length]
-            offset = offset + length
-        else:
-            self.filename = None
-        if (flags & FileProperties.FLAG_TIMESTAMP):
-            self.timestamp = struct.unpack_from('>Q', encoded, offset)[0]
-            offset = offset + 8
-        else:
-            self.timestamp = None
-        if (flags & FileProperties.FLAG_CLUSTER_ID):
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            self.cluster_id = encoded[offset : offset + length]
-            offset = offset + length
-        else:
-            self.cluster_id = None
-        return self
-
-    def encode(self):
-        pieces = []
-        flags = 0
-        if self.content_type is not None:
-            flags = flags | FileProperties.FLAG_CONTENT_TYPE
-            pieces.append(struct.pack('B', len(self.content_type)))
-            pieces.append(self.content_type)
-        if self.content_encoding is not None:
-            flags = flags | FileProperties.FLAG_CONTENT_ENCODING
-            pieces.append(struct.pack('B', len(self.content_encoding)))
-            pieces.append(self.content_encoding)
-        if self.headers is not None:
-            flags = flags | FileProperties.FLAG_HEADERS
-            pika.table.encode_table(pieces, self.headers)
-        if self.priority is not None:
-            flags = flags | FileProperties.FLAG_PRIORITY
-            pieces.append(struct.pack('B', self.priority))
-        if self.reply_to is not None:
-            flags = flags | FileProperties.FLAG_REPLY_TO
-            pieces.append(struct.pack('B', len(self.reply_to)))
-            pieces.append(self.reply_to)
-        if self.message_id is not None:
-            flags = flags | FileProperties.FLAG_MESSAGE_ID
-            pieces.append(struct.pack('B', len(self.message_id)))
-            pieces.append(self.message_id)
-        if self.filename is not None:
-            flags = flags | FileProperties.FLAG_FILENAME
-            pieces.append(struct.pack('B', len(self.filename)))
-            pieces.append(self.filename)
-        if self.timestamp is not None:
-            flags = flags | FileProperties.FLAG_TIMESTAMP
-            pieces.append(struct.pack('>Q', self.timestamp))
-        if self.cluster_id is not None:
-            flags = flags | FileProperties.FLAG_CLUSTER_ID
-            pieces.append(struct.pack('B', len(self.cluster_id)))
-            pieces.append(self.cluster_id)
-        flag_pieces = []
-        while True:
-            remainder = flags >> 16
-            partial_flags = flags & 0xFFFE
-            if remainder != 0: partial_flags = partial_flags | 1
-            flag_pieces.append(struct.pack('>H', partial_flags))
-            flags = remainder
-            if flags == 0: break
-        return flag_pieces + pieces
-
-class StreamProperties(pika.specbase.Properties):
-    CLASS = Stream
-    INDEX = 0x0050 ## 80
-    NAME = 'StreamProperties'
-    FLAG_CONTENT_TYPE = (1 << 15)
-    FLAG_CONTENT_ENCODING = (1 << 14)
-    FLAG_HEADERS = (1 << 13)
-    FLAG_PRIORITY = (1 << 12)
-    FLAG_TIMESTAMP = (1 << 11)
-
-    def __init__(self, content_type = None, content_encoding = None, headers = None, priority = None, timestamp = None):
-        self.content_type = content_type
-        self.content_encoding = content_encoding
-        self.headers = headers
-        self.priority = priority
-        self.timestamp = timestamp
-
-    def decode(self, encoded, offset = 0):
-        flags = 0
-        flagword_index = 0
-        while True:
-            partial_flags = struct.unpack_from('>H', encoded, offset)[0]
-            offset = offset + 2
-            flags = flags | (partial_flags << (flagword_index * 16))
-            if (partial_flags & 1) == 0: break
-            flagword_index = flagword_index + 1
-        if (flags & StreamProperties.FLAG_CONTENT_TYPE):
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            self.content_type = encoded[offset : offset + length]
-            offset = offset + length
-        else:
-            self.content_type = None
-        if (flags & StreamProperties.FLAG_CONTENT_ENCODING):
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            self.content_encoding = encoded[offset : offset + length]
-            offset = offset + length
-        else:
-            self.content_encoding = None
-        if (flags & StreamProperties.FLAG_HEADERS):
-            (self.headers, offset) = pika.table.decode_table(encoded, offset)
-        else:
-            self.headers = None
-        if (flags & StreamProperties.FLAG_PRIORITY):
-            self.priority = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-        else:
-            self.priority = None
-        if (flags & StreamProperties.FLAG_TIMESTAMP):
-            self.timestamp = struct.unpack_from('>Q', encoded, offset)[0]
-            offset = offset + 8
-        else:
-            self.timestamp = None
-        return self
-
-    def encode(self):
-        pieces = []
-        flags = 0
-        if self.content_type is not None:
-            flags = flags | StreamProperties.FLAG_CONTENT_TYPE
-            pieces.append(struct.pack('B', len(self.content_type)))
-            pieces.append(self.content_type)
-        if self.content_encoding is not None:
-            flags = flags | StreamProperties.FLAG_CONTENT_ENCODING
-            pieces.append(struct.pack('B', len(self.content_encoding)))
-            pieces.append(self.content_encoding)
-        if self.headers is not None:
-            flags = flags | StreamProperties.FLAG_HEADERS
-            pika.table.encode_table(pieces, self.headers)
-        if self.priority is not None:
-            flags = flags | StreamProperties.FLAG_PRIORITY
-            pieces.append(struct.pack('B', self.priority))
-        if self.timestamp is not None:
-            flags = flags | StreamProperties.FLAG_TIMESTAMP
-            pieces.append(struct.pack('>Q', self.timestamp))
-        flag_pieces = []
-        while True:
-            remainder = flags >> 16
-            partial_flags = flags & 0xFFFE
-            if remainder != 0: partial_flags = partial_flags | 1
-            flag_pieces.append(struct.pack('>H', partial_flags))
-            flags = remainder
-            if flags == 0: break
-        return flag_pieces + pieces
-
-class TunnelProperties(pika.specbase.Properties):
-    CLASS = Tunnel
-    INDEX = 0x006E ## 110
-    NAME = 'TunnelProperties'
-    FLAG_HEADERS = (1 << 15)
-    FLAG_PROXY_NAME = (1 << 14)
-    FLAG_DATA_NAME = (1 << 13)
-    FLAG_DURABLE = (1 << 12)
-    FLAG_BROADCAST = (1 << 11)
-
-    def __init__(self, headers = None, proxy_name = None, data_name = None, durable = None, broadcast = None):
-        self.headers = headers
-        self.proxy_name = proxy_name
-        self.data_name = data_name
-        self.durable = durable
-        self.broadcast = broadcast
-
-    def decode(self, encoded, offset = 0):
-        flags = 0
-        flagword_index = 0
-        while True:
-            partial_flags = struct.unpack_from('>H', encoded, offset)[0]
-            offset = offset + 2
-            flags = flags | (partial_flags << (flagword_index * 16))
-            if (partial_flags & 1) == 0: break
-            flagword_index = flagword_index + 1
-        if (flags & TunnelProperties.FLAG_HEADERS):
-            (self.headers, offset) = pika.table.decode_table(encoded, offset)
-        else:
-            self.headers = None
-        if (flags & TunnelProperties.FLAG_PROXY_NAME):
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            self.proxy_name = encoded[offset : offset + length]
-            offset = offset + length
-        else:
-            self.proxy_name = None
-        if (flags & TunnelProperties.FLAG_DATA_NAME):
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            self.data_name = encoded[offset : offset + length]
-            offset = offset + length
-        else:
-            self.data_name = None
-        if (flags & TunnelProperties.FLAG_DURABLE):
-            self.durable = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-        else:
-            self.durable = None
-        if (flags & TunnelProperties.FLAG_BROADCAST):
-            self.broadcast = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-        else:
-            self.broadcast = None
-        return self
-
-    def encode(self):
-        pieces = []
-        flags = 0
-        if self.headers is not None:
-            flags = flags | TunnelProperties.FLAG_HEADERS
-            pika.table.encode_table(pieces, self.headers)
-        if self.proxy_name is not None:
-            flags = flags | TunnelProperties.FLAG_PROXY_NAME
-            pieces.append(struct.pack('B', len(self.proxy_name)))
-            pieces.append(self.proxy_name)
-        if self.data_name is not None:
-            flags = flags | TunnelProperties.FLAG_DATA_NAME
-            pieces.append(struct.pack('B', len(self.data_name)))
-            pieces.append(self.data_name)
-        if self.durable is not None:
-            flags = flags | TunnelProperties.FLAG_DURABLE
-            pieces.append(struct.pack('B', self.durable))
-        if self.broadcast is not None:
-            flags = flags | TunnelProperties.FLAG_BROADCAST
-            pieces.append(struct.pack('B', self.broadcast))
-        flag_pieces = []
-        while True:
-            remainder = flags >> 16
-            partial_flags = flags & 0xFFFE
-            if remainder != 0: partial_flags = partial_flags | 1
-            flag_pieces.append(struct.pack('>H', partial_flags))
-            flags = remainder
-            if flags == 0: break
+            if not flags: break
         return flag_pieces + pieces
 
 methods = {
@@ -2880,14 +1797,12 @@ methods = {
     0x000A001F: Connection.TuneOk,
     0x000A0028: Connection.Open,
     0x000A0029: Connection.OpenOk,
-    0x000A0032: Connection.Redirect,
-    0x000A003C: Connection.Close,
-    0x000A003D: Connection.CloseOk,
+    0x000A0032: Connection.Close,
+    0x000A0033: Connection.CloseOk,
     0x0014000A: Channel.Open,
     0x0014000B: Channel.OpenOk,
     0x00140014: Channel.Flow,
     0x00140015: Channel.FlowOk,
-    0x0014001E: Channel.Alert,
     0x00140028: Channel.Close,
     0x00140029: Channel.CloseOk,
     0x001E000A: Access.Request,
@@ -2896,6 +1811,10 @@ methods = {
     0x0028000B: Exchange.DeclareOk,
     0x00280014: Exchange.Delete,
     0x00280015: Exchange.DeleteOk,
+    0x0028001E: Exchange.Bind,
+    0x0028001F: Exchange.BindOk,
+    0x00280028: Exchange.Unbind,
+    0x00280033: Exchange.UnbindOk,
     0x0032000A: Queue.Declare,
     0x0032000B: Queue.DeclareOk,
     0x00320014: Queue.Bind,
@@ -2923,55 +1842,19 @@ methods = {
     0x003C0064: Basic.RecoverAsync,
     0x003C006E: Basic.Recover,
     0x003C006F: Basic.RecoverOk,
-    0x0046000A: File.Qos,
-    0x0046000B: File.QosOk,
-    0x00460014: File.Consume,
-    0x00460015: File.ConsumeOk,
-    0x0046001E: File.Cancel,
-    0x0046001F: File.CancelOk,
-    0x00460028: File.Open,
-    0x00460029: File.OpenOk,
-    0x00460032: File.Stage,
-    0x0046003C: File.Publish,
-    0x00460046: File.Return,
-    0x00460050: File.Deliver,
-    0x0046005A: File.Ack,
-    0x00460064: File.Reject,
-    0x0050000A: Stream.Qos,
-    0x0050000B: Stream.QosOk,
-    0x00500014: Stream.Consume,
-    0x00500015: Stream.ConsumeOk,
-    0x0050001E: Stream.Cancel,
-    0x0050001F: Stream.CancelOk,
-    0x00500028: Stream.Publish,
-    0x00500032: Stream.Return,
-    0x0050003C: Stream.Deliver,
+    0x003C0078: Basic.Nack,
     0x005A000A: Tx.Select,
     0x005A000B: Tx.SelectOk,
     0x005A0014: Tx.Commit,
     0x005A0015: Tx.CommitOk,
     0x005A001E: Tx.Rollback,
     0x005A001F: Tx.RollbackOk,
-    0x0064000A: Dtx.Select,
-    0x0064000B: Dtx.SelectOk,
-    0x00640014: Dtx.Start,
-    0x00640015: Dtx.StartOk,
-    0x006E000A: Tunnel.Request,
-    0x0078000A: Test.Integer,
-    0x0078000B: Test.IntegerOk,
-    0x00780014: Test.String,
-    0x00780015: Test.StringOk,
-    0x0078001E: Test.Table,
-    0x0078001F: Test.TableOk,
-    0x00780028: Test.Content,
-    0x00780029: Test.ContentOk
+    0x0055000A: Confirm.Select,
+    0x0055000B: Confirm.SelectOk
 }
 
 props = {
-    0x003C: BasicProperties,
-    0x0046: FileProperties,
-    0x0050: StreamProperties,
-    0x006E: TunnelProperties
+    0x003C: BasicProperties
 }
 
 def has_content(methodNumber):
@@ -2979,78 +1862,70 @@ def has_content(methodNumber):
     if methodNumber == Basic.Return.INDEX: return True
     if methodNumber == Basic.Deliver.INDEX: return True
     if methodNumber == Basic.GetOk.INDEX: return True
-    if methodNumber == File.Stage.INDEX: return True
-    if methodNumber == File.Return.INDEX: return True
-    if methodNumber == Stream.Publish.INDEX: return True
-    if methodNumber == Stream.Return.INDEX: return True
-    if methodNumber == Stream.Deliver.INDEX: return True
-    if methodNumber == Tunnel.Request.INDEX: return True
-    if methodNumber == Test.Content.INDEX: return True
-    if methodNumber == Test.ContentOk.INDEX: return True
     return False
 
 class DriverMixin:
-    def exchange_declare(self, ticket = 1, exchange = None, type = 'direct', passive = False, durable = False, auto_delete = False, internal = False, nowait = False, arguments = {}):
-        return self.handler._rpc(Exchange.Declare(ticket = ticket, exchange = exchange, type = type, passive = passive, durable = durable, auto_delete = auto_delete, internal = internal, nowait = nowait, arguments = arguments),
+    def exchange_declare(self, ticket=0, exchange=None, type='direct', passive=False, durable=False, auto_delete=False, internal=False, nowait=False, arguments={}):
+        return self.handler._rpc(None, Exchange.Declare(ticket=ticket, exchange=exchange, type=type, passive=passive, durable=durable, auto_delete=auto_delete, internal=internal, nowait=nowait, arguments=arguments),
                                  [Exchange.DeclareOk])
 
-    def exchange_delete(self, ticket = 1, exchange = None, if_unused = False, nowait = False):
-        return self.handler._rpc(Exchange.Delete(ticket = ticket, exchange = exchange, if_unused = if_unused, nowait = nowait),
+    def exchange_delete(self, ticket=0, exchange=None, if_unused=False, nowait=False):
+        return self.handler._rpc(None, Exchange.Delete(ticket=ticket, exchange=exchange, if_unused=if_unused, nowait=nowait),
                                  [Exchange.DeleteOk])
 
-    def queue_declare(self, ticket = 1, queue = '', passive = False, durable = False, exclusive = False, auto_delete = False, nowait = False, arguments = {}):
-        return self.handler._rpc(Queue.Declare(ticket = ticket, queue = queue, passive = passive, durable = durable, exclusive = exclusive, auto_delete = auto_delete, nowait = nowait, arguments = arguments),
+    def queue_declare(self, ticket=0, queue='', passive=False, durable=False, exclusive=False, auto_delete=False, nowait=False, arguments={}):
+        return self.handler._rpc(None, Queue.Declare(ticket=ticket, queue=queue, passive=passive, durable=durable, exclusive=exclusive, auto_delete=auto_delete, nowait=nowait, arguments=arguments),
                                  [Queue.DeclareOk])
 
-    def queue_bind(self, ticket = 1, queue = None, exchange = None, routing_key = '', nowait = False, arguments = {}):
-        return self.handler._rpc(Queue.Bind(ticket = ticket, queue = queue, exchange = exchange, routing_key = routing_key, nowait = nowait, arguments = arguments),
+    def queue_bind(self, ticket=0, queue='', exchange=None, routing_key='', nowait=False, arguments={}):
+        return self.handler._rpc(None, Queue.Bind(ticket=ticket, queue=queue, exchange=exchange, routing_key=routing_key, nowait=nowait, arguments=arguments),
                                  [Queue.BindOk])
 
-    def queue_purge(self, ticket = 1, queue = None, nowait = False):
-        return self.handler._rpc(Queue.Purge(ticket = ticket, queue = queue, nowait = nowait),
+    def queue_purge(self, ticket=0, queue='', nowait=False):
+        return self.handler._rpc(None, Queue.Purge(ticket=ticket, queue=queue, nowait=nowait),
                                  [Queue.PurgeOk])
 
-    def queue_delete(self, ticket = 1, queue = None, if_unused = False, if_empty = False, nowait = False):
-        return self.handler._rpc(Queue.Delete(ticket = ticket, queue = queue, if_unused = if_unused, if_empty = if_empty, nowait = nowait),
+    def queue_delete(self, ticket=0, queue='', if_unused=False, if_empty=False, nowait=False):
+        return self.handler._rpc(None, Queue.Delete(ticket=ticket, queue=queue, if_unused=if_unused, if_empty=if_empty, nowait=nowait),
                                  [Queue.DeleteOk])
 
-    def queue_unbind(self, ticket = 1, queue = None, exchange = None, routing_key = '', arguments = {}):
-        return self.handler._rpc(Queue.Unbind(ticket = ticket, queue = queue, exchange = exchange, routing_key = routing_key, arguments = arguments),
+    def queue_unbind(self, ticket=0, queue='', exchange=None, routing_key='', arguments={}):
+        return self.handler._rpc(None, Queue.Unbind(ticket=ticket, queue=queue, exchange=exchange, routing_key=routing_key, arguments=arguments),
                                  [Queue.UnbindOk])
 
-    def basic_qos(self, prefetch_size = 0, prefetch_count = 0, global_ = False):
-        return self.handler._rpc(Basic.Qos(prefetch_size = prefetch_size, prefetch_count = prefetch_count, global_ = global_),
+    def basic_qos(self, prefetch_size=0, prefetch_count=0, global_=False):
+        return self.handler._rpc(None, Basic.Qos(prefetch_size=prefetch_size, prefetch_count=prefetch_count, global_=global_),
                                  [Basic.QosOk])
 
-    def basic_get(self, ticket = 1, queue = None, no_ack = False):
-        return self.handler._rpc(Basic.Get(ticket = ticket, queue = queue, no_ack = no_ack),
+    def basic_get(self, ticket=0, queue='', no_ack=False):
+        return self.handler._rpc(None, Basic.Get(ticket=ticket, queue=queue, no_ack=no_ack),
                                  [Basic.GetOk, Basic.GetEmpty])
 
-    def basic_ack(self, delivery_tag = 0, multiple = False):
-        return self.handler._rpc(Basic.Ack(delivery_tag = delivery_tag, multiple = multiple),
+    def basic_ack(self, delivery_tag=0, multiple=False):
+        return self.handler._rpc(self.on_event_ok, Basic.Ack(delivery_tag=delivery_tag, multiple=multiple),
                                  [])
 
-    def basic_reject(self, delivery_tag = None, requeue = True):
-        return self.handler._rpc(Basic.Reject(delivery_tag = delivery_tag, requeue = requeue),
+    def basic_reject(self, delivery_tag=None, requeue=True):
+        return self.handler._rpc(self.on_event_ok, Basic.Reject(delivery_tag=delivery_tag, requeue=requeue),
                                  [])
 
-    def basic_recover_async(self, requeue = False):
-        return self.handler._rpc(Basic.RecoverAsync(requeue = requeue),
+    def basic_recover_async(self, requeue=False):
+        return self.handler._rpc(self.on_event_ok, Basic.RecoverAsync(requeue=requeue),
                                  [])
 
-    def basic_recover(self, requeue = False):
-        return self.handler._rpc(Basic.Recover(requeue = requeue),
+    def basic_recover(self, requeue=False):
+        return self.handler._rpc(None, Basic.Recover(requeue=requeue),
                                  [Basic.RecoverOk])
 
     def tx_select(self):
-        return self.handler._rpc(Tx.Select(),
+        return self.handler._rpc(None, Tx.Select(),
                                  [Tx.SelectOk])
 
     def tx_commit(self):
-        return self.handler._rpc(Tx.Commit(),
+        return self.handler._rpc(None, Tx.Commit(),
                                  [Tx.CommitOk])
 
     def tx_rollback(self):
-        return self.handler._rpc(Tx.Rollback(),
+        return self.handler._rpc(None, Tx.Rollback(),
                                  [Tx.RollbackOk])
 
