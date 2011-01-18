@@ -66,7 +66,8 @@ try:
 except AttributeError:
     os.SEEK_SET, os.SEEK_CUR, os.SEEK_END = range(3)
 
-class SimpleBuffer:
+
+class SimpleBuffer(object):
     """
     >>> b = SimpleBuffer("abcdef")
     >>> b.read_and_consume(3)
@@ -136,7 +137,7 @@ class SimpleBuffer:
     def send_to_socket(self, sd):
         """ Faster way of sending buffer data to socket 'sd'. """
         self.buf.seek(self.offset)
-        r = sd.send( self.buf.read() )
+        r = sd.send(self.buf.read())
         self.buf.seek(0, os.SEEK_END)
         self.offset += r
         self.size -= r
@@ -160,4 +161,5 @@ class SimpleBuffer:
 
     def __repr__(self):
         return '<SimpleBuffer of %i bytes, %i total size, %r%s>' % \
-                    (self.size, self.size + self.offset, self.read(16), (self.size > 16) and '...' or '')
+                    (self.size, self.size + self.offset, self.read(16),
+                    (self.size > 16) and '...' or '')
