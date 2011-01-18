@@ -730,7 +730,7 @@ class HeartbeatChecker(object):
             self.connection.send_frame(codec.FrameHeartbeat())
 
         if self.previous_received == self.connection.bytes_received:
-            # The server has been silent a wee while. Bump our the counter
+            # The server has been silent a wee while. Bump our counter
             self.missed_heartbeat_count += 1
         else:
             # The server has said something. Reset our count.
