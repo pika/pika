@@ -51,25 +51,43 @@
 Example of simple producer, creates one message and exits.
 '''
 
+import logging
 import sys
 import pika
-import asyncore
+import pika.asyncore_adapter
 
-conn = pika.AsyncoreConnection(pika.ConnectionParameters(
-        (len(sys.argv) > 1) and sys.argv[1] or '127.0.0.1',
-        credentials=pika.PlainCredentials('guest', 'guest')))
+logging.basicConfig(level=logging.DEBUG)
 
-ch = conn.channel()
-ch.queue_declare(queue="test", durable=True, exclusive=False, auto_delete=False)
+def on_connected():
 
-ch.basic_publish(exchange='',
-                 routing_key="test",
-                 body="Hello World!",
-                 properties=pika.BasicProperties(
+    global conn
+
+    logging.info("Connected!")
+
+    ch = conn.channel()
+    ch.queue_declare(queue="test", durable=True,
+                     exclusive=False, auto_delete=False)
+
+    ch.basic_publish(exchange='',
+                     routing_key="test",
+                     body="Hello World!",
+                     properties=pika.BasicProperties(
                         content_type = "text/plain",
                         delivery_mode = 2, # persistent
-                        ),
-                 block_on_flow_control = True)
+                     ),
+                     block_on_flow_control = True)
 
-conn.close()
-pika.asyncore_loop()
+    conn.close()
+
+def on_closed():
+    global conn
+
+    conn.disconnect_transport()
+
+parameters = pika.ConnectionParameters((len(sys.argv) > 1) and \
+                                       sys.argv[1] or \
+                                       '127.0.0.1')
+conn = pika.asyncore_adapter.AsyncoreConnection(parameters,
+                                                open_callback=on_connected,
+                                                close_callback=on_closed)
+pika.asyncore_adapter.loop()

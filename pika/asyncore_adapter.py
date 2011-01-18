@@ -53,9 +53,12 @@ import asyncore
 import time
 from heapq import heappush, heappop
 from errno import EAGAIN
+
 import pika.connection
+import pika.spec
 
 class RabbitDispatcher(asyncore.dispatcher):
+
     def __init__(self, connection):
         asyncore.dispatcher.__init__(self)
         self.connection = connection
@@ -67,11 +70,12 @@ class RabbitDispatcher(asyncore.dispatcher):
 
     def handle_connect(self):
         self.connection.on_connected()
+        self.closed = False
 
     def handle_close(self):
-        self.connection.on_disconnected()
+        #self.connection.on_disconnected()
         self.connection.dispatcher = None
-        self.close()
+        self.connection.close(200, 'Normal Shutdown', self.on_closed)
 
     def handle_read(self):
         try:
@@ -90,6 +94,7 @@ class RabbitDispatcher(asyncore.dispatcher):
 
         self.connection.on_data_available(buf)
 
+
     def writable(self):
         return bool(self.connection.outbound_buffer)
 
@@ -98,14 +103,18 @@ class RabbitDispatcher(asyncore.dispatcher):
         r = self.send(fragment)
         self.connection.outbound_buffer.consume(r)
 
+    def on_closed(self):
+        self.closed = True
+
 class AsyncoreConnection(pika.connection.Connection):
+
     def delayed_call(self, delay_sec, callback):
         add_oneshot_timer_rel(delay_sec, callback)
 
     def connect(self, host, port):
         self.dispatcher = RabbitDispatcher(self)
         self.dispatcher.create_socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.dispatcher.connect((host, port or spec.PORT))
+        self.dispatcher.connect((host, port or pika.spec.PORT))
 
     def disconnect_transport(self):
         if self.dispatcher:
@@ -126,7 +135,7 @@ def add_oneshot_timer_abs(firing_time, callback):
 def add_oneshot_timer_rel(firing_delay, callback):
     add_oneshot_timer_abs(time.time() + firing_delay, callback)
 
-def next_event_timeout(default_timeout=None): 
+def next_event_timeout(default_timeout=None):
     cutoff = run_timers_internal()
     if timer_heap:
         timeout = timer_heap[0][0] - cutoff
