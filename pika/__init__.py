@@ -46,23 +46,15 @@
 #
 # ***** END LICENSE BLOCK *****
 
-from pika.spec import \
-    BasicProperties
-from pika.connection import \
-    PlainCredentials, \
-    ConnectionParameters, \
-    SimpleReconnectionStrategy
 
-import pika.asyncore_adapter
-from pika.asyncore_adapter import \
-    AsyncoreConnection
-asyncore_loop = pika.asyncore_adapter.loop
+from pika.connection import ConnectionParameters
+from pika.connection import PlainCredentials
+from pika.reconnection_strategies import ReconnectionStrategy
+from pika.spec import BasicProperties
 
-from pika.blocking_adapter import \
-    BlockingConnection
-
-def repl_channel(host = '127.0.0.1', *args):
-    return BlockingConnection(ConnectionParameters(host, *args)).channel()
+from pika.asyncore_adapter import AsyncoreConnection
+from pika.blocking_adapter import BlockingConnection
+from pika.tornado_adapter import TornadoConnection
 
 # Python 2.4 support: add struct.unpack_from if it's missing.
 try:
