@@ -46,7 +46,7 @@
 #
 # ***** END LICENSE BLOCK *****
 
-import random
+import logging
 
 import pika.spec as spec
 import pika.codec as codec
@@ -55,6 +55,12 @@ import pika.simplebuffer as simplebuffer
 import pika.event as event
 from pika.specbase import _codec_repr
 from pika.exceptions import *
+from pika.reconnection_strategies import NullReconnectionStrategy
+
+CHANNEL_MAX = 32767
+FRAME_MAX = 131072
+PRODUCT = "Pika Python AMQP Client Library"
+
 
 class PlainCredentials:
     def __init__(self, username, password):
@@ -66,17 +72,31 @@ class PlainCredentials:
             return None
         return ('PLAIN', '\0%s\0%s' % (self.username, self.password))
 
+
+# Module wide default credentials for default RabbitMQ configurations
 default_credentials = PlainCredentials('guest', 'guest')
 
+
+def combine_tuning(a, b):
+
+    if a == 0:
+        return b
+    elif b == 0:
+        return a
+    return min(a, b)
+
+
 class ConnectionParameters:
+
     def __init__(self,
                  host,
-                 port = None,
-                 virtual_host = "/",
-                 credentials = None,
-                 channel_max = 0,
-                 frame_max = 131072,
-                 heartbeat = 0):
+                 port=None,
+                 virtual_host="/",
+                 credentials=None,
+                 channel_max=0,
+                 frame_max=131072,
+                 heartbeat=0):
+
         self.host = host
         self.port = port
         self.virtual_host = virtual_host
@@ -86,251 +106,225 @@ class ConnectionParameters:
         self.heartbeat = heartbeat
 
     def __repr__(self):
+
         return _codec_repr(self, lambda: ConnectionParameters(None))
 
-class SimpleReconnectionStrategy:
-    def __init__(self, initial_retry_delay = 1.0, multiplier = 2.0, max_delay = 30.0, jitter = 0.5):
-        self.initial_retry_delay = initial_retry_delay
-        self.multiplier = multiplier
-        self.max_delay = max_delay
-        self.jitter = jitter
-
-        self._reset()
-
-    def _reset(self):
-        #print 'RESET'
-        self.current_delay = self.initial_retry_delay
-        self.attempts_since_last_success = 0
-
-    def can_reconnect(self):
-        return True
-
-    def on_connect_attempt(self, conn):
-        #print 'ATTEMPT', conn.parameters
-        self.attempts_since_last_success = self.attempts_since_last_success + 1
-
-    def on_connect_attempt_failure(self, conn):
-        #print 'ATTEMPTFAILED', conn.parameters
-        pass
-
-    def on_transport_connected(self, conn):
-        #print 'TXCONNECTED', conn.parameters
-        pass
-
-    def on_transport_disconnected(self, conn):
-        #print "TXDISCONNECTED", conn.parameters, self.attempts_since_last_success
-        pass
-
-    def on_connection_open(self, conn):
-        #print 'CONNECTED', conn.parameters
-        self._reset()
-
-    def on_connection_closed(self, conn):
-        t = self.current_delay * ((random.random() * self.jitter) + 1)
-        #print "RETRYING %r IN %r SECONDS (%r attempts)" % (conn.parameters, t, self.attempts_since_last_success)
-        self.current_delay = min(self.max_delay, self.current_delay * self.multiplier)
-        conn.delayed_call(t, conn.reconnect)
-
-class NullReconnectionStrategy:
-    def can_reconnect(self): return False
-    def on_connect_attempt(self, conn): pass
-    def on_connect_attempt_failure(self, conn): pass
-    def on_transport_connected(self, conn): pass
-    def on_transport_disconnected(self, conn): pass
-    def on_connection_open(self, conn): pass
-    def on_connection_closed(self, conn): pass
 
 class Connection:
-    def __init__(self, parameters, wait_for_open = True, reconnection_strategy = None):
-        self.parameters = parameters
-        self.reconnection_strategy = reconnection_strategy or NullReconnectionStrategy()
 
+    _callbacks = dict()
+
+    """
+    In order to implement a connection adapter, you must extend connect,
+    delayed_call, disconnect_transport and flush_outbound.
+    """
+
+    def connect(self, host, port):
+        """
+        Subclasses should override to set up the outbound
+        socket.
+        """
+        raise NotImplementedError('Subclass Responsibility')
+
+    def delayed_call(self, delay_sec, callback):
+        """
+        Subclasses should override to call the callback after the
+        specified number of seconds have elapsed, using a timer, or a
+        thread, or similar.
+        """
+        raise NotImplementedError('Subclass Responsibility')
+
+    def disconnect_transport(self):
+        """
+        Subclasses should override this to cause the underlying
+        transport (socket) to close.
+        """
+        raise NotImplementedError('Subclass Responsibility')
+
+    def erase_credentials(self):
+        """
+        Override if in some context you need the object to forget
+        its login credentials after successfully opening a connection.
+        """
+        pass
+
+    def flush_outbound(self):
+        """Subclasses should override to flush the contents of
+        outbound_buffer out along the socket."""
+        raise NotImplementedError('Subclass Responsibility')
+
+    """
+    These functions should not need to be extended in order to implement a
+    connection adapter
+    """
+
+    def __init__(self, parameters, open_callback, close_callback,
+                 reconnection_strategy=None):
+        """
+        Connection initialization expects a ConnectionParameters object and
+        a callback function to notify when we have successfully connected
+        to the AMQP Broker.
+
+        A reconnection_strategy of None will use the NullReconnectionStrategy
+        """
+
+        # If we did not pass in a reconnection_strategy, setup the default
+        if not reconnection_strategy:
+            reconnection_strategy = NullReconnectionStrategy()
+
+        # Set our configuration options
+        self.on_connected_callback = open_callback
+        self.on_close_callback = close_callback
+        self.parameters = parameters
+        self.reconnection_strategy = reconnection_strategy
+
+        # Event handler for callbacks on connection state change
         self.connection_state_change_event = event.Event()
 
-        self._reset_per_connection_state()
-        self.reconnect()
+        # Set all of our default connection state values
+        self._init_connection_state()
 
-        if wait_for_open:
-            self.wait_for_open()
+        # Connect to the AMQP Broker
+        self._connect()
 
-    def _reset_per_connection_state(self):
+    def _local_protocol_header(self):
+        """
+        Returns the Frame Protocol Header for our AMQP Client for communicating
+        with our AMQP Broker
+        """
+        return codec.FrameProtocolHeader(1, 1,
+                                         spec.PROTOCOL_VERSION[0],
+                                         spec.PROTOCOL_VERSION[1])
+
+    def add_state_change_handler(self, handler, key=None):
+        """
+        This method allows you to add a custom event
+        handler that will be fired when the connection state changes.
+        """
+        logging.debug('%s.add_state_change_handler' % \
+                      self.__class__.__name__)
+        self.connection_state_change_event.addHandler(handler, key)
+        if closed:
+            handler(self, False)
+        else:
+            handler(self, True)
+
+    def remove_state_change_handler(self, key):
+        """
+        Remove a custom connection state change event handler.
+        """
+        logging.debug('%s.remove_state_change_handler' % \
+                      self.__class__.__name__)
+        self.connection_state_change_event.delHandler(key)
+
+    # Connection opening related functionality
+
+    def _connect(self):
+        """
+        Internal conneciton method that will kick off the socket based
+        connections in our Adapter and kick off the initial communication
+        frame.
+
+        Connect in our Adapter's Connection is a blocking operation
+        """
+        logging.debug('%s._connect' % self.__class__.__name__)
+
+        # Let our RS know what we're up to
+        self.reconnection_strategy.on_connect_attempt(self)
+
+        # Try and connect and send the first frame
+        try:
+            self.connect(self.parameters.host, self.parameters.port or \
+                                               spec.PORT)
+            self._send_frame(self._local_protocol_header())
+        except:
+            # Something went wrong, let our SRS know
+            self.reconnection_strategy.on_connect_attempt_failure(self)
+            raise AMQPConnectionError
+
+    def _handle_connection_open(self):
+        """
+        Let both our RS and Event object know we connected successfully
+        """
+        logging.debug('%s._handle_connection_open' % self.__class__.__name__)
+
+        # Let our connection strategy know the connection is open
+        self.reconnection_strategy.on_connection_open(self)
+
+        # Call our custom state change event callbacks
+        self.connection_state_change_event.fire(self, True)
+
+    def _init_connection_state(self):
+        """
+        Initialize or reset all of our internal state variables for a given
+        connection. If we disconnect and reconnect, all of our state needs to
+        be wiped
+        """
+        logging.debug('%s._init_connection_state' % self.__class__.__name__)
+
+        self.buffer = str()
         self.state = codec.ConnectionState()
         self.server_properties = None
         self.outbound_buffer = simplebuffer.SimpleBuffer()
-        self.frame_handler = self._login1
         self.channels = {}
-        self.next_channel = 0
-        self.connection_open = False
-        self.connection_close = None
+        self.close_code = None
+        self.close_text = None
+        self.closed = True
+        self.closing = False
         self.bytes_sent = 0
         self.bytes_received = 0
         self.heartbeat_checker = None
 
-    def delayed_call(self, delay_sec, callback):
-        """Subclasses should override to call the callback after the
-        specified number of seconds have elapsed, using a timer, or a
-        thread, or similar."""
-        raise NotImplementedError('Subclass Responsibility')
+        # Our starting point once connected, first frame received
+        self.add_callback(self._on_connection_start, spec.Connection.Start)
 
-    def reconnect(self):
-        self.ensure_closed()
-        self.reconnection_strategy.on_connect_attempt(self)
-        self._reset_per_connection_state()
-        try:
-            self.connect(self.parameters.host, self.parameters.port or spec.PORT)
-            self.send_frame(self._local_protocol_header())
-        except:
-            self.reconnection_strategy.on_connect_attempt_failure(self)
-            raise
-
-    def connect(self, host, port):
-        """Subclasses should override to set up the outbound
-        socket."""
-        raise NotImplementedError('Subclass Responsibility')
-
-    def _local_protocol_header(self):
-        return codec.FrameProtocolHeader(1,
-                                         1,
-                                         spec.PROTOCOL_VERSION[0],
-                                         spec.PROTOCOL_VERSION[1])
+    def is_alive(self):
+        """
+        Returns a boolean reporting the current connection state
+        """
+        return not self.closing and not self.closed
 
     def on_connected(self):
+        """
+        This is called by our connection Adapter to let us know that we've
+        connected and we can notify our connection strategy
+        """
+        logging.debug('%s.on_connected' % self.__class__.__name__)
+
+        # Let our reconnection_strategy know we're connected
         self.reconnection_strategy.on_transport_connected(self)
 
-    def handle_connection_open(self):
-        self.reconnection_strategy.on_connection_open(self)
-        self.connection_state_change_event.fire(self, True)
+    def _on_connection_open(self, frame):
+        """
+        This is called once we have tuned the conneciton with the server and
+        called the Connection.Open on the server and it has replied with
+        Connection.Ok.
+        """
+        logging.debug('%s._on_connection_open' % self.__class__.__name__)
+        self.known_hosts = frame.method.known_hosts
+        self._handle_connection_open()
 
-    def handle_connection_close(self):
-        self.reconnection_strategy.on_connection_closed(self)
-        self.connection_state_change_event.fire(self, False)
+        # Add a callback handler for the Broker telling us to disconnect
+        self.add_callback(self.on_remote_close, spec.Connection.Close)
 
-    def addStateChangeHandler(self, handler, key = None):
-        self.connection_state_change_event.addHandler(handler, key)
-        if self.connection_open:
-            handler(self, True)
-        elif self.connection_close:
-            handler(self, False)
+        if self.on_connected_callback:
+            self.on_connected_callback()
 
-    def delStateChangeHandler(self, key):
-        self.connection_state_change_event.delHandler(key)
+    def _on_connection_start(self, frame):
+        """
+        This is called as a callback once we have received a Connection.Start
+        from the server.
+        """
+        logging.debug('%s._on_connection_start' % self.__class__.__name__)
 
-    def _set_connection_close(self, c):
-        if not self.connection_close:
-            self.connection_close = c
-            for chan in self.channels.values():
-                chan._set_channel_close(c)
-            self.connection_open = False
-            self.handle_connection_close()
+        # We're now connected to the broker
+        self.closed = False
 
-    def close(self, code = 200, text = 'Normal shutdown'):
-        if self.connection_open:
-            self.connection_open = False
-            c = spec.Connection.Close(reply_code = code,
-                                      reply_text = text,
-                                      class_id = 0,
-                                      method_id = 0)
-            self._rpc(0, c, [spec.Connection.CloseOk])
-            self._set_connection_close(c)
-        self._disconnect_transport()
-
-    def ensure_closed(self):
-        if self.is_alive():
-            self.close()
-
-    def _disconnect_transport(self, reason = None):
-        self.disconnect_transport()
-        self.on_disconnected(reason)
-
-    def disconnect_transport(self):
-        """Subclasses should override this to cause the underlying
-        transport (socket) to close."""
-        raise NotImplementedError('Subclass Responsibility')
-
-    def on_disconnected(self, reason = 'Socket closed'):
-        self._set_connection_close(spec.Connection.Close(reply_code = 0,
-                                                         reply_text = reason,
-                                                         class_id = 0,
-                                                         method_id = 0))
-        self.reconnection_strategy.on_transport_disconnected(self)
-
-    def suggested_buffer_size(self):
-        b = self.state.frame_max
-        if not b: b = 131072
-        return b
-
-    def on_data_available(self, buf):
-        while buf:
-            (consumed_count, frame) = self.state.handle_input(buf)
-            self.bytes_received = self.bytes_received + consumed_count
-            buf = buf[consumed_count:]
-            if frame:
-                self.frame_handler(frame)
-
-    def _next_channel_number(self):
-        tries = 0
-        limit = self.state.channel_max or 32767
-        while self.next_channel in self.channels:
-            self.next_channel = (self.next_channel + 1) % limit
-            tries = tries + 1
-            if self.next_channel == 0:
-                self.next_channel = 1
-            if tries > limit:
-                raise NoFreeChannels()
-        return self.next_channel
-
-    def _set_channel(self, channel_number, channel):
-        self.channels[channel_number] = channel
-
-    def _ensure_channel(self, channel_number):
-        if self.connection_close:
-            raise ConnectionClosed(self.connection_close)
-        return self.channels[channel_number]._ensure()
-
-    def reset_channel(self, channel_number):
-        if channel_number in self.channels:
-            del self.channels[channel_number]
-
-    def send_frame(self, frame):
-        marshalled_frame = frame.marshal()
-        self.bytes_sent = self.bytes_sent + len(marshalled_frame)
-        self.outbound_buffer.write(marshalled_frame)
-        #print 'Wrote %r' % (frame, )
-
-    def send_method(self, channel_number, method, content = None):
-        self.send_frame(codec.FrameMethod(channel_number, method))
-        props = None
-        body = None
-        if isinstance(content, tuple):
-            props = content[0]
-            body = content[1]
-        else:
-            body = content
-        if props:
-            length = 0
-            if body: length = len(body)
-            self.send_frame(codec.FrameHeader(channel_number, length, props))
-        if body:
-            maxpiece = (self.state.frame_max - \
-                        codec.ConnectionState.HEADER_SIZE - \
-                        codec.ConnectionState.FOOTER_SIZE)
-            body_buf = simplebuffer.SimpleBuffer( body )
-            while body_buf:
-                piecelen = min(len(body_buf), maxpiece)
-                piece = body_buf.read_and_consume( piecelen )
-                self.send_frame(codec.FrameBody(channel_number, piece))
-
-    def _rpc(self, channel_number, method, acceptable_replies):
-        channel = self._ensure_channel(channel_number)
-        self.send_method(channel_number, method)
-        return channel.wait_for_reply(acceptable_replies)
-
-    def _login1(self, frame):
         if isinstance(frame, codec.FrameProtocolHeader):
-            raise ProtocolVersionMismatch(self._local_protocol_header(),
-                                          frame)
+            raise ProtocolVersionMismatch(self._local_protocol_header(), frame)
 
-        if (frame.method.version_major, frame.method.version_minor) != spec.PROTOCOL_VERSION:
+        if (frame.method.version_major,
+            frame.method.version_minor) != spec.PROTOCOL_VERSION:
             raise ProtocolVersionMismatch(self._local_protocol_header(),
                                           frame)
 
@@ -339,88 +333,385 @@ class Connection:
         credentials = self.parameters.credentials or default_credentials
         response = credentials.response_for(frame.method)
         if not response:
-            raise LoginError("No acceptable SASL mechanism for the given credentials",
-                             credentials)
-        self.send_method(0, spec.Connection.StartOk(client_properties = \
-                                                      {"product": "Pika Python AMQP Client Library"},
-                                                    mechanism = response[0],
-                                                    response = response[1]))
+            raise LoginError("No acceptable %s support for the credentials",
+                             (frame.method, credentials))
+        self.send_method(0, spec.Connection.StartOk(
+                                  client_properties={"product": PRODUCT},
+                                  mechanism=response[0],
+                                  response=response[1]))
         self.erase_credentials()
-        self.frame_handler = self._login2
+        self.add_callback(self._on_connection_tune, spec.Connection.Tune)
 
-    def erase_credentials(self):
-        """Override if in some context you need the object to forget
-        its login credentials after successfully opening a connection."""
-        pass
-
-    def _login2(self, frame):
-        channel_max = combine_tuning(self.parameters.channel_max, frame.method.channel_max)
-        frame_max = combine_tuning(self.parameters.frame_max, frame.method.frame_max)
-        heartbeat = combine_tuning(self.parameters.heartbeat, frame.method.heartbeat)
+    def _on_connection_tune(self, frame):
+        """
+        Once the Broker sends back a Connection.Tune, we will set our tuning
+        variables that have been returned to us and kick off the Heartbeat
+        monitor if required, send our TuneOk and then the Connection.Open rpc
+        call on channel 0
+        """
+        logging.debug('%s._on_connection_tune' % self.__class__.__name__)
+        channel_max = combine_tuning(self.parameters.channel_max,
+                                     frame.method.channel_max)
+        frame_max = combine_tuning(self.parameters.frame_max,
+                                   frame.method.frame_max)
+        heartbeat = combine_tuning(self.parameters.heartbeat,
+                                   frame.method.heartbeat)
         if heartbeat:
             self.heartbeat_checker = HeartbeatChecker(self, heartbeat)
+
         self.state.tune(channel_max, frame_max)
-        self.send_method(0, spec.Connection.TuneOk(
-            channel_max = channel_max,
-            frame_max = frame_max,
-            heartbeat = heartbeat))
-        self.frame_handler = self._generic_frame_handler
-        self._install_channel0()
-        self.known_hosts = \
-                         self._rpc(0, spec.Connection.Open(virtual_host = \
-                                                               self.parameters.virtual_host,
-                                                           insist = True),
-                                   [spec.Connection.OpenOk]).known_hosts
-        self.connection_open = True
-        self.handle_connection_open()
+        self.send_method(0, spec.Connection.TuneOk(channel_max=channel_max,
+                                                    frame_max=frame_max,
+                                                    heartbeat=heartbeat))
+        self.rpc(self._on_connection_open, 0,
+                  spec.Connection.Open( \
+                          virtual_host=self.parameters.virtual_host,
+                          insist=True),
+                  [spec.Connection.OpenOk])
 
-    def is_alive(self):
-        return self.connection_open and not self.connection_close
+    def reconnect(self):
+        """
+        Called by the Reconnection Strategy classes or Adapters to disconnect
+        and reconnect to the broker
+        """
+        logging.debug('%s.reconnect' % self.__class__.__name__)
+        self._ensure_closed()
+        self._init_connection_state()
+        self._connect()
 
-    def _install_channel0(self):
-        c = channel.ChannelHandler(self, 0)
-        c.async_map[spec.Connection.Close] = self._async_connection_close
+    # Functions related to closing a connection
 
-    def channel(self):
-        return channel.Channel(channel.ChannelHandler(self))
+    def close(self, code=200, text='Normal shutdown'):
+        """
+        Main close function, will attempt to close the channels and if there
+        are no channels left, will go straight to on_close_ready
+        """
+        logging.info("%s.close Closing Connection: (%s) %s" % \
+                     (self.__class__.__name__, code, text))
 
-    def wait_for_open(self):
-        while (not self.connection_open) and \
-                (self.reconnection_strategy.can_reconnect() or (not self.connection_close)):
-            self.drain_events()
+        if self.closing or self.closed:
+            logging.info("%s.Close invoked while already closing or closed" %\
+                         self.__class__.__name__)
+            return
 
-    def flush_outbound(self):
-        """Subclasses should override to flush the contents of
-        outbound_buffer out along the socket."""
-        raise NotImplementedError('Subclass Responsibility')
+        self.closing = True
+        self.close_code = code
+        self.close_text = text
 
-    def drain_events(self, timeout=None):
-        """Subclasses should override as required to wait for a few
-        events -- perhaps running the dispatch loop once, or a small
-        number of times -- and dispatch them, and then to return
-        control to this method's caller, which will be waiting for
-        something to have been set by one of the event
-        handlers. Implementations should also take care to flush the
-        outbound_buffer before blocking on input!"""
-        raise NotImplementedError('Subclass Responsibility')
+        # If we're not already closed
+        for channel in self.channels.values():
+            channel.close(code, text)
 
-    def _async_connection_close(self, method_frame, header_frame, body):
-        self.send_method(0, spec.Connection.CloseOk())
-        self._set_connection_close(method_frame.method)
+        # If we already dont have any channels, close out
+        if not len(self.channels):
+            self.on_close_ready()
+
+    def on_close_ready(self):
+        """
+        On a clean shutdown we'll call this once all of our channels are closed
+        Let the Broker know we want to close
+        """
+        self.rpc(self._on_close_ok, 0,
+                 spec.Connection.Close(self.close_code, self.close_text, 0, 0),
+                 [spec.Connection.CloseOk])
+
+    def on_channel_close(self, frame):
+        """
+        RPC Response from when a channel closes itself, remove from our stack
+        """
+        logging.debug('%s._on_close_ok' % self.__class__.__name__)
+
+        if frame.channel_number in self.channels:
+            del(self.channels[frame.channel_number])
+
+        if len(self.channels) == 0:
+            self.on_close_ready()
+
+    def _on_close_ok(self, frame):
+        """
+        This is usually invoked by the Broker as a frame across channel 0
+        """
+        logging.debug('%s._on_close_ok' % self.__class__.__name__)
+        self.on_close_callback()
+        self.closed = True
+
+    def on_remote_close(self, frame):
+        """
+        We've received a remote close from the server
+        """
+        self.close(frame.reply_code, frame.reply_text, self._on_close_ok)
+
+    def _ensure_closed(self):
+        """
+        If we're not already closed, make sure we're closed
+        """
+        logging.debug('%s._ensure_closed' % self.__class__.__name__)
+
+        # We carry the connection state and so we want to close if we know
+        if self.is_alive():
+            self.close()
+
+        # Let our Reconnection Strategy know we were disconnected
+        self.reconnection_strategy.on_transport_disconnected(self)
+
+    def _handle_connection_close(self):
+        """
+        Let both our RS and Event object know we closed
+        """
+        logging.debug('%s._handle_connection_close' % self.__class__.__name__)
+        # Let our connection strategy know the connection closed
+        self.reconnection_strategy.on_connection_closed(self)
+
+        # Call our custom state change event callbacks
+        self.connection_state_change_event.fire(self, False)
+
+    def on_disconnected(self, reason='Socket closed'):
+        """
+        This is called by our Adapter to let us know the socket has fully
+        closed
+        """
+        logging.debug('%s._disconnected: %s' % (self.__class__.__name__,
+                                                reason))
+
+        # Let our Events and RS know what's up
+        self._handle_connection_close()
+
+        # Set that we're actually closed
+        self.closed = True
+
+    # Channel related functionality
+
+    def add_channel(self, channel_number, channel):
+        """
+        Add channel identified by channel_number to our dictionary
+        """
+        self.channels[channel_number] = channel
+
+    def channel(self, channel_number=None):
+        """
+        Create a new channel with the next available or specified channel #
+        """
+
+        # If the user didn't specify a channel_number get the next avail
+        if not channel_number:
+            channel_number = self._next_channel_number()
+
+        # Return a handle to the channel
+        return channel.Channel(channel.ChannelHandler(self, channel_number))
+
+    def _ensure_channel(self, channel_number):
+        """
+        Ensure we have channel_number in our channel stack or it's channel 0
+        """
+        # If we don't have an open connection raise an exception
+        if self.closed:
+            raise ConnectionClosed
+
+        if channel_number > 0 and channel_number in self.channels:
+            return self.channels[channel_number]._ensure()
+
+    def _next_channel_number(self):
+        """
+        Return the next available channel number or raise on exception
+        """
+        # Our limit is the the Codec's Channel Max or MAX_CHANNELS if it's None
+        limit = self.state.channel_max or CHANNEL_MAX
+
+        # We've used all of our channels
+        if len(self.channels) == limit:
+            raise NoFreeChannels()
+
+        # Get a list of all of our keys, all should be numeric channel ids
+        channel_numbers = self.channels.keys()
+
+        # We don't start with any open channels
+        if not len(channel_numbers):
+            return 1
+
+        # Our next channel is the max key value + 1
+        return max(channel_numbers) + 1
+
+    def remove_channel(self, channel_number):
+        """
+        Remove the channel identified by channel_number from our stack
+        """
+        if channel_number in self.channels:
+            del self.channels[channel_number]
+
+    # Data packet and frame handling functions
 
     def _generic_frame_handler(self, frame):
-        #print "GENERIC_FRAME_HANDLER", frame
+        """
+        This should only be called if we do not have a registered handler for
+        a frame type in the Connection callbacks
+        """
+        logging.debug("%s._generic_frame_handler: %r" % \
+                      (self.__class__.__name__, (frame,)))
+
         if isinstance(frame, codec.FrameHeartbeat):
-            pass # we already counted the received bytes for our heartbeat checker
+            # we already counted the received bytes for our heartbeat checker
+            pass
         else:
-            self.channels[frame.channel_number].frame_handler(frame)
+            # Call the frame handler for the given channel
+            if frame.channel_number in self.channels:
+                self.channels[frame.channel_number].frame_handler(frame)
+            else:
+                logging.error("Channel %i not found in self.channels" % \
+                              frame.channel_number)
 
-def combine_tuning(a, b):
-    if a == 0: return b
-    if b == 0: return a
-    return min(a, b)
+    def add_callback(self, callback, acceptable_replies):
+        """
+        Add a callback of the specific frame type to the rpc_callback stack
+        """
 
-class HeartbeatChecker:
+        # If we didn't pass in more than one, make it a list anyway
+        if not isinstance(acceptable_replies, list):
+            acceptable_replies = [acceptable_replies]
+
+        # If the frame type isn't in our callback dict, add it
+        for reply in acceptable_replies:
+
+            # Make sure we have an empty dict setup for the reply
+            if reply not in self._callbacks:
+                self._callbacks[reply.NAME] = set()
+
+            # Make sure we don't already have it
+            if callback not in self._callbacks[reply.NAME]:
+                self._callbacks[reply.NAME].add(callback)
+
+    def remove_callback(self, frame, callback):
+        """
+        Remove a given callback id for a given frame type
+        """
+        if frame in self._callbacks:
+
+            # If the callback id exists, remove it
+            if callback in self._callbacks[frame.NAME]:
+                self._callbacks[frame.NAME].remove(callback)
+
+            # If we dont have any more callbacks for this frame type, remove it
+            if not len(self._callbacks[frame.NAME]):
+                del(self._callbacks[frame.NAME])
+
+    def on_data_available(self, buffer):
+        """
+        This is called by our Adapter, passing in the data from the socket
+        As long as we have buffer try and map out frame data
+        """
+
+        # Create a buffer consisting of the global buffer & what we were passed
+        buffer = ''.join([self.buffer, buffer])
+
+        # Reset our cross-call buffer
+        self.buffer = str()
+
+        while buffer:
+
+            # If our buffer is too small, just exit the function
+            if len(buffer) < 5:
+                return
+
+            # Try and read data from the
+            try:
+                (consumed_count, frame) = self.state.handle_input(buffer)
+            except Exception, e:
+                logging.error("Error handling input: %s" % e)
+                break
+
+            # If we don't have a full frame, set our global buffer and exit
+            if not frame:
+                self.buffer = buffer
+                break
+
+            # We've gotten a frame from the buffer so update counter and buffer
+            self.bytes_received += consumed_count
+            buffer = buffer[consumed_count:]
+
+            # If we have a full frame and we can use it
+            if frame.method.NAME in self._callbacks:
+
+                # Loop through each callback in our reply_map
+                for callback in self._callbacks[frame.method.NAME]:
+
+                    # Make the callback
+                    callback(frame)
+
+                # If we processed callbacks remove them
+                del(self._callbacks[frame.method.NAME])
+
+            # We didn't have it in our reply_map so let the channel deal w\ it
+            else:
+                self._generic_frame_handler(frame)
+
+    def rpc(self, callback, channel_number, method, acceptable_replies):
+        """
+        Make an RPC call for the given callback, channel number and method.
+        acceptable_replies lists out what responses we'll process from the
+        server with the specified callback.
+        """
+        if callback:
+            self.add_callback(callback, acceptable_replies)
+
+        # Ensure our channel is still open before making the call
+        self._ensure_channel(channel_number)
+
+        # Send the rpc call to RabbitMQ
+        self.send_method(channel_number, method)
+
+    def _send_frame(self, frame):
+        """
+        This appends the fully generated frame to send to the broker to the
+        output buffer which will be then sent via the connection adapter
+        """
+        marshalled_frame = frame.marshal()
+        self.bytes_sent += len(marshalled_frame)
+        self.outbound_buffer.write(marshalled_frame)
+        logging.debug('%s Wrote: %r' % (self.__class__.__name__,
+                                        (frame, )))
+
+    def send_method(self, channel_number, method, content=None):
+        """
+        Constructs a RPC method frame and then sends it to the broker
+        """
+        self._send_frame(codec.FrameMethod(channel_number, method))
+
+        if isinstance(content, tuple):
+            props = content[0]
+            body = content[1]
+        else:
+            props = None
+            body = content
+
+        if props:
+            length = 0
+            if body:
+                length = len(body)
+            self._send_frame(codec.FrameHeader(channel_number, length, props))
+
+        if body:
+            max_piece = (self.state.frame_max - \
+                         codec.ConnectionState.HEADER_SIZE - \
+                         codec.ConnectionState.FOOTER_SIZE)
+            body_buf = simplebuffer.SimpleBuffer(body)
+
+            while body_buf:
+                piece_len = min(len(body_buf), max_piece)
+                piece = body_buf.read_and_consume(piece_len)
+                self._send_frame(codec.FrameBody(channel_number, piece))
+
+    def suggested_buffer_size(self):
+        """
+        Return the suggested buffer size from the codec/tune or the default
+        if that is None
+        """
+        if not self.state.frame_max:
+            return FRAME_MAX
+
+        return self.state.frame_max
+
+
+class HeartbeatChecker(object):
+
     def __init__(self, connection, heartbeat_interval_sec):
         self.previous_sent = 0
         self.previous_received = 0
@@ -430,7 +721,8 @@ class HeartbeatChecker:
         self.setup_timer()
 
     def setup_timer(self):
-        self.connection.delayed_call(self.heartbeat_interval_sec, self.check_heartbeats)
+        self.connection.delayed_call(self.heartbeat_interval_sec,
+                                     self.check_heartbeats)
 
     def check_heartbeats(self):
         if self.previous_sent == self.connection.bytes_sent:
@@ -438,8 +730,8 @@ class HeartbeatChecker:
             self.connection.send_frame(codec.FrameHeartbeat())
 
         if self.previous_received == self.connection.bytes_received:
-            # The server has been silent a wee while. Bump our missed-heartbeat-counter.
-            self.missed_heartbeat_count = self.missed_heartbeat_count + 1
+            # The server has been silent a wee while. Bump our the counter
+            self.missed_heartbeat_count += 1
         else:
             # The server has said something. Reset our count.
             self.missed_heartbeat_count = 0
