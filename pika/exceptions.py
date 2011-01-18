@@ -59,6 +59,7 @@ class AMQPChannelError(AMQPError): pass
 class DuplicateConsumerTag(AMQPChannelError): pass
 class UnknownConsumerTag(AMQPChannelError): pass
 class ChannelClosed(AMQPChannelError): pass
+class InvalidChannelNumber(AMQPError): pass
 
 
 class RecursiveOperationDetected(AMQPError): pass
