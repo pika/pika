@@ -58,7 +58,7 @@ class HeartbeatChecker(object):
         """
         Create a heartbeat on connection sending a heartbeat frame every
         interval seconds.
-        """"
+        """
 
         # We need to reference our connection object to close a connection
         self.connection = connection
