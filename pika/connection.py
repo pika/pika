@@ -62,7 +62,7 @@ FRAME_MAX = 131072
 PRODUCT = "Pika Python AMQP Client Library"
 
 
-class PlainCredentials:
+class PlainCredentials(object):
     def __init__(self, username, password):
         self.username = username
         self.password = password
@@ -86,7 +86,7 @@ def combine_tuning(a, b):
     return min(a, b)
 
 
-class ConnectionParameters:
+class ConnectionParameters(object):
 
     def __init__(self,
                  host,
@@ -110,53 +110,23 @@ class ConnectionParameters:
         return _codec_repr(self, lambda: ConnectionParameters(None))
 
 
-class Connection:
+class Connection(object):
+
+    """
+    Pika Connection Class
+
+    This class is extended by the adapter Connection classes such as blocking_adapter.BlockingConnection and
+    asyncore_adapter.AsyncoreConnection. To build an adapter Connection class you must implement the following
+    functions:
+
+        def connect(self, host, port)
+        def delayed_call(self, delay_sec, callback)
+        def disconnect_transport(self)
+        def erase_credentials(self)
+        def flush_outbound(self)
+    """
 
     _callbacks = dict()
-
-    """
-    In order to implement a connection adapter, you must extend connect,
-    delayed_call, disconnect_transport and flush_outbound.
-    """
-
-    def connect(self, host, port):
-        """
-        Subclasses should override to set up the outbound
-        socket.
-        """
-        raise NotImplementedError('Subclass Responsibility')
-
-    def delayed_call(self, delay_sec, callback):
-        """
-        Subclasses should override to call the callback after the
-        specified number of seconds have elapsed, using a timer, or a
-        thread, or similar.
-        """
-        raise NotImplementedError('Subclass Responsibility')
-
-    def disconnect_transport(self):
-        """
-        Subclasses should override this to cause the underlying
-        transport (socket) to close.
-        """
-        raise NotImplementedError('Subclass Responsibility')
-
-    def erase_credentials(self):
-        """
-        Override if in some context you need the object to forget
-        its login credentials after successfully opening a connection.
-        """
-        pass
-
-    def flush_outbound(self):
-        """Subclasses should override to flush the contents of
-        outbound_buffer out along the socket."""
-        raise NotImplementedError('Subclass Responsibility')
-
-    """
-    These functions should not need to be extended in order to implement a
-    connection adapter
-    """
 
     def __init__(self, parameters, open_callback, close_callback,
                  reconnection_strategy=None):
@@ -566,7 +536,7 @@ class Connection:
 
         # If we didn't pass in more than one, make it a list anyway
         if not isinstance(acceptable_replies, list):
-            acceptable_replies = [acceptable_replies]
+            raise TypeError("acceptable_replies must be a list.")
 
         # If the frame type isn't in our callback dict, add it
         for reply in acceptable_replies:
@@ -575,9 +545,8 @@ class Connection:
             if reply not in self._callbacks:
                 self._callbacks[reply.NAME] = set()
 
-            # Make sure we don't already have it
-            if callback not in self._callbacks[reply.NAME]:
-                self._callbacks[reply.NAME].add(callback)
+            # Sets will noop a duplicate add, since we're not likely to dupe, rely on this behavior
+            self._callbacks[reply.NAME].add(callback)
 
     def remove_callback(self, frame, callback):
         """
@@ -606,10 +575,6 @@ class Connection:
         self.buffer = str()
 
         while buffer:
-
-            # If our buffer is too small, just exit the function
-            if len(buffer) < 5:
-                return
 
             # Try and read data from the
             try:
@@ -708,6 +673,46 @@ class Connection:
             return FRAME_MAX
 
         return self.state.frame_max
+
+    """
+    In order to implement a connection adapter, you must extend connect,
+    delayed_call, disconnect_transport and flush_outbound.
+    """
+
+    def connect(self, host, port):
+        """
+        Subclasses should override to set up the outbound
+        socket.
+        """
+        raise NotImplementedError('Subclass Responsibility')
+
+    def delayed_call(self, delay_sec, callback):
+        """
+        Subclasses should override to call the callback after the
+        specified number of seconds have elapsed, using a timer, or a
+        thread, or similar.
+        """
+        raise NotImplementedError('Subclass Responsibility')
+
+    def disconnect_transport(self):
+        """
+        Subclasses should override this to cause the underlying
+        transport (socket) to close.
+        """
+        raise NotImplementedError('Subclass Responsibility')
+
+    def erase_credentials(self):
+        """
+        Override if in some context you need the object to forget
+        its login credentials after successfully opening a connection.
+        """
+        pass
+
+    def flush_outbound(self):
+        """Subclasses should override to flush the contents of
+        outbound_buffer out along the socket."""
+        raise NotImplementedError('Subclass Responsibility')
+
 
 
 class HeartbeatChecker(object):
