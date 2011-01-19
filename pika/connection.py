@@ -265,7 +265,7 @@ class Connection(object):
         """
         Returns a boolean reporting the current connection state
         """
-        return not self.closing and not self.closed
+        return self.open and (not self.closing and not self.closed)
 
     def on_connected(self):
         """
