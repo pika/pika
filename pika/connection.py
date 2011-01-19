@@ -55,6 +55,9 @@ import pika.simplebuffer as simplebuffer
 import pika.event as event
 from pika.specbase import _codec_repr
 from pika.exceptions import *
+
+from pika.credentials import PlainCredentials
+from pika.heartbeat import HeartbeatChecker
 from pika.reconnection_strategies import NullReconnectionStrategy
 
 CHANNEL_MAX = 32767
@@ -62,28 +65,8 @@ FRAME_MAX = 131072
 PRODUCT = "Pika Python AMQP Client Library"
 
 
-class PlainCredentials(object):
-    def __init__(self, username, password):
-        self.username = username
-        self.password = password
-
-    def response_for(self, start):
-        if 'PLAIN' not in start.mechanisms.split():
-            return None
-        return ('PLAIN', '\0%s\0%s' % (self.username, self.password))
-
-
 # Module wide default credentials for default RabbitMQ configurations
 default_credentials = PlainCredentials('guest', 'guest')
-
-
-def combine_tuning(a, b):
-
-    if a == 0:
-        return b
-    elif b == 0:
-        return a
-    return min(a, b)
 
 
 class ConnectionParameters(object):
@@ -115,18 +98,23 @@ class Connection(object):
     """
     Pika Connection Class
 
-    This class is extended by the adapter Connection classes such as blocking_adapter.BlockingConnection and
-    asyncore_adapter.AsyncoreConnection. To build an adapter Connection class you must implement the following
-    functions:
+    This class is extended by the adapter Connection classes such as
+    blocking_adapter.BlockingConnection & asyncore_adapter.AsyncoreConnection.
+    To build an adapter Connection class implement the following functions:
+
+        Required:
 
         def connect(self, host, port)
-        def delayed_call(self, delay_sec, callback)
         def disconnect_transport(self)
-        def erase_credentials(self)
         def flush_outbound(self)
-    """
 
-    _callbacks = dict()
+        def add_timeout(self, delay_sec, callback)
+
+        Optional:
+
+        def erase_credentials(self)
+
+    """
 
     def __init__(self, parameters, open_callback, close_callback,
                  reconnection_strategy=None):
@@ -141,6 +129,9 @@ class Connection(object):
         # If we did not pass in a reconnection_strategy, setup the default
         if not reconnection_strategy:
             reconnection_strategy = NullReconnectionStrategy()
+
+        # Define our callback dictionary
+        self._callbacks = dict()
 
         # Set our configuration options
         self.on_connected_callback = open_callback
@@ -189,9 +180,20 @@ class Connection(object):
 
     # Connection opening related functionality
 
+    def combine_tuning(a, b):
+        """
+        Pass in two values, if a is 0, return b otherwise if b is 0, return a.
+        If neither case matches return the smallest value.
+        """
+        if not a:
+            return b
+        elif not b:
+            return a
+        return min(a, b)
+
     def _connect(self):
         """
-        Internal conneciton method that will kick off the socket based
+        Internal connection method that will kick off the socket based
         connections in our Adapter and kick off the initial communication
         frame.
 
@@ -232,23 +234,34 @@ class Connection(object):
         """
         logging.debug('%s._init_connection_state' % self.__class__.__name__)
 
+        # Inbound and outbound buffers
         self.buffer = str()
+        self.outbound_buffer = simplebuffer.SimpleBuffer()
+
+        # Server state and channels
         self.state = codec.ConnectionState()
         self.server_properties = None
-        self.outbound_buffer = simplebuffer.SimpleBuffer()
         self.channels = {}
-        self.close_code = None
-        self.close_text = None
-        self.closed = True
-        self.closing = False
+
+        # Data used for Heartbeat checking
         self.bytes_sent = 0
         self.bytes_received = 0
-        self.heartbeat_checker = None
+        self.heartbeat = None
+
+        # AMQP Lifecycle States
+        self.closed = True
+        self.closing = False
+        self.open = False
+
+        # Close code and text for async shutdown behaviors
+        # @todo Previously this used the Close frame, re-investigate that
+        self.close_code = None
+        self.close_text = None
 
         # Our starting point once connected, first frame received
         self.add_callback(self._on_connection_start, spec.Connection.Start)
 
-    def is_alive(self):
+    def is_open(self):
         """
         Returns a boolean reporting the current connection state
         """
@@ -277,8 +290,11 @@ class Connection(object):
         # Add a callback handler for the Broker telling us to disconnect
         self.add_callback(self.on_remote_close, spec.Connection.Close)
 
-        if self.on_connected_callback:
-            self.on_connected_callback()
+        # We're now connected at the AMQP level
+        self.open = True
+
+        # Call our invokers callback
+        self.on_connected_callback()
 
     def _on_connection_start(self, frame):
         """
@@ -316,23 +332,24 @@ class Connection(object):
         """
         Once the Broker sends back a Connection.Tune, we will set our tuning
         variables that have been returned to us and kick off the Heartbeat
-        monitor if required, send our TuneOk and then the Connection.Open rpc
+        monitor if required, send our TuneOk and then the Connection. Open rpc
         call on channel 0
         """
         logging.debug('%s._on_connection_tune' % self.__class__.__name__)
-        channel_max = combine_tuning(self.parameters.channel_max,
-                                     frame.method.channel_max)
-        frame_max = combine_tuning(self.parameters.frame_max,
-                                   frame.method.frame_max)
-        heartbeat = combine_tuning(self.parameters.heartbeat,
-                                   frame.method.heartbeat)
-        if heartbeat:
-            self.heartbeat_checker = HeartbeatChecker(self, heartbeat)
+        channel_max = self.combine_tuning(self.parameters.channel_max,
+                                          frame.method.channel_max)
+        frame_max = self.combine_tuning(self.parameters.frame_max,
+                                        frame.method.frame_max)
+        heartbeat_interval = self.combine_tuning(self.parameters.heartbeat,
+                                                 frame.method.heartbeat)
+        if heartbeat_interval:
+            self.heartbeat = HeartbeatChecker(self, heartbeat_interval)
 
         self.state.tune(channel_max, frame_max)
-        self.send_method(0, spec.Connection.TuneOk(channel_max=channel_max,
-                                                    frame_max=frame_max,
-                                                    heartbeat=heartbeat))
+        self.send_method(0,
+                         spec.Connection.TuneOk(channel_max=channel_max,
+                                                frame_max=frame_max,
+                                                heartbeat=heartbeat_interval))
         self.rpc(self._on_connection_open, 0,
                   spec.Connection.Open( \
                           virtual_host=self.parameters.virtual_host,
@@ -394,7 +411,7 @@ class Connection(object):
         if frame.channel_number in self.channels:
             del(self.channels[frame.channel_number])
 
-        if len(self.channels) == 0:
+        if not len(self.channels):
             self.on_close_ready()
 
     def _on_close_ok(self, frame):
@@ -404,12 +421,14 @@ class Connection(object):
         logging.debug('%s._on_close_ok' % self.__class__.__name__)
         self.on_close_callback()
         self.closed = True
+        self.closing = False
+        self.open = False
 
     def on_remote_close(self, frame):
         """
         We've received a remote close from the server
         """
-        self.close(frame.reply_code, frame.reply_text, self._on_close_ok)
+        self.close(frame.reply_code, frame.reply_text)
 
     def _ensure_closed(self):
         """
@@ -418,7 +437,7 @@ class Connection(object):
         logging.debug('%s._ensure_closed' % self.__class__.__name__)
 
         # We carry the connection state and so we want to close if we know
-        if self.is_alive():
+        if self.is_open():
             self.close()
 
         # Let our Reconnection Strategy know we were disconnected
@@ -518,16 +537,18 @@ class Connection(object):
         logging.debug("%s._generic_frame_handler: %r" % \
                       (self.__class__.__name__, (frame,)))
 
+        # We don't check for heartbeat frames because we can not count atomic
+        # frames reliably due to different message behaviors such as large
+        # content frames being transferred slowly
         if isinstance(frame, codec.FrameHeartbeat):
-            # we already counted the received bytes for our heartbeat checker
-            pass
+            return
+
+        # Call the frame handler for the given channel
+        if frame.channel_number in self.channels:
+            self.channels[frame.channel_number].frame_handler(frame)
         else:
-            # Call the frame handler for the given channel
-            if frame.channel_number in self.channels:
-                self.channels[frame.channel_number].frame_handler(frame)
-            else:
-                logging.error("Channel %i not found in self.channels" % \
-                              frame.channel_number)
+            logging.error("Channel %i not found in our active channels" % \
+                          frame.channel_number)
 
     def add_callback(self, callback, acceptable_replies):
         """
@@ -545,7 +566,8 @@ class Connection(object):
             if reply not in self._callbacks:
                 self._callbacks[reply.NAME] = set()
 
-            # Sets will noop a duplicate add, since we're not likely to dupe, rely on this behavior
+            # Sets will noop a duplicate add, since we're not likely to dupe,
+            # rely on this behavior
             self._callbacks[reply.NAME].add(callback)
 
     def remove_callback(self, frame, callback):
@@ -686,18 +708,23 @@ class Connection(object):
         """
         raise NotImplementedError('Subclass Responsibility')
 
-    def delayed_call(self, delay_sec, callback):
-        """
-        Subclasses should override to call the callback after the
-        specified number of seconds have elapsed, using a timer, or a
-        thread, or similar.
-        """
-        raise NotImplementedError('Subclass Responsibility')
-
     def disconnect_transport(self):
         """
         Subclasses should override this to cause the underlying
         transport (socket) to close.
+        """
+        raise NotImplementedError('Subclass Responsibility')
+
+    def flush_outbound(self):
+        """Subclasses should override to flush the contents of
+        outbound_buffer out along the socket."""
+        raise NotImplementedError('Subclass Responsibility')
+
+    def add_timeout(self, delay_sec, callback):
+        """
+        Subclasses should override to call the callback after the
+        specified number of seconds have elapsed, using a timer, or a
+        thread, or similar.
         """
         raise NotImplementedError('Subclass Responsibility')
 
@@ -707,51 +734,3 @@ class Connection(object):
         its login credentials after successfully opening a connection.
         """
         pass
-
-    def flush_outbound(self):
-        """Subclasses should override to flush the contents of
-        outbound_buffer out along the socket."""
-        raise NotImplementedError('Subclass Responsibility')
-
-
-
-class HeartbeatChecker(object):
-
-    def __init__(self, connection, heartbeat_interval_sec):
-        self.previous_sent = 0
-        self.previous_received = 0
-        self.missed_heartbeat_count = 0
-        self.connection = connection
-        self.heartbeat_interval_sec = heartbeat_interval_sec
-        self.setup_timer()
-
-    def setup_timer(self):
-        self.connection.delayed_call(self.heartbeat_interval_sec,
-                                     self.check_heartbeats)
-
-    def check_heartbeats(self):
-        if self.previous_sent == self.connection.bytes_sent:
-            # We need to send something. Send a heartbeat frame.
-            self.connection.send_frame(codec.FrameHeartbeat())
-
-        if self.previous_received == self.connection.bytes_received:
-            # The server has been silent a wee while. Bump our counter
-            self.missed_heartbeat_count += 1
-        else:
-            # The server has said something. Reset our count.
-            self.missed_heartbeat_count = 0
-
-        # It's important to take the current value for bytes_sent,
-        # because if we sent a heartbeat before we don't want that
-        # counted as legit traffic for next time round.
-        self.previous_sent = self.connection.bytes_sent
-        self.previous_received = self.connection.bytes_received
-
-        if self.missed_heartbeat_count >= 2:
-            self.connection._disconnect_transport("Too many missed heartbeats")
-        elif self.connection.heartbeat_checker is self:
-            # Only install the timer again if the connection still
-            # thinks it cares about this instance.
-            self.setup_timer()
-        else:
-            pass
