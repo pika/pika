@@ -180,7 +180,7 @@ class Connection(object):
 
     # Connection opening related functionality
 
-    def combine_tuning(a, b):
+    def combine_tuning(self, a, b):
         """
         Pass in two values, if a is 0, return b otherwise if b is 0, return a.
         If neither case matches return the smallest value.
@@ -259,7 +259,7 @@ class Connection(object):
         self.close_text = None
 
         # Our starting point once connected, first frame received
-        self.add_callback(self._on_connection_start, spec.Connection.Start)
+        self.add_callback(self._on_connection_start, [spec.Connection.Start])
 
     def is_open(self):
         """
@@ -288,7 +288,7 @@ class Connection(object):
         self._handle_connection_open()
 
         # Add a callback handler for the Broker telling us to disconnect
-        self.add_callback(self.on_remote_close, spec.Connection.Close)
+        self.add_callback(self.on_remote_close, [spec.Connection.Close])
 
         # We're now connected at the AMQP level
         self.open = True
@@ -326,7 +326,7 @@ class Connection(object):
                                   mechanism=response[0],
                                   response=response[1]))
         self.erase_credentials()
-        self.add_callback(self._on_connection_tune, spec.Connection.Tune)
+        self.add_callback(self._on_connection_tune, [spec.Connection.Tune])
 
     def _on_connection_tune(self, frame):
         """
@@ -462,11 +462,14 @@ class Connection(object):
         logging.debug('%s._disconnected: %s' % (self.__class__.__name__,
                                                 reason))
 
+        # Set that we're actually closed
+        self.closed = True
+        self.closing = False
+        self.open = False
+
         # Let our Events and RS know what's up
         self._handle_connection_close()
 
-        # Set that we're actually closed
-        self.closed = True
 
     # Channel related functionality
 
