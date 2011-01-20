@@ -377,11 +377,10 @@ class Connection(object):
                      (self.__class__.__name__, code, text))
 
         if self.closing or self.closed:
-            logging.info("%s.Close invoked while already closing or closed" %\
+            logging.info("%s.Close invoked while closing or closed" %\
                          self.__class__.__name__)
             return
 
-        self.closing = True
         self.close_code = code
         self.close_text = text
 
@@ -398,6 +397,14 @@ class Connection(object):
         On a clean shutdown we'll call this once all of our channels are closed
         Let the Broker know we want to close
         """
+        logging.debug('%s._on_close_ready' % self.__class__.__name__)
+
+        if self.closing or self.closed:
+            logging.info("%s.on_close_ready invoked while closing or closed" %\
+                         self.__class__.__name__)
+            return
+
+        self.closing = True
         self.rpc(self._on_close_ok, 0,
                  spec.Connection.Close(self.close_code, self.close_text, 0, 0),
                  [spec.Connection.CloseOk])
@@ -406,7 +413,8 @@ class Connection(object):
         """
         RPC Response from when a channel closes itself, remove from our stack
         """
-        logging.debug('%s._on_close_ok' % self.__class__.__name__)
+        logging.debug('%s._on_channel_close: %r' % (self.__class__.__name__,
+                                                    frame))
 
         if frame.channel_number in self.channels:
             del(self.channels[frame.channel_number])
@@ -428,6 +436,8 @@ class Connection(object):
         """
         We've received a remote close from the server
         """
+        logging.debug('%s._on_remote_close: %r' % (self.__class__.__name__,
+                                                   frame))
         self.close(frame.reply_code, frame.reply_text)
 
     def _ensure_closed(self):
@@ -470,7 +480,6 @@ class Connection(object):
         # Let our Events and RS know what's up
         self._handle_connection_close()
 
-
     # Channel related functionality
 
     def add_channel(self, channel_number, channel):
@@ -479,7 +488,7 @@ class Connection(object):
         """
         self.channels[channel_number] = channel
 
-    def channel(self, channel_number=None):
+    def channel(self, callback, channel_number=None):
         """
         Create a new channel with the next available or specified channel #
         """
@@ -489,7 +498,8 @@ class Connection(object):
             channel_number = self._next_channel_number()
 
         # Return a handle to the channel
-        return channel.Channel(channel.ChannelHandler(self, channel_number))
+        return channel.Channel(channel.ChannelHandler(self, channel_number),
+                               callback)
 
     def _ensure_channel(self, channel_number):
         """
@@ -531,27 +541,6 @@ class Connection(object):
             del self.channels[channel_number]
 
     # Data packet and frame handling functions
-
-    def _generic_frame_handler(self, frame):
-        """
-        This should only be called if we do not have a registered handler for
-        a frame type in the Connection callbacks
-        """
-        logging.debug("%s._generic_frame_handler: %r" % \
-                      (self.__class__.__name__, (frame,)))
-
-        # We don't check for heartbeat frames because we can not count atomic
-        # frames reliably due to different message behaviors such as large
-        # content frames being transferred slowly
-        if isinstance(frame, codec.FrameHeartbeat):
-            return
-
-        # Call the frame handler for the given channel
-        if frame.channel_number in self.channels:
-            self.channels[frame.channel_number].frame_handler(frame)
-        else:
-            logging.error("Channel %i not found in our active channels" % \
-                          frame.channel_number)
 
     def add_callback(self, callback, acceptable_replies):
         """
@@ -617,21 +606,39 @@ class Connection(object):
             self.bytes_received += consumed_count
             buffer = buffer[consumed_count:]
 
-            # If we have a full frame and we can use it
-            if frame.method.NAME in self._callbacks:
+            # Send the frame to the appropriate channel handler
+            if frame.channel_number > 0:
 
-                # Loop through each callback in our reply_map
-                for callback in self._callbacks[frame.method.NAME]:
+                # Make sure we have a valid channel response
+                if frame.channel_number in self.channels:
 
-                    # Make the callback
-                    callback(frame)
+                    # Call our Channel Handler with the frame
+                    self.channels[frame.channel_number].frame_handler(frame)
 
-                # If we processed callbacks remove them
-                del(self._callbacks[frame.method.NAME])
+                else:
+                    error = "Frame received for untracked channel: %i" % \
+                            frame.channel_number
+                    logging.error(error)
 
             # We didn't have it in our reply_map so let the channel deal w\ it
             else:
-                self._generic_frame_handler(frame)
+                # If we've registered this method in our callback stack
+                if frame.method.NAME in self._callbacks:
+
+                    # Loop through each callback in our reply_map
+                    for callback in self._callbacks[frame.method.NAME]:
+
+                        # Make the callback
+                        callback(frame)
+
+                    # If we processed callbacks remove them
+                    del(self._callbacks[frame.method.NAME])
+
+                # We don't check for heartbeat frames because we can not count
+                # atomic frames reliably due to different message behaviors
+                # such as large content frames being transferred slowly
+                elif isinstance(frame, codec.FrameHeartbeat):
+                    return
 
     def rpc(self, callback, channel_number, method, acceptable_replies):
         """
@@ -657,7 +664,7 @@ class Connection(object):
         self.bytes_sent += len(marshalled_frame)
         self.outbound_buffer.write(marshalled_frame)
         logging.debug('%s Wrote: %r' % (self.__class__.__name__,
-                                        (frame, )))
+                                        frame))
 
     def send_method(self, channel_number, method, content=None):
         """
