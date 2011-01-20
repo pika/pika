@@ -59,17 +59,13 @@ class ChannelHandler(object):
     def __init__(self, connection, channel_number):
 
         self.connection = connection
+
+        # The frame-handler changes depending on the type of frame processed
         self.frame_handler = self._handle_method
-
-
-        self._callbacks = dict()
 
         self.channel_close_callback = None
         self.channel_close = False
 
-
-
-        self.reply_map = None
         self.flow_active = True ## we are permitted to transmit, so True.
 
         self.channel_state_change_event = event.Event()
@@ -80,28 +76,9 @@ class ChannelHandler(object):
             raise InvalidChannelNumber
 
         self.channel_number = channel_number
+
+        # Call back to our connection and add ourself, I dont like this
         connection.add_channel(self.channel_number, self)
-
-
-    def add_callback(self, callback, acceptable_replies):
-        """
-        Add a callback of the specific frame type to the rpc_callback stack
-        """
-
-        # If we didn't pass in more than one, make it a list anyway
-        if not isinstance(acceptable_replies, list):
-            raise TypeError("acceptable_replies must be a list.")
-
-        # If the frame type isn't in our callback dict, add it
-        for reply in acceptable_replies:
-
-            # Make sure we have an empty dict setup for the reply
-            if reply not in self._callbacks:
-                self._callbacks[reply.NAME] = set()
-
-            # Sets will noop a duplicate add, since we're not likely to dupe,
-            # rely on this behavior
-            self._callbacks[reply.NAME].add(callback)
 
     def close(self, code=0, text="Normal Shutdown"):
         """
@@ -167,18 +144,7 @@ class ChannelHandler(object):
         if spec.has_content(frame.method.INDEX):
             self.frame_handler = self._make_header_handler(frame)
 
-        # If we've registered this frame method for a callback
-        elif frame.method.NAME in self._callbacks:
-
-            # Loop through each callback in our reply_map
-            for callback in self._callbacks[frame.method.NAME]:
-
-                # Make the callback
-                callback(frame)
-
-            # If we processed callbacks remove them
-            del(self._callbacks[frame.method.NAME])
-
+        # We were passed a frame we dont know how to deal with
         else:
             self.connection.close(spec.NOT_IMPLEMENTED,
                                   'Pika: method not implemented: %s' % \
@@ -219,17 +185,9 @@ class ChannelHandler(object):
 
     def rpc(self, callback, method, acceptable_replies):
 
-        # Make sure the channel is still good
-        self._ensure()
-
-        # If they didn't pass None is as the callback
-        if callback:
-            self.add_callback(callback, acceptable_replies)
-
         # Send the rpc call to RabbitMQ
-        self.connection.send_method(self.channel_number, method)
-
-
+        self.connection.rpc(callback, self.channel_number,
+                            method, acceptable_replies)
 
     def content_transmission_forbidden(self):
         return not self.flow_active
@@ -239,6 +197,14 @@ class ChannelHandler(object):
         # don't wait for more.
         self.connection.flush_outbound()
         # Don't drain (or block in a wait for things to finish)
+
+    def add_callback(self, callback, acceptable_replies):
+        """
+        Addds a callback entry in our connections callback handler for our
+        channel
+        """
+        self.connection.add_callback(callback, self.channel_number,
+                                     acceptable_replies)
 
 
 class Channel(spec.DriverMixin):

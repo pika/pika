@@ -259,7 +259,8 @@ class Connection(object):
         self.close_text = None
 
         # Our starting point once connected, first frame received
-        self.add_callback(self._on_connection_start, [spec.Connection.Start])
+        self.add_callback(self._on_connection_start, 0,
+                          [spec.Connection.Start])
 
     def is_open(self):
         """
@@ -288,7 +289,7 @@ class Connection(object):
         self._handle_connection_open()
 
         # Add a callback handler for the Broker telling us to disconnect
-        self.add_callback(self.on_remote_close, [spec.Connection.Close])
+        self.add_callback(self.on_remote_close, 0, [spec.Connection.Close])
 
         # We're now connected at the AMQP level
         self.open = True
@@ -326,7 +327,7 @@ class Connection(object):
                                   mechanism=response[0],
                                   response=response[1]))
         self.erase_credentials()
-        self.add_callback(self._on_connection_tune, [spec.Connection.Tune])
+        self.add_callback(self._on_connection_tune, 0, [spec.Connection.Tune])
 
     def _on_connection_tune(self, frame):
         """
@@ -542,7 +543,7 @@ class Connection(object):
 
     # Data packet and frame handling functions
 
-    def add_callback(self, callback, acceptable_replies):
+    def add_callback(self, callback, channel_number, acceptable_replies):
         """
         Add a callback of the specific frame type to the rpc_callback stack
         """
@@ -551,30 +552,24 @@ class Connection(object):
         if not isinstance(acceptable_replies, list):
             raise TypeError("acceptable_replies must be a list.")
 
+        # Make sure we were passed a registered channel
+        if channel_number > 0 and channel_number not in self.channels:
+            raise InvalidChannelNumber
+
+        # Add the channel to our callback dictionary if we dont have it already
+        if channel_number not in self._callbacks:
+            self._callbacks[channel_number] = dict()
+
         # If the frame type isn't in our callback dict, add it
         for reply in acceptable_replies:
 
             # Make sure we have an empty dict setup for the reply
-            if reply not in self._callbacks:
-                self._callbacks[reply.NAME] = set()
+            if reply not in self._callbacks[channel_number]:
+                self._callbacks[channel_number][reply.NAME] = set()
 
             # Sets will noop a duplicate add, since we're not likely to dupe,
             # rely on this behavior
-            self._callbacks[reply.NAME].add(callback)
-
-    def remove_callback(self, frame, callback):
-        """
-        Remove a given callback id for a given frame type
-        """
-        if frame in self._callbacks:
-
-            # If the callback id exists, remove it
-            if callback in self._callbacks[frame.NAME]:
-                self._callbacks[frame.NAME].remove(callback)
-
-            # If we dont have any more callbacks for this frame type, remove it
-            if not len(self._callbacks[frame.NAME]):
-                del(self._callbacks[frame.NAME])
+            self._callbacks[channel_number][reply.NAME].add(callback)
 
     def on_data_available(self, buffer):
         """
@@ -607,38 +602,32 @@ class Connection(object):
             buffer = buffer[consumed_count:]
 
             # Send the frame to the appropriate channel handler
-            if frame.channel_number > 0:
+            if frame.channel_number > 0 and \
+               frame.channel_number not in self.channels:
+                self.close(504, "Invalid Channel Returned from Broker")
 
-                # Make sure we have a valid channel response
-                if frame.channel_number in self.channels:
+            # If we've registered this method in our callback stack
+            if frame.method.NAME in self._callbacks[frame.channel_number]:
 
-                    # Call our Channel Handler with the frame
-                    self.channels[frame.channel_number].frame_handler(frame)
+                # Loop through each callback in our reply_map
+                for callback in \
+                    self._callbacks[frame.channel_number][frame.method.NAME]:
 
-                else:
-                    error = "Frame received for untracked channel: %i" % \
-                            frame.channel_number
-                    logging.error(error)
+                    # Make the callback
+                    callback(frame)
 
-            # We didn't have it in our reply_map so let the channel deal w\ it
+                # If we processed callbacks remove them
+                del(self._callbacks[frame.channel_number][frame.method.NAME])
+
+            # We don't check for heartbeat frames because we can not count
+            # atomic frames reliably due to different message behaviors
+            # such as large content frames being transferred slowly
+            elif isinstance(frame, codec.FrameHeartbeat):
+                continue
+
             else:
-                # If we've registered this method in our callback stack
-                if frame.method.NAME in self._callbacks:
-
-                    # Loop through each callback in our reply_map
-                    for callback in self._callbacks[frame.method.NAME]:
-
-                        # Make the callback
-                        callback(frame)
-
-                    # If we processed callbacks remove them
-                    del(self._callbacks[frame.method.NAME])
-
-                # We don't check for heartbeat frames because we can not count
-                # atomic frames reliably due to different message behaviors
-                # such as large content frames being transferred slowly
-                elif isinstance(frame, codec.FrameHeartbeat):
-                    return
+                # Call our Channel Handler with the frame
+                self.channels[frame.channel_number].frame_handler(frame)
 
     def rpc(self, callback, channel_number, method, acceptable_replies):
         """
@@ -646,11 +635,13 @@ class Connection(object):
         acceptable_replies lists out what responses we'll process from the
         server with the specified callback.
         """
-        if callback:
-            self.add_callback(callback, acceptable_replies)
 
         # Ensure our channel is still open before making the call
         self._ensure_channel(channel_number)
+
+        # If we were passed a callback, add it to our stack
+        if callback:
+            self.add_callback(callback, channel_number, acceptable_replies)
 
         # Send the rpc call to RabbitMQ
         self.send_method(channel_number, method)
