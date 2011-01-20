@@ -56,14 +56,19 @@ from pika.exceptions import *
 
 class ChannelHandler(object):
 
-    response_map = {}
-
     def __init__(self, connection, channel_number):
 
         self.connection = connection
         self.frame_handler = self._handle_method
+
+
+        self._callbacks = dict()
+
         self.channel_close_callback = None
         self.channel_close = False
+
+
+
         self.reply_map = None
         self.flow_active = True ## we are permitted to transmit, so True.
 
@@ -78,6 +83,25 @@ class ChannelHandler(object):
         connection.add_channel(self.channel_number, self)
 
 
+    def add_callback(self, callback, acceptable_replies):
+        """
+        Add a callback of the specific frame type to the rpc_callback stack
+        """
+
+        # If we didn't pass in more than one, make it a list anyway
+        if not isinstance(acceptable_replies, list):
+            raise TypeError("acceptable_replies must be a list.")
+
+        # If the frame type isn't in our callback dict, add it
+        for reply in acceptable_replies:
+
+            # Make sure we have an empty dict setup for the reply
+            if reply not in self._callbacks:
+                self._callbacks[reply.NAME] = set()
+
+            # Sets will noop a duplicate add, since we're not likely to dupe,
+            # rely on this behavior
+            self._callbacks[reply.NAME].add(callback)
 
     def close(self, code=0, text="Normal Shutdown"):
         """
@@ -85,7 +109,20 @@ class ChannelHandler(object):
         via the Channel Handlers close callback
         """
         logging.debug("ChannelHandler.close: (%s) %s" % (str(code), text))
-        self.channel_close_callback(code, text)
+
+        # If we have an open connection send a RPC call to close the channel
+        if self.connection.is_open():
+            self.rpc(self.connection.on_channel_close,
+                     spec.Channel.Close(code, text, 0, 0),
+                     [spec.Channel.CloseOk])
+
+        # Otherwise call the same callback with a dummy frame which has our
+        # Information
+        else:
+            close_frame = spec.Channel.CloseOk()
+            close_frame.channel_number = self.channel_number
+            self.connection.on_channel_close(close_frame)
+
 
     def _channel_flow(self, method_frame, header_frame, body):
         self.flow_active = method_frame.method.active
@@ -104,11 +141,11 @@ class ChannelHandler(object):
             self.connection.remove_channel(self.channel_number)
             self.channel_state_change_event.fire(self, False)
 
-    def addStateChangeHandler(self, handler, key = None):
+    def add_state_change_handler(self, handler, key = None):
         self.channel_state_change_event.addHandler(handler, key)
         handler(self, not self.channel_close)
 
-    def addFlowChangeHandler(self, handler, key = None):
+    def add_flow_change_handler(self, handler, key = None):
         self.flow_active_change_event.addHandler(handler, key)
         handler(self, self.flow_active)
 
@@ -118,33 +155,34 @@ class ChannelHandler(object):
         self.connection.flush_outbound()
         self.connection.drain_events(timeout = 0)
 
-    def _handle_async(self, method_frame, header_frame, body):
-        method = method_frame.method
-        methodClass = method.__class__
-        if self.reply_map is not None and methodClass in self.reply_map:
-            if header_frame is not None:
-                method._set_content(header_frame.properties, body)
-            handler = self.reply_map[methodClass]
-            self.reply_map = None
-            handler(method)
-        elif methodClass in self.response_map:
-            self.response_map[methodClass](method_frame, header_frame, body)
-        else:
-            self.connection.close(spec.NOT_IMPLEMENTED,
-                                  'Pika: method not implemented: ' + methodClass.NAME)
-
-
-
-    # Thinking we merge this with _handle_async
     def _handle_method(self, frame):
+        """
+        Receive a frame from the AMQP Broker and process it
+        """
+        # If we don't have FrameMethod something is wrong so throw an exception
         if not isinstance(frame, codec.FrameMethod):
             raise UnexpectedFrameError(frame)
+
+        # If the frame is a content related frame go deal with the content
         if spec.has_content(frame.method.INDEX):
             self.frame_handler = self._make_header_handler(frame)
+
+        # If we've registered this frame method for a callback
+        elif frame.method.NAME in self._callbacks:
+
+            # Loop through each callback in our reply_map
+            for callback in self._callbacks[frame.method.NAME]:
+
+                # Make the callback
+                callback(frame)
+
+            # If we processed callbacks remove them
+            del(self._callbacks[frame.method.NAME])
+
         else:
-            self._handle_async(frame, None, None)
-
-
+            self.connection.close(spec.NOT_IMPLEMENTED,
+                                  'Pika: method not implemented: %s' % \
+                                  frame.method.__class__)
 
     def _make_header_handler(self, method_frame):
         def handler(header_frame):
@@ -180,9 +218,18 @@ class ChannelHandler(object):
             self.frame_handler = handler
 
     def rpc(self, callback, method, acceptable_replies):
+
+        # Make sure the channel is still good
         self._ensure()
-        self.connection.rpc(callback, self.channel_number,
-                            method, acceptable_replies)
+
+        # If they didn't pass None is as the callback
+        if callback:
+            self.add_callback(callback, acceptable_replies)
+
+        # Send the rpc call to RabbitMQ
+        self.connection.send_method(self.channel_number, method)
+
+
 
     def content_transmission_forbidden(self):
         return not self.flow_active
@@ -196,30 +243,28 @@ class ChannelHandler(object):
 
 class Channel(spec.DriverMixin):
 
-    def __init__(self, handler):
+    def __init__(self, handler, on_open_ok_callback):
+
         self.handler = handler
         self.callbacks = {}
         self.pending = {}
         self.next_consumer_tag = 0
 
-        # Let our handler call our close method
-        handler.channel_close_callback = self.close
+        self.on_open_ok_callback = on_open_ok_callback
 
+        handler.add_callback(handler._channel_flow, [spec.Channel.Flow])
+        handler.add_callback(self._basic_deliver, [spec.Basic.Deliver])
+        handler.add_callback(self._basic_return, [spec.Basic.Return])
+        handler.add_callback(self._basic_cancel, [spec.Basic.Cancel])
 
-        handler.response_map[spec.Channel.Flow] = handler._channel_flow
+        self.handler.rpc(self.on_open_ok, spec.Channel.Open(),
+                         [spec.Channel.OpenOk])
 
-        handler.response_map[spec.Basic.Deliver] = self._basic_deliver
-        handler.response_map[spec.Basic.Return] = self._basic_return
+    def add_state_change_handler(self, handler, key = None):
+        self.handler.add_state_change_handler(handler, key)
 
-        self.handler.rpc(self.on_event_ok, spec.Channel.Open(),
-                          [spec.Channel.OpenOk])
-
-
-    def addStateChangeHandler(self, handler, key = None):
-        self.handler.addStateChangeHandler(handler, key)
-
-    def addFlowChangeHandler(self, handler, key = None):
-        self.handler.addFlowChangeHandler(handler, key)
+    def add_flow_change_handler(self, handler, key = None):
+        self.handler.add_flow_change_handler(handler, key)
 
     def _basic_deliver(self, method_frame, header_frame, body):
         """
@@ -271,32 +316,26 @@ class Channel(spec.DriverMixin):
                                             (properties, body))
         self.handler.flush_and_drain()
 
-
     def rpc(self, callback, method, acceptable_replies):
         self.handler.rpc(callback, method, acceptable_replies)
-
-    def close(self, code=0, text='Normal close'):
-        logging.debug("Channel.close: (%s) %s" % (str(code), text))
-        self.handler.rpc(self.handler.connection.on_channel_close,
-                         spec.Channel.Close(code, text, 0, 0),
-                         spec.Channel.CloseOk)
-
-
-
-    def on_event_ok(self, frame):
-        #print "Event Ok: %s" % str(frame.method)
-        pass
 
     def basic_cancel(self, consumer_tag):
         if not consumer_tag in self.callbacks:
             raise UnknownConsumerTag(consumer_tag)
 
         self.handler.rpc(self.on_cancel_ok, spec.Basic.Cancel(consumer_tag = consumer_tag),
-                          [spec.Basic.CancelOk])
+
+                        [spec.Basic.CancelOk])
+
+
+    def on_open_ok(self, frame):
+        logging.debug("%s.on_open_ok: %r" % (self.__class__.__name__,
+                                             frame))
+        self.on_open_ok_callback(self)
 
     def on_cancel_ok(self, frame):
-        #print "Cancel Ok for %s" % frame.method.__dict__['consumer_tag']
-        del self.callbacks[frame.method.__dict__['consumer_tag']]
+        logging.debug("%s.on_cancel_ok: %r" % (self.__class__.__name__,
+                                               frame))
 
     def basic_consume(self, consumer,
                       queue='', no_ack=False, exclusive=False,
