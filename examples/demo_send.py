@@ -58,31 +58,34 @@ import pika.asyncore_adapter
 
 logging.basicConfig(level=logging.DEBUG)
 
+conn = None
+
 def on_connected():
+    logging.info("demo_send: Connected to RabbitMQ")
 
-    global conn
+    conn.channel(on_channel)
 
-    logging.info("Connected!")
-
-    ch = conn.channel()
-    ch.queue_declare(queue="test", durable=True,
-                     exclusive=False, auto_delete=False)
-
-    ch.basic_publish(exchange='',
-                     routing_key="test",
-                     body="Hello World!",
-                     properties=pika.BasicProperties(
-                        content_type = "text/plain",
-                        delivery_mode = 2, # persistent
-                     ),
-                     block_on_flow_control = True)
-
-    conn.close()
 
 def on_closed():
-    global conn
+    # We've been called by the Connection object to let us know we're done
+    logging.info("demo_send: Connection Closed")
 
-    conn.disconnect_transport()
+def on_channel(channel):
+
+    logging.info("demo_send: Received our Channel")
+
+    channel.queue_declare(queue="test", durable=True,
+                          exclusive=False, auto_delete=False)
+
+    channel.basic_publish(exchange='',
+                          routing_key="test",
+                          body="Hello World!",
+                          properties=pika.BasicProperties(
+                             content_type = "text/plain",
+                             delivery_mode = 2, # persistent
+                          ),
+                          block_on_flow_control = True)
+    conn.close()
 
 parameters = pika.ConnectionParameters((len(sys.argv) > 1) and \
                                        sys.argv[1] or \
