@@ -165,10 +165,10 @@ class Connection(object):
         logging.debug('%s.add_state_change_handler' % \
                       self.__class__.__name__)
         self.connection_state_change_event.addHandler(handler, key)
-        if closed:
-            handler(self, False)
-        else:
+        if self.is_open():
             handler(self, True)
+        else:
+            handler(self, False)
 
     def remove_state_change_handler(self, key):
         """
@@ -235,7 +235,7 @@ class Connection(object):
         logging.debug('%s._init_connection_state' % self.__class__.__name__)
 
         # Inbound and outbound buffers
-        self.buffer = str()
+        self.buffer = simplebuffer.SimpleBuffer()
         self.outbound_buffer = simplebuffer.SimpleBuffer()
 
         # Server state and channels
@@ -571,35 +571,35 @@ class Connection(object):
             # rely on this behavior
             self._callbacks[channel_number][reply.NAME].add(callback)
 
-    def on_data_available(self, buffer):
+    def on_data_available(self, data):
         """
         This is called by our Adapter, passing in the data from the socket
         As long as we have buffer try and map out frame data
         """
 
-        # Create a buffer consisting of the global buffer & what we were passed
-        buffer = ''.join([self.buffer, buffer])
+        # Append what we received to our class level read buffer
+        self.buffer.write(data)
 
-        # Reset our cross-call buffer
-        self.buffer = str()
+        # Get the full contents of our buffer for use in the while loop
+        data = self.buffer.read()
 
-        while buffer:
+        # Flush the class read buffer
+        self.buffer.flush()
 
-            # Try and read data from the
-            try:
-                (consumed_count, frame) = self.state.handle_input(buffer)
-            except Exception, e:
-                logging.error("Error handling input: %s" % e)
-                break
+        while data:
+
+            (consumed_count, frame) = self.state.handle_input(data)
 
             # If we don't have a full frame, set our global buffer and exit
             if not frame:
-                self.buffer = buffer
+                self.buffer.write(data)
                 break
 
-            # We've gotten a frame from the buffer so update counter and buffer
+            # Remove the frame we just consumed from our data
+            data = data[consumed_count:]
+
+            # Increment our bytes received buffer for heartbeat checking
             self.bytes_received += consumed_count
-            buffer = buffer[consumed_count:]
 
             # Send the frame to the appropriate channel handler
             if frame.channel_number > 0 and \
