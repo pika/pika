@@ -51,6 +51,9 @@ import traceback
 import socket
 import asyncore
 import time
+
+import traceback
+
 from heapq import heappush, heappop
 from errno import EAGAIN
 
@@ -71,21 +74,21 @@ class RabbitDispatcher(asyncore.dispatcher):
     def handle_connect(self):
         self.connection.on_connected()
         self.closed = False
+        self.connection.add_state_change_handler(self.on_state_change)
 
-    def handle_close(self):
-        #self.connection.on_disconnected()
+    def handle_close(self, message="Socket Error"):
         self.connection.dispatcher = None
-        self.connection.close(200, 'Normal Shutdown', self.on_closed)
 
     def handle_read(self):
         try:
             buf = self.recv(self.connection.suggested_buffer_size())
-        except socket.error, exn:
+        except socket.error(exn):
+            print "Here"
             if hasattr(exn, 'errno') and (exn.errno == EAGAIN):
                 # Weird, but happens very occasionally.
                 return
             else:
-                self.handle_close()
+                self.force_close(str(exn))
                 return
 
         if not buf:
@@ -94,6 +97,8 @@ class RabbitDispatcher(asyncore.dispatcher):
 
         self.connection.on_data_available(buf)
 
+    def force_close(self, message="Socket Error"):
+        self.connection.close(320, message)
 
     def writable(self):
         return bool(self.connection.outbound_buffer)
@@ -103,8 +108,15 @@ class RabbitDispatcher(asyncore.dispatcher):
         r = self.send(fragment)
         self.connection.outbound_buffer.consume(r)
 
-    def on_closed(self):
-        self.closed = True
+    def on_state_change(self, caller, is_open):
+        self.closed = not is_open
+        if self.closed:
+            self.handle_close()
+
+    def handle_error(self):
+        exc_type, exc_value, exc_traceback = sys.exc_info()
+        traceback.print_exception(exc_type, exc_value, exc_traceback)
+        #traceback.print_tb(exc_traceback)
 
 class AsyncoreConnection(pika.connection.Connection):
 
@@ -154,10 +166,10 @@ def log_timer_error(info):
 def run_timers_internal():
     cutoff = time.time()
     while timer_heap and timer_heap[0][0] < cutoff:
-        try:
-            heappop(timer_heap)[1]()
-        except:
-            log_timer_error(sys.exc_info())
+        #try:
+        heappop(timer_heap)[1]()
+        #except:
+        #    log_timer_error(sys.exc_info())
         cutoff = time.time()
     return cutoff
 

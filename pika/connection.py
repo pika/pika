@@ -116,8 +116,7 @@ class Connection(object):
 
     """
 
-    def __init__(self, parameters, open_callback, close_callback,
-                 reconnection_strategy=None):
+    def __init__(self, parameters, reconnection_strategy=None):
         """
         Connection initialization expects a ConnectionParameters object and
         a callback function to notify when we have successfully connected
@@ -134,8 +133,6 @@ class Connection(object):
         self._callbacks = dict()
 
         # Set our configuration options
-        self.on_connected_callback = open_callback
-        self.on_close_callback = close_callback
         self.parameters = parameters
         self.reconnection_strategy = reconnection_strategy
 
@@ -162,13 +159,9 @@ class Connection(object):
         This method allows you to add a custom event
         handler that will be fired when the connection state changes.
         """
-        logging.debug('%s.add_state_change_handler' % \
-                      self.__class__.__name__)
-        self.connection_state_change_event.addHandler(handler, key)
-        if self.is_open():
-            handler(self, True)
-        else:
-            handler(self, False)
+        logging.debug('%s.add_state_change_handler: %s' % \
+                      (self.__class__.__name__, str(handler)))
+        self.connection_state_change_event.add_handler(handler, key)
 
     def remove_state_change_handler(self, key):
         """
@@ -176,7 +169,7 @@ class Connection(object):
         """
         logging.debug('%s.remove_state_change_handler' % \
                       self.__class__.__name__)
-        self.connection_state_change_event.delHandler(key)
+        self.connection_state_change_event.remove_handler(key)
 
     # Connection opening related functionality
 
@@ -294,9 +287,6 @@ class Connection(object):
         # We're now connected at the AMQP level
         self.open = True
 
-        # Call our invokers callback
-        self.on_connected_callback()
-
     def _on_connection_start(self, frame):
         """
         This is called as a callback once we have received a Connection.Start
@@ -383,7 +373,6 @@ class Connection(object):
             return
 
         self.closing = True
-
         self.close_code = code
         self.close_text = text
 
@@ -429,10 +418,10 @@ class Connection(object):
         This is usually invoked by the Broker as a frame across channel 0
         """
         logging.debug('%s._on_close_ok' % self.__class__.__name__)
-        self.on_close_callback()
         self.closed = True
         self.closing = False
         self.open = False
+        self._handle_connection_close()
 
     def on_remote_close(self, frame):
         """
@@ -460,6 +449,7 @@ class Connection(object):
         Let both our RS and Event object know we closed
         """
         logging.debug('%s._handle_connection_close' % self.__class__.__name__)
+
         # Let our connection strategy know the connection closed
         self.reconnection_strategy.on_connection_closed(self)
 
@@ -484,7 +474,7 @@ class Connection(object):
 
     # Channel related functionality
 
-    def channel(self, on_channel_ready, channel_number=None):
+    def channel(self, channel_number=None):
         """
         Create a new channel with the next available or specified channel #
         """
@@ -494,9 +484,7 @@ class Connection(object):
             channel_number = self._next_channel_number()
 
         # Add it to our channel dictionary
-        self._channels[channel_number] = channel.Channel(self,
-                                                        channel_number,
-                                                        on_channel_ready)
+        self._channels[channel_number] = channel.Channel(self, channel_number)
 
         # Return the handle to the channel
         return self._channels[channel_number]

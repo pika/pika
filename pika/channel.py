@@ -104,7 +104,7 @@ class ChannelTransport(object):
         """
         Add a callback for when the state of the channel flow changes
         """
-        self.flow_active_change_event.addHandler(handler, key)
+        self.flow_active_change_event.add_handler(handler, key)
         handler(self, self.flow_active)
 
     def add_state_change_handler(self, handler, key=None):
@@ -112,7 +112,7 @@ class ChannelTransport(object):
         Add a callback for when the state of the channel changes between open
         and closed
         """
-        self.channel_state_change_event.addHandler(handler, key)
+        self.channel_state_change_event.add_handler(handler, key)
         handler(self, not self.closed)
 
     def deliver(self, frame):
@@ -267,7 +267,7 @@ class ChannelTransport(object):
 
 class Channel(spec.DriverMixin):
 
-    def __init__(self, connection, channel_number, on_channel_ready):
+    def __init__(self, connection, channel_number):
 
         # Make sure that the caller passed in an int for the channel number
         if not isinstance(channel_number, int):
@@ -279,9 +279,6 @@ class Channel(spec.DriverMixin):
         # Assign our connection we communicate with
         self.connection = connection
 
-        # When we open, we'll call this back passing our handle
-        self.on_channel_ready = on_channel_ready
-
         # For event based processing
         self._consumers = {}
         self._pending = {}
@@ -290,16 +287,26 @@ class Channel(spec.DriverMixin):
         self.transport.add_callback(self._on_basic_deliver,
                                     [spec.Basic.Deliver.NAME])
 
+        # Create our event callback handlers for our state
+        self.state_change_event = event.Event()
+
         # Open our channel
         self.transport.rpc(self._on_open_ok, spec.Channel.Open(),
                            [spec.Channel.OpenOk])
+
+    def add_state_change_handler(self, handler, key=None):
+        """
+        Add a callback for when the state of the channel changes between open
+        and closed
+        """
+        self.state_change_event.add_handler(handler, key)
 
     def basic_cancel(self, consumer_tag):
         """
         Cancel a basic_consumer call on the Broker
         """
         # Asked to cancel a consumer_tag we don't have? throw an exception
-        if not consumer_tag in self.callbacks:
+        if not consumer_tag in self._consumers:
             raise UnknownConsumerTag(consumer_tag)
 
         # Send a Basic.Cancel RPC call to close the Basic.Consume
@@ -416,7 +423,7 @@ class Channel(spec.DriverMixin):
 
     def _on_cancel_ok(self, frame):
         """
-        Called from the Broker when we issue a Basic.Cancel
+        Called in response to a frame from the Broker when we call Basic.Cancel
         """
         logging.debug("%s._on_cancel_ok: %r" % (self.__class__.__name__,
                                                frame.method.NAME))
@@ -425,18 +432,28 @@ class Channel(spec.DriverMixin):
         del(self._consumers[frame.method.consumer_tag])
 
     def _on_close_ok(self, frame):
+        """
+        Called in response to a frame from the Broker when we
+        call Channel.Close
+        """
         logging.debug("%s._on_event_ok: %r" % (self.__class__.__name__,
                                               frame.method.NAME))
 
         # Let our transport know we're closed and it'll deal with the rest
         self.transport.on_close()
 
+        # Let those who registered for our state change know it's happened
+        self.state_change_event.fire(self, False)
+
     def _on_open_ok(self, frame):
+        """
+        Called in response to a frame from the broker when we call Channel.Open
+        """
         logging.debug("%s._on_open_ok: %r" % (self.__class__.__name__,
                                               frame.method.NAME))
 
         # Let our transport know we're open
         self.transport.open()
 
-        # Let our on_channel_ready callback have our handle
-        self.on_channel_ready(self)
+        # Let those who registered for our state change know it's happened
+        self.state_change_event.fire(self, True)

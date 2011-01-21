@@ -57,44 +57,43 @@ import pika
 
 logging.basicConfig(level=logging.DEBUG)
 
-conn = None
+def handle_connection_state_change(connection, is_connected):
 
-def handle_connection_state_change(conn, is_connected):
-    if not is_connected:
-        print 'Was disconnected from server: %s' % conn.close_text
+    if is_connected:
+        logging.info("demo_receive: Connected to RabbitMQ")
+
+        channel = connection.channel()
+        channel.add_state_change_handler(handle_channel_state_change)
+    else:
+        logging.info('Was disconnected from server: %s' % \
+                     connection.close_text)
         sys.exit(1)
+
+def handle_channel_state_change(channel, is_open):
+
+    if is_open:
+        logging.info("demo_receive: Received our channel open event")
+
+        channel.queue_declare(queue="test", durable=True,
+                              exclusive=False, auto_delete=False)
+
+        channel.basic_consume(handle_delivery, queue='test')
+
 
 def handle_delivery(channel, method, header, body):
 
+    print
     print "method=%r" % (method,)
     print "header=%r" % (header,)
     print "  body=%r" % (body,)
-    channel.basic_ack(delivery_tag = method.delivery_tag)
+    print
 
-def on_connected():
-    logging.info("demo_send: Connected to RabbitMQ")
-
-    conn.add_state_change_handler(handle_connection_state_change)
-    conn.channel(on_channel)
-
-
-def on_closed():
-    # We've been called by the Connection object to let us know we're done
-    logging.info("demo_send: Connection Closed")
-
-def on_channel(channel):
-
-    logging.info("demo_send: Received our Channel")
-
-    channel.queue_declare(queue="test", durable=True,
-                          exclusive=False, auto_delete=False)
-
-    channel.basic_consume(handle_delivery, queue='test')
+    channel.basic_ack(delivery_tag=method.delivery_tag)
 
 parameters = pika.ConnectionParameters((len(sys.argv) > 1) and \
                                        sys.argv[1] or \
                                        '127.0.0.1')
-conn = pika.asyncore_adapter.AsyncoreConnection(parameters,
-                                                open_callback=on_connected,
-                                                close_callback=on_closed)
+
+connection = pika.asyncore_adapter.AsyncoreConnection(parameters)
+connection.add_state_change_handler(handle_connection_state_change)
 pika.asyncore_adapter.loop()

@@ -59,49 +59,46 @@ import time
 
 logging.basicConfig(level=logging.DEBUG)
 
-conn = None
+def on_connection_state_change(connection, is_connected):
 
-def on_connected():
-    logging.info("demo_send: Connected to RabbitMQ")
+    if is_connected:
+        logging.info("demo_send: Connected to RabbitMQ")
+        channel = connection.channel()
+        channel.add_state_change_handler(on_channel_state_change)
+    else:
+        # We've been called by the Connection object to let us know we're done
+        logging.info("demo_send: Connection Closed")
 
-    conn.channel(on_channel)
+def on_channel_state_change(channel, is_connected):
 
+    if is_connected:
+        logging.info("demo_send: Received our Channel")
+        channel.queue_declare(queue="test", durable=True,
+                              exclusive=False, auto_delete=False)
 
-def on_closed():
-    # We've been called by the Connection object to let us know we're done
-    logging.info("demo_send: Connection Closed")
+        # Wait for our queue to declare to finish blocking, should we add optional
+        # callbacks for these sorts of things? Perhaps?
+        while channel.transport.blocking:
+            print "Waiting for our queue_declare to finish"
+            time.sleep(1)
 
-def on_channel(channel):
+        for x in xrange(0, 10):
+            channel.basic_publish(exchange='',
+                                  routing_key="test",
+                                  body="Hello World #%i: %.8f" % \
+                                       (x, time.time()),
+                                  properties=pika.BasicProperties(
+                                     content_type = "text/plain",
+                                     delivery_mode = 2, # persistent
+                                  ))
 
-    logging.info("demo_send: Received our Channel")
-
-    channel.queue_declare(queue="test", durable=True,
-                          exclusive=False, auto_delete=False)
-
-    # Wait for our queue to declare to finish blocking, should we add optional
-    # callbacks for these sorts of things? Perhaps?
-    while channel.transport.blocking:
-         print "Waiting for our queue_declare to finish"
-         time.sleep(1)
-
-    for x in xrange(0, 10):
-        channel.basic_publish(exchange='',
-                              routing_key="test",
-                              body="Hello World #%i: %.8f" % (x, time.time()),
-                              properties=pika.BasicProperties(
-                                 content_type = "text/plain",
-                                 delivery_mode = 2, # persistent
-                              ))
-
-
-    time.sleep(5)
-    logging.info("We should have sent by now")
-    conn.close()
+    # Close our connection
+    connection.close()
 
 parameters = pika.ConnectionParameters((len(sys.argv) > 1) and \
                                        sys.argv[1] or \
                                        '127.0.0.1')
-conn = pika.asyncore_adapter.AsyncoreConnection(parameters,
-                                                open_callback=on_connected,
-                                                close_callback=on_closed)
+
+connection = pika.asyncore_adapter.AsyncoreConnection(parameters)
+connection.add_state_change_handler(on_connection_state_change)
 pika.asyncore_adapter.loop()
