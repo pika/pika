@@ -53,6 +53,7 @@ import pika.codec as codec
 import pika.event as event
 from pika.exceptions import *
 
+BLOCKED = 0x01
 
 class ChannelHandler(object):
 
@@ -60,8 +61,12 @@ class ChannelHandler(object):
 
         self.connection = connection
 
+        self.channel = None
+
         # The frame-handler changes depending on the type of frame processed
         self.frame_handler = self._handle_method
+
+
 
         self.channel_close_callback = None
         self.channel_close = False
@@ -132,10 +137,47 @@ class ChannelHandler(object):
         self.connection.flush_outbound()
         self.connection.drain_events(timeout = 0)
 
+
+
+
+
+
+    def _handle_async(self, method_frame, header_frame, body):
+        method = method_frame.method
+        methodClass = method.__class__
+
+
+
+
+
+        if self.reply_map is not None and methodClass in self.reply_map:
+            if header_frame is not None:
+                method._set_content(header_frame.properties, body)
+            handler = self.reply_map[methodClass]
+            self.reply_map = None
+            handler(method)
+
+        elif methodClass in self.async_map:
+
+
+
+            self.async_map[methodClass](method_frame, header_frame, body)
+
+
+        else:
+            self.connection.close(spec.NOT_IMPLEMENTED,
+                                  'Pika: method not implemented: ' + methodClass.NAME)
+
+
+
+
     def _handle_method(self, frame):
         """
         Receive a frame from the AMQP Broker and process it
         """
+        logging.debug("%s._handle_method: %r" % (self.__class__.__name__,
+                                                 frame))
+
         # If we don't have FrameMethod something is wrong so throw an exception
         if not isinstance(frame, codec.FrameMethod):
             raise UnexpectedFrameError(frame)
@@ -144,17 +186,21 @@ class ChannelHandler(object):
         if spec.has_content(frame.method.INDEX):
             self.frame_handler = self._make_header_handler(frame)
 
-        # We were passed a frame we dont know how to deal with
+        # We were passed a frame we don't know how to deal with
         else:
             self.connection.close(spec.NOT_IMPLEMENTED,
                                   'Pika: method not implemented: %s' % \
                                   frame.method.__class__)
 
     def _make_header_handler(self, method_frame):
+
         def handler(header_frame):
+
             if not isinstance(header_frame, codec.FrameHeader):
                 raise UnexpectedFrameError(header_frame)
+
             self._install_body_handler(method_frame, header_frame)
+
         return handler
 
     def _install_body_handler(self, method_frame, header_frame):
@@ -173,10 +219,16 @@ class ChannelHandler(object):
                 raise BodyTooLongError()
             else:
                 pass
+
         def finish():
             self.frame_handler = self._handle_method
-            self._handle_async(method_frame, header_frame,
-                               ''.join(body_fragments))
+
+            method_name = method_frame.method.NAME
+
+            if method_name in self.channel._callbacks:
+                self.channel._callbacks[method_name](method_frame,
+                                                     header_frame,
+                                                     body_fragments)
 
         if not header_frame.body_size:
             finish()
@@ -200,31 +252,94 @@ class ChannelHandler(object):
 
     def add_callback(self, callback, acceptable_replies):
         """
-        Addds a callback entry in our connections callback handler for our
+        Adds a callback entry in our connections callback handler for our
         channel
         """
         self.connection.add_callback(callback, self.channel_number,
                                      acceptable_replies)
 
+channel_attr_whitelist = ('blocking', '_blocked', '_callbacks', 'synchronous',
+                          'handle', 'handler', '__class__', '_consumers', 'blocked_function',
+                          'on_open_ok_callback', '_on_synchronous_complete', 'add_to_blocked')
 
 class Channel(spec.DriverMixin):
 
     def __init__(self, handler, on_open_ok_callback):
 
+        handler.channel = self
         self.handler = handler
-        self.callbacks = {}
-        self.pending = {}
-        self.next_consumer_tag = 0
 
-        self.on_open_ok_callback = on_open_ok_callback
+        self._callbacks = {}
+        self._consumers = {}
+
+        self.pending = {}
+
+        self.blocking = None
+        self._blocked = []
+        self.blocked_function = None
+
+        self._callbacks[spec.Channel.OpenOk.NAME] = on_open_ok_callback
+        self._callbacks[spec.Basic.Deliver.NAME] = self._basic_deliver
 
         handler.add_callback(handler._channel_flow, [spec.Channel.Flow])
-        handler.add_callback(self._basic_deliver, [spec.Basic.Deliver])
-        handler.add_callback(self._basic_return, [spec.Basic.Return])
-        handler.add_callback(self._basic_cancel, [spec.Basic.Cancel])
 
-        self.handler.rpc(self.on_open_ok, spec.Channel.Open(),
+        handler.rpc(self.on_event_ok, spec.Channel.Open(),
                          [spec.Channel.OpenOk])
+
+
+    def __getattribute__(self, function):
+
+        # If we don't check to see if the item we're going to use in this function
+        if function  in channel_attr_whitelist:
+            return object.__getattribute__(self, function)
+
+        if self.blocking:
+            logging.debug('%s is blocking this channel' % self.blocking)
+            self.blocked_function = str(function)
+            return self.add_to_blocked
+
+        if function in self.synchronous:
+            self.blocking = "%s.%s" % (self.__class__.__name__, function)
+            logging.debug('%s turning on blocking' % self.blocking)
+
+        return object.__getattribute__(self, function)
+
+
+    def add_to_blocked(self, *args, **keywords):
+        self._blocked.append([self.blocked_function, args, keywords])
+        self.blocked_function = None
+
+
+
+    def _on_synchronous_complete(self, frame):
+        logging.debug("%s._on_synchronous_complete for %s: %r" % \
+                      (self.__class__.__name__, self.blocking, frame))
+
+        # Release the lock
+        self.blocking = None
+
+        # Get the function to call next
+        method = self._blocked.pop(0)
+
+        # Call our original method
+        function = method[0]
+        args = method[1]
+        keywords = method[2]
+
+        print function
+        print args
+        print keywords
+
+        function = getattr(self, function)
+
+        if args and not len(keywords):
+            function(self, *args)
+        elif args and len(keywords):
+            function(self, *args, **keywords)
+        elif len(keywords):
+            function(self, **keywords)
+        else:
+            function(self)
 
     def add_state_change_handler(self, handler, key = None):
         self.handler.add_state_change_handler(handler, key)
@@ -241,7 +356,7 @@ class Channel(spec.DriverMixin):
         if consumer_tag not in self.pending:
             q = []
             self.pending[consumer_tag] = q
-            consumer = self.callbacks[consumer_tag]
+            consumer = self._consumers[consumer_tag]
             consumer(self, method_frame.method, header_frame.properties, body)
             while q:
                 (m, p, b) = q.pop(0)
@@ -254,13 +369,12 @@ class Channel(spec.DriverMixin):
     def _basic_return(self, method_frame, header_frame, body):
         raise NotImplementedError("Basic.Return")
 
-    def _basic_consume(self, method_frame):
-
+    def _basic_consume(self, frame):
         self.handler._make_header_handler(frame)
 
-    def _basic_cancel(selfs, method_frame):
+    def _basic_cancel(self, frame):
 
-        logging.info("Consume Ok: %s" % str(frame.method))
+        logging.info("Cancel Ok: %s" % str(frame.method))
 
 
     def basic_publish(self, exchange, routing_key, body,
@@ -293,33 +407,38 @@ class Channel(spec.DriverMixin):
 
                         [spec.Basic.CancelOk])
 
-
-    def on_open_ok(self, frame):
-        logging.debug("%s.on_open_ok: %r" % (self.__class__.__name__,
-                                             frame))
-        self.on_open_ok_callback(self)
-
-    def on_cancel_ok(self, frame):
-        logging.debug("%s.on_cancel_ok: %r" % (self.__class__.__name__,
-                                               frame))
-
     def basic_consume(self, consumer,
                       queue='', no_ack=False, exclusive=False,
                       consumer_tag=None):
+        logging.debug("%s.basic_consume" % self.__class__.__name__)
 
-        tag = consumer_tag
-        if not tag:
-            tag = 'ctag' + str(self.next_consumer_tag)
-            self.next_consumer_tag += 1
-        if tag in self.callbacks:
-            raise DuplicateConsumerTag(tag)
-        self.callbacks[tag] = consumer
-        self.handler.rpc(self._basic_consume,
-                          spec.Basic.Consume(queue= queue,
-                                             consumer_tag=tag,
-                                             no_ack=no_ack,
-                                             exclusive=exclusive),
-                          [spec.Basic.ConsumeOk])
+        # If a consumer tag was not passed, create one
+        if not consumer_tag:
+            consumer_tag = 'ctag%i' % len(self._consumers)
 
-    def on_consume_ok(self, frame):
-        pass
+        # Make sure we've not already registered this consumer tag
+        if consumer_tag in self._consumers:
+            raise DuplicateConsumerTag(consumer_tag)
+
+        # The consumer tag has not been used before, add it to our consumers
+        self._consumers[consumer_tag] = consumer
+
+        print self._consumers
+
+        # Send our Basic.Consume RPC call
+        self.handler.rpc(self.on_event_ok,
+                         spec.Basic.Consume(queue=queue,
+                                            consumer_tag=consumer_tag,
+                                            no_ack=no_ack,
+                                            exclusive=exclusive),
+                         [spec.Basic.ConsumeOk])
+
+    def on_event_ok(self, frame):
+
+        logging.debug("%s.on_event_ok: %r" % (self.__class__.__name__,
+                                              frame.method.NAME))
+
+        # If we've defined a callback, make the call passing ourselves
+        # and the frame to the registered function
+        if frame.method.NAME in self._callbacks:
+            self._callbacks[frame.method.NAME](self, frame)
