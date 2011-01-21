@@ -381,19 +381,19 @@ def generate(specPath):
             print
 
             if m.isSynchronous:
-                callback = "self._on_synchronous_complete"
+                callback = "self.transport._on_synchronous_complete"
             else:
-                callback = "self.on_event_ok"
+                callback = "self.transport._on_event_ok"
 
             print "    def %s(self%s):" % \
                   (pyize(m.klass.name + '_' + m.name),
                   fieldDeclList(m.arguments))
             print
-            print "        return self.handler.rpc(%s, %s(%s)," % \
+            print "        return self.transport.rpc(%s, %s(%s)," % \
                   (callback, m.structName(),
                    ', '.join(["%s=%s" % (pyize(f.name), pyize(f.name))
                              for f in m.arguments]))
-            print "                                [%s])" % \
+            print "                                  [%s])" % \
                   (', '.join(acceptable_replies),)
 
 if __name__ == "__main__":

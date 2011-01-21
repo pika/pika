@@ -2085,80 +2085,80 @@ class DriverMixin(object):
 
     def exchange_declare(self, ticket=0, exchange=None, type='direct', passive=False, durable=False, auto_delete=False, internal=False, nowait=False, arguments={}):
 
-        return self.handler.rpc(self._on_synchronous_complete, Exchange.Declare(ticket=ticket, exchange=exchange, type=type, passive=passive, durable=durable, auto_delete=auto_delete, internal=internal, nowait=nowait, arguments=arguments),
-                                [Exchange.DeclareOk])
+        return self.transport.rpc(self.transport._on_synchronous_complete, Exchange.Declare(ticket=ticket, exchange=exchange, type=type, passive=passive, durable=durable, auto_delete=auto_delete, internal=internal, nowait=nowait, arguments=arguments),
+                                  [Exchange.DeclareOk])
 
     def exchange_delete(self, ticket=0, exchange=None, if_unused=False, nowait=False):
 
-        return self.handler.rpc(self._on_synchronous_complete, Exchange.Delete(ticket=ticket, exchange=exchange, if_unused=if_unused, nowait=nowait),
-                                [Exchange.DeleteOk])
+        return self.transport.rpc(self.transport._on_synchronous_complete, Exchange.Delete(ticket=ticket, exchange=exchange, if_unused=if_unused, nowait=nowait),
+                                  [Exchange.DeleteOk])
 
     def queue_declare(self, ticket=0, queue='', passive=False, durable=False, exclusive=False, auto_delete=False, nowait=False, arguments={}):
 
-        return self.handler.rpc(self._on_synchronous_complete, Queue.Declare(ticket=ticket, queue=queue, passive=passive, durable=durable, exclusive=exclusive, auto_delete=auto_delete, nowait=nowait, arguments=arguments),
-                                [Queue.DeclareOk])
+        return self.transport.rpc(self.transport._on_synchronous_complete, Queue.Declare(ticket=ticket, queue=queue, passive=passive, durable=durable, exclusive=exclusive, auto_delete=auto_delete, nowait=nowait, arguments=arguments),
+                                  [Queue.DeclareOk])
 
     def queue_bind(self, ticket=0, queue='', exchange=None, routing_key='', nowait=False, arguments={}):
 
-        return self.handler.rpc(self._on_synchronous_complete, Queue.Bind(ticket=ticket, queue=queue, exchange=exchange, routing_key=routing_key, nowait=nowait, arguments=arguments),
-                                [Queue.BindOk])
+        return self.transport.rpc(self.transport._on_synchronous_complete, Queue.Bind(ticket=ticket, queue=queue, exchange=exchange, routing_key=routing_key, nowait=nowait, arguments=arguments),
+                                  [Queue.BindOk])
 
     def queue_purge(self, ticket=0, queue='', nowait=False):
 
-        return self.handler.rpc(self._on_synchronous_complete, Queue.Purge(ticket=ticket, queue=queue, nowait=nowait),
-                                [Queue.PurgeOk])
+        return self.transport.rpc(self.transport._on_synchronous_complete, Queue.Purge(ticket=ticket, queue=queue, nowait=nowait),
+                                  [Queue.PurgeOk])
 
     def queue_delete(self, ticket=0, queue='', if_unused=False, if_empty=False, nowait=False):
 
-        return self.handler.rpc(self._on_synchronous_complete, Queue.Delete(ticket=ticket, queue=queue, if_unused=if_unused, if_empty=if_empty, nowait=nowait),
-                                [Queue.DeleteOk])
+        return self.transport.rpc(self.transport._on_synchronous_complete, Queue.Delete(ticket=ticket, queue=queue, if_unused=if_unused, if_empty=if_empty, nowait=nowait),
+                                  [Queue.DeleteOk])
 
     def queue_unbind(self, ticket=0, queue='', exchange=None, routing_key='', arguments={}):
 
-        return self.handler.rpc(self._on_synchronous_complete, Queue.Unbind(ticket=ticket, queue=queue, exchange=exchange, routing_key=routing_key, arguments=arguments),
-                                [Queue.UnbindOk])
+        return self.transport.rpc(self.transport._on_synchronous_complete, Queue.Unbind(ticket=ticket, queue=queue, exchange=exchange, routing_key=routing_key, arguments=arguments),
+                                  [Queue.UnbindOk])
 
     def basic_qos(self, prefetch_size=0, prefetch_count=0, global_=False):
 
-        return self.handler.rpc(self._on_synchronous_complete, Basic.Qos(prefetch_size=prefetch_size, prefetch_count=prefetch_count, global_=global_),
-                                [Basic.QosOk])
+        return self.transport.rpc(self.transport._on_synchronous_complete, Basic.Qos(prefetch_size=prefetch_size, prefetch_count=prefetch_count, global_=global_),
+                                  [Basic.QosOk])
 
     def basic_get(self, ticket=0, queue='', no_ack=False):
 
-        return self.handler.rpc(self._on_synchronous_complete, Basic.Get(ticket=ticket, queue=queue, no_ack=no_ack),
-                                [Basic.GetOk, Basic.GetEmpty])
+        return self.transport.rpc(self.transport._on_synchronous_complete, Basic.Get(ticket=ticket, queue=queue, no_ack=no_ack),
+                                  [Basic.GetOk, Basic.GetEmpty])
 
     def basic_ack(self, delivery_tag=0, multiple=False):
 
-        return self.handler.rpc(self.on_event_ok, Basic.Ack(delivery_tag=delivery_tag, multiple=multiple),
-                                [])
+        return self.transport.rpc(self.transport._on_event_ok, Basic.Ack(delivery_tag=delivery_tag, multiple=multiple),
+                                  [])
 
     def basic_reject(self, delivery_tag=None, requeue=True):
 
-        return self.handler.rpc(self.on_event_ok, Basic.Reject(delivery_tag=delivery_tag, requeue=requeue),
-                                [])
+        return self.transport.rpc(self.transport._on_event_ok, Basic.Reject(delivery_tag=delivery_tag, requeue=requeue),
+                                  [])
 
     def basic_recover_async(self, requeue=False):
 
-        return self.handler.rpc(self.on_event_ok, Basic.RecoverAsync(requeue=requeue),
-                                [])
+        return self.transport.rpc(self.transport._on_event_ok, Basic.RecoverAsync(requeue=requeue),
+                                  [])
 
     def basic_recover(self, requeue=False):
 
-        return self.handler.rpc(self._on_synchronous_complete, Basic.Recover(requeue=requeue),
-                                [Basic.RecoverOk])
+        return self.transport.rpc(self.transport._on_synchronous_complete, Basic.Recover(requeue=requeue),
+                                  [Basic.RecoverOk])
 
     def tx_select(self):
 
-        return self.handler.rpc(self._on_synchronous_complete, Tx.Select(),
-                                [Tx.SelectOk])
+        return self.transport.rpc(self.transport._on_synchronous_complete, Tx.Select(),
+                                  [Tx.SelectOk])
 
     def tx_commit(self):
 
-        return self.handler.rpc(self._on_synchronous_complete, Tx.Commit(),
-                                [Tx.CommitOk])
+        return self.transport.rpc(self.transport._on_synchronous_complete, Tx.Commit(),
+                                  [Tx.CommitOk])
 
     def tx_rollback(self):
 
-        return self.handler.rpc(self._on_synchronous_complete, Tx.Rollback(),
-                                [Tx.RollbackOk])
+        return self.transport.rpc(self.transport._on_synchronous_complete, Tx.Rollback(),
+                                  [Tx.RollbackOk])

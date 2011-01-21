@@ -48,145 +48,138 @@
 
 import logging
 
-import pika.spec as spec
-import pika.codec as codec
+import pika.frame as frame
 import pika.event as event
+import pika.spec as spec
+
 from pika.exceptions import *
 
-BLOCKED = 0x01
-NOT_IMPLEMENTED = [spec.Basic.Return.NAME]
+NOT_IMPLEMENTED = [spec.Basic.Return.NAME, spec.Basic.Get.NAME]
 
-class ChannelHandler(object):
+
+class ChannelTransport(object):
 
     def __init__(self, connection, channel_number):
 
         self.connection = connection
+        self.channel_number = channel_number
 
-        self.channel = None
-        self.closed = False
+        # Dictionary of callbacks indexed by the reply's frame method name
+        self._callbacks = {}
 
         # The frame-handler changes depending on the type of frame processed
-        self.frame_handler = self._handle_method
+        self.frame_handler = frame.FrameHandler(self)
 
+        # We need to block on synchronous commands, but do so asynchronously
+        self.blocking = None
+        self._blocked = []
+        self.blocked_function = None
 
-        self.channel_close = False
+        # By default we're closed
+        self.closed = True
 
+        # By default our Flow is active
         self.flow_active = True
 
+        # Create our event callback handlers for our state and flow
         self.channel_state_change_event = event.Event()
         self.flow_active_change_event = event.Event()
 
-        # Make sure that the caller passed in an int for the channel number
-        if not isinstance(channel_number, int):
-            raise InvalidChannelNumber
-
-        self.channel_number = channel_number
-
-        # Call back to our connection and add ourself, I dont like this
-        connection.add_channel(self.channel_number, self)
+        # Define our callbacks for specific frame types
+        self.add_callback(self._on_channel_flow, [spec.Channel.Flow])
+        self.add_callback(self._on_event_ok, NOT_IMPLEMENTED)
 
     def add_callback(self, callback, acceptable_replies):
         """
         Adds a callback entry in our connections callback handler for our
         channel
         """
-        self.connection.add_callback(callback, self.channel_number,
-                                     acceptable_replies)
+        for reply in acceptable_replies:
+            if reply in self._callbacks:
+                raise CallbackReplyAlreadyRegistered(reply)
 
-    def add_flow_change_handler(self, handler, key = None):
+            self._callbacks[reply] = callback
+
+    def add_flow_change_handler(self, handler, key=None):
+        """
+        Add a callback for when the state of the channel flow changes
+        """
         self.flow_active_change_event.addHandler(handler, key)
         handler(self, self.flow_active)
 
-    def add_state_change_handler(self, handler, key = None):
+    def add_state_change_handler(self, handler, key=None):
+        """
+        Add a callback for when the state of the channel changes between open
+        and closed
+        """
         self.channel_state_change_event.addHandler(handler, key)
         handler(self, not self.channel_close)
 
+    def deliver(self, frame):
+        """
+        Deliver a frame to the frame handler. When it's gotten to a point that
+        it has build our frame responses in a way we can use them, it will
+        call our callback stack to figure out what to do.
+        """
+        self.frame_handler.process(frame)
 
+    def _blocked_on_flow_control(self):
+        """
+        Returns a bool if we're currently blocking in Flow
+        """
+        return not self.flow_active
 
-    def _channel_flow(self, method_frame, header_frame, body):
-        self.flow_active = method_frame.method.active
+    def _ensure(self):
+        """
+        Make sure the transport is open
+        """
+        if self.closed:
+            raise ChannelClosed("Command issued while channel is closed")
+
+        return True
+
+    def _on_channel_flow(self, frame):
+        """
+        We've received a Channel.Flow frame, obey it's request and set our
+        flow active state, then fire the event and send the FlowOk method in
+        response
+        """
+        logging.debug("%s._on_channel_flow: %r" % (self.__class__.__name__,
+                                                   frame))
+        self.flow_active = frame.method.active
         self.flow_active_change_event.fire(self, self.flow_active)
-        self.connection.send_method(self.channel_number,
-                                    spec.Channel.FlowOk(active=self.flow_active))
+        self.send_method(spec.Channel.FlowOk(active=self.flow_active))
 
-
-    def _set_channel_close(self, c):
+    def on_close(self):
+        """
+        Called by the Channel._on_close_ok function, this will fire the event
+        and remove the channel from the connection
+        """
         if not self.closed:
-            self.channel_close = c
+            self.closed = True
             self.connection.remove_channel(self.channel_number)
             self.channel_state_change_event.fire(self, False)
 
-
-
-    def _handle_method(self, frame):
+    def open(self):
         """
-        Receive a frame from the AMQP Broker and process it
+        Update our internal variables when we open and fire the open event
+        on the state change handler
         """
-        logging.debug("%s._handle_method: %r" % (self.__class__.__name__,
-                                                 frame))
+        self.closed = False
+        self.channel_state_change_event.fire(self, True)
 
-        # If we don't have FrameMethod something is wrong so throw an exception
-        if not isinstance(frame, codec.FrameMethod):
-            raise UnexpectedFrameError(frame)
-
-        # If the frame is a content related frame go deal with the content
-        if spec.has_content(frame.method.INDEX):
-            self.frame_handler = self._make_header_handler(frame)
-
-        # We were passed a frame we don't know how to deal with
-        else:
-            self.connection.close(spec.NOT_IMPLEMENTED,
-                                  'Pika: method not implemented: %s' % \
-                                  frame.method.__class__)
-
-
-
-    def _install_body_handler(self, method_frame, header_frame):
-        seen_so_far = [0]
-        body_fragments = []
-
-        def handler(body_frame):
-            if not isinstance(body_frame, codec.FrameBody):
-                raise UnexpectedFrameError(body_frame)
-            fragment = body_frame.fragment
-            seen_so_far[0] += len(fragment)
-            body_fragments.append(fragment)
-            if seen_so_far[0] == header_frame.body_size:
-                finish()
-            elif seen_so_far[0] > header_frame.body_size:
-                raise BodyTooLongError()
-            else:
-                pass
-
-        def finish():
-            self.frame_handler = self._handle_method
-
-            method_name = method_frame.method.NAME
-
-            if method_name in self.channel._callbacks:
-                self.channel._callbacks[method_name](method_frame,
-                                                     header_frame,
-                                                     body_fragments)
-
-        if not header_frame.body_size:
-            finish()
-        else:
-            self.frame_handler = handler
-    def _make_header_handler(self, method_frame):
-
-        def handler(header_frame):
-
-            if not isinstance(header_frame, codec.FrameHeader):
-                raise UnexpectedFrameError(header_frame)
-
-            self._install_body_handler(method_frame, header_frame)
-
-        return handler
     def rpc(self, callback, method, acceptable_replies):
         """
         Shortcut wrapper to the Connection's rpc command using its callback
         stack, passing in our channel number
         """
+        # We can't ensure if we're opening
+        if method.NAME != spec.Channel.Open.NAME:
+            self._ensure()
+
+        if self._blocked_on_flow_control():
+            raise ChannelBlocked("Flow Control Active, Waiting for Ok")
+
         self.connection.rpc(callback, self.channel_number,
                             method, acceptable_replies)
 
@@ -197,14 +190,72 @@ class ChannelHandler(object):
         """
         self.connection.send_method(self.channel_number, method, content)
 
-
-    def blocked_on_flow_control(self):
+    def _on_event_ok(self, frame):
         """
-        Returns a bool if we're currently blocking in Flow
+        Generic events that returned ok that may have internal callbacks.
+        We keep a list of what we've yet to implement so that we don't silently
+        drain events that we don't support.
         """
-        return not self.flow_active
+        logging.debug("%s._on_event_ok: %r" % (self.__class__.__name__,
+                                              frame.method.NAME))
 
+        # If we've defined a callback, make the call passing ourselves
+        # and the frame to the registered function
+        if frame.method.NAME in self._callbacks:
+            self._callbacks[frame.method.NAME](self, frame)
 
+        if frame.method.NAME in NOT_IMPLEMENTED:
+            raise NotImplementedError(frame.method.NAME)
+
+    def _on_synchronous_complete(self, frame):
+        """
+        This is called when a synchronous command is completed. It will undo
+        the blocking state and send all the frames that stacked up while we
+        were in the blocking state.
+        """
+        logging.debug("%s._on_synchronous_complete for %s: %r" % \
+                      (self.__class__.__name__, self.blocking, frame))
+
+        # Release the lock
+        self.blocking = None
+
+        # Get the list, then empty it so we can spin through all the blocked
+        # Calls, blocking again in the class level list
+        blocked = self._blocked
+        self._blocked = []
+
+        # Loop through and call all that were blocked during our last command
+        while len(blocked):
+
+            # Get the function to call next
+            method = blocked.pop(0)
+
+            # Call our original method
+            object_ = method[0]
+            function_name = method[1]
+            args = method[2]
+            keywords = method[3]
+
+            # Get a handle to the function
+            function = getattr(object_, function_name)
+
+            # Call the function with the correct parameters
+            if args and not len(keywords):
+                logging.debug("Calling %s with just args" % \
+                              function_name)
+                function(*args)
+            elif args and len(keywords):
+                logging.debug("Calling %s with args and keywords" % \
+                              function_name)
+                function(*args, **keywords)
+            elif len(keywords):
+                logging.debug("Calling %s with just keywords" % \
+                              function_name)
+                function(**keywords)
+            else:
+                logging.debug("Calling %s without args or keywords" % \
+                              function_name)
+                function()
 
 # Due to our use of __getattribute__ to block calls while synchronous calls are
 # taking place, we use a whitelist to prevent the __getattribute__ function
@@ -212,54 +263,47 @@ class ChannelHandler(object):
 # allow us to quickly return from the function prior to evaluating them.
 
 channel_attr_whitelist = ('__class__',
-                          '_add_to_blocked'
-                          '_blocked',
-                          '_callbacks',
                           '_consumers',
                           '_on_basic_deliver',
                           '_on_cancel_ok',
                           '_on_event_ok',
-                          '_on_synchronous_complete',
                           '_pending',
                           'add_state_change_handler',
                           'add_flow_change_handler',
-                          'blocked_function',
-                          'blocking',
+                          'closed',
+                          'connection',
                           'synchronous',
-                          'handle',
-                          'handler')
+                          'transport')
+
 
 class Channel(spec.DriverMixin):
 
-    def __init__(self, handler, on_open_ok):
+    def __init__(self, connection, channel_number, on_channel_ready):
 
-        # Let our handler have our handle
-        handler.channel = self
+        # Make sure that the caller passed in an int for the channel number
+        if not isinstance(channel_number, int):
+            raise InvalidChannelNumber
 
         # Get the handle to our handler
-        self.handler = handler
+        self.transport = ChannelTransport(connection, channel_number)
+
+        # Assign our connection we communicate with
+        self.connection = connection
+
+        # When we open, we'll call this back passing our handle
+        self.on_channel_ready = on_channel_ready
 
         # For event based processing
-        self._callbacks = {}
         self._consumers = {}
         self._pending = {}
 
-        # We need to block on synchronous commands, but do so asynchronously
-        self.blocking = None
-        self._blocked = []
-        self.blocked_function = None
-
-        # Register our function callbacks for specific events
-        self._callbacks[spec.Channel.OpenOk.NAME] = on_open_ok
-        self._callbacks[spec.Basic.Deliver.NAME] = self._on_basic_deliver
-        self._callbacks[spec.Basic.Return.NAME] = self._on_event_ok
-
-        # Let our channel handler handle our flow
-        handler.add_callback(handler._channel_flow, [spec.Channel.Flow])
+        # Add a callback for Basic.Deliver
+        self.transport.add_callback(self._on_basic_deliver,
+                                    [spec.Basic.Deliver.NAME])
 
         # Open our channel
-        handler.rpc(self._on_event_ok, spec.Channel.Open(),
-                         [spec.Channel.OpenOk])
+        self.transport.rpc(self._on_open_ok, spec.Channel.Open(),
+                           [spec.Channel.OpenOk])
 
     def __getattribute__(self, function):
         """
@@ -273,40 +317,29 @@ class Channel(spec.DriverMixin):
             return object.__getattribute__(self, function)
 
         # If we're blocking subsequent commands add
-        if self.blocking:
+        if self.transport.blocking:
             logging.debug('%s: %s is blocking this channel' % \
-                          (self.__class__.__name__, self.blocking))
-            if self.blocked_function:
-                logging.error("%s: Blocked call %s has not been processed" % \
-                              (self.__class__.__name__, self.blocked_function))
-            self.blocked_function = function
+                          (self.__class__.__name__, self.transport.blocking))
 
-            # Hide the scope of our function to append our _blocked list
+            # No need to scope this function outside of here and it makes
+            # it easier to get at the value of function
             def _add_to_blocked(*args, **keywords):
-                self._blocked.append([self.blocked_function, args, keywords])
-                self.blocked_function = None
+                # Append the signature of what was called the transport's
+                # _blocked list for later processing
+                self.transport._blocked.append([self,
+                                                function,
+                                                args,
+                                                keywords])
+                # @TODO Should add a timeout here for blocking functions
 
             return _add_to_blocked
 
         if function in self.synchronous:
-            self.blocking = "%s.%s" % (self.__class__.__name__, function)
-            logging.debug('%s turning on blocking' % self.blocking)
+            self.transport.blocking = "%s.%s" % (self.__class__.__name__,
+                                                 function)
+            logging.debug('%s turning on blocking' % self.transport.blocking)
 
         return object.__getattribute__(self, function)
-
-    def add_state_change_handler(self, handler, key = None):
-        """
-        Add a State Change Handler for the given key, will be called back
-        when the state changes for that key
-        """
-        self.handler.add_state_change_handler(handler, key)
-
-    def add_flow_change_handler(self, handler, key = None):
-        """
-        Add a callback handler for when the state of the Channel Flow control
-        changes
-        """
-        self.handler.add_flow_change_handler(handler, key)
 
     def basic_cancel(self, consumer_tag):
         """
@@ -317,9 +350,9 @@ class Channel(spec.DriverMixin):
             raise UnknownConsumerTag(consumer_tag)
 
         # Send a Basic.Cancel RPC call to close the Basic.Consume
-        self.handler.rpc(self._on_cancel_ok,
-                         spec.Basic.Cancel(consumer_tag = consumer_tag),
-                        [spec.Basic.CancelOk])
+        self.transport.rpc(self._on_cancel_ok,
+                           spec.Basic.Cancel(consumer_tag=consumer_tag),
+                           [spec.Basic.CancelOk])
 
     def basic_consume(self, consumer,
                       queue='', no_ack=False, exclusive=False,
@@ -342,12 +375,16 @@ class Channel(spec.DriverMixin):
         self._consumers[consumer_tag] = consumer
 
         # Send our Basic.Consume RPC call
-        self.handler.rpc(self.on_event_ok,
-                         spec.Basic.Consume(queue=queue,
-                                            consumer_tag=consumer_tag,
-                                            no_ack=no_ack,
-                                            exclusive=exclusive),
-                         [spec.Basic.ConsumeOk])
+        try:
+            self.transport.rpc(self.transport._on_event_ok,
+                               spec.Basic.Consume(queue=queue,
+                                                  consumer_tag=consumer_tag,
+                                                  no_ack=no_ack,
+                                                  exclusive=exclusive),
+                               [spec.Basic.ConsumeOk])
+        except ChannelClosed, e:
+            del(self._consumers[consumer_tag])
+            raise ChannelClosed(e)
 
     def basic_publish(self, exchange, routing_key, body,
                       properties=None, mandatory=False, immediate=False):
@@ -359,18 +396,14 @@ class Channel(spec.DriverMixin):
         """
         logging.debug("%s.basic_publish" % self.__class__.__name__)
 
-        # If our handler says we're blocked on flow control
-        if self.handler.blocked_on_flow_control():
-                raise ContentTransmissionForbidden("Blocked on Flow Control")
-
         # If properties are not passed in, use the spec's default
         properties = properties or spec.BasicProperties()
 
-        self.handler.send_method(spec.Basic.Publish(exchange=exchange,
-                                                    routing_key=routing_key,
-                                                    mandatory=mandatory,
-                                                    immediate=immediate),
-                                 (properties, body))
+        self.transport.send_method(spec.Basic.Publish(exchange=exchange,
+                                                      routing_key=routing_key,
+                                                      mandatory=mandatory,
+                                                      immediate=immediate),
+                                   (properties, body))
 
     def close(self, code=0, text="Normal Shutdown"):
         """
@@ -380,22 +413,9 @@ class Channel(spec.DriverMixin):
                                              str(code), text))
 
         # If we have an open connection send a RPC call to close the channel
-        if self.handler.connection.is_open():
-            self.handler.rpc(self.handler.connection.on_channel_close,
-                             spec.Channel.Close(code, text, 0, 0),
-                             [spec.Channel.CloseOk])
-
-        # Otherwise call the same callback with a dummy frame which has our
-        # Information
-        else:
-            close_frame = spec.Channel.CloseOk()
-            close_frame.channel_number = self.handler.channel_number
-            self.connection.on_channel_close(close_frame)
-
-    def _ensure(self):
-        if self.closed:
-            raise ChannelClosed(self.channel_close)
-        return self
+        self.transport.rpc(self._on_close_ok,
+                           spec.Channel.Close(code, text, 0, 0),
+                           [spec.Channel.CloseOk])
 
     def _on_basic_deliver(self, method_frame, header_frame, body):
         """
@@ -447,59 +467,23 @@ class Channel(spec.DriverMixin):
         """
         logging.debug("%s._on_cancel_ok: %r" % (self.__class__.__name__,
                                                frame.method.NAME))
+
         # We need to delete the consumer tag from our _consumers
         del(self._consumers[frame.method.consumer_tag])
 
-    def _on_event_ok(self, frame):
-        """
-        Generic events that returned ok that may have internal callbacks.
-        We keep a list of what we've yet to implement so that we don't silently
-        drain events that we don't support.
-        """
+    def _on_close_ok(self, frame):
         logging.debug("%s._on_event_ok: %r" % (self.__class__.__name__,
                                               frame.method.NAME))
 
-        # If we've defined a callback, make the call passing ourselves
-        # and the frame to the registered function
-        if frame.method.NAME in self._callbacks:
-            self._callbacks[frame.method.NAME](self, frame)
+        # Let our transport know we're closed and it'll deal with the rest
+        self.transport.on_close()
 
-        if frame.method.NAME in NOT_IMPLEMENTED:
-            raise NotImplementedError(frame.method.NAME)
+    def _on_open_ok(self, frame):
+        logging.debug("%s._on_open_ok: %r" % (self.__class__.__name__,
+                                              frame.method.NAME))
 
-    def _on_synchronous_complete(self, frame):
-        """
-        This is called whena  synchronous command is completed. It will undo
-        the blocking state and send all the frames that stacked up while we
-        were in the blocking state.
-        """
-        logging.debug("%s._on_synchronous_complete for %s: %r" % \
-                      (self.__class__.__name__, self.blocking, frame))
+        # Let our transport know we're open
+        self.transport.open()
 
-        # Release the lock
-        self.blocking = None
-
-        # Get the function to call next
-        method = self._blocked.pop(0)
-
-        # Call our original method
-        function_name = method[0]
-        args = method[1]
-        keywords = method[2]
-
-        # Get a handle to the function
-        function = getattr(self, function_name)
-
-        # Call the function with the correct parameters
-        if args and not len(keywords):
-            logging.debug("Calling %s with just args" % function_name)
-            return function(*args)
-        elif args and len(keywords):
-            logging.debug("Calling %s with args and keywords" % function_name)
-            return function(*args, **keywords)
-        elif len(keywords):
-            logging.debug("Calling %s with just keywords" % function_name)
-            return function(**keywords)
-
-        logging.debug("Calling %s without args or keywords" % function_name)
-        return function(self)
+        # Let our on_channel_ready callback have our handle
+        self.on_channel_ready(self)

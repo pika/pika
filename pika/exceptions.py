@@ -63,15 +63,15 @@ class NoFreeChannels(AMQPConnectionError):
     pass
 
 
-class ContentTransmissionForbidden(AMQPConnectionError):
-    pass
-
-
 class ConnectionClosed(AMQPConnectionError):
     pass
 
 
 class AMQPChannelError(AMQPError):
+    pass
+
+
+class ChannelBlocked(AMQPChannelError):
     pass
 
 
@@ -120,4 +120,16 @@ class InvalidProtocolHeader(ProtocolSyntaxError):
 
 
 class InvalidTableError(ProtocolSyntaxError):
+    pass
+
+
+class MethodNotImplemented(AMQPError):
+    pass
+
+
+class ChannelTransportError(Exception):
+    pass
+
+
+class CallbackReplyAlreadyRegistered(ChannelTransportError):
     pass

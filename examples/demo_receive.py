@@ -82,7 +82,7 @@ def on_closed():
     # We've been called by the Connection object to let us know we're done
     logging.info("demo_send: Connection Closed")
 
-def on_channel(channel, frame):
+def on_channel(channel):
 
     logging.info("demo_send: Received our Channel")
 

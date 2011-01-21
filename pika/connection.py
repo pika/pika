@@ -209,7 +209,7 @@ class Connection(object):
             self.connect(self.parameters.host, self.parameters.port or \
                                                spec.PORT)
             self._send_frame(self._local_protocol_header())
-        except:
+        except Exception, e:
             # Something went wrong, let our SRS know
             self.reconnection_strategy.on_connect_attempt_failure(self)
             raise AMQPConnectionError
@@ -241,7 +241,7 @@ class Connection(object):
         # Server state and channels
         self.state = codec.ConnectionState()
         self.server_properties = None
-        self.channels = {}
+        self._channels = {}
 
         # Data used for Heartbeat checking
         self.bytes_sent = 0
@@ -259,8 +259,8 @@ class Connection(object):
         self.close_text = None
 
         # Our starting point once connected, first frame received
-        self.add_callback(self._on_connection_start, 0,
-                          [spec.Connection.Start])
+        self._add_callback(self._on_connection_start, 0,
+                           [spec.Connection.Start])
 
     def is_open(self):
         """
@@ -289,7 +289,7 @@ class Connection(object):
         self._handle_connection_open()
 
         # Add a callback handler for the Broker telling us to disconnect
-        self.add_callback(self.on_remote_close, 0, [spec.Connection.Close])
+        self._add_callback(self.on_remote_close, 0, [spec.Connection.Close])
 
         # We're now connected at the AMQP level
         self.open = True
@@ -327,7 +327,7 @@ class Connection(object):
                                   mechanism=response[0],
                                   response=response[1]))
         self.erase_credentials()
-        self.add_callback(self._on_connection_tune, 0, [spec.Connection.Tune])
+        self._add_callback(self._on_connection_tune, 0, [spec.Connection.Tune])
 
     def _on_connection_tune(self, frame):
         """
@@ -382,15 +382,17 @@ class Connection(object):
                          self.__class__.__name__)
             return
 
+        self.closing = True
+
         self.close_code = code
         self.close_text = text
 
         # If we're not already closed
-        for channel in self.channels.values():
+        for channel in self._channels.values():
             channel.close(code, text)
 
         # If we already dont have any channels, close out
-        if not len(self.channels):
+        if not len(self._channels):
             self.on_close_ready()
 
     def on_close_ready(self):
@@ -400,27 +402,26 @@ class Connection(object):
         """
         logging.debug('%s._on_close_ready' % self.__class__.__name__)
 
-        if self.closing or self.closed:
+        if self.closed:
             logging.info("%s.on_close_ready invoked while closing or closed" %\
                          self.__class__.__name__)
             return
 
-        self.closing = True
         self.rpc(self._on_close_ok, 0,
                  spec.Connection.Close(self.close_code, self.close_text, 0, 0),
                  [spec.Connection.CloseOk])
 
-    def on_channel_close(self, frame):
+    def on_channel_close(self, channel_number):
         """
         RPC Response from when a channel closes itself, remove from our stack
         """
-        logging.debug('%s._on_channel_close: %r' % (self.__class__.__name__,
-                                                    frame))
+        logging.debug('%s._on_channel_close: %i' % (self.__class__.__name__,
+                                                    channel_number))
 
-        if frame.channel_number in self.channels:
-            del(self.channels[frame.channel_number])
+        if channel_number in self._channels:
+            del(self._channels[channel_number])
 
-        if not len(self.channels):
+        if not len(self._channels):
             self.on_close_ready()
 
     def _on_close_ok(self, frame):
@@ -483,13 +484,7 @@ class Connection(object):
 
     # Channel related functionality
 
-    def add_channel(self, channel_number, channel):
-        """
-        Add channel identified by channel_number to our dictionary
-        """
-        self.channels[channel_number] = channel
-
-    def channel(self, callback, channel_number=None):
+    def channel(self, on_channel_ready, channel_number=None):
         """
         Create a new channel with the next available or specified channel #
         """
@@ -498,20 +493,15 @@ class Connection(object):
         if not channel_number:
             channel_number = self._next_channel_number()
 
-        # Return a handle to the channel
-        return channel.Channel(channel.ChannelHandler(self, channel_number),
-                               callback)
+        # Add it to our channel dictionary
+        self._channels[channel_number] = channel.Channel(self,
+                                                        channel_number,
+                                                        on_channel_ready)
 
-    def _ensure_channel(self, channel_number):
-        """
-        Ensure we have channel_number in our channel stack or it's channel 0
-        """
-        # If we don't have an open connection raise an exception
-        if self.closed:
-            raise ConnectionClosed
 
-        if channel_number > 0 and channel_number in self.channels:
-            return self.channels[channel_number]._ensure()
+        print self._channels
+        # Return the handle to the channel
+        return self._channels[channel_number]
 
     def _next_channel_number(self):
         """
@@ -521,11 +511,11 @@ class Connection(object):
         limit = self.state.channel_max or CHANNEL_MAX
 
         # We've used all of our channels
-        if len(self.channels) == limit:
+        if len(self._channels) == limit:
             raise NoFreeChannels()
 
         # Get a list of all of our keys, all should be numeric channel ids
-        channel_numbers = self.channels.keys()
+        channel_numbers = self._channels.keys()
 
         # We don't start with any open channels
         if not len(channel_numbers):
@@ -538,12 +528,17 @@ class Connection(object):
         """
         Remove the channel identified by channel_number from our stack
         """
-        if channel_number in self.channels:
-            del self.channels[channel_number]
+        logging.debug('%s.remove_channel: %i' % (self.__class__.__name__,
+                                                 channel_number))
+        if channel_number in self._channels:
+            del self._channels[channel_number]
+
+        if self.closing and not len(self._channels):
+            self.on_close_ready()
 
     # Data packet and frame handling functions
 
-    def add_callback(self, callback, channel_number, acceptable_replies):
+    def _add_callback(self, callback, channel_number, acceptable_replies):
         """
         Add a callback of the specific frame type to the rpc_callback stack
         """
@@ -551,10 +546,6 @@ class Connection(object):
         # If we didn't pass in more than one, make it a list anyway
         if not isinstance(acceptable_replies, list):
             raise TypeError("acceptable_replies must be a list.")
-
-        # Make sure we were passed a registered channel
-        if channel_number > 0 and channel_number not in self.channels:
-            raise InvalidChannelNumber
 
         # Add the channel to our callback dictionary if we dont have it already
         if channel_number not in self._callbacks:
@@ -603,7 +594,7 @@ class Connection(object):
 
             # Send the frame to the appropriate channel handler
             if frame.channel_number > 0 and \
-               frame.channel_number not in self.channels:
+               frame.channel_number not in self._channels:
                 self.close(504, "Invalid Channel Returned from Broker")
 
             # If we've registered this method in our callback stack
@@ -628,7 +619,7 @@ class Connection(object):
 
             else:
                 # Call our Channel Handler with the frame
-                self.channels[frame.channel_number].frame_handler(frame)
+                self._channels[frame.channel_number].transport.deliver(frame)
 
     def rpc(self, callback, channel_number, method, acceptable_replies):
         """
@@ -637,12 +628,9 @@ class Connection(object):
         server with the specified callback.
         """
 
-        # Ensure our channel is still open before making the call
-        self._ensure_channel(channel_number)
-
         # If we were passed a callback, add it to our stack
         if callback:
-            self.add_callback(callback, channel_number, acceptable_replies)
+            self._add_callback(callback, channel_number, acceptable_replies)
 
         # Send the rpc call to RabbitMQ
         self.send_method(channel_number, method)
@@ -657,6 +645,7 @@ class Connection(object):
         self.outbound_buffer.write(marshalled_frame)
         logging.debug('%s Wrote: %r' % (self.__class__.__name__,
                                         frame))
+        self.flush_outbound()
 
     def send_method(self, channel_number, method, content=None):
         """

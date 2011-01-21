@@ -56,10 +56,12 @@ from pika.exceptions import *
 
 class FrameHandler(object):
 
-    def __init__(self, channel):
+    def __init__(self, transport):
 
-        self._channel = channel
-        self._handler = _handle_method_frame
+        self._transport = transport
+
+        # We start with Method frames always
+        self._handler = self._handle_method_frame
 
     def process(self, frame):
 
@@ -80,7 +82,7 @@ class FrameHandler(object):
         # If the frame is a content related frame go deal with the content
         # By getting the content header frame
         if spec.has_content(frame.method.INDEX):
-            self._handler = self._make_header_handler(frame)
+            self._handler = self._handle_header_frame(frame)
 
         # We were passed a frame we don't know how to deal with
         else:
@@ -112,7 +114,7 @@ class FrameHandler(object):
         call our finish function which will call our transports callbacks
         """
         logging.debug("%s._handle_body_frame: %r" % (self.__class__.__name__,
-                                                     frame))
+                                                     header_frame))
         seen_so_far = [0]
         body_fragments = []
 
@@ -146,10 +148,10 @@ class FrameHandler(object):
             method_name = method_frame.method.NAME
 
             # Check for a processing callback for our method name
-            if method_name in self._channel._callbacks:
-                self._channel.transport._callbacks[method_name](method_frame,
-                                                                header_frame,
-                                                                body_fragments)
+            if method_name in self._transport._callbacks:
+                self._transport._callbacks[method_name](method_frame,
+                                                        header_frame,
+                                                        body_fragments)
 
         # if we dont have a header frame body size, finish otherwise keep going
         # And keep our handler function as the frame handler

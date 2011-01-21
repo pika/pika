@@ -62,7 +62,6 @@ class RabbitDispatcher(asyncore.dispatcher):
     def __init__(self, connection):
         asyncore.dispatcher.__init__(self)
         self.connection = connection
-        self.close_reason = "Normal Shutdown"
 
     def create_socket(self, socket_domain, socket_type):
         asyncore.dispatcher.create_socket(self, socket_domain, socket_type)
@@ -74,9 +73,9 @@ class RabbitDispatcher(asyncore.dispatcher):
         self.closed = False
 
     def handle_close(self):
-
+        #self.connection.on_disconnected()
         self.connection.dispatcher = None
-        self.connection.on_disconnected(self.close_reason)
+        self.connection.close(200, 'Normal Shutdown', self.on_closed)
 
     def handle_read(self):
         try:
@@ -86,12 +85,10 @@ class RabbitDispatcher(asyncore.dispatcher):
                 # Weird, but happens very occasionally.
                 return
             else:
-                self.close_reason = "Socket Error: %s" % exn
                 self.handle_close()
                 return
 
         if not buf:
-            self.close_reason = "No data in buffer on read event"
             self.close()
             return
 
