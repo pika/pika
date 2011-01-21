@@ -72,8 +72,8 @@ class ChannelTransport(object):
 
         # We need to block on synchronous commands, but do so asynchronously
         self.blocking = None
+        self.blocking_callback = None
         self._blocked = []
-        self.blocked_function = None
 
         # By default we're closed
         self.closed = True
@@ -113,7 +113,7 @@ class ChannelTransport(object):
         and closed
         """
         self.channel_state_change_event.addHandler(handler, key)
-        handler(self, not self.channel_close)
+        handler(self, not self.closed)
 
     def deliver(self, frame):
         """
@@ -173,12 +173,38 @@ class ChannelTransport(object):
         Shortcut wrapper to the Connection's rpc command using its callback
         stack, passing in our channel number
         """
+        logging.debug("%s.rpc(%s, %s, %r)" % (self.__class__.__name__,
+                                               callback,
+                                               method,
+                                               acceptable_replies))
+
         # We can't ensure if we're opening
         if method.NAME != spec.Channel.Open.NAME:
             self._ensure()
 
         if self._blocked_on_flow_control():
             raise ChannelBlocked("Flow Control Active, Waiting for Ok")
+
+        # If we're blocking, add subsequent commands to our stack
+        if self.blocking:
+            logging.debug('%s: %s is blocking this channel' % \
+                          (self.__class__.__name__, self.blocking))
+
+            self.blocking.append([callback, method, acceptable_replies])
+            return
+
+        # If this is a synchronous method, block connections until we're done
+        if method in spec.SYNCHRONOUS_METHODS:
+            logging.debug('%s: %s turning on blocking' % \
+                          (self.__class__.__name__, method))
+            self.blocking = method
+
+            # Let's hold the callback so we can make it from
+            # _on_synchronous_complete
+            self.blocking_callback = callback
+
+            # Override the callback
+            callback = self._on_synchronous_complete
 
         self.connection.rpc(callback, self.channel_number,
                             method, acceptable_replies)
@@ -219,6 +245,11 @@ class ChannelTransport(object):
         # Release the lock
         self.blocking = None
 
+        # Call the original callback then remove the reference
+        if self.blocking_callback:
+            self.blocking_callback(frame)
+            self.blocking_callback = None
+
         # Get the list, then empty it so we can spin through all the blocked
         # Calls, blocking again in the class level list
         blocked = self._blocked
@@ -230,50 +261,8 @@ class ChannelTransport(object):
             # Get the function to call next
             method = blocked.pop(0)
 
-            # Call our original method
-            object_ = method[0]
-            function_name = method[1]
-            args = method[2]
-            keywords = method[3]
-
-            # Get a handle to the function
-            function = getattr(object_, function_name)
-
-            # Call the function with the correct parameters
-            if args and not len(keywords):
-                logging.debug("Calling %s with just args" % \
-                              function_name)
-                function(*args)
-            elif args and len(keywords):
-                logging.debug("Calling %s with args and keywords" % \
-                              function_name)
-                function(*args, **keywords)
-            elif len(keywords):
-                logging.debug("Calling %s with just keywords" % \
-                              function_name)
-                function(**keywords)
-            else:
-                logging.debug("Calling %s without args or keywords" % \
-                              function_name)
-                function()
-
-# Due to our use of __getattribute__ to block calls while synchronous calls are
-# taking place, we use a whitelist to prevent the __getattribute__ function
-# from becoming a recursive mess. Whitelisting variables and functions that
-# allow us to quickly return from the function prior to evaluating them.
-
-channel_attr_whitelist = ('__class__',
-                          '_consumers',
-                          '_on_basic_deliver',
-                          '_on_cancel_ok',
-                          '_on_event_ok',
-                          '_pending',
-                          'add_state_change_handler',
-                          'add_flow_change_handler',
-                          'closed',
-                          'connection',
-                          'synchronous',
-                          'transport')
+            # Call the RPC for each of our blocked calls
+            self.rpc(method[0], method[1], method[2])
 
 
 class Channel(spec.DriverMixin):
@@ -304,42 +293,6 @@ class Channel(spec.DriverMixin):
         # Open our channel
         self.transport.rpc(self._on_open_ok, spec.Channel.Open(),
                            [spec.Channel.OpenOk])
-
-    def __getattribute__(self, function):
-        """
-        We grab every inbound attribute request to redirect items that are
-        synchronous at the spec.DriverMixin layer to prevent commands
-        from sending while we're still waiting for a synchronous reply
-        """
-
-        # If it's in the whitelist, we know it's local in scope and not in spec
-        if function  in channel_attr_whitelist:
-            return object.__getattribute__(self, function)
-
-        # If we're blocking subsequent commands add
-        if self.transport.blocking:
-            logging.debug('%s: %s is blocking this channel' % \
-                          (self.__class__.__name__, self.transport.blocking))
-
-            # No need to scope this function outside of here and it makes
-            # it easier to get at the value of function
-            def _add_to_blocked(*args, **keywords):
-                # Append the signature of what was called the transport's
-                # _blocked list for later processing
-                self.transport._blocked.append([self,
-                                                function,
-                                                args,
-                                                keywords])
-                # @TODO Should add a timeout here for blocking functions
-
-            return _add_to_blocked
-
-        if function in self.synchronous:
-            self.transport.blocking = "%s.%s" % (self.__class__.__name__,
-                                                 function)
-            logging.debug('%s turning on blocking' % self.transport.blocking)
-
-        return object.__getattribute__(self, function)
 
     def basic_cancel(self, consumer_tag):
         """

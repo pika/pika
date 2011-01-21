@@ -34,6 +34,9 @@ NOT_IMPLEMENTED = 540
 INTERNAL_ERROR = 541
 
 
+SYNCHRONOUS_METHODS = ("exchange_declare", "exchange_delete", "queue_declare", "queue_bind", "queue_purge", "queue_delete", "queue_unbind", "basic_qos", "basic_get", "basic_recover", "tx_select", "tx_commit", "tx_rollback")
+
+
 class Connection(pika.specbase.Class):
 
     INDEX = 0x000A  # 10
@@ -2080,8 +2083,6 @@ def has_content(methodNumber):
 
 
 class DriverMixin(object):
-
-    synchronous = ("exchange_declare", "exchange_delete", "queue_declare", "queue_bind", "queue_purge", "queue_delete", "queue_unbind", "basic_qos", "basic_get", "basic_recover", "tx_select", "tx_commit", "tx_rollback")
 
     def exchange_declare(self, ticket=0, exchange=None, type='direct', passive=False, durable=False, auto_delete=False, internal=False, nowait=False, arguments={}):
 

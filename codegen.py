@@ -53,7 +53,6 @@ sys.path.append("../rabbitmq-codegen")  # in case we're next to an experimental 
 sys.path.append("codegen")              # in case we're building from a distribution package
 
 from amqp_codegen import *
-import string
 import re
 
 DRIVER_METHODS = {
@@ -74,6 +73,7 @@ DRIVER_METHODS = {
     "Tx.Commit": ["Tx.CommitOk"],
     "Tx.Rollback": ["Tx.RollbackOk"]
     }
+
 
 def fieldvalue(v):
     if isinstance(v, unicode):
@@ -288,6 +288,15 @@ def generate(specPath):
         print "%s = %s" % (constantName(c), v)
     print
 
+    methods = []
+    for m in spec.allMethods():
+        if m.structName() in DRIVER_METHODS:
+            if m.isSynchronous:
+                methods.append('"%s"' % pyize(m.klass.name + '_' + m.name))
+    print
+    print "SYNCHRONOUS_METHODS = (%s)" % ", ".join(methods)
+    print
+
     for c in spec.allClasses():
         print
         print 'class %s(pika.specbase.Class):' % (camel(c.name),)
@@ -364,15 +373,6 @@ def generate(specPath):
     print
 
     print "class DriverMixin(object):"
-
-    methods = []
-    for m in spec.allMethods():
-        if m.structName() in DRIVER_METHODS:
-            if m.isSynchronous:
-                methods.append('"%s"' % pyize(m.klass.name + '_' + m.name))
-    print
-    print "    synchronous = (%s)" % ", ".join(methods)
-
 
     for m in spec.allMethods():
         if m.structName() in DRIVER_METHODS:
