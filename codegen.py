@@ -381,14 +381,24 @@ def generate(specPath):
             print
 
             if m.isSynchronous:
+
+                #Synchronous events have a CPS callback parameter
                 callback = "self.transport._on_synchronous_complete"
+
+                print "    def %s(self, callback=None%s):" % \
+                      (pyize(m.klass.name + '_' + m.name),
+                      fieldDeclList(m.arguments))
+                print
+                print "        self.transport.add_callback(callback, [%s])" % \
+                      ", ".join(acceptable_replies)
             else:
                 callback = "self.transport._on_event_ok"
 
-            print "    def %s(self%s):" % \
-                  (pyize(m.klass.name + '_' + m.name),
-                  fieldDeclList(m.arguments))
-            print
+                print "    def %s(self%s):" % \
+                      (pyize(m.klass.name + '_' + m.name),
+                      fieldDeclList(m.arguments))
+                print
+
             print "        return self.transport.rpc(%s, %s(%s)," % \
                   (callback, m.structName(),
                    ', '.join(["%s=%s" % (pyize(f.name), pyize(f.name))

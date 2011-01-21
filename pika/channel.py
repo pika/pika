@@ -54,8 +54,15 @@ import pika.spec as spec
 
 from pika.exceptions import *
 
-NOT_IMPLEMENTED = [spec.Basic.Return.NAME, spec.Basic.Get.NAME]
+# Only block these methods on flow control
+FLOW_BLOCKABLE = [spec.Basic.Publish,
+                  spec.Basic.Deliver,
+                  spec.Basic.Return]
 
+# Keep track of things we need to implement and that are not supported
+# in Pika at this time
+NOT_IMPLEMENTED = [spec.Basic.Return,
+                   spec.Basic.Get]
 
 class ChannelTransport(object):
 
@@ -64,8 +71,9 @@ class ChannelTransport(object):
         self.connection = connection
         self.channel_number = channel_number
 
-        # Dictionary of callbacks indexed by the reply's frame method name
-        self._callbacks = {}
+        # Dictionary of callbacks indexed by the reply frame method's class
+        self._callbacks = dict()
+        self._one_shot = dict()
 
         # The frame-handler changes depending on the type of frame processed
         self.frame_handler = frame.FrameHandler(self)
@@ -73,7 +81,7 @@ class ChannelTransport(object):
         # We need to block on synchronous commands, but do so asynchronously
         self.blocking = None
         self.blocking_callback = None
-        self._blocked = []
+        self._blocked = list()
 
         # By default we're closed
         self.closed = True
@@ -86,19 +94,62 @@ class ChannelTransport(object):
         self.flow_active_change_event = event.Event()
 
         # Define our callbacks for specific frame types
-        self.add_callback(self._on_channel_flow, [spec.Channel.Flow])
-        self.add_callback(self._on_event_ok, NOT_IMPLEMENTED)
+        self.add_callback(self._on_channel_flow, [spec.Channel.Flow], False)
+        self.add_callback(self._on_event_ok, NOT_IMPLEMENTED, False)
 
-    def add_callback(self, callback, acceptable_replies):
+    def add_callback(self, callback, acceptable_replies, one_shot=True):
         """
         Adds a callback entry in our connections callback handler for our
         channel
         """
+        logging.debug("%s.add_callback: %s: %r" % (self.__class__.__name__,
+                                                   str(callback),
+                                                   acceptable_replies))
+        # Iterate through the list of acceptable replies
         for reply in acceptable_replies:
-            if reply in self._callbacks:
-                raise CallbackReplyAlreadyRegistered(reply)
 
-            self._callbacks[reply] = callback
+            # One-Shot callbacks are made once for a given reply then removed
+            if one_shot:
+
+                # Initialize our list for the reply if we need to
+                if reply not in self._one_shot:
+                    self._one_shot[reply] = list()
+
+                # Append our one shot callback list for this reply
+                self._one_shot[reply].append(callback)
+            else:
+
+                # Initialize the list for the reply if we need to
+                if reply not in self._callbacks:
+                    self._callbacks[reply] = list()
+
+                # Append our callback list for this reply
+                self._callbacks[reply].append(callback)
+
+    def _process_callbacks(self, frame):
+        """
+        Invoked when we receive a frame so we can iterate through the defined
+        callbacks for this frame
+        """
+        logging.debug("%s._process_callbacks: %s" % (self.__class__.__name__,
+                                                     frame.method.NAME))
+
+        # Process callbacks that dont get removed
+        if frame.method.__class__ in self._callbacks:
+            for callback in self._callbacks[frame.method.__class__]:
+                logging.debug("%s._process_callbacks Calling: %s" % \
+                              (self.__class__.__name__, callback))
+                callback(frame)
+
+        # Process one shot callbacks
+        if frame.method.__class__ in self._one_shot:
+            while len(self._one_shot[frame.method.__class__]):
+                callback = self._one_shot[frame.method.__class__].pop(0)
+                logging.debug("%s._process_callbacks Calling: %s" % \
+                              (self.__class__.__name__, callback))
+                # One-shot callbacks dont get the frame since they shouldnt
+                # Know how to decode them
+                callback()
 
     def add_flow_change_handler(self, handler, key=None):
         """
@@ -179,10 +230,13 @@ class ChannelTransport(object):
                                                acceptable_replies))
 
         # We can't ensure if we're opening
-        if method.NAME != spec.Channel.Open.NAME:
+        if not isinstance(method, spec.Channel.Open):
             self._ensure()
 
-        if self._blocked_on_flow_control():
+        # If we're using flow control, content methods should know not to call
+        # the rpc function and should be using the flow_active_change_event
+        # notification system to know when they can send
+        if method in FLOW_BLOCKABLE and self._blocked_on_flow_control():
             raise ChannelBlocked("Flow Control Active, Waiting for Ok")
 
         # If we're blocking, add subsequent commands to our stack
@@ -225,10 +279,8 @@ class ChannelTransport(object):
         logging.debug("%s._on_event_ok: %r" % (self.__class__.__name__,
                                               frame.method.NAME))
 
-        # If we've defined a callback, make the call passing ourselves
-        # and the frame to the registered function
-        if frame.method.NAME in self._callbacks:
-            self._callbacks[frame.method.NAME](self, frame)
+        # Process callbacks
+        self._process_callbacks(frame)
 
         if frame.method.NAME in NOT_IMPLEMENTED:
             raise NotImplementedError(frame.method.NAME)
@@ -249,6 +301,9 @@ class ChannelTransport(object):
         if self.blocking_callback:
             self.blocking_callback(frame)
             self.blocking_callback = None
+
+        # Process callbacks
+        self._process_callbacks(frame)
 
         # Get the list, then empty it so we can spin through all the blocked
         # Calls, blocking again in the class level list
@@ -285,7 +340,8 @@ class Channel(spec.DriverMixin):
 
         # Add a callback for Basic.Deliver
         self.transport.add_callback(self._on_basic_deliver,
-                                    [spec.Basic.Deliver.NAME])
+                                    [spec.Basic.Deliver.NAME],
+                                    False)
 
         # Create our event callback handlers for our state
         self.state_change_event = event.Event()

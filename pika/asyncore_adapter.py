@@ -76,7 +76,7 @@ class RabbitDispatcher(asyncore.dispatcher):
         self.closed = False
         self.connection.add_state_change_handler(self.on_state_change)
 
-    def handle_close(self, message="Socket Error"):
+    def handle_close(self):
         self.connection.dispatcher = None
 
     def handle_read(self):
@@ -120,7 +120,7 @@ class RabbitDispatcher(asyncore.dispatcher):
 
 class AsyncoreConnection(pika.connection.Connection):
 
-    def delayed_call(self, delay_sec, callback):
+    def add_timeout(self, delay_sec, callback):
         add_oneshot_timer_rel(delay_sec, callback)
 
     def connect(self, host, port):
@@ -128,7 +128,7 @@ class AsyncoreConnection(pika.connection.Connection):
         self.dispatcher.create_socket(socket.AF_INET, socket.SOCK_STREAM)
         self.dispatcher.connect((host, port or pika.spec.PORT))
 
-    def disconnect_transport(self):
+    def disconnect(self):
         if self.dispatcher:
             self.dispatcher.close()
 

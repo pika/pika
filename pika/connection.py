@@ -105,9 +105,8 @@ class Connection(object):
         Required:
 
         def connect(self, host, port)
-        def disconnect_transport(self)
+        def disconnect(self)
         def flush_outbound(self)
-
         def add_timeout(self, delay_sec, callback)
 
         Optional:
@@ -116,7 +115,7 @@ class Connection(object):
 
     """
 
-    def __init__(self, parameters, reconnection_strategy=None):
+    def __init__(self, parameters, callback, reconnection_strategy=None):
         """
         Connection initialization expects a ConnectionParameters object and
         a callback function to notify when we have successfully connected
@@ -124,7 +123,6 @@ class Connection(object):
 
         A reconnection_strategy of None will use the NullReconnectionStrategy
         """
-
         # If we did not pass in a reconnection_strategy, setup the default
         if not reconnection_strategy:
             reconnection_strategy = NullReconnectionStrategy()
@@ -132,12 +130,22 @@ class Connection(object):
         # Define our callback dictionary
         self._callbacks = dict()
 
+        # Define our state callbacks
+        self._state_callbacks = dict()
+
+        # On connection callback
+        if callback:
+            self._state_callbacks['connection'] = callback
+
         # Set our configuration options
         self.parameters = parameters
         self.reconnection_strategy = reconnection_strategy
 
         # Event handler for callbacks on connection state change
         self.connection_state_change_event = event.Event()
+
+        # Add our to be extended on_connection_state_event handler
+        self.add_state_change_handler(self._on_connection_state_event)
 
         # Set all of our default connection state values
         self._init_connection_state()
@@ -198,14 +206,14 @@ class Connection(object):
         self.reconnection_strategy.on_connect_attempt(self)
 
         # Try and connect and send the first frame
-        try:
-            self.connect(self.parameters.host, self.parameters.port or \
-                                               spec.PORT)
-            self._send_frame(self._local_protocol_header())
-        except Exception, e:
-            # Something went wrong, let our SRS know
-            self.reconnection_strategy.on_connect_attempt_failure(self)
-            raise AMQPConnectionError
+        #try:
+        self.connect(self.parameters.host,
+                     self.parameters.port or  spec.PORT)
+        self._send_frame(self._local_protocol_header())
+        #except Exception, e:
+        #    # Something went wrong, let our SRS know
+        #    self.reconnection_strategy.on_connect_attempt_failure(self)
+        #    raise AMQPConnectionError
 
     def _handle_connection_open(self):
         """
@@ -474,7 +482,7 @@ class Connection(object):
 
     # Channel related functionality
 
-    def channel(self, channel_number=None):
+    def channel(self, on_open_callback, channel_number=None):
         """
         Create a new channel with the next available or specified channel #
         """
@@ -483,11 +491,20 @@ class Connection(object):
         if not channel_number:
             channel_number = self._next_channel_number()
 
+        # Add the channel open callback
+        self._state_callbacks['channel'] = on_open_callback
+
         # Add it to our channel dictionary
-        self._channels[channel_number] = channel.Channel(self, channel_number)
+        new_channel = channel.Channel(self, channel_number)
+
+        # Add a event change event handler
+        new_channel.add_state_change_handler(self._on_channel_state_event)
+
+        # Add it to our Channel dictionary
+        self._channels[channel_number] = new_channel
 
         # Return the handle to the channel
-        return self._channels[channel_number]
+        return new_channel
 
     def _next_channel_number(self):
         """
@@ -547,6 +564,16 @@ class Connection(object):
             # Sets will noop a duplicate add, since we're not likely to dupe,
             # rely on this behavior
             self._callbacks[channel_number][reply.NAME].add(callback)
+
+    def _on_channel_state_event(self, channel, is_open):
+
+        if is_open:
+            self._state_callbacks['channel'](channel)
+
+    def _on_connection_state_event(self, connection, is_open):
+
+        if is_open:
+            self._state_callbacks['connection'](connection)
 
     def on_data_available(self, data):
         """
@@ -675,7 +702,7 @@ class Connection(object):
 
     """
     In order to implement a connection adapter, you must extend connect,
-    delayed_call, disconnect_transport and flush_outbound.
+    add_timeout, disconnect and flush_outbound.
     """
 
     def connect(self, host, port):
@@ -685,7 +712,7 @@ class Connection(object):
         """
         raise NotImplementedError('Subclass Responsibility')
 
-    def disconnect_transport(self):
+    def disconnect(self):
         """
         Subclasses should override this to cause the underlying
         transport (socket) to close.
@@ -711,3 +738,5 @@ class Connection(object):
         its login credentials after successfully opening a connection.
         """
         pass
+
+

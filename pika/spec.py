@@ -2084,48 +2084,57 @@ def has_content(methodNumber):
 
 class DriverMixin(object):
 
-    def exchange_declare(self, ticket=0, exchange=None, type='direct', passive=False, durable=False, auto_delete=False, internal=False, nowait=False, arguments={}):
+    def exchange_declare(self, callback=None, ticket=0, exchange=None, type='direct', passive=False, durable=False, auto_delete=False, internal=False, nowait=False, arguments={}):
 
+        self.transport.add_callback(callback, [Exchange.DeclareOk])
         return self.transport.rpc(self.transport._on_synchronous_complete, Exchange.Declare(ticket=ticket, exchange=exchange, type=type, passive=passive, durable=durable, auto_delete=auto_delete, internal=internal, nowait=nowait, arguments=arguments),
                                   [Exchange.DeclareOk])
 
-    def exchange_delete(self, ticket=0, exchange=None, if_unused=False, nowait=False):
+    def exchange_delete(self, callback=None, ticket=0, exchange=None, if_unused=False, nowait=False):
 
+        self.transport.add_callback(callback, [Exchange.DeleteOk])
         return self.transport.rpc(self.transport._on_synchronous_complete, Exchange.Delete(ticket=ticket, exchange=exchange, if_unused=if_unused, nowait=nowait),
                                   [Exchange.DeleteOk])
 
-    def queue_declare(self, ticket=0, queue='', passive=False, durable=False, exclusive=False, auto_delete=False, nowait=False, arguments={}):
+    def queue_declare(self, callback=None, ticket=0, queue='', passive=False, durable=False, exclusive=False, auto_delete=False, nowait=False, arguments={}):
 
+        self.transport.add_callback(callback, [Queue.DeclareOk])
         return self.transport.rpc(self.transport._on_synchronous_complete, Queue.Declare(ticket=ticket, queue=queue, passive=passive, durable=durable, exclusive=exclusive, auto_delete=auto_delete, nowait=nowait, arguments=arguments),
                                   [Queue.DeclareOk])
 
-    def queue_bind(self, ticket=0, queue='', exchange=None, routing_key='', nowait=False, arguments={}):
+    def queue_bind(self, callback=None, ticket=0, queue='', exchange=None, routing_key='', nowait=False, arguments={}):
 
+        self.transport.add_callback(callback, [Queue.BindOk])
         return self.transport.rpc(self.transport._on_synchronous_complete, Queue.Bind(ticket=ticket, queue=queue, exchange=exchange, routing_key=routing_key, nowait=nowait, arguments=arguments),
                                   [Queue.BindOk])
 
-    def queue_purge(self, ticket=0, queue='', nowait=False):
+    def queue_purge(self, callback=None, ticket=0, queue='', nowait=False):
 
+        self.transport.add_callback(callback, [Queue.PurgeOk])
         return self.transport.rpc(self.transport._on_synchronous_complete, Queue.Purge(ticket=ticket, queue=queue, nowait=nowait),
                                   [Queue.PurgeOk])
 
-    def queue_delete(self, ticket=0, queue='', if_unused=False, if_empty=False, nowait=False):
+    def queue_delete(self, callback=None, ticket=0, queue='', if_unused=False, if_empty=False, nowait=False):
 
+        self.transport.add_callback(callback, [Queue.DeleteOk])
         return self.transport.rpc(self.transport._on_synchronous_complete, Queue.Delete(ticket=ticket, queue=queue, if_unused=if_unused, if_empty=if_empty, nowait=nowait),
                                   [Queue.DeleteOk])
 
-    def queue_unbind(self, ticket=0, queue='', exchange=None, routing_key='', arguments={}):
+    def queue_unbind(self, callback=None, ticket=0, queue='', exchange=None, routing_key='', arguments={}):
 
+        self.transport.add_callback(callback, [Queue.UnbindOk])
         return self.transport.rpc(self.transport._on_synchronous_complete, Queue.Unbind(ticket=ticket, queue=queue, exchange=exchange, routing_key=routing_key, arguments=arguments),
                                   [Queue.UnbindOk])
 
-    def basic_qos(self, prefetch_size=0, prefetch_count=0, global_=False):
+    def basic_qos(self, callback=None, prefetch_size=0, prefetch_count=0, global_=False):
 
+        self.transport.add_callback(callback, [Basic.QosOk])
         return self.transport.rpc(self.transport._on_synchronous_complete, Basic.Qos(prefetch_size=prefetch_size, prefetch_count=prefetch_count, global_=global_),
                                   [Basic.QosOk])
 
-    def basic_get(self, ticket=0, queue='', no_ack=False):
+    def basic_get(self, callback=None, ticket=0, queue='', no_ack=False):
 
+        self.transport.add_callback(callback, [Basic.GetOk, Basic.GetEmpty])
         return self.transport.rpc(self.transport._on_synchronous_complete, Basic.Get(ticket=ticket, queue=queue, no_ack=no_ack),
                                   [Basic.GetOk, Basic.GetEmpty])
 
@@ -2144,22 +2153,26 @@ class DriverMixin(object):
         return self.transport.rpc(self.transport._on_event_ok, Basic.RecoverAsync(requeue=requeue),
                                   [])
 
-    def basic_recover(self, requeue=False):
+    def basic_recover(self, callback=None, requeue=False):
 
+        self.transport.add_callback(callback, [Basic.RecoverOk])
         return self.transport.rpc(self.transport._on_synchronous_complete, Basic.Recover(requeue=requeue),
                                   [Basic.RecoverOk])
 
-    def tx_select(self):
+    def tx_select(self, callback=None):
 
+        self.transport.add_callback(callback, [Tx.SelectOk])
         return self.transport.rpc(self.transport._on_synchronous_complete, Tx.Select(),
                                   [Tx.SelectOk])
 
-    def tx_commit(self):
+    def tx_commit(self, callback=None):
 
+        self.transport.add_callback(callback, [Tx.CommitOk])
         return self.transport.rpc(self.transport._on_synchronous_complete, Tx.Commit(),
                                   [Tx.CommitOk])
 
-    def tx_rollback(self):
+    def tx_rollback(self, callback=None):
 
+        self.transport.add_callback(callback, [Tx.RollbackOk])
         return self.transport.rpc(self.transport._on_synchronous_complete, Tx.Rollback(),
                                   [Tx.RollbackOk])
