@@ -70,8 +70,8 @@ class FrameHandler(object):
         Receive a frame and process it, we should have content by the time we
         reach this handler, set the next handler to be the header frame handler
         """
-        logging.debug("%s._handle_method: %r" % (self.__class__.__name__,
-                                                 frame))
+        logging.debug("%s._handle_method_frame: %r" % (self.__class__.__name__,
+                                                       frame))
 
         # If we don't have FrameMethod something is wrong so throw an exception
         if not isinstance(frame, codec.FrameMethod):
@@ -91,6 +91,9 @@ class FrameHandler(object):
         Receive a header frame and process that, setting the next handler
         to the body frame handler
         """
+        logging.debug("%s._handle_header_frame: %r" % (self.__class__.__name__,
+                                                       frame))
+
         def handler(header_frame):
 
             # Make sure it's a header frame
@@ -108,6 +111,8 @@ class FrameHandler(object):
         received the body size specified in the header frame. When done
         call our finish function which will call our transports callbacks
         """
+        logging.debug("%s._handle_body_frame: %r" % (self.__class__.__name__,
+                                                     frame))
         seen_so_far = [0]
         body_fragments = []
 
@@ -117,15 +122,21 @@ class FrameHandler(object):
             if not isinstance(body_frame, codec.FrameBody):
                 raise UnexpectedFrameError(body_frame)
 
-            fragment = body_frame.fragment
-            seen_so_far[0] += len(fragment)
-            body_fragments.append(fragment)
+            # Increment our counter so we know when we've had enough
+            seen_so_far[0] += len(body_frame.fragment)
+
+            # Append the fragment to our list
+            body_fragments.append(body_frame.fragment)
+
+            # Did we get enough bytes? If so finish
             if seen_so_far[0] == header_frame.body_size:
                 finish()
+
+            # Did we get too many bytes?
             elif seen_so_far[0] > header_frame.body_size:
-                raise BodyTooLongError()
-            else:
-                pass
+                error = 'Received %i and only expected %i' % \
+                        (seen_so_far[0], header_frame.body_size)
+                raise BodyTooLongError(error)
 
         def finish():
             # We're done so set our handler back to the method frame
