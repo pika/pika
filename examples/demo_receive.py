@@ -89,7 +89,7 @@ def on_channel(channel, frame):
     channel.queue_declare(queue="test", durable=True,
                           exclusive=False, auto_delete=False)
 
-    channel.basic_consume(handle_delivery, queue = 'test')
+    channel.basic_consume(handle_delivery, queue='test')
 
 parameters = pika.ConnectionParameters((len(sys.argv) > 1) and \
                                        sys.argv[1] or \

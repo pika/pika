@@ -70,7 +70,7 @@ def on_closed():
     # We've been called by the Connection object to let us know we're done
     logging.info("demo_send: Connection Closed")
 
-def on_channel(channel):
+def on_channel(channel, frame):
 
     logging.info("demo_send: Received our Channel")
 
@@ -84,8 +84,7 @@ def on_channel(channel):
                              content_type = "text/plain",
                              delivery_mode = 2, # persistent
                           ),
-                          block_on_flow_control = True)
-    conn.close()
+                          block_on_flow_control=True)
 
 parameters = pika.ConnectionParameters((len(sys.argv) > 1) and \
                                        sys.argv[1] or \
