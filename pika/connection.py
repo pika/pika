@@ -498,8 +498,6 @@ class Connection(object):
                                                         channel_number,
                                                         on_channel_ready)
 
-
-        print self._channels
         # Return the handle to the channel
         return self._channels[channel_number]
 
