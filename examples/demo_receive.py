@@ -51,34 +51,50 @@
 Example of simple consumer. Acks each message as it arrives.
 '''
 
+import logging
 import sys
 import pika
-import asyncore
 
-conn = pika.AsyncoreConnection(pika.ConnectionParameters(
-        (len(sys.argv) > 1) and sys.argv[1] or '127.0.0.1',
-        credentials = pika.PlainCredentials('guest', 'guest'),
-        heartbeat = 10))
+logging.basicConfig(level=logging.DEBUG)
+
+conn = None
 
 def handle_connection_state_change(conn, is_connected):
     if not is_connected:
-        print 'Was disconnected from server:', conn.connection_close
+        print 'Was disconnected from server: %s' % conn.close_text
         sys.exit(1)
-conn.addStateChangeHandler(handle_connection_state_change)
 
-print 'Connected to %r' % (conn.server_properties,)
+def handle_delivery(channel, method, header, body):
 
-qname = (len(sys.argv) > 2) and sys.argv[2] or 'test'
-
-ch = conn.channel()
-ch.queue_declare(queue=qname, durable=True, exclusive=False, auto_delete=False)
-
-def handle_delivery(ch, method, header, body):
     print "method=%r" % (method,)
     print "header=%r" % (header,)
     print "  body=%r" % (body,)
-    ch.basic_ack(delivery_tag = method.delivery_tag)
+    channel.basic_ack(delivery_tag = method.delivery_tag)
 
-ch.basic_consume(handle_delivery, queue = qname)
-pika.asyncore_loop()
-print 'Close reason:', conn.connection_close
+def on_connected():
+    logging.info("demo_send: Connected to RabbitMQ")
+
+    conn.add_state_change_handler(handle_connection_state_change)
+    conn.channel(on_channel)
+
+
+def on_closed():
+    # We've been called by the Connection object to let us know we're done
+    logging.info("demo_send: Connection Closed")
+
+def on_channel(channel, frame):
+
+    logging.info("demo_send: Received our Channel")
+
+    channel.queue_declare(queue="test", durable=True,
+                          exclusive=False, auto_delete=False)
+
+    channel.basic_consume(handle_delivery, queue = 'test')
+
+parameters = pika.ConnectionParameters((len(sys.argv) > 1) and \
+                                       sys.argv[1] or \
+                                       '127.0.0.1')
+conn = pika.asyncore_adapter.AsyncoreConnection(parameters,
+                                                open_callback=on_connected,
+                                                close_callback=on_closed)
+pika.asyncore_adapter.loop()
