@@ -97,7 +97,6 @@ class FrameHandler(object):
                                                        frame))
 
         def handler(header_frame):
-
             # Make sure it's a header frame
             if not isinstance(header_frame, codec.FrameHeader):
                 raise UnexpectedFrameError(header_frame)
@@ -119,7 +118,6 @@ class FrameHandler(object):
         body_fragments = []
 
         def handler(body_frame):
-
             # Make sure it's a body frame
             if not isinstance(body_frame, codec.FrameBody):
                 raise UnexpectedFrameError(body_frame)
