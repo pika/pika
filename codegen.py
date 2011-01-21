@@ -113,13 +113,13 @@ def generate(specPath):
         type = spec.resolveDomain(unresolved_domain)
         if type == 'shortstr':
             print prefix + "length = struct.unpack_from('B', encoded, offset)[0]"
-            print prefix + "offset += offset"
-            print prefix + "%s = encoded[offset: offset + length]" % (cLvalue,)
+            print prefix + "offset += 1"
+            print prefix + "%s = encoded[offset:offset + length]" % (cLvalue,)
             print prefix + "offset += length"
         elif type == 'longstr':
             print prefix + "length = struct.unpack_from('>I', encoded, offset)[0]"
             print prefix + "offset += 4"
-            print prefix + "%s = encoded[offset: offset + length]" % (cLvalue,)
+            print prefix + "%s = encoded[offset:offset + length]" % (cLvalue,)
             print prefix + "offset += length"
         elif type == 'octet':
             print prefix + "%s = struct.unpack_from('B', encoded, offset)[0]" % (cLvalue,)
@@ -363,19 +363,31 @@ def generate(specPath):
     print
     print
 
-    print "class DriverMixin:"
+    print "class DriverMixin(object):"
+
+    methods = []
+    for m in spec.allMethods():
+        if m.structName() in DRIVER_METHODS:
+            if m.isSynchronous:
+                methods.append('"%s"' % pyize(m.klass.name + '_' + m.name))
+    print
+    print "    synchronous = (%s)" % ", ".join(methods)
+
+
     for m in spec.allMethods():
         if m.structName() in DRIVER_METHODS:
             acceptable_replies = DRIVER_METHODS[m.structName()]
 
+            print
+
             if m.isSynchronous:
-                callback = "None"
+                callback = "self._on_synchronous_complete"
             else:
                 callback = "self.on_event_ok"
 
-            print
-            print "    def %s(self%s):" % (pyize(m.klass.name + '_' + m.name),
-                                           fieldDeclList(m.arguments))
+            print "    def %s(self%s):" % \
+                  (pyize(m.klass.name + '_' + m.name),
+                  fieldDeclList(m.arguments))
             print
             print "        return self.handler.rpc(%s, %s(%s)," % \
                   (callback, m.structName(),
