@@ -48,7 +48,7 @@
 
 from pika.connection import Connection
 
-class BaseAdapter(Connection):
+class BaseConnection(Connection):
 
     def connect(self, host, port):
         pass

@@ -47,18 +47,18 @@
 # ***** END LICENSE BLOCK *****
 
 import sys
-import traceback
 import socket
 import asyncore
 import time
-
 import traceback
 
 from heapq import heappush, heappop
 from errno import EAGAIN
 
-import pika.connection
 import pika.spec
+
+from pika.adapter import BaseConnection
+
 
 class RabbitDispatcher(asyncore.dispatcher):
 
@@ -116,9 +116,9 @@ class RabbitDispatcher(asyncore.dispatcher):
     def handle_error(self):
         exc_type, exc_value, exc_traceback = sys.exc_info()
         traceback.print_exception(exc_type, exc_value, exc_traceback)
-        #traceback.print_tb(exc_traceback)
 
-class AsyncoreConnection(pika.connection.Connection):
+
+class AsyncoreConnection(BaseConnection):
 
     def add_timeout(self, delay_sec, callback):
         add_oneshot_timer_rel(delay_sec, callback)
