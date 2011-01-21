@@ -143,13 +143,12 @@ class FrameHandler(object):
             self._handler = self._handle_method_frame
 
             # Get our method name
-            method_name = method_frame.method.NAME
+            method = method_frame.method.__class__
 
             # Check for a processing callback for our method name
-            if method_name in self._transport._callbacks:
-                self._transport._callbacks[method_name](method_frame,
-                                                        header_frame,
-                                                        body_fragments)
+            if method in self._transport._callbacks:
+                for callback in self._transport._callbacks[method]:
+                    callback(method_frame, header_frame, body_fragments)
 
         # if we dont have a header frame body size, finish otherwise keep going
         # And keep our handler function as the frame handler

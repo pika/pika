@@ -54,11 +54,6 @@ import pika.spec as spec
 
 from pika.exceptions import *
 
-# Only block these methods on flow control
-FLOW_BLOCKABLE = [spec.Basic.Publish,
-                  spec.Basic.Deliver,
-                  spec.Basic.Return]
-
 # Keep track of things we need to implement and that are not supported
 # in Pika at this time
 NOT_IMPLEMENTED = [spec.Basic.Return,
@@ -219,6 +214,13 @@ class ChannelTransport(object):
         self.closed = False
         self.channel_state_change_event.fire(self, True)
 
+
+    def _has_content(self, method):
+        """
+        Return a bool if it's a content method as defined by the spec
+        """
+        return spec.has_content(method.INDEX)
+
     def rpc(self, callback, method, acceptable_replies):
         """
         Shortcut wrapper to the Connection's rpc command using its callback
@@ -236,7 +238,7 @@ class ChannelTransport(object):
         # If we're using flow control, content methods should know not to call
         # the rpc function and should be using the flow_active_change_event
         # notification system to know when they can send
-        if method in FLOW_BLOCKABLE and self._blocked_on_flow_control():
+        if self._has_content(method) and self._blocked_on_flow_control():
             raise ChannelBlocked("Flow Control Active, Waiting for Ok")
 
         # If we're blocking, add subsequent commands to our stack
@@ -340,7 +342,7 @@ class Channel(spec.DriverMixin):
 
         # Add a callback for Basic.Deliver
         self.transport.add_callback(self._on_basic_deliver,
-                                    [spec.Basic.Deliver.NAME],
+                                    [spec.Basic.Deliver],
                                     False)
 
         # Create our event callback handlers for our state
@@ -357,16 +359,25 @@ class Channel(spec.DriverMixin):
         """
         self.state_change_event.add_handler(handler, key)
 
-    def basic_cancel(self, consumer_tag):
+    def basic_cancel(self, consumer_tag, callback):
         """
         Cancel a basic_consumer call on the Broker
         """
+        logging.debug("%s.basic_cancel: %s" % \
+                      (self.__class__.__name__, consumer_tag))
         # Asked to cancel a consumer_tag we don't have? throw an exception
         if not consumer_tag in self._consumers:
             raise UnknownConsumerTag(consumer_tag)
 
+        # Add our CPS style callback
+        self.transport.add_callback(callback,
+                                    [spec.Basic.CancelOk])
+        self.transport.add_callback(self._on_cancel_ok,
+                                    [spec.Basic.CancelOk],
+                                    False)
+
         # Send a Basic.Cancel RPC call to close the Basic.Consume
-        self.transport.rpc(self._on_cancel_ok,
+        self.transport.rpc(self.transport._on_event_ok,
                            spec.Basic.Cancel(consumer_tag=consumer_tag),
                            [spec.Basic.CancelOk])
 
