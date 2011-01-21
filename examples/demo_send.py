@@ -77,6 +77,7 @@ def on_channel_open(channel):
 
 def on_queue_declared():
 
+    logging.info("demo_send: Queue Declared")
     for x in xrange(0, 10):
         channel.basic_publish(exchange='',
                               routing_key="test",

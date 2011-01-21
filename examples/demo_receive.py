@@ -57,36 +57,38 @@ import pika
 
 logging.basicConfig(level=logging.DEBUG)
 
-def handle_connection_state_change(connection, is_connected):
+connection = None
+channel = None
 
-    if is_connected:
-        logging.info("demo_receive: Connected to RabbitMQ")
+def on_connected(connection):
 
-        channel = connection.channel()
-        channel.add_state_change_handler(handle_channel_state_change)
-    else:
-        logging.info('Was disconnected from server: %s' % \
-                     connection.close_text)
-        sys.exit(1)
+    global channel
 
-def handle_channel_state_change(channel, is_open):
+    logging.info("demo_send: Connected to RabbitMQ")
+    channel = connection.channel(on_channel_open)
 
-    if is_open:
-        logging.info("demo_receive: Received our channel open event")
+def on_channel_open(channel):
 
-        channel.queue_declare(queue="test", durable=True,
-                              exclusive=False, auto_delete=False)
+    logging.info("demo_send: Received our Channel")
+    channel.queue_declare(queue="test", durable=True,
+                          exclusive=False, auto_delete=False,
+                          callback=on_queue_declared)
 
-        channel.basic_consume(handle_delivery, queue='test')
+def on_queue_declared():
 
+    logging.info("demo_send: Queue Declared")
+    channel.basic_consume(handle_delivery, queue='test', consumer_tag='ctag0')
+
+def on_basic_cancel():
+
+    logging.info("Basic.Consume cancelled")
+    connection.close()
 
 def handle_delivery(channel, method, header, body):
-
-    print
-    print "method=%r" % (method,)
-    print "header=%r" % (header,)
-    print "  body=%r" % (body,)
-    print
+    logging.info("demo_send.handle_delivery")
+    logging.info("method=%r" % method)
+    logging.info("header=%r" % header)
+    logging.info("  body=%r" % body)
 
     channel.basic_ack(delivery_tag=method.delivery_tag)
 
@@ -94,6 +96,10 @@ parameters = pika.ConnectionParameters((len(sys.argv) > 1) and \
                                        sys.argv[1] or \
                                        '127.0.0.1')
 
-connection = pika.asyncore_adapter.AsyncoreConnection(parameters)
-connection.add_state_change_handler(handle_connection_state_change)
-pika.asyncore_adapter.loop()
+connection = pika.AsyncoreConnection(parameters, on_connected)
+
+try:
+    pika.asyncore_adapter.loop()
+except KeyboardInterrupt:
+    channel.basic_cancel('ctag0', on_basic_cancel)
+    pika.asyncore_adapter.loop()
