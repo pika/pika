@@ -607,7 +607,8 @@ class Connection(object):
                 self.close(504, "Invalid Channel Returned from Broker")
 
             # If we've registered this method in our callback stack
-            if frame.method.NAME in self._callbacks[frame.channel_number]:
+            if isinstance(frame, codec.FrameMethod) and \
+               frame.method.NAME in self._callbacks[frame.channel_number]:
 
                 # Loop through each callback in our reply_map
                 for callback in \
