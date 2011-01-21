@@ -46,11 +46,11 @@
 #
 # ***** END LICENSE BLOCK *****
 
-class Class:
+class Class(object):
     def __repr__(self):
         return _codec_repr(self, self.__class__)
 
-class Method:
+class Method(object):
     def _set_content(self, properties, body):
         self._properties = properties
         self._body = body
@@ -64,7 +64,7 @@ class Method:
     def __repr__(self):
         return _codec_repr(self, self.__class__)
 
-class Properties:
+class Properties(object):
     def __repr__(self):
         return _codec_repr(self, self.__class__)
 
