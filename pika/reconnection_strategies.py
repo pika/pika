@@ -92,39 +92,39 @@ class SimpleReconnectionStrategy(ReconnectionStrategy):
 
     def _reset(self):
 
-        logging.debug("%s._reset Called" % self.__class__.__name)
+        logging.debug("%s._reset Called" % self.__class__.__name__)
         self.current_delay = self.initial_retry_delay
         self.attempts_since_last_success = 0
 
     def on_connect_attempt(self, conn):
         logging.debug("%s.on_connect_attempt: %r" % \
-                      (self.__class__.__name, (conn,)))
+                      (self.__class__.__name__, (conn,)))
         self.attempts_since_last_success += 1
 
     def on_connect_attempt_failure(self, conn):
         logging.error("%s.on_connect_attempt_failure: %r" % \
-                      (self.__class__.__name, (conn,)))
+                      (self.__class__.__name__, (conn,)))
 
     def on_transport_connected(self, conn):
         logging.debug("%s.on_transport_connected: %r" % \
-                      (self.__class__.__name, (conn,)))
+                      (self.__class__.__name__, (conn,)))
 
     def on_transport_disconnected(self, conn):
 
         logging.debug("%s.on_transport_disconnected: %r" % \
-                      (self.__class__.__name, (conn,)))
+                      (self.__class__.__name__, (conn,)))
 
     def on_connection_open(self, conn):
         logging.debug("%s.on_connection_open: %r" % \
-                      (self.__class__.__name, (conn,)))
+                      (self.__class__.__name__, (conn,)))
         self._reset()
 
     def on_connection_closed(self, conn):
         t = self.current_delay * ((random.random() * self.jitter) + 1)
 
         logging.info("%s retrying %r in %r seconds (%r attempts)" %
-                     (self.__class__.name__, conn.parameters, t,
+                     (self.__class__.__name__, conn.parameters, t,
                       self.attempts_since_last_success))
         self.current_delay = min(self.max_delay,
                                  self.current_delay * self.multiplier)
-        conn.delayed_call(t, conn.reconnect)
+        conn.add_timeout(t, conn.reconnect)
