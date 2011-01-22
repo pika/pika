@@ -206,14 +206,14 @@ class ChannelTransport(object):
             self.connection.remove_channel(self.channel_number)
             self.channel_state_change_event.fire(self, False)
 
-    def open(self):
+    def open(self, callback):
         """
-        Update our internal variables when we open and fire the open event
-        on the state change handler
+        Open our channel via the connection RPC command
         """
-        self.closed = False
-        self.channel_state_change_event.fire(self, True)
-
+        self.connection.rpc(callback,
+                            self.channel_number,
+                            spec.Channel.Open(),
+                            [spec.Channel.OpenOk])
 
     def _has_content(self, method):
         """
@@ -231,9 +231,8 @@ class ChannelTransport(object):
                                                method,
                                                acceptable_replies))
 
-        # We can't ensure if we're opening
-        if not isinstance(method, spec.Channel.Open):
-            self._ensure()
+        # Make sure the channel is open
+        self._ensure()
 
         # If we're using flow control, content methods should know not to call
         # the rpc function and should be using the flow_active_change_event
@@ -349,8 +348,7 @@ class Channel(spec.DriverMixin):
         self.state_change_event = event.Event()
 
         # Open our channel
-        self.transport.rpc(self._on_open_ok, spec.Channel.Open(),
-                           [spec.Channel.OpenOk])
+        self.transport.open(self._on_open_ok)
 
     def add_state_change_handler(self, handler, key=None):
         """
@@ -358,6 +356,18 @@ class Channel(spec.DriverMixin):
         and closed
         """
         self.state_change_event.add_handler(handler, key)
+
+    def close(self, code=0, text="Normal Shutdown"):
+        """
+        Will invoke a clean shutdown of the channel with the AMQP Broker
+        """
+        logging.debug("%s.close: (%s) %s" % (self.__class__.__name__,
+                                             str(code), text))
+
+        # If we have an open connection send a RPC call to close the channel
+        self.transport.rpc(self._on_close_ok,
+                           spec.Channel.Close(code, text, 0, 0),
+                           [spec.Channel.CloseOk])
 
     def basic_cancel(self, consumer_tag, callback):
         """
@@ -432,17 +442,14 @@ class Channel(spec.DriverMixin):
                                                       immediate=immediate),
                                    (properties, body))
 
-    def close(self, code=0, text="Normal Shutdown"):
+    def get_consumer_tags(self):
         """
-        Will invoke a clean shutdown of the channel with the AMQP Broker
+        Return a list of the currently active consumer tags
         """
-        logging.debug("%s.close: (%s) %s" % (self.__class__.__name__,
-                                             str(code), text))
-
-        # If we have an open connection send a RPC call to close the channel
-        self.transport.rpc(self._on_close_ok,
-                           spec.Channel.Close(code, text, 0, 0),
-                           [spec.Channel.CloseOk])
+        tags = []
+        for tag in self._consumers:
+            tags.append(tag)
+        return tags
 
     def _on_basic_deliver(self, method_frame, header_frame, body):
         """
@@ -520,7 +527,9 @@ class Channel(spec.DriverMixin):
                                               frame.method.NAME))
 
         # Let our transport know we're open
-        self.transport.open()
+        self.transport.closed = False
+        self.transport.channel_state_change_event.fire(self, True)
 
         # Let those who registered for our state change know it's happened
         self.state_change_event.fire(self, True)
+
