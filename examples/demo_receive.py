@@ -55,7 +55,7 @@ import logging
 import sys
 import pika
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 connection = None
 channel = None
@@ -102,7 +102,11 @@ if __name__ == '__main__':
 
     host = (len(sys.argv) > 1) and sys.argv[1] or '127.0.0.1'
     parameters = pika.ConnectionParameters(host)
-    connection = pika.AsyncoreConnection(parameters, on_connected)
+
+    strategy = pika.reconnection_strategies.SimpleReconnectionStrategy()
+
+    connection = pika.AsyncoreConnection(parameters, on_connected,
+                                         reconnection_strategy=strategy)
     try:
         pika.asyncore_adapter.loop()
     except KeyboardInterrupt:
