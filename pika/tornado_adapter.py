@@ -67,13 +67,15 @@ class TornadoConnection(BaseConnection):
     def connect(self, host, port):
 
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
+        self.sock.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
         self.sock.connect((host, port))
         self.sock.setblocking(0)
         self.io_loop = tornado.ioloop.IOLoop.instance()
 
         # Append our handler to tornado's ioloop for our socket
-        events = tornado.ioloop.IOLoop.READ | tornado.ioloop.IOLoop.ERROR \
-               | tornado.ioloop.IOLoop.WRITE
+        events = tornado.ioloop.IOLoop.READ \
+                 | tornado.ioloop.IOLoop.ERROR \
+                 | tornado.ioloop.IOLoop.WRITE
         self.io_loop.add_handler(self.sock.fileno(),
                                  self._handle_events,
                                  events)
@@ -89,27 +91,30 @@ class TornadoConnection(BaseConnection):
         # Remove from the IOLoop
         self.io_loop.remove_handler(self.sock.fileno())
 
-        # Close our socket since the Conneciton class told us to do so
+        # Close our socket since the Connection class told us to do so
         self.sock.close()
 
         # Let everyone know we're done
         self.on_disconnected()
 
     def _disconnect(self, error):
+        """
+        We have this so we can pass an error to the on_disconnected method
+        """
 
         # Remove from the IOLoop
         self.io_loop.remove_handler(self.sock.fileno())
 
-        # Close our socket since the Conneciton class told us to do so
+        # Close our socket since the Connection class told us to do so
         self.sock.close()
 
         self.on_disconnected(error)
 
     def flush_outbound(self):
 
-        # Make sure we've written out our buffer but dont make a timer
-        #self._handle_write(False)
-        pass
+        # Make sure we've written out our buffer
+        if self.outbound_buffer:
+            self._handle_write()
 
     def _handle_events(self, fd, events):
 
@@ -133,10 +138,10 @@ class TornadoConnection(BaseConnection):
             return
         elif e[0] == errno.EBADF:
             logging.error("%s: Write to a closed socket" %
-                          self.__class__.__NAME__)
+                          self.__class__.__name__)
         else:
             logging.error("%s: Write error on %d: %s" %
-                          (self.__class__.__NAME__,
+                          (self.__class__.__name__,
                            self.sock.fileno(), error))
         self._disconnect(str(error))
 
@@ -146,7 +151,6 @@ class TornadoConnection(BaseConnection):
             self.on_data_available(self.sock.recv(self.buffer_size))
         except socket.error, e:
             self._handle_error(e)
-
 
     def _handle_write(self):
 
@@ -159,4 +163,3 @@ class TornadoConnection(BaseConnection):
 
             # Remove the content we used from our buffer
             self.outbound_buffer.consume(r)
-

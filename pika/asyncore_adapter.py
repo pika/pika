@@ -54,11 +54,9 @@ import asyncore
 import time
 import traceback
 
-from heapq import heappush, heappop
-from errno import EAGAIN
-
 import pika.spec
 
+from heapq import heappush, heappop
 from pika.adapter import BaseConnection
 
 
@@ -109,7 +107,7 @@ class RabbitDispatcher(asyncore.dispatcher):
         if not buf:
             self.close()
         else:
-           self.connection.on_data_available(buf)
+            self.connection.on_data_available(buf)
 
     def writable(self):
         return bool(self.connection.outbound_buffer)
@@ -161,15 +159,19 @@ class AsyncoreConnection(BaseConnection):
             self.drain_events()
 
     def drain_events(self, timeout=None):
-        loop(count = 1, timeout = timeout)
+        loop(count=1, timeout=timeout)
 
+# Timer related functionality
 timer_heap = []
+
 
 def add_oneshot_timer_abs(firing_time, callback):
     heappush(timer_heap, (firing_time, callback))
 
+
 def add_oneshot_timer_rel(firing_delay, callback):
     add_oneshot_timer_abs(time.time() + firing_delay, callback)
+
 
 def next_event_timeout(default_timeout=None):
     cutoff = run_timers_internal()
@@ -178,32 +180,36 @@ def next_event_timeout(default_timeout=None):
         if default_timeout is not None and timeout > default_timeout:
             timeout = default_timeout
     elif default_timeout is None:
-        timeout = 30.0 # default timeout
+        timeout = 30.0  # default timeout
     else:
         timeout = default_timeout
     return timeout
+
 
 def log_timer_error(info):
     sys.stderr.write('EXCEPTION IN ASYNCORE_ADAPTER TIMER\n')
     traceback.print_exception(*info)
 
+
 def run_timers_internal():
     cutoff = time.time()
     while timer_heap and timer_heap[0][0] < cutoff:
-        #try:
-        heappop(timer_heap)[1]()
-        #except:
-        #    log_timer_error(sys.exc_info())
+        try:
+            heappop(timer_heap)[1]()
+        except:
+            log_timer_error(sys.exc_info())
         cutoff = time.time()
     return cutoff
 
+
 def loop1(map, timeout=None):
     if map:
-        asyncore.loop(timeout = next_event_timeout(timeout), map = map, count = 1)
+        asyncore.loop(timeout=next_event_timeout(timeout), map=map, count=1)
     else:
         time.sleep(next_event_timeout(timeout))
 
-def loop(map = None, count = None, timeout=None):
+
+def loop(map=None, count=None, timeout=None):
     if map is None:
         map = asyncore.socket_map
     if count is None:
