@@ -61,6 +61,7 @@ logging.basicConfig(level=logging.DEBUG)
 connection = None
 channel = None
 
+
 def on_connected(connection):
 
     global channel
@@ -68,12 +69,14 @@ def on_connected(connection):
     logging.info("demo_send: Connected to RabbitMQ")
     channel = connection.channel(on_channel_open)
 
+
 def on_channel_open(channel):
 
     logging.info("demo_send: Received our Channel")
     channel.queue_declare(queue="test", durable=True,
                           exclusive=False, auto_delete=False,
                           callback=on_queue_declared)
+
 
 def on_queue_declared():
 
@@ -84,16 +87,16 @@ def on_queue_declared():
                               body="Hello World #%i: %.8f" % \
                                    (x, time.time()),
                               properties=pika.BasicProperties(
-                              content_type = "text/plain",
-                              delivery_mode = 2, # persistent
+                              content_type="text/plain",
+                              delivery_mode=2,  # persistent
                               ))
 
     # Close our connection
     connection.close()
 
-parameters = pika.ConnectionParameters((len(sys.argv) > 1) and \
-                                       sys.argv[1] or \
-                                       '127.0.0.1')
+if __name__ == '__main__':
 
-connection = pika.AsyncoreConnection(parameters, on_connected)
-pika.asyncore_adapter.loop()
+    host = (len(sys.argv) > 1) and sys.argv[1] or '127.0.0.1'
+    parameters = pika.ConnectionParameters(host)
+    connection = pika.AsyncoreConnection(parameters, on_connected)
+    pika.asyncore_adapter.loop()

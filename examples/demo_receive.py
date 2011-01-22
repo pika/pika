@@ -60,12 +60,14 @@ logging.basicConfig(level=logging.DEBUG)
 connection = None
 channel = None
 
+
 def on_connected(connection):
 
     global channel
 
     logging.info("demo_send: Connected to RabbitMQ")
     channel = connection.channel(on_channel_open)
+
 
 def on_channel_open(channel):
 
@@ -74,32 +76,35 @@ def on_channel_open(channel):
                           exclusive=False, auto_delete=False,
                           callback=on_queue_declared)
 
+
 def on_queue_declared():
 
     logging.info("demo_send: Queue Declared")
     channel.basic_consume(handle_delivery, queue='test', consumer_tag='ctag0')
+
 
 def on_basic_cancel():
 
     logging.info("Basic.Consume cancelled")
     connection.close()
 
+
 def handle_delivery(channel, method, header, body):
+
     logging.info("demo_send.handle_delivery")
     logging.info("method=%r" % method)
     logging.info("header=%r" % header)
     logging.info("  body=%r" % body)
-
     channel.basic_ack(delivery_tag=method.delivery_tag)
 
-parameters = pika.ConnectionParameters((len(sys.argv) > 1) and \
-                                       sys.argv[1] or \
-                                       '127.0.0.1')
 
-connection = pika.AsyncoreConnection(parameters, on_connected)
+if __name__ == '__main__':
 
-try:
-    pika.asyncore_adapter.loop()
-except KeyboardInterrupt:
-    channel.basic_cancel('ctag0', on_basic_cancel)
-    pika.asyncore_adapter.loop()
+    host = (len(sys.argv) > 1) and sys.argv[1] or '127.0.0.1'
+    parameters = pika.ConnectionParameters(host)
+    connection = pika.AsyncoreConnection(parameters, on_connected)
+    try:
+        pika.asyncore_adapter.loop()
+    except KeyboardInterrupt:
+        channel.basic_cancel('ctag0', on_basic_cancel)
+        pika.asyncore_adapter.loop()

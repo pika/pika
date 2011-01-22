@@ -615,7 +615,6 @@ class Connection(object):
 
             else:
                 # Call our Channel Handler with the frame
-                print frame
                 self._channels[frame.channel_number].transport.deliver(frame)
 
     def rpc(self, callback, channel_number, method, acceptable_replies):
