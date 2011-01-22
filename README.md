@@ -1,12 +1,9 @@
-# Pika, an AMQP 0-8/0-9-1 client library for Python
+# Pika, an AMQP 0-9-1 client library for Python
 
 ## This is a broken, work in progress branch. Do not use.
 
-Pika is a pure-Python implementation of the AMQP 0-8 protocol (with an
-0-9-1 implementation on a separate git branch, for now) that tries to
-stay fairly independent of the underlying network support library. It
-also tries to stay neutral as to programming style, supporting (where
-possible) both synchronous and asynchronous approaches.
+Pika is a pure-Python implementation of the AMQP 0-9-1 protocol that tries
+to stay fairly independent of the underlying network support library.
 
  * Since threads aren't appropriate to every situation, it doesn't
    require threads. It takes care not to forbid them, either. The same
@@ -21,7 +18,8 @@ possible) both synchronous and asynchronous approaches.
 Pika provides adapters for
 
  * asyncore (part of the Python standard library)
- * direct blocking socket I/O
+ * direct blocking socket I/O emulation
+ * Tornado
 
 Support for Twisted and `select()` (as distinct from `asyncore`) is on
 the horizon.
@@ -46,11 +44,6 @@ or
     ## command automatically installs pika to the correct context
     pip install -e git://github.com/tonyg/pika.git#egg=pika
 
-## Roadmap
-
- * Support continuation-passing-style, for asynchronous programming
-   (and, eventually, Twisted support)
-
 ## Licensing
 
 Pika is licensed under the MPL, and may also be used under the terms
@@ -65,15 +58,13 @@ short-lived programs, or other simple tasks. Code is easy to read and
 somewhat easy to reason about.
 
     import pika
-    import asyncore
-    conn = pika.AsyncoreConnection(pika.ConnectionParameters('localhost')
+    conn = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
     ch = conn.channel()
     ch.exchange_declare(exchange="test_x", type="fanout", durable=False)
     ch.queue_declare(queue="test_q", durable=True, exclusive=False, auto_delete=False)
     ch.queue_bind(queue="test_q", exchange="test_x", routing_key="")
     ch.basic_publish(exchange="test_x", routing_key="", body="Hello World!")
     conn.close()
-    asyncore.loop()
 
 ### Dealing with Channel.Flow flow control
 
@@ -154,7 +145,36 @@ you get your head around the unusual presentation of the code,
 reasoning about control becomes much easier than in the synchronous
 style.
 
-    (example TBD)
+    import pika
+
+    connection = None
+    channel = None
+
+    def on_connected(connection):
+        global channel
+        channel = connection.channel(on_channel_open)
+
+    def on_channel_open(channel):
+        channel.queue_declare(queue="test", durable=True,
+                              exclusive=False, auto_delete=False,
+                              callback=on_queue_declared)
+
+    def on_queue_declared():
+        message = "Hello World!"
+        channel.basic_publish(exchange='',
+                              routing_key="test",
+                              body=message,
+                              properties=pika.BasicProperties(
+                              content_type="text/plain",
+                              delivery_mode=2,  # persistent
+                              ))
+
+        # Close our connection
+        connection.close()
+
+    parameters = pika.ConnectionParameters('localhost')
+    connection = pika.AsyncoreConnection(parameters, on_connected)
+    pika.asyncore_adapter.loop()
 
 The asynchronous programming style can be used in both multi- and
 single-threaded environments. The same care must be taken when
