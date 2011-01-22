@@ -82,10 +82,11 @@ def on_queue_declared():
 
     logging.info("demo_send: Queue Declared")
     for x in xrange(0, 10):
+        message = "Hello World #%i: %.8f" %  (x, time.time())
+        logging.info("Sending: %s" % message)
         channel.basic_publish(exchange='',
                               routing_key="test",
-                              body="Hello World #%i: %.8f" % \
-                                   (x, time.time()),
+                              body=message,
                               properties=pika.BasicProperties(
                               content_type="text/plain",
                               delivery_mode=2,  # persistent
