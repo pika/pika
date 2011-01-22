@@ -634,9 +634,9 @@ class Connection(object):
         marshalled_frame = frame.marshal()
         self.bytes_sent += len(marshalled_frame)
         self.outbound_buffer.write(marshalled_frame)
+        self.flush_outbound()
         logging.debug('%s Wrote: %r' % (self.__class__.__name__,
                                         frame))
-        self.flush_outbound()
 
     def send_method(self, channel_number, method, content=None):
         """
