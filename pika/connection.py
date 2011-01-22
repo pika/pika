@@ -167,12 +167,16 @@ class Connection(object):
         logging.debug('%s.add_state_change_handler: %s' % \
                       (self.__class__.__name__, str(handler)))
 
+        self.connection_state_change_event.add_handler(handler, key)
+
     def remove_state_change_handler(self, key):
         """
         Remove a custom connection state change event handler.
         """
         logging.debug('%s.remove_state_change_handler' % \
                       self.__class__.__name__)
+
+        self.connection_state_change_event.del_handler(key)
 
     # Connection opening related functionality
 
@@ -276,7 +280,7 @@ class Connection(object):
         self._state_callbacks['connection'](self)
 
         # Call our custom state change event callbacks
-        self.connection_state_change_event.fire(self, False)
+        self.connection_state_change_event.fire(self, True)
 
     def _on_connection_start(self, frame):
         """
@@ -412,9 +416,6 @@ class Connection(object):
         This is usually invoked by the Broker as a frame across channel 0
         """
         logging.debug('%s._on_close_ok' % self.__class__.__name__)
-        self.closed = True
-        self.closing = False
-        self.open = False
         self._handle_connection_close()
 
     def on_remote_close(self, frame):
@@ -441,6 +442,11 @@ class Connection(object):
         """
         logging.debug('%s._handle_connection_close' % self.__class__.__name__)
 
+        # Set that we're actually closed
+        self.closed = True
+        self.closing = False
+        self.open = False
+
         # Let our connection strategy know the connection closed
         self.reconnection_strategy.on_connection_closed(self)
 
@@ -454,14 +460,8 @@ class Connection(object):
         """
         logging.debug('%s.on_disconnected: %s' % (self.__class__.__name__,
                                                 reason))
-
-        # Set that we're actually closed
-        self.closed = True
-        self.closing = False
-        self.open = False
-
-        # Let our Events and RS know what's up
-        self._handle_connection_close()
+        if self.open and not self.closing:
+            self._handle_connection_close()
 
     # Channel related functionality
 
