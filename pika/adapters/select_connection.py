@@ -195,7 +195,8 @@ class IOLoop(object):
         self.poller.add_timeout(deadline, handler)
 
     def start_poller(self, fd, handler, events):
-
+        if self.poller_type == 'epoll':
+            self.poller = EPollPoller(fd, handler, events)
         if self.poller_type == 'kqueue':
             self.poller = KQueuePoller(fd, handler, events)
         elif self.poller_type == 'poll':
@@ -226,7 +227,7 @@ class IOLoop(object):
 
 class Poller(object):
 
-    READ = 0x0002
+    READ = 0x0001
     WRITE = 0x0004
     ERROR = 0x0008
 
@@ -302,6 +303,40 @@ class Poller(object):
 
             if events:
                 self.handler(self.fd, events)
+
+            # Process our timeouts
+            self.process_timeouts()
+
+
+class EPollPoller(Poller):
+
+    def __init__(self, fd, handler, events):
+
+        # Get the benefit of our Poller object without having to dupe code
+        super(EPollPoller, self).__init__(fd, handler, events)
+
+        self.epoll = select.epoll()
+
+        # Used EPoll's event values so we don't need to do anything special
+        self.events = events
+
+        # Register with epoll
+        self.epoll.register(self.fd, self.events)
+
+    def set_events(self, events):
+        logging.debug('%s.set_events(%i)' % (self.__class__.__name__, events))
+
+        # Used EPoll's event values so we don't need to do anything special
+        self.events = events
+        self.epoll.modify(self.fd, events)
+
+    def start(self):
+
+        while self.open:
+
+            fd, event = self.epoll.poll(self.TIMEOUT)
+            if event:
+                self.handler(fd, event)
 
             # Process our timeouts
             self.process_timeouts()
@@ -390,7 +425,6 @@ class KQueuePoller(Poller):
 
 
 class PollPoller(Poller):
-
 
     def __init__(self, fd, handler, events):
 
