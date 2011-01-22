@@ -124,7 +124,7 @@ class TornadoConnection(BaseConnection):
         if events & tornado.ioloop.IOLoop.ERROR:
             self.sock.close()
 
-        if events * tornado.ioloop.IOLoop.WRITE:
+        if events & tornado.ioloop.IOLoop.WRITE:
             self._handle_write()
 
     def _handle_error(self, error):
