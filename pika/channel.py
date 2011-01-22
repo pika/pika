@@ -446,10 +446,7 @@ class Channel(spec.DriverMixin):
         """
         Return a list of the currently active consumer tags
         """
-        tags = []
-        for tag in self._consumers:
-            tags.append(tag)
-        return tags
+        return self._consumers.keys()
 
     def _on_basic_deliver(self, method_frame, header_frame, body):
         """
