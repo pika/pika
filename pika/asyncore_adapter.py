@@ -65,6 +65,7 @@ class RabbitDispatcher(asyncore.dispatcher):
     def __init__(self, connection):
         asyncore.dispatcher.__init__(self)
         self.connection = connection
+        self.buffer_size = self.connection.suggested_buffer_size()
 
     def create_socket(self, socket_domain, socket_type):
         asyncore.dispatcher.create_socket(self, socket_domain, socket_type)
@@ -81,7 +82,7 @@ class RabbitDispatcher(asyncore.dispatcher):
 
     def handle_read(self):
         try:
-            buf = self.recv(self.connection.suggested_buffer_size())
+            buf = self.recv(self.buffer_size)
         except socket.error(exn):
             print "Here"
             if hasattr(exn, 'errno') and (exn.errno == EAGAIN):
@@ -104,7 +105,7 @@ class RabbitDispatcher(asyncore.dispatcher):
         return bool(self.connection.outbound_buffer)
 
     def handle_write(self):
-        fragment = self.connection.outbound_buffer.read()
+        fragment = self.connection.outbound_buffer.read(self.buffer_size)
         r = self.send(fragment)
         self.connection.outbound_buffer.consume(r)
 

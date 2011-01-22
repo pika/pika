@@ -150,7 +150,7 @@ class TornadoConnection(BaseConnection):
     def _handle_write(self, add_timer = True):
 
         if len(self.outbound_buffer):
-            fragment = self.outbound_buffer.read()
+            fragment = self.outbound_buffer.read(self.buffer_size)
             try:
                 r = self.sock.send(fragment)
             except socket.error, e:
