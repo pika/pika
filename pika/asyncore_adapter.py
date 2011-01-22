@@ -46,6 +46,8 @@
 #
 # ***** END LICENSE BLOCK *****
 
+import errno
+import logging
 import sys
 import socket
 import asyncore
@@ -63,56 +65,72 @@ from pika.adapter import BaseConnection
 class RabbitDispatcher(asyncore.dispatcher):
 
     def __init__(self, connection):
+        logging.debug("%s.__init__" % self.__class__.__name__)
         asyncore.dispatcher.__init__(self)
         self.connection = connection
         self.buffer_size = self.connection.suggested_buffer_size()
 
     def create_socket(self, socket_domain, socket_type):
+        logging.debug("%s.create_socket" % self.__class__.__name__)
         asyncore.dispatcher.create_socket(self, socket_domain, socket_type)
         # Disable TCP nagling for improved latency.
         self.socket.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
 
     def handle_connect(self):
+        logging.debug("%s.handle_connect" % self.__class__.__name__)
         self.connection.on_connected()
-        self.closed = False
-        self.connection.add_state_change_handler(self.on_state_change)
 
     def handle_close(self):
-        self.connection.dispatcher = None
+        logging.debug("%s.handle_close" % self.__class__.__name__)
+        self.connection.disconnect()
+
+    def _handle_error(self, error):
+        logging.debug("%s.handle_error" % self.__class__.__name__)
+        if error[0] in (errno.EWOULDBLOCK, errno.EAGAIN):
+            return
+        elif error[0] == errno.EBADF:
+            logging.error("%s: Write to a closed socket" %
+                          self.__class__.__name__)
+        else:
+            logging.error("%s: Write error on %d: %s" %
+                          (self.__class__.__name__,
+                           self.fileno(), error[0]))
+        self.close()
+        self.connection.disconnect()
 
     def handle_read(self):
+        logging.debug("%s.handle_read" % self.__class__.__name__)
         try:
             buf = self.recv(self.buffer_size)
-        except socket.error(exn):
-            print "Here"
-            if hasattr(exn, 'errno') and (exn.errno == EAGAIN):
-                # Weird, but happens very occasionally.
-                return
-            else:
-                self.force_close(str(exn))
-                return
+        except socket.error, exn:
+            self._handle_error(exn)
+            return
 
         if not buf:
             self.close()
-            return
-
-        self.connection.on_data_available(buf)
-
-    def force_close(self, message="Socket Error"):
-        self.connection.close(320, message)
+        else:
+           self.connection.on_data_available(buf)
 
     def writable(self):
         return bool(self.connection.outbound_buffer)
 
     def handle_write(self):
+        logging.debug("%s.handle_write" % self.__class__.__name__)
+
         fragment = self.connection.outbound_buffer.read(self.buffer_size)
-        r = self.send(fragment)
+        try:
+            r = self.send(fragment)
+        except socket.error, exn:
+            self._handle_error(exn)
+            return
+
         self.connection.outbound_buffer.consume(r)
 
     def on_state_change(self, caller, is_open):
-        self.closed = not is_open
-        if self.closed:
-            self.handle_close()
+        logging.debug("%s.handle_write" % self.__class__.__name__)
+        if not is_open:
+            self.close()
+            self.connection.disconnect()
 
     def handle_error(self):
         exc_type, exc_value, exc_traceback = sys.exc_info()
@@ -125,15 +143,20 @@ class AsyncoreConnection(BaseConnection):
         add_oneshot_timer_rel(delay_sec, callback)
 
     def connect(self, host, port):
+        logging.debug("%s.connect" % self.__class__.__name__)
         self.dispatcher = RabbitDispatcher(self)
         self.dispatcher.create_socket(socket.AF_INET, socket.SOCK_STREAM)
         self.dispatcher.connect((host, port or pika.spec.PORT))
+        self.add_state_change_handler(self.dispatcher.on_state_change)
 
     def disconnect(self):
-        if self.dispatcher:
-            self.dispatcher.close()
+        logging.debug("%s.disconnect" % self.__class__.__name__)
+        self.dispatcher.close()
+        self.dispatcher = None
+        self.on_disconnected()
 
     def flush_outbound(self):
+        logging.debug("%s.flush" % self.__class__.__name__)
         while self.outbound_buffer:
             self.drain_events()
 

@@ -201,14 +201,9 @@ class Connection(object):
         self.reconnection_strategy.on_connect_attempt(self)
 
         # Try and connect and send the first frame
-        #try:
         self.connect(self.parameters.host,
                      self.parameters.port or  spec.PORT)
         self._send_frame(self._local_protocol_header())
-        #except Exception, e:
-        #    # Something went wrong, let our SRS know
-        #    self.reconnection_strategy.on_connect_attempt_failure(self)
-        #    raise AMQPConnectionError
 
     def _init_connection_state(self):
         """
@@ -372,6 +367,9 @@ class Connection(object):
         self.close_code = code
         self.close_text = text
 
+        # Use the Null Reconnection Strategy when closing
+        self.reconnection_strategy = NullReconnectionStrategy()
+
         # If we're not already closed
         for channel in self._channels.values():
             channel.close(code, text)
@@ -425,7 +423,7 @@ class Connection(object):
         """
         logging.debug('%s._on_remote_close: %r' % (self.__class__.__name__,
                                                    frame))
-        self.close(frame.reply_code, frame.reply_text)
+        self.close(frame.method.reply_code, frame.method.reply_text)
 
     def _ensure_closed(self):
         """
@@ -436,9 +434,6 @@ class Connection(object):
         # We carry the connection state and so we want to close if we know
         if self.is_open():
             self.close()
-
-        # Let our Reconnection Strategy know we were disconnected
-        self.reconnection_strategy.on_transport_disconnected(self)
 
     def _handle_connection_close(self):
         """
@@ -457,7 +452,7 @@ class Connection(object):
         This is called by our Adapter to let us know the socket has fully
         closed
         """
-        logging.debug('%s._disconnected: %s' % (self.__class__.__name__,
+        logging.debug('%s.on_disconnected: %s' % (self.__class__.__name__,
                                                 reason))
 
         # Set that we're actually closed
