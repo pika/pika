@@ -125,7 +125,7 @@ class RabbitDispatcher(asyncore.dispatcher):
         self.connection.outbound_buffer.consume(r)
 
     def on_state_change(self, caller, is_open):
-        logging.debug("%s.handle_write" % self.__class__.__name__)
+        logging.debug("%s.on_state_change" % self.__class__.__name__)
         if not is_open:
             self.close()
             self.connection.disconnect()
