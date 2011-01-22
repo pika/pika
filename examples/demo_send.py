@@ -56,7 +56,7 @@ import sys
 import pika
 import time
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 connection = None
 channel = None

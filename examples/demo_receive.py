@@ -55,7 +55,7 @@ import logging
 import sys
 import pika
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 connection = None
 channel = None
