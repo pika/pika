@@ -80,7 +80,7 @@ def encode_table(pieces, table):
             else:
                 # per spec, the "decimals" octet is unsigned (!)
                 pieces.append(struct.pack('>cBI', 'D', 0, int(value)))
-            tablesize = tablesize + 5
+            tablesize = tablesize + 6
         elif isinstance(value, datetime.datetime):
             pieces.append(struct.pack('>cQ', 'T',
                           calendar.timegm(value.utctimetuple())))
