@@ -201,7 +201,7 @@ class IOLoop(object):
         elif self.poller_type == 'poll':
             self.poller = PollPoller(fd, handler, events)
         elif self.poller_type == 'select':
-            self.poller = SelectPoller(fd, handler, events)
+            self.poller = Poller(fd, handler, events)
 
     def set_events(self, events):
         """
@@ -265,6 +265,46 @@ class Poller(object):
                                self.timeouts[deadline]))
                 self.timeouts[deadline]()
                 del(self.timeouts[deadline])
+
+    def start(self):
+
+        while self.open:
+
+            # Build our values to pass into select
+            if self.events & self.READ:
+                input_fd = [self.fd]
+            else:
+                input_fd = []
+
+            if self.events & self.WRITE:
+                output_fd = [self.fd]
+            else:
+                output_fd = []
+
+            if self.events & self.ERROR:
+                error_fd = [self.fd]
+            else:
+                error_fd = []
+
+            # Wait on select to let us know what's up
+            read, write, error = select.select(input_fd,
+                                               output_fd,
+                                               error_fd,
+                                               self.TIMEOUT)
+            # Build our events value
+            events = 0
+            if read:
+                events |= self.READ
+            if write:
+                events |= self.WRITE
+            if error:
+                events |= self.ERROR
+
+            if events:
+                self.handler(self.fd, events)
+
+            # Process our timeouts
+            self.process_timeouts()
 
 
 class KQueuePoller(Poller):
@@ -396,49 +436,6 @@ class PollPoller(Poller):
             fd, event = self.poll.poll(self.TIMEOUT)
             if event:
                 self.handler(fd, event)
-
-            # Process our timeouts
-            self.process_timeouts()
-
-            
-class SelectPoller(Poller):
-
-    def start(self):
-
-        while self.open:
-
-            # Build our values to pass into select
-            if self.events & self.READ:
-                input_fd = [self.fd]
-            else:
-                input_fd = []
-
-            if self.events & self.WRITE:
-                output_fd = [self.fd]
-            else:
-                output_fd = []
-
-            if self.events & self.ERROR:
-                error_fd = [self.fd]
-            else:
-                error_fd = []
-
-            # Wait on select to let us know what's up
-            read, write, error = select.select(input_fd,
-                                               output_fd,
-                                               error_fd,
-                                               self.TIMEOUT)
-            # Build our events value
-            events = 0
-            if read:
-                events |= self.READ
-            if write:
-                events |= self.WRITE
-            if error:
-                events |= self.ERROR
-
-            if events:
-                self.handler(self.fd, events)
 
             # Process our timeouts
             self.process_timeouts()
