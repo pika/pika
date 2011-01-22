@@ -144,9 +144,6 @@ class Connection(object):
         # Event handler for callbacks on connection state change
         self.connection_state_change_event = event.Event()
 
-        # Add our to be extended on_connection_state_event handler
-        self.add_state_change_handler(self._on_connection_state_event)
-
         # Set all of our default connection state values
         self._init_connection_state()
 
@@ -169,7 +166,6 @@ class Connection(object):
         """
         logging.debug('%s.add_state_change_handler: %s' % \
                       (self.__class__.__name__, str(handler)))
-        self.connection_state_change_event.add_handler(handler, key)
 
     def remove_state_change_handler(self, key):
         """
@@ -177,7 +173,6 @@ class Connection(object):
         """
         logging.debug('%s.remove_state_change_handler' % \
                       self.__class__.__name__)
-        self.connection_state_change_event.remove_handler(key)
 
     # Connection opening related functionality
 
@@ -214,18 +209,6 @@ class Connection(object):
         #    # Something went wrong, let our SRS know
         #    self.reconnection_strategy.on_connect_attempt_failure(self)
         #    raise AMQPConnectionError
-
-    def _handle_connection_open(self):
-        """
-        Let both our RS and Event object know we connected successfully
-        """
-        logging.debug('%s._handle_connection_open' % self.__class__.__name__)
-
-        # Let our connection strategy know the connection is open
-        self.reconnection_strategy.on_connection_open(self)
-
-        # Call our custom state change event callbacks
-        self.connection_state_change_event.fire(self, True)
 
     def _init_connection_state(self):
         """
@@ -281,19 +264,24 @@ class Connection(object):
 
     def _on_connection_open(self, frame):
         """
-        This is called once we have tuned the conneciton with the server and
+        This is called once we have tuned the connection with the server and
         called the Connection.Open on the server and it has replied with
         Connection.Ok.
         """
         logging.debug('%s._on_connection_open' % self.__class__.__name__)
         self.known_hosts = frame.method.known_hosts
-        self._handle_connection_open()
 
         # Add a callback handler for the Broker telling us to disconnect
         self._add_callback(self.on_remote_close, 0, [spec.Connection.Close])
 
         # We're now connected at the AMQP level
         self.open = True
+
+        # Call our initial callback that we're open
+        self._state_callbacks['connection'](self)
+
+        # Call our custom state change event callbacks
+        self.connection_state_change_event.fire(self, False)
 
     def _on_connection_start(self, frame):
         """
@@ -570,11 +558,6 @@ class Connection(object):
         if is_open:
             self._state_callbacks['channel'](channel)
 
-    def _on_connection_state_event(self, connection, is_open):
-
-        if is_open:
-            self._state_callbacks['connection'](connection)
-
     def on_data_available(self, data):
         """
         This is called by our Adapter, passing in the data from the socket
@@ -632,6 +615,7 @@ class Connection(object):
 
             else:
                 # Call our Channel Handler with the frame
+                print frame
                 self._channels[frame.channel_number].transport.deliver(frame)
 
     def rpc(self, callback, channel_number, method, acceptable_replies):
