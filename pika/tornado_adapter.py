@@ -72,13 +72,11 @@ class TornadoConnection(BaseConnection):
         self.io_loop = tornado.ioloop.IOLoop.instance()
 
         # Append our handler to tornado's ioloop for our socket
-        events = tornado.ioloop.IOLoop.READ | tornado.ioloop.IOLoop.ERROR
+        events = tornado.ioloop.IOLoop.READ | tornado.ioloop.IOLoop.ERROR \
+               | tornado.ioloop.IOLoop.WRITE
         self.io_loop.add_handler(self.sock.fileno(),
                                  self._handle_events,
                                  events)
-
-        # Loop on handle_write every 0.1 second
-        self.add_timeout(0.1, self._handle_write)
 
         # Suggested Buffer Size
         self.buffer_size = self.suggested_buffer_size()
@@ -110,7 +108,8 @@ class TornadoConnection(BaseConnection):
     def flush_outbound(self):
 
         # Make sure we've written out our buffer but dont make a timer
-        self._handle_write(False)
+        #self._handle_write(False)
+        pass
 
     def _handle_events(self, fd, events):
 
@@ -125,6 +124,8 @@ class TornadoConnection(BaseConnection):
         if events & tornado.ioloop.IOLoop.ERROR:
             self.sock.close()
 
+        if events * tornado.ioloop.IOLoop.WRITE:
+            self._handle_write()
 
     def _handle_error(self, error):
 
@@ -147,7 +148,7 @@ class TornadoConnection(BaseConnection):
             self._handle_error(e)
 
 
-    def _handle_write(self, add_timer = True):
+    def _handle_write(self):
 
         if len(self.outbound_buffer):
             fragment = self.outbound_buffer.read(self.buffer_size)
@@ -159,6 +160,3 @@ class TornadoConnection(BaseConnection):
             # Remove the content we used from our buffer
             self.outbound_buffer.consume(r)
 
-        # Loop on this ever 0.1 second
-        if add_timer is True:
-            self.add_timeout(0.1, self._handle_write)
