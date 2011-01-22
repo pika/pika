@@ -63,14 +63,20 @@ def encode_table(pieces, table):
     for (key, value) in table.iteritems():
         pieces.append(struct.pack('B', len(key)))
         pieces.append(key)
-        tablesize = tablesize + 1 + len(key)
+        tablesize += 1 + len(key)
+
+        # String
         if isinstance(value, str):
             pieces.append(struct.pack('>cI', 'S', len(value)))
             pieces.append(value)
-            tablesize = tablesize + 5 + len(value)
+            tablesize += 5 + len(value)
+
+        # Int
         elif isinstance(value, int):
             pieces.append(struct.pack('>cI', 'I', value))
-            tablesize = tablesize + 5
+            tablesize += 5
+
+        # Decimal
         elif isinstance(value, decimal.Decimal):
             value = value.normalize()
             if value._exp < 0:
@@ -80,17 +86,33 @@ def encode_table(pieces, table):
             else:
                 # per spec, the "decimals" octet is unsigned (!)
                 pieces.append(struct.pack('>cBI', 'D', 0, int(value)))
-            tablesize = tablesize + 6
+            tablesize += 6
+
+        # Datetime
         elif isinstance(value, datetime.datetime):
             pieces.append(struct.pack('>cQ', 'T',
                           calendar.timegm(value.utctimetuple())))
-            tablesize = tablesize + 9
+            tablesize += 9
+
+        # Dict
         elif isinstance(value, dict):
             pieces.append(struct.pack('>c', 'F'))
-            tablesize = tablesize + 1 + encode_table(pieces, value)
+            tablesize += 1 + encode_table(pieces, value)
+
+        # List/Array
+        elif isinstance(value, list):
+            p = []
+            [encode_table(p, v) for v in value]
+            piece = ''.join(p)
+            pieces.append(struct.pack('>cI', 'A', len(piece)))
+            pieces.append(piece)
+            tablesize += 5 + len(piece)
+
+        # Unknown
         else:
             raise InvalidTableError("Unsupported field kind during encoding",
                                     key, value)
+
     pieces[length_index] = struct.pack('>I', tablesize)
     return tablesize + 4
 
@@ -107,28 +129,52 @@ def decode_table(encoded, offset):
         offset += keylen
         kind = encoded[offset]
         offset += 1
+
+        # String
         if kind == 'S':
             length = struct.unpack_from('>I', encoded, offset)[0]
             offset += 4
             value = encoded[offset: offset + length]
             offset += length
+
+        # Int
         elif kind == 'I':
             value = struct.unpack_from('>I', encoded, offset)[0]
             offset += 4
+
+        # Decimal
         elif kind == 'D':
             decimals = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
             raw = struct.unpack_from('>I', encoded, offset)[0]
             offset += 4
             value = decimal.Decimal(raw) * (decimal.Decimal(10) ** -decimals)
+
+        # Datetime
         elif kind == 'T':
             value = datetime.datetime.utcfromtimestamp(struct.unpack_from('>Q',
                                                        encoded, offset)[0])
             offset += 8
+
+        # Dict
         elif kind == 'F':
             (value, offset) = decode_table(encoded, offset)
+
+        # List/Array
+        elif kind == 'A':
+            length, = struct.unpack_from('>I', encoded, offset)
+            offset += 4
+            offset_end = offset + length
+            value = []
+            while offset < offset_end:
+                v, offset = decode_table(encoded, offset)
+                value.append(v)
+            if offset != offset_end:
+                raise TableDecodingError
+
         else:
             raise InvalidTableError("Unsupported field kind %s while decoding"\
-                                    % (kind,))
+                                    % kind)
         result[key] = value
-    return (result, offset)
+
+    return result, offset

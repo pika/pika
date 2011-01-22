@@ -123,6 +123,10 @@ class InvalidTableError(ProtocolSyntaxError):
     pass
 
 
+class TableDecodingError(ProtocolSyntaxError):
+    pass
+
+
 class MethodNotImplemented(AMQPError):
     pass
 
