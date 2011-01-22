@@ -62,7 +62,7 @@ class TornadoConnection(BaseConnection):
     def add_timeout(self, delay_sec, callback):
 
         deadline = time.time() + delay_sec
-        self.io_loop.add_timeout(deadline, callback)
+        self.ioloop.add_timeout(deadline, callback)
 
     def connect(self, host, port):
 
@@ -70,14 +70,14 @@ class TornadoConnection(BaseConnection):
         self.sock.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
         self.sock.connect((host, port))
         self.sock.setblocking(0)
-        self.io_loop = tornado.ioloop.IOLoop.instance()
+        self.ioloop = tornado.ioloop.IOLoop.instance()
 
         # Append our handler to tornado's ioloop for our socket
         self.events = tornado.ioloop.IOLoop.READ | tornado.ioloop.IOLoop.ERROR
 
-        self.io_loop.add_handler(self.sock.fileno(),
-                                 self._handle_events,
-                                 self.events)
+        self.ioloop.add_handler(self.sock.fileno(),
+                                self._handle_events,
+                                self.events)
 
         # Suggested Buffer Size
         self.buffer_size = self.suggested_buffer_size()
@@ -88,7 +88,7 @@ class TornadoConnection(BaseConnection):
     def disconnect(self):
 
         # Remove from the IOLoop
-        self.io_loop.remove_handler(self.sock.fileno())
+        self.ioloop.remove_handler(self.sock.fileno())
 
         # Close our socket since the Connection class told us to do so
         self.sock.close()
@@ -96,24 +96,13 @@ class TornadoConnection(BaseConnection):
         # Let everyone know we're done
         self.on_disconnected()
 
-    def _disconnect(self, error):
-        """
-        We have this so we can pass an error to the on_disconnected method
-        """
-
-        # Remove from the IOLoop
-        self.io_loop.remove_handler(self.sock.fileno())
-
-        # Close our socket since the Connection class told us to do so
-        self.sock.close()
-
-        self.on_disconnected(error)
-
     def flush_outbound(self):
 
         # Make sure we've written out our buffer
         if bool(self.outbound_buffer):
-            self._handle_write()
+            events = self.events
+            events |= tornado.ioloop.IOLoop.WRITE
+            self.ioloop.update_handler(self.sock.fileno(), events)
 
     def _handle_events(self, fd, events):
 
@@ -128,6 +117,9 @@ class TornadoConnection(BaseConnection):
         if events & tornado.ioloop.IOLoop.ERROR:
             self.sock.close()
 
+        if events & tornado.ioloop.IOLoop.WRITE:
+            self._handle_write()
+
     def _handle_error(self, error):
 
         if error[0] in (errno.EWOULDBLOCK, errno.EAGAIN):
@@ -139,7 +131,7 @@ class TornadoConnection(BaseConnection):
             logging.error("%s: Write error on %d: %s" %
                           (self.__class__.__name__,
                            self.sock.fileno(), error))
-        self._disconnect(str(error))
+        self.disconnect()
 
     def _handle_read(self):
 
@@ -150,7 +142,10 @@ class TornadoConnection(BaseConnection):
 
     def _handle_write(self):
 
-        if bool(self.outbound_buffer):
+        # Loop while we have data to write
+        while bool(self.outbound_buffer):
+
+            # Get data to send based upon Pika's suggested buffer size
             fragment = self.outbound_buffer.read(self.buffer_size)
             try:
                 r = self.sock.send(fragment)
@@ -159,3 +154,6 @@ class TornadoConnection(BaseConnection):
 
             # Remove the content we used from our buffer
             self.outbound_buffer.consume(r)
+
+        # Remove the write event
+        self.ioloop.update_handler(self.sock.fileno(), self.events)
