@@ -1,21 +1,53 @@
 #!/usr/bin/env python
-"""
-Tornado and Pika Example
+# ***** BEGIN LICENSE BLOCK *****
+# Version: MPL 1.1/GPL 2.0
+#
+# The contents of this file are subject to the Mozilla Public License
+# Version 1.1 (the "License"); you may not use this file except in
+# compliance with the License. You may obtain a copy of the License at
+# http://www.mozilla.org/MPL/
+#
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+# the License for the specific language governing rights and
+# limitations under the License.
+#
+# The Original Code is Pika.
+#
+# The Initial Developers of the Original Code are LShift Ltd, Cohesive
+# Financial Technologies LLC, and Rabbit Technologies Ltd.  Portions
+# created before 22-Nov-2008 00:00:00 GMT by LShift Ltd, Cohesive
+# Financial Technologies LLC, or Rabbit Technologies Ltd are Copyright
+# (C) 2007-2008 LShift Ltd, Cohesive Financial Technologies LLC, and
+# Rabbit Technologies Ltd.
+#
+# Portions created by LShift Ltd are Copyright (C) 2007-2009 LShift
+# Ltd. Portions created by Cohesive Financial Technologies LLC are
+# Copyright (C) 2007-2009 Cohesive Financial Technologies
+# LLC. Portions created by Rabbit Technologies Ltd are Copyright (C)
+# 2007-2009 Rabbit Technologies Ltd.
+#
+# Portions created by Tony Garnock-Jones are Copyright (C) 2009-2010
+# LShift Ltd and Tony Garnock-Jones.
+#
+# All Rights Reserved.
+#
+# Contributor(s): ______________________________________.
+#
+# Alternatively, the contents of this file may be used under the terms
+# of the GNU General Public License Version 2 or later (the "GPL"), in
+# which case the provisions of the GPL are applicable instead of those
+# above. If you wish to allow use of your version of this file only
+# under the terms of the GPL, and not to allow others to use your
+# version of this file under the terms of the MPL, indicate your
+# decision by deleting the provisions above and replace them with the
+# notice and other provisions required by the GPL. If you do not
+# delete the provisions above, a recipient may use your version of
+# this file under the terms of any one of the MPL or the GPL.
+#
+# ***** END LICENSE BLOCK *****
 
-This is meant to illustrate that Pika+Tornado works, not to provide a template for how to use it.
-
-We create the Tornado application object and store our Pika objects in that under a Pika dictionary. We 
-then add a timeout to the IOLoop to start Pika off 1 second after starting the application.
-
-The application serve a basic webpage that upon request, if Pika is not connected, attempts to connect. It
-then will append a pending message list with the message we would have otherwise sent into RabbitMQ. On a
-request where we are already connected to RabbitMQ, it will send the message then retrieve any messages
-we received asynchronously from RabbitMQ.
-
-After CLOSE_AFTER requests, the app will unbind the basic_consume with basic_cancel and then close the connection.
-On the subsequent request it will reconnect to RabbitMQ. This is just to demonstrate reconnecting when needed.
-"""
-
+import json
 import logging
 import os
 import pika
@@ -26,184 +58,202 @@ import tornado.web
 
 from pika.tornado_adapter import TornadoConnection
 
-# Do a basic cancel after n messages
-CLOSE_AFTER = 10
+PORT = 8888
 
-# Counter for messages received
-close_count = 0
 
-# Keep track of if we're connecting to RabbitMQ
-connecting = False
+class PikaClient(object):
+
+    def __init__(self):
+
+        self.queue_name = 'tornado-test-%i' % os.getpid()
+
+        self.connected = False
+        self.connecting = False
+        self.connection = None
+        self.channel = None
+
+        # A place for us to keep messages sent to us by Rabbitmq
+        self.messages = []
+
+        # A place for us to put pending messages while we're waiting to connect
+        self.pending = []
+
+    def connect(self):
+
+        if self.connecting:
+            logging.info('PikaClient: Already connecting to RabbitMQ')
+            return
+
+        logging.info('PikaClient: Connecting to RabbitMQ on localhost:5672')
+        self.connecting = True
+
+        # Connect to RabbitMQ
+        credentials = pika.PlainCredentials('guest', 'guest')
+
+        param = pika.ConnectionParameters(host='localhost',
+                                          port=5672,
+                                          virtual_host="/",
+                                          credentials=credentials)
+
+        self.connection = TornadoConnection(param, callback=self.on_connected)
+
+    def on_connected(self, connection):
+
+        logging.info('PikaClient: Connected to RabbitMQ on localhost:5672')
+
+        self.connected = True
+        self.connection = connection
+        self.channel = self.connection.channel(self.on_channel_open)
+
+    def on_channel_open(self, channel):
+
+        logging.info('PikaClient: Channel Open, Declaring Exchange')
+
+        self.channel.exchange_declare(exchange='tornado',
+                                      type="direct",
+                                      auto_delete=True,
+                                      durable=False,
+                                      callback=self.on_exchange_declared)
+
+    def on_exchange_declared(self):
+
+        logging.info('PikaClient: Exchange Declared, Declaring Queue')
+
+        self.channel.queue_declare(queue=self.queue_name,
+                                   auto_delete=True,
+                                   durable=False,
+                                   exclusive=False,
+                                   callback=self.on_queue_declared)
+
+    def on_queue_declared(self):
+
+        logging.info('PikaClient: Queue Declared, Binding Queue')
+
+        self.channel.queue_bind(exchange='tornado',
+                                queue=self.queue_name,
+                                routing_key='tornado.*',
+                                callback=self.on_queue_bound)
+
+    def on_queue_bound(self):
+
+        logging.info('PikaClient: Queue Bound, Issuing Basic Consume')
+
+        self.channel.basic_consume(consumer=self.on_pika_message,
+                                   queue=self.queue_name,
+                                   no_ack=True)
+
+        # Send any messages pending
+        for properties, body in self.pending:
+
+            self.channel.basic_publish(exchange='tornado',
+                                       routing_key='tornado.*',
+                                       body=body,
+                                       properties=properties)
+
+    def on_pika_message(self, channel, method, header, body):
+
+        logging.info('PikaCient: Message receive, delivery tag #%i' % \
+                     method.delivery_tag)
+
+        self.messages.append(body)
+
+    def on_basic_cancel(self):
+
+        logging.info('PikaClient: Basic Cancel Ok')
+
+        # If we don't have any more consumer processes running close
+        if not len(self.channel.get_consumer_tags()):
+            self.connection.close()
+
+    def sample_message(self, tornado_request):
+
+        # Build a message to publish to RabbitMQ
+        body = '%.8f: Request from %s [%s]' % \
+               (tornado_request._start_time,
+                tornado_request.remote_ip,
+                tornado_request.headers.get("User-Agent"))
+
+        properties = pika.BasicProperties(content_type="text/plain",
+                                          delivery_mode=1)
+
+        # We won't always be connected, connect if we haven't or reconnect
+        # if we were disconnected
+        if not self.connection.is_open():
+            self.connect()
+            self.pending.append([properties, body])
+        else:
+            self.channel.basic_publish(exchange='tornado',
+                                       routing_key='tornado.*',
+                                       body=body,
+                                       properties=properties)
+
+    def get_messages(self):
+
+        # Get the messages to return, then empty the list
+        output = self.messages
+        self.messages = []
+        return output
+
 
 class MainHandler(tornado.web.RequestHandler):
 
     @tornado.web.asynchronous
     def get(self):
-        
-        # Build a message to publish to RabbitMQ
-        message = '%.8f: Request from %s [%s]' % (self.request._start_time,
-                                                  self.request.remote_ip,
-                                                  self.request.headers.get("User-Agent"))
 
-        # Keep a variable so we dont have to call multiple times in one execution
-        connected = self.application.pika['connection'].is_alive()
+        # Send a sample message
+        self.application.pika.sample_message(self.request)
 
-        # We won't always be connected, connect if we haven't or reconnect if we were disconnected
-        if not connected:
-            pika_connect()
-            self.application.pika['pending'].append(message)
-            connected = 'False'
-        else:
-            # Send our message to RabbitMQ    
-            properties = pika.BasicProperties(content_type="text/text",
-                                              delivery_mode=1)
-    
-            self.application.pika['channel'].basic_publish(exchange='tornado',
-                                                           routing_key='tornado.*',
-                                                           body=message,
-                                                           properties=properties,
-                                                           block_on_flow_control=False)
-            connected = 'True'
+        # Send our main document
+        self.render("demo_tornado.html",
+                    connected=self.application.pika.connected)
 
-        # Atomically pull all the messages out of the list and put them in a list for rendering
-        message_list = []
-        while len(self.application.pika['messages']) > 0:
-            message_list.append(self.application.pika['messages'].pop(0))
 
-        self.render("demo_tornado.html", 
-                    CLOSE_AFTER=CLOSE_AFTER,
-                    connected=connected, 
-                    messages=message_list)
+class AjaxHandler(tornado.web.RequestHandler):
 
-def pika_connect():
+    @tornado.web.asynchronous
+    def get(self):
 
-    global application, connecting
+        # Send a sample message
+        self.application.pika.sample_message(self.request)
 
-    if connecting:
-        logging.info('Already connecting to RabbitMQ')
-        return
-        
-    connecting = True
+        # Send our output
+        self.set_header("Content-type", "application/json")
+        self.write(json.dumps(self.application.pika.get_messages()))
+        self.finish()
 
-    logging.info('Connecting to RabbitMQ on localhost:5672')
 
-    # Connect to RabbitMQ
-    credentials = pika.PlainCredentials('guest', 'guest')
-    
-    param = pika.ConnectionParameters(host='localhost', port=5672, virtual_host="/",
-                                      credentials=credentials)
-    
-    application.pika['connection'] = TornadoConnection(param,
-                                                       wait_for_open=False,
-                                                       callback=on_pika_connected)
+if __name__ == '__main__':
 
-def on_pika_connected():                                            
+    settings = {"debug": True}
 
-    global application, connecting
-    
-    connecting = False                                    
-                    
-    logging.info('Connected to RabbitMQ on localhost:5672')
-                                                
-    application.pika['channel'] = application.pika['connection'].channel()
+    application = tornado.web.Application([
+        (r"/", MainHandler),
+        (r"/ajax", AjaxHandler)
+    ], **settings)
 
-    application.pika['channel'].exchange_declare(exchange='tornado',
-                                                 type="direct",
-                                                 auto_delete=True,
-                                                 durable=False)
+    # Helper class PikaClient makes coding async Pika apps in tornado easy
+    pc = PikaClient()
+    application.pika = pc  # We want a shortcut for below for easier typing
 
-    queue_name = 'test-%i' % os.getpid()
+    logging.basicConfig(level=logging.INFO)
+    logging.info("Starting Tornado HTTPServer on port %i" % PORT)
 
-    application.pika['channel'].queue_declare(queue=queue_name, 
-                                              auto_delete=True, 
-                                              durable=False, 
-                                              exclusive=False)
-
-    application.pika['channel'].queue_bind(exchange='tornado', 
-                                           queue=queue_name,
-                                           routing_key='tornado.*')
-                                           
-
-    application.pika['channel'].basic_consume(consumer=on_pika_message,
-                                              queue=queue_name,
-                                              no_ack=True)
-                                           
-    application.pika['connected'] = True
-
-    # Send any messages pending
-    for message in application.pika['pending']:
-
-        properties = pika.BasicProperties(content_type="text/text",
-                                          delivery_mode=1)
-
-        application.pika['channel'].basic_publish(exchange='tornado',
-                                                  routing_key='tornado.*',
-                                                  body=message,
-                                                  properties=properties,
-                                                  block_on_flow_control=False)
-
-def on_pika_message(channel, method, header, body):
-
-    global application, close_count
-
-    logging.info("Received Message from RabbitMQ: %s" % body)
-
-    # Just append our message stack with the body of the RabbitMQ message    
-    application.pika['messages'].append(body)
-
-    close_count += 1
-    if close_count == CLOSE_AFTER:
-        close_count = 0
-        
-        # Cancel our basic_consumes
-        for tag in application.pika['channel'].callbacks:
-            logging.info('Sending basic_cancel for "%s"' % tag)
-            application.pika['channel'].basic_cancel(tag)
-        
-        # Close our pika connection on a timer so we can finish our basic_cancel
-        logging.info("Closing our RabbitMQ Connection in 1 second")        
-        tornado.ioloop.IOLoop.instance().add_timeout(1000, application.pika['connection'].close)
-
-settings = {"debug": True}
-
-application = tornado.web.Application([
-    (r"/", MainHandler),
-], **settings)
-
-# Just append a pika dict to hold our various needed bits
-application.pika = {}
-
-# Make a messages list for our test app
-application.pika['messages'] = []
-application.pika['pending'] = []
-
-if __name__ == "__main__":
-    
-    logging.basicConfig(level=logging.DEBUG)
-    logging.info("Starting Tornado HTTPServer")
-    
     http_server = tornado.httpserver.HTTPServer(application)
-    http_server.listen(8888)
-    
+    http_server.listen(PORT)
+
     # Get a handle to the instance of IOLoop
     ioloop = tornado.ioloop.IOLoop.instance()
 
-    # Add our Pika connect to the IOLoop
-    ioloop.add_timeout(1000, pika_connect)
+    # Add our Pika connect to the IOLoop since we loop on ioloop.start
+    ioloop.add_timeout(1000, application.pika.connect)
 
     # Start the IOLoop
     try:
         ioloop.start()
     except KeyboardInterrupt:
-    
-        # Shut Pika/RabbitMQ down cleanly
-        if application.pika['connection'].is_alive():
-            for tag in application.pika['channel'].callbacks:
-                logging.info('Sending basic_cancel for "%s"' % tag)
-                application.pika['channel'].basic_cancel(tag)
-        application.pika['connection'].close()
 
-        # Stop tornado
-        ioloop.stop()
+        if pc.connected and pc.channel:
 
-        logging.info("Application Shutdown")        
+            # Get all of the active consumer tags for our channel
+            for consumer_tag in pc.channel.get_consumer_tags:
+                pc.channel.basic_cancel(tag, pc.on_basic_cancel)
