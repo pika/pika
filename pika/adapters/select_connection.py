@@ -179,11 +179,13 @@ class IOLoop(object):
             self.poller_type = 'epoll'
         elif hasattr(select, 'kqueue'):
             self.poller_type = 'kqueue'
+        elif hasattr(select, 'poll'):
+            self.poller_type = 'poll'
         else:
             self.poller_type = 'select'
 
         # Override for development purposes
-        self.poller_type = 'kqueue'
+        self.poller_type = 'poll'
 
     @classmethod
     def instance(class_):
@@ -199,6 +201,9 @@ class IOLoop(object):
 
         if self.poller_type == 'kqueue':
             self.poller = KQueuePoller(fd, handler, events)
+        elif self.poller_type == 'poll':
+            self.poller = PollPoller(fd, handler, events)
+
 
     def set_events(self, events):
         """
@@ -250,6 +255,18 @@ class Poller(object):
                        handler))
 
         self.timeouts[deadline] = handler
+
+    def process_timeouts(self):
+
+        # Process our timeout events
+        deadlines = self.timeouts.keys()
+        for deadline in deadlines:
+            if deadline >= time.time():
+                logging.debug("%s: Timeout calling %s" %\
+                              (self.__class__.__name__,
+                               self.timeouts[deadline]))
+                self.timeouts[deadline]()
+                del(self.timeouts[deadline])
 
 
 class KQueuePoller(Poller):
@@ -330,12 +347,57 @@ class KQueuePoller(Poller):
                                                       self.handler))
                     self.handler(event.ident, events)
 
-            # Process our timeout events
-            deadlines = self.timeouts.keys()
-            for deadline in deadlines:
-                if deadline >= time.time():
-                    logging.debug("%s: Timeout calling %s" % \
-                                  (self.__class__.__name__,
-                                   self.timeouts[deadline]))
-                    self.timeouts[deadline]()
-                    del(self.timeouts[deadline])
+            # Process our timeouts
+            self.process_timeouts()
+
+
+class PollPoller(Poller):
+
+
+    def __init__(self, fd, handler, events):
+
+        # Get the benefit of our Poller object without having to dupe code
+        super(PollPoller, self).__init__(fd, handler, events)
+
+        self.poll = select.poll()
+
+        # Poll needs us to register each event individually
+        self.set_events(events)
+
+    def set_events(self, events):
+        logging.debug('%s.set_events(%i)' % (self.__class__.__name__, events))
+
+        if events & Poller.WRITE:
+            # Add write
+            self.poll.register(self.fd, select.POLLOUT)
+        elif self.events & Poller.WRITE:
+            # We had write, remove it
+            self.poll.unregister(self.fd, select.POLLOUT)
+
+        if events & Poller.READ:
+            # Add write
+            self.poll.register(self.fd, select.POLLIN)
+        elif self.events & Poller.READ:
+            # We had write, remove it
+            self.poll.unregister(self.fd, select.POLLIN)
+
+        if events & Poller.ERROR:
+            # Add write
+            self.poll.register(self.fd, select.POLLERR)
+        elif self.events & Poller.ERROR:
+            # We had write, remove it
+            self.poll.unregister(self.fd, select.POLLERR)
+
+        # Set our current level of events
+        self.events = events
+
+    def start(self):
+
+        while self.open:
+
+            fd, event = self.poll.poll(self.TIMEOUT)
+            if event:
+                self.handler(fd, event)
+
+            # Process our timeouts
+            self.process_timeouts()
