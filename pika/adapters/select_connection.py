@@ -177,15 +177,12 @@ class IOLoop(object):
         # Decide what poller to use and set it up as appropriate
         if hasattr(select, 'epoll'):
             self.poller_type = 'epoll'
-        elif hasattr(select, 'kqueue'):
-            self.poller_type = 'kqueue'
+        #elif hasattr(select, 'kqueue'):
+        #    self.poller_type = 'kqueue'
         elif hasattr(select, 'poll'):
             self.poller_type = 'poll'
         else:
             self.poller_type = 'select'
-
-        # Override for development purposes
-        self.poller_type = 'poll'
 
     @classmethod
     def instance(class_):
@@ -203,7 +200,8 @@ class IOLoop(object):
             self.poller = KQueuePoller(fd, handler, events)
         elif self.poller_type == 'poll':
             self.poller = PollPoller(fd, handler, events)
-
+        elif self.poller_type == 'select':
+            self.poller = SelectPoller(fd, handler, events)
 
     def set_events(self, events):
         """
@@ -398,6 +396,49 @@ class PollPoller(Poller):
             fd, event = self.poll.poll(self.TIMEOUT)
             if event:
                 self.handler(fd, event)
+
+            # Process our timeouts
+            self.process_timeouts()
+
+            
+class SelectPoller(Poller):
+
+    def start(self):
+
+        while self.open:
+
+            # Build our values to pass into select
+            if self.events & self.READ:
+                input_fd = [self.fd]
+            else:
+                input_fd = []
+
+            if self.events & self.WRITE:
+                output_fd = [self.fd]
+            else:
+                output_fd = []
+
+            if self.events & self.ERROR:
+                error_fd = [self.fd]
+            else:
+                error_fd = []
+
+            # Wait on select to let us know what's up
+            read, write, error = select.select(input_fd,
+                                               output_fd,
+                                               error_fd,
+                                               self.TIMEOUT)
+            # Build our events value
+            events = 0
+            if read:
+                events |= self.READ
+            if write:
+                events |= self.WRITE
+            if error:
+                events |= self.ERROR
+
+            if events:
+                self.handler(self.fd, events)
 
             # Process our timeouts
             self.process_timeouts()
