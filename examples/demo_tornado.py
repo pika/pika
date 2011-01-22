@@ -56,7 +56,7 @@ import tornado.httpserver
 import tornado.ioloop
 import tornado.web
 
-from pika.tornado_adapter import TornadoConnection
+from pika.adapters import TornadoConnection
 
 PORT = 8888
 

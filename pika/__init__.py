@@ -52,10 +52,6 @@ from pika.connection import PlainCredentials
 from pika.reconnection_strategies import ReconnectionStrategy
 from pika.spec import BasicProperties
 
-from pika.asyncore_adapter import AsyncoreConnection
-from pika.blocking_adapter import BlockingConnection
-from pika.tornado_adapter import TornadoConnection
-
 # Python 2.4 support: add struct.unpack_from if it's missing.
 try:
     import struct

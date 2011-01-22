@@ -54,7 +54,7 @@ import socket
 import time
 import tornado.ioloop
 
-from pika.adapter import BaseConnection
+from pika.adapters.base_connection import BaseConnection
 
 
 class TornadoConnection(BaseConnection):

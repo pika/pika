@@ -57,7 +57,7 @@ import traceback
 import pika.spec
 
 from heapq import heappush, heappop
-from pika.adapter import BaseConnection
+from pika.adapters.base_connection import BaseConnection
 
 
 class RabbitDispatcher(asyncore.dispatcher):

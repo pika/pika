@@ -56,6 +56,8 @@ import sys
 import pika
 import time
 
+from pika.adapters import AsyncoreConnection
+
 logging.basicConfig(level=logging.INFO)
 
 connection = None
@@ -99,5 +101,5 @@ if __name__ == '__main__':
 
     host = (len(sys.argv) > 1) and sys.argv[1] or '127.0.0.1'
     parameters = pika.ConnectionParameters(host)
-    connection = pika.AsyncoreConnection(parameters, on_connected)
-    pika.asyncore_adapter.loop()
+    connection = AsyncoreConnection(parameters, on_connected)
+    pika.adapters.asyncore_connection.loop()
