@@ -75,12 +75,15 @@ class SelectConnection(BaseConnection):
         # Setup our IOLoop
         self.ioloop = IOLoop.instance()
 
-        # Append our handler to ioloop for our socket
-        self.events = Poller.READ | Poller.ERROR
+        # Setup our base event state
+        self.base_events = Poller.READ | Poller.ERROR
+
+        # Set our active event state to our base event state
+        self.event_state = self.base_events
 
         self.ioloop.start_poller(self.sock.fileno(),
                                  self._handle_events,
-                                 self.events)
+                                 self.event_state)
 
         # Suggested Buffer Size
         self.buffer_size = self.suggested_buffer_size()
@@ -101,14 +104,35 @@ class SelectConnection(BaseConnection):
 
     def flush_outbound(self):
 
-        # Make sure we've written out our buffer
+        # Call our event state manager
+        self._manage_event_state()
+
+    def _manage_event_state(self):
+
+        # Do we have data pending in the outbound buffer?
         if bool(self.outbound_buffer):
-            events = self.events
-            events |= Poller.WRITE
-            self.ioloop.set_events(events)
+
+            # If we don't already have write in our event state append it
+            # otherwise do nothing
+            if not self.event_state & Poller.WRITE:
+
+                # We can assume that we're in our base_event state
+                self.event_state |= Poller.WRITE
+
+                # Update the IOLoop
+                self.ioloop.set_events(self.event_state)
+
+        # We don't have data in the outbound buffer
+        elif self.event_state & Poller.WRITE:
+
+            # Set our event state to the base events
+            self.event_state = self.base_events
+
+            # Update the IOLoop
+            self.ioloop.set_events(self.event_state)
 
     def _handle_events(self, fd, events):
-        logging.debug("%s._handle_events" % self.__class__.__name__)
+
         # Incoming events from IOLoop, make sure we have our socket
         if not self.sock:
             logging.warning("Got events for closed stream %d", fd)
@@ -122,6 +146,10 @@ class SelectConnection(BaseConnection):
 
         if events & Poller.WRITE:
             self._handle_write()
+
+            # Call our event state manager who will decide if we reset our
+            # event state due to having an empty outbound buffer
+            self._manage_event_state()
 
     def _handle_error(self, error):
 
@@ -145,21 +173,15 @@ class SelectConnection(BaseConnection):
 
     def _handle_write(self):
 
-        # Loop while we have data to write
-        while bool(self.outbound_buffer):
+        # Get data to send based upon Pika's suggested buffer size
+        fragment = self.outbound_buffer.read(self.buffer_size)
+        try:
+            r = self.sock.send(fragment)
+        except socket.error, e:
+            self._handle_error(e)
 
-            # Get data to send based upon Pika's suggested buffer size
-            fragment = self.outbound_buffer.read(self.buffer_size)
-            try:
-                r = self.sock.send(fragment)
-            except socket.error, e:
-                self._handle_error(e)
-
-            # Remove the content we used from our buffer
-            self.outbound_buffer.consume(r)
-
-        # Remove the write event
-        self.ioloop.set_events(self.events)
+        # Remove the content we used from our buffer
+        self.outbound_buffer.consume(r)
 
 
 class IOLoop(object):

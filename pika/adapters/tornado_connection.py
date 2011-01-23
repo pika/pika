@@ -72,12 +72,17 @@ class TornadoConnection(BaseConnection):
         self.sock.setblocking(0)
         self.ioloop = tornado.ioloop.IOLoop.instance()
 
-        # Append our handler to tornado's ioloop for our socket
-        self.events = tornado.ioloop.IOLoop.READ | tornado.ioloop.IOLoop.ERROR
+        # Setup our base event state
+        self.base_events = tornado.ioloop.IOLoop.READ | \
+                           tornado.ioloop.IOLoop.ERROR
 
+        # Set our active event state to our base event state
+        self.event_state = self.base_events
+
+        # Add the ioloop handler for the event state
         self.ioloop.add_handler(self.sock.fileno(),
                                 self._handle_events,
-                                self.events)
+                                self.event_state)
 
         # Suggested Buffer Size
         self.buffer_size = self.suggested_buffer_size()
@@ -98,11 +103,34 @@ class TornadoConnection(BaseConnection):
 
     def flush_outbound(self):
 
-        # Make sure we've written out our buffer
+        # Call our event state manager
+        self._manage_event_state()
+
+    def _manage_event_state(self):
+
+        # Do we have data pending in the outbound buffer?
         if bool(self.outbound_buffer):
-            events = self.events
-            events |= tornado.ioloop.IOLoop.WRITE
-            self.ioloop.update_handler(self.sock.fileno(), events)
+
+            # If we don't already have write in our event state append it
+            # otherwise do nothing
+            if not self.event_state & tornado.ioloop.IOLoop.WRITE:
+
+                # We can assume that we're in our base_event state
+                self.event_state |= tornado.ioloop.IOLoop.WRITE
+
+                # Update the IOLoop
+                self.ioloop.update_handler(self.sock.fileno(),
+                                           self.event_state)
+
+        # We don't have data in the outbound buffer
+        elif self.event_state & tornado.ioloop.IOLoop.WRITE:
+
+            # Set our event state to the base events
+            self.event_state = self.base_events
+
+            # Update the IOLoop
+            self.ioloop.update_handler(self.sock.fileno(),
+                                       self.event_state)
 
     def _handle_events(self, fd, events):
 
@@ -119,6 +147,10 @@ class TornadoConnection(BaseConnection):
 
         if events & tornado.ioloop.IOLoop.WRITE:
             self._handle_write()
+
+            # Call our event state manager who will decide if we reset our
+            # event state due to having an empty outbound buffer
+            self._manage_event_state()
 
     def _handle_error(self, error):
 
@@ -142,18 +174,12 @@ class TornadoConnection(BaseConnection):
 
     def _handle_write(self):
 
-        # Loop while we have data to write
-        while bool(self.outbound_buffer):
+        # Get data to send based upon Pika's suggested buffer size
+        fragment = self.outbound_buffer.read(self.buffer_size)
+        try:
+            r = self.sock.send(fragment)
+        except socket.error, e:
+            self._handle_error(e)
 
-            # Get data to send based upon Pika's suggested buffer size
-            fragment = self.outbound_buffer.read(self.buffer_size)
-            try:
-                r = self.sock.send(fragment)
-            except socket.error, e:
-                self._handle_error(e)
-
-            # Remove the content we used from our buffer
-            self.outbound_buffer.consume(r)
-
-        # Remove the write event
-        self.ioloop.update_handler(self.sock.fileno(), self.events)
+        # Remove the content we used from our buffer
+        self.outbound_buffer.consume(r)
