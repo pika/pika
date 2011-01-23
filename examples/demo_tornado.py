@@ -96,6 +96,7 @@ class PikaClient(object):
                                           credentials=credentials)
 
         self.connection = TornadoConnection(param, callback=self.on_connected)
+        self.connection.add_state_change_handler(self.on_closed, 'PikaClient')
 
     def on_connected(self, connection):
 
@@ -164,6 +165,12 @@ class PikaClient(object):
         # If we don't have any more consumer processes running close
         if not len(self.channel.get_consumer_tags()):
             self.connection.close()
+
+    def on_closed(self, connection, is_open):
+
+        # We've closed our pika connection so stop the demo
+        if not is_open:
+            tornado.ioloop.IOLoop.instance().stop()
 
     def sample_message(self, tornado_request):
 
