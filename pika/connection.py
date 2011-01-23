@@ -450,6 +450,9 @@ class Connection(object):
         # Let our connection strategy know the connection closed
         self.reconnection_strategy.on_connection_closed(self)
 
+        # Disconnect our transport
+        self.disconnect()
+
         # Call our custom state change event callbacks
         self.connection_state_change_event.fire(self, False)
 

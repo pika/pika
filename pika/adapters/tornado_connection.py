@@ -85,9 +85,6 @@ class TornadoConnection(BaseConnection):
         # Let everyone know we're connected
         self.on_connected()
 
-        # Add a state change handler
-        self.add_state_change_handler(self.on_state_change)
-
     def disconnect(self):
 
         # Remove from the IOLoop
@@ -98,11 +95,6 @@ class TornadoConnection(BaseConnection):
 
         # Let everyone know we're done
         self.on_disconnected()
-
-    def on_state_change(self, connection, is_open):
-        logging.debug("%s.on_state_change" % self.__class__.__name__)
-        if not is_open:
-            self.disconnect()
 
     def flush_outbound(self):
 

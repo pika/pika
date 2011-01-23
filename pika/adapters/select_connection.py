@@ -88,9 +88,6 @@ class SelectConnection(BaseConnection):
         # Let everyone know we're connected
         self.on_connected()
 
-        # Add a state change handler
-        self.add_state_change_handler(self.on_state_change)
-
     def disconnect(self):
 
         # Remove from the IOLoop
@@ -109,11 +106,6 @@ class SelectConnection(BaseConnection):
             events = self.events
             events |= Poller.WRITE
             self.ioloop.set_events(events)
-
-    def on_state_change(self, connection, is_open):
-        logging.debug("%s.on_state_change" % self.__class__.__name__)
-        if not is_open:
-            self.disconnect()
 
     def _handle_events(self, fd, events):
         logging.debug("%s._handle_events" % self.__class__.__name__)

@@ -124,12 +124,6 @@ class RabbitDispatcher(asyncore.dispatcher):
 
         self.connection.outbound_buffer.consume(r)
 
-    def on_state_change(self, caller, is_open):
-        logging.debug("%s.on_state_change" % self.__class__.__name__)
-        if not is_open:
-            self.close()
-            self.connection.disconnect()
-
     def handle_error(self):
         exc_type, exc_value, exc_traceback = sys.exc_info()
         traceback.print_exception(exc_type, exc_value, exc_traceback)
@@ -145,7 +139,6 @@ class AsyncoreConnection(BaseConnection):
         self.dispatcher = RabbitDispatcher(self)
         self.dispatcher.create_socket(socket.AF_INET, socket.SOCK_STREAM)
         self.dispatcher.connect((host, port or pika.spec.PORT))
-        self.add_state_change_handler(self.dispatcher.on_state_change)
 
     def disconnect(self):
         logging.debug("%s.disconnect" % self.__class__.__name__)
