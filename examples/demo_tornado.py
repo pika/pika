@@ -56,7 +56,7 @@ import tornado.httpserver
 import tornado.ioloop
 import tornado.web
 
-from pika.adapters import TornadoConnection
+from pika.adapters.tornado_connection import TornadoConnection
 
 PORT = 8888
 
@@ -235,7 +235,7 @@ if __name__ == '__main__':
     pc = PikaClient()
     application.pika = pc  # We want a shortcut for below for easier typing
 
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.DEBUG)
     logging.info("Starting Tornado HTTPServer on port %i" % PORT)
 
     http_server = tornado.httpserver.HTTPServer(application)
@@ -255,5 +255,8 @@ if __name__ == '__main__':
         if pc.connected and pc.channel:
 
             # Get all of the active consumer tags for our channel
-            for consumer_tag in pc.channel.get_consumer_tags:
-                pc.channel.basic_cancel(tag, pc.on_basic_cancel)
+            for consumer_tag in pc.channel.get_consumer_tags():
+                pc.channel.basic_cancel(consumer_tag, pc.on_basic_cancel)
+
+            # Start the IOLoop back up so we can finish
+            ioloop.start()
