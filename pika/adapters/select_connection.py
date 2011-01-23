@@ -299,8 +299,10 @@ class Poller(object):
 
         # Process our timeout events
         deadlines = self.timeouts.keys()
+
+        start_time = time.time()
         for deadline in deadlines:
-            if deadline >= time.time():
+            if deadline <= start_time:
                 logging.debug("%s: Timeout calling %s" %\
                               (self.__class__.__name__,
                                self.timeouts[deadline]))
