@@ -448,7 +448,7 @@ class Poll(Poller):
 
 class EPoll(Poll):
     """
-    EPoll and Poll behave identically
+    EPoll and Poll function signatures match.
     """
 
     def __init__(self, fd, handler, events):
