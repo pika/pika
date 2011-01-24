@@ -51,13 +51,13 @@ import logging
 import pika.frame as frame
 import pika.event as event
 import pika.spec as spec
-
-from pika.exceptions import *
+import pika.exceptions
 
 # Keep track of things we need to implement and that are not supported
 # in Pika at this time
 NOT_IMPLEMENTED = [spec.Basic.Return,
                    spec.Basic.Get]
+
 
 class ChannelTransport(object):
 
@@ -129,7 +129,7 @@ class ChannelTransport(object):
         logging.debug("%s._process_callbacks: %s" % (self.__class__.__name__,
                                                      frame.method.NAME))
 
-        # Process callbacks that dont get removed
+        # Process callbacks that don't get removed
         if frame.method.__class__ in self._callbacks:
             for callback in self._callbacks[frame.method.__class__]:
                 logging.debug("%s._process_callbacks Calling: %s" % \
@@ -138,11 +138,11 @@ class ChannelTransport(object):
 
         # Process one shot callbacks
         if frame.method.__class__ in self._one_shot:
-            while len(self._one_shot[frame.method.__class__]):
+            while self._one_shot[frame.method.__class__]:
                 callback = self._one_shot[frame.method.__class__].pop(0)
                 logging.debug("%s._process_callbacks Calling: %s" % \
                               (self.__class__.__name__, callback))
-                # One-shot callbacks dont get the frame since they shouldnt
+                # One-shot callbacks don't get the frame since they shouldn't
                 # Know how to decode them
                 callback()
 
@@ -180,7 +180,7 @@ class ChannelTransport(object):
         Make sure the transport is open
         """
         if self.closed:
-            raise ChannelClosed("Command issued while channel is closed")
+            raise pika.exceptions.ChannelClosed
 
         return True
 
@@ -227,9 +227,9 @@ class ChannelTransport(object):
         stack, passing in our channel number
         """
         logging.debug("%s.rpc(%s, %s, %r)" % (self.__class__.__name__,
-                                               callback,
-                                               method,
-                                               acceptable_replies))
+                                              callback,
+                                              method,
+                                              acceptable_replies))
 
         # Make sure the channel is open
         self._ensure()
@@ -238,7 +238,7 @@ class ChannelTransport(object):
         # the rpc function and should be using the flow_active_change_event
         # notification system to know when they can send
         if self._has_content(method) and self._blocked_on_flow_control():
-            raise ChannelBlocked("Flow Control Active, Waiting for Ok")
+            raise pika.exceptions.ChannelBlocked("Flow Control Active")
 
         # If we're blocking, add subsequent commands to our stack
         if self.blocking:
@@ -283,6 +283,7 @@ class ChannelTransport(object):
         # Process callbacks
         self._process_callbacks(frame)
 
+        # If we've not implemented this frame, raise an exception
         if frame.method.NAME in NOT_IMPLEMENTED:
             raise NotImplementedError(frame.method.NAME)
 
@@ -312,22 +313,27 @@ class ChannelTransport(object):
         self._blocked = []
 
         # Loop through and call all that were blocked during our last command
-        while len(blocked):
+        while blocked:
 
             # Get the function to call next
             method = blocked.pop(0)
 
             # Call the RPC for each of our blocked calls
-            self.rpc(method[0], method[1], method[2])
+            self.rpc(*method)
 
 
 class Channel(spec.DriverMixin):
 
     def __init__(self, connection, channel_number):
-
+        """
+        Initialize the Channel and Transport, opening the channel with the
+        Server connection is passed down from our invoker and
+        channel_number is also passed from our invoker. channel_number is best
+        managed from Connection
+        """
         # Make sure that the caller passed in an int for the channel number
         if not isinstance(channel_number, int):
-            raise InvalidChannelNumber
+            raise pika.exceptions.InvalidChannelNumber
 
         # Get the handle to our handler
         self.transport = ChannelTransport(connection, channel_number)
@@ -382,6 +388,10 @@ class Channel(spec.DriverMixin):
             self._close()
 
     def _close(self):
+        """
+        Internal close, is called when all the consumers are closed by both
+        Channel.close and Channel._on_cancel_ok
+        """
         logging.debug("%s._close" % self.__class__.__name__)
         self.transport.rpc(self._on_close_ok,
                            spec.Channel.Close(self.close_code,
@@ -403,13 +413,8 @@ class Channel(spec.DriverMixin):
             self.transport.add_callback(callback,
                                         [spec.Basic.CancelOk])
 
-        # Keep track of it internally as well
-        self.transport.add_callback(self._on_cancel_ok,
-                                    [spec.Basic.CancelOk],
-                                    False)
-
         # Send a Basic.Cancel RPC call to close the Basic.Consume
-        self.transport.rpc(self.transport._on_event_ok,
+        self.transport.rpc(self._on_cancel_ok,
                            spec.Basic.Cancel(consumer_tag=consumer_tag),
                            [spec.Basic.CancelOk])
 
@@ -428,7 +433,7 @@ class Channel(spec.DriverMixin):
 
         # Make sure we've not already registered this consumer tag
         if consumer_tag in self._consumers:
-            raise DuplicateConsumerTag(consumer_tag)
+            raise pika.exceptions.DuplicateConsumerTag(consumer_tag)
 
         # The consumer tag has not been used before, add it to our consumers
         self._consumers[consumer_tag] = consumer
@@ -441,9 +446,9 @@ class Channel(spec.DriverMixin):
                                                   no_ack=no_ack,
                                                   exclusive=exclusive),
                                [spec.Basic.ConsumeOk])
-        except ChannelClosed, e:
+        except pika.exceptions.ChannelClosed, e:
             del(self._consumers[consumer_tag])
-            raise ChannelClosed(e)
+            raise pika.exceptions.ChannelClosed(e)
 
     def basic_publish(self, exchange, routing_key, body,
                       properties=None, mandatory=False, immediate=False):
@@ -496,7 +501,7 @@ class Channel(spec.DriverMixin):
 
             # Loop through and empty the list, we may have gotten more
             # while we were delivering the message to the callback
-            while len(self._pending[consumer_tag]):
+            while self._pending[consumer_tag]:
 
                 # Remove the parts of our list item
                 (method, properties, body) = self._pending[consumer_tag].pop(0)
@@ -556,4 +561,3 @@ class Channel(spec.DriverMixin):
 
         # Let those who registered for our state change know it's happened
         self.state_change_event.fire(self, True)
-
