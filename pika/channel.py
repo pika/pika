@@ -335,6 +335,11 @@ class Channel(spec.DriverMixin):
         # Assign our connection we communicate with
         self.connection = connection
 
+        # Reason for closing channels
+        self.close_code = None
+        self.close_text = None
+        self.closing = False
+
         # For event based processing
         self._consumers = {}
         self._pending = {}
@@ -364,24 +369,41 @@ class Channel(spec.DriverMixin):
         logging.debug("%s.close: (%s) %s" % (self.__class__.__name__,
                                              str(code), text))
 
+        self.close_code = code
+        self.close_text = text
+        self.closing = True
+
+        # Send our basic cancel for all of our consumers
+        for consumer_tag in self._consumers:
+            self.basic_cancel(self, consumer_tag)
+
         # If we have an open connection send a RPC call to close the channel
+        if not len(self._consumers):
+            self._close()
+
+    def _close(self):
+        logging.debug("%s._close" % self.__class__.__name__)
         self.transport.rpc(self._on_close_ok,
-                           spec.Channel.Close(code, text, 0, 0),
+                           spec.Channel.Close(self.close_code,
+                                              self.close_text, 0, 0),
                            [spec.Channel.CloseOk])
 
-    def basic_cancel(self, consumer_tag, callback):
+    def basic_cancel(self, consumer_tag, callback=None):
         """
         Cancel a basic_consumer call on the Broker
         """
         logging.debug("%s.basic_cancel: %s" % \
                       (self.__class__.__name__, consumer_tag))
-        # Asked to cancel a consumer_tag we don't have? throw an exception
-        if not consumer_tag in self._consumers:
-            raise UnknownConsumerTag(consumer_tag)
+
+        if consumer_tag not in self._consumers:
+            return
 
         # Add our CPS style callback
-        self.transport.add_callback(callback,
-                                    [spec.Basic.CancelOk])
+        if callback:
+            self.transport.add_callback(callback,
+                                        [spec.Basic.CancelOk])
+
+        # Keep track of it internally as well
         self.transport.add_callback(self._on_cancel_ok,
                                     [spec.Basic.CancelOk],
                                     False)
@@ -460,7 +482,8 @@ class Channel(spec.DriverMixin):
         consumer_tag = method_frame.method.consumer_tag
 
         # If we don't have anything pending,
-        if consumer_tag not in self._pending:
+        if consumer_tag not in self._pending and \
+           consumer_tag in self._consumers:
 
             # Setup a list for appending frames into
             self._pending[consumer_tag] = []
@@ -501,6 +524,10 @@ class Channel(spec.DriverMixin):
 
         # We need to delete the consumer tag from our _consumers
         del(self._consumers[frame.method.consumer_tag])
+
+        # If we're closing and dont have any consumers left, close
+        if self.closing and not len(self._consumers):
+            self._close()
 
     def _on_close_ok(self, frame):
         """
