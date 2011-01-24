@@ -157,11 +157,8 @@ class SelectConnection(BaseConnection):
 
     def _handle_error(self, error):
 
-        if error[0] in (errno.EWOULDBLOCK, errno.EAGAIN):
+        if error[0] in (errno.EWOULDBLOCK, errno.EAGAIN, errno.EINTR):
             return
-        elif error[0] == errno.EINTR:
-            # We got an interrupt while waiting on select or what not
-            pass
         elif error[0] == errno.EBADF:
             logging.error("%s: Write to a closed socket" %
                           self.__class__.__name__)
