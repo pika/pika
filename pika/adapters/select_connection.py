@@ -54,9 +54,9 @@ import select
 import socket
 import time
 
-
 from pika.adapters.base_connection import BaseConnection
 
+SELECT_TYPE = None
 
 class SelectConnection(BaseConnection):
 
@@ -74,6 +74,10 @@ class SelectConnection(BaseConnection):
 
         # Setup our IOLoop
         self.ioloop = IOLoop.instance()
+
+        # Set our Poller type if SELECT_TYPE is not None
+        if SELECT_TYPE:
+            self.ioloop.poller_type = SELECT_TYPE
 
         # Setup our base event state
         self.base_events = Poller.READ | Poller.ERROR
@@ -131,7 +135,7 @@ class SelectConnection(BaseConnection):
             # Update the IOLoop
             self.ioloop.set_events(self.event_state)
 
-    def _handle_events(self, fd, events):
+    def _handle_events(self, fd, events, error=None):
 
         # Incoming events from IOLoop, make sure we have our socket
         if not self.sock:
@@ -142,7 +146,7 @@ class SelectConnection(BaseConnection):
             self._handle_read()
 
         if events & Poller.ERROR:
-            self.sock.close()
+            self._handle_error(error)
 
         if events & Poller.WRITE:
             self._handle_write()
@@ -155,7 +159,7 @@ class SelectConnection(BaseConnection):
 
         if error[0] in (errno.EWOULDBLOCK, errno.EAGAIN):
             return
-        elif e[0] == errno.EBADF:
+        elif error[0] == errno.EBADF:
             logging.error("%s: Write to a closed socket" %
                           self.__class__.__name__)
         else:
@@ -178,10 +182,11 @@ class SelectConnection(BaseConnection):
         try:
             r = self.sock.send(fragment)
         except socket.error, e:
-            self._handle_error(e)
+            return self._handle_error(e)
 
         # Remove the content we used from our buffer
         self.outbound_buffer.consume(r)
+
 
 
 class IOLoop(object):
@@ -195,7 +200,6 @@ class IOLoop(object):
     Also provides a convenient pass-through for add_timeout and set_events
     """
     def __init__(self):
-
         # Decide what poller to use and set it up as appropriate
         if hasattr(select, 'epoll'):
             self.poller_type = 'epoll'
@@ -407,7 +411,10 @@ class KQueue(Poller):
             events = 0
 
             # Get up to a max of 1000 events or wait until timeout
-            kevents = self._kqueue.control(None, 1000, self.TIMEOUT)
+            try:
+                kevents = self._kqueue.control(None, 1000, self.TIMEOUT)
+            except OSError, e:
+                return self.handler(self.fd, self.ERROR, e)
 
             # Loop through the events returned to us and build a bitmask
             for event in kevents:
