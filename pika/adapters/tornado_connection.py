@@ -156,7 +156,7 @@ class TornadoConnection(BaseConnection):
 
         if error[0] in (errno.EWOULDBLOCK, errno.EAGAIN):
             return
-        elif e[0] == errno.EBADF:
+        elif error[0] == errno.EBADF:
             logging.error("%s: Write to a closed socket" %
                           self.__class__.__name__)
         else:
@@ -182,4 +182,5 @@ class TornadoConnection(BaseConnection):
             self._handle_error(e)
 
         # Remove the content we used from our buffer
-        self.outbound_buffer.consume(r)
+        if r > 0:
+            self.outbound_buffer.consume(r)
