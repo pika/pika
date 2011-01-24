@@ -359,12 +359,12 @@ class Connection(object):
         Main close function, will attempt to close the channels and if there
         are no channels left, will go straight to on_close_ready
         """
-        logging.info("%s.close Closing Connection: (%s) %s" % \
-                     (self.__class__.__name__, code, text))
+        logging.debug("%s.close Closing Connection: (%s) %s" % \
+                      (self.__class__.__name__, code, text))
 
         if self.closing or self.closed:
-            logging.info("%s.Close invoked while closing or closed" %\
-                         self.__class__.__name__)
+            logging.warning("%s.Close invoked while closing or closed" %\
+                            self.__class__.__name__)
             return
 
         self.closing = True
@@ -375,8 +375,8 @@ class Connection(object):
         self.reconnection_strategy = NullReconnectionStrategy()
 
         # If we're not already closed
-        for channel in self._channels.values():
-            channel.close(code, text)
+        for channel_number in self._channels.keys():
+            self._channels[channel_number].close(code, text)
 
         # If we already dont have any channels, close out
         if not len(self._channels):
@@ -387,10 +387,10 @@ class Connection(object):
         On a clean shutdown we'll call this once all of our channels are closed
         Let the Broker know we want to close
         """
-        logging.debug('%s._on_close_ready' % self.__class__.__name__)
+        logging.info('%s._on_close_ready' % self.__class__.__name__)
 
         if self.closed:
-            logging.info("%s.on_close_ready invoked while closing or closed" %\
+            logging.warn("%s.on_close_ready invoked while closing or closed" %\
                          self.__class__.__name__)
             return
 
@@ -408,7 +408,7 @@ class Connection(object):
         if channel_number in self._channels:
             del(self._channels[channel_number])
 
-        if not len(self._channels):
+        if self.closing and not len(self._channels):
             self.on_close_ready()
 
     def _on_close_ok(self, frame):
@@ -433,7 +433,7 @@ class Connection(object):
         logging.debug('%s._ensure_closed' % self.__class__.__name__)
 
         # We carry the connection state and so we want to close if we know
-        if self.is_open():
+        if self.is_open() and not self.closing:
             self.close()
 
     def _handle_connection_close(self):
