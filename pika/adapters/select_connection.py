@@ -159,6 +159,9 @@ class SelectConnection(BaseConnection):
 
         if error[0] in (errno.EWOULDBLOCK, errno.EAGAIN):
             return
+        elif error[0] == errno.EINTR:
+            # We got an interrupt while waiting on select or what not
+            pass
         elif error[0] == errno.EBADF:
             logging.error("%s: Write to a closed socket" %
                           self.__class__.__name__)
@@ -327,10 +330,13 @@ class Poller(object):
                 error_fd = [self.fd]
 
             # Wait on select to let us know what's up
-            read, write, error = select.select(input_fd,
-                                               output_fd,
-                                               error_fd,
-                                               self.TIMEOUT)
+            try:
+                read, write, error = select.select(input_fd,
+                                                   output_fd,
+                                                   error_fd,
+                                                   self.TIMEOUT)
+            except Exception, e:
+                return self.handler(self.fd, self.ERROR, e)
 
             # Build our events bit mask
             events = 0
