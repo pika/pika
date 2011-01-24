@@ -57,7 +57,7 @@ import pika
 
 from pika.adapters import AsyncoreConnection
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 connection = None
 channel = None
@@ -82,13 +82,8 @@ def on_channel_open(channel):
 def on_queue_declared():
 
     logging.info("demo_send: Queue Declared")
-    channel.basic_consume(handle_delivery, queue='test', consumer_tag='ctag0')
+    channel.basic_consume(handle_delivery, queue='test')
 
-
-def on_basic_cancel():
-
-    logging.info("Basic.Consume cancelled")
-    connection.close()
 
 
 def handle_delivery(channel, method, header, body):
@@ -110,7 +105,7 @@ if __name__ == '__main__':
     connection = AsyncoreConnection(parameters, on_connected,
                                     reconnection_strategy=strategy)
     try:
-        pika.adapters.asyncore_connection.loop()
+        connection.ioloop.start()
     except KeyboardInterrupt:
-        channel.basic_cancel('ctag0', on_basic_cancel)
-        pika.adapters.asyncore_connection.loop()
+        connection.close()
+        connection.ioloop.start()

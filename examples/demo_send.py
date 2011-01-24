@@ -102,4 +102,4 @@ if __name__ == '__main__':
     host = (len(sys.argv) > 1) and sys.argv[1] or '127.0.0.1'
     parameters = pika.ConnectionParameters(host)
     connection = AsyncoreConnection(parameters, on_connected)
-    pika.adapters.asyncore_connection.loop()
+    connection.ioloop.start()
