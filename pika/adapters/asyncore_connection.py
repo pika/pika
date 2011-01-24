@@ -54,9 +54,6 @@ import asyncore
 import time
 import traceback
 
-import pika.spec
-
-from heapq import heappush, heappop
 from pika.adapters.base_connection import BaseConnection
 
 
@@ -80,7 +77,7 @@ class RabbitDispatcher(asyncore.dispatcher):
 
     def handle_close(self):
         logging.debug("%s.handle_close" % self.__class__.__name__)
-        self.connection.disconnect()
+        self.connection.on_disconnected()
 
     def _handle_error(self, error):
         logging.debug("%s.handle_error" % self.__class__.__name__)
@@ -132,84 +129,98 @@ class RabbitDispatcher(asyncore.dispatcher):
 class AsyncoreConnection(BaseConnection):
 
     def add_timeout(self, delay_sec, callback):
-        add_oneshot_timer_rel(delay_sec, callback)
+        self.ioloop.add_timeout(delay_sec, callback)
 
     def connect(self, host, port):
         logging.debug("%s.connect" % self.__class__.__name__)
         self.dispatcher = RabbitDispatcher(self)
         self.dispatcher.create_socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.dispatcher.connect((host, port or pika.spec.PORT))
+        self.dispatcher.connect((host, port))
+        self.ioloop = IOLoop().instance()
 
     def disconnect(self):
         logging.debug("%s.disconnect" % self.__class__.__name__)
         self.dispatcher.close()
         self.dispatcher = None
         self.on_disconnected()
+        self.ioloop.stop()
 
     def flush_outbound(self):
-        logging.debug("%s.flush" % self.__class__.__name__)
+        logging.debug("%s.flush_outbound" % self.__class__.__name__)
         while self.outbound_buffer:
-            self.drain_events()
-
-    def drain_events(self, timeout=None):
-        loop(count=1, timeout=timeout)
-
-# Timer related functionality
-timer_heap = []
+            self.ioloop.loop(1)
 
 
-def add_oneshot_timer_abs(firing_time, callback):
-    heappush(timer_heap, (firing_time, callback))
+class IOLoop(object):
+    """
+    IOLoop Emulation layer to make adapters behave the same way
+    """
+
+    def __init__(self):
+
+        # Define if we should be looping or not
+        self.running = True
+
+        # Timer related functionality
+        self.timeouts = dict()
+
+        # Use poll in asyncore
+        import select
+        if hasattr(select, 'poll'):
+            self.use_poll = True
+        else:
+            self.use_poll = False
+
+    @classmethod
+    def instance(class_):
+        """
+        Returns a handle to the already created object or creates a new object
+        """
+        if not hasattr(class_, "_instance"):
+            class_._instance = class_()
+        return class_._instance
 
 
-def add_oneshot_timer_rel(firing_delay, callback):
-    add_oneshot_timer_abs(time.time() + firing_delay, callback)
+    def add_timeout(self, delay_sec, handler):
+        # Calculate our deadline for running the callback
+        deadline = time.time() + delay_sec
+        logging.debug('%s.add_timeout: In %.4f seconds call %s' % \
+                      (self.__class__.__name__,
+                       deadline - time.time(),
+                       handler))
+        self.timeouts[deadline] = handler
 
+    def process_timeouts(self):
 
-def next_event_timeout(default_timeout=None):
-    cutoff = run_timers_internal()
-    if timer_heap:
-        timeout = timer_heap[0][0] - cutoff
-        if default_timeout is not None and timeout > default_timeout:
-            timeout = default_timeout
-    elif default_timeout is None:
-        timeout = 30.0  # default timeout
-    else:
-        timeout = default_timeout
-    return timeout
+        # Process our timeout events
+        deadlines = self.timeouts.keys()
 
+        start_time = time.time()
+        for deadline in deadlines:
+            if deadline <= start_time:
+                logging.debug("%s: Timeout calling %s" %\
+                              (self.__class__.__name__,
+                               self.timeouts[deadline]))
+                self.timeouts[deadline]()
+                del(self.timeouts[deadline])
 
-def log_timer_error(info):
-    sys.stderr.write('EXCEPTION IN ASYNCORE_ADAPTER TIMER\n')
-    traceback.print_exception(*info)
+    def start(self):
 
+        # Loop while we are connected
+        while self.running:
 
-def run_timers_internal():
-    cutoff = time.time()
-    while timer_heap and timer_heap[0][0] < cutoff:
-        try:
-            heappop(timer_heap)[1]()
-        except:
-            log_timer_error(sys.exc_info())
-        cutoff = time.time()
-    return cutoff
+            # Loop in asycore for one second
+            asyncore.loop(timeout=1, use_poll=self.use_poll, count=1)
 
+            # Process our timeouts
+            self.process_timeouts()
 
-def loop1(map, timeout=None):
-    if map:
-        asyncore.loop(timeout=next_event_timeout(timeout), map=map, count=1)
-    else:
-        time.sleep(next_event_timeout(timeout))
+    def stop(self):
 
+        # Stop the IOLoop from running by exiting the while in IOLoop.stop
+        self.running = False
 
-def loop(map=None, count=None, timeout=None):
-    if map is None:
-        map = asyncore.socket_map
-    if count is None:
-        while (map or timer_heap):
-            loop1(map, timeout)
-    else:
-        while (map or timer_heap) and count > 0:
-            loop1(map, timeout)
-            count = count - 1
-        run_timers_internal()
+    def loop(self, count):
+
+        # Force a loop while ignoring timer
+        asyncore.loop(timeout=1, use_poll=self.use_poll, count=1)
