@@ -143,11 +143,17 @@ class FrameHandler(object):
             self._handler = self._handle_method_frame
 
             # Get our method name
-            method = method_frame.method.__class__
+            method = method_frame.method.__class__.__name__
+            if method == 'DeliverOk':
+                key = '_on_basic_deliver'
+            elif method == 'GetOk':
+                key = '_on_basic_get'
+            else:
+                raise Exception('Unimplemented Content Return Key')
 
             # Check for a processing callback for our method name
             self.callbacks.process(method_frame.channel_number,  # Prefix
-                                   '_on_basic_deliver',          # Key
+                                   key,                          # Key
                                    self,                         # Caller
                                    method_frame,                 # Arg 1
                                    header_frame,                 # Arg 2
