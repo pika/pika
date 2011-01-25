@@ -502,13 +502,7 @@ class Channel(spec.DriverMixin):
         logging.debug("%s.basic_get(cb=%s, ticket=%i, queue=%s, no_ack=%s)" % \
                       (self.__class__.__name__, callback, ticket,
                        queue, no_ack))
-
-        self.callbacks.add(self.channel_number,
-                           spec.Basic.GetOk,
-                           callback,
-                           True,
-                           self._on_basic_get)
-
+        self._basic_get_callback = callback
         self.transport.send_method(spec.Basic.Get(ticket=ticket,
                                                   queue=queue,
                                                   no_ack=no_ack))
@@ -516,16 +510,11 @@ class Channel(spec.DriverMixin):
     def _on_basic_get(self, method_frame, header_frame, body):
         logging.debug("%s._on_basic_get" % self.__class__.__name__)
 
-        self.callbacks.process(self.channel_number,
-                               spec.Basic.GetOk,
-                               self,
-                               method_frame,
-                               header_frame,
-                               body)
+        self._basic_get_callback(self,
+                                 method_frame.method,
+                                 header_frame.properties,
+                                 body[0])
+        self._basic_get_callback = None
 
     def _on_basic_get_empty(self, frame):
         logging.debug("%s._on_basic_get_empty" % self.__class__.__name__)
-
-        # Remove the one-shot basic get callback
-        self.callbacks.remove(self.channel_number,
-                              spec.Basic.GetOk)
