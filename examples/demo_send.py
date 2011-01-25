@@ -56,16 +56,14 @@ import sys
 import pika
 import time
 
-from pika.adapters import AsyncoreConnection
-
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 connection = None
 channel = None
 
 # Import all adapters for easier experimentation
-import pika.adapters.tornado_connection as tornado_connection
 from pika.adapters import *
+
 
 def on_connected(connection):
 
@@ -88,15 +86,14 @@ def on_queue_declared(frame):
 
     logging.info("demo_send: Queue Declared")
     for x in xrange(0, 10):
-        message = "Hello World #%i: %.8f" %  (x, time.time())
+        message = "Hello World #%i: %.8f" % (x, time.time())
         logging.info("Sending: %s" % message)
         channel.basic_publish(exchange='',
                               routing_key="test",
                               body=message,
                               properties=pika.BasicProperties(
                               content_type="text/plain",
-                              delivery_mode=2,  # persistent
-                              ))
+                              delivery_mode=2))  # persist
 
     # Close our connection
     connection.close()
