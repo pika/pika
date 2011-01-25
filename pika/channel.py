@@ -55,8 +55,7 @@ import pika.exceptions
 
 # Keep track of things we need to implement and that are not supported
 # in Pika at this time
-NOT_IMPLEMENTED = [spec.Basic.Return,
-                   spec.Basic.Get]
+NOT_IMPLEMENTED = [spec.Basic.Return]
 
 
 class ChannelTransport(object):
@@ -238,7 +237,8 @@ class ChannelTransport(object):
 
 class Channel(spec.DriverMixin):
 
-    def __init__(self, connection, channel_number, on_open_callback):
+    def __init__(self, connection, channel_number, on_open_callback=None,
+                 transport=None):
         """
         Initialize the Channel and Transport, opening the channel with the
         Server connection is passed down from our invoker and
@@ -249,8 +249,12 @@ class Channel(spec.DriverMixin):
         if not isinstance(channel_number, int):
             raise pika.exceptions.InvalidChannelNumber
 
-        # Get the handle to our handler
-        self.transport = ChannelTransport(connection, channel_number)
+        # Get the handle to our transport, either passed in or made here
+        if transport:
+            self.transport = transport
+        else:
+            self.transport = ChannelTransport(connection, channel_number)
+
 
         # Channel Number
         self.channel_number = channel_number
@@ -277,6 +281,19 @@ class Channel(spec.DriverMixin):
                            self._on_basic_deliver,
                            False,
                            pika.frame.FrameHandler)
+
+        # Add a callback for Basic.Deliver
+        self.callbacks.add(self.channel_number,
+                           '_on_basic_get',
+                           self._on_basic_get,
+                           False,
+                           pika.frame.FrameHandler)
+
+        # Add a callback for Basic.GetEmpty
+        self.callbacks.add(self.channel_number,
+                           spec.Basic.GetEmpty,
+                           self._on_basic_get_empty,
+                           False)
 
         # Add the callback for our Channel.OpenOk to call our on_open_callback
         self.callbacks.add(self.channel_number,
@@ -338,7 +355,8 @@ class Channel(spec.DriverMixin):
     def _open(self, frame):
         logging.debug("%s._open: %r" % (self.__class__.__name__, frame))
         # Call our on open callback
-        self._on_open_callback(self)
+        if self._on_open_callback:
+            self._on_open_callback(self)
 
     def basic_cancel(self, consumer_tag, callback=None):
         """
@@ -475,3 +493,39 @@ class Channel(spec.DriverMixin):
         # If we're closing and dont have any consumers left, close
         if self.closing and not len(self._consumers):
             self._close()
+
+    def basic_get(self, callback, ticket=0, queue='', no_ack=False):
+        """
+        Implementation of the basic_get command that bypasses the rpc mechanism
+        since we have to assemble the content
+        """
+        logging.debug("%s.basic_get(cb=%s, ticket=%i, queue=%s, no_ack=%s)" % \
+                      (self.__class__.__name__, callback, ticket,
+                       queue, no_ack))
+
+        self.callbacks.add(self.channel_number,
+                           spec.Basic.GetOk,
+                           callback,
+                           True,
+                           self._on_basic_get)
+
+        self.transport.send_method(spec.Basic.Get(ticket=ticket,
+                                                  queue=queue,
+                                                  no_ack=no_ack))
+
+    def _on_basic_get(self, method_frame, header_frame, body):
+        logging.debug("%s._on_basic_get" % self.__class__.__name__)
+
+        self.callbacks.process(self.channel_number,
+                               spec.Basic.GetOk,
+                               self,
+                               method_frame,
+                               header_frame,
+                               body)
+
+    def _on_basic_get_empty(self, frame):
+        logging.debug("%s._on_basic_get_empty" % self.__class__.__name__)
+
+        # Remove the one-shot basic get callback
+        self.callbacks.remove(self.channel_number,
+                              spec.Basic.GetOk)
