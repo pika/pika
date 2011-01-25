@@ -91,10 +91,10 @@ def encode_table(pieces, table):
             if value._exp < 0:
                 decimals = -value._exp
                 raw = int(value * (decimal.Decimal(10) ** decimals))
-                pieces.append(struct.pack('>cBI', 'D', decimals, raw))
+                pieces.append(struct.pack('>cBi', 'D', decimals, raw))
             else:
                 # per spec, the "decimals" octet is unsigned (!)
-                pieces.append(struct.pack('>cBI', 'D', 0, int(value)))
+                pieces.append(struct.pack('>cBi', 'D', 0, int(value)))
             tablesize = tablesize + 5
         elif isinstance(value, datetime.datetime):
             pieces.append(struct.pack('>cQ', 'T', calendar.timegm(value.utctimetuple())))
@@ -142,7 +142,7 @@ def decode_table(encoded, offset):
         elif kind == 'D':
             decimals = struct.unpack_from('B', encoded, offset)[0]
             offset = offset + 1
-            raw = struct.unpack_from('>I', encoded, offset)[0]
+            raw = struct.unpack_from('>i', encoded, offset)[0]
             offset = offset + 4
             value = decimal.Decimal(raw) * (decimal.Decimal(10) ** -decimals)
         elif kind == 'T':
