@@ -86,6 +86,9 @@ def encode_table(pieces, table):
         elif isinstance(value, int):
             pieces.append(struct.pack('>cI', 'I', value))
             tablesize = tablesize + 5
+        elif isinstance(value, long):
+            pieces.append(struct.pack('>cq', 'l', value))
+            tablesize = tablesize + 9
         elif isinstance(value, decimal.Decimal):
             value = value.normalize()
             if value._exp < 0:
@@ -119,6 +122,8 @@ def decode_table(encoded, offset):
     {'a': 1, 'c': 1, 'e': {}, 'd': 'x'}
     >>> test_reencode({'a':datetime.datetime(2010,12,31,23,58,59)})
     {'a': datetime.datetime(2010, 12, 31, 23, 58, 59)}
+    >>> test_reencode({'a': 0x7EADBEEFDEADBEEFL, 'b': -0x7EADBEEFDEADBEEFL})
+    {'a': 9128161957192253167, 'b': -9128161957192253167}
     '''
     result = {}
     tablesize = struct.unpack_from('>I', encoded, offset)[0]
@@ -139,6 +144,9 @@ def decode_table(encoded, offset):
         elif kind == 'I':
             value = struct.unpack_from('>I', encoded, offset)[0]
             offset = offset + 4
+        elif kind == 'l':
+            value = struct.unpack_from('>q', encoded, offset)[0]
+            offset = offset + 8
         elif kind == 'D':
             decimals = struct.unpack_from('B', encoded, offset)[0]
             offset = offset + 1
