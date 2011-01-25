@@ -197,7 +197,7 @@ class Connection(object):
         # each connection
         self.state = codec.ConnectionState()
         self.server_properties = None
-        self._channels = {}
+        self._channels = dict()
 
         # Data used for Heartbeat checking
         self.bytes_sent = 0
@@ -245,7 +245,6 @@ class Connection(object):
         # Try and connect and send the first frame
         self.connect(self.parameters.host,
                      self.parameters.port or  spec.PORT)
-        self._send_frame(self._local_protocol_header())
 
     def disconnect(self):
         """
@@ -291,6 +290,9 @@ class Connection(object):
         connected and we can notify our connection strategy
         """
         logging.debug('%s.on_connected' % self.__class__.__name__)
+
+        # Start the communication with the RabbitMQ Broker
+        self._send_frame(self._local_protocol_header())
 
         # Let our reconnection_strategy know we're connected
         self.reconnection_strategy.on_transport_connected(self)
@@ -581,10 +583,6 @@ class Connection(object):
             # Increment our bytes received buffer for heartbeat checking
             self.bytes_received += consumed_count
 
-            # Send the frame to the appropriate channel handler
-            if frame.channel_number > 0 and \
-               frame.channel_number not in self._channels:
-                self.close(504, "Invalid Channel Returned from Broker")
 
             # If we have a Method Frame and have callbacks for it
             if isinstance(frame, codec.FrameMethod) and \
