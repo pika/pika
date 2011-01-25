@@ -49,6 +49,7 @@
 import logging
 from pika.codec import FrameMethod
 
+
 class CallbackManager(object):
 
     def __init__(self):
@@ -64,7 +65,10 @@ class CallbackManager(object):
             class_._instance = class_()
         return class_._instance
 
-    def _santize(self, key):
+    def santize(self, key):
+
+        if hasattr(key, 'method') and hasattr(key.method, 'NAME'):
+            return key.method.NAME
 
         if hasattr(key, 'NAME'):
             return key.NAME
@@ -80,7 +84,7 @@ class CallbackManager(object):
         specified as one_shot, it will be removed after being fired
         """
         # Lets not use objects, since we could have object/class issues
-        key = self._santize(key)
+        key = self.santize(key)
 
         # Make sure we've seen the prefix before
         if prefix not in self._callbacks:
@@ -98,7 +102,7 @@ class CallbackManager(object):
         # If we passed in that we do not want duplicates, check and keep us
         # from adding it a second time
         if callback_dict in self._callbacks[prefix][key]:
-            logging.warning('%s.add: Duplicate prefix/key found for %s:%s', \
+            logging.warning('%s.add: Duplicate callback found for "%s:%s"' %\
                             (self.__class__.__name__, prefix, key))
             return
 
@@ -106,13 +110,14 @@ class CallbackManager(object):
         self._callbacks[prefix][key].append(callback_dict)
         logging.debug('%s: Added "%s:%s" with callback: %s' % \
                       (self.__class__.__name__, prefix, key, callback))
+        return prefix, key
 
     def pending(self, prefix, key):
         """
         Return count of callbacks for a given prefix or key or None
         """
         # Lets not use objects, since we could have module class/obj
-        key = self._santize(key)
+        key = self.santize(key)
 
         if not prefix in self._callbacks or not key in self._callbacks[prefix]:
             return None
@@ -124,7 +129,7 @@ class CallbackManager(object):
         Run through and process all the callbacks for the specified keys
         """
         # Lets not use objects, since we could have module class/obj
-        key = self._santize(key)
+        key = self.santize(key)
 
         # Make sure we have a callback for this event
         if not prefix in self._callbacks or not key in self._callbacks[prefix]:
@@ -152,20 +157,17 @@ class CallbackManager(object):
                           (callback, prefix, key))
             callback(*args, **keywords)
 
-
     def remove(self, prefix, key, callback=None):
         """
         Remove a callback from the stack by key
         """
         # Cast our key to a string so we don't get any weirdness
         # Lets not use objects, since we could have module class/obj
-        key = self._santize(key)
+        key = self.santize(key)
 
         if prefix in self._callbacks and key in self._callbacks[prefix]:
 
             if callback:
-
-
                 # Remove the callback from the _callbacks dict
                 self._callbacks[prefix][key].remove(callback)
                 logging.debug('%s: Removed %s for "%s:%s"' % \
@@ -183,6 +185,18 @@ class CallbackManager(object):
                     logging.debug('%s: Removed empty prefix "%s"' % \
                                   (self.__class__.__name__, prefix))
                 return True
+            else:
+                # Remove the list from the dict if it's empty
+                del(self._callbacks[prefix][key])
+                logging.debug('%s: Removed key "%s:%s"' % \
+                              (self.__class__.__name__, prefix, key))
+
+                # Remove the prefix if it's empty
+                if not self._callbacks[prefix]:
+                    del(self._callbacks[prefix])
+                    logging.debug('%s: Removed empty prefix "%s"' % \
+                                  (self.__class__.__name__, prefix))
+
         else:
             # If we just passed in a prefix for a key
             if prefix in self._callbacks and key in self._callbacks[prefix]:
