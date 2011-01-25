@@ -191,7 +191,6 @@ class SelectConnection(BaseConnection):
         self.outbound_buffer.consume(r)
 
 
-
 class IOLoop(object):
     """
     Singlton wrapper that decides which type of poller to use, creates an
@@ -235,7 +234,7 @@ class IOLoop(object):
 
         if not self.poller and hasattr(select, 'poll'):
             if not SELECT_TYPE or SELECT_TYPE == 'poll':
-                 self.poller = PollPoller(fd, handler, events)
+                self.poller = PollPoller(fd, handler, events)
 
         # We couldn't satisfy epoll, kqueue or poll
         if not self.poller:
@@ -290,10 +289,8 @@ class SelectPoller(object):
         self.events = events
 
     def add_timeout(self, deadline, handler):
-        logging.debug('%s.add_timeout: In %.4f seconds call %s' % \
-                      (self.__class__.__name__,
-                       deadline - time.time(),
-                       handler))
+        logging.debug('%s.add_timeout(deadline=%.4f,handler=%s)' % \
+                      (self.__class__.__name__, deadline, handler))
 
         self.timeouts[deadline] = handler
 
