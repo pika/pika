@@ -54,6 +54,22 @@ import calendar
 from pika.exceptions import *
 
 def encode_table(pieces, table):
+    r'''
+    >>> test_encode(None)
+    '\x00\x00\x00\x00'
+    >>> test_encode({})
+    '\x00\x00\x00\x00'
+    >>> test_encode({'a':1, 'c':True, 'd':'x', 'e':{}})
+    '\x00\x00\x00\x1d\x01aI\x00\x00\x00\x01\x01cI\x00\x00\x00\x01\x01eF\x00\x00\x00\x00\x01dS\x00\x00\x00\x01x'
+    >>> test_encode({'a':decimal.Decimal('1.0')})
+    '\x00\x00\x00\x07\x01aD\x00\x00\x00\x00\x01'
+    >>> test_encode({'a':decimal.Decimal('5E-3')})
+    '\x00\x00\x00\x07\x01aD\x03\x00\x00\x00\x05'
+    >>> test_encode({'a':datetime.datetime(2010,12,31,23,58,59)})
+    '\x00\x00\x00\x0b\x01aT\x00\x00\x00\x00M\x1enC'
+    >>> test_encode({'test':decimal.Decimal('-0.01')})
+    '\x00\x00\x00\n\x04testD\x02\xff\xff\xff\xff'
+    '''
     if table is None:
         table = {}
     length_index = len(pieces)
@@ -92,6 +108,18 @@ def encode_table(pieces, table):
     return tablesize + 4
 
 def decode_table(encoded, offset):
+    r'''
+    >>> test_reencode(None)
+    {}
+    >>> test_reencode({})
+    {}
+    >>> test_reencode({'a': 1})
+    {'a': 1}
+    >>> test_reencode({'a':1, 'c':True, 'd':'x', 'e':{}})
+    {'a': 1, 'c': 1, 'e': {}, 'd': 'x'}
+    >>> test_reencode({'a':datetime.datetime(2010,12,31,23,58,59)})
+    {'a': datetime.datetime(2010, 12, 31, 23, 58, 59)}
+    '''
     result = {}
     tablesize = struct.unpack_from('>I', encoded, offset)[0]
     offset = offset + 4
@@ -126,3 +154,21 @@ def decode_table(encoded, offset):
             raise InvalidTableError("Unsupported field kind %s during decoding" % (kind,))
         result[key] = value
     return (result, offset)
+
+
+if __name__ == "__main__":
+    def test_encode(v):
+        p=[]
+        n = encode_table(p, v)
+        r = ''.join(p)
+        #assert len(r) == n
+        return r
+
+    def test_reencode(i):
+        r = test_encode(i)
+        (v, n) = decode_table(r, 0)
+        assert len(r) == n
+        return v
+
+    import doctest
+    doctest.testmod()
