@@ -73,11 +73,10 @@ class RabbitDispatcher(asyncore.dispatcher):
 
     def handle_connect(self):
         logging.debug("%s.handle_connect" % self.__class__.__name__)
-        self.connection.on_connected()
+        self.connection._on_connected()
 
     def handle_close(self):
         logging.debug("%s.handle_close" % self.__class__.__name__)
-        self.connection.on_disconnected()
 
     def _handle_error(self, error):
         logging.debug("%s.handle_error" % self.__class__.__name__)
@@ -91,7 +90,8 @@ class RabbitDispatcher(asyncore.dispatcher):
                           (self.__class__.__name__,
                            self.fileno(), error[0]))
         self.close()
-        self.connection.disconnect()
+        self.connection._on_connection_closed(None, True)
+
 
     def handle_read(self):
         logging.debug("%s.handle_read" % self.__class__.__name__)
@@ -141,9 +141,10 @@ class AsyncoreConnection(BaseConnection):
     def disconnect(self):
         logging.debug("%s.disconnect" % self.__class__.__name__)
         self.dispatcher.close()
-        self.dispatcher = None
-        self.on_disconnected()
+        del self.dispatcher
         self.ioloop.stop()
+
+
 
     def flush_outbound(self):
         logging.debug("%s.flush_outbound" % self.__class__.__name__)

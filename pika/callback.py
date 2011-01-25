@@ -47,7 +47,7 @@
 # ***** END LICENSE BLOCK *****
 
 import logging
-
+from pika.codec import FrameMethod
 
 class CallbackManager(object):
 
@@ -64,51 +64,132 @@ class CallbackManager(object):
             class_._instance = class_()
         return class_._instance
 
-    def add(self, key, callback, one_shot=True):
+    def _santize(self, key):
+
+        if hasattr(key, 'NAME'):
+            return key.NAME
+
+        if hasattr(key, '__dict__') and 'NAME' in key.__dict__:
+            return key.__dict__['NAME']
+
+        return str(key)
+
+    def add(self, prefix, key, callback, one_shot=True, only_caller=None):
         """
         Add a callback to the stack for the specified key. If the call is
         specified as one_shot, it will be removed after being fired
         """
+        # Lets not use objects, since we could have object/class issues
+        key = self._santize(key)
+
+        # Make sure we've seen the prefix before
+        if prefix not in self._callbacks:
+            self._callbacks[prefix] = dict()
+
         # If we don't have the key in our callbacks, add it
-        if key not in self._callbacks:
-            self._callbacks[key] = list()
+        if key not in self._callbacks[prefix]:
+            self._callbacks[prefix][key] = list()
+
+        # Our callback info we need elsewhere in the class
+        callback_dict = {'handle': callback, 'one_shot': one_shot}
+        if only_caller:
+            callback_dict['only'] = only_caller
+
+        # If we passed in that we do not want duplicates, check and keep us
+        # from adding it a second time
+        if callback_dict in self._callbacks[prefix][key]:
+            logging.warning('%s.add: Duplicate prefix/key found for %s:%s', \
+                            (self.__class__.__name__, prefix, key))
+            return
 
         # Append the callback to our key list
-        self._callbacks[key].append({'handle': callback,
-                                     'one_shot': one_shot})
+        self._callbacks[prefix][key].append(callback_dict)
+        logging.debug('%s: Added "%s:%s" with callback: %s' % \
+                      (self.__class__.__name__, prefix, key, callback))
 
-        logging.debug('CallbackManager: Added "%s" with callback: %s' % \
-                      callback)
-
-    def remove(self, key):
+    def pending(self, prefix, key):
         """
-        Remove a callback from the stack by key
+        Return count of callbacks for a given prefix or key or None
         """
-        if key in self._callbacks:
-            del(self._callbacks[key])
-            logging.debug('CallbackManager: Remove all callbacks for "%s"' % \
-                          key)
-            return True
+        # Lets not use objects, since we could have module class/obj
+        key = self._santize(key)
 
-        # Key could not be found
-        return False
+        if not prefix in self._callbacks or not key in self._callbacks[prefix]:
+            return None
 
-    def process(self, key, *args, **keywords):
+        return len(self._callbacks[prefix][key])
+
+    def process(self, prefix, key, caller, *args, **keywords):
         """
         Run through and process all the callbacks for the specified keys
         """
+        # Lets not use objects, since we could have module class/obj
+        key = self._santize(key)
+
+        # Make sure we have a callback for this event
+        if not prefix in self._callbacks or not key in self._callbacks[prefix]:
+            return None
+
+        callbacks = list()
         one_shot_remove = list()
-        for callback in self._callbacks[key]:
-            logging.debug('CallbackManager: Calling %s for "%s"' % \
-                          (callback['handle'], key))
-            callback['handle'](*args, **keywords)
-            if callback['one_shot']:
-                one_shot_remove.append([key, callback])
 
-        # Remove the callback from the key
-        for (key, callback) in one_shot_remove:
-            self._callbacks[key].remove(callback)
+        # Loop through callbacks that want all prefixes and what we asked for
+        for callback in self._callbacks[prefix][key]:
+            if 'only' not in callback or callback['only'] == caller.__class__:
+                callbacks.append(callback['handle'])
 
-            # Remove the list from the dict if it's empty
-            if not self._callbacks[key]:
-                del(self._callbacks[key])
+                # If it's a one shot callback, add it to a list for removal
+                if callback['one_shot']:
+                    one_shot_remove.append([prefix, key, callback])
+
+        # Remove the one shot callbacks that were called
+        for prefix, key, callback in one_shot_remove:
+            self.remove(prefix, key, callback)
+
+        # Prevent recursion
+        for callback in callbacks:
+            logging.debug('CallbackManager: Calling %s for "%s:%s"' % \
+                          (callback, prefix, key))
+            callback(*args, **keywords)
+
+
+    def remove(self, prefix, key, callback=None):
+        """
+        Remove a callback from the stack by key
+        """
+        # Cast our key to a string so we don't get any weirdness
+        # Lets not use objects, since we could have module class/obj
+        key = self._santize(key)
+
+        if prefix in self._callbacks and key in self._callbacks[prefix]:
+
+            if callback:
+
+
+                # Remove the callback from the _callbacks dict
+                self._callbacks[prefix][key].remove(callback)
+                logging.debug('%s: Removed %s for "%s:%s"' % \
+                              (self.__class__.__name__, callback, prefix, key))
+
+                # Remove the list from the dict if it's empty
+                if not self._callbacks[prefix][key]:
+                    del(self._callbacks[prefix][key])
+                    logging.debug('%s: Removed empty key "%s:%s"' % \
+                                  (self.__class__.__name__, prefix, key))
+
+                # Remove the prefix if it's empty
+                if not self._callbacks[prefix]:
+                    del(self._callbacks[prefix])
+                    logging.debug('%s: Removed empty prefix "%s"' % \
+                                  (self.__class__.__name__, prefix))
+                return True
+        else:
+            # If we just passed in a prefix for a key
+            if prefix in self._callbacks and key in self._callbacks[prefix]:
+                del(self._callbacks[prefix][key])
+                logging.debug('%s: Removed all callbacks for "%s:%s"' % \
+                              (self.__class__.__name__, prefix, key))
+            return True
+
+        # Prefix, Key or Callback could not be found
+        return False

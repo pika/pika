@@ -58,6 +58,12 @@ from pika.adapters.base_connection import BaseConnection
 
 SELECT_TYPE = None
 
+# Use epoll's constants to keep life easy
+READ = 0x0001
+WRITE = 0x0004
+ERROR = 0x0008
+
+
 class SelectConnection(BaseConnection):
 
     def add_timeout(self, delay_sec, callback):
@@ -80,7 +86,7 @@ class SelectConnection(BaseConnection):
             self.ioloop.poller_type = SELECT_TYPE
 
         # Setup our base event state
-        self.base_events = Poller.READ | Poller.ERROR
+        self.base_events = READ | ERROR
 
         # Set our active event state to our base event state
         self.event_state = self.base_events
@@ -93,7 +99,7 @@ class SelectConnection(BaseConnection):
         self.buffer_size = self.suggested_buffer_size()
 
         # Let everyone know we're connected
-        self.on_connected()
+        self._on_connected()
 
     def disconnect(self):
 
@@ -102,9 +108,6 @@ class SelectConnection(BaseConnection):
 
         # Close our socket since the Connection class told us to do so
         self.sock.close()
-
-        # Let everyone know we're done
-        self.on_disconnected()
 
     def flush_outbound(self):
 
@@ -118,16 +121,16 @@ class SelectConnection(BaseConnection):
 
             # If we don't already have write in our event state append it
             # otherwise do nothing
-            if not self.event_state & Poller.WRITE:
+            if not self.event_state & WRITE:
 
                 # We can assume that we're in our base_event state
-                self.event_state |= Poller.WRITE
+                self.event_state |= WRITE
 
                 # Update the IOLoop
                 self.ioloop.set_events(self.event_state)
 
         # We don't have data in the outbound buffer
-        elif self.event_state & Poller.WRITE:
+        elif self.event_state & WRITE:
 
             # Set our event state to the base events
             self.event_state = self.base_events
@@ -142,13 +145,13 @@ class SelectConnection(BaseConnection):
             logging.warning("Got events for closed stream %d", fd)
             return
 
-        if events & Poller.READ:
+        if events & READ:
             self._handle_read()
 
-        if events & Poller.ERROR:
+        if events & ERROR:
             self._handle_error(error)
 
-        if events & Poller.WRITE:
+        if events & WRITE:
             self._handle_write()
 
             # Call our event state manager who will decide if we reset our
@@ -166,7 +169,7 @@ class SelectConnection(BaseConnection):
             logging.error("%s: Write error on %d: %s" %
                           (self.__class__.__name__,
                            self.sock.fileno(), error))
-        self.disconnect()
+        self._on_connection_closed(None, True)
 
     def _handle_read(self):
 
@@ -199,17 +202,6 @@ class IOLoop(object):
 
     Also provides a convenient pass-through for add_timeout and set_events
     """
-    def __init__(self):
-        # Decide what poller to use and set it up as appropriate
-        if hasattr(select, 'epoll'):
-            self.poller_type = 'epoll'
-        elif hasattr(select, 'kqueue'):
-            self.poller_type = 'kqueue'
-        elif hasattr(select, 'poll'):
-            self.poller_type = 'poll'
-        else:
-            self.poller_type = 'select'
-
     @classmethod
     def instance(class_):
         """
@@ -229,14 +221,25 @@ class IOLoop(object):
         """
         Start the Poller, once started will take over for IOLoop.start()
         """
-        if self.poller_type == 'epoll':
-            self.poller = EPoll(fd, handler, events)
-        elif self.poller_type == 'poll':
-            self.poller = Poll(fd, handler, events)
-        if self.poller_type == 'kqueue':
-            self.poller = KQueue(fd, handler, events)
-        elif self.poller_type == 'select':
-            self.poller = Poller(fd, handler, events)
+        # By default we don't have a poller type
+        self.poller = None
+
+        # Decide what poller to use and set it up as appropriate
+        if hasattr(select, 'epoll'):
+            if not SELECT_TYPE or SELECT_TYPE == 'epoll':
+                self.poller = EPollPoller(fd, handler, events)
+
+        if not self.poller and hasattr(select, 'kqueue'):
+            if not SELECT_TYPE or SELECT_TYPE == 'epoll':
+                self.poller = KQueuePoller(fd, handler, events)
+
+        if not self.poller and hasattr(select, 'poll'):
+            if not SELECT_TYPE or SELECT_TYPE == 'poll':
+                 self.poller = PollPoller(fd, handler, events)
+
+        # We couldn't satisfy epoll, kqueue or poll
+        if not self.poller:
+            self.poller = SelectPoller(fd, handler, events)
 
     def set_events(self, events):
         """
@@ -262,17 +265,12 @@ class IOLoop(object):
         self.poller.open = False
 
 
-class Poller(object):
+class SelectPoller(object):
     """
     Default behavior is to use Select since it's the most simple implementation
     outside of epoll. One should only need to override the set_events and start
     functions for additional methods.
     """
-
-    # Use epoll's values to keep it as simple as possible
-    READ = 0x0001
-    WRITE = 0x0004
-    ERROR = 0x0008
 
     # How many seconds to wait until we try and process timeouts
     TIMEOUT = 0.5
@@ -319,11 +317,11 @@ class Poller(object):
 
             # Build our values to pass into select
             input_fd, output_fd, error_fd = [], [], []
-            if self.events & self.READ:
+            if self.events & READ:
                 input_fd = [self.fd]
-            if self.events & self.WRITE:
+            if self.events & WRITE:
                 output_fd = [self.fd]
-            if self.events & self.ERROR:
+            if self.events & ERROR:
                 error_fd = [self.fd]
 
             # Wait on select to let us know what's up
@@ -333,16 +331,16 @@ class Poller(object):
                                                    error_fd,
                                                    self.TIMEOUT)
             except Exception, e:
-                return self.handler(self.fd, self.ERROR, e)
+                return self.handler(self.fd, ERROR, e)
 
             # Build our events bit mask
             events = 0
             if read:
-                events |= self.READ
+                events |= READ
             if write:
-                events |= self.WRITE
+                events |= WRITE
             if error:
-                events |= self.ERROR
+                events |= ERROR
 
             if events:
                 logging.debug("%s: Calling %s" % (self.__class__.__name__,
@@ -353,12 +351,15 @@ class Poller(object):
             self.process_timeouts()
 
 
-class KQueue(Poller):
+class KQueuePoller(SelectPoller):
 
     def __init__(self, fd, handler, events):
 
-        # Get the benefit of our Poller object without having to dupe code
-        super(KQueue, self).__init__(fd, handler, events)
+        self.fd = fd
+        self.handler = handler
+        self.events = events
+        self.open = True
+        self.timeouts = dict()
 
         # Create our KQueue object
         self._kqueue = select.kqueue()
@@ -374,25 +375,25 @@ class KQueue(Poller):
 
         # Build our list of kevents based upon if we have to add or remove
         # events and each event gets its own operation
-        if events & Poller.READ:
+        if events & READ:
 
             # Add write
             kevents.append(select.kevent(self.fd,
                                          filter=select.KQ_FILTER_READ,
                                          flags=select.KQ_EV_ADD))
-        elif self.events & Poller.READ:
+        elif self.events & READ:
 
             # We had write, remove it
             kevents.append(select.kevent(self.fd,
                                          filter=select.KQ_FILTER_READ,
                                          flags=select.KQ_EV_DELETE))
-        if events & Poller.WRITE:
+        if events & WRITE:
 
             # Add write
             kevents.append(select.kevent(self.fd,
                                          filter=select.KQ_FILTER_WRITE,
                                          flags=select.KQ_EV_ADD))
-        elif self.events & Poller.WRITE:
+        elif self.events & WRITE:
 
             # We had write, remove it
             kevents.append(select.kevent(self.fd,
@@ -417,25 +418,25 @@ class KQueue(Poller):
             try:
                 kevents = self._kqueue.control(None, 1000, self.TIMEOUT)
             except OSError, e:
-                return self.handler(self.fd, self.ERROR, e)
+                return self.handler(self.fd, ERROR, e)
 
             # Loop through the events returned to us and build a bitmask
             for event in kevents:
 
                 # We had a read event, data and we're listening for them
                 if event.filter == select.KQ_FILTER_READ and \
-                   self.READ & self.events and event.data:
-                    events |= self.READ
+                   READ & self.events and event.data:
+                    events |= READ
 
                 # We're clear to write so get that done
                 if event.filter == select.KQ_FILTER_WRITE and \
-                   self.WRITE & self.events:
-                    events |= self.WRITE
+                   WRITE & self.events:
+                    events |= WRITE
 
                 # Look for errors, no event registration needed
                 if event.flags & select.KQ_EV_ERROR and \
-                    self.ERROR & self.events:
-                    events |= self.ERROR
+                    ERROR & self.events:
+                    events |= ERROR
 
             # Call our event handler if we have events in our stack
             if events:
@@ -447,12 +448,15 @@ class KQueue(Poller):
             self.process_timeouts()
 
 
-class Poll(Poller):
+class PollPoller(SelectPoller):
 
     def __init__(self, fd, handler, events):
 
-        # Get the benefit of our Poller object without having to dupe code
-        super(Poll, self).__init__(fd, handler, events)
+        self.fd = fd
+        self.handler = handler
+        self.events = events
+        self.open = True
+        self.timeouts = dict()
 
         self._poll = select.poll()
         self._poll.register(self.fd, self.events)
@@ -480,15 +484,18 @@ class Poll(Poller):
             self.process_timeouts()
 
 
-class EPoll(Poll):
+class EPollPoller(PollPoller):
     """
     EPoll and Poll function signatures match.
     """
 
     def __init__(self, fd, handler, events):
 
-        # Get the benefit of our Poller object without having to dupe code
-        super(EPoll, self).__init__(fd, handler, events)
+        self.fd = fd
+        self.handler = handler
+        self.events = events
+        self.open = True
+        self.timeouts = dict()
 
         self._poll = select.epoll()
         self._poll.register(self.fd, self.events)

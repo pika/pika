@@ -50,21 +50,21 @@ import logging
 
 import pika.codec as codec
 import pika.spec as spec
+import pika.callback as callback
 
 from pika.exceptions import *
 
 
 class FrameHandler(object):
 
-    def __init__(self, transport):
+    def __init__(self):
 
-        self._transport = transport
+        self.callbacks = callback.CallbackManager.instance()
 
         # We start with Method frames always
         self._handler = self._handle_method_frame
 
     def process(self, frame):
-
         self._handler(frame)
 
     def _handle_method_frame(self, frame):
@@ -146,9 +146,13 @@ class FrameHandler(object):
             method = method_frame.method.__class__
 
             # Check for a processing callback for our method name
-            if method in self._transport._callbacks:
-                for callback in self._transport._callbacks[method]:
-                    callback(method_frame, header_frame, body_fragments)
+            self.callbacks.process(method_frame.channel_number,  # Prefix
+                                   '_on_basic_deliver',          # Key
+                                   self,                         # Caller
+                                   method_frame,                 # Arg 1
+                                   header_frame,                 # Arg 2
+                                   body_fragments)               # Arg 3
+
 
         # if we dont have a header frame body size, finish otherwise keep going
         # And keep our handler function as the frame handler

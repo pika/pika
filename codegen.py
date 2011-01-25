@@ -292,7 +292,8 @@ def generate(specPath):
     for m in spec.allMethods():
         if m.structName() in DRIVER_METHODS:
             if m.isSynchronous:
-                methods.append('"%s"' % pyize(m.klass.name + '_' + m.name))
+                methods.append('"%s"' %  m.structName())
+
     print
     print "SYNCHRONOUS_METHODS = (%s)" % ", ".join(methods)
     print
@@ -383,14 +384,12 @@ def generate(specPath):
             if m.isSynchronous:
 
                 #Synchronous events have a CPS callback parameter
-                callback = "self.transport._on_synchronous_complete"
+                callback = "callback"
 
                 print "    def %s(self, callback=None%s):" % \
                       (pyize(m.klass.name + '_' + m.name),
                       fieldDeclList(m.arguments))
                 print
-                print "        self.transport.add_callback(callback, [%s])" % \
-                      ", ".join(acceptable_replies)
             else:
                 callback = "self.transport._on_event_ok"
 

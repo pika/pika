@@ -55,9 +55,10 @@ import logging
 import sys
 import pika
 
-from pika.adapters import AsyncoreConnection
+# Import all adapters for easier experimentation
+from pika.adapters import *
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 connection = None
 channel = None
@@ -68,22 +69,24 @@ def on_connected(connection):
     global channel
 
     logging.info("demo_send: Connected to RabbitMQ")
-    channel = connection.channel(on_channel_open)
+    connection.channel(on_channel_open)
 
 
-def on_channel_open(channel):
+def on_channel_open(channel_):
+    global channel
+    channel = channel_
 
     logging.info("demo_send: Received our Channel")
+
     channel.queue_declare(queue="test", durable=True,
                           exclusive=False, auto_delete=False,
                           callback=on_queue_declared)
 
 
-def on_queue_declared():
+def on_queue_declared(frame):
 
     logging.info("demo_send: Queue Declared")
     channel.basic_consume(handle_delivery, queue='test')
-
 
 
 def handle_delivery(channel, method, header, body):
@@ -102,8 +105,8 @@ if __name__ == '__main__':
 
     strategy = pika.reconnection_strategies.SimpleReconnectionStrategy()
 
-    connection = AsyncoreConnection(parameters, on_connected,
-                                    reconnection_strategy=strategy)
+    connection = SelectConnection(parameters, on_connected,
+                                  reconnection_strategy=strategy)
     try:
         connection.ioloop.start()
     except KeyboardInterrupt:

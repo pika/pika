@@ -58,21 +58,25 @@ import time
 
 from pika.adapters import AsyncoreConnection
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 connection = None
 channel = None
 
+# Import all adapters for easier experimentation
+import pika.adapters.tornado_connection as tornado_connection
+from pika.adapters import *
 
 def on_connected(connection):
 
-    global channel
-
     logging.info("demo_send: Connected to RabbitMQ")
-    channel = connection.channel(on_channel_open)
+    connection.channel(on_channel_open)
 
 
-def on_channel_open(channel):
+def on_channel_open(channel_):
+
+    global channel
+    channel = channel_
 
     logging.info("demo_send: Received our Channel")
     channel.queue_declare(queue="test", durable=True,
@@ -80,7 +84,7 @@ def on_channel_open(channel):
                           callback=on_queue_declared)
 
 
-def on_queue_declared():
+def on_queue_declared(frame):
 
     logging.info("demo_send: Queue Declared")
     for x in xrange(0, 10):
@@ -101,5 +105,5 @@ if __name__ == '__main__':
 
     host = (len(sys.argv) > 1) and sys.argv[1] or '127.0.0.1'
     parameters = pika.ConnectionParameters(host)
-    connection = AsyncoreConnection(parameters, on_connected)
+    connection = SelectConnection(parameters, on_connected)
     connection.ioloop.start()

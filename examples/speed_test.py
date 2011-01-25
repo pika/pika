@@ -156,17 +156,19 @@ class PikaClient(multiprocessing.Process):
     def on_connected(self, connection):
         logging.debug("%i:%s:on_connected" % (self.pid,
                                               self.__class__.__name__))
-        self.channel = self.connection.channel(self.on_channel_open)
         self.open = True
+        self.connection.channel(self.on_channel_open)
 
     def on_channel_open(self, channel):
         logging.debug("%i:%s:on_channel_open" % (self.pid,
                                                  self.__class__.__name__))
+
+        self.channel = channel
         self.channel.queue_declare(queue=QUEUE_NAME, durable=True,
                                    exclusive=False, auto_delete=False,
                                    callback=self.on_queue_declared)
 
-    def on_queue_declared(self):
+    def on_queue_declared(self, frame):
         logging.debug("%i:%s:on_queue_declared" % (self.pid,
                                                    self.__class__.__name__))
 

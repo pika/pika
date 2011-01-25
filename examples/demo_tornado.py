@@ -95,8 +95,9 @@ class PikaClient(object):
                                           virtual_host="/",
                                           credentials=credentials)
 
-        self.connection = TornadoConnection(param, callback=self.on_connected)
-        self.connection.add_state_change_handler(self.on_closed, 'PikaClient')
+        self.connection = TornadoConnection(param,
+                                            on_open_callback=self.on_connected)
+        self.connection.add_on_close_callback(self.on_closed)
 
     def on_connected(self, connection):
 
@@ -104,19 +105,20 @@ class PikaClient(object):
 
         self.connected = True
         self.connection = connection
-        self.channel = self.connection.channel(self.on_channel_open)
+        self.connection.channel(self.on_channel_open)
 
     def on_channel_open(self, channel):
 
         logging.info('PikaClient: Channel Open, Declaring Exchange')
 
+        self.channel = channel
         self.channel.exchange_declare(exchange='tornado',
                                       type="direct",
                                       auto_delete=True,
                                       durable=False,
                                       callback=self.on_exchange_declared)
 
-    def on_exchange_declared(self):
+    def on_exchange_declared(self, frame):
 
         logging.info('PikaClient: Exchange Declared, Declaring Queue')
 
@@ -126,7 +128,7 @@ class PikaClient(object):
                                    exclusive=False,
                                    callback=self.on_queue_declared)
 
-    def on_queue_declared(self):
+    def on_queue_declared(self, frame):
 
         logging.info('PikaClient: Queue Declared, Binding Queue')
 
@@ -135,7 +137,7 @@ class PikaClient(object):
                                 routing_key='tornado.*',
                                 callback=self.on_queue_bound)
 
-    def on_queue_bound(self):
+    def on_queue_bound(self, frame):
 
         logging.info('PikaClient: Queue Bound, Issuing Basic Consume')
 
@@ -158,19 +160,17 @@ class PikaClient(object):
 
         self.messages.append(body)
 
-    def on_basic_cancel(self):
+    def on_basic_cancel(self,frame):
 
         logging.info('PikaClient: Basic Cancel Ok')
 
         # If we don't have any more consumer processes running close
-        if not len(self.channel.get_consumer_tags()):
-            self.connection.close()
+        self.connection.close()
 
-    def on_closed(self, connection, is_open):
+    def on_closed(self, connection):
 
         # We've closed our pika connection so stop the demo
-        if not is_open:
-            tornado.ioloop.IOLoop.instance().stop()
+        tornado.ioloop.IOLoop.instance().stop()
 
     def sample_message(self, tornado_request):
 

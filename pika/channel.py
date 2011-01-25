@@ -48,8 +48,8 @@
 
 import logging
 
+import pika.callback as callback
 import pika.frame as frame
-import pika.event as event
 import pika.spec as spec
 import pika.exceptions
 
@@ -66,16 +66,14 @@ class ChannelTransport(object):
         self.connection = connection
         self.channel_number = channel_number
 
-        # Dictionary of callbacks indexed by the reply frame method's class
-        self._callbacks = dict()
-        self._one_shot = dict()
+        # Use the global callback handler
+        self.callbacks = callback.CallbackManager.instance()
 
         # The frame-handler changes depending on the type of frame processed
-        self.frame_handler = frame.FrameHandler(self)
+        self.frame_handler = frame.FrameHandler()
 
         # We need to block on synchronous commands, but do so asynchronously
         self.blocking = None
-        self.blocking_callback = None
         self._blocked = list()
 
         # By default we're closed
@@ -84,82 +82,30 @@ class ChannelTransport(object):
         # By default our Flow is active
         self.flow_active = True
 
-        # Create our event callback handlers for our state and flow
-        self.channel_state_change_event = event.Event()
-        self.flow_active_change_event = event.Event()
-
         # Define our callbacks for specific frame types
-        self.add_callback(self._on_channel_flow, [spec.Channel.Flow], False)
-        self.add_callback(self._on_event_ok, NOT_IMPLEMENTED, False)
+        self.callbacks.add(self.channel_number, spec.Channel.Flow,
+                           self._on_channel_flow, False)
 
-    def add_callback(self, callback, acceptable_replies, one_shot=True):
+        # Add callbacks for channel open event
+        self.callbacks.add(self.channel_number, spec.Channel.OpenOk,
+                           self._on_open)
+
+        # Add in callbacks for methods not implemented
+        for method in NOT_IMPLEMENTED:
+            self.callbacks.add(self.channel_number, method,
+                               self._on_event_ok, False)
+
+    def _on_open(self, frame):
         """
-        Adds a callback entry in our connections callback handler for our
-        channel
+        Called as a result of receiving a spec.Channel.OpenOk frame.
         """
-        logging.debug("%s.add_callback: %s: %r" % (self.__class__.__name__,
-                                                   str(callback),
-                                                   acceptable_replies))
-        # Iterate through the list of acceptable replies
-        for reply in acceptable_replies:
+        self.closed = False
 
-            # One-Shot callbacks are made once for a given reply then removed
-            if one_shot:
-
-                # Initialize our list for the reply if we need to
-                if reply not in self._one_shot:
-                    self._one_shot[reply] = list()
-
-                # Append our one shot callback list for this reply
-                self._one_shot[reply].append(callback)
-            else:
-
-                # Initialize the list for the reply if we need to
-                if reply not in self._callbacks:
-                    self._callbacks[reply] = list()
-
-                # Append our callback list for this reply
-                self._callbacks[reply].append(callback)
-
-    def _process_callbacks(self, frame):
+    def _blocked_on_flow_control(self):
         """
-        Invoked when we receive a frame so we can iterate through the defined
-        callbacks for this frame
+        Returns a bool if we're currently blocking in Flow
         """
-        logging.debug("%s._process_callbacks: %s" % (self.__class__.__name__,
-                                                     frame.method.NAME))
-
-        # Process callbacks that don't get removed
-        if frame.method.__class__ in self._callbacks:
-            for callback in self._callbacks[frame.method.__class__]:
-                logging.debug("%s._process_callbacks Calling: %s" % \
-                              (self.__class__.__name__, callback))
-                callback(frame)
-
-        # Process one shot callbacks
-        if frame.method.__class__ in self._one_shot:
-            while self._one_shot[frame.method.__class__]:
-                callback = self._one_shot[frame.method.__class__].pop(0)
-                logging.debug("%s._process_callbacks Calling: %s" % \
-                              (self.__class__.__name__, callback))
-                # One-shot callbacks don't get the frame since they shouldn't
-                # Know how to decode them
-                callback()
-
-    def add_flow_change_handler(self, handler, key=None):
-        """
-        Add a callback for when the state of the channel flow changes
-        """
-        self.flow_active_change_event.add_handler(handler, key)
-        handler(self, self.flow_active)
-
-    def add_state_change_handler(self, handler, key=None):
-        """
-        Add a callback for when the state of the channel changes between open
-        and closed
-        """
-        self.channel_state_change_event.add_handler(handler, key)
-        handler(self, not self.closed)
+        return not self.flow_active
 
     def deliver(self, frame):
         """
@@ -168,12 +114,6 @@ class ChannelTransport(object):
         call our callback stack to figure out what to do.
         """
         self.frame_handler.process(frame)
-
-    def _blocked_on_flow_control(self):
-        """
-        Returns a bool if we're currently blocking in Flow
-        """
-        return not self.flow_active
 
     def _ensure(self):
         """
@@ -192,28 +132,12 @@ class ChannelTransport(object):
         """
         logging.debug("%s._on_channel_flow: %r" % (self.__class__.__name__,
                                                    frame))
+
         self.flow_active = frame.method.active
-        self.flow_active_change_event.fire(self, self.flow_active)
-        self.send_method(spec.Channel.FlowOk(active=self.flow_active))
 
-    def on_close(self):
-        """
-        Called by the Channel._on_close_ok function, this will fire the event
-        and remove the channel from the connection
-        """
-        if not self.closed:
-            self.closed = True
-            self.connection.remove_channel(self.channel_number)
-            self.channel_state_change_event.fire(self, False)
-
-    def open(self, callback):
-        """
-        Open our channel via the connection RPC command
-        """
-        self.connection.rpc(callback,
-                            self.channel_number,
-                            spec.Channel.Open(),
-                            [spec.Channel.OpenOk])
+        # Process our flow state change callbacks
+        self.callbacks.process(self.channel_number, 'flow_change',
+                               frame.method.active)
 
     def _has_content(self, method):
         """
@@ -245,30 +169,31 @@ class ChannelTransport(object):
             logging.debug('%s: %s is blocking this channel' % \
                           (self.__class__.__name__, self.blocking))
 
-            self.blocking.append([callback, method, acceptable_replies])
+            self._blocked.append([callback, method, acceptable_replies])
             return
 
         # If this is a synchronous method, block connections until we're done
-        if method in spec.SYNCHRONOUS_METHODS:
+        if method.NAME in spec.SYNCHRONOUS_METHODS:
             logging.debug('%s: %s turning on blocking' % \
-                          (self.__class__.__name__, method))
-            self.blocking = method
+                          (self.__class__.__name__, method.NAME))
 
-            # Let's hold the callback so we can make it from
-            # _on_synchronous_complete
-            self.blocking_callback = callback
+            self.blocking = method.NAME
 
-            # Override the callback
-            callback = self._on_synchronous_complete
+        for reply in acceptable_replies:
+            self.callbacks.add(self.channel_number, reply,
+                               self._on_synchronous_complete)
+            self.callbacks.add(self.channel_number, reply,
+                               callback)
 
-        self.connection.rpc(callback, self.channel_number,
-                            method, acceptable_replies)
+        self.send_method(method)
 
     def send_method(self, method, content=None):
         """
         Shortcut wrapper to send a method through our connection, passing in
         our channel number
         """
+        logging.debug("%s.send_method: %s(%s)" % (self.__class__.__name__,
+                                                  method, content))
         self.connection.send_method(self.channel_number, method, content)
 
     def _on_event_ok(self, frame):
@@ -279,9 +204,6 @@ class ChannelTransport(object):
         """
         logging.debug("%s._on_event_ok: %r" % (self.__class__.__name__,
                                               frame.method.NAME))
-
-        # Process callbacks
-        self._process_callbacks(frame)
 
         # If we've not implemented this frame, raise an exception
         if frame.method.NAME in NOT_IMPLEMENTED:
@@ -298,14 +220,6 @@ class ChannelTransport(object):
 
         # Release the lock
         self.blocking = None
-
-        # Call the original callback then remove the reference
-        if self.blocking_callback:
-            self.blocking_callback(frame)
-            self.blocking_callback = None
-
-        # Process callbacks
-        self._process_callbacks(frame)
 
         # Get the list, then empty it so we can spin through all the blocked
         # Calls, blocking again in the class level list
@@ -324,7 +238,7 @@ class ChannelTransport(object):
 
 class Channel(spec.DriverMixin):
 
-    def __init__(self, connection, channel_number):
+    def __init__(self, connection, channel_number, on_open_callback):
         """
         Initialize the Channel and Transport, opening the channel with the
         Server connection is passed down from our invoker and
@@ -338,35 +252,60 @@ class Channel(spec.DriverMixin):
         # Get the handle to our handler
         self.transport = ChannelTransport(connection, channel_number)
 
+        # Channel Number
+        self.channel_number = channel_number
+
         # Assign our connection we communicate with
         self.connection = connection
 
+        # Get the callback manager
+        self.callbacks = callback.CallbackManager.instance()
+
+        # Our on_open_callback, special case
+        self._on_open_callback = on_open_callback
+
         # Reason for closing channels
-        self.close_code = None
-        self.close_text = None
-        self.closing = False
+        self.closing = None
 
         # For event based processing
         self._consumers = {}
         self._pending = {}
 
         # Add a callback for Basic.Deliver
-        self.transport.add_callback(self._on_basic_deliver,
-                                    [spec.Basic.Deliver],
-                                    False)
+        self.callbacks.add(self.channel_number,
+                           '_on_basic_deliver',
+                           self._on_basic_deliver,
+                           False,
+                           pika.frame.FrameHandler)
 
-        # Create our event callback handlers for our state
-        self.state_change_event = event.Event()
+        # Add the callback for our Channel.OpenOk to call our on_open_callback
+        self.callbacks.add(self.channel_number,
+                           spec.Channel.OpenOk,
+                           self._open)
 
         # Open our channel
-        self.transport.open(self._on_open_ok)
+        self.transport.send_method(spec.Channel.Open())
 
-    def add_state_change_handler(self, handler, key=None):
+    def add_callback(self, callback, acceptable_replies):
         """
-        Add a callback for when the state of the channel changes between open
-        and closed
+        Our DriverMixin will call this to add items to the callback stack
         """
-        self.state_change_event.add_handler(handler, key)
+        for reply in acceptable_replies:
+            self.callbacks.add(self.channel_number, reply, callback)
+
+    def add_on_close_callback(self, callback):
+        """
+        Add a close callback to the stack that will be called when we have
+        successfully closed the channel
+        """
+        self.callbacks.add(self.channel_number, spec.Channel.CloseOk, callback)
+
+    def add_flow_change_callback(self, callback):
+        """
+        Pass in a callback that will be called with a boolean flag which
+        indicates if the channel flow is active or not
+        """
+        self.callbacks.add(self.channel_number, 'flow_change', callback)
 
     def close(self, code=0, text="Normal Shutdown"):
         """
@@ -375,9 +314,8 @@ class Channel(spec.DriverMixin):
         logging.debug("%s.close: (%s) %s" % (self.__class__.__name__,
                                              str(code), text))
 
-        self.close_code = code
-        self.close_text = text
-        self.closing = True
+        # Set our closing code and text
+        self.closing = code, text
 
         # Send our basic cancel for all of our consumers
         for consumer_tag in self._consumers:
@@ -393,10 +331,14 @@ class Channel(spec.DriverMixin):
         Channel.close and Channel._on_cancel_ok
         """
         logging.debug("%s._close" % self.__class__.__name__)
-        self.transport.rpc(self._on_close_ok,
-                           spec.Channel.Close(self.close_code,
-                                              self.close_text, 0, 0),
-                           [spec.Channel.CloseOk])
+        self.transport.send_method(spec.Channel.Close(self.closing[0],
+                                                      self.closing[1],
+                                                      0, 0))
+
+    def _open(self, frame):
+        logging.debug("%s._open: %r" % (self.__class__.__name__, frame))
+        # Call our on open callback
+        self._on_open_callback(self)
 
     def basic_cancel(self, consumer_tag, callback=None):
         """
@@ -408,10 +350,10 @@ class Channel(spec.DriverMixin):
         if consumer_tag not in self._consumers:
             return
 
-        # Add our CPS style callback
         if callback:
-            self.transport.add_callback(callback,
-                                        [spec.Basic.CancelOk])
+            self.callbacks.add(self.channel_number,
+                               spec.Basic.CancelOk,
+                               callback)
 
         # Send a Basic.Cancel RPC call to close the Basic.Consume
         self.transport.rpc(self._on_cancel_ok,
@@ -533,31 +475,3 @@ class Channel(spec.DriverMixin):
         # If we're closing and dont have any consumers left, close
         if self.closing and not len(self._consumers):
             self._close()
-
-    def _on_close_ok(self, frame):
-        """
-        Called in response to a frame from the Broker when we
-        call Channel.Close
-        """
-        logging.debug("%s._on_event_ok: %r" % (self.__class__.__name__,
-                                              frame.method.NAME))
-
-        # Let our transport know we're closed and it'll deal with the rest
-        self.transport.on_close()
-
-        # Let those who registered for our state change know it's happened
-        self.state_change_event.fire(self, False)
-
-    def _on_open_ok(self, frame):
-        """
-        Called in response to a frame from the broker when we call Channel.Open
-        """
-        logging.debug("%s._on_open_ok: %r" % (self.__class__.__name__,
-                                              frame.method.NAME))
-
-        # Let our transport know we're open
-        self.transport.closed = False
-        self.transport.channel_state_change_event.fire(self, True)
-
-        # Let those who registered for our state change know it's happened
-        self.state_change_event.fire(self, True)

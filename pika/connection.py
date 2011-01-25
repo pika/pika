@@ -48,11 +48,12 @@
 
 import logging
 
-import pika.spec as spec
-import pika.codec as codec
+import pika.callback as callback
 import pika.channel as channel
+import pika.codec as codec
 import pika.simplebuffer as simplebuffer
-import pika.event as event
+import pika.spec as spec
+
 from pika.specbase import _codec_repr
 from pika.exceptions import *
 
@@ -114,8 +115,8 @@ class Connection(object):
         def erase_credentials(self)
 
     """
-
-    def __init__(self, parameters, callback, reconnection_strategy=None):
+    def __init__(self, parameters, on_open_callback,
+                 reconnection_strategy=None):
         """
         Connection initialization expects a ConnectionParameters object and
         a callback function to notify when we have successfully connected
@@ -128,27 +129,88 @@ class Connection(object):
             reconnection_strategy = NullReconnectionStrategy()
 
         # Define our callback dictionary
-        self._callbacks = dict()
-
-        # Define our state callbacks
-        self._state_callbacks = dict()
+        self.callbacks = callback.CallbackManager.instance()
 
         # On connection callback
-        if callback:
-            self._state_callbacks['connection'] = callback
+        if on_open_callback:
+            self.add_on_open_callback(on_open_callback)
 
         # Set our configuration options
         self.parameters = parameters
         self.reconnection_strategy = reconnection_strategy
 
-        # Event handler for callbacks on connection state change
-        self.connection_state_change_event = event.Event()
+        # Add our callback for if we close by being disconnected
+        self.add_on_close_callback(reconnection_strategy.on_connection_closed)
 
         # Set all of our default connection state values
         self._init_connection_state()
 
         # Connect to the AMQP Broker
         self._connect()
+
+    def add_on_close_callback(self, callback):
+        """
+        Add a callback notification when the connection has closed
+        """
+        logging.debug('%s._add_on_close_callback: %s' % \
+                      (self.__class__.__name__, callback))
+
+        self.callbacks.add(0, '_on_connection_closed', callback, False)
+
+    def add_on_open_callback(self, callback):
+        """
+        Add a callback notification when the connection has closed
+        """
+        logging.debug('%s._add_on_open_callback: %s' % \
+                      (self.__class__.__name__, callback))
+
+        self.callbacks.add(0, '_on_connection_open', callback, False)
+
+    def add_timeout(self, delay_sec, callback):
+        """
+        Adapters should override to call the callback after the
+        specified number of seconds have elapsed, using a timer, or a
+        thread, or similar.
+        """
+        raise NotImplementedError('%s needs to implement this function ' \
+                                  % self.__class__.__name__)
+
+    def is_open(self):
+        """
+        Returns a boolean reporting the current connection state
+        """
+        return self.open and (not self.closing and not self.closed)
+
+    def _init_connection_state(self):
+        """
+        Initialize or reset all of our internal state variables for a given
+        connection. If we disconnect and reconnect, all of our state needs to
+        be wiped
+        """
+        logging.debug('%s._init_connection_state' % self.__class__.__name__)
+
+        # Inbound and outbound buffers
+        self.buffer = simplebuffer.SimpleBuffer()
+        self.outbound_buffer = simplebuffer.SimpleBuffer()
+
+        # Connection state, server properties and channels all change on
+        # each connection
+        self.state = codec.ConnectionState()
+        self.server_properties = None
+        self._channels = {}
+
+        # Data used for Heartbeat checking
+        self.bytes_sent = 0
+        self.bytes_received = 0
+        self.heartbeat = None
+
+        # AMQP Lifecycle States
+        self.closed = True
+        self.closing = False
+        self.open = False
+
+        # Our starting point once connected, first frame received
+        self.callbacks.add(0, spec.Connection.Start, self._on_connection_start)
 
     def _local_protocol_header(self):
         """
@@ -159,37 +221,13 @@ class Connection(object):
                                          spec.PROTOCOL_VERSION[0],
                                          spec.PROTOCOL_VERSION[1])
 
-    def add_state_change_handler(self, handler, key=None):
+    def connect(self, host, port):
         """
-        This method allows you to add a custom event
-        handler that will be fired when the connection state changes.
+        Subclasses should override to set up the outbound
+        socket.
         """
-        logging.debug('%s.add_state_change_handler: %s' % \
-                      (self.__class__.__name__, str(handler)))
-
-        self.connection_state_change_event.add_handler(handler, key)
-
-    def remove_state_change_handler(self, key):
-        """
-        Remove a custom connection state change event handler.
-        """
-        logging.debug('%s.remove_state_change_handler' % \
-                      self.__class__.__name__)
-
-        self.connection_state_change_event.del_handler(key)
-
-    # Connection opening related functionality
-
-    def combine_tuning(self, a, b):
-        """
-        Pass in two values, if a is 0, return b otherwise if b is 0, return a.
-        If neither case matches return the smallest value.
-        """
-        if not a:
-            return b
-        elif not b:
-            return a
-        return min(a, b)
+        raise NotImplementedError('%s needs to implement this function ' \
+                                  % self.__class__.__name__)
 
     def _connect(self):
         """
@@ -209,49 +247,45 @@ class Connection(object):
                      self.parameters.port or  spec.PORT)
         self._send_frame(self._local_protocol_header())
 
-    def _init_connection_state(self):
+    def disconnect(self):
         """
-        Initialize or reset all of our internal state variables for a given
-        connection. If we disconnect and reconnect, all of our state needs to
-        be wiped
+        Subclasses should override this to cause the underlying
+        transport (socket) to close.
         """
-        logging.debug('%s._init_connection_state' % self.__class__.__name__)
+        raise NotImplementedError('%s needs to implement this function ' \
+                                  % self.__class__.__name__)
 
-        # Inbound and outbound buffers
-        self.buffer = simplebuffer.SimpleBuffer()
-        self.outbound_buffer = simplebuffer.SimpleBuffer()
-
-        # Server state and channels
-        self.state = codec.ConnectionState()
-        self.server_properties = None
-        self._channels = {}
-
-        # Data used for Heartbeat checking
-        self.bytes_sent = 0
-        self.bytes_received = 0
-        self.heartbeat = None
-
-        # AMQP Lifecycle States
-        self.closed = True
-        self.closing = False
-        self.open = False
-
-        # Close code and text for async shutdown behaviors
-        # @todo Previously this used the Close frame, re-investigate that
-        self.close_code = None
-        self.close_text = None
-
-        # Our starting point once connected, first frame received
-        self._add_callback(self._on_connection_start, 0,
-                           [spec.Connection.Start])
-
-    def is_open(self):
+    def reconnect(self):
         """
-        Returns a boolean reporting the current connection state
+        Called by the Reconnection Strategy classes or Adapters to disconnect
+        and reconnect to the broker
         """
-        return self.open and (not self.closing and not self.closed)
+        logging.debug('%s.reconnect' % self.__class__.__name__)
 
-    def on_connected(self):
+        # We're already closing but it may not be from reconnect, so first
+        # Add a callback that won't be duplicated
+        if self.closing:
+            self.add_on_close_callback(self._reconnect)
+            return
+
+        # If we're open, we want to close normally if we can, then actually
+        # reconnect via callback that can't be added more than once
+        if self.open:
+            self.add_on_close_callback(self._reconnect)
+            self._ensure_closed()
+            return
+
+        # We're not closing and we're not open, so reconnect
+        self._reconnect()
+
+    def _reconnect(self):
+        """
+        Actually do the reconnecting
+        """
+        self._init_connection_state()
+        self._connect()
+
+    def _on_connected(self):
         """
         This is called by our connection Adapter to let us know that we've
         connected and we can notify our connection strategy
@@ -268,19 +302,17 @@ class Connection(object):
         Connection.Ok.
         """
         logging.debug('%s._on_connection_open' % self.__class__.__name__)
+
         self.known_hosts = frame.method.known_hosts
 
         # Add a callback handler for the Broker telling us to disconnect
-        self._add_callback(self.on_remote_close, 0, [spec.Connection.Close])
+        self.callbacks.add(0, spec.Connection.Close, self._on_remote_close)
 
         # We're now connected at the AMQP level
         self.open = True
 
         # Call our initial callback that we're open
-        self._state_callbacks['connection'](self)
-
-        # Call our custom state change event callbacks
-        self.connection_state_change_event.fire(self, True)
+        self.callbacks.process(0, '_on_connection_open', self, self)
 
     def _on_connection_start(self, frame):
         """
@@ -292,27 +324,63 @@ class Connection(object):
         # We're now connected to the broker
         self.closed = False
 
+        # We didn't expect a FrameProtocolHeader, did we get one?
         if isinstance(frame, codec.FrameProtocolHeader):
             raise ProtocolVersionMismatch(self._local_protocol_header(), frame)
 
+        # Make sure that the major and minor version matches our spec version
         if (frame.method.version_major,
             frame.method.version_minor) != spec.PROTOCOL_VERSION:
             raise ProtocolVersionMismatch(self._local_protocol_header(),
                                           frame)
 
+        # Get our server properties for use elsewhere
         self.server_properties = frame.method.server_properties
 
+        # Use the default credentials if the user didn't pass any in
         credentials = self.parameters.credentials or default_credentials
+
+        # Build our StartOk authentication response
         response = credentials.response_for(frame.method)
+
+        # Server asked for credentials for a method we don't support so raise
+        # an exception to let the implementing app know
         if not response:
-            raise LoginError("No acceptable %s support for the credentials",
-                             (frame.method, credentials))
-        self.send_method(0, spec.Connection.StartOk(
-                                  client_properties={"product": PRODUCT},
-                                  mechanism=response[0],
-                                  response=response[1]))
+            raise LoginError("No %s support for the credentials" %\
+                             self.parameters.credentials.TYPE)
+
+        # Erase our credentials if we don't want to retain them in the state
+        # of the connection. By default this is a noop function but adapters
+        # may override this
         self.erase_credentials()
-        self._add_callback(self._on_connection_tune, 0, [spec.Connection.Tune])
+
+        # Add our callback for our Connection Tune event
+        self.callbacks.add(0, spec.Connection.Tune, self._on_connection_tune)
+
+        # Send our Connection.StartOk
+        method = spec.Connection.StartOk(client_properties={"product":
+                                                            PRODUCT},
+                                        mechanism=response[0],
+                                        response=response[1])
+        self.send_method(0, method)
+
+    def erase_credentials(self):
+        """
+        Override if in some context you need the object to forget
+        its login credentials after successfully opening a connection.
+        """
+        pass
+
+    def _combine(self, a, b):
+        """
+        Pass in two values, if a is 0, return b otherwise if b is 0, return a.
+        If neither case matches return the smallest value.
+        """
+        if not a:
+            return b
+        elif not b:
+            return a
+        return min(a, b)
 
     def _on_connection_tune(self, frame):
         """
@@ -322,37 +390,29 @@ class Connection(object):
         call on channel 0
         """
         logging.debug('%s._on_connection_tune' % self.__class__.__name__)
-        channel_max = self.combine_tuning(self.parameters.channel_max,
-                                          frame.method.channel_max)
-        frame_max = self.combine_tuning(self.parameters.frame_max,
-                                        frame.method.frame_max)
-        heartbeat_interval = self.combine_tuning(self.parameters.heartbeat,
-                                                 frame.method.heartbeat)
-        if heartbeat_interval:
-            self.heartbeat = HeartbeatChecker(self, heartbeat_interval)
+        cmax = self._combine(self.parameters.channel_max,
+                             frame.method.channel_max)
+        fmax = self._combine(self.parameters.frame_max,
+                             frame.method.frame_max)
+        hint = self._combine(self.parameters.heartbeat,
+                             frame.method.heartbeat)
 
-        self.state.tune(channel_max, frame_max)
-        self.send_method(0,
-                         spec.Connection.TuneOk(channel_max=channel_max,
-                                                frame_max=frame_max,
-                                                heartbeat=heartbeat_interval))
-        self.rpc(self._on_connection_open, 0,
-                  spec.Connection.Open( \
-                          virtual_host=self.parameters.virtual_host,
-                          insist=True),
-                  [spec.Connection.OpenOk])
+        # If we have a heartbeat interval, create a heartbeat checker
+        if hint:
+            self.heartbeat = HeartbeatChecker(self, hint)
 
-    def reconnect(self):
-        """
-        Called by the Reconnection Strategy classes or Adapters to disconnect
-        and reconnect to the broker
-        """
-        logging.debug('%s.reconnect' % self.__class__.__name__)
-        self._ensure_closed()
-        self._init_connection_state()
-        self._connect()
+        # Update our connection state with our tuned values
+        self.state.tune(cmax, fmax)
 
-    # Functions related to closing a connection
+        # Send the TuneOk response with what we've agreed upon
+        self.send_method(0, spec.Connection.TuneOk(channel_max=cmax,
+                                                   frame_max=fmax,
+                                                   heartbeat=hint))
+
+        # Send the Connection.Open RPC call for the vhost
+        cmd = spec.Connection.Open(virtual_host=self.parameters.virtual_host,
+                                   insist=True)
+        self.rpc(self._on_connection_open, 0, cmd, [spec.Connection.OpenOk])
 
     def close(self, code=200, text='Normal shutdown'):
         """
@@ -367,12 +427,12 @@ class Connection(object):
                             self.__class__.__name__)
             return
 
-        self.closing = True
-        self.close_code = code
-        self.close_text = text
+        # Carry our code and text around with us
+        self.closing = code, text
 
-        # Use the Null Reconnection Strategy when closing
-        self.reconnection_strategy = NullReconnectionStrategy()
+        # Remove the reconnection strategy callback for when we close
+        self.callbacks.remove(0, '_on_connection_close',
+                              self.reconnection_strategy.on_connection_closed)
 
         # If we're not already closed
         for channel_number in self._channels.keys():
@@ -380,9 +440,9 @@ class Connection(object):
 
         # If we already dont have any channels, close out
         if not len(self._channels):
-            self.on_close_ready()
+            self._on_close_ready()
 
-    def on_close_ready(self):
+    def _on_close_ready(self):
         """
         On a clean shutdown we'll call this once all of our channels are closed
         Let the Broker know we want to close
@@ -390,35 +450,34 @@ class Connection(object):
         logging.info('%s._on_close_ready' % self.__class__.__name__)
 
         if self.closed:
-            logging.warn("%s.on_close_ready invoked while closing or closed" %\
+            logging.warn("%s.on_close_ready invoked while closed" %\
                          self.__class__.__name__)
             return
 
-        self.rpc(self._on_close_ok, 0,
-                 spec.Connection.Close(self.close_code, self.close_text, 0, 0),
+        self.rpc(self._on_connection_closed, 0,
+                 spec.Connection.Close(self.closing[0],
+                                       self.closing[1], 0, 0),
                  [spec.Connection.CloseOk])
 
-    def on_channel_close(self, channel_number):
+    def _on_connection_closed(self, frame, from_adapter=False):
         """
-        RPC Response from when a channel closes itself, remove from our stack
+        Let both our RS and Event object know we closed
         """
-        logging.debug('%s._on_channel_close: %i' % (self.__class__.__name__,
-                                                    channel_number))
+        logging.debug('%s._on_close' % self.__class__.__name__)
 
-        if channel_number in self._channels:
-            del(self._channels[channel_number])
+        # Set that we're actually closed
+        self.closed = True
+        self.closing = False
+        self.open = False
 
-        if self.closing and not len(self._channels):
-            self.on_close_ready()
+        # Call any callbacks registered for this
+        self.callbacks.process(0, '_on_connection_closed', self, self)
 
-    def _on_close_ok(self, frame):
-        """
-        This is usually invoked by the Broker as a frame across channel 0
-        """
-        logging.debug('%s._on_close_ok' % self.__class__.__name__)
-        self._handle_connection_close()
+        # Disconnect our transport if it didn't call on_disconnected
+        if not from_adapter:
+            self.disconnect()
 
-    def on_remote_close(self, frame):
+    def _on_remote_close(self, frame):
         """
         We've received a remote close from the server
         """
@@ -436,61 +495,32 @@ class Connection(object):
         if self.is_open() and not self.closing:
             self.close()
 
-    def _handle_connection_close(self):
-        """
-        Let both our RS and Event object know we closed
-        """
-        logging.debug('%s._handle_connection_close' % self.__class__.__name__)
-
-        # Set that we're actually closed
-        self.closed = True
-        self.closing = False
-        self.open = False
-
-        # Let our connection strategy know the connection closed
-        self.reconnection_strategy.on_connection_closed(self)
-
-        # Disconnect our transport
-        self.disconnect()
-
-        # Call our custom state change event callbacks
-        self.connection_state_change_event.fire(self, False)
-
-    def on_disconnected(self, reason='Socket closed'):
-        """
-        This is called by our Adapter to let us know the socket has fully
-        closed
-        """
-        logging.debug('%s.on_disconnected: %s' % (self.__class__.__name__,
-                                                reason))
-        if self.open and not self.closing:
-            self._handle_connection_close()
-
     # Channel related functionality
 
     def channel(self, on_open_callback, channel_number=None):
         """
+        Stub which may be replaced by adapters who wish to enforce blocking
+        behavior in the channel call
+        """
+        self._channel(on_open_callback, channel_number)
+
+    def _channel(self, on_open_callback, channel_number=None):
+        """
         Create a new channel with the next available or specified channel #
         """
+        logging.debug('%s.channel' % self.__class__.__name__)
 
         # If the user didn't specify a channel_number get the next avail
         if not channel_number:
             channel_number = self._next_channel_number()
 
-        # Add the channel open callback
-        self._state_callbacks['channel'] = on_open_callback
-
-        # Add it to our channel dictionary
-        new_channel = channel.Channel(self, channel_number)
-
-        # Add a event change event handler
-        new_channel.add_state_change_handler(self._on_channel_state_event)
+        # Add the channel spec.Channel.CloseOk callback for _on_channel_close
+        self.callbacks.add(channel_number, spec.Channel.CloseOk,
+                           self._on_channel_close)
 
         # Add it to our Channel dictionary
-        self._channels[channel_number] = new_channel
-
-        # Return the handle to the channel
-        return new_channel
+        self._channels[channel_number] = channel.Channel(self, channel_number,
+                                                         on_open_callback)
 
     def _next_channel_number(self):
         """
@@ -513,48 +543,20 @@ class Connection(object):
         # Our next channel is the max key value + 1
         return max(channel_numbers) + 1
 
-    def remove_channel(self, channel_number):
+    def _on_channel_close(self, frame):
         """
-        Remove the channel identified by channel_number from our stack
+        RPC Response from when a channel closes itself, remove from our stack
         """
-        logging.debug('%s.remove_channel: %i' % (self.__class__.__name__,
-                                                 channel_number))
-        if channel_number in self._channels:
-            del self._channels[channel_number]
+        logging.debug('%s._on_channel_close: %s' % (self.__class__.__name__,
+                                                    frame.channel_number))
+
+        if frame.channel_number in self._channels:
+            del(self._channels[frame.channel_number])
 
         if self.closing and not len(self._channels):
-            self.on_close_ready()
+            self._on_close_ready()
 
     # Data packet and frame handling functions
-
-    def _add_callback(self, callback, channel_number, acceptable_replies):
-        """
-        Add a callback of the specific frame type to the rpc_callback stack
-        """
-
-        # If we didn't pass in more than one, make it a list anyway
-        if not isinstance(acceptable_replies, list):
-            raise TypeError("acceptable_replies must be a list.")
-
-        # Add the channel to our callback dictionary if we dont have it already
-        if channel_number not in self._callbacks:
-            self._callbacks[channel_number] = dict()
-
-        # If the frame type isn't in our callback dict, add it
-        for reply in acceptable_replies:
-
-            # Make sure we have an empty dict setup for the reply
-            if reply not in self._callbacks[channel_number]:
-                self._callbacks[channel_number][reply.NAME] = set()
-
-            # Sets will noop a duplicate add, since we're not likely to dupe,
-            # rely on this behavior
-            self._callbacks[channel_number][reply.NAME].add(callback)
-
-    def _on_channel_state_event(self, channel, is_open):
-
-        if is_open:
-            self._state_callbacks['channel'](channel)
 
     def on_data_available(self, data):
         """
@@ -591,19 +593,15 @@ class Connection(object):
                frame.channel_number not in self._channels:
                 self.close(504, "Invalid Channel Returned from Broker")
 
-            # If we've registered this method in our callback stack
+            # If we have a Method Frame and have callbacks for it
             if isinstance(frame, codec.FrameMethod) and \
-               frame.method.NAME in self._callbacks[frame.channel_number]:
+                self.callbacks.pending(frame.channel_number, frame.method):
 
-                # Loop through each callback in our reply_map
-                for callback in \
-                    self._callbacks[frame.channel_number][frame.method.NAME]:
-
-                    # Make the callback
-                    callback(frame)
-
-                # If we processed callbacks remove them
-                del(self._callbacks[frame.channel_number][frame.method.NAME])
+                # Process the callbacks for it
+                self.callbacks.process(frame.channel_number,  # Prefix
+                                       frame.method,          # Key
+                                       self,                  # Caller
+                                       frame)                 # Args
 
             # We don't check for heartbeat frames because we can not count
             # atomic frames reliably due to different message behaviors
@@ -611,7 +609,7 @@ class Connection(object):
             elif isinstance(frame, codec.FrameHeartbeat):
                 continue
 
-            else:
+            elif frame.channel_number > 0:
                 # Call our Channel Handler with the frame
                 self._channels[frame.channel_number].transport.deliver(frame)
 
@@ -624,7 +622,8 @@ class Connection(object):
 
         # If we were passed a callback, add it to our stack
         if callback:
-            self._add_callback(callback, channel_number, acceptable_replies)
+            for reply in acceptable_replies:
+                self.callbacks.add(channel_number, reply, callback)
 
         # Send the rpc call to RabbitMQ
         self.send_method(channel_number, method)
@@ -634,17 +633,30 @@ class Connection(object):
         This appends the fully generated frame to send to the broker to the
         output buffer which will be then sent via the connection adapter
         """
+        logging.debug('%s._send_frame: %r' % (self.__class__.__name__,
+                                              frame))
+
         marshalled_frame = frame.marshal()
         self.bytes_sent += len(marshalled_frame)
         self.outbound_buffer.write(marshalled_frame)
         self.flush_outbound()
-        logging.debug('%s Wrote: %r' % (self.__class__.__name__,
-                                        frame))
+
+    def flush_outbound(self):
+        """
+        Adapters should override to flush the contents of
+        outbound_buffer out along the socket.
+        """
+        raise NotImplementedError('%s needs to implement this function ' \
+                                  % self.__class__.__name__)
 
     def send_method(self, channel_number, method, content=None):
         """
         Constructs a RPC method frame and then sends it to the broker
         """
+        logging.debug('%s.send_method(%i, %s, %s)' % (self.__class__.__name__,
+                                                      channel_number,
+                                                      method,
+                                                      content))
         self._send_frame(codec.FrameMethod(channel_number, method))
 
         if isinstance(content, tuple):
@@ -680,44 +692,3 @@ class Connection(object):
             return FRAME_MAX
 
         return self.state.frame_max
-
-    """
-    In order to implement a connection adapter, you must extend connect,
-    add_timeout, disconnect and flush_outbound.
-    """
-
-    def connect(self, host, port):
-        """
-        Subclasses should override to set up the outbound
-        socket.
-        """
-        raise NotImplementedError('Subclass Responsibility')
-
-    def disconnect(self):
-        """
-        Subclasses should override this to cause the underlying
-        transport (socket) to close.
-        """
-        raise NotImplementedError('Subclass Responsibility')
-
-    def flush_outbound(self):
-        """Subclasses should override to flush the contents of
-        outbound_buffer out along the socket."""
-        raise NotImplementedError('Subclass Responsibility')
-
-    def add_timeout(self, delay_sec, callback):
-        """
-        Subclasses should override to call the callback after the
-        specified number of seconds have elapsed, using a timer, or a
-        thread, or similar.
-        """
-        raise NotImplementedError('Subclass Responsibility')
-
-    def erase_credentials(self):
-        """
-        Override if in some context you need the object to forget
-        its login credentials after successfully opening a connection.
-        """
-        pass
-
-
