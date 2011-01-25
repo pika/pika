@@ -54,12 +54,11 @@ basic_consume instead if at all possible!
 import logging
 import pika
 import sys
-import time
 
 # Import all adapters for easier experimentation
 from pika.adapters import *
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 connection = None
 channel = None
@@ -84,10 +83,12 @@ def on_queue_declared(frame):
     logging.info("demo_get: Queue Declared")
     connection.add_timeout(1, basic_get)
 
+
 def basic_get():
     logging.info("Invoking Basic.Get")
     channel.basic_get(callback=handle_delivery, queue="test")
     connection.add_timeout(1, basic_get)
+
 
 def handle_delivery(channel, method, header, body):
     logging.info("demo_get.handle_delivery")
