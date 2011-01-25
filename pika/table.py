@@ -79,36 +79,41 @@ def encode_table(pieces, table):
         pieces.append(struct.pack('B', len(key)))
         pieces.append(key)
         tablesize = tablesize + 1 + len(key)
-        if isinstance(value, str):
-            pieces.append(struct.pack('>cI', 'S', len(value)))
-            pieces.append(value)
-            tablesize = tablesize + 5 + len(value)
-        elif isinstance(value, int):
-            pieces.append(struct.pack('>ci', 'I', value))
-            tablesize = tablesize + 5
-        elif isinstance(value, long):
-            pieces.append(struct.pack('>cq', 'l', value))
-            tablesize = tablesize + 9
-        elif isinstance(value, decimal.Decimal):
-            value = value.normalize()
-            if value._exp < 0:
-                decimals = -value._exp
-                raw = int(value * (decimal.Decimal(10) ** decimals))
-                pieces.append(struct.pack('>cBi', 'D', decimals, raw))
-            else:
-                # per spec, the "decimals" octet is unsigned (!)
-                pieces.append(struct.pack('>cBi', 'D', 0, int(value)))
-            tablesize = tablesize + 6
-        elif isinstance(value, datetime.datetime):
-            pieces.append(struct.pack('>cQ', 'T', calendar.timegm(value.utctimetuple())))
-            tablesize = tablesize + 9
-        elif isinstance(value, dict):
-            pieces.append(struct.pack('>c', 'F'))
-            tablesize = tablesize + 1 + encode_table(pieces, value)
-        else:
-            raise InvalidTableError("Unsupported field kind during encoding", key, value)
+        tablesize += encode_value(pieces, value)
+
     pieces[length_index] = struct.pack('>I', tablesize)
     return tablesize + 4
+
+def encode_value(pieces, value):
+    if isinstance(value, str):
+        pieces.append(struct.pack('>cI', 'S', len(value)))
+        pieces.append(value)
+        return 5 + len(value)
+    elif isinstance(value, int):
+        pieces.append(struct.pack('>ci', 'I', value))
+        return 5
+    elif isinstance(value, long):
+        pieces.append(struct.pack('>cq', 'l', value))
+        return 9
+    elif isinstance(value, decimal.Decimal):
+        value = value.normalize()
+        if value._exp < 0:
+            decimals = -value._exp
+            raw = int(value * (decimal.Decimal(10) ** decimals))
+            pieces.append(struct.pack('>cBi', 'D', decimals, raw))
+        else:
+            # per spec, the "decimals" octet is unsigned (!)
+            pieces.append(struct.pack('>cBi', 'D', 0, int(value)))
+        return 6
+    elif isinstance(value, datetime.datetime):
+        pieces.append(struct.pack('>cQ', 'T', calendar.timegm(value.utctimetuple())))
+        return 9
+    elif isinstance(value, dict):
+        pieces.append(struct.pack('>c', 'F'))
+        return 1 + encode_table(pieces, value)
+    else:
+        raise InvalidTableError("Unsupported field kind during encoding", key, value)
+
 
 def decode_table(encoded, offset):
     r'''
