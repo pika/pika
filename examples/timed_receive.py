@@ -103,7 +103,6 @@ def handle_delivery(channel, method, header, body):
                      (count, rate))
 
 
-
 if __name__ == '__main__':
 
     host = (len(sys.argv) > 1) and sys.argv[1] or '127.0.0.1'

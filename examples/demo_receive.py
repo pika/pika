@@ -86,9 +86,9 @@ def on_queue_declared(frame):
 
 def handle_delivery(channel, method, header, body):
     logging.info("demo_send.handle_delivery")
-    logging.info("method=%r" % method)
-    logging.info("header=%r" % header)
-    logging.info("  body=%r" % body)
+    logging.info("  method: %r" % method)
+    logging.info("  header: %r" % header)
+    logging.info("    body: %r" % body)
     channel.basic_ack(delivery_tag=method.delivery_tag)
 
 
