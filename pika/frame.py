@@ -144,7 +144,7 @@ class FrameHandler(object):
 
             # Get our method name
             method = method_frame.method.__class__.__name__
-            if method == 'DeliverOk':
+            if method == 'Deliver':
                 key = '_on_basic_deliver'
             elif method == 'GetOk':
                 key = '_on_basic_get'
