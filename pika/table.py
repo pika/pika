@@ -141,34 +141,38 @@ def decode_table(encoded, offset):
         offset = offset + 1
         key = encoded[offset : offset + keylen]
         offset = offset + keylen
-        kind = encoded[offset]
-        offset = offset + 1
-        if kind == 'S':
-            length = struct.unpack_from('>I', encoded, offset)[0]
-            offset = offset + 4
-            value = encoded[offset : offset + length]
-            offset = offset + length
-        elif kind == 'I':
-            value = struct.unpack_from('>i', encoded, offset)[0]
-            offset = offset + 4
-        elif kind == 'l':
-            value = struct.unpack_from('>q', encoded, offset)[0]
-            offset = offset + 8
-        elif kind == 'D':
-            decimals = struct.unpack_from('B', encoded, offset)[0]
-            offset = offset + 1
-            raw = struct.unpack_from('>i', encoded, offset)[0]
-            offset = offset + 4
-            value = decimal.Decimal(raw) * (decimal.Decimal(10) ** -decimals)
-        elif kind == 'T':
-            value = datetime.datetime.utcfromtimestamp(struct.unpack_from('>Q', encoded, offset)[0])
-            offset = offset + 8
-        elif kind == 'F':
-            (value, offset) = decode_table(encoded, offset)
-        else:
-            raise InvalidTableError("Unsupported field kind %s during decoding" % (kind,))
+        value, offset = decode_value(encoded, offset)
         result[key] = value
     return (result, offset)
+
+def decode_value(encoded, offset):
+    kind = encoded[offset]
+    offset = offset + 1
+    if kind == 'S':
+        length = struct.unpack_from('>I', encoded, offset)[0]
+        offset = offset + 4
+        value = encoded[offset : offset + length]
+        offset = offset + length
+    elif kind == 'I':
+        value = struct.unpack_from('>i', encoded, offset)[0]
+        offset = offset + 4
+    elif kind == 'l':
+        value = struct.unpack_from('>q', encoded, offset)[0]
+        offset = offset + 8
+    elif kind == 'D':
+        decimals = struct.unpack_from('B', encoded, offset)[0]
+        offset = offset + 1
+        raw = struct.unpack_from('>i', encoded, offset)[0]
+        offset = offset + 4
+        value = decimal.Decimal(raw) * (decimal.Decimal(10) ** -decimals)
+    elif kind == 'T':
+        value = datetime.datetime.utcfromtimestamp(struct.unpack_from('>Q', encoded, offset)[0])
+        offset = offset + 8
+    elif kind == 'F':
+        (value, offset) = decode_table(encoded, offset)
+    else:
+        raise InvalidTableError("Unsupported field kind %s during decoding" % (kind,))
+    return value, offset
 
 
 if __name__ == "__main__":
