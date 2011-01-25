@@ -84,7 +84,7 @@ def encode_table(pieces, table):
             pieces.append(value)
             tablesize = tablesize + 5 + len(value)
         elif isinstance(value, int):
-            pieces.append(struct.pack('>cI', 'I', value))
+            pieces.append(struct.pack('>ci', 'I', value))
             tablesize = tablesize + 5
         elif isinstance(value, long):
             pieces.append(struct.pack('>cq', 'l', value))
@@ -118,8 +118,8 @@ def decode_table(encoded, offset):
     {}
     >>> test_reencode({'a': 1})
     {'a': 1}
-    >>> test_reencode({'a':1, 'c':True, 'd':'x', 'e':{}})
-    {'a': 1, 'c': 1, 'e': {}, 'd': 'x'}
+    >>> test_reencode({'a':1, 'c':True, 'd':'x', 'e':{}, 'f': -1})
+    {'a': 1, 'c': 1, 'e': {}, 'd': 'x', 'f': -1}
     >>> test_reencode({'a':datetime.datetime(2010,12,31,23,58,59)})
     {'a': datetime.datetime(2010, 12, 31, 23, 58, 59)}
     >>> test_reencode({'a': 0x7EADBEEFDEADBEEFL, 'b': -0x7EADBEEFDEADBEEFL})
@@ -142,7 +142,7 @@ def decode_table(encoded, offset):
             value = encoded[offset : offset + length]
             offset = offset + length
         elif kind == 'I':
-            value = struct.unpack_from('>I', encoded, offset)[0]
+            value = struct.unpack_from('>i', encoded, offset)[0]
             offset = offset + 4
         elif kind == 'l':
             value = struct.unpack_from('>q', encoded, offset)[0]
