@@ -62,13 +62,13 @@ def encode_table(pieces, table):
     >>> test_encode({'a':1, 'c':True, 'd':'x', 'e':{}})
     '\x00\x00\x00\x1d\x01aI\x00\x00\x00\x01\x01cI\x00\x00\x00\x01\x01eF\x00\x00\x00\x00\x01dS\x00\x00\x00\x01x'
     >>> test_encode({'a':decimal.Decimal('1.0')})
-    '\x00\x00\x00\x07\x01aD\x00\x00\x00\x00\x01'
+    '\x00\x00\x00\x08\x01aD\x00\x00\x00\x00\x01'
     >>> test_encode({'a':decimal.Decimal('5E-3')})
-    '\x00\x00\x00\x07\x01aD\x03\x00\x00\x00\x05'
+    '\x00\x00\x00\x08\x01aD\x03\x00\x00\x00\x05'
     >>> test_encode({'a':datetime.datetime(2010,12,31,23,58,59)})
     '\x00\x00\x00\x0b\x01aT\x00\x00\x00\x00M\x1enC'
     >>> test_encode({'test':decimal.Decimal('-0.01')})
-    '\x00\x00\x00\n\x04testD\x02\xff\xff\xff\xff'
+    '\x00\x00\x00\x0b\x04testD\x02\xff\xff\xff\xff'
     '''
     if table is None:
         table = {}
@@ -98,7 +98,7 @@ def encode_table(pieces, table):
             else:
                 # per spec, the "decimals" octet is unsigned (!)
                 pieces.append(struct.pack('>cBi', 'D', 0, int(value)))
-            tablesize = tablesize + 5
+            tablesize = tablesize + 6
         elif isinstance(value, datetime.datetime):
             pieces.append(struct.pack('>cQ', 'T', calendar.timegm(value.utctimetuple())))
             tablesize = tablesize + 9
@@ -124,6 +124,8 @@ def decode_table(encoded, offset):
     {'a': datetime.datetime(2010, 12, 31, 23, 58, 59)}
     >>> test_reencode({'a': 0x7EADBEEFDEADBEEFL, 'b': -0x7EADBEEFDEADBEEFL})
     {'a': 9128161957192253167, 'b': -9128161957192253167}
+    >>> test_reencode({'a': 1, 'b':decimal.Decimal('-1.234'), 'g': -1})
+    {'a': 1, 'b': Decimal('-1.234'), 'g': -1}
     '''
     result = {}
     tablesize = struct.unpack_from('>I', encoded, offset)[0]
@@ -169,7 +171,7 @@ if __name__ == "__main__":
         p=[]
         n = encode_table(p, v)
         r = ''.join(p)
-        #assert len(r) == n
+        assert len(r) == n
         return r
 
     def test_reencode(i):
