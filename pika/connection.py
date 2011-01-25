@@ -499,13 +499,6 @@ class Connection(object):
 
     def channel(self, on_open_callback, channel_number=None):
         """
-        Stub which may be replaced by adapters who wish to enforce blocking
-        behavior in the channel call
-        """
-        self._channel(on_open_callback, channel_number)
-
-    def _channel(self, on_open_callback, channel_number=None):
-        """
         Create a new channel with the next available or specified channel #
         """
         logging.debug('%s.channel' % self.__class__.__name__)
