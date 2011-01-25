@@ -58,7 +58,7 @@ import pika
 # Import all adapters for easier experimentation
 from pika.adapters import *
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 connection = None
 channel = None
