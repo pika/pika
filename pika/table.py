@@ -69,6 +69,9 @@ def encode_table(pieces, table):
     '\x00\x00\x00\x0b\x01aT\x00\x00\x00\x00M\x1enC'
     >>> test_encode({'test':decimal.Decimal('-0.01')})
     '\x00\x00\x00\x0b\x04testD\x02\xff\xff\xff\xff'
+    >>> test_encode({'a':-1, 'b':[1,2,3,4,-1],'g':-1})
+    '\x00\x00\x00.\x01aI\xff\xff\xff\xff\x01bA\x00\x00\x00\x19I\x00\x00\x00\x01I\x00\x00\x00\x02I\x00\x00\x00\x03I\x00\x00\x00\x04I\xff\xff\xff\xff\x01gI\xff\xff\xff\xff'
+
     '''
     if table is None:
         table = {}
@@ -111,6 +114,14 @@ def encode_value(pieces, value):
     elif isinstance(value, dict):
         pieces.append(struct.pack('>c', 'F'))
         return 1 + encode_table(pieces, value)
+    elif isinstance(value, list):
+        p = []
+        for v in value:
+            encode_value(p, v)
+        piece = ''.join(p)
+        pieces.append(struct.pack('>cI', 'A', len(piece)))
+        pieces.append(piece)
+        return 5 + len(piece)
     else:
         raise InvalidTableError("Unsupported field kind during encoding", key, value)
 
@@ -131,6 +142,8 @@ def decode_table(encoded, offset):
     {'a': 9128161957192253167, 'b': -9128161957192253167}
     >>> test_reencode({'a': 1, 'b':decimal.Decimal('-1.234'), 'g': -1})
     {'a': 1, 'b': Decimal('-1.234'), 'g': -1}
+    >>> test_reencode({'a':[1,2,3,'a',decimal.Decimal('-0.01'),5]})
+    {'a': [1, 2, 3, 'a', Decimal('-0.01'), 5]}
     '''
     result = {}
     tablesize = struct.unpack_from('>I', encoded, offset)[0]
@@ -170,6 +183,14 @@ def decode_value(encoded, offset):
         offset = offset + 8
     elif kind == 'F':
         (value, offset) = decode_table(encoded, offset)
+    elif kind == 'A':
+        length = struct.unpack_from('>I', encoded, offset)[0]
+        offset = offset + 4
+        offset_end = offset + length
+        value = []
+        while offset < offset_end:
+            v, offset = decode_value(encoded, offset)
+            value.append(v)
     else:
         raise InvalidTableError("Unsupported field kind %s during decoding" % (kind,))
     return value, offset
