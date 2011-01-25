@@ -91,6 +91,7 @@ def basic_get():
 
 
 def handle_delivery(channel, method, header, body):
+
     logging.info("demo_get.handle_delivery")
     logging.info("method=%r" % method)
     logging.info("header=%r" % header)
