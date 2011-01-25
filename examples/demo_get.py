@@ -51,32 +51,63 @@
 Example of the use of basic_get. NOT RECOMMENDED - use
 basic_consume instead if at all possible!
 '''
-
-import sys
+import logging
 import pika
-import asyncore
+import sys
 import time
 
-conn = pika.AsyncoreConnection(pika.ConnectionParameters(
-        (len(sys.argv) > 1) and sys.argv[1] or '127.0.0.1',
-        credentials = pika.PlainCredentials('guest', 'guest')))
+# Import all adapters for easier experimentation
+from pika.adapters import *
 
-print 'Connected to %r' % (conn.server_properties,)
+logging.basicConfig(level=logging.DEBUG)
 
-qname = (len(sys.argv) > 2) and sys.argv[2] or 'test'
+connection = None
+channel = None
 
-ch = conn.channel()
-ch.queue_declare(queue=qname, durable=True, exclusive=False, auto_delete=False)
 
-while conn.is_alive():
-    result = ch.basic_get(queue = qname)
-    print result
-    if isinstance(result, pika.spec.Basic.GetEmpty):
-        pass
-    elif isinstance(result, pika.spec.Basic.GetOk):
-        ch.basic_ack(delivery_tag = result.delivery_tag)
-    else:
-        raise Exception("Hmm, that's unexpected. basic_get should have returned either "
-                        "Basic.GetOk or Basic.GetEmpty",
-                        result)
-    time.sleep(1)
+def on_connected(connection):
+    global channel
+    logging.info("demo_get: Connected to RabbitMQ")
+    connection.channel(on_channel_open)
+
+
+def on_channel_open(channel_):
+    global channel
+    logging.info("demo_get: Received our Channel")
+    channel = channel_
+    channel.queue_declare(queue="test", durable=True,
+                          exclusive=False, auto_delete=False,
+                          callback=on_queue_declared)
+
+
+def on_queue_declared(frame):
+    logging.info("demo_get: Queue Declared")
+    connection.add_timeout(1, basic_get)
+
+def basic_get():
+    logging.info("Invoking Basic.Get")
+    channel.basic_get(callback=handle_delivery, queue="test")
+    connection.add_timeout(1, basic_get)
+
+def handle_delivery(channel, method, header, body):
+    logging.info("demo_get.handle_delivery")
+    logging.info("method=%r" % method)
+    logging.info("header=%r" % header)
+    logging.info("  body=%r" % body)
+    channel.basic_ack(delivery_tag=method.delivery_tag)
+
+
+if __name__ == '__main__':
+
+    host = (len(sys.argv) > 1) and sys.argv[1] or '127.0.0.1'
+    parameters = pika.ConnectionParameters(host)
+
+    strategy = pika.reconnection_strategies.SimpleReconnectionStrategy()
+
+    connection = SelectConnection(parameters, on_connected,
+                                  reconnection_strategy=strategy)
+    try:
+        connection.ioloop.start()
+    except KeyboardInterrupt:
+        connection.close()
+        connection.ioloop.start()
