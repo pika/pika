@@ -403,7 +403,7 @@ if __name__ == '__main__':
     throughput_data = multiprocessing.Queue()
 
     # Spawn our processes
-    processes = []
+    processes = list()
 
     # First receivers
     for x in xrange(0, options.receivers):
@@ -468,16 +468,16 @@ if __name__ == '__main__':
     parent_ready.set()
 
     print "Waiting for shutdown of test processes"
-    while len(processes):
+    while processes:
         for process in processes:
             if not process.is_alive():
                 processes.remove(process)
 
     # Get our data
-    messages_sent = []
-    messages_received = []
-    duration_sending = []
-    duration_receiving = []
+    messages_sent = list()
+    messages_received = list()
+    duration_sending = list()
+    duration_receiving = list()
 
     # Put all our values into lists for each type of client
     for key in test_data.keys():
