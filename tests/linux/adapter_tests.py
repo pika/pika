@@ -5,7 +5,7 @@ Connection Test
 First test to make sure all async adapters can connect properly
 """
 import sys
-sys.path.append('..')
+sys.path.append('../..')
 
 import nose
 import pika
@@ -26,6 +26,30 @@ def test_asyncore_connection():
         assert False
     else:
         pass
+
+@nose.tools.timed(2)
+def test_select_epoll_connection():
+    set_select_poller('epoll')
+    connection = connect(adapters.SelectConnection)
+    connection.ioloop.start()
+    if connection.ioloop.get_poller_type() != 'EpollPoller':
+        assert False
+    if not is_connected():
+        assert False
+    pass
+
+
+@nose.tools.timed(2)
+def test_select_poll_connection():
+    set_select_poller('poll')
+    connection = connect(adapters.SelectConnection)
+    connection.ioloop.start()
+    if connection.ioloop.get_poller_type() != 'PollPoller':
+        assert False
+    if not is_connected():
+        assert False
+    pass
+
 
 @nose.tools.timed(2)
 def test_select_select_connection():
