@@ -1,0 +1,17 @@
+Tests are written for nose:
+
+http://somethingaboutorange.com/mrl/projects/nose/1.0.0/
+
+Tests are expecting a RabbitMQ instance local to the machine where you are
+running the tests from.
+
+In the tests directory, simply run:
+
+nosetests
+
+adapter_tests.py should fail on your platform based upon the following conditions:
+
+If you are running on a Linux box, expect the KQueuePoller test to fail.
+If you are running on an OSX box, expect the PollPoller and EPollPoller to fail.
+If you are running in Windows, KQueuePoller, PollPoller, and EPollPoller should fail.
+
