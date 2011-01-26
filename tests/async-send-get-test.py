@@ -11,7 +11,7 @@ Test Steps:
 6) Validate that sent message and basic get body are the same - check_message
 """
 import utils.async as async
-
+import logging
 import nose
 from pika.adapters import SelectConnection
 
@@ -32,7 +32,7 @@ def start_test():
     connection = async.connect(ADAPTER, HOST, PORT, on_connected)
     connection.ioloop.start()
     if not confirmed:
-        assert False
+        assert False, 'Messages did not match.'
     pass
 
 @nose.tools.nottest
@@ -59,8 +59,7 @@ def on_queue_declared(frame):
 
     def check_message(channel_number, method, header, body):
         global connection, confirmed
-        if body == test_message:
-            confirmed = True
+        confirmed = (body == test_message)
         connection.ioloop.stop()
 
     channel.basic_get(callback=check_message, queue=queue)
