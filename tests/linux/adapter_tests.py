@@ -22,17 +22,16 @@ PORT = 5672
 def test_asyncore_connection():
     connection = connect(adapters.AsyncoreConnection)
     connection.ioloop.start()
-    if not connected:
+    if not is_connected():
         assert False
-    else:
-        pass
-
+    pass
+    
 @nose.tools.timed(2)
 def test_select_epoll_connection():
     set_select_poller('epoll')
     connection = connect(adapters.SelectConnection)
     connection.ioloop.start()
-    if connection.ioloop.get_poller_type() != 'EpollPoller':
+    if connection.ioloop.get_poller_type() != 'EPollPoller':
         assert False
     if not is_connected():
         assert False
