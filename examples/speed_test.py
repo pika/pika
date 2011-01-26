@@ -81,9 +81,9 @@ class PikaClient(multiprocessing.Process):
 
     def __init__(self, adapter, host, port, max_messages_per_interval,
                  no_ack, report_interval, throughput_data, process_ready,
-                 parent_ready, select_poller, *args,**kwargs):
+                 parent_ready, select_poller, *args, **kwargs):
 
-        multiprocessing.Process.__init__(self, *args,**kwargs)
+        multiprocessing.Process.__init__(self, *args, **kwargs)
 
         self.adapter = adapter
         self.channel = None
@@ -151,7 +151,6 @@ class PikaClient(multiprocessing.Process):
             time.sleep(1)
 
         self.connection.ioloop.stop()
-
 
     def on_connected(self, connection):
         logging.debug("%i:%s:on_connected" % (self.pid,
@@ -515,4 +514,3 @@ if __name__ == '__main__':
     print "Delivered Messages per Second: %.4f" % \
           (sum(messages_sent) / total_time)
     print
-

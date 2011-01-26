@@ -159,7 +159,6 @@ class FrameHandler(object):
                                    header_frame,                 # Arg 2
                                    body_fragments)               # Arg 3
 
-
         # if we dont have a header frame body size, finish otherwise keep going
         # And keep our handler function as the frame handler
         if not header_frame.body_size:

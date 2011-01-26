@@ -91,7 +91,6 @@ def handle_delivery(channel, method, header, body):
     logging.info("    body: %r" % body)
     channel.basic_ack(delivery_tag=method.delivery_tag)
 
-
 if __name__ == '__main__':
     host = (len(sys.argv) > 1) and sys.argv[1] or '127.0.0.1'
     parameters = pika.ConnectionParameters(host)

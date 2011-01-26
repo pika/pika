@@ -583,7 +583,6 @@ class Connection(object):
             # Increment our bytes received buffer for heartbeat checking
             self.bytes_received += consumed_count
 
-
             # If we have a Method Frame and have callbacks for it
             if isinstance(frame, codec.FrameMethod) and \
                 self.callbacks.pending(frame.channel_number, frame.method):

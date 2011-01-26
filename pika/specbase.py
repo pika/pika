@@ -46,9 +46,11 @@
 #
 # ***** END LICENSE BLOCK *****
 
+
 class Class(object):
     def __repr__(self):
         return _codec_repr(self, self.__class__)
+
 
 class Method(object):
     def _set_content(self, properties, body):
@@ -64,9 +66,11 @@ class Method(object):
     def __repr__(self):
         return _codec_repr(self, self.__class__)
 
+
 class Properties(object):
     def __repr__(self):
         return _codec_repr(self, self.__class__)
+
 
 def _codec_repr(o, c):
     """Returns a repr()esentation of o in the form of a constructor
