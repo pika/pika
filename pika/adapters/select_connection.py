@@ -81,10 +81,6 @@ class SelectConnection(BaseConnection):
         # Setup our IOLoop
         self.ioloop = IOLoop.instance()
 
-        # Set our Poller type if SELECT_TYPE is not None
-        if SELECT_TYPE:
-            self.ioloop.poller_type = SELECT_TYPE
-
         # Setup our base event state
         self.base_events = READ | ERROR
 
@@ -216,8 +212,8 @@ class IOLoop(object):
         """
         self.poller.add_timeout(deadline, handler)
 
-
-    def get_poller_type(self):
+    @property
+    def poller_type(self):
 
         return self.poller.__class__.__name__
 
