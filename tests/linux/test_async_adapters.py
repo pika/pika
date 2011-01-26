@@ -41,7 +41,7 @@ class TestAdapters(object):
         pass
 
     @nose.tools.timed(2)
-    def test_kqueue_connection(self):
+    def test_poll_connection(self):
         self._set_select_poller('poll')
         self.connection = self._connect(adapters.SelectConnection)
         self.connection.ioloop.start()
@@ -87,3 +87,14 @@ class TestAdapters(object):
 
     def _set_select_poller(self, type):
         adapters.select_connection.SELECT_TYPE = type
+
+
+if __name__ == "__main__":
+    import logging
+    logging.basicConfig(level=logging.DEBUG)
+    x = TestAdapters()
+    x.test_asyncore_connection()
+    x.test_epoll_connection()
+    x.test_select_connection()
+    x.test_poll_connection()
+    x.test_tornado_connection()

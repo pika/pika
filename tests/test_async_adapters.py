@@ -65,3 +65,12 @@ class TestAdapters(object):
 
     def _set_select_poller(self, type):
         adapters.select_connection.SELECT_TYPE = type
+
+
+if __name__ == "__main__":
+    import logging
+    logging.basicConfig(level=logging.DEBUG)
+    x = TestAdapters()
+    x.test_asyncore_connection()
+    x.test_select_connection()
+    x.test_tornado_connection()
