@@ -2,8 +2,10 @@
 """
 Connection Test
 
-First test to make sure all adapters can connect and disconnect properly
+First test to make sure all async adapters can connect properly
 """
+import sys
+sys.path.append('..')
 
 import nose
 import pika
