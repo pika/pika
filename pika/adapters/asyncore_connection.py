@@ -46,131 +46,89 @@
 #
 # ***** END LICENSE BLOCK *****
 
+import asyncore
 import errno
 import logging
-import sys
 import socket
-import asyncore
 import time
-import traceback
 
 from pika.adapters.base_connection import BaseConnection
 
 
-class RabbitDispatcher(asyncore.dispatcher):
+class AsyncoreDispatcher(asyncore.dispatcher):
 
-    def __init__(self, connection):
-        logging.debug("%s.__init__" % self.__class__.__name__)
+    def __init__(self, host, port):
         asyncore.dispatcher.__init__(self)
-        self.connection = connection
-        self.buffer_size = self.connection.suggested_buffer_size()
-
-    def create_socket(self, socket_domain, socket_type):
-        logging.debug("%s.create_socket" % self.__class__.__name__)
-        asyncore.dispatcher.create_socket(self, socket_domain, socket_type)
-        # Disable TCP nagling for improved latency.
+        self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
+        self.connect((host, port))
+
+        self.buffer_size = 8192
+        self.connecting = True
+        self.connection = None
+        self.timeouts = dict()
+        self.writable_ = False
 
     def handle_connect(self):
         logging.debug("%s.handle_connect" % self.__class__.__name__)
+        self.connecting = False
         self.connection._on_connected()
 
     def handle_close(self):
         logging.debug("%s.handle_close" % self.__class__.__name__)
+        # If we're not already closing or closed, disconnect the Connection
+        if not self.connection.closing and not self.connection.closed:
+            self.connection.disconnect()
 
-    def _handle_error(self, error):
+    def handle_error_(self, error):
         logging.debug("%s.handle_error" % self.__class__.__name__)
-        if error[0] in (errno.EWOULDBLOCK, errno.EAGAIN):
+        if error[0] in (errno.EWOULDBLOCK, errno.EAGAIN, error.EINTR):
             return
         elif error[0] == errno.EBADF:
-            logging.error("%s: Write to a closed socket" %
+            logging.error("%s: Socket is closed" %
                           self.__class__.__name__)
+            self.handle_close()
         else:
-            logging.error("%s: Write error on %d: %s" %
+            logging.error("%s: Socket Error on %d: %s" %
                           (self.__class__.__name__,
-                           self.fileno(), error[0]))
-        self.close()
+                           self._fileno, error[0]))
         self.connection._on_connection_closed(None, True)
-
+        self.close()
 
     def handle_read(self):
         logging.debug("%s.handle_read" % self.__class__.__name__)
         try:
-            buf = self.recv(self.buffer_size)
-        except socket.error, exn:
-            self._handle_error(exn)
-            return
+            data_in = self.recv(self.buffer_size)
+        except socket.error, e:
+            return self.handle_error(e)
 
-        if not buf:
-            self.close()
-        else:
-            self.connection.on_data_available(buf)
-
-    def writable(self):
-        return bool(self.connection.outbound_buffer)
+        if data_in:
+            self.connection.on_data_available(data_in)
 
     def handle_write(self):
-        logging.debug("%s.handle_write" % self.__class__.__name__)
 
-        fragment = self.connection.outbound_buffer.read(self.buffer_size)
-        try:
-            r = self.send(fragment)
-        except socket.error, exn:
-            self._handle_error(exn)
-            return
+        if self.connection.outbound_buffer.size:
+            try:
+                data = self.connection.outbound_buffer.read(self.buffer_size)
+                sent = self.send(data)
+            except socket.error, e:
+                return self.handle_error(e)
 
-        self.connection.outbound_buffer.consume(r)
+            # If we sent data, remove it from the buffer
+            if sent:
+                # Remove the length written from the buffer
+                self.connection.outbound_buffer.consume(sent)
 
-    def handle_error(self):
-        exc_type, exc_value, exc_traceback = sys.exc_info()
-        traceback.print_exception(exc_type, exc_value, exc_traceback)
+                # If our buffer is empty, turn off writing
+                if not self.connection.outbound_buffer.size:
+                    self.writable_ = False
 
+    def writable(self):
+        if not self.connected:
+            return True
+        return self.writable_
 
-class AsyncoreConnection(BaseConnection):
-
-    def add_timeout(self, delay_sec, callback):
-        self.ioloop.add_timeout(delay_sec, callback)
-
-    def connect(self, host, port):
-        logging.debug("%s.connect" % self.__class__.__name__)
-        self.dispatcher = RabbitDispatcher(self)
-        self.dispatcher.create_socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.dispatcher.connect((host, port))
-        self.ioloop = IOLoop().instance()
-
-    def disconnect(self):
-        logging.debug("%s.disconnect" % self.__class__.__name__)
-        self.dispatcher.close()
-        del self.dispatcher
-        self.ioloop.stop()
-
-
-
-    def flush_outbound(self):
-        logging.debug("%s.flush_outbound" % self.__class__.__name__)
-        while self.outbound_buffer:
-            self.ioloop.loop(1)
-
-
-class IOLoop(object):
-    """
-    IOLoop Emulation layer to make adapters behave the same way
-    """
-
-    def __init__(self):
-
-        # Define if we should be looping or not
-        self.running = True
-
-        # Timer related functionality
-        self.timeouts = dict()
-
-        # Use poll in asyncore
-        import select
-        if hasattr(select, 'poll'):
-            self.use_poll = True
-        else:
-            self.use_poll = False
+    # IOLoop Compatibility
 
     @classmethod
     def instance(class_):
@@ -181,8 +139,9 @@ class IOLoop(object):
             class_._instance = class_()
         return class_._instance
 
-
     def add_timeout(self, delay_sec, handler):
+        logging.debug("%s.add_timeout" % self.__class__.__name__)
+
         # Calculate our deadline for running the callback
         deadline = time.time() + delay_sec
         logging.debug('%s.add_timeout: In %.4f seconds call %s' % \
@@ -192,7 +151,7 @@ class IOLoop(object):
         self.timeouts[deadline] = handler
 
     def process_timeouts(self):
-
+        logging.debug("%s.process_timeouts" % self.__class__.__name__)
         # Process our timeout events
         deadlines = self.timeouts.keys()
 
@@ -206,22 +165,35 @@ class IOLoop(object):
                 del(self.timeouts[deadline])
 
     def start(self):
-
-        # Loop while we are connected
-        while self.running:
-
-            # Loop in asycore for one second
-            asyncore.loop(timeout=1, use_poll=self.use_poll, count=1)
-
-            # Process our timeouts
+        logging.debug("%s.start" % self.__class__.__name__)
+        while self.connected or self.connecting:
+            asyncore.loop(timeout=1, count=1)
             self.process_timeouts()
 
     def stop(self):
+        logging.debug("%s.stop" % self.__class__.__name__)
+        if self.connected:
+            self.close()
 
-        # Stop the IOLoop from running by exiting the while in IOLoop.stop
-        self.running = False
 
-    def loop(self, count):
+class AsyncoreConnection(BaseConnection):
 
-        # Force a loop while ignoring timer
-        asyncore.loop(timeout=1, use_poll=self.use_poll, count=1)
+    def add_timeout(self, delay_sec, callback):
+        self.ioloop.add_timeout(delay_sec, callback)
+
+    def connect(self, host, port):
+        logging.debug("%s.connect" % self.__class__.__name__)
+        self.ioloop = AsyncoreDispatcher(host, port)
+        self.ioloop.buffer_size = self.suggested_buffer_size()
+        self.ioloop.connection = self
+
+    def disconnect(self):
+        logging.debug("%s.disconnect" % self.__class__.__name__)
+        self.ioloop.stop()
+        self.ioloop.close()
+        del self.ioloop
+
+    def flush_outbound(self):
+        logging.debug("%s.flush_outbound" % self.__class__.__name__)
+        if self.outbound_buffer.size:
+            self.ioloop.writable_ = True
