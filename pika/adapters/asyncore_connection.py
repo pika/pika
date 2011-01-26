@@ -59,10 +59,13 @@ class AsyncoreDispatcher(asyncore.dispatcher):
 
     def __init__(self, host, port):
         asyncore.dispatcher.__init__(self)
+
+        # Create the socket, turn off nageling and connect
         self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
         self.connect((host, port))
 
+        # Setup defaults
         self.buffer_size = 8192
         self.connecting = True
         self.connection = None
@@ -106,7 +109,7 @@ class AsyncoreDispatcher(asyncore.dispatcher):
             self.connection.on_data_available(data_in)
 
     def handle_write(self):
-
+        # Did we get here without anything to write?
         if self.connection.outbound_buffer.size:
             try:
                 data = self.connection.outbound_buffer.read(self.buffer_size)
@@ -140,8 +143,6 @@ class AsyncoreDispatcher(asyncore.dispatcher):
         return class_._instance
 
     def add_timeout(self, delay_sec, handler):
-        logging.debug("%s.add_timeout" % self.__class__.__name__)
-
         # Calculate our deadline for running the callback
         deadline = time.time() + delay_sec
         logging.debug('%s.add_timeout: In %.4f seconds call %s' % \
