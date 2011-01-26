@@ -104,14 +104,9 @@ def handle_delivery(channel, method, header, body):
 
 
 if __name__ == '__main__':
-
     host = (len(sys.argv) > 1) and sys.argv[1] or '127.0.0.1'
     parameters = pika.ConnectionParameters(host)
-
-    strategy = pika.reconnection_strategies.SimpleReconnectionStrategy()
-
-    connection = SelectConnection(parameters, on_connected,
-                                  reconnection_strategy=strategy)
+    connection = SelectConnection(parameters, on_connected)
     try:
         connection.ioloop.start()
     except KeyboardInterrupt:

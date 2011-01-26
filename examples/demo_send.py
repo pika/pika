@@ -95,8 +95,11 @@ def on_queue_declared(frame):
     connection.close()
 
 if __name__ == '__main__':
-
     host = (len(sys.argv) > 1) and sys.argv[1] or '127.0.0.1'
     parameters = pika.ConnectionParameters(host)
     connection = SelectConnection(parameters, on_connected)
-    connection.ioloop.start()
+    try:
+        connection.ioloop.start()
+    except KeyboardInterrupt:
+        connection.close()
+        connection.ioloop.start()
