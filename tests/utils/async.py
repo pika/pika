@@ -49,4 +49,4 @@ def send_test_message(channel, queue):
 
 @nose.tools.nottest
 def is_connected(connection):
-    return connection.is_open()
+    return connection.is_open

@@ -74,7 +74,7 @@ if __name__ == '__main__':
                           exclusive=False, auto_delete=False)
 
     # Initialize our timers and loop until external influence stops us
-    while connection.is_open():
+    while connection.is_open:
 
         # Call basic get which returns the 3 frame types
         method_frame, header_frame, body = channel.basic_get(queue="test")

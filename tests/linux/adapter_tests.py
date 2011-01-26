@@ -25,7 +25,7 @@ def test_asyncore_connection():
     if not is_connected():
         assert False
     pass
-    
+
 @nose.tools.timed(2)
 def test_select_epoll_connection():
     set_select_poller('epoll')
@@ -89,7 +89,7 @@ def is_connected():
 @nose.tools.nottest
 def on_connected(connection):
     global connected
-    connected = connection.is_open()
+    connected = connection.is_open
     connection.ioloop.stop()
 
 if __name__ == '__main__':

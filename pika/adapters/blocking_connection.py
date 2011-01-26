@@ -69,15 +69,13 @@ class BlockingConnection(BaseConnection):
         self.socket.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
         self.socket.connect((host, port))
         self._on_connected()
-
-        while not self.is_open():
+        while not self.is_open:
             self.drain_events()
-
         return self
 
     def close(self, code=200, text='Normal shutdown'):
         BaseConnection.close(self, code, text)
-        while self.is_open():
+        while self.is_open:
              self.drain_events()
 
     def disconnect(self):
@@ -95,7 +93,7 @@ class BlockingConnection(BaseConnection):
             self.socket.settimeout(prev_timeout)
 
     def flush_outbound(self):
-        while self.outbound_buffer and self.is_open():
+        while self.outbound_buffer and self.is_open:
             fragment = self.outbound_buffer.read()
             r = self.socket.send(fragment)
             self.outbound_buffer.consume(r)

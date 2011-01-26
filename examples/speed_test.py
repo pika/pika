@@ -147,7 +147,7 @@ class PikaClient(multiprocessing.Process):
         self.connection.close()
 
         # Block until we're closed, app will stop then
-        while self.connection.is_open():
+        while self.connection.is_open:
             time.sleep(1)
 
         self.connection.ioloop.stop()

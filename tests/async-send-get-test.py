@@ -11,7 +11,6 @@ Test Steps:
 6) Validate that sent message and basic get body are the same - check_message
 """
 import utils.async as async
-import logging
 import nose
 from pika.adapters import SelectConnection
 
@@ -35,10 +34,11 @@ def start_test():
         assert False, 'Messages did not match.'
     pass
 
+
 @nose.tools.nottest
 def on_connected(connection):
     global connected
-    connected = connection.is_open()
+    connected = connection.is_open
     if connected:
         async.channel(connection, on_channel_open)
 

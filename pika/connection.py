@@ -48,7 +48,6 @@
 
 import logging
 
-import pika.callback as callback
 import pika.channel as channel
 import pika.codec as codec
 import pika.simplebuffer as simplebuffer
@@ -57,6 +56,7 @@ import pika.spec as spec
 from pika.specbase import _codec_repr
 from pika.exceptions import *
 
+from pika.callback import CallbackManager
 from pika.credentials import PlainCredentials
 from pika.heartbeat import HeartbeatChecker
 from pika.reconnection_strategies import NullReconnectionStrategy
@@ -124,12 +124,8 @@ class Connection(object):
 
         A reconnection_strategy of None will use the NullReconnectionStrategy
         """
-        # If we did not pass in a reconnection_strategy, setup the default
-        if not reconnection_strategy:
-            reconnection_strategy = NullReconnectionStrategy()
-
         # Define our callback dictionary
-        self.callbacks = callback.CallbackManager.instance()
+        self.callbacks = CallbackManager.instance()
 
         # On connection callback
         if on_open_callback:
@@ -137,10 +133,12 @@ class Connection(object):
 
         # Set our configuration options
         self.parameters = parameters
-        self.reconnection_strategy = reconnection_strategy
+
+        # If we did not pass in a reconnection_strategy, setup the default
+        self.reconnection = reconnection_strategy or NullReconnectionStrategy()
 
         # Add our callback for if we close by being disconnected
-        self.add_on_close_callback(reconnection_strategy.on_connection_closed)
+        self.add_on_close_callback(self.reconnection.on_connection_closed)
 
         # Set all of our default connection state values
         self._init_connection_state()
@@ -175,6 +173,7 @@ class Connection(object):
         raise NotImplementedError('%s needs to implement this function ' \
                                   % self.__class__.__name__)
 
+    @property
     def is_open(self):
         """
         Returns a boolean reporting the current connection state
@@ -240,7 +239,7 @@ class Connection(object):
         logging.debug('%s._connect' % self.__class__.__name__)
 
         # Let our RS know what we're up to
-        self.reconnection_strategy.on_connect_attempt(self)
+        self.reconnection.on_connect_attempt(self)
 
         # Try and connect and send the first frame
         self.connect(self.parameters.host,
@@ -295,7 +294,7 @@ class Connection(object):
         self._send_frame(self._local_protocol_header())
 
         # Let our reconnection_strategy know we're connected
-        self.reconnection_strategy.on_transport_connected(self)
+        self.reconnection.on_transport_connected(self)
 
     def _on_connection_open(self, frame):
         """
@@ -434,14 +433,14 @@ class Connection(object):
 
         # Remove the reconnection strategy callback for when we close
         self.callbacks.remove(0, '_on_connection_close',
-                              self.reconnection_strategy.on_connection_closed)
+                              self.reconnection.on_connection_closed)
 
         # If we're not already closed
         for channel_number in self._channels.keys():
             self._channels[channel_number].close(code, text)
 
         # If we already dont have any channels, close out
-        if not len(self._channels):
+        if not self._channels:
             self._on_close_ready()
 
     def _on_close_ready(self):
@@ -494,7 +493,7 @@ class Connection(object):
         logging.debug('%s._ensure_closed' % self.__class__.__name__)
 
         # We carry the connection state and so we want to close if we know
-        if self.is_open() and not self.closing:
+        if self.is_open and not self.closing:
             self.close()
 
     # Channel related functionality
@@ -532,7 +531,7 @@ class Connection(object):
         channel_numbers = self._channels.keys()
 
         # We don't start with any open channels
-        if not len(channel_numbers):
+        if not channel_numbers:
             return 1
 
         # Our next channel is the max key value + 1
@@ -548,7 +547,7 @@ class Connection(object):
         if frame.channel_number in self._channels:
             del(self._channels[frame.channel_number])
 
-        if self.closing and not len(self._channels):
+        if self.closing and not self._channels:
             self._on_close_ready()
 
     # Data packet and frame handling functions

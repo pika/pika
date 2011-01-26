@@ -77,7 +77,7 @@ def is_connected():
 @nose.tools.nottest
 def on_connected(connection):
     global connected
-    connected = connection.is_open()
+    connected = connection.is_open
     connection.ioloop.stop()
 
 if __name__ == '__main__':
