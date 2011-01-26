@@ -216,6 +216,11 @@ class IOLoop(object):
         """
         self.poller.add_timeout(deadline, handler)
 
+
+    def get_poller_type(self):
+
+        return self.poller.__class__.__name__
+
     def start_poller(self, fd, handler, events):
         """
         Start the Poller, once started will take over for IOLoop.start()
@@ -354,7 +359,7 @@ class KQueuePoller(SelectPoller):
 
         self.fd = fd
         self.handler = handler
-        self.events = events
+        self.events = 0
         self.open = True
         self.timeouts = dict()
 
@@ -367,35 +372,57 @@ class KQueuePoller(SelectPoller):
     def set_events(self, events):
         logging.debug('%s.set_events(%i)' % (self.__class__.__name__, events))
 
+        # No need to update if our events are the same
+        if self.events == events:
+            return
+
         # Keep a list of the events we want to pass into _kqueue.control
         kevents = []
 
         # Build our list of kevents based upon if we have to add or remove
         # events and each event gets its own operation
-        if events & READ:
 
-            # Add write
-            kevents.append(select.kevent(self.fd,
-                                         filter=select.KQ_FILTER_READ,
-                                         flags=select.KQ_EV_ADD))
-        elif self.events & READ:
+        # We don't want READ
+        if not events & READ:
 
-            # We had write, remove it
-            kevents.append(select.kevent(self.fd,
+            # We did have a read last time
+            if self.events & READ:
+
+                # Remove READ
+                kevents.append(select.kevent(self.fd,
                                          filter=select.KQ_FILTER_READ,
                                          flags=select.KQ_EV_DELETE))
-        if events & WRITE:
+        # We do want READ
+        else:
 
-            # Add write
-            kevents.append(select.kevent(self.fd,
-                                         filter=select.KQ_FILTER_WRITE,
-                                         flags=select.KQ_EV_ADD))
-        elif self.events & WRITE:
+            # We did not have a read last time
+            if not self.events & READ:
 
-            # We had write, remove it
-            kevents.append(select.kevent(self.fd,
-                                         filter=select.KQ_FILTER_WRITE,
-                                         flags=select.KQ_EV_DELETE))
+                # Add READ
+                kevents.append(select.kevent(self.fd,
+                                             filter=select.KQ_FILTER_READ,
+                                             flags=select.KQ_EV_ADD))
+
+        # We don't want write events
+        if not events & WRITE:
+
+            # We had a write last time
+            if self.events & WRITE:
+
+                # Remove it
+                kevents.append(select.kevent(self.fd,
+                                             filter=select.KQ_FILTER_WRITE,
+                                             flags=select.KQ_EV_DELETE))
+        # We do want write events
+        else:
+
+            # We didn't have a WRITE last time
+            if not self.events & WRITE:
+
+                # Add write
+                kevents.append(select.kevent(self.fd,
+                                             filter=select.KQ_FILTER_WRITE,
+                                             flags=select.KQ_EV_ADD))
 
         # Send our event changes to kqueue control
         for event in kevents:
@@ -422,7 +449,7 @@ class KQueuePoller(SelectPoller):
 
                 # We had a read event, data and we're listening for them
                 if event.filter == select.KQ_FILTER_READ and \
-                   READ & self.events and event.data:
+                   READ & self.events:
                     events |= READ
 
                 # We're clear to write so get that done
