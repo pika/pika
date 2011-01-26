@@ -334,8 +334,8 @@ class Channel(spec.DriverMixin):
         self.closing = code, text
 
         # Send our basic cancel for all of our consumers
-        for consumer_tag in self._consumers:
-            self.basic_cancel(self, consumer_tag)
+        for consumer_tag in self._consumers.keys():
+            self.basic_cancel(consumer_tag)
 
         # If we have an open connection send a RPC call to close the channel
         if not len(self._consumers):
@@ -428,7 +428,8 @@ class Channel(spec.DriverMixin):
                                                       immediate=immediate),
                                    (properties, body))
 
-    def get_consumer_tags(self):
+    @property
+    def consumer_tags(self):
         """
         Return a list of the currently active consumer tags
         """
@@ -512,7 +513,7 @@ class Channel(spec.DriverMixin):
         self._basic_get_callback(self,
                                  method_frame.method,
                                  header_frame.properties,
-                                 body[0])
+                                 body)
         self._basic_get_callback = None
 
     def _on_basic_get_empty(self, frame):

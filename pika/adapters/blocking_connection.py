@@ -313,7 +313,7 @@ class BlockingChannel(Channel):
         self.transport._received_response = True
         self._get_response = method_frame.method, \
                              header_frame.properties, \
-                             body[0]
+                             body
 
     def _on_basic_get_empty(self, frame):
         self.transport._received_response = True
