@@ -133,7 +133,12 @@ class AsyncoreDispatcher(asyncore.dispatcher):
             return self.handle_error(e)
 
         if data_in:
-            self.connection.on_data_available(data_in)
+            return self.connection.on_data_available(data_in)
+
+        self.close()
+        # There is a bug in asyncore that keeps it stuck in poll after close
+        # Use this to remove it from that loop
+        asyncore.loop(0.1, map=[], count=1)
 
     def handle_write(self):
         """
@@ -232,8 +237,10 @@ class AsyncoreDispatcher(asyncore.dispatcher):
         connection, exiting us out of the IOLoop running in start.
         """
         logging.debug("%s.stop" % self.__class__.__name__)
-        if self.connected:
-            self.close()
+        self.close()
+        # There is a bug in asyncore that keeps it stuck in poll after close
+        # Use this to remove it from that loop
+        asyncore.loop(0.1, map=[], count=1)
 
 
 class AsyncoreConnection(BaseConnection):
@@ -266,7 +273,9 @@ class AsyncoreConnection(BaseConnection):
         logging.debug("%s.disconnect" % self.__class__.__name__)
         self.ioloop.stop()
         self.ioloop.close()
-        del self.ioloop
+        # There is a bug in asyncore that keeps it stuck in poll after close
+        # Use this to remove it from that loop
+        asyncore.loop(0.1, map=[], count=1)
 
     def flush_outbound(self):
         """
