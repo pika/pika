@@ -229,7 +229,7 @@ class IOLoop(object):
                 self.poller = EPollPoller(fd, handler, events)
 
         if not self.poller and hasattr(select, 'kqueue'):
-            if not SELECT_TYPE or SELECT_TYPE == 'epoll':
+            if not SELECT_TYPE or SELECT_TYPE == 'kqueue':
                 self.poller = KQueuePoller(fd, handler, events)
 
         if not self.poller and hasattr(select, 'poll'):
