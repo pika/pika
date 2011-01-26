@@ -138,7 +138,7 @@ class AsyncoreDispatcher(asyncore.dispatcher):
         self.close()
         # There is a bug in asyncore that keeps it stuck in poll after close
         # Use this to remove it from that loop
-        asyncore.loop(0.1, map=[], count=1)
+        asyncore.loop(0.1, map=[])
 
     def handle_write(self):
         """
@@ -240,7 +240,7 @@ class AsyncoreDispatcher(asyncore.dispatcher):
         self.close()
         # There is a bug in asyncore that keeps it stuck in poll after close
         # Use this to remove it from that loop
-        asyncore.loop(0.1, map=[], count=1)
+        asyncore.loop(0.1, map=[])
 
 
 class AsyncoreConnection(BaseConnection):
@@ -275,7 +275,7 @@ class AsyncoreConnection(BaseConnection):
         self.ioloop.close()
         # There is a bug in asyncore that keeps it stuck in poll after close
         # Use this to remove it from that loop
-        asyncore.loop(0.1, map=[], count=1)
+        asyncore.loop(0.1, map=[])
 
     def flush_outbound(self):
         """
