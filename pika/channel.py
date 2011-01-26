@@ -274,6 +274,9 @@ class Channel(spec.DriverMixin):
         self._consumers = dict()
         self._pending = dict()
 
+        # Set this here just as a default value
+        self._basic_get_callback = None
+
         # Add a callback for Basic.Deliver
         self.callbacks.add(self.channel_number,
                            '_on_basic_deliver',
@@ -509,12 +512,15 @@ class Channel(spec.DriverMixin):
 
     def _on_basic_get(self, method_frame, header_frame, body):
         logging.debug("%s._on_basic_get" % self.__class__.__name__)
-
-        self._basic_get_callback(self,
-                                 method_frame.method,
-                                 header_frame.properties,
-                                 body)
-        self._basic_get_callback = None
+        if self._basic_get_callback:
+            self._basic_get_callback(self,
+                                     method_frame.method,
+                                     header_frame.properties,
+                                     body)
+            self._basic_get_callback = None
+        else:
+            logging.error("%s._on_basic_get: No callback defined." %\
+                          self.__class__.__name__)
 
     def _on_basic_get_empty(self, frame):
         logging.debug("%s._on_basic_get_empty" % self.__class__.__name__)
