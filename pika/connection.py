@@ -100,7 +100,7 @@ class Connection(object):
     Pika Connection Class
 
     This class is extended by the adapter Connection classes such as
-    blocking_adapter.BlockingConnection & asyncore_adapter.AsyncoreConnection.
+    asyncore_adapter.AsyncoreConnection and select_adapter.SelectConnection
     To build an adapter Connection class implement the following functions:
 
         Required:
@@ -377,11 +377,7 @@ class Connection(object):
         Pass in two values, if a is 0, return b otherwise if b is 0, return a.
         If neither case matches return the smallest value.
         """
-        if not a:
-            return b
-        elif not b:
-            return a
-        return min(a, b)
+        return min(a,b) or (a or b)
 
     def _on_connection_tune(self, frame):
         """
