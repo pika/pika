@@ -157,7 +157,7 @@ class FrameHandler(object):
                                    self,                         # Caller
                                    method_frame,                 # Arg 1
                                    header_frame,                 # Arg 2
-                                   body_fragments)               # Arg 3
+                                   ''.join(body_fragments))      # Arg 3
 
         # if we dont have a header frame body size, finish otherwise keep going
         # And keep our handler function as the frame handler
