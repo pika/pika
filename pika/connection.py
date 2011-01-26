@@ -74,7 +74,7 @@ class ConnectionParameters(object):
 
     def __init__(self,
                  host,
-                 port=None,
+                 port=spec.PORT,
                  virtual_host="/",
                  credentials=None,
                  channel_max=0,
