@@ -121,7 +121,7 @@ class FrameHeartbeat(Frame):
 
     def marshal(self):
 
-        return self._marshal([])
+        return self._marshal(list())
 
 
 class FrameProtocolHeader(Frame):
@@ -161,7 +161,7 @@ class ConnectionState:
 
     def _return_to_idle(self):
 
-        self.inbound_buffer = []
+        self.inbound_buffer = list()
         self.inbound_available = 0
         self.target_size = ConnectionState.HEADER_SIZE
         self.state = self._waiting_for_header

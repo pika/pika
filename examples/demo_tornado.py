@@ -74,10 +74,10 @@ class PikaClient(object):
         self.channel = None
 
         # A place for us to keep messages sent to us by Rabbitmq
-        self.messages = []
+        self.messages = list()
 
         # A place for us to put pending messages while we're waiting to connect
-        self.pending = []
+        self.pending = list()
 
     def connect(self):
         if self.connecting:
@@ -170,7 +170,7 @@ class PikaClient(object):
     def get_messages(self):
         # Get the messages to return, then empty the list
         output = self.messages
-        self.messages = []
+        self.messages = list()
         return output
 
 

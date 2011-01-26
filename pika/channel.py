@@ -223,7 +223,7 @@ class ChannelTransport(object):
         # Get the list, then empty it so we can spin through all the blocked
         # Calls, blocking again in the class level list
         blocked = self._blocked
-        self._blocked = []
+        self._blocked = list()
 
         # Loop through and call all that were blocked during our last command
         while blocked:
@@ -271,8 +271,8 @@ class Channel(spec.DriverMixin):
         self.closing = None
 
         # For event based processing
-        self._consumers = {}
-        self._pending = {}
+        self._consumers = dict()
+        self._pending = dict()
 
         # Add a callback for Basic.Deliver
         self.callbacks.add(self.channel_number,
@@ -450,7 +450,7 @@ class Channel(spec.DriverMixin):
            consumer_tag in self._consumers:
 
             # Setup a list for appending frames into
-            self._pending[consumer_tag] = []
+            self._pending[consumer_tag] = list()
 
             # Call our consumer callback with the data
             self._consumers[consumer_tag](self,

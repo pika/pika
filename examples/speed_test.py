@@ -457,7 +457,7 @@ if __name__ == '__main__':
     total_time = time.time() - start_time
 
     print "Waiting for data from test processes"
-    test_data = {}
+    test_data = dict()
     while len(test_data) < len(processes):
         data = throughput_data.get()
         if data:

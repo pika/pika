@@ -115,7 +115,7 @@ class FrameHandler(object):
         logging.debug("%s._handle_body_frame: %r" % (self.__class__.__name__,
                                                      header_frame))
         seen_so_far = [0]
-        body_fragments = []
+        body_fragments = list()
 
         def handler(body_frame):
             # Make sure it's a body frame

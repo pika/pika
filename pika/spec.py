@@ -71,7 +71,7 @@ class Connection(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             pieces.append(struct.pack('B', self.version_major))
             pieces.append(struct.pack('B', self.version_minor))
             pika.table.encode_table(pieces, self.server_properties)
@@ -109,7 +109,7 @@ class Connection(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             pika.table.encode_table(pieces, self.client_properties)
             pieces.append(struct.pack('B', len(self.mechanism)))
             pieces.append(self.mechanism)
@@ -135,7 +135,7 @@ class Connection(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             pieces.append(struct.pack('>I', len(self.challenge)))
             pieces.append(self.challenge)
             return pieces
@@ -156,7 +156,7 @@ class Connection(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             pieces.append(struct.pack('>I', len(self.response)))
             pieces.append(self.response)
             return pieces
@@ -181,7 +181,7 @@ class Connection(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             pieces.append(struct.pack('>H', self.channel_max))
             pieces.append(struct.pack('>I', self.frame_max))
             pieces.append(struct.pack('>H', self.heartbeat))
@@ -207,7 +207,7 @@ class Connection(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             pieces.append(struct.pack('>H', self.channel_max))
             pieces.append(struct.pack('>I', self.frame_max))
             pieces.append(struct.pack('>H', self.heartbeat))
@@ -238,7 +238,7 @@ class Connection(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             pieces.append(struct.pack('B', len(self.virtual_host)))
             pieces.append(self.virtual_host)
             pieces.append(struct.pack('B', len(self.capabilities)))
@@ -265,7 +265,7 @@ class Connection(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             pieces.append(struct.pack('B', len(self.known_hosts)))
             pieces.append(self.known_hosts)
             return pieces
@@ -295,7 +295,7 @@ class Connection(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             pieces.append(struct.pack('>H', self.reply_code))
             pieces.append(struct.pack('B', len(self.reply_text)))
             pieces.append(self.reply_text)
@@ -315,7 +315,7 @@ class Connection(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             return pieces
 
 
@@ -340,7 +340,7 @@ class Channel(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             pieces.append(struct.pack('B', len(self.out_of_band)))
             pieces.append(self.out_of_band)
             return pieces
@@ -361,7 +361,7 @@ class Channel(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             pieces.append(struct.pack('>I', len(self.channel_id)))
             pieces.append(self.channel_id)
             return pieces
@@ -381,7 +381,7 @@ class Channel(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             bit_buffer = 0
             if self.active:
                 bit_buffer = bit_buffer | (1 << 0)
@@ -403,7 +403,7 @@ class Channel(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             bit_buffer = 0
             if self.active:
                 bit_buffer = bit_buffer | (1 << 0)
@@ -435,7 +435,7 @@ class Channel(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             pieces.append(struct.pack('>H', self.reply_code))
             pieces.append(struct.pack('B', len(self.reply_text)))
             pieces.append(self.reply_text)
@@ -455,7 +455,7 @@ class Channel(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             return pieces
 
 
@@ -492,7 +492,7 @@ class Access(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             pieces.append(struct.pack('B', len(self.realm)))
             pieces.append(self.realm)
             bit_buffer = 0
@@ -523,7 +523,7 @@ class Access(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             pieces.append(struct.pack('>H', self.ticket))
             return pieces
 
@@ -571,7 +571,7 @@ class Exchange(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             pieces.append(struct.pack('>H', self.ticket))
             pieces.append(struct.pack('B', len(self.exchange)))
             pieces.append(self.exchange)
@@ -604,7 +604,7 @@ class Exchange(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             return pieces
 
     class Delete(pika.specbase.Method):
@@ -632,7 +632,7 @@ class Exchange(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             pieces.append(struct.pack('>H', self.ticket))
             pieces.append(struct.pack('B', len(self.exchange)))
             pieces.append(self.exchange)
@@ -656,7 +656,7 @@ class Exchange(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             return pieces
 
     class Bind(pika.specbase.Method):
@@ -694,7 +694,7 @@ class Exchange(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             pieces.append(struct.pack('>H', self.ticket))
             pieces.append(struct.pack('B', len(self.destination)))
             pieces.append(self.destination)
@@ -721,7 +721,7 @@ class Exchange(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             return pieces
 
     class Unbind(pika.specbase.Method):
@@ -759,7 +759,7 @@ class Exchange(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             pieces.append(struct.pack('>H', self.ticket))
             pieces.append(struct.pack('B', len(self.destination)))
             pieces.append(self.destination)
@@ -786,7 +786,7 @@ class Exchange(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             return pieces
 
 
@@ -828,7 +828,7 @@ class Queue(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             pieces.append(struct.pack('>H', self.ticket))
             pieces.append(struct.pack('B', len(self.queue)))
             pieces.append(self.queue)
@@ -869,7 +869,7 @@ class Queue(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             pieces.append(struct.pack('B', len(self.queue)))
             pieces.append(self.queue)
             pieces.append(struct.pack('>I', self.message_count))
@@ -911,7 +911,7 @@ class Queue(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             pieces.append(struct.pack('>H', self.ticket))
             pieces.append(struct.pack('B', len(self.queue)))
             pieces.append(self.queue)
@@ -938,7 +938,7 @@ class Queue(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             return pieces
 
     class Purge(pika.specbase.Method):
@@ -964,7 +964,7 @@ class Queue(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             pieces.append(struct.pack('>H', self.ticket))
             pieces.append(struct.pack('B', len(self.queue)))
             pieces.append(self.queue)
@@ -988,7 +988,7 @@ class Queue(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             pieces.append(struct.pack('>I', self.message_count))
             return pieces
 
@@ -1019,7 +1019,7 @@ class Queue(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             pieces.append(struct.pack('>H', self.ticket))
             pieces.append(struct.pack('B', len(self.queue)))
             pieces.append(self.queue)
@@ -1047,7 +1047,7 @@ class Queue(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             pieces.append(struct.pack('>I', self.message_count))
             return pieces
 
@@ -1082,7 +1082,7 @@ class Queue(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             pieces.append(struct.pack('>H', self.ticket))
             pieces.append(struct.pack('B', len(self.queue)))
             pieces.append(self.queue)
@@ -1105,7 +1105,7 @@ class Queue(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             return pieces
 
 
@@ -1135,7 +1135,7 @@ class Basic(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             pieces.append(struct.pack('>I', self.prefetch_size))
             pieces.append(struct.pack('>H', self.prefetch_count))
             bit_buffer = 0
@@ -1156,7 +1156,7 @@ class Basic(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             return pieces
 
     class Consume(pika.specbase.Method):
@@ -1195,7 +1195,7 @@ class Basic(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             pieces.append(struct.pack('>H', self.ticket))
             pieces.append(struct.pack('B', len(self.queue)))
             pieces.append(self.queue)
@@ -1230,7 +1230,7 @@ class Basic(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             pieces.append(struct.pack('B', len(self.consumer_tag)))
             pieces.append(self.consumer_tag)
             return pieces
@@ -1255,7 +1255,7 @@ class Basic(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             pieces.append(struct.pack('B', len(self.consumer_tag)))
             pieces.append(self.consumer_tag)
             bit_buffer = 0
@@ -1280,7 +1280,7 @@ class Basic(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             pieces.append(struct.pack('B', len(self.consumer_tag)))
             pieces.append(self.consumer_tag)
             return pieces
@@ -1315,7 +1315,7 @@ class Basic(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             pieces.append(struct.pack('>H', self.ticket))
             pieces.append(struct.pack('B', len(self.exchange)))
             pieces.append(self.exchange)
@@ -1358,7 +1358,7 @@ class Basic(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             pieces.append(struct.pack('>H', self.reply_code))
             pieces.append(struct.pack('B', len(self.reply_text)))
             pieces.append(self.reply_text)
@@ -1401,7 +1401,7 @@ class Basic(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             pieces.append(struct.pack('B', len(self.consumer_tag)))
             pieces.append(self.consumer_tag)
             pieces.append(struct.pack('>Q', self.delivery_tag))
@@ -1438,7 +1438,7 @@ class Basic(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             pieces.append(struct.pack('>H', self.ticket))
             pieces.append(struct.pack('B', len(self.queue)))
             pieces.append(self.queue)
@@ -1479,7 +1479,7 @@ class Basic(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             pieces.append(struct.pack('>Q', self.delivery_tag))
             bit_buffer = 0
             if self.redelivered:
@@ -1508,7 +1508,7 @@ class Basic(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             pieces.append(struct.pack('B', len(self.cluster_id)))
             pieces.append(self.cluster_id)
             return pieces
@@ -1531,7 +1531,7 @@ class Basic(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             pieces.append(struct.pack('>Q', self.delivery_tag))
             bit_buffer = 0
             if self.multiple:
@@ -1557,7 +1557,7 @@ class Basic(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             pieces.append(struct.pack('>Q', self.delivery_tag))
             bit_buffer = 0
             if self.requeue:
@@ -1580,7 +1580,7 @@ class Basic(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             bit_buffer = 0
             if self.requeue:
                 bit_buffer = bit_buffer | (1 << 0)
@@ -1602,7 +1602,7 @@ class Basic(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             bit_buffer = 0
             if self.requeue:
                 bit_buffer = bit_buffer | (1 << 0)
@@ -1621,7 +1621,7 @@ class Basic(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             return pieces
 
     class Nack(pika.specbase.Method):
@@ -1644,7 +1644,7 @@ class Basic(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             pieces.append(struct.pack('>Q', self.delivery_tag))
             bit_buffer = 0
             if self.multiple:
@@ -1672,7 +1672,7 @@ class Tx(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             return pieces
 
     class SelectOk(pika.specbase.Method):
@@ -1687,7 +1687,7 @@ class Tx(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             return pieces
 
     class Commit(pika.specbase.Method):
@@ -1702,7 +1702,7 @@ class Tx(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             return pieces
 
     class CommitOk(pika.specbase.Method):
@@ -1717,7 +1717,7 @@ class Tx(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             return pieces
 
     class Rollback(pika.specbase.Method):
@@ -1732,7 +1732,7 @@ class Tx(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             return pieces
 
     class RollbackOk(pika.specbase.Method):
@@ -1747,7 +1747,7 @@ class Tx(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             return pieces
 
 
@@ -1771,7 +1771,7 @@ class Confirm(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             bit_buffer = 0
             if self.nowait:
                 bit_buffer = bit_buffer | (1 << 0)
@@ -1790,7 +1790,7 @@ class Confirm(pika.specbase.Class):
             return self
 
         def encode(self):
-            pieces = []
+            pieces = list()
             return pieces
 
 
@@ -1933,7 +1933,7 @@ class BasicProperties(pika.specbase.Properties):
         return self
 
     def encode(self):
-        pieces = []
+        pieces = list()
         flags = 0
         if self.content_type is not None:
             flags = flags | BasicProperties.FLAG_CONTENT_TYPE
@@ -1987,7 +1987,7 @@ class BasicProperties(pika.specbase.Properties):
             flags = flags | BasicProperties.FLAG_CLUSTER_ID
             pieces.append(struct.pack('B', len(self.cluster_id)))
             pieces.append(self.cluster_id)
-        flag_pieces = []
+        flag_pieces = list()
         while True:
             remainder = flags >> 16
             partial_flags = flags & 0xFFFE

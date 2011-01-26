@@ -214,7 +214,7 @@ def generate(specPath):
 
     def genEncodeMethodFields(m):
         print "        def encode(self):"
-        print "            pieces = []"
+        print "            pieces = list()"
         bitindex = None
         def finishBits():
             if bitindex is not None:
@@ -242,7 +242,7 @@ def generate(specPath):
 
     def genEncodeProperties(c):
         print "    def encode(self):"
-        print "        pieces = []"
+        print "        pieces = list()"
         print "        flags = 0"
         for f in c.fields:
             if spec.resolveDomain(f.domain) == 'bit':
@@ -251,7 +251,7 @@ def generate(specPath):
                 print "        if self.%s is not None:" % (pyize(f.name),)
                 print "            flags = flags | %s" % (flagName(c, f),)
                 genSingleEncode("            ", "self.%s" % (pyize(f.name),), f.domain)
-        print "        flag_pieces = []"
+        print "        flag_pieces = list()"
         print "        while True:"
         print "            remainder = flags >> 16"
         print "            partial_flags = flags & 0xFFFE"
@@ -288,7 +288,7 @@ def generate(specPath):
         print "%s = %s" % (constantName(c), v)
     print
 
-    methods = []
+    methods = list()
     for m in spec.allMethods():
         if m.structName() in DRIVER_METHODS:
             if m.isSynchronous:

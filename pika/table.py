@@ -56,7 +56,7 @@ from pika.exceptions import *
 
 def encode_table(pieces, table):
     if table is None:
-        table = {}
+        table = dict()
     length_index = len(pieces)
     pieces.append(None)  # placeholder
     tablesize = 0
@@ -101,7 +101,7 @@ def encode_table(pieces, table):
 
         # List/Array
         elif isinstance(value, list):
-            p = []
+            p = list()
             [encode_table(p, v) for v in value]
             piece = ''.join(p)
             pieces.append(struct.pack('>cI', 'A', len(piece)))
@@ -118,7 +118,7 @@ def encode_table(pieces, table):
 
 
 def decode_table(encoded, offset):
-    result = {}
+    result = dict()
     tablesize = struct.unpack_from('>I', encoded, offset)[0]
     offset += 4
     limit = offset + tablesize
@@ -165,7 +165,7 @@ def decode_table(encoded, offset):
             length, = struct.unpack_from('>I', encoded, offset)
             offset += 4
             offset_end = offset + length
-            value = []
+            value = list()
             while offset < offset_end:
                 v, offset = decode_table(encoded, offset)
                 value.append(v)
