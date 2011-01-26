@@ -227,15 +227,4 @@ if __name__ == '__main__':
     ioloop.add_timeout(1000, application.pika.connect)
 
     # Start the IOLoop
-    try:
-        ioloop.start()
-    except KeyboardInterrupt:
-
-        if pc.connected and pc.channel:
-
-            # Get all of the active consumer tags for our channel
-            for consumer_tag in pc.channel.get_consumer_tags():
-                pc.channel.basic_cancel(consumer_tag, pc.on_basic_cancel)
-
-            # Start the IOLoop back up so we can finish
-            ioloop.start()
+    ioloop.start()
