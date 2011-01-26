@@ -67,7 +67,3 @@ def on_connected(connection):
     global connected
     connected = connection.is_open()
     connection.ioloop.stop()
-
-if __name__ == '__main__':
-
-    test_select_kqueue_connection()
