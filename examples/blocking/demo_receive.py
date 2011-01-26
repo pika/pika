@@ -59,7 +59,9 @@ from pika.adapters import BlockingConnection
 
 logging.basicConfig(level=logging.INFO)
 
+
 def handle_delivery(channel, method, header, body):
+    # Receive the data in 3 frames from RabbitMQ
     logging.info("demo_send.handle_delivery")
     logging.info("  method: %r" % method)
     logging.info("  header: %r" % header)
@@ -67,12 +69,15 @@ def handle_delivery(channel, method, header, body):
     channel.basic_ack(delivery_tag=method.delivery_tag)
 
 if __name__ == '__main__':
-
+    # Connect to RabbitMQ
     host = (len(sys.argv) > 1) and sys.argv[1] or '127.0.0.1'
-
     parameters = pika.ConnectionParameters(host)
     connection = BlockingConnection(parameters)
+
+    # Open the channel
     channel = connection.channel()
+
+    # Declare the queue
     channel.queue_declare(queue="test", durable=True,
                           exclusive=False, auto_delete=False)
 

@@ -62,18 +62,23 @@ logging.basicConfig(level=logging.INFO)
 
 
 if __name__ == '__main__':
-
+    # Connect to RabbitMQ
     host = (len(sys.argv) > 1) and sys.argv[1] or '127.0.0.1'
-
     parameters = pika.ConnectionParameters(host)
     connection = BlockingConnection(parameters)
+
+    # Open the channel
     channel = connection.channel()
+
+    # Declare the queue
     channel.queue_declare(queue="test", durable=True,
                           exclusive=False, auto_delete=False)
 
+    # Initialize our timers and loop until external influence stops us
     count = 0
     start_time = time.time()
     while True:
+        # Construct a message and send it
         message = "BlockingConnection.channel.basic_publish #%i" % count
         channel.basic_publish(exchange='',
                               routing_key="test",
