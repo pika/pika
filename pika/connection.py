@@ -449,7 +449,7 @@ class Connection(object):
         On a clean shutdown we'll call this once all of our channels are closed
         Let the Broker know we want to close
         """
-        logging.info('%s._on_close_ready' % self.__class__.__name__)
+        logging.debug('%s._on_close_ready' % self.__class__.__name__)
 
         if self.closed:
             logging.warn("%s.on_close_ready invoked while closed" %\
@@ -465,7 +465,7 @@ class Connection(object):
         """
         Let both our RS and Event object know we closed
         """
-        logging.debug('%s._on_close' % self.__class__.__name__)
+        logging.debug('%s._on_connection_close' % self.__class__.__name__)
 
         # Set that we're actually closed
         self.closed = True
