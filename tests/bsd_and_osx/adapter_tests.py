@@ -22,10 +22,9 @@ PORT = 5672
 def test_asyncore_connection():
     connection = connect(adapters.AsyncoreConnection)
     connection.ioloop.start()
-    if not connected:
+    if not is_connected():
         assert False
-    else:
-        pass
+    pass
 
 @nose.tools.timed(2)
 def test_select_select_connection():
