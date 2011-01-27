@@ -40,7 +40,7 @@ for directory in DIRECTORIES:
         file_path = os.path.join(directory, file)
         if os.path.isfile('%s' % file_path) and file[-3:] == '.py':
             if file[:-3] in PLATFORMS:
-                if platform == file[:3]:
+                if platform == file[:-3]:
                     run_test(file_path)
             else:
                 run_test(file_path)
