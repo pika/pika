@@ -7,13 +7,10 @@ Tests are written for nose:
 Tests are expecting a RabbitMQ instance local to the machine where you are
 running the tests from.
 
+They are broken down into functional tests and unit tests. Note that if there
+are platform specific tests, the test runner will only run tests for your
+current platform and ignore other platforms.
+
 In the tests directory, simply run:
 
-    nosetests
-
-## Notes:
-
-adapter_tests.py in this directory does not include epoll, poll, or kqueue
-
- * To test epoll and poll on linux run nosetests in the linux dir.
- * To test kqueue on bsd or mac osx run nosetests in the bsd_and_osx dir.
+     python run_tests.py

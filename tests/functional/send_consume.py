@@ -2,8 +2,11 @@
 """
 Send n messages and confirm you can retrieve them with Basic.Consume
 """
-import utils.async as async
+import sys
+sys.path.append("../..")
+
 import nose
+import support.async as async
 from pika.adapters import SelectConnection
 
 channel = None
@@ -11,12 +14,11 @@ confirmed = False
 connection = None
 queue = None
 
-ADAPTER = SelectConnection
 HOST = 'localhost'
 MESSAGES = 10
 PORT = 5672
 
-class TestAsyncSendConsume(async.AsyncPattern):
+class TestSendConsume(async.AsyncPattern):
 
     def __init__(self):
         async.AsyncPattern.__init__(self)
@@ -25,14 +27,16 @@ class TestAsyncSendConsume(async.AsyncPattern):
 
     @nose.tools.timed(2)
     def test_send_and_consume(self):
-        self.connection = self._connect(ADAPTER, HOST, PORT)
+        self.connection = self._connect(SelectConnection, HOST, PORT)
         self.connection.ioloop.start()
         if self._timeout:
             assert False, "Test timed out"
         if len(self._sent) != MESSAGES:
-            assert False, "We did not send the proper quantity of messages."
+            assert False, "We did not send the expected qty of messages: %i" %\
+                          len(self._sent)
         if len(self._received) != MESSAGES:
-            assert False, "We did not receive the proper quantity of messages."
+            assert False, "Did not receive the expected qty of messages: %i" %\
+                          len(self._received)
         for message in self._received:
             if message not in self._sent:
                 print message
@@ -60,9 +64,5 @@ class TestAsyncSendConsume(async.AsyncPattern):
             self.connection.add_on_close_callback(self._on_closed)
             self.connection.close()
 
-
 if __name__ == "__main__":
-    import logging
-    logging.basicConfig(level=logging.DEBUG)
-    x = TestAsyncSendConsume()
-    x.test_send_and_consume()
+    nose.runmodule()

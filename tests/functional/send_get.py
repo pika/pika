@@ -2,7 +2,10 @@
 """
 Send a message and confirm you can retrieve it with Basic.Get
 """
-import utils.async as async
+import sys
+sys.path.append("../..")
+
+import support.async as async
 import nose
 from pika.adapters import SelectConnection
 
@@ -32,15 +35,13 @@ class TestAsyncSendGet(async.AsyncPattern):
 
     def _on_queue_declared(self, frame):
         test_message = self._send_message()
+
         def check_message(channel_number, method, header, body):
             self.confirmed = (body == test_message)
             self.connection.add_on_close_callback(self._on_closed)
             self.connection.close()
+
         self.channel.basic_get(callback=check_message, queue=self._queue)
 
-
 if __name__ == "__main__":
-    import logging
-    logging.basicConfig(level=logging.DEBUG)
-    x = TestAsyncSendGet()
-    x.test_send_and_get()
+    nose.runmodule()

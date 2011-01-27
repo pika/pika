@@ -4,8 +4,10 @@ Connection Test
 
 First test to make sure all async adapters can connect properly
 """
+import os
 import sys
-sys.path.append('../..')
+sys.path.append('..')
+sys.path.append(os.path.join('..', '..'))
 
 import nose
 import pika
@@ -25,28 +27,6 @@ class TestAdapters(object):
     def test_asyncore_connection(self):
         self.connection = self._connect(adapters.AsyncoreConnection)
         self.connection.ioloop.start()
-        if not self.connected:
-            assert False
-        pass
-
-    @nose.tools.timed(2)
-    def test_epoll_connection(self):
-        self._set_select_poller('epoll')
-        self.connection = self._connect(adapters.SelectConnection)
-        self.connection.ioloop.start()
-        if self.connection.ioloop.poller_type != 'EPollPoller':
-            assert False
-        if not self.connected:
-            assert False
-        pass
-
-    @nose.tools.timed(2)
-    def test_poll_connection(self):
-        self._set_select_poller('poll')
-        self.connection = self._connect(adapters.SelectConnection)
-        self.connection.ioloop.start()
-        if self.connection.ioloop.poller_type != 'PollPoller':
-            assert False
         if not self.connected:
             assert False
         pass
@@ -88,13 +68,5 @@ class TestAdapters(object):
     def _set_select_poller(self, type):
         adapters.select_connection.SELECT_TYPE = type
 
-
 if __name__ == "__main__":
-    import logging
-    logging.basicConfig(level=logging.DEBUG)
-    x = TestAdapters()
-    x.test_asyncore_connection()
-    x.test_epoll_connection()
-    x.test_select_connection()
-    x.test_poll_connection()
-    x.test_tornado_connection()
+    nose.runmodule()
