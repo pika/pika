@@ -80,6 +80,7 @@ class SelectConnection(BaseConnection):
 
         # Setup our IOLoop
         self.ioloop = IOLoop.instance()
+        self.ioloop.socket = self.sock
 
         # Setup our base event state
         self.base_events = READ | ERROR
@@ -276,8 +277,8 @@ class SelectPoller(object):
     TIMEOUT = 0.5
 
     def __init__(self, fd, handler, events):
-        logging.debug('%s Poller Starting' % self.__class__.__name__)
-
+        logging.debug('%s.__init__(%f, %s, %s)' %\
+                      (self.__class__.__name__, fd, handler, events))
         self.fd = fd
         self.handler = handler
         self.events = events
@@ -352,7 +353,8 @@ class SelectPoller(object):
 class KQueuePoller(SelectPoller):
 
     def __init__(self, fd, handler, events):
-
+        logging.debug('%s.__init__(%f, %s, %s)' %\
+                      (self.__class__.__name__, fd, handler, events))
         self.fd = fd
         self.handler = handler
         self.events = 0
@@ -471,7 +473,8 @@ class KQueuePoller(SelectPoller):
 class PollPoller(SelectPoller):
 
     def __init__(self, fd, handler, events):
-
+        logging.debug('%s.__init__(%f, %s, %s)' %\
+                      (self.__class__.__name__, fd, handler, events))
         self.fd = fd
         self.handler = handler
         self.events = events
@@ -510,7 +513,8 @@ class EPollPoller(PollPoller):
     """
 
     def __init__(self, fd, handler, events):
-
+        logging.debug('%s.__init__(%f, %s, %s)' %\
+                      (self.__class__.__name__, fd, handler, events))
         self.fd = fd
         self.handler = handler
         self.events = events
