@@ -60,9 +60,14 @@ from pika.adapters.base_connection import BaseConnection
 class TornadoConnection(BaseConnection):
 
     def add_timeout(self, delay_sec, callback):
-
+        if not hasattr(self, '_timeouts'):
+            self._timeouts = dict()
         deadline = time.time() + delay_sec
-        self.ioloop.add_timeout(deadline, callback)
+        self._timeouts[callback] = self.ioloop.add_timeout(deadline, callback)
+
+    def cancel_timeout(self, handler):
+        self.ioloop.remove_timeout(self._timeouts[handler])
+        del self._timeouts[handler]
 
     def connect(self, host, port):
 

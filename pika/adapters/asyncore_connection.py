@@ -199,6 +199,16 @@ class AsyncoreDispatcher(asyncore.dispatcher):
                        handler))
         self.timeouts[deadline] = handler
 
+
+    def cancel_timeout(self, handler):
+        """
+        Pass through a deadline and handler to the active poller
+        """
+        for key in self.timeouts.keys():
+            if self.timeouts[key] == handler:
+                del self.timeouts[key]
+                break
+
     def _process_timeouts(self):
         """
         Only called by our IOLoop after each timeout of asyncore.loop. It will
@@ -251,6 +261,13 @@ class AsyncoreConnection(BaseConnection):
         handler will be called without any arguments.
         """
         self.ioloop.add_timeout(delay_sec, callback)
+
+
+    def cancel_timeout(self, callback):
+        """
+        Cancels a timeout that we've already added to the timeout stack
+        """
+        self.ioloop.cancel_timeout(callback)
 
     def connect(self, host, port):
         """

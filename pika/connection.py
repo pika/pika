@@ -173,6 +173,16 @@ class Connection(object):
         raise NotImplementedError('%s needs to implement this function ' \
                                   % self.__class__.__name__)
 
+
+    def cancel_timeout(self, callback):
+        """
+        Adapters should override to call the callback after the
+        specified number of seconds have elapsed, using a timer, or a
+        thread, or similar.
+        """
+        raise NotImplementedError('%s needs to implement this function ' \
+                                  % self.__class__.__name__)
+
     @property
     def is_open(self):
         """

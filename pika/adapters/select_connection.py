@@ -71,6 +71,10 @@ class SelectConnection(BaseConnection):
         deadline = time.time() + delay_sec
         self.ioloop.add_timeout(deadline, callback)
 
+    def cancel_timeout(self, callback):
+
+        self.ioloop.cancel_timeout(callback)
+
     def connect(self, host, port):
 
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
@@ -213,6 +217,12 @@ class IOLoop(object):
         """
         self.poller.add_timeout(deadline, handler)
 
+    def cancel_timeout(self, handler):
+        """
+        Pass through a deadline and handler to the active poller
+        """
+        self.poller.cancel_timeout(handler)
+
     @property
     def poller_type(self):
 
@@ -295,6 +305,15 @@ class SelectPoller(object):
                       (self.__class__.__name__, deadline, handler))
 
         self.timeouts[deadline] = handler
+
+    def cancel_timeout(self, handler):
+        logging.debug('%s.cancel_timeout(handler=%s)' % \
+                      (self.__class__.__name__, handler))
+
+        for key in self.timeouts.keys():
+            if self.timeouts[key] == handler:
+                del self.timeouts[key]
+                break
 
     def process_timeouts(self):
 
