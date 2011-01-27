@@ -34,14 +34,17 @@ class TestConsumeCancel(async.AsyncPattern):
         self.confirmed = False
         self.connection = self._connect(SelectConnection, HOST, PORT)
         self.connection.ioloop.start()
-        if not self.confirmed:
+        if self._timeout:
             assert False, "Test timed out"
+        if not self.confirmed:
+            assert False, "Did not receive Basic.CancelOk"
         pass
 
     def _on_channel(self, channel):
         self.channel = channel
         self._queue_declare()
 
+    @async.timeout
     def _on_queue_declared(self, frame):
         #self.connection.add_timeout(10, self._on_timeout)
         self.channel.add_callback(self.on_consume_ok, [spec.Basic.ConsumeOk])
@@ -61,7 +64,8 @@ class TestConsumeCancel(async.AsyncPattern):
                                   callback=self.on_cancel_ok)
 
     def on_cancel_ok(self, frame):
-        self.confirmed = True
+        if frame.method.NAME == 'Basic.CancelOk':
+            self.confirmed = True
         # Wait 1 second until we call basic_cancel so that it can catch up with
         # events since we're fired before anything internally is
         self.connection.add_timeout(.25, self._close)

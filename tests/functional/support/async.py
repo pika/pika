@@ -8,6 +8,19 @@ import pika
 import time
 
 
+def timeout(method):
+    def _timeout(self, *args, **kwargs):
+        self.connection.add_timeout(2, self._on_timeout)
+        return method(self, *args, **kwargs)
+    return _timeout
+
+def timeout_cancel(method):
+    def _timeout(self, *args, **kwargs):
+        self.connection.cancel_timeout(self._on_timeout)
+        return method(self, *args, **kwargs)
+    return _timeout
+
+
 class AsyncPattern(object):
 
     def __init__(self):

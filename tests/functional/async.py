@@ -18,10 +18,13 @@ from pika.adapters.tornado_connection import TornadoConnection
 HOST = 'localhost'
 PORT = 5672
 
+
+
 class TestAdapters(object):
 
     def __init__(self):
         self.connection = None
+        self._timeout = False
 
     @nose.tools.timed(2)
     def test_asyncore_connection(self):

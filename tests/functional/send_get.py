@@ -14,7 +14,6 @@ confirmed = False
 connection = None
 queue = None
 
-ADAPTER = SelectConnection
 HOST = 'localhost'
 PORT = 5672
 
@@ -23,7 +22,7 @@ class TestAsyncSendGet(async.AsyncPattern):
     @nose.tools.timed(2)
     def test_send_and_get(self):
         self.confirmed = False
-        self.connection = self._connect(ADAPTER, HOST, PORT)
+        self.connection = self._connect(SelectConnection, HOST, PORT)
         self.connection.ioloop.start()
         if not self.confirmed:
             assert False, 'Messages did not match.'

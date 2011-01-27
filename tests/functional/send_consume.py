@@ -52,10 +52,10 @@ class TestSendConsume(async.AsyncPattern):
         self.channel = channel
         self._queue_declare()
 
+    @async.timeout
     def _on_queue_declared(self, frame):
         for x in xrange(0, MESSAGES):
             self._sent.append(self._send_message())
-        self.connection.add_timeout(10, self._on_timeout)
         self.channel.basic_consume(self._on_message, queue=self._queue)
 
     def _on_message(self, channel_number, method, header, body):
