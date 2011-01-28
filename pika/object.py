@@ -56,9 +56,9 @@ class object_(object):
     def __repr__(self):
         items = list()
         for key in self.__dict__.keys():
-            value =  getattr(self, key, None)
-            items.append('%s=%s' % (key,value))
-        return '%s(%s)' % (self.name,  items)
+            value = getattr(self, key, None)
+            items.append('%s=%s' % (key, value))
+        return '<%s(%s)>' % (self.name,  items)
 
 
 class Class(object_):
@@ -76,6 +76,7 @@ class Method(object_):
 
     def get_body(self):
         return self._body
+
 
 class Properties(object_):
     pass

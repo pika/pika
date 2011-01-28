@@ -97,34 +97,34 @@ class SimpleReconnectionStrategy(ReconnectionStrategy):
         self.attempts_since_last_success = 0
 
     def on_connect_attempt(self, conn):
-        logging.debug("%s.on_connect_attempt: %r" % \
-                      (self.__class__.__name__, (conn,)))
+        logging.debug("%s.on_connect_attempt: %r",
+                      self.__class__.__name__, conn)
         self.attempts_since_last_success += 1
 
     def on_connect_attempt_failure(self, conn):
-        logging.error("%s.on_connect_attempt_failure: %r" % \
-                      (self.__class__.__name__, (conn,)))
+        logging.error("%s.on_connect_attempt_failure: %r",
+                      self.__class__.__name__, conn)
 
     def on_transport_connected(self, conn):
-        logging.debug("%s.on_transport_connected: %r" % \
-                      (self.__class__.__name__, (conn,)))
+        logging.debug("%s.on_transport_connected: %r",
+                      self.__class__.__name__, conn)
 
     def on_transport_disconnected(self, conn):
 
-        logging.debug("%s.on_transport_disconnected: %r" % \
-                      (self.__class__.__name__, (conn,)))
+        logging.debug("%s.on_transport_disconnected: %r",
+                      self.__class__.__name__, conn)
 
     def on_connection_open(self, conn):
-        logging.debug("%s.on_connection_open: %r" % \
-                      (self.__class__.__name__, (conn,)))
+        logging.debug("%s.on_connection_open: %r",
+                      self.__class__.__name__, conn)
         self._reset()
 
     def on_connection_closed(self, conn):
         t = self.current_delay * ((random.random() * self.jitter) + 1)
 
-        logging.info("%s retrying %r in %r seconds (%r attempts)" %
-                     (self.__class__.__name__, conn.parameters, t,
-                      self.attempts_since_last_success))
+        logging.info("%s retrying %r in %r seconds (%r attempts)",
+                     self.__class__.__name__, conn.parameters, t,
+                     self.attempts_since_last_success)
         self.current_delay = min(self.max_delay,
                                  self.current_delay * self.multiplier)
         conn.add_timeout(t, conn.reconnect)

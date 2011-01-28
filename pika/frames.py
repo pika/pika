@@ -47,14 +47,13 @@
 # ***** END LICENSE BLOCK *****
 
 import logging
+import struct
 
 import pika.spec as spec
 import pika.callback as callback
-
 from pika.exceptions import *
 from pika.object import object_
 
-import struct
 
 class Frame(object_):
 
@@ -142,115 +141,3 @@ class ProtocolHeader(Frame):
                                     self.transport_low,
                                     self.protocol_version_major,
                                     self.protocol_version_minor)
-
-
-class FrameHandler(object):
-
-    def __init__(self):
-
-        self.callbacks = callback.CallbackManager.instance()
-
-        # We start with Method frames always
-        self._handler = self._handle_method_frame
-
-    def process(self, frame):
-        self._handler(frame)
-
-    def _handle_method_frame(self, frame):
-        """
-        Receive a frame and process it, we should have content by the time we
-        reach this handler, set the next handler to be the header frame handler
-        """
-        logging.debug("%s._handle_method_frame: %r" % (self.__class__.__name__,
-                                                       frame))
-
-        # If we don't have FrameMethod something is wrong so throw an exception
-        if not isinstance(frame, Method):
-            raise UnexpectedFrameError(frame)
-
-        # If the frame is a content related frame go deal with the content
-        # By getting the content header frame
-        if spec.has_content(frame.method.INDEX):
-            self._handler = self._handle_header_frame(frame)
-
-        # We were passed a frame we don't know how to deal with
-        else:
-            raise NotImplementedError(frame.method.__class__)
-
-    def _handle_header_frame(self, frame):
-        """
-        Receive a header frame and process that, setting the next handler
-        to the body frame handler
-        """
-        logging.debug("%s._handle_header_frame: %r" % (self.__class__.__name__,
-                                                       frame))
-
-        def handler(header_frame):
-            # Make sure it's a header frame
-            if not isinstance(header_frame, Header):
-                raise UnexpectedFrameError(header_frame)
-
-            # Call the handle body frame including our header frame
-            self._handle_body_frame(frame, header_frame)
-
-        return handler
-
-    def _handle_body_frame(self, method_frame, header_frame):
-        """
-        Receive body frames. We'll keep receiving them in handler until we've
-        received the body size specified in the header frame. When done
-        call our finish function which will call our transports callbacks
-        """
-        logging.debug("%s._handle_body_frame: %r" % (self.__class__.__name__,
-                                                     header_frame))
-        seen_so_far = [0]
-        body_fragments = list()
-
-        def handler(body_frame):
-            # Make sure it's a body frame
-            if not isinstance(body_frame, Body):
-                raise UnexpectedFrameError(body_frame)
-
-            # Increment our counter so we know when we've had enough
-            seen_so_far[0] += len(body_frame.fragment)
-
-            # Append the fragment to our list
-            body_fragments.append(body_frame.fragment)
-
-            # Did we get enough bytes? If so finish
-            if seen_so_far[0] == header_frame.body_size:
-                finish()
-
-            # Did we get too many bytes?
-            elif seen_so_far[0] > header_frame.body_size:
-                error = 'Received %i and only expected %i' % \
-                        (seen_so_far[0], header_frame.body_size)
-                raise BodyTooLongError(error)
-
-        def finish():
-            # We're done so set our handler back to the method frame
-            self._handler = self._handle_method_frame
-
-            # Get our method name
-            method = method_frame.method.__class__.__name__
-            if method == 'Deliver':
-                key = '_on_basic_deliver'
-            elif method == 'GetOk':
-                key = '_on_basic_get'
-            else:
-                raise Exception('Unimplemented Content Return Key')
-
-            # Check for a processing callback for our method name
-            self.callbacks.process(method_frame.channel_number,  # Prefix
-                                   key,                          # Key
-                                   self,                         # Caller
-                                   method_frame,                 # Arg 1
-                                   header_frame,                 # Arg 2
-                                   ''.join(body_fragments))      # Arg 3
-
-        # if we dont have a header frame body size, finish otherwise keep going
-        # And keep our handler function as the frame handler
-        if not header_frame.body_size:
-            finish()
-        else:
-            self._handler = handler
