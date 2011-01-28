@@ -47,9 +47,9 @@
 # ***** END LICENSE BLOCK *****
 
 import errno
-import logging
 import socket
 
+import pika.log as log
 import pika.spec as spec
 
 from pika.adapters import BaseConnection
@@ -88,7 +88,7 @@ class BlockingConnection(BaseConnection):
         try:
             return self.socket.recv(bufsize)
         except socket.timeout:
-            logging.error("%s._recv socket.timeout", self.__class__.__name__)
+            log.error("%s._recv socket.timeout", self.__class__.__name__)
         self.socket.settimeout(prev_timeout)
 
     def flush_outbound(self):
@@ -135,7 +135,7 @@ class BlockingConnection(BaseConnection):
         """
         Create a new channel with the next available or specified channel #
         """
-        logging.debug('%s.channel' % self.__class__.__name__)
+        log.debug('%s.channel' % self.__class__.__name__)
 
         # We'll loop on this
         self._channel_open = False
@@ -180,7 +180,7 @@ class BlockingChannelTransport(ChannelTransport):
         Shortcut wrapper to the Connection's rpc command using its callback
         stack, passing in our channel number
         """
-        logging.debug("%s.rpc(%s, %s, %r)" % (self.__class__.__name__,
+        log.debug("%s.rpc(%s, %s, %r)" % (self.__class__.__name__,
                                               callback,
                                               method,
                                               acceptable_replies))
@@ -223,7 +223,7 @@ class BlockingChannelTransport(ChannelTransport):
         Shortcut wrapper to send a method through our connection, passing in
         our channel number
         """
-        logging.debug("%s.send_method: %s(%s)" % (self.__class__.__name__,
+        log.debug("%s.send_method: %s(%s)" % (self.__class__.__name__,
                                                   method, content))
         self._received_response = False
         self.connection.send_method(self.channel_number, method, content)
@@ -254,7 +254,7 @@ class BlockingChannel(Channel):
         If flow control is enabled and you publish a message while another is
         sending, a ContentTransmissionForbidden exception ill be generated
         """
-        logging.debug("%s.basic_publish" % self.__class__.__name__)
+        log.debug("%s.basic_publish" % self.__class__.__name__)
 
         # If properties are not passed in, use the spec's default
         properties = properties or spec.BasicProperties()
@@ -281,13 +281,13 @@ class BlockingChannel(Channel):
                            [spec.Basic.ConsumeOk])
 
     def _on_consume_ok(self, frame):
-        logging.debug("%s._on_consume_ok" % self.__class__.__name__)
+        log.debug("%s._on_consume_ok" % self.__class__.__name__)
         self._consuming = True
         while self._consuming:
             self.connection.drain_events()
 
     def _on_basic_deliver(self, method_frame, header_frame, body):
-        logging.debug("%s._on_basic_deliver" % self.__class__.__name__)
+        log.debug("%s._on_basic_deliver" % self.__class__.__name__)
         # Call our consumer callback with the data
         self._consumer(self,
                        method_frame.method,
@@ -295,7 +295,7 @@ class BlockingChannel(Channel):
                        body)
 
     def stop_consuming(self):
-        logging.debug("%s._on_consume_ok" % self.__class__.__name__)
+        log.debug("%s._on_consume_ok" % self.__class__.__name__)
         self._consuming = False
 
     def basic_get(self, ticket=0, queue=None, no_ack=False):

@@ -49,7 +49,7 @@
 
 
 import errno
-import logging
+import pika.log as log
 import socket
 import time
 import tornado.ioloop
@@ -96,7 +96,7 @@ class TornadoConnection(BaseConnection):
         self._on_connected()
 
     def disconnect(self):
-        logging.debug('%s.disconnect', self.__class__.__name__)
+        log.debug('%s.disconnect', self.__class__.__name__)
 
         # Remove from the IOLoop
         self.ioloop.remove_handler(self.sock.fileno())
@@ -105,7 +105,7 @@ class TornadoConnection(BaseConnection):
         self.sock.close()
 
         msg = "Tornado IOLoop is likely to be running but Pika has shutdown."
-        logging.warning(msg)
+        log.warning(msg)
 
     def flush_outbound(self):
 
@@ -142,7 +142,7 @@ class TornadoConnection(BaseConnection):
 
         # Incoming events from IOLoop, make sure we have our socket
         if not self.sock:
-            logging.warning("Got events for closed stream %d", fd)
+            log.warning("Got events for closed stream %d", fd)
             return
 
         if events & tornado.ioloop.IOLoop.READ:
@@ -163,10 +163,10 @@ class TornadoConnection(BaseConnection):
         if error[0] in (errno.EWOULDBLOCK, errno.EAGAIN, errno.EINTR):
             return
         elif error[0] == errno.EBADF:
-            logging.error("%s: Write to a closed socket",
+            log.error("%s: Write to a closed socket",
                           self.__class__.__name__)
         else:
-            logging.error("%s: Write error on %d: %s",
+            log.error("%s: Write error on %d: %s",
                           self.__class__.__name__, self.sock.fileno(), error)
         self._on_connection_closed(None, True)
 

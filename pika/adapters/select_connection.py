@@ -49,7 +49,7 @@
 
 
 import errno
-import logging
+import pika.log as log
 import select
 import socket
 import time
@@ -67,16 +67,22 @@ ERROR = 0x0008
 class SelectConnection(BaseConnection):
 
     def add_timeout(self, delay_sec, callback):
-
+        """
+        Add a timeout to the IOLoops callback stack
+        """
         deadline = time.time() + delay_sec
         self.ioloop.add_timeout(deadline, callback)
 
     def cancel_timeout(self, callback):
-
+        """
+        Cancels a given callback on the IOLoop's timeout stack
+        """
         self.ioloop.cancel_timeout(callback)
 
     def connect(self, host, port):
-
+        """
+        Connect to the given host and port
+        """
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
         self.sock.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
         self.sock.connect((host, port))
@@ -103,7 +109,9 @@ class SelectConnection(BaseConnection):
         self._on_connected()
 
     def disconnect(self):
-
+        """
+        Called if we are forced to disconnect for some reason.
+        """
         # Remove from the IOLoop
         self.ioloop.stop()
 
@@ -111,12 +119,17 @@ class SelectConnection(BaseConnection):
         self.sock.close()
 
     def flush_outbound(self):
-
-        # Call our event state manager
+        """
+        Call the state manager who will figure out that we need to write.
+        """
         self._manage_event_state()
 
     def _manage_event_state(self):
-
+        """
+        We use this to manage the bitmask for reading/writing/error which
+        we want to use to have our io/event handler tell us when we can
+        read/write, etc
+        """
         # Do we have data pending in the outbound buffer?
         if self.outbound_buffer.size:
 
@@ -140,10 +153,12 @@ class SelectConnection(BaseConnection):
             self.ioloop.set_events(self.event_state)
 
     def _handle_events(self, fd, events, error=None):
-
-        # Incoming events from IOLoop, make sure we have our socket
+        """
+        Our IO/Event loop have called us with events, so process them
+        """
         if not self.sock:
-            logging.warning("Got events for closed stream %d", fd)
+            log.error("%s: Got events for closed stream %d",
+                      self.__class__.__name__, fd)
             return
 
         if events & READ:
@@ -160,28 +175,33 @@ class SelectConnection(BaseConnection):
             self._manage_event_state()
 
     def _handle_error(self, error):
-
+        """
+        We received an error reading or writing
+        """
         if error[0] in (errno.EWOULDBLOCK, errno.EAGAIN, errno.EINTR):
             return
         elif error[0] == errno.EBADF:
-            logging.error("%s: Write to a closed socket",
-                          self.__class__.__name__)
+            log.error("%s: Write to a closed socket", self.__class__.__name__)
         else:
-            logging.error("%s: Write error on %d: %s",
-                          self.__class__.__name__,
-                          self.sock.fileno(), error)
+            log.error("%s: Write error on %d: %s",  self.__class__.__name__,
+                      self.sock.fileno(), error)
         self._on_connection_closed(None, True)
 
     def _handle_read(self):
-
+        """
+        Read from the socket and call our on_data_available with the data
+        """
         try:
             self.on_data_available(self.sock.recv(self.buffer_size))
         except socket.error as e:
+            log.error("error: %s" % e)
             self._handle_error(e)
 
     def _handle_write(self):
-
-        # Get data to send based upon Pika's suggested buffer size
+        """
+        We only get here when we have data to write, so try and send
+        Pika's suggested buffer size of data (be nice to Windows)
+        """
         fragment = self.outbound_buffer.read(self.buffer_size)
         try:
             r = self.sock.send(fragment)
@@ -287,9 +307,8 @@ class SelectPoller(object):
     TIMEOUT = 0.5
 
     def __init__(self, fd, handler, events):
-        logging.debug('%s.__init__(%f, %s, %s)',
-                      self.__class__.__name__,
-                      fd, handler, events)
+        log.debug('%s.__init__(%f, %s, %s)', self.__class__.__name__,
+                 fd, handler, events)
         self.fd = fd
         self.handler = handler
         self.events = events
@@ -297,19 +316,19 @@ class SelectPoller(object):
         self.timeouts = dict()
 
     def set_events(self, events):
-        logging.debug('%s.set_events(%i)' , self.__class__.__name__, events)
+        log.debug('%s.set_events(%i)' , self.__class__.__name__, events)
 
         self.events = events
 
     def add_timeout(self, deadline, handler):
-        logging.debug('%s.add_timeout(deadline=%.4f,handler=%s)',
-                      self.__class__.__name__, deadline, handler)
+        log.debug('%s.add_timeout(deadline=%.4f,handler=%s)',
+                   self.__class__.__name__, deadline, handler)
 
         self.timeouts[deadline] = handler
 
     def cancel_timeout(self, handler):
-        logging.debug('%s.cancel_timeout(handler=%s)',
-                      self.__class__.__name__, handler)
+        log.debug('%s.cancel_timeout(handler=%s)',
+                  self.__class__.__name__, handler)
 
         for key in self.timeouts.keys():
             if self.timeouts[key] == handler:
@@ -324,9 +343,9 @@ class SelectPoller(object):
         start_time = time.time()
         for deadline in deadlines:
             if deadline <= start_time:
-                logging.debug('%s: Timeout calling %s',
-                              self.__class__.__name__,
-                              self.timeouts[deadline])
+                log.debug('%s: Timeout calling %s',
+                          self.__class__.__name__,
+                          self.timeouts[deadline])
                 self.timeouts[deadline]()
                 del(self.timeouts[deadline])
 
@@ -363,7 +382,7 @@ class SelectPoller(object):
                 events |= ERROR
 
             if events:
-                logging.debug("%s: Calling %s", self.__class__.__name__,
+                log.debug("%s: Calling %s", self.__class__.__name__,
                               self.handler)
                 self.handler(self.fd, events)
 
@@ -374,7 +393,7 @@ class SelectPoller(object):
 class KQueuePoller(SelectPoller):
 
     def __init__(self, fd, handler, events):
-        logging.debug('%s.__init__(%f, %s, %s)', self.__class__.__name__,
+        log.debug('%s.__init__(%f, %s, %s)', self.__class__.__name__,
                       fd, handler, events)
         self.fd = fd
         self.handler = handler
@@ -389,7 +408,7 @@ class KQueuePoller(SelectPoller):
         self.set_events(events)
 
     def set_events(self, events):
-        logging.debug('%s.set_events(%i)', self.__class__.__name__, events)
+        log.debug('%s.set_events(%i)', self.__class__.__name__, events)
 
         # No need to update if our events are the same
         if self.events == events:
@@ -483,8 +502,8 @@ class KQueuePoller(SelectPoller):
 
             # Call our event handler if we have events in our stack
             if events:
-                logging.debug("%s: Calling %s", self.__class__.__name__,
-                              self.handler)
+                log.debug("%s: Calling %s(%i)", self.__class__.__name__,
+                          self.handler, events)
                 self.handler(self.fd, events)
 
             # Process our timeouts
@@ -494,7 +513,7 @@ class KQueuePoller(SelectPoller):
 class PollPoller(SelectPoller):
 
     def __init__(self, fd, handler, events):
-        logging.debug('%s.__init__(%f, %s, %s)', self.__class__.__name__,
+        log.debug('%s.__init__(%f, %s, %s)', self.__class__.__name__,
                       fd, handler, events)
         self.fd = fd
         self.handler = handler
@@ -506,7 +525,7 @@ class PollPoller(SelectPoller):
         self._poll.register(self.fd, self.events)
 
     def set_events(self, events):
-        logging.debug('%s.set_events(%i)', self.__class__.__name__, events)
+        log.debug('%s.set_events(%i)', self.__class__.__name__, events)
 
         self.events = events
         self._poll.modify(self.fd, self.events)
@@ -520,8 +539,8 @@ class PollPoller(SelectPoller):
 
             # If we didn't timeout pass the event to the handler
             if events:
-                logging.debug("%s: Calling %s", self.__class__.__name__,
-                              self.handler)
+                log.debug("%s: Calling %s", self.__class__.__name__,
+                          self.handler)
                 self.handler(events[0][0], events[0][1])
 
             # Process our timeouts
@@ -534,8 +553,8 @@ class EPollPoller(PollPoller):
     """
 
     def __init__(self, fd, handler, events):
-        logging.debug('%s.__init__(%f, %s, %s)', self.__class__.__name__, fd,
-                      handler, events)
+        log.debug('%s.__init__(%f, %s, %s)', self.__class__.__name__, fd,
+                  handler, events)
         self.fd = fd
         self.handler = handler
         self.events = events

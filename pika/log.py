@@ -46,9 +46,8 @@
 #
 # ***** END LICENSE BLOCK *****
 
-ON = False
+ON = True
 
-import sys
 import logging
 
 DEBUG = logging.DEBUG
@@ -77,13 +76,9 @@ def warning(*args, **kwargs):
     pass
 
 
-if ON:
-
-    print 'Here'
-    sys.exit(0)
+if ON == True:
 
     debug = logging.debug
     error = logging.error
     info = logging.info
     warning = logging.warning
-
