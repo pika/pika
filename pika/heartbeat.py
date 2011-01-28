@@ -47,7 +47,7 @@
 # ***** END LICENSE BLOCK *****
 
 
-import pika.codec as codec
+from pika.frames import Heartbeat
 
 MAX_MISSED_HEARTBEATS = 2
 
@@ -108,7 +108,7 @@ class HeartbeatChecker(object):
         # If we've not sent a heartbeat since the last time we ran this
         # function, send a new heartbeat frame
         if self.sent == self.connection.bytes_sent:
-            self.connection.send_frame(codec.FrameHeartbeat())
+            self.connection.send_frame(Heartbeat())
 
         # Get the current byte counters from the connection, we expect these
         # to increment on our next call
