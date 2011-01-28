@@ -45,11 +45,9 @@
 # this file under the terms of any one of the MPL or the GPL.
 #
 # ***** END LICENSE BLOCK *****
-
-import logging
-
 import pika.callback as callback
 import pika.frames as frames
+import pika.log as log
 import pika.spec as spec
 import pika.exceptions as exceptions
 
@@ -129,7 +127,7 @@ class ChannelTransport(object):
         flow active state, then fire the event and send the FlowOk method in
         response
         """
-        logging.debug("%s._on_channel_flow: %r",
+        log.debug("%s._on_channel_flow: %r",
                       self.__class__.__name__, frame)
 
         self.flow_active = frame.method.active
@@ -149,7 +147,7 @@ class ChannelTransport(object):
         Shortcut wrapper to the Connection's rpc command using its callback
         stack, passing in our channel number
         """
-        logging.debug("%s.rpc(%s, %s, %r)",
+        log.debug("%s.rpc(%s, %s, %r)",
                       self.__class__.__name__, callback,
                       method, acceptable_replies)
 
@@ -164,7 +162,7 @@ class ChannelTransport(object):
 
         # If we're blocking, add subsequent commands to our stack
         if self.blocking:
-            logging.debug('%s: %s is blocking this channel',
+            log.debug('%s: %s is blocking this channel',
                           self.__class__.__name__, self.blocking)
 
             self._blocked.append([callback, method, acceptable_replies])
@@ -172,7 +170,7 @@ class ChannelTransport(object):
 
         # If this is a synchronous method, block connections until we're done
         if method.synchronous:
-            logging.debug('%s: %s turning on blocking',
+            log.debug('%s: %s turning on blocking',
                           self.__class__.__name__, method.NAME)
 
             self.blocking = method.NAME
@@ -190,7 +188,7 @@ class ChannelTransport(object):
         Shortcut wrapper to send a method through our connection, passing in
         our channel number
         """
-        logging.debug("%s.send_method: %s(%s)", self.__class__.__name__,
+        log.debug("%s.send_method: %s(%s)", self.__class__.__name__,
                       method, content)
         self.connection.send_method(self.channel_number, method, content)
 
@@ -200,7 +198,7 @@ class ChannelTransport(object):
         We keep a list of what we've yet to implement so that we don't silently
         drain events that we don't support.
         """
-        logging.debug("%s._on_event_ok: %r", self.__class__.__name__,
+        log.debug("%s._on_event_ok: %r", self.__class__.__name__,
                       frame.method.NAME)
 
         # If we've not implemented this frame, raise an exception
@@ -213,7 +211,7 @@ class ChannelTransport(object):
         the blocking state and send all the frames that stacked up while we
         were in the blocking state.
         """
-        logging.debug("%s._on_synchronous_complete for %s: %r",
+        log.debug("%s._on_synchronous_complete for %s: %r",
                       self.__class__.__name__, self.blocking, frame)
 
         # Release the lock
@@ -329,7 +327,7 @@ class Channel(spec.DriverMixin):
         """
         Will invoke a clean shutdown of the channel with the AMQP Broker
         """
-        logging.debug("%s.close: (%s) %s", self.__class__.__name__,
+        log.debug("%s.close: (%s) %s", self.__class__.__name__,
                       str(code), text)
 
         # Set our closing code and text
@@ -348,13 +346,13 @@ class Channel(spec.DriverMixin):
         Internal close, is called when all the consumers are closed by both
         Channel.close and Channel._on_cancel_ok
         """
-        logging.debug("%s._close", self.__class__.__name__)
+        log.debug("%s._close", self.__class__.__name__)
         self.transport.send_method(spec.Channel.Close(self.closing[0],
                                                       self.closing[1],
                                                       0, 0))
 
     def _open(self, frame):
-        logging.debug("%s._open: %r", self.__class__.__name__, frame)
+        log.debug("%s._open: %r", self.__class__.__name__, frame)
         # Call our on open callback
         if self._on_open_callback:
             self._on_open_callback(self)
@@ -363,7 +361,7 @@ class Channel(spec.DriverMixin):
         """
         Cancel a basic_consumer call on the Broker
         """
-        logging.debug("%s.basic_cancel: %s", self.__class__.__name__,
+        log.debug("%s.basic_cancel: %s", self.__class__.__name__,
                       consumer_tag)
 
         if consumer_tag not in self._consumers:
@@ -386,7 +384,7 @@ class Channel(spec.DriverMixin):
         Pass a callback consuming function for a given queue. You can specify
         your own consumer tag but why not let the driver do it for you?
         """
-        logging.debug("%s.basic_consume", self.__class__.__name__)
+        log.debug("%s.basic_consume", self.__class__.__name__)
 
         # If a consumer tag was not passed, create one
         if not consumer_tag:
@@ -419,7 +417,7 @@ class Channel(spec.DriverMixin):
         If flow control is enabled and you publish a message while another is
         sending, a ContentTransmissionForbidden exception ill be generated
         """
-        logging.debug("%s.basic_publish", self.__class__.__name__)
+        log.debug("%s.basic_publish", self.__class__.__name__)
 
         # If properties are not passed in, use the spec's default
         properties = properties or spec.BasicProperties()
@@ -443,7 +441,7 @@ class Channel(spec.DriverMixin):
         another delivery appears for it, queue the deliveries up until it
         finally exits.
         """
-        logging.debug("%s._on_basic_deliver", self.__class__.__name__)
+        log.debug("%s._on_basic_deliver", self.__class__.__name__)
 
         # Shortcut for our consumer tag
         consumer_tag = method_frame.method.consumer_tag
@@ -486,7 +484,7 @@ class Channel(spec.DriverMixin):
         """
         Called in response to a frame from the Broker when we call Basic.Cancel
         """
-        logging.debug("%s._on_cancel_ok: %r", self.__class__.__name__,
+        log.debug("%s._on_cancel_ok: %r", self.__class__.__name__,
                                                frame.method.NAME)
 
         # We need to delete the consumer tag from our _consumers
@@ -501,7 +499,7 @@ class Channel(spec.DriverMixin):
         Implementation of the basic_get command that bypasses the rpc mechanism
         since we have to assemble the content
         """
-        logging.debug("%s.basic_get(cb=%s, ticket=%i, queue=%s, no_ack=%s)",
+        log.debug("%s.basic_get(cb=%s, ticket=%i, queue=%s, no_ack=%s)",
                       self.__class__.__name__, callback, ticket, queue, no_ack)
         self._basic_get_callback = callback
         self.transport.send_method(spec.Basic.Get(ticket=ticket,
@@ -509,7 +507,7 @@ class Channel(spec.DriverMixin):
                                                   no_ack=no_ack))
 
     def _on_basic_get(self, method_frame, header_frame, body):
-        logging.debug("%s._on_basic_get", self.__class__.__name__)
+        log.debug("%s._on_basic_get", self.__class__.__name__)
         if self._basic_get_callback:
             self._basic_get_callback(self,
                                      method_frame.method,
@@ -517,11 +515,11 @@ class Channel(spec.DriverMixin):
                                      body)
             self._basic_get_callback = None
         else:
-            logging.error("%s._on_basic_get: No callback defined.",
+            log.error("%s._on_basic_get: No callback defined.",
                           self.__class__.__name__)
 
     def _on_basic_get_empty(self, frame):
-        logging.debug("%s._on_basic_get_empty", self.__class__.__name__)
+        log.debug("%s._on_basic_get_empty", self.__class__.__name__)
 
 
 class ContentHandler(object):
@@ -541,7 +539,7 @@ class ContentHandler(object):
         Receive a frame and process it, we should have content by the time we
         reach this handler, set the next handler to be the header frame handler
         """
-        logging.debug("%s._handle_method_frame: %r", self.__class__.__name__,
+        log.debug("%s._handle_method_frame: %r", self.__class__.__name__,
                       frame)
 
         # If we don't have FrameMethod something is wrong so throw an exception
@@ -562,7 +560,7 @@ class ContentHandler(object):
         Receive a header frame and process that, setting the next handler
         to the body frame handler
         """
-        logging.debug("%s._handle_header_frame: %r", self.__class__.__name__,
+        log.debug("%s._handle_header_frame: %r", self.__class__.__name__,
                       frame)
 
         def handler(header_frame):
@@ -581,7 +579,7 @@ class ContentHandler(object):
         received the body size specified in the header frame. When done
         call our finish function which will call our transports callbacks
         """
-        logging.debug("%s._handle_body_frame: %r", self.__class__.__name__,
+        log.debug("%s._handle_body_frame: %r", self.__class__.__name__,
                       header_frame)
         seen_so_far = [0]
         body_fragments = list()

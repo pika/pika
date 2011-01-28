@@ -46,7 +46,7 @@
 #
 # ***** END LICENSE BLOCK *****
 
-import logging
+import pika.log as log
 
 
 class CallbackManager(object):
@@ -101,13 +101,13 @@ class CallbackManager(object):
         # If we passed in that we do not want duplicates, check and keep us
         # from adding it a second time
         if callback_dict in self._callbacks[prefix][key]:
-            logging.warning('%s.add: Duplicate callback found for "%s:%s"',
+            log.warning('%s.add: Duplicate callback found for "%s:%s"',
                             self.__class__.__name__, prefix, key)
             return
 
         # Append the callback to our key list
         self._callbacks[prefix][key].append(callback_dict)
-        logging.debug('%s: Added "%s:%s" with callback: %s',
+        log.debug('%s: Added "%s:%s" with callback: %s',
                       self.__class__.__name__, prefix, key, callback)
         return prefix, key
 
@@ -152,7 +152,7 @@ class CallbackManager(object):
 
         # Prevent recursion
         for callback in callbacks:
-            logging.debug('CallbackManager: Calling %s for "%s:%s"' % \
+            log.debug('CallbackManager: Calling %s for "%s:%s"' % \
                           (callback, prefix, key))
             callback(*args, **keywords)
 
@@ -170,39 +170,39 @@ class CallbackManager(object):
                 # Remove the callback from the _callbacks dict
                 if callback in self._callbacks[prefix][key]:
                     self._callbacks[prefix][key].remove(callback)
-                    logging.debug('%s: Removed %s for "%s:%s"',
+                    log.debug('%s: Removed %s for "%s:%s"',
                                   self.__class__.__name__, callback,
                                   prefix, key)
 
                 # Remove the list from the dict if it's empty
                 if not self._callbacks[prefix][key]:
                     del(self._callbacks[prefix][key])
-                    logging.debug('%s: Removed empty key "%s:%s"',
+                    log.debug('%s: Removed empty key "%s:%s"',
                                   self.__class__.__name__, prefix, key)
 
                 # Remove the prefix if it's empty
                 if not self._callbacks[prefix]:
                     del(self._callbacks[prefix])
-                    logging.debug('%s: Removed empty prefix "%s"',
+                    log.debug('%s: Removed empty prefix "%s"',
                                   self.__class__.__name__, prefix)
                 return True
             else:
                 # Remove the list from the dict if it's empty
                 del(self._callbacks[prefix][key])
-                logging.debug('%s: Removed key "%s:%s"',
+                log.debug('%s: Removed key "%s:%s"',
                               self.__class__.__name__, prefix, key)
 
                 # Remove the prefix if it's empty
                 if not self._callbacks[prefix]:
                     del(self._callbacks[prefix])
-                    logging.debug('%s: Removed empty prefix "%s"',
+                    log.debug('%s: Removed empty prefix "%s"',
                                   self.__class__.__name__, prefix)
 
         else:
             # If we just passed in a prefix for a key
             if prefix in self._callbacks and key in self._callbacks[prefix]:
                 del(self._callbacks[prefix][key])
-                logging.debug('%s: Removed all callbacks for "%s:%s"',
+                log.debug('%s: Removed all callbacks for "%s:%s"',
                               self.__class__.__name__, prefix, key)
             return True
 
