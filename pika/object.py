@@ -47,12 +47,26 @@
 # ***** END LICENSE BLOCK *****
 
 
-class Class(object):
+class object_(object):
+
+    @property
+    def name(self):
+        return getattr(self, 'NAME', self.__class__.__name__)
+
     def __repr__(self):
-        return _codec_repr(self, self.__class__)
+        items = list()
+        for key in self.__dict__.keys():
+            value =  getattr(self, key, None)
+            items.append('%s=%s' % (key,value))
+        return '%s(%s)' % (self.name,  items)
 
 
-class Method(object):
+class Class(object_):
+    pass
+
+
+class Method(object_):
+
     def _set_content(self, properties, body):
         self._properties = properties
         self._body = body
@@ -63,24 +77,5 @@ class Method(object):
     def get_body(self):
         return self._body
 
-    def __repr__(self):
-        return _codec_repr(self, self.__class__)
-
-
-class Properties(object):
-    def __repr__(self):
-        return _codec_repr(self, self.__class__)
-
-
-def _codec_repr(o, c):
-    """Returns a repr()esentation of o in the form of a constructor
-    call, including only fields that differ from some default instance
-    constructed by invoking c with no arguments."""
-
-    d = c()
-    n = getattr(o, 'NAME', o.__class__.__name__)
-    return n + "(" + \
-           ", ".join(["%s = %s" % (k, repr(v)) \
-                      for (k, v) in o.__dict__.iteritems() \
-                      if getattr(d, k, None) != v]) + \
-           ")"
+class Properties(object_):
+    pass
