@@ -96,7 +96,7 @@ class TornadoConnection(BaseConnection):
         self._on_connected()
 
     def disconnect(self):
-        logging.debug('%s.disconnect' % self.__class__.__name__)
+        logging.debug('%s.disconnect', self.__class__.__name__)
 
         # Remove from the IOLoop
         self.ioloop.remove_handler(self.sock.fileno())
@@ -163,12 +163,11 @@ class TornadoConnection(BaseConnection):
         if error[0] in (errno.EWOULDBLOCK, errno.EAGAIN, errno.EINTR):
             return
         elif error[0] == errno.EBADF:
-            logging.error("%s: Write to a closed socket" %
+            logging.error("%s: Write to a closed socket",
                           self.__class__.__name__)
         else:
-            logging.error("%s: Write error on %d: %s" %
-                          (self.__class__.__name__,
-                           self.sock.fileno(), error))
+            logging.error("%s: Write error on %d: %s",
+                          self.__class__.__name__, self.sock.fileno(), error)
         self._on_connection_closed(None, True)
 
     def _handle_read(self):

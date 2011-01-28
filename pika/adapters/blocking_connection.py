@@ -88,9 +88,8 @@ class BlockingConnection(BaseConnection):
         try:
             return self.socket.recv(bufsize)
         except socket.timeout:
-            self.socket.settimeout(prev_timeout)
-        finally:
-            self.socket.settimeout(prev_timeout)
+            logging.error("%s._recv socket.timeout", self.__class__.__name__)
+        self.socket.settimeout(prev_timeout)
 
     def flush_outbound(self):
         while self.outbound_buffer and self.is_open:
@@ -198,7 +197,7 @@ class BlockingChannelTransport(ChannelTransport):
         # Send the method
         self._received_response = False
 
-        if method.NAME in self.no_response_frame:
+        if method.NAME in BlockingChannelTransport.no_response_frame:
             wait = False
         else:
             wait = True

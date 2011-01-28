@@ -86,7 +86,7 @@ class AsyncoreDispatcher(asyncore.dispatcher):
         """
         asyncore required method. Is called on connection.
         """
-        logging.debug("%s.handle_connect" % self.__class__.__name__)
+        logging.debug("%s.handle_connect" , self.__class__.__name__)
         self.connecting = False
         self.connection._on_connected()
 
@@ -94,7 +94,7 @@ class AsyncoreDispatcher(asyncore.dispatcher):
         """
         asyncore required method. Is called on close.
         """
-        logging.debug("%s.handle_close" % self.__class__.__name__)
+        logging.debug("%s.handle_close", self.__class__.__name__)
         # If we're not already closing or closed, disconnect the Connection
         if not self.connection.closing and not self.connection.closed:
             self.connection.disconnect()
@@ -104,18 +104,17 @@ class AsyncoreDispatcher(asyncore.dispatcher):
         Internal error handling method. Here we expect a socket.error coming in
         and will handle different socket errors differently.
         """
-        logging.debug("%s.handle_error" % self.__class__.__name__)
+        logging.debug("%s.handle_error" , self.__class__.__name__)
         # Ok errors, just continue what we were doing before
         if error[0] in (errno.EWOULDBLOCK, errno.EAGAIN, errno.EINTR):
             return
         # Socket is closed, so lets just go to our handle_close method
         elif error[0] == errno.EBADF:
-            logging.error("%s: Socket is closed" %
-                          self.__class__.__name__)
+            logging.error("%s: Socket is closed", self.__class__.__name__)
             self.handle_close()
         # Haven't run into this one yet, log it.
-        logging.error("%s: Socket Error on %d: %s" %
-                      (self.__class__.__name__, self._fileno, error[0]))
+        logging.error("%s: Socket Error on %d: %s", self.__class__.__name__,
+                      self._fileno, error[0])
 
         # It's a bad enough error that we'll just want to close things out
         self.connection._on_connection_closed(None, True)
@@ -126,7 +125,7 @@ class AsyncoreDispatcher(asyncore.dispatcher):
         asyncore required function, is called when there is data on the socket
         to read.
         """
-        logging.debug("%s.handle_read" % self.__class__.__name__)
+        logging.debug("%s.handle_read" , self.__class__.__name__)
         try:
             data_in = self.recv(self.buffer_size)
         except socket.error as e:
@@ -193,10 +192,10 @@ class AsyncoreDispatcher(asyncore.dispatcher):
         """
         # Calculate our deadline for running the callback
         deadline = time.time() + delay_sec
-        logging.debug('%s.add_timeout: In %.4f seconds call %s' % \
-                      (self.__class__.__name__,
-                       deadline - time.time(),
-                       handler))
+        logging.debug('%s.add_timeout: In %.4f seconds call %s',
+                      self.__class__.__name__,
+                      deadline - time.time(),
+                      handler)
         self.timeouts[deadline] = handler
 
 
@@ -217,7 +216,7 @@ class AsyncoreDispatcher(asyncore.dispatcher):
         is met, it will call the handler assigned to that key in the dictionary
         and remove the key from the dictionary.
         """
-        logging.debug("%s.process_timeouts" % self.__class__.__name__)
+        logging.debug("%s.process_timeouts" , self.__class__.__name__)
 
         # Get our list of keys to iterate trhough
         deadlines = self.timeouts.keys()
@@ -225,9 +224,9 @@ class AsyncoreDispatcher(asyncore.dispatcher):
         # Process our timeout events
         for deadline in deadlines:
             if deadline <= time.time():
-                logging.debug("%s: Timeout calling %s" %\
-                              (self.__class__.__name__,
-                               self.timeouts[deadline]))
+                logging.debug("%s: Timeout calling %s",
+                              self.__class__.__name__,
+                              self.timeouts[deadline])
                 self.timeouts[deadline]()
                 del(self.timeouts[deadline])
 
@@ -236,7 +235,7 @@ class AsyncoreDispatcher(asyncore.dispatcher):
         Pika Adapter IOLoop start function. This blocks until we are no longer
         connected.
         """
-        logging.debug("%s.start" % self.__class__.__name__)
+        logging.debug("%s.start" , self.__class__.__name__)
         while self.connected or self.connecting:
             asyncore.loop(timeout=1, count=1)
             self._process_timeouts()
@@ -246,7 +245,7 @@ class AsyncoreDispatcher(asyncore.dispatcher):
         Pika Adapter IOLoop stop function. When called, it will close an open
         connection, exiting us out of the IOLoop running in start.
         """
-        logging.debug("%s.stop" % self.__class__.__name__)
+        logging.debug("%s.stop" , self.__class__.__name__)
         self.close()
         # There is a bug in asyncore that keeps it stuck in poll after close
         # Use this to remove it from that loop
@@ -276,7 +275,7 @@ class AsyncoreConnection(BaseConnection):
         the handle to self so that the AsyncoreDispatcher object can call back
         into our various state methods.
         """
-        logging.debug("%s.connect" % self.__class__.__name__)
+        logging.debug("%s.connect" , self.__class__.__name__)
         self.ioloop = AsyncoreDispatcher(host, port)
         self.ioloop.buffer_size = self.suggested_buffer_size()
         self.ioloop.connection = self
@@ -287,7 +286,7 @@ class AsyncoreConnection(BaseConnection):
         adapter. This could be because of remote disconnect, protocol errors,
         etc.
         """
-        logging.debug("%s.disconnect" % self.__class__.__name__)
+        logging.debug("%s.disconnect" , self.__class__.__name__)
         self.ioloop.stop()
         self.ioloop.close()
         # There is a bug in asyncore that keeps it stuck in poll after close
@@ -299,6 +298,6 @@ class AsyncoreConnection(BaseConnection):
         We really can't flush the socket in asyncore, so instead just use this
         to toggle a flag that lets it know we want to write to the socket.
         """
-        logging.debug("%s.flush_outbound" % self.__class__.__name__)
+        logging.debug("%s.flush_outbound" , self.__class__.__name__)
         if self.outbound_buffer.size:
             self.ioloop.writable_ = True

@@ -118,7 +118,7 @@ class SelectConnection(BaseConnection):
     def _manage_event_state(self):
 
         # Do we have data pending in the outbound buffer?
-        if bool(self.outbound_buffer):
+        if self.outbound_buffer.size:
 
             # If we don't already have write in our event state append it
             # otherwise do nothing
@@ -164,19 +164,19 @@ class SelectConnection(BaseConnection):
         if error[0] in (errno.EWOULDBLOCK, errno.EAGAIN, errno.EINTR):
             return
         elif error[0] == errno.EBADF:
-            logging.error("%s: Write to a closed socket" %
+            logging.error("%s: Write to a closed socket",
                           self.__class__.__name__)
         else:
-            logging.error("%s: Write error on %d: %s" %
-                          (self.__class__.__name__,
-                           self.sock.fileno(), error))
+            logging.error("%s: Write error on %d: %s",
+                          self.__class__.__name__,
+                          self.sock.fileno(), error)
         self._on_connection_closed(None, True)
 
     def _handle_read(self):
 
         try:
             self.on_data_available(self.sock.recv(self.buffer_size))
-        except socket.error, e:
+        except socket.error as e:
             self._handle_error(e)
 
     def _handle_write(self):
@@ -185,7 +185,7 @@ class SelectConnection(BaseConnection):
         fragment = self.outbound_buffer.read(self.buffer_size)
         try:
             r = self.sock.send(fragment)
-        except socket.error, e:
+        except socket.error as e:
             return self._handle_error(e)
 
         # Remove the content we used from our buffer
@@ -287,8 +287,9 @@ class SelectPoller(object):
     TIMEOUT = 0.5
 
     def __init__(self, fd, handler, events):
-        logging.debug('%s.__init__(%f, %s, %s)' %\
-                      (self.__class__.__name__, fd, handler, events))
+        logging.debug('%s.__init__(%f, %s, %s)',
+                      self.__class__.__name__,
+                      fd, handler, events)
         self.fd = fd
         self.handler = handler
         self.events = events
@@ -296,19 +297,19 @@ class SelectPoller(object):
         self.timeouts = dict()
 
     def set_events(self, events):
-        logging.debug('%s.set_events(%i)' % (self.__class__.__name__, events))
+        logging.debug('%s.set_events(%i)' , self.__class__.__name__, events)
 
         self.events = events
 
     def add_timeout(self, deadline, handler):
-        logging.debug('%s.add_timeout(deadline=%.4f,handler=%s)' % \
-                      (self.__class__.__name__, deadline, handler))
+        logging.debug('%s.add_timeout(deadline=%.4f,handler=%s)',
+                      self.__class__.__name__, deadline, handler)
 
         self.timeouts[deadline] = handler
 
     def cancel_timeout(self, handler):
-        logging.debug('%s.cancel_timeout(handler=%s)' % \
-                      (self.__class__.__name__, handler))
+        logging.debug('%s.cancel_timeout(handler=%s)',
+                      self.__class__.__name__, handler)
 
         for key in self.timeouts.keys():
             if self.timeouts[key] == handler:
@@ -323,9 +324,9 @@ class SelectPoller(object):
         start_time = time.time()
         for deadline in deadlines:
             if deadline <= start_time:
-                logging.debug("%s: Timeout calling %s" %\
-                              (self.__class__.__name__,
-                               self.timeouts[deadline]))
+                logging.debug('%s: Timeout calling %s',
+                              self.__class__.__name__,
+                              self.timeouts[deadline])
                 self.timeouts[deadline]()
                 del(self.timeouts[deadline])
 
@@ -348,7 +349,8 @@ class SelectPoller(object):
                                                    output_fd,
                                                    error_fd,
                                                    self.TIMEOUT)
-            except Exception, e:
+            # @TODO find scope of exceptions which can be returned here
+            except Exception as e:
                 return self.handler(self.fd, ERROR, e)
 
             # Build our events bit mask
@@ -361,8 +363,8 @@ class SelectPoller(object):
                 events |= ERROR
 
             if events:
-                logging.debug("%s: Calling %s" % (self.__class__.__name__,
-                                                  self.handler))
+                logging.debug("%s: Calling %s", self.__class__.__name__,
+                              self.handler)
                 self.handler(self.fd, events)
 
             # Process our timeouts
@@ -372,8 +374,8 @@ class SelectPoller(object):
 class KQueuePoller(SelectPoller):
 
     def __init__(self, fd, handler, events):
-        logging.debug('%s.__init__(%f, %s, %s)' %\
-                      (self.__class__.__name__, fd, handler, events))
+        logging.debug('%s.__init__(%f, %s, %s)', self.__class__.__name__,
+                      fd, handler, events)
         self.fd = fd
         self.handler = handler
         self.events = 0
@@ -387,7 +389,7 @@ class KQueuePoller(SelectPoller):
         self.set_events(events)
 
     def set_events(self, events):
-        logging.debug('%s.set_events(%i)' % (self.__class__.__name__, events))
+        logging.debug('%s.set_events(%i)', self.__class__.__name__, events)
 
         # No need to update if our events are the same
         if self.events == events:
@@ -481,9 +483,9 @@ class KQueuePoller(SelectPoller):
 
             # Call our event handler if we have events in our stack
             if events:
-                logging.debug("%s: Calling %s" % (self.__class__.__name__,
-                                                  self.handler))
-                self.handler(event.ident, events)
+                logging.debug("%s: Calling %s", self.__class__.__name__,
+                              self.handler)
+                self.handler(self.fd, events)
 
             # Process our timeouts
             self.process_timeouts()
@@ -492,8 +494,8 @@ class KQueuePoller(SelectPoller):
 class PollPoller(SelectPoller):
 
     def __init__(self, fd, handler, events):
-        logging.debug('%s.__init__(%f, %s, %s)' %\
-                      (self.__class__.__name__, fd, handler, events))
+        logging.debug('%s.__init__(%f, %s, %s)', self.__class__.__name__,
+                      fd, handler, events)
         self.fd = fd
         self.handler = handler
         self.events = events
@@ -504,7 +506,7 @@ class PollPoller(SelectPoller):
         self._poll.register(self.fd, self.events)
 
     def set_events(self, events):
-        logging.debug('%s.set_events(%i)' % (self.__class__.__name__, events))
+        logging.debug('%s.set_events(%i)', self.__class__.__name__, events)
 
         self.events = events
         self._poll.modify(self.fd, self.events)
@@ -518,8 +520,8 @@ class PollPoller(SelectPoller):
 
             # If we didn't timeout pass the event to the handler
             if events:
-                logging.debug("%s: Calling %s" % (self.__class__.__name__,
-                                                  self.handler))
+                logging.debug("%s: Calling %s", self.__class__.__name__,
+                              self.handler)
                 self.handler(events[0][0], events[0][1])
 
             # Process our timeouts
@@ -532,8 +534,8 @@ class EPollPoller(PollPoller):
     """
 
     def __init__(self, fd, handler, events):
-        logging.debug('%s.__init__(%f, %s, %s)' %\
-                      (self.__class__.__name__, fd, handler, events))
+        logging.debug('%s.__init__(%f, %s, %s)', self.__class__.__name__, fd,
+                      handler, events)
         self.fd = fd
         self.handler = handler
         self.events = events

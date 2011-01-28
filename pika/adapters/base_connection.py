@@ -48,6 +48,7 @@
 
 from pika.connection import Connection
 
+
 class BaseConnection(Connection):
 
     def connect(self, host, port):
