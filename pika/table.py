@@ -55,8 +55,7 @@ from pika.exceptions import *
 
 
 def encode_table(pieces, table):
-    if table is None:
-        table = dict()
+    table = table or dict()
     length_index = len(pieces)
     pieces.append(None)  # placeholder
     tablesize = 0
