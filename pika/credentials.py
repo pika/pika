@@ -58,7 +58,8 @@ class PlainCredentials(object):
 
     def response_for(self, start):
 
-        if self.TYPE not in start.mechanisms.split():
+        if PlainCredentials.TYPE not in start.mechanisms.split():
             return None
 
-        return self.TYPE, '\0%s\0%s' % (self.username, self.password)
+        return PlainCredentials.TYPE, '\0%s\0%s' % \
+                                      (self.username, self.password)
