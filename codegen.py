@@ -373,7 +373,7 @@ def generate(specPath):
     print
     print
 
-    print "class DriverMixin(pika.object.object_):"
+    print "class DriverMixin(object):"
 
     for m in spec.allMethods():
         if m.structName() in DRIVER_METHODS:

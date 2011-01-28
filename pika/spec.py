@@ -2327,7 +2327,7 @@ def has_content(methodNumber):
     return False
 
 
-class DriverMixin(pika.object.object_):
+class DriverMixin(object):
 
     def exchange_declare(self, callback=None, ticket=0, exchange=None, type='direct', passive=False, durable=False, auto_delete=False, internal=False, nowait=False, arguments={}):
 
