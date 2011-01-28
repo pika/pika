@@ -48,10 +48,11 @@
 
 import logging
 
+import pika.frames as frames
 import pika.callback as callback
-import pika.frame as frame
 import pika.spec as spec
 import pika.exceptions
+
 
 # Keep track of things we need to implement and that are not supported
 # in Pika at this time
@@ -69,7 +70,7 @@ class ChannelTransport(object):
         self.callbacks = callback.CallbackManager.instance()
 
         # The frame-handler changes depending on the type of frame processed
-        self.frame_handler = frame.FrameHandler()
+        self.frame_handler = frames.FrameHandler()
 
         # We need to block on synchronous commands, but do so asynchronously
         self.blocking = None
@@ -172,7 +173,7 @@ class ChannelTransport(object):
             return
 
         # If this is a synchronous method, block connections until we're done
-        if method.NAME in spec.SYNCHRONOUS_METHODS:
+        if method.synchronous:
             logging.debug('%s: %s turning on blocking' % \
                           (self.__class__.__name__, method.NAME))
 
@@ -282,14 +283,14 @@ class Channel(spec.DriverMixin):
                            '_on_basic_deliver',
                            self._on_basic_deliver,
                            False,
-                           pika.frame.FrameHandler)
+                           frames.FrameHandler)
 
         # Add a callback for Basic.Deliver
         self.callbacks.add(self.channel_number,
                            '_on_basic_get',
                            self._on_basic_get,
                            False,
-                           pika.frame.FrameHandler)
+                           frames.FrameHandler)
 
         # Add a callback for Basic.GetEmpty
         self.callbacks.add(self.channel_number,
