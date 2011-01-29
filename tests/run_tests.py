@@ -15,7 +15,7 @@ except AttributeError:
 if platform == 'darwin':
     platform = 'bsd'
 
-DIRECTORIES = ['functional'] # Unit tests to be added here
+DIRECTORIES = ['functional', 'unit'] # Unit tests to be added here
 
 def platform_test(filename):
     for key in PLATFORMS:
