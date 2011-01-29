@@ -103,7 +103,7 @@ class Connection(object):
         def disconnect(self)
         def flush_outbound(self)
         def add_timeout(self, delay_sec, callback)
-        def cancel_timeout(self, callback)
+        def remove_timeout(self, callback)
 
         Optional:
 
@@ -168,7 +168,7 @@ class Connection(object):
         raise NotImplementedError('%s needs to implement this function ' %\
                                   self.__class__.__name__)
 
-    def cancel_timeout(self, callback):
+    def remove_timeout(self, callback):
         """
         Adapters should override to call the callback after the
         specified number of seconds have elapsed, using a timer, or a
@@ -646,15 +646,13 @@ class Connection(object):
                 piece = body_buf.read_and_consume(piece_len)
                 self._send_frame(frames.Body(channel_number, piece))
 
+    @property
     def suggested_buffer_size(self):
         """
-        Return the suggested buffer size from the codec/tune or the default
-        if that is None
+        Return the suggested buffer size from the connection state/tune or the
+        default if that is None
         """
-        if not self.state.frame_max:
-            return FRAME_MAX
-
-        return self.state.frame_max
+        return self.state.frame_max or FRAME_MAX
 
 
 class ConnectionState(object):
