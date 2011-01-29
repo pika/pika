@@ -17,6 +17,16 @@ if platform == 'darwin':
 
 DIRECTORIES = ['functional'] # Unit tests to be added here
 
+def platform_test(filename):
+    for key in PLATFORMS:
+        if filename.find(key) > -1:
+            return True
+    return False
+
+def this_platform(filename):
+    if filename.find(platform) > -1:
+        return True
+    return False
 
 def run_test(file):
     print "Running test: %s" % file
@@ -39,8 +49,8 @@ for directory in DIRECTORIES:
     for file in files:
         file_path = os.path.join(directory, file)
         if os.path.isfile('%s' % file_path) and file[-3:] == '.py':
-            if file[:-3] in PLATFORMS:
-                if platform == file[:-3]:
+            if platform_test(file):
+                if this_platform(file):
                     run_test(file_path)
             else:
                 run_test(file_path)
