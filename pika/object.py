@@ -46,7 +46,6 @@
 #
 # ***** END LICENSE BLOCK *****
 
-
 class object_(object):
 
     @property
@@ -55,10 +54,10 @@ class object_(object):
 
     def __repr__(self):
         items = list()
-        for key in self.__dict__.keys():
-            value = getattr(self, key, None)
-            items.append('%s=%s' % (key, value))
-        return '<%s(%s)>' % (self.name,  items)
+        for key, value in self.__dict__.iteritems():
+            if getattr(self.__class__, key, None) != value:
+                items.append('%s=%s' % (key, value))
+        return "%s(%s)" % (self.name, items)
 
 
 class Class(object_):
