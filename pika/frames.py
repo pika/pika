@@ -123,7 +123,7 @@ class ProtocolHeader(Frame):
 
     def marshal(self):
         return 'AMQP' + struct.pack('BBBB',
-                                    transport_high,
-                                    transport_low,
-                                    protocol_major,
-                                    protocol_minor)
+                                    self.transport_high,
+                                    self.transport_low,
+                                    self.protocol_major,
+                                    self.protocol_minor)
