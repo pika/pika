@@ -322,13 +322,12 @@ class Connection(object):
 
         # We didn't expect a FrameProtocolHeader, did we get one?
         if isinstance(frame, frames.ProtocolHeader):
-            raise ProtocolVersionMismatch(self._local_protocol_header(), frame)
+            raise ProtocolVersionMismatch(frames.ProtocolHeader, frame)
 
         # Make sure that the major and minor version matches our spec version
         if (frame.method.version_major,
             frame.method.version_minor) != spec.PROTOCOL_VERSION:
-            raise ProtocolVersionMismatch(self._local_protocol_header(),
-                                          frame)
+            raise ProtocolVersionMismatch(frames.ProtocolHeader(), frame)
 
         # Get our server properties for use elsewhere
         self.server_properties = frame.method.server_properties
