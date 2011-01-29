@@ -56,7 +56,7 @@ from pika.exceptions import *
 def encode_table(pieces, table):
     table = table or dict()
     length_index = len(pieces)
-    pieces.append(None) # placeholder
+    pieces.append(None)  # placeholder
     tablesize = 0
     for (key, value) in table.iteritems():
         pieces.append(struct.pack('B', len(key)))
@@ -117,7 +117,7 @@ def decode_table(encoded, offset):
     while offset < limit:
         keylen = struct.unpack_from('B', encoded, offset)[0]
         offset += 1
-        key = encoded[offset : offset + keylen]
+        key = encoded[offset: offset + keylen]
         offset += keylen
         value, offset = decode_value(encoded, offset)
         result[key] = value
@@ -130,7 +130,7 @@ def decode_value(encoded, offset):
     if kind == 'S':
         length = struct.unpack_from('>I', encoded, offset)[0]
         offset += 4
-        value = encoded[offset : offset + length]
+        value = encoded[offset: offset + length]
         offset += length
     elif kind == 'I':
         value = struct.unpack_from('>i', encoded, offset)[0]
@@ -159,20 +159,6 @@ def decode_value(encoded, offset):
             v, offset = decode_value(encoded, offset)
             value.append(v)
     else:
-        raise InvalidTableError("Unsupported field kind %s during decoding" % (kind,))
+        raise InvalidTableError("Unsupported field kind %s during decoding" % \
+                                kind)
     return value, offset
-
-
-def test_encode(v):
-    p=[]
-    n = encode_table(p, v)
-    r = ''.join(p)
-    assert len(r) == n
-    return r
-
-
-def test_reencode(i):
-    r = test_encode(i)
-    (v, n) = decode_table(r, 0)
-    assert len(r) == n
-    return v
