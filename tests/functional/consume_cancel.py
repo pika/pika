@@ -70,6 +70,7 @@ HOST = 'localhost'
 MESSAGES = 5
 PORT = 5672
 
+
 class TestConsumeCancel(async.AsyncPattern):
 
     def __init__(self):

@@ -64,7 +64,6 @@ HOST = 'localhost'
 PORT = 5672
 
 
-
 class TestAdapters(object):
 
     def __init__(self):

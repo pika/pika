@@ -99,6 +99,7 @@ def test_add_callback():
 def test_process_callback():
     global callback_processed
     callback_processed = False
+
     def callback_test():
         global callback_processed
         callback_processed = True

@@ -49,7 +49,7 @@
 """
 Connection Test
 
-First test to make sure all async adapters can connect properly
+First test to make sure epoll and poll async adapters can connect properly
 """
 import sys
 sys.path.append('..')
@@ -63,6 +63,7 @@ from pika.adapters.tornado_connection import TornadoConnection
 
 HOST = 'localhost'
 PORT = 5672
+
 
 class TestAdapters(object):
 

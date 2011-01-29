@@ -64,6 +64,7 @@ queue = None
 HOST = 'localhost'
 PORT = 5672
 
+
 class TestAsyncSendGet(async.AsyncPattern):
 
     @nose.tools.timed(2)

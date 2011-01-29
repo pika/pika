@@ -63,7 +63,8 @@ except AttributeError:
 if platform == 'darwin':
     platform = 'bsd'
 
-DIRECTORIES = ['functional', 'unit'] # Unit tests to be added here
+DIRECTORIES = ['functional', 'unit']  # Unit tests to be added here
+
 
 def platform_test(filename):
     for key in PLATFORMS:
@@ -71,10 +72,12 @@ def platform_test(filename):
             return True
     return False
 
+
 def this_platform(filename):
     if filename.find(platform) > -1:
         return True
     return False
+
 
 def run_test(file):
     print "Running test: %s" % file

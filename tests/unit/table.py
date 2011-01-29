@@ -106,7 +106,7 @@ def test_decode_table():
 
 
 def encode(v):
-    p=[]
+    p = []
     n = pika.table.encode_table(p, v)
     r = ''.join(p)
     assert len(r) == n

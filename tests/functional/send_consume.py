@@ -65,6 +65,7 @@ HOST = 'localhost'
 MESSAGES = 10
 PORT = 5672
 
+
 class TestSendConsume(async.AsyncPattern):
 
     def __init__(self):

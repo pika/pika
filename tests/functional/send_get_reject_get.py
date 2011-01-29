@@ -47,7 +47,8 @@
 # ***** END LICENSE BLOCK *****
 
 """
-Send a message and confirm you can retrieve it with Basic.Get
+Send a message , get it with Basic.Get, reject it with Basic.Reject and then
+get it again to confirm you get the same message as last time.
 """
 import sys
 sys.path.append("../..")
@@ -95,7 +96,6 @@ class TestSendGetRejectGet(async.AsyncPattern):
     def _get_second_message(self):
         self.channel.basic_get(callback=self._check_second_message,
                                queue=self._queue)
-
 
     @async.timeout_cancel
     def _check_first_message(self, channel_number, method, header, body):
