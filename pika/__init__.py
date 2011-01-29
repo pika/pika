@@ -46,11 +46,17 @@
 #
 # ***** END LICENSE BLOCK *****
 
-
 from pika.connection import ConnectionParameters
 from pika.connection import PlainCredentials
 from pika.reconnection_strategies import ReconnectionStrategy
 from pika.spec import BasicProperties
+
+from pika.adapters.base_connection import BaseConnection
+from pika.adapters.asyncore_connection import AsyncoreConnection
+from pika.adapters.blocking_connection import BlockingConnection
+from pika.adapters.select_connection import SelectConnection
+from pika.adapters.select_connection import IOLoop
+
 
 # Python 2.4 support: add struct.unpack_from if it's missing.
 try:
