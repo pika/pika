@@ -28,9 +28,9 @@ class TestAdapters(object):
         self.connection = self._connect(adapters.SelectConnection)
         self.connection.ioloop.start()
         if self.connection.ioloop.poller_type != 'KQueuePoller':
-            assert False
+            assert False, "Not KQueuePoller"
         if not self.connected:
-            assert False
+            assert False, "Not Connected"
         pass
 
     def _connect(self, connection_type):

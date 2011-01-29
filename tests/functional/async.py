@@ -19,7 +19,6 @@ HOST = 'localhost'
 PORT = 5672
 
 
-
 class TestAdapters(object):
 
     def __init__(self):
@@ -31,7 +30,7 @@ class TestAdapters(object):
         self.connection = self._connect(adapters.AsyncoreConnection)
         self.connection.ioloop.start()
         if not self.connected:
-            assert False
+            assert False, "Not Connected"
         pass
 
     @nose.tools.timed(2)
@@ -40,9 +39,9 @@ class TestAdapters(object):
         self.connection = self._connect(adapters.SelectConnection)
         self.connection.ioloop.start()
         if self.connection.ioloop.poller_type != 'SelectPoller':
-            assert False
+            assert False, "Not SelectPoller"
         if not self.connected:
-            assert False
+            assert False, "Not Connected"
         pass
 
     @nose.tools.timed(2)
@@ -50,7 +49,7 @@ class TestAdapters(object):
         self.connection = self._connect(TornadoConnection)
         self.connection.ioloop.start()
         if not self.connected:
-            assert False
+            assert False, "Not Connected"
         pass
 
     def _connect(self, connection_type):
