@@ -46,9 +46,7 @@
 #
 # ***** END LICENSE BLOCK *****
 
-import errno
 import socket
-
 import pika.log as log
 import pika.spec as spec
 
@@ -65,71 +63,53 @@ class BlockingConnection(BaseConnection):
 
     def connect(self, host, port):
 
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
-        self.socket.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
-        self.socket.connect((host, port))
+        BaseConnection.connect(self, host, port)
+        self.socket.setblocking(1)
         self._on_connected()
         while not self.is_open:
-            self.drain_events()
+            self.process_data_events()
         return self
 
     def close(self, code=200, text='Normal shutdown'):
         BaseConnection.close(self, code, text)
         while self.is_open:
-             self.drain_events()
+            self.process_data_events()
 
     def disconnect(self):
         self.socket.close()
 
-    def _recv(self, bufsize, timeout=None):
+    def _recv(self, max_bytes_to_read, timeout=None):
         prev_timeout = self.socket.gettimeout()
-
-        self.socket.settimeout(timeout)
+        if prev_timeout != timeout:
+            self.socket.settimeout(timeout)
         try:
-            return self.socket.recv(bufsize)
+            buffer = self.socket.recv(max_bytes_to_read)
         except socket.timeout:
-            log.error("%s._recv socket.timeout", self.__class__.__name__)
-        self.socket.settimeout(prev_timeout)
-
-    def flush_outbound(self):
-        while self.outbound_buffer and self.is_open:
-            fragment = self.outbound_buffer.read()
-            r = self.socket.send(fragment)
-            self.outbound_buffer.consume(r)
+            return None
+        except socket.error as error:
+            return self._handle_error(error)
+        if prev_timeout != timeout:
+            self.socket.settimeout(prev_timeout)
+        return buffer
 
     def flush_outbound(self):
         while self.outbound_buffer:
-            fragment = self.outbound_buffer.read()
-            r = self.socket.send(fragment)
-            self.outbound_buffer.consume(r)
+            data = self.outbound_buffer.read(self.suggested_buffer_size)
+            try:
+                bytes_written = self.socket.send(data)
+            except socket.timeout:
+                raise
+            except socket.error as error:
+                return self._handle_error(error)
 
-    def drain_events(self, timeout=None):
+            # Remove the content from our output buffer
+            self.outbound_buffer.consume(bytes_written)
+
+    def process_data_events(self, timeout=None):
         self.flush_outbound()
-
-        try:
-            buf = self._recv(self.suggested_buffer_size(), timeout)
-        except socket.timeout:
-            # subclass of socket.error catched below, so re-raise.
-            raise
-        except socket.error, exn:
-            if hasattr(exn, 'errno'):
-                # 2.6 and newer have an errno field.
-                code = exn.errno
-            else:
-                # 2.5 and earlier do not, but place the errno in the first
-                # exn argument.
-                code = exn.args[0]
-
-            if code == errno.EAGAIN:
-                # Weird, but happens very occasionally.
-                return
-            else:
-                return self._on_connection_closed(None, True)
-
-        if not buf:
-            return self._on_connection_closed(None, True)
-
-        self.on_data_available(buf)
+        data = self._recv(self.suggested_buffer_size, timeout)
+        if data:
+            self.on_data_available(data)
 
     def channel(self, channel_number=None):
         """
@@ -167,11 +147,11 @@ class BlockingChannelTransport(ChannelTransport):
         self._frames = dict()
 
     def add_reply(self, reply):
-        reply = self.callbacks.santize(reply)
+        reply = self.callbacks.sanitize(reply)
         self._replies.append(reply)
 
     def remove_reply(self, frame):
-        key = self.callbacks.santize(frame)
+        key = self.callbacks.sanitize(frame)
         if key in self._replies:
             self._replies.remove(key)
 
@@ -213,7 +193,7 @@ class BlockingChannelTransport(ChannelTransport):
                 break
 
     def _on_rpc_complete(self, frame):
-        key = self.callbacks.santize(frame)
+        key = self.callbacks.sanitize(frame)
         self._replies.append(key)
         self._frames[key] = frame
         self._received_response = True
@@ -228,7 +208,7 @@ class BlockingChannelTransport(ChannelTransport):
         self._received_response = False
         self.connection.send_method(self.channel_number, method, content)
         while wait and not self._received_response:
-            self.connection.drain_events()
+            self.connection.process_data_events()
 
 
 class BlockingChannel(Channel):

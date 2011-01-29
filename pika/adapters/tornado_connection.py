@@ -47,50 +47,32 @@
 #
 # ***** END LICENSE BLOCK *****
 
-
-import errno
 import pika.log as log
-import socket
-import time
 import tornado.ioloop
 
 from pika.adapters.base_connection import BaseConnection
 
+# Redefine our constants with Tornado's
+ERROR = tornado.ioloop.IOLoop.ERROR
+READ = tornado.ioloop.IOLoop.READ
+WRITE = tornado.ioloop.IOLoop.WRITE
+
 
 class TornadoConnection(BaseConnection):
 
-    def add_timeout(self, delay_sec, callback):
-        if not hasattr(self, '_timeouts'):
-            self._timeouts = dict()
-        deadline = time.time() + delay_sec
-        self._timeouts[callback] = self.ioloop.add_timeout(deadline, callback)
-
-    def cancel_timeout(self, handler):
-        self.ioloop.remove_timeout(self._timeouts[handler])
-        del self._timeouts[handler]
-
     def connect(self, host, port):
+        """
+        Connect to the given host and port
+        """
+        BaseConnection.connect(self, host, port)
 
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
-        self.sock.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
-        self.sock.connect((host, port))
-        self.sock.setblocking(0)
+        # Setup our ioloop
         self.ioloop = tornado.ioloop.IOLoop.instance()
 
-        # Setup our base event state
-        self.base_events = tornado.ioloop.IOLoop.READ | \
-                           tornado.ioloop.IOLoop.ERROR
-
-        # Set our active event state to our base event state
-        self.event_state = self.base_events
-
         # Add the ioloop handler for the event state
-        self.ioloop.add_handler(self.sock.fileno(),
+        self.ioloop.add_handler(self.socket.fileno(),
                                 self._handle_events,
                                 self.event_state)
-
-        # Suggested Buffer Size
-        self.buffer_size = self.suggested_buffer_size()
 
         # Let everyone know we're connected
         self._on_connected()
@@ -99,93 +81,10 @@ class TornadoConnection(BaseConnection):
         log.debug('%s.disconnect', self.__class__.__name__)
 
         # Remove from the IOLoop
-        self.ioloop.remove_handler(self.sock.fileno())
+        self.ioloop.remove_handler(self.socket.fileno())
 
         # Close our socket since the Connection class told us to do so
-        self.sock.close()
+        self.socket.close()
 
-        msg = "Tornado IOLoop is likely to be running but Pika has shutdown."
+        msg = "Tornado IOLoop may be running but Pika has shutdown."
         log.warning(msg)
-
-    def flush_outbound(self):
-
-        # Call our event state manager
-        self._manage_event_state()
-
-    def _manage_event_state(self):
-
-        # Do we have data pending in the outbound buffer?
-        if bool(self.outbound_buffer):
-
-            # If we don't already have write in our event state append it
-            # otherwise do nothing
-            if not self.event_state & tornado.ioloop.IOLoop.WRITE:
-
-                # We can assume that we're in our base_event state
-                self.event_state |= tornado.ioloop.IOLoop.WRITE
-
-                # Update the IOLoop
-                self.ioloop.update_handler(self.sock.fileno(),
-                                           self.event_state)
-
-        # We don't have data in the outbound buffer
-        elif self.event_state & tornado.ioloop.IOLoop.WRITE:
-
-            # Set our event state to the base events
-            self.event_state = self.base_events
-
-            # Update the IOLoop
-            self.ioloop.update_handler(self.sock.fileno(),
-                                       self.event_state)
-
-    def _handle_events(self, fd, events):
-
-        # Incoming events from IOLoop, make sure we have our socket
-        if not self.sock:
-            log.warning("Got events for closed stream %d", fd)
-            return
-
-        if events & tornado.ioloop.IOLoop.READ:
-            self._handle_read()
-
-        if events & tornado.ioloop.IOLoop.ERROR:
-            self.sock.close()
-
-        if events & tornado.ioloop.IOLoop.WRITE:
-            self._handle_write()
-
-            # Call our event state manager who will decide if we reset our
-            # event state due to having an empty outbound buffer
-            self._manage_event_state()
-
-    def _handle_error(self, error):
-
-        if error[0] in (errno.EWOULDBLOCK, errno.EAGAIN, errno.EINTR):
-            return
-        elif error[0] == errno.EBADF:
-            log.error("%s: Write to a closed socket",
-                          self.__class__.__name__)
-        else:
-            log.error("%s: Write error on %d: %s",
-                          self.__class__.__name__, self.sock.fileno(), error)
-        self._on_connection_closed(None, True)
-
-    def _handle_read(self):
-
-        try:
-            self.on_data_available(self.sock.recv(self.buffer_size))
-        except socket.error, e:
-            self._handle_error(e)
-
-    def _handle_write(self):
-
-        # Get data to send based upon Pika's suggested buffer size
-        fragment = self.outbound_buffer.read(self.buffer_size)
-        try:
-            r = self.sock.send(fragment)
-        except socket.error, e:
-            self._handle_error(e)
-
-        # Remove the content we used from our buffer
-        if r > 0:
-            self.outbound_buffer.consume(r)
