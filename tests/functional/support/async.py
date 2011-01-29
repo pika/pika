@@ -7,16 +7,20 @@ import os
 import pika
 import time
 
+timeout_id = None
 
 def timeout(method):
     def _timeout(self, *args, **kwargs):
-        self.connection.add_timeout(2, self._on_timeout)
+        global timeout_id
+        timeout_id = self.connection.add_timeout(2, self._on_timeout)
         return method(self, *args, **kwargs)
     return _timeout
 
 def timeout_cancel(method):
     def _timeout(self, *args, **kwargs):
-        self.connection.cancel_timeout(self._on_timeout)
+        global timeout_id
+        self.connection.remove_timeout(timeout_id)
+        del(timeout_id)
         return method(self, *args, **kwargs)
     return _timeout
 
