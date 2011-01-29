@@ -325,8 +325,8 @@ class Connection(object):
             raise ProtocolVersionMismatch(frames.ProtocolHeader, frame)
 
         # Make sure that the major and minor version matches our spec version
-        if (frame.method.version_major,
-            frame.method.version_minor) != spec.PROTOCOL_VERSION:
+        if (frame.method.version_major, frame.method.version_minor) != \
+           (spec.PROTOCOL_VERSION[0], spec.PROTOCOL_VERSION[1]):
             raise ProtocolVersionMismatch(frames.ProtocolHeader(), frame)
 
         # Get our server properties for use elsewhere
@@ -757,5 +757,5 @@ class ConnectionState(object):
             raise InvalidProtocolHeader(inbound)
 
         self._return_to_idle()
-        th, tl, vh, vl = struct.unpack_from('BBBB', inbound, 4)
-        return frames.ProtocolHeader(th, tl, vh, vl)
+        major, minor, revision = struct.unpack_from('BBB', inbound, 5)
+        return frames.ProtocolHeader(major, minor, revision)

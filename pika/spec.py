@@ -4,7 +4,7 @@ import struct
 import pika.object
 import pika.table as table
 
-PROTOCOL_VERSION = (0, 9)
+PROTOCOL_VERSION = (0, 9, 1)
 PORT = 5672
 
 FRAME_METHOD = 1

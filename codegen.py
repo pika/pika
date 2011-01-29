@@ -280,7 +280,8 @@ def generate(specPath):
     print 'import pika.object'
     print 'import pika.table as table'
     print
-    print "PROTOCOL_VERSION = (%d, %d)" % (spec.major, spec.minor)
+    print "PROTOCOL_VERSION = (%d, %d, %d)" % (spec.major, spec.minor,
+                                               spec.revision)
     print "PORT = %d" % spec.port
     print
 

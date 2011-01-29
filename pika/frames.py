@@ -112,18 +112,13 @@ class Heartbeat(Frame):
 
 class ProtocolHeader(Frame):
 
-    def __init__(self, transport_high=None, transport_low=None,
-                 protocol_major=None, protocol_minor=None):
+    def __init__(self, major=None, minor=None, revision=None):
         Frame.__init__(self, -1, -1)
-        self.protocol_major = protocol_major or spec.PROTOCOL_VERSION[0]
-        self.protocol_minor = protocol_minor or spec.PROTOCOL_VERSION[1]
-        self.transport_high = transport_high or 1
-        self.transport_low = transport_low or 1
-
+        self.major = major or spec.PROTOCOL_VERSION[0]
+        self.minor = minor or spec.PROTOCOL_VERSION[1]
+        self.revision = revision or spec.PROTOCOL_VERSION[2]
 
     def marshal(self):
-        return 'AMQP' + struct.pack('BBBB',
-                                    self.transport_high,
-                                    self.transport_low,
-                                    self.protocol_major,
-                                    self.protocol_minor)
+        return 'AMQP' + struct.pack('BBBB', 0, self.major,
+                                    self.minor, self.revision)
+
