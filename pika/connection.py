@@ -325,8 +325,8 @@ class Connection(object):
             raise ProtocolVersionMismatch(frames.ProtocolHeader, frame)
 
         # Make sure that the major and minor version matches our spec version
-        if (frame.method.version_major, frame.method.version_minor) != \
-           (spec.PROTOCOL_VERSION[0], spec.PROTOCOL_VERSION[1]):
+        if (frame.method.version_major,
+            frame.method.version_minor) != spec.PROTOCOL_VERSION[0:2]:
             raise ProtocolVersionMismatch(frames.ProtocolHeader(), frame)
 
         # Get our server properties for use elsewhere
