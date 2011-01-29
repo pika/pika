@@ -51,6 +51,14 @@ from pika.connection import Connection
 
 class BaseConnection(Connection):
 
+    def __init__(self, parameters, on_open_callback,
+                 reconnection_strategy=None):
+        Connection.__init__(parameters, on_open_callback,
+                            reconnection_strategy)
+        # This is required for async drivers. The ioloop is started by the
+        # AdapterTypeConnection.ioloop.start()
+        self.ioloop = None
+        
     def connect(self, host, port):
         pass
 
@@ -60,6 +68,9 @@ class BaseConnection(Connection):
     def add_timeout(self, delay_sec, callback):
         pass
 
+    def cancel_timeout(self, callback):
+        pass
+    
     def flush_outbound(self):
         pass
 

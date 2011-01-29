@@ -103,6 +103,7 @@ class Connection(object):
         def disconnect(self)
         def flush_outbound(self)
         def add_timeout(self, delay_sec, callback)
+        def cancel_timeout(self, callback)
 
         Optional:
 
