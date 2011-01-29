@@ -46,24 +46,18 @@
 #
 # ***** END LICENSE BLOCK *****
 
-import logging
 import struct
-
 import pika.spec as spec
-import pika.callback as callback
-from pika.exceptions import *
 from pika.object import object_
 
 
 class Frame(object_):
 
     def __init__(self, frame_type, channel_number):
-
         self.frame_type = frame_type
         self.channel_number = channel_number
 
     def _marshal(self, pieces):
-
         payload = ''.join(pieces)
         return struct.pack('>BHI',
                            self.frame_type,
@@ -74,12 +68,10 @@ class Frame(object_):
 class Method(Frame):
 
     def __init__(self, channel_number, method):
-
         Frame.__init__(self, spec.FRAME_METHOD, channel_number)
         self.method = method
 
     def marshal(self):
-
         pieces = self.method.encode()
         pieces.insert(0, struct.pack('>I', self.method.INDEX))
         return self._marshal(pieces)
@@ -88,13 +80,11 @@ class Method(Frame):
 class Header(Frame):
 
     def __init__(self, channel_number, body_size, props):
-
         Frame.__init__(self, spec.FRAME_HEADER, channel_number)
         self.body_size = body_size
         self.properties = props
 
     def marshal(self):
-
         pieces = self.properties.encode()
         pieces.insert(0, struct.pack('>HxxQ', self.properties.INDEX,
                                      self.body_size))
@@ -104,40 +94,36 @@ class Header(Frame):
 class Body(Frame):
 
     def __init__(self, channel_number, fragment):
-
         Frame.__init__(self, spec.FRAME_BODY, channel_number)
         self.fragment = fragment
 
     def marshal(self):
-
         return self._marshal([self.fragment])
 
 
 class Heartbeat(Frame):
 
     def __init__(self):
-
         Frame.__init__(self, spec.FRAME_HEARTBEAT, 0)
 
     def marshal(self):
-
         return self._marshal(list())
 
 
 class ProtocolHeader(Frame):
 
-    def __init__(self, th, tl, vh, vl):
-
+    def __init__(self, transport_high=None, transport_low=None,
+                 protocol_major=None, protocol_minor=None):
         Frame.__init__(self, -1, -1)
-        self.transport_high = th
-        self.transport_low = tl
-        self.protocol_version_major = vh
-        self.protocol_version_minor = vl
+        self.protocol_major = protocol_major or spec.PROTOCOL_VERSION[0]
+        self.protocol_minor = protocol_minor or spec.PROTOCOL_VERSION[1]
+        self.transport_high = transport_high or 1
+        self.transport_low = transport_low or 1
+
 
     def marshal(self):
-
         return 'AMQP' + struct.pack('BBBB',
-                                    self.transport_high,
-                                    self.transport_low,
-                                    self.protocol_version_major,
-                                    self.protocol_version_minor)
+                                    transport_high,
+                                    transport_low,
+                                    protocol_major,
+                                    protocol_minor)

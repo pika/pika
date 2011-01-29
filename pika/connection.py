@@ -45,12 +45,11 @@
 # this file under the terms of any one of the MPL or the GPL.
 #
 # ***** END LICENSE BLOCK *****
-
-import logging
 import struct
 
 import pika.channel as channel
 import pika.frames as frames
+import pika.log as log
 import pika.simplebuffer as simplebuffer
 import pika.spec as spec
 
@@ -58,7 +57,6 @@ from pika.callback import CallbackManager
 from pika.credentials import PlainCredentials
 from pika.exceptions import *
 from pika.heartbeat import HeartbeatChecker
-from pika.object import object_
 from pika.reconnection_strategies import NullReconnectionStrategy
 
 CHANNEL_MAX = 32767
@@ -70,7 +68,7 @@ PRODUCT = "Pika Python AMQP Client Library"
 default_credentials = PlainCredentials('guest', 'guest')
 
 
-class ConnectionParameters(object_):
+class ConnectionParameters(object):
 
     def __init__(self,
                  host,
@@ -90,7 +88,7 @@ class ConnectionParameters(object_):
         self.heartbeat = heartbeat
 
 
-class Connection(object_):
+class Connection(object):
 
     """
     Pika Connection Class
@@ -146,7 +144,7 @@ class Connection(object_):
         """
         Add a callback notification when the connection has closed
         """
-        logging.debug('%s._add_on_close_callback: %s', self.__class__.__name__,
+        log.debug('%s._add_on_close_callback: %s', self.__class__.__name__,
                       callback)
 
         self.callbacks.add(0, '_on_connection_closed', callback, False)
@@ -155,7 +153,7 @@ class Connection(object_):
         """
         Add a callback notification when the connection has closed
         """
-        logging.debug('%s._add_on_open_callback: %s',
+        log.debug('%s._add_on_open_callback: %s',
                       self.__class__.__name__, callback)
 
         self.callbacks.add(0, '_on_connection_open', callback, False)
@@ -191,10 +189,9 @@ class Connection(object_):
         connection. If we disconnect and reconnect, all of our state needs to
         be wiped
         """
-        logging.debug('%s._init_connection_state', self.__class__.__name__)
+        log.debug('%s._init_connection_state', self.__class__.__name__)
 
-        # Inbound and outbound buffers
-        self.buffer = simplebuffer.SimpleBuffer()
+        # Outbound buffer for buffering writes until we're able to send them
         self.outbound_buffer = simplebuffer.SimpleBuffer()
 
         # Connection state, server properties and channels all change on
@@ -216,14 +213,6 @@ class Connection(object_):
         # Our starting point once connected, first frame received
         self.callbacks.add(0, spec.Connection.Start, self._on_connection_start)
 
-    def _local_protocol_header(self):
-        """
-        Returns the Frame Protocol Header for our AMQP Client for communicating
-        with our AMQP Broker
-        """
-        return frames.ProtocolHeader(1, 1,
-                                     spec.PROTOCOL_VERSION[0],
-                                     spec.PROTOCOL_VERSION[1])
 
     def connect(self, host, port):
         """
@@ -241,7 +230,7 @@ class Connection(object_):
 
         Connect in our Adapter's Connection is a blocking operation
         """
-        logging.debug('%s._connect', self.__class__.__name__)
+        log.debug('%s._connect', self.__class__.__name__)
 
         # Let our RS know what we're up to
         self.reconnection.on_connect_attempt(self)
@@ -263,7 +252,7 @@ class Connection(object_):
         Called by the Reconnection Strategy classes or Adapters to disconnect
         and reconnect to the broker
         """
-        logging.debug('%s.reconnect', self.__class__.__name__)
+        log.debug('%s.reconnect', self.__class__.__name__)
 
         # We're already closing but it may not be from reconnect, so first
         # Add a callback that won't be duplicated
@@ -293,10 +282,10 @@ class Connection(object_):
         This is called by our connection Adapter to let us know that we've
         connected and we can notify our connection strategy
         """
-        logging.debug('%s.on_connected', self.__class__.__name__)
+        log.debug('%s.on_connected', self.__class__.__name__)
 
         # Start the communication with the RabbitMQ Broker
-        self._send_frame(self._local_protocol_header())
+        self._send_frame(frames.ProtocolHeader())
 
         # Let our reconnection_strategy know we're connected
         self.reconnection.on_transport_connected(self)
@@ -307,7 +296,7 @@ class Connection(object_):
         called the Connection.Open on the server and it has replied with
         Connection.Ok.
         """
-        logging.debug('%s._on_connection_open', self.__class__.__name__)
+        log.debug('%s._on_connection_open', self.__class__.__name__)
 
         self.known_hosts = frame.method.known_hosts
 
@@ -325,7 +314,7 @@ class Connection(object_):
         This is called as a callback once we have received a Connection.Start
         from the server.
         """
-        logging.debug('%s._on_connection_start', self.__class__.__name__)
+        log.debug('%s._on_connection_start', self.__class__.__name__)
 
         # We're now connected to the broker
         self.closed = False
@@ -391,7 +380,7 @@ class Connection(object_):
         monitor if required, send our TuneOk and then the Connection. Open rpc
         call on channel 0
         """
-        logging.debug('%s._on_connection_tune', self.__class__.__name__)
+        log.debug('%s._on_connection_tune', self.__class__.__name__)
         cmax = self._combine(self.parameters.channel_max,
                              frame.method.channel_max)
         fmax = self._combine(self.parameters.frame_max,
@@ -421,11 +410,11 @@ class Connection(object_):
         Main close function, will attempt to close the channels and if there
         are no channels left, will go straight to on_close_ready
         """
-        logging.debug("%s.close Closing Connection: (%s) %s",
+        log.debug("%s.close Closing Connection: (%s) %s",
                       self.__class__.__name__, code, text)
 
         if self.closing or self.closed:
-            logging.warning("%s.Close invoked while closing or closed",
+            log.warning("%s.Close invoked while closing or closed",
                             self.__class__.__name__)
             return
 
@@ -449,10 +438,10 @@ class Connection(object_):
         On a clean shutdown we'll call this once all of our channels are closed
         Let the Broker know we want to close
         """
-        logging.debug('%s._on_close_ready', self.__class__.__name__)
+        log.debug('%s._on_close_ready', self.__class__.__name__)
 
         if self.closed:
-            logging.warn("%s.on_close_ready invoked while closed",
+            log.warn("%s.on_close_ready invoked while closed",
                          self.__class__.__name__)
             return
 
@@ -465,7 +454,7 @@ class Connection(object_):
         """
         Let both our RS and Event object know we closed
         """
-        logging.debug('%s._on_connection_close', self.__class__.__name__)
+        log.debug('%s._on_connection_close', self.__class__.__name__)
 
         # Set that we're actually closed
         self.closed = True
@@ -483,7 +472,7 @@ class Connection(object_):
         """
         We've received a remote close from the server
         """
-        logging.debug('%s._on_remote_close: %r',
+        log.debug('%s._on_remote_close: %r',
                       self.__class__.__name__, frame)
         self.close(frame.method.reply_code, frame.method.reply_text)
 
@@ -491,7 +480,7 @@ class Connection(object_):
         """
         If we're not already closed, make sure we're closed
         """
-        logging.debug('%s._ensure_closed', self.__class__.__name__)
+        log.debug('%s._ensure_closed', self.__class__.__name__)
 
         # We carry the connection state and so we want to close if we know
         if self.is_open and not self.closing:
@@ -503,7 +492,7 @@ class Connection(object_):
         """
         Create a new channel with the next available or specified channel #
         """
-        logging.debug('%s.channel', self.__class__.__name__)
+        log.debug('%s.channel', self.__class__.__name__)
 
         # If the user didn't specify a channel_number get the next avail
         if not channel_number:
@@ -542,7 +531,7 @@ class Connection(object_):
         """
         RPC Response from when a channel closes itself, remove from our stack
         """
-        logging.debug('%s._on_channel_close: %s', self.__class__.__name__,
+        log.debug('%s._on_channel_close: %s', self.__class__.__name__,
                       frame.channel_number)
 
         if frame.channel_number in self._channels:
@@ -558,27 +547,10 @@ class Connection(object_):
         This is called by our Adapter, passing in the data from the socket
         As long as we have buffer try and map out frame data
         """
-
-        # Append what we received to our class level read buffer
-        self.buffer.write(data)
-
-        # Get the full contents of our buffer for use in the while loop
-        data = self.buffer.read()
-
-        # Flush the class read buffer
-        self.buffer.flush()
-
         while data:
-
-            try:
-                (consumed_count, frame) = self.state.handle_input(data)
-            except  InvalidFrameError:
-                # We didn't get a full frame so break
-                break
-
-            # If we don't have a full frame, set our global buffer and exit
+            consumed_count, frame = self.state.handle_input(data)
+            # If we don't have a frame, exit
             if not frame:
-                self.buffer.write(data)
                 break
 
             # Remove the frame we just consumed from our data
@@ -627,7 +599,7 @@ class Connection(object_):
         This appends the fully generated frame to send to the broker to the
         output buffer which will be then sent via the connection adapter
         """
-        logging.debug('%s._send_frame: %r', self.__class__.__name__, frame)
+        log.debug('%s._send_frame: %r', self.__class__.__name__, frame)
 
         marshalled_frame = frame.marshal()
         self.bytes_sent += len(marshalled_frame)
@@ -646,7 +618,7 @@ class Connection(object_):
         """
         Constructs a RPC method frame and then sends it to the broker
         """
-        logging.debug('%s.send_method(%i, %s, %s)', self.__class__.__name__,
+        log.debug('%s.send_method(%i, %s, %s)', self.__class__.__name__,
                       channel_number, method, content)
         self._send_frame(frames.Method(channel_number, method))
 
@@ -685,7 +657,7 @@ class Connection(object_):
         return self.state.frame_max
 
 
-class ConnectionState:
+class ConnectionState(object):
 
     HEADER_SIZE = 7
     FOOTER_SIZE = 1
@@ -787,6 +759,5 @@ class ConnectionState:
             raise InvalidProtocolHeader(inbound)
 
         self._return_to_idle()
-
-        (th, tl, vh, vl) = struct.unpack_from('BBBB', inbound, 4)
+        th, tl, vh, vl = struct.unpack_from('BBBB', inbound, 4)
         return frames.ProtocolHeader(th, tl, vh, vl)
