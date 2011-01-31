@@ -79,7 +79,7 @@ class ChannelTransport(object):
         self.closed = True
 
         # By default our Flow is active
-        self.flow_active = True
+        self.flow_active = False
 
         # Define our callbacks for specific frame types
         self.callbacks.add(self.channel_number, spec.Channel.Flow,
@@ -95,11 +95,12 @@ class ChannelTransport(object):
         """
         self.closed = False
 
+    @property
     def _blocked_on_flow_control(self):
         """
         Returns a bool if we're currently blocking in Flow
         """
-        return not self.flow_active
+        return self.flow_active
 
     def deliver(self, frame):
         """
@@ -121,17 +122,20 @@ class ChannelTransport(object):
     def _on_channel_flow(self, frame):
         """
         We've received a Channel.Flow frame, obey it's request and set our
-        flow active state, then fire the event and send the FlowOk method in
-        response
+        flow active state, then fire the event and send the FlowOk
+        method.active value in response.
         """
         log.debug("%s._on_channel_flow: %r",
                       self.__class__.__name__, frame)
 
         self.flow_active = frame.method.active
 
+        # Send the FlowOk response
+        self.send_method(spec.Channel.FlowOk(active=self.flow_active))
+
         # Process our flow state change callbacks
         self.callbacks.process(self.channel_number, 'flow_change',
-                               frame.method.active)
+                               self, frame.method.active)
 
     def _has_content(self, method):
         """
@@ -154,7 +158,7 @@ class ChannelTransport(object):
         # If we're using flow control, content methods should know not to call
         # the rpc function and should be using the flow_active_change_event
         # notification system to know when they can send
-        if self._has_content(method) and self._blocked_on_flow_control():
+        if self._has_content(method) and self._blocked_on_flow_control:
             raise exceptions.ChannelBlocked("Flow Control Active")
 
         # If we're blocking, add subsequent commands to our stack
@@ -186,6 +190,10 @@ class ChannelTransport(object):
         """
         log.debug("%s.send_method: %s(%s)", self.__class__.__name__,
                       method, content)
+
+        if self._has_content(method) and self._blocked_on_flow_control:
+            raise exceptions.ChannelBlocked("Flow Control Active")
+
         self.connection.send_method(self.channel_number, method, content)
 
     def _on_event_ok(self, frame):
@@ -264,7 +272,8 @@ class Channel(spec.DriverMixin):
         self._pending = dict()
 
         # Set this here just as a default value
-        self._basic_get_callback = None
+        self._on_get_ok_callback = None
+        self._on_flow_ok_callback = None
 
         # Add a callback for Basic.Deliver
         self.callbacks.add(self.channel_number,
@@ -273,10 +282,16 @@ class Channel(spec.DriverMixin):
                            False,
                            ContentHandler)
 
-        # Add a callback for Basic.Deliver
+        # Add a callback for Channel.FlowOk
+        self.callbacks.add(self.channel_number,
+                           spec.Channel.FlowOk,
+                           self._on_channel_flow_ok,
+                           False)
+
+        # Add a callback for Basic.Get
         self.callbacks.add(self.channel_number,
                            '_on_basic_get',
-                           self._on_basic_get,
+                           self._on_basic_get_ok,
                            False,
                            ContentHandler)
 
@@ -538,19 +553,19 @@ class Channel(spec.DriverMixin):
         """
         log.debug("%s.basic_get(cb=%s, ticket=%i, queue=%s, no_ack=%s)",
                       self.__class__.__name__, callback, ticket, queue, no_ack)
-        self._basic_get_callback = callback
+        self._on_get_ok_callback = callback
         self.transport.send_method(spec.Basic.Get(ticket=ticket,
                                                   queue=queue,
                                                   no_ack=no_ack))
 
-    def _on_basic_get(self, method_frame, header_frame, body):
-        log.debug("%s._on_basic_get", self.__class__.__name__)
-        if self._basic_get_callback:
-            self._basic_get_callback(self,
-                                     method_frame.method,
-                                     header_frame.properties,
-                                     body)
-            self._basic_get_callback = None
+    def _on_basic_get_ok(self, method_frame, header_frame, body):
+        log.debug("%s._on_basic_get_ok", self.__class__.__name__)
+        if self._on_get_ok_callback:
+            self._on_get_ok_callback(self,
+                                        method_frame.method,
+                                        header_frame.properties,
+                                        body)
+            self._basic_get_ok_callback = None
         else:
             log.error("%s._on_basic_get: No callback defined.",
                           self.__class__.__name__)
@@ -560,6 +575,41 @@ class Channel(spec.DriverMixin):
         When we receive an empty reply do nothing but log it
         """
         log.debug("%s._on_basic_get_empty", self.__class__.__name__)
+
+    def flow(self, callback, active):
+        """
+        Turn Channel flow control off and on. Pass a callback to be notified
+        of the response from the server. active is a bool. Callback should
+        expect a bool in response indicating channel flow state
+
+        This is forward looking AMQP 1-0 support
+        """
+        log.debug("%s.flow(%s, %s)", self.__class__.__name__, callback,
+                  active)
+        self._on_flow_ok_callback = callback
+        self.transport.rpc(spec.Channel.Flow(active), [spec.Channel.FlowOk])
+
+    def _on_channel_flow_ok(self, frame):
+        """
+        Called in response to us asking the server to toggle on Channel.Flow
+
+        This is forward looking AMQP 1-0 support
+        """
+        log.debug("%s._on_channel_flow_ok(%s)", self.__class__.__name__, frame)
+
+        # Update the channel flow_active state
+        self.transport.flow_active = frame.method.active
+
+        # Process the sync events since the channel flow call is blocking
+        self.transport._on_synchronous_complete(frame)
+
+        # If we have a callback defined, process it
+        if self._on_flow_ok_callback:
+            self._on_flow_ok_callback(frame.method.active)
+            self._on_flow_ok_callback = None
+        else:
+            log.error("%s._on_flow_ok: No callback defined.",
+                      self.__class__.__name__)
 
 
 class ContentHandler(object):
