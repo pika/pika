@@ -49,17 +49,14 @@
 """
 Send a message and confirm you can retrieve it with Basic.Get
 """
+import nose
+import os
 import sys
-sys.path.append("../..")
+sys.path.append('..')
+sys.path.append(os.path.join('..', '..'))
 
 import support.async as async
-import nose
 from pika.adapters import SelectConnection
-
-channel = None
-confirmed = False
-connection = None
-queue = None
 
 HOST = 'localhost'
 PORT = 5672

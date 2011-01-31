@@ -51,12 +51,12 @@ Connection Test
 
 First test to make sure all async adapters can connect properly
 """
+import nose
 import os
 import sys
 sys.path.append('..')
 sys.path.append(os.path.join('..', '..'))
 
-import nose
 import pika
 import pika.adapters as adapters
 

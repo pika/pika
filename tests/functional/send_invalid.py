@@ -50,17 +50,14 @@
 Send a message to an invalid exchange which will yield a channel.Close call
 from the AMQP broker. Validate this process happens correctly.
 """
+import nose
+import os
 import sys
-sys.path.append("../..")
+sys.path.append('..')
+sys.path.append(os.path.join('..', '..'))
 
 import support.async as async
-import nose
 from pika.adapters import SelectConnection
-
-channel = None
-confirmed = False
-connection = None
-queue = None
 
 HOST = 'localhost'
 PORT = 5672

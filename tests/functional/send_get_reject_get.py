@@ -50,17 +50,14 @@
 Send a message , get it with Basic.Get, reject it with Basic.Reject and then
 get it again to confirm you get the same message as last time.
 """
+import nose
+import os
 import sys
-sys.path.append("../..")
+sys.path.append('..')
+sys.path.append(os.path.join('..', '..'))
 
 import support.async as async
-import nose
 from pika.adapters import SelectConnection
-
-channel = None
-confirmed = False
-connection = None
-queue = None
 
 HOST = 'localhost'
 PORT = 5672
@@ -110,6 +107,7 @@ class TestSendGetRejectGet(async.AsyncPattern):
         self.channel.basic_ack(method.delivery_tag)
         self.connection.add_on_close_callback(self._on_closed)
         self.connection.close()
+
 
 if __name__ == "__main__":
     nose.runmodule()

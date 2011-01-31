@@ -96,7 +96,7 @@ class AsyncPattern(object):
 
     def _queue_declare(self):
         self.channel.queue_declare(queue=self._queue,
-                                   durable=True,
+                                   durable=False,
                                    exclusive=False,
                                    auto_delete=True,
                                    callback=self._on_queue_declared)

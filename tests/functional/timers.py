@@ -49,12 +49,12 @@
 """
 Timer tests, make sure we can add and remove timers and that they fire.
 """
+import nose
 import os
 import sys
 sys.path.append('..')
 sys.path.append(os.path.join('..', '..'))
 
-import nose
 import pika
 import pika.adapters as adapters
 

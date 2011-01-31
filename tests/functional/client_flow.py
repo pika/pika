@@ -109,4 +109,3 @@ class TestAsyncClientFlow(async.AsyncPattern):
 
 if __name__ == "__main__":
     nose.runmodule()
-

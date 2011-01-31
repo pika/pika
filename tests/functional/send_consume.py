@@ -49,17 +49,14 @@
 """
 Send n messages and confirm you can retrieve them with Basic.Consume
 """
-import sys
-sys.path.append("../..")
-
 import nose
+import os
+import sys
+sys.path.append('..')
+sys.path.append(os.path.join('..', '..'))
+
 import support.async as async
 from pika.adapters import SelectConnection
-
-channel = None
-confirmed = False
-connection = None
-queue = None
 
 HOST = 'localhost'
 MESSAGES = 10
