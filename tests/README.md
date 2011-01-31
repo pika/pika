@@ -4,6 +4,11 @@ Tests are written for nose:
 
   http://somethingaboutorange.com/mrl/projects/nose/1.0.0/
 
+You can install nose with pip or easy_install:
+
+    pip install nose
+    easy_install nose
+
 Tests are expecting a RabbitMQ instance local to the machine where you are
 running the tests from.
 
