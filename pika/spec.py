@@ -2330,81 +2330,223 @@ def has_content(methodNumber):
 class DriverMixin(object):
 
     def exchange_declare(self, callback=None, ticket=0, exchange=None, type='direct', passive=False, durable=False, auto_delete=False, internal=False, nowait=False, arguments={}):
+        """
+        Implements the Exchange.Declare AMQP command. For context and usage:
 
-        return self.transport.rpc(callback, Exchange.Declare(ticket=ticket, exchange=exchange, type=type, passive=passive, durable=durable, auto_delete=auto_delete, internal=internal, nowait=nowait, arguments=arguments),
+          http://www.rabbitmq.com/amqp-0-9-1-quickref.html
+
+        This is a synchronous method that will not allow other commands to be
+        send to the AMQP broker until it has completed. It is recommended to
+        pass in a parameter to callback to be notified when this command has
+        completed.
+        """
+
+        return self.transport.rpc(Exchange.Declare(ticket=ticket, exchange=exchange, type=type, passive=passive, durable=durable, auto_delete=auto_delete, internal=internal, nowait=nowait, arguments=arguments), callback, 
                                   [Exchange.DeclareOk])
 
     def exchange_delete(self, callback=None, ticket=0, exchange=None, if_unused=False, nowait=False):
+        """
+        Implements the Exchange.Delete AMQP command. For context and usage:
 
-        return self.transport.rpc(callback, Exchange.Delete(ticket=ticket, exchange=exchange, if_unused=if_unused, nowait=nowait),
+          http://www.rabbitmq.com/amqp-0-9-1-quickref.html
+
+        This is a synchronous method that will not allow other commands to be
+        send to the AMQP broker until it has completed. It is recommended to
+        pass in a parameter to callback to be notified when this command has
+        completed.
+        """
+
+        return self.transport.rpc(Exchange.Delete(ticket=ticket, exchange=exchange, if_unused=if_unused, nowait=nowait), callback, 
                                   [Exchange.DeleteOk])
 
     def queue_declare(self, callback=None, ticket=0, queue='', passive=False, durable=False, exclusive=False, auto_delete=False, nowait=False, arguments={}):
+        """
+        Implements the Queue.Declare AMQP command. For context and usage:
 
-        return self.transport.rpc(callback, Queue.Declare(ticket=ticket, queue=queue, passive=passive, durable=durable, exclusive=exclusive, auto_delete=auto_delete, nowait=nowait, arguments=arguments),
+          http://www.rabbitmq.com/amqp-0-9-1-quickref.html
+
+        This is a synchronous method that will not allow other commands to be
+        send to the AMQP broker until it has completed. It is recommended to
+        pass in a parameter to callback to be notified when this command has
+        completed.
+        """
+
+        return self.transport.rpc(Queue.Declare(ticket=ticket, queue=queue, passive=passive, durable=durable, exclusive=exclusive, auto_delete=auto_delete, nowait=nowait, arguments=arguments), callback, 
                                   [Queue.DeclareOk])
 
     def queue_bind(self, callback=None, ticket=0, queue='', exchange=None, routing_key='', nowait=False, arguments={}):
+        """
+        Implements the Queue.Bind AMQP command. For context and usage:
 
-        return self.transport.rpc(callback, Queue.Bind(ticket=ticket, queue=queue, exchange=exchange, routing_key=routing_key, nowait=nowait, arguments=arguments),
+          http://www.rabbitmq.com/amqp-0-9-1-quickref.html
+
+        This is a synchronous method that will not allow other commands to be
+        send to the AMQP broker until it has completed. It is recommended to
+        pass in a parameter to callback to be notified when this command has
+        completed.
+        """
+
+        return self.transport.rpc(Queue.Bind(ticket=ticket, queue=queue, exchange=exchange, routing_key=routing_key, nowait=nowait, arguments=arguments), callback, 
                                   [Queue.BindOk])
 
     def queue_purge(self, callback=None, ticket=0, queue='', nowait=False):
+        """
+        Implements the Queue.Purge AMQP command. For context and usage:
 
-        return self.transport.rpc(callback, Queue.Purge(ticket=ticket, queue=queue, nowait=nowait),
+          http://www.rabbitmq.com/amqp-0-9-1-quickref.html
+
+        This is a synchronous method that will not allow other commands to be
+        send to the AMQP broker until it has completed. It is recommended to
+        pass in a parameter to callback to be notified when this command has
+        completed.
+        """
+
+        return self.transport.rpc(Queue.Purge(ticket=ticket, queue=queue, nowait=nowait), callback, 
                                   [Queue.PurgeOk])
 
     def queue_delete(self, callback=None, ticket=0, queue='', if_unused=False, if_empty=False, nowait=False):
+        """
+        Implements the Queue.Delete AMQP command. For context and usage:
 
-        return self.transport.rpc(callback, Queue.Delete(ticket=ticket, queue=queue, if_unused=if_unused, if_empty=if_empty, nowait=nowait),
+          http://www.rabbitmq.com/amqp-0-9-1-quickref.html
+
+        This is a synchronous method that will not allow other commands to be
+        send to the AMQP broker until it has completed. It is recommended to
+        pass in a parameter to callback to be notified when this command has
+        completed.
+        """
+
+        return self.transport.rpc(Queue.Delete(ticket=ticket, queue=queue, if_unused=if_unused, if_empty=if_empty, nowait=nowait), callback, 
                                   [Queue.DeleteOk])
 
     def queue_unbind(self, callback=None, ticket=0, queue='', exchange=None, routing_key='', arguments={}):
+        """
+        Implements the Queue.Unbind AMQP command. For context and usage:
 
-        return self.transport.rpc(callback, Queue.Unbind(ticket=ticket, queue=queue, exchange=exchange, routing_key=routing_key, arguments=arguments),
+          http://www.rabbitmq.com/amqp-0-9-1-quickref.html
+
+        This is a synchronous method that will not allow other commands to be
+        send to the AMQP broker until it has completed. It is recommended to
+        pass in a parameter to callback to be notified when this command has
+        completed.
+        """
+
+        return self.transport.rpc(Queue.Unbind(ticket=ticket, queue=queue, exchange=exchange, routing_key=routing_key, arguments=arguments), callback, 
                                   [Queue.UnbindOk])
 
     def basic_qos(self, callback=None, prefetch_size=0, prefetch_count=0, global_=False):
+        """
+        Implements the Basic.Qos AMQP command. For context and usage:
 
-        return self.transport.rpc(callback, Basic.Qos(prefetch_size=prefetch_size, prefetch_count=prefetch_count, global_=global_),
+          http://www.rabbitmq.com/amqp-0-9-1-quickref.html
+
+        This is a synchronous method that will not allow other commands to be
+        send to the AMQP broker until it has completed. It is recommended to
+        pass in a parameter to callback to be notified when this command has
+        completed.
+        """
+
+        return self.transport.rpc(Basic.Qos(prefetch_size=prefetch_size, prefetch_count=prefetch_count, global_=global_), callback, 
                                   [Basic.QosOk])
 
     def basic_get(self, callback=None, ticket=0, queue='', no_ack=False):
+        """
+        Implements the Basic.Get AMQP command. For context and usage:
 
-        return self.transport.rpc(callback, Basic.Get(ticket=ticket, queue=queue, no_ack=no_ack),
+          http://www.rabbitmq.com/amqp-0-9-1-quickref.html
+
+        This is a synchronous method that will not allow other commands to be
+        send to the AMQP broker until it has completed. It is recommended to
+        pass in a parameter to callback to be notified when this command has
+        completed.
+        """
+
+        return self.transport.rpc(Basic.Get(ticket=ticket, queue=queue, no_ack=no_ack), callback, 
                                   [Basic.GetOk, Basic.GetEmpty])
 
     def basic_ack(self, delivery_tag=0, multiple=False):
+        """
+        Implements the basic.ack AMQP command. For context and usage:
 
-        return self.transport.rpc(self.transport._on_event_ok, Basic.Ack(delivery_tag=delivery_tag, multiple=multiple),
-                                  [])
+          http://www.rabbitmq.com/amqp-0-9-1-quickref.html
+        """
+
+        return self.transport.rpc(Basic.Ack(delivery_tag=delivery_tag, multiple=multiple))
 
     def basic_reject(self, delivery_tag=None, requeue=True):
+        """
+        Implements the basic.reject AMQP command. For context and usage:
 
-        return self.transport.rpc(self.transport._on_event_ok, Basic.Reject(delivery_tag=delivery_tag, requeue=requeue),
-                                  [])
+          http://www.rabbitmq.com/amqp-0-9-1-quickref.html
+        """
+
+        return self.transport.rpc(Basic.Reject(delivery_tag=delivery_tag, requeue=requeue))
 
     def basic_recover_async(self, requeue=False):
+        """
+        Implements the basic.recover-async AMQP command. For context and usage:
 
-        return self.transport.rpc(self.transport._on_event_ok, Basic.RecoverAsync(requeue=requeue),
-                                  [])
+          http://www.rabbitmq.com/amqp-0-9-1-quickref.html
+        """
+
+        return self.transport.rpc(Basic.RecoverAsync(requeue=requeue))
 
     def basic_recover(self, callback=None, requeue=False):
+        """
+        Implements the Basic.Recover AMQP command. For context and usage:
 
-        return self.transport.rpc(callback, Basic.Recover(requeue=requeue),
+          http://www.rabbitmq.com/amqp-0-9-1-quickref.html
+
+        This is a synchronous method that will not allow other commands to be
+        send to the AMQP broker until it has completed. It is recommended to
+        pass in a parameter to callback to be notified when this command has
+        completed.
+        """
+
+        return self.transport.rpc(Basic.Recover(requeue=requeue), callback, 
                                   [Basic.RecoverOk])
 
     def tx_select(self, callback=None):
+        """
+        Implements the Tx.Select AMQP command. For context and usage:
 
-        return self.transport.rpc(callback, Tx.Select(),
+          http://www.rabbitmq.com/amqp-0-9-1-quickref.html
+
+        This is a synchronous method that will not allow other commands to be
+        send to the AMQP broker until it has completed. It is recommended to
+        pass in a parameter to callback to be notified when this command has
+        completed.
+        """
+
+        return self.transport.rpc(Tx.Select(), callback, 
                                   [Tx.SelectOk])
 
     def tx_commit(self, callback=None):
+        """
+        Implements the Tx.Commit AMQP command. For context and usage:
 
-        return self.transport.rpc(callback, Tx.Commit(),
+          http://www.rabbitmq.com/amqp-0-9-1-quickref.html
+
+        This is a synchronous method that will not allow other commands to be
+        send to the AMQP broker until it has completed. It is recommended to
+        pass in a parameter to callback to be notified when this command has
+        completed.
+        """
+
+        return self.transport.rpc(Tx.Commit(), callback, 
                                   [Tx.CommitOk])
 
     def tx_rollback(self, callback=None):
+        """
+        Implements the Tx.Rollback AMQP command. For context and usage:
 
-        return self.transport.rpc(callback, Tx.Rollback(),
+          http://www.rabbitmq.com/amqp-0-9-1-quickref.html
+
+        This is a synchronous method that will not allow other commands to be
+        send to the AMQP broker until it has completed. It is recommended to
+        pass in a parameter to callback to be notified when this command has
+        completed.
+        """
+
+        return self.transport.rpc(Tx.Rollback(), callback, 
                                   [Tx.RollbackOk])

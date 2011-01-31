@@ -385,26 +385,41 @@ def generate(specPath):
             if m.isSynchronous:
 
                 #Synchronous events have a CPS callback parameter
-                callback = "callback"
-
                 print "    def %s(self, callback=None%s):" % \
                       (pyize(m.klass.name + '_' + m.name),
                       fieldDeclList(m.arguments))
+                print '        """'
+                print '        Implements the %s AMQP command. For context and usage:' % m.structName()
                 print
-            else:
-                callback = "self.transport._on_event_ok"
+                print '          http://www.rabbitmq.com/amqp-0-9-1-quickref.html'
+                print
+                print '        This is a synchronous method that will not allow other commands to be'
+                print '        send to the AMQP broker until it has completed. It is recommended to'
+                print '        pass in a parameter to callback to be notified when this command has'
+                print '        completed.'
+                print '        """'
+                print
+                print "        return self.transport.rpc(%s(%s), callback, " % \
+                       (m.structName(),
+                       ', '.join(["%s=%s" % (pyize(f.name), pyize(f.name))
+                       for f in m.arguments]))
+                print "                                  [%s])" % \
+                      ', '.join(acceptable_replies)
 
+            else:
                 print "    def %s(self%s):" % \
                       (pyize(m.klass.name + '_' + m.name),
                       fieldDeclList(m.arguments))
+                print '        """'
+                print '        Implements the %s.%s AMQP command. For context and usage:' % (m.klass.name, m.name)
                 print
-
-            print "        return self.transport.rpc(%s, %s(%s)," % \
-                  (callback, m.structName(),
-                   ', '.join(["%s=%s" % (pyize(f.name), pyize(f.name))
-                             for f in m.arguments]))
-            print "                                  [%s])" % \
-                  (', '.join(acceptable_replies),)
+                print '          http://www.rabbitmq.com/amqp-0-9-1-quickref.html'
+                print '        """'
+                print
+                print "        return self.transport.rpc(%s(%s))" % \
+                       (m.structName(),
+                       ', '.join(["%s=%s" % (pyize(f.name), pyize(f.name))
+                       for f in m.arguments]))
 
 if __name__ == "__main__":
     do_main_dict({"spec": generate})
