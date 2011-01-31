@@ -47,14 +47,14 @@
 # ***** END LICENSE BLOCK *****
 
 """
-Send a message and confirm you can retrieve it with Basic.Get
+Send a message to a non-existent queue with the mandatory flag and confirm
+that it is returned via Basic.Return
 """
 import sys
 sys.path.append("../..")
 
 import support.async as async
 import nose
-import pika.spec as spec
 from pika.adapters import SelectConnection
 
 channel = None
