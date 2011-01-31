@@ -155,7 +155,7 @@ class BlockingChannelTransport(ChannelTransport):
         if key in self._replies:
             self._replies.remove(key)
 
-    def rpc(self, callback, method, acceptable_replies):
+    def rpc(self, method, callback=None, acceptable_replies=[]):
         """
         Shortcut wrapper to the Connection's rpc command using its callback
         stack, passing in our channel number
@@ -253,12 +253,11 @@ class BlockingChannel(Channel):
 
         self._consumer = consumer
 
-        self.transport.rpc(self._on_consume_ok,
-                           spec.Basic.Consume(queue=queue,
+        self.transport.rpc(spec.Basic.Consume(queue=queue,
                                               consumer_tag=consumer_tag,
                                               no_ack=no_ack,
                                               exclusive=exclusive),
-                           [spec.Basic.ConsumeOk])
+                           self._on_consume_ok, [spec.Basic.ConsumeOk])
 
     def _on_consume_ok(self, frame):
         log.debug("%s._on_consume_ok" % self.__class__.__name__)
