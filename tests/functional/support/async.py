@@ -103,16 +103,18 @@ class AsyncPattern(object):
     def _on_queue_declared(self, frame):
         assert False, "_on_queue_declared not extended"
 
-    def _send_message(self):
+    def _send_message(self, exchange='', mandatory=False, immediate=False):
 
         message = 'test-message-%s: %.8f' % (self.__class__.__name__,
                                              time.time())
-        self.channel.basic_publish(exchange='',
-                              routing_key=self._queue,
-                              body=message,
-                              properties=pika.BasicProperties(
-                                  content_type="text/plain",
-                                  delivery_mode=1))
+        self.channel.basic_publish(exchange=exchange,
+                                   routing_key=self._queue,
+                                   body=message,
+                                   properties=pika.BasicProperties(
+                                       content_type="text/plain",
+                                       delivery_mode=1),
+                                   mandatory=mandatory,
+                                   immediate=immediate)
         return message
 
     @property
