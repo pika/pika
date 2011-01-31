@@ -86,6 +86,16 @@ class SelectConnection(BaseConnection):
         # Let everyone know we're connected
         self._on_connected()
 
+    def flush_outbound(self):
+        """
+        Call the state manager who will figure out that we need to write then
+        call the poller's poll function to force it to process events.
+        """
+        self._manage_event_state()
+
+        # Force our poller to come up for air
+        self.ioloop.poller.poll()
+
 
 class IOLoop(object):
     """
@@ -242,42 +252,47 @@ class SelectPoller(object):
         Start the main poller loop. It will loop here until self.closed
         """
         while self.open:
-            # Build our values to pass into select
-            input_fileno, output_fileno, error_fileno = [], [], []
 
-            if self.events & READ:
-                input_fileno = [self.fileno]
-            if self.events & WRITE:
-                output_fileno = [self.fileno]
-            if self.events & ERROR:
-                error_fileno = [self.fileno]
-
-            # Wait on select to let us know what's up
-            try:
-                read, write, error = select.select(input_fileno,
-                                                   output_fileno,
-                                                   error_fileno,
-                                                   SelectPoller.TIMEOUT)
-            # @TODO find scope of exceptions which can be returned here
-            except Exception as error:
-                return self._handler(self.fileno, ERROR, error)
-
-            # Build our events bit mask
-            events = 0
-            if read:
-                events |= READ
-            if write:
-                events |= WRITE
-            if error:
-                events |= ERROR
-
-            if events:
-                log.debug("%s: Calling %s", self.__class__.__name__,
-                          self._handler)
-                self._handler(self.fileno, events)
+            # Call our poller
+            self.poll()
 
             # Process our timeouts
             self.process_timeouts()
+
+    def poll(self):
+        # Build our values to pass into select
+        input_fileno, output_fileno, error_fileno = [], [], []
+
+        if self.events & READ:
+            input_fileno = [self.fileno]
+        if self.events & WRITE:
+            output_fileno = [self.fileno]
+        if self.events & ERROR:
+            error_fileno = [self.fileno]
+
+        # Wait on select to let us know what's up
+        try:
+            read, write, error = select.select(input_fileno,
+                                               output_fileno,
+                                               error_fileno,
+                                               SelectPoller.TIMEOUT)
+        # @TODO find scope of exceptions which can be returned here
+        except Exception as error:
+            return self._handler(self.fileno, ERROR, error)
+
+        # Build our events bit mask
+        events = 0
+        if read:
+            events |= READ
+        if write:
+            events |= WRITE
+        if error:
+            events |= ERROR
+
+        if events:
+            log.debug("%s: Calling %s", self.__class__.__name__,
+                      self._handler)
+            self._handler(self.fileno, events)
 
 
 class KQueuePoller(SelectPoller):
@@ -360,42 +375,48 @@ class KQueuePoller(SelectPoller):
         """
         while self.open:
 
-            # We'll build a bitmask of events that happened in kqueue
-            events = 0
-
-            # Get up to a max of 1000 events or wait until timeout
-            try:
-                kevents = self._kqueue.control(None, 1000,
-                                               SelectPoller.TIMEOUT)
-            except OSError, error:
-                return self._handler(self.fileno, ERROR, error)
-
-            # Loop through the events returned to us and build a bitmask
-            for event in kevents:
-
-                # We had a read event, data and we're listening for them
-                if event.filter == select.KQ_FILTER_READ and \
-                   READ & self.events:
-                    events |= READ
-
-                # We're clear to write so get that done
-                if event.filter == select.KQ_FILTER_WRITE and \
-                   WRITE & self.events:
-                    events |= WRITE
-
-                # Look for errors, no event registration needed
-                if event.flags & select.KQ_EV_ERROR and \
-                    ERROR & self.events:
-                    events |= ERROR
-
-            # Call our event handler if we have events in our stack
-            if events:
-                log.debug("%s: Calling %s(%i)", self.__class__.__name__,
-                          self._handler, events)
-                self._handler(self.fileno, events)
+            # Call our poll function
+            self.poll()
 
             # Process our timeouts
             self.process_timeouts()
+
+    def poll(self):
+
+        # We'll build a bitmask of events that happened in kqueue
+        events = 0
+
+        # Get up to a max of 1000 events or wait until timeout
+        try:
+            kevents = self._kqueue.control(None, 1000,
+                                           SelectPoller.TIMEOUT)
+        except OSError, error:
+            return self._handler(self.fileno, ERROR, error)
+
+        # Loop through the events returned to us and build a bitmask
+        for event in kevents:
+
+            # We had a read event, data and we're listening for them
+            if event.filter == select.KQ_FILTER_READ and \
+               READ & self.events:
+                events |= READ
+
+            # We're clear to write so get that done
+            if event.filter == select.KQ_FILTER_WRITE and \
+               WRITE & self.events:
+                events |= WRITE
+
+            # Look for errors, no event registration needed
+            if event.flags & select.KQ_EV_ERROR and \
+                ERROR & self.events:
+                events |= ERROR
+
+        # Call our event handler if we have events in our stack
+        if events:
+            log.debug("%s: Calling %s(%i)", self.__class__.__name__,
+                      self._handler, events)
+            self._handler(self.fileno, events)
+
 
 
 class PollPoller(SelectPoller):
@@ -417,17 +438,22 @@ class PollPoller(SelectPoller):
         """
         while self.open:
 
-            # Poll until TIMEOUT waiting for an event
-            events = self._poll.poll(SelectPoller.TIMEOUT)
-
-            # If we didn't timeout pass the event to the handler
-            if events:
-                log.debug("%s: Calling %s", self.__class__.__name__,
-                          self.handler)
-                self.handler(events[0][0], events[0][1])
+            # Poll our poller
+            self.poll()
 
             # Process our timeouts
             self.process_timeouts()
+
+    def poll(self):
+
+        # Poll until TIMEOUT waiting for an event
+        events = self._poll.poll(SelectPoller.TIMEOUT)
+
+        # If we didn't timeout pass the event to the handler
+        if events:
+            log.debug("%s: Calling %s", self.__class__.__name__,
+                      self.handler)
+            self.handler(events[0][0], events[0][1])
 
 
 class EPollPoller(PollPoller):
