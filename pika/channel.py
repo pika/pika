@@ -308,7 +308,7 @@ class Channel(spec.DriverMixin):
         Pass a callback function that will be called when the channel is
         closed. The callback function should receive a frame parameter.
         """
-        self.callbacks.add(self.channel_number, spec.Channel.CloseOk, callback)
+        self.callbacks.add(self.channel_number, '_on_channel_close', callback)
 
 
     def add_on_return_callback(self, callback):
@@ -330,7 +330,7 @@ class Channel(spec.DriverMixin):
         """
         self.callbacks.add(self.channel_number, 'flow_change', callback)
 
-    def close(self, code=0, text="Normal Shutdown", forced=False):
+    def close(self, code=0, text="Normal Shutdown", from_server=False):
         """
         Will invoke a clean shutdown of the channel with the AMQP Broker
         """
@@ -340,12 +340,17 @@ class Channel(spec.DriverMixin):
         # Set our closing code and text
         self.closing = code, text
 
+        # Let an application that registered itself our callbacks know we're
+        # Closing/Closed
+        self.callbacks.process(self.channel_number, '_on_channel_close',
+                               self, code, text)
+
         # Send our basic cancel for all of our consumers
         for consumer_tag in self._consumers.keys():
             self.basic_cancel(consumer_tag)
 
         # If we have an open connection send a RPC call to close the channel
-        if not len(self._consumers) and not forced:
+        if not len(self._consumers) and not from_server:
             self._close()
 
     def _close(self):

@@ -544,7 +544,7 @@ class Connection(object):
         # If we have this channel number in our channels:
         if channel_number in self._channels:
             # If our server called Channel.Close on us remotely
-            if isinstance(frame, spec.Channel.Close):
+            if isinstance(frame.method, spec.Channel.Close):
                 # Call the channel.close() function letting it know it came
                 # From the server.
                 self._channels[channel_number].close(frame.method.reply_code,
