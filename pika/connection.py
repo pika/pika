@@ -506,6 +506,12 @@ class Connection(object):
         self._channels[channel_number] = channel.Channel(self, channel_number,
                                                          on_open_callback)
 
+
+        # Add the callback for our Channel.Close event in case the Broker
+        # wants to close us for some reason
+        self.callbacks.add(channel_number, spec.Channel.Close,
+                           self._on_channel_close)
+
     def _next_channel_number(self):
         """
         Return the next available channel number or raise on exception
@@ -534,9 +540,20 @@ class Connection(object):
         log.debug('%s._on_channel_close: %s', self.__class__.__name__,
                       frame.channel_number)
 
-        if frame.channel_number in self._channels:
-            del(self._channels[frame.channel_number])
+        channel_number = frame.channel_number
+        # If we have this channel number in our channels:
+        if channel_number in self._channels:
+            # If our server called Channel.Close on us remotely
+            if isinstance(frame, spec.Channel.Close):
+                # Call the channel.close() function letting it know it came
+                # From the server.
+                self._channels[channel_number].close(frame.method.reply_code,
+                                                     frame.method.reply_text,
+                                                     True)  # Forced close
+            # Remove the channel from our dict
+            del(self._channels[channel_number])
 
+        # If we're closing and don't have any channels, go to the next step
         if self.closing and not self._channels:
             self._on_close_ready()
 
