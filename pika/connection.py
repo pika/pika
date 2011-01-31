@@ -403,7 +403,7 @@ class Connection(object):
         # Send the Connection.Open RPC call for the vhost
         cmd = spec.Connection.Open(virtual_host=self.parameters.virtual_host,
                                    insist=True)
-        self.rpc(self._on_connection_open, 0, cmd, [spec.Connection.OpenOk])
+        self.rpc(0, cmd, self._on_connection_open, [spec.Connection.OpenOk])
 
     def close(self, code=200, text='Normal shutdown'):
         """
@@ -445,9 +445,9 @@ class Connection(object):
                          self.__class__.__name__)
             return
 
-        self.rpc(self._on_connection_closed, 0,
-                 spec.Connection.Close(self.closing[0],
-                                       self.closing[1], 0, 0),
+        self.rpc(0, spec.Connection.Close(self.closing[0],
+                                          self.closing[1], 0, 0),
+                 self._on_connection_closed,
                  [spec.Connection.CloseOk])
 
     def _on_connection_closed(self, frame, from_adapter=False):
@@ -579,7 +579,8 @@ class Connection(object):
                 # Call our Channel Handler with the frame
                 self._channels[frame.channel_number].transport.deliver(frame)
 
-    def rpc(self, callback, channel_number, method, acceptable_replies):
+    def rpc(self, channel_number, method,
+            callback=None, acceptable_replies=[]):
         """
         Make an RPC call for the given callback, channel number and method.
         acceptable_replies lists out what responses we'll process from the

@@ -142,7 +142,7 @@ class ChannelTransport(object):
         """
         return spec.has_content(method.INDEX)
 
-    def rpc(self, callback, method, acceptable_replies):
+    def rpc(self, method, callback=None, acceptable_replies=[]):
         """
         Shortcut wrapper to the Connection's rpc command using its callback
         stack, passing in our channel number
@@ -165,21 +165,20 @@ class ChannelTransport(object):
             log.debug('%s: %s is blocking this channel',
                           self.__class__.__name__, self.blocking)
 
-            self._blocked.append([callback, method, acceptable_replies])
+            self._blocked.append([method, callback, acceptable_replies])
             return
 
         # If this is a synchronous method, block connections until we're done
         if method.synchronous:
             log.debug('%s: %s turning on blocking',
                           self.__class__.__name__, method.NAME)
-
             self.blocking = method.NAME
 
         for reply in acceptable_replies:
             self.callbacks.add(self.channel_number, reply,
                                self._on_synchronous_complete)
-            self.callbacks.add(self.channel_number, reply,
-                               callback)
+            if callback:
+                self.callbacks.add(self.channel_number, reply, callback)
 
         self.send_method(method)
 
@@ -373,9 +372,8 @@ class Channel(spec.DriverMixin):
                                callback)
 
         # Send a Basic.Cancel RPC call to close the Basic.Consume
-        self.transport.rpc(self._on_cancel_ok,
-                           spec.Basic.Cancel(consumer_tag=consumer_tag),
-                           [spec.Basic.CancelOk])
+        self.transport.rpc(spec.Basic.Cancel(consumer_tag=consumer_tag),
+                           self._on_cancel_ok, [spec.Basic.CancelOk])
 
     def basic_consume(self, consumer,
                       queue='', no_ack=False, exclusive=False,
@@ -399,11 +397,11 @@ class Channel(spec.DriverMixin):
 
         # Send our Basic.Consume RPC call
         try:
-            self.transport.rpc(self.transport._on_event_ok,
-                               spec.Basic.Consume(queue=queue,
+            self.transport.rpc(spec.Basic.Consume(queue=queue,
                                                   consumer_tag=consumer_tag,
                                                   no_ack=no_ack,
                                                   exclusive=exclusive),
+                               self.transport._on_event_ok,
                                [spec.Basic.ConsumeOk])
         except exceptions.ChannelClosed, e:
             del(self._consumers[consumer_tag])
