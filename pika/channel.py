@@ -51,12 +51,14 @@ import pika.log as log
 import pika.spec as spec
 import pika.exceptions as exceptions
 
-# Keep track of things we need to implement and that are not supported
-# in Pika at this time
-NOT_IMPLEMENTED = [spec.Basic.Return]
-
 
 class ChannelTransport(object):
+    """
+    The ChannelTransport class is meant to handle the communication paths to
+     and from the AMQP Broker. It is not supposed to implement client behavior
+     other than what is pre-specified by the Channel class. It is not meant
+     to be invoked by applications using Pika.
+    """
 
     def __init__(self, connection, channel_number):
 
@@ -86,11 +88,6 @@ class ChannelTransport(object):
         # Add callbacks for channel open event
         self.callbacks.add(self.channel_number, spec.Channel.OpenOk,
                            self._on_open)
-
-        # Add in callbacks for methods not implemented
-        for method in NOT_IMPLEMENTED:
-            self.callbacks.add(self.channel_number, method,
-                               self._on_event_ok, False)
 
     def _on_open(self, frame):
         """
@@ -200,10 +197,6 @@ class ChannelTransport(object):
         log.debug("%s._on_event_ok: %r", self.__class__.__name__,
                       frame.method.NAME)
 
-        # If we've not implemented this frame, raise an exception
-        if frame.method.NAME in NOT_IMPLEMENTED:
-            raise NotImplementedError(frame.method.NAME)
-
     def _on_synchronous_complete(self, frame):
         """
         This is called when a synchronous command is completed. It will undo
@@ -301,28 +294,43 @@ class Channel(spec.DriverMixin):
         # Open our channel
         self.transport.send_method(spec.Channel.Open())
 
-    def add_callback(self, callback, acceptable_replies):
+    def add_callback(self, callback, replies):
         """
-        Our DriverMixin will call this to add items to the callback stack
+        Pass in a callback handler and a list replies from the
+        RabbitMQ broker which you'd like the callback notified of. Callbacks
+        should allow for the frame parameter to be passed in.
         """
-        for reply in acceptable_replies:
+        for reply in replies:
             self.callbacks.add(self.channel_number, reply, callback)
 
     def add_on_close_callback(self, callback):
         """
-        Add a close callback to the stack that will be called when we have
-        successfully closed the channel
+        Pass a callback function that will be called when the channel is
+        closed. The callback function should receive a frame parameter.
         """
         self.callbacks.add(self.channel_number, spec.Channel.CloseOk, callback)
 
+
+    def add_on_return_callback(self, callback):
+        """
+        Pass a callback function that will be called when basic_publish as sent
+        a message that has been rejected and returned by the server. The
+        callback handler should receive a method, header and body frame. The
+        base signature for the callback should be the same as the method
+        signature one creates for a basic_consume callback.
+        """
+        self.callbacks.add(self.channel_number, '_on_basic_return', callback)
+
     def add_flow_change_callback(self, callback):
         """
-        Pass in a callback that will be called with a boolean flag which
-        indicates if the channel flow is active or not
+        Pass a callback that will be notified when flow control has changed
+        state. The callback should accept a frame parameter. The frame
+        will be an object with the attribute "active" which will indicate
+        if Flow control is active or not.
         """
         self.callbacks.add(self.channel_number, 'flow_change', callback)
 
-    def close(self, code=0, text="Normal Shutdown"):
+    def close(self, code=0, text="Normal Shutdown", forced=False):
         """
         Will invoke a clean shutdown of the channel with the AMQP Broker
         """
@@ -337,7 +345,7 @@ class Channel(spec.DriverMixin):
             self.basic_cancel(consumer_tag)
 
         # If we have an open connection send a RPC call to close the channel
-        if not len(self._consumers):
+        if not len(self._consumers) and not forced:
             self._close()
 
     def _close(self):
@@ -351,14 +359,24 @@ class Channel(spec.DriverMixin):
                                                       0, 0))
 
     def _open(self, frame):
+        """
+        Called by our callback handler when we receive a Channel.OpenOk and
+        subsequently calls our _on_open_callback which was passed into the
+        Channel construtor. The reason we do this is because we want to make
+        sure that the on_open_callback parameter passed into the Channel
+        constructor is not the first callback we make. ChannelTransport needs
+        to know before the app that passed in the callback.
+        """
         log.debug("%s._open: %r", self.__class__.__name__, frame)
         # Call our on open callback
         if self._on_open_callback:
             self._on_open_callback(self)
 
-    def basic_cancel(self, consumer_tag, callback=None):
+    def basic_cancel(self, consumer_tag, nowait=False, callback=None):
         """
-        Cancel a basic_consumer call on the Broker
+        Pass in the consumer tag to cancel a basic_consume request with. The
+        consumer_tag is optionally passed to basic_consume as a parameter and
+        it is always returned by the Basic.ConsumeOk frame.
         """
         log.debug("%s.basic_cancel: %s", self.__class__.__name__,
                       consumer_tag)
@@ -372,15 +390,20 @@ class Channel(spec.DriverMixin):
                                callback)
 
         # Send a Basic.Cancel RPC call to close the Basic.Consume
-        self.transport.rpc(spec.Basic.Cancel(consumer_tag=consumer_tag),
+        self.transport.rpc(spec.Basic.Cancel(consumer_tag=consumer_tag,
+                                             nowait=nowait),
                            self._on_cancel_ok, [spec.Basic.CancelOk])
 
-    def basic_consume(self, consumer,
+    def basic_consume(self, consumer_callback,
                       queue='', no_ack=False, exclusive=False,
                       consumer_tag=None):
         """
-        Pass a callback consuming function for a given queue. You can specify
-        your own consumer tag but why not let the driver do it for you?
+        Sends the AMQP command Basic.Consume to the broker and binds messages
+        for the consumer_tag to the consumer callback. If you do not pass in
+        a consumer_tag, one will be automatically generated for you. For
+        more information on basic_consume, see:
+
+        http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.consume
         """
         log.debug("%s.basic_consume", self.__class__.__name__)
 
@@ -393,7 +416,7 @@ class Channel(spec.DriverMixin):
             raise exceptions.DuplicateConsumerTag(consumer_tag)
 
         # The consumer tag has not been used before, add it to our consumers
-        self._consumers[consumer_tag] = consumer
+        self._consumers[consumer_tag] = consumer_callback
 
         # Send our Basic.Consume RPC call
         try:
@@ -413,7 +436,11 @@ class Channel(spec.DriverMixin):
         Publish to the channel with the given exchange, routing key and body.
 
         If flow control is enabled and you publish a message while another is
-        sending, a ContentTransmissionForbidden exception ill be generated
+        sending, a ContentTransmissionForbidden exception will be generated.
+
+        For more information on basic_consume and what the parameters do, see:
+
+        http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.publish
         """
         log.debug("%s.basic_publish", self.__class__.__name__)
 
@@ -494,8 +521,15 @@ class Channel(spec.DriverMixin):
 
     def basic_get(self, callback, ticket=0, queue='', no_ack=False):
         """
-        Implementation of the basic_get command that bypasses the rpc mechanism
-        since we have to assemble the content
+        Get a single message from the AMQP broker. The callback method
+        signature should have 3 parameters: The method frame, header frame and
+        the body, like the consumer callback for Basic.Consume. If you want to
+        be notified of Basic.GetEmpty, use the Channel.add_callback method
+        adding your Basic.GetEmpty callback which should expect only one
+        parameter, frame. For more information on basic_get and its
+        parameters, see:
+
+        http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.get
         """
         log.debug("%s.basic_get(cb=%s, ticket=%i, queue=%s, no_ack=%s)",
                       self.__class__.__name__, callback, ticket, queue, no_ack)
@@ -517,19 +551,45 @@ class Channel(spec.DriverMixin):
                           self.__class__.__name__)
 
     def _on_basic_get_empty(self, frame):
+        """
+        When we receive an empty reply do nothing but log it
+        """
         log.debug("%s._on_basic_get_empty", self.__class__.__name__)
 
 
 class ContentHandler(object):
+    """
+    This handles content frames which come in in synchronous order as follows:
+
+    1) Method Frame
+    2) Header Frame
+    3) Body Frame(s)
+
+    The way that content handler works is to assign the active frame type to
+    the self._handler variable. When we receive a header frame that is either
+    a Basic.Deliver, Basic.GetOk, or Basic.Return, we will assign the handler
+    to the ContentHandler._handle_header_frame. This will fire the next time
+    we are called and parse out the attributes required to receive the body
+    frames and assemble the content to be returned. We will then assign the
+    self._handler to ContentHandler._handle_body_frame.
+
+    _handle_body_frame has two methods inside of it, handle and finish.
+    handle will be invoked until the requirements set by the header frame have
+    been met at which point it will call the finish method. This calls
+    the callback manager with the method frame, header frame and assembled
+    body and then reset the self.handler_ to the _handle_method_frame method.
+    """
 
     def __init__(self):
-
-        self.callbacks = callback.CallbackManager.instance()
-
         # We start with Method frames always
         self._handler = self._handle_method_frame
 
     def process(self, frame):
+        """
+        Invoked by the ChannelTransport object when passed frames that are not
+        setup in the rpc process and that don't have explicit reply types
+        defined. This includes Basic.Publish, Basic.GetOk and Basic.Return
+        """
         self._handler(frame)
 
     def _handle_method_frame(self, frame):
@@ -613,19 +673,25 @@ class ContentHandler(object):
                 key = '_on_basic_deliver'
             elif method == 'GetOk':
                 key = '_on_basic_get'
+            elif method == 'Return':
+                key = '_on_basic_return'
             else:
                 raise Exception('Unimplemented Content Return Key')
 
-            # Check for a processing callback for our method name
-            self.callbacks.process(method_frame.channel_number,  # Prefix
-                                   key,                          # Key
-                                   self,                         # Caller
-                                   method_frame,                 # Arg 1
-                                   header_frame,                 # Arg 2
-                                   ''.join(body_fragments))      # Arg 3
 
-        # if we dont have a header frame body size, finish otherwise keep going
-        # And keep our handler function as the frame handler
+            # Get our callback manager instance
+            callbacks = callback.CallbackManager.instance()
+
+            # Check for a processing callback for our method name
+            callbacks.process(method_frame.channel_number,  # Prefix
+                              key,                          # Key
+                              self,                         # Caller
+                              method_frame,                 # Arg 1
+                              header_frame,                 # Arg 2
+                              ''.join(body_fragments))      # Arg 3
+
+        # If we don't have a header frame body size, finish. Otherwise keep
+        # going and keep our handler function as the frame handler
         if not header_frame.body_size:
             finish()
         else:
