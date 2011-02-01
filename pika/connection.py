@@ -63,7 +63,6 @@ CHANNEL_MAX = 32767
 FRAME_MAX = 131072
 PRODUCT = "Pika Python AMQP Client Library"
 
-
 # Module wide default credentials for default RabbitMQ configurations
 default_credentials = PlainCredentials('guest', 'guest')
 
@@ -141,11 +140,33 @@ class Connection(object):
         # Connect to the AMQP Broker
         self._connect()
 
+    def add_backpressure_callback(self, callback):
+        """
+        Add a callback notification when we think backpressue is being applied
+        due to the size of the output buffer being exceeded. We calculate this
+        by figuring the average frame size and then checking to see if our
+        backpressure multiplier * average frame size has been exceeded.
+        You can change the backpressure multiplier by calling the
+        set_backpressure_multiplier.
+        """
+        log.debug('%s.add_backpressure_callback: %s', self.__class__.__name__,
+                  callback)
+
+        self.callbacks.add(0, 'backpressure', callback, False)
+
+    def set_backpressure_multiplier(self, value=10):
+        """
+        Alter the backpressure multiplier value. We set this to 10 by default.
+        This value is used to raise warnings and trigger the backpressure
+        callback.
+        """
+        self._backpressure = value
+
     def add_on_close_callback(self, callback):
         """
         Add a callback notification when the connection has closed
         """
-        log.debug('%s._add_on_close_callback: %s', self.__class__.__name__,
+        log.debug('%s.add_on_close_callback: %s', self.__class__.__name__,
                       callback)
 
         self.callbacks.add(0, '_on_connection_closed', callback, False)
@@ -154,7 +175,7 @@ class Connection(object):
         """
         Add a callback notification when the connection has closed
         """
-        log.debug('%s._add_on_open_callback: %s',
+        log.debug('%s.add_on_open_callback: %s',
                       self.__class__.__name__, callback)
 
         self.callbacks.add(0, '_on_connection_open', callback, False)
@@ -201,10 +222,14 @@ class Connection(object):
         self.server_properties = None
         self._channels = dict()
 
-        # Data used for Heartbeat checking
+        # Data used for Heartbeat checking and backpressure detection
         self.bytes_sent = 0
         self.bytes_received = 0
+        self.frames_sent = 0
         self.heartbeat = None
+
+        # Default backpressure multiplier value
+        self._backpressure = 10
 
         # AMQP Lifecycle States
         self.closed = True
@@ -621,8 +646,16 @@ class Connection(object):
 
         marshalled_frame = frame.marshal()
         self.bytes_sent += len(marshalled_frame)
+        self.frames_sent += 1
         self.outbound_buffer.write(marshalled_frame)
         self.flush_outbound()
+        avg_frame_size = self.bytes_sent / self.frames_sent
+        if self.outbound_buffer.size > (avg_frame_size * self._backpressure):
+            est_frames_behind = self.outbound_buffer.size / avg_frame_size
+            message = "Pika: Write buffer exceeded warning threshold" + \
+                      " at %i bytes and an estimated %i frames behind"
+            log.warning(message, self.outbound_buffer.size, est_frames_behind)
+            self.callbacks.process(0, 'backpressure', self)
 
     def flush_outbound(self):
         """

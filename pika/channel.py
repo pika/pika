@@ -55,9 +55,14 @@ import pika.exceptions as exceptions
 class ChannelTransport(object):
     """
     The ChannelTransport class is meant to handle the communication paths to
-     and from the AMQP Broker. It is not supposed to implement client behavior
-     other than what is pre-specified by the Channel class. It is not meant
-     to be invoked by applications using Pika.
+    and from the AMQP Broker. It is not supposed to implement client behavior
+    other than what is pre-specified by the Channel class. It is not meant
+    to be invoked by applications using Pika.
+
+    Note that as of RabbitMQ 2.0 Channel.Flow is no longer used and has been
+    removed and uses tcp backpressure instead. Since we only support 0-9-1
+    which was not introduced in RabbitMQ until 2.0, server side channel
+    flow detection has been removed.
     """
 
     def __init__(self, connection, channel_number):
@@ -78,13 +83,6 @@ class ChannelTransport(object):
         # By default we're closed
         self.closed = True
 
-        # By default our Flow is active
-        self.flow_active = False
-
-        # Define our callbacks for specific frame types
-        self.callbacks.add(self.channel_number, spec.Channel.Flow,
-                           self._on_channel_flow, False)
-
         # Add callbacks for channel open event
         self.callbacks.add(self.channel_number, spec.Channel.OpenOk,
                            self._on_open)
@@ -94,13 +92,6 @@ class ChannelTransport(object):
         Called as a result of receiving a spec.Channel.OpenOk frame.
         """
         self.closed = False
-
-    @property
-    def _blocked_on_flow_control(self):
-        """
-        Returns a bool if we're currently blocking in Flow
-        """
-        return self.flow_active
 
     def deliver(self, frame):
         """
@@ -119,24 +110,6 @@ class ChannelTransport(object):
 
         return True
 
-    def _on_channel_flow(self, frame):
-        """
-        We've received a Channel.Flow frame, obey it's request and set our
-        flow active state, then fire the event and send the FlowOk
-        method.active value in response.
-        """
-        log.debug("%s._on_channel_flow: %r",
-                      self.__class__.__name__, frame)
-
-        self.flow_active = frame.method.active
-
-        # Send the FlowOk response
-        self.send_method(spec.Channel.FlowOk(active=self.flow_active))
-
-        # Process our flow state change callbacks
-        self.callbacks.process(self.channel_number, 'flow_change',
-                               self, frame.method.active)
-
     def _has_content(self, method):
         """
         Return a bool if it's a content method as defined by the spec
@@ -154,12 +127,6 @@ class ChannelTransport(object):
 
         # Make sure the channel is open
         self._ensure()
-
-        # If we're using flow control, content methods should know not to call
-        # the rpc function and should be using the flow_active_change_event
-        # notification system to know when they can send
-        if self._has_content(method) and self._blocked_on_flow_control:
-            raise exceptions.ChannelBlocked("Flow Control Active")
 
         # If we're blocking, add subsequent commands to our stack
         if self.blocking:
@@ -190,9 +157,6 @@ class ChannelTransport(object):
         """
         log.debug("%s.send_method: %s(%s)", self.__class__.__name__,
                       method, content)
-
-        if self._has_content(method) and self._blocked_on_flow_control:
-            raise exceptions.ChannelBlocked("Flow Control Active")
 
         self.connection.send_method(self.channel_number, method, content)
 
@@ -273,7 +237,6 @@ class Channel(spec.DriverMixin):
 
         # Set this here just as a default value
         self._on_get_ok_callback = None
-        self._on_flow_ok_callback = None
 
         # Add a callback for Basic.Deliver
         self.callbacks.add(self.channel_number,
@@ -281,12 +244,6 @@ class Channel(spec.DriverMixin):
                            self._on_basic_deliver,
                            False,
                            ContentHandler)
-
-        # Add a callback for Channel.FlowOk
-        self.callbacks.add(self.channel_number,
-                           spec.Channel.FlowOk,
-                           self._on_channel_flow_ok,
-                           False)
 
         # Add a callback for Basic.Get
         self.callbacks.add(self.channel_number,
@@ -325,7 +282,6 @@ class Channel(spec.DriverMixin):
         """
         self.callbacks.add(self.channel_number, '_on_channel_close', callback)
 
-
     def add_on_return_callback(self, callback):
         """
         Pass a callback function that will be called when basic_publish as sent
@@ -335,15 +291,6 @@ class Channel(spec.DriverMixin):
         signature one creates for a basic_consume callback.
         """
         self.callbacks.add(self.channel_number, '_on_basic_return', callback)
-
-    def add_flow_change_callback(self, callback):
-        """
-        Pass a callback that will be notified when flow control has changed
-        state. The callback should accept a frame parameter. The frame
-        will be an object with the attribute "active" which will indicate
-        if Flow control is active or not.
-        """
-        self.callbacks.add(self.channel_number, 'flow_change', callback)
 
     def close(self, code=0, text="Normal Shutdown", from_server=False):
         """
@@ -454,11 +401,7 @@ class Channel(spec.DriverMixin):
                       properties=None, mandatory=False, immediate=False):
         """
         Publish to the channel with the given exchange, routing key and body.
-
-        If flow control is enabled and you publish a message while another is
-        sending, a ContentTransmissionForbidden exception will be generated.
-
-        For more information on basic_consume and what the parameters do, see:
+        For more information on basic_publish and what the parameters do, see:
 
         http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.publish
         """
@@ -575,41 +518,6 @@ class Channel(spec.DriverMixin):
         When we receive an empty reply do nothing but log it
         """
         log.debug("%s._on_basic_get_empty", self.__class__.__name__)
-
-    def flow(self, callback, active):
-        """
-        Turn Channel flow control off and on. Pass a callback to be notified
-        of the response from the server. active is a bool. Callback should
-        expect a bool in response indicating channel flow state
-
-        This is forward looking AMQP 1-0 support
-        """
-        log.debug("%s.flow(%s, %s)", self.__class__.__name__, callback,
-                  active)
-        self._on_flow_ok_callback = callback
-        self.transport.rpc(spec.Channel.Flow(active), [spec.Channel.FlowOk])
-
-    def _on_channel_flow_ok(self, frame):
-        """
-        Called in response to us asking the server to toggle on Channel.Flow
-
-        This is forward looking AMQP 1-0 support
-        """
-        log.debug("%s._on_channel_flow_ok(%s)", self.__class__.__name__, frame)
-
-        # Update the channel flow_active state
-        self.transport.flow_active = frame.method.active
-
-        # Process the sync events since the channel flow call is blocking
-        self.transport._on_synchronous_complete(frame)
-
-        # If we have a callback defined, process it
-        if self._on_flow_ok_callback:
-            self._on_flow_ok_callback(frame.method.active)
-            self._on_flow_ok_callback = None
-        else:
-            log.error("%s._on_flow_ok: No callback defined.",
-                      self.__class__.__name__)
 
 
 class ContentHandler(object):
