@@ -99,7 +99,7 @@ def test_decode_table():
     >>> reencode({'a':datetime.datetime(2010,12,31,23,58,59)})
     {'a': datetime.datetime(2010, 12, 31, 23, 58, 59)}
     >>> reencode({'a': 0x7EADBEEFDEADBEEFL, 'b': -0x7EADBEEFDEADBEEFL})
-    {'a': 9128161957192253167, 'b': -9128161957192253167}
+    {'a': 9128161957192253167L, 'b': -9128161957192253167L}
     >>> reencode({'a': 1, 'b':decimal.Decimal('-1.234'), 'g': -1})
     {'a': 1, 'b': Decimal('-1.234'), 'g': -1}
     >>> reencode({'a':[1,2,3,'a',decimal.Decimal('-0.01'),5]})

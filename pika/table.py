@@ -136,7 +136,7 @@ def decode_value(encoded, offset):
         value = struct.unpack_from('>i', encoded, offset)[0]
         offset += 4
     elif kind == 'l':
-        value = struct.unpack_from('>q', encoded, offset)[0]
+        value = long(struct.unpack_from('>q', encoded, offset)[0])
         offset += 8
     elif kind == 'D':
         decimals = struct.unpack_from('B', encoded, offset)[0]
