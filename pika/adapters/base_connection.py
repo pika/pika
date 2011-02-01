@@ -127,7 +127,7 @@ class BaseConnection(Connection):
         and will handle different socket errors differently.
         """
         log.debug("%s.handle_error(%s)",
-                  self.__class__.__name__, str(error_code))
+                  self.__class__.__name__, str(error))
 
         # Handle version differences in Python
         if hasattr(error, 'errno'):  # Python >= 2.6
