@@ -15,14 +15,15 @@ to stay fairly independent of the underlying network support library.
    compatible with all of these, and to make adapting it to a new
    environment as simple as possible.
 
-Pika provides adapters for
+## Pika provides the following adapters
 
- * select/epoll/poll/kqueue based asynchronous connections
- * asyncore (part of the Python standard library)
- * Tornado - http://tornadoweb.org
- * direct blocking socket
+ * SelectConnection   - fast asynchronous adapter
+ * AsyncoreConnection - based off the standard Python library asyncore
+ * TornadoConnection  - adapter for use with the Tornado IO Loop http://tornadoweb.org
+ * BlockingConnection - enables blocking, synchronous operation on top of library
+                        for simple uses
 
-Support for Twisted and others are on the horizon.
+Support for Twist and other IO frameworks are on the horizon.
 
 ## Major Changes to Pika since 0.5.2
 
@@ -36,8 +37,8 @@ Support for Twisted and others are on the horizon.
  * SelectConnection is now the recommended connection adapter and shows better
    performance than the AsyncoreConnection. SelectConnection implements select,
    poll, epoll and kqueue for event handling.
- * Channel flow control has been removed, see the section of the document below
-   for information on this
+ * Client channel flow control has been removed, see the section of the document
+   below for information on this
  * TornadoConnection adds a connection adapter for the Tornado IOLoop
  * Support for additional AMQP data types has been added
  * More extensive unit and functional tests added
@@ -47,7 +48,7 @@ Support for Twisted and others are on the horizon.
  * Low level debug logging demonstrates client behavior and can be toggled via
    pika.log.DEBUG boolean value.
  * Classes now implement new style classes
- * Major restructuring of existing modules and classes   
+ * Major restructuring of existing modules and classes
  * Universal callback mechanism added, removing events and other callback
    methods
  * Added BaseConenction which extends Connection and builds in default behaviors
@@ -100,41 +101,62 @@ style.
 
     import pika
 
+    # Variables to hold our connection and channel
     connection = None
     channel = None
 
-    def on_connected(connection):
-        global channel
-        channel = connection.channel(on_channel_open)
-
+    # Called when our connection to RabbitMQ is closed
     def on_closed(frame):
         global connection
+
+        # connection.ioloop is blocking, this will stop and exit the app
         connection.ioloop.stop()
-        
-    def on_channel_open(channel):
+
+    # Called when we have connected to RabbitMQ
+    def on_connected(connection):
+        global channel
+
+        # Create a channel on our connection passing the on_channel_open callback
+        connection.channel(on_channel_open)
+
+    # Called after line #110 is finished, when our channel is open
+    def on_channel_open(channel_):
+        global channel
+
+        # Our usable channel has been passed to us, assign it for future use
+        channel = channel_
+
+        # Declare a queue
         channel.queue_declare(queue="test", durable=True,
                               exclusive=False, auto_delete=False,
                               callback=on_queue_declared)
 
+    # Called when line #119 is finished, our queue is declared.
     def on_queue_declared(frame):
-        message = "Hello World!"
+        global channel
+
+        # Send a message
         channel.basic_publish(exchange='',
                               routing_key="test",
-                              body=message,
+                              body="Hello World!",
                               properties=pika.BasicProperties(
-                              content_type="text/plain",
-                              delivery_mode=2,  # persistent
-                              ))
+                                content_type="text/plain",
+                                delivery_mode=1))
+
+        # Add a callback so we can stop the ioloop
+        connection.add_on_close_callback(on_closed)
 
         # Close our connection
-        connection.add_on_close_callback(on_closed)
         connection.close()
 
+    # Create our connection parameters and connect to RabbitMQ
     parameters = pika.ConnectionParameters('localhost')
     connection = pika.SelectConnection(parameters, on_connected)
-    connection.ioloop.loop()
 
-The asynchronous programming style can be used in both multi- and
+    # Start our IO/Event loop
+    connection.ioloop.start()
+
+The asynchronous programming style can be used in both multi-threaded and
 single-threaded environments. The same care must be taken when
 programming in a multi-threaded environment using an asynchronous
 style as is taken when using a synchronous style.
@@ -146,13 +168,25 @@ short-lived programs, or other simple tasks. Code is easy to read and
 somewhat easy to reason about.
 
     import pika
-    conn = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
-    ch = conn.channel()
-    ch.exchange_declare(exchange="test_x", type="fanout", durable=False)
-    ch.queue_declare(queue="test_q", durable=True, exclusive=False, auto_delete=False)
-    ch.queue_bind(queue="test_q", exchange="test_x", routing_key="")
-    ch.basic_publish(exchange="test_x", routing_key="", body="Hello World!")
-    conn.close()
+
+    # Create our connection parameters and connect to RabbitMQ
+    parameters = pika.ConnectionParameters('localhost')
+    connection = pika.BlockingConnection(parameters)
+
+    # Open the channel
+    channel = connection.channel()
+
+    # Declare the queue
+    channel.queue_declare(queue="test", durable=True,
+                      exclusive=False, auto_delete=False)
+
+    # Construct a message and send it
+    channel.basic_publish(exchange='',
+                      routing_key="test",
+                      body="Hello World!",
+                      properties=pika.BasicProperties(
+                          content_type="text/plain",
+                          delivery_mode=1))
 
 ## Synchronous programming style, with concurrency
 
