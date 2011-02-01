@@ -1,6 +1,6 @@
 # Pika, an AMQP 0-9-1 client library for Python
 
-## This is a broken, work in progress branch. Do not use.
+## Introduction
 
 Pika is a pure-Python implementation of the AMQP 0-9-1 protocol that tries
 to stay fairly independent of the underlying network support library.
@@ -17,12 +17,49 @@ to stay fairly independent of the underlying network support library.
 
 Pika provides adapters for
 
+ * select/epoll/poll/kqueue based asynchronous connections
  * asyncore (part of the Python standard library)
- * direct blocking socket I/O emulation
- * Tornado
+ * Tornado - http://tornadoweb.org
+ * direct blocking socket
 
-Support for Twisted and `select()` (as distinct from `asyncore`) is on
-the horizon.
+Support for Twisted and others are on the horizon.
+
+## Major Changes to Pika since 0.5.2
+
+ * Pika has been restructured and made to be fully asynchronous at its core
+   and now supports AMQP 0-9-1 only (RabbitMQ 2.0+)
+ * There have been many method definition changes
+	 * Asynchronous AMQP commands now take a callback parameter for notification of
+       completion
+ * AMQP commands that are specified as synchronous buffer other calls on the same
+   channel, sending them when the synchronous commands send their response frame
+ * SelectConnection is now the recommended connection adapter and shows better
+   performance than the AsyncoreConnection. SelectConnection implements select,
+   poll, epoll and kqueue for event handling.
+ * Channel flow control has been removed, see the section of the document below
+   for information on this
+ * TornadoConnection adds a connection adapter for the Tornado IOLoop
+ * Support for additional AMQP data types has been added
+ * More extensive unit and functional tests added
+
+### Internal Changes since 0.5.2
+
+ * Low level debug logging demonstrates client behavior and can be toggled via
+   pika.log.DEBUG boolean value.
+ * Classes now implement new style classes
+ * Major restructuring of existing modules and classes   
+ * Universal callback mechanism added, removing events and other callback
+   methods
+ * Added BaseConenction which extends Connection and builds in default behaviors
+   for asynchronous connection adapters.
+ * Abstracted content frame handling to its own class, channel.ContentHandler
+ * ConnectionState class moved from codec to connection
+ * Frame class definitions moved from codec to frames
+ * Reconnection strategies moved into own module
+ * HeartbeatChecker moved to own module
+ * PlainCredentials moved to credentials module for extensibility
+ * AsyncoreConnection rewritten to align with BaseConnection
+ * PEP8ification and use more pythonic idioms for areas as appropriate
 
 ## Installation via `pip` (and, optionally, `virtualenv`)
 
@@ -51,6 +88,57 @@ of the GPL. The full license text is included with the source code for
 the package. If you have any questions regarding licensing, please
 contact us at <info@rabbitmq.com>.
 
+## Asynchronous programming style
+
+This style of programming is the only technique suitable for
+programming large or complex event-driven systems in python. It makes
+all control flow explicit using continuation-passing style, in a
+manner reminiscent of Javascript or Twisted network programming. Once
+you get your head around the unusual presentation of the code,
+reasoning about control becomes much easier than in the synchronous
+style.
+
+    import pika
+
+    connection = None
+    channel = None
+
+    def on_connected(connection):
+        global channel
+        channel = connection.channel(on_channel_open)
+
+    def on_closed(frame):
+        global connection
+        connection.ioloop.stop()
+        
+    def on_channel_open(channel):
+        channel.queue_declare(queue="test", durable=True,
+                              exclusive=False, auto_delete=False,
+                              callback=on_queue_declared)
+
+    def on_queue_declared(frame):
+        message = "Hello World!"
+        channel.basic_publish(exchange='',
+                              routing_key="test",
+                              body=message,
+                              properties=pika.BasicProperties(
+                              content_type="text/plain",
+                              delivery_mode=2,  # persistent
+                              ))
+
+        # Close our connection
+        connection.add_on_close_callback(on_closed)
+        connection.close()
+
+    parameters = pika.ConnectionParameters('localhost')
+    connection = pika.SelectConnection(parameters, on_connected)
+    connection.ioloop.loop()
+
+The asynchronous programming style can be used in both multi- and
+single-threaded environments. The same care must be taken when
+programming in a multi-threaded environment using an asynchronous
+style as is taken when using a synchronous style.
+
 ## Synchronous programming style, no concurrency
 
 This style of programming is especially appropriate for small scripts,
@@ -65,56 +153,6 @@ somewhat easy to reason about.
     ch.queue_bind(queue="test_q", exchange="test_x", routing_key="")
     ch.basic_publish(exchange="test_x", routing_key="", body="Hello World!")
     conn.close()
-
-### Dealing with Channel.Flow flow control
-
-Occasionally the server will decide it needs publishing clients to be
-quiet for a while so it can let messages drain. When it does so, it
-sends out a `Channel.Flow` command to connected clients, which are
-then expected to handle it and stop publishing messages until told (by
-another `Channel.Flow`) that they're allowed to resume.
-
-By default, Pika will honour `Channel.Flow` requests by setting an
-internal flag and throwing a `ContentTransmissionForbidden` exception
-if an application tries to publish a message when flow-control is in
-effect. An application has three approaches available for coping with
-this situation:
-
- * it may supply `True` in the optional keyword argument
-   `block_on_flow_control` to the `Channel.basic_publish` method,
-   and/or
-
- * it may register for notifications of flow-control state changes
-   using the `Channel.addFlowChangeHandler` method, and/or
-
- * it may elect to catch the `ContentTransmissionForbidden` exception
-   thrown by `basic_publish` and take some kind of action at that
-   point.
-
-Use `block_on_flow_control` carefully: it enters a nested event loop
-if it needs to wait for flow-control to stop, so your entire
-application must be accordingly reentrant. Here's an example of a
-flow-control-blocking publish call:
-
-    ch.basic_publish(exchange="test_x", routing_key="", body="Hello World!",
-                     block_on_flow_control=True)
-
-Here's an example flow-control state change handler:
-
-    def my_flow_handler(the_channel, transmission_permitted):
-      if transmission_permitted:
-        print 'Transmission is now permitted on channel', the_channel
-      else:
-        print 'Transmission is temporarily NOT permitted on channel', the_channel
-    ch.addFlowChangeHandler(my_flow_handler)
-
-Here's an example of catching `ContentTransmissionForbidden`:
-
-    try:
-      ch.basic_publish(exchange="test_x", routing_key="", body="Hello World!")
-    except ContentTransmissionForbidden, e:
-      ## may requeue or retry later here, etc.
-      print 'Could not send message right now because of flow control'
 
 ## Synchronous programming style, with concurrency
 
@@ -135,48 +173,25 @@ The recommended alternative is sidestepping the locking complexity
 completely by making sure that a connection and its channels is never
 shared between threads: that each thread owns its own AMQP connection.
 
-## Asynchronous programming style
+## Channel Flow Control
 
-This style of programming is the only technique suitable for
-programming large or complex event-driven systems in python. It makes
-all control flow explicit using continuation-passing style, in a
-manner reminiscent of Javascript or Twisted network programming. Once
-you get your head around the unusual presentation of the code,
-reasoning about control becomes much easier than in the synchronous
-style.
+RabbitMQ 2.0+ has removed the Channel.Flow system for notifying clients that
+they need to wait until they are notified before they can call Basic.Deliver
+again. In addition, prior to AMQP 1-0, there is no defined behavior for
+clients turning on flow control on the broker. As such all Channel.Flow related
+functionality has been removed. In its place, we attempt to detect when
+the RabbitMQ server is using TCP backpressure to throttle a client who
+is delivering messages too quickly.
 
-    import pika
+## TCP Backpressure from RabbitMQ
 
-    connection = None
-    channel = None
-
-    def on_connected(connection):
-        global channel
-        channel = connection.channel(on_channel_open)
-
-    def on_channel_open(channel):
-        channel.queue_declare(queue="test", durable=True,
-                              exclusive=False, auto_delete=False,
-                              callback=on_queue_declared)
-
-    def on_queue_declared():
-        message = "Hello World!"
-        channel.basic_publish(exchange='',
-                              routing_key="test",
-                              body=message,
-                              properties=pika.BasicProperties(
-                              content_type="text/plain",
-                              delivery_mode=2,  # persistent
-                              ))
-
-        # Close our connection
-        connection.close()
-
-    parameters = pika.ConnectionParameters('localhost')
-    connection = pika.AsyncoreConnection(parameters, on_connected)
-    pika.asyncore_adapter.loop()
-
-The asynchronous programming style can be used in both multi- and
-single-threaded environments. The same care must be taken when
-programming in a multi-threaded environment using an asynchronous
-style as is taken when using a synchronous style.
+In the place of Channel.Flow being delivered to clients, RabbitMQ uses
+TCP backpressure to throttle client connections. This manifests in the
+client with socket timeouts and slow delivery. To address this issue
+Pika has a Connection.add_backpressure_callback() which will notify clients
+who register with it that there outbound delivery queue is backing up.
+The current methodology is to count the number of bytes and frames sent
+to create an average frame size and then look for 10x the average frame size
+in the outbound buffer after we call Connection.flush_outbound(). To
+adjust the threshold for the multiplier, call Channel.set_backpressure_multiplier
+with the desired value.
