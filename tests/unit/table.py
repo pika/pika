@@ -79,8 +79,13 @@ def test_encode_table():
     '\x00\x00\x00\x0b\x04testD\x02\xff\xff\xff\xff'
     >>> encode({'a':-1, 'b':[1,2,3,4,-1],'g':-1})
     '\x00\x00\x00.\x01aI\xff\xff\xff\xff\x01bA\x00\x00\x00\x19I\x00\x00\x00\x01I\x00\x00\x00\x02I\x00\x00\x00\x03I\x00\x00\x00\x04I\xff\xff\xff\xff\x01gI\xff\xff\xff\xff'
+    >>> encode({'a': 4611686018427387904L, 'b': -4611686018427387904L})
+    '\x00\x00\x00\x16\x01al@\x00\x00\x00\x00\x00\x00\x00\x01bl\xc0\x00\x00\x00\x00\x00\x00\x00'
     '''
     pass
+
+#000000: 00 00 00 16 01 61 6c 40  00 00 00 00 00 00 00 01  .....al@........
+#000010: 62 6c c0 00 00 00 00 00  00 00                    bl........
 
 
 def test_decode_table():
@@ -101,11 +106,14 @@ def test_decode_table():
     {'a': 1, 'b': Decimal('-1.234'), 'g': -1}
     >>> reencode({'a':[1,2,3,'a',decimal.Decimal('-0.01'),5]})
     {'a': [1, 2, 3, 'a', Decimal('-0.01'), 5]}
+    >>> reencode({'a': 4611686018427387904L, 'b': -4611686018427387904L})
+    {'a': 4611686018427387904, 'b': -4611686018427387904}
     '''
     pass
 
 
 def encode(v):
+
     p = []
     n = pika.table.encode_table(p, v)
     r = ''.join(p)
@@ -121,3 +129,4 @@ def reencode(i):
 
 if __name__ == "__main__":
     nose.runmodule(argv=['-s', '--with-doctest', '--doctest-tests'])
+
