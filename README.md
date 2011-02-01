@@ -20,8 +20,7 @@ to stay fairly independent of the underlying network support library.
  * SelectConnection   - fast asynchronous adapter
  * AsyncoreConnection - based off the standard Python library asyncore
  * TornadoConnection  - adapter for use with the Tornado IO Loop http://tornadoweb.org
- * BlockingConnection - enables blocking, synchronous operation on top of library
-                        for simple uses
+ * BlockingConnection - enables blocking, synchronous operation on top of library for simple uses
 
 Support for Twist and other IO frameworks are on the horizon.
 
