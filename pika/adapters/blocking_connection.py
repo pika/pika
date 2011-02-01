@@ -45,7 +45,6 @@
 # this file under the terms of any one of the MPL or the GPL.
 #
 # ***** END LICENSE BLOCK *****
-
 import socket
 import pika.log as log
 import pika.spec as spec
@@ -53,9 +52,28 @@ import pika.spec as spec
 from pika.adapters import BaseConnection
 from pika.callback import CallbackManager
 from pika.channel import Channel, ChannelTransport
+from pika.exceptions import AMQPConnectionError
+
+SOCKET_TIMEOUT=1
+SOCKET_TIMEOUT_THRESHOLD=100
+SOCKET_TIMEOUT_MESSAGE = "BlockingConnection: Timeout threshold exceeded, disconnected"
 
 
 class BlockingConnection(BaseConnection):
+    """
+    The BlockingConnection adapter is meant for simple implementations where
+    you want to have blocking behavior. The behavior layered on top of the
+    async library. Because of the nature of AMQP there are a few callbacks
+    one needs to do, even in a blocking implementation. These include receiving
+    messages from Basic.Deliver, Basic.GetOk, and Basic.Return.
+
+    It is also advised that you register callbacks for detecting backpressure.
+    New to the RabbitMQ 2.0 and higher versions is the removal of Channel.Flow
+    and instead the application of tcp backpressure when the broker is
+
+
+
+    """
 
     def __init__(self, parameters, reconnection_strategy=None):
 
@@ -65,9 +83,12 @@ class BlockingConnection(BaseConnection):
 
         BaseConnection.connect(self, host, port)
         self.socket.setblocking(1)
+        self.socket.settimeout(SOCKET_TIMEOUT)
+        self._socket_timeouts = 0
         self._on_connected()
         while not self.is_open:
-            self.process_data_events()
+            self.flush_outbound()
+            self._handle_read()
         return self
 
     def close(self, code=200, text='Normal shutdown'):
@@ -78,38 +99,38 @@ class BlockingConnection(BaseConnection):
     def disconnect(self):
         self.socket.close()
 
-    def _recv(self, max_bytes_to_read, timeout=None):
-        prev_timeout = self.socket.gettimeout()
-        if prev_timeout != timeout:
-            self.socket.settimeout(timeout)
-        try:
-            buffer = self.socket.recv(max_bytes_to_read)
-        except socket.timeout:
-            return None
-        except socket.error as error:
-            return self._handle_error(error)
-        if prev_timeout != timeout:
-            self.socket.settimeout(prev_timeout)
-        return buffer
+    def _handle_disconnect(self):
+        """
+        Called internally when we know our socket is disconnected already
+        """
+        # Close the socket
+        self.socket.close()
+        # Close up our Connection state
+        self._on_connection_closed(None, True)
 
     def flush_outbound(self):
-        while self.outbound_buffer:
-            data = self.outbound_buffer.read(self.suggested_buffer_size)
-            try:
-                bytes_written = self.socket.send(data)
-            except socket.timeout:
-                raise
-            except socket.error as error:
-                return self._handle_error(error)
+        try:
+            self._handle_write()
+            self._socket_timeouts = 0
+        except socket.timeout:
+            self._socket_timeouts += 1
+            if self._socket_timeouts > SOCKET_TIMEOUT_THRESHOLD:
+                log.error(SOCKET_TIMEOUT_MESSAGE)
+                self._handle_disconnect()
 
-            # Remove the content from our output buffer
-            self.outbound_buffer.consume(bytes_written)
-
-    def process_data_events(self, timeout=None):
+    def process_data_events(self):
+        if not self.is_open:
+            raise AMQPConnectionError
         self.flush_outbound()
-        data = self._recv(self.suggested_buffer_size, timeout)
-        if data:
-            self.on_data_available(data)
+        try:
+            self._handle_read()
+            self._socket_timeouts = 0
+        except socket.timeout:
+            self._socket_timeouts += 1
+            if self._socket_timeouts > SOCKET_TIMEOUT_THRESHOLD:
+                log.error(SOCKET_TIMEOUT_MESSAGE)
+                self._handle_disconnect()
+
 
     def channel(self, channel_number=None):
         """
@@ -263,7 +284,7 @@ class BlockingChannel(Channel):
         log.debug("%s._on_consume_ok" % self.__class__.__name__)
         self._consuming = True
         while self._consuming:
-            self.connection.drain_events()
+            self.connection.process_data_events()
 
     def _on_basic_deliver(self, method_frame, header_frame, body):
         log.debug("%s._on_basic_deliver" % self.__class__.__name__)
