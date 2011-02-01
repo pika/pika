@@ -237,6 +237,7 @@ class Channel(spec.DriverMixin):
 
         # Set this here just as a default value
         self._on_get_ok_callback = None
+        self._on_flow_ok_callback = None
 
         # Add a callback for Basic.Deliver
         self.callbacks.add(self.channel_number,
@@ -518,6 +519,37 @@ class Channel(spec.DriverMixin):
         When we receive an empty reply do nothing but log it
         """
         log.debug("%s._on_basic_get_empty", self.__class__.__name__)
+
+    def flow(self, callback, active):
+        """
+        Turn Channel flow control off and on. Pass a callback to be notified
+        of the response from the server. active is a bool. Callback should
+        expect a bool in response indicating channel flow state
+
+        This is forward looking AMQP 1-0 support
+        """
+        log.debug("%s.flow(%s, %s)", self.__class__.__name__, callback,
+                  active)
+        self._on_flow_ok_callback = callback
+        self.transport.rpc(spec.Channel.Flow(active), self._on_channel_flow_ok,
+                           [spec.Channel.FlowOk])
+
+    def _on_channel_flow_ok(self, frame):
+        """
+        Called in response to us asking the server to toggle on Channel.Flow
+        """
+        log.debug("%s._on_channel_flow_ok(%s)", self.__class__.__name__, frame)
+
+        # Update the channel flow_active state
+        self.transport.flow_active = frame.method.active
+
+        # If we have a callback defined, process it
+        if self._on_flow_ok_callback:
+            self._on_flow_ok_callback(frame.method.active)
+            self._on_flow_ok_callback = None
+        else:
+            log.error("%s._on_flow_ok: No callback defined.",
+                      self.__class__.__name__)
 
 
 class ContentHandler(object):
