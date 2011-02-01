@@ -46,7 +46,7 @@
 #
 # ***** END LICENSE BLOCK *****
 
-ON = True
+DEBUG = True
 
 import logging
 
@@ -56,29 +56,13 @@ INFO = logging.INFO
 WARNING = logging.WARNING
 
 
-def basicConfig(*args, **kwargs):
-    pass
-
-
 def debug(*args, **kwargs):
     pass
 
+# Define these attributes as references to their logging counterparts
+info = logging.info
+error = logging.error
+warning = logging.warning
 
-def error(*args, **kwargs):
-    pass
-
-
-def info(*args, **kwargs):
-    pass
-
-
-def warning(*args, **kwargs):
-    pass
-
-
-if ON == True:
-
+if DEBUG:
     debug = logging.debug
-    error = logging.error
-    info = logging.info
-    warning = logging.warning
