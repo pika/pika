@@ -67,7 +67,7 @@ def test_encode_table():
     '\x00\x00\x00\x00'
     >>> encode({})
     '\x00\x00\x00\x00'
-    >>> encode({'a':1, 'c':True, 'd':'x', 'e':{}})
+    >>> encode({'a':1, 'c':1, 'd':'x', 'e':{}})
     '\x00\x00\x00\x1d\x01aI\x00\x00\x00\x01\x01cI\x00\x00\x00\x01\x01eF\x00\x00\x00\x00\x01dS\x00\x00\x00\x01x'
     >>> encode({'a':decimal.Decimal('1.0')})
     '\x00\x00\x00\x08\x01aD\x00\x00\x00\x00\x01'
@@ -81,6 +81,8 @@ def test_encode_table():
     '\x00\x00\x00.\x01aI\xff\xff\xff\xff\x01bA\x00\x00\x00\x19I\x00\x00\x00\x01I\x00\x00\x00\x02I\x00\x00\x00\x03I\x00\x00\x00\x04I\xff\xff\xff\xff\x01gI\xff\xff\xff\xff'
     >>> encode({'a': 4611686018427387904L, 'b': -4611686018427387904L})
     '\x00\x00\x00\x16\x01al@\x00\x00\x00\x00\x00\x00\x00\x01bl\xc0\x00\x00\x00\x00\x00\x00\x00'
+    >>> encode({'a': True, 'b': False})
+    '\x00\x00\x00\x08\x01at\x01\x01bt\x00'
     '''
     pass
 
@@ -94,7 +96,7 @@ def test_decode_table():
     {}
     >>> reencode({'a': 1})
     {'a': 1}
-    >>> reencode({'a':1, 'c':True, 'd':'x', 'e':{}, 'f': -1})
+    >>> reencode({'a':1, 'c':1, 'd':'x', 'e':{}, 'f': -1})
     {'a': 1, 'c': 1, 'e': {}, 'd': 'x', 'f': -1}
     >>> reencode({'a':datetime.datetime(2010,12,31,23,58,59)})
     {'a': datetime.datetime(2010, 12, 31, 23, 58, 59)}
@@ -104,12 +106,13 @@ def test_decode_table():
     {'a': 1, 'b': Decimal('-1.234'), 'g': -1}
     >>> reencode({'a':[1,2,3,'a',decimal.Decimal('-0.01'),5]})
     {'a': [1, 2, 3, 'a', Decimal('-0.01'), 5]}
+    >>> reencode({'a': True, 'b': False})
+    {'a': True, 'b': False}
     '''
     pass
 
 
 def encode(v):
-
     p = []
     n = pika.table.encode_table(p, v)
     r = ''.join(p)

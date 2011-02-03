@@ -73,6 +73,9 @@ def encode_value(pieces, value):
         pieces.append(struct.pack('>cI', 'S', len(value)))
         pieces.append(value)
         return 5 + len(value)
+    elif isinstance(value, bool):
+        pieces.append(struct.pack('>cB', 't', int(value)))
+        return 2
     elif isinstance(value, int):
         pieces.append(struct.pack('>ci', 'I', value))
         return 5
@@ -132,6 +135,10 @@ def decode_value(encoded, offset):
         offset += 4
         value = encoded[offset: offset + length]
         offset += length
+    elif kind == 't':
+        value = struct.unpack_from('>B', encoded, offset)[0]
+        value = bool(value)
+        offset += 1
     elif kind == 'I':
         value = struct.unpack_from('>i', encoded, offset)[0]
         offset += 4
