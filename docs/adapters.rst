@@ -108,7 +108,7 @@ Available Adapters
 SelectConnection
 ^^^^^^^^^^^^^^^^
 
-.. TIP::
+.. NOTE::
     SelectConnection is the recommended method for using Pika under most circumstances. It supports multiple event notification methods including select, epoll, kqueue and poll.
 
 By default SelectConnection will attempt to use the most appropriate event
@@ -134,7 +134,7 @@ See the :ref:`Continuation-Passing Style example <cps_example>` for an example o
 
 AsyncoreConnection
 ^^^^^^^^^^^^^^^^^^
-.. TIP::
+.. NOTE::
     Use SelectConnection, the method signatures are the same.
 
 The AsyncoreConnection class is provided for legacy support and quicker porting from applications that used Pika version 0.5.2 and prior.

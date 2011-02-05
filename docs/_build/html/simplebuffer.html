@@ -54,9 +54,13 @@
         <div class="bodywrapper">
           <div class="body">
             
-  <div class="section" id="module-simplebuffer">
-<span id="simplebuffer"></span><h1>SimpleBuffer<a class="headerlink" href="#module-simplebuffer" title="Permalink to this headline">¶</a></h1>
-<p>This is an implementation of a simple buffer. SimpleBuffer just handles
+  <div class="section" id="simplebuffer">
+<h1>SimpleBuffer<a class="headerlink" href="#simplebuffer" title="Permalink to this headline">¶</a></h1>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">This class is not intended for use by those using Pika in their applications. This documentation is for those who are extending Pika or otherwise working on the driver itself.</p>
+</div>
+<span class="target" id="module-simplebuffer"></span><p>This is an implementation of a simple buffer. SimpleBuffer just handles
 a string of bytes. The clue, is that you can pop data from the beginning
 and append data to the end.</p>
 <p>It&#8217;s ideal to use as a network buffer, from which you send data to the socket.

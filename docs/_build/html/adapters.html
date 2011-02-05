@@ -147,8 +147,8 @@ created when the connection adapter is created. To start it simply call the conn
 <h2>Available Adapters<a class="headerlink" href="#available-adapters" title="Permalink to this headline">¶</a></h2>
 <div class="section" id="selectconnection">
 <span id="id1"></span><h3>SelectConnection<a class="headerlink" href="#selectconnection" title="Permalink to this headline">¶</a></h3>
-<div class="admonition tip">
-<p class="first admonition-title">Tip</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
 <p class="last">SelectConnection is the recommended method for using Pika under most circumstances. It supports multiple event notification methods including select, epoll, kqueue and poll.</p>
 </div>
 <p>By default SelectConnection will attempt to use the most appropriate event
@@ -221,8 +221,8 @@ callback.</p>
 </div>
 <div class="section" id="asyncoreconnection">
 <span id="id2"></span><h3>AsyncoreConnection<a class="headerlink" href="#asyncoreconnection" title="Permalink to this headline">¶</a></h3>
-<div class="admonition tip">
-<p class="first admonition-title">Tip</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
 <p class="last">Use SelectConnection, the method signatures are the same.</p>
 </div>
 <p>The AsyncoreConnection class is provided for legacy support and quicker porting from applications that used Pika version 0.5.2 and prior.</p>

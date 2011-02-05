@@ -525,8 +525,6 @@ class Channel(spec.DriverMixin):
         Turn Channel flow control off and on. Pass a callback to be notified
         of the response from the server. active is a bool. Callback should
         expect a bool in response indicating channel flow state
-
-        This is forward looking AMQP 1-0 support
         """
         log.debug("%s.flow(%s, %s)", self.__class__.__name__, callback,
                   active)
