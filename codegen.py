@@ -53,7 +53,6 @@ sys.path.append("../rabbitmq-codegen")  # in case we're next to an experimental 
 sys.path.append("codegen")              # in case we're building from a distribution package
 
 from amqp_codegen import *
-import string
 import re
 
 DRIVER_METHODS = {
@@ -74,6 +73,7 @@ DRIVER_METHODS = {
     "Tx.Commit": ["Tx.CommitOk"],
     "Tx.Rollback": ["Tx.RollbackOk"]
     }
+
 
 def fieldvalue(v):
     if isinstance(v, unicode):
@@ -113,29 +113,29 @@ def generate(specPath):
         type = spec.resolveDomain(unresolved_domain)
         if type == 'shortstr':
             print prefix + "length = struct.unpack_from('B', encoded, offset)[0]"
-            print prefix + "offset = offset + 1"
-            print prefix + "%s = encoded[offset : offset + length]" % (cLvalue,)
-            print prefix + "offset = offset + length"
+            print prefix + "offset += 1"
+            print prefix + "%s = encoded[offset:offset + length]" % (cLvalue,)
+            print prefix + "offset += length"
         elif type == 'longstr':
             print prefix + "length = struct.unpack_from('>I', encoded, offset)[0]"
-            print prefix + "offset = offset + 4"
-            print prefix + "%s = encoded[offset : offset + length]" % (cLvalue,)
-            print prefix + "offset = offset + length"
+            print prefix + "offset += 4"
+            print prefix + "%s = encoded[offset:offset + length]" % (cLvalue,)
+            print prefix + "offset += length"
         elif type == 'octet':
             print prefix + "%s = struct.unpack_from('B', encoded, offset)[0]" % (cLvalue,)
-            print prefix + "offset = offset + 1"
+            print prefix + "offset += 1"
         elif type == 'short':
             print prefix + "%s = struct.unpack_from('>H', encoded, offset)[0]" % (cLvalue,)
-            print prefix + "offset = offset + 2"
+            print prefix + "offset += 2"
         elif type == 'long':
             print prefix + "%s = struct.unpack_from('>I', encoded, offset)[0]" % (cLvalue,)
-            print prefix + "offset = offset + 4"
+            print prefix + "offset += 4"
         elif type == 'longlong':
             print prefix + "%s = struct.unpack_from('>Q', encoded, offset)[0]" % (cLvalue,)
-            print prefix + "offset = offset + 8"
+            print prefix + "offset += 8"
         elif type == 'timestamp':
             print prefix + "%s = struct.unpack_from('>Q', encoded, offset)[0]" % (cLvalue,)
-            print prefix + "offset = offset + 8"
+            print prefix + "offset += 8"
         elif type == 'bit':
             raise "Can't decode bit in genSingleDecode"
         elif type == 'table':
@@ -170,7 +170,7 @@ def generate(specPath):
             raise "Illegal domain in genSingleEncode", type
 
     def genDecodeMethodFields(m):
-        print "        def decode(self, encoded, offset = 0):"
+        print "        def decode(self, encoded, offset=0):"
         bitindex = None
         for f in m.arguments:
             if spec.resolveDomain(f.domain) == 'bit':
@@ -178,12 +178,12 @@ def generate(specPath):
                     bitindex = 0
                 if bitindex >= 8:
                     bitindex = 0
-                if bitindex == 0:
+                if not bitindex:
                     print "            bit_buffer = struct.unpack_from('B', encoded, offset)[0]"
-                    print "            offset = offset + 1"
+                    print "            offset += 1"
                 print "            self.%s = (bit_buffer & (1 << %d)) != 0" % \
                       (pyize(f.name), bitindex)
-                bitindex = bitindex + 1
+                bitindex += 1
             else:
                 bitindex = None
                 genSingleDecode("            ", "self.%s" % (pyize(f.name),), f.domain)
@@ -191,20 +191,21 @@ def generate(specPath):
         print
 
     def genDecodeProperties(c):
-        print "    def decode(self, encoded, offset = 0):"
+        print "    def decode(self, encoded, offset=0):"
         print "        flags = 0"
         print "        flagword_index = 0"
         print "        while True:"
         print "            partial_flags = struct.unpack_from('>H', encoded, offset)[0]"
-        print "            offset = offset + 2"
+        print "            offset += 2"
         print "            flags = flags | (partial_flags << (flagword_index * 16))"
-        print "            if (partial_flags & 1) == 0: break"
-        print "            flagword_index = flagword_index + 1"
+        print "            if not (partial_flags & 1):"
+        print "                break"
+        print "            flagword_index += 1"
         for f in c.fields:
             if spec.resolveDomain(f.domain) == 'bit':
                 print "        self.%s = (flags & %s) != 0" % (pyize(f.name), flagName(c, f))
             else:
-                print "        if (flags & %s):" % (flagName(c, f),)
+                print "        if flags & %s:" % (flagName(c, f),)
                 genSingleDecode("            ", "self.%s" % (pyize(f.name),), f.domain)
                 print "        else:"
                 print "            self.%s = None" % (pyize(f.name),)
@@ -213,7 +214,7 @@ def generate(specPath):
 
     def genEncodeMethodFields(m):
         print "        def encode(self):"
-        print "            pieces = []"
+        print "            pieces = list()"
         bitindex = None
         def finishBits():
             if bitindex is not None:
@@ -222,14 +223,15 @@ def generate(specPath):
             if spec.resolveDomain(f.domain) == 'bit':
                 if bitindex is None:
                     bitindex = 0
-                    print "            bit_buffer = 0;"
+                    print "            bit_buffer = 0"
                 if bitindex >= 8:
                     finishBits()
-                    print "            bit_buffer = 0;"
+                    print "            bit_buffer = 0"
                     bitindex = 0
-                print "            if self.%s: bit_buffer = bit_buffer | (1 << %d)" % \
-                      (pyize(f.name), bitindex)
-                bitindex = bitindex + 1
+                print "            if self.%s:" % pyize(f.name)
+                print "                bit_buffer = bit_buffer | (1 << %d)" % \
+                    bitindex
+                bitindex += 1
             else:
                 finishBits()
                 bitindex = None
@@ -240,7 +242,7 @@ def generate(specPath):
 
     def genEncodeProperties(c):
         print "    def encode(self):"
-        print "        pieces = []"
+        print "        pieces = list()"
         print "        flags = 0"
         for f in c.fields:
             if spec.resolveDomain(f.domain) == 'bit':
@@ -249,78 +251,98 @@ def generate(specPath):
                 print "        if self.%s is not None:" % (pyize(f.name),)
                 print "            flags = flags | %s" % (flagName(c, f),)
                 genSingleEncode("            ", "self.%s" % (pyize(f.name),), f.domain)
-        print "        flag_pieces = []"
+        print "        flag_pieces = list()"
         print "        while True:"
         print "            remainder = flags >> 16"
         print "            partial_flags = flags & 0xFFFE"
-        print "            if remainder != 0: partial_flags = partial_flags | 1"
+        print "            if remainder != 0:"
+        print "                partial_flags |= 1"
         print "            flag_pieces.append(struct.pack('>H', partial_flags))"
         print "            flags = remainder"
-        print "            if flags == 0: break"
+        print "            if not flags:"
+        print "                break"
         print "        return flag_pieces + pieces"
         print
 
     def fieldDeclList(fields):
-        return ''.join([", %s = %s" % (pyize(f.name), fieldvalue(f.defaultvalue)) for f in fields])
+        return ''.join([", %s=%s" % (pyize(f.name), fieldvalue(f.defaultvalue)) for f in fields])
 
     def fieldInitList(prefix, fields):
         if fields:
             return ''.join(["%sself.%s = %s\n" % (prefix, pyize(f.name), pyize(f.name)) \
                             for f in fields])
         else:
-            return '%spass' % (prefix,)
+            return '%spass\n' % (prefix,)
 
-    print '# Autogenerated code, do not edit'
+    print '# Autogenerated code by codegen.py, do not edit'
     print
     print 'import struct'
-    print 'import pika.specbase'
-    print 'import pika.table'
+    print 'import pika.object'
+    print 'import pika.table as table'
     print
-    print "PROTOCOL_VERSION = (%d, %d)" % (spec.major, spec.minor)
-    print "PORT = %d" % (spec.port)
+    print "PROTOCOL_VERSION = (%d, %d, %d)" % (spec.major, spec.minor,
+                                               spec.revision)
+    print "PORT = %d" % spec.port
     print
 
     for (c,v,cls) in spec.constants:
         print "%s = %s" % (constantName(c), v)
     print
 
+    methods = list()
+    for m in spec.allMethods():
+        if m.structName() in DRIVER_METHODS:
+            if m.isSynchronous:
+                methods.append('"%s"' %  m.structName())
+
     for c in spec.allClasses():
-        print 'class %s(pika.specbase.Class):' % (camel(c.name),)
-        print "    INDEX = 0x%.04X ## %d" % (c.index, c.index)
+        print
+        print 'class %s(pika.object.Class):' % (camel(c.name),)
+        print
+        print "    INDEX = 0x%.04X  # %d" % (c.index, c.index)
         print "    NAME = %s" % (fieldvalue(camel(c.name)),)
         print
 
         for m in c.allMethods():
-            print '    class %s(pika.specbase.Method):' % (camel(m.name),)
+            print '    class %s(pika.object.Method):' % (camel(m.name),)
+            print
             methodid = m.klass.index << 16 | m.index
-            print "        INDEX = 0x%.08X ## %d, %d; %d" % \
+            print "        INDEX = 0x%.08X  # %d, %d; %d" % \
                   (methodid,
                    m.klass.index,
                    m.index,
                    methodid)
             print "        NAME = %s" % (fieldvalue(m.structName(),))
+            print
             print "        def __init__(self%s):" % (fieldDeclList(m.arguments),)
             print fieldInitList('            ', m.arguments)
+            print "        @property"
+            print "        def synchronous(self):"
+            print "            return %s" % m.isSynchronous
+            print
             genDecodeMethodFields(m)
             genEncodeMethodFields(m)
 
     for c in spec.allClasses():
         if c.fields:
-            print 'class %s(pika.specbase.Properties):' % (c.structName(),)
+            print
+            print 'class %s(pika.object.Properties):' % (c.structName(),)
+            print
             print "    CLASS = %s" % (camel(c.name),)
-            print "    INDEX = 0x%.04X ## %d" % (c.index, c.index)
+            print "    INDEX = 0x%.04X  # %d" % (c.index, c.index)
             print "    NAME = %s" % (fieldvalue(c.structName(),))
+            print
 
             index = 0
             if c.fields:
                 for f in c.fields:
                     if index % 16 == 15:
-                        index = index + 1
+                        index += 1
                     shortnum = index / 16
                     partialindex = 15 - (index % 16)
                     bitindex = shortnum * 16 + partialindex
                     print '    %s = (1 << %d)' % (flagName(None, f), bitindex)
-                    index = index + 1
+                    index += 1
                 print
 
             print "    def __init__(self%s):" % (fieldDeclList(c.fields),)
@@ -340,26 +362,64 @@ def generate(specPath):
                       if c.fields])
     print "}"
     print
-
-    print "def has_content(methodNumber):"
-    for m in spec.allMethods():
-        if m.hasContent:
-            print '    if methodNumber == %s.INDEX: return True' % (m.structName())
-    print "    return False"
     print
 
-    print "class DriverMixin:"
+    print "def has_content(methodNumber):"
+    print
+    for m in spec.allMethods():
+        if m.hasContent:
+            print '    if methodNumber == %s.INDEX:' % m.structName()
+            print '        return True'
+    print "    return False"
+    print
+    print
+
+    print "class DriverMixin(object):"
+
     for m in spec.allMethods():
         if m.structName() in DRIVER_METHODS:
             acceptable_replies = DRIVER_METHODS[m.structName()]
-            print "    def %s(self%s):" % (pyize(m.klass.name + '_' + m.name),
-                                           fieldDeclList(m.arguments))
-            print "        return self.handler._rpc(%s(%s)," % \
-                  (m.structName(), ', '.join(["%s = %s" % (pyize(f.name), pyize(f.name))
-                                              for f in m.arguments]))
-            print "                                 [%s])" % \
-                  (', '.join(acceptable_replies),)
+
             print
+
+            if m.isSynchronous:
+
+                #Synchronous events have a CPS callback parameter
+                print "    def %s(self, callback=None%s):" % \
+                      (pyize(m.klass.name + '_' + m.name),
+                      fieldDeclList(m.arguments))
+                print '        """'
+                print '        Implements the %s AMQP command. For context and usage:' % m.structName()
+                print
+                print '          http://www.rabbitmq.com/amqp-0-9-1-quickref.html'
+                print
+                print '        This is a synchronous method that will not allow other commands to be'
+                print '        send to the AMQP broker until it has completed. It is recommended to'
+                print '        pass in a parameter to callback to be notified when this command has'
+                print '        completed.'
+                print '        """'
+                print
+                print "        return self.transport.rpc(%s(%s), callback, " % \
+                       (m.structName(),
+                       ', '.join(["%s=%s" % (pyize(f.name), pyize(f.name))
+                       for f in m.arguments]))
+                print "                                  [%s])" % \
+                      ', '.join(acceptable_replies)
+
+            else:
+                print "    def %s(self%s):" % \
+                      (pyize(m.klass.name + '_' + m.name),
+                      fieldDeclList(m.arguments))
+                print '        """'
+                print '        Implements the %s.%s AMQP command. For context and usage:' % (m.klass.name, m.name)
+                print
+                print '          http://www.rabbitmq.com/amqp-0-9-1-quickref.html'
+                print '        """'
+                print
+                print "        return self.transport.rpc(%s(%s))" % \
+                       (m.structName(),
+                       ', '.join(["%s=%s" % (pyize(f.name), pyize(f.name))
+                       for f in m.arguments]))
 
 if __name__ == "__main__":
     do_main_dict({"spec": generate})

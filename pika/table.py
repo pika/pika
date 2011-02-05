@@ -48,36 +48,15 @@
 
 import struct
 import decimal
-import datetime
 import calendar
-
+from datetime import datetime
 from pika.exceptions import *
 
+
 def encode_table(pieces, table):
-    r'''
-    >>> test_encode(None)
-    '\x00\x00\x00\x00'
-    >>> test_encode({})
-    '\x00\x00\x00\x00'
-    >>> test_encode({'a':1, 'c':1, 'd':'x', 'e':{}})
-    '\x00\x00\x00\x1d\x01aI\x00\x00\x00\x01\x01cI\x00\x00\x00\x01\x01eF\x00\x00\x00\x00\x01dS\x00\x00\x00\x01x'
-    >>> test_encode({'a':decimal.Decimal('1.0')})
-    '\x00\x00\x00\x08\x01aD\x00\x00\x00\x00\x01'
-    >>> test_encode({'a':decimal.Decimal('5E-3')})
-    '\x00\x00\x00\x08\x01aD\x03\x00\x00\x00\x05'
-    >>> test_encode({'a':datetime.datetime(2010,12,31,23,58,59)})
-    '\x00\x00\x00\x0b\x01aT\x00\x00\x00\x00M\x1enC'
-    >>> test_encode({'test':decimal.Decimal('-0.01')})
-    '\x00\x00\x00\x0b\x04testD\x02\xff\xff\xff\xff'
-    >>> test_encode({'a':-1, 'b':[1,2,3,4,-1],'g':-1})
-    '\x00\x00\x00.\x01aI\xff\xff\xff\xff\x01bA\x00\x00\x00\x19I\x00\x00\x00\x01I\x00\x00\x00\x02I\x00\x00\x00\x03I\x00\x00\x00\x04I\xff\xff\xff\xff\x01gI\xff\xff\xff\xff'
-    >>> test_encode({'a': True, 'b':False})
-    '\x00\x00\x00\x08\x01at\x01\x01bt\x00'
-    '''
-    if table is None:
-        table = {}
+    table = table or dict()
     length_index = len(pieces)
-    pieces.append(None) # placeholder
+    pieces.append(None)  # placeholder
     tablesize = 0
     for (key, value) in table.iteritems():
         pieces.append(struct.pack('B', len(key)))
@@ -87,6 +66,7 @@ def encode_table(pieces, table):
 
     pieces[length_index] = struct.pack('>I', tablesize)
     return tablesize + 4
+
 
 def encode_value(pieces, value):
     if isinstance(value, str):
@@ -112,8 +92,9 @@ def encode_value(pieces, value):
             # per spec, the "decimals" octet is unsigned (!)
             pieces.append(struct.pack('>cBi', 'D', 0, int(value)))
         return 6
-    elif isinstance(value, datetime.datetime):
-        pieces.append(struct.pack('>cQ', 'T', calendar.timegm(value.utctimetuple())))
+    elif isinstance(value, datetime):
+        pieces.append(struct.pack('>cQ', 'T',
+                                  calendar.timegm(value.utctimetuple())))
         return 9
     elif isinstance(value, dict):
         pieces.append(struct.pack('>c', 'F'))
@@ -127,98 +108,64 @@ def encode_value(pieces, value):
         pieces.append(piece)
         return 5 + len(piece)
     else:
-        raise InvalidTableError("Unsupported field kind during encoding", key, value)
+        raise InvalidTableError("Unsupported field kind during encoding",
+                                key, value)
 
 
 def decode_table(encoded, offset):
-    r'''
-    >>> test_reencode(None)
-    {}
-    >>> test_reencode({})
-    {}
-    >>> test_reencode({'a': 1})
-    {'a': 1}
-    >>> test_reencode({'a':1, 'c':1, 'd':'x', 'e':{}, 'f': -1})
-    {'a': 1, 'c': 1, 'e': {}, 'd': 'x', 'f': -1}
-    >>> test_reencode({'a':datetime.datetime(2010,12,31,23,58,59)})
-    {'a': datetime.datetime(2010, 12, 31, 23, 58, 59)}
-    >>> test_reencode({'a': 0x7EADBEEFDEADBEEFL, 'b': -0x7EADBEEFDEADBEEFL})
-    {'a': 9128161957192253167, 'b': -9128161957192253167}
-    >>> test_reencode({'a': 1, 'b':decimal.Decimal('-1.234'), 'g': -1})
-    {'a': 1, 'b': Decimal('-1.234'), 'g': -1}
-    >>> test_reencode({'a':[1,2,3,'a',decimal.Decimal('-0.01'),5]})
-    {'a': [1, 2, 3, 'a', Decimal('-0.01'), 5]}
-    >>> test_reencode({'a': True, 'b': False})
-    {'a': True, 'b': False}
-    '''
     result = {}
     tablesize = struct.unpack_from('>I', encoded, offset)[0]
-    offset = offset + 4
+    offset += 4
     limit = offset + tablesize
     while offset < limit:
         keylen = struct.unpack_from('B', encoded, offset)[0]
-        offset = offset + 1
-        key = encoded[offset : offset + keylen]
-        offset = offset + keylen
+        offset += 1
+        key = encoded[offset: offset + keylen]
+        offset += keylen
         value, offset = decode_value(encoded, offset)
         result[key] = value
-    return (result, offset)
+    return result, offset
+
 
 def decode_value(encoded, offset):
     kind = encoded[offset]
-    offset = offset + 1
+    offset += 1
     if kind == 'S':
         length = struct.unpack_from('>I', encoded, offset)[0]
-        offset = offset + 4
-        value = encoded[offset : offset + length]
-        offset = offset + length
+        offset += 4
+        value = encoded[offset: offset + length]
+        offset += length
     elif kind == 't':
         value = struct.unpack_from('>B', encoded, offset)[0]
         value = bool(value)
-        offset = offset + 1
+        offset += 1
     elif kind == 'I':
         value = struct.unpack_from('>i', encoded, offset)[0]
-        offset = offset + 4
+        offset += 4
     elif kind == 'l':
-        value = struct.unpack_from('>q', encoded, offset)[0]
-        offset = offset + 8
+        value = long(struct.unpack_from('>q', encoded, offset)[0])
+        offset += 8
     elif kind == 'D':
         decimals = struct.unpack_from('B', encoded, offset)[0]
-        offset = offset + 1
+        offset += 1
         raw = struct.unpack_from('>i', encoded, offset)[0]
-        offset = offset + 4
+        offset += 4
         value = decimal.Decimal(raw) * (decimal.Decimal(10) ** -decimals)
     elif kind == 'T':
-        value = datetime.datetime.utcfromtimestamp(struct.unpack_from('>Q', encoded, offset)[0])
-        offset = offset + 8
+        value = datetime.utcfromtimestamp(struct.unpack_from('>Q', encoded,
+                                                             offset)[0])
+        offset += 8
     elif kind == 'F':
         (value, offset) = decode_table(encoded, offset)
     elif kind == 'A':
         length = struct.unpack_from('>I', encoded, offset)[0]
-        offset = offset + 4
+        offset += 4
         offset_end = offset + length
         value = []
         while offset < offset_end:
             v, offset = decode_value(encoded, offset)
             value.append(v)
     else:
-        raise InvalidTableError("Unsupported field kind %s during decoding" % (kind,))
+        raise InvalidTableError("Unsupported field kind %s during decoding" % \
+                                kind)
     return value, offset
-
-
-if __name__ == "__main__":
-    def test_encode(v):
-        p=[]
-        n = encode_table(p, v)
-        r = ''.join(p)
-        assert len(r) == n
-        return r
-
-    def test_reencode(i):
-        r = test_encode(i)
-        (v, n) = decode_table(r, 0)
-        assert len(r) == n
-        return v
-
-    import doctest
-    doctest.testmod()

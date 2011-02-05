@@ -1,0 +1,35 @@
+<html>
+    <head>
+        <title>Pika/Torando Example</title>
+        <link rel="icon" type="/image/vnd.microsoft.icon" href="http://www.rabbitmq.com/favicon.ico" />
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.4.4/jquery.min.js"></script>
+        <script type="text/javascript">
+            function get_messages()
+            {
+                $.getJSON('/ajax', function(data){
+                    for ( var x = 0; x < data.length; x++ )
+                    {
+                        $('ul').prepend('<li>' + data[x] + '</li>');
+                    }
+                    while ( $('ul li').length > 15 ) { $('ul li:last').remove(); }
+                });
+            }
+            $(document).ready(function(){
+                get_messages();
+                setInterval("get_messages();", 2500);
+            });
+
+        </script>
+        <style type="text/css">html {font-family: Helvetica,Arial,Sans-Serif;font-size: 12px;}</style>
+
+    </head>
+    <body>
+        <h1>Pika/Torando Example</h1>
+        <p>Connected: <strong>{{ connected }}</strong></p>
+        <p>Every request that your browser makes enqueues a message into RabbitMQ which is then delivered back to the Application's Pika Client. When you poll, you recieve all the messages delivered since your last poll. It will only retain the last 15 messages received.</p>
+        <p>If you want to enqueue your own messages to be delivered here, just publish to the &ldquo;tornado&rdquo; exchange using the routing key of &ldquo;tornado.*&rdquo;</p>
+        <h2>Messages Received Asynchronously from RabbitMQ</h2>
+        <ul>
+        </ul>
+    </body>
+</html>

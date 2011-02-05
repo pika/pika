@@ -51,34 +51,52 @@
 Example of simple consumer. Acks each message as it arrives.
 '''
 
+import logging
 import sys
 import pika
-import asyncore
 
-conn = pika.AsyncoreConnection(pika.ConnectionParameters(
-        (len(sys.argv) > 1) and sys.argv[1] or '127.0.0.1',
-        credentials = pika.PlainCredentials('guest', 'guest'),
-        heartbeat = 10))
+# Import all adapters for easier experimentation
+from pika.adapters import *
 
-def handle_connection_state_change(conn, is_connected):
-    if not is_connected:
-        print 'Was disconnected from server:', conn.connection_close
-        sys.exit(1)
-conn.addStateChangeHandler(handle_connection_state_change)
+logging.basicConfig(level=logging.INFO)
 
-print 'Connected to %r' % (conn.server_properties,)
+connection = None
+channel = None
 
-qname = (len(sys.argv) > 2) and sys.argv[2] or 'test'
 
-ch = conn.channel()
-ch.queue_declare(queue=qname, durable=True, exclusive=False, auto_delete=False)
+def on_connected(connection):
+    global channel
+    logging.info("demo_send: Connected to RabbitMQ")
+    connection.channel(on_channel_open)
 
-def handle_delivery(ch, method, header, body):
-    print "method=%r" % (method,)
-    print "header=%r" % (header,)
-    print "  body=%r" % (body,)
-    ch.basic_ack(delivery_tag = method.delivery_tag)
 
-ch.basic_consume(handle_delivery, queue = qname)
-pika.asyncore_loop()
-print 'Close reason:', conn.connection_close
+def on_channel_open(channel_):
+    global channel
+    channel = channel_
+    logging.info("demo_send: Received our Channel")
+    channel.queue_declare(queue="test", durable=True,
+                          exclusive=False, auto_delete=False,
+                          callback=on_queue_declared)
+
+
+def on_queue_declared(frame):
+    logging.info("demo_send: Queue Declared")
+    channel.basic_consume(handle_delivery, queue='test')
+
+
+def handle_delivery(channel, method, header, body):
+    logging.info("demo_send.handle_delivery")
+    logging.info("  method: %r" % method)
+    logging.info("  header: %r" % header)
+    logging.info("    body: %r" % body)
+    channel.basic_ack(delivery_tag=method.delivery_tag)
+
+if __name__ == '__main__':
+    host = (len(sys.argv) > 1) and sys.argv[1] or '127.0.0.1'
+    parameters = pika.ConnectionParameters(host)
+    connection = SelectConnection(parameters, on_connected)
+    try:
+        connection.ioloop.start()
+    except KeyboardInterrupt:
+        connection.close()
+        connection.ioloop.start()

@@ -51,25 +51,55 @@
 Example of simple producer, creates one message and exits.
 '''
 
+import logging
 import sys
 import pika
-import asyncore
+import time
 
-conn = pika.AsyncoreConnection(pika.ConnectionParameters(
-        (len(sys.argv) > 1) and sys.argv[1] or '127.0.0.1',
-        credentials=pika.PlainCredentials('guest', 'guest')))
+logging.basicConfig(level=logging.INFO)
 
-ch = conn.channel()
-ch.queue_declare(queue="test", durable=True, exclusive=False, auto_delete=False)
+connection = None
+channel = None
 
-ch.basic_publish(exchange='',
-                 routing_key="test",
-                 body="Hello World!",
-                 properties=pika.BasicProperties(
-                        content_type = "text/plain",
-                        delivery_mode = 2, # persistent
-                        ),
-                 block_on_flow_control = True)
+# Import all adapters for easier experimentation
+from pika.adapters import *
 
-conn.close()
-pika.asyncore_loop()
+
+def on_connected(connection):
+    logging.info("demo_send: Connected to RabbitMQ")
+    connection.channel(on_channel_open)
+
+
+def on_channel_open(channel_):
+    global channel
+    channel = channel_
+    logging.info("demo_send: Received our Channel")
+    channel.queue_declare(queue="test", durable=True,
+                          exclusive=False, auto_delete=False,
+                          callback=on_queue_declared)
+
+
+def on_queue_declared(frame):
+    logging.info("demo_send: Queue Declared")
+    for x in xrange(0, 10):
+        message = "Hello World #%i: %.8f" % (x, time.time())
+        logging.info("Sending: %s" % message)
+        channel.basic_publish(exchange='',
+                              routing_key="test",
+                              body=message,
+                              properties=pika.BasicProperties(
+                              content_type="text/plain",
+                              delivery_mode=2))  # persist
+
+    # Close our connection
+    connection.close()
+
+if __name__ == '__main__':
+    host = (len(sys.argv) > 1) and sys.argv[1] or '127.0.0.1'
+    parameters = pika.ConnectionParameters(host)
+    connection = SelectConnection(parameters, on_connected)
+    try:
+        connection.ioloop.start()
+    except KeyboardInterrupt:
+        connection.close()
+        connection.ioloop.start()
