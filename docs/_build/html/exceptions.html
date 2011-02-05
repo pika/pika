@@ -1,0 +1,676 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Exceptions &mdash; Pika 0.9a documentation</title>
+    
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '',
+        VERSION:     '0.9a',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="Pika 0.9a documentation" href="index.html" />
+    <link rel="next" title="Frames" href="frames.html" />
+    <link rel="prev" title="Credentials" href="credentials.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="frames.html" title="Frames"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="credentials.html" title="Credentials"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">Pika 0.9a documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="module-exceptions">
+<span id="exceptions"></span><h1>Exceptions<a class="headerlink" href="#module-exceptions" title="Permalink to this headline">¶</a></h1>
+<p>Python&#8217;s standard exception class hierarchy.</p>
+<p>Exceptions found here are defined both in the exceptions module and the
+built-in namespace.  It is recommended that user-defined exceptions
+inherit from Exception.  See the documentation for the exception
+inheritance hierarchy.</p>
+<dl class="exception">
+<dt id="exceptions.ArithmeticError">
+<em class="property">exception </em><tt class="descname">ArithmeticError</tt><a class="headerlink" href="#exceptions.ArithmeticError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Base class for arithmetic errors.</p>
+</dd></dl>
+
+<dl class="exception">
+<dt id="exceptions.AssertionError">
+<em class="property">exception </em><tt class="descname">AssertionError</tt><a class="headerlink" href="#exceptions.AssertionError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Assertion failed.</p>
+</dd></dl>
+
+<dl class="exception">
+<dt id="exceptions.AttributeError">
+<em class="property">exception </em><tt class="descname">AttributeError</tt><a class="headerlink" href="#exceptions.AttributeError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Attribute not found.</p>
+</dd></dl>
+
+<dl class="exception">
+<dt id="exceptions.BaseException">
+<em class="property">exception </em><tt class="descname">BaseException</tt><a class="headerlink" href="#exceptions.BaseException" title="Permalink to this definition">¶</a></dt>
+<dd><p>Common base class for all exceptions</p>
+</dd></dl>
+
+<dl class="exception">
+<dt id="exceptions.BufferError">
+<em class="property">exception </em><tt class="descname">BufferError</tt><a class="headerlink" href="#exceptions.BufferError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Buffer error.</p>
+</dd></dl>
+
+<dl class="exception">
+<dt id="exceptions.BytesWarning">
+<em class="property">exception </em><tt class="descname">BytesWarning</tt><a class="headerlink" href="#exceptions.BytesWarning" title="Permalink to this definition">¶</a></dt>
+<dd><p>Base class for warnings about bytes and buffer related problems, mostly
+related to conversion from str or comparing to str.</p>
+</dd></dl>
+
+<dl class="exception">
+<dt id="exceptions.DeprecationWarning">
+<em class="property">exception </em><tt class="descname">DeprecationWarning</tt><a class="headerlink" href="#exceptions.DeprecationWarning" title="Permalink to this definition">¶</a></dt>
+<dd><p>Base class for warnings about deprecated features.</p>
+</dd></dl>
+
+<dl class="exception">
+<dt id="exceptions.EOFError">
+<em class="property">exception </em><tt class="descname">EOFError</tt><a class="headerlink" href="#exceptions.EOFError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Read beyond end of file.</p>
+</dd></dl>
+
+<dl class="exception">
+<dt id="exceptions.EnvironmentError">
+<em class="property">exception </em><tt class="descname">EnvironmentError</tt><a class="headerlink" href="#exceptions.EnvironmentError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Base class for I/O related errors.</p>
+<dl class="attribute">
+<dt id="exceptions.EnvironmentError.errno">
+<tt class="descname">errno</tt><a class="headerlink" href="#exceptions.EnvironmentError.errno" title="Permalink to this definition">¶</a></dt>
+<dd><p>exception errno</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="exceptions.EnvironmentError.filename">
+<tt class="descname">filename</tt><a class="headerlink" href="#exceptions.EnvironmentError.filename" title="Permalink to this definition">¶</a></dt>
+<dd><p>exception filename</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="exceptions.EnvironmentError.strerror">
+<tt class="descname">strerror</tt><a class="headerlink" href="#exceptions.EnvironmentError.strerror" title="Permalink to this definition">¶</a></dt>
+<dd><p>exception strerror</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="exception">
+<dt id="exceptions.Exception">
+<em class="property">exception </em><tt class="descname">Exception</tt><a class="headerlink" href="#exceptions.Exception" title="Permalink to this definition">¶</a></dt>
+<dd><p>Common base class for all non-exit exceptions.</p>
+</dd></dl>
+
+<dl class="exception">
+<dt id="exceptions.FloatingPointError">
+<em class="property">exception </em><tt class="descname">FloatingPointError</tt><a class="headerlink" href="#exceptions.FloatingPointError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Floating point operation failed.</p>
+</dd></dl>
+
+<dl class="exception">
+<dt id="exceptions.FutureWarning">
+<em class="property">exception </em><tt class="descname">FutureWarning</tt><a class="headerlink" href="#exceptions.FutureWarning" title="Permalink to this definition">¶</a></dt>
+<dd><p>Base class for warnings about constructs that will change semantically
+in the future.</p>
+</dd></dl>
+
+<dl class="exception">
+<dt id="exceptions.GeneratorExit">
+<em class="property">exception </em><tt class="descname">GeneratorExit</tt><a class="headerlink" href="#exceptions.GeneratorExit" title="Permalink to this definition">¶</a></dt>
+<dd><p>Request that a generator exit.</p>
+</dd></dl>
+
+<dl class="exception">
+<dt id="exceptions.IOError">
+<em class="property">exception </em><tt class="descname">IOError</tt><a class="headerlink" href="#exceptions.IOError" title="Permalink to this definition">¶</a></dt>
+<dd><p>I/O operation failed.</p>
+<dl class="attribute">
+<dt id="exceptions.IOError.errno">
+<tt class="descname">errno</tt><a class="headerlink" href="#exceptions.IOError.errno" title="Permalink to this definition">¶</a></dt>
+<dd><p>exception errno</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="exceptions.IOError.filename">
+<tt class="descname">filename</tt><a class="headerlink" href="#exceptions.IOError.filename" title="Permalink to this definition">¶</a></dt>
+<dd><p>exception filename</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="exceptions.IOError.strerror">
+<tt class="descname">strerror</tt><a class="headerlink" href="#exceptions.IOError.strerror" title="Permalink to this definition">¶</a></dt>
+<dd><p>exception strerror</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="exception">
+<dt id="exceptions.ImportError">
+<em class="property">exception </em><tt class="descname">ImportError</tt><a class="headerlink" href="#exceptions.ImportError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Import can&#8217;t find module, or can&#8217;t find name in module.</p>
+</dd></dl>
+
+<dl class="exception">
+<dt id="exceptions.ImportWarning">
+<em class="property">exception </em><tt class="descname">ImportWarning</tt><a class="headerlink" href="#exceptions.ImportWarning" title="Permalink to this definition">¶</a></dt>
+<dd><p>Base class for warnings about probable mistakes in module imports</p>
+</dd></dl>
+
+<dl class="exception">
+<dt id="exceptions.IndentationError">
+<em class="property">exception </em><tt class="descname">IndentationError</tt><a class="headerlink" href="#exceptions.IndentationError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Improper indentation.</p>
+<dl class="attribute">
+<dt id="exceptions.IndentationError.filename">
+<tt class="descname">filename</tt><a class="headerlink" href="#exceptions.IndentationError.filename" title="Permalink to this definition">¶</a></dt>
+<dd><p>exception filename</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="exceptions.IndentationError.lineno">
+<tt class="descname">lineno</tt><a class="headerlink" href="#exceptions.IndentationError.lineno" title="Permalink to this definition">¶</a></dt>
+<dd><p>exception lineno</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="exceptions.IndentationError.msg">
+<tt class="descname">msg</tt><a class="headerlink" href="#exceptions.IndentationError.msg" title="Permalink to this definition">¶</a></dt>
+<dd><p>exception msg</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="exceptions.IndentationError.offset">
+<tt class="descname">offset</tt><a class="headerlink" href="#exceptions.IndentationError.offset" title="Permalink to this definition">¶</a></dt>
+<dd><p>exception offset</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="exceptions.IndentationError.print_file_and_line">
+<tt class="descname">print_file_and_line</tt><a class="headerlink" href="#exceptions.IndentationError.print_file_and_line" title="Permalink to this definition">¶</a></dt>
+<dd><p>exception print_file_and_line</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="exceptions.IndentationError.text">
+<tt class="descname">text</tt><a class="headerlink" href="#exceptions.IndentationError.text" title="Permalink to this definition">¶</a></dt>
+<dd><p>exception text</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="exception">
+<dt id="exceptions.IndexError">
+<em class="property">exception </em><tt class="descname">IndexError</tt><a class="headerlink" href="#exceptions.IndexError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Sequence index out of range.</p>
+</dd></dl>
+
+<dl class="exception">
+<dt id="exceptions.KeyError">
+<em class="property">exception </em><tt class="descname">KeyError</tt><a class="headerlink" href="#exceptions.KeyError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Mapping key not found.</p>
+</dd></dl>
+
+<dl class="exception">
+<dt id="exceptions.KeyboardInterrupt">
+<em class="property">exception </em><tt class="descname">KeyboardInterrupt</tt><a class="headerlink" href="#exceptions.KeyboardInterrupt" title="Permalink to this definition">¶</a></dt>
+<dd><p>Program interrupted by user.</p>
+</dd></dl>
+
+<dl class="exception">
+<dt id="exceptions.LookupError">
+<em class="property">exception </em><tt class="descname">LookupError</tt><a class="headerlink" href="#exceptions.LookupError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Base class for lookup errors.</p>
+</dd></dl>
+
+<dl class="exception">
+<dt id="exceptions.MemoryError">
+<em class="property">exception </em><tt class="descname">MemoryError</tt><a class="headerlink" href="#exceptions.MemoryError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Out of memory.</p>
+</dd></dl>
+
+<dl class="exception">
+<dt id="exceptions.NameError">
+<em class="property">exception </em><tt class="descname">NameError</tt><a class="headerlink" href="#exceptions.NameError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Name not found globally.</p>
+</dd></dl>
+
+<dl class="exception">
+<dt id="exceptions.NotImplementedError">
+<em class="property">exception </em><tt class="descname">NotImplementedError</tt><a class="headerlink" href="#exceptions.NotImplementedError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Method or function hasn&#8217;t been implemented yet.</p>
+</dd></dl>
+
+<dl class="exception">
+<dt id="exceptions.OSError">
+<em class="property">exception </em><tt class="descname">OSError</tt><a class="headerlink" href="#exceptions.OSError" title="Permalink to this definition">¶</a></dt>
+<dd><p>OS system call failed.</p>
+<dl class="attribute">
+<dt id="exceptions.OSError.errno">
+<tt class="descname">errno</tt><a class="headerlink" href="#exceptions.OSError.errno" title="Permalink to this definition">¶</a></dt>
+<dd><p>exception errno</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="exceptions.OSError.filename">
+<tt class="descname">filename</tt><a class="headerlink" href="#exceptions.OSError.filename" title="Permalink to this definition">¶</a></dt>
+<dd><p>exception filename</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="exceptions.OSError.strerror">
+<tt class="descname">strerror</tt><a class="headerlink" href="#exceptions.OSError.strerror" title="Permalink to this definition">¶</a></dt>
+<dd><p>exception strerror</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="exception">
+<dt id="exceptions.OverflowError">
+<em class="property">exception </em><tt class="descname">OverflowError</tt><a class="headerlink" href="#exceptions.OverflowError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Result too large to be represented.</p>
+</dd></dl>
+
+<dl class="exception">
+<dt id="exceptions.PendingDeprecationWarning">
+<em class="property">exception </em><tt class="descname">PendingDeprecationWarning</tt><a class="headerlink" href="#exceptions.PendingDeprecationWarning" title="Permalink to this definition">¶</a></dt>
+<dd><p>Base class for warnings about features which will be deprecated
+in the future.</p>
+</dd></dl>
+
+<dl class="exception">
+<dt id="exceptions.ReferenceError">
+<em class="property">exception </em><tt class="descname">ReferenceError</tt><a class="headerlink" href="#exceptions.ReferenceError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Weak ref proxy used after referent went away.</p>
+</dd></dl>
+
+<dl class="exception">
+<dt id="exceptions.RuntimeError">
+<em class="property">exception </em><tt class="descname">RuntimeError</tt><a class="headerlink" href="#exceptions.RuntimeError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Unspecified run-time error.</p>
+</dd></dl>
+
+<dl class="exception">
+<dt id="exceptions.RuntimeWarning">
+<em class="property">exception </em><tt class="descname">RuntimeWarning</tt><a class="headerlink" href="#exceptions.RuntimeWarning" title="Permalink to this definition">¶</a></dt>
+<dd><p>Base class for warnings about dubious runtime behavior.</p>
+</dd></dl>
+
+<dl class="exception">
+<dt id="exceptions.StandardError">
+<em class="property">exception </em><tt class="descname">StandardError</tt><a class="headerlink" href="#exceptions.StandardError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Base class for all standard Python exceptions that do not represent
+interpreter exiting.</p>
+</dd></dl>
+
+<dl class="exception">
+<dt id="exceptions.StopIteration">
+<em class="property">exception </em><tt class="descname">StopIteration</tt><a class="headerlink" href="#exceptions.StopIteration" title="Permalink to this definition">¶</a></dt>
+<dd><p>Signal the end from iterator.next().</p>
+</dd></dl>
+
+<dl class="exception">
+<dt id="exceptions.SyntaxError">
+<em class="property">exception </em><tt class="descname">SyntaxError</tt><a class="headerlink" href="#exceptions.SyntaxError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Invalid syntax.</p>
+<dl class="attribute">
+<dt id="exceptions.SyntaxError.filename">
+<tt class="descname">filename</tt><a class="headerlink" href="#exceptions.SyntaxError.filename" title="Permalink to this definition">¶</a></dt>
+<dd><p>exception filename</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="exceptions.SyntaxError.lineno">
+<tt class="descname">lineno</tt><a class="headerlink" href="#exceptions.SyntaxError.lineno" title="Permalink to this definition">¶</a></dt>
+<dd><p>exception lineno</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="exceptions.SyntaxError.msg">
+<tt class="descname">msg</tt><a class="headerlink" href="#exceptions.SyntaxError.msg" title="Permalink to this definition">¶</a></dt>
+<dd><p>exception msg</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="exceptions.SyntaxError.offset">
+<tt class="descname">offset</tt><a class="headerlink" href="#exceptions.SyntaxError.offset" title="Permalink to this definition">¶</a></dt>
+<dd><p>exception offset</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="exceptions.SyntaxError.print_file_and_line">
+<tt class="descname">print_file_and_line</tt><a class="headerlink" href="#exceptions.SyntaxError.print_file_and_line" title="Permalink to this definition">¶</a></dt>
+<dd><p>exception print_file_and_line</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="exceptions.SyntaxError.text">
+<tt class="descname">text</tt><a class="headerlink" href="#exceptions.SyntaxError.text" title="Permalink to this definition">¶</a></dt>
+<dd><p>exception text</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="exception">
+<dt id="exceptions.SyntaxWarning">
+<em class="property">exception </em><tt class="descname">SyntaxWarning</tt><a class="headerlink" href="#exceptions.SyntaxWarning" title="Permalink to this definition">¶</a></dt>
+<dd><p>Base class for warnings about dubious syntax.</p>
+</dd></dl>
+
+<dl class="exception">
+<dt id="exceptions.SystemError">
+<em class="property">exception </em><tt class="descname">SystemError</tt><a class="headerlink" href="#exceptions.SystemError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Internal error in the Python interpreter.</p>
+<p>Please report this to the Python maintainer, along with the traceback,
+the Python version, and the hardware/OS platform and version.</p>
+</dd></dl>
+
+<dl class="exception">
+<dt id="exceptions.SystemExit">
+<em class="property">exception </em><tt class="descname">SystemExit</tt><a class="headerlink" href="#exceptions.SystemExit" title="Permalink to this definition">¶</a></dt>
+<dd><p>Request to exit from the interpreter.</p>
+<dl class="attribute">
+<dt id="exceptions.SystemExit.code">
+<tt class="descname">code</tt><a class="headerlink" href="#exceptions.SystemExit.code" title="Permalink to this definition">¶</a></dt>
+<dd><p>exception code</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="exception">
+<dt id="exceptions.TabError">
+<em class="property">exception </em><tt class="descname">TabError</tt><a class="headerlink" href="#exceptions.TabError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Improper mixture of spaces and tabs.</p>
+<dl class="attribute">
+<dt id="exceptions.TabError.filename">
+<tt class="descname">filename</tt><a class="headerlink" href="#exceptions.TabError.filename" title="Permalink to this definition">¶</a></dt>
+<dd><p>exception filename</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="exceptions.TabError.lineno">
+<tt class="descname">lineno</tt><a class="headerlink" href="#exceptions.TabError.lineno" title="Permalink to this definition">¶</a></dt>
+<dd><p>exception lineno</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="exceptions.TabError.msg">
+<tt class="descname">msg</tt><a class="headerlink" href="#exceptions.TabError.msg" title="Permalink to this definition">¶</a></dt>
+<dd><p>exception msg</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="exceptions.TabError.offset">
+<tt class="descname">offset</tt><a class="headerlink" href="#exceptions.TabError.offset" title="Permalink to this definition">¶</a></dt>
+<dd><p>exception offset</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="exceptions.TabError.print_file_and_line">
+<tt class="descname">print_file_and_line</tt><a class="headerlink" href="#exceptions.TabError.print_file_and_line" title="Permalink to this definition">¶</a></dt>
+<dd><p>exception print_file_and_line</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="exceptions.TabError.text">
+<tt class="descname">text</tt><a class="headerlink" href="#exceptions.TabError.text" title="Permalink to this definition">¶</a></dt>
+<dd><p>exception text</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="exception">
+<dt id="exceptions.TypeError">
+<em class="property">exception </em><tt class="descname">TypeError</tt><a class="headerlink" href="#exceptions.TypeError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Inappropriate argument type.</p>
+</dd></dl>
+
+<dl class="exception">
+<dt id="exceptions.UnboundLocalError">
+<em class="property">exception </em><tt class="descname">UnboundLocalError</tt><a class="headerlink" href="#exceptions.UnboundLocalError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Local name referenced but not bound to a value.</p>
+</dd></dl>
+
+<dl class="exception">
+<dt id="exceptions.UnicodeDecodeError">
+<em class="property">exception </em><tt class="descname">UnicodeDecodeError</tt><a class="headerlink" href="#exceptions.UnicodeDecodeError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Unicode decoding error.</p>
+<dl class="attribute">
+<dt id="exceptions.UnicodeDecodeError.encoding">
+<tt class="descname">encoding</tt><a class="headerlink" href="#exceptions.UnicodeDecodeError.encoding" title="Permalink to this definition">¶</a></dt>
+<dd><p>exception encoding</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="exceptions.UnicodeDecodeError.end">
+<tt class="descname">end</tt><a class="headerlink" href="#exceptions.UnicodeDecodeError.end" title="Permalink to this definition">¶</a></dt>
+<dd><p>exception end</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="exceptions.UnicodeDecodeError.object">
+<tt class="descname">object</tt><a class="headerlink" href="#exceptions.UnicodeDecodeError.object" title="Permalink to this definition">¶</a></dt>
+<dd><p>exception object</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="exceptions.UnicodeDecodeError.reason">
+<tt class="descname">reason</tt><a class="headerlink" href="#exceptions.UnicodeDecodeError.reason" title="Permalink to this definition">¶</a></dt>
+<dd><p>exception reason</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="exceptions.UnicodeDecodeError.start">
+<tt class="descname">start</tt><a class="headerlink" href="#exceptions.UnicodeDecodeError.start" title="Permalink to this definition">¶</a></dt>
+<dd><p>exception start</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="exception">
+<dt id="exceptions.UnicodeEncodeError">
+<em class="property">exception </em><tt class="descname">UnicodeEncodeError</tt><a class="headerlink" href="#exceptions.UnicodeEncodeError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Unicode encoding error.</p>
+<dl class="attribute">
+<dt id="exceptions.UnicodeEncodeError.encoding">
+<tt class="descname">encoding</tt><a class="headerlink" href="#exceptions.UnicodeEncodeError.encoding" title="Permalink to this definition">¶</a></dt>
+<dd><p>exception encoding</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="exceptions.UnicodeEncodeError.end">
+<tt class="descname">end</tt><a class="headerlink" href="#exceptions.UnicodeEncodeError.end" title="Permalink to this definition">¶</a></dt>
+<dd><p>exception end</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="exceptions.UnicodeEncodeError.object">
+<tt class="descname">object</tt><a class="headerlink" href="#exceptions.UnicodeEncodeError.object" title="Permalink to this definition">¶</a></dt>
+<dd><p>exception object</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="exceptions.UnicodeEncodeError.reason">
+<tt class="descname">reason</tt><a class="headerlink" href="#exceptions.UnicodeEncodeError.reason" title="Permalink to this definition">¶</a></dt>
+<dd><p>exception reason</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="exceptions.UnicodeEncodeError.start">
+<tt class="descname">start</tt><a class="headerlink" href="#exceptions.UnicodeEncodeError.start" title="Permalink to this definition">¶</a></dt>
+<dd><p>exception start</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="exception">
+<dt id="exceptions.UnicodeError">
+<em class="property">exception </em><tt class="descname">UnicodeError</tt><a class="headerlink" href="#exceptions.UnicodeError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Unicode related error.</p>
+</dd></dl>
+
+<dl class="exception">
+<dt id="exceptions.UnicodeTranslateError">
+<em class="property">exception </em><tt class="descname">UnicodeTranslateError</tt><a class="headerlink" href="#exceptions.UnicodeTranslateError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Unicode translation error.</p>
+<dl class="attribute">
+<dt id="exceptions.UnicodeTranslateError.encoding">
+<tt class="descname">encoding</tt><a class="headerlink" href="#exceptions.UnicodeTranslateError.encoding" title="Permalink to this definition">¶</a></dt>
+<dd><p>exception encoding</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="exceptions.UnicodeTranslateError.end">
+<tt class="descname">end</tt><a class="headerlink" href="#exceptions.UnicodeTranslateError.end" title="Permalink to this definition">¶</a></dt>
+<dd><p>exception end</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="exceptions.UnicodeTranslateError.object">
+<tt class="descname">object</tt><a class="headerlink" href="#exceptions.UnicodeTranslateError.object" title="Permalink to this definition">¶</a></dt>
+<dd><p>exception object</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="exceptions.UnicodeTranslateError.reason">
+<tt class="descname">reason</tt><a class="headerlink" href="#exceptions.UnicodeTranslateError.reason" title="Permalink to this definition">¶</a></dt>
+<dd><p>exception reason</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="exceptions.UnicodeTranslateError.start">
+<tt class="descname">start</tt><a class="headerlink" href="#exceptions.UnicodeTranslateError.start" title="Permalink to this definition">¶</a></dt>
+<dd><p>exception start</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="exception">
+<dt id="exceptions.UnicodeWarning">
+<em class="property">exception </em><tt class="descname">UnicodeWarning</tt><a class="headerlink" href="#exceptions.UnicodeWarning" title="Permalink to this definition">¶</a></dt>
+<dd><p>Base class for warnings about Unicode related problems, mostly
+related to conversion problems.</p>
+</dd></dl>
+
+<dl class="exception">
+<dt id="exceptions.UserWarning">
+<em class="property">exception </em><tt class="descname">UserWarning</tt><a class="headerlink" href="#exceptions.UserWarning" title="Permalink to this definition">¶</a></dt>
+<dd><p>Base class for warnings generated by user code.</p>
+</dd></dl>
+
+<dl class="exception">
+<dt id="exceptions.ValueError">
+<em class="property">exception </em><tt class="descname">ValueError</tt><a class="headerlink" href="#exceptions.ValueError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Inappropriate argument value (of correct type).</p>
+</dd></dl>
+
+<dl class="exception">
+<dt id="exceptions.Warning">
+<em class="property">exception </em><tt class="descname">Warning</tt><a class="headerlink" href="#exceptions.Warning" title="Permalink to this definition">¶</a></dt>
+<dd><p>Base class for warning categories.</p>
+</dd></dl>
+
+<dl class="exception">
+<dt id="exceptions.ZeroDivisionError">
+<em class="property">exception </em><tt class="descname">ZeroDivisionError</tt><a class="headerlink" href="#exceptions.ZeroDivisionError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Second argument to a division or modulo operation was zero.</p>
+</dd></dl>
+
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="credentials.html"
+                        title="previous chapter">Credentials</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="frames.html"
+                        title="next chapter">Frames</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/exceptions.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" size="18" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="frames.html" title="Frames"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="credentials.html" title="Credentials"
+             >previous</a> |</li>
+        <li><a href="index.html">Pika 0.9a documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2011, Tony Garnock-Jones, Gavin M. Roy and others.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1pre.
+    </div>
+  </body>
+</html>

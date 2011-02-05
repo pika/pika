@@ -1,0 +1,179 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>SimpleBuffer &mdash; Pika 0.9a documentation</title>
+    
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '',
+        VERSION:     '0.9a',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="Pika 0.9a documentation" href="index.html" />
+    <link rel="next" title="Spec" href="spec.html" />
+    <link rel="prev" title="Reconnection Strategies" href="reconnection_strategies.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="spec.html" title="Spec"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="reconnection_strategies.html" title="Reconnection Strategies"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">Pika 0.9a documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="module-simplebuffer">
+<span id="simplebuffer"></span><h1>SimpleBuffer<a class="headerlink" href="#module-simplebuffer" title="Permalink to this headline">¶</a></h1>
+<p>This is an implementation of a simple buffer. SimpleBuffer just handles
+a string of bytes. The clue, is that you can pop data from the beginning
+and append data to the end.</p>
+<p>It&#8217;s ideal to use as a network buffer, from which you send data to the socket.
+Use this to avoid concatenating or splitting large strings.</p>
+<dl class="class">
+<dt id="simplebuffer.SimpleBuffer">
+<em class="property">class </em><tt class="descclassname">simplebuffer.</tt><tt class="descname">SimpleBuffer</tt><big>(</big><em>data=None</em><big>)</big><a class="headerlink" href="#simplebuffer.SimpleBuffer" title="Permalink to this definition">¶</a></dt>
+<dd><div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="n">b</span> <span class="o">=</span> <span class="n">SimpleBuffer</span><span class="p">(</span><span class="s">&quot;abcdef&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">b</span><span class="o">.</span><span class="n">read_and_consume</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+<span class="go">&#39;abc&#39;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">b</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="bp">None</span><span class="p">,</span> <span class="s">&#39;&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">b</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="go">&#39;&#39;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">repr</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
+<span class="go">&quot;&lt;SimpleBuffer of 3 bytes, 6 total size, &#39;def&#39;&gt;&quot;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">str</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
+<span class="go">&quot;&lt;SimpleBuffer of 3 bytes, 6 total size, &#39;def&#39;&gt;&quot;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">b</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">b</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="go">&#39;&#39;</span>
+</pre></div>
+</div>
+<dl class="method">
+<dt id="simplebuffer.SimpleBuffer.consume">
+<tt class="descname">consume</tt><big>(</big><em>size</em><big>)</big><a class="headerlink" href="#simplebuffer.SimpleBuffer.consume" title="Permalink to this definition">¶</a></dt>
+<dd><p>Move pointer and discard first &#8216;size&#8217; bytes.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="simplebuffer.SimpleBuffer.flush">
+<tt class="descname">flush</tt><big>(</big><big>)</big><a class="headerlink" href="#simplebuffer.SimpleBuffer.flush" title="Permalink to this definition">¶</a></dt>
+<dd><p>Remove all the data from buffer.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="simplebuffer.SimpleBuffer.read">
+<tt class="descname">read</tt><big>(</big><em>size=None</em><big>)</big><a class="headerlink" href="#simplebuffer.SimpleBuffer.read" title="Permalink to this definition">¶</a></dt>
+<dd><p>Read the data from the buffer, at most &#8216;size&#8217; bytes.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="simplebuffer.SimpleBuffer.read_and_consume">
+<tt class="descname">read_and_consume</tt><big>(</big><em>size</em><big>)</big><a class="headerlink" href="#simplebuffer.SimpleBuffer.read_and_consume" title="Permalink to this definition">¶</a></dt>
+<dd><p>Read up to &#8216;size&#8217; bytes, also remove it from the buffer.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="simplebuffer.SimpleBuffer.send_to_socket">
+<tt class="descname">send_to_socket</tt><big>(</big><em>sd</em><big>)</big><a class="headerlink" href="#simplebuffer.SimpleBuffer.send_to_socket" title="Permalink to this definition">¶</a></dt>
+<dd><p>Faster way of sending buffer data to socket &#8216;sd&#8217;.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="simplebuffer.SimpleBuffer.write">
+<tt class="descname">write</tt><big>(</big><em>*data_strings</em><big>)</big><a class="headerlink" href="#simplebuffer.SimpleBuffer.write" title="Permalink to this definition">¶</a></dt>
+<dd><p>Append given strings to the buffer.</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="reconnection_strategies.html"
+                        title="previous chapter">Reconnection Strategies</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="spec.html"
+                        title="next chapter">Spec</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/simplebuffer.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" size="18" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="spec.html" title="Spec"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="reconnection_strategies.html" title="Reconnection Strategies"
+             >previous</a> |</li>
+        <li><a href="index.html">Pika 0.9a documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2011, Tony Garnock-Jones, Gavin M. Roy and others.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1pre.
+    </div>
+  </body>
+</html>

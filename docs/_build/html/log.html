@@ -1,0 +1,174 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Log &mdash; Pika 0.9a documentation</title>
+    
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '',
+        VERSION:     '0.9a',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="Pika 0.9a documentation" href="index.html" />
+    <link rel="next" title="Object" href="object.html" />
+    <link rel="prev" title="Heartbeat" href="heartbeat.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="object.html" title="Object"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="heartbeat.html" title="Heartbeat"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">Pika 0.9a documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="log">
+<h1>Log<a class="headerlink" href="#log" title="Permalink to this headline">¶</a></h1>
+<p>pika.log is a wrapper which provides a wrapper for the <a class="reference external" href="http://docs.python.org/library/logging.html">python logging</a> module. If the pika.log.DEBUG is set to true, it will enable pika to send its debugging information to logging.debug. We use this to make sure that pika does not impact applications who use logging.debug by not sending Pika&#8217;s internal debug information by default.</p>
+<p>To turn Pika debug logging on:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">pika.log</span>
+
+<span class="n">pika</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">DEBUG</span> <span class="o">=</span> <span class="bp">True</span>
+
+<span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Once this is done you will receive all low level information about what Pika is doing including the frames it is sending and receiving from RabbitMQ.</p>
+<dl class="function">
+<dt id="debug">
+<tt class="descname">debug</tt><big>(</big><em>msg</em><span class="optional">[</span>, <em>*args</em><span class="optional">[</span>, <em>**kwargs</em><span class="optional">]</span><span class="optional">]</span><big>)</big><a class="headerlink" href="#debug" title="Permalink to this definition">¶</a></dt>
+<dd><p>Logs a message with level <tt class="xref py py-const docutils literal"><span class="pre">DEBUG</span></tt> on the root logger. The <em>msg</em> is the
+message format string, and the <em>args</em> are the arguments which are merged into
+<em>msg</em> using the string formatting operator. (Note that this means that you can
+use keywords in the format string, together with a single dictionary argument.)</p>
+<p>There are two keyword arguments in <em>kwargs</em> which are inspected: <em>exc_info</em>
+which, if it does not evaluate as false, causes exception information to be
+added to the logging message. If an exception tuple (in the format returned by
+<tt class="xref py py-func docutils literal"><span class="pre">sys.exc_info()</span></tt>) is provided, it is used; otherwise, <tt class="xref py py-func docutils literal"><span class="pre">sys.exc_info()</span></tt>
+is called to get the exception information.</p>
+<p>The other optional keyword argument is <em>extra</em> which can be used to pass a
+dictionary which is used to populate the __dict__ of the LogRecord created for
+the logging event with user-defined attributes. These custom attributes can then
+be used as you like. For example, they could be incorporated into logged
+messages. For example:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">FORMAT</span> <span class="o">=</span> <span class="s">&quot;</span><span class="si">%(asctime)-15s</span><span class="s"> </span><span class="si">%(clientip)s</span><span class="s"> </span><span class="si">%(user)-8s</span><span class="s"> </span><span class="si">%(message)s</span><span class="s">&quot;</span>
+<span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span><span class="n">format</span><span class="o">=</span><span class="n">FORMAT</span><span class="p">)</span>
+<span class="n">d</span> <span class="o">=</span> <span class="p">{</span><span class="s">&#39;clientip&#39;</span><span class="p">:</span> <span class="s">&#39;192.168.0.1&#39;</span><span class="p">,</span> <span class="s">&#39;user&#39;</span><span class="p">:</span> <span class="s">&#39;fbloggs&#39;</span><span class="p">}</span>
+<span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s">&quot;Protocol problem: </span><span class="si">%s</span><span class="s">&quot;</span><span class="p">,</span> <span class="s">&quot;connection reset&quot;</span><span class="p">,</span> <span class="n">extra</span><span class="o">=</span><span class="n">d</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>would print something like:</p>
+<div class="highlight-python"><pre>2006-02-08 22:20:02,165 192.168.0.1 fbloggs  Protocol problem: connection reset</pre>
+</div>
+<p>The keys in the dictionary passed in <em>extra</em> should not clash with the keys used
+by the logging system. (See the <tt class="xref py py-class docutils literal"><span class="pre">Formatter</span></tt> documentation for more
+information on which keys are used by the logging system.)</p>
+<p>If you choose to use these attributes in logged messages, you need to exercise
+some care. In the above example, for instance, the <tt class="xref py py-class docutils literal"><span class="pre">Formatter</span></tt> has been
+set up with a format string which expects &#8216;clientip&#8217; and &#8216;user&#8217; in the attribute
+dictionary of the LogRecord. If these are missing, the message will not be
+logged because a string formatting exception will occur. So in this case, you
+always need to pass the <em>extra</em> dictionary with these keys.</p>
+<p>While this might be annoying, this feature is intended for use in specialized
+circumstances, such as multi-threaded servers where the same code executes in
+many contexts, and interesting conditions which arise are dependent on this
+context (such as remote client IP address and authenticated user name, in the
+above example). In such circumstances, it is likely that specialized
+<tt class="xref py py-class docutils literal"><span class="pre">Formatter</span></tt>s would be used with particular <tt class="xref py py-class docutils literal"><span class="pre">Handler</span></tt>s.</p>
+<p class="versionchanged">
+<span class="versionmodified">Changed in version 2.5: </span><em>extra</em> was added.</p>
+</dd></dl>
+
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="heartbeat.html"
+                        title="previous chapter">Heartbeat</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="object.html"
+                        title="next chapter">Object</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/log.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" size="18" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="object.html" title="Object"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="heartbeat.html" title="Heartbeat"
+             >previous</a> |</li>
+        <li><a href="index.html">Pika 0.9a documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2011, Tony Garnock-Jones, Gavin M. Roy and others.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1pre.
+    </div>
+  </body>
+</html>

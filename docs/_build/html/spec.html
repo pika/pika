@@ -1,0 +1,3363 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Spec &mdash; Pika 0.9a documentation</title>
+    
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '',
+        VERSION:     '0.9a',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="Pika 0.9a documentation" href="index.html" />
+    <link rel="next" title="Table" href="table.html" />
+    <link rel="prev" title="SimpleBuffer" href="simplebuffer.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="table.html" title="Table"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="simplebuffer.html" title="SimpleBuffer"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">Pika 0.9a documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="spec">
+<h1>Spec<a class="headerlink" href="#spec" title="Permalink to this headline">¶</a></h1>
+<p>spec.py is an auto-generated python module which is created by the codegen.py application. It contains all of the information about the
+protocol that is required for Pika to communicate with RabbitMQ.</p>
+<span class="target" id="module-spec"></span><dl class="class">
+<dt id="spec.Access">
+<em class="property">class </em><tt class="descclassname">spec.</tt><tt class="descname">Access</tt><a class="headerlink" href="#spec.Access" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Access.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 30</em><a class="headerlink" href="#spec.Access.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Access.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Access'</em><a class="headerlink" href="#spec.Access.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="class">
+<dt id="spec.Access.Request">
+<em class="property">class </em><tt class="descname">Request</tt><big>(</big><em>realm='/data'</em>, <em>exclusive=False</em>, <em>passive=True</em>, <em>active=True</em>, <em>write=True</em>, <em>read=True</em><big>)</big><a class="headerlink" href="#spec.Access.Request" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Access.Request.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 1966090</em><a class="headerlink" href="#spec.Access.Request.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Access.Request.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Access.Request'</em><a class="headerlink" href="#spec.Access.Request.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Access.Request.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Access.Request.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Access.Request.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Access.Request.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Access.Request.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Access.Request.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Access.Request.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Access.Request.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Access.Request.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Access.Request.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Access.Request.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Access.Request.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="spec.Access.RequestOk">
+<em class="property">class </em><tt class="descclassname">Access.</tt><tt class="descname">RequestOk</tt><big>(</big><em>ticket=1</em><big>)</big><a class="headerlink" href="#spec.Access.RequestOk" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Access.RequestOk.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 1966091</em><a class="headerlink" href="#spec.Access.RequestOk.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Access.RequestOk.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Access.RequestOk'</em><a class="headerlink" href="#spec.Access.RequestOk.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Access.RequestOk.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Access.RequestOk.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Access.RequestOk.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Access.RequestOk.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Access.RequestOk.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Access.RequestOk.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Access.RequestOk.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Access.RequestOk.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Access.RequestOk.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Access.RequestOk.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Access.RequestOk.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Access.RequestOk.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Access.name">
+<tt class="descclassname">Access.</tt><tt class="descname">name</tt><a class="headerlink" href="#spec.Access.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="spec.Basic">
+<em class="property">class </em><tt class="descclassname">spec.</tt><tt class="descname">Basic</tt><a class="headerlink" href="#spec.Basic" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="class">
+<dt id="spec.Basic.Ack">
+<em class="property">class </em><tt class="descname">Ack</tt><big>(</big><em>delivery_tag=0</em>, <em>multiple=False</em><big>)</big><a class="headerlink" href="#spec.Basic.Ack" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Basic.Ack.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 3932240</em><a class="headerlink" href="#spec.Basic.Ack.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Basic.Ack.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Basic.Ack'</em><a class="headerlink" href="#spec.Basic.Ack.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.Ack.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Basic.Ack.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.Ack.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Basic.Ack.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.Ack.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Basic.Ack.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.Ack.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Basic.Ack.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Basic.Ack.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Basic.Ack.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Basic.Ack.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Basic.Ack.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="spec.Basic.Cancel">
+<em class="property">class </em><tt class="descclassname">Basic.</tt><tt class="descname">Cancel</tt><big>(</big><em>consumer_tag=None</em>, <em>nowait=False</em><big>)</big><a class="headerlink" href="#spec.Basic.Cancel" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Basic.Cancel.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 3932190</em><a class="headerlink" href="#spec.Basic.Cancel.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Basic.Cancel.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Basic.Cancel'</em><a class="headerlink" href="#spec.Basic.Cancel.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.Cancel.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Basic.Cancel.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.Cancel.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Basic.Cancel.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.Cancel.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Basic.Cancel.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.Cancel.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Basic.Cancel.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Basic.Cancel.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Basic.Cancel.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Basic.Cancel.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Basic.Cancel.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="spec.Basic.CancelOk">
+<em class="property">class </em><tt class="descclassname">Basic.</tt><tt class="descname">CancelOk</tt><big>(</big><em>consumer_tag=None</em><big>)</big><a class="headerlink" href="#spec.Basic.CancelOk" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Basic.CancelOk.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 3932191</em><a class="headerlink" href="#spec.Basic.CancelOk.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Basic.CancelOk.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Basic.CancelOk'</em><a class="headerlink" href="#spec.Basic.CancelOk.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.CancelOk.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Basic.CancelOk.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.CancelOk.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Basic.CancelOk.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.CancelOk.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Basic.CancelOk.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.CancelOk.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Basic.CancelOk.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Basic.CancelOk.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Basic.CancelOk.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Basic.CancelOk.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Basic.CancelOk.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="spec.Basic.Consume">
+<em class="property">class </em><tt class="descclassname">Basic.</tt><tt class="descname">Consume</tt><big>(</big><em>ticket=0</em>, <em>queue=''</em>, <em>consumer_tag=''</em>, <em>no_local=False</em>, <em>no_ack=False</em>, <em>exclusive=False</em>, <em>nowait=False</em>, <em>arguments={}</em><big>)</big><a class="headerlink" href="#spec.Basic.Consume" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Basic.Consume.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 3932180</em><a class="headerlink" href="#spec.Basic.Consume.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Basic.Consume.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Basic.Consume'</em><a class="headerlink" href="#spec.Basic.Consume.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.Consume.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Basic.Consume.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.Consume.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Basic.Consume.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.Consume.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Basic.Consume.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.Consume.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Basic.Consume.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Basic.Consume.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Basic.Consume.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Basic.Consume.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Basic.Consume.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="spec.Basic.ConsumeOk">
+<em class="property">class </em><tt class="descclassname">Basic.</tt><tt class="descname">ConsumeOk</tt><big>(</big><em>consumer_tag=None</em><big>)</big><a class="headerlink" href="#spec.Basic.ConsumeOk" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Basic.ConsumeOk.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 3932181</em><a class="headerlink" href="#spec.Basic.ConsumeOk.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Basic.ConsumeOk.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Basic.ConsumeOk'</em><a class="headerlink" href="#spec.Basic.ConsumeOk.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.ConsumeOk.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Basic.ConsumeOk.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.ConsumeOk.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Basic.ConsumeOk.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.ConsumeOk.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Basic.ConsumeOk.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.ConsumeOk.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Basic.ConsumeOk.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Basic.ConsumeOk.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Basic.ConsumeOk.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Basic.ConsumeOk.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Basic.ConsumeOk.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="spec.Basic.Deliver">
+<em class="property">class </em><tt class="descclassname">Basic.</tt><tt class="descname">Deliver</tt><big>(</big><em>consumer_tag=None</em>, <em>delivery_tag=None</em>, <em>redelivered=False</em>, <em>exchange=None</em>, <em>routing_key=None</em><big>)</big><a class="headerlink" href="#spec.Basic.Deliver" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Basic.Deliver.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 3932220</em><a class="headerlink" href="#spec.Basic.Deliver.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Basic.Deliver.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Basic.Deliver'</em><a class="headerlink" href="#spec.Basic.Deliver.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.Deliver.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Basic.Deliver.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.Deliver.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Basic.Deliver.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.Deliver.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Basic.Deliver.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.Deliver.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Basic.Deliver.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Basic.Deliver.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Basic.Deliver.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Basic.Deliver.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Basic.Deliver.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="spec.Basic.Get">
+<em class="property">class </em><tt class="descclassname">Basic.</tt><tt class="descname">Get</tt><big>(</big><em>ticket=0</em>, <em>queue=''</em>, <em>no_ack=False</em><big>)</big><a class="headerlink" href="#spec.Basic.Get" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Basic.Get.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 3932230</em><a class="headerlink" href="#spec.Basic.Get.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Basic.Get.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Basic.Get'</em><a class="headerlink" href="#spec.Basic.Get.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.Get.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Basic.Get.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.Get.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Basic.Get.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.Get.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Basic.Get.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.Get.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Basic.Get.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Basic.Get.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Basic.Get.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Basic.Get.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Basic.Get.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="spec.Basic.GetEmpty">
+<em class="property">class </em><tt class="descclassname">Basic.</tt><tt class="descname">GetEmpty</tt><big>(</big><em>cluster_id=''</em><big>)</big><a class="headerlink" href="#spec.Basic.GetEmpty" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Basic.GetEmpty.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 3932232</em><a class="headerlink" href="#spec.Basic.GetEmpty.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Basic.GetEmpty.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Basic.GetEmpty'</em><a class="headerlink" href="#spec.Basic.GetEmpty.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.GetEmpty.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Basic.GetEmpty.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.GetEmpty.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Basic.GetEmpty.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.GetEmpty.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Basic.GetEmpty.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.GetEmpty.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Basic.GetEmpty.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Basic.GetEmpty.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Basic.GetEmpty.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Basic.GetEmpty.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Basic.GetEmpty.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="spec.Basic.GetOk">
+<em class="property">class </em><tt class="descclassname">Basic.</tt><tt class="descname">GetOk</tt><big>(</big><em>delivery_tag=None</em>, <em>redelivered=False</em>, <em>exchange=None</em>, <em>routing_key=None</em>, <em>message_count=None</em><big>)</big><a class="headerlink" href="#spec.Basic.GetOk" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Basic.GetOk.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 3932231</em><a class="headerlink" href="#spec.Basic.GetOk.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Basic.GetOk.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Basic.GetOk'</em><a class="headerlink" href="#spec.Basic.GetOk.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.GetOk.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Basic.GetOk.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.GetOk.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Basic.GetOk.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.GetOk.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Basic.GetOk.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.GetOk.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Basic.GetOk.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Basic.GetOk.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Basic.GetOk.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Basic.GetOk.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Basic.GetOk.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Basic.INDEX">
+<tt class="descclassname">Basic.</tt><tt class="descname">INDEX</tt><em class="property"> = 60</em><a class="headerlink" href="#spec.Basic.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Basic.NAME">
+<tt class="descclassname">Basic.</tt><tt class="descname">NAME</tt><em class="property"> = 'Basic'</em><a class="headerlink" href="#spec.Basic.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="class">
+<dt id="spec.Basic.Nack">
+<em class="property">class </em><tt class="descclassname">Basic.</tt><tt class="descname">Nack</tt><big>(</big><em>delivery_tag=0</em>, <em>multiple=False</em>, <em>requeue=True</em><big>)</big><a class="headerlink" href="#spec.Basic.Nack" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Basic.Nack.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 3932280</em><a class="headerlink" href="#spec.Basic.Nack.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Basic.Nack.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Basic.Nack'</em><a class="headerlink" href="#spec.Basic.Nack.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.Nack.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Basic.Nack.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.Nack.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Basic.Nack.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.Nack.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Basic.Nack.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.Nack.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Basic.Nack.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Basic.Nack.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Basic.Nack.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Basic.Nack.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Basic.Nack.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="spec.Basic.Publish">
+<em class="property">class </em><tt class="descclassname">Basic.</tt><tt class="descname">Publish</tt><big>(</big><em>ticket=0</em>, <em>exchange=''</em>, <em>routing_key=''</em>, <em>mandatory=False</em>, <em>immediate=False</em><big>)</big><a class="headerlink" href="#spec.Basic.Publish" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Basic.Publish.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 3932200</em><a class="headerlink" href="#spec.Basic.Publish.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Basic.Publish.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Basic.Publish'</em><a class="headerlink" href="#spec.Basic.Publish.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.Publish.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Basic.Publish.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.Publish.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Basic.Publish.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.Publish.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Basic.Publish.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.Publish.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Basic.Publish.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Basic.Publish.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Basic.Publish.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Basic.Publish.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Basic.Publish.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="spec.Basic.Qos">
+<em class="property">class </em><tt class="descclassname">Basic.</tt><tt class="descname">Qos</tt><big>(</big><em>prefetch_size=0</em>, <em>prefetch_count=0</em>, <em>global_=False</em><big>)</big><a class="headerlink" href="#spec.Basic.Qos" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Basic.Qos.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 3932170</em><a class="headerlink" href="#spec.Basic.Qos.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Basic.Qos.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Basic.Qos'</em><a class="headerlink" href="#spec.Basic.Qos.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.Qos.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Basic.Qos.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.Qos.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Basic.Qos.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.Qos.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Basic.Qos.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.Qos.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Basic.Qos.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Basic.Qos.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Basic.Qos.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Basic.Qos.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Basic.Qos.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="spec.Basic.QosOk">
+<em class="property">class </em><tt class="descclassname">Basic.</tt><tt class="descname">QosOk</tt><a class="headerlink" href="#spec.Basic.QosOk" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Basic.QosOk.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 3932171</em><a class="headerlink" href="#spec.Basic.QosOk.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Basic.QosOk.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Basic.QosOk'</em><a class="headerlink" href="#spec.Basic.QosOk.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.QosOk.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Basic.QosOk.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.QosOk.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Basic.QosOk.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.QosOk.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Basic.QosOk.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.QosOk.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Basic.QosOk.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Basic.QosOk.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Basic.QosOk.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Basic.QosOk.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Basic.QosOk.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="spec.Basic.Recover">
+<em class="property">class </em><tt class="descclassname">Basic.</tt><tt class="descname">Recover</tt><big>(</big><em>requeue=False</em><big>)</big><a class="headerlink" href="#spec.Basic.Recover" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Basic.Recover.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 3932270</em><a class="headerlink" href="#spec.Basic.Recover.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Basic.Recover.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Basic.Recover'</em><a class="headerlink" href="#spec.Basic.Recover.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.Recover.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Basic.Recover.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.Recover.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Basic.Recover.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.Recover.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Basic.Recover.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.Recover.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Basic.Recover.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Basic.Recover.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Basic.Recover.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Basic.Recover.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Basic.Recover.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="spec.Basic.RecoverAsync">
+<em class="property">class </em><tt class="descclassname">Basic.</tt><tt class="descname">RecoverAsync</tt><big>(</big><em>requeue=False</em><big>)</big><a class="headerlink" href="#spec.Basic.RecoverAsync" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Basic.RecoverAsync.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 3932260</em><a class="headerlink" href="#spec.Basic.RecoverAsync.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Basic.RecoverAsync.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Basic.RecoverAsync'</em><a class="headerlink" href="#spec.Basic.RecoverAsync.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.RecoverAsync.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Basic.RecoverAsync.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.RecoverAsync.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Basic.RecoverAsync.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.RecoverAsync.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Basic.RecoverAsync.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.RecoverAsync.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Basic.RecoverAsync.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Basic.RecoverAsync.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Basic.RecoverAsync.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Basic.RecoverAsync.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Basic.RecoverAsync.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="spec.Basic.RecoverOk">
+<em class="property">class </em><tt class="descclassname">Basic.</tt><tt class="descname">RecoverOk</tt><a class="headerlink" href="#spec.Basic.RecoverOk" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Basic.RecoverOk.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 3932271</em><a class="headerlink" href="#spec.Basic.RecoverOk.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Basic.RecoverOk.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Basic.RecoverOk'</em><a class="headerlink" href="#spec.Basic.RecoverOk.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.RecoverOk.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Basic.RecoverOk.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.RecoverOk.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Basic.RecoverOk.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.RecoverOk.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Basic.RecoverOk.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.RecoverOk.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Basic.RecoverOk.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Basic.RecoverOk.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Basic.RecoverOk.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Basic.RecoverOk.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Basic.RecoverOk.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="spec.Basic.Reject">
+<em class="property">class </em><tt class="descclassname">Basic.</tt><tt class="descname">Reject</tt><big>(</big><em>delivery_tag=None</em>, <em>requeue=True</em><big>)</big><a class="headerlink" href="#spec.Basic.Reject" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Basic.Reject.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 3932250</em><a class="headerlink" href="#spec.Basic.Reject.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Basic.Reject.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Basic.Reject'</em><a class="headerlink" href="#spec.Basic.Reject.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.Reject.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Basic.Reject.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.Reject.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Basic.Reject.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.Reject.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Basic.Reject.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.Reject.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Basic.Reject.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Basic.Reject.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Basic.Reject.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Basic.Reject.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Basic.Reject.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="spec.Basic.Return">
+<em class="property">class </em><tt class="descclassname">Basic.</tt><tt class="descname">Return</tt><big>(</big><em>reply_code=None</em>, <em>reply_text=''</em>, <em>exchange=None</em>, <em>routing_key=None</em><big>)</big><a class="headerlink" href="#spec.Basic.Return" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Basic.Return.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 3932210</em><a class="headerlink" href="#spec.Basic.Return.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Basic.Return.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Basic.Return'</em><a class="headerlink" href="#spec.Basic.Return.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.Return.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Basic.Return.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.Return.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Basic.Return.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.Return.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Basic.Return.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.Return.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Basic.Return.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Basic.Return.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Basic.Return.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Basic.Return.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Basic.Return.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Basic.name">
+<tt class="descclassname">Basic.</tt><tt class="descname">name</tt><a class="headerlink" href="#spec.Basic.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="spec.BasicProperties">
+<em class="property">class </em><tt class="descclassname">spec.</tt><tt class="descname">BasicProperties</tt><big>(</big><em>content_type=None</em>, <em>content_encoding=None</em>, <em>headers=None</em>, <em>delivery_mode=None</em>, <em>priority=None</em>, <em>correlation_id=None</em>, <em>reply_to=None</em>, <em>expiration=None</em>, <em>message_id=None</em>, <em>timestamp=None</em>, <em>type=None</em>, <em>user_id=None</em>, <em>app_id=None</em>, <em>cluster_id=None</em><big>)</big><a class="headerlink" href="#spec.BasicProperties" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.BasicProperties.CLASS">
+<tt class="descname">CLASS</tt><a class="headerlink" href="#spec.BasicProperties.CLASS" title="Permalink to this definition">¶</a></dt>
+<dd><p>alias of <a class="reference internal" href="#spec.Basic" title="spec.Basic"><tt class="xref py py-class docutils literal"><span class="pre">Basic</span></tt></a></p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="spec.BasicProperties.FLAG_APP_ID">
+<tt class="descname">FLAG_APP_ID</tt><em class="property"> = 8</em><a class="headerlink" href="#spec.BasicProperties.FLAG_APP_ID" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.BasicProperties.FLAG_CLUSTER_ID">
+<tt class="descname">FLAG_CLUSTER_ID</tt><em class="property"> = 4</em><a class="headerlink" href="#spec.BasicProperties.FLAG_CLUSTER_ID" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.BasicProperties.FLAG_CONTENT_ENCODING">
+<tt class="descname">FLAG_CONTENT_ENCODING</tt><em class="property"> = 16384</em><a class="headerlink" href="#spec.BasicProperties.FLAG_CONTENT_ENCODING" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.BasicProperties.FLAG_CONTENT_TYPE">
+<tt class="descname">FLAG_CONTENT_TYPE</tt><em class="property"> = 32768</em><a class="headerlink" href="#spec.BasicProperties.FLAG_CONTENT_TYPE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.BasicProperties.FLAG_CORRELATION_ID">
+<tt class="descname">FLAG_CORRELATION_ID</tt><em class="property"> = 1024</em><a class="headerlink" href="#spec.BasicProperties.FLAG_CORRELATION_ID" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.BasicProperties.FLAG_DELIVERY_MODE">
+<tt class="descname">FLAG_DELIVERY_MODE</tt><em class="property"> = 4096</em><a class="headerlink" href="#spec.BasicProperties.FLAG_DELIVERY_MODE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.BasicProperties.FLAG_EXPIRATION">
+<tt class="descname">FLAG_EXPIRATION</tt><em class="property"> = 256</em><a class="headerlink" href="#spec.BasicProperties.FLAG_EXPIRATION" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.BasicProperties.FLAG_HEADERS">
+<tt class="descname">FLAG_HEADERS</tt><em class="property"> = 8192</em><a class="headerlink" href="#spec.BasicProperties.FLAG_HEADERS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.BasicProperties.FLAG_MESSAGE_ID">
+<tt class="descname">FLAG_MESSAGE_ID</tt><em class="property"> = 128</em><a class="headerlink" href="#spec.BasicProperties.FLAG_MESSAGE_ID" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.BasicProperties.FLAG_PRIORITY">
+<tt class="descname">FLAG_PRIORITY</tt><em class="property"> = 2048</em><a class="headerlink" href="#spec.BasicProperties.FLAG_PRIORITY" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.BasicProperties.FLAG_REPLY_TO">
+<tt class="descname">FLAG_REPLY_TO</tt><em class="property"> = 512</em><a class="headerlink" href="#spec.BasicProperties.FLAG_REPLY_TO" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.BasicProperties.FLAG_TIMESTAMP">
+<tt class="descname">FLAG_TIMESTAMP</tt><em class="property"> = 64</em><a class="headerlink" href="#spec.BasicProperties.FLAG_TIMESTAMP" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.BasicProperties.FLAG_TYPE">
+<tt class="descname">FLAG_TYPE</tt><em class="property"> = 32</em><a class="headerlink" href="#spec.BasicProperties.FLAG_TYPE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.BasicProperties.FLAG_USER_ID">
+<tt class="descname">FLAG_USER_ID</tt><em class="property"> = 16</em><a class="headerlink" href="#spec.BasicProperties.FLAG_USER_ID" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.BasicProperties.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 60</em><a class="headerlink" href="#spec.BasicProperties.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.BasicProperties.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'BasicProperties'</em><a class="headerlink" href="#spec.BasicProperties.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.BasicProperties.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.BasicProperties.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.BasicProperties.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.BasicProperties.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.BasicProperties.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.BasicProperties.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="spec.Channel">
+<em class="property">class </em><tt class="descclassname">spec.</tt><tt class="descname">Channel</tt><a class="headerlink" href="#spec.Channel" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="class">
+<dt id="spec.Channel.Close">
+<em class="property">class </em><tt class="descname">Close</tt><big>(</big><em>reply_code=None</em>, <em>reply_text=''</em>, <em>class_id=None</em>, <em>method_id=None</em><big>)</big><a class="headerlink" href="#spec.Channel.Close" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Channel.Close.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 1310760</em><a class="headerlink" href="#spec.Channel.Close.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Channel.Close.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Channel.Close'</em><a class="headerlink" href="#spec.Channel.Close.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Channel.Close.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Channel.Close.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Channel.Close.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Channel.Close.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Channel.Close.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Channel.Close.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Channel.Close.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Channel.Close.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Channel.Close.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Channel.Close.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Channel.Close.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Channel.Close.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="spec.Channel.CloseOk">
+<em class="property">class </em><tt class="descclassname">Channel.</tt><tt class="descname">CloseOk</tt><a class="headerlink" href="#spec.Channel.CloseOk" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Channel.CloseOk.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 1310761</em><a class="headerlink" href="#spec.Channel.CloseOk.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Channel.CloseOk.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Channel.CloseOk'</em><a class="headerlink" href="#spec.Channel.CloseOk.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Channel.CloseOk.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Channel.CloseOk.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Channel.CloseOk.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Channel.CloseOk.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Channel.CloseOk.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Channel.CloseOk.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Channel.CloseOk.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Channel.CloseOk.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Channel.CloseOk.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Channel.CloseOk.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Channel.CloseOk.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Channel.CloseOk.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="spec.Channel.Flow">
+<em class="property">class </em><tt class="descclassname">Channel.</tt><tt class="descname">Flow</tt><big>(</big><em>active=None</em><big>)</big><a class="headerlink" href="#spec.Channel.Flow" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Channel.Flow.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 1310740</em><a class="headerlink" href="#spec.Channel.Flow.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Channel.Flow.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Channel.Flow'</em><a class="headerlink" href="#spec.Channel.Flow.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Channel.Flow.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Channel.Flow.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Channel.Flow.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Channel.Flow.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Channel.Flow.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Channel.Flow.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Channel.Flow.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Channel.Flow.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Channel.Flow.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Channel.Flow.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Channel.Flow.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Channel.Flow.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="spec.Channel.FlowOk">
+<em class="property">class </em><tt class="descclassname">Channel.</tt><tt class="descname">FlowOk</tt><big>(</big><em>active=None</em><big>)</big><a class="headerlink" href="#spec.Channel.FlowOk" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Channel.FlowOk.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 1310741</em><a class="headerlink" href="#spec.Channel.FlowOk.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Channel.FlowOk.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Channel.FlowOk'</em><a class="headerlink" href="#spec.Channel.FlowOk.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Channel.FlowOk.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Channel.FlowOk.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Channel.FlowOk.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Channel.FlowOk.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Channel.FlowOk.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Channel.FlowOk.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Channel.FlowOk.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Channel.FlowOk.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Channel.FlowOk.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Channel.FlowOk.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Channel.FlowOk.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Channel.FlowOk.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Channel.INDEX">
+<tt class="descclassname">Channel.</tt><tt class="descname">INDEX</tt><em class="property"> = 20</em><a class="headerlink" href="#spec.Channel.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Channel.NAME">
+<tt class="descclassname">Channel.</tt><tt class="descname">NAME</tt><em class="property"> = 'Channel'</em><a class="headerlink" href="#spec.Channel.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="class">
+<dt id="spec.Channel.Open">
+<em class="property">class </em><tt class="descclassname">Channel.</tt><tt class="descname">Open</tt><big>(</big><em>out_of_band=''</em><big>)</big><a class="headerlink" href="#spec.Channel.Open" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Channel.Open.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 1310730</em><a class="headerlink" href="#spec.Channel.Open.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Channel.Open.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Channel.Open'</em><a class="headerlink" href="#spec.Channel.Open.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Channel.Open.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Channel.Open.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Channel.Open.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Channel.Open.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Channel.Open.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Channel.Open.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Channel.Open.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Channel.Open.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Channel.Open.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Channel.Open.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Channel.Open.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Channel.Open.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="spec.Channel.OpenOk">
+<em class="property">class </em><tt class="descclassname">Channel.</tt><tt class="descname">OpenOk</tt><big>(</big><em>channel_id=''</em><big>)</big><a class="headerlink" href="#spec.Channel.OpenOk" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Channel.OpenOk.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 1310731</em><a class="headerlink" href="#spec.Channel.OpenOk.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Channel.OpenOk.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Channel.OpenOk'</em><a class="headerlink" href="#spec.Channel.OpenOk.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Channel.OpenOk.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Channel.OpenOk.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Channel.OpenOk.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Channel.OpenOk.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Channel.OpenOk.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Channel.OpenOk.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Channel.OpenOk.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Channel.OpenOk.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Channel.OpenOk.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Channel.OpenOk.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Channel.OpenOk.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Channel.OpenOk.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Channel.name">
+<tt class="descclassname">Channel.</tt><tt class="descname">name</tt><a class="headerlink" href="#spec.Channel.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="spec.Confirm">
+<em class="property">class </em><tt class="descclassname">spec.</tt><tt class="descname">Confirm</tt><a class="headerlink" href="#spec.Confirm" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Confirm.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 85</em><a class="headerlink" href="#spec.Confirm.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Confirm.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Confirm'</em><a class="headerlink" href="#spec.Confirm.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="class">
+<dt id="spec.Confirm.Select">
+<em class="property">class </em><tt class="descname">Select</tt><big>(</big><em>nowait=False</em><big>)</big><a class="headerlink" href="#spec.Confirm.Select" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Confirm.Select.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 5570570</em><a class="headerlink" href="#spec.Confirm.Select.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Confirm.Select.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Confirm.Select'</em><a class="headerlink" href="#spec.Confirm.Select.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Confirm.Select.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Confirm.Select.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Confirm.Select.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Confirm.Select.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Confirm.Select.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Confirm.Select.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Confirm.Select.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Confirm.Select.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Confirm.Select.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Confirm.Select.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Confirm.Select.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Confirm.Select.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="spec.Confirm.SelectOk">
+<em class="property">class </em><tt class="descclassname">Confirm.</tt><tt class="descname">SelectOk</tt><a class="headerlink" href="#spec.Confirm.SelectOk" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Confirm.SelectOk.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 5570571</em><a class="headerlink" href="#spec.Confirm.SelectOk.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Confirm.SelectOk.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Confirm.SelectOk'</em><a class="headerlink" href="#spec.Confirm.SelectOk.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Confirm.SelectOk.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Confirm.SelectOk.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Confirm.SelectOk.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Confirm.SelectOk.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Confirm.SelectOk.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Confirm.SelectOk.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Confirm.SelectOk.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Confirm.SelectOk.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Confirm.SelectOk.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Confirm.SelectOk.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Confirm.SelectOk.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Confirm.SelectOk.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Confirm.name">
+<tt class="descclassname">Confirm.</tt><tt class="descname">name</tt><a class="headerlink" href="#spec.Confirm.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="spec.Connection">
+<em class="property">class </em><tt class="descclassname">spec.</tt><tt class="descname">Connection</tt><a class="headerlink" href="#spec.Connection" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="class">
+<dt id="spec.Connection.Close">
+<em class="property">class </em><tt class="descname">Close</tt><big>(</big><em>reply_code=None</em>, <em>reply_text=''</em>, <em>class_id=None</em>, <em>method_id=None</em><big>)</big><a class="headerlink" href="#spec.Connection.Close" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Connection.Close.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 655410</em><a class="headerlink" href="#spec.Connection.Close.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Connection.Close.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Connection.Close'</em><a class="headerlink" href="#spec.Connection.Close.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Connection.Close.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Connection.Close.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Connection.Close.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Connection.Close.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Connection.Close.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Connection.Close.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Connection.Close.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Connection.Close.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Connection.Close.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Connection.Close.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Connection.Close.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Connection.Close.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="spec.Connection.CloseOk">
+<em class="property">class </em><tt class="descclassname">Connection.</tt><tt class="descname">CloseOk</tt><a class="headerlink" href="#spec.Connection.CloseOk" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Connection.CloseOk.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 655411</em><a class="headerlink" href="#spec.Connection.CloseOk.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Connection.CloseOk.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Connection.CloseOk'</em><a class="headerlink" href="#spec.Connection.CloseOk.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Connection.CloseOk.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Connection.CloseOk.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Connection.CloseOk.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Connection.CloseOk.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Connection.CloseOk.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Connection.CloseOk.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Connection.CloseOk.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Connection.CloseOk.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Connection.CloseOk.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Connection.CloseOk.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Connection.CloseOk.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Connection.CloseOk.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Connection.INDEX">
+<tt class="descclassname">Connection.</tt><tt class="descname">INDEX</tt><em class="property"> = 10</em><a class="headerlink" href="#spec.Connection.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Connection.NAME">
+<tt class="descclassname">Connection.</tt><tt class="descname">NAME</tt><em class="property"> = 'Connection'</em><a class="headerlink" href="#spec.Connection.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="class">
+<dt id="spec.Connection.Open">
+<em class="property">class </em><tt class="descclassname">Connection.</tt><tt class="descname">Open</tt><big>(</big><em>virtual_host='/'</em>, <em>capabilities=''</em>, <em>insist=False</em><big>)</big><a class="headerlink" href="#spec.Connection.Open" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Connection.Open.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 655400</em><a class="headerlink" href="#spec.Connection.Open.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Connection.Open.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Connection.Open'</em><a class="headerlink" href="#spec.Connection.Open.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Connection.Open.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Connection.Open.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Connection.Open.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Connection.Open.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Connection.Open.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Connection.Open.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Connection.Open.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Connection.Open.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Connection.Open.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Connection.Open.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Connection.Open.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Connection.Open.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="spec.Connection.OpenOk">
+<em class="property">class </em><tt class="descclassname">Connection.</tt><tt class="descname">OpenOk</tt><big>(</big><em>known_hosts=''</em><big>)</big><a class="headerlink" href="#spec.Connection.OpenOk" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Connection.OpenOk.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 655401</em><a class="headerlink" href="#spec.Connection.OpenOk.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Connection.OpenOk.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Connection.OpenOk'</em><a class="headerlink" href="#spec.Connection.OpenOk.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Connection.OpenOk.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Connection.OpenOk.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Connection.OpenOk.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Connection.OpenOk.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Connection.OpenOk.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Connection.OpenOk.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Connection.OpenOk.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Connection.OpenOk.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Connection.OpenOk.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Connection.OpenOk.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Connection.OpenOk.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Connection.OpenOk.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="spec.Connection.Secure">
+<em class="property">class </em><tt class="descclassname">Connection.</tt><tt class="descname">Secure</tt><big>(</big><em>challenge=None</em><big>)</big><a class="headerlink" href="#spec.Connection.Secure" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Connection.Secure.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 655380</em><a class="headerlink" href="#spec.Connection.Secure.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Connection.Secure.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Connection.Secure'</em><a class="headerlink" href="#spec.Connection.Secure.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Connection.Secure.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Connection.Secure.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Connection.Secure.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Connection.Secure.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Connection.Secure.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Connection.Secure.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Connection.Secure.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Connection.Secure.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Connection.Secure.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Connection.Secure.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Connection.Secure.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Connection.Secure.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="spec.Connection.SecureOk">
+<em class="property">class </em><tt class="descclassname">Connection.</tt><tt class="descname">SecureOk</tt><big>(</big><em>response=None</em><big>)</big><a class="headerlink" href="#spec.Connection.SecureOk" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Connection.SecureOk.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 655381</em><a class="headerlink" href="#spec.Connection.SecureOk.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Connection.SecureOk.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Connection.SecureOk'</em><a class="headerlink" href="#spec.Connection.SecureOk.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Connection.SecureOk.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Connection.SecureOk.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Connection.SecureOk.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Connection.SecureOk.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Connection.SecureOk.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Connection.SecureOk.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Connection.SecureOk.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Connection.SecureOk.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Connection.SecureOk.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Connection.SecureOk.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Connection.SecureOk.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Connection.SecureOk.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="spec.Connection.Start">
+<em class="property">class </em><tt class="descclassname">Connection.</tt><tt class="descname">Start</tt><big>(</big><em>version_major=0</em>, <em>version_minor=9</em>, <em>server_properties=None</em>, <em>mechanisms='PLAIN'</em>, <em>locales='en_US'</em><big>)</big><a class="headerlink" href="#spec.Connection.Start" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Connection.Start.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 655370</em><a class="headerlink" href="#spec.Connection.Start.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Connection.Start.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Connection.Start'</em><a class="headerlink" href="#spec.Connection.Start.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Connection.Start.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Connection.Start.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Connection.Start.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Connection.Start.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Connection.Start.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Connection.Start.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Connection.Start.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Connection.Start.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Connection.Start.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Connection.Start.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Connection.Start.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Connection.Start.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="spec.Connection.StartOk">
+<em class="property">class </em><tt class="descclassname">Connection.</tt><tt class="descname">StartOk</tt><big>(</big><em>client_properties=None</em>, <em>mechanism='PLAIN'</em>, <em>response=None</em>, <em>locale='en_US'</em><big>)</big><a class="headerlink" href="#spec.Connection.StartOk" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Connection.StartOk.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 655371</em><a class="headerlink" href="#spec.Connection.StartOk.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Connection.StartOk.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Connection.StartOk'</em><a class="headerlink" href="#spec.Connection.StartOk.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Connection.StartOk.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Connection.StartOk.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Connection.StartOk.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Connection.StartOk.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Connection.StartOk.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Connection.StartOk.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Connection.StartOk.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Connection.StartOk.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Connection.StartOk.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Connection.StartOk.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Connection.StartOk.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Connection.StartOk.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="spec.Connection.Tune">
+<em class="property">class </em><tt class="descclassname">Connection.</tt><tt class="descname">Tune</tt><big>(</big><em>channel_max=0</em>, <em>frame_max=0</em>, <em>heartbeat=0</em><big>)</big><a class="headerlink" href="#spec.Connection.Tune" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Connection.Tune.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 655390</em><a class="headerlink" href="#spec.Connection.Tune.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Connection.Tune.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Connection.Tune'</em><a class="headerlink" href="#spec.Connection.Tune.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Connection.Tune.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Connection.Tune.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Connection.Tune.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Connection.Tune.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Connection.Tune.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Connection.Tune.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Connection.Tune.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Connection.Tune.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Connection.Tune.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Connection.Tune.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Connection.Tune.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Connection.Tune.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="spec.Connection.TuneOk">
+<em class="property">class </em><tt class="descclassname">Connection.</tt><tt class="descname">TuneOk</tt><big>(</big><em>channel_max=0</em>, <em>frame_max=0</em>, <em>heartbeat=0</em><big>)</big><a class="headerlink" href="#spec.Connection.TuneOk" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Connection.TuneOk.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 655391</em><a class="headerlink" href="#spec.Connection.TuneOk.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Connection.TuneOk.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Connection.TuneOk'</em><a class="headerlink" href="#spec.Connection.TuneOk.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Connection.TuneOk.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Connection.TuneOk.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Connection.TuneOk.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Connection.TuneOk.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Connection.TuneOk.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Connection.TuneOk.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Connection.TuneOk.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Connection.TuneOk.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Connection.TuneOk.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Connection.TuneOk.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Connection.TuneOk.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Connection.TuneOk.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Connection.name">
+<tt class="descclassname">Connection.</tt><tt class="descname">name</tt><a class="headerlink" href="#spec.Connection.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="spec.DriverMixin">
+<em class="property">class </em><tt class="descclassname">spec.</tt><tt class="descname">DriverMixin</tt><a class="headerlink" href="#spec.DriverMixin" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="method">
+<dt id="spec.DriverMixin.basic_ack">
+<tt class="descname">basic_ack</tt><big>(</big><em>delivery_tag=0</em>, <em>multiple=False</em><big>)</big><a class="headerlink" href="#spec.DriverMixin.basic_ack" title="Permalink to this definition">¶</a></dt>
+<dd><p>Implements the basic.ack AMQP command. For context and usage:</p>
+<p><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html">http://www.rabbitmq.com/amqp-0-9-1-quickref.html</a></p>
+</dd></dl>
+
+<dl class="method">
+<dt id="spec.DriverMixin.basic_get">
+<tt class="descname">basic_get</tt><big>(</big><em>callback=None</em>, <em>ticket=0</em>, <em>queue=''</em>, <em>no_ack=False</em><big>)</big><a class="headerlink" href="#spec.DriverMixin.basic_get" title="Permalink to this definition">¶</a></dt>
+<dd><p>Implements the Basic.Get AMQP command. For context and usage:</p>
+<blockquote>
+<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html">http://www.rabbitmq.com/amqp-0-9-1-quickref.html</a></div></blockquote>
+<p>This is a synchronous method that will not allow other commands to be
+send to the AMQP broker until it has completed. It is recommended to
+pass in a parameter to callback to be notified when this command has
+completed.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="spec.DriverMixin.basic_qos">
+<tt class="descname">basic_qos</tt><big>(</big><em>callback=None</em>, <em>prefetch_size=0</em>, <em>prefetch_count=0</em>, <em>global_=False</em><big>)</big><a class="headerlink" href="#spec.DriverMixin.basic_qos" title="Permalink to this definition">¶</a></dt>
+<dd><p>Implements the Basic.Qos AMQP command. For context and usage:</p>
+<blockquote>
+<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html">http://www.rabbitmq.com/amqp-0-9-1-quickref.html</a></div></blockquote>
+<p>This is a synchronous method that will not allow other commands to be
+send to the AMQP broker until it has completed. It is recommended to
+pass in a parameter to callback to be notified when this command has
+completed.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="spec.DriverMixin.basic_recover">
+<tt class="descname">basic_recover</tt><big>(</big><em>callback=None</em>, <em>requeue=False</em><big>)</big><a class="headerlink" href="#spec.DriverMixin.basic_recover" title="Permalink to this definition">¶</a></dt>
+<dd><p>Implements the Basic.Recover AMQP command. For context and usage:</p>
+<blockquote>
+<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html">http://www.rabbitmq.com/amqp-0-9-1-quickref.html</a></div></blockquote>
+<p>This is a synchronous method that will not allow other commands to be
+send to the AMQP broker until it has completed. It is recommended to
+pass in a parameter to callback to be notified when this command has
+completed.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="spec.DriverMixin.basic_recover_async">
+<tt class="descname">basic_recover_async</tt><big>(</big><em>requeue=False</em><big>)</big><a class="headerlink" href="#spec.DriverMixin.basic_recover_async" title="Permalink to this definition">¶</a></dt>
+<dd><p>Implements the basic.recover-async AMQP command. For context and usage:</p>
+<p><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html">http://www.rabbitmq.com/amqp-0-9-1-quickref.html</a></p>
+</dd></dl>
+
+<dl class="method">
+<dt id="spec.DriverMixin.basic_reject">
+<tt class="descname">basic_reject</tt><big>(</big><em>delivery_tag=None</em>, <em>requeue=True</em><big>)</big><a class="headerlink" href="#spec.DriverMixin.basic_reject" title="Permalink to this definition">¶</a></dt>
+<dd><p>Implements the basic.reject AMQP command. For context and usage:</p>
+<p><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html">http://www.rabbitmq.com/amqp-0-9-1-quickref.html</a></p>
+</dd></dl>
+
+<dl class="method">
+<dt id="spec.DriverMixin.exchange_declare">
+<tt class="descname">exchange_declare</tt><big>(</big><em>callback=None</em>, <em>ticket=0</em>, <em>exchange=None</em>, <em>type='direct'</em>, <em>passive=False</em>, <em>durable=False</em>, <em>auto_delete=False</em>, <em>internal=False</em>, <em>nowait=False</em>, <em>arguments={}</em><big>)</big><a class="headerlink" href="#spec.DriverMixin.exchange_declare" title="Permalink to this definition">¶</a></dt>
+<dd><p>Implements the Exchange.Declare AMQP command. For context and usage:</p>
+<blockquote>
+<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html">http://www.rabbitmq.com/amqp-0-9-1-quickref.html</a></div></blockquote>
+<p>This is a synchronous method that will not allow other commands to be
+send to the AMQP broker until it has completed. It is recommended to
+pass in a parameter to callback to be notified when this command has
+completed.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="spec.DriverMixin.exchange_delete">
+<tt class="descname">exchange_delete</tt><big>(</big><em>callback=None</em>, <em>ticket=0</em>, <em>exchange=None</em>, <em>if_unused=False</em>, <em>nowait=False</em><big>)</big><a class="headerlink" href="#spec.DriverMixin.exchange_delete" title="Permalink to this definition">¶</a></dt>
+<dd><p>Implements the Exchange.Delete AMQP command. For context and usage:</p>
+<blockquote>
+<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html">http://www.rabbitmq.com/amqp-0-9-1-quickref.html</a></div></blockquote>
+<p>This is a synchronous method that will not allow other commands to be
+send to the AMQP broker until it has completed. It is recommended to
+pass in a parameter to callback to be notified when this command has
+completed.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="spec.DriverMixin.queue_bind">
+<tt class="descname">queue_bind</tt><big>(</big><em>callback=None</em>, <em>ticket=0</em>, <em>queue=''</em>, <em>exchange=None</em>, <em>routing_key=''</em>, <em>nowait=False</em>, <em>arguments={}</em><big>)</big><a class="headerlink" href="#spec.DriverMixin.queue_bind" title="Permalink to this definition">¶</a></dt>
+<dd><p>Implements the <a class="reference internal" href="#spec.Queue.Bind" title="spec.Queue.Bind"><tt class="xref py py-meth docutils literal"><span class="pre">Bind()</span></tt></a> AMQP command. For context and usage:</p>
+<blockquote>
+<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html">http://www.rabbitmq.com/amqp-0-9-1-quickref.html</a></div></blockquote>
+<p>This is a synchronous method that will not allow other commands to be
+send to the AMQP broker until it has completed. It is recommended to
+pass in a parameter to callback to be notified when this command has
+completed.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="spec.DriverMixin.queue_declare">
+<tt class="descname">queue_declare</tt><big>(</big><em>callback=None</em>, <em>ticket=0</em>, <em>queue=''</em>, <em>passive=False</em>, <em>durable=False</em>, <em>exclusive=False</em>, <em>auto_delete=False</em>, <em>nowait=False</em>, <em>arguments={}</em><big>)</big><a class="headerlink" href="#spec.DriverMixin.queue_declare" title="Permalink to this definition">¶</a></dt>
+<dd><p>Implements the <a class="reference internal" href="#spec.Queue.Declare" title="spec.Queue.Declare"><tt class="xref py py-meth docutils literal"><span class="pre">Declare()</span></tt></a> AMQP command. For context and usage:</p>
+<blockquote>
+<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html">http://www.rabbitmq.com/amqp-0-9-1-quickref.html</a></div></blockquote>
+<p>This is a synchronous method that will not allow other commands to be
+send to the AMQP broker until it has completed. It is recommended to
+pass in a parameter to callback to be notified when this command has
+completed.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="spec.DriverMixin.queue_delete">
+<tt class="descname">queue_delete</tt><big>(</big><em>callback=None</em>, <em>ticket=0</em>, <em>queue=''</em>, <em>if_unused=False</em>, <em>if_empty=False</em>, <em>nowait=False</em><big>)</big><a class="headerlink" href="#spec.DriverMixin.queue_delete" title="Permalink to this definition">¶</a></dt>
+<dd><p>Implements the <a class="reference internal" href="#spec.Queue.Delete" title="spec.Queue.Delete"><tt class="xref py py-meth docutils literal"><span class="pre">Delete()</span></tt></a> AMQP command. For context and usage:</p>
+<blockquote>
+<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html">http://www.rabbitmq.com/amqp-0-9-1-quickref.html</a></div></blockquote>
+<p>This is a synchronous method that will not allow other commands to be
+send to the AMQP broker until it has completed. It is recommended to
+pass in a parameter to callback to be notified when this command has
+completed.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="spec.DriverMixin.queue_purge">
+<tt class="descname">queue_purge</tt><big>(</big><em>callback=None</em>, <em>ticket=0</em>, <em>queue=''</em>, <em>nowait=False</em><big>)</big><a class="headerlink" href="#spec.DriverMixin.queue_purge" title="Permalink to this definition">¶</a></dt>
+<dd><p>Implements the <a class="reference internal" href="#spec.Queue.Purge" title="spec.Queue.Purge"><tt class="xref py py-meth docutils literal"><span class="pre">Purge()</span></tt></a> AMQP command. For context and usage:</p>
+<blockquote>
+<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html">http://www.rabbitmq.com/amqp-0-9-1-quickref.html</a></div></blockquote>
+<p>This is a synchronous method that will not allow other commands to be
+send to the AMQP broker until it has completed. It is recommended to
+pass in a parameter to callback to be notified when this command has
+completed.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="spec.DriverMixin.queue_unbind">
+<tt class="descname">queue_unbind</tt><big>(</big><em>callback=None</em>, <em>ticket=0</em>, <em>queue=''</em>, <em>exchange=None</em>, <em>routing_key=''</em>, <em>arguments={}</em><big>)</big><a class="headerlink" href="#spec.DriverMixin.queue_unbind" title="Permalink to this definition">¶</a></dt>
+<dd><p>Implements the <a class="reference internal" href="#spec.Queue.Unbind" title="spec.Queue.Unbind"><tt class="xref py py-meth docutils literal"><span class="pre">Unbind()</span></tt></a> AMQP command. For context and usage:</p>
+<blockquote>
+<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html">http://www.rabbitmq.com/amqp-0-9-1-quickref.html</a></div></blockquote>
+<p>This is a synchronous method that will not allow other commands to be
+send to the AMQP broker until it has completed. It is recommended to
+pass in a parameter to callback to be notified when this command has
+completed.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="spec.DriverMixin.tx_commit">
+<tt class="descname">tx_commit</tt><big>(</big><em>callback=None</em><big>)</big><a class="headerlink" href="#spec.DriverMixin.tx_commit" title="Permalink to this definition">¶</a></dt>
+<dd><p>Implements the Tx.Commit AMQP command. For context and usage:</p>
+<blockquote>
+<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html">http://www.rabbitmq.com/amqp-0-9-1-quickref.html</a></div></blockquote>
+<p>This is a synchronous method that will not allow other commands to be
+send to the AMQP broker until it has completed. It is recommended to
+pass in a parameter to callback to be notified when this command has
+completed.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="spec.DriverMixin.tx_rollback">
+<tt class="descname">tx_rollback</tt><big>(</big><em>callback=None</em><big>)</big><a class="headerlink" href="#spec.DriverMixin.tx_rollback" title="Permalink to this definition">¶</a></dt>
+<dd><p>Implements the Tx.Rollback AMQP command. For context and usage:</p>
+<blockquote>
+<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html">http://www.rabbitmq.com/amqp-0-9-1-quickref.html</a></div></blockquote>
+<p>This is a synchronous method that will not allow other commands to be
+send to the AMQP broker until it has completed. It is recommended to
+pass in a parameter to callback to be notified when this command has
+completed.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="spec.DriverMixin.tx_select">
+<tt class="descname">tx_select</tt><big>(</big><em>callback=None</em><big>)</big><a class="headerlink" href="#spec.DriverMixin.tx_select" title="Permalink to this definition">¶</a></dt>
+<dd><p>Implements the Tx.Select AMQP command. For context and usage:</p>
+<blockquote>
+<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html">http://www.rabbitmq.com/amqp-0-9-1-quickref.html</a></div></blockquote>
+<p>This is a synchronous method that will not allow other commands to be
+send to the AMQP broker until it has completed. It is recommended to
+pass in a parameter to callback to be notified when this command has
+completed.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="spec.Exchange">
+<em class="property">class </em><tt class="descclassname">spec.</tt><tt class="descname">Exchange</tt><a class="headerlink" href="#spec.Exchange" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="class">
+<dt id="spec.Exchange.Bind">
+<em class="property">class </em><tt class="descname">Bind</tt><big>(</big><em>ticket=0</em>, <em>destination=None</em>, <em>source=None</em>, <em>routing_key=''</em>, <em>nowait=False</em>, <em>arguments={}</em><big>)</big><a class="headerlink" href="#spec.Exchange.Bind" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Exchange.Bind.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 2621470</em><a class="headerlink" href="#spec.Exchange.Bind.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Exchange.Bind.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Exchange.Bind'</em><a class="headerlink" href="#spec.Exchange.Bind.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Exchange.Bind.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Exchange.Bind.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Exchange.Bind.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Exchange.Bind.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Exchange.Bind.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Exchange.Bind.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Exchange.Bind.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Exchange.Bind.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Exchange.Bind.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Exchange.Bind.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Exchange.Bind.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Exchange.Bind.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="spec.Exchange.BindOk">
+<em class="property">class </em><tt class="descclassname">Exchange.</tt><tt class="descname">BindOk</tt><a class="headerlink" href="#spec.Exchange.BindOk" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Exchange.BindOk.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 2621471</em><a class="headerlink" href="#spec.Exchange.BindOk.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Exchange.BindOk.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Exchange.BindOk'</em><a class="headerlink" href="#spec.Exchange.BindOk.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Exchange.BindOk.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Exchange.BindOk.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Exchange.BindOk.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Exchange.BindOk.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Exchange.BindOk.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Exchange.BindOk.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Exchange.BindOk.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Exchange.BindOk.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Exchange.BindOk.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Exchange.BindOk.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Exchange.BindOk.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Exchange.BindOk.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="spec.Exchange.Declare">
+<em class="property">class </em><tt class="descclassname">Exchange.</tt><tt class="descname">Declare</tt><big>(</big><em>ticket=0</em>, <em>exchange=None</em>, <em>type='direct'</em>, <em>passive=False</em>, <em>durable=False</em>, <em>auto_delete=False</em>, <em>internal=False</em>, <em>nowait=False</em>, <em>arguments={}</em><big>)</big><a class="headerlink" href="#spec.Exchange.Declare" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Exchange.Declare.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 2621450</em><a class="headerlink" href="#spec.Exchange.Declare.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Exchange.Declare.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Exchange.Declare'</em><a class="headerlink" href="#spec.Exchange.Declare.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Exchange.Declare.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Exchange.Declare.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Exchange.Declare.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Exchange.Declare.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Exchange.Declare.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Exchange.Declare.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Exchange.Declare.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Exchange.Declare.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Exchange.Declare.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Exchange.Declare.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Exchange.Declare.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Exchange.Declare.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="spec.Exchange.DeclareOk">
+<em class="property">class </em><tt class="descclassname">Exchange.</tt><tt class="descname">DeclareOk</tt><a class="headerlink" href="#spec.Exchange.DeclareOk" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Exchange.DeclareOk.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 2621451</em><a class="headerlink" href="#spec.Exchange.DeclareOk.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Exchange.DeclareOk.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Exchange.DeclareOk'</em><a class="headerlink" href="#spec.Exchange.DeclareOk.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Exchange.DeclareOk.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Exchange.DeclareOk.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Exchange.DeclareOk.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Exchange.DeclareOk.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Exchange.DeclareOk.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Exchange.DeclareOk.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Exchange.DeclareOk.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Exchange.DeclareOk.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Exchange.DeclareOk.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Exchange.DeclareOk.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Exchange.DeclareOk.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Exchange.DeclareOk.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="spec.Exchange.Delete">
+<em class="property">class </em><tt class="descclassname">Exchange.</tt><tt class="descname">Delete</tt><big>(</big><em>ticket=0</em>, <em>exchange=None</em>, <em>if_unused=False</em>, <em>nowait=False</em><big>)</big><a class="headerlink" href="#spec.Exchange.Delete" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Exchange.Delete.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 2621460</em><a class="headerlink" href="#spec.Exchange.Delete.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Exchange.Delete.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Exchange.Delete'</em><a class="headerlink" href="#spec.Exchange.Delete.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Exchange.Delete.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Exchange.Delete.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Exchange.Delete.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Exchange.Delete.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Exchange.Delete.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Exchange.Delete.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Exchange.Delete.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Exchange.Delete.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Exchange.Delete.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Exchange.Delete.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Exchange.Delete.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Exchange.Delete.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="spec.Exchange.DeleteOk">
+<em class="property">class </em><tt class="descclassname">Exchange.</tt><tt class="descname">DeleteOk</tt><a class="headerlink" href="#spec.Exchange.DeleteOk" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Exchange.DeleteOk.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 2621461</em><a class="headerlink" href="#spec.Exchange.DeleteOk.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Exchange.DeleteOk.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Exchange.DeleteOk'</em><a class="headerlink" href="#spec.Exchange.DeleteOk.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Exchange.DeleteOk.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Exchange.DeleteOk.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Exchange.DeleteOk.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Exchange.DeleteOk.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Exchange.DeleteOk.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Exchange.DeleteOk.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Exchange.DeleteOk.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Exchange.DeleteOk.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Exchange.DeleteOk.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Exchange.DeleteOk.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Exchange.DeleteOk.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Exchange.DeleteOk.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Exchange.INDEX">
+<tt class="descclassname">Exchange.</tt><tt class="descname">INDEX</tt><em class="property"> = 40</em><a class="headerlink" href="#spec.Exchange.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Exchange.NAME">
+<tt class="descclassname">Exchange.</tt><tt class="descname">NAME</tt><em class="property"> = 'Exchange'</em><a class="headerlink" href="#spec.Exchange.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="class">
+<dt id="spec.Exchange.Unbind">
+<em class="property">class </em><tt class="descclassname">Exchange.</tt><tt class="descname">Unbind</tt><big>(</big><em>ticket=0</em>, <em>destination=None</em>, <em>source=None</em>, <em>routing_key=''</em>, <em>nowait=False</em>, <em>arguments={}</em><big>)</big><a class="headerlink" href="#spec.Exchange.Unbind" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Exchange.Unbind.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 2621480</em><a class="headerlink" href="#spec.Exchange.Unbind.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Exchange.Unbind.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Exchange.Unbind'</em><a class="headerlink" href="#spec.Exchange.Unbind.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Exchange.Unbind.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Exchange.Unbind.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Exchange.Unbind.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Exchange.Unbind.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Exchange.Unbind.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Exchange.Unbind.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Exchange.Unbind.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Exchange.Unbind.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Exchange.Unbind.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Exchange.Unbind.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Exchange.Unbind.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Exchange.Unbind.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="spec.Exchange.UnbindOk">
+<em class="property">class </em><tt class="descclassname">Exchange.</tt><tt class="descname">UnbindOk</tt><a class="headerlink" href="#spec.Exchange.UnbindOk" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Exchange.UnbindOk.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 2621491</em><a class="headerlink" href="#spec.Exchange.UnbindOk.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Exchange.UnbindOk.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Exchange.UnbindOk'</em><a class="headerlink" href="#spec.Exchange.UnbindOk.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Exchange.UnbindOk.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Exchange.UnbindOk.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Exchange.UnbindOk.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Exchange.UnbindOk.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Exchange.UnbindOk.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Exchange.UnbindOk.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Exchange.UnbindOk.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Exchange.UnbindOk.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Exchange.UnbindOk.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Exchange.UnbindOk.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Exchange.UnbindOk.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Exchange.UnbindOk.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Exchange.name">
+<tt class="descclassname">Exchange.</tt><tt class="descname">name</tt><a class="headerlink" href="#spec.Exchange.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="spec.Queue">
+<em class="property">class </em><tt class="descclassname">spec.</tt><tt class="descname">Queue</tt><a class="headerlink" href="#spec.Queue" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="class">
+<dt id="spec.Queue.Bind">
+<em class="property">class </em><tt class="descname">Bind</tt><big>(</big><em>ticket=0</em>, <em>queue=''</em>, <em>exchange=None</em>, <em>routing_key=''</em>, <em>nowait=False</em>, <em>arguments={}</em><big>)</big><a class="headerlink" href="#spec.Queue.Bind" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Queue.Bind.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 3276820</em><a class="headerlink" href="#spec.Queue.Bind.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Queue.Bind.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Queue.Bind'</em><a class="headerlink" href="#spec.Queue.Bind.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Queue.Bind.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Queue.Bind.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Queue.Bind.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Queue.Bind.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Queue.Bind.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Queue.Bind.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Queue.Bind.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Queue.Bind.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Queue.Bind.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Queue.Bind.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Queue.Bind.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Queue.Bind.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="spec.Queue.BindOk">
+<em class="property">class </em><tt class="descclassname">Queue.</tt><tt class="descname">BindOk</tt><a class="headerlink" href="#spec.Queue.BindOk" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Queue.BindOk.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 3276821</em><a class="headerlink" href="#spec.Queue.BindOk.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Queue.BindOk.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Queue.BindOk'</em><a class="headerlink" href="#spec.Queue.BindOk.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Queue.BindOk.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Queue.BindOk.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Queue.BindOk.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Queue.BindOk.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Queue.BindOk.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Queue.BindOk.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Queue.BindOk.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Queue.BindOk.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Queue.BindOk.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Queue.BindOk.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Queue.BindOk.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Queue.BindOk.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="spec.Queue.Declare">
+<em class="property">class </em><tt class="descclassname">Queue.</tt><tt class="descname">Declare</tt><big>(</big><em>ticket=0</em>, <em>queue=''</em>, <em>passive=False</em>, <em>durable=False</em>, <em>exclusive=False</em>, <em>auto_delete=False</em>, <em>nowait=False</em>, <em>arguments={}</em><big>)</big><a class="headerlink" href="#spec.Queue.Declare" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Queue.Declare.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 3276810</em><a class="headerlink" href="#spec.Queue.Declare.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Queue.Declare.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Queue.Declare'</em><a class="headerlink" href="#spec.Queue.Declare.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Queue.Declare.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Queue.Declare.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Queue.Declare.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Queue.Declare.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Queue.Declare.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Queue.Declare.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Queue.Declare.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Queue.Declare.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Queue.Declare.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Queue.Declare.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Queue.Declare.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Queue.Declare.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="spec.Queue.DeclareOk">
+<em class="property">class </em><tt class="descclassname">Queue.</tt><tt class="descname">DeclareOk</tt><big>(</big><em>queue=None</em>, <em>message_count=None</em>, <em>consumer_count=None</em><big>)</big><a class="headerlink" href="#spec.Queue.DeclareOk" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Queue.DeclareOk.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 3276811</em><a class="headerlink" href="#spec.Queue.DeclareOk.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Queue.DeclareOk.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Queue.DeclareOk'</em><a class="headerlink" href="#spec.Queue.DeclareOk.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Queue.DeclareOk.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Queue.DeclareOk.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Queue.DeclareOk.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Queue.DeclareOk.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Queue.DeclareOk.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Queue.DeclareOk.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Queue.DeclareOk.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Queue.DeclareOk.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Queue.DeclareOk.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Queue.DeclareOk.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Queue.DeclareOk.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Queue.DeclareOk.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="spec.Queue.Delete">
+<em class="property">class </em><tt class="descclassname">Queue.</tt><tt class="descname">Delete</tt><big>(</big><em>ticket=0</em>, <em>queue=''</em>, <em>if_unused=False</em>, <em>if_empty=False</em>, <em>nowait=False</em><big>)</big><a class="headerlink" href="#spec.Queue.Delete" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Queue.Delete.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 3276840</em><a class="headerlink" href="#spec.Queue.Delete.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Queue.Delete.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Queue.Delete'</em><a class="headerlink" href="#spec.Queue.Delete.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Queue.Delete.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Queue.Delete.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Queue.Delete.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Queue.Delete.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Queue.Delete.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Queue.Delete.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Queue.Delete.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Queue.Delete.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Queue.Delete.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Queue.Delete.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Queue.Delete.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Queue.Delete.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="spec.Queue.DeleteOk">
+<em class="property">class </em><tt class="descclassname">Queue.</tt><tt class="descname">DeleteOk</tt><big>(</big><em>message_count=None</em><big>)</big><a class="headerlink" href="#spec.Queue.DeleteOk" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Queue.DeleteOk.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 3276841</em><a class="headerlink" href="#spec.Queue.DeleteOk.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Queue.DeleteOk.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Queue.DeleteOk'</em><a class="headerlink" href="#spec.Queue.DeleteOk.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Queue.DeleteOk.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Queue.DeleteOk.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Queue.DeleteOk.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Queue.DeleteOk.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Queue.DeleteOk.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Queue.DeleteOk.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Queue.DeleteOk.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Queue.DeleteOk.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Queue.DeleteOk.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Queue.DeleteOk.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Queue.DeleteOk.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Queue.DeleteOk.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Queue.INDEX">
+<tt class="descclassname">Queue.</tt><tt class="descname">INDEX</tt><em class="property"> = 50</em><a class="headerlink" href="#spec.Queue.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Queue.NAME">
+<tt class="descclassname">Queue.</tt><tt class="descname">NAME</tt><em class="property"> = 'Queue'</em><a class="headerlink" href="#spec.Queue.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="class">
+<dt id="spec.Queue.Purge">
+<em class="property">class </em><tt class="descclassname">Queue.</tt><tt class="descname">Purge</tt><big>(</big><em>ticket=0</em>, <em>queue=''</em>, <em>nowait=False</em><big>)</big><a class="headerlink" href="#spec.Queue.Purge" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Queue.Purge.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 3276830</em><a class="headerlink" href="#spec.Queue.Purge.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Queue.Purge.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Queue.Purge'</em><a class="headerlink" href="#spec.Queue.Purge.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Queue.Purge.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Queue.Purge.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Queue.Purge.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Queue.Purge.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Queue.Purge.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Queue.Purge.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Queue.Purge.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Queue.Purge.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Queue.Purge.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Queue.Purge.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Queue.Purge.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Queue.Purge.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="spec.Queue.PurgeOk">
+<em class="property">class </em><tt class="descclassname">Queue.</tt><tt class="descname">PurgeOk</tt><big>(</big><em>message_count=None</em><big>)</big><a class="headerlink" href="#spec.Queue.PurgeOk" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Queue.PurgeOk.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 3276831</em><a class="headerlink" href="#spec.Queue.PurgeOk.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Queue.PurgeOk.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Queue.PurgeOk'</em><a class="headerlink" href="#spec.Queue.PurgeOk.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Queue.PurgeOk.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Queue.PurgeOk.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Queue.PurgeOk.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Queue.PurgeOk.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Queue.PurgeOk.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Queue.PurgeOk.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Queue.PurgeOk.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Queue.PurgeOk.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Queue.PurgeOk.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Queue.PurgeOk.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Queue.PurgeOk.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Queue.PurgeOk.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="spec.Queue.Unbind">
+<em class="property">class </em><tt class="descclassname">Queue.</tt><tt class="descname">Unbind</tt><big>(</big><em>ticket=0</em>, <em>queue=''</em>, <em>exchange=None</em>, <em>routing_key=''</em>, <em>arguments={}</em><big>)</big><a class="headerlink" href="#spec.Queue.Unbind" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Queue.Unbind.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 3276850</em><a class="headerlink" href="#spec.Queue.Unbind.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Queue.Unbind.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Queue.Unbind'</em><a class="headerlink" href="#spec.Queue.Unbind.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Queue.Unbind.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Queue.Unbind.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Queue.Unbind.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Queue.Unbind.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Queue.Unbind.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Queue.Unbind.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Queue.Unbind.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Queue.Unbind.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Queue.Unbind.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Queue.Unbind.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Queue.Unbind.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Queue.Unbind.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="spec.Queue.UnbindOk">
+<em class="property">class </em><tt class="descclassname">Queue.</tt><tt class="descname">UnbindOk</tt><a class="headerlink" href="#spec.Queue.UnbindOk" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Queue.UnbindOk.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 3276851</em><a class="headerlink" href="#spec.Queue.UnbindOk.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Queue.UnbindOk.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Queue.UnbindOk'</em><a class="headerlink" href="#spec.Queue.UnbindOk.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Queue.UnbindOk.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Queue.UnbindOk.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Queue.UnbindOk.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Queue.UnbindOk.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Queue.UnbindOk.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Queue.UnbindOk.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Queue.UnbindOk.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Queue.UnbindOk.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Queue.UnbindOk.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Queue.UnbindOk.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Queue.UnbindOk.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Queue.UnbindOk.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Queue.name">
+<tt class="descclassname">Queue.</tt><tt class="descname">name</tt><a class="headerlink" href="#spec.Queue.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="spec.Tx">
+<em class="property">class </em><tt class="descclassname">spec.</tt><tt class="descname">Tx</tt><a class="headerlink" href="#spec.Tx" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="class">
+<dt id="spec.Tx.Commit">
+<em class="property">class </em><tt class="descname">Commit</tt><a class="headerlink" href="#spec.Tx.Commit" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Tx.Commit.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 5898260</em><a class="headerlink" href="#spec.Tx.Commit.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Tx.Commit.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Tx.Commit'</em><a class="headerlink" href="#spec.Tx.Commit.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Tx.Commit.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Tx.Commit.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Tx.Commit.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Tx.Commit.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Tx.Commit.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Tx.Commit.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Tx.Commit.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Tx.Commit.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Tx.Commit.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Tx.Commit.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Tx.Commit.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Tx.Commit.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="spec.Tx.CommitOk">
+<em class="property">class </em><tt class="descclassname">Tx.</tt><tt class="descname">CommitOk</tt><a class="headerlink" href="#spec.Tx.CommitOk" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Tx.CommitOk.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 5898261</em><a class="headerlink" href="#spec.Tx.CommitOk.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Tx.CommitOk.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Tx.CommitOk'</em><a class="headerlink" href="#spec.Tx.CommitOk.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Tx.CommitOk.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Tx.CommitOk.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Tx.CommitOk.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Tx.CommitOk.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Tx.CommitOk.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Tx.CommitOk.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Tx.CommitOk.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Tx.CommitOk.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Tx.CommitOk.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Tx.CommitOk.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Tx.CommitOk.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Tx.CommitOk.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Tx.INDEX">
+<tt class="descclassname">Tx.</tt><tt class="descname">INDEX</tt><em class="property"> = 90</em><a class="headerlink" href="#spec.Tx.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Tx.NAME">
+<tt class="descclassname">Tx.</tt><tt class="descname">NAME</tt><em class="property"> = 'Tx'</em><a class="headerlink" href="#spec.Tx.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="class">
+<dt id="spec.Tx.Rollback">
+<em class="property">class </em><tt class="descclassname">Tx.</tt><tt class="descname">Rollback</tt><a class="headerlink" href="#spec.Tx.Rollback" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Tx.Rollback.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 5898270</em><a class="headerlink" href="#spec.Tx.Rollback.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Tx.Rollback.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Tx.Rollback'</em><a class="headerlink" href="#spec.Tx.Rollback.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Tx.Rollback.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Tx.Rollback.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Tx.Rollback.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Tx.Rollback.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Tx.Rollback.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Tx.Rollback.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Tx.Rollback.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Tx.Rollback.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Tx.Rollback.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Tx.Rollback.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Tx.Rollback.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Tx.Rollback.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="spec.Tx.RollbackOk">
+<em class="property">class </em><tt class="descclassname">Tx.</tt><tt class="descname">RollbackOk</tt><a class="headerlink" href="#spec.Tx.RollbackOk" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Tx.RollbackOk.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 5898271</em><a class="headerlink" href="#spec.Tx.RollbackOk.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Tx.RollbackOk.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Tx.RollbackOk'</em><a class="headerlink" href="#spec.Tx.RollbackOk.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Tx.RollbackOk.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Tx.RollbackOk.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Tx.RollbackOk.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Tx.RollbackOk.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Tx.RollbackOk.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Tx.RollbackOk.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Tx.RollbackOk.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Tx.RollbackOk.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Tx.RollbackOk.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Tx.RollbackOk.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Tx.RollbackOk.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Tx.RollbackOk.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="spec.Tx.Select">
+<em class="property">class </em><tt class="descclassname">Tx.</tt><tt class="descname">Select</tt><a class="headerlink" href="#spec.Tx.Select" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Tx.Select.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 5898250</em><a class="headerlink" href="#spec.Tx.Select.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Tx.Select.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Tx.Select'</em><a class="headerlink" href="#spec.Tx.Select.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Tx.Select.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Tx.Select.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Tx.Select.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Tx.Select.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Tx.Select.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Tx.Select.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Tx.Select.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Tx.Select.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Tx.Select.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Tx.Select.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Tx.Select.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Tx.Select.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="spec.Tx.SelectOk">
+<em class="property">class </em><tt class="descclassname">Tx.</tt><tt class="descname">SelectOk</tt><a class="headerlink" href="#spec.Tx.SelectOk" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="spec.Tx.SelectOk.INDEX">
+<tt class="descname">INDEX</tt><em class="property"> = 5898251</em><a class="headerlink" href="#spec.Tx.SelectOk.INDEX" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Tx.SelectOk.NAME">
+<tt class="descname">NAME</tt><em class="property"> = 'Tx.SelectOk'</em><a class="headerlink" href="#spec.Tx.SelectOk.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Tx.SelectOk.decode">
+<tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Tx.SelectOk.decode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Tx.SelectOk.encode">
+<tt class="descname">encode</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Tx.SelectOk.encode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Tx.SelectOk.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Tx.SelectOk.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Tx.SelectOk.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#spec.Tx.SelectOk.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Tx.SelectOk.name">
+<tt class="descname">name</tt><a class="headerlink" href="#spec.Tx.SelectOk.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Tx.SelectOk.synchronous">
+<tt class="descname">synchronous</tt><a class="headerlink" href="#spec.Tx.SelectOk.synchronous" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="attribute">
+<dt id="spec.Tx.name">
+<tt class="descclassname">Tx.</tt><tt class="descname">name</tt><a class="headerlink" href="#spec.Tx.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="function">
+<dt id="spec.has_content">
+<tt class="descclassname">spec.</tt><tt class="descname">has_content</tt><big>(</big><em>methodNumber</em><big>)</big><a class="headerlink" href="#spec.has_content" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="simplebuffer.html"
+                        title="previous chapter">SimpleBuffer</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="table.html"
+                        title="next chapter">Table</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/spec.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" size="18" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="table.html" title="Table"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="simplebuffer.html" title="SimpleBuffer"
+             >previous</a> |</li>
+        <li><a href="index.html">Pika 0.9a documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2011, Tony Garnock-Jones, Gavin M. Roy and others.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1pre.
+    </div>
+  </body>
+</html>
