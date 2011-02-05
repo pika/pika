@@ -60,11 +60,11 @@ WRITE = tornado.ioloop.IOLoop.WRITE
 
 class TornadoConnection(BaseConnection):
 
-    def connect(self, host, port):
+    def _adapter_connect(self, host, port):
         """
         Connect to the given host and port
         """
-        BaseConnection.connect(self, host, port)
+        BaseConnection._adapter_connect(self, host, port)
 
         # Setup our ioloop
         self.ioloop = tornado.ioloop.IOLoop.instance()
@@ -77,7 +77,7 @@ class TornadoConnection(BaseConnection):
         # Let everyone know we're connected
         self._on_connected()
 
-    def disconnect(self):
+    def _adapter_disconnect(self):
         log.debug('%s.disconnect', self.__class__.__name__)
 
         # Remove from the IOLoop

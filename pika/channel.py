@@ -158,7 +158,7 @@ class ChannelTransport(object):
         log.debug("%s.send_method: %s(%s)", self.__class__.__name__,
                       method, content)
 
-        self.connection.send_method(self.channel_number, method, content)
+        self.connection._send_method(self.channel_number, method, content)
 
     def _on_event_ok(self, frame):
         """

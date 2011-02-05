@@ -53,6 +53,7 @@ import time
 
 from pika.adapters.base_connection import BaseConnection
 
+# One of select, epoll, kqueue or poll
 SELECT_TYPE = None
 
 # Use epoll's constants to keep life easy
@@ -72,11 +73,11 @@ class SelectConnection(BaseConnection):
         BaseConnection.__init__(self, parameters, on_open_callback,
                                 reconnection_strategy)
 
-    def connect(self, host, port):
+    def _adapter_connect(self, host, port):
         """
         Connect to the given host and port
         """
-        BaseConnection.connect(self, host, port)
+        BaseConnection._adapter_connect(self, host, port)
 
         # Setup our and start our IOLoop and Poller
         self.ioloop = IOLoop.instance()
@@ -86,7 +87,7 @@ class SelectConnection(BaseConnection):
         # Let everyone know we're connected
         self._on_connected()
 
-    def flush_outbound(self):
+    def _flush_outbound(self):
         """
         Call the state manager who will figure out that we need to write then
         call the poller's poll function to force it to process events.
@@ -143,17 +144,17 @@ class IOLoop(object):
         self.poller = None
 
         # Decide what poller to use and set it up as appropriate
-        if hasattr(select, 'epoll'):
+        if hasattr(select, 'poll'):
+            if not SELECT_TYPE or SELECT_TYPE == 'poll':
+                self.poller = PollPoller(self.fileno, handler, events)
+
+        if not self.poller and hasattr(select, 'epoll'):
             if not SELECT_TYPE or SELECT_TYPE == 'epoll':
                 self.poller = EPollPoller(self.fileno, handler, events)
 
         if not self.poller and hasattr(select, 'kqueue'):
             if not SELECT_TYPE or SELECT_TYPE == 'kqueue':
                 self.poller = KQueuePoller(self.fileno, handler, events)
-
-        if not self.poller and hasattr(select, 'poll'):
-            if not SELECT_TYPE or SELECT_TYPE == 'poll':
-                self.poller = PollPoller(self.fileno, handler, events)
 
         # We couldn't satisfy epoll, kqueue or poll
         if not self.poller:

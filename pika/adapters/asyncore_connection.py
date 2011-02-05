@@ -113,7 +113,7 @@ class AsyncoreDispatcher(asyncore.dispatcher):
             return self.disconnect()
 
         # Pass the data into our top level frame dispatching method
-        self.connection.on_data_available(data)
+        self.connection._on_data_available(data)
 
     def handle_write(self):
         """
@@ -223,7 +223,7 @@ class AsyncoreDispatcher(asyncore.dispatcher):
 
 class AsyncoreConnection(BaseConnection):
 
-    def connect(self, host, port):
+    def _adapter_connect(self, host, port):
         """
         Connect to our RabbitMQ boker using AsyncoreDispatcher, then setting
         Pika's suggested buffer size for socket reading and writing. We pass
@@ -236,10 +236,10 @@ class AsyncoreConnection(BaseConnection):
         # Map some core values for compatibility
         self.ioloop._handle_error = self._handle_error
         self.ioloop.connection = self
-        self.ioloop.suggested_buffer_size = self.suggested_buffer_size
+        self.ioloop.suggested_buffer_size = self._suggested_buffer_size
         self.socket = self.ioloop.socket
 
-    def flush_outbound(self):
+    def _flush_outbound(self):
         """
         We really can't flush the socket in asyncore, so instead just use this
         to toggle a flag that lets it know we want to write to the socket.

@@ -6,7 +6,6 @@
 # compliance with the License. You may obtain a copy of the License at
 # http://www.mozilla.org/MPL/
 #
-# Software distributed under the License is distributed on an "AS IS"
 # basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 # the License for the specific language governing rights and
 # limitations under the License.
@@ -45,6 +44,20 @@
 # this file under the terms of any one of the MPL or the GPL.
 #
 # ***** END LICENSE BLOCK *****
+"""
+Pika provides multiple adapters to connect to RabbitMQ:
+
+- adapters.select_connection.SelectConnection: A native event based connection
+  adapter that implements select, kqueue, poll and epoll.
+- adapters.asyncore_connection.AsyncoreConnection: Legacy adapter kept for
+  convenience of previous Pika users. It is recommended to use the
+  SelectConnection instead of AsyncoreConnection.
+- adapters.tornado_connection.TornadoConnection: Connection adapter for use
+  with the Tornado web framework.
+- adapters.blocking_connection.BlockingConnection: Enables blocking,
+  synchronous operation on top of library for simple uses. This is not
+  recommended and is included for legacy reasons only.
+"""
 
 import errno
 import pika.log as log
@@ -57,7 +70,6 @@ from pika.connection import Connection
 READ = 0x0001
 WRITE = 0x0004
 ERROR = 0x0008
-
 
 class BaseConnection(Connection):
 
@@ -76,7 +88,7 @@ class BaseConnection(Connection):
         Connection.__init__(self, parameters, on_open_callback,
                             reconnection_strategy)
 
-    def connect(self, host, port):
+    def _adapter_connect(self, host, port):
         """
         Base connection function to be extended as needed
         """
@@ -92,16 +104,16 @@ class BaseConnection(Connection):
     def remove_timeout(self, timeout_id):
         self.ioloop.remove_timeout(timeout_id)
 
-    def erase_credentials(self):
+    def _erase_credentials(self):
         pass
 
-    def flush_outbound(self):
+    def _flush_outbound(self):
         """
         Call the state manager who will figure out that we need to write.
         """
         self._manage_event_state()
 
-    def disconnect(self):
+    def _adapter_disconnect(self):
         """
         Called if we are forced to disconnect for some reason from Connection
         """
@@ -177,7 +189,7 @@ class BaseConnection(Connection):
         """
         log.debug("%s.handle_read", self.__class__.__name__)
         try:
-            data = self.socket.recv(self.suggested_buffer_size)
+            data = self.socket.recv(self._suggested_buffer_size)
         except socket.timeout:
             raise
         except socket.error as error:
@@ -185,10 +197,10 @@ class BaseConnection(Connection):
 
         # We received no data, so disconnect
         if not data:
-            return self.disconnect()
+            return self._adapter_disconnect()
 
         # Pass the data into our top level frame dispatching method
-        self.on_data_available(data)
+        self._on_data_available(data)
 
     def _handle_write(self):
         """
@@ -196,7 +208,7 @@ class BaseConnection(Connection):
         Pika's suggested buffer size of data (be nice to Windows)
         """
         log.debug("%s.handle_write", self.__class__.__name__)
-        data = self.outbound_buffer.read(self.suggested_buffer_size)
+        data = self.outbound_buffer.read(self._suggested_buffer_size)
         try:
             bytes_written = self.socket.send(data)
         except socket.timeout:

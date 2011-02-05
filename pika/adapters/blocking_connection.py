@@ -79,7 +79,7 @@ class BlockingConnection(BaseConnection):
 
         BaseConnection.__init__(self, parameters, None, reconnection_strategy)
 
-    def connect(self, host, port):
+    def _adapter_connect(self, host, port):
 
         BaseConnection.connect(self, host, port)
         self.socket.setblocking(1)
@@ -87,7 +87,7 @@ class BlockingConnection(BaseConnection):
         self._socket_timeouts = 0
         self._on_connected()
         while not self.is_open:
-            self.flush_outbound()
+            self._flush_outbound()
             self._handle_read()
         return self
 
@@ -108,7 +108,7 @@ class BlockingConnection(BaseConnection):
         # Close up our Connection state
         self._on_connection_closed(None, True)
 
-    def flush_outbound(self):
+    def _flush_outbound(self):
         try:
             self._handle_write()
             self._socket_timeouts = 0
