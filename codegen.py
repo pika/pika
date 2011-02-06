@@ -81,30 +81,38 @@ def fieldvalue(v):
     else:
         return repr(v)
 
+
 def normalize_separators(s):
     s = s.replace('-', '_')
     s = s.replace(' ', '_')
     return s
 
+
 def pyize(s):
     s = normalize_separators(s)
-    if s in ('global', 'class'): s = s + '_'
+    if s in ('global', 'class'):
+        s += '_'
     return s
+
 
 def camel(s):
     return normalize_separators(s).title().replace('_', '')
 
+
 AmqpMethod.structName = lambda m: camel(m.klass.name) + '.' + camel(m.name)
 AmqpClass.structName = lambda c: camel(c.name) + "Properties"
 
+
 def constantName(s):
     return '_'.join(re.split('[- ]', s.upper()))
+
 
 def flagName(c, f):
     if c:
         return c.structName() + '.' + constantName('flag_' + f.name)
     else:
         return constantName('flag_' + f.name)
+
 
 def generate(specPath):
     spec = AmqpSpec(specPath)
@@ -216,6 +224,7 @@ def generate(specPath):
         print "        def encode(self):"
         print "            pieces = list()"
         bitindex = None
+
         def finishBits():
             if bitindex is not None:
                 print "            pieces.append(struct.pack('B', bit_buffer))"
@@ -285,15 +294,9 @@ def generate(specPath):
     print "PORT = %d" % spec.port
     print
 
-    for (c,v,cls) in spec.constants:
+    for c, v, cls in spec.constants:
         print "%s = %s" % (constantName(c), v)
     print
-
-    methods = list()
-    for m in spec.allMethods():
-        if m.structName() in DRIVER_METHODS:
-            if m.isSynchronous:
-                methods.append('"%s"' %  m.structName())
 
     for c in spec.allClasses():
         print
@@ -398,7 +401,7 @@ def generate(specPath):
                 print '        completed.'
                 print '        """'
                 print
-                print "        return self.transport.rpc(%s(%s), callback, " % \
+                print "        return self.transport.rpc(%s(%s), callback," % \
                        (m.structName(),
                        ', '.join(["%s=%s" % (pyize(f.name), pyize(f.name))
                        for f in m.arguments]))
