@@ -51,8 +51,8 @@ import pika.spec as spec
 
 from pika.adapters import BaseConnection
 from pika.callback import CallbackManager
-from pika.channel import Channel, ChannelTransport
-from pika.exceptions import AMQPConnectionError
+from pika.channel import Channel, ChannelTransport, ContentHandler
+from pika.exceptions import AMQPConnectionError, AMQPChannelError
 
 SOCKET_TIMEOUT = 1
 SOCKET_TIMEOUT_THRESHOLD = 100
@@ -74,7 +74,7 @@ class BlockingConnection(BaseConnection):
 
     def _adapter_connect(self, host, port):
 
-        BaseConnection.connect(self, host, port)
+        BaseConnection._adapter_connect(self, host, port)
         self.socket.setblocking(1)
         self.socket.settimeout(SOCKET_TIMEOUT)
         self._socket_timeouts = 0
@@ -87,7 +87,10 @@ class BlockingConnection(BaseConnection):
     def close(self, code=200, text='Normal shutdown'):
         BaseConnection.close(self, code, text)
         while self.is_open:
-            self.process_data_events()
+            try:
+                self.process_data_events()
+            except AMQPConnectionError:
+                break
 
     def disconnect(self):
         self.socket.close()
@@ -114,7 +117,7 @@ class BlockingConnection(BaseConnection):
     def process_data_events(self):
         if not self.is_open:
             raise AMQPConnectionError
-        self.flush_outbound()
+        self._flush_outbound()
         try:
             self._handle_read()
             self._socket_timeouts = 0
@@ -219,10 +222,12 @@ class BlockingChannelTransport(ChannelTransport):
         log.debug("%s.send_method: %s(%s)" % (self.__class__.__name__,
                                                   method, content))
         self._received_response = False
-        self.connection.send_method(self.channel_number, method, content)
+        self.connection._send_method(self.channel_number, method, content)
         while wait and not self._received_response:
-            self.connection.process_data_events()
-
+            try:
+                self.connection.process_data_events()
+            except AMQPConnectionError:
+                break
 
 class BlockingChannel(Channel):
 
@@ -234,10 +239,16 @@ class BlockingChannel(Channel):
                                        spec.Channel.OpenOk,
                                        transport._on_rpc_complete)
         Channel.__init__(self, connection, channel_number, None, transport)
+        self.basic_get_ = Channel.basic_get
 
     def _open(self, frame):
         Channel._open(self, frame)
         self.transport.remove_reply(frame)
+
+    def _on_remote_close(self, frame):
+        Channel._on_remote_close(self, frame)
+        raise AMQPChannelError(frame.method.reply_code,
+                               frame.method.reply_text)
 
     def basic_publish(self, exchange, routing_key, body,
                       properties=None, mandatory=False, immediate=False):
@@ -260,9 +271,19 @@ class BlockingChannel(Channel):
     def basic_consume(self, consumer,
                       queue='', no_ack=False, exclusive=False,
                       consumer_tag=None):
+        """
+        Sends the AMQP command Basic.Consume to the broker and binds messages
+        for the consumer_tag to the consumer callback. If you do not pass in
+        a consumer_tag, one will be automatically generated for you. For
+        more information on basic_consume, see:
 
-        if not consumer_tag:
-            consumer_tag = 'ctag0'
+        http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.consume
+
+        NOTE: This blocks further execution until you call the
+        BlockingChannel.stop_consuming() method.
+        """
+        # Setup a default consumer tag if one was not passed
+        consumer_tag = consumer_tag or 'ctag0'
 
         self._consumer = consumer
 
@@ -286,26 +307,31 @@ class BlockingChannel(Channel):
                        header_frame.properties,
                        body)
 
-    def stop_consuming(self):
-        log.debug("%s._on_consume_ok" % self.__class__.__name__)
+    def stop_consuming(self, consumer_tag=None):
+        """
+        Sends off the Basic.Cancel to let RabbitMQ know to stop consuming and
+        sets our internal state to exit out of the basic_consume.
+        """
+        log.debug("%s.stop_consuming" % self.__class__.__name__)
+        self.basic_cancel(consumer_tag or 'ctag0')
         self._consuming = False
 
     def basic_get(self, ticket=0, queue=None, no_ack=False):
         self._get_response = None
+        self.basic_get_(self, self._on_basic_get, ticket, queue, no_ack)
+        while not self._get_response:
+            self.connection.process_data_events()
 
-        self.transport.send_method(spec.Basic.Get(ticket=ticket,
-                                                  queue=queue,
-                                                  no_ack=no_ack))
         return self._get_response[0], \
                self._get_response[1], \
                self._get_response[2]
 
-    def _on_basic_get(self, method_frame, header_frame, body):
+    def _on_basic_get(self, caller, method_frame, header_frame, body):
         self.transport._received_response = True
-        self._get_response = method_frame.method, \
-                             header_frame.properties, \
+        self._get_response = method_frame, \
+                             header_frame, \
                              body
 
-    def _on_basic_get_empty(self, frame):
+    def _on_basic_get_empty(self, caller, frame):
         self.transport._received_response = True
         self._get_response = frame.method, None, None

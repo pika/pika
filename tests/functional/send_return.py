@@ -56,14 +56,14 @@ import sys
 sys.path.append('..')
 sys.path.append(os.path.join('..', '..'))
 
-import support.async as async
+import support.tools as tools
 from pika.adapters import SelectConnection
 
 HOST = 'localhost'
 PORT = 5672
 
 
-class TestAsyncSendReturn(async.AsyncPattern):
+class TestAsyncSendReturn(tools.AsyncPattern):
 
     @nose.tools.timed(2)
     def test_send_and_return(self):
