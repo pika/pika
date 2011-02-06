@@ -48,6 +48,7 @@
 
 import asyncore
 import pika.log as log
+import select
 import socket
 import time
 
@@ -79,6 +80,7 @@ class AsyncoreDispatcher(asyncore.dispatcher):
         self.connection = None
         self._timeouts = dict()
         self.writable_ = False
+        self.map = None
 
     def handle_connect(self):
         """
@@ -88,6 +90,9 @@ class AsyncoreDispatcher(asyncore.dispatcher):
         self.connecting = False
         self.connection._on_connected()
 
+        # Make our own map to pass in places
+        self.map = dict({self.socket.fileno(): self})
+
     def handle_close(self):
         """
         asyncore required method. Is called on close.
@@ -95,7 +100,7 @@ class AsyncoreDispatcher(asyncore.dispatcher):
         log.debug("%s.handle_close", self.__class__.__name__)
         # If we're not already closing or closed, disconnect the Connection
         if not self.connection.closing and not self.connection.closed:
-            self.connection.disconnect()
+            self.connection._adapter_disconnect()
 
     def handle_read(self):
         """
@@ -105,12 +110,12 @@ class AsyncoreDispatcher(asyncore.dispatcher):
             data = self.recv(self.suggested_buffer_size)
         except socket.timeout:
             raise
-        except socket.error as error:
+        except socket.error, error:
             return self._handle_error(error)
 
         # We received no data, so disconnect
         if not data:
-            return self.disconnect()
+            return self.connection._adapter_disconnect()
 
         # Pass the data into our top level frame dispatching method
         self.connection._on_data_available(data)
@@ -124,12 +129,12 @@ class AsyncoreDispatcher(asyncore.dispatcher):
             bytes_written = self.send(data)
         except socket.timeout:
             raise
-        except socket.error as error:
+        except socket.error, error:
             return self._handle_error(error)
 
         # Remove the content we used from our buffer
         if not bytes_written:
-            return self.connection.disconnect()
+            return self.connection._adapter_disconnect()
 
         # Remove what we wrote from the outbound buffer
         self.connection.outbound_buffer.consume(bytes_written)
@@ -205,7 +210,15 @@ class AsyncoreDispatcher(asyncore.dispatcher):
         """
         log.debug("%s.start", self.__class__.__name__)
         while self.connected or self.connecting:
-            asyncore.loop(timeout=1, count=1)
+            try:
+                # Use our socket map if we've made it, makes things less buggy
+                if self.map:
+                    asyncore.loop(timeout=1, map=self.map, count=1)
+                else:
+                    asyncore.loop(timeout=1, count=1)
+            except select.error, e:
+                if e[0] == 9:
+                    break
             self._process_timeouts()
 
     def stop(self):
@@ -215,10 +228,6 @@ class AsyncoreDispatcher(asyncore.dispatcher):
         """
         log.debug("%s.stop", self.__class__.__name__)
         self.close()
-
-        # There is a bug in asyncore that keeps it stuck in poll after close
-        # Use this to remove it from that loop
-        asyncore.loop(0.1, map=[])
 
 
 class AsyncoreConnection(BaseConnection):

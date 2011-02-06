@@ -52,6 +52,7 @@ Connection Test
 First test to make sure epoll and poll async adapters can connect properly
 """
 import nose
+import platform
 import os
 import sys
 sys.path.append('..')
@@ -73,6 +74,9 @@ class TestAdapters(object):
 
     @nose.tools.timed(2)
     def test_epoll_connection(self):
+        # EPoll is 2.6+
+        if float('.'.join(platform.python_version().split('.')[:-1])) < 2.6:
+            raise nose.SkipTest
         self._set_select_poller('epoll')
         self.connection = self._connect(adapters.SelectConnection)
         self.connection.ioloop.start()

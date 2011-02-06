@@ -51,6 +51,7 @@ Timer tests, make sure we can add and remove timers and that they fire.
 """
 import nose
 import os
+import platform
 import sys
 sys.path.append('..')
 sys.path.append(os.path.join('..', '..'))
@@ -72,6 +73,9 @@ class TestAdapters(object):
 
     @nose.tools.timed(2)
     def test_kqueue_connection(self):
+        # KQueue is 2.6+
+        if float('.'.join(platform.python_version().split('.')[:-1])) < 2.6:
+            raise nose.SkipTest
         self._set_select_poller('kqueue')
         self.connection = self._connect(adapters.SelectConnection)
         self.connection.ioloop.start()

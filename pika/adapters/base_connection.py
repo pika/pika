@@ -193,7 +193,7 @@ class BaseConnection(Connection):
             data = self.socket.recv(self._suggested_buffer_size)
         except socket.timeout:
             raise
-        except socket.error as error:
+        except socket.error, error:
             return self._handle_error(error)
 
         # We received no data, so disconnect
@@ -214,7 +214,7 @@ class BaseConnection(Connection):
             bytes_written = self.socket.send(data)
         except socket.timeout:
             raise
-        except socket.error as error:
+        except socket.error, error:
             return self._handle_error(error)
 
         # Remove the content from our output buffer

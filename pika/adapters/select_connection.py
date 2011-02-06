@@ -278,7 +278,7 @@ class SelectPoller(object):
                                                error_fileno,
                                                SelectPoller.TIMEOUT)
         # @TODO find scope of exceptions which can be returned here
-        except Exception as error:
+        except Exception, error:
             return self._handler(self.fileno, ERROR, error)
 
         # Build our events bit mask
