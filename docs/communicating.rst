@@ -163,7 +163,7 @@ The recommended alternative is sidestepping the locking complexity
 completely by making sure that a connection and its channels is never
 shared between threads: that each thread owns its own AMQP connection.
 
-channel.Channel
+Channel
 ---------------
 
 To get the most out of using Pika, it is advisable to know the AMQP 0-9-1
@@ -173,6 +173,17 @@ AMQP Reference page.
 
 .. automodule:: channel
 .. autoclass:: Channel
+   :members:
+   :inherited-members:
+   :member-order: bysource
+
+BlockingChannel
+-----------------------------------
+
+Implements blocking behaviors on top of the Channel class.
+
+.. automodule:: blocking_connection
+.. autoclass:: BlockingChannel
    :members:
    :inherited-members:
    :member-order: bysource

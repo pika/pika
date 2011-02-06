@@ -210,8 +210,8 @@ completely by making sure that a connection and its channels is never
 shared between threads: that each thread owns its own AMQP connection.</p>
 </div>
 </div>
-<div class="section" id="channel-channel">
-<h2>channel.Channel<a class="headerlink" href="#channel-channel" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="channel">
+<h2>Channel<a class="headerlink" href="#channel" title="Permalink to this headline">¶</a></h2>
 <p>To get the most out of using Pika, it is advisable to know the AMQP 0-9-1
 command specification. The <a class="reference internal" href="#channel.Channel" title="channel.Channel"><tt class="xref py py-meth docutils literal"><span class="pre">channel.Channel()</span></tt></a> documentation below
 provides a detailed class level specification with links to the RabbitMQ
@@ -480,6 +480,264 @@ completed.</p>
 </dd></dl>
 
 </div>
+<div class="section" id="blockingchannel">
+<h2>BlockingChannel<a class="headerlink" href="#blockingchannel" title="Permalink to this headline">¶</a></h2>
+<p>Implements blocking behaviors on top of the Channel class.</p>
+<span class="target" id="module-blocking_connection"></span><dl class="class">
+<dt id="blocking_connection.BlockingChannel">
+<em class="property">class </em><tt class="descclassname">blocking_connection.</tt><tt class="descname">BlockingChannel</tt><big>(</big><em>connection</em>, <em>channel_number</em>, <em>transport=None</em><big>)</big><a class="headerlink" href="#blocking_connection.BlockingChannel" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="method">
+<dt id="blocking_connection.BlockingChannel.add_callback">
+<tt class="descname">add_callback</tt><big>(</big><em>callback</em>, <em>replies</em><big>)</big><a class="headerlink" href="#blocking_connection.BlockingChannel.add_callback" title="Permalink to this definition">¶</a></dt>
+<dd><p>Pass in a callback handler and a list replies from the
+RabbitMQ broker which you&#8217;d like the callback notified of. Callbacks
+should allow for the frame parameter to be passed in.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="blocking_connection.BlockingChannel.add_on_close_callback">
+<tt class="descname">add_on_close_callback</tt><big>(</big><em>callback</em><big>)</big><a class="headerlink" href="#blocking_connection.BlockingChannel.add_on_close_callback" title="Permalink to this definition">¶</a></dt>
+<dd><p>Pass a callback function that will be called when the channel is
+closed. The callback function should receive a frame parameter.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="blocking_connection.BlockingChannel.add_on_return_callback">
+<tt class="descname">add_on_return_callback</tt><big>(</big><em>callback</em><big>)</big><a class="headerlink" href="#blocking_connection.BlockingChannel.add_on_return_callback" title="Permalink to this definition">¶</a></dt>
+<dd><p>Pass a callback function that will be called when basic_publish as sent
+a message that has been rejected and returned by the server. The
+callback handler should receive a method, header and body frame. The
+base signature for the callback should be the same as the method
+signature one creates for a basic_consume callback.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="blocking_connection.BlockingChannel.basic_ack">
+<tt class="descname">basic_ack</tt><big>(</big><em>delivery_tag=0</em>, <em>multiple=False</em><big>)</big><a class="headerlink" href="#blocking_connection.BlockingChannel.basic_ack" title="Permalink to this definition">¶</a></dt>
+<dd><p>Implements the basic.ack AMQP command. For context and usage:</p>
+<p><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html#basic.ack">http://www.rabbitmq.com/amqp-0-9-1-quickref.html#basic.ack</a></p>
+</dd></dl>
+
+<dl class="method">
+<dt id="blocking_connection.BlockingChannel.basic_cancel">
+<tt class="descname">basic_cancel</tt><big>(</big><em>consumer_tag</em>, <em>nowait=False</em>, <em>callback=None</em><big>)</big><a class="headerlink" href="#blocking_connection.BlockingChannel.basic_cancel" title="Permalink to this definition">¶</a></dt>
+<dd><p>Pass in the consumer tag to cancel a basic_consume request with. The
+consumer_tag is optionally passed to basic_consume as a parameter and
+it is always returned by the Basic.ConsumeOk frame. For more
+information see:</p>
+<p><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.cancel">http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.cancel</a></p>
+</dd></dl>
+
+<dl class="method">
+<dt id="blocking_connection.BlockingChannel.basic_consume">
+<tt class="descname">basic_consume</tt><big>(</big><em>consumer</em>, <em>queue=''</em>, <em>no_ack=False</em>, <em>exclusive=False</em>, <em>consumer_tag=None</em><big>)</big><a class="headerlink" href="#blocking_connection.BlockingChannel.basic_consume" title="Permalink to this definition">¶</a></dt>
+<dd><p>Sends the AMQP command Basic.Consume to the broker and binds messages
+for the consumer_tag to the consumer callback. If you do not pass in
+a consumer_tag, one will be automatically generated for you. For
+more information on basic_consume, see:</p>
+<p><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.consume">http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.consume</a></p>
+<p>NOTE: This blocks further execution until you call the
+BlockingChannel.stop_consuming() method.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="blocking_connection.BlockingChannel.basic_publish">
+<tt class="descname">basic_publish</tt><big>(</big><em>exchange</em>, <em>routing_key</em>, <em>body</em>, <em>properties=None</em>, <em>mandatory=False</em>, <em>immediate=False</em><big>)</big><a class="headerlink" href="#blocking_connection.BlockingChannel.basic_publish" title="Permalink to this definition">¶</a></dt>
+<dd><p>Publish to the channel with the given exchange, routing key and body.</p>
+<p>If flow control is enabled and you publish a message while another is
+sending, a ContentTransmissionForbidden exception ill be generated</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="blocking_connection.BlockingChannel.basic_qos">
+<tt class="descname">basic_qos</tt><big>(</big><em>callback=None</em>, <em>prefetch_size=0</em>, <em>prefetch_count=0</em>, <em>global_=False</em><big>)</big><a class="headerlink" href="#blocking_connection.BlockingChannel.basic_qos" title="Permalink to this definition">¶</a></dt>
+<dd><p>Implements the Basic.Qos AMQP command. For context and usage:</p>
+<blockquote>
+<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html#basic.qos">http://www.rabbitmq.com/amqp-0-9-1-quickref.html#basic.qos</a></div></blockquote>
+<p>This is a synchronous method that will not allow other commands to be
+send to the AMQP broker until it has completed. It is recommended to
+pass in a parameter to callback to be notified when this command has
+completed.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="blocking_connection.BlockingChannel.basic_recover">
+<tt class="descname">basic_recover</tt><big>(</big><em>callback=None</em>, <em>requeue=False</em><big>)</big><a class="headerlink" href="#blocking_connection.BlockingChannel.basic_recover" title="Permalink to this definition">¶</a></dt>
+<dd><p>Implements the Basic.Recover AMQP command. For context and usage:</p>
+<blockquote>
+<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html#basic.recover">http://www.rabbitmq.com/amqp-0-9-1-quickref.html#basic.recover</a></div></blockquote>
+<p>This is a synchronous method that will not allow other commands to be
+send to the AMQP broker until it has completed. It is recommended to
+pass in a parameter to callback to be notified when this command has
+completed.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="blocking_connection.BlockingChannel.basic_recover_async">
+<tt class="descname">basic_recover_async</tt><big>(</big><em>requeue=False</em><big>)</big><a class="headerlink" href="#blocking_connection.BlockingChannel.basic_recover_async" title="Permalink to this definition">¶</a></dt>
+<dd><p>Implements the basic.recover-async AMQP command. For context and usage:</p>
+<p><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html#basic.recover_async">http://www.rabbitmq.com/amqp-0-9-1-quickref.html#basic.recover_async</a></p>
+</dd></dl>
+
+<dl class="method">
+<dt id="blocking_connection.BlockingChannel.basic_reject">
+<tt class="descname">basic_reject</tt><big>(</big><em>delivery_tag=None</em>, <em>requeue=True</em><big>)</big><a class="headerlink" href="#blocking_connection.BlockingChannel.basic_reject" title="Permalink to this definition">¶</a></dt>
+<dd><p>Implements the basic.reject AMQP command. For context and usage:</p>
+<p><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html#basic.reject">http://www.rabbitmq.com/amqp-0-9-1-quickref.html#basic.reject</a></p>
+</dd></dl>
+
+<dl class="method">
+<dt id="blocking_connection.BlockingChannel.close">
+<tt class="descname">close</tt><big>(</big><em>code=0</em>, <em>text='Normal Shutdown'</em>, <em>from_server=False</em><big>)</big><a class="headerlink" href="#blocking_connection.BlockingChannel.close" title="Permalink to this definition">¶</a></dt>
+<dd><p>Will invoke a clean shutdown of the channel with the AMQP Broker</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="blocking_connection.BlockingChannel.consumer_tags">
+<tt class="descname">consumer_tags</tt><a class="headerlink" href="#blocking_connection.BlockingChannel.consumer_tags" title="Permalink to this definition">¶</a></dt>
+<dd><p>Property method that returns a list of currently active consumers</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="blocking_connection.BlockingChannel.exchange_declare">
+<tt class="descname">exchange_declare</tt><big>(</big><em>callback=None</em>, <em>ticket=0</em>, <em>exchange=None</em>, <em>type='direct'</em>, <em>passive=False</em>, <em>durable=False</em>, <em>auto_delete=False</em>, <em>internal=False</em>, <em>nowait=False</em>, <em>arguments={}</em><big>)</big><a class="headerlink" href="#blocking_connection.BlockingChannel.exchange_declare" title="Permalink to this definition">¶</a></dt>
+<dd><p>Implements the Exchange.Declare AMQP command. For context and usage:</p>
+<blockquote>
+<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html#exchange.declare">http://www.rabbitmq.com/amqp-0-9-1-quickref.html#exchange.declare</a></div></blockquote>
+<p>This is a synchronous method that will not allow other commands to be
+send to the AMQP broker until it has completed. It is recommended to
+pass in a parameter to callback to be notified when this command has
+completed.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="blocking_connection.BlockingChannel.exchange_delete">
+<tt class="descname">exchange_delete</tt><big>(</big><em>callback=None</em>, <em>ticket=0</em>, <em>exchange=None</em>, <em>if_unused=False</em>, <em>nowait=False</em><big>)</big><a class="headerlink" href="#blocking_connection.BlockingChannel.exchange_delete" title="Permalink to this definition">¶</a></dt>
+<dd><p>Implements the Exchange.Delete AMQP command. For context and usage:</p>
+<blockquote>
+<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html#exchange.delete">http://www.rabbitmq.com/amqp-0-9-1-quickref.html#exchange.delete</a></div></blockquote>
+<p>This is a synchronous method that will not allow other commands to be
+send to the AMQP broker until it has completed. It is recommended to
+pass in a parameter to callback to be notified when this command has
+completed.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="blocking_connection.BlockingChannel.flow">
+<tt class="descname">flow</tt><big>(</big><em>callback</em>, <em>active</em><big>)</big><a class="headerlink" href="#blocking_connection.BlockingChannel.flow" title="Permalink to this definition">¶</a></dt>
+<dd><p>Turn Channel flow control off and on. Pass a callback to be notified
+of the response from the server. active is a bool. Callback should
+expect a bool in response indicating channel flow state. For more
+information, please reference:</p>
+<p><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-reference.html#channel.flow">http://www.rabbitmq.com/amqp-0-9-1-reference.html#channel.flow</a></p>
+</dd></dl>
+
+<dl class="method">
+<dt id="blocking_connection.BlockingChannel.queue_bind">
+<tt class="descname">queue_bind</tt><big>(</big><em>callback=None</em>, <em>ticket=0</em>, <em>queue=''</em>, <em>exchange=None</em>, <em>routing_key=''</em>, <em>nowait=False</em>, <em>arguments={}</em><big>)</big><a class="headerlink" href="#blocking_connection.BlockingChannel.queue_bind" title="Permalink to this definition">¶</a></dt>
+<dd><p>Implements the <tt class="xref py py-meth docutils literal"><span class="pre">Bind()</span></tt> AMQP command. For context and usage:</p>
+<blockquote>
+<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html#queue.bind">http://www.rabbitmq.com/amqp-0-9-1-quickref.html#queue.bind</a></div></blockquote>
+<p>This is a synchronous method that will not allow other commands to be
+send to the AMQP broker until it has completed. It is recommended to
+pass in a parameter to callback to be notified when this command has
+completed.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="blocking_connection.BlockingChannel.queue_declare">
+<tt class="descname">queue_declare</tt><big>(</big><em>callback=None</em>, <em>ticket=0</em>, <em>queue=''</em>, <em>passive=False</em>, <em>durable=False</em>, <em>exclusive=False</em>, <em>auto_delete=False</em>, <em>nowait=False</em>, <em>arguments={}</em><big>)</big><a class="headerlink" href="#blocking_connection.BlockingChannel.queue_declare" title="Permalink to this definition">¶</a></dt>
+<dd><p>Implements the <tt class="xref py py-meth docutils literal"><span class="pre">Declare()</span></tt> AMQP command. For context and usage:</p>
+<blockquote>
+<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html#queue.declare">http://www.rabbitmq.com/amqp-0-9-1-quickref.html#queue.declare</a></div></blockquote>
+<p>This is a synchronous method that will not allow other commands to be
+send to the AMQP broker until it has completed. It is recommended to
+pass in a parameter to callback to be notified when this command has
+completed.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="blocking_connection.BlockingChannel.queue_delete">
+<tt class="descname">queue_delete</tt><big>(</big><em>callback=None</em>, <em>ticket=0</em>, <em>queue=''</em>, <em>if_unused=False</em>, <em>if_empty=False</em>, <em>nowait=False</em><big>)</big><a class="headerlink" href="#blocking_connection.BlockingChannel.queue_delete" title="Permalink to this definition">¶</a></dt>
+<dd><p>Implements the <tt class="xref py py-meth docutils literal"><span class="pre">Delete()</span></tt> AMQP command. For context and usage:</p>
+<blockquote>
+<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html#queue.delete">http://www.rabbitmq.com/amqp-0-9-1-quickref.html#queue.delete</a></div></blockquote>
+<p>This is a synchronous method that will not allow other commands to be
+send to the AMQP broker until it has completed. It is recommended to
+pass in a parameter to callback to be notified when this command has
+completed.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="blocking_connection.BlockingChannel.queue_purge">
+<tt class="descname">queue_purge</tt><big>(</big><em>callback=None</em>, <em>ticket=0</em>, <em>queue=''</em>, <em>nowait=False</em><big>)</big><a class="headerlink" href="#blocking_connection.BlockingChannel.queue_purge" title="Permalink to this definition">¶</a></dt>
+<dd><p>Implements the <tt class="xref py py-meth docutils literal"><span class="pre">Purge()</span></tt> AMQP command. For context and usage:</p>
+<blockquote>
+<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html#queue.purge">http://www.rabbitmq.com/amqp-0-9-1-quickref.html#queue.purge</a></div></blockquote>
+<p>This is a synchronous method that will not allow other commands to be
+send to the AMQP broker until it has completed. It is recommended to
+pass in a parameter to callback to be notified when this command has
+completed.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="blocking_connection.BlockingChannel.queue_unbind">
+<tt class="descname">queue_unbind</tt><big>(</big><em>callback=None</em>, <em>ticket=0</em>, <em>queue=''</em>, <em>exchange=None</em>, <em>routing_key=''</em>, <em>arguments={}</em><big>)</big><a class="headerlink" href="#blocking_connection.BlockingChannel.queue_unbind" title="Permalink to this definition">¶</a></dt>
+<dd><p>Implements the <tt class="xref py py-meth docutils literal"><span class="pre">Unbind()</span></tt> AMQP command. For context and usage:</p>
+<blockquote>
+<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html#queue.unbind">http://www.rabbitmq.com/amqp-0-9-1-quickref.html#queue.unbind</a></div></blockquote>
+<p>This is a synchronous method that will not allow other commands to be
+send to the AMQP broker until it has completed. It is recommended to
+pass in a parameter to callback to be notified when this command has
+completed.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="blocking_connection.BlockingChannel.stop_consuming">
+<tt class="descname">stop_consuming</tt><big>(</big><em>consumer_tag=None</em><big>)</big><a class="headerlink" href="#blocking_connection.BlockingChannel.stop_consuming" title="Permalink to this definition">¶</a></dt>
+<dd><p>Sends off the Basic.Cancel to let RabbitMQ know to stop consuming and
+sets our internal state to exit out of the basic_consume.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="blocking_connection.BlockingChannel.tx_commit">
+<tt class="descname">tx_commit</tt><big>(</big><em>callback=None</em><big>)</big><a class="headerlink" href="#blocking_connection.BlockingChannel.tx_commit" title="Permalink to this definition">¶</a></dt>
+<dd><p>Implements the Tx.Commit AMQP command. For context and usage:</p>
+<blockquote>
+<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html#tx.commit">http://www.rabbitmq.com/amqp-0-9-1-quickref.html#tx.commit</a></div></blockquote>
+<p>This is a synchronous method that will not allow other commands to be
+send to the AMQP broker until it has completed. It is recommended to
+pass in a parameter to callback to be notified when this command has
+completed.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="blocking_connection.BlockingChannel.tx_rollback">
+<tt class="descname">tx_rollback</tt><big>(</big><em>callback=None</em><big>)</big><a class="headerlink" href="#blocking_connection.BlockingChannel.tx_rollback" title="Permalink to this definition">¶</a></dt>
+<dd><p>Implements the Tx.Rollback AMQP command. For context and usage:</p>
+<blockquote>
+<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html#tx.rollback">http://www.rabbitmq.com/amqp-0-9-1-quickref.html#tx.rollback</a></div></blockquote>
+<p>This is a synchronous method that will not allow other commands to be
+send to the AMQP broker until it has completed. It is recommended to
+pass in a parameter to callback to be notified when this command has
+completed.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="blocking_connection.BlockingChannel.tx_select">
+<tt class="descname">tx_select</tt><big>(</big><em>callback=None</em><big>)</big><a class="headerlink" href="#blocking_connection.BlockingChannel.tx_select" title="Permalink to this definition">¶</a></dt>
+<dd><p>Implements the Tx.Select AMQP command. For context and usage:</p>
+<blockquote>
+<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html#tx.select">http://www.rabbitmq.com/amqp-0-9-1-quickref.html#tx.select</a></div></blockquote>
+<p>This is a synchronous method that will not allow other commands to be
+send to the AMQP broker until it has completed. It is recommended to
+pass in a parameter to callback to be notified when this command has
+completed.</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
 </div>
 
 
@@ -496,7 +754,8 @@ completed.</p>
 <li><a class="reference internal" href="#synchronous-programming-style-with-concurrency">Synchronous programming style, with concurrency</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#channel-channel">channel.Channel</a></li>
+<li><a class="reference internal" href="#channel">Channel</a></li>
+<li><a class="reference internal" href="#blockingchannel">BlockingChannel</a></li>
 </ul>
 </li>
 </ul>

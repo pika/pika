@@ -454,7 +454,8 @@ Due to the asynchronous nature of the Basic.Deliver and Basic.Return calls from 
 continuation-passing style asynchronous methods if you&#8217;d like to receive messages from RabbitMQ using basic_consume or if you want to be notified of
 a delivery failure when using basic_publish.</p>
 <p>Basic.Get is a blocking call which will either return the Method Frame, Header Frame and Body of a message, or it will return a Basic.GetEmpty frame as the Method Frame.</p>
-<p>Example:</p>
+<p>For more information on using the BlockingConnection, see <a class="reference internal" href="communicating.html#blocking_connection.BlockingChannel" title="blocking_connection.BlockingChannel"><tt class="xref py py-meth docutils literal"><span class="pre">BlockingChannel</span></tt></a></p>
+<p>Publishing Example:</p>
 <div class="highlight-python"><div class="highlight"><pre><span class="c"># Open a connection to RabbitMQ on localhost using all default parameters</span>
 <span class="n">connection</span> <span class="o">=</span> <span class="n">BlockingConnection</span><span class="p">()</span>
 
@@ -466,6 +467,47 @@ a delivery failure when using basic_publish.</p>
 
 <span class="n">channel</span><span class="o">.</span><span class="n">basic_publish</span><span class="p">(</span><span class="n">exchange</span><span class="o">=</span><span class="s">&#39;&#39;</span><span class="p">,</span> <span class="n">routing_key</span><span class="o">=</span><span class="s">&quot;test&quot;</span><span class="p">,</span> <span class="n">body</span><span class="o">=</span><span class="s">&quot;Hello World!&quot;</span><span class="p">,</span>
                       <span class="n">properties</span><span class="o">=</span><span class="n">pika</span><span class="o">.</span><span class="n">BasicProperties</span><span class="p">(</span><span class="n">content_type</span><span class="o">=</span><span class="s">&quot;text/plain&quot;</span><span class="p">,</span> <span class="n">delivery_mode</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
+</pre></div>
+</div>
+<p>Consuming Example:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">import</span> <span class="nn">pika</span>
+<span class="kn">import</span> <span class="nn">time</span>
+
+<span class="kn">from</span> <span class="nn">pika.adapters</span> <span class="kn">import</span> <span class="n">BlockingConnection</span>
+
+<span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span>
+
+<span class="k">if</span> <span class="n">__name__</span> <span class="o">==</span> <span class="s">&#39;__main__&#39;</span><span class="p">:</span>
+    <span class="c"># Connect to RabbitMQ</span>
+    <span class="n">host</span> <span class="o">=</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">)</span> <span class="ow">and</span> <span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="ow">or</span> <span class="s">&#39;127.0.0.1&#39;</span>
+    <span class="n">parameters</span> <span class="o">=</span> <span class="n">pika</span><span class="o">.</span><span class="n">ConnectionParameters</span><span class="p">(</span><span class="n">host</span><span class="p">)</span>
+    <span class="n">connection</span> <span class="o">=</span> <span class="n">BlockingConnection</span><span class="p">(</span><span class="n">parameters</span><span class="p">)</span>
+
+    <span class="c"># Open the channel</span>
+    <span class="n">channel</span> <span class="o">=</span> <span class="n">connection</span><span class="o">.</span><span class="n">channel</span><span class="p">()</span>
+
+    <span class="c"># Declare the queue</span>
+    <span class="n">channel</span><span class="o">.</span><span class="n">queue_declare</span><span class="p">(</span><span class="n">queue</span><span class="o">=</span><span class="s">&quot;test&quot;</span><span class="p">,</span> <span class="n">durable</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span>
+                          <span class="n">exclusive</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">auto_delete</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
+
+    <span class="c"># Start our counter at 0</span>
+    <span class="n">messages</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="k">def</span> <span class="nf">_on_message</span><span class="p">(</span><span class="n">channel</span><span class="p">,</span> <span class="n">method</span><span class="p">,</span> <span class="n">header</span><span class="p">,</span> <span class="n">body</span><span class="p">):</span>
+
+        <span class="k">print</span> <span class="s">&quot;Received message:&quot;</span>
+        <span class="k">print</span>
+        <span class="k">print</span> <span class="n">body</span>
+
+        <span class="c"># We&#39;ve received 10 messages, stop consuming</span>
+        <span class="n">messages</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">if</span> <span class="n">messages</span> <span class="o">&gt;</span> <span class="mi">10</span><span class="p">:</span>
+            <span class="n">channel</span><span class="o">.</span><span class="n">stop_consuming</span><span class="p">()</span>
+
+     <span class="c"># This is blocking until channel.stop_consuming is called</span>
+    <span class="n">channel</span><span class="o">.</span><span class="n">basic_consume</span><span class="p">(</span><span class="n">_on_message</span><span class="p">,</span> <span class="n">queue</span><span class="o">=</span><span class="s">&quot;test&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 <span class="target" id="module-adapters.blocking_connection"></span><dl class="class">

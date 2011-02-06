@@ -252,7 +252,9 @@ a delivery failure when using basic_publish.
 
 Basic.Get is a blocking call which will either return the Method Frame, Header Frame and Body of a message, or it will return a Basic.GetEmpty frame as the Method Frame.
 
-Example::
+For more information on using the BlockingConnection, see :py:meth:`BlockingChannel <blocking_connection.BlockingChannel>`
+
+Publishing Example::
 
     # Open a connection to RabbitMQ on localhost using all default parameters
     connection = BlockingConnection()
@@ -265,6 +267,47 @@ Example::
 
     channel.basic_publish(exchange='', routing_key="test", body="Hello World!",
                           properties=pika.BasicProperties(content_type="text/plain", delivery_mode=1))
+
+Consuming Example::
+
+    import logging
+    import sys
+    import pika
+    import time
+
+    from pika.adapters import BlockingConnection
+
+    logging.basicConfig(level=logging.INFO)
+
+    if __name__ == '__main__':
+        # Connect to RabbitMQ
+        host = (len(sys.argv) > 1) and sys.argv[1] or '127.0.0.1'
+        parameters = pika.ConnectionParameters(host)
+        connection = BlockingConnection(parameters)
+
+        # Open the channel
+        channel = connection.channel()
+
+        # Declare the queue
+        channel.queue_declare(queue="test", durable=True,
+                              exclusive=False, auto_delete=False)
+
+        # Start our counter at 0
+        messages = 0
+
+        def _on_message(channel, method, header, body):
+
+            print "Received message:"
+            print
+            print body
+
+            # We've received 10 messages, stop consuming
+            messages += 1
+            if messages > 10:
+                channel.stop_consuming()
+
+         # This is blocking until channel.stop_consuming is called
+        channel.basic_consume(_on_message, queue="test")
 
 .. automodule:: adapters.blocking_connection
 .. autoclass:: BlockingConnection
