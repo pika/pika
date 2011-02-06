@@ -67,6 +67,7 @@ count = 0
 last_count = 0
 start_time = None
 
+
 def on_connected(connection):
     global channel
     logging.info("demo_send: Connected to RabbitMQ")

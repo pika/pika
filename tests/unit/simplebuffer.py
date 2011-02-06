@@ -78,4 +78,3 @@ def test_simplebuffer():
 
 if __name__ == "__main__":
     nose.runmodule(argv=['-s', '--with-doctest', '--doctest-tests'])
-

@@ -45,4 +45,3 @@
 # this file under the terms of any one of the MPL or the GPL.
 #
 # ***** END LICENSE BLOCK *****
-

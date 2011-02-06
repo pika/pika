@@ -87,7 +87,6 @@ def test_encode_table():
     pass
 
 
-
 def test_decode_table():
     r'''
     >>> reencode(None)
@@ -128,4 +127,3 @@ def reencode(i):
 
 if __name__ == "__main__":
     nose.runmodule(argv=['-s', '--with-doctest', '--doctest-tests'])
-

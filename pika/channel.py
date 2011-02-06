@@ -678,7 +678,6 @@ class ContentHandler(object):
             else:
                 raise Exception('Unimplemented Content Return Key')
 
-
             # Get our callback manager instance
             callbacks = callback.CallbackManager.instance()
 

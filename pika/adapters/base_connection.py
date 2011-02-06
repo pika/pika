@@ -71,6 +71,7 @@ READ = 0x0001
 WRITE = 0x0004
 ERROR = 0x0008
 
+
 class BaseConnection(Connection):
 
     def __init__(self, parameters=None, on_open_callback=None,

@@ -419,7 +419,6 @@ class KQueuePoller(SelectPoller):
             self._handler(self.fileno, events)
 
 
-
 class PollPoller(SelectPoller):
 
     def __init__(self, fileno, handler, events):

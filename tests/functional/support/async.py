@@ -57,12 +57,14 @@ import time
 
 timeout_id = None
 
+
 def timeout(method):
     def _timeout(self, *args, **kwargs):
         global timeout_id
         timeout_id = self.connection.add_timeout(2, self._on_timeout)
         return method(self, *args, **kwargs)
     return _timeout
+
 
 def timeout_cancel(method):
     def _timeout(self, *args, **kwargs):
@@ -100,6 +102,7 @@ class AsyncPattern(object):
                                    exclusive=False,
                                    auto_delete=True,
                                    callback=self._on_queue_declared)
+
     def _on_queue_declared(self, frame):
         assert False, "_on_queue_declared not extended"
 

@@ -90,7 +90,7 @@ class CallbackManager(object):
         """
         Add a callback to the stack for the specified key. If the call is
         specified as one_shot, it will be removed after being fired
-        
+
         The prefix is usually the channel number but the class is generic
         and prefix and key may be any value. If you pass in only_caller
         CallbackManager will restrict processing of the callback to only

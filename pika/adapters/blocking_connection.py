@@ -54,9 +54,9 @@ from pika.callback import CallbackManager
 from pika.channel import Channel, ChannelTransport
 from pika.exceptions import AMQPConnectionError
 
-SOCKET_TIMEOUT=1
-SOCKET_TIMEOUT_THRESHOLD=100
-SOCKET_TIMEOUT_MESSAGE = "BlockingConnection: Timeout threshold exceeded, disconnected"
+SOCKET_TIMEOUT = 1
+SOCKET_TIMEOUT_THRESHOLD = 100
+SOCKET_TIMEOUT_MESSAGE = "BlockingConnection: Timeout exceeded, disconnected"
 
 
 class BlockingConnection(BaseConnection):
@@ -66,13 +66,6 @@ class BlockingConnection(BaseConnection):
     async library. Because of the nature of AMQP there are a few callbacks
     one needs to do, even in a blocking implementation. These include receiving
     messages from Basic.Deliver, Basic.GetOk, and Basic.Return.
-
-    It is also advised that you register callbacks for detecting backpressure.
-    New to the RabbitMQ 2.0 and higher versions is the removal of Channel.Flow
-    and instead the application of tcp backpressure when the broker is
-
-
-
     """
 
     def __init__(self, parameters=None, reconnection_strategy=None):
@@ -130,7 +123,6 @@ class BlockingConnection(BaseConnection):
             if self._socket_timeouts > SOCKET_TIMEOUT_THRESHOLD:
                 log.error(SOCKET_TIMEOUT_MESSAGE)
                 self._handle_disconnect()
-
 
     def channel(self, channel_number=None):
         """
