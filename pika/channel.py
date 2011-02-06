@@ -201,10 +201,11 @@ class Channel(spec.DriverMixin):
     def __init__(self, connection, channel_number, on_open_callback=None,
                  transport=None):
         """
-        Initialize the Channel and Transport, opening the channel with the
-        Server connection is passed down from our invoker and
-        channel_number is also passed from our invoker. channel_number is best
-        managed from Connection
+        A Channel is the primary communication method for interacting with
+        RabbitMQ. It is recommended that you do not directly invoke
+        the creation of a channel object in your application code but rather
+        construct the a channel by calling the active connection's channel()
+        method.
         """
         # Make sure that the caller passed in an int for the channel number
         if not isinstance(channel_number, int):
@@ -344,7 +345,10 @@ class Channel(spec.DriverMixin):
         """
         Pass in the consumer tag to cancel a basic_consume request with. The
         consumer_tag is optionally passed to basic_consume as a parameter and
-        it is always returned by the Basic.ConsumeOk frame.
+        it is always returned by the Basic.ConsumeOk frame. For more
+        information see:
+
+        http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.cancel
         """
         log.debug("%s.basic_cancel: %s", self.__class__.__name__,
                       consumer_tag)
@@ -420,7 +424,7 @@ class Channel(spec.DriverMixin):
     @property
     def consumer_tags(self):
         """
-        Return a list of the currently active consumer tags
+        Property method that returns a list of currently active consumers
         """
         return self._consumers.keys()
 
@@ -524,7 +528,10 @@ class Channel(spec.DriverMixin):
         """
         Turn Channel flow control off and on. Pass a callback to be notified
         of the response from the server. active is a bool. Callback should
-        expect a bool in response indicating channel flow state
+        expect a bool in response indicating channel flow state. For more
+        information, please reference:
+
+        http://www.rabbitmq.com/amqp-0-9-1-reference.html#channel.flow
         """
         log.debug("%s.flow(%s, %s)", self.__class__.__name__, callback,
                   active)

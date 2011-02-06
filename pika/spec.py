@@ -2468,7 +2468,7 @@ class DriverMixin(object):
         """
         Implements the basic.ack AMQP command. For context and usage:
 
-          http://www.rabbitmq.com/amqp-0-9-1-quickref.html
+          http://www.rabbitmq.com/amqp-0-9-1-quickref.html#basic.ack
         """
 
         return self.transport.rpc(Basic.Ack(delivery_tag=delivery_tag, multiple=multiple))
@@ -2477,7 +2477,7 @@ class DriverMixin(object):
         """
         Implements the basic.reject AMQP command. For context and usage:
 
-          http://www.rabbitmq.com/amqp-0-9-1-quickref.html
+          http://www.rabbitmq.com/amqp-0-9-1-quickref.html#basic.reject
         """
 
         return self.transport.rpc(Basic.Reject(delivery_tag=delivery_tag, requeue=requeue))
@@ -2486,7 +2486,7 @@ class DriverMixin(object):
         """
         Implements the basic.recover-async AMQP command. For context and usage:
 
-          http://www.rabbitmq.com/amqp-0-9-1-quickref.html
+          http://www.rabbitmq.com/amqp-0-9-1-quickref.html#basic.recover_async
         """
 
         return self.transport.rpc(Basic.RecoverAsync(requeue=requeue))
