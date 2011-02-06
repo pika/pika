@@ -218,6 +218,9 @@ man_pages = [
      [u'Tony Garnock-Jones, Gavin M. Roy and others'], 1)
 ]
 
+
+autoclass_content = 'both'
+
 import re
 py_meth = re.compile("(([a-z_]+)([.][a-z_]+)?([.][a-z_]+))", re.IGNORECASE)
 def is_importable(test_string):
@@ -235,8 +238,9 @@ def is_importable(test_string):
 
 
 already_checked = {}
+exclude_list = ['channel.flow']
 def process_docstring(app, what, name, obj, options, lines):
-    global already_checked
+    global already_checked, exclude_list
 
     for x in xrange(0, len(lines)):
         matches = py_meth.findall(lines[x])
@@ -247,8 +251,13 @@ def process_docstring(app, what, name, obj, options, lines):
                 importable = is_importable(match[0])
                 already_checked[match[0]] = importable
             if importable:
-                lines[x] = lines[x].replace(match[0], ':py:meth:`~%s`' %\
-                                                      match[0])
+                if name == 'adapters.base_connection':
+                    replace_with = ':ref:`%s`' % match[0].replace('.', '_')
+                    lines[x] = lines[x].replace(match[0], replace_with)
+
+                elif match[0] not in exclude_list:
+                    lines[x] = lines[x].replace(match[0], ':py:meth:`~%s`' %\
+                                                          match[0])
 
 
 def setup(app):
