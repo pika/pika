@@ -3,7 +3,7 @@ Frequently Asked Questions
 
 - Is Pika thread safe?
 
-    Pika does not have any notion of threading in the code. If you want to use Pika with threading, make sure you have a Pika connection per thread to use. It is not safe to share one Pika connection across threads.
+    Pika does not have any notion of threading in the code. If you want to use Pika with threading, make sure you have a Pika connection per thread, created in that thread. It is not safe to share one Pika connection across threads.
 
 - Pika starts sending messages quickly but slows down over time, what gives?
 

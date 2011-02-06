@@ -59,7 +59,7 @@
 <ul>
 <li><p class="first">Is Pika thread safe?</p>
 <blockquote>
-<div><p>Pika does not have any notion of threading in the code. If you want to use Pika with threading, make sure you have a Pika connection per thread to use. It is not safe to share one Pika connection across threads.</p>
+<div><p>Pika does not have any notion of threading in the code. If you want to use Pika with threading, make sure you have a Pika connection per thread, created in that thread. It is not safe to share one Pika connection across threads.</p>
 </div></blockquote>
 </li>
 <li><p class="first">Pika starts sending messages quickly but slows down over time, what gives?</p>
