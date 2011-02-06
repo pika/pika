@@ -570,7 +570,7 @@ class ContentHandler(object):
     handle will be invoked until the requirements set by the header frame have
     been met at which point it will call the finish method. This calls
     the callback manager with the method frame, header frame and assembled
-    body and then reset the self.handler_ to the _handle_method_frame method.
+    body and then reset the self._handler to the _handle_method_frame method.
     """
 
     def __init__(self):

@@ -50,6 +50,12 @@ import pika.log as log
 
 
 class CallbackManager(object):
+    """
+    CallbackManager is a global callback system designed to be a single place
+    where Pika can manage callbacks and process them. It should be referenced
+    by the CallbackManager.instance() method instead of constructing new
+    instances of it.
+    """
 
     def __init__(self):
         # Callback stack for our instance
@@ -65,7 +71,10 @@ class CallbackManager(object):
         return class_._instance
 
     def sanitize(self, key):
-
+        """
+        Will take Frame objects, classes, etc and attempt to return a valid
+        string identifier for them.
+        """
         if hasattr(key, 'method') and hasattr(key.method, 'NAME'):
             return key.method.NAME
 
@@ -81,6 +90,11 @@ class CallbackManager(object):
         """
         Add a callback to the stack for the specified key. If the call is
         specified as one_shot, it will be removed after being fired
+        
+        The prefix is usually the channel number but the class is generic
+        and prefix and key may be any value. If you pass in only_caller
+        CallbackManager will restrict processing of the callback to only
+        the calling function/object that you specify.
         """
         # Lets not use objects, since we could have object/class issues
         key = self.sanitize(key)
@@ -125,7 +139,10 @@ class CallbackManager(object):
 
     def process(self, prefix, key, caller, *args, **keywords):
         """
-        Run through and process all the callbacks for the specified keys
+        Run through and process all the callbacks for the specified keys.
+        Caller should be specified at all times so that callbacks which
+        require a specific function to call CallbackManager.process will
+        not be processed.
         """
         # Lets not use objects, since we could have module class/obj
         key = self.sanitize(key)
@@ -158,7 +175,9 @@ class CallbackManager(object):
 
     def remove(self, prefix, key, callback=None):
         """
-        Remove a callback from the stack by key
+        Remove a callback from the stack by prefix, key and optionally
+        the callback itself. If you only pass in prefix and key, all
+        callbacks for that prefix and key will be removed.
         """
         # Cast our key to a string so we don't get any weirdness
         # Lets not use objects, since we could have module class/obj
