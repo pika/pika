@@ -94,9 +94,8 @@ created when the connection adapter is created. To start it simply call the conn
 <li>When the queue is declared successfully, <em>on_queue_declared</em> is called. In that method we call channel.basic_consume telling it to call the handle_delivery for each message RabbitMQ delivers to us.</li>
 <li>When RabbitMQ has a message to send us, it will do so to the handle_delivery function passing the Method frame, Header frame and Body.</li>
 </ol>
-<p>Note that Step #1 is on line #28 and Step #2 is on line #6. This is so that Python knows about the functions we&#8217;ll call in Step #2-&gt;#5
-.. _cps_example:</p>
-<p>Example:</p>
+<p>Note that Step #1 is on line #28 and Step #2 is on line #6. This is so that Python knows about the functions we&#8217;ll call in Step #2-&gt;#5</p>
+<p id="cps-example">Example:</p>
 <div class="highlight-python"><div class="highlight"><pre><span class="kn">from</span> <span class="nn">pika.adapters</span> <span class="kn">import</span> <span class="n">SelectConnection</span>
 
 <span class="c"># Create a global channel variable to hold our channel object in</span>
@@ -228,7 +227,7 @@ SelectConnection object instance. Valid values are: kqueue, poll, epoll, select<
 <span class="n">connection</span> <span class="o">=</span> <span class="n">select_connection</span><span class="o">.</span><span class="n">SelectConnection</span><span class="p">()</span>
 </pre></div>
 </div>
-<p>See the <em class="xref std std-ref">Continuation-Passing Style example</em> for an example of using SelectConnection.</p>
+<p>See the <a class="reference internal" href="#cps-example"><em>Continuation-Passing Style example</em></a> for an example of using SelectConnection.</p>
 <span class="target" id="module-adapters.select_connection"></span><dl class="class">
 <dt id="adapters.select_connection.SelectConnection">
 <em class="property">class </em><tt class="descclassname">adapters.select_connection.</tt><tt class="descname">SelectConnection</tt><big>(</big><em>parameters=None</em>, <em>on_open_callback=None</em>, <em>reconnection_strategy=None</em><big>)</big><a class="headerlink" href="#adapters.select_connection.SelectConnection" title="Permalink to this definition">¶</a></dt>
