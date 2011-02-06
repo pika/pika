@@ -46,7 +46,8 @@ In our example below we use the following four easy steps:
 #. When the queue is declared successfully, *on_queue_declared* is called. In that method we call channel.basic_consume telling it to call the handle_delivery for each message RabbitMQ delivers to us.
 #. When RabbitMQ has a message to send us, it will do so to the handle_delivery function passing the Method frame, Header frame and Body.
 
-Note that Step #1 is on line #28 and Step #2 is on line #6. This is so that Python knows about the functions we'll call in Step #2->#5
+.. NOTE::
+    Step #1 is on line #28 and Step #2 is on line #6. This is so that Python knows about the functions we'll call in Steps #2 through #5.
 
 .. _cps_example:
 
