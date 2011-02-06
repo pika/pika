@@ -57,9 +57,9 @@ except:
     sys.exit(1)
 
 long_description = """\
-Pika is a pure-Python implementation of the AMQP 0-9-1 protocol that 
-tries to stay fairly independent of the underlying network support 
-library. Pika was developed primarily for use with RabbitMQ, but 
+Pika is a pure-Python implementation of the AMQP 0-9-1 protocol that
+tries to stay fairly independent of the underlying network support
+library. Pika was developed primarily for use with RabbitMQ, but
 should also work with other AMQP 0-9-1 brokers.
 """
 
@@ -70,7 +70,7 @@ setup(name='pika',
       author='Tony Garnock-Jones',
       author_email='tonygarnockjones@gmail.com',
       url='http://github.com/tonyg/pika#readme',
-      packages=['pika'],
+      packages=['pika', 'pika.adapters'],
       license='MPL v1.1 and GPL v2.0 or newer',
       classifiers=[
         'Development Status :: 4 - Beta',
