@@ -110,6 +110,12 @@ finally exits.</p>
 
 <dl class="method">
 <dt>
+<tt class="descclassname">Channel.</tt><tt class="descname">_on_remote_close</tt><big>(</big><em>frame</em><big>)</big></dt>
+<dd><p>Handle the case where our channel has been closed for us</p>
+</dd></dl>
+
+<dl class="method">
+<dt>
 <tt class="descclassname">Channel.</tt><tt class="descname">_open</tt><big>(</big><em>frame</em><big>)</big></dt>
 <dd><p>Called by our callback handler when we receive a Channel.OpenOk and
 subsequently calls our _on_open_callback which was passed into the

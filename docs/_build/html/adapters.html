@@ -633,17 +633,22 @@ messages from Basic.Deliver, Basic.GetOk, and Basic.Return.</p>
 
 <dl class="method">
 <dt>
-<tt class="descclassname">BlockingChannel.</tt><tt class="descname">_on_basic_get</tt><big>(</big><em>method_frame</em>, <em>header_frame</em>, <em>body</em><big>)</big></dt>
+<tt class="descclassname">BlockingChannel.</tt><tt class="descname">_on_basic_get</tt><big>(</big><em>caller</em>, <em>method_frame</em>, <em>header_frame</em>, <em>body</em><big>)</big></dt>
 <dd></dd></dl>
 
 <dl class="method">
 <dt>
-<tt class="descclassname">BlockingChannel.</tt><tt class="descname">_on_basic_get_empty</tt><big>(</big><em>frame</em><big>)</big></dt>
+<tt class="descclassname">BlockingChannel.</tt><tt class="descname">_on_basic_get_empty</tt><big>(</big><em>caller</em>, <em>frame</em><big>)</big></dt>
 <dd></dd></dl>
 
 <dl class="method">
 <dt>
 <tt class="descclassname">BlockingChannel.</tt><tt class="descname">_on_consume_ok</tt><big>(</big><em>frame</em><big>)</big></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">BlockingChannel.</tt><tt class="descname">_on_remote_close</tt><big>(</big><em>frame</em><big>)</big></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -654,7 +659,14 @@ messages from Basic.Deliver, Basic.GetOk, and Basic.Return.</p>
 <dl class="method">
 <dt>
 <tt class="descclassname">BlockingChannel.</tt><tt class="descname">basic_consume</tt><big>(</big><em>consumer</em>, <em>queue=''</em>, <em>no_ack=False</em>, <em>exclusive=False</em>, <em>consumer_tag=None</em><big>)</big></dt>
-<dd></dd></dl>
+<dd><p>Sends the AMQP command Basic.Consume to the broker and binds messages
+for the consumer_tag to the consumer callback. If you do not pass in
+a consumer_tag, one will be automatically generated for you. For
+more information on basic_consume, see:</p>
+<p><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.consume">http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.consume</a></p>
+<p>NOTE: This blocks further execution until you call the
+BlockingChannel.stop_consuming() method.</p>
+</dd></dl>
 
 <dl class="method">
 <dt>
@@ -671,8 +683,10 @@ sending, a ContentTransmissionForbidden exception ill be generated</p>
 
 <dl class="method">
 <dt>
-<tt class="descclassname">BlockingChannel.</tt><tt class="descname">stop_consuming</tt><big>(</big><big>)</big></dt>
-<dd></dd></dl>
+<tt class="descclassname">BlockingChannel.</tt><tt class="descname">stop_consuming</tt><big>(</big><em>consumer_tag=None</em><big>)</big></dt>
+<dd><p>Sends off the Basic.Cancel to let RabbitMQ know to stop consuming and
+sets our internal state to exit out of the basic_consume.</p>
+</dd></dl>
 
 </dd></dl>
 
