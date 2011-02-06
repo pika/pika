@@ -279,35 +279,35 @@ Consuming Example::
 
     logging.basicConfig(level=logging.INFO)
 
-    if __name__ == '__main__':
-        # Connect to RabbitMQ
-        host = (len(sys.argv) > 1) and sys.argv[1] or '127.0.0.1'
-        parameters = pika.ConnectionParameters(host)
-        connection = BlockingConnection(parameters)
+    # Connect to RabbitMQ
+    host = (len(sys.argv) > 1) and sys.argv[1] or '127.0.0.1'
+    parameters = pika.ConnectionParameters(host)
+    connection = BlockingConnection(parameters)
 
-        # Open the channel
-        channel = connection.channel()
+    # Open the channel
+    channel = connection.channel()
 
-        # Declare the queue
-        channel.queue_declare(queue="test", durable=True,
-                              exclusive=False, auto_delete=False)
+    # Declare the queue
+    channel.queue_declare(queue="test", durable=True,
+                          exclusive=False, auto_delete=False)
 
-        # Start our counter at 0
-        messages = 0
+    # Start our counter at 0
+    messages = 0
 
-        def _on_message(channel, method, header, body):
+    # Method that will receive our messages and stop consuming after 10
+    def _on_message(channel, method, header, body):
 
-            print "Received message:"
-            print
-            print body
+        print "Received message:"
+        print
+        print body
 
-            # We've received 10 messages, stop consuming
-            messages += 1
-            if messages > 10:
-                channel.stop_consuming()
+        # We've received 10 messages, stop consuming
+        messages += 1
+        if messages > 10:
+            channel.stop_consuming()
 
-         # This is blocking until channel.stop_consuming is called
-        channel.basic_consume(_on_message, queue="test")
+     # This is blocking until channel.stop_consuming is called
+    channel.basic_consume(_on_message, queue="test")
 
 .. automodule:: adapters.blocking_connection
 .. autoclass:: BlockingConnection
