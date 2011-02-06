@@ -57,7 +57,7 @@ sys.path.append('..')
 sys.path.append(os.path.join('..', '..'))
 
 import pika.spec as spec
-import support.async as async
+import support.tools as tools
 
 from pika.adapters import SelectConnection
 
@@ -66,10 +66,10 @@ MESSAGES = 5
 PORT = 5672
 
 
-class TestConsumeCancel(async.AsyncPattern):
+class TestConsumeCancel(tools.AsyncPattern):
 
     def __init__(self):
-        async.AsyncPattern.__init__(self)
+        tools.AsyncPattern.__init__(self)
         self._sent = list()
         self._received = list()
 
@@ -88,7 +88,7 @@ class TestConsumeCancel(async.AsyncPattern):
         self.channel = channel
         self._queue_declare()
 
-    @async.timeout
+    @tools.timeout
     def _on_queue_declared(self, frame):
         #self.connection.add_timeout(10, self._on_timeout)
         self.channel.add_callback(self.on_consume_ok, [spec.Basic.ConsumeOk])

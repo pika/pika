@@ -55,7 +55,7 @@ import sys
 sys.path.append('..')
 sys.path.append(os.path.join('..', '..'))
 
-import support.async as async
+import support.tools as tools
 from pika.adapters import SelectConnection
 
 HOST = 'localhost'
@@ -63,10 +63,10 @@ MESSAGES = 10
 PORT = 5672
 
 
-class TestSendConsume(async.AsyncPattern):
+class TestSendConsume(tools.AsyncPattern):
 
     def __init__(self):
-        async.AsyncPattern.__init__(self)
+        tools.AsyncPattern.__init__(self)
         self._sent = list()
         self._received = list()
 
@@ -91,13 +91,12 @@ class TestSendConsume(async.AsyncPattern):
         for message in self._sent:
             if message not in self._received:
                 assert False, 'Sent a message we did not receive.'
-        pass
 
     def _on_channel(self, channel):
         self.channel = channel
         self._queue_declare()
 
-    @async.timeout
+    @tools.timeout
     def _on_queue_declared(self, frame):
         for x in xrange(0, MESSAGES):
             self._sent.append(self._send_message())
