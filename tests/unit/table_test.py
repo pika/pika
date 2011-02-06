@@ -93,42 +93,44 @@ def test_reencode_none():
 
 
 def test_reencode_ints():
-    if not reencode({'a': 1}) == {'a': 1}:
+    value = {'a': 1}
+    if not reencode(value) == value:
         assert False
 
 
 def test_reencode_mixed():
-    if not reencode({'a':1, 'c':1, 'd':'x', 'e':{}, 'f': -1}) == \
-        {'a': 1, 'c': 1, 'e': {}, 'd': 'x', 'f': -1}:
+    value = {'a': 1, 'c': 1, 'e': {}, 'd': 'x', 'f': -1}
+    if not reencode(value) == value:
         assert False
 
 
 def test_reencode_datetime():
-    if not reencode({'a':datetime.datetime(2010,12,31,23,58,59)}) == \
-        {'a': datetime.datetime(2010, 12, 31, 23, 58, 59)}:
+    value = {'a': datetime.datetime(2010, 12, 31, 23, 58, 59)}
+    if not reencode(value) == value:
         assert False
 
 
 def test_reencode_long():
-    if not reencode({'a': 0x7EADBEEFDEADBEEFL, 'b': -0x7EADBEEFDEADBEEFL}) == \
-        {'a': 9128161957192253167L, 'b': -9128161957192253167L}:
+    value = {'a': 9128161957192253167L, 'b': -9128161957192253167L}
+    if not reencode(value) == value:
         assert False
 
 
 def test_reencode_negative_decimals():
-    if not reencode({'a': 1, 'b': Decimal('-1.234'), 'g': -1}) == \
-        {'a': 1, 'b': Decimal('-1.234'), 'g': -1}:
+    value = {'a': 1, 'b': Decimal('-1.234'), 'g': -1}
+    if not reencode(value) == value:
         assert False
 
 
 def test_reencode_mixed_with_decimals():
-    if not reencode({'a':[1,2,3,'a', Decimal('-0.01'),5]}) == \
-        {'a': [1, 2, 3, 'a',  Decimal('-0.01'), 5]}:
+    value = {'a': [1, 2, 3, 'a', Decimal('-0.01'), 5]}
+    if not reencode(value) == value:
         assert False
 
 
 def test_reencode_bool():
-    if not reencode({'a': True, 'b': False}) == {'a': True, 'b': False}:
+    value = {'a': True, 'b': False}
+    if not reencode(value) == value:
         assert False
 
 
@@ -139,6 +141,7 @@ def encode(v):
     r = ''.join(p)
     assert len(r) == n
     return r
+
 
 @nose.tools.nottest
 def reencode(i):
