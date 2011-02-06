@@ -80,7 +80,6 @@ class TestAsyncSendInvalid(tools.AsyncPattern):
         self.channel.add_on_close_callback(self._on_remote_close)
         self._send_message(exchange='undeclared-exchange')
 
-
     def _on_remote_close(self, reason_code, reason_text):
         if reason_code == 404:
             self.confirmed = True

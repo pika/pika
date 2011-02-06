@@ -229,6 +229,7 @@ class BlockingChannelTransport(ChannelTransport):
             except AMQPConnectionError:
                 break
 
+
 class BlockingChannel(Channel):
 
     def __init__(self, connection, channel_number, transport=None):
