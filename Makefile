@@ -17,7 +17,7 @@ endif
 endif
 endif
 
-all: pika/spec.py
+all: pika/spec.py test documentation
 
 pika/spec.py: codegen.py $(AMQP_CODEGEN_DIR)/amqp_codegen.py $(AMQP_SPEC_JSON_FILES)
 	$(PYTHON) codegen.py spec $(AMQP_SPEC_JSON_FILES) $@
@@ -31,9 +31,14 @@ codegen/amqp_codegen.py:
 regenclean: clean
 	rm -f pika/spec.py
 
+distclean: clean
+	rm -rf codegen
+
 clean:
-	rm -f pika/*.pyc 
-	rm -f tests/*.pyc tests/.coverage
+	rm -f pika/*.pyc
+	rm -f tests/*.pyc tests/functional/*.pyc tests/unit/*.pyc
+	rm -f examples/*.pyc examples/blocking/*.pyc
+	$(MAKE) -C docs clean
 
 # For building a releasable tarball
 codegen:
@@ -41,7 +46,12 @@ codegen:
 	cp -r "$(AMQP_CODEGEN_DIR)"/* $@
 	$(MAKE) -C $@ clean
 
-tests: test
+test: pep8
+	cd tests && $(PYTHON) run_tests.py
 
-test: all
-	cd tests && PYTHONPATH=.. $(PYTHON) run.py ../pika pika
+documentation:
+	$(MAKE) -C docs html
+
+pep8:
+	pep8 --ignore=E501 --statistics --count -r codegen.py pika/spec.py tests/unit/table_test.py
+	pep8 --exclude=spec.py,table_test.py --statistics --count -r pika examples tests
