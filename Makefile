@@ -2,20 +2,9 @@ SIBLING_CODEGEN_DIR=../rabbitmq-codegen/
 AMQP_CODEGEN_DIR=$(shell [ -d $(SIBLING_CODEGEN_DIR) ] && echo $(SIBLING_CODEGEN_DIR) || echo codegen)
 AMQP_SPEC_JSON_FILES=$(AMQP_CODEGEN_DIR)/amqp-rabbitmq-0.9.1.json
 
-ifeq ($(shell python -c 'import simplejson' 2>/dev/null && echo yes),yes)
-PYTHON=python
-else
-ifeq ($(shell python2.6 -c 'import simplejson' 2>/dev/null && echo yes),yes)
-PYTHON=python2.6
-else
-ifeq ($(shell python2.5 -c 'import simplejson' 2>/dev/null && echo yes),yes)
-PYTHON=python2.5
-else
-# Hmm. Missing simplejson?
-PYTHON=python
-endif
-endif
-endif
+TEMP=$(shell ./versions.py)
+VERSIONS=$(foreach version, $(TEMP),$(version))
+PYTHON=$(word 1, ${VERSIONS})
 
 all: pika/spec.py test documentation
 
@@ -47,7 +36,8 @@ codegen:
 	$(MAKE) -C $@ clean
 
 test: pep8
-	cd tests && $(PYTHON) run_tests.py
+
+	 cd tests && for python in ${VERSIONS}; do echo "Running tests in $$python\n";$$python ./run_tests.py; done
 
 pep8:
 	pep8 --ignore=E501 --statistics --count -r codegen.py pika/spec.py tests/unit/table_test.py
