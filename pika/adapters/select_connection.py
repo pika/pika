@@ -64,7 +64,7 @@ ERROR = 0x0008
 
 class SelectConnection(BaseConnection):
 
-    def __init__(self, parameters, on_open_callback,
+    def __init__(self, parameters=None, on_open_callback=None,
                  reconnection_strategy=None):
         # Setup the IOLoop
         self.ioloop = IOLoop.instance()

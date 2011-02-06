@@ -73,7 +73,7 @@ ERROR = 0x0008
 
 class BaseConnection(Connection):
 
-    def __init__(self, parameters, on_open_callback,
+    def __init__(self, parameters=None, on_open_callback=None,
                  reconnection_strategy=None):
         # Set our defaults
         self.fd = None

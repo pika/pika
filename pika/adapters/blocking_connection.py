@@ -75,7 +75,7 @@ class BlockingConnection(BaseConnection):
 
     """
 
-    def __init__(self, parameters, reconnection_strategy=None):
+    def __init__(self, parameters=None, reconnection_strategy=None):
 
         BaseConnection.__init__(self, parameters, None, reconnection_strategy)
 
