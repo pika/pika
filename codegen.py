@@ -384,14 +384,15 @@ def generate(specPath):
 
             if m.isSynchronous:
 
+                anchor = pyize("%s.%s" % (m.klass.name, m.name))
                 #Synchronous events have a CPS callback parameter
                 print "    def %s(self, callback=None%s):" % \
-                      (pyize(m.klass.name + '_' + m.name),
+                      (pyize("%s_%s" % (m.klass.name, m.name)),
                       fieldDeclList(m.arguments))
                 print '        """'
                 print '        Implements the %s AMQP command. For context and usage:' % m.structName()
                 print
-                print '          http://www.rabbitmq.com/amqp-0-9-1-quickref.html'
+                print '          http://www.rabbitmq.com/amqp-0-9-1-quickref.html#%s' % anchor
                 print
                 print '        This is a synchronous method that will not allow other commands to be'
                 print '        send to the AMQP broker until it has completed. It is recommended to'

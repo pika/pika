@@ -2333,7 +2333,7 @@ class DriverMixin(object):
         """
         Implements the Exchange.Declare AMQP command. For context and usage:
 
-          http://www.rabbitmq.com/amqp-0-9-1-quickref.html
+          http://www.rabbitmq.com/amqp-0-9-1-quickref.html#exchange.declare
 
         This is a synchronous method that will not allow other commands to be
         send to the AMQP broker until it has completed. It is recommended to
@@ -2348,7 +2348,7 @@ class DriverMixin(object):
         """
         Implements the Exchange.Delete AMQP command. For context and usage:
 
-          http://www.rabbitmq.com/amqp-0-9-1-quickref.html
+          http://www.rabbitmq.com/amqp-0-9-1-quickref.html#exchange.delete
 
         This is a synchronous method that will not allow other commands to be
         send to the AMQP broker until it has completed. It is recommended to
@@ -2363,7 +2363,7 @@ class DriverMixin(object):
         """
         Implements the Queue.Declare AMQP command. For context and usage:
 
-          http://www.rabbitmq.com/amqp-0-9-1-quickref.html
+          http://www.rabbitmq.com/amqp-0-9-1-quickref.html#queue.declare
 
         This is a synchronous method that will not allow other commands to be
         send to the AMQP broker until it has completed. It is recommended to
@@ -2378,7 +2378,7 @@ class DriverMixin(object):
         """
         Implements the Queue.Bind AMQP command. For context and usage:
 
-          http://www.rabbitmq.com/amqp-0-9-1-quickref.html
+          http://www.rabbitmq.com/amqp-0-9-1-quickref.html#queue.bind
 
         This is a synchronous method that will not allow other commands to be
         send to the AMQP broker until it has completed. It is recommended to
@@ -2393,7 +2393,7 @@ class DriverMixin(object):
         """
         Implements the Queue.Purge AMQP command. For context and usage:
 
-          http://www.rabbitmq.com/amqp-0-9-1-quickref.html
+          http://www.rabbitmq.com/amqp-0-9-1-quickref.html#queue.purge
 
         This is a synchronous method that will not allow other commands to be
         send to the AMQP broker until it has completed. It is recommended to
@@ -2408,7 +2408,7 @@ class DriverMixin(object):
         """
         Implements the Queue.Delete AMQP command. For context and usage:
 
-          http://www.rabbitmq.com/amqp-0-9-1-quickref.html
+          http://www.rabbitmq.com/amqp-0-9-1-quickref.html#queue.delete
 
         This is a synchronous method that will not allow other commands to be
         send to the AMQP broker until it has completed. It is recommended to
@@ -2423,7 +2423,7 @@ class DriverMixin(object):
         """
         Implements the Queue.Unbind AMQP command. For context and usage:
 
-          http://www.rabbitmq.com/amqp-0-9-1-quickref.html
+          http://www.rabbitmq.com/amqp-0-9-1-quickref.html#queue.unbind
 
         This is a synchronous method that will not allow other commands to be
         send to the AMQP broker until it has completed. It is recommended to
@@ -2438,7 +2438,7 @@ class DriverMixin(object):
         """
         Implements the Basic.Qos AMQP command. For context and usage:
 
-          http://www.rabbitmq.com/amqp-0-9-1-quickref.html
+          http://www.rabbitmq.com/amqp-0-9-1-quickref.html#basic.qos
 
         This is a synchronous method that will not allow other commands to be
         send to the AMQP broker until it has completed. It is recommended to
@@ -2453,7 +2453,7 @@ class DriverMixin(object):
         """
         Implements the Basic.Get AMQP command. For context and usage:
 
-          http://www.rabbitmq.com/amqp-0-9-1-quickref.html
+          http://www.rabbitmq.com/amqp-0-9-1-quickref.html#basic.get
 
         This is a synchronous method that will not allow other commands to be
         send to the AMQP broker until it has completed. It is recommended to
@@ -2495,7 +2495,7 @@ class DriverMixin(object):
         """
         Implements the Basic.Recover AMQP command. For context and usage:
 
-          http://www.rabbitmq.com/amqp-0-9-1-quickref.html
+          http://www.rabbitmq.com/amqp-0-9-1-quickref.html#basic.recover
 
         This is a synchronous method that will not allow other commands to be
         send to the AMQP broker until it has completed. It is recommended to
@@ -2510,7 +2510,7 @@ class DriverMixin(object):
         """
         Implements the Tx.Select AMQP command. For context and usage:
 
-          http://www.rabbitmq.com/amqp-0-9-1-quickref.html
+          http://www.rabbitmq.com/amqp-0-9-1-quickref.html#tx.select
 
         This is a synchronous method that will not allow other commands to be
         send to the AMQP broker until it has completed. It is recommended to
@@ -2525,7 +2525,7 @@ class DriverMixin(object):
         """
         Implements the Tx.Commit AMQP command. For context and usage:
 
-          http://www.rabbitmq.com/amqp-0-9-1-quickref.html
+          http://www.rabbitmq.com/amqp-0-9-1-quickref.html#tx.commit
 
         This is a synchronous method that will not allow other commands to be
         send to the AMQP broker until it has completed. It is recommended to
@@ -2540,7 +2540,7 @@ class DriverMixin(object):
         """
         Implements the Tx.Rollback AMQP command. For context and usage:
 
-          http://www.rabbitmq.com/amqp-0-9-1-quickref.html
+          http://www.rabbitmq.com/amqp-0-9-1-quickref.html#tx.rollback
 
         This is a synchronous method that will not allow other commands to be
         send to the AMQP broker until it has completed. It is recommended to
