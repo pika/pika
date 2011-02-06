@@ -27,7 +27,7 @@
     <script type="text/javascript" src="_static/doctools.js"></script>
     <link rel="top" title="Pika 0.9a documentation" href="index.html" />
     <link rel="next" title="callback" href="callback.html" />
-    <link rel="prev" title="Communicating with RabbitMQ" href="communicating.html" /> 
+    <link rel="prev" title="Examples" href="examples.html" /> 
   </head>
   <body>
     <div class="related">
@@ -43,7 +43,7 @@
           <a href="callback.html" title="callback"
              accesskey="N">next</a> |</li>
         <li class="right" >
-          <a href="communicating.html" title="Communicating with RabbitMQ"
+          <a href="examples.html" title="Examples"
              accesskey="P">previous</a> |</li>
         <li><a href="index.html">Pika 0.9a documentation</a> &raquo;</li> 
       </ul>
@@ -581,9 +581,6 @@ you want to have blocking behavior. The behavior layered on top of the
 async library. Because of the nature of AMQP there are a few callbacks
 one needs to do, even in a blocking implementation. These include receiving
 messages from Basic.Deliver, Basic.GetOk, and Basic.Return.</p>
-<p>It is also advised that you register callbacks for detecting backpressure.
-New to the RabbitMQ 2.0 and higher versions is the removal of Channel.Flow
-and instead the application of tcp backpressure when the broker is</p>
 <dl class="method">
 <dt>
 <tt class="descclassname">BlockingConnection.</tt><tt class="descname">_adapter_connect</tt><big>(</big><em>host</em>, <em>port</em><big>)</big></dt>
@@ -767,8 +764,8 @@ our channel number</p>
 </ul>
 
   <h4>Previous topic</h4>
-  <p class="topless"><a href="communicating.html"
-                        title="previous chapter">Communicating with RabbitMQ</a></p>
+  <p class="topless"><a href="examples.html"
+                        title="previous chapter">Examples</a></p>
   <h4>Next topic</h4>
   <p class="topless"><a href="callback.html"
                         title="next chapter">callback</a></p>
@@ -807,7 +804,7 @@ our channel number</p>
           <a href="callback.html" title="callback"
              >next</a> |</li>
         <li class="right" >
-          <a href="communicating.html" title="Communicating with RabbitMQ"
+          <a href="examples.html" title="Examples"
              >previous</a> |</li>
         <li><a href="index.html">Pika 0.9a documentation</a> &raquo;</li> 
       </ul>

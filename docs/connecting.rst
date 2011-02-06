@@ -44,7 +44,9 @@ In our example below we use the following four easy steps:
 #. When we are connected, the *on_connected* method is called. In that method we create a channel.
 #. When the channel is created, the *on_channel_open* method is called. In that method we declare a queue.
 #. When the queue is declared successfully, *on_queue_declared* is called. In that method we call channel.basic_consume telling it to call the handle_delivery for each message RabbitMQ delivers to us.
+#. When RabbitMQ has a message to send us, it will do so to the handle_delivery function passing the Method frame, Header frame and Body.
 
+Note that Step #1 is on line #28 and Step #2 is on line #6. This is so that Python knows about the functions we'll call in Step #2->#5
 .. _cps_example:
 
 Example::
@@ -72,6 +74,7 @@ Example::
         """Called when RabbitMQ has told us our Queue has been declared, frame is the response from RabbitMQ"""
         channel.basic_consume(handle_delivery, queue='test')
 
+    # Step #5
     def handle_delivery(channel, method, header, body):
         """Called when we receive a message from RabbitMQ"""
         print body

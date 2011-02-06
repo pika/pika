@@ -92,8 +92,11 @@ created when the connection adapter is created. To start it simply call the conn
 <li>When we are connected, the <em>on_connected</em> method is called. In that method we create a channel.</li>
 <li>When the channel is created, the <em>on_channel_open</em> method is called. In that method we declare a queue.</li>
 <li>When the queue is declared successfully, <em>on_queue_declared</em> is called. In that method we call channel.basic_consume telling it to call the handle_delivery for each message RabbitMQ delivers to us.</li>
+<li>When RabbitMQ has a message to send us, it will do so to the handle_delivery function passing the Method frame, Header frame and Body.</li>
 </ol>
-<p id="cps-example">Example:</p>
+<p>Note that Step #1 is on line #28 and Step #2 is on line #6. This is so that Python knows about the functions we&#8217;ll call in Step #2-&gt;#5
+.. _cps_example:</p>
+<p>Example:</p>
 <div class="highlight-python"><div class="highlight"><pre><span class="kn">from</span> <span class="nn">pika.adapters</span> <span class="kn">import</span> <span class="n">SelectConnection</span>
 
 <span class="c"># Create a global channel variable to hold our channel object in</span>
@@ -117,6 +120,7 @@ created when the connection adapter is created. To start it simply call the conn
     <span class="sd">&quot;&quot;&quot;Called when RabbitMQ has told us our Queue has been declared, frame is the response from RabbitMQ&quot;&quot;&quot;</span>
     <span class="n">channel</span><span class="o">.</span><span class="n">basic_consume</span><span class="p">(</span><span class="n">handle_delivery</span><span class="p">,</span> <span class="n">queue</span><span class="o">=</span><span class="s">&#39;test&#39;</span><span class="p">)</span>
 
+<span class="c"># Step #5</span>
 <span class="k">def</span> <span class="nf">handle_delivery</span><span class="p">(</span><span class="n">channel</span><span class="p">,</span> <span class="n">method</span><span class="p">,</span> <span class="n">header</span><span class="p">,</span> <span class="n">body</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Called when we receive a message from RabbitMQ&quot;&quot;&quot;</span>
     <span class="k">print</span> <span class="n">body</span>
@@ -224,7 +228,7 @@ SelectConnection object instance. Valid values are: kqueue, poll, epoll, select<
 <span class="n">connection</span> <span class="o">=</span> <span class="n">select_connection</span><span class="o">.</span><span class="n">SelectConnection</span><span class="p">()</span>
 </pre></div>
 </div>
-<p>See the <a class="reference internal" href="#cps-example"><em>Continuation-Passing Style example</em></a> for an example of using SelectConnection.</p>
+<p>See the <em class="xref std std-ref">Continuation-Passing Style example</em> for an example of using SelectConnection.</p>
 <span class="target" id="module-adapters.select_connection"></span><dl class="class">
 <dt id="adapters.select_connection.SelectConnection">
 <em class="property">class </em><tt class="descclassname">adapters.select_connection.</tt><tt class="descname">SelectConnection</tt><big>(</big><em>parameters=None</em>, <em>on_open_callback=None</em>, <em>reconnection_strategy=None</em><big>)</big><a class="headerlink" href="#adapters.select_connection.SelectConnection" title="Permalink to this definition">¶</a></dt>
@@ -467,9 +471,6 @@ you want to have blocking behavior. The behavior layered on top of the
 async library. Because of the nature of AMQP there are a few callbacks
 one needs to do, even in a blocking implementation. These include receiving
 messages from Basic.Deliver, Basic.GetOk, and Basic.Return.</p>
-<p>It is also advised that you register callbacks for detecting backpressure.
-New to the RabbitMQ 2.0 and higher versions is the removal of Channel.Flow
-and instead the application of tcp backpressure when the broker is</p>
 <dl class="method">
 <dt id="adapters.blocking_connection.BlockingConnection.add_backpressure_callback">
 <tt class="descname">add_backpressure_callback</tt><big>(</big><em>callback</em><big>)</big><a class="headerlink" href="#adapters.blocking_connection.BlockingConnection.add_backpressure_callback" title="Permalink to this definition">¶</a></dt>
