@@ -46,7 +46,7 @@
 #
 # ***** END LICENSE BLOCK *****
 
-DEBUG = True
+DEBUG = False
 
 import logging
 
