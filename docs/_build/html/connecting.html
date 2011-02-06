@@ -69,7 +69,9 @@
 created when the connection adapter is created. To start it simply call the connection.ioloop.start() method.</p>
 <p>If you are using an external IOLoop such as Tornado&#8217;s IOLoop, you may invoke that as you normally would and then add the adapter to it.</p>
 <p>Example:</p>
-<div class="highlight-python"><div class="highlight"><pre><span class="c"># Create our connection object</span>
+<div class="highlight-python"><div class="highlight"><pre><span class="kn">from</span> <span class="nn">pika.adapters</span> <span class="kn">import</span> <span class="n">SelectConnection</span>
+
+<span class="c"># Create our connection object</span>
 <span class="n">connection</span> <span class="o">=</span> <span class="n">SelectConnection</span><span class="p">()</span>
 
 <span class="k">try</span><span class="p">:</span>
@@ -85,14 +87,14 @@ created when the connection adapter is created. To start it simply call the conn
 </div>
 <div class="section" id="continuation-passing-style">
 <span id="intro-to-cps"></span><h2>Continuation-Passing Style<a class="headerlink" href="#continuation-passing-style" title="Permalink to this headline">¶</a></h2>
-<p>Interfacing with Pika asynchronously is done by passing in callback methods you would like to have invoked when a certain event has completed. For example, if you are going to declare a queue, you pass in a method that will be called when the RabbitMQ server returns a &#8220;Queue.DeclareOk&#8221; response.</p>
+<p>Interfacing with Pika asynchronously is done by passing in callback methods you would like to have invoked when a certain event has completed. For example, if you are going to declare a queue, you pass in a method that will be called when the RabbitMQ server returns a <a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html#queue.declare">Queue.DeclareOk</a> response.</p>
 <p>In our example below we use the following four easy steps:</p>
 <ol class="arabic simple">
 <li>We start by creating our connection object, then starting our event loop.</li>
 <li>When we are connected, the <em>on_connected</em> method is called. In that method we create a channel.</li>
 <li>When the channel is created, the <em>on_channel_open</em> method is called. In that method we declare a queue.</li>
-<li>When the queue is declared successfully, <em>on_queue_declared</em> is called. In that method we call channel.basic_consume telling it to call the handle_delivery for each message RabbitMQ delivers to us.</li>
-<li>When RabbitMQ has a message to send us, it will do so to the handle_delivery function passing the Method frame, Header frame and Body.</li>
+<li>When the queue is declared successfully, <em>on_queue_declared</em> is called. In that method we call <a class="reference internal" href="communicating.html#channel.Channel.basic_consume" title="channel.Channel.basic_consume"><tt class="xref py py-meth docutils literal"><span class="pre">channel.basic_consume</span></tt></a> telling it to call the handle_delivery for each message RabbitMQ delivers to us.</li>
+<li>When RabbitMQ has a message to send us, it call the handle_delivery method passing the AMQP Method frame, Header frame and Body.</li>
 </ol>
 <div class="admonition note">
 <p class="first admonition-title">Note</p>
@@ -204,11 +206,12 @@ Defaults to PlainCredentials for the guest user.</li>
 </div>
 <div class="section" id="tcp-backpressure">
 <span id="intro-to-backpressure"></span><h2>TCP Backpressure<a class="headerlink" href="#tcp-backpressure" title="Permalink to this headline">¶</a></h2>
-<p>As of RabbitMQ 2.0.0, client side Channel.Flow has been removed. Instead, the RabbitMQ broker uses TCP Backpressure to slow your client if it is
-delivering messages too fast. Pika attempts to help you handle this situation by providing a mechanism by which you may be notified if Pika has noticed
-too many frames have yet to be delivered. By registering a function with the <em>add_backpressure_callback</em> function of any connection adapter, your function
-will be called when Pika sees that a backlog of 10 times the average frame size you have been sending has been exceeded. You may tweak this value by
-calling the set_backpressure_multiplier method passing any integer value.</p>
+<p>As of RabbitMQ 2.0, client side <a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html#channel.flow">Channel.Flow</a> has been removed <a class="footnote-reference" href="#f1" id="id1">[1]</a>. Instead, the RabbitMQ
+broker uses TCP Backpressure to slow your client if it is delivering messages too fast. Pika attempts to help you handle this situation by providing a
+mechanism by which you may be notified if Pika has noticed too many frames have yet to be delivered. By registering a function with the
+<a class="reference internal" href="#adapters.select_connection.SelectConnection.add_backpressure_callback" title="adapters.select_connection.SelectConnection.add_backpressure_callback"><tt class="xref py py-meth docutils literal"><span class="pre">add_backpressure_callback</span></tt></a> function of any connection adapter, your function will be called
+when Pika sees that a backlog of 10 times the average frame size you have been sending has been exceeded. You may tweak this value by calling the
+<a class="reference internal" href="#adapters.select_connection.SelectConnection.set_backpressure_multiplier" title="adapters.select_connection.SelectConnection.set_backpressure_multiplier"><tt class="xref py py-meth docutils literal"><span class="pre">set_backpressure_multiplier</span></tt></a> method passing any integer value.</p>
 </div>
 <div class="section" id="available-adapters">
 <h2>Available Adapters<a class="headerlink" href="#available-adapters" title="Permalink to this headline">¶</a></h2>
@@ -514,6 +517,13 @@ callback.</p>
 
 </dd></dl>
 
+<p class="rubric">Footnotes</p>
+<table class="docutils footnote" frame="void" id="f1" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label"><a class="fn-backref" href="#id1">[1]</a></td><td>&#8220;more effective flow control mechanism that does not require cooperation from clients and reacts quickly to prevent the broker from exhausing memory - see <a class="reference external" href="http://www.rabbitmq.com/extensions.html#memsup">http://www.rabbitmq.com/extensions.html#memsup</a>&#8221; from <a class="reference external" href="http://lists.rabbitmq.com/pipermail/rabbitmq-announce/attachments/20100825/2c672695/attachment.txt">http://lists.rabbitmq.com/pipermail/rabbitmq-announce/attachments/20100825/2c672695/attachment.txt</a></td></tr>
+</tbody>
+</table>
 </div>
 </div>
 </div>

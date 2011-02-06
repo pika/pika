@@ -1,0 +1,165 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Frequently Asked Questions &mdash; Pika 0.9a documentation</title>
+    
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '',
+        VERSION:     '0.9a',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="Pika 0.9a documentation" href="index.html" />
+    <link rel="next" title="adapters" href="adapters.html" />
+    <link rel="prev" title="Examples" href="examples.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="adapters.html" title="adapters"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="examples.html" title="Examples"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">Pika 0.9a documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="frequently-asked-questions">
+<h1>Frequently Asked Questions<a class="headerlink" href="#frequently-asked-questions" title="Permalink to this headline">¶</a></h1>
+<ul>
+<li><p class="first">Is Pika thread safe?</p>
+<blockquote>
+<div><p>Pika does not have any notion of threading in the code. If you want to use Pika with threading, make sure you have a Pika connection per thread to use. It is not safe to share one Pika connection across threads.</p>
+</div></blockquote>
+</li>
+<li><p class="first">Pika starts sending messages quickly but slows down over time, what gives?</p>
+<blockquote>
+<div><p>Most likely you are being throttled by the RabbitMQ broker, see <a class="reference internal" href="connecting.html#intro-to-backpressure"><em>TCP Backpressure</em></a>.</p>
+</div></blockquote>
+</li>
+<li><p class="first">I need to connect to a RabbitMQ version before 2.0 that only supports AMQP 0-8, what should I do?</p>
+<blockquote>
+<div><p>Use <a class="reference external" href="https://github.com/tonyg/pika/tree/v0.5.2">version 0.5.2</a>  which only supports 0-8. <a class="reference external" href="https://github.com/tonyg/pika/tarball/v0.5.2">[Download]</a></p>
+</div></blockquote>
+</li>
+<li><p class="first">How do I report a bug with Pika?</p>
+<blockquote>
+<div><p>The <a class="reference external" href="https://github.com/tonyg/pika">main Pika repository</a> is hosted on <a class="reference external" href="https://github.com">Github</a> and we use the Issue tracker at <a class="reference external" href="https://github.com/tonyg/pika/issues">https://github.com/tonyg/pika/issues</a>.</p>
+</div></blockquote>
+</li>
+<li><p class="first">Is there a mailing list for Pika?</p>
+<blockquote>
+<div><p>Traditionally questions about Pika have been asked on the <a class="reference external" href="http://lists.rabbitmq.com/cgi-bin/mailman/listinfo/rabbitmq-discuss">RabbitMQ-Discuss mailing list</a>.</p>
+</div></blockquote>
+</li>
+<li><p class="first">Is there an IRC channel for Pika?</p>
+<blockquote>
+<div><p>People knowledgeable about Pika tend to hang out in #RabbitMQ on <a class="reference external" href="http://freenode.net/">irc.freenode.net</a>.</p>
+</div></blockquote>
+</li>
+<li><p class="first">What versions of Python are supported?</p>
+<blockquote>
+<div><p>Main developent is currently on the Python 2.6 branch. For a release, Pika passes its tests on the latest versions of 2.4, 2.5 and 2.6.</p>
+</div></blockquote>
+</li>
+<li><p class="first">Does Python work with Python 3?</p>
+<blockquote>
+<div><p>Not yet, but there is an effort to port it underway.</p>
+</div></blockquote>
+</li>
+<li><p class="first">How can I contribute to Pika?</p>
+<blockquote>
+<div><p>You can <a class="reference external" href="http://help.github.com/forking/">fork the project on Github</a> and issue <a class="reference external" href="http://help.github.com/pull-requests/">Pull Requests</a> when you believe you have something solid to be added to the main repository.</p>
+</div></blockquote>
+</li>
+</ul>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="examples.html"
+                        title="previous chapter">Examples</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="adapters.html"
+                        title="next chapter">adapters</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/faq.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" size="18" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="adapters.html" title="adapters"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="examples.html" title="Examples"
+             >previous</a> |</li>
+        <li><a href="index.html">Pika 0.9a documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2011, Tony Garnock-Jones, Gavin M. Roy and others.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1pre.
+    </div>
+  </body>
+</html>

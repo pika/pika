@@ -44,6 +44,7 @@ Pika 0.9a is a major refactor of the Pika library implementing true asynchronous
    connecting
    communicating
    examples
+   faq
 
 Pika Core Modules and Classes
 -----------------------------

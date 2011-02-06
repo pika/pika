@@ -19,6 +19,8 @@ If you are using an external IOLoop such as Tornado's IOLoop, you may invoke tha
 
 Example::
 
+    from pika.adapters import SelectConnection
+
     # Create our connection object
     connection = SelectConnection()
 
@@ -36,15 +38,15 @@ Example::
 Continuation-Passing Style
 --------------------------
 
-Interfacing with Pika asynchronously is done by passing in callback methods you would like to have invoked when a certain event has completed. For example, if you are going to declare a queue, you pass in a method that will be called when the RabbitMQ server returns a "Queue.DeclareOk" response.
+Interfacing with Pika asynchronously is done by passing in callback methods you would like to have invoked when a certain event has completed. For example, if you are going to declare a queue, you pass in a method that will be called when the RabbitMQ server returns a `Queue.DeclareOk <http://www.rabbitmq.com/amqp-0-9-1-quickref.html#queue.declare>`_ response.
 
 In our example below we use the following four easy steps:
 
 #. We start by creating our connection object, then starting our event loop.
 #. When we are connected, the *on_connected* method is called. In that method we create a channel.
 #. When the channel is created, the *on_channel_open* method is called. In that method we declare a queue.
-#. When the queue is declared successfully, *on_queue_declared* is called. In that method we call channel.basic_consume telling it to call the handle_delivery for each message RabbitMQ delivers to us.
-#. When RabbitMQ has a message to send us, it will do so to the handle_delivery function passing the Method frame, Header frame and Body.
+#. When the queue is declared successfully, *on_queue_declared* is called. In that method we call :py:meth:`channel.basic_consume <channel.Channel.basic_consume>` telling it to call the handle_delivery for each message RabbitMQ delivers to us.
+#. When RabbitMQ has a message to send us, it call the handle_delivery method passing the AMQP Method frame, Header frame and Body.
 
 .. NOTE::
     Step #1 is on line #28 and Step #2 is on line #6. This is so that Python knows about the functions we'll call in Steps #2 through #5.
@@ -135,11 +137,12 @@ Example::
 TCP Backpressure
 ----------------
 
-As of RabbitMQ 2.0.0, client side Channel.Flow has been removed. Instead, the RabbitMQ broker uses TCP Backpressure to slow your client if it is
-delivering messages too fast. Pika attempts to help you handle this situation by providing a mechanism by which you may be notified if Pika has noticed
-too many frames have yet to be delivered. By registering a function with the *add_backpressure_callback* function of any connection adapter, your function
-will be called when Pika sees that a backlog of 10 times the average frame size you have been sending has been exceeded. You may tweak this value by
-calling the set_backpressure_multiplier method passing any integer value.
+As of RabbitMQ 2.0, client side `Channel.Flow <http://www.rabbitmq.com/amqp-0-9-1-quickref.html#channel.flow>`_ has been removed [#f1]_. Instead, the RabbitMQ
+broker uses TCP Backpressure to slow your client if it is delivering messages too fast. Pika attempts to help you handle this situation by providing a
+mechanism by which you may be notified if Pika has noticed too many frames have yet to be delivered. By registering a function with the
+:py:meth:`add_backpressure_callback <adapters.select_connection.SelectConnection.add_backpressure_callback>` function of any connection adapter, your function will be called
+when Pika sees that a backlog of 10 times the average frame size you have been sending has been exceeded. You may tweak this value by calling the
+:py:meth:`set_backpressure_multiplier <adapters.select_connection.SelectConnection.set_backpressure_multiplier>` method passing any integer value.
 
 Available Adapters
 ------------------
@@ -268,3 +271,7 @@ Example::
    :members:
    :inherited-members:
    :member-order: bysource
+
+.. rubric:: Footnotes
+
+.. [#f1] "more effective flow control mechanism that does not require cooperation from clients and reacts quickly to prevent the broker from exhausing memory - see http://www.rabbitmq.com/extensions.html#memsup" from http://lists.rabbitmq.com/pipermail/rabbitmq-announce/attachments/20100825/2c672695/attachment.txt
