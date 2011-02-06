@@ -8,7 +8,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>SimpleBuffer &mdash; Pika 0.9a documentation</title>
+    <title>simplebuffer &mdash; Pika 0.9a documentation</title>
     
     <link rel="stylesheet" href="_static/default.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
@@ -26,8 +26,8 @@
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
     <link rel="top" title="Pika 0.9a documentation" href="index.html" />
-    <link rel="next" title="Spec" href="spec.html" />
-    <link rel="prev" title="Reconnection Strategies" href="reconnection_strategies.html" /> 
+    <link rel="next" title="spec" href="spec.html" />
+    <link rel="prev" title="reconnection_strategies" href="reconnection_strategies.html" /> 
   </head>
   <body>
     <div class="related">
@@ -40,10 +40,10 @@
           <a href="py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
         <li class="right" >
-          <a href="spec.html" title="Spec"
+          <a href="spec.html" title="spec"
              accesskey="N">next</a> |</li>
         <li class="right" >
-          <a href="reconnection_strategies.html" title="Reconnection Strategies"
+          <a href="reconnection_strategies.html" title="reconnection_strategies"
              accesskey="P">previous</a> |</li>
         <li><a href="index.html">Pika 0.9a documentation</a> &raquo;</li> 
       </ul>
@@ -55,11 +55,13 @@
           <div class="body">
             
   <div class="section" id="simplebuffer">
-<h1>SimpleBuffer<a class="headerlink" href="#simplebuffer" title="Permalink to this headline">¶</a></h1>
+<h1>simplebuffer<a class="headerlink" href="#simplebuffer" title="Permalink to this headline">¶</a></h1>
 <div class="admonition note">
 <p class="first admonition-title">Note</p>
 <p class="last">This class is not intended for use by those using Pika in their applications. This documentation is for those who are extending Pika or otherwise working on the driver itself.</p>
 </div>
+<div class="section" id="id1">
+<h2>SimpleBuffer<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h2>
 <span class="target" id="module-simplebuffer"></span><p>This is an implementation of a simple buffer. SimpleBuffer just handles
 a string of bytes. The clue, is that you can pop data from the beginning
 and append data to the end.</p>
@@ -83,6 +85,11 @@ Use this to avoid concatenating or splitting large strings.</p>
 <span class="go">&#39;&#39;</span>
 </pre></div>
 </div>
+<dl class="attribute">
+<dt id="simplebuffer.SimpleBuffer.buf">
+<tt class="descname">buf</tt><em class="property"> = None</em><a class="headerlink" href="#simplebuffer.SimpleBuffer.buf" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
 <dl class="method">
 <dt id="simplebuffer.SimpleBuffer.consume">
 <tt class="descname">consume</tt><big>(</big><em>size</em><big>)</big><a class="headerlink" href="#simplebuffer.SimpleBuffer.consume" title="Permalink to this definition">¶</a></dt>
@@ -94,6 +101,11 @@ Use this to avoid concatenating or splitting large strings.</p>
 <tt class="descname">flush</tt><big>(</big><big>)</big><a class="headerlink" href="#simplebuffer.SimpleBuffer.flush" title="Permalink to this definition">¶</a></dt>
 <dd><p>Remove all the data from buffer.</p>
 </dd></dl>
+
+<dl class="attribute">
+<dt id="simplebuffer.SimpleBuffer.offset">
+<tt class="descname">offset</tt><em class="property"> = 0</em><a class="headerlink" href="#simplebuffer.SimpleBuffer.offset" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
 
 <dl class="method">
 <dt id="simplebuffer.SimpleBuffer.read">
@@ -113,6 +125,11 @@ Use this to avoid concatenating or splitting large strings.</p>
 <dd><p>Faster way of sending buffer data to socket &#8216;sd&#8217;.</p>
 </dd></dl>
 
+<dl class="attribute">
+<dt id="simplebuffer.SimpleBuffer.size">
+<tt class="descname">size</tt><em class="property"> = 0</em><a class="headerlink" href="#simplebuffer.SimpleBuffer.size" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
 <dl class="method">
 <dt id="simplebuffer.SimpleBuffer.write">
 <tt class="descname">write</tt><big>(</big><em>*data_strings</em><big>)</big><a class="headerlink" href="#simplebuffer.SimpleBuffer.write" title="Permalink to this definition">¶</a></dt>
@@ -122,6 +139,7 @@ Use this to avoid concatenating or splitting large strings.</p>
 </dd></dl>
 
 </div>
+</div>
 
 
           </div>
@@ -129,12 +147,20 @@ Use this to avoid concatenating or splitting large strings.</p>
       </div>
       <div class="sphinxsidebar">
         <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">simplebuffer</a><ul>
+<li><a class="reference internal" href="#id1">SimpleBuffer</a></li>
+</ul>
+</li>
+</ul>
+
   <h4>Previous topic</h4>
   <p class="topless"><a href="reconnection_strategies.html"
-                        title="previous chapter">Reconnection Strategies</a></p>
+                        title="previous chapter">reconnection_strategies</a></p>
   <h4>Next topic</h4>
   <p class="topless"><a href="spec.html"
-                        title="next chapter">Spec</a></p>
+                        title="next chapter">spec</a></p>
   <h3>This Page</h3>
   <ul class="this-page-menu">
     <li><a href="_sources/simplebuffer.txt"
@@ -167,10 +193,10 @@ Use this to avoid concatenating or splitting large strings.</p>
           <a href="py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
         <li class="right" >
-          <a href="spec.html" title="Spec"
+          <a href="spec.html" title="spec"
              >next</a> |</li>
         <li class="right" >
-          <a href="reconnection_strategies.html" title="Reconnection Strategies"
+          <a href="reconnection_strategies.html" title="reconnection_strategies"
              >previous</a> |</li>
         <li><a href="index.html">Pika 0.9a documentation</a> &raquo;</li> 
       </ul>

@@ -8,7 +8,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Spec &mdash; Pika 0.9a documentation</title>
+    <title>spec &mdash; Pika 0.9a documentation</title>
     
     <link rel="stylesheet" href="_static/default.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
@@ -26,8 +26,8 @@
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
     <link rel="top" title="Pika 0.9a documentation" href="index.html" />
-    <link rel="next" title="Table" href="table.html" />
-    <link rel="prev" title="SimpleBuffer" href="simplebuffer.html" /> 
+    <link rel="next" title="table" href="table.html" />
+    <link rel="prev" title="simplebuffer" href="simplebuffer.html" /> 
   </head>
   <body>
     <div class="related">
@@ -40,10 +40,10 @@
           <a href="py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
         <li class="right" >
-          <a href="table.html" title="Table"
+          <a href="table.html" title="table"
              accesskey="N">next</a> |</li>
         <li class="right" >
-          <a href="simplebuffer.html" title="SimpleBuffer"
+          <a href="simplebuffer.html" title="simplebuffer"
              accesskey="P">previous</a> |</li>
         <li><a href="index.html">Pika 0.9a documentation</a> &raquo;</li> 
       </ul>
@@ -55,13 +55,12 @@
           <div class="body">
             
   <div class="section" id="spec">
-<h1>Spec<a class="headerlink" href="#spec" title="Permalink to this headline">¶</a></h1>
+<h1>spec<a class="headerlink" href="#spec" title="Permalink to this headline">¶</a></h1>
 <div class="admonition note">
 <p class="first admonition-title">Note</p>
 <p class="last">This class is not intended for use by those using Pika in their applications. This documentation is for those who are extending Pika or otherwise working on the driver itself.</p>
 </div>
-<p>spec.py is an auto-generated python module which is created by the codegen.py application. It contains all of the information about the
-protocol that is required for Pika to communicate with RabbitMQ.</p>
+<p>spec.py is an auto-generated python module which is created by the codegen.py application. It contains all of the information about the protocol that is required for Pika to communicate with RabbitMQ.</p>
 <span class="target" id="module-spec"></span><dl class="class">
 <dt id="spec.Access">
 <em class="property">class </em><tt class="descclassname">spec.</tt><tt class="descname">Access</tt><a class="headerlink" href="#spec.Access" title="Permalink to this definition">¶</a></dt>
@@ -86,6 +85,11 @@ protocol that is required for Pika to communicate with RabbitMQ.</p>
 <dl class="attribute">
 <dt id="spec.Access.Request.NAME">
 <tt class="descname">NAME</tt><em class="property"> = 'Access.Request'</em><a class="headerlink" href="#spec.Access.Request.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Access.Request._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Access.Request._set_content" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -131,6 +135,11 @@ protocol that is required for Pika to communicate with RabbitMQ.</p>
 <dl class="attribute">
 <dt id="spec.Access.RequestOk.NAME">
 <tt class="descname">NAME</tt><em class="property"> = 'Access.RequestOk'</em><a class="headerlink" href="#spec.Access.RequestOk.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Access.RequestOk._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Access.RequestOk._set_content" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -189,6 +198,11 @@ protocol that is required for Pika to communicate with RabbitMQ.</p>
 <dd></dd></dl>
 
 <dl class="method">
+<dt id="spec.Basic.Ack._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Basic.Ack._set_content" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
 <dt id="spec.Basic.Ack.decode">
 <tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Basic.Ack.decode" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -231,6 +245,11 @@ protocol that is required for Pika to communicate with RabbitMQ.</p>
 <dl class="attribute">
 <dt id="spec.Basic.Cancel.NAME">
 <tt class="descname">NAME</tt><em class="property"> = 'Basic.Cancel'</em><a class="headerlink" href="#spec.Basic.Cancel.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.Cancel._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Basic.Cancel._set_content" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -279,6 +298,11 @@ protocol that is required for Pika to communicate with RabbitMQ.</p>
 <dd></dd></dl>
 
 <dl class="method">
+<dt id="spec.Basic.CancelOk._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Basic.CancelOk._set_content" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
 <dt id="spec.Basic.CancelOk.decode">
 <tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Basic.CancelOk.decode" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -321,6 +345,11 @@ protocol that is required for Pika to communicate with RabbitMQ.</p>
 <dl class="attribute">
 <dt id="spec.Basic.Consume.NAME">
 <tt class="descname">NAME</tt><em class="property"> = 'Basic.Consume'</em><a class="headerlink" href="#spec.Basic.Consume.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.Consume._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Basic.Consume._set_content" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -369,6 +398,11 @@ protocol that is required for Pika to communicate with RabbitMQ.</p>
 <dd></dd></dl>
 
 <dl class="method">
+<dt id="spec.Basic.ConsumeOk._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Basic.ConsumeOk._set_content" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
 <dt id="spec.Basic.ConsumeOk.decode">
 <tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Basic.ConsumeOk.decode" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -411,6 +445,11 @@ protocol that is required for Pika to communicate with RabbitMQ.</p>
 <dl class="attribute">
 <dt id="spec.Basic.Deliver.NAME">
 <tt class="descname">NAME</tt><em class="property"> = 'Basic.Deliver'</em><a class="headerlink" href="#spec.Basic.Deliver.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.Deliver._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Basic.Deliver._set_content" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -459,6 +498,11 @@ protocol that is required for Pika to communicate with RabbitMQ.</p>
 <dd></dd></dl>
 
 <dl class="method">
+<dt id="spec.Basic.Get._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Basic.Get._set_content" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
 <dt id="spec.Basic.Get.decode">
 <tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Basic.Get.decode" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -504,6 +548,11 @@ protocol that is required for Pika to communicate with RabbitMQ.</p>
 <dd></dd></dl>
 
 <dl class="method">
+<dt id="spec.Basic.GetEmpty._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Basic.GetEmpty._set_content" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
 <dt id="spec.Basic.GetEmpty.decode">
 <tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Basic.GetEmpty.decode" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -546,6 +595,11 @@ protocol that is required for Pika to communicate with RabbitMQ.</p>
 <dl class="attribute">
 <dt id="spec.Basic.GetOk.NAME">
 <tt class="descname">NAME</tt><em class="property"> = 'Basic.GetOk'</em><a class="headerlink" href="#spec.Basic.GetOk.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.GetOk._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Basic.GetOk._set_content" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -604,6 +658,11 @@ protocol that is required for Pika to communicate with RabbitMQ.</p>
 <dd></dd></dl>
 
 <dl class="method">
+<dt id="spec.Basic.Nack._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Basic.Nack._set_content" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
 <dt id="spec.Basic.Nack.decode">
 <tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Basic.Nack.decode" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -646,6 +705,11 @@ protocol that is required for Pika to communicate with RabbitMQ.</p>
 <dl class="attribute">
 <dt id="spec.Basic.Publish.NAME">
 <tt class="descname">NAME</tt><em class="property"> = 'Basic.Publish'</em><a class="headerlink" href="#spec.Basic.Publish.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.Publish._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Basic.Publish._set_content" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -694,6 +758,11 @@ protocol that is required for Pika to communicate with RabbitMQ.</p>
 <dd></dd></dl>
 
 <dl class="method">
+<dt id="spec.Basic.Qos._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Basic.Qos._set_content" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
 <dt id="spec.Basic.Qos.decode">
 <tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Basic.Qos.decode" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -736,6 +805,11 @@ protocol that is required for Pika to communicate with RabbitMQ.</p>
 <dl class="attribute">
 <dt id="spec.Basic.QosOk.NAME">
 <tt class="descname">NAME</tt><em class="property"> = 'Basic.QosOk'</em><a class="headerlink" href="#spec.Basic.QosOk.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.QosOk._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Basic.QosOk._set_content" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -784,6 +858,11 @@ protocol that is required for Pika to communicate with RabbitMQ.</p>
 <dd></dd></dl>
 
 <dl class="method">
+<dt id="spec.Basic.Recover._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Basic.Recover._set_content" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
 <dt id="spec.Basic.Recover.decode">
 <tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Basic.Recover.decode" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -826,6 +905,11 @@ protocol that is required for Pika to communicate with RabbitMQ.</p>
 <dl class="attribute">
 <dt id="spec.Basic.RecoverAsync.NAME">
 <tt class="descname">NAME</tt><em class="property"> = 'Basic.RecoverAsync'</em><a class="headerlink" href="#spec.Basic.RecoverAsync.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.RecoverAsync._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Basic.RecoverAsync._set_content" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -874,6 +958,11 @@ protocol that is required for Pika to communicate with RabbitMQ.</p>
 <dd></dd></dl>
 
 <dl class="method">
+<dt id="spec.Basic.RecoverOk._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Basic.RecoverOk._set_content" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
 <dt id="spec.Basic.RecoverOk.decode">
 <tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Basic.RecoverOk.decode" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -919,6 +1008,11 @@ protocol that is required for Pika to communicate with RabbitMQ.</p>
 <dd></dd></dl>
 
 <dl class="method">
+<dt id="spec.Basic.Reject._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Basic.Reject._set_content" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
 <dt id="spec.Basic.Reject.decode">
 <tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Basic.Reject.decode" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -961,6 +1055,11 @@ protocol that is required for Pika to communicate with RabbitMQ.</p>
 <dl class="attribute">
 <dt id="spec.Basic.Return.NAME">
 <tt class="descname">NAME</tt><em class="property"> = 'Basic.Return'</em><a class="headerlink" href="#spec.Basic.Return.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Basic.Return._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Basic.Return._set_content" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -1125,6 +1224,11 @@ protocol that is required for Pika to communicate with RabbitMQ.</p>
 <dd></dd></dl>
 
 <dl class="method">
+<dt id="spec.Channel.Close._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Channel.Close._set_content" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
 <dt id="spec.Channel.Close.decode">
 <tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Channel.Close.decode" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -1167,6 +1271,11 @@ protocol that is required for Pika to communicate with RabbitMQ.</p>
 <dl class="attribute">
 <dt id="spec.Channel.CloseOk.NAME">
 <tt class="descname">NAME</tt><em class="property"> = 'Channel.CloseOk'</em><a class="headerlink" href="#spec.Channel.CloseOk.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Channel.CloseOk._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Channel.CloseOk._set_content" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -1215,6 +1324,11 @@ protocol that is required for Pika to communicate with RabbitMQ.</p>
 <dd></dd></dl>
 
 <dl class="method">
+<dt id="spec.Channel.Flow._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Channel.Flow._set_content" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
 <dt id="spec.Channel.Flow.decode">
 <tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Channel.Flow.decode" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -1257,6 +1371,11 @@ protocol that is required for Pika to communicate with RabbitMQ.</p>
 <dl class="attribute">
 <dt id="spec.Channel.FlowOk.NAME">
 <tt class="descname">NAME</tt><em class="property"> = 'Channel.FlowOk'</em><a class="headerlink" href="#spec.Channel.FlowOk.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Channel.FlowOk._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Channel.FlowOk._set_content" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -1315,6 +1434,11 @@ protocol that is required for Pika to communicate with RabbitMQ.</p>
 <dd></dd></dl>
 
 <dl class="method">
+<dt id="spec.Channel.Open._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Channel.Open._set_content" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
 <dt id="spec.Channel.Open.decode">
 <tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Channel.Open.decode" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -1357,6 +1481,11 @@ protocol that is required for Pika to communicate with RabbitMQ.</p>
 <dl class="attribute">
 <dt id="spec.Channel.OpenOk.NAME">
 <tt class="descname">NAME</tt><em class="property"> = 'Channel.OpenOk'</em><a class="headerlink" href="#spec.Channel.OpenOk.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Channel.OpenOk._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Channel.OpenOk._set_content" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -1425,6 +1554,11 @@ protocol that is required for Pika to communicate with RabbitMQ.</p>
 <dd></dd></dl>
 
 <dl class="method">
+<dt id="spec.Confirm.Select._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Confirm.Select._set_content" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
 <dt id="spec.Confirm.Select.decode">
 <tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Confirm.Select.decode" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -1467,6 +1601,11 @@ protocol that is required for Pika to communicate with RabbitMQ.</p>
 <dl class="attribute">
 <dt id="spec.Confirm.SelectOk.NAME">
 <tt class="descname">NAME</tt><em class="property"> = 'Confirm.SelectOk'</em><a class="headerlink" href="#spec.Confirm.SelectOk.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Confirm.SelectOk._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Confirm.SelectOk._set_content" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -1525,6 +1664,11 @@ protocol that is required for Pika to communicate with RabbitMQ.</p>
 <dd></dd></dl>
 
 <dl class="method">
+<dt id="spec.Connection.Close._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Connection.Close._set_content" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
 <dt id="spec.Connection.Close.decode">
 <tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Connection.Close.decode" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -1567,6 +1711,11 @@ protocol that is required for Pika to communicate with RabbitMQ.</p>
 <dl class="attribute">
 <dt id="spec.Connection.CloseOk.NAME">
 <tt class="descname">NAME</tt><em class="property"> = 'Connection.CloseOk'</em><a class="headerlink" href="#spec.Connection.CloseOk.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Connection.CloseOk._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Connection.CloseOk._set_content" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -1625,6 +1774,11 @@ protocol that is required for Pika to communicate with RabbitMQ.</p>
 <dd></dd></dl>
 
 <dl class="method">
+<dt id="spec.Connection.Open._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Connection.Open._set_content" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
 <dt id="spec.Connection.Open.decode">
 <tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Connection.Open.decode" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -1667,6 +1821,11 @@ protocol that is required for Pika to communicate with RabbitMQ.</p>
 <dl class="attribute">
 <dt id="spec.Connection.OpenOk.NAME">
 <tt class="descname">NAME</tt><em class="property"> = 'Connection.OpenOk'</em><a class="headerlink" href="#spec.Connection.OpenOk.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Connection.OpenOk._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Connection.OpenOk._set_content" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -1715,6 +1874,11 @@ protocol that is required for Pika to communicate with RabbitMQ.</p>
 <dd></dd></dl>
 
 <dl class="method">
+<dt id="spec.Connection.Secure._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Connection.Secure._set_content" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
 <dt id="spec.Connection.Secure.decode">
 <tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Connection.Secure.decode" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -1757,6 +1921,11 @@ protocol that is required for Pika to communicate with RabbitMQ.</p>
 <dl class="attribute">
 <dt id="spec.Connection.SecureOk.NAME">
 <tt class="descname">NAME</tt><em class="property"> = 'Connection.SecureOk'</em><a class="headerlink" href="#spec.Connection.SecureOk.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Connection.SecureOk._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Connection.SecureOk._set_content" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -1805,6 +1974,11 @@ protocol that is required for Pika to communicate with RabbitMQ.</p>
 <dd></dd></dl>
 
 <dl class="method">
+<dt id="spec.Connection.Start._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Connection.Start._set_content" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
 <dt id="spec.Connection.Start.decode">
 <tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Connection.Start.decode" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -1847,6 +2021,11 @@ protocol that is required for Pika to communicate with RabbitMQ.</p>
 <dl class="attribute">
 <dt id="spec.Connection.StartOk.NAME">
 <tt class="descname">NAME</tt><em class="property"> = 'Connection.StartOk'</em><a class="headerlink" href="#spec.Connection.StartOk.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Connection.StartOk._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Connection.StartOk._set_content" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -1895,6 +2074,11 @@ protocol that is required for Pika to communicate with RabbitMQ.</p>
 <dd></dd></dl>
 
 <dl class="method">
+<dt id="spec.Connection.Tune._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Connection.Tune._set_content" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
 <dt id="spec.Connection.Tune.decode">
 <tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Connection.Tune.decode" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -1937,6 +2121,11 @@ protocol that is required for Pika to communicate with RabbitMQ.</p>
 <dl class="attribute">
 <dt id="spec.Connection.TuneOk.NAME">
 <tt class="descname">NAME</tt><em class="property"> = 'Connection.TuneOk'</em><a class="headerlink" href="#spec.Connection.TuneOk.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Connection.TuneOk._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Connection.TuneOk._set_content" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -1985,7 +2174,7 @@ protocol that is required for Pika to communicate with RabbitMQ.</p>
 <dt id="spec.DriverMixin.basic_ack">
 <tt class="descname">basic_ack</tt><big>(</big><em>delivery_tag=0</em>, <em>multiple=False</em><big>)</big><a class="headerlink" href="#spec.DriverMixin.basic_ack" title="Permalink to this definition">¶</a></dt>
 <dd><p>Implements the basic.ack AMQP command. For context and usage:</p>
-<p><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html">http://www.rabbitmq.com/amqp-0-9-1-quickref.html</a></p>
+<p><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html#basic.ack">http://www.rabbitmq.com/amqp-0-9-1-quickref.html#basic.ack</a></p>
 </dd></dl>
 
 <dl class="method">
@@ -1993,7 +2182,7 @@ protocol that is required for Pika to communicate with RabbitMQ.</p>
 <tt class="descname">basic_get</tt><big>(</big><em>callback=None</em>, <em>ticket=0</em>, <em>queue=''</em>, <em>no_ack=False</em><big>)</big><a class="headerlink" href="#spec.DriverMixin.basic_get" title="Permalink to this definition">¶</a></dt>
 <dd><p>Implements the Basic.Get AMQP command. For context and usage:</p>
 <blockquote>
-<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html">http://www.rabbitmq.com/amqp-0-9-1-quickref.html</a></div></blockquote>
+<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html#basic.get">http://www.rabbitmq.com/amqp-0-9-1-quickref.html#basic.get</a></div></blockquote>
 <p>This is a synchronous method that will not allow other commands to be
 send to the AMQP broker until it has completed. It is recommended to
 pass in a parameter to callback to be notified when this command has
@@ -2005,7 +2194,7 @@ completed.</p>
 <tt class="descname">basic_qos</tt><big>(</big><em>callback=None</em>, <em>prefetch_size=0</em>, <em>prefetch_count=0</em>, <em>global_=False</em><big>)</big><a class="headerlink" href="#spec.DriverMixin.basic_qos" title="Permalink to this definition">¶</a></dt>
 <dd><p>Implements the Basic.Qos AMQP command. For context and usage:</p>
 <blockquote>
-<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html">http://www.rabbitmq.com/amqp-0-9-1-quickref.html</a></div></blockquote>
+<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html#basic.qos">http://www.rabbitmq.com/amqp-0-9-1-quickref.html#basic.qos</a></div></blockquote>
 <p>This is a synchronous method that will not allow other commands to be
 send to the AMQP broker until it has completed. It is recommended to
 pass in a parameter to callback to be notified when this command has
@@ -2017,7 +2206,7 @@ completed.</p>
 <tt class="descname">basic_recover</tt><big>(</big><em>callback=None</em>, <em>requeue=False</em><big>)</big><a class="headerlink" href="#spec.DriverMixin.basic_recover" title="Permalink to this definition">¶</a></dt>
 <dd><p>Implements the Basic.Recover AMQP command. For context and usage:</p>
 <blockquote>
-<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html">http://www.rabbitmq.com/amqp-0-9-1-quickref.html</a></div></blockquote>
+<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html#basic.recover">http://www.rabbitmq.com/amqp-0-9-1-quickref.html#basic.recover</a></div></blockquote>
 <p>This is a synchronous method that will not allow other commands to be
 send to the AMQP broker until it has completed. It is recommended to
 pass in a parameter to callback to be notified when this command has
@@ -2028,14 +2217,14 @@ completed.</p>
 <dt id="spec.DriverMixin.basic_recover_async">
 <tt class="descname">basic_recover_async</tt><big>(</big><em>requeue=False</em><big>)</big><a class="headerlink" href="#spec.DriverMixin.basic_recover_async" title="Permalink to this definition">¶</a></dt>
 <dd><p>Implements the basic.recover-async AMQP command. For context and usage:</p>
-<p><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html">http://www.rabbitmq.com/amqp-0-9-1-quickref.html</a></p>
+<p><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html#basic.recover_async">http://www.rabbitmq.com/amqp-0-9-1-quickref.html#basic.recover_async</a></p>
 </dd></dl>
 
 <dl class="method">
 <dt id="spec.DriverMixin.basic_reject">
 <tt class="descname">basic_reject</tt><big>(</big><em>delivery_tag=None</em>, <em>requeue=True</em><big>)</big><a class="headerlink" href="#spec.DriverMixin.basic_reject" title="Permalink to this definition">¶</a></dt>
 <dd><p>Implements the basic.reject AMQP command. For context and usage:</p>
-<p><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html">http://www.rabbitmq.com/amqp-0-9-1-quickref.html</a></p>
+<p><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html#basic.reject">http://www.rabbitmq.com/amqp-0-9-1-quickref.html#basic.reject</a></p>
 </dd></dl>
 
 <dl class="method">
@@ -2043,7 +2232,7 @@ completed.</p>
 <tt class="descname">exchange_declare</tt><big>(</big><em>callback=None</em>, <em>ticket=0</em>, <em>exchange=None</em>, <em>type='direct'</em>, <em>passive=False</em>, <em>durable=False</em>, <em>auto_delete=False</em>, <em>internal=False</em>, <em>nowait=False</em>, <em>arguments={}</em><big>)</big><a class="headerlink" href="#spec.DriverMixin.exchange_declare" title="Permalink to this definition">¶</a></dt>
 <dd><p>Implements the Exchange.Declare AMQP command. For context and usage:</p>
 <blockquote>
-<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html">http://www.rabbitmq.com/amqp-0-9-1-quickref.html</a></div></blockquote>
+<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html#exchange.declare">http://www.rabbitmq.com/amqp-0-9-1-quickref.html#exchange.declare</a></div></blockquote>
 <p>This is a synchronous method that will not allow other commands to be
 send to the AMQP broker until it has completed. It is recommended to
 pass in a parameter to callback to be notified when this command has
@@ -2055,7 +2244,7 @@ completed.</p>
 <tt class="descname">exchange_delete</tt><big>(</big><em>callback=None</em>, <em>ticket=0</em>, <em>exchange=None</em>, <em>if_unused=False</em>, <em>nowait=False</em><big>)</big><a class="headerlink" href="#spec.DriverMixin.exchange_delete" title="Permalink to this definition">¶</a></dt>
 <dd><p>Implements the Exchange.Delete AMQP command. For context and usage:</p>
 <blockquote>
-<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html">http://www.rabbitmq.com/amqp-0-9-1-quickref.html</a></div></blockquote>
+<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html#exchange.delete">http://www.rabbitmq.com/amqp-0-9-1-quickref.html#exchange.delete</a></div></blockquote>
 <p>This is a synchronous method that will not allow other commands to be
 send to the AMQP broker until it has completed. It is recommended to
 pass in a parameter to callback to be notified when this command has
@@ -2067,7 +2256,7 @@ completed.</p>
 <tt class="descname">queue_bind</tt><big>(</big><em>callback=None</em>, <em>ticket=0</em>, <em>queue=''</em>, <em>exchange=None</em>, <em>routing_key=''</em>, <em>nowait=False</em>, <em>arguments={}</em><big>)</big><a class="headerlink" href="#spec.DriverMixin.queue_bind" title="Permalink to this definition">¶</a></dt>
 <dd><p>Implements the <a class="reference internal" href="#spec.Queue.Bind" title="spec.Queue.Bind"><tt class="xref py py-meth docutils literal"><span class="pre">Bind()</span></tt></a> AMQP command. For context and usage:</p>
 <blockquote>
-<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html">http://www.rabbitmq.com/amqp-0-9-1-quickref.html</a></div></blockquote>
+<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html#queue.bind">http://www.rabbitmq.com/amqp-0-9-1-quickref.html#queue.bind</a></div></blockquote>
 <p>This is a synchronous method that will not allow other commands to be
 send to the AMQP broker until it has completed. It is recommended to
 pass in a parameter to callback to be notified when this command has
@@ -2079,7 +2268,7 @@ completed.</p>
 <tt class="descname">queue_declare</tt><big>(</big><em>callback=None</em>, <em>ticket=0</em>, <em>queue=''</em>, <em>passive=False</em>, <em>durable=False</em>, <em>exclusive=False</em>, <em>auto_delete=False</em>, <em>nowait=False</em>, <em>arguments={}</em><big>)</big><a class="headerlink" href="#spec.DriverMixin.queue_declare" title="Permalink to this definition">¶</a></dt>
 <dd><p>Implements the <a class="reference internal" href="#spec.Queue.Declare" title="spec.Queue.Declare"><tt class="xref py py-meth docutils literal"><span class="pre">Declare()</span></tt></a> AMQP command. For context and usage:</p>
 <blockquote>
-<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html">http://www.rabbitmq.com/amqp-0-9-1-quickref.html</a></div></blockquote>
+<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html#queue.declare">http://www.rabbitmq.com/amqp-0-9-1-quickref.html#queue.declare</a></div></blockquote>
 <p>This is a synchronous method that will not allow other commands to be
 send to the AMQP broker until it has completed. It is recommended to
 pass in a parameter to callback to be notified when this command has
@@ -2091,7 +2280,7 @@ completed.</p>
 <tt class="descname">queue_delete</tt><big>(</big><em>callback=None</em>, <em>ticket=0</em>, <em>queue=''</em>, <em>if_unused=False</em>, <em>if_empty=False</em>, <em>nowait=False</em><big>)</big><a class="headerlink" href="#spec.DriverMixin.queue_delete" title="Permalink to this definition">¶</a></dt>
 <dd><p>Implements the <a class="reference internal" href="#spec.Queue.Delete" title="spec.Queue.Delete"><tt class="xref py py-meth docutils literal"><span class="pre">Delete()</span></tt></a> AMQP command. For context and usage:</p>
 <blockquote>
-<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html">http://www.rabbitmq.com/amqp-0-9-1-quickref.html</a></div></blockquote>
+<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html#queue.delete">http://www.rabbitmq.com/amqp-0-9-1-quickref.html#queue.delete</a></div></blockquote>
 <p>This is a synchronous method that will not allow other commands to be
 send to the AMQP broker until it has completed. It is recommended to
 pass in a parameter to callback to be notified when this command has
@@ -2103,7 +2292,7 @@ completed.</p>
 <tt class="descname">queue_purge</tt><big>(</big><em>callback=None</em>, <em>ticket=0</em>, <em>queue=''</em>, <em>nowait=False</em><big>)</big><a class="headerlink" href="#spec.DriverMixin.queue_purge" title="Permalink to this definition">¶</a></dt>
 <dd><p>Implements the <a class="reference internal" href="#spec.Queue.Purge" title="spec.Queue.Purge"><tt class="xref py py-meth docutils literal"><span class="pre">Purge()</span></tt></a> AMQP command. For context and usage:</p>
 <blockquote>
-<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html">http://www.rabbitmq.com/amqp-0-9-1-quickref.html</a></div></blockquote>
+<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html#queue.purge">http://www.rabbitmq.com/amqp-0-9-1-quickref.html#queue.purge</a></div></blockquote>
 <p>This is a synchronous method that will not allow other commands to be
 send to the AMQP broker until it has completed. It is recommended to
 pass in a parameter to callback to be notified when this command has
@@ -2115,7 +2304,7 @@ completed.</p>
 <tt class="descname">queue_unbind</tt><big>(</big><em>callback=None</em>, <em>ticket=0</em>, <em>queue=''</em>, <em>exchange=None</em>, <em>routing_key=''</em>, <em>arguments={}</em><big>)</big><a class="headerlink" href="#spec.DriverMixin.queue_unbind" title="Permalink to this definition">¶</a></dt>
 <dd><p>Implements the <a class="reference internal" href="#spec.Queue.Unbind" title="spec.Queue.Unbind"><tt class="xref py py-meth docutils literal"><span class="pre">Unbind()</span></tt></a> AMQP command. For context and usage:</p>
 <blockquote>
-<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html">http://www.rabbitmq.com/amqp-0-9-1-quickref.html</a></div></blockquote>
+<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html#queue.unbind">http://www.rabbitmq.com/amqp-0-9-1-quickref.html#queue.unbind</a></div></blockquote>
 <p>This is a synchronous method that will not allow other commands to be
 send to the AMQP broker until it has completed. It is recommended to
 pass in a parameter to callback to be notified when this command has
@@ -2127,7 +2316,7 @@ completed.</p>
 <tt class="descname">tx_commit</tt><big>(</big><em>callback=None</em><big>)</big><a class="headerlink" href="#spec.DriverMixin.tx_commit" title="Permalink to this definition">¶</a></dt>
 <dd><p>Implements the Tx.Commit AMQP command. For context and usage:</p>
 <blockquote>
-<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html">http://www.rabbitmq.com/amqp-0-9-1-quickref.html</a></div></blockquote>
+<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html#tx.commit">http://www.rabbitmq.com/amqp-0-9-1-quickref.html#tx.commit</a></div></blockquote>
 <p>This is a synchronous method that will not allow other commands to be
 send to the AMQP broker until it has completed. It is recommended to
 pass in a parameter to callback to be notified when this command has
@@ -2139,7 +2328,7 @@ completed.</p>
 <tt class="descname">tx_rollback</tt><big>(</big><em>callback=None</em><big>)</big><a class="headerlink" href="#spec.DriverMixin.tx_rollback" title="Permalink to this definition">¶</a></dt>
 <dd><p>Implements the Tx.Rollback AMQP command. For context and usage:</p>
 <blockquote>
-<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html">http://www.rabbitmq.com/amqp-0-9-1-quickref.html</a></div></blockquote>
+<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html#tx.rollback">http://www.rabbitmq.com/amqp-0-9-1-quickref.html#tx.rollback</a></div></blockquote>
 <p>This is a synchronous method that will not allow other commands to be
 send to the AMQP broker until it has completed. It is recommended to
 pass in a parameter to callback to be notified when this command has
@@ -2151,7 +2340,7 @@ completed.</p>
 <tt class="descname">tx_select</tt><big>(</big><em>callback=None</em><big>)</big><a class="headerlink" href="#spec.DriverMixin.tx_select" title="Permalink to this definition">¶</a></dt>
 <dd><p>Implements the Tx.Select AMQP command. For context and usage:</p>
 <blockquote>
-<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html">http://www.rabbitmq.com/amqp-0-9-1-quickref.html</a></div></blockquote>
+<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html#tx.select">http://www.rabbitmq.com/amqp-0-9-1-quickref.html#tx.select</a></div></blockquote>
 <p>This is a synchronous method that will not allow other commands to be
 send to the AMQP broker until it has completed. It is recommended to
 pass in a parameter to callback to be notified when this command has
@@ -2174,6 +2363,11 @@ completed.</p>
 <dl class="attribute">
 <dt id="spec.Exchange.Bind.NAME">
 <tt class="descname">NAME</tt><em class="property"> = 'Exchange.Bind'</em><a class="headerlink" href="#spec.Exchange.Bind.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Exchange.Bind._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Exchange.Bind._set_content" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -2222,6 +2416,11 @@ completed.</p>
 <dd></dd></dl>
 
 <dl class="method">
+<dt id="spec.Exchange.BindOk._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Exchange.BindOk._set_content" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
 <dt id="spec.Exchange.BindOk.decode">
 <tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Exchange.BindOk.decode" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -2264,6 +2463,11 @@ completed.</p>
 <dl class="attribute">
 <dt id="spec.Exchange.Declare.NAME">
 <tt class="descname">NAME</tt><em class="property"> = 'Exchange.Declare'</em><a class="headerlink" href="#spec.Exchange.Declare.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Exchange.Declare._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Exchange.Declare._set_content" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -2312,6 +2516,11 @@ completed.</p>
 <dd></dd></dl>
 
 <dl class="method">
+<dt id="spec.Exchange.DeclareOk._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Exchange.DeclareOk._set_content" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
 <dt id="spec.Exchange.DeclareOk.decode">
 <tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Exchange.DeclareOk.decode" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -2357,6 +2566,11 @@ completed.</p>
 <dd></dd></dl>
 
 <dl class="method">
+<dt id="spec.Exchange.Delete._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Exchange.Delete._set_content" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
 <dt id="spec.Exchange.Delete.decode">
 <tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Exchange.Delete.decode" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -2399,6 +2613,11 @@ completed.</p>
 <dl class="attribute">
 <dt id="spec.Exchange.DeleteOk.NAME">
 <tt class="descname">NAME</tt><em class="property"> = 'Exchange.DeleteOk'</em><a class="headerlink" href="#spec.Exchange.DeleteOk.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Exchange.DeleteOk._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Exchange.DeleteOk._set_content" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -2457,6 +2676,11 @@ completed.</p>
 <dd></dd></dl>
 
 <dl class="method">
+<dt id="spec.Exchange.Unbind._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Exchange.Unbind._set_content" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
 <dt id="spec.Exchange.Unbind.decode">
 <tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Exchange.Unbind.decode" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -2499,6 +2723,11 @@ completed.</p>
 <dl class="attribute">
 <dt id="spec.Exchange.UnbindOk.NAME">
 <tt class="descname">NAME</tt><em class="property"> = 'Exchange.UnbindOk'</em><a class="headerlink" href="#spec.Exchange.UnbindOk.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Exchange.UnbindOk._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Exchange.UnbindOk._set_content" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -2557,6 +2786,11 @@ completed.</p>
 <dd></dd></dl>
 
 <dl class="method">
+<dt id="spec.Queue.Bind._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Queue.Bind._set_content" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
 <dt id="spec.Queue.Bind.decode">
 <tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Queue.Bind.decode" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -2599,6 +2833,11 @@ completed.</p>
 <dl class="attribute">
 <dt id="spec.Queue.BindOk.NAME">
 <tt class="descname">NAME</tt><em class="property"> = 'Queue.BindOk'</em><a class="headerlink" href="#spec.Queue.BindOk.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Queue.BindOk._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Queue.BindOk._set_content" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -2647,6 +2886,11 @@ completed.</p>
 <dd></dd></dl>
 
 <dl class="method">
+<dt id="spec.Queue.Declare._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Queue.Declare._set_content" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
 <dt id="spec.Queue.Declare.decode">
 <tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Queue.Declare.decode" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -2689,6 +2933,11 @@ completed.</p>
 <dl class="attribute">
 <dt id="spec.Queue.DeclareOk.NAME">
 <tt class="descname">NAME</tt><em class="property"> = 'Queue.DeclareOk'</em><a class="headerlink" href="#spec.Queue.DeclareOk.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Queue.DeclareOk._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Queue.DeclareOk._set_content" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -2737,6 +2986,11 @@ completed.</p>
 <dd></dd></dl>
 
 <dl class="method">
+<dt id="spec.Queue.Delete._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Queue.Delete._set_content" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
 <dt id="spec.Queue.Delete.decode">
 <tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Queue.Delete.decode" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -2779,6 +3033,11 @@ completed.</p>
 <dl class="attribute">
 <dt id="spec.Queue.DeleteOk.NAME">
 <tt class="descname">NAME</tt><em class="property"> = 'Queue.DeleteOk'</em><a class="headerlink" href="#spec.Queue.DeleteOk.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Queue.DeleteOk._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Queue.DeleteOk._set_content" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -2837,6 +3096,11 @@ completed.</p>
 <dd></dd></dl>
 
 <dl class="method">
+<dt id="spec.Queue.Purge._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Queue.Purge._set_content" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
 <dt id="spec.Queue.Purge.decode">
 <tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Queue.Purge.decode" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -2879,6 +3143,11 @@ completed.</p>
 <dl class="attribute">
 <dt id="spec.Queue.PurgeOk.NAME">
 <tt class="descname">NAME</tt><em class="property"> = 'Queue.PurgeOk'</em><a class="headerlink" href="#spec.Queue.PurgeOk.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Queue.PurgeOk._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Queue.PurgeOk._set_content" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -2927,6 +3196,11 @@ completed.</p>
 <dd></dd></dl>
 
 <dl class="method">
+<dt id="spec.Queue.Unbind._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Queue.Unbind._set_content" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
 <dt id="spec.Queue.Unbind.decode">
 <tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Queue.Unbind.decode" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -2969,6 +3243,11 @@ completed.</p>
 <dl class="attribute">
 <dt id="spec.Queue.UnbindOk.NAME">
 <tt class="descname">NAME</tt><em class="property"> = 'Queue.UnbindOk'</em><a class="headerlink" href="#spec.Queue.UnbindOk.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Queue.UnbindOk._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Queue.UnbindOk._set_content" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -3027,6 +3306,11 @@ completed.</p>
 <dd></dd></dl>
 
 <dl class="method">
+<dt id="spec.Tx.Commit._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Tx.Commit._set_content" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
 <dt id="spec.Tx.Commit.decode">
 <tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Tx.Commit.decode" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -3069,6 +3353,11 @@ completed.</p>
 <dl class="attribute">
 <dt id="spec.Tx.CommitOk.NAME">
 <tt class="descname">NAME</tt><em class="property"> = 'Tx.CommitOk'</em><a class="headerlink" href="#spec.Tx.CommitOk.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Tx.CommitOk._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Tx.CommitOk._set_content" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -3127,6 +3416,11 @@ completed.</p>
 <dd></dd></dl>
 
 <dl class="method">
+<dt id="spec.Tx.Rollback._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Tx.Rollback._set_content" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
 <dt id="spec.Tx.Rollback.decode">
 <tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Tx.Rollback.decode" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -3169,6 +3463,11 @@ completed.</p>
 <dl class="attribute">
 <dt id="spec.Tx.RollbackOk.NAME">
 <tt class="descname">NAME</tt><em class="property"> = 'Tx.RollbackOk'</em><a class="headerlink" href="#spec.Tx.RollbackOk.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Tx.RollbackOk._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Tx.RollbackOk._set_content" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -3217,6 +3516,11 @@ completed.</p>
 <dd></dd></dl>
 
 <dl class="method">
+<dt id="spec.Tx.Select._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Tx.Select._set_content" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
 <dt id="spec.Tx.Select.decode">
 <tt class="descname">decode</tt><big>(</big><em>encoded</em>, <em>offset=0</em><big>)</big><a class="headerlink" href="#spec.Tx.Select.decode" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -3259,6 +3563,11 @@ completed.</p>
 <dl class="attribute">
 <dt id="spec.Tx.SelectOk.NAME">
 <tt class="descname">NAME</tt><em class="property"> = 'Tx.SelectOk'</em><a class="headerlink" href="#spec.Tx.SelectOk.NAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="spec.Tx.SelectOk._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#spec.Tx.SelectOk._set_content" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -3315,10 +3624,10 @@ completed.</p>
         <div class="sphinxsidebarwrapper">
   <h4>Previous topic</h4>
   <p class="topless"><a href="simplebuffer.html"
-                        title="previous chapter">SimpleBuffer</a></p>
+                        title="previous chapter">simplebuffer</a></p>
   <h4>Next topic</h4>
   <p class="topless"><a href="table.html"
-                        title="next chapter">Table</a></p>
+                        title="next chapter">table</a></p>
   <h3>This Page</h3>
   <ul class="this-page-menu">
     <li><a href="_sources/spec.txt"
@@ -3351,10 +3660,10 @@ completed.</p>
           <a href="py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
         <li class="right" >
-          <a href="table.html" title="Table"
+          <a href="table.html" title="table"
              >next</a> |</li>
         <li class="right" >
-          <a href="simplebuffer.html" title="SimpleBuffer"
+          <a href="simplebuffer.html" title="simplebuffer"
              >previous</a> |</li>
         <li><a href="index.html">Pika 0.9a documentation</a> &raquo;</li> 
       </ul>

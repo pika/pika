@@ -8,7 +8,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Object &mdash; Pika 0.9a documentation</title>
+    <title>object &mdash; Pika 0.9a documentation</title>
     
     <link rel="stylesheet" href="_static/default.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
@@ -26,8 +26,8 @@
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
     <link rel="top" title="Pika 0.9a documentation" href="index.html" />
-    <link rel="next" title="Reconnection Strategies" href="reconnection_strategies.html" />
-    <link rel="prev" title="Log" href="log.html" /> 
+    <link rel="next" title="reconnection_strategies" href="reconnection_strategies.html" />
+    <link rel="prev" title="log" href="log.html" /> 
   </head>
   <body>
     <div class="related">
@@ -40,10 +40,10 @@
           <a href="py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
         <li class="right" >
-          <a href="reconnection_strategies.html" title="Reconnection Strategies"
+          <a href="reconnection_strategies.html" title="reconnection_strategies"
              accesskey="N">next</a> |</li>
         <li class="right" >
-          <a href="log.html" title="Log"
+          <a href="log.html" title="log"
              accesskey="P">previous</a> |</li>
         <li><a href="index.html">Pika 0.9a documentation</a> &raquo;</li> 
       </ul>
@@ -55,34 +55,79 @@
           <div class="body">
             
   <div class="section" id="object">
-<h1>Object<a class="headerlink" href="#object" title="Permalink to this headline">¶</a></h1>
+<h1>object<a class="headerlink" href="#object" title="Permalink to this headline">¶</a></h1>
 <div class="admonition note">
 <p class="first admonition-title">Note</p>
 <p class="last">This class is not intended for use by those using Pika in their applications. This documentation is for those who are extending Pika or otherwise working on the driver itself.</p>
 </div>
-<p>The class in this module, <a href="#id1"><span class="problematic" id="id2">object.Object_</span></a> extends Python&#8217;s object class creating
-a base class that other classes, who would like an easy to implement representation
-of the class state, may extend.</p>
-<span class="target" id="module-object"></span><dl class="class">
+<p>The class in this module, <a href="#id2"><span class="problematic" id="id3">object.Object_</span></a> extends Python&#8217;s object class creating a base class that other classes, who would like an easy to implement representation of the class state, may extend.</p>
+<span class="target" id="module-object"></span><div class="section" id="id1">
+<h2><a href="#id4"><span class="problematic" id="id5">object_</span></a><a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
 <dt id="object.object_">
 <em class="property">class </em><tt class="descclassname">object.</tt><tt class="descname">object_</tt><a class="headerlink" href="#object.object_" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="object.object_.name">
+<tt class="descname">name</tt><a class="headerlink" href="#object.object_.name" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
+</dd></dl>
+
+</div>
+<div class="section" id="class">
+<h2>Class<a class="headerlink" href="#class" title="Permalink to this headline">¶</a></h2>
 <dl class="class">
 <dt id="object.Class">
 <em class="property">class </em><tt class="descclassname">object.</tt><tt class="descname">Class</tt><a class="headerlink" href="#object.Class" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="object.Class.name">
+<tt class="descname">name</tt><a class="headerlink" href="#object.Class.name" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
+</dd></dl>
+
+</div>
+<div class="section" id="method">
+<h2>Method<a class="headerlink" href="#method" title="Permalink to this headline">¶</a></h2>
 <dl class="class">
 <dt id="object.Method">
 <em class="property">class </em><tt class="descclassname">object.</tt><tt class="descname">Method</tt><a class="headerlink" href="#object.Method" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="method">
+<dt id="object.Method._set_content">
+<tt class="descname">_set_content</tt><big>(</big><em>properties</em>, <em>body</em><big>)</big><a class="headerlink" href="#object.Method._set_content" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
+<dl class="method">
+<dt id="object.Method.get_body">
+<tt class="descname">get_body</tt><big>(</big><big>)</big><a class="headerlink" href="#object.Method.get_body" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="object.Method.get_properties">
+<tt class="descname">get_properties</tt><big>(</big><big>)</big><a class="headerlink" href="#object.Method.get_properties" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="object.Method.name">
+<tt class="descname">name</tt><a class="headerlink" href="#object.Method.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="properties">
+<h2>Properties<a class="headerlink" href="#properties" title="Permalink to this headline">¶</a></h2>
 <dl class="class">
 <dt id="object.Properties">
 <em class="property">class </em><tt class="descclassname">object.</tt><tt class="descname">Properties</tt><a class="headerlink" href="#object.Properties" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="object.Properties.name">
+<tt class="descname">name</tt><a class="headerlink" href="#object.Properties.name" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
+</dd></dl>
+
+</div>
 </div>
 
 
@@ -91,12 +136,23 @@ of the class state, may extend.</p>
       </div>
       <div class="sphinxsidebar">
         <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">object</a><ul>
+<li><a class="reference internal" href="#id1">object_</a></li>
+<li><a class="reference internal" href="#class">Class</a></li>
+<li><a class="reference internal" href="#method">Method</a></li>
+<li><a class="reference internal" href="#properties">Properties</a></li>
+</ul>
+</li>
+</ul>
+
   <h4>Previous topic</h4>
   <p class="topless"><a href="log.html"
-                        title="previous chapter">Log</a></p>
+                        title="previous chapter">log</a></p>
   <h4>Next topic</h4>
   <p class="topless"><a href="reconnection_strategies.html"
-                        title="next chapter">Reconnection Strategies</a></p>
+                        title="next chapter">reconnection_strategies</a></p>
   <h3>This Page</h3>
   <ul class="this-page-menu">
     <li><a href="_sources/object.txt"
@@ -129,10 +185,10 @@ of the class state, may extend.</p>
           <a href="py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
         <li class="right" >
-          <a href="reconnection_strategies.html" title="Reconnection Strategies"
+          <a href="reconnection_strategies.html" title="reconnection_strategies"
              >next</a> |</li>
         <li class="right" >
-          <a href="log.html" title="Log"
+          <a href="log.html" title="log"
              >previous</a> |</li>
         <li><a href="index.html">Pika 0.9a documentation</a> &raquo;</li> 
       </ul>

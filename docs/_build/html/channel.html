@@ -8,7 +8,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Channel &mdash; Pika 0.9a documentation</title>
+    <title>channel &mdash; Pika 0.9a documentation</title>
     
     <link rel="stylesheet" href="_static/default.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
@@ -26,8 +26,8 @@
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
     <link rel="top" title="Pika 0.9a documentation" href="index.html" />
-    <link rel="next" title="Connection" href="connection.html" />
-    <link rel="prev" title="Callback" href="callback.html" /> 
+    <link rel="next" title="connection" href="connection.html" />
+    <link rel="prev" title="callback" href="callback.html" /> 
   </head>
   <body>
     <div class="related">
@@ -40,10 +40,10 @@
           <a href="py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
         <li class="right" >
-          <a href="connection.html" title="Connection"
+          <a href="connection.html" title="connection"
              accesskey="N">next</a> |</li>
         <li class="right" >
-          <a href="callback.html" title="Callback"
+          <a href="callback.html" title="callback"
              accesskey="P">previous</a> |</li>
         <li><a href="index.html">Pika 0.9a documentation</a> &raquo;</li> 
       </ul>
@@ -55,29 +55,88 @@
           <div class="body">
             
   <div class="section" id="channel">
-<h1>Channel<a class="headerlink" href="#channel" title="Permalink to this headline">¶</a></h1>
-<p>Introduction</p>
-<span class="target" id="module-channel"></span><dl class="class">
-<dt id="channel.Channel">
-<em class="property">class </em><tt class="descclassname">channel.</tt><tt class="descname">Channel</tt><big>(</big><em>connection</em>, <em>channel_number</em>, <em>on_open_callback=None</em>, <em>transport=None</em><big>)</big><a class="headerlink" href="#channel.Channel" title="Permalink to this definition">¶</a></dt>
-<dd><dl class="method">
-<dt id="channel.Channel.add_callback">
-<tt class="descname">add_callback</tt><big>(</big><em>callback</em>, <em>replies</em><big>)</big><a class="headerlink" href="#channel.Channel.add_callback" title="Permalink to this definition">¶</a></dt>
+<h1>channel<a class="headerlink" href="#channel" title="Permalink to this headline">¶</a></h1>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The following class level documentation is not intended for use by those using Pika in their applications. This documentation is for those who are extending Pika or otherwise working on the driver itself. For an overview of how to use adapters, please reference the <a class="reference internal" href="connecting.html"><em>Connecting to RabbitMQ</em></a> documentation.</p>
+</div>
+<span class="target" id="module-channel"></span><div class="section" id="id1">
+<h2>Channel<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt>
+<em class="property">class </em><tt class="descclassname">channel.</tt><tt class="descname">Channel</tt><big>(</big><em>connection</em>, <em>channel_number</em>, <em>on_open_callback=None</em>, <em>transport=None</em><big>)</big></dt>
+<dd><p>A Channel is the primary communication method for interacting with
+RabbitMQ. It is recommended that you do not directly invoke
+the creation of a channel object in your application code but rather
+construct the a channel by calling the active connection&#8217;s channel()
+method.</p>
+<dl class="method">
+<dt>
+<tt class="descclassname">Channel.</tt><tt class="descname">_close</tt><big>(</big><big>)</big></dt>
+<dd><p>Internal close, is called when all the consumers are closed by both
+Channel.close and Channel._on_cancel_ok</p>
+</dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">Channel.</tt><tt class="descname">_on_basic_deliver</tt><big>(</big><em>method_frame</em>, <em>header_frame</em>, <em>body</em><big>)</big></dt>
+<dd><p>Cope with reentrancy. If a particular consumer is still active when
+another delivery appears for it, queue the deliveries up until it
+finally exits.</p>
+</dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">Channel.</tt><tt class="descname">_on_basic_get_empty</tt><big>(</big><em>frame</em><big>)</big></dt>
+<dd><p>When we receive an empty reply do nothing but log it</p>
+</dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">Channel.</tt><tt class="descname">_on_basic_get_ok</tt><big>(</big><em>method_frame</em>, <em>header_frame</em>, <em>body</em><big>)</big></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">Channel.</tt><tt class="descname">_on_cancel_ok</tt><big>(</big><em>frame</em><big>)</big></dt>
+<dd><p>Called in response to a frame from the Broker when we call Basic.Cancel</p>
+</dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">Channel.</tt><tt class="descname">_on_channel_flow_ok</tt><big>(</big><em>frame</em><big>)</big></dt>
+<dd><p>Called in response to us asking the server to toggle on Channel.Flow</p>
+</dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">Channel.</tt><tt class="descname">_open</tt><big>(</big><em>frame</em><big>)</big></dt>
+<dd><p>Called by our callback handler when we receive a Channel.OpenOk and
+subsequently calls our _on_open_callback which was passed into the
+Channel construtor. The reason we do this is because we want to make
+sure that the on_open_callback parameter passed into the Channel
+constructor is not the first callback we make. ChannelTransport needs
+to know before the app that passed in the callback.</p>
+</dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">Channel.</tt><tt class="descname">add_callback</tt><big>(</big><em>callback</em>, <em>replies</em><big>)</big></dt>
 <dd><p>Pass in a callback handler and a list replies from the
 RabbitMQ broker which you&#8217;d like the callback notified of. Callbacks
 should allow for the frame parameter to be passed in.</p>
 </dd></dl>
 
 <dl class="method">
-<dt id="channel.Channel.add_on_close_callback">
-<tt class="descname">add_on_close_callback</tt><big>(</big><em>callback</em><big>)</big><a class="headerlink" href="#channel.Channel.add_on_close_callback" title="Permalink to this definition">¶</a></dt>
+<dt>
+<tt class="descclassname">Channel.</tt><tt class="descname">add_on_close_callback</tt><big>(</big><em>callback</em><big>)</big></dt>
 <dd><p>Pass a callback function that will be called when the channel is
 closed. The callback function should receive a frame parameter.</p>
 </dd></dl>
 
 <dl class="method">
-<dt id="channel.Channel.add_on_return_callback">
-<tt class="descname">add_on_return_callback</tt><big>(</big><em>callback</em><big>)</big><a class="headerlink" href="#channel.Channel.add_on_return_callback" title="Permalink to this definition">¶</a></dt>
+<dt>
+<tt class="descclassname">Channel.</tt><tt class="descname">add_on_return_callback</tt><big>(</big><em>callback</em><big>)</big></dt>
 <dd><p>Pass a callback function that will be called when basic_publish as sent
 a message that has been rejected and returned by the server. The
 callback handler should receive a method, header and body frame. The
@@ -86,23 +145,25 @@ signature one creates for a basic_consume callback.</p>
 </dd></dl>
 
 <dl class="method">
-<dt id="channel.Channel.basic_ack">
-<tt class="descname">basic_ack</tt><big>(</big><em>delivery_tag=0</em>, <em>multiple=False</em><big>)</big><a class="headerlink" href="#channel.Channel.basic_ack" title="Permalink to this definition">¶</a></dt>
+<dt>
+<tt class="descclassname">Channel.</tt><tt class="descname">basic_ack</tt><big>(</big><em>delivery_tag=0</em>, <em>multiple=False</em><big>)</big></dt>
 <dd><p>Implements the basic.ack AMQP command. For context and usage:</p>
-<p><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html">http://www.rabbitmq.com/amqp-0-9-1-quickref.html</a></p>
+<p><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html#basic.ack">http://www.rabbitmq.com/amqp-0-9-1-quickref.html#basic.ack</a></p>
 </dd></dl>
 
 <dl class="method">
-<dt id="channel.Channel.basic_cancel">
-<tt class="descname">basic_cancel</tt><big>(</big><em>consumer_tag</em>, <em>nowait=False</em>, <em>callback=None</em><big>)</big><a class="headerlink" href="#channel.Channel.basic_cancel" title="Permalink to this definition">¶</a></dt>
+<dt>
+<tt class="descclassname">Channel.</tt><tt class="descname">basic_cancel</tt><big>(</big><em>consumer_tag</em>, <em>nowait=False</em>, <em>callback=None</em><big>)</big></dt>
 <dd><p>Pass in the consumer tag to cancel a basic_consume request with. The
 consumer_tag is optionally passed to basic_consume as a parameter and
-it is always returned by the Basic.ConsumeOk frame.</p>
+it is always returned by the Basic.ConsumeOk frame. For more
+information see:</p>
+<p><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.cancel">http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.cancel</a></p>
 </dd></dl>
 
 <dl class="method">
-<dt id="channel.Channel.basic_consume">
-<tt class="descname">basic_consume</tt><big>(</big><em>consumer_callback</em>, <em>queue=''</em>, <em>no_ack=False</em>, <em>exclusive=False</em>, <em>consumer_tag=None</em><big>)</big><a class="headerlink" href="#channel.Channel.basic_consume" title="Permalink to this definition">¶</a></dt>
+<dt>
+<tt class="descclassname">Channel.</tt><tt class="descname">basic_consume</tt><big>(</big><em>consumer_callback</em>, <em>queue=''</em>, <em>no_ack=False</em>, <em>exclusive=False</em>, <em>consumer_tag=None</em><big>)</big></dt>
 <dd><p>Sends the AMQP command Basic.Consume to the broker and binds messages
 for the consumer_tag to the consumer callback. If you do not pass in
 a consumer_tag, one will be automatically generated for you. For
@@ -111,8 +172,8 @@ more information on basic_consume, see:</p>
 </dd></dl>
 
 <dl class="method">
-<dt id="channel.Channel.basic_get">
-<tt class="descname">basic_get</tt><big>(</big><em>callback</em>, <em>ticket=0</em>, <em>queue=''</em>, <em>no_ack=False</em><big>)</big><a class="headerlink" href="#channel.Channel.basic_get" title="Permalink to this definition">¶</a></dt>
+<dt>
+<tt class="descclassname">Channel.</tt><tt class="descname">basic_get</tt><big>(</big><em>callback</em>, <em>ticket=0</em>, <em>queue=''</em>, <em>no_ack=False</em><big>)</big></dt>
 <dd><p>Get a single message from the AMQP broker. The callback method
 signature should have 3 parameters: The method frame, header frame and
 the body, like the consumer callback for Basic.Consume. If you want to
@@ -124,19 +185,19 @@ parameters, see:</p>
 </dd></dl>
 
 <dl class="method">
-<dt id="channel.Channel.basic_publish">
-<tt class="descname">basic_publish</tt><big>(</big><em>exchange</em>, <em>routing_key</em>, <em>body</em>, <em>properties=None</em>, <em>mandatory=False</em>, <em>immediate=False</em><big>)</big><a class="headerlink" href="#channel.Channel.basic_publish" title="Permalink to this definition">¶</a></dt>
+<dt>
+<tt class="descclassname">Channel.</tt><tt class="descname">basic_publish</tt><big>(</big><em>exchange</em>, <em>routing_key</em>, <em>body</em>, <em>properties=None</em>, <em>mandatory=False</em>, <em>immediate=False</em><big>)</big></dt>
 <dd><p>Publish to the channel with the given exchange, routing key and body.
 For more information on basic_publish and what the parameters do, see:</p>
 <p><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.publish">http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.publish</a></p>
 </dd></dl>
 
 <dl class="method">
-<dt id="channel.Channel.basic_qos">
-<tt class="descname">basic_qos</tt><big>(</big><em>callback=None</em>, <em>prefetch_size=0</em>, <em>prefetch_count=0</em>, <em>global_=False</em><big>)</big><a class="headerlink" href="#channel.Channel.basic_qos" title="Permalink to this definition">¶</a></dt>
+<dt>
+<tt class="descclassname">Channel.</tt><tt class="descname">basic_qos</tt><big>(</big><em>callback=None</em>, <em>prefetch_size=0</em>, <em>prefetch_count=0</em>, <em>global_=False</em><big>)</big></dt>
 <dd><p>Implements the Basic.Qos AMQP command. For context and usage:</p>
 <blockquote>
-<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html">http://www.rabbitmq.com/amqp-0-9-1-quickref.html</a></div></blockquote>
+<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html#basic.qos">http://www.rabbitmq.com/amqp-0-9-1-quickref.html#basic.qos</a></div></blockquote>
 <p>This is a synchronous method that will not allow other commands to be
 send to the AMQP broker until it has completed. It is recommended to
 pass in a parameter to callback to be notified when this command has
@@ -144,11 +205,11 @@ completed.</p>
 </dd></dl>
 
 <dl class="method">
-<dt id="channel.Channel.basic_recover">
-<tt class="descname">basic_recover</tt><big>(</big><em>callback=None</em>, <em>requeue=False</em><big>)</big><a class="headerlink" href="#channel.Channel.basic_recover" title="Permalink to this definition">¶</a></dt>
+<dt>
+<tt class="descclassname">Channel.</tt><tt class="descname">basic_recover</tt><big>(</big><em>callback=None</em>, <em>requeue=False</em><big>)</big></dt>
 <dd><p>Implements the Basic.Recover AMQP command. For context and usage:</p>
 <blockquote>
-<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html">http://www.rabbitmq.com/amqp-0-9-1-quickref.html</a></div></blockquote>
+<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html#basic.recover">http://www.rabbitmq.com/amqp-0-9-1-quickref.html#basic.recover</a></div></blockquote>
 <p>This is a synchronous method that will not allow other commands to be
 send to the AMQP broker until it has completed. It is recommended to
 pass in a parameter to callback to be notified when this command has
@@ -156,37 +217,37 @@ completed.</p>
 </dd></dl>
 
 <dl class="method">
-<dt id="channel.Channel.basic_recover_async">
-<tt class="descname">basic_recover_async</tt><big>(</big><em>requeue=False</em><big>)</big><a class="headerlink" href="#channel.Channel.basic_recover_async" title="Permalink to this definition">¶</a></dt>
+<dt>
+<tt class="descclassname">Channel.</tt><tt class="descname">basic_recover_async</tt><big>(</big><em>requeue=False</em><big>)</big></dt>
 <dd><p>Implements the basic.recover-async AMQP command. For context and usage:</p>
-<p><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html">http://www.rabbitmq.com/amqp-0-9-1-quickref.html</a></p>
+<p><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html#basic.recover_async">http://www.rabbitmq.com/amqp-0-9-1-quickref.html#basic.recover_async</a></p>
 </dd></dl>
 
 <dl class="method">
-<dt id="channel.Channel.basic_reject">
-<tt class="descname">basic_reject</tt><big>(</big><em>delivery_tag=None</em>, <em>requeue=True</em><big>)</big><a class="headerlink" href="#channel.Channel.basic_reject" title="Permalink to this definition">¶</a></dt>
+<dt>
+<tt class="descclassname">Channel.</tt><tt class="descname">basic_reject</tt><big>(</big><em>delivery_tag=None</em>, <em>requeue=True</em><big>)</big></dt>
 <dd><p>Implements the basic.reject AMQP command. For context and usage:</p>
-<p><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html">http://www.rabbitmq.com/amqp-0-9-1-quickref.html</a></p>
+<p><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html#basic.reject">http://www.rabbitmq.com/amqp-0-9-1-quickref.html#basic.reject</a></p>
 </dd></dl>
 
 <dl class="method">
-<dt id="channel.Channel.close">
-<tt class="descname">close</tt><big>(</big><em>code=0</em>, <em>text='Normal Shutdown'</em>, <em>from_server=False</em><big>)</big><a class="headerlink" href="#channel.Channel.close" title="Permalink to this definition">¶</a></dt>
+<dt>
+<tt class="descclassname">Channel.</tt><tt class="descname">close</tt><big>(</big><em>code=0</em>, <em>text='Normal Shutdown'</em>, <em>from_server=False</em><big>)</big></dt>
 <dd><p>Will invoke a clean shutdown of the channel with the AMQP Broker</p>
 </dd></dl>
 
 <dl class="attribute">
-<dt id="channel.Channel.consumer_tags">
-<tt class="descname">consumer_tags</tt><a class="headerlink" href="#channel.Channel.consumer_tags" title="Permalink to this definition">¶</a></dt>
-<dd><p>Return a list of the currently active consumer tags</p>
+<dt>
+<tt class="descclassname">Channel.</tt><tt class="descname">consumer_tags</tt></dt>
+<dd><p>Property method that returns a list of currently active consumers</p>
 </dd></dl>
 
 <dl class="method">
-<dt id="channel.Channel.exchange_declare">
-<tt class="descname">exchange_declare</tt><big>(</big><em>callback=None</em>, <em>ticket=0</em>, <em>exchange=None</em>, <em>type='direct'</em>, <em>passive=False</em>, <em>durable=False</em>, <em>auto_delete=False</em>, <em>internal=False</em>, <em>nowait=False</em>, <em>arguments={}</em><big>)</big><a class="headerlink" href="#channel.Channel.exchange_declare" title="Permalink to this definition">¶</a></dt>
+<dt>
+<tt class="descclassname">Channel.</tt><tt class="descname">exchange_declare</tt><big>(</big><em>callback=None</em>, <em>ticket=0</em>, <em>exchange=None</em>, <em>type='direct'</em>, <em>passive=False</em>, <em>durable=False</em>, <em>auto_delete=False</em>, <em>internal=False</em>, <em>nowait=False</em>, <em>arguments={}</em><big>)</big></dt>
 <dd><p>Implements the Exchange.Declare AMQP command. For context and usage:</p>
 <blockquote>
-<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html">http://www.rabbitmq.com/amqp-0-9-1-quickref.html</a></div></blockquote>
+<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html#exchange.declare">http://www.rabbitmq.com/amqp-0-9-1-quickref.html#exchange.declare</a></div></blockquote>
 <p>This is a synchronous method that will not allow other commands to be
 send to the AMQP broker until it has completed. It is recommended to
 pass in a parameter to callback to be notified when this command has
@@ -194,11 +255,11 @@ completed.</p>
 </dd></dl>
 
 <dl class="method">
-<dt id="channel.Channel.exchange_delete">
-<tt class="descname">exchange_delete</tt><big>(</big><em>callback=None</em>, <em>ticket=0</em>, <em>exchange=None</em>, <em>if_unused=False</em>, <em>nowait=False</em><big>)</big><a class="headerlink" href="#channel.Channel.exchange_delete" title="Permalink to this definition">¶</a></dt>
+<dt>
+<tt class="descclassname">Channel.</tt><tt class="descname">exchange_delete</tt><big>(</big><em>callback=None</em>, <em>ticket=0</em>, <em>exchange=None</em>, <em>if_unused=False</em>, <em>nowait=False</em><big>)</big></dt>
 <dd><p>Implements the Exchange.Delete AMQP command. For context and usage:</p>
 <blockquote>
-<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html">http://www.rabbitmq.com/amqp-0-9-1-quickref.html</a></div></blockquote>
+<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html#exchange.delete">http://www.rabbitmq.com/amqp-0-9-1-quickref.html#exchange.delete</a></div></blockquote>
 <p>This is a synchronous method that will not allow other commands to be
 send to the AMQP broker until it has completed. It is recommended to
 pass in a parameter to callback to be notified when this command has
@@ -206,19 +267,21 @@ completed.</p>
 </dd></dl>
 
 <dl class="method">
-<dt id="channel.Channel.flow">
-<tt class="descname">flow</tt><big>(</big><em>callback</em>, <em>active</em><big>)</big><a class="headerlink" href="#channel.Channel.flow" title="Permalink to this definition">¶</a></dt>
+<dt>
+<tt class="descclassname">Channel.</tt><tt class="descname">flow</tt><big>(</big><em>callback</em>, <em>active</em><big>)</big></dt>
 <dd><p>Turn Channel flow control off and on. Pass a callback to be notified
 of the response from the server. active is a bool. Callback should
-expect a bool in response indicating channel flow state</p>
+expect a bool in response indicating channel flow state. For more
+information, please reference:</p>
+<p><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-reference.html#channel.flow">http://www.rabbitmq.com/amqp-0-9-1-reference.html#channel.flow</a></p>
 </dd></dl>
 
 <dl class="method">
-<dt id="channel.Channel.queue_bind">
-<tt class="descname">queue_bind</tt><big>(</big><em>callback=None</em>, <em>ticket=0</em>, <em>queue=''</em>, <em>exchange=None</em>, <em>routing_key=''</em>, <em>nowait=False</em>, <em>arguments={}</em><big>)</big><a class="headerlink" href="#channel.Channel.queue_bind" title="Permalink to this definition">¶</a></dt>
+<dt>
+<tt class="descclassname">Channel.</tt><tt class="descname">queue_bind</tt><big>(</big><em>callback=None</em>, <em>ticket=0</em>, <em>queue=''</em>, <em>exchange=None</em>, <em>routing_key=''</em>, <em>nowait=False</em>, <em>arguments={}</em><big>)</big></dt>
 <dd><p>Implements the <tt class="xref py py-meth docutils literal"><span class="pre">Bind()</span></tt> AMQP command. For context and usage:</p>
 <blockquote>
-<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html">http://www.rabbitmq.com/amqp-0-9-1-quickref.html</a></div></blockquote>
+<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html#queue.bind">http://www.rabbitmq.com/amqp-0-9-1-quickref.html#queue.bind</a></div></blockquote>
 <p>This is a synchronous method that will not allow other commands to be
 send to the AMQP broker until it has completed. It is recommended to
 pass in a parameter to callback to be notified when this command has
@@ -226,11 +289,11 @@ completed.</p>
 </dd></dl>
 
 <dl class="method">
-<dt id="channel.Channel.queue_declare">
-<tt class="descname">queue_declare</tt><big>(</big><em>callback=None</em>, <em>ticket=0</em>, <em>queue=''</em>, <em>passive=False</em>, <em>durable=False</em>, <em>exclusive=False</em>, <em>auto_delete=False</em>, <em>nowait=False</em>, <em>arguments={}</em><big>)</big><a class="headerlink" href="#channel.Channel.queue_declare" title="Permalink to this definition">¶</a></dt>
+<dt>
+<tt class="descclassname">Channel.</tt><tt class="descname">queue_declare</tt><big>(</big><em>callback=None</em>, <em>ticket=0</em>, <em>queue=''</em>, <em>passive=False</em>, <em>durable=False</em>, <em>exclusive=False</em>, <em>auto_delete=False</em>, <em>nowait=False</em>, <em>arguments={}</em><big>)</big></dt>
 <dd><p>Implements the <tt class="xref py py-meth docutils literal"><span class="pre">Declare()</span></tt> AMQP command. For context and usage:</p>
 <blockquote>
-<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html">http://www.rabbitmq.com/amqp-0-9-1-quickref.html</a></div></blockquote>
+<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html#queue.declare">http://www.rabbitmq.com/amqp-0-9-1-quickref.html#queue.declare</a></div></blockquote>
 <p>This is a synchronous method that will not allow other commands to be
 send to the AMQP broker until it has completed. It is recommended to
 pass in a parameter to callback to be notified when this command has
@@ -238,11 +301,11 @@ completed.</p>
 </dd></dl>
 
 <dl class="method">
-<dt id="channel.Channel.queue_delete">
-<tt class="descname">queue_delete</tt><big>(</big><em>callback=None</em>, <em>ticket=0</em>, <em>queue=''</em>, <em>if_unused=False</em>, <em>if_empty=False</em>, <em>nowait=False</em><big>)</big><a class="headerlink" href="#channel.Channel.queue_delete" title="Permalink to this definition">¶</a></dt>
+<dt>
+<tt class="descclassname">Channel.</tt><tt class="descname">queue_delete</tt><big>(</big><em>callback=None</em>, <em>ticket=0</em>, <em>queue=''</em>, <em>if_unused=False</em>, <em>if_empty=False</em>, <em>nowait=False</em><big>)</big></dt>
 <dd><p>Implements the <tt class="xref py py-meth docutils literal"><span class="pre">Delete()</span></tt> AMQP command. For context and usage:</p>
 <blockquote>
-<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html">http://www.rabbitmq.com/amqp-0-9-1-quickref.html</a></div></blockquote>
+<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html#queue.delete">http://www.rabbitmq.com/amqp-0-9-1-quickref.html#queue.delete</a></div></blockquote>
 <p>This is a synchronous method that will not allow other commands to be
 send to the AMQP broker until it has completed. It is recommended to
 pass in a parameter to callback to be notified when this command has
@@ -250,11 +313,11 @@ completed.</p>
 </dd></dl>
 
 <dl class="method">
-<dt id="channel.Channel.queue_purge">
-<tt class="descname">queue_purge</tt><big>(</big><em>callback=None</em>, <em>ticket=0</em>, <em>queue=''</em>, <em>nowait=False</em><big>)</big><a class="headerlink" href="#channel.Channel.queue_purge" title="Permalink to this definition">¶</a></dt>
+<dt>
+<tt class="descclassname">Channel.</tt><tt class="descname">queue_purge</tt><big>(</big><em>callback=None</em>, <em>ticket=0</em>, <em>queue=''</em>, <em>nowait=False</em><big>)</big></dt>
 <dd><p>Implements the <tt class="xref py py-meth docutils literal"><span class="pre">Purge()</span></tt> AMQP command. For context and usage:</p>
 <blockquote>
-<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html">http://www.rabbitmq.com/amqp-0-9-1-quickref.html</a></div></blockquote>
+<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html#queue.purge">http://www.rabbitmq.com/amqp-0-9-1-quickref.html#queue.purge</a></div></blockquote>
 <p>This is a synchronous method that will not allow other commands to be
 send to the AMQP broker until it has completed. It is recommended to
 pass in a parameter to callback to be notified when this command has
@@ -262,11 +325,11 @@ completed.</p>
 </dd></dl>
 
 <dl class="method">
-<dt id="channel.Channel.queue_unbind">
-<tt class="descname">queue_unbind</tt><big>(</big><em>callback=None</em>, <em>ticket=0</em>, <em>queue=''</em>, <em>exchange=None</em>, <em>routing_key=''</em>, <em>arguments={}</em><big>)</big><a class="headerlink" href="#channel.Channel.queue_unbind" title="Permalink to this definition">¶</a></dt>
+<dt>
+<tt class="descclassname">Channel.</tt><tt class="descname">queue_unbind</tt><big>(</big><em>callback=None</em>, <em>ticket=0</em>, <em>queue=''</em>, <em>exchange=None</em>, <em>routing_key=''</em>, <em>arguments={}</em><big>)</big></dt>
 <dd><p>Implements the <tt class="xref py py-meth docutils literal"><span class="pre">Unbind()</span></tt> AMQP command. For context and usage:</p>
 <blockquote>
-<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html">http://www.rabbitmq.com/amqp-0-9-1-quickref.html</a></div></blockquote>
+<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html#queue.unbind">http://www.rabbitmq.com/amqp-0-9-1-quickref.html#queue.unbind</a></div></blockquote>
 <p>This is a synchronous method that will not allow other commands to be
 send to the AMQP broker until it has completed. It is recommended to
 pass in a parameter to callback to be notified when this command has
@@ -274,11 +337,11 @@ completed.</p>
 </dd></dl>
 
 <dl class="method">
-<dt id="channel.Channel.tx_commit">
-<tt class="descname">tx_commit</tt><big>(</big><em>callback=None</em><big>)</big><a class="headerlink" href="#channel.Channel.tx_commit" title="Permalink to this definition">¶</a></dt>
+<dt>
+<tt class="descclassname">Channel.</tt><tt class="descname">tx_commit</tt><big>(</big><em>callback=None</em><big>)</big></dt>
 <dd><p>Implements the Tx.Commit AMQP command. For context and usage:</p>
 <blockquote>
-<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html">http://www.rabbitmq.com/amqp-0-9-1-quickref.html</a></div></blockquote>
+<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html#tx.commit">http://www.rabbitmq.com/amqp-0-9-1-quickref.html#tx.commit</a></div></blockquote>
 <p>This is a synchronous method that will not allow other commands to be
 send to the AMQP broker until it has completed. It is recommended to
 pass in a parameter to callback to be notified when this command has
@@ -286,11 +349,11 @@ completed.</p>
 </dd></dl>
 
 <dl class="method">
-<dt id="channel.Channel.tx_rollback">
-<tt class="descname">tx_rollback</tt><big>(</big><em>callback=None</em><big>)</big><a class="headerlink" href="#channel.Channel.tx_rollback" title="Permalink to this definition">¶</a></dt>
+<dt>
+<tt class="descclassname">Channel.</tt><tt class="descname">tx_rollback</tt><big>(</big><em>callback=None</em><big>)</big></dt>
 <dd><p>Implements the Tx.Rollback AMQP command. For context and usage:</p>
 <blockquote>
-<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html">http://www.rabbitmq.com/amqp-0-9-1-quickref.html</a></div></blockquote>
+<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html#tx.rollback">http://www.rabbitmq.com/amqp-0-9-1-quickref.html#tx.rollback</a></div></blockquote>
 <p>This is a synchronous method that will not allow other commands to be
 send to the AMQP broker until it has completed. It is recommended to
 pass in a parameter to callback to be notified when this command has
@@ -298,11 +361,11 @@ completed.</p>
 </dd></dl>
 
 <dl class="method">
-<dt id="channel.Channel.tx_select">
-<tt class="descname">tx_select</tt><big>(</big><em>callback=None</em><big>)</big><a class="headerlink" href="#channel.Channel.tx_select" title="Permalink to this definition">¶</a></dt>
+<dt>
+<tt class="descclassname">Channel.</tt><tt class="descname">tx_select</tt><big>(</big><em>callback=None</em><big>)</big></dt>
 <dd><p>Implements the Tx.Select AMQP command. For context and usage:</p>
 <blockquote>
-<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html">http://www.rabbitmq.com/amqp-0-9-1-quickref.html</a></div></blockquote>
+<div><a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html#tx.select">http://www.rabbitmq.com/amqp-0-9-1-quickref.html#tx.select</a></div></blockquote>
 <p>This is a synchronous method that will not allow other commands to be
 send to the AMQP broker until it has completed. It is recommended to
 pass in a parameter to callback to be notified when this command has
@@ -311,6 +374,9 @@ completed.</p>
 
 </dd></dl>
 
+</div>
+<div class="section" id="channeltransport">
+<h2>ChannelTransport<a class="headerlink" href="#channeltransport" title="Permalink to this headline">¶</a></h2>
 <dl class="class">
 <dt id="channel.ChannelTransport">
 <em class="property">class </em><tt class="descclassname">channel.</tt><tt class="descname">ChannelTransport</tt><big>(</big><em>connection</em>, <em>channel_number</em><big>)</big><a class="headerlink" href="#channel.ChannelTransport" title="Permalink to this definition">¶</a></dt>
@@ -322,6 +388,40 @@ to be invoked by applications using Pika.</p>
 removed and uses tcp backpressure instead. Since we only support 0-9-1
 which was not introduced in RabbitMQ until 2.0, server side channel
 flow detection has been removed.</p>
+<dl class="method">
+<dt id="channel.ChannelTransport._ensure">
+<tt class="descname">_ensure</tt><big>(</big><big>)</big><a class="headerlink" href="#channel.ChannelTransport._ensure" title="Permalink to this definition">¶</a></dt>
+<dd><p>Make sure the transport is open</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="channel.ChannelTransport._has_content">
+<tt class="descname">_has_content</tt><big>(</big><em>method</em><big>)</big><a class="headerlink" href="#channel.ChannelTransport._has_content" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return a bool if it&#8217;s a content method as defined by the spec</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="channel.ChannelTransport._on_event_ok">
+<tt class="descname">_on_event_ok</tt><big>(</big><em>frame</em><big>)</big><a class="headerlink" href="#channel.ChannelTransport._on_event_ok" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generic events that returned ok that may have internal callbacks.
+We keep a list of what we&#8217;ve yet to implement so that we don&#8217;t silently
+drain events that we don&#8217;t support.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="channel.ChannelTransport._on_open">
+<tt class="descname">_on_open</tt><big>(</big><em>frame</em><big>)</big><a class="headerlink" href="#channel.ChannelTransport._on_open" title="Permalink to this definition">¶</a></dt>
+<dd><p>Called as a result of receiving a spec.Channel.OpenOk frame.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="channel.ChannelTransport._on_synchronous_complete">
+<tt class="descname">_on_synchronous_complete</tt><big>(</big><em>frame</em><big>)</big><a class="headerlink" href="#channel.ChannelTransport._on_synchronous_complete" title="Permalink to this definition">¶</a></dt>
+<dd><p>This is called when a synchronous command is completed. It will undo
+the blocking state and send all the frames that stacked up while we
+were in the blocking state.</p>
+</dd></dl>
+
 <dl class="method">
 <dt id="channel.ChannelTransport.deliver">
 <tt class="descname">deliver</tt><big>(</big><em>frame</em><big>)</big><a class="headerlink" href="#channel.ChannelTransport.deliver" title="Permalink to this definition">¶</a></dt>
@@ -347,6 +447,63 @@ our channel number</p>
 </dd></dl>
 
 </div>
+<div class="section" id="contenthandler">
+<h2>ContentHandler<a class="headerlink" href="#contenthandler" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="channel.ContentHandler">
+<em class="property">class </em><tt class="descclassname">channel.</tt><tt class="descname">ContentHandler</tt><a class="headerlink" href="#channel.ContentHandler" title="Permalink to this definition">¶</a></dt>
+<dd><p>This handles content frames which come in in synchronous order as follows:</p>
+<ol class="arabic simple">
+<li>Method Frame</li>
+<li>Header Frame</li>
+<li>Body Frame(s)</li>
+</ol>
+<p>The way that content handler works is to assign the active frame type to
+the self._handler variable. When we receive a header frame that is either
+a Basic.Deliver, Basic.GetOk, or Basic.Return, we will assign the handler
+to the ContentHandler._handle_header_frame. This will fire the next time
+we are called and parse out the attributes required to receive the body
+frames and assemble the content to be returned. We will then assign the
+self._handler to ContentHandler._handle_body_frame.</p>
+<p>_handle_body_frame has two methods inside of it, handle and finish.
+handle will be invoked until the requirements set by the header frame have
+been met at which point it will call the finish method. This calls
+the callback manager with the method frame, header frame and assembled
+body and then reset the self._handler to the _handle_method_frame method.</p>
+<dl class="method">
+<dt id="channel.ContentHandler._handle_body_frame">
+<tt class="descname">_handle_body_frame</tt><big>(</big><em>method_frame</em>, <em>header_frame</em><big>)</big><a class="headerlink" href="#channel.ContentHandler._handle_body_frame" title="Permalink to this definition">¶</a></dt>
+<dd><p>Receive body frames. We&#8217;ll keep receiving them in handler until we&#8217;ve
+received the body size specified in the header frame. When done
+call our finish function which will call our transports callbacks</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="channel.ContentHandler._handle_header_frame">
+<tt class="descname">_handle_header_frame</tt><big>(</big><em>frame</em><big>)</big><a class="headerlink" href="#channel.ContentHandler._handle_header_frame" title="Permalink to this definition">¶</a></dt>
+<dd><p>Receive a header frame and process that, setting the next handler
+to the body frame handler</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="channel.ContentHandler._handle_method_frame">
+<tt class="descname">_handle_method_frame</tt><big>(</big><em>frame</em><big>)</big><a class="headerlink" href="#channel.ContentHandler._handle_method_frame" title="Permalink to this definition">¶</a></dt>
+<dd><p>Receive a frame and process it, we should have content by the time we
+reach this handler, set the next handler to be the header frame handler</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="channel.ContentHandler.process">
+<tt class="descname">process</tt><big>(</big><em>frame</em><big>)</big><a class="headerlink" href="#channel.ContentHandler.process" title="Permalink to this definition">¶</a></dt>
+<dd><p>Invoked by the ChannelTransport object when passed frames that are not
+setup in the rpc process and that don&#8217;t have explicit reply types
+defined. This includes Basic.Publish, Basic.GetOk and Basic.Return</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+</div>
 
 
           </div>
@@ -354,12 +511,22 @@ our channel number</p>
       </div>
       <div class="sphinxsidebar">
         <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">channel</a><ul>
+<li><a class="reference internal" href="#id1">Channel</a></li>
+<li><a class="reference internal" href="#channeltransport">ChannelTransport</a></li>
+<li><a class="reference internal" href="#contenthandler">ContentHandler</a></li>
+</ul>
+</li>
+</ul>
+
   <h4>Previous topic</h4>
   <p class="topless"><a href="callback.html"
-                        title="previous chapter">Callback</a></p>
+                        title="previous chapter">callback</a></p>
   <h4>Next topic</h4>
   <p class="topless"><a href="connection.html"
-                        title="next chapter">Connection</a></p>
+                        title="next chapter">connection</a></p>
   <h3>This Page</h3>
   <ul class="this-page-menu">
     <li><a href="_sources/channel.txt"
@@ -392,10 +559,10 @@ our channel number</p>
           <a href="py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
         <li class="right" >
-          <a href="connection.html" title="Connection"
+          <a href="connection.html" title="connection"
              >next</a> |</li>
         <li class="right" >
-          <a href="callback.html" title="Callback"
+          <a href="callback.html" title="callback"
              >previous</a> |</li>
         <li><a href="index.html">Pika 0.9a documentation</a> &raquo;</li> 
       </ul>

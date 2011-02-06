@@ -8,7 +8,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Heartbeat &mdash; Pika 0.9a documentation</title>
+    <title>heartbeat &mdash; Pika 0.9a documentation</title>
     
     <link rel="stylesheet" href="_static/default.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
@@ -26,8 +26,8 @@
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
     <link rel="top" title="Pika 0.9a documentation" href="index.html" />
-    <link rel="next" title="Log" href="log.html" />
-    <link rel="prev" title="Frames" href="frames.html" /> 
+    <link rel="next" title="log" href="log.html" />
+    <link rel="prev" title="frames" href="frames.html" /> 
   </head>
   <body>
     <div class="related">
@@ -40,10 +40,10 @@
           <a href="py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
         <li class="right" >
-          <a href="log.html" title="Log"
+          <a href="log.html" title="log"
              accesskey="N">next</a> |</li>
         <li class="right" >
-          <a href="frames.html" title="Frames"
+          <a href="frames.html" title="frames"
              accesskey="P">previous</a> |</li>
         <li><a href="index.html">Pika 0.9a documentation</a> &raquo;</li> 
       </ul>
@@ -55,15 +55,19 @@
           <div class="body">
             
   <div class="section" id="heartbeat">
-<h1>Heartbeat<a class="headerlink" href="#heartbeat" title="Permalink to this headline">¶</a></h1>
+<h1>heartbeat<a class="headerlink" href="#heartbeat" title="Permalink to this headline">¶</a></h1>
 <div class="admonition note">
 <p class="first admonition-title">Note</p>
 <p class="last">This class is not intended for use by those using Pika in their applications. This documentation is for those who are extending Pika or otherwise working on the driver itself.</p>
 </div>
-<span class="target" id="module-heartbeat"></span><dl class="class">
+<span class="target" id="module-heartbeat"></span><div class="section" id="heartbeatchecker">
+<h2>HeartbeatChecker<a class="headerlink" href="#heartbeatchecker" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
 <dt id="heartbeat.HeartbeatChecker">
 <em class="property">class </em><tt class="descclassname">heartbeat.</tt><tt class="descname">HeartbeatChecker</tt><big>(</big><em>connection</em>, <em>interval</em><big>)</big><a class="headerlink" href="#heartbeat.HeartbeatChecker" title="Permalink to this definition">¶</a></dt>
-<dd><dl class="method">
+<dd><p>Create a heartbeat on connection sending a heartbeat frame every
+interval seconds.</p>
+<dl class="method">
 <dt id="heartbeat.HeartbeatChecker.send_and_check">
 <tt class="descname">send_and_check</tt><big>(</big><big>)</big><a class="headerlink" href="#heartbeat.HeartbeatChecker.send_and_check" title="Permalink to this definition">¶</a></dt>
 <dd><p>Invoked by a timer to send a heartbeat when we need to, check to see
@@ -82,6 +86,7 @@ check_heartbeats function every interval seconds</p>
 </dd></dl>
 
 </div>
+</div>
 
 
           </div>
@@ -89,12 +94,20 @@ check_heartbeats function every interval seconds</p>
       </div>
       <div class="sphinxsidebar">
         <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">heartbeat</a><ul>
+<li><a class="reference internal" href="#heartbeatchecker">HeartbeatChecker</a></li>
+</ul>
+</li>
+</ul>
+
   <h4>Previous topic</h4>
   <p class="topless"><a href="frames.html"
-                        title="previous chapter">Frames</a></p>
+                        title="previous chapter">frames</a></p>
   <h4>Next topic</h4>
   <p class="topless"><a href="log.html"
-                        title="next chapter">Log</a></p>
+                        title="next chapter">log</a></p>
   <h3>This Page</h3>
   <ul class="this-page-menu">
     <li><a href="_sources/heartbeat.txt"
@@ -127,10 +140,10 @@ check_heartbeats function every interval seconds</p>
           <a href="py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
         <li class="right" >
-          <a href="log.html" title="Log"
+          <a href="log.html" title="log"
              >next</a> |</li>
         <li class="right" >
-          <a href="frames.html" title="Frames"
+          <a href="frames.html" title="frames"
              >previous</a> |</li>
         <li><a href="index.html">Pika 0.9a documentation</a> &raquo;</li> 
       </ul>

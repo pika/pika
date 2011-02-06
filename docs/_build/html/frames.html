@@ -8,7 +8,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Frames &mdash; Pika 0.9a documentation</title>
+    <title>frames &mdash; Pika 0.9a documentation</title>
     
     <link rel="stylesheet" href="_static/default.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
@@ -26,8 +26,8 @@
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
     <link rel="top" title="Pika 0.9a documentation" href="index.html" />
-    <link rel="next" title="Heartbeat" href="heartbeat.html" />
-    <link rel="prev" title="Exceptions" href="exceptions.html" /> 
+    <link rel="next" title="heartbeat" href="heartbeat.html" />
+    <link rel="prev" title="exceptions" href="exceptions.html" /> 
   </head>
   <body>
     <div class="related">
@@ -40,10 +40,10 @@
           <a href="py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
         <li class="right" >
-          <a href="heartbeat.html" title="Heartbeat"
+          <a href="heartbeat.html" title="heartbeat"
              accesskey="N">next</a> |</li>
         <li class="right" >
-          <a href="exceptions.html" title="Exceptions"
+          <a href="exceptions.html" title="exceptions"
              accesskey="P">previous</a> |</li>
         <li><a href="index.html">Pika 0.9a documentation</a> &raquo;</li> 
       </ul>
@@ -55,37 +55,121 @@
           <div class="body">
             
   <div class="section" id="frames">
-<h1>Frames<a class="headerlink" href="#frames" title="Permalink to this headline">¶</a></h1>
+<h1>frames<a class="headerlink" href="#frames" title="Permalink to this headline">¶</a></h1>
 <div class="admonition note">
 <p class="first admonition-title">Note</p>
-<p class="last">This class is not intended for use by those using Pika in their applications. This documentation is for those who are extending Pika or otherwise working on the driver itself.</p>
+<p class="last">This class level documentation is not intended for use by those using Pika in their applications. This documentation is for those who are extending Pika or otherwise working on the driver itself.</p>
 </div>
-<p>Applications using Pika will primarily interface with it via a channel object.</p>
-<span class="target" id="module-frames"></span><dl class="class">
+<span class="target" id="module-frames"></span><div class="section" id="frame">
+<h2>Frame<a class="headerlink" href="#frame" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
 <dt id="frames.Frame">
 <em class="property">class </em><tt class="descclassname">frames.</tt><tt class="descname">Frame</tt><big>(</big><em>frame_type</em>, <em>channel_number</em><big>)</big><a class="headerlink" href="#frames.Frame" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="method">
+<dt id="frames.Frame._marshal">
+<tt class="descname">_marshal</tt><big>(</big><em>pieces</em><big>)</big><a class="headerlink" href="#frames.Frame._marshal" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
+<dl class="attribute">
+<dt id="frames.Frame.name">
+<tt class="descname">name</tt><a class="headerlink" href="#frames.Frame.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="method">
+<h2>Method<a class="headerlink" href="#method" title="Permalink to this headline">¶</a></h2>
 <dl class="class">
 <dt id="frames.Method">
 <em class="property">class </em><tt class="descclassname">frames.</tt><tt class="descname">Method</tt><big>(</big><em>channel_number</em>, <em>method</em><big>)</big><a class="headerlink" href="#frames.Method" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="method">
+<dt id="frames.Method._marshal">
+<tt class="descname">_marshal</tt><big>(</big><em>pieces</em><big>)</big><a class="headerlink" href="#frames.Method._marshal" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
+<dl class="method">
+<dt id="frames.Method.marshal">
+<tt class="descname">marshal</tt><big>(</big><big>)</big><a class="headerlink" href="#frames.Method.marshal" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="frames.Method.name">
+<tt class="descname">name</tt><a class="headerlink" href="#frames.Method.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="header">
+<h2>Header<a class="headerlink" href="#header" title="Permalink to this headline">¶</a></h2>
 <dl class="class">
 <dt id="frames.Header">
 <em class="property">class </em><tt class="descclassname">frames.</tt><tt class="descname">Header</tt><big>(</big><em>channel_number</em>, <em>body_size</em>, <em>props</em><big>)</big><a class="headerlink" href="#frames.Header" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="method">
+<dt id="frames.Header._marshal">
+<tt class="descname">_marshal</tt><big>(</big><em>pieces</em><big>)</big><a class="headerlink" href="#frames.Header._marshal" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
+<dl class="method">
+<dt id="frames.Header.marshal">
+<tt class="descname">marshal</tt><big>(</big><big>)</big><a class="headerlink" href="#frames.Header.marshal" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="frames.Header.name">
+<tt class="descname">name</tt><a class="headerlink" href="#frames.Header.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="body">
+<h2>Body<a class="headerlink" href="#body" title="Permalink to this headline">¶</a></h2>
 <dl class="class">
 <dt id="frames.Body">
 <em class="property">class </em><tt class="descclassname">frames.</tt><tt class="descname">Body</tt><big>(</big><em>channel_number</em>, <em>fragment</em><big>)</big><a class="headerlink" href="#frames.Body" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="method">
+<dt id="frames.Body._marshal">
+<tt class="descname">_marshal</tt><big>(</big><em>pieces</em><big>)</big><a class="headerlink" href="#frames.Body._marshal" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
+<dl class="method">
+<dt id="frames.Body.marshal">
+<tt class="descname">marshal</tt><big>(</big><big>)</big><a class="headerlink" href="#frames.Body.marshal" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="frames.Body.name">
+<tt class="descname">name</tt><a class="headerlink" href="#frames.Body.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="protocolheader">
+<h2>ProtocolHeader<a class="headerlink" href="#protocolheader" title="Permalink to this headline">¶</a></h2>
 <dl class="class">
 <dt id="frames.ProtocolHeader">
 <em class="property">class </em><tt class="descclassname">frames.</tt><tt class="descname">ProtocolHeader</tt><big>(</big><em>major=None</em>, <em>minor=None</em>, <em>revision=None</em><big>)</big><a class="headerlink" href="#frames.ProtocolHeader" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="method">
+<dt id="frames.ProtocolHeader._marshal">
+<tt class="descname">_marshal</tt><big>(</big><em>pieces</em><big>)</big><a class="headerlink" href="#frames.ProtocolHeader._marshal" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
+<dl class="method">
+<dt id="frames.ProtocolHeader.marshal">
+<tt class="descname">marshal</tt><big>(</big><big>)</big><a class="headerlink" href="#frames.ProtocolHeader.marshal" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="frames.ProtocolHeader.name">
+<tt class="descname">name</tt><a class="headerlink" href="#frames.ProtocolHeader.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</div>
 </div>
 
 
@@ -94,12 +178,24 @@
       </div>
       <div class="sphinxsidebar">
         <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">frames</a><ul>
+<li><a class="reference internal" href="#frame">Frame</a></li>
+<li><a class="reference internal" href="#method">Method</a></li>
+<li><a class="reference internal" href="#header">Header</a></li>
+<li><a class="reference internal" href="#body">Body</a></li>
+<li><a class="reference internal" href="#protocolheader">ProtocolHeader</a></li>
+</ul>
+</li>
+</ul>
+
   <h4>Previous topic</h4>
   <p class="topless"><a href="exceptions.html"
-                        title="previous chapter">Exceptions</a></p>
+                        title="previous chapter">exceptions</a></p>
   <h4>Next topic</h4>
   <p class="topless"><a href="heartbeat.html"
-                        title="next chapter">Heartbeat</a></p>
+                        title="next chapter">heartbeat</a></p>
   <h3>This Page</h3>
   <ul class="this-page-menu">
     <li><a href="_sources/frames.txt"
@@ -132,10 +228,10 @@
           <a href="py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
         <li class="right" >
-          <a href="heartbeat.html" title="Heartbeat"
+          <a href="heartbeat.html" title="heartbeat"
              >next</a> |</li>
         <li class="right" >
-          <a href="exceptions.html" title="Exceptions"
+          <a href="exceptions.html" title="exceptions"
              >previous</a> |</li>
         <li><a href="index.html">Pika 0.9a documentation</a> &raquo;</li> 
       </ul>

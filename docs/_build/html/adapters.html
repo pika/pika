@@ -8,7 +8,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Connection Adapters &mdash; Pika 0.9a documentation</title>
+    <title>adapters &mdash; Pika 0.9a documentation</title>
     
     <link rel="stylesheet" href="_static/default.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
@@ -26,8 +26,8 @@
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
     <link rel="top" title="Pika 0.9a documentation" href="index.html" />
-    <link rel="next" title="Callback" href="callback.html" />
-    <link rel="prev" title="Introduction to Pika" href="index.html" /> 
+    <link rel="next" title="callback" href="callback.html" />
+    <link rel="prev" title="Communicating with RabbitMQ" href="communicating.html" /> 
   </head>
   <body>
     <div class="related">
@@ -40,10 +40,10 @@
           <a href="py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
         <li class="right" >
-          <a href="callback.html" title="Callback"
+          <a href="callback.html" title="callback"
              accesskey="N">next</a> |</li>
         <li class="right" >
-          <a href="index.html" title="Introduction to Pika"
+          <a href="communicating.html" title="Communicating with RabbitMQ"
              accesskey="P">previous</a> |</li>
         <li><a href="index.html">Pika 0.9a documentation</a> &raquo;</li> 
       </ul>
@@ -54,352 +54,528 @@
         <div class="bodywrapper">
           <div class="body">
             
-  <div class="section" id="connection-adapters">
-<h1>Connection Adapters<a class="headerlink" href="#connection-adapters" title="Permalink to this headline">¶</a></h1>
-<p>Pika provides multiple adapters to connect to RabbitMQ allowing for different ways of providing socket communication depending on what is appropriate for your application.</p>
+  <div class="section" id="adapters">
+<h1>adapters<a class="headerlink" href="#adapters" title="Permalink to this headline">¶</a></h1>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The following class level documentation is not intended for use by those using Pika in their applications. This documentation is for those who are extending Pika or otherwise working on the driver itself. For an overview of how to use adapters, please reference the <a class="reference internal" href="connecting.html"><em>Connecting to RabbitMQ</em></a> documentation.</p>
+</div>
+<div class="section" id="module-adapters.base_connection">
+<span id="base-connection"></span><h2>base_connection<a class="headerlink" href="#module-adapters.base_connection" title="Permalink to this headline">¶</a></h2>
+<p>Pika provides multiple adapters to connect to RabbitMQ:</p>
 <ul class="simple">
-<li><a class="reference internal" href="#selectconnection"><em>SelectConnection</em></a>: A native event based connection adapter that implements select, kqueue, poll and epoll.</li>
-<li><a class="reference internal" href="#asyncoreconnection"><em>AsyncoreConnection</em></a>: Legacy adapter kept for convenience of previous Pika users.</li>
-<li><a class="reference internal" href="#tornadoconnection"><em>TornadoConnection</em></a>: Connection adapter for use with the Tornado IO Loop.</li>
-<li><a class="reference internal" href="#blockingconnection"><em>BlockingConnection</em></a>: Enables blocking, synchronous operation on top of library for simple uses.</li>
+<li><a class="reference internal" href="connecting.html#adapters-select-connection-selectconnection"><em>SelectConnection</em></a>: A native event based connection
+adapter that implements select, kqueue, poll and epoll.</li>
+<li><a class="reference internal" href="connecting.html#adapters-asyncore-connection-asyncoreconnection"><em>AsyncoreConnection</em></a>: Legacy adapter kept for
+convenience of previous Pika users. It is recommended to use the
+SelectConnection instead of AsyncoreConnection.</li>
+<li><a class="reference internal" href="connecting.html#adapters-tornado-connection-tornadoconnection"><em>TornadoConnection</em></a>: Connection adapter for use
+with the Tornado web framework.</li>
+<li><a class="reference internal" href="connecting.html#adapters-blocking-connection-blockingconnection"><em>BlockingConnection</em></a>: Enables blocking,
+synchronous operation on top of library for simple uses. This is not
+recommended and is included for legacy reasons only.</li>
 </ul>
-<div class="section" id="tcp-backpressure">
-<span id="intro-to-backpressure"></span><h2>TCP Backpressure<a class="headerlink" href="#tcp-backpressure" title="Permalink to this headline">¶</a></h2>
-<p>As of RabbitMQ 2.0.0, client side Channel.Flow has been removed. Instead, the RabbitMQ broker uses TCP Backpressure to slow your client if it is
-delivering messages too fast. Pika attempts to help you handle this situation by providing a mechanism by which you may be notified if Pika has noticed
-too many frames have yet to be delivered. By registering a function with the <em>add_backpressure_callback</em> function of any connection adapter, your function
-will be called when Pika sees that a backlog of 10 times the average frame size you have been sending has been exceeded. You may tweak this value by
-calling the set_backpressure_multiplier method passing any integer value.</p>
+<div class="section" id="baseconnection">
+<h3>BaseConnection<a class="headerlink" href="#baseconnection" title="Permalink to this headline">¶</a></h3>
+<dl class="class">
+<dt>
+<em class="property">class </em><tt class="descclassname">adapters.base_connection.</tt><tt class="descname">BaseConnection</tt><big>(</big><em>parameters=None</em>, <em>on_open_callback=None</em>, <em>reconnection_strategy=None</em><big>)</big></dt>
+<dd><dl class="method">
+<dt>
+<tt class="descclassname">BaseConnection.</tt><tt class="descname">_adapter_connect</tt><big>(</big><em>host</em>, <em>port</em><big>)</big></dt>
+<dd><p>Base connection function to be extended as needed</p>
+</dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">BaseConnection.</tt><tt class="descname">_adapter_disconnect</tt><big>(</big><big>)</big></dt>
+<dd><p>Called if we are forced to disconnect for some reason from Connection</p>
+</dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">BaseConnection.</tt><tt class="descname">_erase_credentials</tt><big>(</big><big>)</big></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">BaseConnection.</tt><tt class="descname">_flush_outbound</tt><big>(</big><big>)</big></dt>
+<dd><p>Call the state manager who will figure out that we need to write.</p>
+</dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">BaseConnection.</tt><tt class="descname">_handle_disconnect</tt><big>(</big><big>)</big></dt>
+<dd><p>Called internally when we know our socket is disconnected already</p>
+</dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">BaseConnection.</tt><tt class="descname">_handle_error</tt><big>(</big><em>error</em><big>)</big></dt>
+<dd><p>Internal error handling method. Here we expect a <tt class="xref py py-meth docutils literal"><span class="pre">error()</span></tt> coming in
+and will handle different socket errors differently.</p>
+</dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">BaseConnection.</tt><tt class="descname">_handle_events</tt><big>(</big><em>fd</em>, <em>events</em>, <em>error=None</em><big>)</big></dt>
+<dd><p>Our IO/Event loop have called us with events, so process them</p>
+</dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">BaseConnection.</tt><tt class="descname">_handle_read</tt><big>(</big><big>)</big></dt>
+<dd><p>Read from the socket and call our on_data_available with the data</p>
+</dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">BaseConnection.</tt><tt class="descname">_handle_write</tt><big>(</big><big>)</big></dt>
+<dd><p>We only get here when we have data to write, so try and send
+Pika&#8217;s suggested buffer size of data (be nice to Windows)</p>
+</dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">BaseConnection.</tt><tt class="descname">_manage_event_state</tt><big>(</big><big>)</big></dt>
+<dd><p>We use this to manage the bitmask for reading/writing/error which
+we want to use to have our io/event handler tell us when we can
+read/write, etc</p>
+</dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">BaseConnection.</tt><tt class="descname">add_timeout</tt><big>(</big><em>delay_sec</em>, <em>callback</em><big>)</big></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">BaseConnection.</tt><tt class="descname">remove_timeout</tt><big>(</big><em>timeout_id</em><big>)</big></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
 </div>
-<div class="section" id="io-and-event-looping">
-<span id="intro-to-ioloop"></span><h2>IO and Event Looping<a class="headerlink" href="#io-and-event-looping" title="Permalink to this headline">¶</a></h2>
-<p>Due to the need to check for and send content on a consistent basis, Pika now implements or extends IOLoops in each of its asynchronous connection adapters. These IOLoops are blocking methods which loop and listen for events. Each asynchronous adapters follows the same standard for invoking the IOLoop. The IOLoop is
-created when the connection adapter is created. To start it simply call the connection.ioloop.start() method.</p>
-<p>If you are using an external IOLoop such as Tornado&#8217;s IOLoop, you may invoke that as you normally would and then add the adapter to it.</p>
-<p>Example:</p>
-<div class="highlight-python"><div class="highlight"><pre><span class="c"># Create our connection object</span>
-<span class="n">connection</span> <span class="o">=</span> <span class="n">SelectConnection</span><span class="p">()</span>
-
-<span class="k">try</span><span class="p">:</span>
-    <span class="c"># Loop so we can communicate with RabbitMQ</span>
-    <span class="n">connection</span><span class="o">.</span><span class="n">ioloop</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
-<span class="k">except</span> <span class="ne">KeyboardInterrupt</span><span class="p">:</span>
-    <span class="c"># Gracefully close the connection</span>
-    <span class="n">connection</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-    <span class="c"># Loop until we&#39;re fully closed, will stop on its own</span>
-    <span class="n">connection</span><span class="o">.</span><span class="n">ioloop</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
-</pre></div>
 </div>
-</div>
-<div class="section" id="continuation-passing-style">
-<span id="intro-to-cps"></span><h2>Continuation-Passing Style<a class="headerlink" href="#continuation-passing-style" title="Permalink to this headline">¶</a></h2>
-<p>Interfacing with Pika asynchronously is done by passing in callback methods you would like to have invoked when a certain event has completed. For example, if you are going to declare a queue, you pass in a method that will be called when the RabbitMQ server returns a &#8220;Queue.DeclareOk&#8221; response.</p>
-<p>In our example below we use the following four easy steps:</p>
-<ol class="arabic simple">
-<li>We start by creating our connection object, then starting our event loop.</li>
-<li>When we are connected, the <em>on_connected</em> method is called. In that method we create a channel.</li>
-<li>When the channel is created, the <em>on_channel_open</em> method is called. In that method we declare a queue.</li>
-<li>When the queue is declared successfully, <em>on_queue_declared</em> is called. In that method we call channel.basic_consume telling it to call the handle_delivery for each message RabbitMQ delivers to us.</li>
-</ol>
-<p id="cps-example">Example:</p>
-<div class="highlight-python"><div class="highlight"><pre><span class="kn">from</span> <span class="nn">pika.adapters</span> <span class="kn">import</span> <span class="n">SelectConnection</span>
-
-<span class="c"># Create a global channel variable to hold our channel object in</span>
-<span class="n">channel</span> <span class="o">=</span> <span class="bp">None</span>
-
-<span class="c"># Step #2</span>
-<span class="k">def</span> <span class="nf">on_connected</span><span class="p">(</span><span class="n">connection</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Called when we are fully connected to RabbitMQ&quot;&quot;&quot;</span>
-    <span class="c"># Open a channel</span>
-    <span class="n">connection</span><span class="o">.</span><span class="n">channel</span><span class="p">(</span><span class="n">on_channel_open</span><span class="p">)</span>
-
-<span class="c"># Step #3</span>
-<span class="k">def</span> <span class="nf">on_channel_open</span><span class="p">(</span><span class="n">new_channel</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Called when our channel has opened&quot;&quot;&quot;</span>
-    <span class="k">global</span> <span class="n">channel</span>
-    <span class="n">channel</span> <span class="o">=</span> <span class="n">new_channel</span>
-    <span class="n">channel</span><span class="o">.</span><span class="n">queue_declare</span><span class="p">(</span><span class="n">queue</span><span class="o">=</span><span class="s">&quot;test&quot;</span><span class="p">,</span> <span class="n">durable</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">exclusive</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">auto_delete</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">callback</span><span class="o">=</span><span class="n">on_queue_declared</span><span class="p">)</span>
-
-<span class="c"># Step #4</span>
-<span class="k">def</span> <span class="nf">on_queue_declared</span><span class="p">(</span><span class="n">frame</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Called when RabbitMQ has told us our Queue has been declared, frame is the response from RabbitMQ&quot;&quot;&quot;</span>
-    <span class="n">channel</span><span class="o">.</span><span class="n">basic_consume</span><span class="p">(</span><span class="n">handle_delivery</span><span class="p">,</span> <span class="n">queue</span><span class="o">=</span><span class="s">&#39;test&#39;</span><span class="p">)</span>
-
-<span class="k">def</span> <span class="nf">handle_delivery</span><span class="p">(</span><span class="n">channel</span><span class="p">,</span> <span class="n">method</span><span class="p">,</span> <span class="n">header</span><span class="p">,</span> <span class="n">body</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Called when we receive a message from RabbitMQ&quot;&quot;&quot;</span>
-    <span class="k">print</span> <span class="n">body</span>
-
-<span class="c"># Step #1: Connect to RabbitMQ</span>
-<span class="n">connection</span> <span class="o">=</span> <span class="n">SelectConnection</span><span class="p">(</span><span class="n">parameters</span><span class="p">,</span> <span class="n">on_connected</span><span class="p">)</span>
-
-<span class="k">try</span><span class="p">:</span>
-    <span class="c"># Loop so we can communicate with RabbitMQ</span>
-    <span class="n">connection</span><span class="o">.</span><span class="n">ioloop</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
-<span class="k">except</span> <span class="ne">KeyboardInterrupt</span><span class="p">:</span>
-    <span class="c"># Gracefully close the connection</span>
-    <span class="n">connection</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-    <span class="c"># Loop until we&#39;re fully closed, will stop on its own</span>
-    <span class="n">connection</span><span class="o">.</span><span class="n">ioloop</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
-</pre></div>
-</div>
-</div>
-<div class="section" id="available-adapters">
-<h2>Available Adapters<a class="headerlink" href="#available-adapters" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="module-adapters.select_connection">
+<span id="select-connection"></span><h2>select_connection<a class="headerlink" href="#module-adapters.select_connection" title="Permalink to this headline">¶</a></h2>
 <div class="section" id="selectconnection">
-<span id="id1"></span><h3>SelectConnection<a class="headerlink" href="#selectconnection" title="Permalink to this headline">¶</a></h3>
-<div class="admonition note">
-<p class="first admonition-title">Note</p>
-<p class="last">SelectConnection is the recommended method for using Pika under most circumstances. It supports multiple event notification methods including select, epoll, kqueue and poll.</p>
-</div>
-<p>By default SelectConnection will attempt to use the most appropriate event
-notification method for your system. In order to override the default behavior
-you may set the poller type by assigning a string value to the
-select_connection modules POLLER_TYPE attribute prior to creating the
-SelectConnection object instance. Valid values are: kqueue, poll, epoll, select</p>
-<p>Poller Type Override Example:</p>
-<div class="highlight-python"><div class="highlight"><pre><span class="kn">import</span> <span class="nn">select_connection</span>
-<span class="n">select_connection</span><span class="o">.</span><span class="n">POLLER_TYPE</span> <span class="o">=</span> <span class="s">&#39;epoll&#39;</span>
-<span class="n">connection</span> <span class="o">=</span> <span class="n">select_connection</span><span class="o">.</span><span class="n">SelectConnection</span><span class="p">()</span>
-</pre></div>
-</div>
-<p>See the <a class="reference internal" href="#cps-example"><em>Continuation-Passing Style example</em></a> for an example of using SelectConnection.</p>
-<span class="target" id="module-adapters.select_connection"></span><dl class="class">
-<dt id="adapters.select_connection.SelectConnection">
-<em class="property">class </em><tt class="descclassname">adapters.select_connection.</tt><tt class="descname">SelectConnection</tt><big>(</big><em>parameters</em>, <em>on_open_callback</em>, <em>reconnection_strategy=None</em><big>)</big><a class="headerlink" href="#adapters.select_connection.SelectConnection" title="Permalink to this definition">¶</a></dt>
+<h3>SelectConnection<a class="headerlink" href="#selectconnection" title="Permalink to this headline">¶</a></h3>
+<dl class="class">
+<dt>
+<em class="property">class </em><tt class="descclassname">adapters.select_connection.</tt><tt class="descname">SelectConnection</tt><big>(</big><em>parameters=None</em>, <em>on_open_callback=None</em>, <em>reconnection_strategy=None</em><big>)</big></dt>
 <dd><dl class="method">
-<dt id="adapters.select_connection.SelectConnection.add_backpressure_callback">
-<tt class="descname">add_backpressure_callback</tt><big>(</big><em>callback</em><big>)</big><a class="headerlink" href="#adapters.select_connection.SelectConnection.add_backpressure_callback" title="Permalink to this definition">¶</a></dt>
-<dd><p>Add a callback notification when we think backpressue is being applied
-due to the size of the output buffer being exceeded.</p>
+<dt>
+<tt class="descclassname">SelectConnection.</tt><tt class="descname">_adapter_connect</tt><big>(</big><em>host</em>, <em>port</em><big>)</big></dt>
+<dd><p>Connect to the given host and port</p>
 </dd></dl>
 
 <dl class="method">
-<dt id="adapters.select_connection.SelectConnection.add_on_close_callback">
-<tt class="descname">add_on_close_callback</tt><big>(</big><em>callback</em><big>)</big><a class="headerlink" href="#adapters.select_connection.SelectConnection.add_on_close_callback" title="Permalink to this definition">¶</a></dt>
-<dd><p>Add a callback notification when the connection has closed</p>
+<dt>
+<tt class="descclassname">SelectConnection.</tt><tt class="descname">_flush_outbound</tt><big>(</big><big>)</big></dt>
+<dd><p>Call the state manager who will figure out that we need to write then
+call the poller&#8217;s poll function to force it to process events.</p>
 </dd></dl>
 
-<dl class="method">
-<dt id="adapters.select_connection.SelectConnection.add_on_open_callback">
-<tt class="descname">add_on_open_callback</tt><big>(</big><em>callback</em><big>)</big><a class="headerlink" href="#adapters.select_connection.SelectConnection.add_on_open_callback" title="Permalink to this definition">¶</a></dt>
-<dd><p>Add a callback notification when the connection has opened</p>
 </dd></dl>
 
+</div>
+<div class="section" id="ioloop">
+<h3>IOLoop<a class="headerlink" href="#ioloop" title="Permalink to this headline">¶</a></h3>
+<dl class="class">
+<dt id="adapters.select_connection.IOLoop">
+<em class="property">class </em><tt class="descclassname">adapters.select_connection.</tt><tt class="descname">IOLoop</tt><a class="headerlink" href="#adapters.select_connection.IOLoop" title="Permalink to this definition">¶</a></dt>
+<dd><p>Singlton wrapper that decides which type of poller to use, creates an
+instance of it in start_poller and keeps the invoking application in a
+blocking state by calling the pollers start method. Poller should keep
+looping until IOLoop.instance().stop() is called or there is a socket
+error.</p>
+<p>Also provides a convenient pass-through for add_timeout and set_events</p>
 <dl class="method">
-<dt id="adapters.select_connection.SelectConnection.channel">
-<tt class="descname">channel</tt><big>(</big><em>on_open_callback</em>, <em>channel_number=None</em><big>)</big><a class="headerlink" href="#adapters.select_connection.SelectConnection.channel" title="Permalink to this definition">¶</a></dt>
-<dd><p>Create a new channel with the next available channel number or pass in
-a channel number to use. Must be non-zero if you would like to specify
-but it is recommended that you let Pika manage the channel numbers.</p>
+<dt id="adapters.select_connection.IOLoop.add_timeout">
+<tt class="descname">add_timeout</tt><big>(</big><em>deadline</em>, <em>handler</em><big>)</big><a class="headerlink" href="#adapters.select_connection.IOLoop.add_timeout" title="Permalink to this definition">¶</a></dt>
+<dd><p>Pass through a deadline and handler to the active poller</p>
 </dd></dl>
 
-<dl class="method">
-<dt id="adapters.select_connection.SelectConnection.close">
-<tt class="descname">close</tt><big>(</big><em>code=200</em>, <em>text='Normal shutdown'</em><big>)</big><a class="headerlink" href="#adapters.select_connection.SelectConnection.close" title="Permalink to this definition">¶</a></dt>
-<dd><p>Disconnect from RabbitMQ. If there are any open channels, it will
-attempt to close them prior to fully disconnecting. Channels which
-have active consumers will attempt to send a Basic.Cancel to RabbitMQ
-to cleanly stop the delivery of messages prior to closing the channel.</p>
+<dl class="classmethod">
+<dt id="adapters.select_connection.IOLoop.instance">
+<em class="property">classmethod </em><tt class="descname">instance</tt><big>(</big><em>class_</em><big>)</big><a class="headerlink" href="#adapters.select_connection.IOLoop.instance" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a handle to the already created object or creates a new object</p>
 </dd></dl>
 
 <dl class="attribute">
-<dt id="adapters.select_connection.SelectConnection.is_open">
-<tt class="descname">is_open</tt><a class="headerlink" href="#adapters.select_connection.SelectConnection.is_open" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns a boolean reporting the current connection state</p>
+<dt id="adapters.select_connection.IOLoop.poller_type">
+<tt class="descname">poller_type</tt><a class="headerlink" href="#adapters.select_connection.IOLoop.poller_type" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="adapters.select_connection.IOLoop.remove_timeout">
+<tt class="descname">remove_timeout</tt><big>(</big><em>timeout_id</em><big>)</big><a class="headerlink" href="#adapters.select_connection.IOLoop.remove_timeout" title="Permalink to this definition">¶</a></dt>
+<dd><p>Remove a timeout if it&#8217;s still in the timeout stack of our poller</p>
 </dd></dl>
 
 <dl class="method">
-<dt id="adapters.select_connection.SelectConnection.set_backpressure_multiplier">
-<tt class="descname">set_backpressure_multiplier</tt><big>(</big><em>value=10</em><big>)</big><a class="headerlink" href="#adapters.select_connection.SelectConnection.set_backpressure_multiplier" title="Permalink to this definition">¶</a></dt>
-<dd><p>Alter the backpressure multiplier value. We set this to 10 by default.
-This value is used to raise warnings and trigger the backpressure
-callback.</p>
+<dt id="adapters.select_connection.IOLoop.start">
+<tt class="descname">start</tt><big>(</big><big>)</big><a class="headerlink" href="#adapters.select_connection.IOLoop.start" title="Permalink to this definition">¶</a></dt>
+<dd><p>Wait until we have a poller</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="adapters.select_connection.IOLoop.start_poller">
+<tt class="descname">start_poller</tt><big>(</big><em>handler</em>, <em>events</em><big>)</big><a class="headerlink" href="#adapters.select_connection.IOLoop.start_poller" title="Permalink to this definition">¶</a></dt>
+<dd><p>Start the Poller, once started will take over for IOLoop.start()</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="adapters.select_connection.IOLoop.stop">
+<tt class="descname">stop</tt><big>(</big><big>)</big><a class="headerlink" href="#adapters.select_connection.IOLoop.stop" title="Permalink to this definition">¶</a></dt>
+<dd><p>Stop the poller&#8217;s event loop</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="adapters.select_connection.IOLoop.update_handler">
+<tt class="descname">update_handler</tt><big>(</big><em>fileno</em>, <em>events</em><big>)</big><a class="headerlink" href="#adapters.select_connection.IOLoop.update_handler" title="Permalink to this definition">¶</a></dt>
+<dd><p>Pass in the events we want to process</p>
 </dd></dl>
 
 </dd></dl>
 
 </div>
+<div class="section" id="selectpoller">
+<h3>SelectPoller<a class="headerlink" href="#selectpoller" title="Permalink to this headline">¶</a></h3>
+<dl class="class">
+<dt id="adapters.select_connection.SelectPoller">
+<em class="property">class </em><tt class="descclassname">adapters.select_connection.</tt><tt class="descname">SelectPoller</tt><big>(</big><em>fileno</em>, <em>handler</em>, <em>events</em><big>)</big><a class="headerlink" href="#adapters.select_connection.SelectPoller" title="Permalink to this definition">¶</a></dt>
+<dd><p>Default behavior is to use Select since it&#8217;s the widest supported and has
+all of the methods we need for child classes as well. One should only need
+to override the update_handler and start methods for additional types.</p>
+<dl class="attribute">
+<dt id="adapters.select_connection.SelectPoller.TIMEOUT">
+<tt class="descname">TIMEOUT</tt><em class="property"> = 0.5</em><a class="headerlink" href="#adapters.select_connection.SelectPoller.TIMEOUT" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="adapters.select_connection.SelectPoller.add_timeout">
+<tt class="descname">add_timeout</tt><big>(</big><em>deadline</em>, <em>handler</em><big>)</big><a class="headerlink" href="#adapters.select_connection.SelectPoller.add_timeout" title="Permalink to this definition">¶</a></dt>
+<dd><p>Add a timeout to the stack by deadline</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="adapters.select_connection.SelectPoller.poll">
+<tt class="descname">poll</tt><big>(</big><big>)</big><a class="headerlink" href="#adapters.select_connection.SelectPoller.poll" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="adapters.select_connection.SelectPoller.process_timeouts">
+<tt class="descname">process_timeouts</tt><big>(</big><big>)</big><a class="headerlink" href="#adapters.select_connection.SelectPoller.process_timeouts" title="Permalink to this definition">¶</a></dt>
+<dd><p>Process our self._timeouts event stack</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="adapters.select_connection.SelectPoller.remove_timeout">
+<tt class="descname">remove_timeout</tt><big>(</big><em>timeout_id</em><big>)</big><a class="headerlink" href="#adapters.select_connection.SelectPoller.remove_timeout" title="Permalink to this definition">¶</a></dt>
+<dd><p>Remove a timeout from the stack</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="adapters.select_connection.SelectPoller.start">
+<tt class="descname">start</tt><big>(</big><big>)</big><a class="headerlink" href="#adapters.select_connection.SelectPoller.start" title="Permalink to this definition">¶</a></dt>
+<dd><p>Start the main poller loop. It will loop here until self.closed</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="adapters.select_connection.SelectPoller.update_handler">
+<tt class="descname">update_handler</tt><big>(</big><em>fileno</em>, <em>events</em><big>)</big><a class="headerlink" href="#adapters.select_connection.SelectPoller.update_handler" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set our events to our current events</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="kqueuepoller">
+<h3>KQueuePoller<a class="headerlink" href="#kqueuepoller" title="Permalink to this headline">¶</a></h3>
+<dl class="class">
+<dt id="adapters.select_connection.KQueuePoller">
+<em class="property">class </em><tt class="descclassname">adapters.select_connection.</tt><tt class="descname">KQueuePoller</tt><big>(</big><em>fileno</em>, <em>handler</em>, <em>events</em><big>)</big><a class="headerlink" href="#adapters.select_connection.KQueuePoller" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="adapters.select_connection.KQueuePoller.TIMEOUT">
+<tt class="descname">TIMEOUT</tt><em class="property"> = 0.5</em><a class="headerlink" href="#adapters.select_connection.KQueuePoller.TIMEOUT" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="adapters.select_connection.KQueuePoller.add_timeout">
+<tt class="descname">add_timeout</tt><big>(</big><em>deadline</em>, <em>handler</em><big>)</big><a class="headerlink" href="#adapters.select_connection.KQueuePoller.add_timeout" title="Permalink to this definition">¶</a></dt>
+<dd><p>Add a timeout to the stack by deadline</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="adapters.select_connection.KQueuePoller.poll">
+<tt class="descname">poll</tt><big>(</big><big>)</big><a class="headerlink" href="#adapters.select_connection.KQueuePoller.poll" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="adapters.select_connection.KQueuePoller.process_timeouts">
+<tt class="descname">process_timeouts</tt><big>(</big><big>)</big><a class="headerlink" href="#adapters.select_connection.KQueuePoller.process_timeouts" title="Permalink to this definition">¶</a></dt>
+<dd><p>Process our self._timeouts event stack</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="adapters.select_connection.KQueuePoller.remove_timeout">
+<tt class="descname">remove_timeout</tt><big>(</big><em>timeout_id</em><big>)</big><a class="headerlink" href="#adapters.select_connection.KQueuePoller.remove_timeout" title="Permalink to this definition">¶</a></dt>
+<dd><p>Remove a timeout from the stack</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="adapters.select_connection.KQueuePoller.start">
+<tt class="descname">start</tt><big>(</big><big>)</big><a class="headerlink" href="#adapters.select_connection.KQueuePoller.start" title="Permalink to this definition">¶</a></dt>
+<dd><p>Start the main poller loop. It will loop here until self.closed</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="adapters.select_connection.KQueuePoller.update_handler">
+<tt class="descname">update_handler</tt><big>(</big><em>fileno</em>, <em>events</em><big>)</big><a class="headerlink" href="#adapters.select_connection.KQueuePoller.update_handler" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="pollpoller">
+<h3>PollPoller<a class="headerlink" href="#pollpoller" title="Permalink to this headline">¶</a></h3>
+<dl class="class">
+<dt id="adapters.select_connection.PollPoller">
+<em class="property">class </em><tt class="descclassname">adapters.select_connection.</tt><tt class="descname">PollPoller</tt><big>(</big><em>fileno</em>, <em>handler</em>, <em>events</em><big>)</big><a class="headerlink" href="#adapters.select_connection.PollPoller" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="attribute">
+<dt id="adapters.select_connection.PollPoller.TIMEOUT">
+<tt class="descname">TIMEOUT</tt><em class="property"> = 0.5</em><a class="headerlink" href="#adapters.select_connection.PollPoller.TIMEOUT" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="adapters.select_connection.PollPoller.add_timeout">
+<tt class="descname">add_timeout</tt><big>(</big><em>deadline</em>, <em>handler</em><big>)</big><a class="headerlink" href="#adapters.select_connection.PollPoller.add_timeout" title="Permalink to this definition">¶</a></dt>
+<dd><p>Add a timeout to the stack by deadline</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="adapters.select_connection.PollPoller.poll">
+<tt class="descname">poll</tt><big>(</big><big>)</big><a class="headerlink" href="#adapters.select_connection.PollPoller.poll" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="adapters.select_connection.PollPoller.process_timeouts">
+<tt class="descname">process_timeouts</tt><big>(</big><big>)</big><a class="headerlink" href="#adapters.select_connection.PollPoller.process_timeouts" title="Permalink to this definition">¶</a></dt>
+<dd><p>Process our self._timeouts event stack</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="adapters.select_connection.PollPoller.remove_timeout">
+<tt class="descname">remove_timeout</tt><big>(</big><em>timeout_id</em><big>)</big><a class="headerlink" href="#adapters.select_connection.PollPoller.remove_timeout" title="Permalink to this definition">¶</a></dt>
+<dd><p>Remove a timeout from the stack</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="adapters.select_connection.PollPoller.start">
+<tt class="descname">start</tt><big>(</big><big>)</big><a class="headerlink" href="#adapters.select_connection.PollPoller.start" title="Permalink to this definition">¶</a></dt>
+<dd><p>Start the main poller loop. It will loop here until self.closed</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="adapters.select_connection.PollPoller.update_handler">
+<tt class="descname">update_handler</tt><big>(</big><em>fileno</em>, <em>events</em><big>)</big><a class="headerlink" href="#adapters.select_connection.PollPoller.update_handler" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="epollpoller">
+<h3>EPollPoller<a class="headerlink" href="#epollpoller" title="Permalink to this headline">¶</a></h3>
+<dl class="class">
+<dt id="adapters.select_connection.EPollPoller">
+<em class="property">class </em><tt class="descclassname">adapters.select_connection.</tt><tt class="descname">EPollPoller</tt><big>(</big><em>fileno</em>, <em>handler</em>, <em>events</em><big>)</big><a class="headerlink" href="#adapters.select_connection.EPollPoller" title="Permalink to this definition">¶</a></dt>
+<dd><p>EPoll and Poll function signatures match.</p>
+<dl class="attribute">
+<dt id="adapters.select_connection.EPollPoller.TIMEOUT">
+<tt class="descname">TIMEOUT</tt><em class="property"> = 0.5</em><a class="headerlink" href="#adapters.select_connection.EPollPoller.TIMEOUT" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="adapters.select_connection.EPollPoller.add_timeout">
+<tt class="descname">add_timeout</tt><big>(</big><em>deadline</em>, <em>handler</em><big>)</big><a class="headerlink" href="#adapters.select_connection.EPollPoller.add_timeout" title="Permalink to this definition">¶</a></dt>
+<dd><p>Add a timeout to the stack by deadline</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="adapters.select_connection.EPollPoller.poll">
+<tt class="descname">poll</tt><big>(</big><big>)</big><a class="headerlink" href="#adapters.select_connection.EPollPoller.poll" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="adapters.select_connection.EPollPoller.process_timeouts">
+<tt class="descname">process_timeouts</tt><big>(</big><big>)</big><a class="headerlink" href="#adapters.select_connection.EPollPoller.process_timeouts" title="Permalink to this definition">¶</a></dt>
+<dd><p>Process our self._timeouts event stack</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="adapters.select_connection.EPollPoller.remove_timeout">
+<tt class="descname">remove_timeout</tt><big>(</big><em>timeout_id</em><big>)</big><a class="headerlink" href="#adapters.select_connection.EPollPoller.remove_timeout" title="Permalink to this definition">¶</a></dt>
+<dd><p>Remove a timeout from the stack</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="adapters.select_connection.EPollPoller.start">
+<tt class="descname">start</tt><big>(</big><big>)</big><a class="headerlink" href="#adapters.select_connection.EPollPoller.start" title="Permalink to this definition">¶</a></dt>
+<dd><p>Start the main poller loop. It will loop here until self.closed</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="adapters.select_connection.EPollPoller.update_handler">
+<tt class="descname">update_handler</tt><big>(</big><em>fileno</em>, <em>events</em><big>)</big><a class="headerlink" href="#adapters.select_connection.EPollPoller.update_handler" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</div>
+</div>
+<div class="section" id="module-adapters.asyncore_connection">
+<span id="asyncore-connection"></span><h2>asyncore_connection<a class="headerlink" href="#module-adapters.asyncore_connection" title="Permalink to this headline">¶</a></h2>
 <div class="section" id="asyncoreconnection">
-<span id="id2"></span><h3>AsyncoreConnection<a class="headerlink" href="#asyncoreconnection" title="Permalink to this headline">¶</a></h3>
-<div class="admonition note">
-<p class="first admonition-title">Note</p>
-<p class="last">Use SelectConnection, the method signatures are the same.</p>
-</div>
-<p>The AsyncoreConnection class is provided for legacy support and quicker porting from applications that used Pika version 0.5.2 and prior.</p>
-<span class="target" id="module-adapters.asyncore_connection"></span><dl class="class">
-<dt id="adapters.asyncore_connection.AsyncoreConnection">
-<em class="property">class </em><tt class="descclassname">adapters.asyncore_connection.</tt><tt class="descname">AsyncoreConnection</tt><big>(</big><em>parameters</em>, <em>on_open_callback</em>, <em>reconnection_strategy=None</em><big>)</big><a class="headerlink" href="#adapters.asyncore_connection.AsyncoreConnection" title="Permalink to this definition">¶</a></dt>
+<h3>AsyncoreConnection<a class="headerlink" href="#asyncoreconnection" title="Permalink to this headline">¶</a></h3>
+<dl class="class">
+<dt>
+<em class="property">class </em><tt class="descclassname">adapters.asyncore_connection.</tt><tt class="descname">AsyncoreConnection</tt><big>(</big><em>parameters=None</em>, <em>on_open_callback=None</em>, <em>reconnection_strategy=None</em><big>)</big></dt>
 <dd><dl class="method">
-<dt id="adapters.asyncore_connection.AsyncoreConnection.add_backpressure_callback">
-<tt class="descname">add_backpressure_callback</tt><big>(</big><em>callback</em><big>)</big><a class="headerlink" href="#adapters.asyncore_connection.AsyncoreConnection.add_backpressure_callback" title="Permalink to this definition">¶</a></dt>
-<dd><p>Add a callback notification when we think backpressue is being applied
-due to the size of the output buffer being exceeded.</p>
+<dt>
+<tt class="descclassname">AsyncoreConnection.</tt><tt class="descname">_adapter_connect</tt><big>(</big><em>host</em>, <em>port</em><big>)</big></dt>
+<dd><p>Connect to our RabbitMQ boker using AsyncoreDispatcher, then setting
+Pika&#8217;s suggested buffer size for socket reading and writing. We pass
+the handle to self so that the AsyncoreDispatcher object can call back
+into our various state methods.</p>
 </dd></dl>
 
 <dl class="method">
-<dt id="adapters.asyncore_connection.AsyncoreConnection.add_on_close_callback">
-<tt class="descname">add_on_close_callback</tt><big>(</big><em>callback</em><big>)</big><a class="headerlink" href="#adapters.asyncore_connection.AsyncoreConnection.add_on_close_callback" title="Permalink to this definition">¶</a></dt>
-<dd><p>Add a callback notification when the connection has closed</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="adapters.asyncore_connection.AsyncoreConnection.add_on_open_callback">
-<tt class="descname">add_on_open_callback</tt><big>(</big><em>callback</em><big>)</big><a class="headerlink" href="#adapters.asyncore_connection.AsyncoreConnection.add_on_open_callback" title="Permalink to this definition">¶</a></dt>
-<dd><p>Add a callback notification when the connection has opened</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="adapters.asyncore_connection.AsyncoreConnection.channel">
-<tt class="descname">channel</tt><big>(</big><em>on_open_callback</em>, <em>channel_number=None</em><big>)</big><a class="headerlink" href="#adapters.asyncore_connection.AsyncoreConnection.channel" title="Permalink to this definition">¶</a></dt>
-<dd><p>Create a new channel with the next available channel number or pass in
-a channel number to use. Must be non-zero if you would like to specify
-but it is recommended that you let Pika manage the channel numbers.</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="adapters.asyncore_connection.AsyncoreConnection.close">
-<tt class="descname">close</tt><big>(</big><em>code=200</em>, <em>text='Normal shutdown'</em><big>)</big><a class="headerlink" href="#adapters.asyncore_connection.AsyncoreConnection.close" title="Permalink to this definition">¶</a></dt>
-<dd><p>Disconnect from RabbitMQ. If there are any open channels, it will
-attempt to close them prior to fully disconnecting. Channels which
-have active consumers will attempt to send a Basic.Cancel to RabbitMQ
-to cleanly stop the delivery of messages prior to closing the channel.</p>
-</dd></dl>
-
-<dl class="attribute">
-<dt id="adapters.asyncore_connection.AsyncoreConnection.is_open">
-<tt class="descname">is_open</tt><a class="headerlink" href="#adapters.asyncore_connection.AsyncoreConnection.is_open" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns a boolean reporting the current connection state</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="adapters.asyncore_connection.AsyncoreConnection.set_backpressure_multiplier">
-<tt class="descname">set_backpressure_multiplier</tt><big>(</big><em>value=10</em><big>)</big><a class="headerlink" href="#adapters.asyncore_connection.AsyncoreConnection.set_backpressure_multiplier" title="Permalink to this definition">¶</a></dt>
-<dd><p>Alter the backpressure multiplier value. We set this to 10 by default.
-This value is used to raise warnings and trigger the backpressure
-callback.</p>
+<dt>
+<tt class="descclassname">AsyncoreConnection.</tt><tt class="descname">_flush_outbound</tt><big>(</big><big>)</big></dt>
+<dd><p>We really can&#8217;t flush the socket in asyncore, so instead just use this
+to toggle a flag that lets it know we want to write to the socket.</p>
 </dd></dl>
 
 </dd></dl>
 
 </div>
+<div class="section" id="asyncoredispatcher">
+<h3>AsyncoreDispatcher<a class="headerlink" href="#asyncoredispatcher" title="Permalink to this headline">¶</a></h3>
+<dl class="class">
+<dt>
+<em class="property">class </em><tt class="descclassname">adapters.asyncore_connection.</tt><tt class="descname">AsyncoreDispatcher</tt><big>(</big><em>host</em>, <em>port</em><big>)</big></dt>
+<dd><p>We extend <tt class="xref py py-meth docutils literal"><span class="pre">dispatcher()</span></tt> here and throw in everything we need to
+handle both asyncore&#8217;s needs and pika&#8217;s. In the async adapter structure
+we expect a ioloop behavior which includes timeouts and a start and stop
+function.</p>
+<p>Initialize the dispatcher, socket and our defaults. We turn of nageling
+in the socket to allow for faster throughput.</p>
+<dl class="method">
+<dt>
+<tt class="descclassname">AsyncoreDispatcher.</tt><tt class="descname">_process_timeouts</tt><big>(</big><big>)</big></dt>
+<dd><p>Process our self._timeouts event stack</p>
+</dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">AsyncoreDispatcher.</tt><tt class="descname">add_timeout</tt><big>(</big><em>deadline</em>, <em>handler</em><big>)</big></dt>
+<dd><p>Add a timeout to the stack by deadline</p>
+</dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">AsyncoreDispatcher.</tt><tt class="descname">handle_close</tt><big>(</big><big>)</big></dt>
+<dd><p>asyncore required method. Is called on close.</p>
+</dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">AsyncoreDispatcher.</tt><tt class="descname">handle_connect</tt><big>(</big><big>)</big></dt>
+<dd><p>asyncore required method. Is called on connection.</p>
+</dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">AsyncoreDispatcher.</tt><tt class="descname">handle_read</tt><big>(</big><big>)</big></dt>
+<dd><p>Read from the socket and call our on_data_available with the data</p>
+</dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">AsyncoreDispatcher.</tt><tt class="descname">handle_write</tt><big>(</big><big>)</big></dt>
+<dd><p>asyncore required function, is called when we can write to the socket</p>
+</dd></dl>
+
+<dl class="classmethod">
+<dt>
+<em class="property">classmethod </em><tt class="descclassname">AsyncoreDispatcher.</tt><tt class="descname">instance</tt><big>(</big><em>class_</em><big>)</big></dt>
+<dd><p>Returns a handle to the already created object or creates a new object</p>
+</dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">AsyncoreDispatcher.</tt><tt class="descname">remove_timeout</tt><big>(</big><em>timeout_id</em><big>)</big></dt>
+<dd><p>Remove a timeout from the stack</p>
+</dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">AsyncoreDispatcher.</tt><tt class="descname">start</tt><big>(</big><big>)</big></dt>
+<dd><p>Pika Adapter IOLoop start function. This blocks until we are no longer
+connected.</p>
+</dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">AsyncoreDispatcher.</tt><tt class="descname">stop</tt><big>(</big><big>)</big></dt>
+<dd><p>Pika Adapter IOLoop stop function. When called, it will close an open
+connection, exiting us out of the IOLoop running in start.</p>
+</dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">AsyncoreDispatcher.</tt><tt class="descname">writable</tt><big>(</big><big>)</big></dt>
+<dd><p>asyncore required function, used to toggle the write bit on the
+select poller. For some reason, if we return false while connecting
+asyncore hangs, so we check for that explicitly and tell it that
+it can write while it&#8217;s connecting.</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+</div>
+<div class="section" id="module-adapters.tornado_connection">
+<span id="tornado-connection"></span><h2>tornado_connection<a class="headerlink" href="#module-adapters.tornado_connection" title="Permalink to this headline">¶</a></h2>
 <div class="section" id="tornadoconnection">
-<span id="id3"></span><h3>TornadoConnection<a class="headerlink" href="#tornadoconnection" title="Permalink to this headline">¶</a></h3>
-<p>Tornado is an open source version of the scalable, non-blocking web server and tools that power FriendFeed. For more information on tornado, visit <a class="reference external" href="http://tornadoweb.org">http://tornadoweb.org</a></p>
-<p>Since the Tornado IOLoop blocks once it is started, it is suggested that you use a timer to add Pika to your tornado.Application instance after the HTTPServer has started.</p>
-<p>The following is a simple, non-working example on how to add Pika to the Tornado IOLoop without blocking other applications from doing so. To see a fully workng example,
-see the Tornado Demo application in the examples.</p>
-<p>Example:</p>
-<div class="highlight-python"><pre>from pika.adapters.tornado_connection import TornadoConnection()
-
-class PikaClient(object):
-    def connect(self):
-        self.connection = TornadoConnection(on_connected_callback=self.on_connected)
-
-# Create our Tornado Application
-application = tornado.web.Application([
-    (r"/", ExampleHandler)
-], **settings)
-
-# Create our Pika Client
-application.pika = PikaClient()
-
-# Start the HTTPServer
-http_server = tornado.httpserver.HTTPServer(application)
-http_server.listen(8080)
-
-# Get a handle to the instance of IOLoop
-ioloop = tornado.ioloop.IOLoop.instance()
-
-# Add our Pika connect to the IOLoop since we loop on ioloop.start
-ioloop.add_timeout(500, application.pika.connect)
-
-# Start the IOLoop
-ioloop.start()</pre>
-</div>
-<span class="target" id="module-adapters.tornado_connection"></span><dl class="class">
-<dt id="adapters.tornado_connection.TornadoConnection">
-<em class="property">class </em><tt class="descclassname">adapters.tornado_connection.</tt><tt class="descname">TornadoConnection</tt><big>(</big><em>parameters</em>, <em>on_open_callback</em>, <em>reconnection_strategy=None</em><big>)</big><a class="headerlink" href="#adapters.tornado_connection.TornadoConnection" title="Permalink to this definition">¶</a></dt>
+<h3>TornadoConnection<a class="headerlink" href="#tornadoconnection" title="Permalink to this headline">¶</a></h3>
+<dl class="class">
+<dt>
+<em class="property">class </em><tt class="descclassname">adapters.tornado_connection.</tt><tt class="descname">TornadoConnection</tt><big>(</big><em>parameters=None</em>, <em>on_open_callback=None</em>, <em>reconnection_strategy=None</em><big>)</big></dt>
 <dd><dl class="method">
-<dt id="adapters.tornado_connection.TornadoConnection.add_backpressure_callback">
-<tt class="descname">add_backpressure_callback</tt><big>(</big><em>callback</em><big>)</big><a class="headerlink" href="#adapters.tornado_connection.TornadoConnection.add_backpressure_callback" title="Permalink to this definition">¶</a></dt>
-<dd><p>Add a callback notification when we think backpressue is being applied
-due to the size of the output buffer being exceeded.</p>
+<dt>
+<tt class="descclassname">TornadoConnection.</tt><tt class="descname">_adapter_connect</tt><big>(</big><em>host</em>, <em>port</em><big>)</big></dt>
+<dd><p>Connect to the given host and port</p>
 </dd></dl>
 
 <dl class="method">
-<dt id="adapters.tornado_connection.TornadoConnection.add_on_close_callback">
-<tt class="descname">add_on_close_callback</tt><big>(</big><em>callback</em><big>)</big><a class="headerlink" href="#adapters.tornado_connection.TornadoConnection.add_on_close_callback" title="Permalink to this definition">¶</a></dt>
-<dd><p>Add a callback notification when the connection has closed</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="adapters.tornado_connection.TornadoConnection.add_on_open_callback">
-<tt class="descname">add_on_open_callback</tt><big>(</big><em>callback</em><big>)</big><a class="headerlink" href="#adapters.tornado_connection.TornadoConnection.add_on_open_callback" title="Permalink to this definition">¶</a></dt>
-<dd><p>Add a callback notification when the connection has opened</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="adapters.tornado_connection.TornadoConnection.channel">
-<tt class="descname">channel</tt><big>(</big><em>on_open_callback</em>, <em>channel_number=None</em><big>)</big><a class="headerlink" href="#adapters.tornado_connection.TornadoConnection.channel" title="Permalink to this definition">¶</a></dt>
-<dd><p>Create a new channel with the next available channel number or pass in
-a channel number to use. Must be non-zero if you would like to specify
-but it is recommended that you let Pika manage the channel numbers.</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="adapters.tornado_connection.TornadoConnection.close">
-<tt class="descname">close</tt><big>(</big><em>code=200</em>, <em>text='Normal shutdown'</em><big>)</big><a class="headerlink" href="#adapters.tornado_connection.TornadoConnection.close" title="Permalink to this definition">¶</a></dt>
-<dd><p>Disconnect from RabbitMQ. If there are any open channels, it will
-attempt to close them prior to fully disconnecting. Channels which
-have active consumers will attempt to send a Basic.Cancel to RabbitMQ
-to cleanly stop the delivery of messages prior to closing the channel.</p>
-</dd></dl>
-
-<dl class="attribute">
-<dt id="adapters.tornado_connection.TornadoConnection.is_open">
-<tt class="descname">is_open</tt><a class="headerlink" href="#adapters.tornado_connection.TornadoConnection.is_open" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns a boolean reporting the current connection state</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="adapters.tornado_connection.TornadoConnection.set_backpressure_multiplier">
-<tt class="descname">set_backpressure_multiplier</tt><big>(</big><em>value=10</em><big>)</big><a class="headerlink" href="#adapters.tornado_connection.TornadoConnection.set_backpressure_multiplier" title="Permalink to this definition">¶</a></dt>
-<dd><p>Alter the backpressure multiplier value. We set this to 10 by default.
-This value is used to raise warnings and trigger the backpressure
-callback.</p>
-</dd></dl>
+<dt>
+<tt class="descclassname">TornadoConnection.</tt><tt class="descname">_adapter_disconnect</tt><big>(</big><big>)</big></dt>
+<dd></dd></dl>
 
 </dd></dl>
 
 </div>
+</div>
+<div class="section" id="module-adapters.blocking_connection">
+<span id="blocking-connection"></span><h2>blocking_connection<a class="headerlink" href="#module-adapters.blocking_connection" title="Permalink to this headline">¶</a></h2>
 <div class="section" id="blockingconnection">
-<span id="id4"></span><h3>BlockingConnection<a class="headerlink" href="#blockingconnection" title="Permalink to this headline">¶</a></h3>
-<div class="admonition warning">
-<p class="first admonition-title">Warning</p>
-<p class="last">BlockingConnection is provided for legacy and learning purposes only and it is not recommended that you use it for a production application.</p>
-</div>
-<p>The BlockingConnection creates a layer on top of Pika&#8217;s asynchronous core providng methods that will block until their expected response has returned.
-Due to the asynchronous nature of the Basic.Deliver and Basic.Return calls from RabbitMQ to your application, you are still required to implement
-continuation-passing style asynchronous methods if you&#8217;d like to receive messages from RabbitMQ using basic_consume or if you want to be notified of
-a delivery failure when using basic_publish.</p>
-<p>Basic.Get is a blocking call which will either return the Method Frame, Header Frame and Body of a message, or it will return a Basic.GetEmpty frame as the Method Frame.</p>
-<p>Example:</p>
-<div class="highlight-python"><div class="highlight"><pre><span class="c"># Open a connection to RabbitMQ on localhost using all default parameters</span>
-<span class="n">connection</span> <span class="o">=</span> <span class="n">BlockingConnection</span><span class="p">()</span>
-
-<span class="c"># Open the channel</span>
-<span class="n">channel</span> <span class="o">=</span> <span class="n">connection</span><span class="o">.</span><span class="n">channel</span><span class="p">()</span>
-
-<span class="c"># Declare the queue</span>
-<span class="n">channel</span><span class="o">.</span><span class="n">queue_declare</span><span class="p">(</span><span class="n">queue</span><span class="o">=</span><span class="s">&quot;test&quot;</span><span class="p">,</span> <span class="n">durable</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">exclusive</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">auto_delete</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
-
-<span class="n">channel</span><span class="o">.</span><span class="n">basic_publish</span><span class="p">(</span><span class="n">exchange</span><span class="o">=</span><span class="s">&#39;&#39;</span><span class="p">,</span> <span class="n">routing_key</span><span class="o">=</span><span class="s">&quot;test&quot;</span><span class="p">,</span> <span class="n">body</span><span class="o">=</span><span class="s">&quot;Hello World!&quot;</span><span class="p">,</span>
-                      <span class="n">properties</span><span class="o">=</span><span class="n">pika</span><span class="o">.</span><span class="n">BasicProperties</span><span class="p">(</span><span class="n">content_type</span><span class="o">=</span><span class="s">&quot;text/plain&quot;</span><span class="p">,</span> <span class="n">delivery_mode</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
-</pre></div>
-</div>
-<span class="target" id="module-adapters.blocking_connection"></span><dl class="class">
-<dt id="adapters.blocking_connection.BlockingConnection">
-<em class="property">class </em><tt class="descclassname">adapters.blocking_connection.</tt><tt class="descname">BlockingConnection</tt><big>(</big><em>parameters</em>, <em>reconnection_strategy=None</em><big>)</big><a class="headerlink" href="#adapters.blocking_connection.BlockingConnection" title="Permalink to this definition">¶</a></dt>
+<h3>BlockingConnection<a class="headerlink" href="#blockingconnection" title="Permalink to this headline">¶</a></h3>
+<dl class="class">
+<dt>
+<em class="property">class </em><tt class="descclassname">adapters.blocking_connection.</tt><tt class="descname">BlockingConnection</tt><big>(</big><em>parameters=None</em>, <em>reconnection_strategy=None</em><big>)</big></dt>
 <dd><p>The BlockingConnection adapter is meant for simple implementations where
 you want to have blocking behavior. The behavior layered on top of the
 async library. Because of the nature of AMQP there are a few callbacks
@@ -409,42 +585,138 @@ messages from Basic.Deliver, Basic.GetOk, and Basic.Return.</p>
 New to the RabbitMQ 2.0 and higher versions is the removal of Channel.Flow
 and instead the application of tcp backpressure when the broker is</p>
 <dl class="method">
-<dt id="adapters.blocking_connection.BlockingConnection.add_backpressure_callback">
-<tt class="descname">add_backpressure_callback</tt><big>(</big><em>callback</em><big>)</big><a class="headerlink" href="#adapters.blocking_connection.BlockingConnection.add_backpressure_callback" title="Permalink to this definition">¶</a></dt>
-<dd><p>Add a callback notification when we think backpressue is being applied
-due to the size of the output buffer being exceeded.</p>
+<dt>
+<tt class="descclassname">BlockingConnection.</tt><tt class="descname">_adapter_connect</tt><big>(</big><em>host</em>, <em>port</em><big>)</big></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">BlockingConnection.</tt><tt class="descname">_flush_outbound</tt><big>(</big><big>)</big></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">BlockingConnection.</tt><tt class="descname">_handle_disconnect</tt><big>(</big><big>)</big></dt>
+<dd><p>Called internally when we know our socket is disconnected already</p>
 </dd></dl>
 
 <dl class="method">
-<dt id="adapters.blocking_connection.BlockingConnection.add_on_close_callback">
-<tt class="descname">add_on_close_callback</tt><big>(</big><em>callback</em><big>)</big><a class="headerlink" href="#adapters.blocking_connection.BlockingConnection.add_on_close_callback" title="Permalink to this definition">¶</a></dt>
-<dd><p>Add a callback notification when the connection has closed</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="adapters.blocking_connection.BlockingConnection.add_on_open_callback">
-<tt class="descname">add_on_open_callback</tt><big>(</big><em>callback</em><big>)</big><a class="headerlink" href="#adapters.blocking_connection.BlockingConnection.add_on_open_callback" title="Permalink to this definition">¶</a></dt>
-<dd><p>Add a callback notification when the connection has opened</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="adapters.blocking_connection.BlockingConnection.channel">
-<tt class="descname">channel</tt><big>(</big><em>channel_number=None</em><big>)</big><a class="headerlink" href="#adapters.blocking_connection.BlockingConnection.channel" title="Permalink to this definition">¶</a></dt>
+<dt>
+<tt class="descclassname">BlockingConnection.</tt><tt class="descname">channel</tt><big>(</big><em>channel_number=None</em><big>)</big></dt>
 <dd><p>Create a new channel with the next available or specified channel #</p>
 </dd></dl>
 
-<dl class="attribute">
-<dt id="adapters.blocking_connection.BlockingConnection.is_open">
-<tt class="descname">is_open</tt><a class="headerlink" href="#adapters.blocking_connection.BlockingConnection.is_open" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns a boolean reporting the current connection state</p>
+<dl class="method">
+<dt>
+<tt class="descclassname">BlockingConnection.</tt><tt class="descname">close</tt><big>(</big><em>code=200</em>, <em>text='Normal shutdown'</em><big>)</big></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">BlockingConnection.</tt><tt class="descname">disconnect</tt><big>(</big><big>)</big></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">BlockingConnection.</tt><tt class="descname">process_data_events</tt><big>(</big><big>)</big></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="blockingchannel">
+<h3>BlockingChannel<a class="headerlink" href="#blockingchannel" title="Permalink to this headline">¶</a></h3>
+<dl class="class">
+<dt>
+<em class="property">class </em><tt class="descclassname">adapters.blocking_connection.</tt><tt class="descname">BlockingChannel</tt><big>(</big><em>connection</em>, <em>channel_number</em>, <em>transport=None</em><big>)</big></dt>
+<dd><dl class="method">
+<dt>
+<tt class="descclassname">BlockingChannel.</tt><tt class="descname">_on_basic_deliver</tt><big>(</big><em>method_frame</em>, <em>header_frame</em>, <em>body</em><big>)</big></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">BlockingChannel.</tt><tt class="descname">_on_basic_get</tt><big>(</big><em>method_frame</em>, <em>header_frame</em>, <em>body</em><big>)</big></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">BlockingChannel.</tt><tt class="descname">_on_basic_get_empty</tt><big>(</big><em>frame</em><big>)</big></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">BlockingChannel.</tt><tt class="descname">_on_consume_ok</tt><big>(</big><em>frame</em><big>)</big></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">BlockingChannel.</tt><tt class="descname">_open</tt><big>(</big><em>frame</em><big>)</big></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">BlockingChannel.</tt><tt class="descname">basic_consume</tt><big>(</big><em>consumer</em>, <em>queue=''</em>, <em>no_ack=False</em>, <em>exclusive=False</em>, <em>consumer_tag=None</em><big>)</big></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">BlockingChannel.</tt><tt class="descname">basic_get</tt><big>(</big><em>ticket=0</em>, <em>queue=None</em>, <em>no_ack=False</em><big>)</big></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">BlockingChannel.</tt><tt class="descname">basic_publish</tt><big>(</big><em>exchange</em>, <em>routing_key</em>, <em>body</em>, <em>properties=None</em>, <em>mandatory=False</em>, <em>immediate=False</em><big>)</big></dt>
+<dd><p>Publish to the channel with the given exchange, routing key and body.</p>
+<p>If flow control is enabled and you publish a message while another is
+sending, a ContentTransmissionForbidden exception ill be generated</p>
 </dd></dl>
 
 <dl class="method">
-<dt id="adapters.blocking_connection.BlockingConnection.set_backpressure_multiplier">
-<tt class="descname">set_backpressure_multiplier</tt><big>(</big><em>value=10</em><big>)</big><a class="headerlink" href="#adapters.blocking_connection.BlockingConnection.set_backpressure_multiplier" title="Permalink to this definition">¶</a></dt>
-<dd><p>Alter the backpressure multiplier value. We set this to 10 by default.
-This value is used to raise warnings and trigger the backpressure
-callback.</p>
+<dt>
+<tt class="descclassname">BlockingChannel.</tt><tt class="descname">stop_consuming</tt><big>(</big><big>)</big></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="blockingchanneltransport">
+<h3>BlockingChannelTransport<a class="headerlink" href="#blockingchanneltransport" title="Permalink to this headline">¶</a></h3>
+<dl class="class">
+<dt>
+<em class="property">class </em><tt class="descclassname">adapters.blocking_connection.</tt><tt class="descname">BlockingChannelTransport</tt><big>(</big><em>connection</em>, <em>channel_number</em><big>)</big></dt>
+<dd><dl class="method">
+<dt>
+<tt class="descclassname">BlockingChannelTransport.</tt><tt class="descname">_on_rpc_complete</tt><big>(</big><em>frame</em><big>)</big></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">BlockingChannelTransport.</tt><tt class="descname">add_reply</tt><big>(</big><em>reply</em><big>)</big></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt>
+<tt class="descclassname">BlockingChannelTransport.</tt><tt class="descname">no_response_frame</tt><em class="property"> = ['Basic.Ack', 'Basic.Reject', 'Basic.RecoverAsync']</em></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">BlockingChannelTransport.</tt><tt class="descname">remove_reply</tt><big>(</big><em>frame</em><big>)</big></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">BlockingChannelTransport.</tt><tt class="descname">rpc</tt><big>(</big><em>method</em>, <em>callback=None</em>, <em>acceptable_replies=</em><span class="optional">[</span><span class="optional">]</span><big>)</big></dt>
+<dd><p>Shortcut wrapper to the Connection&#8217;s rpc command using its callback
+stack, passing in our channel number</p>
+</dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">BlockingChannelTransport.</tt><tt class="descname">send_method</tt><big>(</big><em>method</em>, <em>content=None</em>, <em>wait=True</em><big>)</big></dt>
+<dd><p>Shortcut wrapper to send a method through our connection, passing in
+our channel number</p>
 </dd></dl>
 
 </dd></dl>
@@ -461,15 +733,33 @@ callback.</p>
         <div class="sphinxsidebarwrapper">
   <h3><a href="index.html">Table Of Contents</a></h3>
   <ul>
-<li><a class="reference internal" href="#">Connection Adapters</a><ul>
-<li><a class="reference internal" href="#tcp-backpressure">TCP Backpressure</a></li>
-<li><a class="reference internal" href="#io-and-event-looping">IO and Event Looping</a></li>
-<li><a class="reference internal" href="#continuation-passing-style">Continuation-Passing Style</a></li>
-<li><a class="reference internal" href="#available-adapters">Available Adapters</a><ul>
+<li><a class="reference internal" href="#">adapters</a><ul>
+<li><a class="reference internal" href="#module-adapters.base_connection">base_connection</a><ul>
+<li><a class="reference internal" href="#baseconnection">BaseConnection</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#module-adapters.select_connection">select_connection</a><ul>
 <li><a class="reference internal" href="#selectconnection">SelectConnection</a></li>
+<li><a class="reference internal" href="#ioloop">IOLoop</a></li>
+<li><a class="reference internal" href="#selectpoller">SelectPoller</a></li>
+<li><a class="reference internal" href="#kqueuepoller">KQueuePoller</a></li>
+<li><a class="reference internal" href="#pollpoller">PollPoller</a></li>
+<li><a class="reference internal" href="#epollpoller">EPollPoller</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#module-adapters.asyncore_connection">asyncore_connection</a><ul>
 <li><a class="reference internal" href="#asyncoreconnection">AsyncoreConnection</a></li>
+<li><a class="reference internal" href="#asyncoredispatcher">AsyncoreDispatcher</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#module-adapters.tornado_connection">tornado_connection</a><ul>
 <li><a class="reference internal" href="#tornadoconnection">TornadoConnection</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#module-adapters.blocking_connection">blocking_connection</a><ul>
 <li><a class="reference internal" href="#blockingconnection">BlockingConnection</a></li>
+<li><a class="reference internal" href="#blockingchannel">BlockingChannel</a></li>
+<li><a class="reference internal" href="#blockingchanneltransport">BlockingChannelTransport</a></li>
 </ul>
 </li>
 </ul>
@@ -477,11 +767,11 @@ callback.</p>
 </ul>
 
   <h4>Previous topic</h4>
-  <p class="topless"><a href="index.html"
-                        title="previous chapter">Introduction to Pika</a></p>
+  <p class="topless"><a href="communicating.html"
+                        title="previous chapter">Communicating with RabbitMQ</a></p>
   <h4>Next topic</h4>
   <p class="topless"><a href="callback.html"
-                        title="next chapter">Callback</a></p>
+                        title="next chapter">callback</a></p>
   <h3>This Page</h3>
   <ul class="this-page-menu">
     <li><a href="_sources/adapters.txt"
@@ -514,10 +804,10 @@ callback.</p>
           <a href="py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
         <li class="right" >
-          <a href="callback.html" title="Callback"
+          <a href="callback.html" title="callback"
              >next</a> |</li>
         <li class="right" >
-          <a href="index.html" title="Introduction to Pika"
+          <a href="communicating.html" title="Communicating with RabbitMQ"
              >previous</a> |</li>
         <li><a href="index.html">Pika 0.9a documentation</a> &raquo;</li> 
       </ul>

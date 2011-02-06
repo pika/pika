@@ -1,3 +1,4 @@
 *.pyc
+.idea/
 codegen/
 pika.egg-info/

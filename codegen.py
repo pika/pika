@@ -379,12 +379,10 @@ def generate(specPath):
     for m in spec.allMethods():
         if m.structName() in DRIVER_METHODS:
             acceptable_replies = DRIVER_METHODS[m.structName()]
-
             print
-
+            anchor = pyize("%s.%s" % (m.klass.name, m.name))
             if m.isSynchronous:
 
-                anchor = pyize("%s.%s" % (m.klass.name, m.name))
                 #Synchronous events have a CPS callback parameter
                 print "    def %s(self, callback=None%s):" % \
                       (pyize("%s_%s" % (m.klass.name, m.name)),
@@ -409,12 +407,12 @@ def generate(specPath):
 
             else:
                 print "    def %s(self%s):" % \
-                      (pyize(m.klass.name + '_' + m.name),
+                      (pyize("%s_%s" % (m.klass.name, m.name)),
                       fieldDeclList(m.arguments))
                 print '        """'
                 print '        Implements the %s.%s AMQP command. For context and usage:' % (m.klass.name, m.name)
                 print
-                print '          http://www.rabbitmq.com/amqp-0-9-1-quickref.html'
+                print '          http://www.rabbitmq.com/amqp-0-9-1-quickref.html#%s' % anchor
                 print '        """'
                 print
                 print "        return self.transport.rpc(%s(%s))" % \

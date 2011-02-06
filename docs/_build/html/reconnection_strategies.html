@@ -8,7 +8,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Reconnection Strategies &mdash; Pika 0.9a documentation</title>
+    <title>reconnection_strategies &mdash; Pika 0.9a documentation</title>
     
     <link rel="stylesheet" href="_static/default.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
@@ -26,8 +26,8 @@
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
     <link rel="top" title="Pika 0.9a documentation" href="index.html" />
-    <link rel="next" title="SimpleBuffer" href="simplebuffer.html" />
-    <link rel="prev" title="Object" href="object.html" /> 
+    <link rel="next" title="simplebuffer" href="simplebuffer.html" />
+    <link rel="prev" title="object" href="object.html" /> 
   </head>
   <body>
     <div class="related">
@@ -40,10 +40,10 @@
           <a href="py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
         <li class="right" >
-          <a href="simplebuffer.html" title="SimpleBuffer"
+          <a href="simplebuffer.html" title="simplebuffer"
              accesskey="N">next</a> |</li>
         <li class="right" >
-          <a href="object.html" title="Object"
+          <a href="object.html" title="object"
              accesskey="P">previous</a> |</li>
         <li><a href="index.html">Pika 0.9a documentation</a> &raquo;</li> 
       </ul>
@@ -54,8 +54,146 @@
         <div class="bodywrapper">
           <div class="body">
             
-  <div class="section" id="module-reconnection_strategies">
-<span id="reconnection-strategies"></span><h1>Reconnection Strategies<a class="headerlink" href="#module-reconnection_strategies" title="Permalink to this headline">¶</a></h1>
+  <div class="section" id="reconnection-strategies">
+<h1>reconnection_strategies<a class="headerlink" href="#reconnection-strategies" title="Permalink to this headline">¶</a></h1>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">This class level documentation is not intended for use by those using Pika in their applications. This documentation is for those who are extending Pika or otherwise working on the driver itself.</p>
+</div>
+<span class="target" id="module-reconnection_strategies"></span><div class="section" id="reconnectionstrategy">
+<h2>ReconnectionStrategy<a class="headerlink" href="#reconnectionstrategy" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt>
+<em class="property">class </em><tt class="descclassname">reconnection_strategies.</tt><tt class="descname">ReconnectionStrategy</tt></dt>
+<dd><dl class="attribute">
+<dt>
+<tt class="descclassname">ReconnectionStrategy.</tt><tt class="descname">can_reconnect</tt><em class="property"> = False</em></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">ReconnectionStrategy.</tt><tt class="descname">on_connect_attempt</tt><big>(</big><em>conn</em><big>)</big></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">ReconnectionStrategy.</tt><tt class="descname">on_connect_attempt_failure</tt><big>(</big><em>conn</em><big>)</big></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">ReconnectionStrategy.</tt><tt class="descname">on_connection_closed</tt><big>(</big><em>conn</em><big>)</big></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">ReconnectionStrategy.</tt><tt class="descname">on_connection_open</tt><big>(</big><em>conn</em><big>)</big></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">ReconnectionStrategy.</tt><tt class="descname">on_transport_connected</tt><big>(</big><em>conn</em><big>)</big></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">ReconnectionStrategy.</tt><tt class="descname">on_transport_disconnected</tt><big>(</big><em>conn</em><big>)</big></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="nullreconnectionstrategy">
+<h2>NullReconnectionStrategy<a class="headerlink" href="#nullreconnectionstrategy" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt>
+<em class="property">class </em><tt class="descclassname">reconnection_strategies.</tt><tt class="descname">NullReconnectionStrategy</tt></dt>
+<dd><dl class="attribute">
+<dt>
+<tt class="descclassname">NullReconnectionStrategy.</tt><tt class="descname">can_reconnect</tt><em class="property"> = False</em></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">NullReconnectionStrategy.</tt><tt class="descname">on_connect_attempt</tt><big>(</big><em>conn</em><big>)</big></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">NullReconnectionStrategy.</tt><tt class="descname">on_connect_attempt_failure</tt><big>(</big><em>conn</em><big>)</big></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">NullReconnectionStrategy.</tt><tt class="descname">on_connection_closed</tt><big>(</big><em>conn</em><big>)</big></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">NullReconnectionStrategy.</tt><tt class="descname">on_connection_open</tt><big>(</big><em>conn</em><big>)</big></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">NullReconnectionStrategy.</tt><tt class="descname">on_transport_connected</tt><big>(</big><em>conn</em><big>)</big></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">NullReconnectionStrategy.</tt><tt class="descname">on_transport_disconnected</tt><big>(</big><em>conn</em><big>)</big></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="simplereconnectionstrategy">
+<h2>SimpleReconnectionStrategy<a class="headerlink" href="#simplereconnectionstrategy" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt>
+<em class="property">class </em><tt class="descclassname">reconnection_strategies.</tt><tt class="descname">SimpleReconnectionStrategy</tt><big>(</big><em>initial_retry_delay=1.0</em>, <em>multiplier=2.0</em>, <em>max_delay=30.0</em>, <em>jitter=0.5</em><big>)</big></dt>
+<dd><dl class="method">
+<dt>
+<tt class="descclassname">SimpleReconnectionStrategy.</tt><tt class="descname">_reset</tt><big>(</big><big>)</big></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt>
+<tt class="descclassname">SimpleReconnectionStrategy.</tt><tt class="descname">can_reconnect</tt><em class="property"> = True</em></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">SimpleReconnectionStrategy.</tt><tt class="descname">on_connect_attempt</tt><big>(</big><em>conn</em><big>)</big></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">SimpleReconnectionStrategy.</tt><tt class="descname">on_connect_attempt_failure</tt><big>(</big><em>conn</em><big>)</big></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">SimpleReconnectionStrategy.</tt><tt class="descname">on_connection_closed</tt><big>(</big><em>conn</em><big>)</big></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">SimpleReconnectionStrategy.</tt><tt class="descname">on_connection_open</tt><big>(</big><em>conn</em><big>)</big></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">SimpleReconnectionStrategy.</tt><tt class="descname">on_transport_connected</tt><big>(</big><em>conn</em><big>)</big></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt>
+<tt class="descclassname">SimpleReconnectionStrategy.</tt><tt class="descname">on_transport_disconnected</tt><big>(</big><em>conn</em><big>)</big></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</div>
 </div>
 
 
@@ -64,12 +202,22 @@
       </div>
       <div class="sphinxsidebar">
         <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">reconnection_strategies</a><ul>
+<li><a class="reference internal" href="#reconnectionstrategy">ReconnectionStrategy</a></li>
+<li><a class="reference internal" href="#nullreconnectionstrategy">NullReconnectionStrategy</a></li>
+<li><a class="reference internal" href="#simplereconnectionstrategy">SimpleReconnectionStrategy</a></li>
+</ul>
+</li>
+</ul>
+
   <h4>Previous topic</h4>
   <p class="topless"><a href="object.html"
-                        title="previous chapter">Object</a></p>
+                        title="previous chapter">object</a></p>
   <h4>Next topic</h4>
   <p class="topless"><a href="simplebuffer.html"
-                        title="next chapter">SimpleBuffer</a></p>
+                        title="next chapter">simplebuffer</a></p>
   <h3>This Page</h3>
   <ul class="this-page-menu">
     <li><a href="_sources/reconnection_strategies.txt"
@@ -102,10 +250,10 @@
           <a href="py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
         <li class="right" >
-          <a href="simplebuffer.html" title="SimpleBuffer"
+          <a href="simplebuffer.html" title="simplebuffer"
              >next</a> |</li>
         <li class="right" >
-          <a href="object.html" title="Object"
+          <a href="object.html" title="object"
              >previous</a> |</li>
         <li><a href="index.html">Pika 0.9a documentation</a> &raquo;</li> 
       </ul>

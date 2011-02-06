@@ -8,7 +8,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Callback &mdash; Pika 0.9a documentation</title>
+    <title>callback &mdash; Pika 0.9a documentation</title>
     
     <link rel="stylesheet" href="_static/default.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
@@ -26,8 +26,8 @@
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
     <link rel="top" title="Pika 0.9a documentation" href="index.html" />
-    <link rel="next" title="Channel" href="channel.html" />
-    <link rel="prev" title="Connection Adapters" href="adapters.html" /> 
+    <link rel="next" title="channel" href="channel.html" />
+    <link rel="prev" title="adapters" href="adapters.html" /> 
   </head>
   <body>
     <div class="related">
@@ -40,10 +40,10 @@
           <a href="py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
         <li class="right" >
-          <a href="channel.html" title="Channel"
+          <a href="channel.html" title="channel"
              accesskey="N">next</a> |</li>
         <li class="right" >
-          <a href="adapters.html" title="Connection Adapters"
+          <a href="adapters.html" title="adapters"
              accesskey="P">previous</a> |</li>
         <li><a href="index.html">Pika 0.9a documentation</a> &raquo;</li> 
       </ul>
@@ -55,19 +55,29 @@
           <div class="body">
             
   <div class="section" id="callback">
-<h1>Callback<a class="headerlink" href="#callback" title="Permalink to this headline">¶</a></h1>
+<h1>callback<a class="headerlink" href="#callback" title="Permalink to this headline">¶</a></h1>
 <div class="admonition note">
 <p class="first admonition-title">Note</p>
-<p class="last">This class is not intended for use by those using Pika in their applications. This documentation is for those who are extending Pika or otherwise working on the driver itself.</p>
+<p class="last">The following class is not intended for use by those using Pika in their applications. This documentation is for those who are extending Pika or otherwise working on the driver itself.</p>
 </div>
-<span class="target" id="module-callback"></span><dl class="class">
+<span class="target" id="module-callback"></span><div class="section" id="callbackmanager">
+<h2>CallbackManager<a class="headerlink" href="#callbackmanager" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
 <dt id="callback.CallbackManager">
 <em class="property">class </em><tt class="descclassname">callback.</tt><tt class="descname">CallbackManager</tt><a class="headerlink" href="#callback.CallbackManager" title="Permalink to this definition">¶</a></dt>
-<dd><dl class="method">
+<dd><p>CallbackManager is a global callback system designed to be a single place
+where Pika can manage callbacks and process them. It should be referenced
+by the CallbackManager.instance() method instead of constructing new
+instances of it.</p>
+<dl class="method">
 <dt id="callback.CallbackManager.add">
 <tt class="descname">add</tt><big>(</big><em>prefix</em>, <em>key</em>, <em>callback</em>, <em>one_shot=True</em>, <em>only_caller=None</em><big>)</big><a class="headerlink" href="#callback.CallbackManager.add" title="Permalink to this definition">¶</a></dt>
 <dd><p>Add a callback to the stack for the specified key. If the call is
 specified as one_shot, it will be removed after being fired</p>
+<p>The prefix is usually the channel number but the class is generic
+and prefix and key may be any value. If you pass in only_caller
+CallbackManager will restrict processing of the callback to only
+the calling function/object that you specify.</p>
 </dd></dl>
 
 <dl class="classmethod">
@@ -85,17 +95,30 @@ specified as one_shot, it will be removed after being fired</p>
 <dl class="method">
 <dt id="callback.CallbackManager.process">
 <tt class="descname">process</tt><big>(</big><em>prefix</em>, <em>key</em>, <em>caller</em>, <em>*args</em>, <em>**keywords</em><big>)</big><a class="headerlink" href="#callback.CallbackManager.process" title="Permalink to this definition">¶</a></dt>
-<dd><p>Run through and process all the callbacks for the specified keys</p>
+<dd><p>Run through and process all the callbacks for the specified keys.
+Caller should be specified at all times so that callbacks which
+require a specific function to call CallbackManager.process will
+not be processed.</p>
 </dd></dl>
 
 <dl class="method">
 <dt id="callback.CallbackManager.remove">
 <tt class="descname">remove</tt><big>(</big><em>prefix</em>, <em>key</em>, <em>callback=None</em><big>)</big><a class="headerlink" href="#callback.CallbackManager.remove" title="Permalink to this definition">¶</a></dt>
-<dd><p>Remove a callback from the stack by key</p>
+<dd><p>Remove a callback from the stack by prefix, key and optionally
+the callback itself. If you only pass in prefix and key, all
+callbacks for that prefix and key will be removed.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="callback.CallbackManager.sanitize">
+<tt class="descname">sanitize</tt><big>(</big><em>key</em><big>)</big><a class="headerlink" href="#callback.CallbackManager.sanitize" title="Permalink to this definition">¶</a></dt>
+<dd><p>Will take Frame objects, classes, etc and attempt to return a valid
+string identifier for them.</p>
 </dd></dl>
 
 </dd></dl>
 
+</div>
 </div>
 
 
@@ -104,12 +127,20 @@ specified as one_shot, it will be removed after being fired</p>
       </div>
       <div class="sphinxsidebar">
         <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">callback</a><ul>
+<li><a class="reference internal" href="#callbackmanager">CallbackManager</a></li>
+</ul>
+</li>
+</ul>
+
   <h4>Previous topic</h4>
   <p class="topless"><a href="adapters.html"
-                        title="previous chapter">Connection Adapters</a></p>
+                        title="previous chapter">adapters</a></p>
   <h4>Next topic</h4>
   <p class="topless"><a href="channel.html"
-                        title="next chapter">Channel</a></p>
+                        title="next chapter">channel</a></p>
   <h3>This Page</h3>
   <ul class="this-page-menu">
     <li><a href="_sources/callback.txt"
@@ -142,10 +173,10 @@ specified as one_shot, it will be removed after being fired</p>
           <a href="py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
         <li class="right" >
-          <a href="channel.html" title="Channel"
+          <a href="channel.html" title="channel"
              >next</a> |</li>
         <li class="right" >
-          <a href="adapters.html" title="Connection Adapters"
+          <a href="adapters.html" title="adapters"
              >previous</a> |</li>
         <li><a href="index.html">Pika 0.9a documentation</a> &raquo;</li> 
       </ul>

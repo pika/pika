@@ -1,6 +1,5 @@
-Exceptions
+exceptions
 ==========
 
 .. automodule:: exceptions
    :members:
-   :inherited-members:

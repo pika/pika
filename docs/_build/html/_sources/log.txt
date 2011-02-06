@@ -1,7 +1,7 @@
-Log
+log
 ===
 .. NOTE::
-    This class is not intended for use by those using Pika in their applications. This documentation is for those who are extending Pika or otherwise working on the driver itself.
+    This module is not intended for use by those using Pika in their applications. This documentation is for those who are extending Pika or otherwise working on the driver itself.
 
 pika.log is a wrapper which provides a wrapper for the `python logging <http://docs.python.org/library/logging.html>`_ module. If the pika.log.DEBUG is set to true, it will enable pika to send its debugging information to logging.debug. We use this to make sure that pika does not impact applications who use logging.debug by not sending Pika's internal debug information by default.
 
