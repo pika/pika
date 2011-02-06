@@ -10,7 +10,7 @@ def test_for_version(filename):
     return '.'.join(response.strip().split(' ')[1].split('.')[:-1])
 
 
-versions = ['python', 'python2.5', 'python2.6']
+versions = ['python', 'python2.4', 'python2.5', 'python2.6']
 valid = {}
 for filename in versions:
     version = test_for_version(filename)
