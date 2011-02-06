@@ -1,4 +1,0 @@
-Behavior Changes
-----------------
-ChannelHandler now no longer accepts an empty channel number, if you're invoking directly, it's up to you to keep track of your channels. Instead when calling Connection.channel, it will grab the next available channel and pass that into the ChannelHandler
-Reconnection Strategies moved into their own module for importing
