@@ -89,7 +89,7 @@ def on_queue_declared(frame):
                               body=message,
                               properties=pika.BasicProperties(
                               content_type="text/plain",
-                              delivery_mode=2))  # persist
+                              delivery_mode=1))
 
     # Close our connection
     connection.close()

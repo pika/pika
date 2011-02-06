@@ -165,7 +165,7 @@ class PikaClient(object):
         self.channel.basic_publish(exchange='tornado',
                                    routing_key='tornado.*',
                                    body=body,
-                                    properties=properties)
+                                   properties=properties)
 
     def get_messages(self):
         # Get the messages to return, then empty the list
