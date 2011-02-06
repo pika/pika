@@ -56,12 +56,13 @@ sys.path.append('..')
 sys.path.append(os.path.join('..', '..'))
 
 import datetime
-import decimal
 import nose
 import pika.table
 
+from decimal import Decimal
 
-def test_encode_table():
+
+def encode_table():
     r'''
     >>> encode(None)
     '\x00\x00\x00\x00'
@@ -69,13 +70,13 @@ def test_encode_table():
     '\x00\x00\x00\x00'
     >>> encode({'a':1, 'c':1, 'd':'x', 'e':{}})
     '\x00\x00\x00\x1d\x01aI\x00\x00\x00\x01\x01cI\x00\x00\x00\x01\x01eF\x00\x00\x00\x00\x01dS\x00\x00\x00\x01x'
-    >>> encode({'a':decimal.Decimal('1.0')})
+    >>> encode({'a':Decimal('1.0')})
     '\x00\x00\x00\x08\x01aD\x00\x00\x00\x00\x01'
-    >>> encode({'a':decimal.Decimal('5E-3')})
+    >>> encode({'a':Decimal('5E-3')})
     '\x00\x00\x00\x08\x01aD\x03\x00\x00\x00\x05'
     >>> encode({'a':datetime.datetime(2010,12,31,23,58,59)})
     '\x00\x00\x00\x0b\x01aT\x00\x00\x00\x00M\x1enC'
-    >>> encode({'test':decimal.Decimal('-0.01')})
+    >>> encode({'test':Decimal('-0.01')})
     '\x00\x00\x00\x0b\x04testD\x02\xff\xff\xff\xff'
     >>> encode({'a':-1, 'b':[1,2,3,4,-1],'g':-1})
     '\x00\x00\x00.\x01aI\xff\xff\xff\xff\x01bA\x00\x00\x00\x19I\x00\x00\x00\x01I\x00\x00\x00\x02I\x00\x00\x00\x03I\x00\x00\x00\x04I\xff\xff\xff\xff\x01gI\xff\xff\xff\xff'
@@ -84,33 +85,54 @@ def test_encode_table():
     >>> encode({'a': True, 'b': False})
     '\x00\x00\x00\x08\x01at\x01\x01bt\x00'
     '''
-    pass
 
 
-def test_decode_table():
-    r'''
-    >>> reencode(None)
-    {}
-    >>> reencode({})
-    {}
-    >>> reencode({'a': 1})
-    {'a': 1}
-    >>> reencode({'a':1, 'c':1, 'd':'x', 'e':{}, 'f': -1})
-    {'a': 1, 'c': 1, 'e': {}, 'd': 'x', 'f': -1}
-    >>> reencode({'a':datetime.datetime(2010,12,31,23,58,59)})
-    {'a': datetime.datetime(2010, 12, 31, 23, 58, 59)}
-    >>> reencode({'a': 0x7EADBEEFDEADBEEFL, 'b': -0x7EADBEEFDEADBEEFL})
-    {'a': 9128161957192253167L, 'b': -9128161957192253167L}
-    >>> reencode({'a': 1, 'b':decimal.Decimal('-1.234'), 'g': -1})
-    {'a': 1, 'b': Decimal('-1.234'), 'g': -1}
-    >>> reencode({'a':[1,2,3,'a',decimal.Decimal('-0.01'),5]})
-    {'a': [1, 2, 3, 'a', Decimal('-0.01'), 5]}
-    >>> reencode({'a': True, 'b': False})
-    {'a': True, 'b': False}
-    '''
-    pass
+def test_reencode_none():
+    if not reencode(None) == {}:
+        assert False
 
 
+def test_reencode_ints():
+    if not reencode({'a': 1}) == {'a': 1}:
+        assert False
+
+
+def test_reencode_mixed():
+    if not reencode({'a':1, 'c':1, 'd':'x', 'e':{}, 'f': -1}) == \
+        {'a': 1, 'c': 1, 'e': {}, 'd': 'x', 'f': -1}:
+        assert False
+
+
+def test_reencode_datetime():
+    if not reencode({'a':datetime.datetime(2010,12,31,23,58,59)}) == \
+        {'a': datetime.datetime(2010, 12, 31, 23, 58, 59)}:
+        assert False
+
+
+def test_reencode_long():
+    if not reencode({'a': 0x7EADBEEFDEADBEEFL, 'b': -0x7EADBEEFDEADBEEFL}) == \
+        {'a': 9128161957192253167L, 'b': -9128161957192253167L}:
+        assert False
+
+
+def test_reencode_negative_decimals():
+    if not reencode({'a': 1, 'b': Decimal('-1.234'), 'g': -1}) == \
+        {'a': 1, 'b': Decimal('-1.234'), 'g': -1}:
+        assert False
+
+
+def test_reencode_mixed_with_decimals():
+    if not reencode({'a':[1,2,3,'a', Decimal('-0.01'),5]}) == \
+        {'a': [1, 2, 3, 'a',  Decimal('-0.01'), 5]}:
+        assert False
+
+
+def test_reencode_bool():
+    if not reencode({'a': True, 'b': False}) == {'a': True, 'b': False}:
+        assert False
+
+
+@nose.tools.nottest
 def encode(v):
     p = []
     n = pika.table.encode_table(p, v)
@@ -118,7 +140,7 @@ def encode(v):
     assert len(r) == n
     return r
 
-
+@nose.tools.nottest
 def reencode(i):
     r = encode(i)
     (v, n) = pika.table.decode_table(r, 0)
