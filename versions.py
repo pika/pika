@@ -5,7 +5,7 @@ warnings.filterwarnings('ignore', category=DeprecationWarning)
 
 
 def test_for_version(filename):
-    stdin, stdout = os.popen4('%s --version' % filename, 'r')
+    stdin, stdout = os.popen4('%s -V' % filename, 'r')
     response = stdout.read()
     return '.'.join(response.strip().split(' ')[1].split('.')[:-1])
 
