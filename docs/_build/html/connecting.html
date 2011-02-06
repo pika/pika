@@ -506,7 +506,7 @@ a delivery failure when using basic_publish.</p>
     <span class="k">if</span> <span class="n">messages</span> <span class="o">&gt;</span> <span class="mi">10</span><span class="p">:</span>
         <span class="n">channel</span><span class="o">.</span><span class="n">stop_consuming</span><span class="p">()</span>
 
- <span class="c"># This is blocking until channel.stop_consuming is called</span>
+<span class="c"># This is blocking until channel.stop_consuming is called</span>
 <span class="n">channel</span><span class="o">.</span><span class="n">basic_consume</span><span class="p">(</span><span class="n">_on_message</span><span class="p">,</span> <span class="n">queue</span><span class="o">=</span><span class="s">&quot;test&quot;</span><span class="p">)</span>
 </pre></div>
 </div>

@@ -306,7 +306,7 @@ Consuming Example::
         if messages > 10:
             channel.stop_consuming()
 
-     # This is blocking until channel.stop_consuming is called
+    # This is blocking until channel.stop_consuming is called
     channel.basic_consume(_on_message, queue="test")
 
 .. automodule:: adapters.blocking_connection
