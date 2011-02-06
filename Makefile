@@ -49,9 +49,18 @@ codegen:
 test: pep8
 	cd tests && $(PYTHON) run_tests.py
 
-documentation:
-	$(MAKE) -C docs html
-
 pep8:
 	pep8 --ignore=E501 --statistics --count -r codegen.py pika/spec.py tests/unit/table_test.py
 	pep8 --exclude=spec.py,table_test.py --statistics --count -r pika examples tests
+
+documentation:
+	$(MAKE) -C docs html
+
+push_documentation: documentation
+	git clone git@github.com:tonyg/pika.git -b gh-pages gh-pages
+	cd gh-pages && git rm -rf *
+	cp -R docs/_build/html/* gh-pages
+	cd gh-pages && git add -A
+	cd gh-pages && git commit -m 'Update documentation from master' -a
+	cd gh-pages && git push
+	rm -rf gh-pages
