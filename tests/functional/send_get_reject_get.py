@@ -56,14 +56,14 @@ import sys
 sys.path.append('..')
 sys.path.append(os.path.join('..', '..'))
 
-import support.tools as tools
+import support.async as async
 from pika.adapters import SelectConnection
 
 HOST = 'localhost'
 PORT = 5672
 
 
-class TestSendGetRejectGet(tools.AsyncPattern):
+class TestSendGetRejectGet(async.AsyncPattern):
 
     @nose.tools.timed(2)
     def test_send_and_get(self):
@@ -82,26 +82,26 @@ class TestSendGetRejectGet(tools.AsyncPattern):
         self.channel = channel
         self._queue_declare()
 
-    @tools.timeout
+    @async.timeout
     def _on_queue_declared(self, frame):
         test_message = self._send_message()
         self.confirm.append(test_message)
         self.channel.basic_get(callback=self._check_first_message,
                                queue=self._queue)
 
-    @tools.timeout
+    @async.timeout
     def _get_second_message(self):
         self.channel.basic_get(callback=self._check_second_message,
                                queue=self._queue)
 
-    @tools.timeout_cancel
+    @async.timeout_cancel
     def _check_first_message(self, channel_number, method, header, body):
         self.channel.basic_reject(method.delivery_tag)
         self.confirm.append(body)
         self.connection.add_timeout(.25, self._get_second_message)
 
-    @tools.timeout_cancel
-    @tools.timeout
+    @async.timeout_cancel
+    @async.timeout
     def _check_second_message(self, channel_number, method, header, body):
         self.confirm.append(body)
         self.channel.basic_ack(method.delivery_tag)

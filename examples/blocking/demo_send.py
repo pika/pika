@@ -85,7 +85,7 @@ if __name__ == '__main__':
                               body=message,
                               properties=pika.BasicProperties(
                               content_type="text/plain",
-                              delivery_mode=1))
+                              delivery_mode=1))  # persistent
         count += 1
         if count % 1000 == 0:
             duration = time.time() - start_time

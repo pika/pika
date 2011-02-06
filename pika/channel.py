@@ -260,12 +260,6 @@ class Channel(spec.DriverMixin):
                            self._on_basic_get_empty,
                            False)
 
-        # Add a callback for when the server closes our channel
-        self.callbacks.add(self.channel_number,
-                           spec.Channel.Close,
-                           self._on_remote_close,
-                           False)
-
         # Add the callback for our Channel.OpenOk to call our on_open_callback
         self.callbacks.add(self.channel_number,
                            spec.Channel.OpenOk,
@@ -332,22 +326,6 @@ class Channel(spec.DriverMixin):
         self.transport.send_method(spec.Channel.Close(self.closing[0],
                                                       self.closing[1],
                                                       0, 0))
-
-    def _on_remote_close(self, frame):
-        """
-        Handle the case where our channel has been closed for us
-        """
-        log.warning("%s._on_remote_close(%s, %s)", self.__class__.__name__,
-                    frame.method.reply_code, frame.method.reply_text)
-
-        # Set our closing code and text
-        self.closing = frame.method.reply_code, frame.method.reply_text
-
-        # Let an application that registered itself our callbacks know we're
-        # Closing/Closed
-        self.callbacks.process(self.channel_number, '_on_channel_close',
-                               self, frame.method.reply_code,
-                               frame.method.reply_text)
 
     def _open(self, frame):
         """

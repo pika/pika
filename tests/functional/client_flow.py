@@ -56,14 +56,14 @@ import sys
 sys.path.append('..')
 sys.path.append(os.path.join('..', '..'))
 
-import support.tools as tools
+import support.async as async
 from pika.adapters import SelectConnection
 
 HOST = 'localhost'
 PORT = 5672
 
 
-class TestAsyncClientFlow(tools.AsyncPattern):
+class TestAsyncClientFlow(async.AsyncPattern):
 
     @nose.tools.timed(2)
     def test_flow(self):
