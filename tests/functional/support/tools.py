@@ -58,6 +58,11 @@ import time
 timeout_id = None
 
 
+def test_queue_name(keyword):
+    return 'test-%s-%i' % (keyword, os.getpid())
+
+
+# These methods are scoped to the AsyncPattern class
 def timeout(method):
     def _timeout(self, *args, **kwargs):
         global timeout_id
