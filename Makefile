@@ -1,16 +1,12 @@
 SIBLING_CODEGEN_DIR=../rabbitmq-codegen/
 AMQP_CODEGEN_DIR=$(shell [ -d $(SIBLING_CODEGEN_DIR) ] && echo $(SIBLING_CODEGEN_DIR) || echo codegen)
 AMQP_SPEC_JSON_FILES=$(AMQP_CODEGEN_DIR)/amqp-rabbitmq-0.9.1.json
-
 TEMP=$(shell ./versions.py)
 VERSIONS=$(foreach version, $(TEMP),$(version))
 PYTHON=$(word 1, ${VERSIONS})
 
 all:
 	@echo "\nRun "make install" or \"python setup.py install\" to install Pika\n"
-
-dev:
-	pika/spec.py test documentation
 
 pika/spec.py: codegen.py $(AMQP_CODEGEN_DIR)/amqp_codegen.py $(AMQP_SPEC_JSON_FILES)
 	$(PYTHON) codegen.py spec $(AMQP_SPEC_JSON_FILES) $@
@@ -62,4 +58,4 @@ push_documentation: documentation
 install:
 	$(PYTHON) setup.py install
 
-
+sandbox: pika/spec.py test documentation
