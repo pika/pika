@@ -66,26 +66,26 @@ channel = None
 
 def on_connected(connection):
     global channel
-    logging.info("demo_send: Connected to RabbitMQ")
+    logging.info("demo_receive: Connected to RabbitMQ")
     connection.channel(on_channel_open)
 
 
 def on_channel_open(channel_):
     global channel
     channel = channel_
-    logging.info("demo_send: Received our Channel")
+    logging.info("demo_receive: Received our Channel")
     channel.queue_declare(queue="test", durable=True,
                           exclusive=False, auto_delete=False,
                           callback=on_queue_declared)
 
 
 def on_queue_declared(frame):
-    logging.info("demo_send: Queue Declared")
+    logging.info("demo_receive: Queue Declared")
     channel.basic_consume(handle_delivery, queue='test')
 
 
 def handle_delivery(channel, method, header, body):
-    logging.info("demo_send.handle_delivery")
+    logging.info("demo_receive.handle_delivery")
     logging.info("  method: %r" % method)
     logging.info("  header: %r" % header)
     logging.info("    body: %r" % body)
