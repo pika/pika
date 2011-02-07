@@ -451,8 +451,8 @@ class PollPoller(SelectPoller):
         # If we didn't timeout pass the event to the handler
         if events:
             log.debug("%s: Calling %s", self.__class__.__name__,
-                      self.handler)
-            self.handler(events[0][0], events[0][1])
+                      self._handler)
+            self._handler(events[0][0], events[0][1])
 
 
 class EPollPoller(PollPoller):
