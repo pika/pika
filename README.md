@@ -28,25 +28,21 @@ Pika's documentation is now at http://tonyg.github.com/pika
 
 Support for Twisted and other IO frameworks are on the horizon.
 
-## Major Changes to Pika since 0.5.2
+Major Changes since 0.5.2:
 
- * Pika has been restructured and made to be fully asynchronous at its core
-   and now supports AMQP 0-9-1 only (RabbitMQ 2.0+)
- * There have been many method definition changes
-	 * Asynchronous AMQP commands now take a callback parameter for notification of
-       completion
- * AMQP commands that are specified as synchronous buffer other calls on the same
-   channel, sending them when the synchronous commands send their response frame
- * SelectConnection is now the recommended connection adapter and shows better
-   performance than the AsyncoreConnection. SelectConnection implements select,
-   poll, epoll and kqueue for event handling.
- * Client channel flow control has been removed, see the section of the document
-   below for information on this
+ * Pika has been restructured and made to be fully asynchronous at its core and now supports AMQP 0-9-1 only (RabbitMQ 2.0+)
+ * There are many method definition changes, class name changes and module changes
+ * Asynchronous AMQP commands now take a callback parameter for notification of completion
+ * AMQP commands that are specified as synchronous buffer other calls on the same channel, sending them when the synchronous commands send their response frame
+ * SelectConnection is now the recommended connection adapter and shows better performance than the AsyncoreConnection. SelectConnection implements select, poll, epoll and kqueue for event handling
  * TornadoConnection adds a connection adapter for the Tornado IOLoop
- * Support for additional AMQP data types has been added
+ * Client channel flow control has been removed
+ * Support for additional AMQP data types have been added
  * More extensive unit and functional tests added
+ * Extensive use of logging at the DEBUG level allows for tracing of all internal activity in Pika and all frames sent to and from RabbitMQ
+ * Emphasis on code readability and well commented code through-out
 
-### Internal Changes since 0.5.2
+Internal changes since 0.5.2:
 
  * Low level debug logging demonstrates client behavior and can be toggled via
    pika.log.DEBUG boolean value.
@@ -60,9 +56,11 @@ Support for Twisted and other IO frameworks are on the horizon.
  * ConnectionState class moved from codec to connection
  * Frame class definitions moved from codec to frames
  * Reconnection strategies moved into own module
+ * Global callback manager implemented
  * HeartbeatChecker moved to own module
  * PlainCredentials moved to credentials module for extensibility
  * AsyncoreConnection rewritten to align with BaseConnection
+ * BlockingConnection rewritten to extend BaseConnection and added BlockingChannel and BlockingChannelTransport
  * PEP8ification and use more pythonic idioms for areas as appropriate
 
 ## Licensing
@@ -71,26 +69,3 @@ Pika is licensed under the MPL, and may also be used under the terms
 of the GPL. The full license text is included with the source code for
 the package. If you have any questions regarding licensing, please
 contact us at <info@rabbitmq.com>.
-
-## Channel Flow Control
-
-RabbitMQ 2.0+ has removed the Channel.Flow system for notifying clients that
-they need to wait until they are notified before they can call Basic.Deliver
-again. In addition, prior to AMQP 1-0, there is no defined behavior for
-clients turning on flow control on the broker. As such all Channel.Flow related
-functionality has been removed. In its place, we attempt to detect when
-the RabbitMQ server is using TCP backpressure to throttle a client who
-is delivering messages too quickly.
-
-## TCP Backpressure from RabbitMQ
-
-In the place of Channel.Flow being delivered to clients, RabbitMQ uses
-TCP backpressure to throttle client connections. This manifests in the
-client with socket timeouts and slow delivery. To address this issue
-Pika has a Connection.add_backpressure_callback() which will notify clients
-who register with it that there outbound delivery queue is backing up.
-The current methodology is to count the number of bytes and frames sent
-to create an average frame size and then look for 10x the average frame size
-in the outbound buffer after we call Connection.flush_outbound(). To
-adjust the threshold for the multiplier, call Channel.set_backpressure_multiplier
-with the desired value.
