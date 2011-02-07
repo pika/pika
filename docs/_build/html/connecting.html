@@ -208,9 +208,9 @@ Defaults to PlainCredentials for the guest user.</li>
 <span id="intro-to-backpressure"></span><h2>TCP Backpressure<a class="headerlink" href="#tcp-backpressure" title="Permalink to this headline">¶</a></h2>
 <p>As of RabbitMQ 2.0, client side <a class="reference external" href="http://www.rabbitmq.com/amqp-0-9-1-quickref.html#channel.flow">Channel.Flow</a> has been removed <a class="footnote-reference" href="#f1" id="id1">[1]</a>. Instead, the RabbitMQ
 broker uses TCP Backpressure to slow your client if it is delivering messages too fast. Pika attempts to help you handle this situation by providing a
-mechanism by which you may be notified if Pika has noticed too many frames have yet to be delivered. By registering a function with the
-<a class="reference internal" href="#adapters.select_connection.SelectConnection.add_backpressure_callback" title="adapters.select_connection.SelectConnection.add_backpressure_callback"><tt class="xref py py-meth docutils literal"><span class="pre">add_backpressure_callback</span></tt></a> function of any connection adapter, your function will be called
-when Pika sees that a backlog of 10 times the average frame size you have been sending has been exceeded. You may tweak this value by calling the
+mechanism by which you may be notified if Pika has noticed too many frames have yet to be delivered. By registering a callback function with the
+<a class="reference internal" href="#adapters.select_connection.SelectConnection.add_backpressure_callback" title="adapters.select_connection.SelectConnection.add_backpressure_callback"><tt class="xref py py-meth docutils literal"><span class="pre">add_backpressure_callback</span></tt></a> method of any connection adapter, your function will be called
+when Pika sees that a backlog of 10 times the average frame size you have been sending has been exceeded. You may tweak the notification multiplier value by calling the
 <a class="reference internal" href="#adapters.select_connection.SelectConnection.set_backpressure_multiplier" title="adapters.select_connection.SelectConnection.set_backpressure_multiplier"><tt class="xref py py-meth docutils literal"><span class="pre">set_backpressure_multiplier</span></tt></a> method passing any integer value.</p>
 </div>
 <div class="section" id="available-adapters">

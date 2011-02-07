@@ -139,9 +139,9 @@ TCP Backpressure
 
 As of RabbitMQ 2.0, client side `Channel.Flow <http://www.rabbitmq.com/amqp-0-9-1-quickref.html#channel.flow>`_ has been removed [#f1]_. Instead, the RabbitMQ
 broker uses TCP Backpressure to slow your client if it is delivering messages too fast. Pika attempts to help you handle this situation by providing a
-mechanism by which you may be notified if Pika has noticed too many frames have yet to be delivered. By registering a function with the
-:py:meth:`add_backpressure_callback <adapters.select_connection.SelectConnection.add_backpressure_callback>` function of any connection adapter, your function will be called
-when Pika sees that a backlog of 10 times the average frame size you have been sending has been exceeded. You may tweak this value by calling the
+mechanism by which you may be notified if Pika has noticed too many frames have yet to be delivered. By registering a callback function with the
+:py:meth:`add_backpressure_callback <adapters.select_connection.SelectConnection.add_backpressure_callback>` method of any connection adapter, your function will be called
+when Pika sees that a backlog of 10 times the average frame size you have been sending has been exceeded. You may tweak the notification multiplier value by calling the
 :py:meth:`set_backpressure_multiplier <adapters.select_connection.SelectConnection.set_backpressure_multiplier>` method passing any integer value.
 
 Available Adapters
