@@ -33,7 +33,7 @@ Major Changes since 0.5.2:
  * Pika has been restructured and made to be fully asynchronous at its core and now supports AMQP 0-9-1 only (RabbitMQ 2.0+)
  * There are many method definition changes, class name changes and module changes
  * Asynchronous AMQP commands now take a callback parameter for notification of completion
- * AMQP commands that are specified as synchronous buffer other calls on the same channel, sending them when the synchronous commands send their response frame
+ * AMQP commands that are specified as synchronous now buffer other calls on the same channel, sending them when the synchronous commands send their response frame
  * SelectConnection is now the recommended connection adapter and shows better performance than the AsyncoreConnection. SelectConnection implements select, poll, epoll and kqueue for event handling
  * TornadoConnection adds a connection adapter for the Tornado IOLoop
  * Client channel flow control has been removed
