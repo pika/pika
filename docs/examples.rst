@@ -14,8 +14,7 @@ This example demonstrates how to use :py:meth:`channel.Channel.basic_get` and ac
     import pika
     import sys
 
-    # Import all adapters for easier experimentation
-    from pika.adapters import *
+    from pika.adapters import SelectConnection
 
     logging.basicConfig(level=logging.INFO)
 
@@ -74,8 +73,7 @@ This example shows how to use :py:meth:`channel.Channel.basic_consume` to receiv
     import sys
     import pika
 
-    # Import all adapters for easier experimentation
-    from pika.adapters import *
+    from pika.adapters import SelectConnection
 
     logging.basicConfig(level=logging.INFO)
 
@@ -85,26 +83,26 @@ This example shows how to use :py:meth:`channel.Channel.basic_consume` to receiv
 
     def on_connected(connection):
         global channel
-        logging.info("demo_send: Connected to RabbitMQ")
+        logging.info("demo_receive: Connected to RabbitMQ")
         connection.channel(on_channel_open)
 
 
     def on_channel_open(channel_):
         global channel
         channel = channel_
-        logging.info("demo_send: Received our Channel")
+        logging.info("demo_receive: Received our Channel")
         channel.queue_declare(queue="test", durable=True,
                               exclusive=False, auto_delete=False,
                               callback=on_queue_declared)
 
 
     def on_queue_declared(frame):
-        logging.info("demo_send: Queue Declared")
+        logging.info("demo_receive: Queue Declared")
         channel.basic_consume(handle_delivery, queue='test')
 
 
     def handle_delivery(channel, method, header, body):
-        logging.info("demo_send.handle_delivery")
+        logging.info("demo_receive.handle_delivery")
         logging.info("  method: %r" % method)
         logging.info("  header: %r" % header)
         logging.info("    body: %r" % body)
@@ -129,13 +127,12 @@ This example shows how to use :py:meth:`channel.Channel.basic_deliver` to send a
     import pika
     import time
 
+    from pika.adapters import SelectConnection
+
     logging.basicConfig(level=logging.INFO)
 
     connection = None
     channel = None
-
-    # Import all adapters for easier experimentation
-    from pika.adapters import *
 
 
     def on_connected(connection):
@@ -244,7 +241,7 @@ This example shows how to use :py:meth:`channel.Channel.basic_consume` to receiv
 
     def handle_delivery(channel, method, header, body):
         # Receive the data in 3 frames from RabbitMQ
-        logging.info("demo_send.handle_delivery")
+        logging.info("demo_receive.handle_delivery")
         logging.info("  method: %r" % method)
         logging.info("  header: %r" % header)
         logging.info("    body: %r" % body)
