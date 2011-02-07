@@ -27,12 +27,12 @@ or::
 
 Or you can directly install from GitHub with pip::
 
-    pip install -e git+git://github.com/tonyg/pika.git@v0.9a#egg=pika-v0.9a
+    pip install -e git+git://github.com/tonyg/pika.git@v0.9.1a#egg=pika-v0.9.1a
 
 You may also download the source for this version as a zip or tar.gz with the following URLs:
 
-- https://github.com/tonyg/pika/tarball/v0.9a
-- https://github.com/tonyg/pika/zipball/v0.9a
+- https://github.com/tonyg/pika/tarball/v0.9.1a
+- https://github.com/tonyg/pika/zipball/v0.9.1a
 
 To install from source, run "python setup.py install" in the root source directory.
 
