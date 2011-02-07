@@ -6,7 +6,11 @@ TEMP=$(shell ./versions.py)
 VERSIONS=$(foreach version, $(TEMP),$(version))
 PYTHON=$(word 1, ${VERSIONS})
 
-all: pika/spec.py test documentation
+all:
+	@echo "\nRun "make install" or \"python setup.py install\" to install Pika\n"
+
+dev:
+	pika/spec.py test documentation
 
 pika/spec.py: codegen.py $(AMQP_CODEGEN_DIR)/amqp_codegen.py $(AMQP_SPEC_JSON_FILES)
 	$(PYTHON) codegen.py spec $(AMQP_SPEC_JSON_FILES) $@
@@ -36,7 +40,6 @@ codegen:
 	$(MAKE) -C $@ clean
 
 test: pep8
-
 	 cd tests && for python in ${VERSIONS}; do echo "Running tests in $$python\n";$$python ./run_tests.py; done
 
 pep8:
@@ -55,3 +58,8 @@ push_documentation: documentation
 	cd gh-pages && git commit -m 'Update documentation from master' -a
 	cd gh-pages && git push
 	rm -rf gh-pages
+
+install:
+	$(PYTHON) setup.py install
+
+
