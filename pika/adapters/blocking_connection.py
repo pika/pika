@@ -200,13 +200,15 @@ class BlockingChannelTransport(ChannelTransport):
 
         self.send_method(method, None, wait)
 
+        # Find our reply in our list of replies
         for reply in self._replies:
             if reply in replies:
+                frame = self._frames[reply]
                 self._received_response = True
                 if callback:
-                    callback(self._frames[reply])
+                    callback(frame)
                 del(self._frames[reply])
-                break
+                return frame
 
     def _on_rpc_complete(self, frame):
         key = self.callbacks.sanitize(frame)
@@ -248,8 +250,8 @@ class BlockingChannel(Channel):
 
     def _on_remote_close(self, frame):
         Channel._on_remote_close(self, frame)
-        raise AMQPChannelError(frame.method.reply_code,
-                               frame.method.reply_text)
+        raise AMQPChannelError(frame.reply_code,
+                               frame.reply_text)
 
     def basic_publish(self, exchange, routing_key, body,
                       properties=None, mandatory=False, immediate=False):
