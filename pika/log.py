@@ -46,23 +46,13 @@
 #
 # ***** END LICENSE BLOCK *****
 
-DEBUG = False
-
 import logging
 
-DEBUG = logging.DEBUG
-ERROR = logging.ERROR
-INFO = logging.INFO
-WARNING = logging.WARNING
-
-
-def debug(*args, **kwargs):
-    pass
+logger = logging.getLogger('pika')
+logger.setLevel(logging.WARN)
 
 # Define these attributes as references to their logging counterparts
-info = logging.info
-error = logging.error
-warning = logging.warning
-
-if DEBUG:
-    debug = logging.debug
+info = logger.info
+error = logger.error
+warning = logger.warning
+debug = logger.debug
