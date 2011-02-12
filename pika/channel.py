@@ -532,9 +532,9 @@ class Channel(spec.DriverMixin):
         log.debug("%s._on_basic_get_ok", self.__class__.__name__)
         if self._on_get_ok_callback:
             self._on_get_ok_callback(self,
-                                        method_frame.method,
-                                        header_frame.properties,
-                                        body)
+                                     method_frame.method,
+                                     header_frame.properties,
+                                     body)
             self._basic_get_ok_callback = None
         else:
             log.error("%s._on_basic_get: No callback defined.",
