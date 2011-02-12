@@ -91,6 +91,9 @@ def test_blocking_send_get():
     # Loop while we try to get the message we sent
     message_in = channel.basic_get(queue=queue_name)
 
+    # Close the connection
+    connection.close()
+
     # Only check the body
     if message_in[2] != message:
         assert False, "Did not receive the same message back"
