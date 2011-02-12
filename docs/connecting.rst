@@ -174,6 +174,7 @@ See the :ref:`Continuation-Passing Style example <cps_example>` for an example o
 .. automodule:: adapters.select_connection
 .. autoclass:: SelectConnection
    :member-order: bysource
+   :members:
    :inherited-members:
 
 .. _adapters_asyncore_connection_AsyncoreConnection:

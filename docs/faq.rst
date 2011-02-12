@@ -27,7 +27,7 @@ Frequently Asked Questions
 
 - What versions of Python are supported?
 
-    Main developent is currently on the Python 2.6 branch. For a release, Pika passes its tests on the latest versions of 2.4, 2.5 and 2.6.
+    Main developent is currently on the Python 2.6 branch. For a release, Pika passes its tests on the latest versions of 2.4, 2.5, 2.6 and 2.7.
 
 - Does Python work with Python 3?
 

@@ -7,8 +7,6 @@ simplebuffer
 SimpleBuffer
 ------------
 .. automodule:: simplebuffer
-   :members:
    :inherited-members:
    :member-order: bysource
-   :private-members: True
-   :undoc-members:
+   :noindex:
