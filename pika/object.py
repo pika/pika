@@ -58,7 +58,7 @@ class object_(object):
         for key, value in self.__dict__.iteritems():
             if getattr(self.__class__, key, None) != value:
                 items.append('%s=%s' % (key, value))
-        return "%s(%s)" % (self.name, items)
+        return "<%s(%s)>" % (self.name, items)
 
 
 class Class(object_):
