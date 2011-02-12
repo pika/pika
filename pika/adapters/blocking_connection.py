@@ -167,6 +167,7 @@ class BlockingChannelTransport(ChannelTransport):
         ChannelTransport.__init__(self, connection, channel_number)
         self._replies = list()
         self._frames = dict()
+        self._wait = False
 
     @log.method_call
     def add_reply(self, reply):
@@ -227,9 +228,10 @@ class BlockingChannelTransport(ChannelTransport):
         Shortcut wrapper to send a method through our connection, passing in
         our channel number
         """
+        self.wait = wait
         self._received_response = False
         self.connection._send_method(self.channel_number, method, content)
-        while wait and not self._received_response:
+        while self.wait and not self._received_response:
             try:
                 self.connection.process_data_events()
             except AMQPConnectionError:
@@ -296,18 +298,17 @@ class BlockingChannel(Channel):
         consumer_tag = consumer_tag or 'ctag0'
 
         self._consumer = consumer
-
+        self._consuming = True
         self.transport.rpc(spec.Basic.Consume(queue=queue,
                                               consumer_tag=consumer_tag,
                                               no_ack=no_ack,
                                               exclusive=exclusive),
-                           self._on_consume_ok, [spec.Basic.ConsumeOk])
+                           None, [spec.Basic.ConsumeOk])
 
-    @log.method_call
-    def _on_consume_ok(self, frame):
-        self._consuming = True
+        # Block while we are consuming
         while self._consuming:
             self.connection.process_data_events()
+
 
     @log.method_call
     def _on_basic_deliver(self, method_frame, header_frame, body):
@@ -324,6 +325,7 @@ class BlockingChannel(Channel):
         sets our internal state to exit out of the basic_consume.
         """
         self.basic_cancel(consumer_tag or 'ctag0')
+        self.transport.wait = False
         self._consuming = False
 
     @log.method_call
