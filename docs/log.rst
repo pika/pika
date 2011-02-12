@@ -10,15 +10,14 @@ To turn Pika debug logging on::
      import logging
      import pika.log
 
-     pika.log.DEBUG = True
-
      logging.basicConfig(level=logging.DEBUG)
+     logging.getLogger('pika').setLevel(logging.DEBUG)
 
 Once this is done you will receive all low level information about what Pika is doing including the frames it is sending and receiving from RabbitMQ.
 
 .. function:: debug(msg[, *args[, **kwargs]])
 
-   Logs a message with level :const:`DEBUG` on the root logger. The *msg* is the
+   Logs a message with level :const:`DEBUG` on the "pika" logger. The *msg* is the
    message format string, and the *args* are the arguments which are merged into
    *msg* using the string formatting operator. (Note that this means that you can
    use keywords in the format string, together with a single dictionary argument.)
