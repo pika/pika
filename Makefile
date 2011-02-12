@@ -46,7 +46,7 @@ documentation:
 	$(MAKE) -C docs html
 
 push_documentation: documentation
-	git commit docs
+	git commit docs/*.rst docs/*.py
 	git clone git@github.com:tonyg/pika.git -b gh-pages gh-pages
 	cd gh-pages && git rm -rf *
 	cp -R docs/_build/html/* gh-pages
