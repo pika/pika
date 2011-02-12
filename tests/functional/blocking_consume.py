@@ -65,7 +65,6 @@ HOST = 'localhost'
 PORT = 5672
 MESSAGES = 10
 
-
 def test_blocking_consume():
 
     parameters = pika.ConnectionParameters(host=HOST, port=PORT)
@@ -74,17 +73,39 @@ def test_blocking_consume():
     # Open the channel
     channel = connection.channel()
 
+    # Declare the exchange
+    exchange_name = support.tools.test_queue_name('blocking_exchange')
+    frame = channel.exchange_declare(exchange=exchange_name,
+                                     type="direct",
+                                     auto_delete="true")
+    if not isinstance(frame.method, pika.spec.Exchange.DeclareOk):
+        assert False, \
+        "Did not receive Exchange.DeclareOk from channel.exchange_declare"
+
     # Declare the queue
-    queue_name = support.tools.test_queue_name('blocking_send_get')
-    channel.queue_declare(queue=queue_name,
-                          durable=False,
-                          exclusive=True,
-                          auto_delete=True)
+    queue_name = support.tools.test_queue_name('blocking_consume')
+    frame = channel.queue_declare(queue=queue_name,
+                                  durable=False,
+                                  exclusive=True,
+                                  auto_delete=True)
+
+    if not isinstance(frame.method, pika.spec.Queue.DeclareOk):
+        assert False, \
+        "Did not receive Queue.DeclareOk from channel.queue_declare"
+
+    routing_key = "%s.%s" % (exchange_name, queue_name)
+    frame = channel.queue_bind(queue=queue_name,
+                               exchange=exchange_name,
+                               routing_key=routing_key)
+    if not isinstance(frame.method, pika.spec.Queue.BindOk):
+        assert False, \
+        "Did not receive Queue.BindOk from channel.queue_bind"
 
     _sent = []
     _received = []
 
-    def _on_message(channel_number, method, header, body):
+    @pika.log.method_call
+    def _on_message(channel, method, header, body):
         _received.append(body)
         if len(_received) == MESSAGES:
             channel.stop_consuming()
@@ -94,8 +115,8 @@ def test_blocking_consume():
     for x in xrange(0, MESSAGES):
         message = 'test_blocking_send:%i:%.4f' % (x, time.time())
         _sent.append(message)
-        channel.basic_publish(exchange='',
-                              routing_key=queue_name,
+        channel.basic_publish(exchange=exchange_name,
+                              routing_key=routing_key,
                               body=message,
                               properties=pika.BasicProperties(
                                 content_type="text/plain",
@@ -105,7 +126,8 @@ def test_blocking_consume():
     start = time.time()
 
     # This is blocking
-    channel.basic_consume(_on_message, queue=queue_name)
+    channel.basic_consume(consumer=_on_message, queue=queue_name, no_ack=True)
+    connection.close()
 
     # Check our results
     if len(_sent) != MESSAGES:
@@ -122,4 +144,6 @@ def test_blocking_consume():
             assert False, 'Sent a message we did not receive.'
 
 if __name__ == "__main__":
+    #pika.log.setup(pika.log.DEBUG, color=True)
+    #test_blocking_consume()
     nose.runmodule()
