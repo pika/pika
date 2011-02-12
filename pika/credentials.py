@@ -45,6 +45,7 @@
 # this file under the terms of any one of the MPL or the GPL.
 #
 # ***** END LICENSE BLOCK *****
+import pika.log as log
 
 
 class PlainCredentials(object):
@@ -61,6 +62,7 @@ class PlainCredentials(object):
 
     TYPE = 'PLAIN'
 
+    @log.method_call
     def __init__(self, username, password):
         """
         Parameters:
@@ -72,8 +74,8 @@ class PlainCredentials(object):
         self.username = username
         self.password = password
 
+    @log.method_call
     def response_for(self, start):
-
         if PlainCredentials.TYPE not in start.mechanisms.split():
             return None
 

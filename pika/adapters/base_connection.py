@@ -74,6 +74,7 @@ ERROR = 0x0008
 
 class BaseConnection(Connection):
 
+    @log.method_call
     def __init__(self, parameters=None, on_open_callback=None,
                  reconnection_strategy=None):
         # Set our defaults
@@ -89,6 +90,7 @@ class BaseConnection(Connection):
         Connection.__init__(self, parameters, on_open_callback,
                             reconnection_strategy)
 
+    @log.method_call
     def _adapter_connect(self, host, port):
         """
         Base connection function to be extended as needed
@@ -98,22 +100,27 @@ class BaseConnection(Connection):
         self.socket.connect((host, port))
         self.socket.setblocking(0)
 
+    @log.method_call
     def add_timeout(self, delay_sec, callback):
         deadline = time.time() + delay_sec
         return self.ioloop.add_timeout(deadline, callback)
 
+    @log.method_call
     def remove_timeout(self, timeout_id):
         self.ioloop.remove_timeout(timeout_id)
 
+    @log.method_call
     def _erase_credentials(self):
         pass
 
+    @log.method_call
     def _flush_outbound(self):
         """
         Call the state manager who will figure out that we need to write.
         """
         self._manage_event_state()
 
+    @log.method_call
     def _adapter_disconnect(self):
         """
         Called if we are forced to disconnect for some reason from Connection
@@ -124,6 +131,7 @@ class BaseConnection(Connection):
         # Close our socket
         self.socket.close()
 
+    @log.method_call
     def _handle_disconnect(self):
         """
         Called internally when we know our socket is disconnected already
@@ -134,14 +142,12 @@ class BaseConnection(Connection):
         # Close up our Connection state
         self._on_connection_closed(None, True)
 
+    @log.method_call
     def _handle_error(self, error):
         """
         Internal error handling method. Here we expect a socket.error coming in
         and will handle different socket errors differently.
         """
-        log.debug("%s.handle_error(%s)",
-                  self.__class__.__name__, str(error))
-
         # Handle version differences in Python
         if hasattr(error, 'errno'):  # Python >= 2.6
             error_code = error.errno
@@ -162,6 +168,7 @@ class BaseConnection(Connection):
         # Disconnect from our IOLoop and let Connection know what's up
         self._handle_disconnect()
 
+    @log.method_call
     def _handle_events(self, fd, events, error=None):
         """
         Our IO/Event loop have called us with events, so process them
@@ -184,11 +191,11 @@ class BaseConnection(Connection):
             # event state due to having an empty outbound buffer
             self._manage_event_state()
 
+    @log.method_call
     def _handle_read(self):
         """
         Read from the socket and call our on_data_available with the data
         """
-        log.debug("%s.handle_read", self.__class__.__name__)
         try:
             data = self.socket.recv(self._suggested_buffer_size)
         except socket.timeout:
@@ -203,12 +210,12 @@ class BaseConnection(Connection):
         # Pass the data into our top level frame dispatching method
         self._on_data_available(data)
 
+    @log.method_call
     def _handle_write(self):
         """
         We only get here when we have data to write, so try and send
         Pika's suggested buffer size of data (be nice to Windows)
         """
-        log.debug("%s.handle_write", self.__class__.__name__)
         data = self.outbound_buffer.read(self._suggested_buffer_size)
         try:
             bytes_written = self.socket.send(data)
@@ -220,14 +227,13 @@ class BaseConnection(Connection):
         # Remove the content from our output buffer
         self.outbound_buffer.consume(bytes_written)
 
+    @log.method_call
     def _manage_event_state(self):
         """
         We use this to manage the bitmask for reading/writing/error which
         we want to use to have our io/event handler tell us when we can
         read/write, etc
         """
-        log.debug("%s._manage_event_state", self.__class__.__name__)
-
         # Do we have data pending in the outbound buffer?
         if self.outbound_buffer.size:
 

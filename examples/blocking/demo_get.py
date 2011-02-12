@@ -51,14 +51,13 @@
 Example of the use of basic_get. NOT RECOMMENDED - use
 basic_consume instead if at all possible!
 '''
-import logging
 import sys
 import pika
 import time
 
 from pika.adapters import BlockingConnection
 
-logging.basicConfig(level=logging.INFO)
+pika.log.setup(color=True)
 
 if __name__ == '__main__':
     # Connect to RabbitMQ
@@ -81,13 +80,14 @@ if __name__ == '__main__':
 
         # It can be empty if the queue is empty so don't do anything
         if method_frame.NAME == 'Basic.GetEmpty':
-            logging.info("Empty Basic.Get Response (Basic.GetEmpty)")
+            pika.log.info("Empty Basic.Get Response (Basic.GetEmpty)")
 
         # We have data
         else:
-            logging.info('Method: %s' % method_frame)
-            logging.info('Header: %s' % header_frame)
-            logging.info('  Body: %s' % body)
+            pika.log.info("Basic.GetOk %s delivery-tag %i: %s",
+                          header_frame.content_type,
+                          method_frame.delivery_tag,
+                          body)
 
             # Acknowledge the receipt of the data
             channel.basic_ack(delivery_tag=method_frame.delivery_tag)

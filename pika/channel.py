@@ -65,6 +65,7 @@ class ChannelTransport(object):
     flow detection has been removed.
     """
 
+    @log.method_call
     def __init__(self, connection, channel_number):
 
         self.connection = connection
@@ -87,12 +88,14 @@ class ChannelTransport(object):
         self.callbacks.add(self.channel_number, spec.Channel.OpenOk,
                            self._on_open)
 
+    @log.method_call
     def _on_open(self, frame):
         """
         Called as a result of receiving a spec.Channel.OpenOk frame.
         """
         self.closed = False
 
+    @log.method_call
     def deliver(self, frame):
         """
         Deliver a frame to the frame handler. When it's gotten to a point that
@@ -101,6 +104,7 @@ class ChannelTransport(object):
         """
         self.frame_handler.process(frame)
 
+    @log.method_call
     def _ensure(self):
         """
         Make sure the transport is open
@@ -110,21 +114,19 @@ class ChannelTransport(object):
 
         return True
 
+    @log.method_call
     def _has_content(self, method):
         """
         Return a bool if it's a content method as defined by the spec
         """
         return spec.has_content(method.INDEX)
 
+    @log.method_call
     def rpc(self, method, callback=None, acceptable_replies=[]):
         """
         Shortcut wrapper to the Connection's rpc command using its callback
         stack, passing in our channel number
         """
-        log.debug("%s.rpc(%s, %s, %r)",
-                      self.__class__.__name__, callback,
-                      method, acceptable_replies)
-
         # Make sure the channel is open
         self._ensure()
 
@@ -150,34 +152,30 @@ class ChannelTransport(object):
 
         self.send_method(method)
 
+    @log.method_call
     def send_method(self, method, content=None):
         """
         Shortcut wrapper to send a method through our connection, passing in
         our channel number
         """
-        log.debug("%s.send_method: %s(%s)", self.__class__.__name__,
-                      method, content)
-
         self.connection._send_method(self.channel_number, method, content)
 
+    @log.method_call
     def _on_event_ok(self, frame):
         """
         Generic events that returned ok that may have internal callbacks.
         We keep a list of what we've yet to implement so that we don't silently
         drain events that we don't support.
         """
-        log.debug("%s._on_event_ok: %r", self.__class__.__name__,
-                      frame.method.NAME)
+        pass
 
+    @log.method_call
     def _on_synchronous_complete(self, frame):
         """
         This is called when a synchronous command is completed. It will undo
         the blocking state and send all the frames that stacked up while we
         were in the blocking state.
         """
-        log.debug("%s._on_synchronous_complete for %s: %r",
-                      self.__class__.__name__, self.blocking, frame)
-
         # Release the lock
         self.blocking = None
 
@@ -198,6 +196,7 @@ class ChannelTransport(object):
 
 class Channel(spec.DriverMixin):
 
+    @log.method_call
     def __init__(self, connection, channel_number, on_open_callback=None,
                  transport=None):
         """
@@ -274,6 +273,7 @@ class Channel(spec.DriverMixin):
         # Open our channel
         self.transport.send_method(spec.Channel.Open())
 
+    @log.method_call
     def add_callback(self, callback, replies):
         """
         Pass in a callback handler and a list replies from the
@@ -283,6 +283,7 @@ class Channel(spec.DriverMixin):
         for reply in replies:
             self.callbacks.add(self.channel_number, reply, callback)
 
+    @log.method_call
     def add_on_close_callback(self, callback):
         """
         Pass a callback function that will be called when the channel is
@@ -290,6 +291,7 @@ class Channel(spec.DriverMixin):
         """
         self.callbacks.add(self.channel_number, '_on_channel_close', callback)
 
+    @log.method_call
     def add_on_return_callback(self, callback):
         """
         Pass a callback function that will be called when basic_publish as sent
@@ -300,13 +302,11 @@ class Channel(spec.DriverMixin):
         """
         self.callbacks.add(self.channel_number, '_on_basic_return', callback)
 
+    @log.method_call
     def close(self, code=0, text="Normal Shutdown", from_server=False):
         """
         Will invoke a clean shutdown of the channel with the AMQP Broker
         """
-        log.debug("%s.close: (%s) %s", self.__class__.__name__,
-                      str(code), text)
-
         # Set our closing code and text
         self.closing = code, text
 
@@ -323,23 +323,21 @@ class Channel(spec.DriverMixin):
         if not len(self._consumers) and not from_server:
             self._close()
 
+    @log.method_call
     def _close(self):
         """
         Internal close, is called when all the consumers are closed by both
         Channel.close and Channel._on_cancel_ok
         """
-        log.debug("%s._close", self.__class__.__name__)
         self.transport.send_method(spec.Channel.Close(self.closing[0],
                                                       self.closing[1],
                                                       0, 0))
 
+    @log.method_call
     def _on_remote_close(self, frame):
         """
         Handle the case where our channel has been closed for us
         """
-        log.warning("%s._on_remote_close(%s, %s)", self.__class__.__name__,
-                    frame.method.reply_code, frame.method.reply_text)
-
         # Set our closing code and text
         self.closing = frame.method.reply_code, frame.method.reply_text
 
@@ -349,20 +347,21 @@ class Channel(spec.DriverMixin):
                                self, frame.method.reply_code,
                                frame.method.reply_text)
 
+    @log.method_call
     def _open(self, frame):
         """
         Called by our callback handler when we receive a Channel.OpenOk and
         subsequently calls our _on_open_callback which was passed into the
-        Channel construtor. The reason we do this is because we want to make
+        Channel constructor. The reason we do this is because we want to make
         sure that the on_open_callback parameter passed into the Channel
         constructor is not the first callback we make. ChannelTransport needs
         to know before the app that passed in the callback.
         """
-        log.debug("%s._open: %r", self.__class__.__name__, frame)
         # Call our on open callback
         if self._on_open_callback:
             self._on_open_callback(self)
 
+    @log.method_call
     def basic_cancel(self, consumer_tag, nowait=False, callback=None):
         """
         Pass in the consumer tag to cancel a basic_consume request with. The
@@ -372,9 +371,6 @@ class Channel(spec.DriverMixin):
 
         http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.cancel
         """
-        log.debug("%s.basic_cancel: %s", self.__class__.__name__,
-                      consumer_tag)
-
         if consumer_tag not in self._consumers:
             return
 
@@ -388,6 +384,7 @@ class Channel(spec.DriverMixin):
                                              nowait=nowait),
                            self._on_cancel_ok, [spec.Basic.CancelOk])
 
+    @log.method_call
     def basic_consume(self, consumer_callback,
                       queue='', no_ack=False, exclusive=False,
                       consumer_tag=None):
@@ -399,8 +396,6 @@ class Channel(spec.DriverMixin):
 
         http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.consume
         """
-        log.debug("%s.basic_consume", self.__class__.__name__)
-
         # If a consumer tag was not passed, create one
         if not consumer_tag:
             consumer_tag = 'ctag%i' % len(self._consumers)
@@ -424,6 +419,7 @@ class Channel(spec.DriverMixin):
             del(self._consumers[consumer_tag])
             raise exceptions.ChannelClosed(e)
 
+    @log.method_call
     def basic_publish(self, exchange, routing_key, body,
                       properties=None, mandatory=False, immediate=False):
         """
@@ -432,8 +428,6 @@ class Channel(spec.DriverMixin):
 
         http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.publish
         """
-        log.debug("%s.basic_publish", self.__class__.__name__)
-
         # If properties are not passed in, use the spec's default
         properties = properties or spec.BasicProperties()
 
@@ -450,14 +444,13 @@ class Channel(spec.DriverMixin):
         """
         return self._consumers.keys()
 
+    @log.method_call
     def _on_basic_deliver(self, method_frame, header_frame, body):
         """
         Cope with reentrancy. If a particular consumer is still active when
         another delivery appears for it, queue the deliveries up until it
         finally exits.
         """
-        log.debug("%s._on_basic_deliver", self.__class__.__name__)
-
         # Shortcut for our consumer tag
         consumer_tag = method_frame.method.consumer_tag
 
@@ -495,13 +488,11 @@ class Channel(spec.DriverMixin):
                                                 header_frame.properties,
                                                 body))
 
+    @log.method_call
     def _on_cancel_ok(self, frame):
         """
         Called in response to a frame from the Broker when we call Basic.Cancel
         """
-        log.debug("%s._on_cancel_ok: %r", self.__class__.__name__,
-                                               frame.method.NAME)
-
         # We need to delete the consumer tag from our _consumers
         del(self._consumers[frame.method.consumer_tag])
 
@@ -509,6 +500,7 @@ class Channel(spec.DriverMixin):
         if self.closing and not len(self._consumers):
             self._close()
 
+    @log.method_call
     def basic_get(self, callback, ticket=0, queue='', no_ack=False):
         """
         Get a single message from the AMQP broker. The callback method
@@ -521,15 +513,13 @@ class Channel(spec.DriverMixin):
 
         http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.get
         """
-        log.debug("%s.basic_get(cb=%s, ticket=%i, queue=%s, no_ack=%s)",
-                      self.__class__.__name__, callback, ticket, queue, no_ack)
         self._on_get_ok_callback = callback
         self.transport.send_method(spec.Basic.Get(ticket=ticket,
                                                   queue=queue,
                                                   no_ack=no_ack))
 
+    @log.method_call
     def _on_basic_get_ok(self, method_frame, header_frame, body):
-        log.debug("%s._on_basic_get_ok", self.__class__.__name__)
         if self._on_get_ok_callback:
             self._on_get_ok_callback(self,
                                      method_frame.method,
@@ -540,12 +530,14 @@ class Channel(spec.DriverMixin):
             log.error("%s._on_basic_get: No callback defined.",
                           self.__class__.__name__)
 
+    @log.method_call
     def _on_basic_get_empty(self, frame):
         """
         When we receive an empty reply do nothing but log it
         """
-        log.debug("%s._on_basic_get_empty", self.__class__.__name__)
+        pass
 
+    @log.method_call
     def flow(self, callback, active):
         """
         Turn Channel flow control off and on. Pass a callback to be notified
@@ -555,18 +547,15 @@ class Channel(spec.DriverMixin):
 
         http://www.rabbitmq.com/amqp-0-9-1-reference.html#channel.flow
         """
-        log.debug("%s.flow(%s, %s)", self.__class__.__name__, callback,
-                  active)
         self._on_flow_ok_callback = callback
         self.transport.rpc(spec.Channel.Flow(active), self._on_channel_flow_ok,
                            [spec.Channel.FlowOk])
 
+    @log.method_call
     def _on_channel_flow_ok(self, frame):
         """
         Called in response to us asking the server to toggle on Channel.Flow
         """
-        log.debug("%s._on_channel_flow_ok(%s)", self.__class__.__name__, frame)
-
         # Update the channel flow_active state
         self.transport.flow_active = frame.method.active
 
@@ -602,10 +591,12 @@ class ContentHandler(object):
     body and then reset the self._handler to the _handle_method_frame method.
     """
 
+    @log.method_call
     def __init__(self):
         # We start with Method frames always
         self._handler = self._handle_method_frame
 
+    @log.method_call
     def process(self, frame):
         """
         Invoked by the ChannelTransport object when passed frames that are not
@@ -614,14 +605,12 @@ class ContentHandler(object):
         """
         self._handler(frame)
 
+    @log.method_call
     def _handle_method_frame(self, frame):
         """
         Receive a frame and process it, we should have content by the time we
         reach this handler, set the next handler to be the header frame handler
         """
-        log.debug("%s._handle_method_frame: %r", self.__class__.__name__,
-                      frame)
-
         # If we don't have FrameMethod something is wrong so throw an exception
         if not isinstance(frame, frames.Method):
             raise exceptions.UnexpectedFrameError(frame)
@@ -635,13 +624,12 @@ class ContentHandler(object):
         else:
             raise NotImplementedError(frame.method.__class__)
 
+    @log.method_call
     def _handle_header_frame(self, frame):
         """
         Receive a header frame and process that, setting the next handler
         to the body frame handler
         """
-        log.debug("%s._handle_header_frame: %r", self.__class__.__name__,
-                      frame)
 
         def handler(header_frame):
             # Make sure it's a header frame
@@ -653,17 +641,17 @@ class ContentHandler(object):
 
         return handler
 
+    @log.method_call
     def _handle_body_frame(self, method_frame, header_frame):
         """
         Receive body frames. We'll keep receiving them in handler until we've
         received the body size specified in the header frame. When done
         call our finish function which will call our transports callbacks
         """
-        log.debug("%s._handle_body_frame: %r", self.__class__.__name__,
-                      header_frame)
         seen_so_far = [0]
         body_fragments = list()
 
+        @log.method_call
         def handler(body_frame):
             # Make sure it's a body frame
             if not isinstance(body_frame, frames.Body):
@@ -685,6 +673,7 @@ class ContentHandler(object):
                         (seen_so_far[0], header_frame.body_size)
                 raise exceptions.BodyTooLongError(error)
 
+        @log.method_call
         def finish():
             # We're done so set our handler back to the method frame
             self._handler = self._handle_method_frame

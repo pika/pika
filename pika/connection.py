@@ -82,6 +82,7 @@ class ConnectionParameters(object):
     - frame_max: The maximum byte size for an AMQP frame. Defaults to 131072
     - heartbeat: Turn heartbeat checking on or off. Defaults to 0 for Off.
     """
+    @log.method_call
     def __init__(self,
                  host='localhost',
                  port=spec.PORT,
@@ -109,6 +110,7 @@ class Connection(object):
     class should not be invoked directly but rather through the use of an
     adapter such as SelectConnection or BlockingConnection.
     """
+    @log.method_call
     def __init__(self, parameters=None, on_open_callback=None,
                  reconnection_strategy=None):
         """
@@ -140,14 +142,13 @@ class Connection(object):
         # Connect to the AMQP Broker
         self._connect()
 
+    @log.method_call
     def _init_connection_state(self):
         """
         Initialize or reset all of our internal state variables for a given
         connection. If we disconnect and reconnect, all of our state needs to
         be wiped
         """
-        log.debug('%s._init_connection_state', self.__class__.__name__)
-
         # Outbound buffer for buffering writes until we're able to send them
         self.outbound_buffer = simplebuffer.SimpleBuffer()
 
@@ -189,13 +190,12 @@ class Connection(object):
         raise NotImplementedError('%s needs to implement this function' %\
                                   self.__class__.__name__)
 
+    @log.method_call
     def _connect(self):
         """
         Call the Adapter's connect method after letting the
         ReconnectionStrategy know that we're going to do so.
         """
-        log.debug('%s._connect', self.__class__.__name__)
-
         # Let our RS know what we're up to
         self.reconnection.on_connect_attempt(self)
 
@@ -203,13 +203,12 @@ class Connection(object):
         self._adapter_connect(self.parameters.host,
                               self.parameters.port or  spec.PORT)
 
+    @log.method_call
     def _reconnect(self):
         """
         Called by the Reconnection Strategy classes or Adapters to disconnect
         and reconnect to the broker
         """
-        log.debug('%s.reconnect', self.__class__.__name__)
-
         # We're already closing but it may not be from reconnect, so first
         # Add a callback that won't be duplicated
         if self.closing:
@@ -227,27 +226,25 @@ class Connection(object):
         self._init_connection_state()
         self._connect()
 
+    @log.method_call
     def _on_connected(self):
         """
         This is called by our connection Adapter to let us know that we've
         connected and we can notify our connection strategy
         """
-        log.debug('%s.on_connected', self.__class__.__name__)
-
         # Start the communication with the RabbitMQ Broker
         self._send_frame(frames.ProtocolHeader())
 
         # Let our reconnection_strategy know we're connected
         self.reconnection.on_transport_connected(self)
 
+    @log.method_call
     def _on_connection_open(self, frame):
         """
         This is called once we have tuned the connection with the server and
         called the Connection.Open on the server and it has replied with
         Connection.Ok.
         """
-        log.debug('%s._on_connection_open', self.__class__.__name__)
-
         self.known_hosts = frame.method.known_hosts
 
         # Add a callback handler for the Broker telling us to disconnect
@@ -259,13 +256,12 @@ class Connection(object):
         # Call our initial callback that we're open
         self.callbacks.process(0, '_on_connection_open', self, self)
 
+    @log.method_call
     def _on_connection_start(self, frame):
         """
         This is called as a callback once we have received a Connection.Start
         from the server.
         """
-        log.debug('%s._on_connection_start', self.__class__.__name__)
-
         # We're now connected to the broker
         self.closed = False
 
@@ -308,6 +304,7 @@ class Connection(object):
                                         response=response[1])
         self._send_method(0, method)
 
+    @log.method_call
     def _erase_credentials(self):
         """
         Override if in some context you need the object to forget
@@ -315,6 +312,7 @@ class Connection(object):
         """
         pass
 
+    @log.method_call
     def _combine(self, a, b):
         """
         Pass in two values, if a is 0, return b otherwise if b is 0, return a.
@@ -322,6 +320,7 @@ class Connection(object):
         """
         return min(a, b) or (a or b)
 
+    @log.method_call
     def _on_connection_tune(self, frame):
         """
         Once the Broker sends back a Connection.Tune, we will set our tuning
@@ -329,7 +328,6 @@ class Connection(object):
         monitor if required, send our TuneOk and then the Connection. Open rpc
         call on channel 0
         """
-        log.debug('%s._on_connection_tune', self.__class__.__name__)
         cmax = self._combine(self.parameters.channel_max,
                              frame.method.channel_max)
         fmax = self._combine(self.parameters.frame_max,
@@ -354,6 +352,7 @@ class Connection(object):
                                    insist=True)
         self._rpc(0, cmd, self._on_connection_open, [spec.Connection.OpenOk])
 
+    @log.method_call
     def close(self, code=200, text='Normal shutdown'):
         """
         Disconnect from RabbitMQ. If there are any open channels, it will
@@ -361,9 +360,6 @@ class Connection(object):
         have active consumers will attempt to send a Basic.Cancel to RabbitMQ
         to cleanly stop the delivery of messages prior to closing the channel.
         """
-        log.debug("%s.close Closing Connection: (%s) %s",
-                      self.__class__.__name__, code, text)
-
         if self.closing or self.closed:
             log.warning("%s.Close invoked while closing or closed",
                             self.__class__.__name__)
@@ -384,13 +380,12 @@ class Connection(object):
         if not self._channels:
             self._on_close_ready()
 
+    @log.method_call
     def _on_close_ready(self):
         """
         On a clean shutdown we'll call this once all of our channels are closed
         Let the Broker know we want to close
         """
-        log.debug('%s._on_close_ready', self.__class__.__name__)
-
         if self.closed:
             log.warn("%s.on_close_ready invoked while closed",
                          self.__class__.__name__)
@@ -401,12 +396,11 @@ class Connection(object):
                   self._on_connection_closed,
                   [spec.Connection.CloseOk])
 
+    @log.method_call
     def _on_connection_closed(self, frame, from_adapter=False):
         """
         Let both our RS and Event object know we closed
         """
-        log.debug('%s._on_connection_close', self.__class__.__name__)
-
         # Set that we're actually closed
         self.closed = True
         self.closing = False
@@ -415,24 +409,25 @@ class Connection(object):
         # Call any callbacks registered for this
         self.callbacks.process(0, '_on_connection_closed', self, self)
 
+        log.info("Disconnected from RabbitMQ at %s:%i", self.parameters.host,
+                 self.parameters.port)
+
         # Disconnect our transport if it didn't call on_disconnected
         if not from_adapter:
             self._adapter_disconnect()
 
+    @log.method_call
     def _on_remote_close(self, frame):
         """
         We've received a remote close from the server
         """
-        log.debug('%s._on_remote_close: %r',
-                      self.__class__.__name__, frame)
         self.close(frame.method.reply_code, frame.method.reply_text)
 
+    @log.method_call
     def _ensure_closed(self):
         """
         If we're not already closed, make sure we're closed
         """
-        log.debug('%s._ensure_closed', self.__class__.__name__)
-
         # We carry the connection state and so we want to close if we know
         if self.is_open and not self.closing:
             self.close()
@@ -444,34 +439,29 @@ class Connection(object):
         """
         return self.open and (not self.closing and not self.closed)
 
+    @log.method_call
     def add_on_close_callback(self, callback):
         """
         Add a callback notification when the connection has closed
         """
-        log.debug('%s.add_on_close_callback: %s', self.__class__.__name__,
-                      callback)
-
         self.callbacks.add(0, '_on_connection_closed', callback, False)
 
+    @log.method_call
     def add_on_open_callback(self, callback):
         """
         Add a callback notification when the connection has opened
         """
-        log.debug('%s.add_on_open_callback: %s',
-                      self.__class__.__name__, callback)
-
         self.callbacks.add(0, '_on_connection_open', callback, False)
 
+    @log.method_call
     def add_backpressure_callback(self, callback):
         """
         Add a callback notification when we think backpressue is being applied
         due to the size of the output buffer being exceeded.
         """
-        log.debug('%s.add_backpressure_callback: %s', self.__class__.__name__,
-                  callback)
-
         self.callbacks.add(0, 'backpressure', callback, False)
 
+    @log.method_call
     def set_backpressure_multiplier(self, value=10):
         """
         Alter the backpressure multiplier value. We set this to 10 by default.
@@ -499,15 +489,13 @@ class Connection(object):
                                   self.__class__.__name__)
 
     # Channel related functionality
-
+    @log.method_call
     def channel(self, on_open_callback, channel_number=None):
         """
         Create a new channel with the next available channel number or pass in
         a channel number to use. Must be non-zero if you would like to specify
         but it is recommended that you let Pika manage the channel numbers.
         """
-        log.debug('%s.channel', self.__class__.__name__)
-
         # If the user didn't specify a channel_number get the next avail
         if not channel_number:
             channel_number = self._next_channel_number()
@@ -525,6 +513,7 @@ class Connection(object):
         self.callbacks.add(channel_number, spec.Channel.Close,
                            self._on_channel_close)
 
+    @log.method_call
     def _next_channel_number(self):
         """
         Return the next available channel number or raise on exception
@@ -546,13 +535,11 @@ class Connection(object):
         # Our next channel is the max key value + 1
         return max(channel_numbers) + 1
 
+    @log.method_call
     def _on_channel_close(self, frame):
         """
         RPC Response from when a channel closes itself, remove from our stack
         """
-        log.debug('%s._on_channel_close: %s', self.__class__.__name__,
-                      frame.channel_number)
-
         channel_number = frame.channel_number
         # If we have this channel number in our channels:
         if channel_number in self._channels:
@@ -571,7 +558,7 @@ class Connection(object):
             self._on_close_ready()
 
     # Data packet and frame handling functions
-
+    @log.method_call
     def _on_data_available(self, data):
         """
         This is called by our Adapter, passing in the data from the socket
@@ -609,6 +596,7 @@ class Connection(object):
                 # Call our Channel Handler with the frame
                 self._channels[frame.channel_number].transport.deliver(frame)
 
+    @log.method_call
     def _rpc(self, channel_number, method,
             callback=None, acceptable_replies=[]):
         """
@@ -616,7 +604,6 @@ class Connection(object):
         acceptable_replies lists out what responses we'll process from the
         server with the specified callback.
         """
-
         # If we were passed a callback, add it to our stack
         if callback:
             for reply in acceptable_replies:
@@ -625,13 +612,12 @@ class Connection(object):
         # Send the rpc call to RabbitMQ
         self._send_method(channel_number, method)
 
+    @log.method_call
     def _send_frame(self, frame):
         """
         This appends the fully generated frame to send to the broker to the
         output buffer which will be then sent via the connection adapter
         """
-        log.debug('%s._send_frame: %r', self.__class__.__name__, frame)
-
         marshalled_frame = frame.marshal()
         self.bytes_sent += len(marshalled_frame)
         self.frames_sent += 1
@@ -653,12 +639,11 @@ class Connection(object):
         raise NotImplementedError('%s needs to implement this function ' %\
                                   self.__class__.__name__)
 
+    @log.method_call
     def _send_method(self, channel_number, method, content=None):
         """
         Constructs a RPC method frame and then sends it to the broker
         """
-        log.debug('%s.send_method(%i, %s, %s)', self.__class__.__name__,
-                      channel_number, method, content)
         self._send_frame(frames.Method(channel_number, method))
 
         if isinstance(content, tuple):
@@ -699,30 +684,30 @@ class ConnectionState(object):
     HEADER_SIZE = 7
     FOOTER_SIZE = 1
 
+    @log.method_call
     def __init__(self):
-
         self.channel_max = None
         self.frame_max = None
         self._return_to_idle()
 
+    @log.method_call
     def tune(self, channel_max, frame_max):
-
         self.channel_max = channel_max
         self.frame_max = frame_max
 
+    @log.method_call
     def _return_to_idle(self):
-
         self.inbound_buffer = list()
         self.inbound_available = 0
         self.target_size = ConnectionState.HEADER_SIZE
         self.state = self._waiting_for_header
 
+    @log.method_call
     def _inbound(self):
-
         return ''.join(self.inbound_buffer)
 
+    @log.method_call
     def handle_input(self, received_data):
-
         total_bytes_consumed = 0
 
         while True:
@@ -745,10 +730,10 @@ class ConnectionState(object):
             if maybe_result:
                 return total_bytes_consumed, maybe_result
 
+    @log.method_call
     def _waiting_for_header(self, inbound):
         # Here we switch state without resetting the inbound_buffer,
         # because we want to keep the frame header.
-
         if inbound[:3] == 'AMQ':
             # Protocol header.
             self.target_size = 8
@@ -759,8 +744,8 @@ class ConnectionState(object):
                                ConnectionState.FOOTER_SIZE
             self.state = self._waiting_for_body
 
+    @log.method_call
     def _waiting_for_body(self, inbound):
-
         if ord(inbound[-1]) != spec.FRAME_END:
             raise InvalidFrameError("Invalid frame end byte", inbound[-1])
 
@@ -790,8 +775,8 @@ class ConnectionState(object):
         # Ignore the frame
         return None
 
+    @log.method_call
     def _waiting_for_protocol_header(self, inbound):
-
         if inbound[3] != 'P':
             raise InvalidProtocolHeader(inbound)
 

@@ -48,7 +48,6 @@
 # ***** END LICENSE BLOCK *****
 
 import json
-import logging
 import os
 import pika
 
@@ -81,9 +80,9 @@ class PikaClient(object):
 
     def connect(self):
         if self.connecting:
-            logging.info('PikaClient: Already connecting to RabbitMQ')
+            pika.log.info('PikaClient: Already connecting to RabbitMQ')
             return
-        logging.info('PikaClient: Connecting to RabbitMQ on localhost:5672')
+        pika.log.info('PikaClient: Connecting to RabbitMQ on localhost:5672')
         self.connecting = True
 
         credentials = pika.PlainCredentials('guest', 'guest')
@@ -96,13 +95,13 @@ class PikaClient(object):
         self.connection.add_on_close_callback(self.on_closed)
 
     def on_connected(self, connection):
-        logging.info('PikaClient: Connected to RabbitMQ on localhost:5672')
+        pika.log.info('PikaClient: Connected to RabbitMQ on localhost:5672')
         self.connected = True
         self.connection = connection
         self.connection.channel(self.on_channel_open)
 
     def on_channel_open(self, channel):
-        logging.info('PikaClient: Channel Open, Declaring Exchange')
+        pika.log.info('PikaClient: Channel Open, Declaring Exchange')
         self.channel = channel
         self.channel.exchange_declare(exchange='tornado',
                                       type="direct",
@@ -111,7 +110,7 @@ class PikaClient(object):
                                       callback=self.on_exchange_declared)
 
     def on_exchange_declared(self, frame):
-        logging.info('PikaClient: Exchange Declared, Declaring Queue')
+        pika.log.info('PikaClient: Exchange Declared, Declaring Queue')
         self.channel.queue_declare(queue=self.queue_name,
                                    auto_delete=True,
                                    durable=False,
@@ -119,15 +118,15 @@ class PikaClient(object):
                                    callback=self.on_queue_declared)
 
     def on_queue_declared(self, frame):
-        logging.info('PikaClient: Queue Declared, Binding Queue')
+        pika.log.info('PikaClient: Queue Declared, Binding Queue')
         self.channel.queue_bind(exchange='tornado',
                                 queue=self.queue_name,
                                 routing_key='tornado.*',
                                 callback=self.on_queue_bound)
 
     def on_queue_bound(self, frame):
-        logging.info('PikaClient: Queue Bound, Issuing Basic Consume')
-        self.channel.basic_consume(consumer=self.on_pika_message,
+        pika.log.info('PikaClient: Queue Bound, Issuing Basic Consume')
+        self.channel.basic_consume(consumer_callback=self.on_pika_message,
                                    queue=self.queue_name,
                                    no_ack=True)
         # Send any messages pending
@@ -138,13 +137,13 @@ class PikaClient(object):
                                        properties=properties)
 
     def on_pika_message(self, channel, method, header, body):
-        logging.info('PikaCient: Message receive, delivery tag #%i' % \
+        pika.log.info('PikaCient: Message receive, delivery tag #%i' % \
                      method.delivery_tag)
         # Append it to our messages list
         self.messages.append(body)
 
     def on_basic_cancel(self, frame):
-        logging.info('PikaClient: Basic Cancel Ok')
+        pika.log.info('PikaClient: Basic Cancel Ok')
         # If we don't have any more consumer processes running close
         self.connection.close()
 
@@ -212,11 +211,11 @@ if __name__ == '__main__':
     pc = PikaClient()
     application.pika = pc  # We want a shortcut for below for easier typing
 
-    # Set our logging options
-    logging.basicConfig(level=logging.DEBUG)
+    # Set our pika.log options
+    pika.log.setup(color=True)
 
     # Start the HTTP Server
-    logging.info("Starting Tornado HTTPServer on port %i" % PORT)
+    pika.log.info("Starting Tornado HTTPServer on port %i" % PORT)
     http_server = tornado.httpserver.HTTPServer(application)
     http_server.listen(PORT)
 

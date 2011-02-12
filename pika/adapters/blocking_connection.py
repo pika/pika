@@ -68,10 +68,11 @@ class BlockingConnection(BaseConnection):
     messages from Basic.Deliver, Basic.GetOk, and Basic.Return.
     """
 
+    @log.method_call
     def __init__(self, parameters=None, reconnection_strategy=None):
-
         BaseConnection.__init__(self, parameters, None, reconnection_strategy)
 
+    @log.method_call
     def _adapter_connect(self, host, port):
 
         BaseConnection._adapter_connect(self, host, port)
@@ -84,6 +85,7 @@ class BlockingConnection(BaseConnection):
             self._handle_read()
         return self
 
+    @log.method_call
     def close(self, code=200, text='Normal shutdown'):
         BaseConnection.close(self, code, text)
         while self.is_open:
@@ -92,9 +94,11 @@ class BlockingConnection(BaseConnection):
             except AMQPConnectionError:
                 break
 
+    @log.method_call
     def disconnect(self):
         self.socket.close()
 
+    @log.method_call
     def _handle_disconnect(self):
         """
         Called internally when we know our socket is disconnected already
@@ -104,6 +108,7 @@ class BlockingConnection(BaseConnection):
         # Close up our Connection state
         self._on_connection_closed(None, True)
 
+    @log.method_call
     def _flush_outbound(self):
         try:
             self._handle_write()
@@ -114,6 +119,7 @@ class BlockingConnection(BaseConnection):
                 log.error(SOCKET_TIMEOUT_MESSAGE)
                 self._handle_disconnect()
 
+    @log.method_call
     def process_data_events(self):
         if not self.is_open:
             raise AMQPConnectionError
@@ -127,12 +133,11 @@ class BlockingConnection(BaseConnection):
                 log.error(SOCKET_TIMEOUT_MESSAGE)
                 self._handle_disconnect()
 
+    @log.method_call
     def channel(self, channel_number=None):
         """
         Create a new channel with the next available or specified channel #
         """
-        log.debug('%s.channel' % self.__class__.__name__)
-
         # We'll loop on this
         self._channel_open = False
 
@@ -157,30 +162,29 @@ class BlockingChannelTransport(ChannelTransport):
 
     no_response_frame = ['Basic.Ack', 'Basic.Reject', 'Basic.RecoverAsync']
 
+    @log.method_call
     def __init__(self, connection, channel_number):
         ChannelTransport.__init__(self, connection, channel_number)
         self._replies = list()
         self._frames = dict()
 
+    @log.method_call
     def add_reply(self, reply):
         reply = self.callbacks.sanitize(reply)
         self._replies.append(reply)
 
+    @log.method_call
     def remove_reply(self, frame):
         key = self.callbacks.sanitize(frame)
         if key in self._replies:
             self._replies.remove(key)
 
+    @log.method_call
     def rpc(self, method, callback=None, acceptable_replies=[]):
         """
         Shortcut wrapper to the Connection's rpc command using its callback
         stack, passing in our channel number
         """
-        log.debug("%s.rpc(%s, %s, %r)" % (self.__class__.__name__,
-                                              callback,
-                                              method,
-                                              acceptable_replies))
-
         # Make sure the channel is open
         self._ensure()
 
@@ -210,19 +214,19 @@ class BlockingChannelTransport(ChannelTransport):
                 del(self._frames[reply])
                 return frame
 
+    @log.method_call
     def _on_rpc_complete(self, frame):
         key = self.callbacks.sanitize(frame)
         self._replies.append(key)
         self._frames[key] = frame
         self._received_response = True
 
+    @log.method_call
     def send_method(self, method, content=None, wait=True):
         """
         Shortcut wrapper to send a method through our connection, passing in
         our channel number
         """
-        log.debug("%s.send_method: %s(%s)" % (self.__class__.__name__,
-                                                  method, content))
         self._received_response = False
         self.connection._send_method(self.channel_number, method, content)
         while wait and not self._received_response:
@@ -234,6 +238,7 @@ class BlockingChannelTransport(ChannelTransport):
 
 class BlockingChannel(Channel):
 
+    @log.method_call
     def __init__(self, connection, channel_number, transport=None):
 
         # We need to do this before the channel is invoked and send_method is
@@ -244,15 +249,18 @@ class BlockingChannel(Channel):
         Channel.__init__(self, connection, channel_number, None, transport)
         self.basic_get_ = Channel.basic_get
 
+    @log.method_call
     def _open(self, frame):
         Channel._open(self, frame)
         self.transport.remove_reply(frame)
 
+    @log.method_call
     def _on_remote_close(self, frame):
         Channel._on_remote_close(self, frame)
         raise AMQPChannelError(frame.reply_code,
                                frame.reply_text)
 
+    @log.method_call
     def basic_publish(self, exchange, routing_key, body,
                       properties=None, mandatory=False, immediate=False):
         """
@@ -261,8 +269,6 @@ class BlockingChannel(Channel):
         If flow control is enabled and you publish a message while another is
         sending, a ContentTransmissionForbidden exception ill be generated
         """
-        log.debug("%s.basic_publish" % self.__class__.__name__)
-
         # If properties are not passed in, use the spec's default
         properties = properties or spec.BasicProperties()
         self.transport.send_method(spec.Basic.Publish(exchange=exchange,
@@ -271,6 +277,7 @@ class BlockingChannel(Channel):
                                                       immediate=immediate),
                                    (properties, body), False)
 
+    @log.method_call
     def basic_consume(self, consumer,
                       queue='', no_ack=False, exclusive=False,
                       consumer_tag=None):
@@ -296,30 +303,40 @@ class BlockingChannel(Channel):
                                               exclusive=exclusive),
                            self._on_consume_ok, [spec.Basic.ConsumeOk])
 
+    @log.method_call
     def _on_consume_ok(self, frame):
-        log.debug("%s._on_consume_ok" % self.__class__.__name__)
         self._consuming = True
         while self._consuming:
             self.connection.process_data_events()
 
+    @log.method_call
     def _on_basic_deliver(self, method_frame, header_frame, body):
-        log.debug("%s._on_basic_deliver" % self.__class__.__name__)
         # Call our consumer callback with the data
         self._consumer(self,
                        method_frame.method,
                        header_frame.properties,
                        body)
 
+    @log.method_call
     def stop_consuming(self, consumer_tag=None):
         """
         Sends off the Basic.Cancel to let RabbitMQ know to stop consuming and
         sets our internal state to exit out of the basic_consume.
         """
-        log.debug("%s.stop_consuming" % self.__class__.__name__)
         self.basic_cancel(consumer_tag or 'ctag0')
         self._consuming = False
 
+    @log.method_call
     def basic_get(self, ticket=0, queue=None, no_ack=False):
+        """
+        Get a single message from the AMQP broker. The response will include
+        either a single method frame of Basic.GetEmpty or three frames:
+        the method frame (Basic.GetOk), header frame and
+        the body, like the reponse from Basic.Consume.  For more information
+        on basic_get and its parameters, see:
+
+        http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.get
+        """
         self._get_response = None
         self.basic_get_(self, self._on_basic_get, ticket, queue, no_ack)
         while not self._get_response:
@@ -329,12 +346,14 @@ class BlockingChannel(Channel):
                self._get_response[1], \
                self._get_response[2]
 
+    @log.method_call
     def _on_basic_get(self, caller, method_frame, header_frame, body):
         self.transport._received_response = True
         self._get_response = method_frame, \
                              header_frame, \
                              body
 
-    def _on_basic_get_empty(self, caller, frame):
+    @log.method_call
+    def _on_basic_get_empty(self, frame):
         self.transport._received_response = True
         self._get_response = frame.method, None, None

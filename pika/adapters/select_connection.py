@@ -64,6 +64,7 @@ ERROR = 0x0008
 
 class SelectConnection(BaseConnection):
 
+    @log.method_call
     def __init__(self, parameters=None, on_open_callback=None,
                  reconnection_strategy=None):
         # Setup the IOLoop
@@ -73,6 +74,7 @@ class SelectConnection(BaseConnection):
         BaseConnection.__init__(self, parameters, on_open_callback,
                                 reconnection_strategy)
 
+    @log.method_call
     def _adapter_connect(self, host, port):
         """
         Connect to the given host and port
@@ -87,6 +89,7 @@ class SelectConnection(BaseConnection):
         # Let everyone know we're connected
         self._on_connected()
 
+    @log.method_call
     def _flush_outbound(self):
         """
         Call the state manager who will figure out that we need to write then
@@ -108,6 +111,7 @@ class IOLoop(object):
 
     Also provides a convenient pass-through for add_timeout and set_events
     """
+    @log.method_call
     def __init__(self):
         self.fileno = None
 
@@ -120,12 +124,14 @@ class IOLoop(object):
             class_._instance = class_()
         return class_._instance
 
+    @log.method_call
     def add_timeout(self, deadline, handler):
         """
         Pass through a deadline and handler to the active poller
         """
         return self.poller.add_timeout(deadline, handler)
 
+    @log.method_call
     def remove_timeout(self, timeout_id):
         """
         Remove a timeout if it's still in the timeout stack of our poller
@@ -136,6 +142,7 @@ class IOLoop(object):
     def poller_type(self):
         return self.poller.__class__.__name__
 
+    @log.method_call
     def start_poller(self, handler, events):
         """
         Start the Poller, once started will take over for IOLoop.start()
@@ -193,48 +200,44 @@ class SelectPoller(object):
     # How many seconds to wait until we try and process timeouts
     TIMEOUT = 0.5
 
+    @log.method_call
     def __init__(self, fileno, handler, events):
-        log.debug('%s.__init__(%f, %s, %s)', self.__class__.__name__,
-                  fileno, handler, events)
         self.fileno = fileno
         self.events = events
         self.open = True
         self._handler = handler
         self._timeouts = dict()
 
+    @log.method_call
     def update_handler(self, fileno, events):
         """
         Set our events to our current events
         """
-        log.debug('%s.update_handler(%i, %i)', self.__class__.__name__,
-                  fileno, events)
         self.events = events
 
+    @log.method_call
     def add_timeout(self, deadline, handler):
         """
         Add a timeout to the stack by deadline
         """
-        log.debug('%s.add_timeout(deadline=%.4f,handler=%s)',
-                  self.__class__.__name__, deadline, handler)
         timeout_id = '%.8f' % time.time()
         self._timeouts[timeout_id] = {'deadline': deadline,
                                       'handler': handler}
         return timeout_id
 
+    @log.method_call
     def remove_timeout(self, timeout_id):
         """
         Remove a timeout from the stack
         """
-        log.debug('%s.remove_timeout(timeout_id=%s)',
-                  self.__class__.__name__, timeout_id)
         if timeout_id in self._timeouts:
             del self._timeouts[timeout_id]
 
+    @log.method_call
     def process_timeouts(self):
         """
         Process our self._timeouts event stack
         """
-        log.debug("%s.process_timeouts", self.__class__.__name__)
         # Process our timeout events
         keys = self._timeouts.keys()
 
@@ -248,6 +251,7 @@ class SelectPoller(object):
                 self._timeouts[timeout_id]['handler']()
                 del(self._timeouts[timeout_id])
 
+    @log.method_call
     def start(self):
         """
         Start the main poller loop. It will loop here until self.closed
@@ -260,6 +264,7 @@ class SelectPoller(object):
             # Process our timeouts
             self.process_timeouts()
 
+    @log.method_call
     def poll(self):
         # Build our values to pass into select
         input_fileno, output_fileno, error_fileno = [], [], []
@@ -297,6 +302,7 @@ class SelectPoller(object):
 
 class KQueuePoller(SelectPoller):
 
+    @log.method_call
     def __init__(self, fileno, handler, events):
         SelectPoller.__init__(self, fileno, handler, events)
         # Make our events 0 by default for first run of update_handler
@@ -306,10 +312,8 @@ class KQueuePoller(SelectPoller):
         # KQueue needs us to register each event individually
         self.update_handler(fileno, events)
 
+    @log.method_call
     def update_handler(self, fileno, events):
-        log.debug('%s.update_handler(%i, %i)', self.__class__.__name__,
-                  fileno, events)
-
         # No need to update if our events are the same
         if self.events == events:
             return
@@ -369,6 +373,7 @@ class KQueuePoller(SelectPoller):
         # Carry the state we just sent
         self.events = events
 
+    @log.method_call
     def start(self):
         """
         Start the main poller loop. It will loop here until self.closed
@@ -381,6 +386,7 @@ class KQueuePoller(SelectPoller):
             # Process our timeouts
             self.process_timeouts()
 
+    @log.method_call
     def poll(self):
 
         # We'll build a bitmask of events that happened in kqueue
@@ -420,17 +426,18 @@ class KQueuePoller(SelectPoller):
 
 class PollPoller(SelectPoller):
 
+    @log.method_call
     def __init__(self, fileno, handler, events):
         SelectPoller.__init__(self, fileno, handler, events)
         self._poll = select.poll()
         self._poll.register(fileno, self.events)
 
+    @log.method_call
     def update_handler(self, fileno, events):
-        log.debug('%s.update_handler(%i, %i)', self.__class__.__name__,
-                  fileno, events)
         self.events = events
         self._poll.modify(fileno, self.events)
 
+    @log.method_call
     def start(self):
         """
         Start the main poller loop. It will loop here until self.closed
@@ -443,6 +450,7 @@ class PollPoller(SelectPoller):
             # Process our timeouts
             self.process_timeouts()
 
+    @log.method_call
     def poll(self):
 
         # Poll until TIMEOUT waiting for an event
@@ -459,6 +467,7 @@ class EPollPoller(PollPoller):
     """
     EPoll and Poll function signatures match.
     """
+    @log.method_call
     def __init__(self, fileno, handler, events):
         SelectPoller.__init__(self, fileno, handler, events)
         self._poll = select.epoll()

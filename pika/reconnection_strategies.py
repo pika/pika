@@ -81,6 +81,7 @@ class SimpleReconnectionStrategy(ReconnectionStrategy):
 
     can_reconnect = True
 
+    @log.method_call
     def __init__(self, initial_retry_delay=1.0, multiplier=2.0,
                  max_delay=30.0, jitter=0.5):
 
@@ -90,37 +91,22 @@ class SimpleReconnectionStrategy(ReconnectionStrategy):
         self.jitter = jitter
         self._reset()
 
+    @log.method_call
     def _reset(self):
-
-        log.debug("%s._reset Called" % self.__class__.__name__)
         self.current_delay = self.initial_retry_delay
         self.attempts_since_last_success = 0
 
+    @log.method_call
     def on_connect_attempt(self, conn):
-        log.debug("%s.on_connect_attempt: %r",  self.__class__.__name__, conn)
         self.attempts_since_last_success += 1
 
-    def on_connect_attempt_failure(self, conn):
-        log.error("%s.on_connect_attempt_failure: %r",
-                  self.__class__.__name__, conn)
-
-    def on_transport_connected(self, conn):
-        log.debug("%s.on_transport_connected: %r",
-                  self.__class__.__name__, conn)
-
-    def on_transport_disconnected(self, conn):
-
-        log.debug("%s.on_transport_disconnected: %r",
-                  self.__class__.__name__, conn)
-
+    @log.method_call
     def on_connection_open(self, conn):
-        log.debug("%s.on_connection_open: %r",
-                  self.__class__.__name__, conn)
         self._reset()
 
+    @log.method_call
     def on_connection_closed(self, conn):
         t = self.current_delay * ((random.random() * self.jitter) + 1)
-
         log.info("%s retrying %r in %r seconds (%r attempts)",
                  self.__class__.__name__, conn.parameters, t,
                  self.attempts_since_last_success)

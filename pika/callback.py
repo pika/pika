@@ -70,6 +70,7 @@ class CallbackManager(object):
             class_._instance = class_()
         return class_._instance
 
+    @log.method_call
     def sanitize(self, key):
         """
         Will take Frame objects, classes, etc and attempt to return a valid
@@ -86,6 +87,7 @@ class CallbackManager(object):
 
         return str(key)
 
+    @log.method_call
     def add(self, prefix, key, callback, one_shot=True, only_caller=None):
         """
         Add a callback to the stack for the specified key. If the call is
@@ -125,6 +127,7 @@ class CallbackManager(object):
                       self.__class__.__name__, prefix, key, callback)
         return prefix, key
 
+    @log.method_call
     def pending(self, prefix, key):
         """
         Return count of callbacks for a given prefix or key or None
@@ -137,6 +140,7 @@ class CallbackManager(object):
 
         return len(self._callbacks[prefix][key])
 
+    @log.method_call
     def process(self, prefix, key, caller, *args, **keywords):
         """
         Run through and process all the callbacks for the specified keys.
@@ -173,6 +177,7 @@ class CallbackManager(object):
                           (callback, prefix, key))
             callback(*args, **keywords)
 
+    @log.method_call
     def remove(self, prefix, key, callback=None):
         """
         Remove a callback from the stack by prefix, key and optionally

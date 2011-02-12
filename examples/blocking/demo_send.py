@@ -50,16 +50,13 @@
 '''
 Example of simple producer, creates one message and exits.
 '''
-
-import logging
 import pika
 import sys
 import time
 
 from pika.adapters import BlockingConnection
 
-logging.basicConfig(level=logging.INFO)
-
+pika.log.setup(color=True)
 
 if __name__ == '__main__':
     # Connect to RabbitMQ
@@ -84,11 +81,10 @@ if __name__ == '__main__':
                               routing_key="test",
                               body=message,
                               properties=pika.BasicProperties(
-                              content_type="text/plain",
-                              delivery_mode=1))
+                                content_type="text/plain",
+                                delivery_mode=1))
         count += 1
         if count % 1000 == 0:
             duration = time.time() - start_time
-            logging.info("%i Messages Sent: %.8f per second" % (count,
-                                                                count / \
-                                                                duration))
+            pika.log.info("%i Messages Sent: %.8f per second",
+                          count, count / duration)

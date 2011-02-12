@@ -55,6 +55,7 @@ It's ideal to use as a network buffer, from which you send data to the socket.
 Use this to avoid concatenating or splitting large strings.
 """
 import os
+import pika.log as log
 try:
     import cStringIO as StringIO
 except ImportError:
@@ -87,22 +88,29 @@ class SimpleBuffer(object):
     offset = 0
     size = 0
 
+    @log.method_call
     def __init__(self, data=None):
         self.buf = StringIO.StringIO()
         if data is not None:
             self.write(data)
         self.buf.seek(0, os.SEEK_END)
 
+    @log.method_call
     def write(self, *data_strings):
-        """ Append given strings to the buffer. """
+        """
+        Append given strings to the buffer.
+        """
         for data in data_strings:
             if not data:
                 continue
             self.buf.write(data)
             self.size += len(data)
 
+    @log.method_call
     def read(self, size=None):
-        """ Read the data from the buffer, at most 'size' bytes. """
+        """
+        Read the data from the buffer, at most 'size' bytes.
+        """
         if size is 0:
             return ''
 
@@ -116,8 +124,11 @@ class SimpleBuffer(object):
         self.buf.seek(0, os.SEEK_END)
         return data
 
+    @log.method_call
     def consume(self, size):
-        """ Move pointer and discard first 'size' bytes. """
+        """
+        Move pointer and discard first 'size' bytes.
+        """
         self.offset += size
         self.size -= size
         # GC old StringIO instance and free memory used by it.
@@ -127,15 +138,21 @@ class SimpleBuffer(object):
             self.buf = StringIO.StringIO()
             self.offset = 0
 
+    @log.method_call
     def read_and_consume(self, size):
-        """ Read up to 'size' bytes, also remove it from the buffer. """
+        """
+        Read up to 'size' bytes, also remove it from the buffer.
+        """
         assert(self.size >= size)
         data = self.read(size)
         self.consume(size)
         return data
 
+    @log.method_call
     def send_to_socket(self, sd):
-        """ Faster way of sending buffer data to socket 'sd'. """
+        """
+        Faster way of sending buffer data to socket 'sd'.
+        """
         self.buf.seek(self.offset)
         r = sd.send(self.buf.read())
         self.buf.seek(0, os.SEEK_END)
@@ -145,8 +162,11 @@ class SimpleBuffer(object):
             self.consume(0)
         return r
 
+    @log.method_call
     def flush(self):
-        """ Remove all the data from buffer. """
+        """
+        Remove all the data from buffer.
+        """
         self.consume(self.size)
 
     def __nonzero__(self):

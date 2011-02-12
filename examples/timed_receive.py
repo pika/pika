@@ -51,7 +51,6 @@
 Example of simple consumer. Acks each message as it arrives.
 '''
 
-import logging
 import pika
 import sys
 import time
@@ -59,7 +58,7 @@ import time
 # Import all adapters for easier experimentation
 from pika.adapters import *
 
-logging.basicConfig(level=logging.INFO)
+pika.log.setup(color=True)
 
 channel = None
 connection = None
@@ -70,14 +69,14 @@ start_time = None
 
 def on_connected(connection):
     global channel
-    logging.info("demo_send: Connected to RabbitMQ")
+    pika.log.info("demo_send: Connected to RabbitMQ")
     connection.channel(on_channel_open)
 
 
 def on_channel_open(channel_):
     global channel
     channel = channel_
-    logging.info("demo_send: Received our Channel")
+    pika.log.info("demo_send: Received our Channel")
     channel.queue_declare(queue="test", durable=True,
                           exclusive=False, auto_delete=False,
                           callback=on_queue_declared)
@@ -85,7 +84,7 @@ def on_channel_open(channel_):
 
 def on_queue_declared(frame):
     global start_time
-    logging.info("demo_send: Queue Declared")
+    pika.log.info("demo_send: Queue Declared")
     start_time = time.time()
     channel.basic_consume(handle_delivery, queue='test', no_ack=True)
 
@@ -100,8 +99,8 @@ def handle_delivery(channel, method, header, body):
         rate = sent / duration
         last_count = count
         start_time = now
-        logging.info("timed_receive: %i Messages Received, %.4f per second" %\
-                     (count, rate))
+        pika.log.info("timed_receive: %i Messages Received, %.4f per second",
+                      count, rate)
 
 
 if __name__ == '__main__':

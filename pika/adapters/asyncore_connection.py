@@ -63,6 +63,7 @@ class AsyncoreDispatcher(asyncore.dispatcher):
     function.
     """
 
+    @log.method_call
     def __init__(self, host, port):
         """
         Initialize the dispatcher, socket and our defaults. We turn of nageling
@@ -82,26 +83,27 @@ class AsyncoreDispatcher(asyncore.dispatcher):
         self.writable_ = False
         self.map = None
 
+    @log.method_call
     def handle_connect(self):
         """
         asyncore required method. Is called on connection.
         """
-        log.debug("%s.handle_connect", self.__class__.__name__)
         self.connecting = False
         self.connection._on_connected()
 
         # Make our own map to pass in places
         self.map = dict({self.socket.fileno(): self})
 
+    @log.method_call
     def handle_close(self):
         """
         asyncore required method. Is called on close.
         """
-        log.debug("%s.handle_close", self.__class__.__name__)
         # If we're not already closing or closed, disconnect the Connection
         if not self.connection.closing and not self.connection.closed:
             self.connection._adapter_disconnect()
 
+    @log.method_call
     def handle_read(self):
         """
         Read from the socket and call our on_data_available with the data
@@ -120,6 +122,7 @@ class AsyncoreDispatcher(asyncore.dispatcher):
         # Pass the data into our top level frame dispatching method
         self.connection._on_data_available(data)
 
+    @log.method_call
     def handle_write(self):
         """
         asyncore required function, is called when we can write to the socket
@@ -168,17 +171,17 @@ class AsyncoreDispatcher(asyncore.dispatcher):
             class_._instance = class_()
         return class_._instance
 
+    @log.method_call
     def add_timeout(self, deadline, handler):
         """
         Add a timeout to the stack by deadline
         """
-        log.debug('%s.add_timeout(deadline=%.4f,handler=%s)',
-                  self.__class__.__name__, deadline, handler)
         timeout_id = 'id%.8f' % time.time()
         self._timeouts[timeout_id] = {'deadline': deadline,
                                       'handler': handler}
         return timeout_id
 
+    @log.method_call
     def remove_timeout(self, timeout_id):
         """
         Remove a timeout from the stack
@@ -186,11 +189,11 @@ class AsyncoreDispatcher(asyncore.dispatcher):
         if timeout_id in self._timeouts:
             del self._timeouts[timeout_id]
 
+    @log.method_call
     def _process_timeouts(self):
         """
         Process our self._timeouts event stack
         """
-        log.debug("%s.process_timeouts", self.__class__.__name__)
         # Process our timeout events
         keys = self._timeouts.keys()
         start_time = time.time()
@@ -203,12 +206,12 @@ class AsyncoreDispatcher(asyncore.dispatcher):
                 self._timeouts[timeout_id]['handler']()
                 del(self._timeouts[timeout_id])
 
+    @log.method_call
     def start(self):
         """
         Pika Adapter IOLoop start function. This blocks until we are no longer
         connected.
         """
-        log.debug("%s.start", self.__class__.__name__)
         while self.connected or self.connecting:
             try:
                 # Use our socket map if we've made it, makes things less buggy
@@ -221,17 +224,18 @@ class AsyncoreDispatcher(asyncore.dispatcher):
                     break
             self._process_timeouts()
 
+    @log.method_call
     def stop(self):
         """
         Pika Adapter IOLoop stop function. When called, it will close an open
         connection, exiting us out of the IOLoop running in start.
         """
-        log.debug("%s.stop", self.__class__.__name__)
         self.close()
 
 
 class AsyncoreConnection(BaseConnection):
 
+    @log.method_call
     def _adapter_connect(self, host, port):
         """
         Connect to our RabbitMQ boker using AsyncoreDispatcher, then setting
@@ -239,7 +243,6 @@ class AsyncoreConnection(BaseConnection):
         the handle to self so that the AsyncoreDispatcher object can call back
         into our various state methods.
         """
-        log.debug("%s.connect", self.__class__.__name__)
         self.ioloop = AsyncoreDispatcher(host, port)
 
         # Map some core values for compatibility
@@ -248,11 +251,11 @@ class AsyncoreConnection(BaseConnection):
         self.ioloop.suggested_buffer_size = self._suggested_buffer_size
         self.socket = self.ioloop.socket
 
+    @log.method_call
     def _flush_outbound(self):
         """
         We really can't flush the socket in asyncore, so instead just use this
         to toggle a flag that lets it know we want to write to the socket.
         """
-        log.debug("%s.flush_outbound", self.__class__.__name__)
         if self.outbound_buffer.size:
             self.ioloop.writable_ = True

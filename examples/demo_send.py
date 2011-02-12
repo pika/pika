@@ -50,13 +50,11 @@
 '''
 Example of simple producer, creates one message and exits.
 '''
-
-import logging
 import sys
 import pika
 import time
 
-logging.basicConfig(level=logging.INFO)
+pika.log.setup(color=True)
 
 connection = None
 channel = None
@@ -66,30 +64,30 @@ from pika.adapters import *
 
 
 def on_connected(connection):
-    logging.info("demo_send: Connected to RabbitMQ")
+    pika.log.info("demo_send: Connected to RabbitMQ")
     connection.channel(on_channel_open)
 
 
 def on_channel_open(channel_):
     global channel
     channel = channel_
-    logging.info("demo_send: Received our Channel")
+    pika.log.info("demo_send: Received our Channel")
     channel.queue_declare(queue="test", durable=True,
                           exclusive=False, auto_delete=False,
                           callback=on_queue_declared)
 
 
 def on_queue_declared(frame):
-    logging.info("demo_send: Queue Declared")
+    pika.log.info("demo_send: Queue Declared")
     for x in xrange(0, 10):
         message = "Hello World #%i: %.8f" % (x, time.time())
-        logging.info("Sending: %s" % message)
+        pika.log.info("Sending: %s" % message)
         channel.basic_publish(exchange='',
                               routing_key="test",
                               body=message,
                               properties=pika.BasicProperties(
-                              content_type="text/plain",
-                              delivery_mode=1))
+                                content_type="text/plain",
+                                delivery_mode=1))
 
     # Close our connection
     connection.close()

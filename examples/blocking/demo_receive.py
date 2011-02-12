@@ -51,22 +51,21 @@
 Example of simple consumer. Acks each message as it arrives.
 '''
 # Import all adapters for easier experimentation
-import logging
 import pika
 import sys
 
 from pika.adapters import BlockingConnection
 
-logging.basicConfig(level=logging.INFO)
+pika.log.setup(color=True)
 
 
-def handle_delivery(channel, method, header, body):
+def handle_delivery(channel, method_frame, header_frame, body):
     # Receive the data in 3 frames from RabbitMQ
-    logging.info("demo_send.handle_delivery")
-    logging.info("  method: %r" % method)
-    logging.info("  header: %r" % header)
-    logging.info("    body: %r" % body)
-    channel.basic_ack(delivery_tag=method.delivery_tag)
+    pika.log.info("Basic.Deliver %s delivery-tag %i: %s",
+                  header_frame.content_type,
+                  method_frame.delivery_tag,
+                  body)
+    channel.basic_ack(delivery_tag=method_frame.delivery_tag)
 
 if __name__ == '__main__':
     # Connect to RabbitMQ
