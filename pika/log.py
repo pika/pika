@@ -86,6 +86,8 @@ def method_call(method):
                 class_name = args[0].__class__.__name__
             except AttributeError:
                 class_name = 'Unknown'
+            except IndexError:
+                class_name = 'Unknown'
 
             # Build a list of arguments to send to the logger
             log_args = list()
