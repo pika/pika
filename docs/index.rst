@@ -31,8 +31,9 @@ Or you can directly install from GitHub with pip::
 
 You may also download the source for this version as a zip or tar.gz with the following URLs:
 
-- https://github.com/tonyg/pika/tarball/v0.9.3
-- https://github.com/tonyg/pika/zipball/v0.9.3
+ - http://pypi.python.org/packages/source/p/pika/pika-v0.9.3.tar.gz
+ 
+   MD5 File Signature: 2446b25d8cdca825d29af18fb50460c9
 
 To install from source, run "python setup.py install" in the root source directory.
 
