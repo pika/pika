@@ -133,24 +133,24 @@ This example shows how to use :py:meth:`Channel.basic_publish() <channel.Channel
 
 
     def on_connected(connection):
-        logging.info("demo_send: Connected to RabbitMQ")
+        pika.log.info("demo_send: Connected to RabbitMQ")
         connection.channel(on_channel_open)
 
 
     def on_channel_open(channel_):
         global channel
         channel = channel_
-        logging.info("demo_send: Received our Channel")
+        pika.log.info("demo_send: Received our Channel")
         channel.queue_declare(queue="test", durable=True,
                               exclusive=False, auto_delete=False,
                               callback=on_queue_declared)
 
 
     def on_queue_declared(frame):
-        logging.info("demo_send: Queue Declared")
+        pika.log.info("demo_send: Queue Declared")
         for x in xrange(0, 10):
             message = "Hello World #%i: %.8f" % (x, time.time())
-            logging.info("Sending: %s" % message)
+            pika.log.info("Sending: %s" % message)
             channel.basic_publish(exchange='',
                                   routing_key="test",
                                   body=message,
