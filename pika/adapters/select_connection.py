@@ -233,7 +233,6 @@ class SelectPoller(object):
         if timeout_id in self._timeouts:
             del self._timeouts[timeout_id]
 
-    @log.method_call
     def process_timeouts(self):
         """
         Process our self._timeouts event stack
