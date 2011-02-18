@@ -168,7 +168,6 @@ class BaseConnection(Connection):
         # Disconnect from our IOLoop and let Connection know what's up
         self._handle_disconnect()
 
-    @log.method_call
     def _handle_events(self, fd, events, error=None):
         """
         Our IO/Event loop have called us with events, so process them
