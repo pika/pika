@@ -120,7 +120,6 @@ class Connection(object):
 
         A reconnection_strategy of None will use the NullReconnectionStrategy
         """
-        # Our inbound data -> frame parsing buffer
         self._buffer = ''
 
         # Define our callback dictionary
@@ -673,7 +672,7 @@ class Connection(object):
         if body:
             max_piece = (self.state.frame_max - \
                          ConnectionState.HEADER_SIZE - \
-                         ConnectionState.END_SIZE)
+                         ConnectionState.FOOTER_SIZE)
             body_buf = simplebuffer.SimpleBuffer(body)
 
             while body_buf:
@@ -711,31 +710,30 @@ class ConnectionState(object):
         Receives raw socket data and attempts to turn it into a frame.
         Returns bytes used to make the frame and the frame
         """
-
         # Look to see if it's a header frame
         if data_in[0:4] == 'AMQP':
             data_out, frame = self._waiting_for_protocol_header(data_in)
             return len(data_out), frame
 
-        frame_end_delimiter = data_in.find(chr(spec.FRAME_END))
-        if frame_end_delimiter != -1:
-            temp = data_in.split(chr(spec.FRAME_END))
-            data_in = temp[0]
-        else:
-            # No Frame end delimiter, exit
-            return 0, None
-
         # Get the Frame Type, Channel Number and Frame Size
         frame_type, channel_number, frame_size = \
-            struct.unpack('>bhl', data_in[0:7])
+            struct.unpack('>BHL', data_in[0:7])
 
         # Get the frame data
-        frame_data = data_in[ConnectionState.HEADER_SIZE:]
+        frame_end = ConnectionState.HEADER_SIZE +\
+                    frame_size +\
+                    ConnectionState.END_SIZE
 
-        # Append our overhead to the framesize
-        total_frame_size = frame_size + \
-                           ConnectionState.HEADER_SIZE + \
-                           ConnectionState.END_SIZE
+        # We don't have all of the frame yet
+        if frame_end > len(data_in):
+            return 0, None
+
+        # The Frame termination chr is wrong
+        if data_in[frame_end - 1] != chr(spec.FRAME_END):
+            raise InvalidFrameError("Invalid FRAME_END marker")
+
+        # Get the raw frame data
+        frame_data = data_in[ConnectionState.HEADER_SIZE:frame_end - 1]
 
         if frame_type == spec.FRAME_METHOD:
 
@@ -749,12 +747,13 @@ class ConnectionState(object):
             method.decode(frame_data, 4)
 
             # Return the amount of data consumed and the Method object
-            return total_frame_size, frames.Method(channel_number, method)
+            return frame_end, frames.Method(channel_number, method)
 
         elif frame_type == spec.FRAME_HEADER:
 
             # Return the header class and body size
-            class_id, body_size = struct.unpack_from('>HxxQ', frame_data)
+            class_id, weight, body_size = struct.unpack_from('>HHQ',
+                                                             frame_data)
 
             # Get the Properties type
             properties = spec.props[class_id]()
@@ -763,18 +762,18 @@ class ConnectionState(object):
             properties.decode(frame_data)
 
             # Return a Header frame
-            return total_frame_size, frames.Header(channel_number,
-                                                   body_size,
-                                                   properties)
+            return frame_end, frames.Header(channel_number,
+                                            body_size,
+                                            properties)
 
         elif frame_type == spec.FRAME_BODY:
 
             # Return the amount of data consumed and the Body frame w/ data
-            return total_frame_size, frames.Body(channel_number, frame_data)
+            return frame_end, frames.Body(channel_number, frame_data)
 
         elif frame_type == spec.FRAME_HEARTBEAT:
 
             # Return the amount of data and a Heartbeat frame
-            return total_frame_size, frames.Heartbeat()
+            return frame_end, frames.Heartbeat()
 
         raise InvalidFrameError("Unknown frame type: %i" % frame_type)
