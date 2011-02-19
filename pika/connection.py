@@ -120,6 +120,8 @@ class Connection(object):
 
         A reconnection_strategy of None will use the NullReconnectionStrategy
         """
+        self._buffer = ''
+        
         # Define our callback dictionary
         self.callbacks = CallbackManager.instance()
 
@@ -559,19 +561,27 @@ class Connection(object):
 
     # Data packet and frame handling functions
     @log.method_call
-    def _on_data_available(self, data):
+    def _on_data_available(self, data_in):
         """
         This is called by our Adapter, passing in the data from the socket
         As long as we have buffer try and map out frame data
         """
-        while data:
-            consumed_count, frame = self.state.handle_input(data)
+        
+        # Append the data
+        self._buffer += data_in
+        
+        # Loop while we have a buffer and are getting frames from it    
+        while self._buffer:
+        
+            # Try and build a frame
+            consumed_count, frame = self.state.handle_input(self._buffer)
+            
+            # Remove the frame we just consumed from our data
+            self._buffer = self._buffer[consumed_count:]            
+            
             # If we don't have a frame, exit
             if not frame:
                 break
-
-            # Remove the frame we just consumed from our data
-            data = data[consumed_count:]
 
             # Increment our bytes received buffer for heartbeat checking
             self.bytes_received += consumed_count
@@ -682,13 +692,12 @@ class Connection(object):
 class ConnectionState(object):
 
     HEADER_SIZE = 7
-    FOOTER_SIZE = 1
+    END_SIZE = 1
 
     @log.method_call
     def __init__(self):
         self.channel_max = None
         self.frame_max = None
-        self._return_to_idle()
 
     @log.method_call
     def tune(self, channel_max, frame_max):
@@ -696,90 +705,76 @@ class ConnectionState(object):
         self.frame_max = frame_max
 
     @log.method_call
-    def _return_to_idle(self):
-        self.inbound_buffer = list()
-        self.inbound_available = 0
-        self.target_size = ConnectionState.HEADER_SIZE
-        self.state = self._waiting_for_header
+    def handle_input(self, data_in):
+        """
+        Receives raw socket data and attempts to turn it into a frame.
+        Returns bytes used to make the frame and the frame
+        """
 
-    @log.method_call
-    def _inbound(self):
-        return ''.join(self.inbound_buffer)
+        # Look to see if it's a header frame
+        if data_in[0:4] == 'AMQP':
+            data_out, frame = self._waiting_for_protocol_header(data_in)
+            return len(data_out), frame
 
-    @log.method_call
-    def handle_input(self, received_data):
-        total_bytes_consumed = 0
-
-        while True:
-            if not received_data:
-                return total_bytes_consumed, None
-
-            bytes_consumed = self.target_size - self.inbound_available
-            if len(received_data) < bytes_consumed:
-                bytes_consumed = len(received_data)
-
-            self.inbound_buffer.append(received_data[:bytes_consumed])
-            self.inbound_available += bytes_consumed
-            received_data = received_data[bytes_consumed:]
-            total_bytes_consumed += bytes_consumed
-
-            if self.inbound_available < self.target_size:
-                return total_bytes_consumed, None
-
-            maybe_result = self.state(self._inbound())
-            if maybe_result:
-                return total_bytes_consumed, maybe_result
-
-    @log.method_call
-    def _waiting_for_header(self, inbound):
-        # Here we switch state without resetting the inbound_buffer,
-        # because we want to keep the frame header.
-        if inbound[:3] == 'AMQ':
-            # Protocol header.
-            self.target_size = 8
-            self.state = self._waiting_for_protocol_header
+        frame_end_delimiter = data_in.find(chr(spec.FRAME_END))
+        if frame_end_delimiter != -1:
+            temp = data_in.split(chr(spec.FRAME_END))
+            data_in = temp[0]
         else:
-            self.target_size = struct.unpack_from('>I', inbound, 3)[0] + \
-                               ConnectionState.HEADER_SIZE + \
-                               ConnectionState.FOOTER_SIZE
-            self.state = self._waiting_for_body
-
-    @log.method_call
-    def _waiting_for_body(self, inbound):
-        if ord(inbound[-1]) != spec.FRAME_END:
-            raise InvalidFrameError("Invalid frame end byte", inbound[-1])
-
-        self._return_to_idle()
-
-        (frame_type, channel_number) = struct.unpack_from('>BH', inbound, 0)
+            # No Frame end delimiter, exit
+            return 0, None
+        
+        # Get the Frame Type, Channel Number and Frame Size
+        frame_type, channel_number, frame_size = \
+            struct.unpack('>bhl', data_in[0:7])
+        
+        # Get the frame data
+        frame_data = data_in[ConnectionState.HEADER_SIZE:]
+        
+        # Append our overhead to the framesize
+        total_frame_size = frame_size + \
+                           ConnectionState.HEADER_SIZE + \
+                           ConnectionState.END_SIZE
+        
         if frame_type == spec.FRAME_METHOD:
-            method_id = struct.unpack_from('>I', inbound,
-                                           ConnectionState.HEADER_SIZE)[0]
+        
+            # Get the Method ID from the frame data
+            method_id = struct.unpack_from('>I', frame_data)[0]
+            
+            # Get a Method object for this method_id
             method = spec.methods[method_id]()
-            method.decode(inbound, ConnectionState.HEADER_SIZE + 4)
-            return frames.Method(channel_number, method)
+            
+            # Decode the content
+            method.decode(frame_data, 4)
+            
+            # Return the amount of data consumed and the Method object
+            return total_frame_size, frames.Method(channel_number, method)
+            
         elif frame_type == spec.FRAME_HEADER:
-            (class_id, body_size) = \
-                struct.unpack_from('>HxxQ', inbound,
-                                   ConnectionState.HEADER_SIZE)
-            props = spec.props[class_id]()
-            props.decode(inbound, ConnectionState.HEADER_SIZE + 12)
-            return frames.Header(channel_number, body_size, props)
+            
+            # Return the header class and body size
+            class_id, body_size = struct.unpack_from('>HxxQ', frame_data)
+            
+            # Get the Properties type
+            properties = spec.props[class_id]()
+            
+            # Decode the properties
+            properties.decode(frame_data)
+            
+            # Return a Header frame
+            return total_frame_size, frames.Header(channel_number, 
+                                                   body_size,
+                                                   properties)
+        
         elif frame_type == spec.FRAME_BODY:
-            return frames.Body(channel_number,
-                                   inbound[ConnectionState.HEADER_SIZE: \
-                                           -ConnectionState.FOOTER_SIZE])
+
+            # Return the amount of data consumed and the Body frame w/ data
+            return total_frame_size, frames.Body(channel_number, frame_data)
+            
         elif frame_type == spec.FRAME_HEARTBEAT:
-            return frames.Heartbeat()
+            
+            # Return the amount of data and a Heartbeat frame
+            return total_frame_size, frames.Heartbeat()
+            
+        raise InvalidFrameError("Unknown frame type: %i" % frame_type)
 
-        # Ignore the frame
-        return None
-
-    @log.method_call
-    def _waiting_for_protocol_header(self, inbound):
-        if inbound[3] != 'P':
-            raise InvalidProtocolHeader(inbound)
-
-        self._return_to_idle()
-        major, minor, revision = struct.unpack_from('BBB', inbound, 5)
-        return frames.ProtocolHeader(major, minor, revision)

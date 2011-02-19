@@ -233,7 +233,6 @@ class SelectPoller(object):
         if timeout_id in self._timeouts:
             del self._timeouts[timeout_id]
 
-    @log.method_call
     def process_timeouts(self):
         """
         Process our self._timeouts event stack
@@ -264,7 +263,6 @@ class SelectPoller(object):
             # Process our timeouts
             self.process_timeouts()
 
-    @log.method_call
     def poll(self):
         # Build our values to pass into select
         input_fileno, output_fileno, error_fileno = [], [], []
@@ -386,7 +384,6 @@ class KQueuePoller(SelectPoller):
             # Process our timeouts
             self.process_timeouts()
 
-    @log.method_call
     def poll(self):
 
         # We'll build a bitmask of events that happened in kqueue
@@ -450,7 +447,6 @@ class PollPoller(SelectPoller):
             # Process our timeouts
             self.process_timeouts()
 
-    @log.method_call
     def poll(self):
 
         # Poll until TIMEOUT waiting for an event
