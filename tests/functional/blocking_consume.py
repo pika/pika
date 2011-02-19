@@ -65,6 +65,7 @@ HOST = 'localhost'
 PORT = 5672
 MESSAGES = 10
 
+
 def test_blocking_consume():
 
     parameters = pika.ConnectionParameters(host=HOST, port=PORT)

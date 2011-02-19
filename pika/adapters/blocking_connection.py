@@ -309,7 +309,6 @@ class BlockingChannel(Channel):
         while self._consuming:
             self.connection.process_data_events()
 
-
     @log.method_call
     def _on_basic_deliver(self, method_frame, header_frame, body):
         # Call our consumer callback with the data

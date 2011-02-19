@@ -120,8 +120,9 @@ class Connection(object):
 
         A reconnection_strategy of None will use the NullReconnectionStrategy
         """
+        # Our inbound data -> frame parsing buffer
         self._buffer = ''
-        
+
         # Define our callback dictionary
         self.callbacks = CallbackManager.instance()
 
@@ -566,19 +567,19 @@ class Connection(object):
         This is called by our Adapter, passing in the data from the socket
         As long as we have buffer try and map out frame data
         """
-        
+
         # Append the data
         self._buffer += data_in
-        
-        # Loop while we have a buffer and are getting frames from it    
+
+        # Loop while we have a buffer and are getting frames from it
         while self._buffer:
-        
+
             # Try and build a frame
             consumed_count, frame = self.state.handle_input(self._buffer)
-            
+
             # Remove the frame we just consumed from our data
-            self._buffer = self._buffer[consumed_count:]            
-            
+            self._buffer = self._buffer[consumed_count:]
+
             # If we don't have a frame, exit
             if not frame:
                 break
@@ -672,7 +673,7 @@ class Connection(object):
         if body:
             max_piece = (self.state.frame_max - \
                          ConnectionState.HEADER_SIZE - \
-                         ConnectionState.FOOTER_SIZE)
+                         ConnectionState.END_SIZE)
             body_buf = simplebuffer.SimpleBuffer(body)
 
             while body_buf:
@@ -723,58 +724,57 @@ class ConnectionState(object):
         else:
             # No Frame end delimiter, exit
             return 0, None
-        
+
         # Get the Frame Type, Channel Number and Frame Size
         frame_type, channel_number, frame_size = \
             struct.unpack('>bhl', data_in[0:7])
-        
+
         # Get the frame data
         frame_data = data_in[ConnectionState.HEADER_SIZE:]
-        
+
         # Append our overhead to the framesize
         total_frame_size = frame_size + \
                            ConnectionState.HEADER_SIZE + \
                            ConnectionState.END_SIZE
-        
+
         if frame_type == spec.FRAME_METHOD:
-        
+
             # Get the Method ID from the frame data
             method_id = struct.unpack_from('>I', frame_data)[0]
-            
+
             # Get a Method object for this method_id
             method = spec.methods[method_id]()
-            
+
             # Decode the content
             method.decode(frame_data, 4)
-            
+
             # Return the amount of data consumed and the Method object
             return total_frame_size, frames.Method(channel_number, method)
-            
+
         elif frame_type == spec.FRAME_HEADER:
-            
+
             # Return the header class and body size
             class_id, body_size = struct.unpack_from('>HxxQ', frame_data)
-            
+
             # Get the Properties type
             properties = spec.props[class_id]()
-            
+
             # Decode the properties
             properties.decode(frame_data)
-            
+
             # Return a Header frame
-            return total_frame_size, frames.Header(channel_number, 
+            return total_frame_size, frames.Header(channel_number,
                                                    body_size,
                                                    properties)
-        
+
         elif frame_type == spec.FRAME_BODY:
 
             # Return the amount of data consumed and the Body frame w/ data
             return total_frame_size, frames.Body(channel_number, frame_data)
-            
+
         elif frame_type == spec.FRAME_HEARTBEAT:
-            
+
             # Return the amount of data and a Heartbeat frame
             return total_frame_size, frames.Heartbeat()
-            
-        raise InvalidFrameError("Unknown frame type: %i" % frame_type)
 
+        raise InvalidFrameError("Unknown frame type: %i" % frame_type)
