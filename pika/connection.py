@@ -672,7 +672,7 @@ class Connection(object):
         if body:
             max_piece = (self.state.frame_max - \
                          ConnectionState.HEADER_SIZE - \
-                         ConnectionState.FOOTER_SIZE)
+                         ConnectionState.END_SIZE)
             body_buf = simplebuffer.SimpleBuffer(body)
 
             while body_buf:
