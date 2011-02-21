@@ -27,13 +27,13 @@ or::
 
 Or you can directly install from GitHub with pip::
 
-    pip install -e git+git://github.com/tonyg/pika.git@v0.9.3#egg=pika-v0.9.3
+    pip install -e git+git://github.com/tonyg/pika.git@v__VERSION_STRING__#egg=pika-v__VERSION_STRING__
 
 You may also download the source for this version as a zip or tar.gz with the following URLs:
 
- - http://pypi.python.org/packages/source/p/pika/pika-v0.9.3.tar.gz
+ - http://pypi.python.org/packages/source/p/pika/pika-v__VERSION_STRING__.tar.gz
 
-   MD5 File Signature: 2446b25d8cdca825d29af18fb50460c9
+   MD5 File Signature: __MD5_CHECKSUM__
 
 To install from source, run "python setup.py install" in the root source directory.
 

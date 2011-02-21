@@ -65,7 +65,7 @@ should also work with other AMQP 0-9-1 brokers.
 """
 
 setup(name='pika',
-      version='0.9.3',
+      version='__VERSION_STRING__',
       description='Pika Python AMQP Client Library',
       long_description=long_description,
       author='Tony Garnock-Jones',
