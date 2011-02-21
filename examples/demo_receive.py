@@ -56,7 +56,7 @@ import pika
 # Import all adapters for easier experimentation
 from pika.adapters import *
 
-pika.log.setup(pika.log.DEBUG, color=True)
+pika.log.setup(color=True)
 
 connection = None
 channel = None

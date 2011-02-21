@@ -712,8 +712,8 @@ class ConnectionState(object):
         """
         # Look to see if it's a header frame
         if data_in[0:4] == 'AMQP':
-            data_out, frame = self._waiting_for_protocol_header(data_in)
-            return len(data_out), frame
+            major, minor, revision = struct.unpack_from('BBB', data_in, 5)
+            return 9, frames.ProtocolHeader(major, minor, revision)
 
         # Get the Frame Type, Channel Number and Frame Size
         frame_type, channel_number, frame_size = \
