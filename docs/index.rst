@@ -31,7 +31,7 @@ Or you can directly install from GitHub with pip::
 
 You may also download the source for this version as a zip or tar.gz with the following URLs:
 
- - http://pypi.python.org/packages/source/p/pika/pika-v__VERSION_STRING__.tar.gz
+ - http://pypi.python.org/packages/source/p/pika/pika-__VERSION_STRING__.tar.gz
 
    MD5 File Signature: __MD5_CHECKSUM__
 
