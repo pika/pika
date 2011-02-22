@@ -95,13 +95,13 @@ distribution:
 	cd gh-pages && git add -A
 	cd gh-pages && git commit -m 'Update documentation from master' -a
 	cd gh-pages && git push
-	rm -rf gh-pages
+	rm -r gh-pages
 	
 	# Build the PKG-INFO file for uploading to pypi
 	cd dist/pika-$(VERSION) && python setup.py sdist && cp pika.egg-info/PKG-INFO ../
 
  	# Remove the build directory
-	rm -f  dist/pika-$(VERSION)
+	rm -r dist/pika-$(VERSION)
 	
 	# Output for changelog
 	git shortlog --no-merges v$(VERSION) ^$(LAST_VERSION) | cat
