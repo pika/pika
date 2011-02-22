@@ -4,6 +4,7 @@ AMQP_SPEC_JSON_FILES=$(AMQP_CODEGEN_DIR)/amqp-rabbitmq-0.9.1.json
 TEMP=$(shell ./versions.py)
 VERSIONS=$(foreach version, $(TEMP),$(version))
 PYTHON=$(word 1, ${VERSIONS})
+LAST_VERSION=$(shell git describe --tags --match v0* --abbrev=0)
 
 all:
 	@echo "\nRun "make install" or \"python setup.py install\" to install Pika\n"
@@ -59,3 +60,29 @@ install:
 	$(PYTHON) setup.py install
 
 sandbox: pika/spec.py test documentation
+	echo "Sandbox created"
+
+distribution:
+    # Example:
+    #  make distribution VERSION=0.9.4
+	echo "Building $(VERSION)"
+	git tag v$(VERSION)
+	mkdir -p dist/pika-$(VERSION)
+	git archive --format=tar v$(VERSION)  | tar -x -C dist/pika-$(VERSION)
+	rm dist/pika-$(VERSION)/.gitignore
+	sed -i 's/__VERSION_STRING__/$(VERSION)/g' dist/pika-$(VERSION)/setup.py dist/pika-$(VERSION)/docs/*
+	cd dist && tar cfz pika-$(VERSION).tar.gz pika-$(VERSION)/*
+	sed -i "s/__MD5_CHECKSUM__/$$(md5sum dist/pika-$(VERSION).tar.gz | awk {'print $$1'})/g" dist/pika-$(VERSION)/docs/index.rst
+	$(MAKE) -C dist/pika-$(VERSION)/docs html
+	git clone git@github.com:tonyg/pika.git -b gh-pages gh-pages
+	cd gh-pages && git rm -rf *
+	cp -R dist/pika-$(VERSION)/docs/_build/html/* gh-pages
+	cd gh-pages && git add -A
+	cd gh-pages && git commit -m 'Update documentation from master' -a
+	cd gh-pages && git push
+	rm -rf gh-pages dist/pika-$(VERSION)
+
+	# Output for changelog
+	git shortlog --no-merges v$(VERSION) ^$(LAST_VERSION) | cat
+	
+md5test:
