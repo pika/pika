@@ -198,7 +198,7 @@ class SelectPoller(object):
     to override the update_handler and start methods for additional types.
     """
     # How many seconds to wait until we try and process timeouts
-    TIMEOUT = 0.5
+    TIMEOUT = 1
 
     @log.method_call
     def __init__(self, fileno, handler, events):
