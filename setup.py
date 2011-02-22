@@ -1,10 +1,6 @@
 # ***** BEGIN LICENSE BLOCK *****
 #
-# The contents of this file are licensed under the Mozilla Public
-# License Version 1.1, and may also be used under the terms of the
-# General Public License 2.0.
-#
-# Refer to COPYING for details.
+# For copyright and licensing please refer to COPYING.
 #
 # ***** END LICENSE BLOCK *****
 
