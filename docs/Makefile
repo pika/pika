@@ -38,8 +38,6 @@ clean:
 
 html:
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
-	rm -rf ~/Sites/pika
-	cp -R $(BUILDDIR)/html ~/Sites/pika
 	@echo
 	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html."
 
