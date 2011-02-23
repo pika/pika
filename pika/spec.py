@@ -2330,7 +2330,6 @@ def has_content(methodNumber):
 
 class DriverMixin(object):
 
-    @log.method_call
     def exchange_declare(self, callback=None, ticket=0, exchange=None, type='direct', passive=False, durable=False, auto_delete=False, internal=False, nowait=False, arguments={}):
         """
         Implements the Exchange.Declare AMQP command. For context and usage:
@@ -2346,7 +2345,6 @@ class DriverMixin(object):
         return self.transport.rpc(Exchange.Declare(ticket=ticket, exchange=exchange, type=type, passive=passive, durable=durable, auto_delete=auto_delete, internal=internal, nowait=nowait, arguments=arguments), callback,
                                   [Exchange.DeclareOk])
 
-    @log.method_call
     def exchange_delete(self, callback=None, ticket=0, exchange=None, if_unused=False, nowait=False):
         """
         Implements the Exchange.Delete AMQP command. For context and usage:
@@ -2362,7 +2360,6 @@ class DriverMixin(object):
         return self.transport.rpc(Exchange.Delete(ticket=ticket, exchange=exchange, if_unused=if_unused, nowait=nowait), callback,
                                   [Exchange.DeleteOk])
 
-    @log.method_call
     def queue_declare(self, callback=None, ticket=0, queue='', passive=False, durable=False, exclusive=False, auto_delete=False, nowait=False, arguments={}):
         """
         Implements the Queue.Declare AMQP command. For context and usage:
@@ -2378,7 +2375,6 @@ class DriverMixin(object):
         return self.transport.rpc(Queue.Declare(ticket=ticket, queue=queue, passive=passive, durable=durable, exclusive=exclusive, auto_delete=auto_delete, nowait=nowait, arguments=arguments), callback,
                                   [Queue.DeclareOk])
 
-    @log.method_call
     def queue_bind(self, callback=None, ticket=0, queue='', exchange=None, routing_key='', nowait=False, arguments={}):
         """
         Implements the Queue.Bind AMQP command. For context and usage:
@@ -2394,7 +2390,6 @@ class DriverMixin(object):
         return self.transport.rpc(Queue.Bind(ticket=ticket, queue=queue, exchange=exchange, routing_key=routing_key, nowait=nowait, arguments=arguments), callback,
                                   [Queue.BindOk])
 
-    @log.method_call
     def queue_purge(self, callback=None, ticket=0, queue='', nowait=False):
         """
         Implements the Queue.Purge AMQP command. For context and usage:
@@ -2410,7 +2405,6 @@ class DriverMixin(object):
         return self.transport.rpc(Queue.Purge(ticket=ticket, queue=queue, nowait=nowait), callback,
                                   [Queue.PurgeOk])
 
-    @log.method_call
     def queue_delete(self, callback=None, ticket=0, queue='', if_unused=False, if_empty=False, nowait=False):
         """
         Implements the Queue.Delete AMQP command. For context and usage:
@@ -2426,7 +2420,6 @@ class DriverMixin(object):
         return self.transport.rpc(Queue.Delete(ticket=ticket, queue=queue, if_unused=if_unused, if_empty=if_empty, nowait=nowait), callback,
                                   [Queue.DeleteOk])
 
-    @log.method_call
     def queue_unbind(self, callback=None, ticket=0, queue='', exchange=None, routing_key='', arguments={}):
         """
         Implements the Queue.Unbind AMQP command. For context and usage:
@@ -2442,7 +2435,6 @@ class DriverMixin(object):
         return self.transport.rpc(Queue.Unbind(ticket=ticket, queue=queue, exchange=exchange, routing_key=routing_key, arguments=arguments), callback,
                                   [Queue.UnbindOk])
 
-    @log.method_call
     def basic_qos(self, callback=None, prefetch_size=0, prefetch_count=0, global_=False):
         """
         Implements the Basic.Qos AMQP command. For context and usage:
@@ -2458,7 +2450,6 @@ class DriverMixin(object):
         return self.transport.rpc(Basic.Qos(prefetch_size=prefetch_size, prefetch_count=prefetch_count, global_=global_), callback,
                                   [Basic.QosOk])
 
-    @log.method_call
     def basic_get(self, callback=None, ticket=0, queue='', no_ack=False):
         """
         Implements the Basic.Get AMQP command. For context and usage:
@@ -2474,7 +2465,6 @@ class DriverMixin(object):
         return self.transport.rpc(Basic.Get(ticket=ticket, queue=queue, no_ack=no_ack), callback,
                                   [Basic.GetOk, Basic.GetEmpty])
 
-    @log.method_call
     def basic_ack(self, delivery_tag=0, multiple=False):
         """
         Implements the basic.ack AMQP command. For context and usage:
@@ -2484,7 +2474,6 @@ class DriverMixin(object):
 
         return self.transport.rpc(Basic.Ack(delivery_tag=delivery_tag, multiple=multiple))
 
-    @log.method_call
     def basic_reject(self, delivery_tag=None, requeue=True):
         """
         Implements the basic.reject AMQP command. For context and usage:
@@ -2494,7 +2483,6 @@ class DriverMixin(object):
 
         return self.transport.rpc(Basic.Reject(delivery_tag=delivery_tag, requeue=requeue))
 
-    @log.method_call
     def basic_recover_async(self, requeue=False):
         """
         Implements the basic.recover-async AMQP command. For context and usage:
@@ -2504,7 +2492,6 @@ class DriverMixin(object):
 
         return self.transport.rpc(Basic.RecoverAsync(requeue=requeue))
 
-    @log.method_call
     def basic_recover(self, callback=None, requeue=False):
         """
         Implements the Basic.Recover AMQP command. For context and usage:
@@ -2520,7 +2507,6 @@ class DriverMixin(object):
         return self.transport.rpc(Basic.Recover(requeue=requeue), callback,
                                   [Basic.RecoverOk])
 
-    @log.method_call
     def tx_select(self, callback=None):
         """
         Implements the Tx.Select AMQP command. For context and usage:
@@ -2536,7 +2522,6 @@ class DriverMixin(object):
         return self.transport.rpc(Tx.Select(), callback,
                                   [Tx.SelectOk])
 
-    @log.method_call
     def tx_commit(self, callback=None):
         """
         Implements the Tx.Commit AMQP command. For context and usage:
@@ -2552,7 +2537,6 @@ class DriverMixin(object):
         return self.transport.rpc(Tx.Commit(), callback,
                                   [Tx.CommitOk])
 
-    @log.method_call
     def tx_rollback(self, callback=None):
         """
         Implements the Tx.Rollback AMQP command. For context and usage:
