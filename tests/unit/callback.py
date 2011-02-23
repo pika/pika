@@ -49,6 +49,7 @@
 """
 Callback Unit Test
 """
+from mock import Mock
 import nose
 import os
 import sys
@@ -122,6 +123,52 @@ def test_remove_callback():
         assert False, "Prefix and key were not removed"
     pass
 
+@nose.with_setup(None, teardown)
+def test_singleton_instance():
+    cm = callback.CallbackManager.instance()
+    cm2 = callback.CallbackManager.instance()
+    assert id(cm) == id(cm2), "%s != %s" % (cm.id, cm2.id)
 
+class TestSanitize(object):
+    def setUp(self):
+        self.cm = callback.CallbackManager.instance()
+        self.test_cls = Mock(spec=['NAME'])
+        self.test_cls.NAME = 'attr of self'
+
+    def tearDown(self):
+        del(self.test_cls)
+        del(self.cm)
+
+    def test_sanitize_name_in_method(self):
+        """
+        Verify NAME is gotten from test_cls.method.NAME
+        
+        """
+        # put a 'method' class in our test_cls
+        # for the sanitize method to find. 
+        self.test_cls.method = Mock(spec=['NAME'])
+        self.test_cls.method.NAME = 'attr of attr'
+        result = self.cm.sanitize(self.test_cls)
+        nose.tools.eq_(result, self.test_cls.method.NAME)
+
+    def test_sanitize_name_in_self(self):
+        """
+        Verify NAME is gotten from test_cls.NAME
+
+        """
+        result = self.cm.sanitize(self.test_cls)
+        nose.tools.eq_(result, self.test_cls.NAME)
+
+    def test_sanitize_name_c(self):
+        """
+        Verify NAME is gotten from test_cls.__dict__['NAME']
+
+        """
+        delattr(self.test_cls, 'NAME')
+        self.test_cls.__dict__['NAME'] = 'in __dict__'
+        result = self.cm.sanitize(self.test_cls)
+        nose.tools.eq_(result, self.test_cls.__dict__['NAME'])
+
+    
 if __name__ == "__main__":
     nose.runmodule()
