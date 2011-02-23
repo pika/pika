@@ -1,4 +1,10 @@
 #!/usr/bin/env python
+# ***** BEGIN LICENSE BLOCK *****
+#
+# For copyright and licensing please refer to COPYING.
+#
+# ***** END LICENSE BLOCK *****
+
 import os
 import warnings
 warnings.filterwarnings('ignore', category=DeprecationWarning)
