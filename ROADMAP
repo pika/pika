@@ -1,0 +1,19 @@
+0.9.5
+License cleanup
+Additional unit test coverage
+Separation of functional and unit tests
+Use of mock in unit tests
+Support for confirm.select, confirm.selectok
+Allow for keyed singletons for threaded use
+Decrease overuse of @pika.log.method_call
+
+0.9.6
+Async implementation templates
+Move connection.ConnectionState to frames.Parser
+Twisted Support
+
+0.9.7
+UTF-8/Unicode Support where appropriate
+
+0.9.8
+SSL Support
