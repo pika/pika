@@ -58,7 +58,6 @@ sys.path.append(os.path.join('..', '..'))
 
 import pika.callback as callback
 
-
 def teardown():
     cm = callback.CallbackManager.instance()
     if 'a' in cm._callbacks:
@@ -131,6 +130,7 @@ def test_singleton_instance():
 
 class TestSanitize(object):
     def setUp(self):
+        reload(callback)
         self.cm = callback.CallbackManager.instance()
         self.test_cls = Mock(spec=['NAME'])
         self.test_cls.NAME = 'attr of self'
@@ -142,10 +142,10 @@ class TestSanitize(object):
     def test_sanitize_name_in_method(self):
         """
         Verify NAME is gotten from test_cls.method.NAME
-        
+
         """
         # put a 'method' class in our test_cls
-        # for the sanitize method to find. 
+        # for the sanitize method to find.
         self.test_cls.method = Mock(spec=['NAME'])
         self.test_cls.method.NAME = 'attr of attr'
         result = self.cm.sanitize(self.test_cls)
@@ -169,6 +169,79 @@ class TestSanitize(object):
         result = self.cm.sanitize(self.test_cls)
         nose.tools.eq_(result, self.test_cls.__dict__['NAME'])
 
-    
+class TestAdd(object):
+    def setUp(self):
+        reload(callback)
+        self.callback = callback
+        self.callback.log = Mock(spec=['warning', 'debug'])
+        self.cm = self.callback.CallbackManager.instance()
+        self.key = 1
+        self.keyname = 'keyname'
+        self.cm.sanitize = Mock(return_value=self.keyname)
+        self.callable_thing = int
+        self.prefix = 'prefoo'
+
+    def tearDown(self):
+        del(self.cm)
+
+    def test_add_new_prefix(self):
+        # run the test
+        self.cm.add(self.prefix, self.key, self.callable_thing)
+
+        # All of this should be true once add is run.
+        expected_callbacks = [{'handle': self.callable_thing, 'one_shot': True}]
+        nose.tools.eq_(self.cm._callbacks[self.prefix][self.keyname], expected_callbacks)
+        assert isinstance(self.cm._callbacks, dict)
+        nose.tools.eq_(self.cm._callbacks.has_key(self.prefix), True)
+        nose.tools.eq_(self.cm._callbacks[self.prefix].has_key(self.keyname), True)
+        assert isinstance(self.cm._callbacks[self.prefix][self.keyname], list)
+
+    def test_add_duplicate(self):
+        existing_callback = {'handle': self.callable_thing, 'one_shot': True}
+        self.cm._callbacks[self.prefix] = {self.keyname: [existing_callback]}
+        assert existing_callback in self.cm._callbacks[self.prefix][self.keyname]
+
+        # run the test
+        self.cm.add(self.prefix, self.key, self.callable_thing)
+
+        nose.tools.eq_(self.cm._callbacks[self.prefix][self.keyname], [existing_callback])
+        # All of this should be true once add is run.
+        assert isinstance(self.cm._callbacks, dict)
+        nose.tools.eq_(self.cm._callbacks.has_key(self.prefix), True)
+        nose.tools.eq_(self.cm._callbacks[self.prefix].has_key(self.keyname), True)
+        assert isinstance(self.cm._callbacks[self.prefix][self.keyname], list)
+        assert self.callback.log.warning.called, "Log not called"
+
+        # Inserting a duplicate callback emits a warning. This checks
+        # that the log object (Mocked in setUp) was called.
+        print self.callback.log.warning.call_args
+        assert self.callback.log.warning.call_args == (
+                            ('%s.add: Duplicate callback found for "%s:%s"',
+                             'CallbackManager',
+                             self.prefix,
+                             self.keyname),
+                            {})
+
+    def test_only_caller(self):
+        only_caller = '0nly_c@ll3r'
+
+        # run the test
+        self.cm.add(self.prefix, self.key, self.callable_thing, only_caller=only_caller)
+
+        expected_callbacks = [{'only': '0nly_c@ll3r', 'one_shot': True, 'handle': self.callable_thing}]
+        nose.tools.eq_(self.cm._callbacks[self.prefix][self.keyname], expected_callbacks)
+        # All of this should be true once add is run.
+        assert isinstance(self.cm._callbacks, dict)
+        nose.tools.eq_(self.cm._callbacks.has_key(self.prefix), True)
+        nose.tools.eq_(self.cm._callbacks[self.prefix].has_key(self.keyname), True)
+        assert isinstance(self.cm._callbacks[self.prefix][self.keyname], list)
+
+
+
+
+
+
+
+
 if __name__ == "__main__":
     nose.runmodule()
