@@ -17,10 +17,7 @@ sys.path.append(os.path.join('..', '..'))
 import pika
 from pika.adapters import BlockingConnection
 import support.tools
-
-HOST = 'localhost'
-PORT = 5672
-
+from config import HOST, PORT
 
 def test_blocking_send_get():
 

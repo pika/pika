@@ -15,9 +15,7 @@ sys.path.append(os.path.join('..', '..'))
 
 import pika
 import pika.adapters as adapters
-
-HOST = 'localhost'
-PORT = 5672
+from config import HOST, PORT
 
 
 class TestAdapters(object):

@@ -18,10 +18,7 @@ import pika
 import pika.exceptions
 from pika.adapters import BlockingConnection
 import support.tools
-
-HOST = 'localhost'
-PORT = 5672
-
+from config import HOST, PORT
 
 def test_blocking_send_get():
 

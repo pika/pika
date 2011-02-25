@@ -17,9 +17,8 @@ sys.path.append(os.path.join('..', '..'))
 import pika
 from pika.adapters import BlockingConnection
 import support.tools
+from config import HOST, PORT
 
-HOST = 'localhost'
-PORT = 5672
 MESSAGES = 10
 
 

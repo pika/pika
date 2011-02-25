@@ -14,10 +14,9 @@ sys.path.append(os.path.join('..', '..'))
 
 import support.tools as tools
 from pika.adapters import SelectConnection
+from config import HOST, PORT
 
-HOST = 'localhost'
 MESSAGES = 10
-PORT = 5672
 
 
 class TestSendConsume(tools.AsyncPattern):

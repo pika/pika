@@ -17,11 +17,9 @@ import pika.spec as spec
 import support.tools as tools
 
 from pika.adapters import SelectConnection
+from config import HOST, PORT
 
-HOST = 'localhost'
 MESSAGES = 5
-PORT = 5672
-
 
 class TestConsumeCancel(tools.AsyncPattern):
 

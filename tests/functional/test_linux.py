@@ -19,9 +19,7 @@ import pika
 import pika.adapters as adapters
 
 from pika.adapters.tornado_connection import TornadoConnection
-
-HOST = 'localhost'
-PORT = 5672
+from config import HOST, PORT
 
 
 class TestAdapters(object):

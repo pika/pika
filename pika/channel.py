@@ -174,6 +174,8 @@ class Channel(spec.DriverMixin):
         else:
             self.transport = ChannelTransport(connection, channel_number)
 
+        self.connection = connection
+
         # Channel Number
         self.channel_number = channel_number
 

@@ -14,9 +14,7 @@ sys.path.append(os.path.join('..', '..'))
 
 import support.tools as tools
 from pika.adapters import SelectConnection
-
-HOST = 'localhost'
-PORT = 5672
+from config import HOST, PORT
 
 
 class TestAsyncSendGet(tools.AsyncPattern):
