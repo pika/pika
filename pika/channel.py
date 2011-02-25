@@ -177,9 +177,6 @@ class Channel(spec.DriverMixin):
         # Channel Number
         self.channel_number = channel_number
 
-        # Assign our connection we communicate with
-        self.connection = connection
-
         # Get the callback manager
         self.callbacks = callback.CallbackManager.instance()
 

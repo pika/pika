@@ -87,7 +87,7 @@ class TestBuffer(unittest.TestCase):
     def test_send_to_socket(self):
         self.buffer.write('abc')
         sd = Mock(spec=['send'])
-        sd.send = Mock(return_value=3)
+        sd.send.return_value = 3
         bytes = self.buffer.send_to_socket(sd)
 
         self.assertEqual(bytes, 3)
