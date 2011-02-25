@@ -13,9 +13,10 @@ Tests for the classes in pika.frames
 # Imports
 #############
 # builtins
+import os
 import unittest
-import struct
-
+import sys
+sys.path.extend(['..', os.path.join('..', '..')])
 # third-party
 from mock import Mock
 
