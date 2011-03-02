@@ -19,7 +19,6 @@ from pika.heartbeat import HeartbeatChecker
 from pika.reconnection_strategies import NullReconnectionStrategy
 
 CHANNEL_MAX = 32767
-FRAME_MAX = 131072
 PRODUCT = "Pika Python AMQP Client Library"
 
 # Module wide default credentials for default RabbitMQ configurations
@@ -48,8 +47,13 @@ class ConnectionParameters(object):
                  virtual_host='/',
                  credentials=None,
                  channel_max=0,
-                 frame_max=FRAME_MAX,
+                 frame_max=frames.FRAME_MAX,
                  heartbeat=0):
+
+        # Vaiidate the FRAME_MAX isn't less than min frame size
+        if frame_max < frames.FRAME_MIN:
+            raise InvalidFrameSize("AMQP Minimum Frame Size is %i Bytes" % \
+                                   frames.FRAME_MIN)
 
         self.host = host
         self.port = port
@@ -115,7 +119,6 @@ class Connection(object):
 
         # Connection state, server properties and channels all change on
         # each connection
-        self.state = ConnectionState()
         self.server_properties = None
         self._channels = dict()
 
@@ -301,7 +304,8 @@ class Connection(object):
             self.heartbeat = HeartbeatChecker(self, hint)
 
         # Update our connection state with our tuned values
-        self.state.tune(cmax, fmax)
+        self.parameters.channel_max = cmax
+        self.parameters.frame_max = fmax
 
         # Send the TuneOk response with what we've agreed upon
         self._send_method(0, spec.Connection.TuneOk(channel_max=cmax,
@@ -480,7 +484,7 @@ class Connection(object):
         Return the next available channel number or raise on exception
         """
         # Our limit is the the Codec's Channel Max or MAX_CHANNELS if it's None
-        limit = self.state.channel_max or CHANNEL_MAX
+        limit = self.parameters.channel_max or CHANNEL_MAX
 
         # We've used all of our channels
         if len(self._channels) == limit:
@@ -533,7 +537,7 @@ class Connection(object):
         while self._buffer:
 
             # Try and build a frame
-            consumed_count, frame = self.state.handle_input(self._buffer)
+            consumed_count, frame = frames.decode_frame(self._buffer)
 
             # Remove the frame we just consumed from our data
             self._buffer = self._buffer[consumed_count:]
@@ -629,9 +633,9 @@ class Connection(object):
             self._send_frame(frames.Header(channel_number, length, props))
 
         if body:
-            max_piece = (self.state.frame_max - \
-                         ConnectionState.HEADER_SIZE - \
-                         ConnectionState.END_SIZE)
+            max_piece = (self.parameters.frame_max - \
+                         frames.HEADER_SIZE - \
+                         frames.END_FRAME_MARKER_SIZE)
             body_buf = simplebuffer.SimpleBuffer(body)
 
             while body_buf:
@@ -645,94 +649,4 @@ class Connection(object):
         Return the suggested buffer size from the connection state/tune or the
         default if that is None
         """
-        return self.state.frame_max or FRAME_MAX
-
-
-class ConnectionState(object):
-
-    HEADER_SIZE = 7
-    END_SIZE = 1
-
-    @log.method_call
-    def __init__(self):
-        self.channel_max = None
-        self.frame_max = None
-
-    @log.method_call
-    def tune(self, channel_max, frame_max):
-        self.channel_max = channel_max
-        self.frame_max = frame_max
-
-    @log.method_call
-    def handle_input(self, data_in):
-        """
-        Receives raw socket data and attempts to turn it into a frame.
-        Returns bytes used to make the frame and the frame
-        """
-        # Look to see if it's a header frame
-        if data_in[0:4] == 'AMQP':
-            major, minor, revision = struct.unpack_from('BBB', data_in, 5)
-            return 9, frames.ProtocolHeader(major, minor, revision)
-
-        # Get the Frame Type, Channel Number and Frame Size
-        frame_type, channel_number, frame_size = \
-            struct.unpack('>BHL', data_in[0:7])
-
-        # Get the frame data
-        frame_end = ConnectionState.HEADER_SIZE +\
-                    frame_size +\
-                    ConnectionState.END_SIZE
-
-        # We don't have all of the frame yet
-        if frame_end > len(data_in):
-            return 0, None
-
-        # The Frame termination chr is wrong
-        if data_in[frame_end - 1] != chr(spec.FRAME_END):
-            raise InvalidFrameError("Invalid FRAME_END marker")
-
-        # Get the raw frame data
-        frame_data = data_in[ConnectionState.HEADER_SIZE:frame_end - 1]
-
-        if frame_type == spec.FRAME_METHOD:
-
-            # Get the Method ID from the frame data
-            method_id = struct.unpack_from('>I', frame_data)[0]
-
-            # Get a Method object for this method_id
-            method = spec.methods[method_id]()
-
-            # Decode the content
-            method.decode(frame_data, 4)
-
-            # Return the amount of data consumed and the Method object
-            return frame_end, frames.Method(channel_number, method)
-
-        elif frame_type == spec.FRAME_HEADER:
-
-            # Return the header class and body size
-            class_id, weight, body_size = struct.unpack_from('>HHQ',
-                                                             frame_data)
-
-            # Get the Properties type
-            properties = spec.props[class_id]()
-
-            # Decode the properties
-            properties.decode(frame_data)
-
-            # Return a Header frame
-            return frame_end, frames.Header(channel_number,
-                                            body_size,
-                                            properties)
-
-        elif frame_type == spec.FRAME_BODY:
-
-            # Return the amount of data consumed and the Body frame w/ data
-            return frame_end, frames.Body(channel_number, frame_data)
-
-        elif frame_type == spec.FRAME_HEARTBEAT:
-
-            # Return the amount of data and a Heartbeat frame
-            return frame_end, frames.Heartbeat()
-
-        raise InvalidFrameError("Unknown frame type: %i" % frame_type)
+        return self.parameters.frame_max or frames.FRAME_MAX

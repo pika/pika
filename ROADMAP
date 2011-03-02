@@ -6,10 +6,10 @@ Use of mock in unit tests
 Support for confirm.select, confirm.selectok
 Allow for keyed singletons for threaded use
 Decrease overuse of @pika.log.method_call
+Move connection.ConnectionState to frames module
 
 0.9.6
 Async implementation templates
-Move connection.ConnectionState to frames.Parser
 Twisted Support
 
 0.9.7

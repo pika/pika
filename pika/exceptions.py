@@ -95,3 +95,7 @@ class ChannelTransportError(Exception):
 
 class CallbackReplyAlreadyRegistered(ChannelTransportError):
     pass
+
+
+class InvalidFrameSize(ProtocolSyntaxError):
+    pass

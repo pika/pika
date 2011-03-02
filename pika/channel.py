@@ -33,7 +33,7 @@ class ChannelTransport(object):
         self.callbacks = callback.CallbackManager.instance()
 
         # The frame-handler changes depending on the type of frame processed
-        self.frame_handler = ContentHandler()
+        self.frame_dispatcher = frames.Dispatcher()
 
         # We need to block on synchronous commands, but do so asynchronously
         self.blocking = None
@@ -60,7 +60,7 @@ class ChannelTransport(object):
         it has build our frame responses in a way we can use them, it will
         call our callback stack to figure out what to do.
         """
-        self.frame_handler.process(frame)
+        self.frame_dispatcher.process(frame)
 
     @log.method_call
     def _ensure(self):
@@ -174,8 +174,6 @@ class Channel(spec.DriverMixin):
         else:
             self.transport = ChannelTransport(connection, channel_number)
 
-        self.connection = connection
-
         # Channel Number
         self.channel_number = channel_number
 
@@ -201,14 +199,14 @@ class Channel(spec.DriverMixin):
                            '_on_basic_deliver',
                            self._on_basic_deliver,
                            False,
-                           ContentHandler)
+                           frames.Dispatcher)
 
         # Add a callback for Basic.Get
         self.callbacks.add(self.channel_number,
                            '_on_basic_get',
                            self._on_basic_get_ok,
                            False,
-                           ContentHandler)
+                           frames.Dispatcher)
 
         # Add a callback for Basic.GetEmpty
         self.callbacks.add(self.channel_number,
@@ -440,7 +438,7 @@ class Channel(spec.DriverMixin):
             # Remove our pending messages
             del self._pending[consumer_tag]
         else:
-            # Append our _pending list with additional data
+            # Append the message to our pending list
             self._pending[consumer_tag].append((method_frame.method,
                                                 header_frame.properties,
                                                 body))
@@ -523,143 +521,3 @@ class Channel(spec.DriverMixin):
         else:
             log.error("%s._on_flow_ok: No callback defined.",
                       self.__class__.__name__)
-
-
-class ContentHandler(object):
-    """
-    This handles content frames which come in in synchronous order as follows:
-
-    1) Method Frame
-    2) Header Frame
-    3) Body Frame(s)
-
-    The way that content handler works is to assign the active frame type to
-    the self._handler variable. When we receive a header frame that is either
-    a Basic.Deliver, Basic.GetOk, or Basic.Return, we will assign the handler
-    to the ContentHandler._handle_header_frame. This will fire the next time
-    we are called and parse out the attributes required to receive the body
-    frames and assemble the content to be returned. We will then assign the
-    self._handler to ContentHandler._handle_body_frame.
-
-    _handle_body_frame has two methods inside of it, handle and finish.
-    handle will be invoked until the requirements set by the header frame have
-    been met at which point it will call the finish method. This calls
-    the callback manager with the method frame, header frame and assembled
-    body and then reset the self._handler to the _handle_method_frame method.
-    """
-
-    @log.method_call
-    def __init__(self):
-        # We start with Method frames always
-        self._handler = self._handle_method_frame
-
-    @log.method_call
-    def process(self, frame):
-        """
-        Invoked by the ChannelTransport object when passed frames that are not
-        setup in the rpc process and that don't have explicit reply types
-        defined. This includes Basic.Publish, Basic.GetOk and Basic.Return
-        """
-        self._handler(frame)
-
-    @log.method_call
-    def _handle_method_frame(self, frame):
-        """
-        Receive a frame and process it, we should have content by the time we
-        reach this handler, set the next handler to be the header frame handler
-        """
-        # If we don't have FrameMethod something is wrong so throw an exception
-        if not isinstance(frame, frames.Method):
-            raise exceptions.UnexpectedFrameError(frame)
-
-        # If the frame is a content related frame go deal with the content
-        # By getting the content header frame
-        if spec.has_content(frame.method.INDEX):
-            self._handler = self._handle_header_frame(frame)
-
-        # We were passed a frame we don't know how to deal with
-        else:
-            raise NotImplementedError(frame.method.__class__)
-
-    @log.method_call
-    def _handle_header_frame(self, frame):
-        """
-        Receive a header frame and process that, setting the next handler
-        to the body frame handler
-        """
-
-        def handler(header_frame):
-            # Make sure it's a header frame
-            if not isinstance(header_frame, frames.Header):
-                raise exceptions.UnexpectedFrameError(header_frame)
-
-            # Call the handle body frame including our header frame
-            self._handle_body_frame(frame, header_frame)
-
-        return handler
-
-    @log.method_call
-    def _handle_body_frame(self, method_frame, header_frame):
-        """
-        Receive body frames. We'll keep receiving them in handler until we've
-        received the body size specified in the header frame. When done
-        call our finish function which will call our transports callbacks
-        """
-        seen_so_far = [0]
-        body_fragments = list()
-
-        @log.method_call
-        def handler(body_frame):
-            # Make sure it's a body frame
-            if not isinstance(body_frame, frames.Body):
-                raise exceptions.UnexpectedFrameError(body_frame)
-
-            # Increment our counter so we know when we've had enough
-            seen_so_far[0] += len(body_frame.fragment)
-
-            # Append the fragment to our list
-            body_fragments.append(body_frame.fragment)
-
-            # Did we get enough bytes? If so finish
-            if seen_so_far[0] == header_frame.body_size:
-                finish()
-
-            # Did we get too many bytes?
-            elif seen_so_far[0] > header_frame.body_size:
-                error = 'Received %i and only expected %i' % \
-                        (seen_so_far[0], header_frame.body_size)
-                raise exceptions.BodyTooLongError(error)
-
-        @log.method_call
-        def finish():
-            # We're done so set our handler back to the method frame
-            self._handler = self._handle_method_frame
-
-            # Get our method name
-            method = method_frame.method.__class__.__name__
-            if method == 'Deliver':
-                key = '_on_basic_deliver'
-            elif method == 'GetOk':
-                key = '_on_basic_get'
-            elif method == 'Return':
-                key = '_on_basic_return'
-            else:
-                raise Exception('Unimplemented Content Return Key')
-
-            # Get our callback manager instance
-            callbacks = callback.CallbackManager.instance()
-
-            # Check for a processing callback for our method name
-            callbacks.process(method_frame.channel_number,  # Prefix
-                              key,                          # Key
-                              self,                         # Caller
-                              method_frame,                 # Arg 1
-                              header_frame,                 # Arg 2
-                              ''.join(body_fragments))      # Arg 3
-
-        # If we don't have a header frame body size, finish. Otherwise keep
-        # going and keep our handler function as the frame handler
-        if not header_frame.body_size:
-            finish()
-        else:
-            self._handler = handler

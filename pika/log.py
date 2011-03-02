@@ -40,27 +40,25 @@ def method_call(method):
 
         if logger.getEffectiveLevel() == DEBUG:
 
-            # Get the class name of what was passed to us
-            try:
-                class_name = args[0].__class__.__name__
-            except AttributeError:
-                class_name = 'Unknown'
-            except IndexError:
-                class_name = 'Unknown'
+            method_name = '%s.%s' % (method.__module__, method.__name__)
+            if args:
+                if str(type(args[0]))[1:6] == 'class':
+                    offset = 1
+                else:
+                    offset = 0
 
-            # Build a list of arguments to send to the logger
-            log_args = list()
-            for x in xrange(1, len(args)):
-                log_args.append(args[x])
-            if len(kwargs) > 1:
-                log_args.append(kwargs)
+                # Build a list of arguments to send to the logger
+                log_args = list()
+                for x in xrange(offset, len(args)):
+                    log_args.append(args[x])
+                if len(kwargs) > 1:
+                    log_args.append(kwargs)
 
-            # If we have arguments, log them as well, otherwise just the method
-            if log_args:
-                logger.debug("%s.%s(%r) Called", class_name, method.__name__,
-                             log_args)
-            else:
-                logger.debug("%s.%s() Called", class_name, method.__name__)
+                # If we have arguments, log them as well
+                logger.debug("%s(%r) Called", method_name, log_args)
+                return method(*args, **kwargs)
+
+            logger.debug("%s() Called", method_name)
 
         # Actually execute the method
         return method(*args, **kwargs)
@@ -128,23 +126,23 @@ class FormatOutput(logging.Formatter):
         message = record.getMessage()
         record.asctime = self.formatTime(record)
         if message[-6:] == 'Called':
-            parts = message.split(' ')
-            call = parts[0].split('.')
-            end_method = call[1].find('(')
+            message = message[5:]
+            x = message.find('(')
+            method_name = message[:x]
             start_content = message.find('(') + 1
-            message = '%s%s.%s%s(%s%s%s)' % (self._class,
-                                             call[0],
-                                             call[1][:end_method],
-                                             self._reset,
-                                             self._args,
-                                             message[start_content:-8],
-                                             self._reset)
+            message = '%s%s%s(%s%s%s)' % (self._class,
+                                          method_name,
+                                          self._reset,
+                                          self._args,
+                                          message[start_content:-8],
+                                          self._reset)
 
         output = "%s%s%s %s" % (self._level.get(record.levelno,
                                                 self._reset),
                                 self._prefix % record.__dict__,
                                 self._reset,
                                 message)
+
         if record.exc_info and not record.exc_text:
                 record.exc_text = self.formatException(record.exc_info)
 

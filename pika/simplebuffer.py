@@ -46,14 +46,12 @@ class SimpleBuffer(object):
     offset = 0
     size = 0
 
-    @log.method_call
     def __init__(self, data=None):
         self.buf = StringIO.StringIO()
         if data is not None:
             self.write(data)
         self.buf.seek(0, os.SEEK_END)
 
-    @log.method_call
     def write(self, *data_strings):
         """
         Append given strings to the buffer.
@@ -64,7 +62,7 @@ class SimpleBuffer(object):
             self.buf.write(data)
             self.size += len(data)
 
-    @log.method_call
+
     def read(self, size=None):
         """
         Read the data from the buffer, at most 'size' bytes.
@@ -82,7 +80,6 @@ class SimpleBuffer(object):
         self.buf.seek(0, os.SEEK_END)
         return data
 
-    @log.method_call
     def consume(self, size):
         """
         Move pointer and discard first 'size' bytes.
@@ -96,7 +93,6 @@ class SimpleBuffer(object):
             self.buf = StringIO.StringIO()
             self.offset = 0
 
-    @log.method_call
     def read_and_consume(self, size):
         """
         Read up to 'size' bytes, also remove it from the buffer.
@@ -106,7 +102,6 @@ class SimpleBuffer(object):
         self.consume(size)
         return data
 
-    @log.method_call
     def send_to_socket(self, sd):
         """
         Faster way of sending buffer data to socket 'sd'.
@@ -120,7 +115,6 @@ class SimpleBuffer(object):
             self.consume(0)
         return r
 
-    @log.method_call
     def flush(self):
         """
         Remove all the data from buffer.

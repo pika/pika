@@ -10,7 +10,7 @@ import pika.spec as spec
 
 from pika.adapters import BaseConnection
 from pika.callback import CallbackManager
-from pika.channel import Channel, ChannelTransport, ContentHandler
+from pika.channel import Channel, ChannelTransport
 from pika.exceptions import AMQPConnectionError, AMQPChannelError
 
 SOCKET_TIMEOUT = 1
@@ -209,6 +209,7 @@ class BlockingChannel(Channel):
                                        transport._on_rpc_complete)
         Channel.__init__(self, connection, channel_number, None, transport)
         self.basic_get_ = Channel.basic_get
+        self._consumers = {}
 
     @log.method_call
     def _open(self, frame):
@@ -237,54 +238,27 @@ class BlockingChannel(Channel):
                                                       mandatory=mandatory,
                                                       immediate=immediate),
                                    (properties, body), False)
-
+    
     @log.method_call
-    def basic_consume(self, consumer,
-                      queue='', no_ack=False, exclusive=False,
-                      consumer_tag=None):
+    def start_consuming(self):
         """
-        Sends the AMQP command Basic.Consume to the broker and binds messages
-        for the consumer_tag to the consumer callback. If you do not pass in
-        a consumer_tag, one will be automatically generated for you. For
-        more information on basic_consume, see:
-
-        http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.consume
-
-        NOTE: This blocks further execution until you call the
-        BlockingChannel.stop_consuming() method.
+        Starts consuming from registered callbacks.
         """
-        # Setup a default consumer tag if one was not passed
-        consumer_tag = consumer_tag or 'ctag0'
-
-        self._consumer = consumer
-        self._consuming = True
-        self.transport.rpc(spec.Basic.Consume(queue=queue,
-                                              consumer_tag=consumer_tag,
-                                              no_ack=no_ack,
-                                              exclusive=exclusive),
-                           None, [spec.Basic.ConsumeOk])
-
-        # Block while we are consuming
-        while self._consuming:
-            self.connection.process_data_events()
-
-    @log.method_call
-    def _on_basic_deliver(self, method_frame, header_frame, body):
-        # Call our consumer callback with the data
-        self._consumer(self,
-                       method_frame.method,
-                       header_frame.properties,
-                       body)
-
+        # Block while we have registered consumers
+        while len(self._consumers):
+            self.transport.connection.process_data_events()
+    
     @log.method_call
     def stop_consuming(self, consumer_tag=None):
         """
         Sends off the Basic.Cancel to let RabbitMQ know to stop consuming and
         sets our internal state to exit out of the basic_consume.
         """
-        self.basic_cancel(consumer_tag or 'ctag0')
+        consumer_tag_keys = [consumer_tag] if consumer_tag else self._consumers.keys()
+        
+        for consumer_tag in consumer_tag_keys:
+            self.basic_cancel(consumer_tag)
         self.transport.wait = False
-        self._consuming = False
 
     @log.method_call
     def basic_get(self, ticket=0, queue=None, no_ack=False):
@@ -300,7 +274,7 @@ class BlockingChannel(Channel):
         self._get_response = None
         self.basic_get_(self, self._on_basic_get, ticket, queue, no_ack)
         while not self._get_response:
-            self.connection.process_data_events()
+            self.transport.connection.process_data_events()
 
         return self._get_response[0], \
                self._get_response[1], \
