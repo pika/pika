@@ -4,7 +4,7 @@
 #
 # ***** END LICENSE BLOCK *****
 import pika.callback as callback
-import pika.frames as frames
+import pika.frame as frames
 import pika.log as log
 import pika.spec as spec
 import pika.exceptions as exceptions
@@ -33,7 +33,7 @@ class ChannelTransport(object):
         self.callbacks = callback.CallbackManager.instance()
 
         # The frame-handler changes depending on the type of frame processed
-        self.frame_dispatcher = frames.Dispatcher()
+        self.frame_dispatcher = frame.Dispatcher()
 
         # We need to block on synchronous commands, but do so asynchronously
         self.blocking = None
@@ -199,14 +199,14 @@ class Channel(spec.DriverMixin):
                            '_on_basic_deliver',
                            self._on_basic_deliver,
                            False,
-                           frames.Dispatcher)
+                           frame.Dispatcher)
 
         # Add a callback for Basic.Get
         self.callbacks.add(self.channel_number,
                            '_on_basic_get',
                            self._on_basic_get_ok,
                            False,
-                           frames.Dispatcher)
+                           frame.Dispatcher)
 
         # Add a callback for Basic.GetEmpty
         self.callbacks.add(self.channel_number,

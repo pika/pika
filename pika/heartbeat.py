@@ -4,7 +4,7 @@
 #
 # ***** END LICENSE BLOCK *****
 
-from pika.frames import Heartbeat
+from pika.frame import Heartbeat
 import pika.log as log
 
 MAX_MISSED_HEARTBEATS = 2

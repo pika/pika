@@ -21,7 +21,7 @@ sys.path.extend(['..', os.path.join('..', '..')])
 from mock import Mock
 
 # homegrown
-from pika import frames
+from pika import frame
 import pika.spec as spec
 
 
@@ -32,7 +32,7 @@ __since__ = '2/25/11'
 
 class TestFrame(unittest.TestCase):
     def setUp(self):
-        self.frame = frames.Frame('ftype', 3)
+        self.frame = frame.Frame('ftype', 3)
 
     def test_init(self):
         self.assertEqual(self.frame.frame_type, 'ftype')
