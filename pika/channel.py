@@ -80,7 +80,7 @@ class ChannelTransport(object):
         return spec.has_content(method.INDEX)
 
     @log.method_call
-    def rpc(self, method, callback=None, acceptable_replies=[]):
+    def rpc(self, method, callback, acceptable_replies):
         """
         Shortcut wrapper to the Connection's rpc command using its callback
         stack, passing in our channel number

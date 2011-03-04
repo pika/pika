@@ -121,13 +121,13 @@ class AsyncoreDispatcher(asyncore.dispatcher):
     # IOLoop Compatibility
 
     @classmethod
-    def instance(class_):
+    def instance(cls):
         """
         Returns a handle to the already created object or creates a new object
         """
-        if not hasattr(class_, "_instance"):
-            class_._instance = class_()
-        return class_._instance
+        if not hasattr(cls, "_instance"):
+            cls._instance = cls()
+        return cls._instance
 
     @log.method_call
     def add_timeout(self, deadline, handler):

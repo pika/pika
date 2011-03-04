@@ -570,8 +570,7 @@ class Connection(object):
                 self._channels[frame.channel_number].transport.deliver(frame)
 
     @log.method_call
-    def _rpc(self, channel_number, method,
-            callback=None, acceptable_replies=[]):
+    def _rpc(self, channel_number, method, callback, acceptable_replies):
         """
         Make an RPC call for the given callback, channel number and method.
         acceptable_replies lists out what responses we'll process from the

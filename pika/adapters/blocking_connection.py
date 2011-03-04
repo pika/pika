@@ -140,7 +140,7 @@ class BlockingChannelTransport(ChannelTransport):
             self._replies.remove(key)
 
     @log.method_call
-    def rpc(self, method, callback=None, acceptable_replies=[]):
+    def rpc(self, method, callback, acceptable_replies):
         """
         Shortcut wrapper to the Connection's rpc command using its callback
         stack, passing in our channel number
@@ -238,7 +238,7 @@ class BlockingChannel(Channel):
                                                       mandatory=mandatory,
                                                       immediate=immediate),
                                    (properties, body), False)
-    
+
     @log.method_call
     def start_consuming(self):
         """
@@ -247,7 +247,7 @@ class BlockingChannel(Channel):
         # Block while we have registered consumers
         while len(self._consumers):
             self.transport.connection.process_data_events()
-    
+
     @log.method_call
     def stop_consuming(self, consumer_tag=None):
         """
@@ -255,7 +255,7 @@ class BlockingChannel(Channel):
         sets our internal state to exit out of the basic_consume.
         """
         consumer_tag_keys = [consumer_tag] if consumer_tag else self._consumers.keys()
-        
+
         for consumer_tag in consumer_tag_keys:
             self.basic_cancel(consumer_tag)
         self.transport.wait = False
