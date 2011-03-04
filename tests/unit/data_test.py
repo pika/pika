@@ -14,7 +14,7 @@ sys.path.append('..')
 sys.path.append(os.path.join('..', '..'))
 
 import datetime
-import pika.table
+import pika.data
 import unittest
 
 from decimal import Decimal
@@ -79,14 +79,14 @@ class TestTable(unittest.TestCase):
 
     def encode(self, v):
         p = []
-        n = pika.table.encode_table(p, v)
+        n = pika.data.encode_table(p, v)
         r = ''.join(p)
         assert len(r) == n
         return r
 
     def reencode(self, i):
         r = self.encode(i)
-        (v, n) = pika.table.decode_table(r, 0)
+        (v, n) = pika.data.decode_table(r, 0)
         assert len(r) == n
         return v
 

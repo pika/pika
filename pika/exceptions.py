@@ -85,6 +85,10 @@ class TableDecodingError(ProtocolSyntaxError):
     pass
 
 
+class DecodingError(ProtocolSyntaxError):
+    pass
+
+
 class MethodNotImplemented(AMQPError):
     pass
 
@@ -98,4 +102,8 @@ class CallbackReplyAlreadyRegistered(ChannelTransportError):
 
 
 class InvalidFrameSize(ProtocolSyntaxError):
+    pass
+
+
+class InvalidRPCParameterType(Exception):
     pass

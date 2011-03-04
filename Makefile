@@ -40,8 +40,8 @@ test: pep8
 	 cd tests && for python in ${VERSIONS}; do echo "Running tests in $$python\n";$$python ./run_tests.py; done
 
 pep8:
-	pep8 --ignore=E501 --statistics --count -r codegen.py pika/spec.py tests/unit/table_test.py
-	pep8 --exclude=spec.py,table_test.py --statistics --count -r pika examples tests
+	pep8 --ignore=E501 --statistics --count -r codegen.py pika/spec.py tests/unit/data_test.py
+	pep8 --exclude=spec.py,data_test.py --statistics --count -r pika examples tests
 
 documentation:
 	$(MAKE) -C docs html
@@ -66,27 +66,27 @@ distribution:
     # Example:
     #  make distribution VERSION=0.9.4
 	echo "Building $(VERSION)"
-	
+
 	# Tag the version
 	git tag v$(VERSION)
 	git push origin v$(VERSION)
-	
+
 	# Make the dist build dir
 	mkdir -p dist/pika-$(VERSION)
-	
+
 	# Extract the tag and build the dist dir
 	git archive --format=tar v$(VERSION)  | tar -x -C dist/pika-$(VERSION)
 	#rm dist/pika-$(VERSION)/.gitignore
-	
+
 	# Replace the version where we have palceholders
 	sed -i 's/__VERSION_STRING__/$(VERSION)/g' dist/pika-$(VERSION)/setup.py dist/pika-$(VERSION)/docs/*
-	
+
 	# Make the tarball
-	cd dist && tar cfvz pika-$(VERSION).tar.gz pika-$(VERSION)/* --exclude=pika-$(VERSION)/.gitignore 
-	
+	cd dist && tar cfvz pika-$(VERSION).tar.gz pika-$(VERSION)/* --exclude=pika-$(VERSION)/.gitignore
+
 	# Update the MD5 checksum in the documentation
 	sed -i "s/__MD5_CHECKSUM__/$$(md5sum dist/pika-$(VERSION).tar.gz | awk {'print $$1'})/g" dist/pika-$(VERSION)/docs/index.rst
-	
+
 	# Make and push the documentation with the new version info
 	$(MAKE) -C dist/pika-$(VERSION)/docs html
 	git clone git@github.com:tonyg/pika.git -b gh-pages gh-pages
@@ -96,12 +96,12 @@ distribution:
 	cd gh-pages && git commit -m 'Update documentation from master' -a
 	cd gh-pages && git push
 	rm -r gh-pages
-	
+
 	# Build the PKG-INFO file for uploading to pypi
 	cd dist/pika-$(VERSION) && python setup.py sdist && cp pika.egg-info/PKG-INFO ../
 
  	# Remove the build directory
 	rm -r dist/pika-$(VERSION)
-	
+
 	# Output for changelog
 	git shortlog --no-merges v$(VERSION) ^$(LAST_VERSION) | cat

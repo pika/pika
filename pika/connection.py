@@ -7,7 +7,7 @@
 import struct
 
 import pika.channel as channel
-import pika.frame as frames
+import pika.frame
 import pika.log as log
 import pika.simplebuffer as simplebuffer
 import pika.spec as spec
@@ -54,6 +54,10 @@ class ConnectionParameters(object):
         if frame_max < spec.FRAME_MIN_SIZE:
             raise InvalidFrameSize("AMQP Minimum Frame Size is %i Bytes" % \
                                    spec.FRAME_MIN_SIZE)
+
+        elif frame_max > spec.FRAME_MAX_SIZE:
+            raise InvalidFrameSize("AMQP Maximum Frame Size is %i Bytes" % \
+                                   spec.FRAME_MAX_SIZE)
 
         self.host = host
         self.port = port
@@ -197,7 +201,7 @@ class Connection(object):
         connected and we can notify our connection strategy
         """
         # Start the communication with the RabbitMQ Broker
-        self._send_frame(frame.ProtocolHeader())
+        self._send_frame(pika.frame.ProtocolHeader())
 
         # Let our reconnection_strategy know we're connected
         self.reconnection.on_transport_connected(self)
@@ -230,13 +234,13 @@ class Connection(object):
         self.closed = False
 
         # We didn't expect a FrameProtocolHeader, did we get one?
-        if isinstance(frame, frame.ProtocolHeader):
-            raise ProtocolVersionMismatch(frame.ProtocolHeader, frame)
+        if isinstance(frame, pika.frame.ProtocolHeader):
+            raise ProtocolVersionMismatch(pika.frame.ProtocolHeader, frame)
 
         # Make sure that the major and minor version matches our spec version
         if (frame.method.version_major,
             frame.method.version_minor) != spec.PROTOCOL_VERSION[0:2]:
-            raise ProtocolVersionMismatch(frame.ProtocolHeader(), frame)
+            raise ProtocolVersionMismatch(pika.frame.ProtocolHeader(), frame)
 
         # Get our server properties for use elsewhere
         self.server_properties = frame.method.server_properties
@@ -537,7 +541,7 @@ class Connection(object):
         while self._buffer:
 
             # Try and build a frame
-            consumed_count, frame = frame.decode_frame(self._buffer)
+            consumed_count, frame = pika.frame.decode_frame(self._buffer)
 
             # Remove the frame we just consumed from our data
             self._buffer = self._buffer[consumed_count:]
@@ -550,7 +554,7 @@ class Connection(object):
             self.bytes_received += consumed_count
 
             # If we have a Method Frame and have callbacks for it
-            if isinstance(frame, frame.Method) and \
+            if isinstance(frame, pika.frame.Method) and \
                 self.callbacks.pending(frame.channel_number, frame.method):
 
                 # Process the callbacks for it
@@ -567,7 +571,7 @@ class Connection(object):
 
             elif frame.channel_number > 0:
                 # Call our Channel Handler with the frame
-                self._channels[frame.channel_number].transport.deliver(frame)
+                self._channels[frame_.channel_number].transport.deliver(frame)
 
     @log.method_call
     def _rpc(self, channel_number, method, callback, acceptable_replies):
@@ -616,7 +620,7 @@ class Connection(object):
         """
         Constructs a RPC method frame and then sends it to the broker
         """
-        self._send_frame(frame.Method(channel_number, method))
+        self._send_frame(pika.frame.Method(channel_number, method))
 
         if isinstance(content, tuple):
             props = content[0]
@@ -629,7 +633,7 @@ class Connection(object):
             length = 0
             if body:
                 length = len(body)
-            self._send_frame(frame.Header(channel_number, length, props))
+            self._send_frame(pika.frame.Header(channel_number, length, props))
 
         if body:
             max_piece = (self.parameters.frame_max - \
@@ -640,7 +644,7 @@ class Connection(object):
             while body_buf:
                 piece_len = min(len(body_buf), max_piece)
                 piece = body_buf.read_and_consume(piece_len)
-                self._send_frame(frame.Body(channel_number, piece))
+                self._send_frame(pika.frame.Body(channel_number, piece))
 
     @property
     def _suggested_buffer_size(self):

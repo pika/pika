@@ -4,7 +4,7 @@
 #
 # ***** END LICENSE BLOCK *****
 import pika.callback as callback
-import pika.frame as frames
+import pika.frame as frame
 import pika.log as log
 import pika.spec as spec
 import pika.exceptions as exceptions

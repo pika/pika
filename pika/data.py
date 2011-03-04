@@ -127,3 +127,21 @@ def decode_value(encoded, offset):
         raise InvalidTableError("Unsupported field kind %s during decoding" % \
                                 kind)
     return value, offset
+
+
+def validate_type(field_name, value, data_type):
+    """
+    Validate the data types passed into the RPC Command
+    """
+
+    if data_type == 'bit' and not isinstance(value, bool):
+        raise InvalidRPCParameterType("%s must be a bool" % field_name)
+
+    if data_type == 'shortstr' and not isinstance(value, str):
+        raise InvalidRPCParameterType("%s must be a str" % field_name)
+
+    if data_type == 'short' and not isinstance(value, int):
+        raise InvalidRPCParameterType("%s must be a int" % field_name)
+
+    if data_type == 'long' and not isinstance(value, long):
+        raise InvalidRPCParameterType("%s must be a int" % field_name)
