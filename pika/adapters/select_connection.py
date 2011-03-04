@@ -407,7 +407,7 @@ class PollPoller(SelectPoller):
     def poll(self):
 
         # Poll until TIMEOUT waiting for an event
-        events = self._poll.poll(int(SelectPoller.TIMEOUT*1000))
+        events = self._poll.poll(int(SelectPoller.TIMEOUT * 1000))
 
         # If we didn't timeout pass the event to the handler
         if events:

@@ -44,6 +44,7 @@ def encode_table():
     '\x00\x00\x00\x08\x01at\x01\x01bt\x00'
     '''
 
+
 class TestTable(unittest.TestCase):
     def test_reencode_none(self):
         self.assertEqual(self.reencode(None), {})

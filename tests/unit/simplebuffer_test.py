@@ -17,6 +17,7 @@ sys.path.append(os.path.join('..', '..'))
 
 import pika.simplebuffer
 
+
 class TestBuffer(unittest.TestCase):
     def setUp(self):
         self.buffer = pika.simplebuffer.SimpleBuffer()
@@ -111,10 +112,8 @@ class TestBuffer(unittest.TestCase):
     def test_str(self):
         self.buffer.write('abcdef')
         self.buffer.read_and_consume(3)
-        self.assertEqual(str(self.buffer), "<SimpleBuffer of 3 bytes, 6 total size, 'def'>")
-
-
-
+        self.assertEqual(str(self.buffer),
+                         "<SimpleBuffer of 3 bytes, 6 total size, 'def'>")
 
 
 if __name__ == "__main__":

@@ -254,7 +254,8 @@ class BlockingChannel(Channel):
         Sends off the Basic.Cancel to let RabbitMQ know to stop consuming and
         sets our internal state to exit out of the basic_consume.
         """
-        consumer_tag_keys = [consumer_tag] if consumer_tag else self._consumers.keys()
+        consumer_tag_keys = [consumer_tag] if consumer_tag else \
+                            self._consumers.keys()
 
         for consumer_tag in consumer_tag_keys:
             self.basic_cancel(consumer_tag)

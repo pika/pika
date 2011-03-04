@@ -17,11 +17,13 @@ sys.path.append(os.path.join('..', '..'))
 
 import pika.callback as callback
 
+
 class TestInit(unittest.TestCase):
     def test_singleton_instance(self):
         cm = callback.CallbackManager.instance()
         cm2 = callback.CallbackManager.instance()
         assert id(cm) == id(cm2), "%s != %s" % (cm.id, cm2.id)
+
 
 class TestSanitize(unittest.TestCase):
     def setUp(self):
@@ -76,27 +78,33 @@ class TestAdd(unittest.TestCase):
         self.cm.add(self.prefix, self.key, self.callable_thing)
 
         # All of this should be true once add is run.
-        expected_callbacks = [{'handle': self.callable_thing, 'one_shot': True}]
-        self.assertEqual(self.cm._callbacks[self.prefix][self.keyname], expected_callbacks)
+        expected_callbacks = [{'handle': self.callable_thing,
+                               'one_shot': True}]
+        self.assertEqual(self.cm._callbacks[self.prefix][self.keyname],
+                         expected_callbacks)
         self.assertTrue(isinstance(self.cm._callbacks, dict))
-        self.assertTrue(self.cm._callbacks.has_key(self.prefix))
-        self.assertTrue(self.cm._callbacks[self.prefix].has_key(self.keyname))
-        self.assertTrue(isinstance(self.cm._callbacks[self.prefix][self.keyname], list))
+        self.assertTrue(self.prefix in self.cm._callbacks)
+        self.assertTrue(self.keyname in self.cm._callbacks[self.prefix])
+        temp = self.cm._callbacks[self.prefix][self.keyname]
+        self.assertTrue(isinstance(temp, list))
 
     def test_add_duplicate(self):
         existing_callback = {'handle': self.callable_thing, 'one_shot': True}
         self.cm._callbacks[self.prefix] = {self.keyname: [existing_callback]}
-        self.assertTrue(existing_callback in self.cm._callbacks[self.prefix][self.keyname])
+        temp = self.cm._callbacks[self.prefix][self.keyname]
+        self.assertTrue(existing_callback in temp)
 
         # run the test
         self.cm.add(self.prefix, self.key, self.callable_thing)
 
-        self.assertEqual(self.cm._callbacks[self.prefix][self.keyname], [existing_callback])
+        self.assertEqual(self.cm._callbacks[self.prefix][self.keyname],
+                         [existing_callback])
         # All of this should be true once add is run.
         self.assertTrue(isinstance(self.cm._callbacks, dict))
-        self.assertTrue(self.cm._callbacks.has_key(self.prefix))
-        self.assertTrue(self.cm._callbacks[self.prefix].has_key(self.keyname))
-        self.assertTrue(isinstance(self.cm._callbacks[self.prefix][self.keyname], list))
+        self.assertTrue(self.prefix in self.cm._callbacks)
+        self.assertTrue(self.keyname in self.cm._callbacks[self.prefix])
+        temp = self.cm._callbacks[self.prefix][self.keyname]
+        self.assertTrue(isinstance(temp, list))
         self.assertTrue(self.callback.log.warning.called, "Log not called")
 
         # Inserting a duplicate callback emits a warning. This checks
@@ -113,15 +121,19 @@ class TestAdd(unittest.TestCase):
         only_caller = '0nly_c@ll3r'
 
         # run the test
-        self.cm.add(self.prefix, self.key, self.callable_thing, only_caller=only_caller)
+        self.cm.add(self.prefix, self.key, self.callable_thing,
+                    only_caller=only_caller)
 
-        expected_callbacks = [{'only': '0nly_c@ll3r', 'one_shot': True, 'handle': self.callable_thing}]
-        self.assertEqual(self.cm._callbacks[self.prefix][self.keyname], expected_callbacks)
+        expected_callbacks = [{'only': '0nly_c@ll3r', 'one_shot': True,
+                               'handle': self.callable_thing}]
+        self.assertEqual(self.cm._callbacks[self.prefix][self.keyname],
+                         expected_callbacks)
         # All of this should be true once add is run.
         assert isinstance(self.cm._callbacks, dict)
-        self.assertTrue(self.cm._callbacks.has_key(self.prefix))
-        self.assertTrue(self.cm._callbacks[self.prefix].has_key(self.keyname))
-        self.assertTrue(isinstance(self.cm._callbacks[self.prefix][self.keyname], list))
+        self.assertTrue(self.prefix in self.cm._callbacks)
+        self.assertTrue(self.keyname in self.cm._callbacks[self.prefix])
+        temp = self.cm._callbacks[self.prefix][self.keyname]
+        self.assertTrue(isinstance(temp, list))
 
 
 if __name__ == "__main__":

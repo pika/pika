@@ -62,7 +62,6 @@ class SimpleBuffer(object):
             self.buf.write(data)
             self.size += len(data)
 
-
     def read(self, size=None):
         """
         Read the data from the buffer, at most 'size' bytes.

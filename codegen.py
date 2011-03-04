@@ -259,7 +259,7 @@ def generate(specPath):
 
     constants = {}
     for c, v, cls in spec.constants:
-      constants[constantName(c)] = v
+        constants[constantName(c)] = v
 
     for key in sorted(constants.iterkeys()):
         print "%s = %s" % (key, constants[key])

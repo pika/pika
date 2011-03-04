@@ -29,6 +29,7 @@ __author__ = 'Brian K. Jones'
 __email__ = 'bkjones@gmail.com'
 __since__ = '2/25/11'
 
+
 class TestFrame(unittest.TestCase):
     def setUp(self):
         self.frame = frames.Frame('ftype', 3)

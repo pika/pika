@@ -11,6 +11,7 @@ sys.path.append('..')
 sys.path.append(os.path.join('..', '..'))
 import pika.channel as channel
 
+
 class TestChannelTransport(unittest.TestCase):
     def setUp(self):
         self.transport = channel.ChannelTransport('dummy_connection', 42)
