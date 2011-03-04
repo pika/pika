@@ -47,13 +47,13 @@ class ConnectionParameters(object):
                  virtual_host='/',
                  credentials=None,
                  channel_max=0,
-                 frame_max=frames.FRAME_MAX,
+                 frame_max=spec.FRAME_MAX_SIZE,
                  heartbeat=0):
 
         # Vaiidate the FRAME_MAX isn't less than min frame size
-        if frame_max < frames.FRAME_MIN:
+        if frame_max < spec.FRAME_MIN_SIZE:
             raise InvalidFrameSize("AMQP Minimum Frame Size is %i Bytes" % \
-                                   frames.FRAME_MIN)
+                                   spec.FRAME_MIN_SIZE)
 
         self.host = host
         self.port = port
@@ -633,8 +633,8 @@ class Connection(object):
 
         if body:
             max_piece = (self.parameters.frame_max - \
-                         frames.HEADER_SIZE - \
-                         frames.END_FRAME_MARKER_SIZE)
+                         spec.FRAME_HEADER_SIZE - \
+                         spec.FRAME_END_SIZE)
             body_buf = simplebuffer.SimpleBuffer(body)
 
             while body_buf:
@@ -648,4 +648,4 @@ class Connection(object):
         Return the suggested buffer size from the connection state/tune or the
         default if that is None
         """
-        return self.parameters.frame_max or frames.FRAME_MAX
+        return self.parameters.frame_max or spec.FRAME_MAX_SIZE

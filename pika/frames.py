@@ -12,15 +12,6 @@ import pika.exceptions as exceptions
 
 from pika.object import object_
 
-# AMQP byte frame size info
-# @TODO look at moving to spec.py
-HEADER_SIZE = 7
-END_FRAME_MARKER_SIZE = 1
-
-# AMQP Max frame sizes
-FRAME_MIN = 4096
-FRAME_MAX = 131072
-
 
 class Frame(object_):
 
@@ -273,9 +264,9 @@ def decode_frame(data_in):
         return 0, None
 
     # Get the frame data
-    frame_end = HEADER_SIZE +\
+    frame_end = spec.FRAME_HEADER_SIZE +\
                 frame_size +\
-                END_FRAME_MARKER_SIZE
+                spec.FRAME_END_SIZE
 
     # We don't have all of the frame yet
     if frame_end > len(data_in):
@@ -286,7 +277,7 @@ def decode_frame(data_in):
         raise exceptions.InvalidFrameError("Invalid FRAME_END marker")
 
     # Get the raw frame data
-    frame_data = data_in[HEADER_SIZE:frame_end - 1]
+    frame_data = data_in[spec.FRAME_HEADER_SIZE:frame_end - 1]
 
     if frame_type == spec.FRAME_METHOD:
 

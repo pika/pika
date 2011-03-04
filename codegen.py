@@ -252,8 +252,17 @@ def generate(specPath):
     print "PORT = %d" % spec.port
     print
 
+    # Append some constants that arent in the spec json file
+    spec.constants.append(('FRAME_DEFAULT_MAX_SIZE', 131072, ''))
+    spec.constants.append(('FRAME_HEADER_SIZE', 7, ''))
+    spec.constants.append(('FRAME_END_SIZE', 1, ''))
+
+    constants = {}
     for c, v, cls in spec.constants:
-        print "%s = %s" % (constantName(c), v)
+      constants[constantName(c)] = v
+
+    for key in sorted(constants.iterkeys()):
+        print "%s = %s" % (key, constants[key])
     print
 
     for c in spec.allClasses():
