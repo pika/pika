@@ -80,7 +80,7 @@ class ChannelTransport(object):
         return spec.has_content(method.INDEX)
 
     @log.method_call
-    def rpc(self, method, callback, acceptable_replies):
+    def rpc(self, method, callback=None, acceptable_replies=[]):
         """
         Shortcut wrapper to the Connection's rpc command using its callback
         stack, passing in our channel number
@@ -89,7 +89,7 @@ class ChannelTransport(object):
         self._ensure()
 
         # If we're blocking, add subsequent commands to our stack
-        if self.blocking:
+        if self.blocking and callback:
             log.debug('%s: %s is blocking this channel',
                           self.__class__.__name__, self.blocking)
 

@@ -140,7 +140,7 @@ class BlockingChannelTransport(ChannelTransport):
             self._replies.remove(key)
 
     @log.method_call
-    def rpc(self, method, callback, acceptable_replies):
+    def rpc(self, method, callback=None, acceptable_replies=[]):
         """
         Shortcut wrapper to the Connection's rpc command using its callback
         stack, passing in our channel number
@@ -166,7 +166,7 @@ class BlockingChannelTransport(ChannelTransport):
 
         # Find our reply in our list of replies
         for reply in self._replies:
-            if reply in replies:
+            if len(acceptable_replies) and (reply in replies):
                 frame = self._frames[reply]
                 self._received_response = True
                 if callback:

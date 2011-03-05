@@ -566,12 +566,12 @@ class Connection(object):
             # We don't check for heartbeat frames because we can not count
             # atomic frames reliably due to different message behaviors
             # such as large content frames being transferred slowly
-            elif isinstance(frame, frame.Heartbeat):
+            elif isinstance(frame, pika.frame.Heartbeat):
                 continue
 
             elif frame.channel_number > 0:
                 # Call our Channel Handler with the frame
-                self._channels[frame_.channel_number].transport.deliver(frame)
+                self._channels[frame.channel_number].transport.deliver(frame)
 
     @log.method_call
     def _rpc(self, channel_number, method, callback, acceptable_replies):
