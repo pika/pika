@@ -6,3 +6,5 @@ pika.egg-info/
 examples/pika
 examples/demo/pika
 atlassian*xml
+build
+dist
