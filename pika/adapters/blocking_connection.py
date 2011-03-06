@@ -5,11 +5,12 @@
 # ***** END LICENSE BLOCK *****
 
 import socket
+import types
+
 import pika.log as log
 import pika.spec as spec
 
 from pika.adapters import BaseConnection
-from pika.callback import CallbackManager
 from pika.channel import Channel, ChannelTransport
 from pika.exceptions import AMQPConnectionError, AMQPChannelError
 
@@ -56,7 +57,7 @@ class BlockingConnection(BaseConnection):
     @log.method_call
     def disconnect(self):
         self.socket.close()
-    
+
     @log.method_call
     def _adapter_disconnect(self):
         """
@@ -64,7 +65,7 @@ class BlockingConnection(BaseConnection):
         """
         # Close our socket
         self.socket.close()
-    
+
     @log.method_call
     def _handle_disconnect(self):
         """
@@ -148,7 +149,7 @@ class BlockingChannelTransport(ChannelTransport):
             self._replies.remove(key)
 
     @log.method_call
-    def rpc(self, method, callback, acceptable_replies):
+    def rpc(self, method, callback=None, acceptable_replies=None):
         """
         Shortcut wrapper to the Connection's rpc command using its callback
         stack, passing in our channel number
@@ -156,11 +157,24 @@ class BlockingChannelTransport(ChannelTransport):
         # Make sure the channel is open
         self._ensure()
 
+
+        # Validate we got None or a list of acceptable_replies
+        if acceptable_replies and not isinstance(acceptable_replies, list):
+            raise TypeError("acceptable_replies should be list or None")
+
+        # Validate the callback is a function or instancemethod
+        if callback and not isinstance(callback, types.FunctionType) and \
+           not isinstance(callback, types.MethodType):
+            raise TypeError("callback should be None, a function or method.")
+
+
         replies = list()
-        for reply in acceptable_replies:
-            prefix, key = self.callbacks.add(self.channel_number, reply,
-                                             self._on_rpc_complete)
-            replies.append(key)
+        if acceptable_replies:
+            for reply in acceptable_replies:
+                prefix, key = self.callbacks.add(self.channel_number,
+                                                 reply,
+                                                 self._on_rpc_complete)
+                replies.append(key)
 
         # Send the method
         self._received_response = False
@@ -212,9 +226,9 @@ class BlockingChannel(Channel):
 
         # We need to do this before the channel is invoked and send_method is
         # called
-        CallbackManager.instance().add(channel_number,
-                                       spec.Channel.OpenOk,
-                                       transport._on_rpc_complete)
+        connection.callbacks.add(channel_number,
+                                 spec.Channel.OpenOk,
+                                 transport._on_rpc_complete)
         Channel.__init__(self, connection, channel_number, None, transport)
         self.basic_get_ = Channel.basic_get
         self._consumers = {}
@@ -227,8 +241,9 @@ class BlockingChannel(Channel):
     @log.method_call
     def _on_remote_close(self, frame):
         Channel._on_remote_close(self, frame)
-        raise AMQPChannelError(frame.reply_code,
-                               frame.reply_text)
+        raise AMQPChannelError(frame.method.reply_code,
+                               frame.method.reply_text)
+
 
     @log.method_call
     def basic_publish(self, exchange, routing_key, body,
@@ -246,6 +261,7 @@ class BlockingChannel(Channel):
                                                       mandatory=mandatory,
                                                       immediate=immediate),
                                    (properties, body), False)
+
 
     @log.method_call
     def start_consuming(self):
