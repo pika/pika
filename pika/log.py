@@ -12,8 +12,15 @@ from functools import wraps
 import logging
 import sys
 
+
+class NullHandler(logging.Handler):
+    def emit(self, record):
+        pass
+
+
 logger = logging.getLogger('pika')
 logger.setLevel(logging.WARN)
+logger.addHandler(NullHandler())
 
 # Define these attributes as references to their logging counterparts
 debug = logger.debug
