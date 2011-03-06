@@ -5,21 +5,26 @@
 # ***** END LICENSE BLOCK *****
 
 """
-Example of simple producer, creates one message and exits.
+Example of publisher that waits for messages to be confirmed before delivering
+the next message. This makes use of the new Confirm.Select functionality in
+RabbitMQ 2.3.1
 """
 import sys
-import pika
 import time
 
-pika.log.setup(color=True)
-
+# We use these in this async procedural example
 connection = None
 channel = None
 
 # Import all adapters for easier experimentation
-from pika.adapters import *
+from pika import BasicProperties
+from pika.connection import ConnectionParameters
+from pika.adapters import SelectConnection
 
+# Our message counter
 message_id = 1
+
+# Send up to this many messages
 SEND_QTY = 10
 
 
@@ -40,22 +45,20 @@ def on_channel_open(channel_):
 def send_message(id):
     global channel
     message = "Hello World #%i" % id
-    print"Sending: %s" % message
+    print 'demo_send: Sending "%s"' % message
     channel.basic_publish(exchange='',
                           routing_key="test",
                           body=message,
-                          properties=pika.BasicProperties(
-                            timestamp=time.time(),
-                            user_id='guest',
-                            content_type="text/plain",
-                            delivery_mode=1))
+                          properties=BasicProperties(timestamp=time.time(),
+                                                     app_id=__file__,
+                                                     user_id='guest',
+                                                     content_type="text/plain",
+                                                     delivery_mode=1))
 
 
 def on_delivered(frame):
     global message_id
-
-    print "Received delivery confirmation: %r" % frame
-
+    print "demo_send: Received delivery confirmation %r" % frame.method
     message_id += 1
     if message_id > SEND_QTY:
         connection.close()
@@ -70,8 +73,8 @@ def on_queue_declared(frame):
 
 if __name__ == '__main__':
     host = (len(sys.argv) > 1) and sys.argv[1] or '127.0.0.1'
-    parameters = pika.ConnectionParameters(host)
-    connection = SelectConnection(parameters, on_connected)
+    connection = SelectConnection(ConnectionParameters(host),
+                                  on_connected)
     try:
         connection.ioloop.start()
     except KeyboardInterrupt:
