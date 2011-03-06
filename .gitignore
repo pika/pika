@@ -1,10 +1,11 @@
 *.pyc
 .idea/
+pika.iml
 .DS_Store
 codegen/
 pika.egg-info/
 examples/pika
-examples/demo/pika
+examples/blocking/pika
 atlassian*xml
 build
 dist
