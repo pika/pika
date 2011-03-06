@@ -18,13 +18,6 @@ sys.path.append(os.path.join('..', '..'))
 import pika.callback as callback
 
 
-class TestInit(unittest.TestCase):
-    def test_singleton_instance(self):
-        cm = callback.CallbackManager.instance()
-        cm2 = callback.CallbackManager.instance()
-        assert id(cm) == id(cm2), "%s != %s" % (cm.id, cm2.id)
-
-
 class TestSanitize(unittest.TestCase):
     def setUp(self):
         self.cm = callback.CallbackManager()
