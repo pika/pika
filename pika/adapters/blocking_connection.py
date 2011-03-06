@@ -157,7 +157,6 @@ class BlockingChannelTransport(ChannelTransport):
         # Make sure the channel is open
         self._ensure()
 
-
         # Validate we got None or a list of acceptable_replies
         if acceptable_replies and not isinstance(acceptable_replies, list):
             raise TypeError("acceptable_replies should be list or None")
@@ -166,7 +165,6 @@ class BlockingChannelTransport(ChannelTransport):
         if callback and not isinstance(callback, types.FunctionType) and \
            not isinstance(callback, types.MethodType):
             raise TypeError("callback should be None, a function or method.")
-
 
         replies = list()
         if acceptable_replies:
@@ -244,7 +242,6 @@ class BlockingChannel(Channel):
         raise AMQPChannelError(frame.method.reply_code,
                                frame.method.reply_text)
 
-
     @log.method_call
     def basic_publish(self, exchange, routing_key, body,
                       properties=None, mandatory=False, immediate=False):
@@ -261,7 +258,6 @@ class BlockingChannel(Channel):
                                                       mandatory=mandatory,
                                                       immediate=immediate),
                                    (properties, body), False)
-
 
     @log.method_call
     def start_consuming(self):
