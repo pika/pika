@@ -5,12 +5,32 @@
 # ***** END LICENSE BLOCK *****
 
 import struct
-import pika.callback as callback
 import pika.log as log
 import pika.spec as spec
 import pika.exceptions as exceptions
 
 from pika.object import object_
+
+id = 0
+debug = False
+
+
+def log_frame(frame_type, frame_data):
+    """
+    Debugging function to write out raw frame data, do not release in main code
+    """
+    if debug:
+        frame_type = frame_type.lower()
+        log.info("Logging frame: %s" % frame_type)
+        global id
+        id += 1
+        if id < 10:
+            strid = '0%i' % id
+        else:
+            strid = '%i' % id
+
+        with open('/tmp/pika/%s.frame' % strid, 'wb') as f:
+            f.write(frame_data)
 
 
 class Frame(object_):
@@ -121,9 +141,10 @@ class Dispatcher(object):
     """
 
     @log.method_call
-    def __init__(self):
+    def __init__(self, callback_manager):
         # We start with Method frames always
         self._handler = self._handle_method_frame
+        self.callbacks = callback_manager
 
     @log.method_call
     def process(self, frame):
@@ -218,16 +239,13 @@ class Dispatcher(object):
             else:
                 raise Exception('Unimplemented Content Return Key')
 
-            # Get our callback manager instance
-            callbacks = callback.CallbackManager.instance()
-
             # Check for a processing callback for our method name
-            callbacks.process(method_frame.channel_number,  # Prefix
-                              key,                          # Key
-                              self,                         # Caller
-                              method_frame,                 # Arg 1
-                              header_frame,                 # Arg 2
-                              ''.join(body_fragments))      # Arg 3
+            self.callbacks.process(method_frame.channel_number,  # Prefix
+                                   key,                          # Key
+                                   self,                         # Caller
+                                   method_frame,                 # Arg 1
+                                   header_frame,                 # Arg 2
+                                   ''.join(body_fragments))      # Arg 3
 
         # If we don't have a header frame body size, finish. Otherwise keep
         # going and keep our handler function as the frame handler
@@ -243,11 +261,11 @@ def decode_frame(data_in):
     Receives raw socket data and attempts to turn it into a frame.
     Returns bytes used to make the frame and the frame
     """
-    # Look to see if it's a header frame
+    # Look to see if it's a protocol header frame
     try:
         if data_in[0:4] == 'AMQP':
             major, minor, revision = struct.unpack_from('BBB', data_in, 5)
-            return 9, ProtocolHeader(major, minor, revision)
+            return 8, ProtocolHeader(major, minor, revision)
     except IndexError:
         # We didn't get a full frame
         return 0, None
@@ -281,6 +299,8 @@ def decode_frame(data_in):
 
     if frame_type == spec.FRAME_METHOD:
 
+        log_frame('method', data_in)
+
         # Get the Method ID from the frame data
         method_id = struct.unpack_from('>I', frame_data)[0]
 
@@ -294,6 +314,8 @@ def decode_frame(data_in):
         return frame_end, Method(channel_number, method)
 
     elif frame_type == spec.FRAME_HEADER:
+
+        log_frame('header', data_in)
 
         # Return the header class and body size
         class_id, weight, body_size = struct.unpack_from('>HHQ', frame_data)
@@ -313,10 +335,14 @@ def decode_frame(data_in):
 
     elif frame_type == spec.FRAME_BODY:
 
+        log_frame('body', data_in)
+
         # Return the amount of data consumed and the Body frame w/ data
         return frame_end, Body(channel_number, frame_data)
 
     elif frame_type == spec.FRAME_HEARTBEAT:
+
+        log_frame('heartbeat', data_in)
 
         # Return the amount of data and a Heartbeat frame
         return frame_end, Heartbeat()

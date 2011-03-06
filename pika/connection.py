@@ -133,7 +133,7 @@ class Connection(object):
         self._buffer = ''
 
         # Define our callback dictionary
-        self.callbacks = CallbackManager.instance()
+        self.callbacks = CallbackManager()
 
         # On connection callback
         if on_open_callback:
@@ -649,6 +649,8 @@ class Connection(object):
         marshalled_frame = frame.marshal()
         self.bytes_sent += len(marshalled_frame)
         self.frames_sent += 1
+
+        #pika.frame.log_frame(frame.name, marshalled_frame)
         self.outbound_buffer.write(marshalled_frame)
         self._flush_outbound()
         avg_frame_size = self.bytes_sent / self.frames_sent

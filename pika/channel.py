@@ -5,7 +5,6 @@
 # ***** END LICENSE BLOCK *****
 import types
 
-import pika.callback as callback
 import pika.frame as frame
 import pika.log as log
 import pika.spec as spec
@@ -34,10 +33,10 @@ class ChannelTransport(object):
         self.channel_number = channel_number
 
         # Use the global callback handler
-        self.callbacks = callback.CallbackManager.instance()
+        self.callbacks = connection.callbacks
 
         # The frame-handler changes depending on the type of frame processed
-        self.frame_dispatcher = frame.Dispatcher()
+        self.frame_dispatcher = frame.Dispatcher(self.callbacks)
 
         # We need to block on synchronous commands, but do so asynchronously
         self.blocking = None
@@ -192,7 +191,7 @@ class Channel(spec.DriverMixin):
         self.channel_number = channel_number
 
         # Get the callback manager
-        self.callbacks = callback.CallbackManager.instance()
+        self.callbacks = connection.callbacks
 
         # Our on_open_callback, special case
         self._on_open_callback = on_open_callback
@@ -360,9 +359,10 @@ class Channel(spec.DriverMixin):
         """
         Sends the AMQP command Basic.Consume to the broker and binds messages
         for the consumer_tag to the consumer callback. If you do not pass in
-        a consumer_tag, one will be automatically generated for you. For
-        more information on basic_consume, see:
+        a consumer_tag, one will be automatically generated for you. Returns
+        the consumer tag.
 
+        For more information on basic_consume, see:
         http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.consume
         """
         # If a consumer tag was not passed, create one
@@ -387,6 +387,9 @@ class Channel(spec.DriverMixin):
         except exceptions.ChannelClosed, e:
             del(self._consumers[consumer_tag])
             raise exceptions.ChannelClosed(e)
+
+        # Return the consumer tag for the user reference
+        return consumer_tag
 
     @log.method_call
     def basic_publish(self, exchange, routing_key, body,
