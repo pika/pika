@@ -504,3 +504,41 @@ def decode_channel_closeok_test():
 
     # Verify it is a method frame and return frame.method
     validate_method_frame(frame, spec.Channel.CloseOk)
+
+
+def decode_basic_ack_test():
+
+    frame_data = '\x01\x00\x01\x00\x00\x00\r\x00<\x00P\x00\x00\x00\x00\x00\x00\x00\x01\x00\xce'
+
+    # Decode our frame data and validate lengths
+    frame = decode_frame(frame_data)
+
+    # Verify it is a method frame and return frame.method
+    method = validate_method_frame(frame, spec.Basic.Ack)
+
+    validate_attribute(method, 'multiple', bool, False)
+    validate_attribute(method, 'delivery_tag', int, 1)
+
+
+def decode_confirm_select_test():
+
+    frame_data = '\x01\x00\x01\x00\x00\x00\x05\x00U\x00\n\x00\xce'
+
+    # Decode our frame data and validate lengths
+    frame = decode_frame(frame_data)
+
+    # Verify it is a method frame and return frame.method
+    method = validate_method_frame(frame, spec.Confirm.Select)
+
+    validate_attribute(method, 'nowait', bool, False)
+
+
+def decode_confirm_selectok_test():
+
+    frame_data = '\x01\x00\x01\x00\x00\x00\x04\x00U\x00\x0b\xce'
+
+    # Decode our frame data and validate lengths
+    frame = decode_frame(frame_data)
+
+    # Verify it is a method frame and return frame.method
+    validate_method_frame(frame, spec.Confirm.SelectOk)

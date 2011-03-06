@@ -535,3 +535,33 @@ class Channel(spec.DriverMixin):
         else:
             log.error("%s._on_flow_ok: No callback defined.",
                       self.__class__.__name__)
+
+    @log.method_call
+    def confirm_delivery(self, callback=None, nowait=False):
+        """
+        Turn on Confirm mode in the channel. Pass in a callback to be notified
+        by the Broker when a message has been confirmed as received (Basic.Ack
+        from the broker to the publisher).
+
+        For more information see:
+            http://www.rabbitmq.com/extensions.html#confirms
+        """
+
+        # Add the Basic.Ack callback
+        if callback:
+            self.callbacks.add(self.channel_number,
+                               spec.Basic.Ack,
+                               callback,
+                               False)
+
+        # Send the RPC command
+        self.transport.rpc(spec.Confirm.Select(nowait),
+                           self._on_confirm_select_ok,
+                           [spec.Confirm.SelectOk])
+
+    @log.method_call
+    def _on_confirm_select_ok(self, frame):
+        """
+        Called when the broker sends a Confirm.SelectOk frame
+        """
+        log.info("Confirm.SelectOk Received")
