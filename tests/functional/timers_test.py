@@ -15,7 +15,11 @@ sys.path.append(os.path.join('..', '..'))
 import pika
 import pika.adapters as adapters
 
-from pika.adapters.tornado_connection import TornadoConnection
+try:
+    from pika.adapters.tornado_connection import TornadoConnection
+except ImportError:
+    TornadoConnection = None
+
 from config import HOST, PORT
 
 
@@ -48,6 +52,8 @@ class TestAdapters(object):
 
     @nose.tools.timed(2)
     def test_tornado_connection(self):
+        if not TornadoConnection:
+            raise nose.SkipTest
         self.connection = self._connect(TornadoConnection)
         self.connection.ioloop.start()
         if not self.confirmed:

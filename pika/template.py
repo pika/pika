@@ -13,6 +13,7 @@ Template classes to extend that make building asynchronous Pika clients easier
 from pika.object import object_
 import pika.spec as spec
 
+
 class AsyncConsumer(object_):
 
     def __init__(self, reconnect=False):

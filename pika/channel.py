@@ -3,11 +3,15 @@
 # For copyright and licensing please refer to COPYING.
 #
 # ***** END LICENSE BLOCK *****
+import types
+
 import pika.callback as callback
 import pika.frame as frame
 import pika.log as log
 import pika.spec as spec
 import pika.exceptions as exceptions
+
+MAX_CHANNELS = 32768
 
 
 class ChannelTransport(object):
@@ -80,7 +84,7 @@ class ChannelTransport(object):
         return spec.has_content(method.INDEX)
 
     @log.method_call
-    def rpc(self, method, callback, acceptable_replies):
+    def rpc(self, method, callback=None, acceptable_replies=None):
         """
         Shortcut wrapper to the Connection's rpc command using its callback
         stack, passing in our channel number
@@ -96,17 +100,27 @@ class ChannelTransport(object):
             self._blocked.append([method, callback, acceptable_replies])
             return
 
+        # Validate we got None or a list of acceptable_replies
+        if acceptable_replies and not isinstance(acceptable_replies, list):
+            raise TypeError("acceptable_replies should be list or None")
+
+        # Validate the callback is a function or instancemethod
+        if callback and not isinstance(callback, types.FunctionType) and \
+           not isinstance(callback, types.MethodType):
+            raise TypeError("callback should be None, a function or method.")
+
         # If this is a synchronous method, block connections until we're done
         if method.synchronous:
             log.debug('%s: %s turning on blocking',
                           self.__class__.__name__, method.NAME)
             self.blocking = method.NAME
 
-        for reply in acceptable_replies:
-            self.callbacks.add(self.channel_number, reply,
-                               self._on_synchronous_complete)
-            if callback:
-                self.callbacks.add(self.channel_number, reply, callback)
+        if acceptable_replies:
+            for reply in acceptable_replies:
+                self.callbacks.add(self.channel_number, reply,
+                                   self._on_synchronous_complete)
+                if callback:
+                    self.callbacks.add(self.channel_number, reply, callback)
 
         self.send_method(method)
 

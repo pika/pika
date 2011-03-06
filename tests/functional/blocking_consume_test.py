@@ -20,6 +20,7 @@ import support.tools
 from config import HOST, PORT
 
 MESSAGES = 10
+MAX_DURATION = 10
 
 
 def test_blocking_consume():
@@ -34,7 +35,7 @@ def test_blocking_consume():
     exchange_name = support.tools.test_queue_name('blocking_exchange')
     frame = channel.exchange_declare(exchange=exchange_name,
                                      type="direct",
-                                     auto_delete="true")
+                                     auto_delete=True)
     if not isinstance(frame.method, pika.spec.Exchange.DeclareOk):
         assert False, \
         "Did not receive Exchange.DeclareOk from channel.exchange_declare"
@@ -66,7 +67,7 @@ def test_blocking_consume():
         _received.append(body)
         if len(_received) == MESSAGES:
             channel.stop_consuming()
-        if start < time.time() - 2:
+        if start < time.time() - MAX_DURATION:
             assert False, "Test timed out"
 
     for x in xrange(0, MESSAGES):
@@ -83,7 +84,8 @@ def test_blocking_consume():
     start = time.time()
 
     # This is blocking
-    channel.basic_consume(consumer_callback=_on_message, queue=queue_name, no_ack=True)
+    channel.basic_consume(consumer_callback=_on_message, queue=queue_name,
+                          no_ack=True)
     connection.close()
 
     # Check our results

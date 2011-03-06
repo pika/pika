@@ -19,7 +19,6 @@ import support.tools as tools
 from pika.adapters import SelectConnection
 from config import HOST, PORT
 
-MESSAGES = 5
 
 class TestConsumeCancel(tools.AsyncPattern):
 
@@ -33,8 +32,6 @@ class TestConsumeCancel(tools.AsyncPattern):
         self.confirmed = False
         self.connection = self._connect(SelectConnection, HOST, PORT)
         self.connection.ioloop.start()
-        if self._timeout:
-            assert False, "Test timed out"
         if not self.confirmed:
             assert False, "Did not receive Basic.CancelOk"
         pass

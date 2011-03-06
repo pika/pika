@@ -4,25 +4,21 @@
 #
 # ***** END LICENSE BLOCK *****
 
-import struct
+import types
 
 import pika.channel as channel
+import pika.credentials
 import pika.frame
 import pika.log as log
 import pika.simplebuffer as simplebuffer
 import pika.spec as spec
 
 from pika.callback import CallbackManager
-from pika.credentials import PlainCredentials
 from pika.exceptions import *
 from pika.heartbeat import HeartbeatChecker
 from pika.reconnection_strategies import NullReconnectionStrategy
 
-CHANNEL_MAX = 32767
 PRODUCT = "Pika Python AMQP Client Library"
-
-# Module wide default credentials for default RabbitMQ configurations
-default_credentials = PlainCredentials('guest', 'guest')
 
 
 class ConnectionParameters(object):
@@ -38,7 +34,7 @@ class ConnectionParameters(object):
       Defaults to PlainCredentials for the guest user.
     - channel_max: Maximum number of channels to allow, defaults to 0 for None
     - frame_max: The maximum byte size for an AMQP frame. Defaults to 131072
-    - heartbeat: Turn heartbeat checking on or off. Defaults to 0 for Off.
+    - heartbeat: Turn heartbeat checking on or off. Defaults to False.
     """
     @log.method_call
     def __init__(self,
@@ -48,24 +44,71 @@ class ConnectionParameters(object):
                  credentials=None,
                  channel_max=0,
                  frame_max=spec.FRAME_MAX_SIZE,
-                 heartbeat=0):
+                 heartbeat=False):
 
-        # Vaiidate the FRAME_MAX isn't less than min frame size
+        # Validate the host type
+        if not isinstance(host, str):
+            raise TypeError("Host must be a str")
+
+        # Validate the port coming in
+        if not isinstance(port, int):
+            raise TypeError("Port must be an int")
+
+        # Define the default credentials
+        if not credentials:
+            credentials = pika.credentials.PlainCredentials('guest', 'guest')
+
+        # Validate that the credentials are our supported type
+        else:
+            # Loop through the credential types in the credentials module
+            valid_types = []
+            for credential_type in pika.credentials.VALID_TYPES:
+                # Found a valid credential type
+                if isinstance(credentials, credential_type):
+                    break
+                valid_types.append(credentials.__class__.__name__)
+
+            # Allow for someone to extend VALID_TYPES with custom types
+            if len(pika.credentials.VALID_TYPES) > 1:
+                message = 'credentials must be an object of type: %s' % \
+                          ', '.join(valid_types)
+            else:
+                message = 'credentials must be a %s object' % valid_types[0]
+            raise TypeError(message)
+
+        if not isinstance(channel_max, int):
+            raise TypeError("max-channels must be an int")
+
+        # Validate the frame_max type coming in
+        if not isinstance(frame_max, int):
+            raise TypeError("frame_max must be an int")
+
+        # Validate the FRAME_MAX isn't less than min frame size
         if frame_max < spec.FRAME_MIN_SIZE:
             raise InvalidFrameSize("AMQP Minimum Frame Size is %i Bytes" % \
                                    spec.FRAME_MIN_SIZE)
 
+        # Validate the frame_max isn't greater than the max frame size
         elif frame_max > spec.FRAME_MAX_SIZE:
             raise InvalidFrameSize("AMQP Maximum Frame Size is %i Bytes" % \
                                    spec.FRAME_MAX_SIZE)
 
+        # Validate the frame_max type coming in
+        if not isinstance(frame_max, int):
+            raise TypeError("frame_max must be an int")
+
+        # Validate the heartbeat parameter:
+        if not isinstance(heartbeat, bool):
+            raise TypeError("heartbeat must be a bool")
+
+        # Assign our values
         self.host = host
         self.port = port
         self.virtual_host = virtual_host
         self.credentials = credentials
         self.channel_max = channel_max
         self.frame_max = frame_max
-        self.heartbeat = heartbeat
+        self.heartbeat = int(heartbeat)
 
 
 class Connection(object):
@@ -102,8 +145,19 @@ class Connection(object):
         # If we did not pass in a reconnection_strategy, setup the default
         self.reconnection = reconnection_strategy or NullReconnectionStrategy()
 
+        # Validate that we don't have erase_credentials enabled with a non
+        # Null reconnection strategy
+        if self.parameters.credentials.erase_on_connect and \
+            not isinstance(self.reconnection, NullReconnectionStrategy):
+            # Warn the developer
+            log.warning("%s was initialized to erase credentials but you have \
+                         specified a %s. Reconnections will fail.",
+                        self.parameters.credentials.__class__.__name__,
+                        self.reconnection.__class__.__name__)
+
         # Add our callback for if we close by being disconnected
-        self.add_on_close_callback(self.reconnection.on_connection_closed)
+        if not isinstance(self.reconnection, NullReconnectionStrategy):
+            self.add_on_close_callback(self.reconnection.on_connection_closed)
 
         # Set all of our default connection state values
         self._init_connection_state()
@@ -245,22 +299,18 @@ class Connection(object):
         # Get our server properties for use elsewhere
         self.server_properties = frame.method.server_properties
 
-        # Use the default credentials if the user didn't pass any in
-        credentials = self.parameters.credentials or default_credentials
-
-        # Build our StartOk authentication response
-        response = credentials.response_for(frame.method)
+        # Build our StartOk authentication response from the credentials obj
+        authentication_type, response = \
+            self.parameters.credentials.response_for(frame.method)
 
         # Server asked for credentials for a method we don't support so raise
         # an exception to let the implementing app know
-        if not response:
+        if not authentication_type:
             raise LoginError("No %s support for the credentials" %\
                              self.parameters.credentials.TYPE)
 
-        # Erase our credentials if we don't want to retain them in the state
-        # of the connection. By default this is a noop function but adapters
-        # may override this
-        self._erase_credentials()
+        # Erase the credentials if the credentials object wants to
+        self.parameters.credentials.erase_credentials()
 
         # Add our callback for our Connection Tune event
         self.callbacks.add(0, spec.Connection.Tune, self._on_connection_tune)
@@ -268,17 +318,9 @@ class Connection(object):
         # Send our Connection.StartOk
         method = spec.Connection.StartOk(client_properties={"product":
                                                             PRODUCT},
-                                        mechanism=response[0],
-                                        response=response[1])
+                                         mechanism=authentication_type,
+                                         response=response)
         self._send_method(0, method)
-
-    @log.method_call
-    def _erase_credentials(self):
-        """
-        Override if in some context you need the object to forget
-        its login credentials after successfully opening a connection.
-        """
-        pass
 
     @log.method_call
     def _combine(self, a, b):
@@ -488,7 +530,7 @@ class Connection(object):
         Return the next available channel number or raise on exception
         """
         # Our limit is the the Codec's Channel Max or MAX_CHANNELS if it's None
-        limit = self.parameters.channel_max or CHANNEL_MAX
+        limit = self.parameters.channel_max or channel.MAX_CHANNELS
 
         # We've used all of our channels
         if len(self._channels) == limit:
@@ -574,12 +616,22 @@ class Connection(object):
                 self._channels[frame.channel_number].transport.deliver(frame)
 
     @log.method_call
-    def _rpc(self, channel_number, method, callback, acceptable_replies):
+    def _rpc(self, channel_number, method,
+             callback=None, acceptable_replies=None):
         """
         Make an RPC call for the given callback, channel number and method.
         acceptable_replies lists out what responses we'll process from the
         server with the specified callback.
         """
+        # Validate that acceptable_replies is a list or None
+        if acceptable_replies and not isinstance(acceptable_replies, list):
+            raise TypeError("acceptable_replies should be list or None")
+
+        # Validate that the callback is a function, instancemethod or None
+        if callback and not isinstance(callback, types.FunctionType) and \
+           not isinstance(callback, types.MethodType):
+            raise TypeError("callback should be None, a function or method.")
+
         # If we were passed a callback, add it to our stack
         if callback:
             for reply in acceptable_replies:

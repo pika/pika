@@ -5,7 +5,7 @@
 # ***** END LICENSE BLOCK *****
 
 from pika.connection import ConnectionParameters
-from pika.connection import PlainCredentials
+from pika.credentials import PlainCredentials
 from pika.reconnection_strategies import ReconnectionStrategy
 from pika.spec import BasicProperties
 
