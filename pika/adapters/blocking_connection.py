@@ -56,7 +56,15 @@ class BlockingConnection(BaseConnection):
     @log.method_call
     def disconnect(self):
         self.socket.close()
-
+    
+    @log.method_call
+    def _adapter_disconnect(self):
+        """
+        Called if we are forced to disconnect for some reason from Connection
+        """
+        # Close our socket
+        self.socket.close()
+    
     @log.method_call
     def _handle_disconnect(self):
         """
