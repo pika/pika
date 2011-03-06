@@ -40,8 +40,8 @@ test: pep8
 	 cd tests && for python in ${VERSIONS}; do echo "Running tests in $$python\n";$$python ./run_tests.py; done
 
 pep8:
-	pep8 --ignore=E501 --statistics --count -r codegen.py pika/spec.py tests/unit/data_test.py
-	pep8 --exclude=spec.py,data_test.py --statistics --count -r pika examples tests
+	pep8 --ignore=E501 --statistics --count -r codegen.py pika/spec.py tests/unit/data_test.py tests/unit/frame_test.py
+	pep8 --exclude=spec.py,data_test.py,frame_test.py --statistics --count -r pika examples tests
 
 documentation:
 	$(MAKE) -C docs html
