@@ -7,9 +7,10 @@ Support for confirm.select, confirm.selectok
 Allow for keyed singletons for threaded use
 Decrease overuse of @pika.log.method_call
 Move connection.ConnectionState to frames module
+Async Consumer implementation template
 
 0.9.6
-Async implementation templates
+Additional Async implementation templates
 Twisted Support
 
 0.9.7
