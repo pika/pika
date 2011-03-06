@@ -4,20 +4,20 @@
 #
 # ***** END LICENSE BLOCK *****
 """
-Example of simple consumer. Acks each message as it arrives.
+Example of simple consumer. Acks each message as it arrives, timing the
+receive rate
 """
 
-import pika
 import sys
 import time
 
-# Import all adapters for easier experimentation
-from pika.adapters import *
+from pika.adapters import SelectConnection
+from pika.connection import ConnectionParameters
 
-pika.log.setup(color=True)
-
-channel = None
+# We use these to hold our connection & channel
 connection = None
+channel = None
+
 count = 0
 last_count = 0
 start_time = None
@@ -25,14 +25,14 @@ start_time = None
 
 def on_connected(connection):
     global channel
-    pika.log.info("demo_send: Connected to RabbitMQ")
+    print "timed_receive: Connected to RabbitMQ"
     connection.channel(on_channel_open)
 
 
 def on_channel_open(channel_):
     global channel
     channel = channel_
-    pika.log.info("demo_send: Received our Channel")
+    print "timed_receive: Received our Channel"
     channel.queue_declare(queue="test", durable=True,
                           exclusive=False, auto_delete=False,
                           callback=on_queue_declared)
@@ -40,7 +40,7 @@ def on_channel_open(channel_):
 
 def on_queue_declared(frame):
     global start_time
-    pika.log.info("demo_send: Queue Declared")
+    print "timed_receive: Queue Declared"
     start_time = time.time()
     channel.basic_consume(handle_delivery, queue='test', no_ack=True)
 
@@ -55,16 +55,25 @@ def handle_delivery(channel, method, header, body):
         rate = sent / duration
         last_count = count
         start_time = now
-        pika.log.info("timed_receive: %i Messages Received, %.4f per second",
-                      count, rate)
+        print "timed_receive: %i Messages Received, %.4f per second" %\
+              (count, rate)
 
 
 if __name__ == '__main__':
+
+    # Connect to RabbitMQ
     host = (len(sys.argv) > 1) and sys.argv[1] or '127.0.0.1'
-    parameters = pika.ConnectionParameters(host)
-    connection = SelectConnection(parameters, on_connected)
+    connection = SelectConnection(ConnectionParameters(host),
+                                  on_connected)
+    # Loop until CTRL-C
     try:
+        # Start our blocking loop
         connection.ioloop.start()
+
     except KeyboardInterrupt:
+
+        # Close the connection
         connection.close()
+
+        # Loop until the connection is closed
         connection.ioloop.start()

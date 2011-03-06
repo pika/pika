@@ -12,14 +12,13 @@ RabbitMQ 2.3.1
 import sys
 import time
 
-# We use these in this async procedural example
-connection = None
-channel = None
-
-# Import all adapters for easier experimentation
 from pika import BasicProperties
 from pika.connection import ConnectionParameters
 from pika.adapters import SelectConnection
+
+# We use these to hold our connection & channel
+connection = None
+channel = None
 
 # Our message counter
 message_id = 1
@@ -72,11 +71,20 @@ def on_queue_declared(frame):
 
 
 if __name__ == '__main__':
+
+    # Connect to RabbitMQ
     host = (len(sys.argv) > 1) and sys.argv[1] or '127.0.0.1'
     connection = SelectConnection(ConnectionParameters(host),
                                   on_connected)
+    # Loop until CTRL-C
     try:
+        # Start our blocking loop
         connection.ioloop.start()
+
     except KeyboardInterrupt:
+
+        # Close the connection
         connection.close()
+
+        # Loop until the connection is closed
         connection.ioloop.start()

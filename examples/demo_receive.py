@@ -8,50 +8,60 @@
 Example of simple consumer. Acks each message as it arrives.
 """
 import sys
-import pika
 
-# Import all adapters for easier experimentation
-from pika.adapters import *
+from pika.adapters import SelectConnection
+from pika.connection import ConnectionParameters
 
-pika.log.setup(color=True)
-
+# We use these to hold our connection & channel
 connection = None
 channel = None
 
 
 def on_connected(connection):
     global channel
-    pika.log.info("demo_receive: Connected to RabbitMQ")
+    print "demo_receive: Connected to RabbitMQ"
     connection.channel(on_channel_open)
 
 
 def on_channel_open(channel_):
     global channel
     channel = channel_
-    pika.log.info("demo_receive: Received our Channel")
-    channel.queue_declare(queue="test", durable=True,
-                          exclusive=False, auto_delete=False,
+    print "demo_receive: Received our Channel"
+    channel.queue_declare(queue="test",
+                          durable=True,
+                          exclusive=False,
+                          auto_delete=False,
                           callback=on_queue_declared)
 
 
 def on_queue_declared(frame):
-    pika.log.info("demo_receive: Queue Declared")
+    print "demo_receive: Queue Declared"
     channel.basic_consume(handle_delivery, queue='test')
 
 
 def handle_delivery(channel, method_frame, header_frame, body):
-    pika.log.info("Basic.Deliver %s delivery-tag %i: %s",
-                  header_frame.content_type,
-                  method_frame.delivery_tag,
-                  body)
+    print "Basic.Deliver %s delivery-tag %i: %s" %\
+          (header_frame.content_type,
+           method_frame.delivery_tag,
+           body)
     channel.basic_ack(delivery_tag=method_frame.delivery_tag)
 
+
 if __name__ == '__main__':
+
+    # Connect to RabbitMQ
     host = (len(sys.argv) > 1) and sys.argv[1] or '127.0.0.1'
-    parameters = pika.ConnectionParameters(host)
-    connection = SelectConnection(parameters, on_connected)
+    connection = SelectConnection(ConnectionParameters(host),
+                                  on_connected)
+    # Loop until CTRL-C
     try:
+        # Start our blocking loop
         connection.ioloop.start()
+
     except KeyboardInterrupt:
+
+        # Close the connection
         connection.close()
+
+        # Loop until the conneciton is closed
         connection.ioloop.start()

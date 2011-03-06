@@ -33,16 +33,20 @@ if __name__ == '__main__':
         try:
             # Construct a message and send it
             message = "BlockingConnection.channel.basic_publish #%i" % count
+
+            # Create properties with when we sent the message, the app_id
+            # user we connected with, a content type and non persisted messages
+            properties = BasicProperties(timestamp=time.time(),
+                                         app_id=__file__,
+                                         user_id='guest',
+                                         content_type="text/plain",
+                                         delivery_mode=1)
+
+            # Send the message
             channel.basic_publish(exchange='',
                                   routing_key="test",
                                   body=message,
-                                  properties=BasicProperties(timestamp=\
-                                                             time.time(),
-                                                             app_id=__file__,
-                                                             user_id='guest',
-                                                             content_type=\
-                                                             "text/plain",
-                                                             delivery_mode=1))
+                                  properties=properties)
             count += 1
             if count % 1000 == 0:
                 duration = time.time() - start_time
