@@ -3,22 +3,21 @@
 # For copyright and licensing please refer to COPYING.
 #
 # ***** END LICENSE BLOCK *****
-'''
-Example of simple producer, creates one message and exits.
-'''
-import pika
+"""
+Example of simple publisher, loop and send messages as fast as we can
+"""
+
 import sys
 import time
 
 from pika.adapters import BlockingConnection
-
-pika.log.setup(color=True)
+from pika.connection import ConnectionParameters
+from pika import BasicProperties
 
 if __name__ == '__main__':
     # Connect to RabbitMQ
     host = (len(sys.argv) > 1) and sys.argv[1] or '127.0.0.1'
-    parameters = pika.ConnectionParameters(host)
-    connection = BlockingConnection(parameters)
+    connection = BlockingConnection(ConnectionParameters(host))
 
     # Open the channel
     channel = connection.channel()
@@ -31,16 +30,28 @@ if __name__ == '__main__':
     count = 0
     start_time = time.time()
     while True:
-        # Construct a message and send it
-        message = "BlockingConnection.channel.basic_publish #%i" % count
-        channel.basic_publish(exchange='',
-                              routing_key="test",
-                              body=message,
-                              properties=pika.BasicProperties(
-                                content_type="text/plain",
-                                delivery_mode=1))
-        count += 1
-        if count % 1000 == 0:
-            duration = time.time() - start_time
-            pika.log.info("%i Messages Sent: %.8f per second",
-                          count, count / duration)
+        try:
+            # Construct a message and send it
+            message = "BlockingConnection.channel.basic_publish #%i" % count
+            channel.basic_publish(exchange='',
+                                  routing_key="test",
+                                  body=message,
+                                  properties=BasicProperties(timestamp=\
+                                                             time.time(),
+                                                             app_id=__file__,
+                                                             user_id='guest',
+                                                             content_type=\
+                                                             "text/plain",
+                                                             delivery_mode=1))
+            count += 1
+            if count % 1000 == 0:
+                duration = time.time() - start_time
+                print "%i Messages Sent: %.8f per second" % (count,
+                                                             count / duration)
+
+        # Close when someone presses CTRL-C
+        except KeyboardInterrupt:
+            break
+
+    print "CTRL-C Received, closing"
+    connection.close()
