@@ -45,7 +45,7 @@ parser = optparse.OptionParser()
 parser.add_option("-t",
                   "--test",
                   type="choice",
-                  dest="tests",
+                  dest="test",
                   choices=test_directories,
                   help="Specify the tests to run.\n\
                         Available: %s\n\
@@ -65,14 +65,14 @@ parser.add_option("-v",
 # Parse the arguments
 options, args = parser.parse_args()
 
-if options.tests:
+if options.test:
     test_directories = [options.test]
 
 if options.version:
     valid = [options.version]
 
 for version in valid:
-    print "Running tests for Python %s" % version
+    print "Testing %s for Python %s" % (', '.join(test_directories), version)
     print
     proc = subprocess.Popen("nosetests-%s %s" % (version,
                                                  ' '.join(test_directories)),
