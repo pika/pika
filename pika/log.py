@@ -8,7 +8,13 @@ try:
     import curses
 except ImportError:
     curses = None
-from functools import wraps
+
+try:
+    from functools import wraps
+except ImportError:
+    def wraps(method):
+        return method
+
 import logging
 import sys
 
