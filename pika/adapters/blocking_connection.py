@@ -8,7 +8,6 @@ import socket
 import time
 import types
 
-import pika.log as log
 import pika.spec as spec
 
 from pika.adapters import BaseConnection
@@ -29,11 +28,9 @@ class BlockingConnection(BaseConnection):
     messages from Basic.Deliver, Basic.GetOk, and Basic.Return.
     """
 
-    @log.method_call
     def __init__(self, parameters=None, reconnection_strategy=None):
         BaseConnection.__init__(self, parameters, None, reconnection_strategy)
 
-    @log.method_call
     def _adapter_connect(self, host, port):
 
         BaseConnection._adapter_connect(self, host, port)
@@ -47,7 +44,6 @@ class BlockingConnection(BaseConnection):
             self._handle_read()
         return self
 
-    @log.method_call
     def close(self, code=200, text='Normal shutdown'):
         BaseConnection.close(self, code, text)
         while self.is_open:
@@ -56,11 +52,9 @@ class BlockingConnection(BaseConnection):
             except AMQPConnectionError:
                 break
 
-    @log.method_call
     def disconnect(self):
         self.socket.close()
 
-    @log.method_call
     def _adapter_disconnect(self):
         """
         Called if we are forced to disconnect for some reason from Connection
@@ -68,7 +62,6 @@ class BlockingConnection(BaseConnection):
         # Close our socket
         self.socket.close()
 
-    @log.method_call
     def _handle_disconnect(self):
         """
         Called internally when we know our socket is disconnected already
@@ -78,7 +71,6 @@ class BlockingConnection(BaseConnection):
         # Close up our Connection state
         self._on_connection_closed(None, True)
 
-    @log.method_call
     def _flush_outbound(self):
         try:
             self._handle_write()
@@ -89,7 +81,6 @@ class BlockingConnection(BaseConnection):
                 log.error(SOCKET_TIMEOUT_MESSAGE)
                 self._handle_disconnect()
 
-    @log.method_call
     def process_data_events(self):
         # Make sure we're open, if not raise the exception
         if not self.is_open:
@@ -111,7 +102,6 @@ class BlockingConnection(BaseConnection):
         # Process our timeout events
         self.process_timeouts()
 
-    @log.method_call
     def channel(self, channel_number=None):
         """
         Create a new channel with the next available or specified channel #
@@ -135,7 +125,6 @@ class BlockingConnection(BaseConnection):
                                                          transport)
         return self._channels[channel_number]
 
-    @log.method_call
     def add_timeout(self, delay_sec, callback):
         """
         Add a timeout calling callback to our stack that will execute
@@ -147,7 +136,6 @@ class BlockingConnection(BaseConnection):
                                       'handler': callback}
         return timeout_id
 
-    @log.method_call
     def remove_timeout(self, timeout_id):
         """
         Remove a timeout from the stack
@@ -177,25 +165,21 @@ class BlockingChannelTransport(ChannelTransport):
 
     no_response_frame = ['Basic.Ack', 'Basic.Reject', 'Basic.RecoverAsync']
 
-    @log.method_call
     def __init__(self, connection, channel_number):
         ChannelTransport.__init__(self, connection, channel_number)
         self._replies = list()
         self._frames = dict()
         self._wait = False
 
-    @log.method_call
     def add_reply(self, reply):
         reply = self.callbacks.sanitize(reply)
         self._replies.append(reply)
 
-    @log.method_call
     def remove_reply(self, frame):
         key = self.callbacks.sanitize(frame)
         if key in self._replies:
             self._replies.remove(key)
 
-    @log.method_call
     def rpc(self, method, callback=None, acceptable_replies=None):
         """
         Shortcut wrapper to the Connection's rpc command using its callback
@@ -241,14 +225,12 @@ class BlockingChannelTransport(ChannelTransport):
                 del(self._frames[reply])
                 return frame
 
-    @log.method_call
     def _on_rpc_complete(self, frame):
         key = self.callbacks.sanitize(frame)
         self._replies.append(key)
         self._frames[key] = frame
         self._received_response = True
 
-    @log.method_call
     def send_method(self, method, content=None, wait=True):
         """
         Shortcut wrapper to send a method through our connection, passing in
@@ -266,7 +248,6 @@ class BlockingChannelTransport(ChannelTransport):
 
 class BlockingChannel(Channel):
 
-    @log.method_call
     def __init__(self, connection, channel_number, transport=None):
 
         # We need to do this before the channel is invoked and send_method is
@@ -278,18 +259,15 @@ class BlockingChannel(Channel):
         self.basic_get_ = Channel.basic_get
         self._consumers = {}
 
-    @log.method_call
     def _open(self, frame):
         Channel._open(self, frame)
         self.transport.remove_reply(frame)
 
-    @log.method_call
     def _on_remote_close(self, frame):
         Channel._on_remote_close(self, frame)
         raise AMQPChannelError(frame.method.reply_code,
                                frame.method.reply_text)
 
-    @log.method_call
     def basic_publish(self, exchange, routing_key, body,
                       properties=None, mandatory=False, immediate=False):
         """
@@ -306,7 +284,6 @@ class BlockingChannel(Channel):
                                                       immediate=immediate),
                                    (properties, body), False)
 
-    @log.method_call
     def start_consuming(self):
         """
         Starts consuming from registered callbacks.
@@ -315,20 +292,18 @@ class BlockingChannel(Channel):
         while len(self._consumers):
             self.transport.connection.process_data_events()
 
-    @log.method_call
     def stop_consuming(self, consumer_tag=None):
         """
         Sends off the Basic.Cancel to let RabbitMQ know to stop consuming and
         sets our internal state to exit out of the basic_consume.
         """
-        consumer_tag_keys = [consumer_tag] if consumer_tag else \
-                            self._consumers.keys()
-
-        for consumer_tag in consumer_tag_keys:
+        if consumer_tag:
             self.basic_cancel(consumer_tag)
+        else:
+            for consumer_tag in self._consumers.keys():
+                self.basic_cancel(consumer_tag)
         self.transport.wait = False
 
-    @log.method_call
     def basic_get(self, ticket=0, queue=None, no_ack=False):
         """
         Get a single message from the AMQP broker. The response will include
@@ -348,14 +323,12 @@ class BlockingChannel(Channel):
                self._get_response[1], \
                self._get_response[2]
 
-    @log.method_call
     def _on_basic_get(self, caller, method_frame, header_frame, body):
         self.transport._received_response = True
         self._get_response = method_frame, \
                              header_frame, \
                              body
 
-    @log.method_call
     def _on_basic_get_empty(self, frame):
         self.transport._received_response = True
         self._get_response = frame.method, None, None

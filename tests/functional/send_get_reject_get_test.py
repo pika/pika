@@ -62,7 +62,3 @@ class TestSendGetRejectGet(tools.AsyncPattern):
         self.channel.basic_ack(method.delivery_tag)
         self.connection.add_on_close_callback(self._on_closed)
         self.connection.close()
-
-
-if __name__ == "__main__":
-    nose.runmodule()

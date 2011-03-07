@@ -39,7 +39,3 @@ class TestAsyncSendReturn(tools.AsyncPattern):
 
         self.channel.add_on_return_callback(_on_basic_return)
         test_message = self._send_message(mandatory=True)
-
-
-if __name__ == "__main__":
-    nose.runmodule()

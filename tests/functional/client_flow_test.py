@@ -60,7 +60,3 @@ class TestAsyncClientFlow(tools.AsyncPattern):
 
         self.connection.add_on_close_callback(_on_closed)
         self.connection.close()
-
-
-if __name__ == "__main__":
-    nose.runmodule()

@@ -11,7 +11,7 @@ from warnings import warn
 import pika.channel as channel
 import pika.credentials
 import pika.frame
-import pika.log as log
+import pika.log
 import pika.simplebuffer as simplebuffer
 import pika.spec as spec
 
@@ -38,7 +38,6 @@ class ConnectionParameters(object):
     - frame_max: The maximum byte size for an AMQP frame. Defaults to 131072
     - heartbeat: Turn heartbeat checking on or off. Defaults to False.
     """
-    @log.method_call
     def __init__(self,
                  host='localhost',
                  port=spec.PORT,
@@ -122,7 +121,6 @@ class Connection(object):
     class should not be invoked directly but rather through the use of an
     adapter such as SelectConnection or BlockingConnection.
     """
-    @log.method_call
     def __init__(self, parameters=None, on_open_callback=None,
                  reconnection_strategy=None):
         """
@@ -167,7 +165,6 @@ specified a %s. Reconnections will fail.",
         # Connect to the AMQP Broker
         self._connect()
 
-    @log.method_call
     def _init_connection_state(self):
         """
         Initialize or reset all of our internal state variables for a given
@@ -214,7 +211,6 @@ specified a %s. Reconnections will fail.",
         raise NotImplementedError('%s needs to implement this function' %\
                                   self.__class__.__name__)
 
-    @log.method_call
     def _connect(self):
         """
         Call the Adapter's connect method after letting the
@@ -227,7 +223,6 @@ specified a %s. Reconnections will fail.",
         self._adapter_connect(self.parameters.host,
                               self.parameters.port or  spec.PORT)
 
-    @log.method_call
     def _reconnect(self):
         """
         Called by the Reconnection Strategy classes or Adapters to disconnect
@@ -250,7 +245,6 @@ specified a %s. Reconnections will fail.",
         self._init_connection_state()
         self._connect()
 
-    @log.method_call
     def _on_connected(self):
         """
         This is called by our connection Adapter to let us know that we've
@@ -262,7 +256,6 @@ specified a %s. Reconnections will fail.",
         # Let our reconnection_strategy know we're connected
         self.reconnection.on_transport_connected(self)
 
-    @log.method_call
     def _on_connection_open(self, frame):
         """
         This is called once we have tuned the connection with the server and
@@ -280,7 +273,6 @@ specified a %s. Reconnections will fail.",
         # Call our initial callback that we're open
         self.callbacks.process(0, '_on_connection_open', self, self)
 
-    @log.method_call
     def _on_connection_start(self, frame):
         """
         This is called as a callback once we have received a Connection.Start
@@ -324,7 +316,6 @@ specified a %s. Reconnections will fail.",
                                          response=response)
         self._send_method(0, method)
 
-    @log.method_call
     def _combine(self, a, b):
         """
         Pass in two values, if a is 0, return b otherwise if b is 0, return a.
@@ -332,7 +323,6 @@ specified a %s. Reconnections will fail.",
         """
         return min(a, b) or (a or b)
 
-    @log.method_call
     def _on_connection_tune(self, frame):
         """
         Once the Broker sends back a Connection.Tune, we will set our tuning
@@ -365,7 +355,6 @@ specified a %s. Reconnections will fail.",
                                    insist=True)
         self._rpc(0, cmd, self._on_connection_open, [spec.Connection.OpenOk])
 
-    @log.method_call
     def close(self, code=200, text='Normal shutdown'):
         """
         Disconnect from RabbitMQ. If there are any open channels, it will
@@ -393,7 +382,6 @@ specified a %s. Reconnections will fail.",
         if not self._channels:
             self._on_close_ready()
 
-    @log.method_call
     def _on_close_ready(self):
         """
         On a clean shutdown we'll call this once all of our channels are closed
@@ -409,7 +397,6 @@ specified a %s. Reconnections will fail.",
                   self._on_connection_closed,
                   [spec.Connection.CloseOk])
 
-    @log.method_call
     def _on_connection_closed(self, frame, from_adapter=False):
         """
         Let both our RS and Event object know we closed
@@ -422,21 +409,19 @@ specified a %s. Reconnections will fail.",
         # Call any callbacks registered for this
         self.callbacks.process(0, '_on_connection_closed', self, self)
 
-        log.info("Disconnected from RabbitMQ at %s:%i", self.parameters.host,
-                 self.parameters.port)
+        pika.log.info("Disconnected from RabbitMQ at %s:%i",
+                      self.parameters.host, self.parameters.port)
 
         # Disconnect our transport if it didn't call on_disconnected
         if not from_adapter:
             self._adapter_disconnect()
 
-    @log.method_call
     def _on_remote_close(self, frame):
         """
         We've received a remote close from the server
         """
         self.close(frame.method.reply_code, frame.method.reply_text)
 
-    @log.method_call
     def _ensure_closed(self):
         """
         If we're not already closed, make sure we're closed
@@ -452,21 +437,18 @@ specified a %s. Reconnections will fail.",
         """
         return self.open and (not self.closing and not self.closed)
 
-    @log.method_call
     def add_on_close_callback(self, callback):
         """
         Add a callback notification when the connection has closed
         """
         self.callbacks.add(0, '_on_connection_closed', callback, False)
 
-    @log.method_call
     def add_on_open_callback(self, callback):
         """
         Add a callback notification when the connection has opened
         """
         self.callbacks.add(0, '_on_connection_open', callback, False)
 
-    @log.method_call
     def add_backpressure_callback(self, callback):
         """
         Add a callback notification when we think backpressue is being applied
@@ -474,7 +456,6 @@ specified a %s. Reconnections will fail.",
         """
         self.callbacks.add(0, 'backpressure', callback, False)
 
-    @log.method_call
     def set_backpressure_multiplier(self, value=10):
         """
         Alter the backpressure multiplier value. We set this to 10 by default.
@@ -502,7 +483,6 @@ specified a %s. Reconnections will fail.",
                                   self.__class__.__name__)
 
     # Channel related functionality
-    @log.method_call
     def channel(self, on_open_callback, channel_number=None):
         """
         Create a new channel with the next available channel number or pass in
@@ -526,7 +506,6 @@ specified a %s. Reconnections will fail.",
         self.callbacks.add(channel_number, spec.Channel.Close,
                            self._on_channel_close)
 
-    @log.method_call
     def _next_channel_number(self):
         """
         Return the next available channel number or raise on exception
@@ -548,7 +527,6 @@ specified a %s. Reconnections will fail.",
         # Our next channel is the max key value + 1
         return max(channel_numbers) + 1
 
-    @log.method_call
     def _on_channel_close(self, frame):
         """
         RPC Response from when a channel closes itself, remove from our stack
@@ -571,7 +549,6 @@ specified a %s. Reconnections will fail.",
             self._on_close_ready()
 
     # Data packet and frame handling functions
-    @log.method_call
     def _on_data_available(self, data_in):
         """
         This is called by our Adapter, passing in the data from the socket
@@ -617,7 +594,6 @@ specified a %s. Reconnections will fail.",
                 # Call our Channel Handler with the frame
                 self._channels[frame.channel_number].transport.deliver(frame)
 
-    @log.method_call
     def _rpc(self, channel_number, method,
              callback=None, acceptable_replies=None):
         """
@@ -642,7 +618,6 @@ specified a %s. Reconnections will fail.",
         # Send the rpc call to RabbitMQ
         self._send_method(channel_number, method)
 
-    @log.method_call
     def _send_frame(self, frame):
         """
         This appends the fully generated frame to send to the broker to the
@@ -671,7 +646,6 @@ specified a %s. Reconnections will fail.",
         raise NotImplementedError('%s needs to implement this function ' %\
                                   self.__class__.__name__)
 
-    @log.method_call
     def _send_method(self, channel_number, method, content=None):
         """
         Constructs a RPC method frame and then sends it to the broker

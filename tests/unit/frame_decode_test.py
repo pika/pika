@@ -13,6 +13,12 @@ import os
 import sys
 sys.path.extend(['..', os.path.join('..', '..')])
 
+# Get the version of Python we're running
+from platform import python_version_tuple
+major, minor, revision = python_version_tuple()
+print major, minor, revision
+PYTHON_VERSION = "%s.%s" % (major, minor)
+
 import pika.frame
 import pika.spec as spec
 
@@ -183,7 +189,11 @@ def decode_connection_tune_test():
     # Verify it is a method frame and return frame.method
     method = validate_method_frame(frame, spec.Connection.Tune)
 
-    validate_attribute(method, 'frame_max', int, 131072)
+    type_ = int
+    if PYTHON_VERSION == '2.4':
+        type_ = long
+
+    validate_attribute(method, 'frame_max', type_, 131072)
     validate_attribute(method, 'channel_max', int, 0)
     validate_attribute(method, 'heartbeat', int, 0)
 
@@ -198,7 +208,11 @@ def decode_connection_tuneok_test():
     # Verify it is a method frame and return frame.method
     method = validate_method_frame(frame, spec.Connection.TuneOk)
 
-    validate_attribute(method, 'frame_max', int, 131072)
+    type_ = int
+    if PYTHON_VERSION == '2.4':
+        type_ = long
+
+    validate_attribute(method, 'frame_max', type_, 131072)
     validate_attribute(method, 'channel_max', int, 0)
     validate_attribute(method, 'heartbeat', int, 0)
 
@@ -494,8 +508,12 @@ def decode_basic_ack_test():
     # Verify it is a method frame and return frame.method
     method = validate_method_frame(frame, spec.Basic.Ack)
 
+    type_ = int
+    if PYTHON_VERSION == '2.4':
+        type_ = long
+
+    validate_attribute(method, 'delivery_tag', type_, 1)
     validate_attribute(method, 'multiple', bool, False)
-    validate_attribute(method, 'delivery_tag', int, 1)
 
 
 def decode_confirm_select_test():

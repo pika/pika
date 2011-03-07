@@ -13,6 +13,8 @@ import unittest
 import os
 import sys
 import warnings
+warnings.simplefilter('ignore', UserWarning)
+
 sys.path.append('..')
 sys.path.append(os.path.join('..', '..'))
 
@@ -20,6 +22,7 @@ import pika.callback as callback
 
 
 class TestSanitize(unittest.TestCase):
+
     def setUp(self):
         self.cm = callback.CallbackManager()
         self.test_cls = Mock(spec=['NAME'])
@@ -57,6 +60,7 @@ class TestSanitize(unittest.TestCase):
 
 
 class TestAdd(unittest.TestCase):
+
     def setUp(self):
         self.callback = callback
         self.callback.log = Mock(spec=['warning', 'debug'])

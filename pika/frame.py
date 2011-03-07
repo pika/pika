@@ -67,25 +67,21 @@ class Body(Frame):
 
 class Heartbeat(Frame):
 
-    @log.method_call
     def __init__(self):
         Frame.__init__(self, spec.FRAME_HEARTBEAT, 0)
 
-    @log.method_call
     def marshal(self):
         return self._marshal(list())
 
 
 class ProtocolHeader(Frame):
 
-    @log.method_call
     def __init__(self, major=None, minor=None, revision=None):
         Frame.__init__(self, -1, -1)
         self.major = major or spec.PROTOCOL_VERSION[0]
         self.minor = minor or spec.PROTOCOL_VERSION[1]
         self.revision = revision or spec.PROTOCOL_VERSION[2]
 
-    @log.method_call
     def marshal(self):
         return 'AMQP' + struct.pack('BBBB', 0, self.major,
                                     self.minor, self.revision)
@@ -114,13 +110,11 @@ class Dispatcher(object):
     body and then reset the self._handler to the _handle_method_frame method.
     """
 
-    @log.method_call
     def __init__(self, callback_manager):
         # We start with Method frames always
         self._handler = self._handle_method_frame
         self.callbacks = callback_manager
 
-    @log.method_call
     def process(self, frame):
         """
         Invoked by the ChannelTransport object when passed frames that are not
@@ -129,7 +123,6 @@ class Dispatcher(object):
         """
         self._handler(frame)
 
-    @log.method_call
     def _handle_method_frame(self, frame):
         """
         Receive a frame and process it, we should have content by the time we
@@ -148,7 +141,6 @@ class Dispatcher(object):
         else:
             raise NotImplementedError(frame.method.__class__)
 
-    @log.method_call
     def _handle_header_frame(self, frame):
         """
         Receive a header frame and process that, setting the next handler
@@ -165,7 +157,6 @@ class Dispatcher(object):
 
         return handler
 
-    @log.method_call
     def _handle_body_frame(self, method_frame, header_frame):
         """
         Receive body frames. We'll keep receiving them in handler until we've
@@ -175,7 +166,6 @@ class Dispatcher(object):
         seen_so_far = [0]
         body_fragments = list()
 
-        @log.method_call
         def handler(body_frame):
             # Make sure it's a body frame
             if not isinstance(body_frame, Body):
@@ -197,7 +187,6 @@ class Dispatcher(object):
                         (seen_so_far[0], header_frame.body_size)
                 raise exceptions.BodyTooLongError(error)
 
-        @log.method_call
         def finish():
             # We're done so set our handler back to the method frame
             self._handler = self._handle_method_frame
@@ -229,7 +218,6 @@ class Dispatcher(object):
             self._handler = handler
 
 
-@log.method_call
 def decode_frame(data_in):
     """
     Receives raw socket data and attempts to turn it into a frame.

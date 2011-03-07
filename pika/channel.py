@@ -3,12 +3,13 @@
 # For copyright and licensing please refer to COPYING.
 #
 # ***** END LICENSE BLOCK *****
+
 import types
 
 import pika.frame as frame
-import pika.log as log
-import pika.spec as spec
 import pika.exceptions as exceptions
+import pika.log
+import pika.spec as spec
 
 MAX_CHANNELS = 32768
 
@@ -26,7 +27,6 @@ class ChannelTransport(object):
     flow detection has been removed.
     """
 
-    @log.method_call
     def __init__(self, connection, channel_number):
 
         self.connection = connection
@@ -49,14 +49,12 @@ class ChannelTransport(object):
         self.callbacks.add(self.channel_number, spec.Channel.OpenOk,
                            self._on_open)
 
-    @log.method_call
     def _on_open(self, frame):
         """
         Called as a result of receiving a spec.Channel.OpenOk frame.
         """
         self.closed = False
 
-    @log.method_call
     def deliver(self, frame):
         """
         Deliver a frame to the frame handler. When it's gotten to a point that
@@ -65,7 +63,6 @@ class ChannelTransport(object):
         """
         self.frame_dispatcher.process(frame)
 
-    @log.method_call
     def _ensure(self):
         """
         Make sure the transport is open
@@ -75,14 +72,12 @@ class ChannelTransport(object):
 
         return True
 
-    @log.method_call
     def _has_content(self, method):
         """
         Return a bool if it's a content method as defined by the spec
         """
         return spec.has_content(method.INDEX)
 
-    @log.method_call
     def rpc(self, method, callback=None, acceptable_replies=None):
         """
         Shortcut wrapper to the Connection's rpc command using its callback
@@ -93,8 +88,8 @@ class ChannelTransport(object):
 
         # If we're blocking, add subsequent commands to our stack
         if self.blocking:
-            log.debug('%s: %s is blocking this channel',
-                          self.__class__.__name__, self.blocking)
+            pika.log.debug('%s: %s is blocking this channel',
+                            self.__class__.__name__, self.blocking)
 
             self._blocked.append([method, callback, acceptable_replies])
             return
@@ -110,8 +105,8 @@ class ChannelTransport(object):
 
         # If this is a synchronous method, block connections until we're done
         if method.synchronous:
-            log.debug('%s: %s turning on blocking',
-                          self.__class__.__name__, method.NAME)
+            pika.log.debug('%s: %s turning on blocking',
+                            self.__class__.__name__, method.NAME)
             self.blocking = method.NAME
 
         if acceptable_replies:
@@ -123,7 +118,6 @@ class ChannelTransport(object):
 
         self.send_method(method)
 
-    @log.method_call
     def send_method(self, method, content=None):
         """
         Shortcut wrapper to send a method through our connection, passing in
@@ -131,7 +125,6 @@ class ChannelTransport(object):
         """
         self.connection._send_method(self.channel_number, method, content)
 
-    @log.method_call
     def _on_event_ok(self, frame):
         """
         Generic events that returned ok that may have internal callbacks.
@@ -140,7 +133,6 @@ class ChannelTransport(object):
         """
         pass
 
-    @log.method_call
     def _on_synchronous_complete(self, frame):
         """
         This is called when a synchronous command is completed. It will undo
@@ -167,7 +159,6 @@ class ChannelTransport(object):
 
 class Channel(spec.DriverMixin):
 
-    @log.method_call
     def __init__(self, connection, channel_number, on_open_callback=None,
                  transport=None):
         """
@@ -241,7 +232,6 @@ class Channel(spec.DriverMixin):
         # Open our channel
         self.transport.send_method(spec.Channel.Open())
 
-    @log.method_call
     def add_callback(self, callback, replies):
         """
         Pass in a callback handler and a list replies from the
@@ -251,7 +241,6 @@ class Channel(spec.DriverMixin):
         for reply in replies:
             self.callbacks.add(self.channel_number, reply, callback)
 
-    @log.method_call
     def add_on_close_callback(self, callback):
         """
         Pass a callback function that will be called when the channel is
@@ -259,7 +248,6 @@ class Channel(spec.DriverMixin):
         """
         self.callbacks.add(self.channel_number, '_on_channel_close', callback)
 
-    @log.method_call
     def add_on_return_callback(self, callback):
         """
         Pass a callback function that will be called when basic_publish as sent
@@ -270,7 +258,6 @@ class Channel(spec.DriverMixin):
         """
         self.callbacks.add(self.channel_number, '_on_basic_return', callback)
 
-    @log.method_call
     def close(self, code=0, text="Normal Shutdown", from_server=False):
         """
         Will invoke a clean shutdown of the channel with the AMQP Broker
@@ -291,7 +278,6 @@ class Channel(spec.DriverMixin):
         if not len(self._consumers) and not from_server:
             self._close()
 
-    @log.method_call
     def _close(self):
         """
         Internal close, is called when all the consumers are closed by both
@@ -301,7 +287,6 @@ class Channel(spec.DriverMixin):
                                                       self.closing[1],
                                                       0, 0))
 
-    @log.method_call
     def _on_remote_close(self, frame):
         """
         Handle the case where our channel has been closed for us
@@ -315,7 +300,6 @@ class Channel(spec.DriverMixin):
                                self, frame.method.reply_code,
                                frame.method.reply_text)
 
-    @log.method_call
     def _open(self, frame):
         """
         Called by our callback handler when we receive a Channel.OpenOk and
@@ -329,7 +313,6 @@ class Channel(spec.DriverMixin):
         if self._on_open_callback:
             self._on_open_callback(self)
 
-    @log.method_call
     def basic_cancel(self, consumer_tag, nowait=False, callback=None):
         """
         Pass in the consumer tag to cancel a basic_consume request with. The
@@ -352,7 +335,6 @@ class Channel(spec.DriverMixin):
                                              nowait=nowait),
                            self._on_cancel_ok, [spec.Basic.CancelOk])
 
-    @log.method_call
     def basic_consume(self, consumer_callback,
                       queue='', no_ack=False, exclusive=False,
                       consumer_tag=None):
@@ -391,7 +373,6 @@ class Channel(spec.DriverMixin):
         # Return the consumer tag for the user reference
         return consumer_tag
 
-    @log.method_call
     def basic_publish(self, exchange, routing_key, body,
                       properties=None, mandatory=False, immediate=False):
         """
@@ -416,7 +397,6 @@ class Channel(spec.DriverMixin):
         """
         return self._consumers.keys()
 
-    @log.method_call
     def _on_basic_deliver(self, method_frame, header_frame, body):
         """
         Cope with reentrancy. If a particular consumer is still active when
@@ -460,7 +440,6 @@ class Channel(spec.DriverMixin):
                                                 header_frame.properties,
                                                 body))
 
-    @log.method_call
     def _on_cancel_ok(self, frame):
         """
         Called in response to a frame from the Broker when we call Basic.Cancel
@@ -472,7 +451,6 @@ class Channel(spec.DriverMixin):
         if self.closing and not len(self._consumers):
             self._close()
 
-    @log.method_call
     def basic_get(self, callback, ticket=0, queue='', no_ack=False):
         """
         Get a single message from the AMQP broker. The callback method
@@ -490,7 +468,6 @@ class Channel(spec.DriverMixin):
                                                   queue=queue,
                                                   no_ack=no_ack))
 
-    @log.method_call
     def _on_basic_get_ok(self, method_frame, header_frame, body):
         if self._on_get_ok_callback:
             self._on_get_ok_callback(self,
@@ -499,17 +476,15 @@ class Channel(spec.DriverMixin):
                                      body)
             self._basic_get_ok_callback = None
         else:
-            log.error("%s._on_basic_get: No callback defined.",
-                          self.__class__.__name__)
+            pika.log.error("%s._on_basic_get: No callback defined.",
+                            self.__class__.__name__)
 
-    @log.method_call
     def _on_basic_get_empty(self, frame):
         """
         When we receive an empty reply do nothing but log it
         """
         pass
 
-    @log.method_call
     def flow(self, callback, active):
         """
         Turn Channel flow control off and on. Pass a callback to be notified
@@ -523,7 +498,6 @@ class Channel(spec.DriverMixin):
         self.transport.rpc(spec.Channel.Flow(active), self._on_channel_flow_ok,
                            [spec.Channel.FlowOk])
 
-    @log.method_call
     def _on_channel_flow_ok(self, frame):
         """
         Called in response to us asking the server to toggle on Channel.Flow
@@ -536,10 +510,9 @@ class Channel(spec.DriverMixin):
             self._on_flow_ok_callback(frame.method.active)
             self._on_flow_ok_callback = None
         else:
-            log.error("%s._on_flow_ok: No callback defined.",
-                      self.__class__.__name__)
+            pika.log.error("%s._on_flow_ok: No callback defined.",
+                           self.__class__.__name__)
 
-    @log.method_call
     def confirm_delivery(self, callback=None, nowait=False):
         """
         Turn on Confirm mode in the channel. Pass in a callback to be notified
@@ -562,9 +535,8 @@ class Channel(spec.DriverMixin):
                            self._on_confirm_select_ok,
                            [spec.Confirm.SelectOk])
 
-    @log.method_call
     def _on_confirm_select_ok(self, frame):
         """
         Called when the broker sends a Confirm.SelectOk frame
         """
-        log.info("Confirm.SelectOk Received")
+        pika.log.info("Confirm.SelectOk Received")

@@ -7,7 +7,7 @@
 Send a message to a non-existent queue with the mandatory flag and confirm
 that it is returned via Basic.Return
 """
-import nose
+
 import os
 import sys
 import time
@@ -52,6 +52,3 @@ def test_blocking_send_get():
     # Only check the body
     if message_in[2] != message:
         assert False, "Did not receive the same message back"
-
-if __name__ == "__main__":
-    nose.runmodule()

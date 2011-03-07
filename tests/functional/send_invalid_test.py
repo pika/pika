@@ -40,6 +40,3 @@ class TestAsyncSendInvalid(tools.AsyncPattern):
             self.confirmed = True
         self.connection.add_on_close_callback(self._on_closed)
         self.connection.close()
-
-if __name__ == "__main__":
-    nose.runmodule()

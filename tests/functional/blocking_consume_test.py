@@ -7,7 +7,7 @@
 Send a message to a non-existent queue with the mandatory flag and confirm
 that it is returned via Basic.Return
 """
-import nose
+
 import os
 import sys
 import time
@@ -62,7 +62,6 @@ def test_blocking_consume():
     _sent = []
     _received = []
 
-    @pika.log.method_call
     def _on_message(channel, method, header, body):
         _received.append(body)
         if len(_received) == MESSAGES:
@@ -102,8 +101,3 @@ def test_blocking_consume():
     for message in _sent:
         if message not in _received:
             assert False, 'Sent a message we did not receive.'
-
-if __name__ == "__main__":
-    #pika.log.setup(pika.log.DEBUG, color=True)
-    #test_blocking_consume()
-    nose.runmodule()

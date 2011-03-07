@@ -5,7 +5,6 @@
 # ***** END LICENSE BLOCK *****
 
 import asyncore
-import pika.log as log
 import select
 import socket
 import time
@@ -21,7 +20,6 @@ class AsyncoreDispatcher(asyncore.dispatcher):
     function.
     """
 
-    @log.method_call
     def __init__(self, host, port):
         """
         Initialize the dispatcher, socket and our defaults. We turn of nageling
@@ -41,7 +39,6 @@ class AsyncoreDispatcher(asyncore.dispatcher):
         self.writable_ = False
         self.map = None
 
-    @log.method_call
     def handle_connect(self):
         """
         asyncore required method. Is called on connection.
@@ -52,7 +49,6 @@ class AsyncoreDispatcher(asyncore.dispatcher):
         # Make our own map to pass in places
         self.map = dict({self.socket.fileno(): self})
 
-    @log.method_call
     def handle_close(self):
         """
         asyncore required method. Is called on close.
@@ -61,7 +57,6 @@ class AsyncoreDispatcher(asyncore.dispatcher):
         if not self.connection.closing and not self.connection.closed:
             self.connection._adapter_disconnect()
 
-    @log.method_call
     def handle_read(self):
         """
         Read from the socket and call our on_data_available with the data
@@ -80,7 +75,6 @@ class AsyncoreDispatcher(asyncore.dispatcher):
         # Pass the data into our top level frame dispatching method
         self.connection._on_data_available(data)
 
-    @log.method_call
     def handle_write(self):
         """
         asyncore required function, is called when we can write to the socket
@@ -119,7 +113,6 @@ class AsyncoreDispatcher(asyncore.dispatcher):
         return self.writable_
 
     # IOLoop Compatibility
-    @log.method_call
     def add_timeout(self, deadline, handler):
         """
         Add a timeout to the stack by deadline
@@ -129,7 +122,6 @@ class AsyncoreDispatcher(asyncore.dispatcher):
                                       'handler': handler}
         return timeout_id
 
-    @log.method_call
     def remove_timeout(self, timeout_id):
         """
         Remove a timeout from the stack
@@ -137,7 +129,6 @@ class AsyncoreDispatcher(asyncore.dispatcher):
         if timeout_id in self._timeouts:
             del self._timeouts[timeout_id]
 
-    @log.method_call
     def _process_timeouts(self):
         """
         Process our self._timeouts event stack
@@ -148,13 +139,9 @@ class AsyncoreDispatcher(asyncore.dispatcher):
         for timeout_id in keys:
             if timeout_id in self._timeouts and \
                self._timeouts[timeout_id]['deadline'] <= start_time:
-                log.debug('%s: Timeout calling %s',
-                          self.__class__.__name__,
-                          self._timeouts[timeout_id]['handler'])
                 self._timeouts[timeout_id]['handler']()
                 del(self._timeouts[timeout_id])
 
-    @log.method_call
     def start(self):
         """
         Pika Adapter IOLoop start function. This blocks until we are no longer
@@ -172,7 +159,6 @@ class AsyncoreDispatcher(asyncore.dispatcher):
                     break
             self._process_timeouts()
 
-    @log.method_call
     def stop(self):
         """
         Pika Adapter IOLoop stop function. When called, it will close an open
@@ -183,7 +169,6 @@ class AsyncoreDispatcher(asyncore.dispatcher):
 
 class AsyncoreConnection(BaseConnection):
 
-    @log.method_call
     def _adapter_connect(self, host, port):
         """
         Connect to our RabbitMQ boker using AsyncoreDispatcher, then setting
@@ -199,7 +184,6 @@ class AsyncoreConnection(BaseConnection):
         self.ioloop.suggested_buffer_size = self._suggested_buffer_size
         self.socket = self.ioloop.socket
 
-    @log.method_call
     def _flush_outbound(self):
         """
         We really can't flush the socket in asyncore, so instead just use this

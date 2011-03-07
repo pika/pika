@@ -5,14 +5,12 @@
 # ***** END LICENSE BLOCK *****
 
 from pika.frame import Heartbeat
-import pika.log as log
 
 MAX_MISSED_HEARTBEATS = 2
 
 
 class HeartbeatChecker(object):
 
-    @log.method_call
     def __init__(self, connection, interval):
         """
         Create a heartbeat on connection sending a heartbeat frame every
@@ -31,7 +29,6 @@ class HeartbeatChecker(object):
         # Setup our timer to fire every interval seconds
         self.setup_timer()
 
-    @log.method_call
     def setup_timer(self):
         """
         Use the connection objects delayed_call function which is implemented
@@ -40,7 +37,6 @@ class HeartbeatChecker(object):
         """
         self.connection.add_timeout(self.interval, self.send_and_check)
 
-    @log.method_call
     def send_and_check(self):
         """
         Invoked by a timer to send a heartbeat when we need to, check to see

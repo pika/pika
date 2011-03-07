@@ -4,8 +4,6 @@
 #
 # ***** END LICENSE BLOCK *****
 
-import pika.log as log
-
 
 class PlainCredentials(object):
     """
@@ -26,7 +24,6 @@ class PlainCredentials(object):
 
     TYPE = 'PLAIN'
 
-    @log.method_call
     def __init__(self, username, password, erase_on_connect=False):
         """
         Parameters:
@@ -39,7 +36,6 @@ class PlainCredentials(object):
         self.password = password
         self.erase_on_connect = erase_on_connect
 
-    @log.method_call
     def response_for(self, start):
         """
         Validate that our type of authentication is supported
@@ -50,7 +46,6 @@ class PlainCredentials(object):
         return PlainCredentials.TYPE, '\0%s\0%s' % \
                                       (self.username, self.password)
 
-    @log.method_call
     def erase_credentials(self):
         """
         Called by Connection when it no longer needs the credentials

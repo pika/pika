@@ -7,7 +7,7 @@
 Send a message to a non-existent queue with the mandatory flag and confirm
 that it is returned via Basic.Return
 """
-import nose
+
 import os
 import sys
 import time
@@ -48,6 +48,3 @@ def test_blocking_send_get():
         if error[0] != 404:
             assert False, "Did not receive a Channel.Close"
     connection.close()
-
-if __name__ == "__main__":
-    nose.runmodule()

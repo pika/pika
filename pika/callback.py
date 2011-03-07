@@ -4,8 +4,8 @@
 #
 # ***** END LICENSE BLOCK *****
 
-import pika.log as log
 from warnings import warn
+import pika.log
 
 
 class CallbackManager(object):
@@ -20,7 +20,6 @@ class CallbackManager(object):
         # Callback stack for our instance
         self._callbacks = dict()
 
-    @log.method_call
     def sanitize(self, key):
         """
         Will take Frame objects, classes, etc and attempt to return a valid
@@ -37,7 +36,6 @@ class CallbackManager(object):
 
         return str(key)
 
-    @log.method_call
     def add(self, prefix, key, callback, one_shot=True, only_caller=None):
         """
         Add a callback to the stack for the specified key. If the call is
@@ -73,11 +71,10 @@ class CallbackManager(object):
 
         # Append the callback to our key list
         self._callbacks[prefix][key].append(callback_dict)
-        log.debug('%s: Added "%s:%s" with callback: %s',
-                      self.__class__.__name__, prefix, key, callback)
+        pika.log.debug('%s: Added "%s:%s" with callback: %s',
+                        self.__class__.__name__, prefix, key, callback)
         return prefix, key
 
-    @log.method_call
     def pending(self, prefix, key):
         """
         Return count of callbacks for a given prefix or key or None
@@ -90,7 +87,6 @@ class CallbackManager(object):
 
         return len(self._callbacks[prefix][key])
 
-    @log.method_call
     def process(self, prefix, key, caller, *args, **keywords):
         """
         Run through and process all the callbacks for the specified keys.
@@ -123,11 +119,10 @@ class CallbackManager(object):
 
         # Prevent recursion
         for callback in callbacks:
-            log.debug('CallbackManager: Calling %s for "%s:%s"' % \
-                          (callback, prefix, key))
+            pika.log.debug('CallbackManager: Calling %s for "%s:%s"' % \
+                           (callback, prefix, key))
             callback(*args, **keywords)
 
-    @log.method_call
     def remove(self, prefix, key, callback=None):
         """
         Remove a callback from the stack by prefix, key and optionally
@@ -144,40 +139,40 @@ class CallbackManager(object):
                 # Remove the callback from the _callbacks dict
                 if callback in self._callbacks[prefix][key]:
                     self._callbacks[prefix][key].remove(callback)
-                    log.debug('%s: Removed %s for "%s:%s"',
-                                  self.__class__.__name__, callback,
-                                  prefix, key)
+                    pika.log.debug('%s: Removed %s for "%s:%s"',
+                                    self.__class__.__name__, callback,
+                                    prefix, key)
 
                 # Remove the list from the dict if it's empty
                 if not self._callbacks[prefix][key]:
                     del(self._callbacks[prefix][key])
-                    log.debug('%s: Removed empty key "%s:%s"',
-                                  self.__class__.__name__, prefix, key)
+                    pika.log.debug('%s: Removed empty key "%s:%s"',
+                                    self.__class__.__name__, prefix, key)
 
                 # Remove the prefix if it's empty
                 if not self._callbacks[prefix]:
                     del(self._callbacks[prefix])
-                    log.debug('%s: Removed empty prefix "%s"',
-                                  self.__class__.__name__, prefix)
+                    pika.log.debug('%s: Removed empty prefix "%s"',
+                                    self.__class__.__name__, prefix)
                 return True
             else:
                 # Remove the list from the dict if it's empty
                 del(self._callbacks[prefix][key])
-                log.debug('%s: Removed key "%s:%s"',
-                              self.__class__.__name__, prefix, key)
+                pika.log.debug('%s: Removed key "%s:%s"',
+                                self.__class__.__name__, prefix, key)
 
                 # Remove the prefix if it's empty
                 if not self._callbacks[prefix]:
                     del(self._callbacks[prefix])
-                    log.debug('%s: Removed empty prefix "%s"',
-                                  self.__class__.__name__, prefix)
+                    pika.log.debug('%s: Removed empty prefix "%s"',
+                                    self.__class__.__name__, prefix)
 
         else:
             # If we just passed in a prefix for a key
             if prefix in self._callbacks and key in self._callbacks[prefix]:
                 del(self._callbacks[prefix][key])
-                log.debug('%s: Removed all callbacks for "%s:%s"',
-                              self.__class__.__name__, prefix, key)
+                pika.log.debug('%s: Removed all callbacks for "%s:%s"',
+                               self.__class__.__name__, prefix, key)
             return True
 
         # Prefix, Key or Callback could not be found

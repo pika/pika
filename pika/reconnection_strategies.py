@@ -4,7 +4,6 @@
 #
 # ***** END LICENSE BLOCK *****
 
-import pika.log as log
 import random
 
 
@@ -39,7 +38,6 @@ class SimpleReconnectionStrategy(ReconnectionStrategy):
 
     can_reconnect = True
 
-    @log.method_call
     def __init__(self, initial_retry_delay=1.0, multiplier=2.0,
                  max_delay=30.0, jitter=0.5):
 
@@ -49,20 +47,16 @@ class SimpleReconnectionStrategy(ReconnectionStrategy):
         self.jitter = jitter
         self._reset()
 
-    @log.method_call
     def _reset(self):
         self.current_delay = self.initial_retry_delay
         self.attempts_since_last_success = 0
 
-    @log.method_call
     def on_connect_attempt(self, conn):
         self.attempts_since_last_success += 1
 
-    @log.method_call
     def on_connection_open(self, conn):
         self._reset()
 
-    @log.method_call
     def on_connection_closed(self, conn):
         t = self.current_delay * ((random.random() * self.jitter) + 1)
         log.info("%s retrying %r in %r seconds (%r attempts)",

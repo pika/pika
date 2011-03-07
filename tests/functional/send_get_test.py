@@ -41,6 +41,3 @@ class TestAsyncSendGet(tools.AsyncPattern):
             self.connection.close()
 
         self.channel.basic_get(callback=check_message, queue=self._queue)
-
-if __name__ == "__main__":
-    nose.runmodule()
