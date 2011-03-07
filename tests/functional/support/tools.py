@@ -11,13 +11,15 @@ sys.path.append('..')
 
 import os
 import pika
+import random
 import time
 
 timeout_id = None
 
 
 def test_queue_name(keyword):
-    return 'test-%s-%i' % (keyword, os.getpid())
+    uid = random.randint(0,1000) + os.getpid()
+    return 'test-%s-%i' % (keyword, uid)
 
 
 # These methods are scoped to the AsyncPattern class
