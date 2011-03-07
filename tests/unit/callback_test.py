@@ -88,7 +88,6 @@ class TestAdd(unittest.TestCase):
         # of logging.warning
         return
 
-
         existing_callback = {'handle': self.callable_thing, 'one_shot': True}
         self.cm._callbacks[self.prefix] = {self.keyname: [existing_callback]}
         temp = self.cm._callbacks[self.prefix][self.keyname]

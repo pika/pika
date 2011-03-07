@@ -18,7 +18,7 @@ timeout_id = None
 
 
 def test_queue_name(keyword):
-    uid = random.randint(0,1000) + os.getpid()
+    uid = random.randint(0, 1000) + os.getpid()
     return 'test-%s-%i' % (keyword, uid)
 
 

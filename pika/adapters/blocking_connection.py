@@ -165,14 +165,12 @@ class BlockingConnection(BaseConnection):
         start_time = time.time()
         for timeout_id in keys:
             if timeout_id in self._timeouts and \
-               self._timeouts[timeout_id]['deadline'] <= start_time:
-               log.debug('%s: Timeout calling %s',
-                         self.__class__.__name__,
-                         self._timeouts[timeout_id]['handler'])
-               self._timeouts[timeout_id]['handler']()
-               del(self._timeouts[timeout_id])
-
-
+                self._timeouts[timeout_id]['deadline'] <= start_time:
+                log.debug('%s: Timeout calling %s',
+                          self.__class__.__name__,
+                          self._timeouts[timeout_id]['handler'])
+                self._timeouts[timeout_id]['handler']()
+                del(self._timeouts[timeout_id])
 
 
 class BlockingChannelTransport(ChannelTransport):
