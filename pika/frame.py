@@ -15,34 +15,14 @@ id = 0
 debug = False
 
 
-def log_frame(frame_type, frame_data):
-    """
-    Debugging function to write out raw frame data, do not release in main code
-    """
-    if debug:
-        frame_type = frame_type.lower()
-        log.info("Logging frame: %s" % frame_type)
-        global id
-        id += 1
-        if id < 10:
-            strid = '0%i' % id
-        else:
-            strid = '%i' % id
-
-        with open('/tmp/pika/%s.frame' % strid, 'wb') as f:
-            f.write(frame_data)
-
-
 class Frame(object_):
 
-    @log.method_call
     def __init__(self, frame_type, channel_number):
         self.frame_type = frame_type
         self.channel_number = channel_number
 
-    @log.method_call
     def _marshal(self, pieces):
-        payload = ''.join(pieces)
+        payload = str(''.join(pieces))
         return struct.pack('>BHI',
                            self.frame_type,
                            self.channel_number,
@@ -51,12 +31,10 @@ class Frame(object_):
 
 class Method(Frame):
 
-    @log.method_call
     def __init__(self, channel_number, method):
         Frame.__init__(self, spec.FRAME_METHOD, channel_number)
         self.method = method
 
-    @log.method_call
     def marshal(self):
         pieces = self.method.encode()
         pieces.insert(0, struct.pack('>I', self.method.INDEX))
@@ -65,13 +43,11 @@ class Method(Frame):
 
 class Header(Frame):
 
-    @log.method_call
     def __init__(self, channel_number, body_size, props):
         Frame.__init__(self, spec.FRAME_HEADER, channel_number)
         self.body_size = body_size
         self.properties = props
 
-    @log.method_call
     def marshal(self):
         pieces = self.properties.encode()
         pieces.insert(0, struct.pack('>HxxQ', self.properties.INDEX,
@@ -81,12 +57,10 @@ class Header(Frame):
 
 class Body(Frame):
 
-    @log.method_call
     def __init__(self, channel_number, fragment):
         Frame.__init__(self, spec.FRAME_BODY, channel_number)
         self.fragment = fragment
 
-    @log.method_call
     def marshal(self):
         return self._marshal([self.fragment])
 
@@ -299,8 +273,6 @@ def decode_frame(data_in):
 
     if frame_type == spec.FRAME_METHOD:
 
-        log_frame('method', data_in)
-
         # Get the Method ID from the frame data
         method_id = struct.unpack_from('>I', frame_data)[0]
 
@@ -314,8 +286,6 @@ def decode_frame(data_in):
         return frame_end, Method(channel_number, method)
 
     elif frame_type == spec.FRAME_HEADER:
-
-        log_frame('header', data_in)
 
         # Return the header class and body size
         class_id, weight, body_size = struct.unpack_from('>HHQ', frame_data)
@@ -335,14 +305,10 @@ def decode_frame(data_in):
 
     elif frame_type == spec.FRAME_BODY:
 
-        log_frame('body', data_in)
-
         # Return the amount of data consumed and the Body frame w/ data
         return frame_end, Body(channel_number, frame_data)
 
     elif frame_type == spec.FRAME_HEARTBEAT:
-
-        log_frame('heartbeat', data_in)
 
         # Return the amount of data and a Heartbeat frame
         return frame_end, Heartbeat()
