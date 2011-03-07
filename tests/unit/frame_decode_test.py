@@ -5,38 +5,16 @@
 # ***** END LICENSE BLOCK *****
 
 """
-Tests for the classes in pika.frames
-
+Tests for decoding raw frame data and validating the objects that is created
+from the raw frame data.
 """
 
-#############
-# Imports
-#############
-# builtins
 import os
-import unittest
 import sys
 sys.path.extend(['..', os.path.join('..', '..')])
-# third-party
-from mock import Mock
 
-# homegrown
 import pika.frame
 import pika.spec as spec
-
-
-__author__ = 'Brian K. Jones'
-__email__ = 'bkjones@gmail.com'
-__since__ = '2/25/11'
-
-
-class TestFrame(unittest.TestCase):
-    def setUp(self):
-        self.frame = pika.frame.Frame('ftype', 3)
-
-    def test_init(self):
-        self.assertEqual(self.frame.frame_type, 'ftype')
-        self.assertEqual(self.frame.channel_number, 3)
 
 
 def decode_frame(frame_data):
