@@ -1,9 +1,7 @@
 SIBLING_CODEGEN_DIR=../rabbitmq-codegen/
 AMQP_CODEGEN_DIR=$(shell [ -d $(SIBLING_CODEGEN_DIR) ] && echo $(SIBLING_CODEGEN_DIR) || echo codegen)
 AMQP_SPEC_JSON_FILES=$(AMQP_CODEGEN_DIR)/amqp-rabbitmq-0.9.1.json
-TEMP=$(shell ./versions.py)
-VERSIONS=$(foreach version, $(TEMP),$(version))
-PYTHON=$(word 1, ${VERSIONS})
+PYTHON=python
 LAST_VERSION=$(shell git describe --tags --match v0* --abbrev=0)
 
 all:
@@ -37,7 +35,7 @@ codegen:
 	$(MAKE) -C $@ clean
 
 test: pep8
-	 cd tests && for python in ${VERSIONS}; do echo "Running tests in $$python\n";$$python ./run_tests.py; done
+	 cd tests && ./run_tests.py; done
 
 pep8:
 	pep8 --ignore=E501 --statistics --count -r codegen.py pika/spec.py tests/unit/data_test.py tests/unit/frame_decode_test.py tests/unit/frame_encode_test.py
