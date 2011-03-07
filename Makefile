@@ -35,7 +35,7 @@ codegen:
 	$(MAKE) -C $@ clean
 
 test: pep8
-	 cd tests && ./run_tests.py; done
+	 cd tests && ./run_tests.py
 
 pep8:
 	pep8 --ignore=E501 --statistics --count -r codegen.py pika/spec.py tests/unit/data_test.py tests/unit/frame_decode_test.py tests/unit/frame_encode_test.py
