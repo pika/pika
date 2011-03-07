@@ -154,8 +154,8 @@ class Connection(object):
             # Warn the developer
             warn("%s was initialized to erase credentials but you have \
 specified a %s. Reconnections will fail.",
-                        self.parameters.credentials.__class__.__name__,
-                        self.reconnection.__class__.__name__)
+                 self.parameters.credentials.__class__.__name__,
+                 self.reconnection.__class__.__name__)
 
         # Add our callback for if we close by being disconnected
         if not isinstance(self.reconnection, NullReconnectionStrategy):
@@ -374,8 +374,8 @@ specified a %s. Reconnections will fail.",
         to cleanly stop the delivery of messages prior to closing the channel.
         """
         if self.closing or self.closed:
-            log.warning("%s.Close invoked while closing or closed",
-                            self.__class__.__name__)
+            warn("%s.Close invoked while closing or closed",
+                 self.__class__.__name__)
             return
 
         # Carry our code and text around with us
@@ -400,8 +400,8 @@ specified a %s. Reconnections will fail.",
         Let the Broker know we want to close
         """
         if self.closed:
-            log.warn("%s.on_close_ready invoked while closed",
-                         self.__class__.__name__)
+            warn("%s.on_close_ready invoked while closed",
+                 self.__class__.__name__)
             return
 
         self._rpc(0, spec.Connection.Close(self.closing[0],
@@ -660,7 +660,7 @@ specified a %s. Reconnections will fail.",
             est_frames_behind = self.outbound_buffer.size / avg_frame_size
             message = "Pika: Write buffer exceeded warning threshold" + \
                       " at %i bytes and an estimated %i frames behind"
-            log.warning(message, self.outbound_buffer.size, est_frames_behind)
+            warn(message, self.outbound_buffer.size, est_frames_behind)
             self.callbacks.process(0, 'backpressure', self)
 
     def _flush_outbound(self):

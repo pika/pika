@@ -5,6 +5,7 @@
 # ***** END LICENSE BLOCK *****
 
 import pika.log as log
+from warnings import warn
 
 
 class CallbackManager(object):
@@ -66,8 +67,8 @@ class CallbackManager(object):
         # If we passed in that we do not want duplicates, check and keep us
         # from adding it a second time
         if callback_dict in self._callbacks[prefix][key]:
-            log.warning('%s.add: Duplicate callback found for "%s:%s"',
-                            self.__class__.__name__, prefix, key)
+            warn('%s.add: Duplicate callback found for "%s:%s"',
+                 self.__class__.__name__, prefix, key)
             return
 
         # Append the callback to our key list
