@@ -13,14 +13,10 @@ import os
 import sys
 sys.path.extend(['..', os.path.join('..', '..')])
 
-# Get the version of Python we're running
-from platform import python_version_tuple
-major, minor, revision = python_version_tuple()
-print major, minor, revision
-PYTHON_VERSION = "%s.%s" % (major, minor)
-
 import pika.frame
 import pika.spec as spec
+
+from support import PYTHON_VERSION
 
 
 def decode_frame(frame_data):

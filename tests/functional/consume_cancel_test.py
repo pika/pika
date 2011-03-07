@@ -17,7 +17,7 @@ import pika.spec as spec
 import support.tools as tools
 
 from pika.adapters import SelectConnection
-from config import HOST, PORT
+from support import HOST, PORT
 
 
 class TestConsumeCancel(tools.AsyncPattern):

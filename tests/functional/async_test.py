@@ -10,7 +10,6 @@ First test to make sure all async adapters can connect properly
 """
 import nose
 import os
-import platform
 import sys
 sys.path.append('..')
 sys.path.append(os.path.join('..', '..'))
@@ -21,7 +20,7 @@ from pika.adapters.tornado_connection import IOLoop as tornado_ioloop
 
 import warnings
 
-from config import HOST, PORT
+from support import HOST, PORT, PYTHON_VERSION, PLATFORM
 
 
 class TestAdapters(object):
@@ -52,7 +51,7 @@ class TestAdapters(object):
     @nose.tools.timed(2)
     def test_tornado_connection(self):
         # Tornado is 2.5+ only
-        if float('.'.join(platform.python_version().split('.')[:-1])) < 2.5:
+        if PYTHON_VERSION < 2.5:
             raise nose.SkipTest
         # Ignore the Tornado ioloop shutdown warning
         warnings.simplefilter('ignore', UserWarning)
@@ -67,9 +66,9 @@ class TestAdapters(object):
     @nose.tools.timed(2)
     def test_epoll_connection(self):
         # EPoll is 2.6+ and linux only
-        if os.uname()[0].lower() != 'linux':
+        if PLATFORM != 'linux':
             raise nose.SkipTest
-        if float('.'.join(platform.python_version().split('.')[:-1])) < 2.6:
+        if PYTHON_VERSION < 2.6:
             raise nose.SkipTest
         self._set_select_poller('epoll')
         self.connection = self._connect(adapters.SelectConnection)
@@ -82,7 +81,10 @@ class TestAdapters(object):
 
     @nose.tools.timed(2)
     def test_poll_connection(self):
-        if os.uname()[0].lower() != 'linux':
+        # Linux and 2.5+
+        if PLATFORM != 'linux':
+            raise nose.SkipTest
+        if PYTHON_VERSION < 2.5:
             raise nose.SkipTest
         self._set_select_poller('poll')
         self.connection = self._connect(adapters.SelectConnection)
@@ -95,10 +97,9 @@ class TestAdapters(object):
 
     @nose.tools.timed(2)
     def test_kqueue_connection(self):
-        if os.uname()[0].lower() not in ['bsd', 'darwin']:
+        if PLATFORM not in ['bsd', 'darwin']:
             raise nose.SkipTest
-        # KQueue is 2.6+
-        if float('.'.join(platform.python_version().split('.')[:-1])) < 2.6:
+        if PYTHON_VERSION < 2.6:
             raise nose.SkipTest
         self._set_select_poller('kqueue')
         self.connection = self._connect(adapters.SelectConnection)

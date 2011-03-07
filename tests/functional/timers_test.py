@@ -18,7 +18,7 @@ import pika
 import pika.adapters as adapters
 from pika.adapters.tornado_connection import IOLoop as tornado_ioloop
 
-from config import HOST, PORT
+from support import HOST, PORT
 
 
 class TestAdapters(object):

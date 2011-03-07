@@ -18,7 +18,7 @@ import pika
 import pika.exceptions
 from pika.adapters import BlockingConnection
 import support.tools
-from config import HOST, PORT
+from support import HOST, PORT
 
 
 def test_blocking_send_get():

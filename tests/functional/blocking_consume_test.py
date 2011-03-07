@@ -17,7 +17,7 @@ sys.path.append(os.path.join('..', '..'))
 import pika
 from pika.adapters import BlockingConnection
 import support.tools
-from config import HOST, PORT
+from support import HOST, PORT
 
 MESSAGES = 10
 MAX_DURATION = 10
