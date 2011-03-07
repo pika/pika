@@ -3,18 +3,34 @@
 # For copyright and licensing please refer to COPYING.
 #
 # ***** END LICENSE BLOCK *****
-from tornado.ioloop import IOLoop
+try:
+    import tornado.ioloop
+    IOLoop = tornado.ioloop.IOLoop
+except ImportError:
+    IOLoop = None
+
 from warnings import warn
 
 from pika.adapters.base_connection import BaseConnection
 
 # Redefine our constants with Tornado's
-ERROR = tornado.ioloop.IOLoop.ERROR
-READ = tornado.ioloop.IOLoop.READ
-WRITE = tornado.ioloop.IOLoop.WRITE
+if IOLoop:
+    ERROR = tornado.ioloop.IOLoop.ERROR
+    READ = tornado.ioloop.IOLoop.READ
+    WRITE = tornado.ioloop.IOLoop.WRITE
 
 
 class TornadoConnection(BaseConnection):
+
+    def __init__(self, parameters=None, on_open_callback=None,
+                 reconnection_strategy=None):
+
+        # Validate we have Tornado installed
+        if not IOLoop:
+            raise ImportError("Tornado not installed")
+
+        BaseConnection.__init__(self, parameters, on_open_callback,
+                                reconnection_strategy)
 
     def _adapter_connect(self, host, port):
         """
@@ -34,6 +50,9 @@ class TornadoConnection(BaseConnection):
         self._on_connected()
 
     def _adapter_disconnect(self):
+        """
+        Disconnect from the RabbitMQ Broker
+        """
         # Remove from the IOLoop
         self.ioloop.remove_handler(self.socket.fileno())
 

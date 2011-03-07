@@ -374,7 +374,7 @@ specified a %s. Reconnections will fail.",
         to cleanly stop the delivery of messages prior to closing the channel.
         """
         if self.closing or self.closed:
-            warn("%s.Close invoked while closing or closed",
+            warn("%s.Close invoked while closing or closed" % \
                  self.__class__.__name__)
             return
 
@@ -400,7 +400,7 @@ specified a %s. Reconnections will fail.",
         Let the Broker know we want to close
         """
         if self.closed:
-            warn("%s.on_close_ready invoked while closed",
+            warn("%s.on_close_ready invoked while closed" %\
                  self.__class__.__name__)
             return
 
@@ -660,7 +660,7 @@ specified a %s. Reconnections will fail.",
             est_frames_behind = self.outbound_buffer.size / avg_frame_size
             message = "Pika: Write buffer exceeded warning threshold" + \
                       " at %i bytes and an estimated %i frames behind"
-            warn(message, self.outbound_buffer.size, est_frames_behind)
+            warn(message % (self.outbound_buffer.size, est_frames_behind))
             self.callbacks.process(0, 'backpressure', self)
 
     def _flush_outbound(self):

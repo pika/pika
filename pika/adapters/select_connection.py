@@ -24,9 +24,6 @@ class SelectConnection(BaseConnection):
     @log.method_call
     def __init__(self, parameters=None, on_open_callback=None,
                  reconnection_strategy=None):
-        # Setup the IOLoop
-        self.ioloop = IOLoop.instance()
-
         # Run our base connection init
         BaseConnection.__init__(self, parameters, on_open_callback,
                                 reconnection_strategy)
@@ -38,8 +35,10 @@ class SelectConnection(BaseConnection):
         """
         BaseConnection._adapter_connect(self, host, port)
 
+        # Setup the IOLoop
+        self.ioloop = IOLoop()
+
         # Setup our and start our IOLoop and Poller
-        self.ioloop = IOLoop.instance()
         self.ioloop.fileno = self.socket.fileno()
         self.ioloop.start_poller(self._handle_events, self.event_state)
 
@@ -71,15 +70,6 @@ class IOLoop(object):
     @log.method_call
     def __init__(self):
         self.fileno = None
-
-    @classmethod
-    def instance(cls):
-        """
-        Returns a handle to the already created object or creates a new object
-        """
-        if not hasattr(cls, "_instance"):
-            cls._instance = cls()
-        return cls._instance
 
     @log.method_call
     def add_timeout(self, deadline, handler):
