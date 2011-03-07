@@ -38,7 +38,9 @@ for entry in os.listdir('.'):
 versions = ['nosetests-2.4', 'nosetests-2.5', 'nosetests-2.6', 'nosetests-2.7']
 valid = set()
 for filename in versions:
-    valid.add(test_for_version(filename))
+    found = test_for_version(filename)
+    if found:
+        valid.add(found)
 
 # Set up the valid argument options
 parser = optparse.OptionParser()
