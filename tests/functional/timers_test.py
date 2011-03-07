@@ -8,17 +8,15 @@ Timer tests, make sure we can add and remove timers and that they fire.
 """
 import nose
 import os
+import platform
 import sys
+import warnings
 sys.path.append('..')
 sys.path.append(os.path.join('..', '..'))
 
 import pika
 import pika.adapters as adapters
-
-try:
-    from pika.adapters.tornado_connection import TornadoConnection
-except ImportError:
-    TornadoConnection = None
+from pika.adapters.tornado_connection import IOLoop as tornado_ioloop
 
 from config import HOST, PORT
 
@@ -52,10 +50,58 @@ class TestAdapters(object):
 
     @nose.tools.timed(2)
     def test_tornado_connection(self):
-        if not TornadoConnection:
+        # Ignore the Tornado ioloop shutdown warning
+        warnings.simplefilter('ignore', UserWarning)
+        if not tornado_ioloop:
             raise nose.SkipTest
-        self.connection = self._connect(TornadoConnection)
+        self.connection = self._connect(adapters.TornadoConnection)
         self.connection.ioloop.start()
+        if not self.confirmed:
+            assert False, "Timer tests failed"
+        pass
+
+    @nose.tools.timed(2)
+    def test_kqueue_connection(self):
+        if os.uname()[0].lower() not in ['bsd', 'darwin']:
+            raise nose.SkipTest
+        # KQueue is 2.6+
+        if float('.'.join(platform.python_version().split('.')[:-1])) < 2.6:
+            raise nose.SkipTest
+        self._set_select_poller('kqueue')
+        self.connection = self._connect(adapters.SelectConnection)
+        self.connection.ioloop.start()
+        if self.connection.ioloop.poller_type != 'KQueuePoller':
+            assert False
+        if not self.confirmed:
+            assert False, "Timer tests failed"
+        pass
+
+    @nose.tools.timed(2)
+    def test_epoll_connection(self):
+        # EPoll is 2.6+ and linux only
+        if os.uname()[0].lower() != 'linux':
+            raise nose.SkipTest
+        if float('.'.join(platform.python_version().split('.')[:-1])) < 2.6:
+            raise nose.SkipTest
+        self._set_select_poller('epoll')
+        self.connection = self._connect(adapters.SelectConnection)
+        self.connection.ioloop.start()
+        if self.connection.ioloop.poller_type != 'EPollPoller':
+            assert False
+        if not self.confirmed:
+            assert False, "Timer tests failed"
+        pass
+
+    @nose.tools.timed(2)
+    def test_poll_connection(self):
+        # EPoll is 2.6+ and linux only
+        if os.uname()[0].lower() != 'linux':
+            raise nose.SkipTest
+        self._set_select_poller('poll')
+        self.connection = self._connect(adapters.SelectConnection)
+        self.connection.ioloop.start()
+        if self.connection.ioloop.poller_type != 'PollPoller':
+            assert False
         if not self.confirmed:
             assert False, "Timer tests failed"
         pass
@@ -86,6 +132,3 @@ class TestAdapters(object):
 
     def _set_select_poller(self, type):
         adapters.select_connection.SELECT_TYPE = type
-
-if __name__ == "__main__":
-    nose.runmodule()

@@ -86,6 +86,7 @@ def test_blocking_consume():
     # This is blocking
     channel.basic_consume(consumer_callback=_on_message, queue=queue_name,
                           no_ack=True)
+    channel.start_consuming()
     connection.close()
 
     # Check our results
