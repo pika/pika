@@ -5,7 +5,7 @@
 # ***** END LICENSE BLOCK *****#
 
 """
-Pika table tests
+Pika data encoding/decoding tests
 """
 
 import os
