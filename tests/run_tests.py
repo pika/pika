@@ -11,6 +11,7 @@ Simple test runner to separate out the functional tests and the unit tests.
 import optparse
 import os
 import subprocess
+import sys
 import warnings
 warnings.filterwarnings('ignore', category=DeprecationWarning)
 
@@ -41,6 +42,10 @@ for filename in versions:
     found = test_for_version(filename)
     if found:
         valid.add(found)
+
+if not valid:
+    print "You must install nose and mock to run tests."
+    sys.exit(1)
 
 # Set up the valid argument options
 parser = optparse.OptionParser()
