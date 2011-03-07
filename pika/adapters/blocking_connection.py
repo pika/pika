@@ -5,6 +5,7 @@
 # ***** END LICENSE BLOCK *****
 
 import socket
+import time
 import types
 
 import pika.log as log
@@ -40,6 +41,7 @@ class BlockingConnection(BaseConnection):
         self.socket.settimeout(SOCKET_TIMEOUT)
         self._socket_timeouts = 0
         self._on_connected()
+        self._timeouts = dict()
         while not self.is_open:
             self._flush_outbound()
             self._handle_read()
@@ -89,9 +91,14 @@ class BlockingConnection(BaseConnection):
 
     @log.method_call
     def process_data_events(self):
+        # Make sure we're open, if not raise the exception
         if not self.is_open:
             raise AMQPConnectionError
+
+        # Write our data
         self._flush_outbound()
+
+        # Read data
         try:
             self._handle_read()
             self._socket_timeouts = 0
@@ -100,6 +107,9 @@ class BlockingConnection(BaseConnection):
             if self._socket_timeouts > SOCKET_TIMEOUT_THRESHOLD:
                 log.error(SOCKET_TIMEOUT_MESSAGE)
                 self._handle_disconnect()
+
+        # Process our timeout events
+        self.process_timeouts()
 
     @log.method_call
     def channel(self, channel_number=None):
@@ -124,6 +134,45 @@ class BlockingConnection(BaseConnection):
                                                          channel_number,
                                                          transport)
         return self._channels[channel_number]
+
+    @log.method_call
+    def add_timeout(self, delay_sec, callback):
+        """
+        Add a timeout calling callback to our stack that will execute
+        in delay_sec.
+        """
+        deadline = time.time() + delay_sec
+        timeout_id = '%.8f' % time.time()
+        self._timeouts[timeout_id] = {'deadline': deadline,
+                                      'handler': callback}
+        return timeout_id
+
+    @log.method_call
+    def remove_timeout(self, timeout_id):
+        """
+        Remove a timeout from the stack
+        """
+        if timeout_id in self._timeouts:
+            del self._timeouts[timeout_id]
+
+    def process_timeouts(self):
+        """
+        Process our self._timeouts event stack
+        """
+        # Process our timeout events
+        keys = self._timeouts.keys()
+
+        start_time = time.time()
+        for timeout_id in keys:
+            if timeout_id in self._timeouts and \
+               self._timeouts[timeout_id]['deadline'] <= start_time:
+               log.debug('%s: Timeout calling %s',
+                         self.__class__.__name__,
+                         self._timeouts[timeout_id]['handler'])
+               self._timeouts[timeout_id]['handler']()
+               del(self._timeouts[timeout_id])
+
+
 
 
 class BlockingChannelTransport(ChannelTransport):
