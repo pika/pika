@@ -6,6 +6,8 @@
 
 import types
 
+from warnings import warn
+
 import pika.channel as channel
 import pika.credentials
 import pika.frame
@@ -150,8 +152,8 @@ class Connection(object):
         if self.parameters.credentials.erase_on_connect and \
             not isinstance(self.reconnection, NullReconnectionStrategy):
             # Warn the developer
-            log.warning("%s was initialized to erase credentials but you have \
-                         specified a %s. Reconnections will fail.",
+            warn("%s was initialized to erase credentials but you have \
+specified a %s. Reconnections will fail.",
                         self.parameters.credentials.__class__.__name__,
                         self.reconnection.__class__.__name__)
 

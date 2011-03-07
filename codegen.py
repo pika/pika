@@ -241,7 +241,6 @@ def generate(specPath):
         else:
             return '%spass\n' % (prefix,)
 
-
     print """# ***** BEGIN LICENSE BLOCK *****
 #
 # For copyright and licensing please refer to COPYING.
