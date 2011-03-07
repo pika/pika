@@ -415,3 +415,14 @@ class EPollPoller(PollPoller):
         SelectPoller.__init__(self, fileno, handler, events)
         self._poll = select.epoll()
         self._poll.register(fileno, self.events)
+
+    def poll(self):
+
+        # Poll until TIMEOUT waiting for an event
+        events = self._poll.poll(SelectPoller.TIMEOUT)
+
+        # If we didn't timeout pass the event to the handler
+        if events:
+            log.debug("%s: Calling %s", self.__class__.__name__,
+                      self._handler)
+            self._handler(events[0][0], events[0][1])
