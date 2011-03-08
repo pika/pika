@@ -81,6 +81,18 @@ parser.add_option("--port",
                   help="Specify the RabbitMQ broker port to connect to for\
                         running the functional tests on.")
 
+parser.add_option("--xunit",
+                  dest="xunit",
+                  default=None,
+                  help="Tell nosetests to use xunit with the specified file.")
+
+parser.add_option("--coverage",
+                  dest="coverage",
+                  default=None,
+                  help="Have nosetests to use coverage to generate Cobertura\
+                        XML output to the specified directory.")
+
+
 # Parse the arguments
 options, args = parser.parse_args()
 
@@ -99,8 +111,14 @@ if options.port:
 for version in valid:
     print "Testing %s for Python %s" % (', '.join(test_directories), version)
     print
-    proc = subprocess.Popen("nosetests-%s %s" % (version,
-                                                 ' '.join(test_directories)),
+    command = "nosetests-%s" % version
+    if options.xunit:
+        command = command + " --with-xunit --xunit-file=" + options.xunit
+    if options.coverage:
+        command = command + "  --with-coverage --cover-xml --cover-xml-dir=" +\
+                  options.coverage
+
+    proc = subprocess.Popen("%s %s" % (command, ' '.join(test_directories)),
                             shell=True,
                             stdout=subprocess.PIPE)
 
