@@ -18,7 +18,7 @@ PYTHON_VERSION = float("%s.%s" % (major, minor))
 # Set the host and port from the environment variables or defaults
 from os import environ, uname
 HOST = environ.get('RABBITMQ_HOST', 'localhost')
-PORT = environ.get('RABBITMQ_PORT', 5672)
+PORT = int(environ.get('RABBITMQ_PORT', 5672))
 PLATFORM = uname()[0].lower()
 
 # Import Warnings
@@ -26,6 +26,7 @@ import warnings
 
 # Validate that we can connect to RabbitMQ
 import socket
+socket.setdefaulttimeout(1)
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
 sock.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
 try:

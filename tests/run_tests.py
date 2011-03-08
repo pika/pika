@@ -69,6 +69,18 @@ parser.add_option("-v",
                         Defaults to all." % ', '.join(valid),
                   default=None)
 
+parser.add_option("--host",
+                  dest="host",
+                  default=None,
+                  help="Specify the RabbitMQ server to run the\
+                        functional tests on.")
+
+parser.add_option("--port",
+                  dest="port",
+                  default=None,
+                  help="Specify the RabbitMQ broker port to connect to for\
+                        running the functional tests on.")
+
 # Parse the arguments
 options, args = parser.parse_args()
 
@@ -77,6 +89,12 @@ if options.test:
 
 if options.version:
     valid = [options.version]
+
+if options.host:
+    os.putenv("RABBITMQ_HOST", options.host)
+
+if options.port:
+    os.putenv("RABBITMQ_PORT", options.port)
 
 for version in valid:
     print "Testing %s for Python %s" % (', '.join(test_directories), version)
