@@ -1,5 +1,6 @@
 *.pyc
 .idea/
+.coverage
 pika.iml
 .DS_Store
 codegen/
