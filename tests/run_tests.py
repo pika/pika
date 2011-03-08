@@ -108,6 +108,18 @@ if options.host:
 if options.port:
     os.putenv("RABBITMQ_PORT", options.port)
 
+if options.xunit:
+    parts = options.xunit.split('/')
+    if len(parts) > 1:
+        parts[-1] = '{VERSION}.' + parts[-1]
+    options.xunit = '/'.join(parts)
+
+if options.coverage:
+    parts = options.coverage.split('/')
+    if len(parts) > 1:
+        parts[-1] = '{VERSION}.' + parts[-1]
+    options.coverage = '/'.join(parts)
+
 for version in valid:
     print "Testing %s for Python %s" % (', '.join(test_directories), version)
     print
@@ -117,12 +129,13 @@ for version in valid:
 
     # Append the xunit option if specified
     if options.xunit:
-        command.append("--with-xunit --xunit-file=%s.%s" % (version,
-                                                            options.xunit))
+        command.append("--with-xunit --xunit-file=%s" % \
+                       options.xunit.replace("{VERSION}", version))
+
     # Append the coverage options if specified
     if options.coverage:
-        command.append("--with-cover --cover-xml --cover-xml-file=%s.%s" %\
-                       (version, options.coverage))
+        command.append("--with-cover --cover-xml --cover-xml-file=%s" %\
+                       options.coverage.replace("{VERSION}", version))
 
     # Append the tests to run
     command.append(' '.join(test_directories))
