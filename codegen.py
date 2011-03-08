@@ -80,58 +80,62 @@ def generate(specPath):
         if type == 'shortstr':
             print prefix + "length = struct.unpack_from('B', encoded, offset)[0]"
             print prefix + "offset += 1"
-            print prefix + "%s = encoded[offset:offset + length]" % (cLvalue,)
+            print prefix + "%s = encoded[offset:offset + length]" % cLvalue
             print prefix + "offset += length"
         elif type == 'longstr':
             print prefix + "length = struct.unpack_from('>I', encoded, offset)[0]"
             print prefix + "offset += 4"
-            print prefix + "%s = encoded[offset:offset + length]" % (cLvalue,)
+            print prefix + "%s = encoded[offset:offset + length]" % cLvalue
             print prefix + "offset += length"
         elif type == 'octet':
-            print prefix + "%s = struct.unpack_from('B', encoded, offset)[0]" % (cLvalue,)
+            print prefix + "%s = struct.unpack_from('B', encoded, offset)[0]" % cLvalue
             print prefix + "offset += 1"
         elif type == 'short':
-            print prefix + "%s = struct.unpack_from('>H', encoded, offset)[0]" % (cLvalue,)
+            print prefix + "%s = struct.unpack_from('>H', encoded, offset)[0]" % cLvalue
             print prefix + "offset += 2"
         elif type == 'long':
-            print prefix + "%s = struct.unpack_from('>I', encoded, offset)[0]" % (cLvalue,)
+            print prefix + "%s = struct.unpack_from('>I', encoded, offset)[0]" % cLvalue
             print prefix + "offset += 4"
+            print prefix + "if PYTHON_VERSION == 2.4:"
+            print prefix + "    %s = int(%s)" % (cLvalue, cLvalue)
         elif type == 'longlong':
-            print prefix + "%s = struct.unpack_from('>Q', encoded, offset)[0]" % (cLvalue,)
+            print prefix + "%s = struct.unpack_from('>Q', encoded, offset)[0]" % cLvalue
             print prefix + "offset += 8"
+            print prefix + "if PYTHON_VERSION == 2.4:"
+            print prefix + "    %s = int(%s)" % (cLvalue, cLvalue)
         elif type == 'timestamp':
-            print prefix + "%s = struct.unpack_from('>Q', encoded, offset)[0]" % (cLvalue,)
+            print prefix + "%s = struct.unpack_from('>Q', encoded, offset)[0]" % cLvalue
             print prefix + "offset += 8"
         elif type == 'bit':
             raise Exception("Can't decode bit in genSingleDecode")
         elif type == 'table':
             print Exception(prefix + "(%s, offset) = data.decode_table(encoded, offset)" % \
-                  (cLvalue,))
+                  cLvalue)
         else:
             raise Exception("Illegal domain in genSingleDecode", type)
 
     def genSingleEncode(prefix, cValue, unresolved_domain):
         type = spec.resolveDomain(unresolved_domain)
         if type == 'shortstr':
-            print prefix + "pieces.append(struct.pack('B', len(%s)))" % (cValue,)
-            print prefix + "pieces.append(%s)" % (cValue,)
+            print prefix + "pieces.append(struct.pack('B', len(%s)))" % cValue
+            print prefix + "pieces.append(%s)" % cValue
         elif type == 'longstr':
-            print prefix + "pieces.append(struct.pack('>I', len(%s)))" % (cValue,)
-            print prefix + "pieces.append(%s)" % (cValue,)
+            print prefix + "pieces.append(struct.pack('>I', len(%s)))" % cValue
+            print prefix + "pieces.append(%s)" % cValue
         elif type == 'octet':
-            print prefix + "pieces.append(struct.pack('B', %s))" % (cValue,)
+            print prefix + "pieces.append(struct.pack('B', %s))" % cValue
         elif type == 'short':
-            print prefix + "pieces.append(struct.pack('>H', %s))" % (cValue,)
+            print prefix + "pieces.append(struct.pack('>H', %s))" % cValue
         elif type == 'long':
-            print prefix + "pieces.append(struct.pack('>I', %s))" % (cValue,)
+            print prefix + "pieces.append(struct.pack('>I', %s))" % cValue
         elif type == 'longlong':
-            print prefix + "pieces.append(struct.pack('>Q', %s))" % (cValue,)
+            print prefix + "pieces.append(struct.pack('>Q', %s))" % cValue
         elif type == 'timestamp':
-            print prefix + "pieces.append(struct.pack('>Q', %s))" % (cValue,)
+            print prefix + "pieces.append(struct.pack('>Q', %s))" % cValue
         elif type == 'bit':
             raise Exception("Can't encode bit in genSingleEncode")
         elif type == 'table':
-            print Exception(prefix + "data.encode_table(pieces, %s)" % (cValue,))
+            print Exception(prefix + "data.encode_table(pieces, %s)" % cValue)
         else:
             raise Exception("Illegal domain in genSingleEncode", type)
 
@@ -252,6 +256,12 @@ def generate(specPath):
 import struct
 import pika.data as data
 import pika.object
+
+# Determine the version of PYTHON running so we can properly use the correct
+# struct variable type for decoding >Q in Python 2.4
+from platform import python_version_tuple
+major, minor, revision = python_version_tuple()
+PYTHON_VERSION = float("%s.%s" % (major, minor))
 """
 
     print "PROTOCOL_VERSION = (%d, %d, %d)" % (spec.major, spec.minor,

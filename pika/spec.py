@@ -10,6 +10,12 @@ import struct
 import pika.data as data
 import pika.object
 
+# Determine the version of PYTHON running so we can properly use the correct
+# struct variable type for decoding >Q in Python 2.4
+from platform import python_version_tuple
+major, minor, revision = python_version_tuple()
+PYTHON_VERSION = float("%s.%s" % (major, minor))
+
 PROTOCOL_VERSION = (0, 9, 1)
 PORT = 5672
 
@@ -202,6 +208,8 @@ class Connection(pika.object.Class):
             offset += 2
             self.frame_max = struct.unpack_from('>I', encoded, offset)[0]
             offset += 4
+            if PYTHON_VERSION == 2.4:
+                self.frame_max = int(self.frame_max)
             self.heartbeat = struct.unpack_from('>H', encoded, offset)[0]
             offset += 2
             return self
@@ -232,6 +240,8 @@ class Connection(pika.object.Class):
             offset += 2
             self.frame_max = struct.unpack_from('>I', encoded, offset)[0]
             offset += 4
+            if PYTHON_VERSION == 2.4:
+                self.frame_max = int(self.frame_max)
             self.heartbeat = struct.unpack_from('>H', encoded, offset)[0]
             offset += 2
             return self
@@ -982,8 +992,12 @@ class Queue(pika.object.Class):
             offset += length
             self.message_count = struct.unpack_from('>I', encoded, offset)[0]
             offset += 4
+            if PYTHON_VERSION == 2.4:
+                self.message_count = int(self.message_count)
             self.consumer_count = struct.unpack_from('>I', encoded, offset)[0]
             offset += 4
+            if PYTHON_VERSION == 2.4:
+                self.consumer_count = int(self.consumer_count)
             return self
 
         def encode(self):
@@ -1119,6 +1133,8 @@ class Queue(pika.object.Class):
         def decode(self, encoded, offset=0):
             self.message_count = struct.unpack_from('>I', encoded, offset)[0]
             offset += 4
+            if PYTHON_VERSION == 2.4:
+                self.message_count = int(self.message_count)
             return self
 
         def encode(self):
@@ -1186,6 +1202,8 @@ class Queue(pika.object.Class):
         def decode(self, encoded, offset=0):
             self.message_count = struct.unpack_from('>I', encoded, offset)[0]
             offset += 4
+            if PYTHON_VERSION == 2.4:
+                self.message_count = int(self.message_count)
             return self
 
         def encode(self):
@@ -1281,6 +1299,8 @@ class Basic(pika.object.Class):
         def decode(self, encoded, offset=0):
             self.prefetch_size = struct.unpack_from('>I', encoded, offset)[0]
             offset += 4
+            if PYTHON_VERSION == 2.4:
+                self.prefetch_size = int(self.prefetch_size)
             self.prefetch_count = struct.unpack_from('>H', encoded, offset)[0]
             offset += 2
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
@@ -1573,6 +1593,8 @@ class Basic(pika.object.Class):
             offset += length
             self.delivery_tag = struct.unpack_from('>Q', encoded, offset)[0]
             offset += 8
+            if PYTHON_VERSION == 2.4:
+                self.delivery_tag = int(self.delivery_tag)
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
             self.redelivered = (bit_buffer & (1 << 0)) != 0
@@ -1657,6 +1679,8 @@ class Basic(pika.object.Class):
         def decode(self, encoded, offset=0):
             self.delivery_tag = struct.unpack_from('>Q', encoded, offset)[0]
             offset += 8
+            if PYTHON_VERSION == 2.4:
+                self.delivery_tag = int(self.delivery_tag)
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
             self.redelivered = (bit_buffer & (1 << 0)) != 0
@@ -1670,6 +1694,8 @@ class Basic(pika.object.Class):
             offset += length
             self.message_count = struct.unpack_from('>I', encoded, offset)[0]
             offset += 4
+            if PYTHON_VERSION == 2.4:
+                self.message_count = int(self.message_count)
             return self
 
         def encode(self):
@@ -1727,6 +1753,8 @@ class Basic(pika.object.Class):
         def decode(self, encoded, offset=0):
             self.delivery_tag = struct.unpack_from('>Q', encoded, offset)[0]
             offset += 8
+            if PYTHON_VERSION == 2.4:
+                self.delivery_tag = int(self.delivery_tag)
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
             self.multiple = (bit_buffer & (1 << 0)) != 0
@@ -1757,6 +1785,8 @@ class Basic(pika.object.Class):
         def decode(self, encoded, offset=0):
             self.delivery_tag = struct.unpack_from('>Q', encoded, offset)[0]
             offset += 8
+            if PYTHON_VERSION == 2.4:
+                self.delivery_tag = int(self.delivery_tag)
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
             self.requeue = (bit_buffer & (1 << 0)) != 0
@@ -1859,6 +1889,8 @@ class Basic(pika.object.Class):
         def decode(self, encoded, offset=0):
             self.delivery_tag = struct.unpack_from('>Q', encoded, offset)[0]
             offset += 8
+            if PYTHON_VERSION == 2.4:
+                self.delivery_tag = int(self.delivery_tag)
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
             self.multiple = (bit_buffer & (1 << 0)) != 0
