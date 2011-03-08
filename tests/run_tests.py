@@ -90,7 +90,7 @@ parser.add_option("--coverage",
                   dest="coverage",
                   default=None,
                   help="Have nosetests to use coverage to generate Cobertura\
-                        XML output to the specified directory.")
+                        XML output to the specified file.")
 
 
 # Parse the arguments
@@ -111,14 +111,24 @@ if options.port:
 for version in valid:
     print "Testing %s for Python %s" % (', '.join(test_directories), version)
     print
-    command = "nosetests-%s" % version
-    if options.xunit:
-        command = command + " --with-xunit --xunit-file=" + options.xunit
-    if options.coverage:
-        command = command + "  --with-coverage --cover-xml --cover-xml-dir=" +\
-                  options.coverage
+    command = []
+    # Base command
+    command.append("nosetests-%s" % version)
 
-    proc = subprocess.Popen("%s %s" % (command, ' '.join(test_directories)),
+    # Append the xunit option if specified
+    if options.xunit:
+        command.append("--with-xunit --xunit-file=%s.%s" % (version,
+                                                            options.xunit))
+    # Append the coverage options if specified
+    if options.coverage:
+        command.append("--with-cover --cover-xml --cover-xml-file=%s.%s" %\
+                       (version, options.coverage))
+
+    # Append the tests to run
+    command.append(' '.join(test_directories))
+
+    # Run the command
+    proc = subprocess.Popen(' '.join(command),
                             shell=True,
                             stdout=subprocess.PIPE)
 
