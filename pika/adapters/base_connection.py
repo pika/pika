@@ -24,6 +24,7 @@ import socket
 import time
 
 from pika.connection import Connection
+import pika.log
 
 # Use epoll's constants to keep life easy
 READ = 0x0001
@@ -109,11 +110,13 @@ class BaseConnection(Connection):
             return
         # Socket is closed, so lets just go to our handle_close method
         elif error_code == errno.EBADF:
-            log.error("%s: Socket is closed", self.__class__.__name__)
+            pika.log.error("%s: Socket is closed", self.__class__.__name__)
         else:
             # Haven't run into this one yet, log it.
-            log.error("%s: Socket Error on %d: %s", self.__class__.__name__,
-                      self.socket.fileno(), error_code)
+            pika.log.error("%s: Socket Error on %d: %s",
+                           self.__class__.__name__,
+                           self.socket.fileno(),
+                           error_code)
 
         # Disconnect from our IOLoop and let Connection know what's up
         self._handle_disconnect()
@@ -123,8 +126,8 @@ class BaseConnection(Connection):
         Our IO/Event loop have called us with events, so process them
         """
         if not self.socket:
-            log.error("%s: Got events for closed stream %d",
-                      self.__class__.__name__, self.socket.fileno())
+            pika.log.error("%s: Got events for closed stream %d",
+                           self.__class__.__name__, self.socket.fileno())
             return
 
         if events & READ:
