@@ -76,7 +76,7 @@ class TestAdapters(object):
         self.connection = self._connect(adapters.SelectConnection)
         self.connection.ioloop.start()
         if self.connection.ioloop.poller_type != 'EPollPoller':
-            assert False
+            assert False, "Poller type not EPollPoller"
         if not self.confirmed:
             assert False, "Timer tests failed"
         pass
@@ -87,10 +87,11 @@ class TestAdapters(object):
         if support.PLATFORM != 'linux' or\
            support.PYTHON_VERSION < 2.5:
             raise nose.SkipTest
+        self._set_select_poller('poll')
         self.connection = self._connect(adapters.SelectConnection)
         self.connection.ioloop.start()
         if self.connection.ioloop.poller_type != 'PollPoller':
-            assert False
+            assert False, "Poller type not PollPoller"
         if not self.confirmed:
             assert False, "Timer tests failed"
         pass
