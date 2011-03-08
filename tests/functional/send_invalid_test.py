@@ -8,22 +8,17 @@ Send a message to an invalid exchange which will yield a channel.Close call
 from the AMQP broker. Validate this process happens correctly.
 """
 import nose
-import os
-import sys
-sys.path.append('..')
-sys.path.append(os.path.join('..', '..'))
-
-import support.tools as tools
+import support
+import support.tools
 from pika.adapters import SelectConnection
-from support import HOST, PORT
 
 
-class TestAsyncSendInvalid(tools.AsyncPattern):
+class TestAsyncSendInvalid(support.tools.AsyncPattern):
 
     @nose.tools.timed(2)
     def test_send_invalid(self):
         self.confirmed = False
-        self.connection = self._connect(SelectConnection, HOST, PORT)
+        self.connection = self._connect(SelectConnection, support.PARAMETERS)
         self.connection.ioloop.start()
         if not self.confirmed:
             assert False, 'Did not receive the remote channel close callback.'

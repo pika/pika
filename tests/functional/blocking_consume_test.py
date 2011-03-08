@@ -3,21 +3,17 @@
 # For copyright and licensing please refer to COPYING.
 #
 # ***** END LICENSE BLOCK *****
+
 """
 Send a message to a non-existent queue with the mandatory flag and confirm
 that it is returned via Basic.Return
 """
-
-import os
-import sys
-import time
-sys.path.append('..')
-sys.path.append(os.path.join('..', '..'))
-
-import pika
-from pika.adapters import BlockingConnection
+from time import time
+import support
 import support.tools
-from support import HOST, PORT
+
+from pika.adapters import BlockingConnection
+from pika.spec import BasicProperties, Exchange, Queue
 
 MESSAGES = 10
 MAX_DURATION = 10
@@ -25,8 +21,8 @@ MAX_DURATION = 10
 
 def test_blocking_consume():
 
-    parameters = pika.ConnectionParameters(host=HOST, port=PORT)
-    connection = BlockingConnection(parameters)
+    # Connect to RabbitMQ
+    connection = BlockingConnection(support.PARAMETERS)
 
     # Open the channel
     channel = connection.channel()
@@ -36,7 +32,7 @@ def test_blocking_consume():
     frame = channel.exchange_declare(exchange=exchange_name,
                                      type="direct",
                                      auto_delete=True)
-    if not isinstance(frame.method, pika.spec.Exchange.DeclareOk):
+    if not isinstance(frame.method, Exchange.DeclareOk):
         assert False, \
         "Did not receive Exchange.DeclareOk from channel.exchange_declare"
 
@@ -47,7 +43,7 @@ def test_blocking_consume():
                                   exclusive=True,
                                   auto_delete=True)
 
-    if not isinstance(frame.method, pika.spec.Queue.DeclareOk):
+    if not isinstance(frame.method, Queue.DeclareOk):
         assert False, \
         "Did not receive Queue.DeclareOk from channel.queue_declare"
 
@@ -55,7 +51,7 @@ def test_blocking_consume():
     frame = channel.queue_bind(queue=queue_name,
                                exchange=exchange_name,
                                routing_key=routing_key)
-    if not isinstance(frame.method, pika.spec.Queue.BindOk):
+    if not isinstance(frame.method, Queue.BindOk):
         assert False, \
         "Did not receive Queue.BindOk from channel.queue_bind"
 
@@ -66,24 +62,25 @@ def test_blocking_consume():
         _received.append(body)
         if len(_received) == MESSAGES:
             channel.stop_consuming()
-        if start < time.time() - MAX_DURATION:
+        if start < time() - MAX_DURATION:
             assert False, "Test timed out"
 
     for x in xrange(0, MESSAGES):
-        message = 'test_blocking_send:%i:%.4f' % (x, time.time())
+        message = 'test_blocking_send:%i:%.4f' % (x, time())
         _sent.append(message)
         channel.basic_publish(exchange=exchange_name,
                               routing_key=routing_key,
                               body=message,
-                              properties=pika.BasicProperties(
-                                content_type="text/plain",
-                                delivery_mode=1))
+                              properties=BasicProperties(
+                                      content_type="text/plain",
+                                      delivery_mode=1))
 
     # Loop while we get messages (for 2 seconds)
-    start = time.time()
+    start = time()
 
     # This is blocking
-    channel.basic_consume(consumer_callback=_on_message, queue=queue_name,
+    channel.basic_consume(consumer_callback=_on_message,
+                          queue=queue_name,
                           no_ack=True)
     channel.start_consuming()
     connection.close()

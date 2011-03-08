@@ -3,22 +3,15 @@
 # For copyright and licensing please refer to COPYING.
 #
 # ***** END LICENSE BLOCK *****
+
 """
 Timer tests, make sure we can add and remove timers and that they fire.
 """
 import nose
-import os
-import platform
-import sys
-import warnings
-sys.path.append('..')
-sys.path.append(os.path.join('..', '..'))
+import support
 
-import pika
 import pika.adapters as adapters
 from pika.adapters.tornado_connection import IOLoop as tornado_ioloop
-
-from support import HOST, PORT
 
 
 class TestAdapters(object):
@@ -51,11 +44,7 @@ class TestAdapters(object):
     @nose.tools.timed(2)
     def test_tornado_connection(self):
         # Tornado is 2.5+ only
-        if float('.'.join(platform.python_version().split('.')[:-1])) < 2.5:
-            raise nose.SkipTest
-        # Ignore the Tornado ioloop shutdown warning
-        warnings.simplefilter('ignore', UserWarning)
-        if not tornado_ioloop:
+        if support.PYTHON_VERSION < 2.5 or not tornado_ioloop:
             raise nose.SkipTest
         self.connection = self._connect(adapters.TornadoConnection)
         self.connection.ioloop.start()
@@ -65,10 +54,8 @@ class TestAdapters(object):
 
     @nose.tools.timed(2)
     def test_kqueue_connection(self):
-        if os.uname()[0].lower() not in ['bsd', 'darwin']:
-            raise nose.SkipTest
-        # KQueue is 2.6+
-        if float('.'.join(platform.python_version().split('.')[:-1])) < 2.6:
+        if support.PLATFORM not in ['bsd', 'darwin'] or\
+           support.PYTHON_VERSION < 2.6:
             raise nose.SkipTest
         self._set_select_poller('kqueue')
         self.connection = self._connect(adapters.SelectConnection)
@@ -82,9 +69,8 @@ class TestAdapters(object):
     @nose.tools.timed(2)
     def test_epoll_connection(self):
         # EPoll is 2.6+ and linux only
-        if os.uname()[0].lower() != 'linux':
-            raise nose.SkipTest
-        if float('.'.join(platform.python_version().split('.')[:-1])) < 2.6:
+        if support.PLATFORM != 'linux' or\
+           support.PYTHON_VERSION < 2.6:
             raise nose.SkipTest
         self._set_select_poller('epoll')
         self.connection = self._connect(adapters.SelectConnection)
@@ -97,10 +83,10 @@ class TestAdapters(object):
 
     @nose.tools.timed(2)
     def test_poll_connection(self):
-        # EPoll is 2.6+ and linux only
-        if os.uname()[0].lower() != 'linux':
+        # Poll is 2.5+ and linux only due to api incompatibility
+        if support.PLATFORM != 'linux' or\
+           support.PYTHON_VERSION < 2.5:
             raise nose.SkipTest
-        self._set_select_poller('poll')
         self.connection = self._connect(adapters.SelectConnection)
         self.connection.ioloop.start()
         if self.connection.ioloop.poller_type != 'PollPoller':
@@ -113,8 +99,7 @@ class TestAdapters(object):
         if self.connection:
             del self.connection
         self.connected = False
-        parameters = pika.ConnectionParameters(HOST, PORT)
-        return connection_type(parameters, self._on_connected)
+        return connection_type(support.PARAMETERS, self._on_connected)
 
     def _on_connected(self, connection):
         self.connected = self.connection.is_open

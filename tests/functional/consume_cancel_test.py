@@ -8,29 +8,23 @@
 Send n messages and confirm you can retrieve them with Basic.Consume
 """
 import nose
-import os
-import sys
-sys.path.append('..')
-sys.path.append(os.path.join('..', '..'))
-
-import pika.spec as spec
-import support.tools as tools
-
+import support
+import support.tools
 from pika.adapters import SelectConnection
-from support import HOST, PORT
+from pika.spec import Basic
 
 
-class TestConsumeCancel(tools.AsyncPattern):
+class TestConsumeCancel(support.tools.AsyncPattern):
 
     def __init__(self):
-        tools.AsyncPattern.__init__(self)
+        support.tools.AsyncPattern.__init__(self)
         self._sent = list()
         self._received = list()
 
     @nose.tools.timed(3)
     def test_consume_and_cancel(self):
         self.confirmed = False
-        self.connection = self._connect(SelectConnection, HOST, PORT)
+        self.connection = self._connect(SelectConnection, support.PARAMETERS)
         self.connection.ioloop.start()
         if not self.confirmed:
             assert False, "Did not receive Basic.CancelOk"
@@ -40,10 +34,10 @@ class TestConsumeCancel(tools.AsyncPattern):
         self.channel = channel
         self._queue_declare()
 
-    @tools.timeout
+    @support.tools.timeout
     def _on_queue_declared(self, frame):
         #self.connection.add_timeout(10, self._on_timeout)
-        self.channel.add_callback(self.on_consume_ok, [spec.Basic.ConsumeOk])
+        self.channel.add_callback(self.on_consume_ok, [Basic.ConsumeOk])
         self.channel.basic_consume(self._on_message, queue=self._queue,
                                    consumer_tag=self.__class__.__name__)
 

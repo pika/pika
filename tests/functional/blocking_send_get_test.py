@@ -3,27 +3,22 @@
 # For copyright and licensing please refer to COPYING.
 #
 # ***** END LICENSE BLOCK *****
+
 """
 Send a message to a non-existent queue with the mandatory flag and confirm
 that it is returned via Basic.Return
 """
-
-import os
-import sys
-import time
-sys.path.append('..')
-sys.path.append(os.path.join('..', '..'))
-
-import pika
-from pika.adapters import BlockingConnection
+from time import time
+import support
 import support.tools
-from support import HOST, PORT
+
+from pika.adapters import BlockingConnection
+from pika.spec import BasicProperties
 
 
 def test_blocking_send_get():
 
-    parameters = pika.ConnectionParameters(host=HOST, port=PORT)
-    connection = BlockingConnection(parameters)
+    connection = BlockingConnection(support.PARAMETERS)
 
     # Open the channel
     channel = connection.channel()
@@ -35,13 +30,13 @@ def test_blocking_send_get():
                           exclusive=True,
                           auto_delete=True)
 
-    message = 'test_blocking_send:%.4f' % time.time()
+    message = 'test_blocking_send:%.4f' % time()
     channel.basic_publish(exchange='',
                           routing_key=queue_name,
                           body=message,
-                          properties=pika.BasicProperties(
-                            content_type="text/plain",
-                            delivery_mode=1))
+                          properties=BasicProperties(
+                                  content_type="text/plain",
+                                  delivery_mode=1))
 
     # Loop while we try to get the message we sent
     message_in = channel.basic_get(queue=queue_name)

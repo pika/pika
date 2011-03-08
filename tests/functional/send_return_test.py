@@ -3,27 +3,23 @@
 # For copyright and licensing please refer to COPYING.
 #
 # ***** END LICENSE BLOCK *****
+
 """
 Send a message to a non-existent queue with the mandatory flag and confirm
 that it is returned via Basic.Return
 """
 import nose
-import os
-import sys
-sys.path.append('..')
-sys.path.append(os.path.join('..', '..'))
-
-import support.tools as tools
+import support
+import support.tools
 from pika.adapters import SelectConnection
-from support import HOST, PORT
 
 
-class TestAsyncSendReturn(tools.AsyncPattern):
+class TestAsyncSendReturn(support.tools.AsyncPattern):
 
     @nose.tools.timed(2)
     def test_send_and_return(self):
         self.confirmed = False
-        self.connection = self._connect(SelectConnection, HOST, PORT)
+        self.connection = self._connect(SelectConnection, support.PARAMETERS)
         self.connection.ioloop.start()
         if not self.confirmed:
             assert False, 'Messages did not match.'

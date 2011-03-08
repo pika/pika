@@ -45,14 +45,10 @@ class AsyncPattern(object):
     def __init__(self):
         self.connection = None
         self.channel = None
-        self._queue = self._queue_name()
+        self._queue = test_queue_name(self.__class__.__name__)
         self._timeout = False
 
-    def _queue_name(self):
-        return 'test-%s-%i' % (self.__class__.__name__, os.getpid())
-
-    def _connect(self, connection_type, host, port):
-        parameters = pika.ConnectionParameters(host, port)
+    def _connect(self, connection_type, parameters):
         return connection_type(parameters, self._on_connected)
 
     def _on_connected(self, connection):
@@ -64,7 +60,7 @@ class AsyncPattern(object):
     def _queue_declare(self):
         self.channel.queue_declare(queue=self._queue,
                                    durable=False,
-                                   exclusive=False,
+                                   exclusive=True,
                                    auto_delete=True,
                                    callback=self._on_queue_declared)
 

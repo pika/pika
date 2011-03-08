@@ -3,26 +3,21 @@
 # For copyright and licensing please refer to COPYING.
 #
 # ***** END LICENSE BLOCK *****
+
 """
-Test for being able to toggle Channel.Flow on the server which will become
-more explicitly supported in AMQP 1-0
+Test for being able to toggle Channel.Flow on the server
 """
 import nose
-import os
-import sys
-sys.path.append('..')
-sys.path.append(os.path.join('..', '..'))
-
-import support.tools as tools
+import support
+from support.tools import AsyncPattern
 from pika.adapters import SelectConnection
-from support import HOST, PORT
 
 
-class TestAsyncClientFlow(tools.AsyncPattern):
+class TestAsyncClientFlow(AsyncPattern):
 
     @nose.tools.timed(2)
     def test_flow(self):
-        self.connection = self._connect(SelectConnection, HOST, PORT)
+        self.connection = self._connect(SelectConnection, support.PARAMETERS)
         self.connection.ioloop.start()
         pass
 
