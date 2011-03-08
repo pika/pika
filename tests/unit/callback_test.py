@@ -9,15 +9,8 @@
 Callback Unit Test
 """
 from mock import Mock
+import support
 import unittest
-import os
-import sys
-import warnings
-warnings.simplefilter('ignore', UserWarning)
-
-sys.path.append('..')
-sys.path.append(os.path.join('..', '..'))
-
 import pika.callback as callback
 
 

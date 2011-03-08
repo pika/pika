@@ -7,18 +7,14 @@
 """
 Pika simplebuffer tests
 """
-
-import os
-import sys
-import unittest
 from mock import Mock
-sys.path.append('..')
-sys.path.append(os.path.join('..', '..'))
-
+import support
+import unittest
 import pika.simplebuffer
 
 
 class TestBuffer(unittest.TestCase):
+
     def setUp(self):
         self.buffer = pika.simplebuffer.SimpleBuffer()
 

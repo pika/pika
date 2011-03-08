@@ -4,12 +4,8 @@
 #
 # ***** END LICENSE BLOCK *****
 
+import support
 import unittest
-import os
-import sys
-sys.path.append('..')
-sys.path.append(os.path.join('..', '..'))
-import pika.channel as channel
 
 
 class TestChannelTransport(unittest.TestCase):
@@ -22,6 +18,5 @@ class TestChannelTransport(unittest.TestCase):
     def test_init(self):
         pass
 
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

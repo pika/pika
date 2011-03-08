@@ -9,14 +9,9 @@ Tests for decoding raw frame data and validating the objects that is created
 from the raw frame data.
 """
 
-import os
-import sys
-sys.path.extend(['..', os.path.join('..', '..')])
-
+import support
 import pika.frame
 import pika.spec as spec
-
-from support import PYTHON_VERSION
 
 
 def decode_frame(frame_data):
@@ -185,11 +180,7 @@ def decode_connection_tune_test():
     # Verify it is a method frame and return frame.method
     method = validate_method_frame(frame, spec.Connection.Tune)
 
-    type_ = int
-    if PYTHON_VERSION == '2.4':
-        type_ = long
-
-    validate_attribute(method, 'frame_max', type_, 131072)
+    validate_attribute(method, 'frame_max', int, 131072)
     validate_attribute(method, 'channel_max', int, 0)
     validate_attribute(method, 'heartbeat', int, 0)
 
@@ -204,11 +195,7 @@ def decode_connection_tuneok_test():
     # Verify it is a method frame and return frame.method
     method = validate_method_frame(frame, spec.Connection.TuneOk)
 
-    type_ = int
-    if PYTHON_VERSION == '2.4':
-        type_ = long
-
-    validate_attribute(method, 'frame_max', type_, 131072)
+    validate_attribute(method, 'frame_max', int, 131072)
     validate_attribute(method, 'channel_max', int, 0)
     validate_attribute(method, 'heartbeat', int, 0)
 
@@ -504,11 +491,7 @@ def decode_basic_ack_test():
     # Verify it is a method frame and return frame.method
     method = validate_method_frame(frame, spec.Basic.Ack)
 
-    type_ = int
-    if PYTHON_VERSION == '2.4':
-        type_ = long
-
-    validate_attribute(method, 'delivery_tag', type_, 1)
+    validate_attribute(method, 'delivery_tag', int, 1)
     validate_attribute(method, 'multiple', bool, False)
 
 
@@ -534,3 +517,6 @@ def decode_confirm_selectok_test():
 
     # Verify it is a method frame and return frame.method
     validate_method_frame(frame, spec.Confirm.SelectOk)
+
+if __name__ == "__main__":
+    unittest.main()

@@ -8,11 +8,7 @@
 Tests for creating raw frame data from pika.spec objects and validating that
 they are being marshalled correctly.
 """
-
-import os
-import sys
-sys.path.extend(['..', os.path.join('..', '..')])
-
+import support
 import pika.frame
 
 
@@ -507,3 +503,6 @@ def encode_tx_selectok_test():
     frame = pika.frame.Method(1, pika.spec.Tx.SelectOk())
     if frame.marshal() != frame_data:
         assert False, "Tx.SelectOk frame did not match frame data sample"
+
+if __name__ == "__main__":
+    unittest.main()

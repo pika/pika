@@ -7,17 +7,11 @@
 """
 Pika data encoding/decoding tests
 """
-
-import os
-import sys
-sys.path.append('..')
-sys.path.append(os.path.join('..', '..'))
-
-import datetime
-import pika.data
-import unittest
-
 from decimal import Decimal
+import support
+import datetime
+import unittest
+import pika.data
 
 
 def encode_table():
