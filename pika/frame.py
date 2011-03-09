@@ -23,8 +23,7 @@ class Frame(object_):
         """
         Parameters:
 
-        - frame_type: int; one of spec.FRAME_METHOD, spec.FRAME_HEADER,
-                      spec.FRAME_BODY or spec.FRAME_HEARTBEAT
+        - frame_type: int
         - channel_number: int
         """
         self.frame_type = frame_type

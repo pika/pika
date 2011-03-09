@@ -13,6 +13,7 @@ Frame
    :members:
    :inherited-members:
    :member-order: bysource
+   :private-members: True
 
 Method
 ------
@@ -48,3 +49,8 @@ Dispatcher
    :members:
    :inherited-members:
    :member-order: bysource
+
+Frame Decoding
+--------------
+
+.. autofunction:: decode_frame(data_in)
