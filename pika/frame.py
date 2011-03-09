@@ -11,9 +11,6 @@ import pika.exceptions as exceptions
 
 from pika.object import object_
 
-id = 0
-debug = False
-
 
 class Frame(object_):
     """
@@ -23,6 +20,13 @@ class Frame(object_):
     """
 
     def __init__(self, frame_type, channel_number):
+        """
+        Parameters:
+
+        - frame_type: int; one of spec.FRAME_METHOD, spec.FRAME_HEADER,
+                      spec.FRAME_BODY or spec.FRAME_HEARTBEAT
+        - channel_number: int
+        """
         self.frame_type = frame_type
         self.channel_number = channel_number
 
@@ -44,6 +48,12 @@ class Method(Frame):
     """
 
     def __init__(self, channel_number, method):
+        """
+        Parameters:
+
+        - channel_number: int
+        - method: a spec.Class.Method object
+        """
         Frame.__init__(self, spec.FRAME_METHOD, channel_number)
         self.method = method
 
@@ -64,9 +74,11 @@ class Header(Frame):
 
     def __init__(self, channel_number, body_size, props):
         """
-        Expected parameters are the channel_number (int) for the frame and the
-        body size for the related Body frames (int) to satisfy the
-        Basic.Deliver or Basic.GetOk response.
+        Parameters:
+
+        - channel_number: int
+        - body_size: int
+        - props: spec.BasicProperties object
         """
         Frame.__init__(self, spec.FRAME_HEADER, channel_number)
         self.body_size = body_size
@@ -77,7 +89,8 @@ class Header(Frame):
         Return the AMQP binary encoded value of the frame
         """
         pieces = self.properties.encode()
-        pieces.insert(0, struct.pack('>HxxQ', self.properties.INDEX,
+        pieces.insert(0, struct.pack('>HxxQ',
+                                     self.properties.INDEX,
                                      self.body_size))
         return self._marshal(pieces)
 
@@ -90,8 +103,10 @@ class Body(Frame):
 
     def __init__(self, channel_number, fragment):
         """
-        Expected parameters are the channel_number (int) for the frame and the
-        content fragment (str) for the Body frame
+        Parameters:
+
+        - channel_number: int
+        - fragment: str
         """
         Frame.__init__(self, spec.FRAME_BODY, channel_number)
         self.fragment = fragment
@@ -127,8 +142,13 @@ class ProtocolHeader(object_):
 
     def __init__(self, major=None, minor=None, revision=None):
         """
-        Expected parameters are the major, minor and revision numbers of
-        the AMQP protocol we intend to use (eg 0,9,1)
+        Construct a Protocol Header frame object for the specified AMQP version
+
+        Parameters:
+
+        - major: int
+        - miinor: int
+        - revision: int
         """
         self.frame_type = -1
         self.major = major or spec.PROTOCOL_VERSION[0]
@@ -140,8 +160,10 @@ class ProtocolHeader(object_):
         Return the full AMQP wire protocol frame data representation of the
         ProtocolHeader frame
         """
-        return 'AMQP' + struct.pack('BBBB', 0, self.major,
-                                    self.minor, self.revision)
+        return 'AMQP' + struct.pack('BBBB', 0,
+                                    self.major,
+                                    self.minor,
+                                    self.revision)
 
 
 class Dispatcher(object):
