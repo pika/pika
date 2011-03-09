@@ -1,9 +1,6 @@
 #!/usr/bin/env python
-# ***** BEGIN LICENSE BLOCK *****
-#
-# For copyright and licensing please refer to COPYING.
-#
-# ***** END LICENSE BLOCK *****#
+# Copied from the https://github.com/gmr/runnynose project and extended for our
+# purposes here.
 
 """
 Simple test runner to separate out the functional tests and the unit tests.
