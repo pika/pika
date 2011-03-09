@@ -16,12 +16,20 @@ debug = False
 
 
 class Frame(object_):
+    """
+    Base Frame object mapping. Defines a behavior for all child classes for
+    assignment of core attributes and implementation of the a core _marshal
+    method which child classes use to create the binary AMQP frame.
+    """
 
     def __init__(self, frame_type, channel_number):
         self.frame_type = frame_type
         self.channel_number = channel_number
 
     def _marshal(self, pieces):
+        """
+        Create the full AMQP wire protocol frame data representation
+        """
         payload = str(''.join(pieces))
         return struct.pack('>BHI',
                            self.frame_type,
@@ -30,25 +38,44 @@ class Frame(object_):
 
 
 class Method(Frame):
+    """
+    Base Method frame object mapping. AMQP method frames are mappend on top
+    of this class for creating or accessing their data and attributes.
+    """
 
     def __init__(self, channel_number, method):
         Frame.__init__(self, spec.FRAME_METHOD, channel_number)
         self.method = method
 
     def marshal(self):
+        """
+        Return the AMQP binary encoded value of the frame
+        """
         pieces = self.method.encode()
         pieces.insert(0, struct.pack('>I', self.method.INDEX))
         return self._marshal(pieces)
 
 
 class Header(Frame):
+    """
+    Header frame object mapping. AMQP content header frames are mappend
+    on top of this class for creating or accessing their data and attributes.
+    """
 
     def __init__(self, channel_number, body_size, props):
+        """
+        Expected parameters are the channel_number (int) for the frame and the
+        body size for the related Body frames (int) to satisfy the
+        Basic.Deliver or Basic.GetOk response.
+        """
         Frame.__init__(self, spec.FRAME_HEADER, channel_number)
         self.body_size = body_size
         self.properties = props
 
     def marshal(self):
+        """
+        Return the AMQP binary encoded value of the frame
+        """
         pieces = self.properties.encode()
         pieces.insert(0, struct.pack('>HxxQ', self.properties.INDEX,
                                      self.body_size))
@@ -56,33 +83,63 @@ class Header(Frame):
 
 
 class Body(Frame):
+    """
+    Body frame object mapping class. AMQP content body frames are mapped on
+    to this base class for getting/setting of attributes/data.
+    """
 
     def __init__(self, channel_number, fragment):
+        """
+        Expected parameters are the channel_number (int) for the frame and the
+        content fragment (str) for the Body frame
+        """
         Frame.__init__(self, spec.FRAME_BODY, channel_number)
         self.fragment = fragment
 
     def marshal(self):
+        """
+        Return the AMQP binary encoded value of the frame
+        """
         return self._marshal([self.fragment])
 
 
 class Heartbeat(Frame):
+    """
+    Heartbeat frame object mapping class. AMQP Heartbeat frames are mapped on
+    to this class for a common access structure to the attributes/data values.
+    """
 
     def __init__(self):
         Frame.__init__(self, spec.FRAME_HEARTBEAT, 0)
 
     def marshal(self):
+        """
+        Return the AMQP binary encoded value of the frame
+        """
         return self._marshal(list())
 
 
-class ProtocolHeader(Frame):
+class ProtocolHeader(object_):
+    """
+    AMQP Protocol header frame class which provides a pythonic interface
+    for creating AMQP Protocol headers
+    """
 
     def __init__(self, major=None, minor=None, revision=None):
-        Frame.__init__(self, -1, -1)
+        """
+        Expected parameters are the major, minor and revision numbers of
+        the AMQP protocol we intend to use (eg 0,9,1)
+        """
+        self.frame_type = -1
         self.major = major or spec.PROTOCOL_VERSION[0]
         self.minor = minor or spec.PROTOCOL_VERSION[1]
         self.revision = revision or spec.PROTOCOL_VERSION[2]
 
     def marshal(self):
+        """
+        Return the full AMQP wire protocol frame data representation of the
+        ProtocolHeader frame
+        """
         return 'AMQP' + struct.pack('BBBB', 0, self.major,
                                     self.minor, self.revision)
 
