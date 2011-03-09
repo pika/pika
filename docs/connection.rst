@@ -16,11 +16,3 @@ Connection
    :undoc-members:
    :noindex:
 
-ConnectionState
----------------
-.. autoclass:: ConnectionState
-   :members:
-   :inherited-members:
-   :member-order: bysource
-   :private-members: True
-   :undoc-members:

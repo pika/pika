@@ -24,12 +24,3 @@ ChannelTransport
    :member-order: bysource
    :private-members: True
    :undoc-members:
-
-ContentHandler
---------------
-.. autoclass:: ContentHandler
-   :members:
-   :inherited-members:
-   :member-order: bysource
-   :private-members: True
-   :undoc-members:

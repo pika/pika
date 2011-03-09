@@ -1,10 +1,11 @@
-frames
-======
+frame
+=====
+The frame module contains the object structure for mapping AMQP Classes and Methods on to Python objects. In addition frame contains the Dispatcher class which steps through the synchronous receipt order of frames received for Basic.Deliver and Basic.GetOk.
 
 .. NOTE::
     This class level documentation is not intended for use by those using Pika in their applications. This documentation is for those who are extending Pika or otherwise working on the driver itself.
 
-.. automodule:: frames
+.. automodule:: frame
 
 Frame
 -----
@@ -12,8 +13,6 @@ Frame
    :members:
    :inherited-members:
    :member-order: bysource
-   :private-members: True
-   :undoc-members:
 
 Method
 ------
@@ -21,8 +20,6 @@ Method
    :members:
    :inherited-members:
    :member-order: bysource
-   :private-members: True
-   :undoc-members:
 
 Header
 ------
@@ -30,8 +27,6 @@ Header
    :members:
    :inherited-members:
    :member-order: bysource
-   :private-members: True
-   :undoc-members:
 
 Body
 ----
@@ -39,8 +34,6 @@ Body
    :members:
    :inherited-members:
    :member-order: bysource
-   :private-members: True
-   :undoc-members:
 
 ProtocolHeader
 --------------
@@ -48,5 +41,10 @@ ProtocolHeader
    :members:
    :inherited-members:
    :member-order: bysource
-   :private-members: True
-   :undoc-members:
+
+Dispatcher
+---------------
+.. autoclass:: Dispatcher
+   :members:
+   :inherited-members:
+   :member-order: bysource

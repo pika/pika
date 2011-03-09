@@ -62,15 +62,15 @@ Pika Core Modules and Classes
    channel
    connection
    credentials
+   data
    exceptions
-   frames
+   frame
    heartbeat
    log
    object
    reconnection_strategies
    simplebuffer
    spec
-   table
 
 Pika Authors
 ------------
