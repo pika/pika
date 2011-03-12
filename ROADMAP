@@ -16,6 +16,7 @@ SSL Support and Unicode improvements
 Behavioral refactor:
 
 - Backwards incompatible change that drops Python 2.4, 2.5 support
+- Adding Python 3 support
 - Remove existing connection adapter system
 - Implement new pattern for use, behavior based use focused on both
   Asynchronous callback passing style and "Pythonic" development.
