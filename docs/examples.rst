@@ -1,7 +1,7 @@
 Examples
 ========
 
-The following basic examples are available in the `examples directory on github <https://github.com/tonyg/pika/tree/master/examples>`_. For additional examples including the use of Tornado, see the `examples directory on github <https://github.com/tonyg/pika/tree/master/examples>`_.
+The following basic examples are available in the `examples directory on github <https://github.com/pika/pika/tree/master/examples>`_. For additional examples including the use of Tornado, see the `examples directory on github <https://github.com/pika/pika/tree/master/examples>`_.
 
 Asynchronous Examples
 ---------------------

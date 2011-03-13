@@ -46,7 +46,7 @@ documentation:
 
 push_documentation: documentation
 	git commit docs/*.rst docs/*.py
-	git clone git@github.com:tonyg/pika.git -b gh-pages gh-pages
+	git clone git@github.com:pika/pika.git -b gh-pages gh-pages
 	cd gh-pages && git rm -rf *
 	cp -R docs/_build/html/* gh-pages
 	cd gh-pages && git add -A
@@ -87,7 +87,7 @@ distribution:
 
 	# Make and push the documentation with the new version info
 	$(MAKE) -C dist/pika-$(VERSION)/docs html
-	git clone git@github.com:tonyg/pika.git -b gh-pages gh-pages
+	git clone git@github.com:pika/pika.git -b gh-pages gh-pages
 	cd gh-pages && git rm -rf *
 	cp -R dist/pika-$(VERSION)/docs/_build/html/* gh-pages
 	cd gh-pages && git add -A

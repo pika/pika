@@ -11,11 +11,11 @@ Frequently Asked Questions
 
 - I need to connect to a RabbitMQ version before 2.0 that only supports AMQP 0-8, what should I do?
 
-    Use `version 0.5.2 <https://github.com/tonyg/pika/tree/v0.5.2>`_  which only supports 0-8. `[Download] <https://github.com/tonyg/pika/tarball/v0.5.2>`_
+    Use `version 0.5.2 <https://github.com/pika/pika/tree/v0.5.2>`_  which only supports 0-8. `[Download] <https://github.com/pika/pika/tarball/v0.5.2>`_
 
 - How do I report a bug with Pika?
 
-    The `main Pika repository <https://github.com/tonyg/pika>`_ is hosted on `Github <https://github.com>`_ and we use the Issue tracker at https://github.com/tonyg/pika/issues.
+    The `main Pika repository <https://github.com/pika/pika>`_ is hosted on `Github <https://github.com>`_ and we use the Issue tracker at https://github.com/pika/pika/issues.
 
 - Is there a mailing list for Pika?
 

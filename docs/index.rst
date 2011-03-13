@@ -27,7 +27,7 @@ or::
 
 Or you can directly install from GitHub with pip::
 
-    pip install -e git+git://github.com/tonyg/pika.git@v__VERSION_STRING__#egg=pika-v__VERSION_STRING__
+    pip install -e git+git://github.com/pika/pika.git@v__VERSION_STRING__#egg=pika-v__VERSION_STRING__
 
 You may also download the source for this version as a zip or tar.gz with the following URLs:
 
@@ -74,10 +74,10 @@ Pika Core Modules and Classes
 
 Pika Authors
 ------------
-- `Ask Solem Hoel <http://github.com/ask>`_
-- `Gavin M. Roy <http://github.com/gmr>`_
-- `Marek Majkowski <http://github.com/majek>`_
 - `Tony Garnock-Jones <http://github.com/tonyg>`_
+- `Gavin M. Roy <http://github.com/gmr>`_
+- `Ask Solem Hoel <http://github.com/ask>`_
+- `Marek Majkowski <http://github.com/majek>`_
 
 Indices and tables
 ------------------

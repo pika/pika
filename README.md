@@ -17,7 +17,7 @@ to stay fairly independent of the underlying network support library.
 
 ## Documenation
 
-Pika's documentation is now at http://tonyg.github.com/pika
+Pika's documentation is now at http://pika.github.com/
 
 ## Pika provides the following adapters
 
