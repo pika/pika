@@ -143,5 +143,6 @@ def validate_type(field_name, value, data_type):
     if data_type == 'short' and not isinstance(value, int):
         raise InvalidRPCParameterType("%s must be a int" % field_name)
 
-    if data_type == 'long' and not isinstance(value, long):
-        raise InvalidRPCParameterType("%s must be a int" % field_name)
+    if data_type == 'long' and not ( isinstance(value, long) or 
+                                    isinstance(value, int)):
+        raise InvalidRPCParameterType("%s must be a long" % field_name)
