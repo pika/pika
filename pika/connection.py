@@ -66,16 +66,20 @@ class ConnectionParameters(object):
             for credential_type in pika.credentials.VALID_TYPES:
                 # Found a valid credential type
                 if isinstance(credentials, credential_type):
+                    valid_types = None
                     break
-                valid_types.append(credentials.__class__.__name__)
+                else:
+                    valid_types.append(credentials.__class__.__name__)
 
             # Allow for someone to extend VALID_TYPES with custom types
-            if len(pika.credentials.VALID_TYPES) > 1:
-                message = 'credentials must be an object of type: %s' % \
-                          ', '.join(valid_types)
-            else:
-                message = 'credentials must be a %s object' % valid_types[0]
-            raise TypeError(message)
+            if valid_types:
+                if len(pika.credentials.VALID_TYPES) > 1:
+                    message = 'credentials must be an object of type: %s' % \
+                              ', '.join(valid_types)
+                else:
+                    message = 'credentials must be an instance of %s' % \
+                              valid_types[0]
+                raise TypeError(message)
 
         if not isinstance(channel_max, int):
             raise TypeError("max-channels must be an int")
