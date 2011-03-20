@@ -3,8 +3,8 @@
 # For copyright and licensing please refer to COPYING.
 #
 # ***** END LICENSE BLOCK *****
-
-import random
+from pika.log import info
+from random import random
 
 
 class ReconnectionStrategy(object):
@@ -58,10 +58,10 @@ class SimpleReconnectionStrategy(ReconnectionStrategy):
         self._reset()
 
     def on_connection_closed(self, conn):
-        t = self.current_delay * ((random.random() * self.jitter) + 1)
-        log.info("%s retrying %r in %r seconds (%r attempts)",
+        t = self.current_delay * ((random() * self.jitter) + 1)
+        info("%s retrying %r in %r seconds (%r attempts)",
                  self.__class__.__name__, conn.parameters, t,
                  self.attempts_since_last_success)
         self.current_delay = min(self.max_delay,
                                  self.current_delay * self.multiplier)
-        conn.add_timeout(t, conn.reconnect)
+        conn.add_timeout(t, conn._reconnect)
