@@ -67,7 +67,7 @@ def encode_value(pieces, value):
         return 5 + len(piece)
     else:
         raise InvalidTableError("Unsupported field kind during encoding",
-                                key, value)
+                                pieces, value)
 
 
 def decode_table(encoded, offset):
@@ -133,7 +133,6 @@ def validate_type(field_name, value, data_type):
     """
     Validate the data types passed into the RPC Command
     """
-
     if data_type == 'bit' and not isinstance(value, bool):
         raise InvalidRPCParameterType("%s must be a bool" % field_name)
 
@@ -143,6 +142,6 @@ def validate_type(field_name, value, data_type):
     if data_type == 'short' and not isinstance(value, int):
         raise InvalidRPCParameterType("%s must be a int" % field_name)
 
-    if data_type == 'long' and not ( isinstance(value, long) or 
+    if data_type == 'long' and not (isinstance(value, long) or
                                     isinstance(value, int)):
         raise InvalidRPCParameterType("%s must be a long" % field_name)
