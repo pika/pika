@@ -9,14 +9,14 @@ Decrease overuse of @pika.log.method_call
 Move connection.ConnectionState to frames module
 Async Consumer implementation template
 
-0.9.6
-SSL Support and Unicode improvements
-
 2.0
 Behavioral refactor:
 
 - Backwards incompatible change that drops Python 2.4, 2.5 support
 - Adding Python 3 support
+- Add support for new features in RabbitMQ 2.4.0
+- Add SSL support
+- Rework core data handling to support unicode
 - Remove existing connection adapter system
 - Implement new pattern for use, behavior based use focused on both
   Asynchronous callback passing style and "Pythonic" development.
