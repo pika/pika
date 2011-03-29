@@ -48,7 +48,7 @@ if __name__ == '__main__':
                                   body=message,
                                   properties=properties)
             count += 1
-            if count % 1000 == 0:
+            if not count % 1000:
                 duration = time.time() - start_time
                 print "%i Messages Sent: %.8f per second" % (count,
                                                              count / duration)
