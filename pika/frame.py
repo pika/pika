@@ -67,7 +67,7 @@ class Method(Frame):
 
 class Header(Frame):
     """
-    Header frame object mapping. AMQP content header frames are mappend
+    Header frame object mapping. AMQP content header frames are mapped
     on top of this class for creating or accessing their data and attributes.
     """
 
