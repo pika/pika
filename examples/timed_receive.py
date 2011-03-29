@@ -48,7 +48,7 @@ def on_queue_declared(frame):
 def handle_delivery(channel, method, header, body):
     global count, last_count, start_time
     count += 1
-    if count % 1000 == 0:
+    if not count % 1000:
         now = time.time()
         duration = now - start_time
         sent = count - last_count
