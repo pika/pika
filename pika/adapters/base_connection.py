@@ -83,7 +83,6 @@ class BaseConnection(Connection):
         self.socket.connect((host, port))
         self.socket.setblocking(0)
 
-
     def add_timeout(self, delay_sec, callback):
         deadline = time.time() + delay_sec
         return self.ioloop.add_timeout(deadline, callback)
