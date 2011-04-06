@@ -28,8 +28,10 @@ class BlockingConnection(BaseConnection):
     messages from Basic.Deliver, Basic.GetOk, and Basic.Return.
     """
 
-    def __init__(self, parameters=None, reconnection_strategy=None):
-        BaseConnection.__init__(self, parameters, None, reconnection_strategy)
+    def __init__(self, parameters=None, reconnection_strategy=None, ssl=False,
+                 ssl_options=None):
+        BaseConnection.__init__(self, parameters, None, reconnection_strategy,
+                                ssl, ssl_options)
 
     def _adapter_connect(self, host, port):
 

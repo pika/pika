@@ -23,14 +23,14 @@ if IOLoop:
 class TornadoConnection(BaseConnection):
 
     def __init__(self, parameters=None, on_open_callback=None,
-                 reconnection_strategy=None):
+                 reconnection_strategy=None, ssl=False, ssl_options=None):
 
         # Validate we have Tornado installed
         if not IOLoop:
             raise ImportError("Tornado not installed")
 
         BaseConnection.__init__(self, parameters, on_open_callback,
-                                reconnection_strategy)
+                                reconnection_strategy, ssl, ssl_options)
 
     def _adapter_connect(self, host, port):
         """

@@ -23,6 +23,14 @@ import errno
 import socket
 import time
 
+# See if we have SSL support
+try:
+    import ssl
+    SSL = True
+except ImportError:
+    pass
+    SSL = False
+
 from pika.connection import Connection
 import pika.log
 
@@ -35,11 +43,18 @@ ERROR = 0x0008
 class BaseConnection(Connection):
 
     def __init__(self, parameters=None, on_open_callback=None,
-                 reconnection_strategy=None):
+                 reconnection_strategy=None, ssl=False, ssl_options=None):
+
+        # Let the developer know we could not import SSL
+        if ssl and not SSL:
+            raise Exception("SSL specified but it is not available")
+
         # Set our defaults
         self.fd = None
         self.ioloop = None
         self.socket = None
+        self.ssl = ssl
+        self.ssl_options = None
 
         # Event states (base and current)
         self.base_events = READ | ERROR
@@ -53,10 +68,21 @@ class BaseConnection(Connection):
         """
         Base connection function to be extended as needed
         """
+        # Create our socket and set our socket options
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
         self.socket.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
+
+        # Wrap the SSL socket if we SSL turned on
+        if self.ssl:
+            if self.ssl_options:
+                self.socket = ssl.wrap_socket(self.socket, **self.ssl_options)
+            else:
+                self.socket = ssl.wrap_socket(self.socket)
+
+        # Connect
         self.socket.connect((host, port))
         self.socket.setblocking(0)
+
 
     def add_timeout(self, delay_sec, callback):
         deadline = time.time() + delay_sec
