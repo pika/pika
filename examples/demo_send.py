@@ -10,6 +10,11 @@ Example of simple publisher, sends 10 messages and exits
 import sys
 import time
 
+# Detect if we're running in a git repo
+from os.path import exists, normpath
+if exists(normpath('../pika')):
+    sys.path.insert(0, '..')
+
 from pika.adapters import SelectConnection
 from pika.connection import ConnectionParameters
 from pika import BasicProperties

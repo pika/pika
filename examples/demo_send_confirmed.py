@@ -12,6 +12,11 @@ RabbitMQ 2.3.1
 import sys
 import time
 
+# Detect if we're running in a git repo
+from os.path import exists, normpath
+if exists(normpath('../pika')):
+    sys.path.insert(0, '..')
+
 from pika import BasicProperties
 from pika.connection import ConnectionParameters
 from pika.adapters import SelectConnection

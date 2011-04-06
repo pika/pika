@@ -6,6 +6,13 @@
 
 import json
 import os
+import sys
+
+# Detect if we're running in a git repo
+from os.path import exists, normpath
+if exists(normpath('../pika')):
+    sys.path.insert(0, '..')
+
 import pika
 
 import tornado.httpserver

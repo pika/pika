@@ -11,6 +11,11 @@ basic_consume instead if at all possible!
 """
 import sys
 
+# Detect if we're running in a git repo
+from os.path import exists, normpath
+if exists(normpath('../pika')):
+    sys.path.insert(0, '..')
+
 from pika.adapters import SelectConnection
 from pika.connection import ConnectionParameters
 
