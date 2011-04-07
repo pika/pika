@@ -7,6 +7,7 @@
 """
 Example of simple consumer using SSL. Acks each message as it arrives.
 """
+from ssl import CERT_REQUIRED
 import sys
 
 # Detect if we're running in a git repo
@@ -54,11 +55,24 @@ def handle_delivery(channel, method_frame, header_frame, body):
 
 if __name__ == '__main__':
 
+    # Setup empty ssl options
+    ssl_options = {}
+
+    # Uncomment this to test client certs, change to your cert paths
+    # Uses certs as generated from http://www.rabbitmq.com/ssl.html
+    #ssl_options = {"cacerts": "/etc/rabbitmq/ssl/testca/cacert.pem",
+    #               "certfile": "/etc/rabbitmq/ssl/client/cert.pem",
+    #               "keyfile": "/etc/rabbitmq/ssl/client/key.pem",
+    #               "cert_reqs": CERT_REQUIRED,
+    #               "verify": "verify_peer",
+    #               "fail_if_no_peer_cert": True}
+
     # Connect to RabbitMQ
     host = (len(sys.argv) > 1) and sys.argv[1] or '127.0.0.1'
     connection = SelectConnection(ConnectionParameters(host, 5671),
                                   on_connected,
-                                  ssl=True)
+                                  ssl=True,
+                                  ssl_options=ssl_options)
     # Loop until CTRL-C
     try:
         # Start our blocking loop
