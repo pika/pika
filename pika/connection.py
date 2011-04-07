@@ -5,7 +5,6 @@
 # ***** END LICENSE BLOCK *****
 
 import types
-
 from warnings import warn
 
 import pika.channel as channel
@@ -19,6 +18,7 @@ from pika.callback import CallbackManager
 from pika.exceptions import *
 from pika.heartbeat import HeartbeatChecker
 from pika.reconnection_strategies import NullReconnectionStrategy
+from pika.utils import is_callable
 
 PRODUCT = "Pika Python AMQP Client Library"
 
@@ -609,9 +609,8 @@ specified a %s. Reconnections will fail.",
         if acceptable_replies and not isinstance(acceptable_replies, list):
             raise TypeError("acceptable_replies should be list or None")
 
-        # Validate that the callback is a function, instancemethod or None
-        if callback and not isinstance(callback, types.FunctionType) and \
-           not isinstance(callback, types.MethodType):
+        # Validate the callback is callable
+        if callback and not is_callable(callback):
             raise TypeError("callback should be None, a function or method.")
 
         # If we were passed a callback, add it to our stack

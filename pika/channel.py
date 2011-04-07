@@ -10,6 +10,7 @@ import pika.frame as frame
 import pika.exceptions as exceptions
 import pika.log
 import pika.spec as spec
+from pika.utils import is_callable
 
 MAX_CHANNELS = 32768
 
@@ -98,9 +99,8 @@ class ChannelTransport(object):
         if acceptable_replies and not isinstance(acceptable_replies, list):
             raise TypeError("acceptable_replies should be list or None")
 
-        # Validate the callback is a function or instancemethod
-        if callback and not isinstance(callback, types.FunctionType) and \
-           not isinstance(callback, types.MethodType):
+        # Validate the callback is callable
+        if callback and not is_callable(callback):
             raise TypeError("callback should be None, a function or method.")
 
         # If this is a synchronous method, block connections until we're done
