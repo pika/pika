@@ -85,7 +85,7 @@ class BlockingConnection(BaseConnection):
 
     def process_data_events(self):
         # Make sure we're open, if not raise the exception
-        if not self.is_open:
+        if not self.is_open and not self.closing:
             raise AMQPConnectionError
 
         # Write our data
