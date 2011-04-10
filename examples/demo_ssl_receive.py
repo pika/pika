@@ -7,7 +7,7 @@
 """
 Example of simple consumer using SSL. Acks each message as it arrives.
 """
-from ssl import CERT_REQUIRED
+from ssl import CERT_REQUIRED, PROTOCOL_SSLv3
 import sys
 
 # Detect if we're running in a git repo
@@ -60,12 +60,10 @@ if __name__ == '__main__':
 
     # Uncomment this to test client certs, change to your cert paths
     # Uses certs as generated from http://www.rabbitmq.com/ssl.html
-    #ssl_options = {"cacerts": "/etc/rabbitmq/ssl/testca/cacert.pem",
-    #               "certfile": "/etc/rabbitmq/ssl/client/cert.pem",
-    #               "keyfile": "/etc/rabbitmq/ssl/client/key.pem",
-    #               "cert_reqs": CERT_REQUIRED,
-    #               "verify": "verify_peer",
-    #               "fail_if_no_peer_cert": True}
+    #ssl_options = {"ca_certs": "/etc/rabbitmq/new/server/chain.pem",
+    #               "certfile": "/etc/rabbitmq/new/client/cert.pem",
+    #               "keyfile": "/etc/rabbitmq/new/client/key.pem",
+    #               "cert_reqs": CERT_REQUIRED}
 
     # Connect to RabbitMQ
     host = (len(sys.argv) > 1) and sys.argv[1] or '127.0.0.1'

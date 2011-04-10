@@ -54,7 +54,7 @@ class BaseConnection(Connection):
         self.ioloop = None
         self.socket = None
         self.ssl = ssl
-        self.ssl_options = None
+        self.ssl_options = ssl_options
 
         # Event states (base and current)
         self.base_events = READ | ERROR
