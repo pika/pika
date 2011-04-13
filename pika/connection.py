@@ -31,6 +31,9 @@ class ConnectionParameters(object):
 
     - host: Hostname or IP Address to connect to, defaults to localhost.
     - port: TCP port to connect to, defaults to 5672
+    - retry_connect: Retry to connect to RabbitMQ on socket.error
+    - max_retries: Maximum number of retry attempts. None for infinite
+    - retry_delay: Time to wait, in seconds, before the next attempt
     - virtual_host: RabbitMQ virtual host to use, defaults to /
     - credentials: A instance of a credentials class to authenticate with.
       Defaults to PlainCredentials for the guest user.
@@ -41,6 +44,9 @@ class ConnectionParameters(object):
     def __init__(self,
                  host='localhost',
                  port=spec.PORT,
+                 retry_connect=False,
+                 max_retries=5,
+                 retry_delay=2,
                  virtual_host='/',
                  credentials=None,
                  channel_max=0,
@@ -54,6 +60,18 @@ class ConnectionParameters(object):
         # Validate the port coming in
         if not isinstance(port, int):
             raise TypeError("Port must be an int")
+        
+        # Validate the connection retry boolean
+        if not isinstance(retry_connect, bool):
+            raise TypeError("Retry connect must be a bool")
+        
+        # Validate the number of connection attempts
+        if max_retries is not None and not isinstance(max_retries, int):
+            raise TypeError("Max retries must be either None or int")
+        
+        # Validate the reconnect time delay
+        if not isinstance(retry_delay, int):
+            raise TypeError("Retry delay must be an int")
 
         # Define the default credentials
         if not credentials:
@@ -109,6 +127,9 @@ class ConnectionParameters(object):
         # Assign our values
         self.host = host
         self.port = port
+        self.retry_connect = retry_connect
+        self.max_retries = max_retries
+        self.retry_delay = retry_delay
         self.virtual_host = virtual_host
         self.credentials = credentials
         self.channel_max = channel_max
