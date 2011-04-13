@@ -80,7 +80,26 @@ class BaseConnection(Connection):
                 self.socket = ssl.wrap_socket(self.socket)
 
         # Connect
-        self.socket.connect((host, port))
+        if not self.parameters.retry_connect:
+            self.socket.connect((host, port))
+        else:
+            is_connected  = False
+            conn_attempts = 0
+            
+            while not is_connected:
+                try:
+                    self.socket.connect((host, port))
+                except socket.error as e:
+                    if (self.parameters.max_retries is not None and
+                        conn_attempts >= self.parameters.max_retries):
+                        
+                        raise socket.error(e)
+                    else:
+                        conn_attempts += 1
+                        time.sleep(self.parameters.retry_delay)
+                else:
+                    is_connected = True
+            
         self.socket.setblocking(0)
 
     def add_timeout(self, delay_sec, callback):
