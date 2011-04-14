@@ -44,14 +44,14 @@ class ConnectionParameters(object):
     def __init__(self,
                  host='localhost',
                  port=spec.PORT,
-                 retry_connect=False,
-                 max_retries=5,
-                 retry_delay=2,
                  virtual_host='/',
                  credentials=None,
                  channel_max=0,
                  frame_max=spec.FRAME_MAX_SIZE,
-                 heartbeat=False):
+                 heartbeat=False,
+                 retry_connect=False,
+                 max_retries=5,
+                 retry_delay=2):
 
         # Validate the host type
         if not isinstance(host, str):
@@ -60,15 +60,15 @@ class ConnectionParameters(object):
         # Validate the port coming in
         if not isinstance(port, int):
             raise TypeError("Port must be an int")
-        
+
         # Validate the connection retry boolean
         if not isinstance(retry_connect, bool):
             raise TypeError("Retry connect must be a bool")
-        
+
         # Validate the number of connection attempts
         if max_retries is not None and not isinstance(max_retries, int):
             raise TypeError("Max retries must be either None or int")
-        
+
         # Validate the reconnect time delay
         if not isinstance(retry_delay, int):
             raise TypeError("Retry delay must be an int")
