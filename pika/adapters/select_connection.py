@@ -91,7 +91,7 @@ class IOLoop(object):
         self.poller = None
 
         # Decide what poller to use and set it up as appropriate
-        if hasattr(select, 'poll'):
+        if hasattr(select, 'poll') and hasattr(select.poll, 'modify'):
             if not SELECT_TYPE or SELECT_TYPE == 'poll':
                 self.poller = PollPoller(self.fileno, handler, events)
 
