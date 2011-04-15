@@ -523,10 +523,23 @@ class Channel(spec.DriverMixin):
             http://www.rabbitmq.com/extensions.html#confirms
         """
 
-        # Add the Basic.Ack callback
+        # Add the delivery confirmation callbacks
         if callback:
+            # Register the SelectOk
+            self.callbacks.add(self.channel_number,
+                               spec.Confirm.SelectOk,
+                               callback,
+                               False)
+
+            # Register the ack
             self.callbacks.add(self.channel_number,
                                spec.Basic.Ack,
+                               callback,
+                               False)
+
+            # Register the nack too
+            self.callbacks.add(self.channel_number,
+                               spec.Basic.Nack,
                                callback,
                                False)
 
