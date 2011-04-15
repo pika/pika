@@ -101,8 +101,6 @@ class TestUnicode(support.tools.AsyncPattern):
 
     @nose.tools.nottest
     def on_message(self, channel, method_frame, header_frame, body):
-
-
         if header_frame.app_id != self.app_id:
             assert False, "Application ID didn't match in Basic.Deliver header"
 

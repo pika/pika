@@ -137,7 +137,7 @@ def validate_type(field_name, value, data_type):
         raise InvalidRPCParameterType("%s must be a bool" % field_name)
 
     if data_type == 'shortstr' and \
-       ( not isinstance(value, str) and not isinstance(value, unicode) ):
+       (not isinstance(value, str) and not isinstance(value, unicode)):
         raise InvalidRPCParameterType("%s must be a str or unicode" % \
                                       field_name)
 
