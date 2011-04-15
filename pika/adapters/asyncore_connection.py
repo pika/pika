@@ -7,9 +7,18 @@
 import asyncore
 import select
 import socket
-import time
+from time import sleep, time
+
+# See if we have SSL support
+try:
+    import ssl
+    SSL = True
+except ImportError:
+    SSL = False
 
 from pika.adapters.base_connection import BaseConnection
+from pika.exceptions import AMQPConnectionError
+import pika.log as log
 
 
 class AsyncoreDispatcher(asyncore.dispatcher):
@@ -20,17 +29,15 @@ class AsyncoreDispatcher(asyncore.dispatcher):
     function.
     """
 
-    def __init__(self, host, port):
+    def __init__(self, parameters):
         """
         Initialize the dispatcher, socket and our defaults. We turn of nageling
         in the socket to allow for faster throughput.
         """
         asyncore.dispatcher.__init__(self)
 
-        # Create the socket, turn off nageling and connect
-        self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
-        self.connect((host, port))
+        # Carry the parameters for this as well
+        self.parameters = parameters
 
         # Setup defaults
         self.connecting = True
@@ -38,6 +45,52 @@ class AsyncoreDispatcher(asyncore.dispatcher):
         self._timeouts = dict()
         self.writable_ = False
         self.map = None
+
+        # Set our remaining attempts as any value over 1
+        remaining_attempts = self.parameters.max_retries or 1
+
+        # Override this if max_retries is None and always try to reconnect
+        if self.parameters.max_retries is None:
+            remaining_attempts = True
+
+        # Loop while we have remaining attemps
+        while remaining_attempts:
+            try:
+                return self._socket_connect()
+            except socket.error, err:
+                remaining_attempts -= 1
+                if not remaining_attempts:
+                    break
+                log.warning("Could not connect: %s. Retrying in %i seconds \
+with %i retry(s) left",
+                            err[-1], self.parameters.retry_delay,
+                            remaining_attempts)
+                self.socket.close()
+                sleep(self.parameters.retry_delay)
+
+        # Log the errors and raise the  exception
+        log.error("Could not connect: %s", err[-1])
+        raise AMQPConnectionError(err[-1])
+
+    def _socket_connect(self):
+        """Create socket and connect to it, using SSL if enabled"""
+        # Create our socket and set our socket options
+        self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.socket.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
+
+        # Wrap the SSL socket if we SSL turned on
+        if self.parameters.ssl:
+            if self.parameters.ssl_options:
+                self.socket = ssl.wrap_socket(self.socket,
+                                              **self.parameters.ssl_options)
+            else:
+                self.socket = ssl.wrap_socket(self.socket)
+
+        # Try and connect
+        self.connect((self.parameters.host, self.parameters.port))
+
+        # Set the socket to non-blocking
+        self.socket.setblocking(0)
 
     def handle_connect(self):
         """
@@ -117,7 +170,7 @@ class AsyncoreDispatcher(asyncore.dispatcher):
         """
         Add a timeout to the stack by deadline
         """
-        timeout_id = 'id%.8f' % time.time()
+        timeout_id = 'id%.8f' % time()
         self._timeouts[timeout_id] = {'deadline': deadline,
                                       'handler': handler}
         return timeout_id
@@ -135,7 +188,7 @@ class AsyncoreDispatcher(asyncore.dispatcher):
         """
         # Process our timeout events
         keys = self._timeouts.keys()
-        start_time = time.time()
+        start_time = time()
         for timeout_id in keys:
             if timeout_id in self._timeouts and \
                self._timeouts[timeout_id]['deadline'] <= start_time:
@@ -169,14 +222,14 @@ class AsyncoreDispatcher(asyncore.dispatcher):
 
 class AsyncoreConnection(BaseConnection):
 
-    def _adapter_connect(self, host, port):
+    def _adapter_connect(self):
         """
         Connect to our RabbitMQ boker using AsyncoreDispatcher, then setting
         Pika's suggested buffer size for socket reading and writing. We pass
         the handle to self so that the AsyncoreDispatcher object can call back
         into our various state methods.
         """
-        self.ioloop = AsyncoreDispatcher(host, port)
+        self.ioloop = AsyncoreDispatcher(self.parameters)
 
         # Map some core values for compatibility
         self.ioloop._handle_error = self._handle_error

@@ -22,21 +22,22 @@ if IOLoop:
 
 class TornadoConnection(BaseConnection):
 
-    def __init__(self, parameters=None, on_open_callback=None,
-                 reconnection_strategy=None, ssl=False, ssl_options=None):
+    def __init__(self, parameters=None,
+                 on_open_callback=None,
+                 reconnection_strategy=None):
 
         # Validate we have Tornado installed
         if not IOLoop:
             raise ImportError("Tornado not installed")
 
         BaseConnection.__init__(self, parameters, on_open_callback,
-                                reconnection_strategy, ssl, ssl_options)
+                                reconnection_strategy)
 
-    def _adapter_connect(self, host, port):
+    def _adapter_connect(self):
         """
         Connect to the given host and port
         """
-        BaseConnection._adapter_connect(self, host, port)
+        BaseConnection._adapter_connect(self)
 
         # Setup our ioloop
         self.ioloop = IOLoop.instance()

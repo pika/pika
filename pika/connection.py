@@ -49,8 +49,9 @@ class ConnectionParameters(object):
                  channel_max=0,
                  frame_max=spec.FRAME_MAX_SIZE,
                  heartbeat=False,
-                 retry_connect=False,
-                 max_retries=5,
+                 ssl=False,
+                 ssl_options=None,
+                 max_retries=0,
                  retry_delay=2):
 
         # Validate the host type
@@ -60,18 +61,6 @@ class ConnectionParameters(object):
         # Validate the port coming in
         if not isinstance(port, int):
             raise TypeError("Port must be an int")
-
-        # Validate the connection retry boolean
-        if not isinstance(retry_connect, bool):
-            raise TypeError("Retry connect must be a bool")
-
-        # Validate the number of connection attempts
-        if max_retries is not None and not isinstance(max_retries, int):
-            raise TypeError("Max retries must be either None or int")
-
-        # Validate the reconnect time delay
-        if not isinstance(retry_delay, int):
-            raise TypeError("Retry delay must be an int")
 
         # Define the default credentials
         if not credentials:
@@ -124,17 +113,34 @@ class ConnectionParameters(object):
         if not isinstance(heartbeat, bool):
             raise TypeError("heartbeat must be a bool")
 
+        # Validate the connection retry boolean
+        if not isinstance(ssl, bool):
+            raise TypeError("ssl must be a bool")
+
+        # Validate the connection retry boolean
+        if not isinstance(ssl_options, dict) and ssl_options is not None:
+            raise TypeError("ssl_options must be either None or dict")
+
+        # Validate the number of connection attempts
+        if max_retries is not None and not isinstance(max_retries, int):
+            raise TypeError("Max retries must be either None or int")
+
+        # Validate the reconnect time delay
+        if not isinstance(retry_delay, int):
+            raise TypeError("Retry delay must be an int")
+
         # Assign our values
         self.host = host
         self.port = port
-        self.retry_connect = retry_connect
-        self.max_retries = max_retries
-        self.retry_delay = retry_delay
         self.virtual_host = virtual_host
         self.credentials = credentials
         self.channel_max = channel_max
         self.frame_max = frame_max
         self.heartbeat = int(heartbeat)
+        self.ssl = ssl
+        self.ssl_options = ssl_options
+        self.max_retries = max_retries
+        self.retry_delay = retry_delay
 
 
 class Connection(object):
@@ -146,7 +152,8 @@ class Connection(object):
     class should not be invoked directly but rather through the use of an
     adapter such as SelectConnection or BlockingConnection.
     """
-    def __init__(self, parameters=None, on_open_callback=None,
+    def __init__(self, parameters=None,
+                 on_open_callback=None,
                  reconnection_strategy=None):
         """
         Connection initialization expects a ConnectionParameters object and
@@ -244,9 +251,8 @@ specified a %s. Reconnections will fail.",
         # Let our RS know what we're up to
         self.reconnection.on_connect_attempt(self)
 
-        # Try and connect and send the first frame
-        self._adapter_connect(self.parameters.host,
-                              self.parameters.port or  spec.PORT)
+        # Try and connect
+        self._adapter_connect()
 
     def _reconnect(self):
         """

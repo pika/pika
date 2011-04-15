@@ -21,18 +21,18 @@ Pika provides multiple adapters to connect to RabbitMQ:
 
 import errno
 import socket
-import time
+from time import sleep, time
 
 # See if we have SSL support
 try:
     import ssl
     SSL = True
 except ImportError:
-    pass
     SSL = False
 
 from pika.connection import Connection
-import pika.log
+from pika.exceptions import AMQPConnectionError
+import pika.log as log
 
 # Use epoll's constants to keep life easy
 READ = 0x0001
@@ -42,19 +42,18 @@ ERROR = 0x0008
 
 class BaseConnection(Connection):
 
-    def __init__(self, parameters=None, on_open_callback=None,
-                 reconnection_strategy=None, ssl=False, ssl_options=None):
+    def __init__(self, parameters=None,
+                       on_open_callback=None,
+                       reconnection_strategy=None):
 
         # Let the developer know we could not import SSL
-        if ssl and not SSL:
+        if parameters.ssl and not SSL:
             raise Exception("SSL specified but it is not available")
 
         # Set our defaults
         self.fd = None
         self.ioloop = None
         self.socket = None
-        self.ssl = ssl
-        self.ssl_options = ssl_options
 
         # Event states (base and current)
         self.base_events = READ | ERROR
@@ -64,46 +63,62 @@ class BaseConnection(Connection):
         Connection.__init__(self, parameters, on_open_callback,
                             reconnection_strategy)
 
-    def _adapter_connect(self, host, port):
-        """
-        Base connection function to be extended as needed
-        """
+    def _socket_connect(self):
+        """Create socket and connect to it, using SSL if enabled"""
         # Create our socket and set our socket options
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
         self.socket.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
 
         # Wrap the SSL socket if we SSL turned on
-        if self.ssl:
-            if self.ssl_options:
-                self.socket = ssl.wrap_socket(self.socket, **self.ssl_options)
+        ssl_text = ""
+        if self.parameters.ssl:
+            ssl_text = " with SSL"
+            if self.parameters.ssl_options:
+                self.socket = ssl.wrap_socket(self.socket,
+                                              **self.parameters.ssl_options)
             else:
                 self.socket = ssl.wrap_socket(self.socket)
 
-        # Connect
-        if not self.parameters.retry_connect:
-            self.socket.connect((host, port))
-        else:
-            is_connected  = False
-            conn_attempts = 0
-            
-            while not is_connected:
-                try:
-                    self.socket.connect((host, port))
-                except socket.error as e:
-                    if (self.parameters.max_retries is not None and
-                        conn_attempts >= self.parameters.max_retries):
-                        
-                        raise socket.error(e)
-                    else:
-                        conn_attempts += 1
-                        time.sleep(self.parameters.retry_delay)
-                else:
-                    is_connected = True
-            
+        # Try and connect
+        log.info("Connecting to %s:%i%s", self.parameters.host,
+                 self.parameters.port, ssl_text)
+        self.socket.connect((self.parameters.host, self.parameters.port))
+
+        # Set the socket to non-blocking
         self.socket.setblocking(0)
 
+    def _adapter_connect(self):
+        """
+        Base connection function to be extended as needed
+        """
+        # Set our remaining attempts as any value over 1
+        remaining_attempts = self.parameters.max_retries or 1
+
+        # Override this if max_retries is None and always try to reconnect
+        if self.parameters.max_retries is None:
+            remaining_attempts = True
+
+        # Loop while we have remaining attemps
+        while remaining_attempts:
+            try:
+                return self._socket_connect()
+            except socket.error, err:
+                remaining_attempts -= 1
+                if not remaining_attempts:
+                    break
+                log.warning("Could not connect: %s. Retrying in %i seconds \
+with %i retry(s) left",
+                            err[-1], self.parameters.retry_delay,
+                            remaining_attempts)
+                self.socket.close()
+                sleep(self.parameters.retry_delay)
+
+        # Log the errors and raise the  exception
+        log.error("Could not connect: %s", err[-1])
+        raise AMQPConnectionError(err[-1])
+
     def add_timeout(self, delay_sec, callback):
-        deadline = time.time() + delay_sec
+        deadline = time() + delay_sec
         return self.ioloop.add_timeout(deadline, callback)
 
     def remove_timeout(self, timeout_id):
@@ -154,13 +169,13 @@ class BaseConnection(Connection):
             return
         # Socket is closed, so lets just go to our handle_close method
         elif error_code == errno.EBADF:
-            pika.log.error("%s: Socket is closed", self.__class__.__name__)
+            log.error("%s: Socket is closed", self.__class__.__name__)
         else:
             # Haven't run into this one yet, log it.
-            pika.log.error("%s: Socket Error on %d: %s",
-                           self.__class__.__name__,
-                           self.socket.fileno(),
-                           error_code)
+            log.error("%s: Socket Error on %d: %s",
+                      self.__class__.__name__,
+                      self.socket.fileno(),
+                      error_code)
 
         # Disconnect from our IOLoop and let Connection know what's up
         self._handle_disconnect()
@@ -170,8 +185,8 @@ class BaseConnection(Connection):
         Our IO/Event loop have called us with events, so process them
         """
         if not self.socket:
-            pika.log.error("%s: Got events for closed stream %d",
-                           self.__class__.__name__, self.socket.fileno())
+            log.error("%s: Got events for closed stream %d",
+                      self.__class__.__name__, self.socket.fileno())
             return
 
         if events & READ:

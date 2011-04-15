@@ -17,6 +17,7 @@ if exists(normpath('../pika')):
 
 from pika.adapters import SelectConnection
 from pika.connection import ConnectionParameters
+import pika.log as log
 
 # We use these to hold our connection & channel
 connection = None
@@ -55,22 +56,26 @@ def handle_delivery(channel, method_frame, header_frame, body):
 
 if __name__ == '__main__':
 
+    # Setup pika logging for internal info
+    log.setup(log.INFO, True)
+
     # Setup empty ssl options
     ssl_options = {}
 
     # Uncomment this to test client certs, change to your cert paths
     # Uses certs as generated from http://www.rabbitmq.com/ssl.html
-    #ssl_options = {"ca_certs": "/etc/rabbitmq/new/server/chain.pem",
-    #               "certfile": "/etc/rabbitmq/new/client/cert.pem",
-    #               "keyfile": "/etc/rabbitmq/new/client/key.pem",
-    #               "cert_reqs": CERT_REQUIRED}
+    ssl_options = {"ca_certs": "/etc/rabbitmq/new/server/chain.pem",
+                   "certfile": "/etc/rabbitmq/new/client/cert.pem",
+                   "keyfile": "/etc/rabbitmq/new/client/key.pem",
+                   "cert_reqs": CERT_REQUIRED}
 
     # Connect to RabbitMQ
     host = (len(sys.argv) > 1) and sys.argv[1] or '127.0.0.1'
-    connection = SelectConnection(ConnectionParameters(host, 5671),
-                                  on_connected,
-                                  ssl=True,
-                                  ssl_options=ssl_options)
+    parameters = ConnectionParameters(host, 5671,
+                                      max_retries=0,
+                                      ssl=True,
+                                      ssl_options=ssl_options)
+    connection = SelectConnection(parameters, on_connected)
     # Loop until CTRL-C
     try:
         # Start our blocking loop

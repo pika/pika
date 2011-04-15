@@ -7,6 +7,7 @@
 """
 Example of simple publisher using SSL, sends 10 messages and exits
 """
+from ssl import CERT_REQUIRED, PROTOCOL_SSLv3
 import sys
 import time
 
@@ -67,12 +68,21 @@ def on_queue_declared(frame):
 
 
 if __name__ == '__main__':
+    # Setup empty ssl options
+    ssl_options = {}
+
+    # Uncomment this to test client certs, change to your cert paths
+    # Uses certs as generated from http://www.rabbitmq.com/ssl.html
+    ssl_options = {"ca_certs": "/etc/rabbitmq/new/server/chain.pem",
+                   "certfile": "/etc/rabbitmq/new/client/cert.pem",
+                   "keyfile": "/etc/rabbitmq/new/client/key.pem",
+                   "cert_reqs": CERT_REQUIRED}
 
     # Connect to RabbitMQ
     host = (len(sys.argv) > 1) and sys.argv[1] or '127.0.0.1'
-    connection = SelectConnection(ConnectionParameters(host, 5671),
-                                  on_connected,
-                                  ssl=True)
+    parameters = ConnectionParameters(host, 5671,
+                                      ssl=True, ssl_options=ssl_options)
+    connection = SelectConnection(parameters, on_connected)
     # Loop until CTRL-C
     try:
         # Start our blocking loop

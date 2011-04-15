@@ -8,6 +8,7 @@ import socket
 import time
 import types
 
+import pika.log as log
 import pika.spec as spec
 
 from pika.adapters import BaseConnection
@@ -28,14 +29,11 @@ class BlockingConnection(BaseConnection):
     messages from Basic.Deliver, Basic.GetOk, and Basic.Return.
     """
 
-    def __init__(self, parameters=None, reconnection_strategy=None, ssl=False,
-                 ssl_options=None):
-        BaseConnection.__init__(self, parameters, None, reconnection_strategy,
-                                ssl, ssl_options)
+    def __init__(self, parameters=None, reconnection_strategy=None):
+        BaseConnection.__init__(self, parameters, None, reconnection_strategy)
 
-    def _adapter_connect(self, host, port):
-
-        BaseConnection._adapter_connect(self, host, port)
+    def _adapter_connect(self):
+        BaseConnection._adapter_connect(self)
         self.socket.setblocking(1)
         self.socket.settimeout(SOCKET_TIMEOUT)
         self._socket_timeouts = 0
