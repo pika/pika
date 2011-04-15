@@ -33,7 +33,7 @@ class Frame(object_):
         """
         Create the full AMQP wire protocol frame data representation
         """
-        payload = str(''.join(pieces))
+        payload = ''.join(pieces)
         return struct.pack('>BHI',
                            self.frame_type,
                            self.channel_number,
@@ -105,7 +105,7 @@ class Body(Frame):
         Parameters:
 
         - channel_number: int
-        - fragment: str
+        - fragment: unicode or str
         """
         Frame.__init__(self, spec.FRAME_BODY, channel_number)
         self.fragment = fragment
