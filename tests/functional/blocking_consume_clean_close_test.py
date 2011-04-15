@@ -20,7 +20,7 @@ MESSAGES = 10
 MAX_DURATION = 10
 
 
-def test_blocking_consume():
+def test_blocking_consume_clean_close():
 
     # Connect to RabbitMQ
     connection = BlockingConnection(support.PARAMETERS)
@@ -66,6 +66,8 @@ def test_blocking_consume():
         if start < time() - MAX_DURATION:
             assert False, "Test timed out"
 
+    print "Here"
+
     for x in xrange(0, MESSAGES):
         message = 'test_blocking_send:%i:%.4f' % (x, time())
         _sent.append(message)
@@ -99,3 +101,5 @@ def test_blocking_consume():
     for message in _sent:
         if message not in _received:
             assert False, 'Sent a message we did not receive.'
+
+test_blocking_consume_clean_close()

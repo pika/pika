@@ -31,8 +31,8 @@ def test_blocking_send_get():
                           auto_delete=True)
 
     message = 'test_blocking_send:%.4f' % time()
-    channel.basic_publish(exchange='',
-                          routing_key=queue_name,
+    channel.basic_publish(routing_key=queue_name,
+                          exchange="",
                           body=message,
                           properties=BasicProperties(
                                   content_type="text/plain",

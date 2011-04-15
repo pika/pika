@@ -17,7 +17,7 @@ from pika.exceptions import AMQPChannelError
 from pika.spec import BasicProperties
 
 
-def test_blocking_send_get():
+def test_blocking_invalid_exchange():
 
     # Connect to RabbitMQ
     connection = BlockingConnection(support.PARAMETERS)
@@ -34,13 +34,18 @@ def test_blocking_send_get():
 
     message = 'test_blocking_send:%.4f' % time()
     try:
-        channel.basic_publish(exchange='undeclared-exchange',
+        channel.basic_publish(exchange="invalid-exchange",
                               routing_key=queue_name,
                               body=message,
+                              mandatory=True,
                               properties=BasicProperties(
                                       content_type="text/plain",
                                       delivery_mode=1))
-    except AMQPChannelError, error:
-        if error[0] != 404:
+
+        while True:
+            channel.transport.connection.process_data_events()
+
+    except AMQPChannelError, err:
+        if err[0] != 404:
             assert False, "Did not receive a Channel.Close"
     connection.close()
