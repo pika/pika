@@ -46,14 +46,10 @@ class AsyncoreDispatcher(asyncore.dispatcher):
         self.writable_ = False
         self.map = None
 
-        # Set our remaining attempts as any value over 1
-        remaining_attempts = self.parameters.max_retries or 1
+        # Set our remaining attempts to the value or True if it's none
+        remaining_attempts = self.parameters.connection_attempts or True
 
-        # Override this if max_retries is None and always try to reconnect
-        if self.parameters.max_retries is None:
-            remaining_attempts = True
-
-        # Loop while we have remaining attemps
+        # Loop while we have remaining attempts
         while remaining_attempts:
             try:
                 return self._socket_connect()

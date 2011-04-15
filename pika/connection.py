@@ -51,7 +51,7 @@ class ConnectionParameters(object):
                  heartbeat=False,
                  ssl=False,
                  ssl_options=None,
-                 max_retries=0,
+                 connection_attempts=1,
                  retry_delay=2):
 
         # Validate the host type
@@ -122,12 +122,13 @@ class ConnectionParameters(object):
             raise TypeError("ssl_options must be either None or dict")
 
         # Validate the number of connection attempts
-        if max_retries is not None and not isinstance(max_retries, int):
-            raise TypeError("Max retries must be either None or int")
+        if connection_attempts is not None and \
+           not isinstance(connection_attempts, int):
+            raise TypeError("connection_attempts must be either None or int")
 
         # Validate the reconnect time delay
         if not isinstance(retry_delay, int):
-            raise TypeError("Retry delay must be an int")
+            raise TypeError("retry_delay must be an int")
 
         # Assign our values
         self.host = host
@@ -139,7 +140,7 @@ class ConnectionParameters(object):
         self.heartbeat = int(heartbeat)
         self.ssl = ssl
         self.ssl_options = ssl_options
-        self.max_retries = max_retries
+        self.connection_attempts = connection_attempts
         self.retry_delay = retry_delay
 
 
