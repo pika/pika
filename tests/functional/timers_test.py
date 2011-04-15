@@ -8,6 +8,7 @@
 Timer tests, make sure we can add and remove timers and that they fire.
 """
 import nose
+import select
 import support
 
 import pika.adapters as adapters
@@ -54,8 +55,7 @@ class TestAdapters(object):
 
     @nose.tools.timed(2)
     def test_kqueue_connection(self):
-        if support.PLATFORM not in ['bsd', 'darwin'] or\
-           support.PYTHON_VERSION < 2.6:
+        if not hasattr(select, 'kqueue'):
             raise nose.SkipTest
         self._set_select_poller('kqueue')
         self.connection = self._connect(adapters.SelectConnection)
@@ -69,8 +69,7 @@ class TestAdapters(object):
     @nose.tools.timed(2)
     def test_epoll_connection(self):
         # EPoll is 2.6+ and linux only
-        if support.PLATFORM != 'linux' or\
-           support.PYTHON_VERSION < 2.6:
+        if not hasattr(select, 'epoll'):
             raise nose.SkipTest
         self._set_select_poller('epoll')
         self.connection = self._connect(adapters.SelectConnection)
@@ -84,8 +83,7 @@ class TestAdapters(object):
     @nose.tools.timed(2)
     def test_poll_connection(self):
         # Poll is 2.5+ and linux only due to api incompatibility
-        if support.PLATFORM != 'linux' or\
-           support.PYTHON_VERSION < 2.5:
+        if not hasattr(select, 'poll') or not hasattr(select.poll, 'modify'):
             raise nose.SkipTest
         self._set_select_poller('poll')
         self.connection = self._connect(adapters.SelectConnection)
