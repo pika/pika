@@ -328,7 +328,8 @@ specified a %s. Reconnections will fail.",
         self.server_properties = frame.method.server_properties
         self.server_capabilities = self.server_properties.get('capabilities',
                                                               dict())
-        del self.server_properties['capabilities']
+        if hasattr(self.server_properties, 'capabilities'):
+            del self.server_properties['capabilities']
 
         # Build our StartOk authentication response from the credentials obj
         authentication_type, response = \
