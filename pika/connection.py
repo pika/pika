@@ -5,6 +5,7 @@
 # ***** END LICENSE BLOCK *****
 
 import types
+from platform import python_version
 from warnings import warn
 
 import pika.channel as channel
@@ -14,13 +15,14 @@ import pika.log
 import pika.simplebuffer as simplebuffer
 import pika.spec as spec
 
+from pika import __version__
 from pika.callback import CallbackManager
 from pika.exceptions import *
 from pika.heartbeat import HeartbeatChecker
 from pika.reconnection_strategies import NullReconnectionStrategy
 from pika.utils import is_callable
 
-PRODUCT = "Pika Python AMQP Client Library"
+PRODUCT = "Pika Python Client Library"
 
 
 class ConnectionParameters(object):
@@ -322,8 +324,11 @@ specified a %s. Reconnections will fail.",
             frame.method.version_minor) != spec.PROTOCOL_VERSION[0:2]:
             raise ProtocolVersionMismatch(pika.frame.ProtocolHeader(), frame)
 
-        # Get our server properties for use elsewhere
+        # Get our server properties and split out capabilities
         self.server_properties = frame.method.server_properties
+        self.server_capabilities = self.server_properties.get('capabilities',
+                                                              dict())
+        del self.server_properties['capabilities']
 
         # Build our StartOk authentication response from the credentials obj
         authentication_type, response = \
@@ -341,9 +346,17 @@ specified a %s. Reconnections will fail.",
         # Add our callback for our Connection Tune event
         self.callbacks.add(0, spec.Connection.Tune, self._on_connection_tune)
 
+        # Specify our client properties
+        properties = {'product': PRODUCT,
+                      'platform': 'Python %s' % python_version(),
+                      'client-properties': {'basic.nack': True,
+                                            'consumer_cancel_notify': True,
+                                            'publisher_confirms': True},
+                      'information': 'See http://pika.github.com',
+                      'version': __version__}
+
         # Send our Connection.StartOk
-        method = spec.Connection.StartOk(client_properties={"product":
-                                                            PRODUCT},
+        method = spec.Connection.StartOk(client_properties=properties,
                                          mechanism=authentication_type,
                                          response=response)
         self._send_method(0, method)
@@ -714,3 +727,20 @@ specified a %s. Reconnections will fail.",
         default if that is None
         """
         return self.parameters.frame_max or spec.FRAME_MAX_SIZE
+
+    @property
+    def basic_nack(self):
+        return self.server_capabilities.get('basic.nack', False)
+
+    @property
+    def consumer_cancel_notify(self):
+        return self.server_capabilities.get('consumer_cancel_notify', False)
+
+    @property
+    def exchange_exchange_bindings(self):
+        return self.server_capabilities.get('exchange_exchange_bindings',
+                                            False)
+
+    @property
+    def publisher_confirms(self):
+        return self.server_capabilities.get('publisher_confirms', False)
