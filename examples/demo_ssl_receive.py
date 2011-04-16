@@ -72,7 +72,6 @@ if __name__ == '__main__':
     # Connect to RabbitMQ
     host = (len(sys.argv) > 1) and sys.argv[1] or '127.0.0.1'
     parameters = ConnectionParameters(host, 5671,
-                                      max_retries=0,
                                       ssl=True,
                                       ssl_options=ssl_options)
     connection = SelectConnection(parameters, on_connected)
