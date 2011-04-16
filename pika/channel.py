@@ -522,6 +522,10 @@ class Channel(spec.DriverMixin):
         For more information see:
             http://www.rabbitmq.com/extensions.html#confirms
         """
+        # Validate we can do this (that the server supports it)
+        if not self.transport.connection.publisher_confirms or \
+           not self.transport.connection.basic_nack:
+            raise exceptions.MethodNotImplemented("Not Supported on Server")
 
         # Add the delivery confirmation callbacks
         if callback:

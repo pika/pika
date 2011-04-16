@@ -36,6 +36,9 @@ class TestPublisherConfirms(support.tools.AsyncPattern):
 
     @nose.tools.nottest
     def _on_channel(self, channel):
+        if not self.connection.publisher_confirms or \
+           not self.connection.basic_nack:
+            raise nose.SkipTest("Not supported on server")
         self.channel = channel
         self._queue_declare()
 
