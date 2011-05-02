@@ -63,6 +63,9 @@ class ExternalCredentials(object):
     """
 
     TYPE = 'EXTERNAL'
+    
+    def __init__(self):
+        self.erase_on_connect = False
 
     def response_for(self, start):
         """
