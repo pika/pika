@@ -56,5 +56,28 @@ class PlainCredentials(object):
             self.password = None
 
 
+class ExternalCredentials(object):
+    """
+    The ExternalCredentials class allows the connection to use EXTERNAL
+    authentication, generally with a client SSL certificate.
+    """
+
+    TYPE = 'EXTERNAL'
+
+    def response_for(self, start):
+        """
+        Validate that our type of authentication is supported
+        """
+        if ExternalCredentials.TYPE not in start.mechanisms.split():
+            return None, None
+
+        return ExternalCredentials.TYPE, ''
+
+    def erase_credentials(self):
+        """
+        Called by Connection when it no longer needs the credentials
+        """
+        pass
+
 # Append custom credential types to this list for validation support
-VALID_TYPES = [PlainCredentials]
+VALID_TYPES = [PlainCredentials, ExternalCredentials]
