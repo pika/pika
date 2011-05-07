@@ -20,20 +20,20 @@ class TestUnicode(support.tools.AsyncPattern):
 
     def __init__(self):
         # UTf-8 Values to test with
-        self.exchange = "أرنب"
-        self.queue = "ճագար"
-        self.routing_key = "兔"
-        self.app_id = "კურდღლების"
-        self.values = ['κουνέλι',
-                       'ארנב',
-                       'ख़रगोश',
-                       'ウサギ',
-                       '토끼',
-                       'зајакот',
-                       'кролик',
-                       'กระต่าย',
-                       'tavşan',
-                       'зец']
+        self.exchange = u"أرنب"
+        self.queue = u"ճագար"
+        self.routing_key = u"兔"
+        self.app_id = u"კურდღლების"
+        self.values = [u'κουνέλι',
+                       u'ארנב',
+                       u'ख़रगोश',
+                       u'ウサギ',
+                       u'토끼',
+                       u'зајакот',
+                       u'кролик',
+                       u'กระต่าย',
+                       u'tavşan',
+                       u'зец']
         self.received = []
         self.properties = BasicProperties(app_id=self.app_id,
                                           content_type="text/plain",
