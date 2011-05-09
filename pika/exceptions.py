@@ -13,7 +13,19 @@ class AMQPConnectionError(AMQPError):
     pass
 
 
-class LoginError(AMQPConnectionError):
+class IncompatibleProtocolError(AMQPConnectionError):
+    pass
+
+
+class AuthenticationError(AMQPConnectionError):
+    pass
+
+
+class ProbableAuthenticationError(AMQPConnectionError):
+    pass
+
+
+class ProbableAccessDeniedError(AMQPConnectionError):
     pass
 
 

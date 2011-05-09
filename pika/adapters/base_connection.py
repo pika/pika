@@ -30,8 +30,10 @@ try:
 except ImportError:
     SSL = False
 
-from pika.connection import Connection
-from pika.exceptions import AMQPConnectionError
+from pika.connection import Connection, CONNECTION_INIT, CONNECTION_PROTOCOL, \
+    CONNECTION_START, CONNECTION_TUNE
+from pika.exceptions import AMQPConnectionError, IncompatibleProtocolError, \
+    ProbableAuthenticationError, ProbableAccessDeniedError
 import pika.log as log
 
 # Use epoll's constants to keep life easy
@@ -140,6 +142,27 @@ with %i retry(s) left",
         # Close our socket
         self.socket.close()
 
+        # Check our state on disconnect
+        self._check_state_on_disconnect()
+
+    def _check_state_on_disconnect(self):
+        """
+        Checks to see if we were in opening a connection with RabbitMQ when
+        we were disconnected and raises exceptions for the anticipated
+        exception types
+        """
+        if self.connection_state == CONNECTION_PROTOCOL:
+            log.error("Incompatible Protocol Versions")
+            raise IncompatibleProtocolError
+        elif self.connection_state == CONNECTION_START:
+            log.error("Socket closed while authenticating indicating a \
+probable authentication error")
+            raise ProbableAuthenticationError
+        elif self.connection_state == CONNECTION_TUNE:
+            log.error("Socket closed while tuning the connection indicating a \
+probable permission error when accessing a virtual host")
+            raise ProbableAccessDeniedError
+
     def _handle_disconnect(self):
         """
         Called internally when we know our socket is disconnected already
@@ -206,6 +229,7 @@ with %i retry(s) left",
         try:
             data = self.socket.recv(self._suggested_buffer_size)
         except socket.timeout:
+            self._check_state_on_disconnect()
             raise
         except socket.error, error:
             return self._handle_error(error)

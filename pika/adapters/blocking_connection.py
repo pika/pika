@@ -62,6 +62,9 @@ class BlockingConnection(BaseConnection):
         # Close our socket
         self.socket.close()
 
+        # Check our state on disconnect
+        self._check_state_on_disconnect()
+
     def _handle_disconnect(self):
         """
         Called internally when we know our socket is disconnected already

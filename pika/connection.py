@@ -24,6 +24,15 @@ from pika.utils import is_callable
 
 PRODUCT = "Pika Python Client Library"
 
+# Connection State Constants
+CONNECTION_CLOSED = 0
+CONNECTION_INIT = 1
+CONNECTION_PROTOCOL = 2
+CONNECTION_START = 3
+CONNECTION_TUNE = 4
+CONNECTION_OPEN = 5
+CONNECTION_CLOSING = 6
+
 
 class ConnectionParameters(object):
     """
@@ -214,19 +223,17 @@ specified a %s. Reconnections will fail.",
         self.server_properties = None
         self._channels = dict()
 
-        # Data used for Heartbeat checking and backpressure detection
+        # Data used for Heartbeat checking and back-pressure detection
         self.bytes_sent = 0
         self.bytes_received = 0
         self.frames_sent = 0
         self.heartbeat = None
 
-        # Default backpressure multiplier value
+        # Default back-pressure multiplier value
         self._backpressure = 10
 
-        # AMQP Lifecycle States
-        self.closed = True
-        self.closing = False
-        self.open = False
+        # Connection state
+        self.connection_state = CONNECTION_CLOSED
 
         # Our starting point once connected, first frame received
         self.callbacks.add(0, spec.Connection.Start, self._on_connection_start)
@@ -254,6 +261,9 @@ specified a %s. Reconnections will fail.",
         # Let our RS know what we're up to
         self.reconnection.on_connect_attempt(self)
 
+        # Set our connection state
+        self.connection_state = CONNECTION_INIT
+
         # Try and connect
         self._adapter_connect()
 
@@ -264,13 +274,13 @@ specified a %s. Reconnections will fail.",
         """
         # We're already closing but it may not be from reconnect, so first
         # Add a callback that won't be duplicated
-        if self.closing:
+        if self.connection_state == CONNECTION_CLOSING:
             self.add_on_close_callback(self._reconnect)
             return
 
         # If we're open, we want to close normally if we can, then actually
         # reconnect via callback that can't be added more than once
-        if self.open:
+        if self.connection_state == CONNECTION_OPEN:
             self.add_on_close_callback(self._reconnect)
             self._ensure_closed()
             return
@@ -284,6 +294,9 @@ specified a %s. Reconnections will fail.",
         This is called by our connection Adapter to let us know that we've
         connected and we can notify our connection strategy
         """
+        # Set our connection state
+        self.connection_state = CONNECTION_PROTOCOL
+
         # Start the communication with the RabbitMQ Broker
         self._send_frame(pika.frame.ProtocolHeader())
 
@@ -302,7 +315,7 @@ specified a %s. Reconnections will fail.",
         self.callbacks.add(0, spec.Connection.Close, self._on_remote_close)
 
         # We're now connected at the AMQP level
-        self.open = True
+        self.connection_state = CONNECTION_OPEN
 
         # Call our initial callback that we're open
         self.callbacks.process(0, '_on_connection_open', self, self)
@@ -313,7 +326,7 @@ specified a %s. Reconnections will fail.",
         from the server.
         """
         # We're now connected to the broker
-        self.closed = False
+        self.connection_state = CONNECTION_START
 
         # We didn't expect a FrameProtocolHeader, did we get one?
         if isinstance(frame, pika.frame.ProtocolHeader):
@@ -338,8 +351,8 @@ specified a %s. Reconnections will fail.",
         # Server asked for credentials for a method we don't support so raise
         # an exception to let the implementing app know
         if not authentication_type:
-            raise LoginError("No %s support for the credentials" %\
-                             self.parameters.credentials.TYPE)
+            raise AuthenticationError("No %s support for the credentials" %\
+                                      self.parameters.credentials.TYPE)
 
         # Erase the credentials if the credentials object wants to
         self.parameters.credentials.erase_credentials()
@@ -376,6 +389,10 @@ specified a %s. Reconnections will fail.",
         monitor if required, send our TuneOk and then the Connection. Open rpc
         call on channel 0
         """
+        # Set our connection state
+        self.connection_state = CONNECTION_TUNE
+
+        # Get our max channels, frames and heartbeat interval
         cmax = self._combine(self.parameters.channel_max,
                              frame.method.channel_max)
         fmax = self._combine(self.parameters.frame_max,
@@ -408,7 +425,7 @@ specified a %s. Reconnections will fail.",
         have active consumers will attempt to send a Basic.Cancel to RabbitMQ
         to cleanly stop the delivery of messages prior to closing the channel.
         """
-        if self.closing or self.closed:
+        if self.is_closing or self.is_closed:
             warn("%s.Close invoked while closing or closed" % \
                  self.__class__.__name__)
             return
@@ -433,7 +450,7 @@ specified a %s. Reconnections will fail.",
         On a clean shutdown we'll call this once all of our channels are closed
         Let the Broker know we want to close
         """
-        if self.closed:
+        if self.is_closing:
             warn("%s.on_close_ready invoked while closed" %\
                  self.__class__.__name__)
             return
@@ -448,9 +465,7 @@ specified a %s. Reconnections will fail.",
         Let both our RS and Event object know we closed
         """
         # Set that we're actually closed
-        self.closed = True
-        self.closing = False
-        self.open = False
+        self.connection_state = CONNECTION_CLOSED
 
         # Call any callbacks registered for this
         self.callbacks.process(0, '_on_connection_closed', self, self)
@@ -473,15 +488,29 @@ specified a %s. Reconnections will fail.",
         If we're not already closed, make sure we're closed
         """
         # We carry the connection state and so we want to close if we know
-        if self.is_open and not self.closing:
+        if self.is_open:
             self.close()
+
+    @property
+    def is_closed(self):
+        """
+        Returns a boolean reporting the current connection state
+        """
+        return self.connection_state == CONNECTION_CLOSED
+
+    @property
+    def is_closing(self):
+        """
+        Returns a boolean reporting the current connection state
+        """
+        return self.connection_state == CONNECTION_CLOSING
 
     @property
     def is_open(self):
         """
         Returns a boolean reporting the current connection state
         """
-        return self.open and (not self.closing and not self.closed)
+        return self.connection_state == CONNECTION_OPEN
 
     def add_on_close_callback(self, callback):
         """
@@ -591,7 +620,7 @@ specified a %s. Reconnections will fail.",
             del(self._channels[channel_number])
 
         # If we're closing and don't have any channels, go to the next step
-        if self.closing and not self._channels:
+        if self.is_closing and not self._channels:
             self._on_close_ready()
 
     # Data packet and frame handling functions
@@ -600,7 +629,6 @@ specified a %s. Reconnections will fail.",
         This is called by our Adapter, passing in the data from the socket
         As long as we have buffer try and map out frame data
         """
-
         # Append the data
         self._buffer += data_in
 
@@ -619,6 +647,10 @@ specified a %s. Reconnections will fail.",
 
             # Increment our bytes received buffer for heartbeat checking
             self.bytes_received += consumed_count
+
+            # Will receive a frame type of -1 if protocol version mismatch
+            if frame.frame_type < 0:
+                continue
 
             # If we have a Method Frame and have callbacks for it
             if isinstance(frame, pika.frame.Method) and \
@@ -731,17 +763,31 @@ specified a %s. Reconnections will fail.",
 
     @property
     def basic_nack(self):
+        """
+        Defines if the active connection has the ability to use basic.nack
+        """
         return self.server_capabilities.get('basic.nack', False)
 
     @property
     def consumer_cancel_notify(self):
+        """
+        Specifies if our active connection has the ability to use
+        consumer cancel notification
+        """
         return self.server_capabilities.get('consumer_cancel_notify', False)
 
     @property
     def exchange_exchange_bindings(self):
+        """
+        Specifies if the active connection can use exchange to exchange
+        bindings
+        """
         return self.server_capabilities.get('exchange_exchange_bindings',
                                             False)
 
     @property
     def publisher_confirms(self):
+        """
+        Specifies if the active connection can use publisher confirmations
+        """
         return self.server_capabilities.get('publisher_confirms', False)
