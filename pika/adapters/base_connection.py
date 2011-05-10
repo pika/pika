@@ -41,6 +41,9 @@ READ = 0x0001
 WRITE = 0x0004
 ERROR = 0x0008
 
+# Connection timeout (2 seconds to open socket)
+CONNECTION_TIMEOUT = 2
+
 
 class BaseConnection(Connection):
 
@@ -84,7 +87,13 @@ class BaseConnection(Connection):
         # Try and connect
         log.info("Connecting to %s:%i%s", self.parameters.host,
                  self.parameters.port, ssl_text)
-        self.socket.connect((self.parameters.host, self.parameters.port))
+        self.socket.settimeout(CONNECTION_TIMEOUT)
+        try:
+            self.socket.connect((self.parameters.host,
+                                 self.parameters.port))
+        except socket.timeout:
+            self._check_state_on_disconnect()
+            raise AMQPConnectionError
 
         # Set the socket to non-blocking
         self.socket.setblocking(0)
@@ -229,7 +238,6 @@ probable permission error when accessing a virtual host")
         try:
             data = self.socket.recv(self._suggested_buffer_size)
         except socket.timeout:
-            self._check_state_on_disconnect()
             raise
         except socket.error, error:
             return self._handle_error(error)
@@ -256,6 +264,8 @@ probable permission error when accessing a virtual host")
 
         # Remove the content from our output buffer
         self.outbound_buffer.consume(bytes_written)
+        if self.outbound_buffer.size:
+            log.debug("Outbound buffer size: %i", self.outbound_buffer.size)
 
     def _manage_event_state(self):
         """
