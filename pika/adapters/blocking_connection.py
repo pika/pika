@@ -255,6 +255,9 @@ class BlockingChannel(Channel):
         connection.callbacks.add(channel_number,
                                  spec.Channel.OpenOk,
                                  transport._on_rpc_complete)
+        connection.callbacks.add(channel_number,
+                                 spec.Channel.CloseOk,
+                                 transport._on_rpc_complete)
         Channel.__init__(self, connection, channel_number, None, transport)
         self.basic_get_ = Channel.basic_get
         self._consumers = {}
