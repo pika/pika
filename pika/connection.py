@@ -235,6 +235,9 @@ specified a %s. Reconnections will fail.",
         # Connection state
         self.connection_state = CONNECTION_CLOSED
 
+        # When closing, hold reason why
+        self.closing = 0, None
+
         # Our starting point once connected, first frame received
         self.callbacks.add(0, spec.Connection.Start, self._on_connection_start)
 
@@ -430,7 +433,11 @@ specified a %s. Reconnections will fail.",
                  self.__class__.__name__)
             return
 
+        # Set our connection state
+        self.connection_state = CONNECTION_CLOSING
+
         # Carry our code and text around with us
+        pika.log.info("Closing connection: %i - %s", code, text)
         self.closing = code, text
 
         # Remove the reconnection strategy callback for when we close
@@ -441,7 +448,7 @@ specified a %s. Reconnections will fail.",
         for channel_number in self._channels.keys():
             self._channels[channel_number].close(code, text)
 
-        # If we already dont have any channels, close out
+        # If we already don't have any channels, close out
         if not self._channels:
             self._on_close_ready()
 
@@ -450,13 +457,13 @@ specified a %s. Reconnections will fail.",
         On a clean shutdown we'll call this once all of our channels are closed
         Let the Broker know we want to close
         """
-        if self.is_closing:
+        if self.is_closed:
             warn("%s.on_close_ready invoked while closed" %\
                  self.__class__.__name__)
             return
 
         self._rpc(0, spec.Connection.Close(self.closing[0],
-                                          self.closing[1], 0, 0),
+                                           self.closing[1], 0, 0),
                   self._on_connection_closed,
                   [spec.Connection.CloseOk])
 
