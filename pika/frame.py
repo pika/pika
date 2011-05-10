@@ -259,7 +259,7 @@ class Dispatcher(object):
             if seen_so_far[0] == header_frame.body_size:
                 finish()
             elif seen_so_far[0] < header_frame.body_size:
-                log.debug("Received message Body frame, %i of %i bytes of\
+                log.debug("Received message Body frame, %i of %i bytes of \
 message body received.",
                           seen_so_far[0], header_frame.body_size)
             # Did we get too many bytes?
