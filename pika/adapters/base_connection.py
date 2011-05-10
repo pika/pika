@@ -30,8 +30,8 @@ try:
 except ImportError:
     SSL = False
 
-from pika.connection import Connection, CONNECTION_INIT, CONNECTION_PROTOCOL, \
-    CONNECTION_START, CONNECTION_TUNE
+from pika.connection import Connection, CONNECTION_PROTOCOL, CONNECTION_START,\
+    CONNECTION_TUNE
 from pika.exceptions import AMQPConnectionError, IncompatibleProtocolError, \
     ProbableAuthenticationError, ProbableAccessDeniedError
 import pika.log as log
