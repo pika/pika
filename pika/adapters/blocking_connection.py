@@ -86,11 +86,8 @@ class BlockingConnection(BaseConnection):
 
     def process_data_events(self):
         # Make sure we're open, if not raise the exception
-        if not self.is_open and not self.closing:
+        if not self.is_open and not self.is_closing:
             raise AMQPConnectionError
-
-        # Write our data
-        self._flush_outbound()
 
         # Read data
         try:
@@ -104,6 +101,9 @@ class BlockingConnection(BaseConnection):
 
         # Process our timeout events
         self.process_timeouts()
+
+        # Write our data
+        self._flush_outbound()
 
     def channel(self, channel_number=None):
         """
@@ -242,6 +242,7 @@ class BlockingChannelTransport(ChannelTransport):
         self.wait = wait
         self._received_response = False
         self.connection._send_method(self.channel_number, method, content)
+        self.connection.process_data_events()
         while self.wait and not self._received_response:
             try:
                 self.connection.process_data_events()
