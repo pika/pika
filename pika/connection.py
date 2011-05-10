@@ -707,6 +707,14 @@ specified a %s. Reconnections will fail.",
         #pika.frame.log_frame(frame.name, marshalled_frame)
         self.outbound_buffer.write(marshalled_frame)
         self._flush_outbound()
+        self._detect_backpressure()
+
+    def _detect_backpressure(self):
+        """
+        Attempt to calculate if TCP backpressure is being applied due to
+        our outbound buffer being larger than the average frame size over
+        a window of frames
+        """
         avg_frame_size = self.bytes_sent / self.frames_sent
         if self.outbound_buffer.size > (avg_frame_size * self._backpressure):
             est_frames_behind = self.outbound_buffer.size / avg_frame_size
@@ -747,11 +755,15 @@ specified a %s. Reconnections will fail.",
                          spec.FRAME_HEADER_SIZE - \
                          spec.FRAME_END_SIZE)
             body_buf = simplebuffer.SimpleBuffer(body)
-
+            frames_sent = 0
+            frames = len(body) / spec.FRAME_MAX_SIZE
             while body_buf:
+                pika.log.debug('_send_method sending Body frame #%i of %i',
+                               frames_sent, frames)
                 piece_len = min(len(body_buf), max_piece)
                 piece = body_buf.read_and_consume(piece_len)
                 self._send_frame(pika.frame.Body(channel_number, piece))
+                frames_sent += 1
 
     @property
     def _suggested_buffer_size(self):
