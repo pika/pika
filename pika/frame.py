@@ -258,7 +258,10 @@ class Dispatcher(object):
             # Did we get enough bytes? If so finish
             if seen_so_far[0] == header_frame.body_size:
                 finish()
-
+            elif seen_so_far[0] < header_frame.body_size:
+                log.debug("Received message Body frame, %i of %i bytes of\
+message body received.",
+                          seen_so_far[0], header_frame.body_size)
             # Did we get too many bytes?
             elif seen_so_far[0] > header_frame.body_size:
                 error = 'Received %i and only expected %i' % \
@@ -359,12 +362,8 @@ def decode_frame(data_in):
         # Get the Properties type
         properties = spec.props[class_id]()
 
-        log.debug("<%r>", properties)
-
         # Decode the properties
         out = properties.decode(frame_data[12:])
-
-        log.debug("<%r>", out)
 
         # Return a Header frame
         return frame_end, Header(channel_number, body_size, properties)
