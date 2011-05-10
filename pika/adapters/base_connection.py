@@ -43,6 +43,7 @@ ERROR = 0x0008
 
 # Connection timeout (2 seconds to open socket)
 CONNECTION_TIMEOUT = 2
+ERRORS_TO_IGNORE =  [errno.EWOULDBLOCK, errno.EAGAIN, errno.EINTR]
 
 
 class BaseConnection(Connection):
@@ -59,6 +60,8 @@ class BaseConnection(Connection):
         self.fd = None
         self.ioloop = None
         self.socket = None
+        self.write_buffer = None
+        self._ssl_connecting = False
 
         # Event states (base and current)
         self.base_events = READ | ERROR
@@ -79,10 +82,16 @@ class BaseConnection(Connection):
         if self.parameters.ssl:
             ssl_text = " with SSL"
             if self.parameters.ssl_options:
+                # Always overwrite this value
+                self.parameters.ssl_options['do_handshake_on_connect'] = False
                 self.socket = ssl.wrap_socket(self.socket,
                                               **self.parameters.ssl_options)
             else:
-                self.socket = ssl.wrap_socket(self.socket)
+                self.socket = ssl.wrap_socket(self.socket,
+                                              do_handshake_on_connect=False)
+
+            # Flags for SSL handshake negotiation
+            self._ssl_connecting = True
 
         # Try and connect
         log.info("Connecting to %s:%i%s", self.parameters.host,
@@ -189,25 +198,53 @@ probable permission error when accessing a virtual host")
         """
         # Handle version differences in Python
         if hasattr(error, 'errno'):  # Python >= 2.6
-            error_code = error.errno
+            error_code = errno.errorcode[error.errno]
         else:
             error_code = error[0]  # Python <= 2.5
 
         # Ok errors, just continue what we were doing before
-        if error_code in (errno.EWOULDBLOCK, errno.EAGAIN, errno.EINTR):
-            return
+        if error_code in ERRORS_TO_IGNORE:
+            log.debug("Ignoring %s", error_code)
+            return None
+
         # Socket is closed, so lets just go to our handle_close method
         elif error_code == errno.EBADF:
             log.error("%s: Socket is closed", self.__class__.__name__)
+            self._handle_disconnect()
+
+        elif self.parameters.ssl and isinstance(error, ssl.SSLError):
+            log.error(repr(error))
         else:
             # Haven't run into this one yet, log it.
-            log.error("%s: Socket Error on %d: %s",
+            log.error("%s: Socket Error on fd %d: %s",
                       self.__class__.__name__,
                       self.socket.fileno(),
                       error_code)
 
+        log.debug("Not handled?")
         # Disconnect from our IOLoop and let Connection know what's up
         self._handle_disconnect()
+
+    def _do_ssl_handshake(self):
+        """
+        Copied from python stdlib test_ssl.py
+
+        """
+        log.debug("_do_ssl_handshake")
+        try:
+            self.socket.do_handshake()
+        except ssl.SSLError, err:
+            if err.args[0] in (ssl.SSL_ERROR_WANT_READ,
+                               ssl.SSL_ERROR_WANT_WRITE):
+                return
+            elif err.args[0] == ssl.SSL_ERROR_EOF:
+                return self.handle_close()
+            raise
+        except socket.error, err:
+            if err.args[0] == errno.ECONNABORTED:
+                return self.handle_close()
+        else:
+            self._ssl_connecting = False
 
     def _handle_events(self, fd, events, error=None):
         """
@@ -235,8 +272,13 @@ probable permission error when accessing a virtual host")
         """
         Read from the socket and call our on_data_available with the data
         """
+        if self.parameters.ssl and self._ssl_connecting:
+            return self._do_ssl_handshake()
         try:
-            data = self.socket.recv(self._suggested_buffer_size)
+            if self.parameters.ssl:
+                data = self.socket.read()
+            else:
+                data = self.socket.recv(self._suggested_buffer_size)
         except socket.timeout:
             raise
         except socket.error, error:
@@ -244,6 +286,7 @@ probable permission error when accessing a virtual host")
 
         # We received no data, so disconnect
         if not data:
+            log.debug('Calling disconnect')
             return self._adapter_disconnect()
 
         # Pass the data into our top level frame dispatching method
@@ -254,13 +297,21 @@ probable permission error when accessing a virtual host")
         We only get here when we have data to write, so try and send
         Pika's suggested buffer size of data (be nice to Windows)
         """
-        data = self.outbound_buffer.read(self._suggested_buffer_size)
+        if self.parameters.ssl and self._ssl_connecting:
+            return self._do_ssl_handshake()
+
+        if not self.write_buffer:
+            self.write_buffer = \
+                self.outbound_buffer.read(self._suggested_buffer_size)
         try:
-            bytes_written = self.socket.send(data)
+            bytes_written = self.socket.send(self.write_buffer)
         except socket.timeout:
             raise
         except socket.error, error:
             return self._handle_error(error)
+
+        if bytes_written:
+            self.write_buffer = None
 
         # Remove the content from our output buffer
         self.outbound_buffer.consume(bytes_written)
