@@ -62,6 +62,7 @@ class BaseConnection(Connection):
         self.socket = None
         self.write_buffer = None
         self._ssl_connecting = False
+        self._ssl_handshake = False
 
         # Event states (base and current)
         self.base_events = READ | ERROR
@@ -83,12 +84,14 @@ class BaseConnection(Connection):
             ssl_text = " with SSL"
             if self.parameters.ssl_options:
                 # Always overwrite this value
-                self.parameters.ssl_options['do_handshake_on_connect'] = False
+                self.parameters.ssl_options['do_handshake_on_connect'] = \
+                    self._ssl_handshake
                 self.socket = ssl.wrap_socket(self.socket,
                                               **self.parameters.ssl_options)
             else:
                 self.socket = ssl.wrap_socket(self.socket,
-                                              do_handshake_on_connect=False)
+                                              do_handshake_on_connect= \
+                                                  self._ssl_handshake)
 
             # Flags for SSL handshake negotiation
             self._ssl_connecting = True
@@ -275,7 +278,7 @@ probable permission error when accessing a virtual host")
         if self.parameters.ssl and self._ssl_connecting:
             return self._do_ssl_handshake()
         try:
-            if self.parameters.ssl:
+            if self.parameters.ssl and self.socket.pending():
                 data = self.socket.read()
             else:
                 data = self.socket.recv(self._suggested_buffer_size)
