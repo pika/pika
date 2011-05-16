@@ -44,42 +44,6 @@ WARNING = logging.WARNING
 LEVEL = INFO
 
 
-def method_call(method):
-    """
-    Logging decorator to send the method and arguments to logger.debug
-    """
-    @wraps(method)
-    def debug_log(*args, **kwargs):
-
-        if logger.getEffectiveLevel() == DEBUG:
-
-            method_name = '%s.%s' % (method.__module__, method.__name__)
-            if args:
-                if str(type(args[0]))[1:6] == 'class':
-                    offset = 1
-                else:
-                    offset = 0
-
-                # Build a list of arguments to send to the logger
-                log_args = list()
-                for x in xrange(offset, len(args)):
-                    log_args.append(args[x])
-                if len(kwargs) > 1:
-                    log_args.append(kwargs)
-
-                # If we have arguments, log them as well
-                logger.debug("%s(%r) Called", method_name, log_args)
-                return method(*args, **kwargs)
-
-            logger.debug("%s() Called", method_name)
-
-        # Actually execute the method
-        return method(*args, **kwargs)
-
-    # Return the debug_log function to the python stack for execution
-    return debug_log
-
-
 def setup(level=INFO, color=False):
     """
     Setup Pika logging, useful for console debugging and logging pika info,
