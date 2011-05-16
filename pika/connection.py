@@ -22,6 +22,8 @@ from pika.heartbeat import HeartbeatChecker
 from pika.reconnection_strategies import NullReconnectionStrategy
 from pika.utils import is_callable
 
+import inspect
+
 PRODUCT = "Pika Python Client Library"
 
 # Connection State Constants
@@ -200,7 +202,8 @@ specified a %s. Reconnections will fail.",
                  self.reconnection.__class__.__name__)
 
         # Add our callback for if we close by being disconnected
-        if not isinstance(self.reconnection, NullReconnectionStrategy):
+        if not isinstance(self.reconnection, NullReconnectionStrategy) and \
+            hasattr(self.reconnection, 'on_connection_closed'):
             self.add_on_close_callback(self.reconnection.on_connection_closed)
 
         # Set all of our default connection state values
@@ -227,6 +230,7 @@ specified a %s. Reconnections will fail.",
         self.bytes_sent = 0
         self.bytes_received = 0
         self.frames_sent = 0
+        self.frames_received = 0
         self.heartbeat = None
 
         # Default back-pressure multiplier value
@@ -575,18 +579,24 @@ specified a %s. Reconnections will fail.",
         if not channel_number:
             channel_number = self._next_channel_number()
 
-        # Add the channel spec.Channel.CloseOk callback for _on_channel_close
-        self.callbacks.add(channel_number, spec.Channel.CloseOk,
-                           self._on_channel_close)
-
-        # Add it to our Channel dictionary
-        self._channels[channel_number] = channel.Channel(self, channel_number,
+        # Open the channel passing the users callback
+        self._channels[channel_number] = channel.Channel(self,
+                                                         channel_number,
                                                          on_open_callback)
 
         # Add the callback for our Channel.Close event in case the Broker
         # wants to close us for some reason
-        self.callbacks.add(channel_number, spec.Channel.Close,
+        self.callbacks.add(channel_number,
+                           spec.Channel.Close,
                            self._on_channel_close)
+
+        # Add the channel spec.Channel.CloseOk callback for _on_channel_close
+        self.callbacks.add(channel_number,
+                           spec.Channel.CloseOk,
+                           self._on_channel_close)
+
+        # Open the channel
+        self._channels[channel_number].open()
 
     def _next_channel_number(self):
         """
@@ -599,15 +609,13 @@ specified a %s. Reconnections will fail.",
         if len(self._channels) == limit:
             raise NoFreeChannels()
 
-        # Get a list of all of our keys, all should be numeric channel ids
-        channel_numbers = self._channels.keys()
-
-        # We don't start with any open channels
-        if not channel_numbers:
+        # Return channel # 1 if we don't have any channels
+        if not self._channels:
             return 1
 
-        # Our next channel is the max key value + 1
-        return max(channel_numbers) + 1
+        # Else return our max channel # + 1
+        else:
+            return max(self._channels.keys()) + 1
 
     def _on_channel_close(self, frame):
         """
@@ -659,6 +667,9 @@ specified a %s. Reconnections will fail.",
             if frame.frame_type < 0:
                 continue
 
+            # Keep track of how many frames have been read
+            self.frames_received += 1
+
             # If we have a Method Frame and have callbacks for it
             if isinstance(frame, pika.frame.Method) and \
                 self.callbacks.pending(frame.channel_number, frame.method):
@@ -677,7 +688,12 @@ specified a %s. Reconnections will fail.",
 
             elif frame.channel_number > 0:
                 # Call our Channel Handler with the frame
-                self._channels[frame.channel_number].transport.deliver(frame)
+                if frame.channel_number in self._channels:
+                    self._channels[\
+                        frame.channel_number].transport.deliver(frame)
+                else:
+                    pika.log.error("Received %s for non-existing channel %i",
+                                   frame.method.NAME, frame.channel_number)
 
     def _rpc(self, channel_number, method,
              callback=None, acceptable_replies=None):
@@ -713,7 +729,7 @@ specified a %s. Reconnections will fail.",
 
         #pika.frame.log_frame(frame.name, marshalled_frame)
         self.outbound_buffer.write(marshalled_frame)
-        self._flush_outbound()
+        #self._flush_outbound()
         self._detect_backpressure()
 
     def _detect_backpressure(self):
@@ -742,6 +758,7 @@ specified a %s. Reconnections will fail.",
         """
         Constructs a RPC method frame and then sends it to the broker
         """
+        #print '_send_method:', channel, method
         self._send_frame(pika.frame.Method(channel_number, method))
 
         if isinstance(content, tuple):
@@ -765,8 +782,6 @@ specified a %s. Reconnections will fail.",
             frames_sent = 0
             frames = len(body) / spec.FRAME_MAX_SIZE
             while body_buf:
-                pika.log.debug('_send_method sending Body frame #%i of %i',
-                               frames_sent, frames)
                 piece_len = min(len(body_buf), max_piece)
                 piece = body_buf.read_and_consume(piece_len)
                 self._send_frame(pika.frame.Body(channel_number, piece))

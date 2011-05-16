@@ -271,6 +271,7 @@ class BlockingChannel(Channel):
         Channel.__init__(self, connection, channel_number, None, transport)
         self.basic_get_ = Channel.basic_get
         self._consumers = {}
+        self.open()
 
     def _open(self, frame):
         Channel._open(self, frame)
