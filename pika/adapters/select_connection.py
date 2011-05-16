@@ -34,7 +34,7 @@ class SelectConnection(BaseConnection):
         BaseConnection._adapter_connect(self)
 
         # Setup the IOLoop
-        self.ioloop = IOLoop()
+        self.ioloop = IOLoop(self._manage_event_state)
 
         # Setup our and start our IOLoop and Poller
         self.ioloop.fileno = self.socket.fileno()
@@ -64,8 +64,9 @@ class IOLoop(object):
 
     Also provides a convenient pass-through for add_timeout and set_events
     """
-    def __init__(self):
+    def __init__(self, state_manager):
         self.fileno = None
+        self._manage_event_state = state_manager
 
     def add_timeout(self, deadline, handler):
         """
@@ -93,19 +94,19 @@ class IOLoop(object):
         # Decide what poller to use and set it up as appropriate
         if hasattr(select, 'poll') and hasattr(select.poll, 'modify'):
             if not SELECT_TYPE or SELECT_TYPE == 'poll':
-                self.poller = PollPoller(self.fileno, handler, events)
+                self.poller = PollPoller(self.fileno, handler, events, self._manage_event_state)
 
         if not self.poller and hasattr(select, 'epoll'):
             if not SELECT_TYPE or SELECT_TYPE == 'epoll':
-                self.poller = EPollPoller(self.fileno, handler, events)
+                self.poller = EPollPoller(self.fileno, handler, events, self._manage_event_state)
 
         if not self.poller and hasattr(select, 'kqueue'):
             if not SELECT_TYPE or SELECT_TYPE == 'kqueue':
-                self.poller = KQueuePoller(self.fileno, handler, events)
+                self.poller = KQueuePoller(self.fileno, handler, events, self._manage_event_state)
 
         # We couldn't satisfy epoll, kqueue or poll
         if not self.poller:
-            self.poller = SelectPoller(self.fileno, handler, events)
+            self.poller = SelectPoller(self.fileno, handler, events, self._manage_event_state)
 
     def update_handler(self, fileno, events):
         """
@@ -140,12 +141,13 @@ class SelectPoller(object):
     # How many seconds to wait until we try and process timeouts
     TIMEOUT = 1
 
-    def __init__(self, fileno, handler, events):
+    def __init__(self, fileno, handler, events, state_manager):
         self.fileno = fileno
         self.events = events
         self.open = True
         self._handler = handler
         self._timeouts = dict()
+        self._manage_event_state = state_manager
 
     def update_handler(self, fileno, events):
         """
@@ -198,6 +200,9 @@ class SelectPoller(object):
             # Process our timeouts
             self.process_timeouts()
 
+            # Manage our state for updating the poller
+            self._manage_event_state()
+
     def poll(self):
         # Build our values to pass into select
         input_fileno, output_fileno, error_fileno = [], [], []
@@ -235,14 +240,15 @@ class SelectPoller(object):
 
 class KQueuePoller(SelectPoller):
 
-    def __init__(self, fileno, handler, events):
-        SelectPoller.__init__(self, fileno, handler, events)
+    def __init__(self, fileno, handler, events, state_manager):
+        SelectPoller.__init__(self, fileno, handler, events, state_manager)
         # Make our events 0 by default for first run of update_handler
         self.events = 0
         # Create our KQueue object
         self._kqueue = select.kqueue()
         # KQueue needs us to register each event individually
         self.update_handler(fileno, events)
+        self._manage_event_state = state_manager
 
     def update_handler(self, fileno, events):
         # No need to update if our events are the same
@@ -316,6 +322,9 @@ class KQueuePoller(SelectPoller):
             # Process our timeouts
             self.process_timeouts()
 
+            # Manage our state for updating the poller
+            self._manage_event_state()
+
     def poll(self):
 
         # We'll build a bitmask of events that happened in kqueue
@@ -355,8 +364,8 @@ class KQueuePoller(SelectPoller):
 
 class PollPoller(SelectPoller):
 
-    def __init__(self, fileno, handler, events):
-        SelectPoller.__init__(self, fileno, handler, events)
+    def __init__(self, fileno, handler, events, state_manager):
+        SelectPoller.__init__(self, fileno, handler, events, state_manager)
         self._poll = select.poll()
         self._poll.register(fileno, self.events)
 
@@ -376,6 +385,9 @@ class PollPoller(SelectPoller):
             # Process our timeouts
             self.process_timeouts()
 
+            # Manage our state for updating the poller
+            self._manage_event_state()
+
     def poll(self):
 
         # Poll until TIMEOUT waiting for an event
@@ -392,8 +404,8 @@ class EPollPoller(PollPoller):
     """
     EPoll and Poll function signatures match.
     """
-    def __init__(self, fileno, handler, events):
-        SelectPoller.__init__(self, fileno, handler, events)
+    def __init__(self, fileno, handler, events, state_manager):
+        SelectPoller.__init__(self, fileno, handler, events, state_manager)
         self._poll = select.epoll()
         self._poll.register(fileno, self.events)
 

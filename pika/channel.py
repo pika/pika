@@ -89,9 +89,6 @@ class ChannelTransport(object):
 
         # If we're blocking, add subsequent commands to our stack
         if self.blocking:
-            pika.log.debug('%s: %s is blocking this channel',
-                            self.__class__.__name__, self.blocking)
-
             self._blocked.append([method, callback, acceptable_replies])
             return
 
@@ -105,8 +102,6 @@ class ChannelTransport(object):
 
         # If this is a synchronous method, block connections until we're done
         if method.synchronous:
-            pika.log.debug('%s: %s turning on blocking',
-                            self.__class__.__name__, method.NAME)
             self.blocking = method.NAME
 
         if acceptable_replies:
@@ -229,6 +224,8 @@ class Channel(spec.DriverMixin):
                            spec.Channel.OpenOk,
                            self._open)
 
+    def open(self):
+
         # Open our channel
         self.transport.send_method(spec.Channel.Open())
 
@@ -349,7 +346,8 @@ class Channel(spec.DriverMixin):
         """
         # If a consumer tag was not passed, create one
         if not consumer_tag:
-            consumer_tag = 'ctag%i' % len(self._consumers)
+            consumer_tag = 'ctag%i.%i' % (self.channel_number,
+                                          len(self._consumers))
 
         # Make sure we've not already registered this consumer tag
         if consumer_tag in self._consumers:
@@ -357,6 +355,9 @@ class Channel(spec.DriverMixin):
 
         # The consumer tag has not been used before, add it to our consumers
         self._consumers[consumer_tag] = consumer_callback
+
+        # Setup a list for appending frames into
+        self._pending[consumer_tag] = list()
 
         # Send our Basic.Consume RPC call
         try:
@@ -403,49 +404,39 @@ class Channel(spec.DriverMixin):
         another delivery appears for it, queue the deliveries up until it
         finally exits.
         """
-        # Shortcut for our consumer tag
-        consumer_tag = method_frame.method.consumer_tag
+        if method_frame.method.consumer_tag in self._consumers:
 
-        # If we don't have anything pending,
-        if consumer_tag not in self._pending and \
-           consumer_tag in self._consumers:
-
-            # Setup a list for appending frames into
-            self._pending[consumer_tag] = list()
-
-            # Call our consumer callback with the data
-            self._consumers[consumer_tag](self,
-                                          method_frame.method,
-                                          header_frame.properties,
-                                          body)
-
-            # Loop through and empty the list, we may have gotten more
-            # while we were delivering the message to the callback
-            while self._pending[consumer_tag]:
+            # Send any previously stored messages
+            while self._pending[method_frame.method.consumer_tag]:
 
                 # Remove the parts of our list item
-                (method, properties, body) = self._pending[consumer_tag].pop(0)
+                method, properties, body = \
+                    self._pending[method_frame.method.consumer_tag].pop(0)
 
                 # Call our consumer callback with the data
-                self._consumers[consumer_tag](self,
-                                              method,
-                                              properties,
-                                              body)
-
-            # Remove our pending messages
-            del self._pending[consumer_tag]
+                self._consumers[method_frame.method.consumer_tag](self,
+                                                                  method,
+                                                                  properties,
+                                                                  body)
+            # Call our consumer callback with the data
+            self._consumers[\
+                method_frame.method.consumer_tag](self,
+                                                  method_frame.method,
+                                                  header_frame.properties,
+                                                  body)
         else:
             # Append the message to our pending list
-            self._pending[consumer_tag].append((method_frame.method,
-                                                header_frame.properties,
-                                                body))
+            self._pending[\
+                method_frame.method.consumer_tag].append(\
+                    (method_frame.method, header_frame.properties, body))
 
     def _on_cancel_ok(self, frame):
         """
         Called in response to a frame from the Broker when we call Basic.Cancel
         """
         # We need to delete the consumer tag from our _consumers
-        del(self._consumers[frame.method.consumer_tag])
+        if frame.method.consumer_tag in self._consumers:
+            del self._consumers[frame.method.consumer_tag]
 
         # If we're closing and dont have any consumers left, close
         if self.closing and not len(self._consumers):

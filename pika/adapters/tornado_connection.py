@@ -4,8 +4,8 @@
 #
 # ***** END LICENSE BLOCK *****
 try:
-    import tornado.ioloop
-    IOLoop = tornado.ioloop.IOLoop
+    from tornado import ioloop
+    IOLoop = ioloop.IOLoop
 except ImportError:
     IOLoop = None
 
@@ -15,9 +15,9 @@ from pika.adapters.base_connection import BaseConnection
 
 # Redefine our constants with Tornado's
 if IOLoop:
-    ERROR = tornado.ioloop.IOLoop.ERROR
-    READ = tornado.ioloop.IOLoop.READ
-    WRITE = tornado.ioloop.IOLoop.WRITE
+    ERROR = ioloop.IOLoop.ERROR
+    READ = ioloop.IOLoop.READ
+    WRITE = ioloop.IOLoop.WRITE
 
 
 class TornadoConnection(BaseConnection):
@@ -41,6 +41,12 @@ class TornadoConnection(BaseConnection):
 
         # Setup our ioloop
         self.ioloop = IOLoop.instance()
+
+        # Setup a periodic callbacks
+        _pc = ioloop.PeriodicCallback(self._manage_event_state,
+                                      0.25,
+                                      self.ioloop)
+        _pc.start()
 
         # Add the ioloop handler for the event state
         self.ioloop.add_handler(self.socket.fileno(),

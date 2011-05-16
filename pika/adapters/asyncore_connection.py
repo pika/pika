@@ -43,7 +43,6 @@ class AsyncoreDispatcher(asyncore.dispatcher):
         self.connecting = True
         self.connection = None
         self._timeouts = dict()
-        self.writable_ = False
         self.map = None
 
         # Set our remaining attempts to the value or True if it's none
@@ -143,9 +142,6 @@ with %i retry(s) left",
         # Remove what we wrote from the outbound buffer
         self.connection.outbound_buffer.consume(bytes_written)
 
-        # If our buffer is empty, turn off writing
-        if not self.connection.outbound_buffer.size:
-            self.writable_ = False
 
     def writable(self):
         """
@@ -157,9 +153,10 @@ with %i retry(s) left",
         if not self.connected:
             return True
 
-        # Flag maintained by AsyncoreConneciton.flush_outbound and
-        # self.handle_write
-        return self.writable_
+        # If we have data to write, return true
+        if self.connection.outbound_buffer.size:
+            return True
+        return False
 
     # IOLoop Compatibility
     def add_timeout(self, deadline, handler):
@@ -232,11 +229,3 @@ class AsyncoreConnection(BaseConnection):
         self.ioloop.connection = self
         self.ioloop.suggested_buffer_size = self._suggested_buffer_size
         self.socket = self.ioloop.socket
-
-    def _flush_outbound(self):
-        """
-        We really can't flush the socket in asyncore, so instead just use this
-        to toggle a flag that lets it know we want to write to the socket.
-        """
-        if self.outbound_buffer.size:
-            self.ioloop.writable_ = True
