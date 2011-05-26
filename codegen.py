@@ -14,6 +14,8 @@ from amqp_codegen import *
 import re
 
 DRIVER_METHODS = {
+    "Exchange.Bind": ["Exchange.BindOk"],
+    "Exchange.Unbind": ["Exchange.UnbindOk"],
     "Exchange.Declare": ["Exchange.DeclareOk"],
     "Exchange.Delete": ["Exchange.DeleteOk"],
     "Queue.Declare": ["Queue.DeclareOk"],

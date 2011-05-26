@@ -2413,6 +2413,48 @@ class DriverMixin(object):
         return self.transport.rpc(Exchange.Delete(ticket=ticket, exchange=exchange, if_unused=if_unused, nowait=nowait), callback,
                                   [Exchange.DeleteOk])
 
+    def exchange_bind(self, callback=None, ticket=0, destination=None, source=None, routing_key='', nowait=False, arguments={}):
+        """
+        Implements the Exchange.Bind AMQP command. For context and usage:
+
+          http://www.rabbitmq.com/amqp-0-9-1-quickref.html#exchange.bind
+
+        This is a synchronous method that will not allow other commands to be
+        send to the AMQP broker until it has completed. It is recommended to
+        pass in a parameter to callback to be notified when this command has
+        completed.
+        """
+        data.validate_type('ticket', ticket, 'short')
+        data.validate_type('destination', destination, 'shortstr')
+        data.validate_type('source', source, 'shortstr')
+        data.validate_type('routing_key', routing_key, 'shortstr')
+        data.validate_type('nowait', nowait, 'bit')
+        data.validate_type('arguments', arguments, 'table')
+
+        return self.transport.rpc(Exchange.Bind(ticket=ticket, destination=destination, source=source, routing_key=routing_key, nowait=nowait, arguments=arguments), callback,
+                                  [Exchange.BindOk])
+
+    def exchange_unbind(self, callback=None, ticket=0, destination=None, source=None, routing_key='', nowait=False, arguments={}):
+        """
+        Implements the Exchange.Unbind AMQP command. For context and usage:
+
+          http://www.rabbitmq.com/amqp-0-9-1-quickref.html#exchange.unbind
+
+        This is a synchronous method that will not allow other commands to be
+        send to the AMQP broker until it has completed. It is recommended to
+        pass in a parameter to callback to be notified when this command has
+        completed.
+        """
+        data.validate_type('ticket', ticket, 'short')
+        data.validate_type('destination', destination, 'shortstr')
+        data.validate_type('source', source, 'shortstr')
+        data.validate_type('routing_key', routing_key, 'shortstr')
+        data.validate_type('nowait', nowait, 'bit')
+        data.validate_type('arguments', arguments, 'table')
+
+        return self.transport.rpc(Exchange.Unbind(ticket=ticket, destination=destination, source=source, routing_key=routing_key, nowait=nowait, arguments=arguments), callback,
+                                  [Exchange.UnbindOk])
+
     def queue_declare(self, callback=None, ticket=0, queue='', passive=False, durable=False, exclusive=False, auto_delete=False, nowait=False, arguments={}):
         """
         Implements the Queue.Declare AMQP command. For context and usage:
