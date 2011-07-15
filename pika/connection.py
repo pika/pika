@@ -123,8 +123,8 @@ class ConnectionParameters(object):
             raise TypeError("frame_max must be an int")
 
         # Validate the heartbeat parameter:
-        if not isinstance(heartbeat, bool):
-            raise TypeError("heartbeat must be a bool")
+        if not isinstance(heartbeat, int):
+            raise TypeError("heartbeat must be an int")
 
         # Validate the connection retry boolean
         if not isinstance(ssl, bool):
@@ -150,7 +150,7 @@ class ConnectionParameters(object):
         self.credentials = credentials
         self.channel_max = channel_max
         self.frame_max = frame_max
-        self.heartbeat = int(heartbeat)
+        self.heartbeat = heartbeat
         self.ssl = ssl
         self.ssl_options = ssl_options
         self.connection_attempts = connection_attempts
