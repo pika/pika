@@ -201,7 +201,7 @@ probable permission error when accessing a virtual host")
         """
         # Handle version differences in Python
         if hasattr(error, 'errno'):  # Python >= 2.6
-            error_code = errno.errorcode[error.errno]
+            error_code = error.errno
         elif error:
             error_code = error[0]  # Python <= 2.5
 
