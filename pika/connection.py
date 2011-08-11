@@ -448,12 +448,12 @@ specified a %s. Reconnections will fail.",
         self.callbacks.remove(0, '_on_connection_close',
                               self.reconnection.on_connection_closed)
 
-        # If we're not already closed
-        for channel_number in self._channels.keys():
-            self._channels[channel_number].close(code, text)
-
-        # If we already don't have any channels, close out
-        if not self._channels:
+        if self._channels:
+            # If we're not already closed
+            for channel_number in self._channels.keys():
+                self._channels[channel_number].close(code, text)
+        else:
+            # If we already don't have any channels, close out
             self._on_close_ready()
 
     def _on_close_ready(self):
