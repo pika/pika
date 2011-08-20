@@ -202,8 +202,12 @@ probable permission error when accessing a virtual host")
         # Handle version differences in Python
         if hasattr(error, 'errno'):  # Python >= 2.6
             error_code = error.errno
-        elif error:
+        elif error is not None:
             error_code = error[0]  # Python <= 2.5
+        else:
+            # This shouldn't happen, but log it in case it does
+            log.error("%s: Tried to handle an error where no error existed",
+                      self.__class__.__name__)
 
         # Ok errors, just continue what we were doing before
         if error_code in ERRORS_TO_IGNORE:
