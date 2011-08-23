@@ -214,9 +214,18 @@ probable permission error when accessing a virtual host")
         elif error_code == errno.EBADF:
             log.error("%s: Socket is closed", self.__class__.__name__)
             self._handle_disconnect()
+            return None
 
         elif self.parameters.ssl and isinstance(error, ssl.SSLError):
-            log.error(repr(error))
+            # SSL socket operation needs to be retried
+            if error_code in (ssl.SSL_ERROR_WANT_READ,
+                               ssl.SSL_ERROR_WANT_WRITE):
+                return None
+            else:
+                log.error("%s: SSL Socket error on fd %d: %s", 
+                      self.__class__.__name__,
+                      self.socket.fileno(),
+                      repr(error))
         else:
             # Haven't run into this one yet, log it.
             log.error("%s: Socket Error on fd %d: %s",
@@ -279,7 +288,10 @@ probable permission error when accessing a virtual host")
             return self._do_ssl_handshake()
         try:
             if self.parameters.ssl and self.socket.pending():
-                data = self.socket.read()
+                data = self.socket.read(self._suggested_buffer_size)
+                
+                while len(data) == 0:
+                    data = self.socket.read(self._suggested_buffer_size)
             else:
                 data = self.socket.recv(self._suggested_buffer_size)
         except socket.timeout:
@@ -307,7 +319,12 @@ probable permission error when accessing a virtual host")
             self.write_buffer = \
                 self.outbound_buffer.read(self._suggested_buffer_size)
         try:
-            bytes_written = self.socket.send(self.write_buffer)
+            if self.parameters.ssl:
+                bytes_written = 0
+                while bytes_written == 0:
+                    bytes_written = self.socket.write(self.write_buffer)
+            else:
+                bytes_written = self.socket.send(self.write_buffer)
         except socket.timeout:
             raise
         except socket.error, error:
