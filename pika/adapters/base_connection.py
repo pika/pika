@@ -161,6 +161,7 @@ with %i retry(s) left",
         self.ioloop.stop()
 
         # Close our socket
+        self.socket.shutdown(socket.SHUT_RDWR)
         self.socket.close()
 
         # Check our state on disconnect
@@ -211,7 +212,7 @@ probable permission error when accessing a virtual host")
             return None
 
         # Socket is closed, so lets just go to our handle_close method
-        elif error_code == errno.EBADF:
+        elif error_code in (errno.EBADF, errno.ECONNABORTED):
             log.error("%s: Socket is closed", self.__class__.__name__)
             self._handle_disconnect()
             return None
@@ -220,6 +221,9 @@ probable permission error when accessing a virtual host")
             # SSL socket operation needs to be retried
             if error_code in (ssl.SSL_ERROR_WANT_READ,
                                ssl.SSL_ERROR_WANT_WRITE):
+                return None
+            elif error_code == ssl.SSL_ERROR_EOF:
+                self._handle_disconnect()
                 return None
             else:
                 log.error("%s: SSL Socket error on fd %d: %s", 
