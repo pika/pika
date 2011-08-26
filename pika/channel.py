@@ -275,6 +275,9 @@ class Channel(spec.DriverMixin):
         if not len(self._consumers) and not from_server:
             self._close()
 
+    def cleanup(self):
+        self.callbacks.remove(self.channel_number)
+
     def _close(self):
         """
         Internal close, is called when all the consumers are closed by both

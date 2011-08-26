@@ -56,21 +56,24 @@ class BaseConnection(Connection):
         if parameters.ssl and not SSL:
             raise Exception("SSL specified but it is not available")
 
+        # Call our parent's __init__
+        Connection.__init__(self, parameters, on_open_callback,
+                            reconnection_strategy)
+
+    def _init_connection_state(self):
+        Connection._init_connection_state(self)
+
         # Set our defaults
         self.fd = None
         self.ioloop = None
-        self.socket = None
-        self.write_buffer = None
-        self._ssl_connecting = False
-        self._ssl_handshake = False
 
         # Event states (base and current)
         self.base_events = READ | ERROR
         self.event_state = self.base_events
-
-        # Call our parent's __init__
-        Connection.__init__(self, parameters, on_open_callback,
-                            reconnection_strategy)
+        self.socket = None
+        self.write_buffer = None
+        self._ssl_connecting = False
+        self._ssl_handshake = False
 
     def _socket_connect(self):
         """Create socket and connect to it, using SSL if enabled"""
@@ -97,15 +100,12 @@ class BaseConnection(Connection):
             self._ssl_connecting = True
 
         # Try and connect
-        log.info("Connecting to %s:%i%s", self.parameters.host,
+        log.info("Connecting fd %d to %s:%i%s", self.socket.fileno(),
+                 self.parameters.host,
                  self.parameters.port, ssl_text)
         self.socket.settimeout(CONNECTION_TIMEOUT)
-        try:
-            self.socket.connect((self.parameters.host,
-                                 self.parameters.port))
-        except socket.timeout:
-            self._check_state_on_disconnect()
-            raise AMQPConnectionError
+        self.socket.connect((self.parameters.host,
+                             self.parameters.port))
 
         # Set the socket to non-blocking
         self.socket.setblocking(0)
@@ -115,22 +115,29 @@ class BaseConnection(Connection):
         Base connection function to be extended as needed
         """
 
-        # Set our remaining attempts to the value or True if it's none
-        remaining_attempts = self.parameters.connection_attempts or True
+        # Set our remaining attempts to the initial value
+        from sys import maxint
+        remaining_attempts = self.parameters.connection_attempts or maxint
 
         # Loop while we have remaining attempts
         while remaining_attempts:
+            remaining_attempts -= 1
             try:
                 return self._socket_connect()
+            except socket.timeout, timeout:
+                reason = "timeout"
             except socket.error, err:
-                remaining_attempts -= 1
-                if not remaining_attempts:
-                    break
-                log.warning("Could not connect: %s. Retrying in %i seconds \
-with %i retry(s) left",
-                            err[-1], self.parameters.retry_delay,
-                            remaining_attempts)
+                reason = err[-1]
                 self.socket.close()
+
+            retry = ''
+            if remaining_attempts:
+                retry = "Retrying in %i seconds with %i \
+retry(s) left" % (self.parameters.retry_delay, remaining_attempts)
+
+            log.warning("Could not connect: %s. %s", reason, retry)
+
+            if remaining_attempts:
                 sleep(self.parameters.retry_delay)
 
         # Log the errors and raise the  exception
@@ -217,17 +224,13 @@ probable permission error when accessing a virtual host")
 
         # Socket is closed, so lets just go to our handle_close method
         elif error_code in (errno.EBADF, errno.ECONNABORTED):
-            log.error("%s: Socket is closed", self.__class__.__name__)
-            self._handle_disconnect()
-            return None
+            log.error("%s: Socket is closed",
+                    self.__class__.__name__)
 
         elif self.parameters.ssl and isinstance(error, ssl.SSLError):
             # SSL socket operation needs to be retried
             if error_code in (ssl.SSL_ERROR_WANT_READ,
                                ssl.SSL_ERROR_WANT_WRITE):
-                return None
-            elif error_code == ssl.SSL_ERROR_EOF:
-                self._handle_disconnect()
                 return None
             else:
                 log.error("%s: SSL Socket error on fd %d: %s", 
@@ -241,9 +244,9 @@ probable permission error when accessing a virtual host")
                       self.socket.fileno(),
                       error_code)
 
-        log.debug("Not handled?")
         # Disconnect from our IOLoop and let Connection know what's up
         self._handle_disconnect()
+        return None
 
     def _do_ssl_handshake(self):
         """
@@ -258,11 +261,11 @@ probable permission error when accessing a virtual host")
                                ssl.SSL_ERROR_WANT_WRITE):
                 return
             elif err.args[0] == ssl.SSL_ERROR_EOF:
-                return self.handle_close()
+                return self._handle_disconnect()
             raise
         except socket.error, err:
             if err.args[0] == errno.ECONNABORTED:
-                return self.handle_close()
+                return self._handle_disconnect()
         else:
             self._ssl_connecting = False
 
@@ -297,9 +300,6 @@ probable permission error when accessing a virtual host")
         try:
             if self.parameters.ssl and self.socket.pending():
                 data = self.socket.read(self._suggested_buffer_size)
-                
-                while len(data) == 0:
-                    data = self.socket.read(self._suggested_buffer_size)
             else:
                 data = self.socket.recv(self._suggested_buffer_size)
         except socket.timeout:
@@ -327,12 +327,7 @@ probable permission error when accessing a virtual host")
             self.write_buffer = \
                 self.outbound_buffer.read(self._suggested_buffer_size)
         try:
-            if self.parameters.ssl:
-                bytes_written = 0
-                while bytes_written == 0:
-                    bytes_written = self.socket.write(self.write_buffer)
-            else:
-                bytes_written = self.socket.send(self.write_buffer)
+            bytes_written = self.socket.send(self.write_buffer)
         except socket.timeout:
             raise
         except socket.error, error:

@@ -37,9 +37,11 @@ class SelectConnection(BaseConnection):
         self.ioloop = IOLoop(self._manage_event_state)
 
         # Setup our and start our IOLoop and Poller
-        self.ioloop.fileno = self.socket.fileno()
-        self.ioloop.start_poller(self._handle_events, self.event_state)
+        self.ioloop.start_poller(self._handle_events,
+                                 self.event_state,
+                                 self.socket.fileno())
 
+        
         # Let everyone know we're connected
         self._on_connected()
 
@@ -65,7 +67,7 @@ class IOLoop(object):
     Also provides a convenient pass-through for add_timeout and set_events
     """
     def __init__(self, state_manager):
-        self.fileno = None
+        self.poller = None
         self._manage_event_state = state_manager
 
     def add_timeout(self, deadline, handler):
@@ -84,7 +86,7 @@ class IOLoop(object):
     def poller_type(self):
         return self.poller.__class__.__name__
 
-    def start_poller(self, handler, events):
+    def start_poller(self, handler, events, fileno):
         """
         Start the Poller, once started will take over for IOLoop.start()
         """
@@ -94,19 +96,19 @@ class IOLoop(object):
         # Decide what poller to use and set it up as appropriate
         if hasattr(select, 'poll') and hasattr(select.poll, 'modify'):
             if not SELECT_TYPE or SELECT_TYPE == 'poll':
-                self.poller = PollPoller(self.fileno, handler, events, self._manage_event_state)
+                self.poller = PollPoller(fileno, handler, events, self._manage_event_state)
 
         if not self.poller and hasattr(select, 'epoll'):
             if not SELECT_TYPE or SELECT_TYPE == 'epoll':
-                self.poller = EPollPoller(self.fileno, handler, events, self._manage_event_state)
+                self.poller = EPollPoller(fileno, handler, events, self._manage_event_state)
 
         if not self.poller and hasattr(select, 'kqueue'):
             if not SELECT_TYPE or SELECT_TYPE == 'kqueue':
-                self.poller = KQueuePoller(self.fileno, handler, events, self._manage_event_state)
+                self.poller = KQueuePoller(fileno, handler, events, self._manage_event_state)
 
         # We couldn't satisfy epoll, kqueue or poll
         if not self.poller:
-            self.poller = SelectPoller(self.fileno, handler, events, self._manage_event_state)
+            self.poller = SelectPoller(fileno, handler, events, self._manage_event_state)
 
     def update_handler(self, fileno, events):
         """
@@ -123,12 +125,12 @@ class IOLoop(object):
 
         # Loop on the poller
         self.poller.start()
+        self.poller.flush_pending_timeouts()
 
     def stop(self):
         """
         Stop the poller's event loop
         """
-        self.poller.update_handler(self.fileno, 0)
         self.poller.open = False
 
 
@@ -171,6 +173,11 @@ class SelectPoller(object):
         if timeout_id in self._timeouts:
             del self._timeouts[timeout_id]
 
+    def flush_pending_timeouts(self):
+        if len(self._timeouts) > 0:
+            time.sleep(SelectPoller.TIMEOUT)
+        self.process_timeouts()
+
     def process_timeouts(self):
         """
         Process our self._timeouts event stack
@@ -202,6 +209,7 @@ class SelectPoller(object):
 
             # Manage our state for updating the poller
             self._manage_event_state()
+
 
     def poll(self):
         # Build our values to pass into select
@@ -377,8 +385,8 @@ class PollPoller(SelectPoller):
         """
         Start the main poller loop. It will loop here until self.closed
         """
+        was_open = self.open
         while self.open:
-
             # Poll our poller
             self.poll()
 
@@ -388,16 +396,26 @@ class PollPoller(SelectPoller):
             # Manage our state for updating the poller
             self._manage_event_state()
 
-    def poll(self):
+        if not was_open:
+            return
 
+        try:
+            pika.log.info("Unregistering poller on fd %d" % self.fileno)
+            self.update_handler(self.fileno, 0)
+            self._poll.unregister(self.fileno)
+        except IOError, err:
+           pika.log.debug("Got IOError while shutting down poller: %s" % repr(err))
+
+    def poll(self):
         # Poll until TIMEOUT waiting for an event
         events = self._poll.poll(int(SelectPoller.TIMEOUT * 1000))
 
         # If we didn't timeout pass the event to the handler
         if events:
-            pika.log.debug("%s: Calling %s", self.__class__.__name__,
-                           self._handler)
-            self._handler(events[0][0], events[0][1])
+            pika.log.debug("%s: Calling %s with %d events", self.__class__.__name__,
+                           self._handler, len(events))
+            for fileno, event in events:
+                self._handler(fileno, event)
 
 
 class EPollPoller(PollPoller):
@@ -418,4 +436,5 @@ class EPollPoller(PollPoller):
         if events:
             pika.log.debug("%s: Calling %s", self.__class__.__name__,
                            self._handler)
-            self._handler(events[0][0], events[0][1])
+            for fileno, event in events:
+                self._handler(fileno, event)
