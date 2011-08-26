@@ -24,11 +24,14 @@ class TornadoConnection(BaseConnection):
 
     def __init__(self, parameters=None,
                  on_open_callback=None,
-                 reconnection_strategy=None):
+                 reconnection_strategy=None,
+                 callback_interval=250):
 
         # Validate we have Tornado installed
         if not IOLoop:
             raise ImportError("Tornado not installed")
+
+        self.callback_interval = callback_interval
 
         BaseConnection.__init__(self, parameters, on_open_callback,
                                 reconnection_strategy)
@@ -44,7 +47,7 @@ class TornadoConnection(BaseConnection):
 
         # Setup a periodic callbacks
         _pc = ioloop.PeriodicCallback(self._manage_event_state,
-                                      0.25,
+                                      self.callback_interval,
                                       self.ioloop)
         _pc.start()
 
