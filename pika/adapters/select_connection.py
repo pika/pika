@@ -310,21 +310,6 @@ class KQueuePoller(SelectPoller):
         # Carry the state we just sent
         self.events = events
 
-    def start(self):
-        """
-        Start the main poller loop. It will loop here until self.closed
-        """
-        while self.open:
-
-            # Call our poll function
-            self.poll()
-
-            # Process our timeouts
-            self.process_timeouts()
-
-            # Manage our state for updating the poller
-            self._manage_event_state()
-
     def poll(self):
 
         # We'll build a bitmask of events that happened in kqueue
@@ -372,21 +357,6 @@ class PollPoller(SelectPoller):
     def update_handler(self, fileno, events):
         self.events = events
         self._poll.modify(fileno, self.events)
-
-    def start(self):
-        """
-        Start the main poller loop. It will loop here until self.closed
-        """
-        while self.open:
-
-            # Poll our poller
-            self.poll()
-
-            # Process our timeouts
-            self.process_timeouts()
-
-            # Manage our state for updating the poller
-            self._manage_event_state()
 
     def poll(self):
 
