@@ -252,7 +252,7 @@ specified a %s. Reconnections will fail.",
         raise NotImplementedError('%s needs to implement this function' %\
                                   self.__class__.__name__)
 
-    def _adapter__disconnect(self):
+    def _adapter_disconnect(self):
         """
         Subclasses should override this to cause the underlying
         transport (socket) to close.
