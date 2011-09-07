@@ -84,7 +84,7 @@ def validate_attribute(method, attribute, attribute_type, value='ignore'):
 def decode_protocol_header_test():
 
     # Raw Frame Data
-    frame_data = 'AMQP\x00\x00\t\x01'
+    frame_data = b'AMQP\x00\x00\t\x01'
 
     # Decode the frame and validate lengths
     frame = decode_frame(frame_data)
@@ -102,7 +102,7 @@ def decode_protocol_header_test():
 
 def decode_header_frame_test():
 
-    frame_data = '\x02\x00\x01\x00\x00\x00\x1a\x00<\x00\x00\x00\x00\x00\x00\x00\x00\x00#\x90\x00\ntext/plain\x01\xce'
+    frame_data = b'\x02\x00\x01\x00\x00\x00\x1a\x00<\x00\x00\x00\x00\x00\x00\x00\x00\x00#\x90\x00\ntext/plain\x01\xce'
 
     # Decode our frame data and validate lengths
     frame = decode_frame(frame_data)
@@ -110,7 +110,7 @@ def decode_header_frame_test():
     validate_attribute(frame, 'channel_number', int, 1)
     validate_attribute(frame, 'properties', spec.BasicProperties)
     validate_attribute(frame.properties, 'user_id', str)
-    validate_attribute(frame.properties, 'timestamp', long)
+    validate_attribute(frame.properties, 'timestamp', int)
     validate_attribute(frame.properties, 'delivery_mode', int, 1)
     validate_attribute(frame.properties, 'app_id', str)
     validate_attribute(frame.properties, 'priority', int)
@@ -127,19 +127,19 @@ def decode_header_frame_test():
 
 def decode_body_frame_test():
 
-    frame_data = '\x03\x00\x01\x00\x00\x00#Hello World #9: 1299445757.73953295\xce'
+    frame_data = b'\x03\x00\x01\x00\x00\x00#Hello World #9: 1299445757.73953295\xce'
 
     # Decode our frame data and validate lengths
     frame = decode_frame(frame_data)
 
     validate_attribute(frame, 'frame_type', int, 3)
     validate_attribute(frame, 'channel_number', int, 1)
-    validate_attribute(frame, 'fragment', str, 'Hello World #9: 1299445757.73953295')
+    validate_attribute(frame, 'fragment', bytes, b'Hello World #9: 1299445757.73953295')
 
 
 def decode_connection_start_test():
 
-    frame_data = '\x01\x00\x00\x00\x00\x00\xdd\x00\n\x00\n\x00\t\x00\x00\x00\xb8\tcopyrightS\x00\x00\x00$Copyright (C) 2007-2011 VMware, Inc.\x0binformationS\x00\x00\x005Licensed under the MPL.  See http://www.rabbitmq.com/\x08platformS\x00\x00\x00\nErlang/OTP\x07productS\x00\x00\x00\x08RabbitMQ\x07versionS\x00\x00\x00\x052.3.1\x00\x00\x00\x0ePLAIN AMQPLAIN\x00\x00\x00\x05en_US\xce'
+    frame_data = b'\x01\x00\x00\x00\x00\x00\xdd\x00\n\x00\n\x00\t\x00\x00\x00\xb8\tcopyrightS\x00\x00\x00$Copyright (C) 2007-2011 VMware, Inc.\x0binformationS\x00\x00\x005Licensed under the MPL.  See http://www.rabbitmq.com/\x08platformS\x00\x00\x00\nErlang/OTP\x07productS\x00\x00\x00\x08RabbitMQ\x07versionS\x00\x00\x00\x052.3.1\x00\x00\x00\x0ePLAIN AMQPLAIN\x00\x00\x00\x05en_US\xce'
 
     # Decode our frame data and validate lengths
     frame = decode_frame(frame_data)
@@ -156,7 +156,7 @@ def decode_connection_start_test():
 
 def decode_connection_startok_test():
 
-    frame_data = '\x01\x00\x00\x00\x00\x00P\x00\n\x00\x0b\x00\x00\x00,\x07productS\x00\x00\x00\x1fPika Python AMQP Client Library\x05PLAIN\x00\x00\x00\x0c\x00guest\x00guest\x05en_US\xce'
+    frame_data = b'\x01\x00\x00\x00\x00\x00P\x00\n\x00\x0b\x00\x00\x00,\x07productS\x00\x00\x00\x1fPika Python AMQP Client Library\x05PLAIN\x00\x00\x00\x0c\x00guest\x00guest\x05en_US\xce'
 
     # Decode our frame data and validate lengths
     frame = decode_frame(frame_data)
@@ -172,7 +172,7 @@ def decode_connection_startok_test():
 
 def decode_connection_tune_test():
 
-    frame_data = '\x01\x00\x00\x00\x00\x00\x0c\x00\n\x00\x1e\x00\x00\x00\x02\x00\x00\x00\x00\xce'
+    frame_data = b'\x01\x00\x00\x00\x00\x00\x0c\x00\n\x00\x1e\x00\x00\x00\x02\x00\x00\x00\x00\xce'
 
     # Decode our frame data and validate lengths
     frame = decode_frame(frame_data)
@@ -187,7 +187,7 @@ def decode_connection_tune_test():
 
 def decode_connection_tuneok_test():
 
-    frame_data = '\x01\x00\x00\x00\x00\x00\x0c\x00\n\x00\x1f\x00\x00\x00\x02\x00\x00\x00\x00\xce'
+    frame_data = b'\x01\x00\x00\x00\x00\x00\x0c\x00\n\x00\x1f\x00\x00\x00\x02\x00\x00\x00\x00\xce'
 
     # Decode our frame data and validate lengths
     frame = decode_frame(frame_data)
@@ -202,7 +202,7 @@ def decode_connection_tuneok_test():
 
 def decode_connection_open_test():
 
-    frame_data = '\x01\x00\x00\x00\x00\x00\x08\x00\n\x00(\x01/\x00\x01\xce'
+    frame_data = b'\x01\x00\x00\x00\x00\x00\x08\x00\n\x00(\x01/\x00\x01\xce'
 
     # Decode our frame data and validate lengths
     frame = decode_frame(frame_data)
@@ -217,7 +217,7 @@ def decode_connection_open_test():
 
 def decode_connection_openok_test():
 
-    frame_data = '\x01\x00\x00\x00\x00\x00\x05\x00\n\x00)\x00\xce'
+    frame_data = b'\x01\x00\x00\x00\x00\x00\x05\x00\n\x00)\x00\xce'
 
     # Decode our frame data and validate lengths
     frame = decode_frame(frame_data)
@@ -230,7 +230,7 @@ def decode_connection_openok_test():
 
 def decode_connection_close_test():
 
-    frame_data = '\x01\x00\x00\x00\x00\x00\x1a\x00\n\x002\x00\xc8\x0fNormal shutdown\x00\x00\x00\x00\xce'
+    frame_data = b'\x01\x00\x00\x00\x00\x00\x1a\x00\n\x002\x00\xc8\x0fNormal shutdown\x00\x00\x00\x00\xce'
 
     # Decode our frame data and validate lengths
     frame = decode_frame(frame_data)
@@ -246,7 +246,7 @@ def decode_connection_close_test():
 
 def decode_connection_closeok_test():
 
-    frame_data = '\x01\x00\x00\x00\x00\x00\x04\x00\n\x003\xce'
+    frame_data = b'\x01\x00\x00\x00\x00\x00\x04\x00\n\x003\xce'
 
     # Decode our frame data and validate lengths
     frame = decode_frame(frame_data)
@@ -257,7 +257,7 @@ def decode_connection_closeok_test():
 
 def decode_channel_open_test():
 
-    frame_data = '\x01\x00\x01\x00\x00\x00\x05\x00\x14\x00\n\x00\xce'
+    frame_data = b'\x01\x00\x01\x00\x00\x00\x05\x00\x14\x00\n\x00\xce'
 
     # Decode our frame data and validate lengths
     frame = decode_frame(frame_data)
@@ -270,7 +270,7 @@ def decode_channel_open_test():
 
 def decode_channel_openok_test():
 
-    frame_data = '\x01\x00\x01\x00\x00\x00\x08\x00\x14\x00\x0b\x00\x00\x00\x00\xce'
+    frame_data = b'\x01\x00\x01\x00\x00\x00\x08\x00\x14\x00\x0b\x00\x00\x00\x00\xce'
 
     # Decode our frame data and validate lengths
     frame = decode_frame(frame_data)
@@ -283,7 +283,7 @@ def decode_channel_openok_test():
 
 def decode_queue_declare_test():
 
-    frame_data = '\x01\x00\x01\x00\x00\x00\x10\x002\x00\n\x00\x00\x04test\x02\x00\x00\x00\x00\xce'
+    frame_data = b'\x01\x00\x01\x00\x00\x00\x10\x002\x00\n\x00\x00\x04test\x02\x00\x00\x00\x00\xce'
 
     # Decode our frame data and validate lengths
     frame = decode_frame(frame_data)
@@ -303,7 +303,7 @@ def decode_queue_declare_test():
 
 def decode_queue_declareok_test():
 
-    frame_data = '\x01\x00\x01\x00\x00\x00\x11\x002\x00\x0b\x04test\x00\x00\x00\x00\x00\x00\x00\x00\xce'
+    frame_data = b'\x01\x00\x01\x00\x00\x00\x11\x002\x00\x0b\x04test\x00\x00\x00\x00\x00\x00\x00\x00\xce'
 
     # Decode our frame data and validate lengths
     frame = decode_frame(frame_data)
@@ -318,7 +318,7 @@ def decode_queue_declareok_test():
 
 def decode_exchange_declare_test():
 
-    frame_data = '\x01\x00\x01\x00\x00\x00/\x00(\x00\n\x00\x00\x1ctest-blocking_exchange-34219\x06direct\x04\x00\x00\x00\x00\xce'
+    frame_data = b'\x01\x00\x01\x00\x00\x00/\x00(\x00\n\x00\x00\x1ctest-blocking_exchange-34219\x06direct\x04\x00\x00\x00\x00\xce'
 
     # Decode our frame data and validate lengths
     frame = decode_frame(frame_data)
@@ -339,7 +339,7 @@ def decode_exchange_declare_test():
 
 def decode_exchange_declareok_test():
 
-    frame_data = '\x01\x00\x01\x00\x00\x00\x04\x00(\x00\x0b\xce'
+    frame_data = b'\x01\x00\x01\x00\x00\x00\x04\x00(\x00\x0b\xce'
 
     # Decode our frame data and validate lengths
     frame = decode_frame(frame_data)
@@ -350,7 +350,7 @@ def decode_exchange_declareok_test():
 
 def decode_queue_bind_test():
 
-    frame_data = '\x01\x00\x01\x00\x00\x00}\x002\x00\x14\x00\x00\x1btest-blocking_consume-34219\x1ctest-blocking_exchange-342198test-blocking_exchange-34219.test-blocking_consume-34219\x00\x00\x00\x00\x00\xce'
+    frame_data = b'\x01\x00\x01\x00\x00\x00}\x002\x00\x14\x00\x00\x1btest-blocking_consume-34219\x1ctest-blocking_exchange-342198test-blocking_exchange-34219.test-blocking_consume-34219\x00\x00\x00\x00\x00\xce'
 
     # Decode our frame data and validate lengths
     frame = decode_frame(frame_data)
@@ -368,7 +368,7 @@ def decode_queue_bind_test():
 
 def decode_queue_bindok_test():
 
-    frame_data = '\x01\x00\x01\x00\x00\x00\x04\x002\x00\x15\xce'
+    frame_data = b'\x01\x00\x01\x00\x00\x00\x04\x002\x00\x15\xce'
 
     # Decode our frame data and validate lengths
     frame = decode_frame(frame_data)
@@ -379,7 +379,7 @@ def decode_queue_bindok_test():
 
 def decode_basic_publish_test():
 
-    frame_data = '\x01\x00\x01\x00\x00\x00]\x00<\x00(\x00\x00\x1ctest-blocking_exchange-342198test-blocking_exchange-34219.test-blocking_consume-34219\x00\xce'
+    frame_data = b'\x01\x00\x01\x00\x00\x00]\x00<\x00(\x00\x00\x1ctest-blocking_exchange-342198test-blocking_exchange-34219.test-blocking_consume-34219\x00\xce'
 
     # Decode our frame data and validate lengths
     frame = decode_frame(frame_data)
@@ -396,7 +396,7 @@ def decode_basic_publish_test():
 
 def decode_basic_consume_test():
 
-    frame_data = '\x01\x00\x01\x00\x00\x00\x16\x00<\x00\x14\x00\x00\x04test\x05ctag0\x00\x00\x00\x00\x00\xce'
+    frame_data = b'\x01\x00\x01\x00\x00\x00\x16\x00<\x00\x14\x00\x00\x04test\x05ctag0\x00\x00\x00\x00\x00\xce'
 
     # Decode our frame data and validate lengths
     frame = decode_frame(frame_data)
@@ -416,7 +416,7 @@ def decode_basic_consume_test():
 
 def decode_basic_consumeok_test():
 
-    frame_data = '\x01\x00\x01\x00\x00\x00\n\x00<\x00\x15\x05ctag0\xce'
+    frame_data = b'\x01\x00\x01\x00\x00\x00\n\x00<\x00\x15\x05ctag0\xce'
 
     # Decode our frame data and validate lengths
     frame = decode_frame(frame_data)
@@ -429,7 +429,7 @@ def decode_basic_consumeok_test():
 
 def decode_basic_cancel_test():
 
-    frame_data = '\x01\x00\x01\x00\x00\x00\x0b\x00<\x00\x1e\x05ctag0\x00\xce'
+    frame_data = b'\x01\x00\x01\x00\x00\x00\x0b\x00<\x00\x1e\x05ctag0\x00\xce'
 
     # Decode our frame data and validate lengths
     frame = decode_frame(frame_data)
@@ -443,7 +443,7 @@ def decode_basic_cancel_test():
 
 def decode_basic_cancelok_test():
 
-    frame_data = '\x01\x00\x01\x00\x00\x00\n\x00<\x00\x1f\x05ctag0\xce'
+    frame_data = b'\x01\x00\x01\x00\x00\x00\n\x00<\x00\x1f\x05ctag0\xce'
 
     # Decode our frame data and validate lengths
     frame = decode_frame(frame_data)
@@ -456,7 +456,7 @@ def decode_basic_cancelok_test():
 
 def decode_channel_close_test():
 
-    frame_data = '\x01\x00\x01\x00\x00\x00\x1a\x00\x14\x00(\x00\xc8\x0fNormal shutdown\x00\x00\x00\x00\xce'
+    frame_data = b'\x01\x00\x01\x00\x00\x00\x1a\x00\x14\x00(\x00\xc8\x0fNormal shutdown\x00\x00\x00\x00\xce'
 
     # Decode our frame data and validate lengths
     frame = decode_frame(frame_data)
@@ -472,7 +472,7 @@ def decode_channel_close_test():
 
 def decode_channel_closeok_test():
 
-    frame_data = '\x01\x00\x01\x00\x00\x00\x04\x00\x14\x00)\xce'
+    frame_data = b'\x01\x00\x01\x00\x00\x00\x04\x00\x14\x00)\xce'
 
     # Decode our frame data and validate lengths
     frame = decode_frame(frame_data)
@@ -483,7 +483,7 @@ def decode_channel_closeok_test():
 
 def decode_basic_ack_test():
 
-    frame_data = '\x01\x00\x01\x00\x00\x00\r\x00<\x00P\x00\x00\x00\x00\x00\x00\x00\x01\x00\xce'
+    frame_data = b'\x01\x00\x01\x00\x00\x00\r\x00<\x00P\x00\x00\x00\x00\x00\x00\x00\x01\x00\xce'
 
     # Decode our frame data and validate lengths
     frame = decode_frame(frame_data)
@@ -497,7 +497,7 @@ def decode_basic_ack_test():
 
 def decode_confirm_select_test():
 
-    frame_data = '\x01\x00\x01\x00\x00\x00\x05\x00U\x00\n\x00\xce'
+    frame_data = b'\x01\x00\x01\x00\x00\x00\x05\x00U\x00\n\x00\xce'
 
     # Decode our frame data and validate lengths
     frame = decode_frame(frame_data)
@@ -510,7 +510,7 @@ def decode_confirm_select_test():
 
 def decode_confirm_selectok_test():
 
-    frame_data = '\x01\x00\x01\x00\x00\x00\x04\x00U\x00\x0b\xce'
+    frame_data = b'\x01\x00\x01\x00\x00\x00\x04\x00U\x00\x0b\xce'
 
     # Decode our frame data and validate lengths
     frame = decode_frame(frame_data)

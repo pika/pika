@@ -152,7 +152,7 @@ class BlockingConnection(BaseConnection):
         Process our self._timeouts event stack
         """
         # Process our timeout events
-        keys = self._timeouts.keys()
+        keys = list(self._timeouts.keys())
 
         start_time = time.time()
         for timeout_id in keys:
@@ -314,7 +314,7 @@ class BlockingChannel(Channel):
         if consumer_tag:
             self.basic_cancel(consumer_tag)
         else:
-            for consumer_tag in self._consumers.keys():
+            for consumer_tag in list(self._consumers.keys()):
                 self.basic_cancel(consumer_tag)
         self.transport.wait = False
 

@@ -50,12 +50,12 @@ if __name__ == '__main__':
             count += 1
             if not count % 1000:
                 duration = time.time() - start_time
-                print "%i Messages Sent: %.8f per second" % (count,
-                                                             count / duration)
+                print("%i Messages Sent: %.8f per second" % (count,
+                                                             count / duration))
 
         # Close when someone presses CTRL-C
         except KeyboardInterrupt:
             break
 
-    print "CTRL-C Received, closing"
+    print("CTRL-C Received, closing")
     connection.close()

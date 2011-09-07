@@ -268,7 +268,7 @@ class Channel(spec.DriverMixin):
                                self, code, text)
 
         # Send our basic cancel for all of our consumers
-        for consumer_tag in self._consumers.keys():
+        for consumer_tag in list(self._consumers.keys()):
             self.basic_cancel(consumer_tag)
 
         # If we have an open connection send a RPC call to close the channel
@@ -367,7 +367,7 @@ class Channel(spec.DriverMixin):
                                                   exclusive=exclusive),
                                self.transport._on_event_ok,
                                [spec.Basic.ConsumeOk])
-        except exceptions.ChannelClosed, e:
+        except exceptions.ChannelClosed as e:
             del(self._consumers[consumer_tag])
             raise exceptions.ChannelClosed(e)
 
@@ -396,7 +396,7 @@ class Channel(spec.DriverMixin):
         """
         Property method that returns a list of currently active consumers
         """
-        return self._consumers.keys()
+        return list(self._consumers.keys())
 
     def _on_basic_deliver(self, method_frame, header_frame, body):
         """

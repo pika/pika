@@ -45,7 +45,7 @@ def test_blocking_invalid_exchange():
         while True:
             channel.transport.connection.process_data_events()
 
-    except AMQPChannelError, err:
+    except AMQPChannelError as err:
         if err[0] != 404:
             assert False, "Did not receive a Channel.Close"
     connection.close()

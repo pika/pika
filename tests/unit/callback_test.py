@@ -104,7 +104,7 @@ class TestAdd(unittest.TestCase):
 
         # Inserting a duplicate callback emits a warning. This checks
         # that the log object (Mocked in setUp) was called.
-        print self.callback.log.warning.call_args
+        print(self.callback.log.warning.call_args)
         assert self.callback.log.warning.call_args == (
                             ('%s.add: Duplicate callback found for "%s:%s"',
                              'CallbackManager',

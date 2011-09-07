@@ -45,7 +45,7 @@ class TestPublisherConfirms(support.tools.AsyncPattern):
     @nose.tools.nottest
     def _on_queue_declared(self, frame):
         self.channel.confirm_delivery(callback=self._on_confirm)
-        for x in xrange(0, MESSAGES_TO_TEST):
+        for x in range(0, MESSAGES_TO_TEST):
             self._send_message()
 
     @support.tools.timeout

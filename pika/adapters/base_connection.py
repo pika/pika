@@ -122,7 +122,7 @@ class BaseConnection(Connection):
         while remaining_attempts:
             try:
                 return self._socket_connect()
-            except socket.error, err:
+            except socket.error as err:
                 remaining_attempts -= 1
                 if not remaining_attempts:
                     break
@@ -240,14 +240,14 @@ probable permission error when accessing a virtual host")
         log.debug("_do_ssl_handshake")
         try:
             self.socket.do_handshake()
-        except ssl.SSLError, err:
+        except ssl.SSLError as err:
             if err.args[0] in (ssl.SSL_ERROR_WANT_READ,
                                ssl.SSL_ERROR_WANT_WRITE):
                 return
             elif err.args[0] == ssl.SSL_ERROR_EOF:
                 return self.handle_close()
             raise
-        except socket.error, err:
+        except socket.error as err:
             if err.args[0] == errno.ECONNABORTED:
                 return self.handle_close()
         else:
@@ -288,7 +288,7 @@ probable permission error when accessing a virtual host")
                 data = self.socket.recv(self._suggested_buffer_size)
         except socket.timeout:
             raise
-        except socket.error, error:
+        except socket.error as error:
             return self._handle_error(error)
 
         # We received no data, so disconnect
@@ -314,7 +314,7 @@ probable permission error when accessing a virtual host")
             bytes_written = self.socket.send(self.write_buffer)
         except socket.timeout:
             raise
-        except socket.error, error:
+        except socket.error as error:
             return self._handle_error(error)
 
         if bytes_written:

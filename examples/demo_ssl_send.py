@@ -28,22 +28,22 @@ channel = None
 
 
 def on_connected(connection):
-    print "demo_send: Connected to RabbitMQ"
+    print("demo_send: Connected to RabbitMQ")
     connection.channel(on_channel_open)
 
 
 def on_channel_open(channel_):
     global channel
     channel = channel_
-    print "demo_send: Received our Channel"
+    print("demo_send: Received our Channel")
     channel.queue_declare(queue="test", durable=True,
                           exclusive=False, auto_delete=False,
                           callback=on_queue_declared)
 
 
 def on_queue_declared(frame):
-    print "demo_send: Queue Declared"
-    for x in xrange(0, 10):
+    print("demo_send: Queue Declared")
+    for x in range(0, 10):
         message = "Hello World #%i: %.8f" % (x, time.time())
 
         # Create properties with when we sent the message, the app_id
@@ -60,10 +60,10 @@ def on_queue_declared(frame):
                               body=message,
                               properties=properties)
 
-        print "demo_send: Sent %s" % message
+        print("demo_send: Sent %s" % message)
 
     # Close our connection
-    print "demo_send: Closing"
+    print("demo_send: Closing")
     connection.close()
 
 

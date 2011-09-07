@@ -14,16 +14,13 @@ Use this to avoid concatenating or splitting large strings.
 """
 
 import os
-try:
-    import cStringIO as StringIO
-except ImportError:
-    import StringIO
+import io
 
 # Python 2.4 support: os lacks SEEK_END and friends
 try:
     getattr(os, "SEEK_END")
 except AttributeError:
-    os.SEEK_SET, os.SEEK_CUR, os.SEEK_END = range(3)
+    os.SEEK_SET, os.SEEK_CUR, os.SEEK_END = list(range(3))
 
 
 class SimpleBuffer(object):
@@ -47,7 +44,7 @@ class SimpleBuffer(object):
     size = 0
 
     def __init__(self, data=None):
-        self.buf = StringIO.StringIO()
+        self.buf = io.BytesIO()
         if data is not None:
             self.write(data)
         self.buf.seek(0, os.SEEK_END)
@@ -67,7 +64,7 @@ class SimpleBuffer(object):
         Read the data from the buffer, at most 'size' bytes.
         """
         if size is 0:
-            return ''
+            return b''
 
         self.buf.seek(self.offset)
 
@@ -85,11 +82,11 @@ class SimpleBuffer(object):
         """
         self.offset += size
         self.size -= size
-        # GC old StringIO instance and free memory used by it.
+        # GC old BytesIO instance and free memory used by it.
         if self.size == 0 and self.offset > 65536:
             self.buf.close()
             del self.buf
-            self.buf = StringIO.StringIO()
+            self.buf = io.BytesIO()
             self.offset = 0
 
     def read_and_consume(self, size):
@@ -120,7 +117,7 @@ class SimpleBuffer(object):
         """
         self.consume(self.size)
 
-    def __nonzero__(self):
+    def __bool__(self):
         """ Are we empty? """
         return self.size > 0
 

@@ -78,11 +78,11 @@ class Connection(pika.object.Class):
             (self.server_properties, offset) = data.decode_table(encoded, offset)
             length = struct.unpack_from('>I', encoded, offset)[0]
             offset += 4
-            self.mechanisms = encoded[offset:offset + length]
+            self.mechanisms = encoded[offset:offset + length].decode('utf8')
             offset += length
             length = struct.unpack_from('>I', encoded, offset)[0]
             offset += 4
-            self.locales = encoded[offset:offset + length]
+            self.locales = encoded[offset:offset + length].decode('utf8')
             offset += length
             return self
 
@@ -92,9 +92,9 @@ class Connection(pika.object.Class):
             pieces.append(struct.pack('B', self.version_minor))
             data.encode_table(pieces, self.server_properties)
             pieces.append(struct.pack('>I', len(self.mechanisms)))
-            pieces.append(self.mechanisms)
+            pieces.append(self.mechanisms.encode('utf8'))
             pieces.append(struct.pack('>I', len(self.locales)))
-            pieces.append(self.locales)
+            pieces.append(self.locales.encode('utf8'))
             return pieces
 
     class StartOk(pika.object.Method):
@@ -116,15 +116,15 @@ class Connection(pika.object.Class):
             (self.client_properties, offset) = data.decode_table(encoded, offset)
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.mechanism = encoded[offset:offset + length]
+            self.mechanism = encoded[offset:offset + length].decode('utf8')
             offset += length
             length = struct.unpack_from('>I', encoded, offset)[0]
             offset += 4
-            self.response = encoded[offset:offset + length]
+            self.response = encoded[offset:offset + length].decode('utf8')
             offset += length
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.locale = encoded[offset:offset + length]
+            self.locale = encoded[offset:offset + length].decode('utf8')
             offset += length
             return self
 
@@ -132,11 +132,11 @@ class Connection(pika.object.Class):
             pieces = list()
             data.encode_table(pieces, self.client_properties)
             pieces.append(struct.pack('B', len(self.mechanism)))
-            pieces.append(self.mechanism)
+            pieces.append(self.mechanism.encode('utf8'))
             pieces.append(struct.pack('>I', len(self.response)))
-            pieces.append(self.response)
+            pieces.append(self.response.encode('utf8'))
             pieces.append(struct.pack('B', len(self.locale)))
-            pieces.append(self.locale)
+            pieces.append(self.locale.encode('utf8'))
             return pieces
 
     class Secure(pika.object.Method):
@@ -154,14 +154,14 @@ class Connection(pika.object.Class):
         def decode(self, encoded, offset=0):
             length = struct.unpack_from('>I', encoded, offset)[0]
             offset += 4
-            self.challenge = encoded[offset:offset + length]
+            self.challenge = encoded[offset:offset + length].decode('utf8')
             offset += length
             return self
 
         def encode(self):
             pieces = list()
             pieces.append(struct.pack('>I', len(self.challenge)))
-            pieces.append(self.challenge)
+            pieces.append(self.challenge.encode('utf8'))
             return pieces
 
     class SecureOk(pika.object.Method):
@@ -179,14 +179,14 @@ class Connection(pika.object.Class):
         def decode(self, encoded, offset=0):
             length = struct.unpack_from('>I', encoded, offset)[0]
             offset += 4
-            self.response = encoded[offset:offset + length]
+            self.response = encoded[offset:offset + length].decode('utf8')
             offset += length
             return self
 
         def encode(self):
             pieces = list()
             pieces.append(struct.pack('>I', len(self.response)))
-            pieces.append(self.response)
+            pieces.append(self.response.encode('utf8'))
             return pieces
 
     class Tune(pika.object.Method):
@@ -270,11 +270,11 @@ class Connection(pika.object.Class):
         def decode(self, encoded, offset=0):
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.virtual_host = encoded[offset:offset + length]
+            self.virtual_host = encoded[offset:offset + length].decode('utf8')
             offset += length
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.capabilities = encoded[offset:offset + length]
+            self.capabilities = encoded[offset:offset + length].decode('utf8')
             offset += length
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
@@ -283,14 +283,14 @@ class Connection(pika.object.Class):
 
         def encode(self):
             pieces = list()
-            pieces.append(struct.pack('B', len(self.virtual_host)))
-            pieces.append(self.virtual_host)
-            pieces.append(struct.pack('B', len(self.capabilities)))
-            pieces.append(self.capabilities)
+            pieces.append(struct.pack(b'B', len(self.virtual_host)))
+            pieces.append(self.virtual_host.encode('utf8'))
+            pieces.append(struct.pack(b'B', len(self.capabilities)))
+            pieces.append(self.capabilities.encode('utf8'))
             bit_buffer = 0
             if self.insist:
                 bit_buffer = bit_buffer | (1 << 0)
-            pieces.append(struct.pack('B', bit_buffer))
+            pieces.append(struct.pack(b'B', bit_buffer))
             return pieces
 
     class OpenOk(pika.object.Method):
@@ -308,14 +308,14 @@ class Connection(pika.object.Class):
         def decode(self, encoded, offset=0):
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.known_hosts = encoded[offset:offset + length]
+            self.known_hosts = encoded[offset:offset + length].decode('utf8')
             offset += length
             return self
 
         def encode(self):
             pieces = list()
             pieces.append(struct.pack('B', len(self.known_hosts)))
-            pieces.append(self.known_hosts)
+            pieces.append(self.known_hosts.encode('utf8'))
             return pieces
 
     class Close(pika.object.Method):
@@ -338,7 +338,7 @@ class Connection(pika.object.Class):
             offset += 2
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.reply_text = encoded[offset:offset + length]
+            self.reply_text = encoded[offset:offset + length].decode('utf8')
             offset += length
             self.class_id = struct.unpack_from('>H', encoded, offset)[0]
             offset += 2
@@ -350,7 +350,7 @@ class Connection(pika.object.Class):
             pieces = list()
             pieces.append(struct.pack('>H', self.reply_code))
             pieces.append(struct.pack('B', len(self.reply_text)))
-            pieces.append(self.reply_text)
+            pieces.append(self.reply_text.encode('utf8'))
             pieces.append(struct.pack('>H', self.class_id))
             pieces.append(struct.pack('>H', self.method_id))
             return pieces
@@ -395,14 +395,14 @@ class Channel(pika.object.Class):
         def decode(self, encoded, offset=0):
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.out_of_band = encoded[offset:offset + length]
+            self.out_of_band = encoded[offset:offset + length].decode('utf8')
             offset += length
             return self
 
         def encode(self):
             pieces = list()
             pieces.append(struct.pack('B', len(self.out_of_band)))
-            pieces.append(self.out_of_band)
+            pieces.append(self.out_of_band.encode('utf8'))
             return pieces
 
     class OpenOk(pika.object.Method):
@@ -420,14 +420,14 @@ class Channel(pika.object.Class):
         def decode(self, encoded, offset=0):
             length = struct.unpack_from('>I', encoded, offset)[0]
             offset += 4
-            self.channel_id = encoded[offset:offset + length]
+            self.channel_id = encoded[offset:offset + length].decode('utf8')
             offset += length
             return self
 
         def encode(self):
             pieces = list()
             pieces.append(struct.pack('>I', len(self.channel_id)))
-            pieces.append(self.channel_id)
+            pieces.append(self.channel_id.encode('utf8'))
             return pieces
 
     class Flow(pika.object.Method):
@@ -502,7 +502,7 @@ class Channel(pika.object.Class):
             offset += 2
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.reply_text = encoded[offset:offset + length]
+            self.reply_text = encoded[offset:offset + length].decode('utf8')
             offset += length
             self.class_id = struct.unpack_from('>H', encoded, offset)[0]
             offset += 2
@@ -514,7 +514,7 @@ class Channel(pika.object.Class):
             pieces = list()
             pieces.append(struct.pack('>H', self.reply_code))
             pieces.append(struct.pack('B', len(self.reply_text)))
-            pieces.append(self.reply_text)
+            pieces.append(self.reply_text.encode('utf8'))
             pieces.append(struct.pack('>H', self.class_id))
             pieces.append(struct.pack('>H', self.method_id))
             return pieces
@@ -564,7 +564,7 @@ class Access(pika.object.Class):
         def decode(self, encoded, offset=0):
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.realm = encoded[offset:offset + length]
+            self.realm = encoded[offset:offset + length].decocde('utf8').decode('utf8')
             offset += length
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
@@ -578,7 +578,7 @@ class Access(pika.object.Class):
         def encode(self):
             pieces = list()
             pieces.append(struct.pack('B', len(self.realm)))
-            pieces.append(self.realm)
+            pieces.append(self.realm.encode('utf8'))
             bit_buffer = 0
             if self.exclusive:
                 bit_buffer = bit_buffer | (1 << 0)
@@ -646,11 +646,11 @@ class Exchange(pika.object.Class):
             offset += 2
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.exchange = encoded[offset:offset + length]
+            self.exchange = encoded[offset:offset + length].decode('utf8')
             offset += length
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.type = encoded[offset:offset + length]
+            self.type = encoded[offset:offset + length].decode('utf8')
             offset += length
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
@@ -666,9 +666,9 @@ class Exchange(pika.object.Class):
             pieces = list()
             pieces.append(struct.pack('>H', self.ticket))
             pieces.append(struct.pack('B', len(self.exchange)))
-            pieces.append(self.exchange)
+            pieces.append(self.exchange.encode('utf8'))
             pieces.append(struct.pack('B', len(self.type)))
-            pieces.append(self.type)
+            pieces.append(self.type.encode('utf8'))
             bit_buffer = 0
             if self.passive:
                 bit_buffer = bit_buffer | (1 << 0)
@@ -723,7 +723,7 @@ class Exchange(pika.object.Class):
             offset += 2
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.exchange = encoded[offset:offset + length]
+            self.exchange = encoded[offset:offset + length].decode('utf8')
             offset += length
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
@@ -735,7 +735,7 @@ class Exchange(pika.object.Class):
             pieces = list()
             pieces.append(struct.pack('>H', self.ticket))
             pieces.append(struct.pack('B', len(self.exchange)))
-            pieces.append(self.exchange)
+            pieces.append(self.exchange.encode('utf8'))
             bit_buffer = 0
             if self.if_unused:
                 bit_buffer = bit_buffer | (1 << 0)
@@ -785,15 +785,15 @@ class Exchange(pika.object.Class):
             offset += 2
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.destination = encoded[offset:offset + length]
+            self.destination = encoded[offset:offset + length].decode('utf8')
             offset += length
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.source = encoded[offset:offset + length]
+            self.source = encoded[offset:offset + length].decode('utf8')
             offset += length
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.routing_key = encoded[offset:offset + length]
+            self.routing_key = encoded[offset:offset + length].decode('utf8')
             offset += length
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
@@ -805,11 +805,11 @@ class Exchange(pika.object.Class):
             pieces = list()
             pieces.append(struct.pack('>H', self.ticket))
             pieces.append(struct.pack('B', len(self.destination)))
-            pieces.append(self.destination)
+            pieces.append(self.destination.encode('utf8'))
             pieces.append(struct.pack('B', len(self.source)))
-            pieces.append(self.source)
+            pieces.append(self.source.encode('utf8'))
             pieces.append(struct.pack('B', len(self.routing_key)))
-            pieces.append(self.routing_key)
+            pieces.append(self.routing_key.encode('utf8'))
             bit_buffer = 0
             if self.nowait:
                 bit_buffer = bit_buffer | (1 << 0)
@@ -858,15 +858,15 @@ class Exchange(pika.object.Class):
             offset += 2
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.destination = encoded[offset:offset + length]
+            self.destination = encoded[offset:offset + length].decode('utf8')
             offset += length
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.source = encoded[offset:offset + length]
+            self.source = encoded[offset:offset + length].decode('utf8')
             offset += length
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.routing_key = encoded[offset:offset + length]
+            self.routing_key = encoded[offset:offset + length].decode('utf8')
             offset += length
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
@@ -878,11 +878,11 @@ class Exchange(pika.object.Class):
             pieces = list()
             pieces.append(struct.pack('>H', self.ticket))
             pieces.append(struct.pack('B', len(self.destination)))
-            pieces.append(self.destination)
+            pieces.append(self.destination.encode('utf8'))
             pieces.append(struct.pack('B', len(self.source)))
-            pieces.append(self.source)
+            pieces.append(self.source.encode('utf8'))
             pieces.append(struct.pack('B', len(self.routing_key)))
-            pieces.append(self.routing_key)
+            pieces.append(self.routing_key.encode('utf8'))
             bit_buffer = 0
             if self.nowait:
                 bit_buffer = bit_buffer | (1 << 0)
@@ -939,7 +939,7 @@ class Queue(pika.object.Class):
             offset += 2
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.queue = encoded[offset:offset + length]
+            self.queue = encoded[offset:offset + length].decode('utf8')
             offset += length
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
@@ -955,7 +955,7 @@ class Queue(pika.object.Class):
             pieces = list()
             pieces.append(struct.pack('>H', self.ticket))
             pieces.append(struct.pack('B', len(self.queue)))
-            pieces.append(self.queue)
+            pieces.append(self.queue.encode('utf8'))
             bit_buffer = 0
             if self.passive:
                 bit_buffer = bit_buffer | (1 << 0)
@@ -988,7 +988,7 @@ class Queue(pika.object.Class):
         def decode(self, encoded, offset=0):
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.queue = encoded[offset:offset + length]
+            self.queue = encoded[offset:offset + length].decode('utf8')
             offset += length
             self.message_count = struct.unpack_from('>I', encoded, offset)[0]
             offset += 4
@@ -1003,7 +1003,7 @@ class Queue(pika.object.Class):
         def encode(self):
             pieces = list()
             pieces.append(struct.pack('B', len(self.queue)))
-            pieces.append(self.queue)
+            pieces.append(self.queue.encode('utf8'))
             pieces.append(struct.pack('>I', self.message_count))
             pieces.append(struct.pack('>I', self.consumer_count))
             return pieces
@@ -1030,15 +1030,15 @@ class Queue(pika.object.Class):
             offset += 2
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.queue = encoded[offset:offset + length]
+            self.queue = encoded[offset:offset + length].decode('utf8')
             offset += length
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.exchange = encoded[offset:offset + length]
+            self.exchange = encoded[offset:offset + length].decode('utf8')
             offset += length
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.routing_key = encoded[offset:offset + length]
+            self.routing_key = encoded[offset:offset + length].decode('utf8')
             offset += length
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
@@ -1050,11 +1050,11 @@ class Queue(pika.object.Class):
             pieces = list()
             pieces.append(struct.pack('>H', self.ticket))
             pieces.append(struct.pack('B', len(self.queue)))
-            pieces.append(self.queue)
+            pieces.append(self.queue.encode('utf8'))
             pieces.append(struct.pack('B', len(self.exchange)))
-            pieces.append(self.exchange)
+            pieces.append(self.exchange.encode('utf8'))
             pieces.append(struct.pack('B', len(self.routing_key)))
-            pieces.append(self.routing_key)
+            pieces.append(self.routing_key.encode('utf8'))
             bit_buffer = 0
             if self.nowait:
                 bit_buffer = bit_buffer | (1 << 0)
@@ -1100,7 +1100,7 @@ class Queue(pika.object.Class):
             offset += 2
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.queue = encoded[offset:offset + length]
+            self.queue = encoded[offset:offset + length].decode('utf8')
             offset += length
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
@@ -1111,7 +1111,7 @@ class Queue(pika.object.Class):
             pieces = list()
             pieces.append(struct.pack('>H', self.ticket))
             pieces.append(struct.pack('B', len(self.queue)))
-            pieces.append(self.queue)
+            pieces.append(self.queue.encode('utf8'))
             bit_buffer = 0
             if self.nowait:
                 bit_buffer = bit_buffer | (1 << 0)
@@ -1163,7 +1163,7 @@ class Queue(pika.object.Class):
             offset += 2
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.queue = encoded[offset:offset + length]
+            self.queue = encoded[offset:offset + length].decode('utf8')
             offset += length
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
@@ -1176,7 +1176,7 @@ class Queue(pika.object.Class):
             pieces = list()
             pieces.append(struct.pack('>H', self.ticket))
             pieces.append(struct.pack('B', len(self.queue)))
-            pieces.append(self.queue)
+            pieces.append(self.queue.encode('utf8'))
             bit_buffer = 0
             if self.if_unused:
                 bit_buffer = bit_buffer | (1 << 0)
@@ -1232,15 +1232,15 @@ class Queue(pika.object.Class):
             offset += 2
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.queue = encoded[offset:offset + length]
+            self.queue = encoded[offset:offset + length].decode('utf8')
             offset += length
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.exchange = encoded[offset:offset + length]
+            self.exchange = encoded[offset:offset + length].decode('utf8')
             offset += length
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.routing_key = encoded[offset:offset + length]
+            self.routing_key = encoded[offset:offset + length].decode('utf8')
             offset += length
             (self.arguments, offset) = data.decode_table(encoded, offset)
             return self
@@ -1249,11 +1249,11 @@ class Queue(pika.object.Class):
             pieces = list()
             pieces.append(struct.pack('>H', self.ticket))
             pieces.append(struct.pack('B', len(self.queue)))
-            pieces.append(self.queue)
+            pieces.append(self.queue.encode('utf8'))
             pieces.append(struct.pack('B', len(self.exchange)))
-            pieces.append(self.exchange)
+            pieces.append(self.exchange.encode('utf8'))
             pieces.append(struct.pack('B', len(self.routing_key)))
-            pieces.append(self.routing_key)
+            pieces.append(self.routing_key.encode('utf8'))
             data.encode_table(pieces, self.arguments)
             return pieces
 
@@ -1361,11 +1361,11 @@ class Basic(pika.object.Class):
             offset += 2
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.queue = encoded[offset:offset + length]
+            self.queue = encoded[offset:offset + length].decode('utf8')
             offset += length
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.consumer_tag = encoded[offset:offset + length]
+            self.consumer_tag = encoded[offset:offset + length].decode('utf8')
             offset += length
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
@@ -1380,9 +1380,9 @@ class Basic(pika.object.Class):
             pieces = list()
             pieces.append(struct.pack('>H', self.ticket))
             pieces.append(struct.pack('B', len(self.queue)))
-            pieces.append(self.queue)
+            pieces.append(self.queue.encode('utf8'))
             pieces.append(struct.pack('B', len(self.consumer_tag)))
-            pieces.append(self.consumer_tag)
+            pieces.append(self.consumer_tag.encode('utf8'))
             bit_buffer = 0
             if self.no_local:
                 bit_buffer = bit_buffer | (1 << 0)
@@ -1411,14 +1411,14 @@ class Basic(pika.object.Class):
         def decode(self, encoded, offset=0):
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.consumer_tag = encoded[offset:offset + length]
+            self.consumer_tag = encoded[offset:offset + length].decode('utf8')
             offset += length
             return self
 
         def encode(self):
             pieces = list()
             pieces.append(struct.pack('B', len(self.consumer_tag)))
-            pieces.append(self.consumer_tag)
+            pieces.append(self.consumer_tag.encode('utf8'))
             return pieces
 
     class Cancel(pika.object.Method):
@@ -1437,7 +1437,7 @@ class Basic(pika.object.Class):
         def decode(self, encoded, offset=0):
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.consumer_tag = encoded[offset:offset + length]
+            self.consumer_tag = encoded[offset:offset + length].decode('utf8')
             offset += length
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
@@ -1447,7 +1447,7 @@ class Basic(pika.object.Class):
         def encode(self):
             pieces = list()
             pieces.append(struct.pack('B', len(self.consumer_tag)))
-            pieces.append(self.consumer_tag)
+            pieces.append(self.consumer_tag.encode('utf8'))
             bit_buffer = 0
             if self.nowait:
                 bit_buffer = bit_buffer | (1 << 0)
@@ -1469,14 +1469,14 @@ class Basic(pika.object.Class):
         def decode(self, encoded, offset=0):
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.consumer_tag = encoded[offset:offset + length]
+            self.consumer_tag = encoded[offset:offset + length].decode('utf8')
             offset += length
             return self
 
         def encode(self):
             pieces = list()
             pieces.append(struct.pack('B', len(self.consumer_tag)))
-            pieces.append(self.consumer_tag)
+            pieces.append(self.consumer_tag.encode('utf8'))
             return pieces
 
     class Publish(pika.object.Method):
@@ -1500,11 +1500,11 @@ class Basic(pika.object.Class):
             offset += 2
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.exchange = encoded[offset:offset + length]
+            self.exchange = encoded[offset:offset + length].decode('utf8')
             offset += length
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.routing_key = encoded[offset:offset + length]
+            self.routing_key = encoded[offset:offset + length].decode('utf8')
             offset += length
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
@@ -1516,9 +1516,9 @@ class Basic(pika.object.Class):
             pieces = list()
             pieces.append(struct.pack('>H', self.ticket))
             pieces.append(struct.pack('B', len(self.exchange)))
-            pieces.append(self.exchange)
+            pieces.append(self.exchange.encode('utf8'))
             pieces.append(struct.pack('B', len(self.routing_key)))
-            pieces.append(self.routing_key)
+            pieces.append(self.routing_key.encode('utf8'))
             bit_buffer = 0
             if self.mandatory:
                 bit_buffer = bit_buffer | (1 << 0)
@@ -1547,15 +1547,15 @@ class Basic(pika.object.Class):
             offset += 2
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.reply_text = encoded[offset:offset + length]
+            self.reply_text = encoded[offset:offset + length].decode('utf8')
             offset += length
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.exchange = encoded[offset:offset + length]
+            self.exchange = encoded[offset:offset + length].decode('utf8')
             offset += length
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.routing_key = encoded[offset:offset + length]
+            self.routing_key = encoded[offset:offset + length].decode('utf8')
             offset += length
             return self
 
@@ -1563,11 +1563,11 @@ class Basic(pika.object.Class):
             pieces = list()
             pieces.append(struct.pack('>H', self.reply_code))
             pieces.append(struct.pack('B', len(self.reply_text)))
-            pieces.append(self.reply_text)
+            pieces.append(self.reply_text.encode('utf8'))
             pieces.append(struct.pack('B', len(self.exchange)))
-            pieces.append(self.exchange)
+            pieces.append(self.exchange.encode('utf8'))
             pieces.append(struct.pack('B', len(self.routing_key)))
-            pieces.append(self.routing_key)
+            pieces.append(self.routing_key.encode('utf8'))
             return pieces
 
     class Deliver(pika.object.Method):
@@ -1589,7 +1589,7 @@ class Basic(pika.object.Class):
         def decode(self, encoded, offset=0):
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.consumer_tag = encoded[offset:offset + length]
+            self.consumer_tag = encoded[offset:offset + length].decode('utf8')
             offset += length
             self.delivery_tag = struct.unpack_from('>Q', encoded, offset)[0]
             offset += 8
@@ -1600,27 +1600,27 @@ class Basic(pika.object.Class):
             self.redelivered = (bit_buffer & (1 << 0)) != 0
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.exchange = encoded[offset:offset + length]
+            self.exchange = encoded[offset:offset + length].decode('utf8')
             offset += length
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.routing_key = encoded[offset:offset + length]
+            self.routing_key = encoded[offset:offset + length].decode('utf8')
             offset += length
             return self
 
         def encode(self):
             pieces = list()
             pieces.append(struct.pack('B', len(self.consumer_tag)))
-            pieces.append(self.consumer_tag)
+            pieces.append(self.consumer_tag.encode('utf8'))
             pieces.append(struct.pack('>Q', self.delivery_tag))
             bit_buffer = 0
             if self.redelivered:
                 bit_buffer = bit_buffer | (1 << 0)
             pieces.append(struct.pack('B', bit_buffer))
             pieces.append(struct.pack('B', len(self.exchange)))
-            pieces.append(self.exchange)
+            pieces.append(self.exchange.encode('utf8'))
             pieces.append(struct.pack('B', len(self.routing_key)))
-            pieces.append(self.routing_key)
+            pieces.append(self.routing_key.encode('utf8'))
             return pieces
 
     class Get(pika.object.Method):
@@ -1642,7 +1642,7 @@ class Basic(pika.object.Class):
             offset += 2
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.queue = encoded[offset:offset + length]
+            self.queue = encoded[offset:offset + length].decode('utf8')
             offset += length
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
@@ -1653,7 +1653,7 @@ class Basic(pika.object.Class):
             pieces = list()
             pieces.append(struct.pack('>H', self.ticket))
             pieces.append(struct.pack('B', len(self.queue)))
-            pieces.append(self.queue)
+            pieces.append(self.queue.encode('utf8'))
             bit_buffer = 0
             if self.no_ack:
                 bit_buffer = bit_buffer | (1 << 0)
@@ -1686,11 +1686,11 @@ class Basic(pika.object.Class):
             self.redelivered = (bit_buffer & (1 << 0)) != 0
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.exchange = encoded[offset:offset + length]
+            self.exchange = encoded[offset:offset + length].decode('utf8')
             offset += length
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.routing_key = encoded[offset:offset + length]
+            self.routing_key = encoded[offset:offset + length].decode('utf8')
             offset += length
             self.message_count = struct.unpack_from('>I', encoded, offset)[0]
             offset += 4
@@ -1706,9 +1706,9 @@ class Basic(pika.object.Class):
                 bit_buffer = bit_buffer | (1 << 0)
             pieces.append(struct.pack('B', bit_buffer))
             pieces.append(struct.pack('B', len(self.exchange)))
-            pieces.append(self.exchange)
+            pieces.append(self.exchange.encode('utf8'))
             pieces.append(struct.pack('B', len(self.routing_key)))
-            pieces.append(self.routing_key)
+            pieces.append(self.routing_key.encode('utf8'))
             pieces.append(struct.pack('>I', self.message_count))
             return pieces
 
@@ -1727,14 +1727,14 @@ class Basic(pika.object.Class):
         def decode(self, encoded, offset=0):
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.cluster_id = encoded[offset:offset + length]
+            self.cluster_id = encoded[offset:offset + length].decode('utf8')
             offset += length
             return self
 
         def encode(self):
             pieces = list()
             pieces.append(struct.pack('B', len(self.cluster_id)))
-            pieces.append(self.cluster_id)
+            pieces.append(self.cluster_id.encode('utf8'))
             return pieces
 
     class Ack(pika.object.Method):
@@ -2130,14 +2130,14 @@ class BasicProperties(pika.object.Properties):
         if flags & BasicProperties.FLAG_CONTENT_TYPE:
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.content_type = encoded[offset:offset + length]
+            self.content_type = encoded[offset:offset + length].decode('utf8')
             offset += length
         else:
             self.content_type = None
         if flags & BasicProperties.FLAG_CONTENT_ENCODING:
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.content_encoding = encoded[offset:offset + length]
+            self.content_encoding = encoded[offset:offset + length].decode('utf8')
             offset += length
         else:
             self.content_encoding = None
@@ -2158,28 +2158,28 @@ class BasicProperties(pika.object.Properties):
         if flags & BasicProperties.FLAG_CORRELATION_ID:
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.correlation_id = encoded[offset:offset + length]
+            self.correlation_id = encoded[offset:offset + length].decode('utf8')
             offset += length
         else:
             self.correlation_id = None
         if flags & BasicProperties.FLAG_REPLY_TO:
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.reply_to = encoded[offset:offset + length]
+            self.reply_to = encoded[offset:offset + length].decode('utf8')
             offset += length
         else:
             self.reply_to = None
         if flags & BasicProperties.FLAG_EXPIRATION:
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.expiration = encoded[offset:offset + length]
+            self.expiration = encoded[offset:offset + length].decode('utf8')
             offset += length
         else:
             self.expiration = None
         if flags & BasicProperties.FLAG_MESSAGE_ID:
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.message_id = encoded[offset:offset + length]
+            self.message_id = encoded[offset:offset + length].decode('utf8')
             offset += length
         else:
             self.message_id = None
@@ -2191,28 +2191,28 @@ class BasicProperties(pika.object.Properties):
         if flags & BasicProperties.FLAG_TYPE:
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.type = encoded[offset:offset + length]
+            self.type = encoded[offset:offset + length].decode('utf8')
             offset += length
         else:
             self.type = None
         if flags & BasicProperties.FLAG_USER_ID:
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.user_id = encoded[offset:offset + length]
+            self.user_id = encoded[offset:offset + length].decode('utf8')
             offset += length
         else:
             self.user_id = None
         if flags & BasicProperties.FLAG_APP_ID:
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.app_id = encoded[offset:offset + length]
+            self.app_id = encoded[offset:offset + length].decode('utf8')
             offset += length
         else:
             self.app_id = None
         if flags & BasicProperties.FLAG_CLUSTER_ID:
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.cluster_id = encoded[offset:offset + length]
+            self.cluster_id = encoded[offset:offset + length].decode('utf8')
             offset += length
         else:
             self.cluster_id = None
@@ -2224,11 +2224,11 @@ class BasicProperties(pika.object.Properties):
         if self.content_type is not None:
             flags = flags | BasicProperties.FLAG_CONTENT_TYPE
             pieces.append(struct.pack('B', len(self.content_type)))
-            pieces.append(self.content_type)
+            pieces.append(self.content_type.encode('utf8'))
         if self.content_encoding is not None:
             flags = flags | BasicProperties.FLAG_CONTENT_ENCODING
             pieces.append(struct.pack('B', len(self.content_encoding)))
-            pieces.append(self.content_encoding)
+            pieces.append(self.content_encoding.encode('utf8'))
         if self.headers is not None:
             flags = flags | BasicProperties.FLAG_HEADERS
             data.encode_table(pieces, self.headers)
@@ -2241,38 +2241,38 @@ class BasicProperties(pika.object.Properties):
         if self.correlation_id is not None:
             flags = flags | BasicProperties.FLAG_CORRELATION_ID
             pieces.append(struct.pack('B', len(self.correlation_id)))
-            pieces.append(self.correlation_id)
+            pieces.append(self.correlation_id.encode('utf8'))
         if self.reply_to is not None:
             flags = flags | BasicProperties.FLAG_REPLY_TO
             pieces.append(struct.pack('B', len(self.reply_to)))
-            pieces.append(self.reply_to)
+            pieces.append(self.reply_to.encode('utf8'))
         if self.expiration is not None:
             flags = flags | BasicProperties.FLAG_EXPIRATION
             pieces.append(struct.pack('B', len(self.expiration)))
-            pieces.append(self.expiration)
+            pieces.append(self.expiration.encode('utf8'))
         if self.message_id is not None:
             flags = flags | BasicProperties.FLAG_MESSAGE_ID
             pieces.append(struct.pack('B', len(self.message_id)))
-            pieces.append(self.message_id)
+            pieces.append(self.message_id.encode('utf8'))
         if self.timestamp is not None:
             flags = flags | BasicProperties.FLAG_TIMESTAMP
             pieces.append(struct.pack('>Q', self.timestamp))
         if self.type is not None:
             flags = flags | BasicProperties.FLAG_TYPE
             pieces.append(struct.pack('B', len(self.type)))
-            pieces.append(self.type)
+            pieces.append(self.type.encode('utf8'))
         if self.user_id is not None:
             flags = flags | BasicProperties.FLAG_USER_ID
             pieces.append(struct.pack('B', len(self.user_id)))
-            pieces.append(self.user_id)
+            pieces.append(self.user_id.encode('utf8'))
         if self.app_id is not None:
             flags = flags | BasicProperties.FLAG_APP_ID
             pieces.append(struct.pack('B', len(self.app_id)))
-            pieces.append(self.app_id)
+            pieces.append(self.app_id.encode('utf8'))
         if self.cluster_id is not None:
             flags = flags | BasicProperties.FLAG_CLUSTER_ID
             pieces.append(struct.pack('B', len(self.cluster_id)))
-            pieces.append(self.cluster_id)
+            pieces.append(self.cluster_id.encode('utf8'))
         flag_pieces = list()
         while True:
             remainder = flags >> 16

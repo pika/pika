@@ -26,13 +26,13 @@ channel = None
 
 def on_connected(connection):
     global channel
-    print "demo_get: Connected to RabbitMQ"
+    print("demo_get: Connected to RabbitMQ")
     connection.channel(on_channel_open)
 
 
 def on_channel_open(channel_):
     global channel
-    print "demo_get: Received our Channel"
+    print("demo_get: Received our Channel")
     channel = channel_
     channel.queue_declare(queue="test",
                           durable=True,
@@ -42,21 +42,21 @@ def on_channel_open(channel_):
 
 
 def on_queue_declared(frame):
-    print "demo_get: Queue Declared"
+    print("demo_get: Queue Declared")
     connection.add_timeout(1, basic_get)
 
 
 def basic_get():
-    print "demo_get: Invoking Basic.Get"
+    print("demo_get: Invoking Basic.Get")
     channel.basic_get(callback=handle_delivery, queue="test")
     connection.add_timeout(1, basic_get)
 
 
 def handle_delivery(channel, method_frame, header_frame, body):
-    print "demo_get: Basic.GetOk %s delivery-tag %i: %s" %\
+    print("demo_get: Basic.GetOk %s delivery-tag %i: %s" %\
           (header_frame.content_type,
            method_frame.delivery_tag,
-           body)
+           body))
 
     # Ack the message
     channel.basic_ack(delivery_tag=method_frame.delivery_tag)

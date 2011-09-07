@@ -7,6 +7,7 @@
 import struct
 import decimal
 import calendar
+import sys
 from datetime import datetime
 from pika.exceptions import *
 
@@ -16,53 +17,58 @@ def encode_table(pieces, table):
     length_index = len(pieces)
     pieces.append(None)  # placeholder
     tablesize = 0
-    for (key, value) in table.iteritems():
-        pieces.append(struct.pack('B', len(key)))
-        pieces.append(key)
+    for (key, value) in table.items():
+        pieces.append(struct.pack(b'B', len(key)))
+        pieces.append(key.encode('ascii'))
         tablesize = tablesize + 1 + len(key)
         tablesize += encode_value(pieces, value)
 
-    pieces[length_index] = struct.pack('>I', tablesize)
+    pieces[length_index] = struct.pack(b'>I', tablesize)
     return tablesize + 4
 
 
 def encode_value(pieces, value):
     if isinstance(value, str):
-        pieces.append(struct.pack('>cI', 'S', len(value)))
+        pieces.append(struct.pack(b'>cI', b'S', len(value)))
+        pieces.append(value.encode('ascii'))
+        return 5 + len(value)
+    elif isinstance(value, bytes):
+        pieces.append(struct.pack(b'>cI', b'S', len(value)))
         pieces.append(value)
         return 5 + len(value)
     elif isinstance(value, bool):
-        pieces.append(struct.pack('>cB', 't', int(value)))
+        pieces.append(struct.pack(b'>cB', b't', int(value)))
         return 2
     elif isinstance(value, int):
-        pieces.append(struct.pack('>ci', 'I', value))
-        return 5
-    elif isinstance(value, long):
-        pieces.append(struct.pack('>cq', 'l', value))
-        return 9
+        if abs(value) > sys.maxsize:
+            pieces.append(struct.pack(b'>cq', b'l', value))
+            return 9
+        else:
+            pieces.append(struct.pack(b'>ci', b'I', value))
+            return 5
     elif isinstance(value, decimal.Decimal):
         value = value.normalize()
         if value._exp < 0:
             decimals = -value._exp
             raw = int(value * (decimal.Decimal(10) ** decimals))
-            pieces.append(struct.pack('>cBi', 'D', decimals, raw))
+            pieces.append(struct.pack(b'>cBi', b'D', decimals, raw))
         else:
             # per spec, the "decimals" octet is unsigned (!)
-            pieces.append(struct.pack('>cBi', 'D', 0, int(value)))
+            pieces.append(struct.pack(b'>cBi', b'D', 0, int(value)))
         return 6
     elif isinstance(value, datetime):
-        pieces.append(struct.pack('>cQ', 'T',
+        pieces.append(struct.pack(b'>cQ', b'T',
                                   calendar.timegm(value.utctimetuple())))
         return 9
     elif isinstance(value, dict):
-        pieces.append(struct.pack('>c', 'F'))
+        pieces.append(struct.pack(b'>c', b'F'))
         return 1 + encode_table(pieces, value)
     elif isinstance(value, list):
         p = []
         for v in value:
             encode_value(p, v)
-        piece = ''.join(p)
-        pieces.append(struct.pack('>cI', 'A', len(piece)))
+        piece = b''.join(p)
+        pieces.append(struct.pack(b'>cI', b'A', len(piece)))
         pieces.append(piece)
         return 5 + len(piece)
     else:
@@ -72,13 +78,13 @@ def encode_value(pieces, value):
 
 def decode_table(encoded, offset):
     result = {}
-    tablesize = struct.unpack_from('>I', encoded, offset)[0]
+    tablesize = struct.unpack_from(b'>I', encoded, offset)[0]
     offset += 4
     limit = offset + tablesize
     while offset < limit:
-        keylen = struct.unpack_from('B', encoded, offset)[0]
+        keylen = struct.unpack_from(b'B', encoded, offset)[0]
         offset += 1
-        key = encoded[offset: offset + keylen]
+        key = encoded[offset: offset + keylen].decode('ascii')
         offset += keylen
         value, offset = decode_value(encoded, offset)
         result[key] = value
@@ -86,37 +92,37 @@ def decode_table(encoded, offset):
 
 
 def decode_value(encoded, offset):
-    kind = encoded[offset]
+    kind = bytes([encoded[offset]])
     offset += 1
-    if kind == 'S':
-        length = struct.unpack_from('>I', encoded, offset)[0]
+    if kind == b'S':
+        length = struct.unpack_from(b'>I', encoded, offset)[0]
         offset += 4
-        value = encoded[offset: offset + length]
+        value = encoded[offset: offset + length].decode('ascii')
         offset += length
-    elif kind == 't':
-        value = struct.unpack_from('>B', encoded, offset)[0]
+    elif kind == b't':
+        value = struct.unpack_from(b'>B', encoded, offset)[0]
         value = bool(value)
         offset += 1
-    elif kind == 'I':
-        value = struct.unpack_from('>i', encoded, offset)[0]
+    elif kind == b'I':
+        value = struct.unpack_from(b'>i', encoded, offset)[0]
         offset += 4
-    elif kind == 'l':
-        value = long(struct.unpack_from('>q', encoded, offset)[0])
+    elif kind == b'l':
+        value = int(struct.unpack_from(b'>q', encoded, offset)[0])
         offset += 8
-    elif kind == 'D':
-        decimals = struct.unpack_from('B', encoded, offset)[0]
+    elif kind == b'D':
+        decimals = struct.unpack_from(b'B', encoded, offset)[0]
         offset += 1
-        raw = struct.unpack_from('>i', encoded, offset)[0]
+        raw = struct.unpack_from(b'>i', encoded, offset)[0]
         offset += 4
         value = decimal.Decimal(raw) * (decimal.Decimal(10) ** -decimals)
-    elif kind == 'T':
-        value = datetime.utcfromtimestamp(struct.unpack_from('>Q', encoded,
+    elif kind == b'T':
+        value = datetime.utcfromtimestamp(struct.unpack_from(b'>Q', encoded,
                                                              offset)[0])
         offset += 8
-    elif kind == 'F':
+    elif kind == b'F':
         (value, offset) = decode_table(encoded, offset)
-    elif kind == 'A':
-        length = struct.unpack_from('>I', encoded, offset)[0]
+    elif kind == b'A':
+        length = struct.unpack_from(b'>I', encoded, offset)[0]
         offset += 4
         offset_end = offset + length
         value = []
@@ -133,17 +139,17 @@ def validate_type(field_name, value, data_type):
     """
     Validate the data types passed into the RPC Command
     """
-    if data_type == 'bit' and not isinstance(value, bool):
+    if data_type == b'bit' and not isinstance(value, bool):
         raise InvalidRPCParameterType("%s must be a bool" % field_name)
 
-    if data_type == 'shortstr' and \
-       (not isinstance(value, str) and not isinstance(value, unicode)):
+    if data_type == b'shortstr' and \
+       (not isinstance(value, str) and not isinstance(value, str)):
         raise InvalidRPCParameterType("%s must be a str or unicode" % \
                                       field_name)
 
-    if data_type == 'short' and not isinstance(value, int):
+    if data_type == b'short' and not isinstance(value, int):
         raise InvalidRPCParameterType("%s must be a int" % field_name)
 
-    if data_type == 'long' and not (isinstance(value, long) or
+    if data_type == b'long' and not (isinstance(value, int) or
                                     isinstance(value, int)):
         raise InvalidRPCParameterType("%s must be a long" % field_name)

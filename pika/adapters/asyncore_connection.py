@@ -52,7 +52,7 @@ class AsyncoreDispatcher(asyncore.dispatcher):
         while remaining_attempts:
             try:
                 return self._socket_connect()
-            except socket.error, err:
+            except socket.error as err:
                 remaining_attempts -= 1
                 if not remaining_attempts:
                     break
@@ -113,7 +113,7 @@ with %i retry(s) left",
             data = self.recv(self.suggested_buffer_size)
         except socket.timeout:
             raise
-        except socket.error, error:
+        except socket.error as error:
             return self._handle_error(error)
 
         # We received no data, so disconnect
@@ -132,7 +132,7 @@ with %i retry(s) left",
             bytes_written = self.send(data)
         except socket.timeout:
             raise
-        except socket.error, error:
+        except socket.error as error:
             return self._handle_error(error)
 
         # Remove the content we used from our buffer
@@ -180,7 +180,7 @@ with %i retry(s) left",
         Process our self._timeouts event stack
         """
         # Process our timeout events
-        keys = self._timeouts.keys()
+        keys = list(self._timeouts.keys())
         start_time = time()
         for timeout_id in keys:
             if timeout_id in self._timeouts and \
@@ -200,7 +200,7 @@ with %i retry(s) left",
                     asyncore.loop(timeout=1, map=self.map, count=1)
                 else:
                     asyncore.loop(timeout=1, count=1)
-            except select.error, e:
+            except select.error as e:
                 if e[0] == 9:
                     break
             self._process_timeouts()
