@@ -289,7 +289,7 @@ message body received.",
                                    self,                         # Caller
                                    method_frame,                 # Arg 1
                                    header_frame,                 # Arg 2
-                                   ''.join(body_fragments))      # Arg 3
+                                   b''.join(body_fragments))      # Arg 3
 
         # If we don't have a header frame body size, finish. Otherwise keep
         # going and keep our handler function as the frame handler
