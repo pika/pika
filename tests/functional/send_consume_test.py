@@ -22,7 +22,7 @@ class TestSendConsume(support.tools.AsyncPattern):
         self._sent = list()
         self._received = list()
 
-    @nose.tools.timed(2)
+    @nose.tools.timed(10)
     def test_send_and_consume(self):
         self.connection = self._connect(SelectConnection, support.PARAMETERS)
         self.connection.ioloop.start()

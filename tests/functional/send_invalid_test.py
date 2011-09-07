@@ -15,7 +15,7 @@ from pika.adapters import SelectConnection
 
 class TestAsyncSendInvalid(support.tools.AsyncPattern):
 
-    @nose.tools.timed(2)
+    @nose.tools.timed(10)
     def test_send_invalid(self):
         self.confirmed = False
         self.connection = self._connect(SelectConnection, support.PARAMETERS)

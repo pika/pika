@@ -15,7 +15,7 @@ from pika.adapters import SelectConnection
 
 class TestAsyncClientFlow(AsyncPattern):
 
-    @nose.tools.timed(2)
+    @nose.tools.timed(10)
     def test_flow(self):
         self.connection = self._connect(SelectConnection, support.PARAMETERS)
         self.connection.ioloop.start()

@@ -22,7 +22,7 @@ MESSAGES_TO_TEST = 10
 
 class TestPublisherConfirms(support.tools.AsyncPattern):
 
-    @nose.tools.timed(2)
+    @nose.tools.timed(10)
     def test_publisher_confirms(self):
         self.received = 0
         self.last = 0

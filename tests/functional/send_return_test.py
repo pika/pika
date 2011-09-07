@@ -16,7 +16,7 @@ from pika.adapters import SelectConnection
 
 class TestAsyncSendReturn(support.tools.AsyncPattern):
 
-    @nose.tools.timed(2)
+    @nose.tools.timed(10)
     def test_send_and_return(self):
         self.confirmed = False
         self.connection = self._connect(SelectConnection, support.PARAMETERS)
