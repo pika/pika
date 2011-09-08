@@ -57,16 +57,13 @@ class BaseConnection(Connection):
             raise Exception("SSL specified but it is not available")
 
         # Set our defaults
-        self.fd = None
         self.ioloop = None
         self.socket = None
-        self.write_buffer = None
         self._ssl_connecting = False
         self._ssl_handshake = False
 
-        # Event states (base and current)
+        # Base event state
         self.base_events = READ | ERROR
-        self.event_state = self.base_events
 
         # Call our parent's __init__
         Connection.__init__(self, parameters, on_open_callback,
@@ -114,6 +111,11 @@ class BaseConnection(Connection):
         """
         Base connection function to be extended as needed
         """
+        # Clean write_buffer
+        self.write_buffer = None
+
+        # Current event state
+        self.event_state = self.base_events
 
         # Set our remaining attempts to the value or True if it's none
         remaining_attempts = self.parameters.connection_attempts or True
@@ -157,14 +159,16 @@ with %i retry(s) left",
         """
         Called if we are forced to disconnect for some reason from Connection
         """
-        # Remove from the IOLoop
-        self.ioloop.stop()
-
         # Close our socket
         self.socket.close()
+        self.socket = None
 
         # Check our state on disconnect
         self._check_state_on_disconnect()
+
+        # Called on some error. Close up our Connection state
+        if not self.is_closed:
+            self._on_connection_closed(None, True)
 
     def _check_state_on_disconnect(self):
         """
@@ -188,9 +192,7 @@ probable permission error when accessing a virtual host")
         """
         Called internally when we know our socket is disconnected already
         """
-        # Remove from the IOLoop
-        self.ioloop.stop()
-
+        self.socket = None
         # Close up our Connection state
         self._on_connection_closed(None, True)
 
@@ -217,7 +219,7 @@ probable permission error when accessing a virtual host")
         # Socket is closed, so lets just go to our handle_close method
         elif error_code == errno.EBADF:
             log.error("%s: Socket is closed", self.__class__.__name__)
-            self._handle_disconnect()
+            return self._handle_disconnect()
 
         elif self.parameters.ssl and isinstance(error, ssl.SSLError):
             log.error(repr(error))
@@ -265,10 +267,12 @@ probable permission error when accessing a virtual host")
         if events & READ:
             self._handle_read()
 
-        if events & ERROR:
+        # We can be disconnected already, so need to check self.socket again
+        if events & ERROR and self.socket:
             self._handle_error(error)
 
-        if events & WRITE:
+        # We can be disconnected already, so need to check self.socket again
+        if events & WRITE and self.socket:
             self._handle_write()
 
             # Call our event state manager who will decide if we reset our

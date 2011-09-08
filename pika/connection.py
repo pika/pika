@@ -181,15 +181,14 @@ class Connection(object):
         # Define our callback dictionary
         self.callbacks = CallbackManager()
 
-        # On connection callback
-        if on_open_callback:
-            self.add_on_open_callback(on_open_callback)
-
         # Set our configuration options
         self.parameters = parameters or ConnectionParameters()
 
         # If we did not pass in a reconnection_strategy, setup the default
         self.reconnection = reconnection_strategy or NullReconnectionStrategy()
+
+        # Save this callback for reconnections
+        self.on_open_callback = on_open_callback
 
         # Validate that we don't have erase_credentials enabled with a non
         # Null reconnection strategy
@@ -200,11 +199,6 @@ class Connection(object):
 specified a %s. Reconnections will fail.",
                  self.parameters.credentials.__class__.__name__,
                  self.reconnection.__class__.__name__)
-
-        # Add our callback for if we close by being disconnected
-        if not isinstance(self.reconnection, NullReconnectionStrategy) and \
-            hasattr(self.reconnection, 'on_connection_closed'):
-            self.add_on_close_callback(self.reconnection.on_connection_closed)
 
         # Set all of our default connection state values
         self._init_connection_state()
@@ -218,6 +212,18 @@ specified a %s. Reconnections will fail.",
         connection. If we disconnect and reconnect, all of our state needs to
         be wiped
         """
+        # Clear callbacks
+        self.callbacks.clear()
+
+        # On connection callback
+        if self.on_open_callback:
+            self.add_on_open_callback(self.on_open_callback)
+
+        # Add our callback for if we close by being disconnected
+        if not isinstance(self.reconnection, NullReconnectionStrategy) and \
+            hasattr(self.reconnection, 'on_connection_closed'):
+            self.add_on_close_callback(self.reconnection.on_connection_closed)
+
         # Outbound buffer for buffering writes until we're able to send them
         self.outbound_buffer = simplebuffer.SimpleBuffer()
 
@@ -323,6 +329,9 @@ specified a %s. Reconnections will fail.",
 
         # We're now connected at the AMQP level
         self.connection_state = CONNECTION_OPEN
+
+        # Let our reconnection_strategy know we're connected
+        self.reconnection.on_connection_open(self)
 
         # Call our initial callback that we're open
         self.callbacks.process(0, '_on_connection_open', self, self)
@@ -445,8 +454,9 @@ specified a %s. Reconnections will fail.",
         self.closing = code, text
 
         # Remove the reconnection strategy callback for when we close
-        self.callbacks.remove(0, '_on_connection_close',
-                              self.reconnection.on_connection_closed)
+        if code == 200:
+            self.callbacks.remove(0, '_on_connection_closed',
+                                  self.reconnection.on_connection_closed)
 
         if self._channels:
             # If we're not already closed

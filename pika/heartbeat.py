@@ -43,6 +43,14 @@ class HeartbeatChecker(object):
         if we've missed any heartbeats and disconnect our connection if it's
         been idle too long
         """
+        # Something happened with our connection and we not relevant to it
+        if self.connection.heartbeat is not self:
+            return
+
+        # Send heartbeats only for open connections
+        if not self.connection.is_open:
+            self.setup_timer()
+            return
 
         # If our received byte count ==  our connection object's received byte
         # count, the connection has been
@@ -72,7 +80,5 @@ class HeartbeatChecker(object):
         self.sent = self.connection.bytes_sent
         self.received = self.connection.bytes_received
 
-        # If we're still relevant to the connection, add another timeout for
-        # our interval
-        if self.connection.heartbeat is self:
-            self.setup_timer()
+        # Another timeout for our interval
+        self.setup_timer()

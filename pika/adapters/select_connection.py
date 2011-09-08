@@ -8,6 +8,8 @@ import select
 import time
 
 from pika.adapters.base_connection import BaseConnection
+from pika.exceptions import AMQPConnectionError
+from pika.reconnection_strategies import NullReconnectionStrategy
 import pika.log
 
 # One of select, epoll, kqueue or poll
@@ -31,18 +33,49 @@ class SelectConnection(BaseConnection):
         """
         Connect to the given host and port
         """
-        BaseConnection._adapter_connect(self)
-
         # Setup the IOLoop once per connection instance
         if self.ioloop is None:
             self.ioloop = IOLoop(self._manage_event_state)
+        try:
+            BaseConnection._adapter_connect(self)
 
-        # Setup our and start our IOLoop and Poller
-        self.ioloop.fileno = self.socket.fileno()
-        self.ioloop.start_poller(self._handle_events, self.event_state)
+            # Setup our and start our IOLoop and Poller
+            self.ioloop.fileno = self.socket.fileno()
+            self.ioloop.start_poller(self._handle_events, self.event_state)
 
-        # Let everyone know we're connected
-        self._on_connected()
+            # Let everyone know we're connected
+            self._on_connected()
+        except AMQPConnectionError, e:
+            # If we don't have RS just raise the exception
+            if isinstance(self.reconnection, NullReconnectionStrategy):
+                raise e
+            # Trying to reconnect
+            self.reconnection.on_connection_closed(self)
+
+    def _adapter_disconnect(self):
+        """
+        Disconnect from the RabbitMQ Broker
+        """
+        # Remove from the IOLoop on normal shutdown
+        # or if we don't have reconnection strategy
+        if self.closing[0] == 200 or \
+                isinstance(self.reconnection, NullReconnectionStrategy):
+            self.ioloop.stop()
+
+        # Stop polling
+        self.ioloop.stop_poller()
+
+        BaseConnection._adapter_disconnect(self)
+
+    def _handle_disconnect(self):
+        # Remove from the IOLoop if we don't have reconnection strategy
+        if isinstance(self.reconnection, NullReconnectionStrategy):
+            self.ioloop.stop()
+
+        # Stop polling
+        self.ioloop.stop_poller()
+
+        BaseConnection._handle_disconnect(self)
 
     def _flush_outbound(self):
         """
@@ -68,6 +101,7 @@ class IOLoop(object):
     def __init__(self, state_manager):
         self.fileno = None
         self.started = False
+        self.poller = None
         self._timeouts = dict()
         self._manage_event_state = state_manager
 
@@ -132,11 +166,15 @@ class IOLoop(object):
         if not self.poller:
             self.poller = SelectPoller(self.fileno, handler, events)
 
+    def stop_poller(self):
+        self.poller = None
+
     def update_handler(self, fileno, events):
         """
         Pass in the events we want to process
         """
-        self.poller.update_handler(fileno, events)
+        if self.poller:
+            self.poller.update_handler(fileno, events)
 
     def start(self):
         """
