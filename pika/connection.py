@@ -280,7 +280,7 @@ specified a %s. Reconnections will fail.",
         # Try and connect
         self._adapter_connect()
 
-    def _reconnect(self):
+    def _reconnect(self, connection=None):
         """
         Called by the Reconnection Strategy classes or Adapters to disconnect
         and reconnect to the broker
