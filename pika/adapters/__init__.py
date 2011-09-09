@@ -9,3 +9,8 @@ from asyncore_connection import AsyncoreConnection
 from blocking_connection import BlockingConnection
 from select_connection import SelectConnection
 from tornado_connection import TornadoConnection
+try:
+    from twisted_connection import TwistedConnection
+    from twisted_connection import TwistedProtocolConnection
+except ImportError:
+    pass
