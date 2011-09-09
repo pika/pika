@@ -25,6 +25,8 @@ class SelectConnection(BaseConnection):
 
     def __init__(self, parameters=None, on_open_callback=None,
                  reconnection_strategy=None):
+        # Setup the IOLoop
+        self.ioloop = IOLoop(self._manage_event_state)
         # Run our base connection init
         BaseConnection.__init__(self, parameters, on_open_callback,
                                 reconnection_strategy)
@@ -33,9 +35,6 @@ class SelectConnection(BaseConnection):
         """
         Connect to the given host and port
         """
-        # Setup the IOLoop once per connection instance
-        if self.ioloop is None:
-            self.ioloop = IOLoop(self._manage_event_state)
         try:
             BaseConnection._adapter_connect(self)
 

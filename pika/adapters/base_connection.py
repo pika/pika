@@ -57,7 +57,6 @@ class BaseConnection(Connection):
             raise Exception("SSL specified but it is not available")
 
         # Set our defaults
-        self.ioloop = None
         self.socket = None
         self._ssl_connecting = False
         self._ssl_handshake = False

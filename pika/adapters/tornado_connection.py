@@ -33,6 +33,9 @@ class TornadoConnection(BaseConnection):
         if not IOLoop:
             raise ImportError("Tornado not installed")
 
+        # Setup our ioloop
+        self.ioloop = IOLoop.instance()
+
         self.callback_interval = callback_interval
         self._pc = None
 
@@ -43,10 +46,6 @@ class TornadoConnection(BaseConnection):
         """
         Connect to the given host and port
         """
-        # Setup our ioloop
-        if self.ioloop is None:
-            self.ioloop = IOLoop.instance()
-
         # Setup a periodic callbacks
         if self._pc is None:
             self._pc = ioloop.PeriodicCallback(self._manage_event_state,
