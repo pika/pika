@@ -113,7 +113,7 @@ if __name__ == '__main__':
         cc = protocol.ClientCreator(reactor,
                                     TwistedProtocolConnection, parameters)
         d = cc.connectTCP('localhost', 5672)
-        d.addCallback(lambda protocol: protocol.connected)
+        d.addCallback(lambda protocol: protocol.ready)
         d.addCallback(handler.on_connected)
         d.addErrback(twisted_log.err)
     else:

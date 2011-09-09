@@ -323,7 +323,7 @@ class TwistedProtocolConnection(BaseConnection):
     Twisted's non-blocking connectTCP/connectSSL methods for connecting to the
     server.
 
-    It has one caveat: TwistedProtocolConnection objects have a connected
+    It has one caveat: TwistedProtocolConnection objects have a ready
     instance variable that's a Deferred which fires when the connection is
     ready to be used (the initial AMQP handshaking has been done). You *have*
     to wait for this Deferred to fire before requesting a channel.
@@ -338,8 +338,8 @@ class TwistedProtocolConnection(BaseConnection):
     # BaseConnection methods
 
     def __init__(self, parameters):
-        self.connected = defer.Deferred()
-        BaseConnection.__init__(self, parameters, self.connected.callback)
+        self.ready = defer.Deferred()
+        BaseConnection.__init__(self, parameters, self.connectionReady)
 
     def _adapter_connect(self):
         # We get connected by Twisted, as is normal for protocols
@@ -372,9 +372,10 @@ class TwistedProtocolConnection(BaseConnection):
         self._on_data_available(data)
 
     def connectionLost(self, reason):
-        # If the connection was not closed cleanly, log the error
-        if not reason.check(error.ConnectionDone):
-            log.err(reason)
+        # Let the caller know there's been an error
+        d, self.ready = self.ready, None
+        if d:
+            d.errback(reason)
 
     def makeConnection(self, transport):
         self.transport = transport
@@ -383,3 +384,10 @@ class TwistedProtocolConnection(BaseConnection):
     def connectionMade(self):
         # Tell everyone we're connected
         self._on_connected()
+
+    # Our own methods
+
+    def connectionReady(self, res):
+        d, self.ready = self.ready, None
+        if d:
+            d.callback(res)
