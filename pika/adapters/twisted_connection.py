@@ -129,6 +129,15 @@ class TwistedChannel(object):
         d = wrapped(*args, **kwargs)
         return d.addCallback(self.__clear_consumer, queue_name)
 
+    def basic_publish(self, *args, **kwargs):
+        """
+        Make sure the channel is not closed and then publish. Return a Deferred
+        that fires with the result of the channel's basic_publish.
+        """
+        if self.__closed:
+            return defer.fail(self.__closed)
+        return defer.succeed(self.__channel.basic_publish(*args, **kwargs))
+
     def __wrap_channel_method(self, name):
         """
         Wrap Pika's Channel method to make it return a Deferred that fires when
