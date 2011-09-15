@@ -93,6 +93,18 @@ class TestAdapters(object):
             assert False, "Not Connected"
         pass
 
+    @nose.tools.timed(2)
+    def test_twisted_connection(self):
+        try:
+            from pika.adapters import TwistedConnection
+        except ImportError:
+            raise nose.SkipTest
+        self.connection = self._connect(TwistedConnection)
+        self.connection.ioloop.start()
+        if not self.connected:
+            assert False, "Not Connected"
+        pass
+
     def _connect(self, connection_type):
         if self.connection:
             del self.connection
