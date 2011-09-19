@@ -132,10 +132,9 @@ with %i retry(s) left",
                             remaining_attempts)
                 self.socket.close()
                 sleep(self.parameters.retry_delay)
-
-        # Log the errors and raise the  exception
-        log.error("Could not connect: %s", err[-1])
-        raise AMQPConnectionError(err[-1])
+                # Log the errors and raise the  exception
+                log.error("Could not connect: %s", err[-1])
+                raise AMQPConnectionError(err[-1])
 
     def add_timeout(self, delay_sec, callback):
         deadline = time() + delay_sec

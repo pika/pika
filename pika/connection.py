@@ -729,7 +729,7 @@ specified a %s. Reconnections will fail.",
 
         #pika.frame.log_frame(frame.name, marshalled_frame)
         self.outbound_buffer.write(marshalled_frame)
-        #self._flush_outbound()
+        self._flush_outbound()
         self._detect_backpressure()
 
     def _detect_backpressure(self):
