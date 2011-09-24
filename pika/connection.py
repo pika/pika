@@ -370,7 +370,7 @@ specified a %s. Reconnections will fail.",
         # Specify our client properties
         properties = {'product': PRODUCT,
                       'platform': 'Python %s' % python_version(),
-                      'client-properties': {'basic.nack': True,
+                      'capabilities': {'basic.nack': True,
                                             'consumer_cancel_notify': True,
                                             'publisher_confirms': True},
                       'information': 'See http://pika.github.com',
