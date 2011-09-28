@@ -48,7 +48,6 @@ class HeartbeatChecker(object):
         # count, the connection has been
         # stale since the last heartbeat
         if self.received == self.connection.bytes_received:
-
             self.missed += 1
         else:
             # The server has said something. Reset our count.
@@ -59,7 +58,8 @@ class HeartbeatChecker(object):
             duration = self.missed * self.interval
             reason = "Too Many Missed Heartbeats, No reply in %i seconds" % \
                      duration
-            self.connection.close(320, reason)
+            #self.connection.close(320, reason)
+            self.connection.force_reconnect()
             return
 
         # If we've not sent a heartbeat since the last time we ran this
