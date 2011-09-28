@@ -645,6 +645,12 @@ specified a %s. Reconnections will fail.",
                 self._channels[channel_number].close(frame.method.reply_code,
                                                      frame.method.reply_text,
                                                      True)  # Forced close
+                # Send a Channel.CloseOk frame
+                self._rpc(channel_number, spec.Channel.CloseOk())
+                # Remove the CloseOk callback
+                self.callbacks.remove(channel_number,
+                                      spec.Channel.CloseOk)
+
             # Remove the channel from our dict
             del(self._channels[channel_number])
 
