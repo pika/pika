@@ -176,7 +176,7 @@ class SelectPoller(object):
         Process our self._timeouts event stack
         """
         # Process our timeout events
-        keys = self._timeouts.keys()
+        keys = list(self._timeouts.keys())
 
         start_time = time.time()
         for timeout_id in keys:
@@ -220,7 +220,7 @@ class SelectPoller(object):
                                                output_fileno,
                                                error_fileno,
                                                SelectPoller.TIMEOUT)
-        except select.error, error:
+        except select.error as error:
             return self._handler(self.fileno, ERROR, error)
 
         # Build our events bit mask
@@ -334,7 +334,7 @@ class KQueuePoller(SelectPoller):
         try:
             kevents = self._kqueue.control(None, 1000,
                                            SelectPoller.TIMEOUT)
-        except OSError, error:
+        except OSError as error:
             return self._handler(self.fileno, ERROR, error)
 
         # Loop through the events returned to us and build a bitmask

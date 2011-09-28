@@ -33,11 +33,11 @@ class Frame(object_):
         """
         Create the full AMQP wire protocol frame data representation
         """
-        payload = ''.join(pieces)
+        payload = b''.join(pieces)
         return struct.pack('>BHI',
                            self.frame_type,
                            self.channel_number,
-                           len(payload)) + payload + chr(spec.FRAME_END)
+                           len(payload)) + payload + bytes([spec.FRAME_END])
 
 
 class Method(Frame):
@@ -61,7 +61,7 @@ class Method(Frame):
         Return the AMQP binary encoded value of the frame
         """
         pieces = self.method.encode()
-        pieces.insert(0, struct.pack('>I', self.method.INDEX))
+        pieces.insert(0, struct.pack(b'>I', self.method.INDEX))
         return self._marshal(pieces)
 
 
@@ -159,7 +159,7 @@ class ProtocolHeader(object_):
         Return the full AMQP wire protocol frame data representation of the
         ProtocolHeader frame
         """
-        return 'AMQP' + struct.pack('BBBB', 0,
+        return b'AMQP' + struct.pack('BBBB', 0,
                                     self.major,
                                     self.minor,
                                     self.revision)
@@ -289,7 +289,7 @@ message body received.",
                                    self,                         # Caller
                                    method_frame,                 # Arg 1
                                    header_frame,                 # Arg 2
-                                   ''.join(body_fragments))      # Arg 3
+                                   b''.join(body_fragments))      # Arg 3
 
         # If we don't have a header frame body size, finish. Otherwise keep
         # going and keep our handler function as the frame handler
@@ -306,7 +306,7 @@ def decode_frame(data_in):
     """
     # Look to see if it's a protocol header frame
     try:
-        if data_in[0:4] == 'AMQP':
+        if data_in[0:4] == b'AMQP':
             major, minor, revision = struct.unpack_from('BBB', data_in, 5)
             return 8, ProtocolHeader(major, minor, revision)
     except IndexError:
@@ -334,7 +334,7 @@ def decode_frame(data_in):
         return 0, None
 
     # The Frame termination chr is wrong
-    if data_in[frame_end - 1] != chr(spec.FRAME_END):
+    if data_in[frame_end - 1] != spec.FRAME_END:
         raise exceptions.InvalidFrameError("Invalid FRAME_END marker")
 
     # Get the raw frame data

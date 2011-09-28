@@ -66,10 +66,10 @@ def test_blocking_consume_clean_close():
         if start < time() - MAX_DURATION:
             assert False, "Test timed out"
 
-    print "Here"
+    print("Here")
 
-    for x in xrange(0, MESSAGES):
-        message = 'test_blocking_send:%i:%.4f' % (x, time())
+    for x in range(0, MESSAGES):
+        message = ('test_blocking_send:%i:%.4f' % (x, time())).encode('utf-8')
         _sent.append(message)
         channel.basic_publish(exchange=exchange_name,
                               routing_key=routing_key,

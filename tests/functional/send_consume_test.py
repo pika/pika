@@ -22,7 +22,7 @@ class TestSendConsume(support.tools.AsyncPattern):
         self._sent = list()
         self._received = list()
 
-    @nose.tools.timed(2)
+    @nose.tools.timed(10)
     def test_send_and_consume(self):
         self.connection = self._connect(SelectConnection, support.PARAMETERS)
         self.connection.ioloop.start()
@@ -47,7 +47,7 @@ class TestSendConsume(support.tools.AsyncPattern):
 
     @support.tools.timeout
     def _on_queue_declared(self, frame):
-        for x in xrange(0, MESSAGES):
+        for x in range(0, MESSAGES):
             self._sent.append(self._send_message())
         self.channel.basic_consume(self._on_message, queue=self._queue)
 

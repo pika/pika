@@ -30,7 +30,7 @@ def test_blocking_send_get():
                           exclusive=True,
                           auto_delete=True)
 
-    message = 'test_blocking_send:%.4f' % time()
+    message = ('test_blocking_send:%.4f' % time()).encode('utf-8')
     channel.basic_publish(routing_key=queue_name,
                           exchange="",
                           body=message,

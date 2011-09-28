@@ -36,13 +36,13 @@ if __name__ == '__main__':
 
         # It can be empty if the queue is empty so don't do anything
         if method.NAME == 'Basic.GetEmpty':
-            print "demo_get: Empty Basic.Get Response (Basic.GetEmpty)"
+            print("demo_get: Empty Basic.Get Response (Basic.GetEmpty)")
 
         # We have data
         else:
-            print "Basic.GetOk %s delivery-tag %i: %s" % (header.content_type,
+            print("Basic.GetOk %s delivery-tag %i: %s" % (header.content_type,
                                                           method.delivery_tag,
-                                                          body)
+                                                          body))
 
             # Acknowledge the receipt of the data
             channel.basic_ack(delivery_tag=method.delivery_tag)

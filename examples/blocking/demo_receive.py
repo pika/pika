@@ -16,10 +16,10 @@ from pika.connection import ConnectionParameters
 
 def handle_delivery(channel, method_frame, header_frame, body):
     # Receive the data in 3 frames from RabbitMQ
-    print "demo_receive: Basic.Deliver %s delivery-tag %i: %s" % \
+    print("demo_receive: Basic.Deliver %s delivery-tag %i: %s" % \
           (header_frame.content_type,
            method_frame.delivery_tag,
-           body)
+           body))
 
     # Acknowledge the message
     channel.basic_ack(delivery_tag=method_frame.delivery_tag)

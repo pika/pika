@@ -33,14 +33,14 @@ SEND_QTY = 10
 
 
 def on_connected(connection):
-    print "demo_send: Connected to RabbitMQ"
+    print("demo_send: Connected to RabbitMQ")
     connection.channel(on_channel_open)
 
 
 def on_channel_open(channel_):
     global channel
     channel = channel_
-    print "demo_send: Received our Channel"
+    print("demo_send: Received our Channel")
     channel.queue_declare(queue="test", durable=True,
                           exclusive=False, auto_delete=False,
                           callback=on_queue_declared)
@@ -49,7 +49,7 @@ def on_channel_open(channel_):
 def send_message(id):
     global channel
     message = "Hello World #%i" % id
-    print 'demo_send: Sending "%s"' % message
+    print('demo_send: Sending "%s"' % message)
     channel.basic_publish(exchange='',
                           routing_key="test",
                           body=message,
@@ -62,7 +62,7 @@ def send_message(id):
 
 def on_delivered(frame):
     global message_id
-    print "demo_send: Received delivery confirmation %r" % frame.method
+    print("demo_send: Received delivery confirmation %r" % frame.method)
     message_id += 1
     if message_id > SEND_QTY:
         connection.close()
@@ -70,7 +70,7 @@ def on_delivered(frame):
 
 
 def on_queue_declared(frame):
-    print "demo_send: Queue Declared"
+    print("demo_send: Queue Declared")
     channel.confirm_delivery(on_delivered)
     send_message(1)
 

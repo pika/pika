@@ -56,7 +56,7 @@ class TestTable(unittest.TestCase):
         self.assertEqual(self.reencode(value), value)
 
     def test_reencode_long(self):
-        value = {'a': 9128161957192253167L, 'b': -9128161957192253167L}
+        value = {'a': 9128161957192253167, 'b': -9128161957192253167}
         self.assertEqual(self.reencode(value), value)
 
     def test_reencode_negative_decimals(self):
@@ -74,7 +74,7 @@ class TestTable(unittest.TestCase):
     def encode(self, v):
         p = []
         n = pika.data.encode_table(p, v)
-        r = ''.join(p)
+        r = b''.join(p)
         assert len(r) == n
         return r
 

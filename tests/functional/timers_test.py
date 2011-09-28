@@ -23,7 +23,7 @@ class TestAdapters(object):
         self._timeout = False
         self._timer2 = None
 
-    @nose.tools.timed(2)
+    @nose.tools.timed(10)
     def test_asyncore_connection(self):
         self.connection = self._connect(adapters.AsyncoreConnection)
         self.connection.ioloop.start()
@@ -31,7 +31,7 @@ class TestAdapters(object):
             assert False, "Timer tests failed"
         pass
 
-    @nose.tools.timed(2)
+    @nose.tools.timed(10)
     def test_select_connection(self):
         self._set_select_poller('select')
         self.connection = self._connect(adapters.SelectConnection)
@@ -42,7 +42,7 @@ class TestAdapters(object):
             assert False, "Timer tests failed"
         pass
 
-    @nose.tools.timed(2)
+    @nose.tools.timed(10)
     def test_tornado_connection(self):
         # Tornado is 2.5+ only
         if support.PYTHON_VERSION < 2.5 or not tornado_ioloop:
@@ -53,7 +53,7 @@ class TestAdapters(object):
             assert False, "Timer tests failed"
         pass
 
-    @nose.tools.timed(2)
+    @nose.tools.timed(10)
     def test_kqueue_connection(self):
         if not hasattr(select, 'kqueue'):
             raise nose.SkipTest
@@ -66,7 +66,7 @@ class TestAdapters(object):
             assert False, "Timer tests failed"
         pass
 
-    @nose.tools.timed(2)
+    @nose.tools.timed(10)
     def test_epoll_connection(self):
         # EPoll is 2.6+ and linux only
         if not hasattr(select, 'epoll'):
@@ -80,7 +80,7 @@ class TestAdapters(object):
             assert False, "Timer tests failed"
         pass
 
-    @nose.tools.timed(2)
+    @nose.tools.timed(10)
     def test_poll_connection(self):
         # Poll is 2.5+ and linux only due to api incompatibility
         if not hasattr(select, 'poll') or not hasattr(select.poll, 'modify'):

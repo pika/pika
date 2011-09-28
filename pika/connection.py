@@ -176,7 +176,7 @@ class Connection(object):
 
         A reconnection_strategy of None will use the NullReconnectionStrategy
         """
-        self._buffer = ''
+        self._buffer = b''
 
         # Define our callback dictionary
         self.callbacks = CallbackManager()
@@ -450,7 +450,7 @@ specified a %s. Reconnections will fail.",
 
         if self._channels:
             # If we're not already closed
-            for channel_number in self._channels.keys():
+            for channel_number in list(self._channels.keys()):
                 self._channels[channel_number].close(code, text)
         else:
             # If we already don't have any channels, close out
@@ -729,7 +729,7 @@ specified a %s. Reconnections will fail.",
 
         #pika.frame.log_frame(frame.name, marshalled_frame)
         self.outbound_buffer.write(marshalled_frame)
-        #self._flush_outbound()
+        self._flush_outbound()
         self._detect_backpressure()
 
     def _detect_backpressure(self):

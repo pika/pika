@@ -28,6 +28,6 @@ import warnings
 warnings.simplefilter('ignore', UserWarning)
 
 if __name__ == '__main__':
-    print "Platform: %s" % PLATFORM
-    print "Python Version: %s" % PYTHON_VERSION
-    print "RabbitMQ Broker: %s:%i" % (HOST, PORT)
+    print("Platform: %s" % PLATFORM)
+    print("Python Version: %s" % PYTHON_VERSION)
+    print("RabbitMQ Broker: %s:%i" % (HOST, PORT))

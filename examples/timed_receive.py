@@ -30,14 +30,14 @@ start_time = None
 
 def on_connected(connection):
     global channel
-    print "timed_receive: Connected to RabbitMQ"
+    print("timed_receive: Connected to RabbitMQ")
     connection.channel(on_channel_open)
 
 
 def on_channel_open(channel_):
     global channel
     channel = channel_
-    print "timed_receive: Received our Channel"
+    print("timed_receive: Received our Channel")
     channel.queue_declare(queue="test", durable=True,
                           exclusive=False, auto_delete=False,
                           callback=on_queue_declared)
@@ -45,7 +45,7 @@ def on_channel_open(channel_):
 
 def on_queue_declared(frame):
     global start_time
-    print "timed_receive: Queue Declared"
+    print("timed_receive: Queue Declared")
     start_time = time.time()
     channel.basic_consume(handle_delivery, queue='test', no_ack=True)
 
@@ -60,8 +60,8 @@ def handle_delivery(channel, method, header, body):
         rate = sent / duration
         last_count = count
         start_time = now
-        print "timed_receive: %i Messages Received, %.4f per second" %\
-              (count, rate)
+        print("timed_receive: %i Messages Received, %.4f per second" %\
+              (count, rate))
 
 
 if __name__ == '__main__':

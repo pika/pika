@@ -13,7 +13,7 @@ class object_(object):
 
     def __repr__(self):
         items = list()
-        for key, value in self.__dict__.iteritems():
+        for key, value in self.__dict__.items():
             if getattr(self.__class__, key, None) != value:
                 items.append('%s=%s' % (key, value))
         return "<%s(%s)>" % (self.name, items)

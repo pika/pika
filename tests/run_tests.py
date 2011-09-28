@@ -10,6 +10,7 @@ import os
 import subprocess
 import sys
 import warnings
+
 warnings.filterwarnings('ignore', category=DeprecationWarning)
 
 
@@ -17,14 +18,14 @@ def test_for_version(filename):
     """
     Attempts to run specific files to see if they exist
     """
-    stdin, stdout = os.popen4('%s -V' % filename, 'r')
-    response = stdout.read()
-    if response.find('command not found') > 0:
+    try:
+        p = subprocess.Popen([filename, '-V'])
+        return filename.split('-')[1]
+    except OSError:
         return False
-    return filename.split('-')[1]
 
 
-print "Determining options for test environment"
+print("Determining options for test environment")
 
 # Get test directories
 test_directories = []
@@ -33,7 +34,7 @@ for entry in os.listdir('.'):
         test_directories.append(entry)
 
 # Get nosetests versions
-versions = ['nosetests-2.4', 'nosetests-2.5', 'nosetests-2.6', 'nosetests-2.7']
+versions = ['nosetests-3.2']
 valid = set()
 for filename in versions:
     found = test_for_version(filename)
@@ -41,7 +42,7 @@ for filename in versions:
         valid.add(found)
 
 if not valid:
-    print "You must install nose and mock to run tests."
+    print("You must install nose and mock to run tests.")
     sys.exit(1)
 
 # Set up the valid argument options
@@ -118,8 +119,8 @@ if options.coverage:
     options.coverage = '/'.join(parts)
 
 for version in valid:
-    print "Testing %s for Python %s" % (', '.join(test_directories), version)
-    print
+    print("Testing %s for Python %s" % (', '.join(test_directories), version))
+    print()
     command = []
     # Base command
     command.append("nosetests-%s" % version)
@@ -143,4 +144,4 @@ for version in valid:
                             stdout=subprocess.PIPE)
 
     output = proc.communicate()[0]
-    print output
+    print(output)
