@@ -340,10 +340,15 @@ class TwistedProtocolConnection(BaseConnection):
     def __init__(self, parameters):
         self.ready = defer.Deferred()
         BaseConnection.__init__(self, parameters, self.connectionReady)
+        self.ioloop = IOLoopReactorAdapter(self, reactor)
 
     def _adapter_connect(self):
         # We get connected by Twisted, as is normal for protocols
         pass
+
+    def _adapter_disconnect(self):
+        # Disconnect from the server
+        self.transport.loseConnection()
 
     def _send_frame(self, frame):
         marshalled_frame = frame.marshal()
