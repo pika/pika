@@ -44,8 +44,7 @@ class ConnectionParameters(object):
 
     - host: Hostname or IP Address to connect to, defaults to localhost.
     - port: TCP port to connect to, defaults to 5672
-    - retry_connect: Retry to connect to RabbitMQ on socket.error
-    - max_retries: Maximum number of retry attempts. None for infinite
+    - connection_attempts: Maximum number of retry attempts. None for infinite
     - retry_delay: Time to wait, in seconds, before the next attempt
     - virtual_host: RabbitMQ virtual host to use, defaults to /
     - credentials: A instance of a credentials class to authenticate with.
@@ -176,8 +175,6 @@ class Connection(object):
 
         A reconnection_strategy of None will use the NullReconnectionStrategy
         """
-        self._buffer = ''
-
         # Define our callback dictionary
         self.callbacks = CallbackManager()
 
@@ -202,9 +199,8 @@ specified a %s. Reconnections will fail.",
                  self.reconnection.__class__.__name__)
 
         # Add our callback for if we close by being disconnected
-        if not isinstance(self.reconnection, NullReconnectionStrategy) and \
-            hasattr(self.reconnection, 'on_connection_closed'):
-            self.add_on_close_callback(self.reconnection.on_connection_closed)
+        self.add_on_open_callback(self.reconnection.on_connection_open)
+        self.add_on_close_callback(self.reconnection.on_connection_closed)
 
         # Set all of our default connection state values
         self._init_connection_state()
@@ -220,6 +216,9 @@ specified a %s. Reconnections will fail.",
         """
         # Outbound buffer for buffering writes until we're able to send them
         self.outbound_buffer = simplebuffer.SimpleBuffer()
+
+        # Inbound buffer for decoding frames
+        self._frame_buffer = ''
 
         # Connection state, server properties and channels all change on
         # each connection
@@ -274,7 +273,12 @@ specified a %s. Reconnections will fail.",
         # Try and connect
         self._adapter_connect()
 
-    def _reconnect(self):
+    def force_reconnect(self):
+        # We're not closing and we're not open, so reconnect
+        self._on_connection_closed(None)
+        self._connect()
+
+    def _reconnect(self, conn=None):
         """
         Called by the Reconnection Strategy classes or Adapters to disconnect
         and reconnect to the broker
@@ -444,9 +448,9 @@ specified a %s. Reconnections will fail.",
         pika.log.info("Closing connection: %i - %s", code, text)
         self.closing = code, text
 
-        # Remove the reconnection strategy callback for when we close
-        self.callbacks.remove(0, '_on_connection_close',
-                              self.reconnection.on_connection_closed)
+        # Disable reconnection strategy on clean shutdown
+        if code == 200:
+            self.reconnection.set_active(False)
 
         if self._channels:
             # If we're not already closed
@@ -487,6 +491,16 @@ specified a %s. Reconnections will fail.",
         # Disconnect our transport if it didn't call on_disconnected
         if not from_adapter:
             self._adapter_disconnect()
+
+        # Cleanup lingering callbacks
+        if self._channels:
+            # Cleanup channel state
+            for channel_number in self._channels.keys():
+                self._channels[channel_number].cleanup()
+        # Cleanup connection state
+        self.callbacks.remove(0, spec.Connection.Close)
+        self.callbacks.remove(0, spec.Connection.Start)
+        self.callbacks.remove(0, spec.Connection.Open)
 
     def _on_remote_close(self, frame):
         """
@@ -645,16 +659,16 @@ specified a %s. Reconnections will fail.",
         As long as we have buffer try and map out frame data
         """
         # Append the data
-        self._buffer += data_in
+        self._frame_buffer += data_in
 
         # Loop while we have a buffer and are getting frames from it
-        while self._buffer:
+        while self._frame_buffer:
 
             # Try and build a frame
-            consumed_count, frame = pika.frame.decode_frame(self._buffer)
+            consumed_count, frame = pika.frame.decode_frame(self._frame_buffer)
 
             # Remove the frame we just consumed from our data
-            self._buffer = self._buffer[consumed_count:]
+            self._frame_buffer = self._frame_buffer[consumed_count:]
 
             # If we don't have a frame, exit
             if not frame:

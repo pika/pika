@@ -10,6 +10,14 @@ from random import random
 class ReconnectionStrategy(object):
 
     can_reconnect = False
+    _active = True
+
+    @property
+    def is_active(self):
+        return ReconnectionStrategy._active
+
+    def set_active(self, value):
+        ReconnectionStrategy._active = value
 
     def on_connect_attempt(self, conn):
         pass
@@ -58,6 +66,9 @@ class SimpleReconnectionStrategy(ReconnectionStrategy):
         self._reset()
 
     def on_connection_closed(self, conn):
+        if not self.is_active:
+            return
+
         t = self.current_delay * ((random() * self.jitter) + 1)
         info("%s retrying %r in %r seconds (%r attempts)",
                  self.__class__.__name__, conn.parameters, t,

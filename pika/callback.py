@@ -123,12 +123,20 @@ class CallbackManager(object):
                            (callback, prefix, key))
             callback(*args, **keywords)
 
-    def remove(self, prefix, key, callback=None):
+    def remove(self, prefix, key=None, callback=None):
         """
         Remove a callback from the stack by prefix, key and optionally
         the callback itself. If you only pass in prefix and key, all
         callbacks for that prefix and key will be removed.
         """
+        if not key:
+            if not prefix in self._callbacks:
+                return False
+            del(self._callbacks[prefix])
+            pika.log.debug('%s: Removed all with prefix "%s"',
+                           self.__class__.__name__, prefix)
+            return True
+
         # Cast our key to a string so we don't get any weirdness
         # Lets not use objects, since we could have module class/obj
         key = self.sanitize(key)
