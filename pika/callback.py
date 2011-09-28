@@ -137,7 +137,17 @@ class CallbackManager(object):
 
             if callback:
                 # Remove the callback from the _callbacks dict
-                if callback in self._callbacks[prefix][key]:
+                # callback is just a handler
+                if callable(callback):
+                    callbacks = self._callbacks[prefix][key]
+                    for i in xrange(len(callbacks) - 1, -1, -1):
+                        if callbacks[i]['handle'] == callback:
+                            del(callbacks[i])
+                            pika.log.debug('%s: Removed %s for "%s:%s"',
+                                            self.__class__.__name__, callback,
+                                            prefix, key)
+                # callback is a full dict
+                elif callback in self._callbacks[prefix][key]:
                     self._callbacks[prefix][key].remove(callback)
                     pika.log.debug('%s: Removed %s for "%s:%s"',
                                     self.__class__.__name__, callback,
@@ -177,3 +187,7 @@ class CallbackManager(object):
 
         # Prefix, Key or Callback could not be found
         return False
+
+    def clear(self):
+        if self._callbacks:
+            self._callbacks = dict()
