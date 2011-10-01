@@ -213,6 +213,12 @@ class Channel(spec.DriverMixin):
                            self._on_basic_get_empty,
                            False)
 
+        # Add a callback for Basic.Cancel
+        self.callbacks.add(self.channel_number,
+                           spec.Basic.Cancel,
+                           self._on_basic_cancel,
+                           False)
+
         # Add a callback for when the server closes our channel
         self.callbacks.add(self.channel_number,
                            spec.Channel.Close,
@@ -478,6 +484,17 @@ class Channel(spec.DriverMixin):
         When we receive an empty reply do nothing but log it
         """
         pass
+
+    def _on_basic_cancel(self, frame):
+        """
+        When the broker cancels a consumer, delete it from our internal
+        dictionary.
+        """
+        # Delete the consumer from our _consumers dictionary
+        if frame.method.consumer_tag in self._consumers:
+            del self._consumers[frame.method.consumer_tag]
+
+        # The server does not expect a confirmation, so we're done
 
     def flow(self, callback, active):
         """
