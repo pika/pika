@@ -161,8 +161,7 @@ class BlockingConnection(BaseConnection):
                 log.debug('%s: Timeout calling %s',
                           self.__class__.__name__,
                           self._timeouts[timeout_id]['handler'])
-                self._timeouts[timeout_id]['handler']()
-                del(self._timeouts[timeout_id])
+                self._timeouts.pop(timeout_id)['handler']()
 
 
 class BlockingChannelTransport(ChannelTransport):
