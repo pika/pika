@@ -3,7 +3,7 @@
 # For copyright and licensing please refer to COPYING.
 #
 # ***** END LICENSE BLOCK *****
-from pika.log import info
+from pika.log import info,warning
 from random import random
 
 
@@ -22,8 +22,8 @@ class ReconnectionStrategy(object):
     def on_connect_attempt(self, conn):
         pass
 
-    def on_connect_attempt_failure(self, conn):
-        pass
+    def on_connect_attempt_failure(self, conn, err):
+        """Called by the connection on failure to establish initial connection"""
 
     def on_transport_connected(self, conn):
         pass
@@ -61,6 +61,10 @@ class SimpleReconnectionStrategy(ReconnectionStrategy):
 
     def on_connect_attempt(self, conn):
         self.attempts_since_last_success += 1
+    def on_connect_attempt_failure(self, conn, err):
+        """Called by the connection on failure to establish initial connection"""
+        warning( "Connection failure: %s", err )
+        self.on_connection_closed( conn )
 
     def on_connection_open(self, conn):
         self._reset()
