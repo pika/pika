@@ -33,17 +33,20 @@ class BlockingConnection(BaseConnection):
         BaseConnection.__init__(self, parameters, None, reconnection_strategy)
 
     def _adapter_connect(self):
-        BaseConnection._adapter_connect(self)
-        self.socket.setblocking(1)
-        # Set the timeout for reading/writing on the socket
-        self.socket.settimeout(SOCKET_TIMEOUT)
-        self._socket_timeouts = 0
-        self._on_connected()
-        self._timeouts = dict()
-        while not self.is_open:
-            self._flush_outbound()
-            self._handle_read()
-        return self
+        try:
+            BaseConnection._adapter_connect(self)
+            self.socket.setblocking(1)
+            # Set the timeout for reading/writing on the socket
+            self.socket.settimeout(SOCKET_TIMEOUT)
+            self._socket_timeouts = 0
+            self._on_connected()
+            self._timeouts = dict()
+            while not self.is_open:
+                self._flush_outbound()
+                self._handle_read()
+            return self
+        except Exception, err:
+            self.reconnection.on_connect_attempt_failure(self, err)
 
     def close(self, code=200, text='Normal shutdown'):
         BaseConnection.close(self, code, text)
