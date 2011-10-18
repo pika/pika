@@ -271,7 +271,10 @@ specified a %s. Reconnections will fail.",
         self.connection_state = CONNECTION_INIT
 
         # Try and connect
-        self._adapter_connect()
+        try:
+            self._adapter_connect()
+        except Exception, err:
+            self.reconnection.on_connect_attempt_failure(self, err)
 
     def force_reconnect(self):
         # We're not closing and we're not open, so reconnect
