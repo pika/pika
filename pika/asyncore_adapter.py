@@ -54,6 +54,7 @@ import time
 from heapq import heappush, heappop
 from errno import EAGAIN
 import pika.connection
+from pika.exceptions import *
 
 class RabbitDispatcher(asyncore.dispatcher):
     def __init__(self, connection):
@@ -108,6 +109,9 @@ class AsyncoreConnection(pika.connection.Connection):
 
     def flush_outbound(self):
         while self.outbound_buffer:
+            if self.connection_close:
+                # The connection was closed while we weren't looking!
+                raise ConnectionClosed(self.connection_close)
             self.drain_events()
 
     def drain_events(self):
