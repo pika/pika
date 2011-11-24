@@ -129,12 +129,10 @@ class BlockingConnection(BaseConnection):
                                                          transport)
         return self._channels[channel_number]
 
-    def add_timeout(self, delay_sec, callback):
+    def add_timeout(self, deadline, callback):
         """
-        Add a timeout calling callback to our stack that will execute
-        in delay_sec.
+        Add a timeout to the stack by deadline.
         """
-        deadline = time.time() + delay_sec
         timeout_id = '%.8f' % time.time()
         self._timeouts[timeout_id] = {'deadline': deadline,
                                       'handler': callback}
@@ -142,14 +140,14 @@ class BlockingConnection(BaseConnection):
 
     def remove_timeout(self, timeout_id):
         """
-        Remove a timeout from the stack
+        Remove a timeout from the stack.
         """
         if timeout_id in self._timeouts:
             del self._timeouts[timeout_id]
 
     def process_timeouts(self):
         """
-        Process our self._timeouts event stack
+        Process our self._timeouts event stack.
         """
         # Process our timeout events
         keys = self._timeouts.keys()

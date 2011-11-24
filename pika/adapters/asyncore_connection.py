@@ -7,7 +7,7 @@
 import asyncore
 import select
 import socket
-from time import sleep, time
+import time
 
 # See if we have SSL support
 try:
@@ -61,7 +61,7 @@ with %i retry(s) left",
                             err[-1], self.parameters.retry_delay,
                             remaining_attempts)
                 self.socket.close()
-                sleep(self.parameters.retry_delay)
+                time.sleep(self.parameters.retry_delay)
 
         # Log the errors and raise the  exception
         log.error("Could not connect: %s", err[-1])
@@ -161,27 +161,27 @@ with %i retry(s) left",
     # IOLoop Compatibility
     def add_timeout(self, deadline, handler):
         """
-        Add a timeout to the stack by deadline
+        Add a timeout to the stack by deadline.
         """
-        timeout_id = 'id%.8f' % time()
+        timeout_id = '%.8f' % time.time()
         self._timeouts[timeout_id] = {'deadline': deadline,
                                       'handler': handler}
         return timeout_id
 
     def remove_timeout(self, timeout_id):
         """
-        Remove a timeout from the stack
+        Remove a timeout from the stack.
         """
         if timeout_id in self._timeouts:
             del self._timeouts[timeout_id]
 
     def _process_timeouts(self):
         """
-        Process our self._timeouts event stack
+        Process our self._timeouts event stack.
         """
         # Process our timeout events
         keys = self._timeouts.keys()
-        start_time = time()
+        start_time = time.time()
         for timeout_id in keys:
             if timeout_id in self._timeouts and \
                self._timeouts[timeout_id]['deadline'] <= start_time:

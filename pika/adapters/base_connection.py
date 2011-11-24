@@ -21,7 +21,7 @@ Pika provides multiple adapters to connect to RabbitMQ:
 
 import errno
 import socket
-from time import sleep, time
+import time
 
 # See if we have SSL support
 try:
@@ -43,7 +43,7 @@ ERROR = 0x0008
 
 # Connection timeout (2 seconds to open socket)
 CONNECTION_TIMEOUT = 2
-ERRORS_TO_IGNORE =  [errno.EWOULDBLOCK, errno.EAGAIN, errno.EINTR]
+ERRORS_TO_IGNORE = [errno.EWOULDBLOCK, errno.EAGAIN, errno.EINTR]
 
 
 class BaseConnection(Connection):
@@ -132,20 +132,19 @@ class BaseConnection(Connection):
 
             retry = ''
             if remaining_attempts:
-                retry = "Retrying in %i seconds with %i \
-retry(s) left" % (self.parameters.retry_delay, remaining_attempts)
+                retry = "Retrying in %i seconds with %i retry(s) left" % \
+                        (self.parameters.retry_delay, remaining_attempts)
 
             log.warning("Could not connect: %s. %s", reason, retry)
 
             if remaining_attempts:
-                sleep(self.parameters.retry_delay)
+                time.sleep(self.parameters.retry_delay)
 
         # Log the errors and raise the  exception
         log.error("Could not connect: %s", reason)
         raise AMQPConnectionError(reason)
 
-    def add_timeout(self, delay_sec, callback):
-        deadline = time() + delay_sec
+    def add_timeout(self, deadline, callback):
         return self.ioloop.add_timeout(deadline, callback)
 
     def remove_timeout(self, timeout_id):
@@ -233,7 +232,7 @@ probable permission error when accessing a virtual host")
                                ssl.SSL_ERROR_WANT_WRITE):
                 return None
             else:
-                log.error("%s: SSL Socket error on fd %d: %s", 
+                log.error("%s: SSL Socket error on fd %d: %s",
                       self.__class__.__name__,
                       self.socket.fileno(),
                       repr(error))

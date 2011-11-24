@@ -41,7 +41,6 @@ class SelectConnection(BaseConnection):
                                  self.event_state,
                                  self.socket.fileno())
 
-        
         # Let everyone know we're connected
         self._on_connected()
 
@@ -200,7 +199,6 @@ class SelectPoller(object):
         Start the main poller loop. It will loop here until self.closed
         """
         while self.open:
-
             # Call our poller
             self.poll()
 
@@ -340,8 +338,7 @@ class KQueuePoller(SelectPoller):
 
         # Get up to a max of 1000 events or wait until timeout
         try:
-            kevents = self._kqueue.control(None, 1000,
-                                           SelectPoller.TIMEOUT)
+            kevents = self._kqueue.control(None, 1000, SelectPoller.TIMEOUT)
         except OSError, error:
             return self._handler(self.fileno, ERROR, error)
 

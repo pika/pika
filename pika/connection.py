@@ -564,7 +564,7 @@ specified a %s. Reconnections will fail.",
         """
         self._backpressure = value
 
-    def add_timeout(self, delay_sec, callback):
+    def add_timeout(self, deadline, callback):
         """
         Adapters should override to call the callback after the
         specified number of seconds have elapsed, using a timer, or a
@@ -778,7 +778,6 @@ specified a %s. Reconnections will fail.",
         """
         Constructs a RPC method frame and then sends it to the broker
         """
-        #print '_send_method:', channel, method
         self._send_frame(pika.frame.Method(channel_number, method))
 
         if isinstance(content, tuple):
