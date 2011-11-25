@@ -76,7 +76,7 @@ class BaseConnection(Connection):
         self._ssl_handshake = False
 
     def _socket_connect(self):
-        """Create socket and connect to it, using SSL if enabled"""
+        """Create socket and connect to it, using SSL if enabled."""
         # Create our socket and set our socket options
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
         self.socket.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
@@ -112,7 +112,7 @@ class BaseConnection(Connection):
 
     def _adapter_connect(self):
         """
-        Base connection function to be extended as needed
+        Base connection function to be extended as needed.
         """
 
         # Set our remaining attempts to the initial value
@@ -161,7 +161,7 @@ class BaseConnection(Connection):
 
     def _adapter_disconnect(self):
         """
-        Called if we are forced to disconnect for some reason from Connection
+        Called if we are forced to disconnect for some reason from Connection.
         """
         # Remove from the IOLoop
         self.ioloop.stop()
@@ -177,7 +177,7 @@ class BaseConnection(Connection):
         """
         Checks to see if we were in opening a connection with RabbitMQ when
         we were disconnected and raises exceptions for the anticipated
-        exception types
+        exception types.
         """
         if self.connection_state == CONNECTION_PROTOCOL:
             log.error("Incompatible Protocol Versions")
@@ -249,7 +249,7 @@ probable permission error when accessing a virtual host")
 
     def _do_ssl_handshake(self):
         """
-        Copied from python stdlib test_ssl.py
+        Copied from python stdlib test_ssl.py.
 
         """
         log.debug("_do_ssl_handshake")
@@ -292,7 +292,7 @@ probable permission error when accessing a virtual host")
 
     def _handle_read(self):
         """
-        Read from the socket and call our on_data_available with the data
+        Read from the socket and call our on_data_available with the data.
         """
         if self.parameters.ssl and self._ssl_connecting:
             return self._do_ssl_handshake()
@@ -317,7 +317,7 @@ probable permission error when accessing a virtual host")
     def _handle_write(self):
         """
         We only get here when we have data to write, so try and send
-        Pika's suggested buffer size of data (be nice to Windows)
+        Pika's suggested buffer size of data (be nice to Windows).
         """
         if self.parameters.ssl and self._ssl_connecting:
             return self._do_ssl_handshake()
@@ -344,7 +344,7 @@ probable permission error when accessing a virtual host")
         """
         We use this to manage the bitmask for reading/writing/error which
         we want to use to have our io/event handler tell us when we can
-        read/write, etc
+        read/write, etc.
         """
         # Do we have data pending in the outbound buffer?
         if self.outbound_buffer.size:

@@ -108,7 +108,7 @@ class BlockingConnection(BaseConnection):
 
     def channel(self, channel_number=None):
         """
-        Create a new channel with the next available or specified channel #
+        Create a new channel with the next available or specified channel #.
         """
         # We'll loop on this
         self._channel_open = False
@@ -184,7 +184,7 @@ class BlockingChannelTransport(ChannelTransport):
     def rpc(self, method, callback=None, acceptable_replies=None):
         """
         Shortcut wrapper to the Connection's rpc command using its callback
-        stack, passing in our channel number
+        stack, passing in our channel number.
         """
         # Make sure the channel is open
         self._ensure()
@@ -235,7 +235,7 @@ class BlockingChannelTransport(ChannelTransport):
     def send_method(self, method, content=None, wait=True):
         """
         Shortcut wrapper to send a method through our connection, passing in
-        our channel number
+        our channel number.
         """
         self.wait = wait
         self._received_response = False
@@ -243,7 +243,10 @@ class BlockingChannelTransport(ChannelTransport):
 
         # Wait until the outbound buffer is empty
         while self.connection.outbound_buffer.size > 0:
-            self.connection.process_data_events()
+            try:
+                self.connection.process_data_events()
+            except AMQPConnectionError:
+                break
 
         # Wait for a response if needed
         while self.wait and not self._received_response:
@@ -285,7 +288,7 @@ class BlockingChannel(Channel):
         Publish to the channel with the given exchange, routing key and body.
 
         If flow control is enabled and you publish a message while another is
-        sending, a ContentTransmissionForbidden exception ill be generated
+        sending, a ContentTransmissionForbidden exception ill be generated.
         """
         # If properties are not passed in, use the spec's default
         properties = properties or spec.BasicProperties()
