@@ -159,7 +159,7 @@ class ConnectionParameters(object):
 class Connection(object):
 
     """
-    Pika Connection Class
+    Pika Connection Class.
 
     This is the core class that implements communication with RabbitMQ. This
     class should not be invoked directly but rather through the use of an
@@ -173,7 +173,7 @@ class Connection(object):
         a callback function to notify when we have successfully connected
         to the AMQP Broker.
 
-        A reconnection_strategy of None will use the NullReconnectionStrategy
+        A reconnection_strategy of None will use the NullReconnectionStrategy.
         """
         # Define our callback dictionary
         self.callbacks = CallbackManager()
@@ -193,8 +193,8 @@ class Connection(object):
         if self.parameters.credentials.erase_on_connect and \
             not isinstance(self.reconnection, NullReconnectionStrategy):
             # Warn the developer
-            warn("%s was initialized to erase credentials but you have \
-specified a %s. Reconnections will fail.",
+            warn(("%s was initialized to erase credentials but you have "
+                  "specified a %s. Reconnections will fail."),
                  self.parameters.credentials.__class__.__name__,
                  self.reconnection.__class__.__name__)
 
@@ -212,7 +212,7 @@ specified a %s. Reconnections will fail.",
         """
         Initialize or reset all of our internal state variables for a given
         connection. If we disconnect and reconnect, all of our state needs to
-        be wiped
+        be wiped.
         """
         # Outbound buffer for buffering writes until we're able to send them
         self.outbound_buffer = simplebuffer.SimpleBuffer()
@@ -246,7 +246,7 @@ specified a %s. Reconnections will fail.",
 
     def _adapter_connect(self, host, port):
         """
-        Subclasses should override to set up the outbound socket connection
+        Subclasses should override to set up the outbound socket connection.
         """
         raise NotImplementedError('%s needs to implement this function' %\
                                   self.__class__.__name__)
@@ -281,7 +281,7 @@ specified a %s. Reconnections will fail.",
     def _reconnect(self, conn=None):
         """
         Called by the Reconnection Strategy classes or Adapters to disconnect
-        and reconnect to the broker
+        and reconnect to the broker.
         """
         # We're already closing but it may not be from reconnect, so first
         # Add a callback that won't be duplicated
@@ -303,7 +303,7 @@ specified a %s. Reconnections will fail.",
     def _on_connected(self):
         """
         This is called by our connection Adapter to let us know that we've
-        connected and we can notify our connection strategy
+        connected and we can notify our connection strategy.
         """
         # Set our connection state
         self.connection_state = CONNECTION_PROTOCOL
@@ -398,7 +398,7 @@ specified a %s. Reconnections will fail.",
         Once the Broker sends back a Connection.Tune, we will set our tuning
         variables that have been returned to us and kick off the Heartbeat
         monitor if required, send our TuneOk and then the Connection. Open rpc
-        call on channel 0
+        call on channel 0.
         """
         # Set our connection state
         self.connection_state = CONNECTION_TUNE
