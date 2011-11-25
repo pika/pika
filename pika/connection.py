@@ -261,7 +261,7 @@ class Connection(object):
 
     def _connect(self):
         """
-        Call the Adapter's connect method after letting the
+        Call the Adapter's connect method after letting the.
         ReconnectionStrategy know that we're going to do so.
         """
         # Let our RS know what we're up to
@@ -463,7 +463,7 @@ class Connection(object):
     def _on_close_ready(self):
         """
         On a clean shutdown we'll call this once all of our channels are closed
-        Let the Broker know we want to close
+        Let the Broker know we want to close.
         """
         if self.is_closed:
             warn("%s.on_close_ready invoked while closed" %\
