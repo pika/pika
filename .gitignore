@@ -1,4 +1,5 @@
 *.pyc
+*~
 .idea/
 .coverage
 pika.iml

@@ -7,6 +7,7 @@
 import json
 import os
 import sys
+import time
 
 # Detect if we're running in a git repo
 from os.path import exists, normpath
@@ -186,8 +187,8 @@ if __name__ == '__main__':
     # Get a handle to the instance of IOLoop
     ioloop = tornado.ioloop.IOLoop.instance()
 
-    # Add our Pika connect to the IOLoop since we loop on ioloop.start
-    ioloop.add_timeout(1000, application.pika.connect)
+    # Add our Pika connect to the IOLoop with a deadline in 0.1 seconds
+    ioloop.add_timeout(time.time() + .1, application.pika.connect)
 
     # Start the IOLoop
     ioloop.start()

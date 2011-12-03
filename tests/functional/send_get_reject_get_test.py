@@ -11,6 +11,7 @@ get it again to confirm you get the same message as last time.
 import nose
 import support
 import support.tools
+import time
 from pika.adapters import SelectConnection
 
 
@@ -40,16 +41,16 @@ class TestSendGetRejectGet(support.tools.AsyncPattern):
         self.channel.basic_get(callback=self._check_first_message,
                                queue=self._queue)
 
-    @support.tools.timeout
-    def _get_second_message(self):
-        self.channel.basic_get(callback=self._check_second_message,
-                               queue=self._queue)
-
     @support.tools.timeout_cancel
     def _check_first_message(self, channel_number, method, header, body):
         self.channel.basic_reject(method.delivery_tag)
         self.confirm.append(body)
-        self.connection.add_timeout(.25, self._get_second_message)
+        self.connection.add_timeout(time.time() + .2, self._get_second_message)
+
+    @support.tools.timeout
+    def _get_second_message(self):
+        self.channel.basic_get(callback=self._check_second_message,
+                               queue=self._queue)
 
     @support.tools.timeout_cancel
     @support.tools.timeout

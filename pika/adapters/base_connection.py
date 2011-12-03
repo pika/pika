@@ -21,7 +21,7 @@ Pika provides multiple adapters to connect to RabbitMQ:
 
 import errno
 import socket
-from time import sleep, time
+import time
 
 # See if we have SSL support
 try:
@@ -43,7 +43,7 @@ ERROR = 0x0008
 
 # Connection timeout (2 seconds to open socket)
 CONNECTION_TIMEOUT = 2
-ERRORS_TO_IGNORE =  [errno.EWOULDBLOCK, errno.EAGAIN, errno.EINTR]
+ERRORS_TO_IGNORE = [errno.EWOULDBLOCK, errno.EAGAIN, errno.EINTR]
 
 
 class BaseConnection(Connection):
@@ -76,7 +76,7 @@ class BaseConnection(Connection):
         self._ssl_handshake = False
 
     def _socket_connect(self):
-        """Create socket and connect to it, using SSL if enabled"""
+        """Create socket and connect to it, using SSL if enabled."""
         # Create our socket and set our socket options
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
         self.socket.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
@@ -112,7 +112,7 @@ class BaseConnection(Connection):
 
     def _adapter_connect(self):
         """
-        Base connection function to be extended as needed
+        Base connection function to be extended as needed.
         """
 
         # Set our remaining attempts to the initial value
@@ -132,20 +132,19 @@ class BaseConnection(Connection):
 
             retry = ''
             if remaining_attempts:
-                retry = "Retrying in %i seconds with %i \
-retry(s) left" % (self.parameters.retry_delay, remaining_attempts)
+                retry = "Retrying in %i seconds with %i retry(s) left" % \
+                        (self.parameters.retry_delay, remaining_attempts)
 
             log.warning("Could not connect: %s. %s", reason, retry)
 
             if remaining_attempts:
-                sleep(self.parameters.retry_delay)
+                time.sleep(self.parameters.retry_delay)
 
         # Log the errors and raise the  exception
         log.error("Could not connect: %s", reason)
         raise AMQPConnectionError(reason)
 
-    def add_timeout(self, delay_sec, callback):
-        deadline = time() + delay_sec
+    def add_timeout(self, deadline, callback):
         return self.ioloop.add_timeout(deadline, callback)
 
     def remove_timeout(self, timeout_id):
@@ -162,7 +161,7 @@ retry(s) left" % (self.parameters.retry_delay, remaining_attempts)
 
     def _adapter_disconnect(self):
         """
-        Called if we are forced to disconnect for some reason from Connection
+        Called if we are forced to disconnect for some reason from Connection.
         """
         # Remove from the IOLoop
         self.ioloop.stop()
@@ -178,7 +177,7 @@ retry(s) left" % (self.parameters.retry_delay, remaining_attempts)
         """
         Checks to see if we were in opening a connection with RabbitMQ when
         we were disconnected and raises exceptions for the anticipated
-        exception types
+        exception types.
         """
         if self.connection_state == CONNECTION_PROTOCOL:
             log.error("Incompatible Protocol Versions")
@@ -233,7 +232,7 @@ probable permission error when accessing a virtual host")
                                ssl.SSL_ERROR_WANT_WRITE):
                 return None
             else:
-                log.error("%s: SSL Socket error on fd %d: %s", 
+                log.error("%s: SSL Socket error on fd %d: %s",
                       self.__class__.__name__,
                       self.socket.fileno(),
                       repr(error))
@@ -250,7 +249,7 @@ probable permission error when accessing a virtual host")
 
     def _do_ssl_handshake(self):
         """
-        Copied from python stdlib test_ssl.py
+        Copied from python stdlib test_ssl.py.
 
         """
         log.debug("_do_ssl_handshake")
@@ -293,7 +292,7 @@ probable permission error when accessing a virtual host")
 
     def _handle_read(self):
         """
-        Read from the socket and call our on_data_available with the data
+        Read from the socket and call our on_data_available with the data.
         """
         if self.parameters.ssl and self._ssl_connecting:
             return self._do_ssl_handshake()
@@ -318,7 +317,7 @@ probable permission error when accessing a virtual host")
     def _handle_write(self):
         """
         We only get here when we have data to write, so try and send
-        Pika's suggested buffer size of data (be nice to Windows)
+        Pika's suggested buffer size of data (be nice to Windows).
         """
         if self.parameters.ssl and self._ssl_connecting:
             return self._do_ssl_handshake()
@@ -345,7 +344,7 @@ probable permission error when accessing a virtual host")
         """
         We use this to manage the bitmask for reading/writing/error which
         we want to use to have our io/event handler tell us when we can
-        read/write, etc
+        read/write, etc.
         """
         # Do we have data pending in the outbound buffer?
         if self.outbound_buffer.size:

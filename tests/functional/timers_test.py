@@ -10,6 +10,7 @@ Timer tests, make sure we can add and remove timers and that they fire.
 import nose
 import select
 import support
+import time
 
 import pika.adapters as adapters
 from pika.adapters.tornado_connection import IOLoop as tornado_ioloop
@@ -31,7 +32,7 @@ class TestAdapters(object):
             assert False, "Timer tests failed"
         pass
 
-    @nose.tools.timed(2)
+    @nose.tools.timed(3)
     def test_select_connection(self):
         self._set_select_poller('select')
         self.connection = self._connect(adapters.SelectConnection)
@@ -66,7 +67,7 @@ class TestAdapters(object):
             assert False, "Timer tests failed"
         pass
 
-    @nose.tools.timed(2)
+    @nose.tools.timed(3)
     def test_epoll_connection(self):
         # EPoll is 2.6+ and linux only
         if not hasattr(select, 'epoll'):
@@ -102,8 +103,9 @@ class TestAdapters(object):
 
     def _on_connected(self, connection):
         self.connected = self.connection.is_open
-        self.connection.add_timeout(0.1, self._on_timer)
-        self._timer2 = self.connection.add_timeout(1.5, self._on_fail_timer)
+        self.connection.add_timeout(time.time() + 0.1, self._on_timer)
+        self._timer2 = self.connection.add_timeout(time.time() + 1.5,
+                                                   self._on_fail_timer)
 
     def _on_timer(self):
         self.confirmed = True

@@ -66,8 +66,6 @@ def test_blocking_consume_clean_close():
         if start < time() - MAX_DURATION:
             assert False, "Test timed out"
 
-    print "Here"
-
     for x in xrange(0, MESSAGES):
         message = 'test_blocking_send:%i:%.4f' % (x, time())
         _sent.append(message)

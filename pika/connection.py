@@ -159,7 +159,7 @@ class ConnectionParameters(object):
 class Connection(object):
 
     """
-    Pika Connection Class
+    Pika Connection Class.
 
     This is the core class that implements communication with RabbitMQ. This
     class should not be invoked directly but rather through the use of an
@@ -173,7 +173,7 @@ class Connection(object):
         a callback function to notify when we have successfully connected
         to the AMQP Broker.
 
-        A reconnection_strategy of None will use the NullReconnectionStrategy
+        A reconnection_strategy of None will use the NullReconnectionStrategy.
         """
         # Define our callback dictionary
         self.callbacks = CallbackManager()
@@ -193,8 +193,8 @@ class Connection(object):
         if self.parameters.credentials.erase_on_connect and \
             not isinstance(self.reconnection, NullReconnectionStrategy):
             # Warn the developer
-            warn("%s was initialized to erase credentials but you have \
-specified a %s. Reconnections will fail.",
+            warn(("%s was initialized to erase credentials but you have "
+                  "specified a %s. Reconnections will fail."),
                  self.parameters.credentials.__class__.__name__,
                  self.reconnection.__class__.__name__)
 
@@ -212,7 +212,7 @@ specified a %s. Reconnections will fail.",
         """
         Initialize or reset all of our internal state variables for a given
         connection. If we disconnect and reconnect, all of our state needs to
-        be wiped
+        be wiped.
         """
         # Outbound buffer for buffering writes until we're able to send them
         self.outbound_buffer = simplebuffer.SimpleBuffer()
@@ -246,7 +246,7 @@ specified a %s. Reconnections will fail.",
 
     def _adapter_connect(self, host, port):
         """
-        Subclasses should override to set up the outbound socket connection
+        Subclasses should override to set up the outbound socket connection.
         """
         raise NotImplementedError('%s needs to implement this function' %\
                                   self.__class__.__name__)
@@ -261,7 +261,7 @@ specified a %s. Reconnections will fail.",
 
     def _connect(self):
         """
-        Call the Adapter's connect method after letting the
+        Call the Adapter's connect method after letting the.
         ReconnectionStrategy know that we're going to do so.
         """
         # Let our RS know what we're up to
@@ -281,7 +281,7 @@ specified a %s. Reconnections will fail.",
     def _reconnect(self, conn=None):
         """
         Called by the Reconnection Strategy classes or Adapters to disconnect
-        and reconnect to the broker
+        and reconnect to the broker.
         """
         # We're already closing but it may not be from reconnect, so first
         # Add a callback that won't be duplicated
@@ -303,7 +303,7 @@ specified a %s. Reconnections will fail.",
     def _on_connected(self):
         """
         This is called by our connection Adapter to let us know that we've
-        connected and we can notify our connection strategy
+        connected and we can notify our connection strategy.
         """
         # Set our connection state
         self.connection_state = CONNECTION_PROTOCOL
@@ -398,7 +398,7 @@ specified a %s. Reconnections will fail.",
         Once the Broker sends back a Connection.Tune, we will set our tuning
         variables that have been returned to us and kick off the Heartbeat
         monitor if required, send our TuneOk and then the Connection. Open rpc
-        call on channel 0
+        call on channel 0.
         """
         # Set our connection state
         self.connection_state = CONNECTION_TUNE
@@ -457,13 +457,13 @@ specified a %s. Reconnections will fail.",
             for channel_number in self._channels.keys():
                 self._channels[channel_number].close(code, text)
         else:
-            # If we already don't have any channels, close out
+            # If we don't have any channels, close
             self._on_close_ready()
 
     def _on_close_ready(self):
         """
         On a clean shutdown we'll call this once all of our channels are closed
-        Let the Broker know we want to close
+        Let the Broker know we want to close.
         """
         if self.is_closed:
             warn("%s.on_close_ready invoked while closed" %\
@@ -477,7 +477,7 @@ specified a %s. Reconnections will fail.",
 
     def _on_connection_closed(self, frame, from_adapter=False):
         """
-        Let both our RS and Event object know we closed
+        Let both our RS and Event object know we closed.
         """
         # Set that we're actually closed
         self.connection_state = CONNECTION_CLOSED
@@ -504,13 +504,13 @@ specified a %s. Reconnections will fail.",
 
     def _on_remote_close(self, frame):
         """
-        We've received a remote close from the server
+        We've received a remote close from the server.
         """
         self.close(frame.method.reply_code, frame.method.reply_text)
 
     def _ensure_closed(self):
         """
-        If we're not already closed, make sure we're closed
+        If we're not already closed, make sure we're closed.
         """
         # We carry the connection state and so we want to close if we know
         if self.is_open:
@@ -519,33 +519,33 @@ specified a %s. Reconnections will fail.",
     @property
     def is_closed(self):
         """
-        Returns a boolean reporting the current connection state
+        Returns a boolean reporting the current connection state.
         """
         return self.connection_state == CONNECTION_CLOSED
 
     @property
     def is_closing(self):
         """
-        Returns a boolean reporting the current connection state
+        Returns a boolean reporting the current connection state.
         """
         return self.connection_state == CONNECTION_CLOSING
 
     @property
     def is_open(self):
         """
-        Returns a boolean reporting the current connection state
+        Returns a boolean reporting the current connection state.
         """
         return self.connection_state == CONNECTION_OPEN
 
     def add_on_close_callback(self, callback):
         """
-        Add a callback notification when the connection has closed
+        Add a callback notification when the connection has closed.
         """
         self.callbacks.add(0, '_on_connection_closed', callback, False)
 
     def add_on_open_callback(self, callback):
         """
-        Add a callback notification when the connection has opened
+        Add a callback notification when the connection has opened.
         """
         self.callbacks.add(0, '_on_connection_open', callback, False)
 
@@ -564,7 +564,7 @@ specified a %s. Reconnections will fail.",
         """
         self._backpressure = value
 
-    def add_timeout(self, delay_sec, callback):
+    def add_timeout(self, deadline, callback):
         """
         Adapters should override to call the callback after the
         specified number of seconds have elapsed, using a timer, or a
@@ -614,7 +614,7 @@ specified a %s. Reconnections will fail.",
 
     def _next_channel_number(self):
         """
-        Return the next available channel number or raise on exception
+        Return the next available channel number or raise on exception.
         """
         # Our limit is the the Codec's Channel Max or MAX_CHANNELS if it's None
         limit = self.parameters.channel_max or channel.MAX_CHANNELS
@@ -633,7 +633,7 @@ specified a %s. Reconnections will fail.",
 
     def _on_channel_close(self, frame):
         """
-        RPC Response from when a channel closes itself, remove from our stack
+        RPC Response from when a channel closes itself, remove from our stack.
         """
         channel_number = frame.channel_number
         # If we have this channel number in our channels:
@@ -661,8 +661,8 @@ specified a %s. Reconnections will fail.",
     # Data packet and frame handling functions
     def _on_data_available(self, data_in):
         """
-        This is called by our Adapter, passing in the data from the socket
-        As long as we have buffer try and map out frame data
+        This is called by our Adapter, passing in the data from the socket.
+        As long as we have buffer try and map out frame data.
         """
         # Append the data
         self._frame_buffer += data_in
@@ -741,7 +741,7 @@ specified a %s. Reconnections will fail.",
     def _send_frame(self, frame):
         """
         This appends the fully generated frame to send to the broker to the
-        output buffer which will be then sent via the connection adapter
+        output buffer which will be then sent via the connection adapter.
         """
         marshalled_frame = frame.marshal()
         self.bytes_sent += len(marshalled_frame)
@@ -756,7 +756,7 @@ specified a %s. Reconnections will fail.",
         """
         Attempt to calculate if TCP backpressure is being applied due to
         our outbound buffer being larger than the average frame size over
-        a window of frames
+        a window of frames.
         """
         avg_frame_size = self.bytes_sent / self.frames_sent
         if self.outbound_buffer.size > (avg_frame_size * self._backpressure):
@@ -776,9 +776,8 @@ specified a %s. Reconnections will fail.",
 
     def _send_method(self, channel_number, method, content=None):
         """
-        Constructs a RPC method frame and then sends it to the broker
+        Constructs a RPC method frame and then sends it to the broker.
         """
-        #print '_send_method:', channel, method
         self._send_frame(pika.frame.Method(channel_number, method))
 
         if isinstance(content, tuple):
@@ -811,14 +810,14 @@ specified a %s. Reconnections will fail.",
     def _suggested_buffer_size(self):
         """
         Return the suggested buffer size from the connection state/tune or the
-        default if that is None
+        default if that is None.
         """
         return self.parameters.frame_max or spec.FRAME_MAX_SIZE
 
     @property
     def basic_nack(self):
         """
-        Defines if the active connection has the ability to use basic.nack
+        Defines if the active connection has the ability to use basic.nack.
         """
         return self.server_capabilities.get('basic.nack', False)
 
@@ -826,7 +825,7 @@ specified a %s. Reconnections will fail.",
     def consumer_cancel_notify(self):
         """
         Specifies if our active connection has the ability to use
-        consumer cancel notification
+        consumer cancel notification.
         """
         return self.server_capabilities.get('consumer_cancel_notify', False)
 
@@ -834,7 +833,7 @@ specified a %s. Reconnections will fail.",
     def exchange_exchange_bindings(self):
         """
         Specifies if the active connection can use exchange to exchange
-        bindings
+        bindings.
         """
         return self.server_capabilities.get('exchange_exchange_bindings',
                                             False)
@@ -842,6 +841,6 @@ specified a %s. Reconnections will fail.",
     @property
     def publisher_confirms(self):
         """
-        Specifies if the active connection can use publisher confirmations
+        Specifies if the active connection can use publisher confirmations.
         """
         return self.server_capabilities.get('publisher_confirms', False)
