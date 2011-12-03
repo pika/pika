@@ -28,6 +28,9 @@ channel = None
 # Our message counter
 message_id = 1
 
+# Our acked counter
+acked      = 0
+
 # Send up to this many messages
 SEND_QTY = 10
 
@@ -61,8 +64,19 @@ def send_message(id):
 
 
 def on_delivered(frame):
-    global message_id
-    print "demo_send: Received delivery confirmation %r" % frame.method
+    global message_id, acked
+
+    if frame.method.NAME == 'Confirm.SelectOk':
+        print "demo_send: Confirm.SelectOk Received"
+        send_message(message_id)
+        return
+
+    success = frame.method.NAME == 'Basic.Ack'
+
+    for dtag in range(acked+1, frame.method.delivery_tag+1):
+        print "demo_send: Received delivery confirmation for message_id %d, success: %s" %(dtag, success)
+    acked = frame.method.delivery_tag
+
     message_id += 1
     if message_id > SEND_QTY:
         connection.close()
@@ -72,7 +86,6 @@ def on_delivered(frame):
 def on_queue_declared(frame):
     print "demo_send: Queue Declared"
     channel.confirm_delivery(on_delivered)
-    send_message(1)
 
 
 if __name__ == '__main__':
