@@ -263,7 +263,7 @@ class Channel(spec.DriverMixin):
 
     def close(self, code=0, text="Normal Shutdown", from_server=False):
         """
-        Will invoke a clean shutdown of the channel with the AMQP Broker
+        Will invoke a clean shutdown of the channel with the AMQP Broker.
         """
         # Set our closing code and text
         self.closing = code, text

@@ -26,7 +26,8 @@ def test_queue_name(keyword):
 def timeout(method):
     def _timeout(self, *args, **kwargs):
         global timeout_id
-        timeout_id = self.connection.add_timeout(2, self._on_timeout)
+        timeout_id = self.connection.add_timeout(time.time() + 2,
+                                                 self._on_timeout)
         return method(self, *args, **kwargs)
     return _timeout
 
@@ -68,7 +69,6 @@ class AsyncPattern(object):
         assert False, "_on_queue_declared not extended"
 
     def _send_message(self, exchange='', mandatory=False, immediate=False):
-
         message = 'test-message-%s: %.8f' % (self.__class__.__name__,
                                              time.time())
         self.channel.basic_publish(exchange=exchange,

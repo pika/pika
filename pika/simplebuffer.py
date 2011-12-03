@@ -121,7 +121,7 @@ class SimpleBuffer(object):
         self.consume(self.size)
 
     def __nonzero__(self):
-        """ Are we empty? """
+        """Are we empty?"""
         return self.size > 0
 
     def __len__(self):
