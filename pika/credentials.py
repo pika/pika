@@ -4,6 +4,7 @@
 #
 # ***** END LICENSE BLOCK *****
 
+import pika.log as log
 
 class PlainCredentials(object):
     """
