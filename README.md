@@ -25,8 +25,9 @@ Pika's documentation is now at http://pika.github.com/
  * AsyncoreConnection - based off the standard Python library asyncore
  * TornadoConnection  - adapter for use with the Tornado IO Loop http://tornadoweb.org
  * BlockingConnection - enables blocking, synchronous operation on top of library for simple uses
+ * TwistedConnection  - adapter for use with the Twisted reactor http://twistedmatrix.com
 
-Support for Twisted and other IO frameworks are on the horizon.
+Support for other IO frameworks is on the horizon.
 
 Major Changes since 0.5.2:
 
