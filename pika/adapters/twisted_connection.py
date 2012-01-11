@@ -315,6 +315,7 @@ class TwistedConnection(BaseConnection):
 
     def doWrite(self):
         self._handle_write()
+        self._manage_event_state()
 
 
 class TwistedProtocolConnection(BaseConnection):
