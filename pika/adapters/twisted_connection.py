@@ -254,9 +254,9 @@ class TwistedConnection(BaseConnection):
 
     # BaseConnection methods
 
-    def _adapter_connect(self):
+    def _adapter_connect(self, host, port):
         # Connect (blockignly!) to the server
-        BaseConnection._adapter_connect(self)
+        BaseConnection._adapter_connect(self, host, port)
         # Pnce that's done, create an I/O loop by adapting the Twisted reactor
         self.ioloop = IOLoopReactorAdapter(self, reactor)
         # Set the I/O events we're waiting for (see IOLoopReactorAdapter
@@ -315,6 +315,7 @@ class TwistedConnection(BaseConnection):
 
     def doWrite(self):
         self._handle_write()
+        self._manage_event_state()
 
 
 class TwistedProtocolConnection(BaseConnection):
