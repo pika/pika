@@ -1,8 +1,8 @@
-#***** BEGIN LICENSE BLOCK *****
+# ***** BEGIN LICENSE BLOCK *****
 #
-#For copyright and licensing please refer to COPYING.
+# For copyright and licensing please refer to COPYING.
 #
-#***** END LICENSE BLOCK *****
+# ***** END LICENSE BLOCK *****
 """
 Class that handles heartbeat communication
 
