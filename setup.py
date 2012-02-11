@@ -33,6 +33,7 @@ setup(name='pika',
       url='http://pika.github.com/',
       packages=['pika', 'pika.adapters'],
       license='MPL v1.1 and GPL v2.0 or newer',
+      tests_require=['mock'],
       classifiers=[
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Developers',
