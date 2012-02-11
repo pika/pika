@@ -23,6 +23,12 @@ import errno
 import socket
 import time
 
+# Workaround for 2.5 support
+try:
+    socket.SOL_TCP
+except AttributeError:
+    socket.SOL_TCP = socket.IPPROTO_TCP
+
 # See if we have SSL support
 try:
     import ssl
