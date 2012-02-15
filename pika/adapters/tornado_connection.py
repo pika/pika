@@ -9,8 +9,6 @@ try:
 except ImportError:
     IOLoop = None
 
-from warnings import warn
-
 from pika.adapters.base_connection import BaseConnection
 from pika.exceptions import AMQPConnectionError
 from pika.reconnection_strategies import NullReconnectionStrategy
@@ -21,13 +19,15 @@ if IOLoop:
     READ = ioloop.IOLoop.READ
     WRITE = ioloop.IOLoop.WRITE
 
+import time
 
 class TornadoConnection(BaseConnection):
 
     def __init__(self, parameters=None,
                  on_open_callback=None,
                  reconnection_strategy=None,
-                 callback_interval=250):
+                 callback_interval=250,
+                 io_loop=None):
 
         # Validate we have Tornado installed
         if not IOLoop:
@@ -35,6 +35,7 @@ class TornadoConnection(BaseConnection):
 
         self.callback_interval = callback_interval
         self._pc = None
+        self._default_ioloop = io_loop or IOLoop.instance()
 
         BaseConnection.__init__(self, parameters, on_open_callback,
                                 reconnection_strategy)
@@ -45,7 +46,7 @@ class TornadoConnection(BaseConnection):
         """
         # Setup our ioloop
         if self.ioloop is None:
-            self.ioloop = IOLoop.instance()
+            self.ioloop = self._default_ioloop
 
         # Setup a periodic callbacks
         if self._pc is None:
@@ -98,3 +99,13 @@ class TornadoConnection(BaseConnection):
 
         # Remove from the IOLoop
         self.ioloop.remove_handler(self.socket.fileno())
+
+    def add_timeout(self, deadline, callback):
+        """
+        Adds a timeout that will be called in `deadline` seconds.
+        Not to be confused with tornado.ioloop.add_timeout()
+        which accepts a timestamp or timedelta as the `deadline` argument.
+        """
+        # This override is required for the API
+        # to be consistent with other Connection classes
+        return self.ioloop.add_timeout(time.time() + deadline, callback)
