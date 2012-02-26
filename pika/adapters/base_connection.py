@@ -56,7 +56,8 @@ class BaseConnection(Connection):
 
     def __init__(self, parameters=None,
                        on_open_callback=None,
-                       reconnection_strategy=None):
+                       reconnection_strategy=None,
+                       callback_manager=None):
 
         # Let the developer know we could not import SSL
         if parameters.ssl and not SSL:
@@ -64,7 +65,7 @@ class BaseConnection(Connection):
 
         # Call our parent's __init__
         Connection.__init__(self, parameters, on_open_callback,
-                            reconnection_strategy)
+                            reconnection_strategy, callback_manager)
 
     def _init_connection_state(self):
         Connection._init_connection_state(self)
@@ -133,7 +134,10 @@ class BaseConnection(Connection):
             except socket.timeout, timeout:
                 reason = "timeout"
             except socket.error, err:
-                reason = err[-1]
+                if hasattr(err, 'strerror'):  # Python >= 2.6
+                    reason = err.strerror
+                elif error is not None:
+                    reason = err[-1]  # Python <= 2.5
                 self.socket.close()
 
             retry = ''
@@ -221,6 +225,7 @@ probable permission error when accessing a virtual host")
             # This shouldn't happen, but log it in case it does
             log.error("%s: Tried to handle an error where no error existed",
                       self.__class__.__name__)
+            return None
 
         # Ok errors, just continue what we were doing before
         if error_code in ERRORS_TO_IGNORE:

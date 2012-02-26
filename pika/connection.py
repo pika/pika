@@ -167,7 +167,8 @@ class Connection(object):
     """
     def __init__(self, parameters=None,
                  on_open_callback=None,
-                 reconnection_strategy=None):
+                 reconnection_strategy=None,
+                 callback_manager=None):
         """
         Connection initialization expects a ConnectionParameters object and
         a callback function to notify when we have successfully connected
@@ -176,7 +177,7 @@ class Connection(object):
         A reconnection_strategy of None will use the NullReconnectionStrategy.
         """
         # Define our callback dictionary
-        self.callbacks = CallbackManager()
+        self.callbacks = callback_manager or CallbackManager()
 
         # On connection callback
         if on_open_callback:

@@ -5,6 +5,7 @@
 # ***** END LICENSE BLOCK *****
 try:
     from tornado import ioloop
+    from tornado import stack_context
     IOLoop = ioloop.IOLoop
 except ImportError:
     IOLoop = None
@@ -19,7 +20,36 @@ if IOLoop:
     READ = ioloop.IOLoop.READ
     WRITE = ioloop.IOLoop.WRITE
 
+import pika.log
+import pika.callback
 import time
+import sys
+import socket
+import contextlib
+
+class CallbackWrapper(object):
+    __slots__ = ['handle', 'orig', 'one_shot', 'only']
+
+    def __init__(self, handle, one_shot, only_caller=None):
+        self.handle   = stack_context.wrap(handle)
+        self.orig     = handle
+        self.only     = only_caller
+        self.one_shot = one_shot
+
+    def __eq__(self, other):
+        return self.orig == other.orig \
+           and self.only == other.only \
+           and self.one_shot == other.one_shot
+
+    def __contains__(self, callback):
+        return self.orig == callback
+
+class CallbackManager(pika.callback.CallbackManager):
+    CALLBACK_CLASS = CallbackWrapper
+
+    def process(self, *args, **kwargs):
+        with stack_context.NullContext():
+            super(CallbackManager, self).process(*args, **kwargs)
 
 class TornadoConnection(BaseConnection):
 
@@ -37,8 +67,25 @@ class TornadoConnection(BaseConnection):
         self._pc = None
         self._default_ioloop = io_loop or IOLoop.instance()
 
-        BaseConnection.__init__(self, parameters, on_open_callback,
-                                reconnection_strategy)
+        on_open_callback = stack_context.wrap(on_open_callback)
+        
+        with stack_context.StackContext(self._stack_context):
+            BaseConnection.__init__(self, parameters, on_open_callback,
+                                    reconnection_strategy, CallbackManager())
+
+    @contextlib.contextmanager
+    def _stack_context(self):
+        try:
+            yield
+        except Exception:
+            pika.log.warning("%s in Connection" % sys.exc_info()[0].__name__, exc_info = True)
+            self.callbacks.process(0, '_on_connection_error', self, sys.exc_info())
+
+    def add_on_error_callback(self, callback):
+        """
+        Add a callback notification when the connection raises an error.
+        """
+        self.callbacks.add(0, '_on_connection_error', callback, False)
 
     def _adapter_connect(self):
         """
@@ -74,7 +121,8 @@ class TornadoConnection(BaseConnection):
         """
         self.stop_poller()
 
-        BaseConnection._handle_disconnect(self)
+        # Close up our Connection state
+        self._on_connection_closed(None, True)
 
     def _adapter_disconnect(self):
         """
@@ -82,7 +130,16 @@ class TornadoConnection(BaseConnection):
         """
         self.stop_poller()
 
-        BaseConnection._adapter_disconnect(self)
+        # This is basically the same as BaseConnection._adapter_disconnect
+        # Except this doesn't stop the ioloop
+
+        # Close our socket
+        self.socket.shutdown(socket.SHUT_RDWR)
+        self.socket.close()
+
+        # Check our state on disconnect
+        self._check_state_on_disconnect()
+        self._on_connection_closed(None, True)
 
     def start_poller(self):
         # Start periodic _manage_event_state
@@ -98,7 +155,12 @@ class TornadoConnection(BaseConnection):
         self._pc.stop()
 
         # Remove from the IOLoop
-        self.ioloop.remove_handler(self.socket.fileno())
+        try:
+            self.ioloop.remove_handler(self.socket.fileno())
+        except socket.error, e:
+            pass
+        except:
+            pika.log.error("Error while removing handler for socket", exc_info = True)
 
     def add_timeout(self, deadline, callback):
         """
