@@ -282,7 +282,7 @@ class Channel(spec.DriverMixin):
             self._close()
 
     def cleanup(self):
-        self.callbacks.remove(self.channel_number)
+        self.callbacks.cleanup(self.channel_number)
 
     def _close(self):
         """
