@@ -228,7 +228,7 @@ class CallbackManager(object):
         return False
 
     def cleanup(self, prefix):
-        """Remove all callbacks form the stack by prefix.
+        """Remove all callbacks from the stack by a prefix.
 
         :param str prefix: The prefix for keeping track of callbacks with
 
