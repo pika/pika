@@ -551,7 +551,7 @@ class Connection(object):
 
     def add_backpressure_callback(self, callback):
         """
-        Add a callback notification when we think backpressue is being applied
+        Add a callback notification when we think backpressure is being applied
         due to the size of the output buffer being exceeded.
         """
         self.callbacks.add(0, 'backpressure', callback, False)
