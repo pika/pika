@@ -378,6 +378,7 @@ class Channel(spec.DriverMixin):
                                [spec.Basic.ConsumeOk])
         except exceptions.ChannelClosed, e:
             del(self._consumers[consumer_tag])
+            del(self._pending[consumer_tag])
             raise exceptions.ChannelClosed(e)
 
         # Return the consumer tag for the user reference
@@ -446,6 +447,7 @@ class Channel(spec.DriverMixin):
         # We need to delete the consumer tag from our _consumers
         if frame.method.consumer_tag in self._consumers:
             del self._consumers[frame.method.consumer_tag]
+            del self._pending[frame.method.consumer_tag]
 
         # If we're closing and dont have any consumers left, close
         if self.closing and not len(self._consumers):
@@ -493,6 +495,7 @@ class Channel(spec.DriverMixin):
         # Delete the consumer from our _consumers dictionary
         if frame.method.consumer_tag in self._consumers:
             del self._consumers[frame.method.consumer_tag]
+            del self._pending[frame.method.consumer_tag]
 
         # The server does not expect a confirmation, so we're done
 
