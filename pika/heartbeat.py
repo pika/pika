@@ -8,6 +8,7 @@ Class that handles heartbeat communication
 
 """
 from pika import frame
+import time
 
 
 class HeartbeatChecker(object):
@@ -93,7 +94,7 @@ class HeartbeatChecker(object):
         """Send a heartbeat frame on the connection.
 
         """
-        self._connection.send_frame(self._new_heartbeat_frame())
+        self._connection._send_frame(self._new_heartbeat_frame())
 
     def _setup_timer(self):
         """Use the connection objects delayed_call function which is
@@ -101,7 +102,7 @@ class HeartbeatChecker(object):
         every interval seconds.
 
         """
-        self._connection.add_timeout(self._interval, self.send_and_check)
+        self._connection.add_timeout(time.time() + self._interval, self.send_and_check)
 
     def _should_send_heartbeat_frame(self):
         """Returns True if the amount of bytes recorded the last time the
