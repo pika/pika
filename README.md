@@ -15,7 +15,7 @@ to stay fairly independent of the underlying network support library.
    compatible with all of these, and to make adapting it to a new
    environment as simple as possible.
 
-## Documenation
+## Documentation
 
 Pika's documentation is now at http://pika.github.com/
 
