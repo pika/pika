@@ -85,6 +85,15 @@ class BlockingConnection(BaseConnection):
                 log.error(SOCKET_TIMEOUT_MESSAGE)
                 self._handle_disconnect()
 
+    def flush_outbound(self):
+        # Make sure we're open, if not raise the exception
+        if not self.is_open and not self.is_closing:
+            raise AMQPConnectionError
+        # Write our data
+        self._flush_outbound()
+        # Process our timeout events
+        self.process_timeouts()
+
     def process_data_events(self):
         # Make sure we're open, if not raise the exception
         if not self.is_open and not self.is_closing:
@@ -244,7 +253,7 @@ class BlockingChannelTransport(ChannelTransport):
         # Wait until the outbound buffer is empty
         while self.connection.outbound_buffer.size > 0:
             try:
-                self.connection.process_data_events()
+                self.connection.flush_outbound()
             except AMQPConnectionError:
                 break
 
