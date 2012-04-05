@@ -11,6 +11,7 @@ import pika.exceptions as exceptions
 import pika.log
 import pika.spec as spec
 from pika.utils import is_callable
+from collections import deque
 
 MAX_CHANNELS = 32768
 
@@ -41,7 +42,7 @@ class ChannelTransport(object):
 
         # We need to block on synchronous commands, but do so asynchronously
         self.blocking = None
-        self._blocked = list()
+        self._blocked = deque()
 
         # By default we're closed
         self.closed = True
@@ -137,20 +138,14 @@ class ChannelTransport(object):
         # Release the lock
         self.blocking = None
 
-        # Get the list, then empty it so we can spin through all the blocked
-        # Calls, blocking again in the class level list
-        blocked = self._blocked
-        self._blocked = list()
-
         # Loop through and call all that were blocked during our last command
-        while blocked:
+        while self._blocked and not self.blocking:
 
             # Get the function to call next
-            method = blocked.pop(0)
+            method = self._blocked.popleft()
 
             # Call the RPC for each of our blocked calls
             self.rpc(*method)
-
 
 class Channel(spec.DriverMixin):
 
