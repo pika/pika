@@ -652,6 +652,7 @@ class Connection(object):
                                       spec.Channel.CloseOk)
 
             # Remove the channel from our dict
+            self._channels[channel_number].cleanup()
             del(self._channels[channel_number])
 
         # If we're closing and don't have any channels, go to the next step
