@@ -232,3 +232,13 @@ class CallbackManager(object):
 
         # Prefix, Key or Callback could not be found
         return False
+
+    def cleanup(self, prefix):
+        """Remove all callbacks from the stack by a prefix.
+
+        :param str prefix: The prefix for keeping track of callbacks with
+
+        """
+        keys = self._callbacks.get(prefix, {}).keys()
+        for key in keys:
+            self.remove(prefix, key)
