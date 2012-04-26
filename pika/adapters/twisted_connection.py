@@ -178,6 +178,8 @@ class TwistedChannel(object):
         # to the channel.
         if name in self.WRAPPED_METHODS:
             return self.__wrap_channel_method(name)
+        if name == 'channel':
+            return self.__channel
         return getattr(self.__channel, name)
 
 
