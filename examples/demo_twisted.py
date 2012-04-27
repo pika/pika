@@ -39,8 +39,12 @@ class TwistedHandler(object):
 
     def on_connected(self, connection):
         pika_log.info("demo_twisted: Connected to RabbitMQ")
-        d = connection.channel()
-        d.addCallback(self.got_channel)
+        self.connection = connection
+        self.connect('', CustomHandler())
+    
+    def connect(self, queue, handler):
+        d = self.connection.channel()
+        d.addCallback(self.got_channel, handler)
         d.addCallback(self.declare_exchange)
         d.addCallback(self.declare_queue)
         d.addCallback(self.bind_queue)
@@ -48,9 +52,11 @@ class TwistedHandler(object):
         d.addCallback(self.handle_deliveries)
         d.addErrback(twisted_log.err)
 
-    def got_channel(self, channel):
+    def got_channel(self, channel, handler):
         pika_log.info("demo_twisted: Got the channel")
         self.channel = channel
+        # here I store handler for messages arriving through this channel
+        channel.channel.handler = handler
 
     def declare_exchange(self, _):
         pika_log.info("demo_twisted: Declaring the exchange")
@@ -85,6 +91,8 @@ class TwistedHandler(object):
 
     def handle_payload(self, channel, method_frame, header_frame, body):
         pika_log.info("demo_twisted: Message received: %s" % body)
+        # here I use the handler attached to the channel
+        channel.handler.handle_event(header_frame, body)
         if body == 'stop-please':
             self.stop_consuming()
 
@@ -96,6 +104,12 @@ class TwistedHandler(object):
     def stopped_consuming(self, _):
         pika_log.info("demo_twisted: Consuming stopped, queue deleted")
 
+
+class CustomHandler(object):
+    
+    def handle_event(self, headers, body):
+        print headers, body
+        
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
