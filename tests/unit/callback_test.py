@@ -14,7 +14,7 @@ import unittest
 import pika.callback as callback
 
 
-class TestSanitize(unittest.TestCase):
+class TestNameOrValue(unittest.TestCase):
 
     def setUp(self):
         self.cm = callback.CallbackManager()
@@ -30,7 +30,7 @@ class TestSanitize(unittest.TestCase):
         # for the sanitize method to find.
         self.test_cls.method = Mock(spec=['NAME'])
         self.test_cls.method.NAME = 'attr of attr'
-        result = self.cm.sanitize(self.test_cls)
+        result = callback._name_or_value(self.test_cls)
         self.assertEqual(result, self.test_cls.method.NAME)
 
     def test_sanitize_name_in_self(self):
@@ -38,7 +38,7 @@ class TestSanitize(unittest.TestCase):
         Verify NAME is gotten from test_cls.NAME
 
         """
-        result = self.cm.sanitize(self.test_cls)
+        result = callback._name_or_value(self.test_cls)
         self.assertEqual(result, self.test_cls.NAME)
 
     def test_sanitize_name_c(self):
@@ -48,7 +48,7 @@ class TestSanitize(unittest.TestCase):
         """
         delattr(self.test_cls, 'NAME')
         self.test_cls.__dict__['NAME'] = 'in __dict__'
-        result = self.cm.sanitize(self.test_cls)
+        result = callback._name_or_value(self.test_cls)
         self.assertEqual(result, self.test_cls.__dict__['NAME'])
 
 
@@ -57,12 +57,17 @@ class TestAdd(unittest.TestCase):
     def setUp(self):
         self.callback = callback
         self.callback.log = Mock(spec=['warning', 'debug'])
-        self.cm = self.callback.CallbackManager()
         self.key = 1
         self.keyname = 'keyname'
+        self.old_name_or_value = callback._name_or_value
+        callback._name_or_value = Mock(return_value=self.keyname)
+        self.cm = self.callback.CallbackManager()
         self.cm.sanitize = Mock(return_value=self.keyname)
         self.callable_thing = int
         self.prefix = 'prefoo'
+
+    def tearDown(self):
+        callback._name_or_value = self.old_name_or_value
 
     def test_add_new_prefix(self):
         # run the test
