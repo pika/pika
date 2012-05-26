@@ -119,9 +119,15 @@ def generate(specPath):
     def genSingleEncode(prefix, cValue, unresolved_domain):
         type = spec.resolveDomain(unresolved_domain)
         if type == 'shortstr':
+            print prefix + \
+                "assert isinstance(%s, str), 'A non-bytestring value was supplied for %s'" \
+                % (cValue, cValue)
             print prefix + "pieces.append(struct.pack('B', len(%s)))" % cValue
             print prefix + "pieces.append(%s)" % cValue
         elif type == 'longstr':
+            print prefix + \
+                "assert isinstance(%s, str), 'A non-bytestring value was supplied for %s'" \
+                % (cValue, cValue)
             print prefix + "pieces.append(struct.pack('>I', len(%s)))" % cValue
             print prefix + "pieces.append(%s)" % cValue
         elif type == 'octet':
