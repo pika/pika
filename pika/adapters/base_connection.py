@@ -87,6 +87,17 @@ class BaseConnection(Connection):
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
         self.socket.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
 
+        # Enable TCP keepalive and set any provided keepalive parameters
+        params = self.parameters
+        if params.tcp_keepalive:
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+
+            for opt, var in ((socket.TCP_KEEPIDLE,  params.tcp_keepidle),
+                             (socket.TCP_KEEPINTVL, params.tcp_keepintvl),
+                             (socket.TCP_KEEPCNT,   params.tcp_keepcnt)):
+                if var is not None:
+                    self.socket.setsockopt(socket.SOL_TCP, opt, var)
+
         # Wrap the SSL socket if we SSL turned on
         ssl_text = ""
         if self.parameters.ssl:
