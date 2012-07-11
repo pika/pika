@@ -274,7 +274,7 @@ probable permission error when accessing a virtual host")
         else:
             self._ssl_connecting = False
 
-    def _handle_events(self, fd, events, error=None):
+    def _handle_events(self, fd, events, error=None, write_only=False):
         """
         Our IO/Event loop have called us with events, so process them
         """
@@ -283,7 +283,7 @@ probable permission error when accessing a virtual host")
                       self.__class__.__name__, self.socket.fileno())
             return
 
-        if events & READ:
+        if not write_only and (events & READ):
             self._handle_read()
 
         if events & ERROR:
