@@ -25,6 +25,7 @@ import pika.callback
 import time
 import sys
 import socket
+import errno
 import contextlib
 
 class CallbackWrapper(object):
@@ -134,7 +135,12 @@ class TornadoConnection(BaseConnection):
         # Except this doesn't stop the ioloop
 
         # Close our socket
-        self.socket.shutdown(socket.SHUT_RDWR)
+        try:
+            self.socket.shutdown(socket.SHUT_RDWR)
+        except IOError, e:
+            if e.errno != errno.ENOTCONN:
+                raise
+
         self.socket.close()
 
         # Check our state on disconnect
