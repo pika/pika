@@ -93,7 +93,7 @@ class HeartbeatChecker(object):
         """Send a heartbeat frame on the connection.
 
         """
-        self._connection.send_frame(self._new_heartbeat_frame())
+        self._connection._send_frame(self._new_heartbeat_frame())
 
     def _setup_timer(self):
         """Use the connection objects delayed_call function which is
