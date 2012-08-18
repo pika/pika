@@ -4,6 +4,8 @@
 #
 # ***** END LICENSE BLOCK *****
 
+# Modified by Lorenzo Bolla Jul 2012
+
 from setuptools import setup
 import os
 
@@ -23,7 +25,7 @@ should also work with other AMQP 0-9-1 brokers.
 """
 
 setup(name='pika',
-      version='0.9.6-pre0',
+      version='0.9.6-pre0-LB',
       description='Pika Python AMQP Client Library',
       long_description=long_description,
       author='Tony Garnock-Jones',

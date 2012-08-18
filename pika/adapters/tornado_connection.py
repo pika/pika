@@ -74,7 +74,7 @@ class TornadoConnection(BaseConnection):
         """
         self.stop_poller()
 
-        BaseConnection._handle_disconnect(self)
+        BaseConnection._handle_disconnect(self, stop_ioloop=False)
 
     def _adapter_disconnect(self):
         """
@@ -82,7 +82,7 @@ class TornadoConnection(BaseConnection):
         """
         self.stop_poller()
 
-        BaseConnection._adapter_disconnect(self)
+        BaseConnection._adapter_disconnect(self, stop_ioloop=False)
 
     def start_poller(self):
         # Start periodic _manage_event_state

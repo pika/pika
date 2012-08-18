@@ -165,12 +165,13 @@ class BaseConnection(Connection):
         """
         self._manage_event_state()
 
-    def _adapter_disconnect(self):
+    def _adapter_disconnect(self, stop_ioloop=True):
         """
         Called if we are forced to disconnect for some reason from Connection.
         """
         # Remove from the IOLoop
-        self.ioloop.stop()
+        if stop_ioloop:
+            self.ioloop.stop()
 
         # Close our socket
         self.socket.shutdown(socket.SHUT_RDWR)
@@ -197,12 +198,13 @@ probable authentication error")
 probable permission error when accessing a virtual host")
             raise ProbableAccessDeniedError
 
-    def _handle_disconnect(self):
+    def _handle_disconnect(self, stop_ioloop=True):
         """
         Called internally when we know our socket is disconnected already
         """
         # Remove from the IOLoop
-        self.ioloop.stop()
+        if stop_ioloop:
+            self.ioloop.stop()
 
         # Close up our Connection state
         self._on_connection_closed(None, True)
@@ -221,6 +223,8 @@ probable permission error when accessing a virtual host")
             # This shouldn't happen, but log it in case it does
             log.error("%s: Tried to handle an error where no error existed",
                       self.__class__.__name__)
+            # Cannot continue as error_code is not set
+            return
 
         # Ok errors, just continue what we were doing before
         if error_code in ERRORS_TO_IGNORE:
