@@ -14,6 +14,7 @@ import pika.spec as spec
 from pika.adapters import BaseConnection
 from pika.channel import Channel, ChannelTransport
 from pika.exceptions import AMQPConnectionError, AMQPChannelError
+from pika.callback import _name_or_value
 
 SOCKET_TIMEOUT = 0.25
 SOCKET_TIMEOUT_THRESHOLD = 100
@@ -182,11 +183,11 @@ class BlockingChannelTransport(ChannelTransport):
         self._wait = False
 
     def add_reply(self, reply):
-        reply = self.callbacks.sanitize(reply)
+        reply = _name_or_value(reply)
         self._replies.append(reply)
 
     def remove_reply(self, frame):
-        key = self.callbacks.sanitize(frame)
+        key = _name_or_value(frame)
         if key in self._replies:
             self._replies.remove(key)
 
@@ -236,7 +237,7 @@ class BlockingChannelTransport(ChannelTransport):
                 return frame
 
     def _on_rpc_complete(self, frame):
-        key = self.callbacks.sanitize(frame)
+        key = _name_or_value(frame)
         self._replies.append(key)
         self._frames[key] = frame
         self._received_response = True
