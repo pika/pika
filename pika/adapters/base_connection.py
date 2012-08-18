@@ -59,7 +59,7 @@ class BaseConnection(Connection):
                        reconnection_strategy=None):
 
         # Let the developer know we could not import SSL
-        if parameters.ssl and not SSL:
+        if parameters and parameters.ssl and not SSL:
             raise Exception("SSL specified but it is not available")
 
         # Call our parent's __init__
