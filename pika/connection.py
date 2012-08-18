@@ -52,6 +52,8 @@ class ConnectionParameters(object):
     - channel_max: Maximum number of channels to allow, defaults to 0 for None
     - frame_max: The maximum byte size for an AMQP frame. Defaults to 131072
     - heartbeat: Heartbeat Interval. 0 for heartbeat off.
+    - tcp_keepalive: Enable TCP keepalive, defaults to False.
+    - tcp_keepidle, tcp_keepintvl, tcp_keepcnt: TCP keepalive behavior tuning.
     """
     def __init__(self,
                  host='localhost',
@@ -64,7 +66,11 @@ class ConnectionParameters(object):
                  ssl=False,
                  ssl_options=None,
                  connection_attempts=1,
-                 retry_delay=2):
+                 retry_delay=2,
+                 tcp_keepalive=False,
+                 tcp_keepidle=None,
+                 tcp_keepintvl=None,
+                 tcp_keepcnt=None):
 
         # Validate the host type
         if not isinstance(host, str):
@@ -142,6 +148,13 @@ class ConnectionParameters(object):
         if not isinstance(retry_delay, int):
             raise TypeError("retry_delay must be an int")
 
+        # Validate the tcp keepalive parameters:
+        if not isinstance(tcp_keepalive, bool):
+            raise TypeError("tcp_keepalive must be a bool")
+        if any (var is not None and not isinstance(var, int)
+                for var in (tcp_keepidle, tcp_keepintvl, tcp_keepcnt)):
+            raise TypeError("tcp_keepidle/intvl/cnt must be either None or int")
+
         # Assign our values
         self.host = host
         self.port = port
@@ -154,7 +167,10 @@ class ConnectionParameters(object):
         self.ssl_options = ssl_options
         self.connection_attempts = connection_attempts
         self.retry_delay = retry_delay
-
+        self.tcp_keepalive = tcp_keepalive
+        self.tcp_keepidle  = tcp_keepidle
+        self.tcp_keepintvl = tcp_keepintvl
+        self.tcp_keepcnt   = tcp_keepcnt
 
 class Connection(object):
 
