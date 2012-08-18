@@ -245,21 +245,26 @@ class Channel(spec.DriverMixin):
             self.callbacks.add(self.channel_number, reply, callback)
 
     def add_on_close_callback(self, callback):
-        """
-        Pass a callback function that will be called when the channel is
+        """Pass a callback function that will be called when the channel is
         closed. The callback function should receive a frame parameter.
+
+        :param method callback: The method to call on callback
+
         """
         self.callbacks.add(self.channel_number, '_on_channel_close', callback)
 
     def add_on_return_callback(self, callback):
-        """
-        Pass a callback function that will be called when basic_publish as sent
+        """Pass a callback function that will be called when basic_publish as sent
         a message that has been rejected and returned by the server. The
         callback handler should receive a method, header and body frame. The
         base signature for the callback should be the same as the method
         signature one creates for a basic_consume callback.
+
+        :param method callback: The method to call on callback
+
         """
-        self.callbacks.add(self.channel_number, '_on_basic_return', callback)
+        self.callbacks.add(self.channel_number, '_on_basic_return', callback,
+                           one_shot=False)
 
     def close(self, code=0, text="Normal Shutdown", from_server=False):
         """
