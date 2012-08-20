@@ -37,13 +37,22 @@ class BlockingConnection(BaseConnection):
         BaseConnection._adapter_connect(self)
         self.socket.setblocking(1)
         # Set the timeout for reading/writing on the socket
-        self.socket.settimeout(SOCKET_TIMEOUT)
+        self.socket.settimeout(paramaters.socket_timeout or SOCKET_TIMEOUT)
         self._socket_timeouts = 0
         self._on_connected()
         self._timeouts = dict()
-        while not self.is_open:
+
+        # When using a high availability cluster (such as HAProxy) we are always able to connect
+        # even though there might be no RabbitMQ backend. 
+        socket_timeout_retries = 0
+        while not self.is_open and socket_timeout_retries<SOCKET_TIMEOUT_THRESHOLD:
             self._flush_outbound()
             self._handle_read()
+            timeout_retries +=1
+
+        if not self.is_open:
+            raise AMQPConnectionError("No connection could be opened after %s retries" % SOCKET_TIMEOUT_THRESHOLD)
+
         return self
 
     def close(self, code=200, text='Normal shutdown'):
