@@ -37,7 +37,7 @@ class BlockingConnection(BaseConnection):
         BaseConnection._adapter_connect(self)
         self.socket.setblocking(1)
         # Set the timeout for reading/writing on the socket
-        self.socket.settimeout(SOCKET_TIMEOUT)
+        self.socket.settimeout(paramaters.socket_timeout or SOCKET_TIMEOUT)
         self._socket_timeouts = 0
         self._on_connected()
         self._timeouts = dict()
