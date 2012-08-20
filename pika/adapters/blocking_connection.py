@@ -51,7 +51,7 @@ class BlockingConnection(BaseConnection):
             timeout_retries +=1
 
         if not self.is_open:
-            raise AMQPConnectionError("No connection could be opened after %s retries", SOCKET_TIMEOUT_THRESHOLD)
+            raise AMQPConnectionError("No connection could be opened after %s retries" % SOCKET_TIMEOUT_THRESHOLD)
 
         return self
 
