@@ -109,7 +109,7 @@ class BaseConnection(Connection):
         log.info("Connecting fd %d to %s:%i%s", self.socket.fileno(),
                  self.parameters.host,
                  self.parameters.port, ssl_text)
-        self.socket.settimeout(CONNECTION_TIMEOUT)
+        self.socket.settimeout(self.parameters.socket_timeout or CONNECTION_TIMEOUT)
         self.socket.connect((self.parameters.host,
                              self.parameters.port))
 
