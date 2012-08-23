@@ -43,7 +43,7 @@ class BlockingConnection(BaseConnection):
         self._timeouts = dict()
 
         # When using a high availability cluster (such as HAProxy) we are always able to connect
-        # even though there might be no RabbitMQ backend. 
+        # even though there might be no RabbitMQ backend.
         socket_timeout_retries = 0
         while not self.is_open and socket_timeout_retries<SOCKET_TIMEOUT_THRESHOLD:
             self._flush_outbound()
