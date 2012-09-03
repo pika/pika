@@ -52,6 +52,7 @@ class ConnectionParameters(object):
     - channel_max: Maximum number of channels to allow, defaults to 0 for None
     - frame_max: The maximum byte size for an AMQP frame. Defaults to 131072
     - heartbeat: Heartbeat Interval. 0 for heartbeat off.
+    - socket_timeout: Socket timeout value will default CONNECTION_TIMEOUT (2secs). Use for high latency networks
     """
     def __init__(self,
                  host='localhost',
@@ -64,7 +65,8 @@ class ConnectionParameters(object):
                  ssl=False,
                  ssl_options=None,
                  connection_attempts=1,
-                 retry_delay=2):
+                 retry_delay=2,
+                 socket_timeout=None):
 
         # Validate the host type
         if not isinstance(host, str):
@@ -142,6 +144,10 @@ class ConnectionParameters(object):
         if not isinstance(retry_delay, int):
             raise TypeError("retry_delay must be an int")
 
+        # Validate the socket timeout delay
+        if not isinstance(socket_timeout, int):
+            raise TypeError("socket_timeout must be an int")
+
         # Assign our values
         self.host = host
         self.port = port
@@ -154,6 +160,9 @@ class ConnectionParameters(object):
         self.ssl_options = ssl_options
         self.connection_attempts = connection_attempts
         self.retry_delay = retry_delay
+        # When working with high latency networks it might be necessary to have a timeout value for
+        # both Connecting and Read/Write to sockets that is higher than the 2 second interval set by Pika.
+        self.socket_timeout = socket_timeout
 
 
 class Connection(object):
@@ -652,6 +661,7 @@ class Connection(object):
                                       spec.Channel.CloseOk)
 
             # Remove the channel from our dict
+            self._channels[channel_number].cleanup()
             del(self._channels[channel_number])
 
         # If we're closing and don't have any channels, go to the next step

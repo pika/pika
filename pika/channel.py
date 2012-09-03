@@ -11,6 +11,7 @@ import pika.exceptions as exceptions
 import pika.log
 import pika.spec as spec
 from pika.utils import is_callable
+from collections import deque
 
 MAX_CHANNELS = 32768
 
@@ -41,7 +42,7 @@ class ChannelTransport(object):
 
         # We need to block on synchronous commands, but do so asynchronously
         self.blocking = None
-        self._blocked = list()
+        self._blocked = deque()
 
         # By default we're closed
         self.closed = True
@@ -137,20 +138,14 @@ class ChannelTransport(object):
         # Release the lock
         self.blocking = None
 
-        # Get the list, then empty it so we can spin through all the blocked
-        # Calls, blocking again in the class level list
-        blocked = self._blocked
-        self._blocked = list()
-
         # Loop through and call all that were blocked during our last command
-        while blocked:
+        while self._blocked and not self.blocking:
 
             # Get the function to call next
-            method = blocked.pop(0)
+            method = self._blocked.popleft()
 
             # Call the RPC for each of our blocked calls
             self.rpc(*method)
-
 
 class Channel(spec.DriverMixin):
 
@@ -245,21 +240,26 @@ class Channel(spec.DriverMixin):
             self.callbacks.add(self.channel_number, reply, callback)
 
     def add_on_close_callback(self, callback):
-        """
-        Pass a callback function that will be called when the channel is
+        """Pass a callback function that will be called when the channel is
         closed. The callback function should receive a frame parameter.
+
+        :param method callback: The method to call on callback
+
         """
         self.callbacks.add(self.channel_number, '_on_channel_close', callback)
 
     def add_on_return_callback(self, callback):
-        """
-        Pass a callback function that will be called when basic_publish as sent
+        """Pass a callback function that will be called when basic_publish as sent
         a message that has been rejected and returned by the server. The
         callback handler should receive a method, header and body frame. The
         base signature for the callback should be the same as the method
         signature one creates for a basic_consume callback.
+
+        :param method callback: The method to call on callback
+
         """
-        self.callbacks.add(self.channel_number, '_on_basic_return', callback)
+        self.callbacks.add(self.channel_number, '_on_basic_return', callback,
+                           one_shot=False)
 
     def close(self, code=0, text="Normal Shutdown", from_server=False):
         """

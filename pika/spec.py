@@ -91,8 +91,10 @@ class Connection(pika.object.Class):
             pieces.append(struct.pack('B', self.version_major))
             pieces.append(struct.pack('B', self.version_minor))
             data.encode_table(pieces, self.server_properties)
+            assert isinstance(self.mechanisms, str), 'A non-bytestring value was supplied for self.mechanisms'
             pieces.append(struct.pack('>I', len(self.mechanisms)))
             pieces.append(self.mechanisms)
+            assert isinstance(self.locales, str), 'A non-bytestring value was supplied for self.locales'
             pieces.append(struct.pack('>I', len(self.locales)))
             pieces.append(self.locales)
             return pieces
@@ -131,10 +133,13 @@ class Connection(pika.object.Class):
         def encode(self):
             pieces = list()
             data.encode_table(pieces, self.client_properties)
+            assert isinstance(self.mechanism, str), 'A non-bytestring value was supplied for self.mechanism'
             pieces.append(struct.pack('B', len(self.mechanism)))
             pieces.append(self.mechanism)
+            assert isinstance(self.response, str), 'A non-bytestring value was supplied for self.response'
             pieces.append(struct.pack('>I', len(self.response)))
             pieces.append(self.response)
+            assert isinstance(self.locale, str), 'A non-bytestring value was supplied for self.locale'
             pieces.append(struct.pack('B', len(self.locale)))
             pieces.append(self.locale)
             return pieces
@@ -160,6 +165,7 @@ class Connection(pika.object.Class):
 
         def encode(self):
             pieces = list()
+            assert isinstance(self.challenge, str), 'A non-bytestring value was supplied for self.challenge'
             pieces.append(struct.pack('>I', len(self.challenge)))
             pieces.append(self.challenge)
             return pieces
@@ -185,6 +191,7 @@ class Connection(pika.object.Class):
 
         def encode(self):
             pieces = list()
+            assert isinstance(self.response, str), 'A non-bytestring value was supplied for self.response'
             pieces.append(struct.pack('>I', len(self.response)))
             pieces.append(self.response)
             return pieces
@@ -283,8 +290,10 @@ class Connection(pika.object.Class):
 
         def encode(self):
             pieces = list()
+            assert isinstance(self.virtual_host, str), 'A non-bytestring value was supplied for self.virtual_host'
             pieces.append(struct.pack('B', len(self.virtual_host)))
             pieces.append(self.virtual_host)
+            assert isinstance(self.capabilities, str), 'A non-bytestring value was supplied for self.capabilities'
             pieces.append(struct.pack('B', len(self.capabilities)))
             pieces.append(self.capabilities)
             bit_buffer = 0
@@ -314,6 +323,7 @@ class Connection(pika.object.Class):
 
         def encode(self):
             pieces = list()
+            assert isinstance(self.known_hosts, str), 'A non-bytestring value was supplied for self.known_hosts'
             pieces.append(struct.pack('B', len(self.known_hosts)))
             pieces.append(self.known_hosts)
             return pieces
@@ -349,6 +359,7 @@ class Connection(pika.object.Class):
         def encode(self):
             pieces = list()
             pieces.append(struct.pack('>H', self.reply_code))
+            assert isinstance(self.reply_text, str), 'A non-bytestring value was supplied for self.reply_text'
             pieces.append(struct.pack('B', len(self.reply_text)))
             pieces.append(self.reply_text)
             pieces.append(struct.pack('>H', self.class_id))
@@ -401,6 +412,7 @@ class Channel(pika.object.Class):
 
         def encode(self):
             pieces = list()
+            assert isinstance(self.out_of_band, str), 'A non-bytestring value was supplied for self.out_of_band'
             pieces.append(struct.pack('B', len(self.out_of_band)))
             pieces.append(self.out_of_band)
             return pieces
@@ -426,6 +438,7 @@ class Channel(pika.object.Class):
 
         def encode(self):
             pieces = list()
+            assert isinstance(self.channel_id, str), 'A non-bytestring value was supplied for self.channel_id'
             pieces.append(struct.pack('>I', len(self.channel_id)))
             pieces.append(self.channel_id)
             return pieces
@@ -513,6 +526,7 @@ class Channel(pika.object.Class):
         def encode(self):
             pieces = list()
             pieces.append(struct.pack('>H', self.reply_code))
+            assert isinstance(self.reply_text, str), 'A non-bytestring value was supplied for self.reply_text'
             pieces.append(struct.pack('B', len(self.reply_text)))
             pieces.append(self.reply_text)
             pieces.append(struct.pack('>H', self.class_id))
@@ -577,6 +591,7 @@ class Access(pika.object.Class):
 
         def encode(self):
             pieces = list()
+            assert isinstance(self.realm, str), 'A non-bytestring value was supplied for self.realm'
             pieces.append(struct.pack('B', len(self.realm)))
             pieces.append(self.realm)
             bit_buffer = 0
@@ -665,8 +680,10 @@ class Exchange(pika.object.Class):
         def encode(self):
             pieces = list()
             pieces.append(struct.pack('>H', self.ticket))
+            assert isinstance(self.exchange, str), 'A non-bytestring value was supplied for self.exchange'
             pieces.append(struct.pack('B', len(self.exchange)))
             pieces.append(self.exchange)
+            assert isinstance(self.type, str), 'A non-bytestring value was supplied for self.type'
             pieces.append(struct.pack('B', len(self.type)))
             pieces.append(self.type)
             bit_buffer = 0
@@ -734,6 +751,7 @@ class Exchange(pika.object.Class):
         def encode(self):
             pieces = list()
             pieces.append(struct.pack('>H', self.ticket))
+            assert isinstance(self.exchange, str), 'A non-bytestring value was supplied for self.exchange'
             pieces.append(struct.pack('B', len(self.exchange)))
             pieces.append(self.exchange)
             bit_buffer = 0
@@ -804,10 +822,13 @@ class Exchange(pika.object.Class):
         def encode(self):
             pieces = list()
             pieces.append(struct.pack('>H', self.ticket))
+            assert isinstance(self.destination, str), 'A non-bytestring value was supplied for self.destination'
             pieces.append(struct.pack('B', len(self.destination)))
             pieces.append(self.destination)
+            assert isinstance(self.source, str), 'A non-bytestring value was supplied for self.source'
             pieces.append(struct.pack('B', len(self.source)))
             pieces.append(self.source)
+            assert isinstance(self.routing_key, str), 'A non-bytestring value was supplied for self.routing_key'
             pieces.append(struct.pack('B', len(self.routing_key)))
             pieces.append(self.routing_key)
             bit_buffer = 0
@@ -877,10 +898,13 @@ class Exchange(pika.object.Class):
         def encode(self):
             pieces = list()
             pieces.append(struct.pack('>H', self.ticket))
+            assert isinstance(self.destination, str), 'A non-bytestring value was supplied for self.destination'
             pieces.append(struct.pack('B', len(self.destination)))
             pieces.append(self.destination)
+            assert isinstance(self.source, str), 'A non-bytestring value was supplied for self.source'
             pieces.append(struct.pack('B', len(self.source)))
             pieces.append(self.source)
+            assert isinstance(self.routing_key, str), 'A non-bytestring value was supplied for self.routing_key'
             pieces.append(struct.pack('B', len(self.routing_key)))
             pieces.append(self.routing_key)
             bit_buffer = 0
@@ -954,6 +978,7 @@ class Queue(pika.object.Class):
         def encode(self):
             pieces = list()
             pieces.append(struct.pack('>H', self.ticket))
+            assert isinstance(self.queue, str), 'A non-bytestring value was supplied for self.queue'
             pieces.append(struct.pack('B', len(self.queue)))
             pieces.append(self.queue)
             bit_buffer = 0
@@ -1002,6 +1027,7 @@ class Queue(pika.object.Class):
 
         def encode(self):
             pieces = list()
+            assert isinstance(self.queue, str), 'A non-bytestring value was supplied for self.queue'
             pieces.append(struct.pack('B', len(self.queue)))
             pieces.append(self.queue)
             pieces.append(struct.pack('>I', self.message_count))
@@ -1049,10 +1075,13 @@ class Queue(pika.object.Class):
         def encode(self):
             pieces = list()
             pieces.append(struct.pack('>H', self.ticket))
+            assert isinstance(self.queue, str), 'A non-bytestring value was supplied for self.queue'
             pieces.append(struct.pack('B', len(self.queue)))
             pieces.append(self.queue)
+            assert isinstance(self.exchange, str), 'A non-bytestring value was supplied for self.exchange'
             pieces.append(struct.pack('B', len(self.exchange)))
             pieces.append(self.exchange)
+            assert isinstance(self.routing_key, str), 'A non-bytestring value was supplied for self.routing_key'
             pieces.append(struct.pack('B', len(self.routing_key)))
             pieces.append(self.routing_key)
             bit_buffer = 0
@@ -1110,6 +1139,7 @@ class Queue(pika.object.Class):
         def encode(self):
             pieces = list()
             pieces.append(struct.pack('>H', self.ticket))
+            assert isinstance(self.queue, str), 'A non-bytestring value was supplied for self.queue'
             pieces.append(struct.pack('B', len(self.queue)))
             pieces.append(self.queue)
             bit_buffer = 0
@@ -1175,6 +1205,7 @@ class Queue(pika.object.Class):
         def encode(self):
             pieces = list()
             pieces.append(struct.pack('>H', self.ticket))
+            assert isinstance(self.queue, str), 'A non-bytestring value was supplied for self.queue'
             pieces.append(struct.pack('B', len(self.queue)))
             pieces.append(self.queue)
             bit_buffer = 0
@@ -1248,10 +1279,13 @@ class Queue(pika.object.Class):
         def encode(self):
             pieces = list()
             pieces.append(struct.pack('>H', self.ticket))
+            assert isinstance(self.queue, str), 'A non-bytestring value was supplied for self.queue'
             pieces.append(struct.pack('B', len(self.queue)))
             pieces.append(self.queue)
+            assert isinstance(self.exchange, str), 'A non-bytestring value was supplied for self.exchange'
             pieces.append(struct.pack('B', len(self.exchange)))
             pieces.append(self.exchange)
+            assert isinstance(self.routing_key, str), 'A non-bytestring value was supplied for self.routing_key'
             pieces.append(struct.pack('B', len(self.routing_key)))
             pieces.append(self.routing_key)
             data.encode_table(pieces, self.arguments)
@@ -1379,8 +1413,10 @@ class Basic(pika.object.Class):
         def encode(self):
             pieces = list()
             pieces.append(struct.pack('>H', self.ticket))
+            assert isinstance(self.queue, str), 'A non-bytestring value was supplied for self.queue'
             pieces.append(struct.pack('B', len(self.queue)))
             pieces.append(self.queue)
+            assert isinstance(self.consumer_tag, str), 'A non-bytestring value was supplied for self.consumer_tag'
             pieces.append(struct.pack('B', len(self.consumer_tag)))
             pieces.append(self.consumer_tag)
             bit_buffer = 0
@@ -1417,6 +1453,7 @@ class Basic(pika.object.Class):
 
         def encode(self):
             pieces = list()
+            assert isinstance(self.consumer_tag, str), 'A non-bytestring value was supplied for self.consumer_tag'
             pieces.append(struct.pack('B', len(self.consumer_tag)))
             pieces.append(self.consumer_tag)
             return pieces
@@ -1446,6 +1483,7 @@ class Basic(pika.object.Class):
 
         def encode(self):
             pieces = list()
+            assert isinstance(self.consumer_tag, str), 'A non-bytestring value was supplied for self.consumer_tag'
             pieces.append(struct.pack('B', len(self.consumer_tag)))
             pieces.append(self.consumer_tag)
             bit_buffer = 0
@@ -1475,6 +1513,7 @@ class Basic(pika.object.Class):
 
         def encode(self):
             pieces = list()
+            assert isinstance(self.consumer_tag, str), 'A non-bytestring value was supplied for self.consumer_tag'
             pieces.append(struct.pack('B', len(self.consumer_tag)))
             pieces.append(self.consumer_tag)
             return pieces
@@ -1515,8 +1554,10 @@ class Basic(pika.object.Class):
         def encode(self):
             pieces = list()
             pieces.append(struct.pack('>H', self.ticket))
+            assert isinstance(self.exchange, str), 'A non-bytestring value was supplied for self.exchange'
             pieces.append(struct.pack('B', len(self.exchange)))
             pieces.append(self.exchange)
+            assert isinstance(self.routing_key, str), 'A non-bytestring value was supplied for self.routing_key'
             pieces.append(struct.pack('B', len(self.routing_key)))
             pieces.append(self.routing_key)
             bit_buffer = 0
@@ -1562,10 +1603,13 @@ class Basic(pika.object.Class):
         def encode(self):
             pieces = list()
             pieces.append(struct.pack('>H', self.reply_code))
+            assert isinstance(self.reply_text, str), 'A non-bytestring value was supplied for self.reply_text'
             pieces.append(struct.pack('B', len(self.reply_text)))
             pieces.append(self.reply_text)
+            assert isinstance(self.exchange, str), 'A non-bytestring value was supplied for self.exchange'
             pieces.append(struct.pack('B', len(self.exchange)))
             pieces.append(self.exchange)
+            assert isinstance(self.routing_key, str), 'A non-bytestring value was supplied for self.routing_key'
             pieces.append(struct.pack('B', len(self.routing_key)))
             pieces.append(self.routing_key)
             return pieces
@@ -1610,6 +1654,7 @@ class Basic(pika.object.Class):
 
         def encode(self):
             pieces = list()
+            assert isinstance(self.consumer_tag, str), 'A non-bytestring value was supplied for self.consumer_tag'
             pieces.append(struct.pack('B', len(self.consumer_tag)))
             pieces.append(self.consumer_tag)
             pieces.append(struct.pack('>Q', self.delivery_tag))
@@ -1617,8 +1662,10 @@ class Basic(pika.object.Class):
             if self.redelivered:
                 bit_buffer = bit_buffer | (1 << 0)
             pieces.append(struct.pack('B', bit_buffer))
+            assert isinstance(self.exchange, str), 'A non-bytestring value was supplied for self.exchange'
             pieces.append(struct.pack('B', len(self.exchange)))
             pieces.append(self.exchange)
+            assert isinstance(self.routing_key, str), 'A non-bytestring value was supplied for self.routing_key'
             pieces.append(struct.pack('B', len(self.routing_key)))
             pieces.append(self.routing_key)
             return pieces
@@ -1652,6 +1699,7 @@ class Basic(pika.object.Class):
         def encode(self):
             pieces = list()
             pieces.append(struct.pack('>H', self.ticket))
+            assert isinstance(self.queue, str), 'A non-bytestring value was supplied for self.queue'
             pieces.append(struct.pack('B', len(self.queue)))
             pieces.append(self.queue)
             bit_buffer = 0
@@ -1705,8 +1753,10 @@ class Basic(pika.object.Class):
             if self.redelivered:
                 bit_buffer = bit_buffer | (1 << 0)
             pieces.append(struct.pack('B', bit_buffer))
+            assert isinstance(self.exchange, str), 'A non-bytestring value was supplied for self.exchange'
             pieces.append(struct.pack('B', len(self.exchange)))
             pieces.append(self.exchange)
+            assert isinstance(self.routing_key, str), 'A non-bytestring value was supplied for self.routing_key'
             pieces.append(struct.pack('B', len(self.routing_key)))
             pieces.append(self.routing_key)
             pieces.append(struct.pack('>I', self.message_count))
@@ -1733,6 +1783,7 @@ class Basic(pika.object.Class):
 
         def encode(self):
             pieces = list()
+            assert isinstance(self.cluster_id, str), 'A non-bytestring value was supplied for self.cluster_id'
             pieces.append(struct.pack('B', len(self.cluster_id)))
             pieces.append(self.cluster_id)
             return pieces
@@ -2223,10 +2274,12 @@ class BasicProperties(pika.object.Properties):
         flags = 0
         if self.content_type is not None:
             flags = flags | BasicProperties.FLAG_CONTENT_TYPE
+            assert isinstance(self.content_type, str), 'A non-bytestring value was supplied for self.content_type'
             pieces.append(struct.pack('B', len(self.content_type)))
             pieces.append(self.content_type)
         if self.content_encoding is not None:
             flags = flags | BasicProperties.FLAG_CONTENT_ENCODING
+            assert isinstance(self.content_encoding, str), 'A non-bytestring value was supplied for self.content_encoding'
             pieces.append(struct.pack('B', len(self.content_encoding)))
             pieces.append(self.content_encoding)
         if self.headers is not None:
@@ -2240,18 +2293,22 @@ class BasicProperties(pika.object.Properties):
             pieces.append(struct.pack('B', self.priority))
         if self.correlation_id is not None:
             flags = flags | BasicProperties.FLAG_CORRELATION_ID
+            assert isinstance(self.correlation_id, str), 'A non-bytestring value was supplied for self.correlation_id'
             pieces.append(struct.pack('B', len(self.correlation_id)))
             pieces.append(self.correlation_id)
         if self.reply_to is not None:
             flags = flags | BasicProperties.FLAG_REPLY_TO
+            assert isinstance(self.reply_to, str), 'A non-bytestring value was supplied for self.reply_to'
             pieces.append(struct.pack('B', len(self.reply_to)))
             pieces.append(self.reply_to)
         if self.expiration is not None:
             flags = flags | BasicProperties.FLAG_EXPIRATION
+            assert isinstance(self.expiration, str), 'A non-bytestring value was supplied for self.expiration'
             pieces.append(struct.pack('B', len(self.expiration)))
             pieces.append(self.expiration)
         if self.message_id is not None:
             flags = flags | BasicProperties.FLAG_MESSAGE_ID
+            assert isinstance(self.message_id, str), 'A non-bytestring value was supplied for self.message_id'
             pieces.append(struct.pack('B', len(self.message_id)))
             pieces.append(self.message_id)
         if self.timestamp is not None:
@@ -2259,18 +2316,22 @@ class BasicProperties(pika.object.Properties):
             pieces.append(struct.pack('>Q', self.timestamp))
         if self.type is not None:
             flags = flags | BasicProperties.FLAG_TYPE
+            assert isinstance(self.type, str), 'A non-bytestring value was supplied for self.type'
             pieces.append(struct.pack('B', len(self.type)))
             pieces.append(self.type)
         if self.user_id is not None:
             flags = flags | BasicProperties.FLAG_USER_ID
+            assert isinstance(self.user_id, str), 'A non-bytestring value was supplied for self.user_id'
             pieces.append(struct.pack('B', len(self.user_id)))
             pieces.append(self.user_id)
         if self.app_id is not None:
             flags = flags | BasicProperties.FLAG_APP_ID
+            assert isinstance(self.app_id, str), 'A non-bytestring value was supplied for self.app_id'
             pieces.append(struct.pack('B', len(self.app_id)))
             pieces.append(self.app_id)
         if self.cluster_id is not None:
             flags = flags | BasicProperties.FLAG_CLUSTER_ID
+            assert isinstance(self.cluster_id, str), 'A non-bytestring value was supplied for self.cluster_id'
             pieces.append(struct.pack('B', len(self.cluster_id)))
             pieces.append(self.cluster_id)
         flag_pieces = list()

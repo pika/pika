@@ -504,5 +504,62 @@ def encode_tx_selectok_test():
     if frame.marshal() != frame_data:
         assert False, "Tx.SelectOk frame did not match frame data sample"
 
+###########################################################################
+## The following test cases were constructed following the discussion
+## of GH issue 105, https://github.com/pika/pika/issues/105
+
+def encode_empty_basic_properties_test():
+    frame_data = ('02 0001 0000000e' + # frametype 2, channel 1, 14 bytes payload
+                  '003c 0000 0000000000000080' + # basic class, "weight" (reserved), len 128
+                  '0000' + # no property fields supplied
+                  'ce' + # frame end byte
+                  '').replace(' ', '').decode('hex')
+    frame = pika.frame.Header(1, 128, pika.spec.BasicProperties())
+    if frame.marshal() != frame_data:
+        assert False, frame.marshal().encode('hex')
+
+def encode_basic_properties_with_nonunicode_test():
+    frame_data = ('02 0001 0000000f' + # frametype 2, channel 1, 15 bytes payload
+                  '003c 0000 0000000000000080' + # basic class, "weight" (reserved), len 128
+                  '0400 00' + # correlation_id supplied as the empty string
+                  'ce' + # frame end byte
+                  '').replace(' ', '').decode('hex')
+    frame = pika.frame.Header(1, 128, pika.spec.BasicProperties(correlation_id = ''))
+    if frame.marshal() != frame_data:
+        assert False, frame.marshal().encode('hex')
+
+## These next two are the most interesting tests. Issue #105 was the
+## interaction between a unicode string being passed as a message
+## property and the use of a length of 128 bytes. Even though the
+## unicode string didn't have any characters needing encoding, the use
+## of "''.join(pieces)" in the frame marshalling code caused the
+## unicodeness to *contaminate* the other pieces, causing it to try to
+## interpret the 0x80 length byte as a 7-bit ASCII character! The
+## solution is to check for non-str arguments during encoding of
+## properties and methods.
+
+def encode_basic_properties_with_unicode_test():
+    frame = pika.frame.Header(1, 128, pika.spec.BasicProperties(correlation_id = unicode('')))
+    try:
+        frame.marshal()
+        assert False, "Expected a marshalling assertion failure"
+    except AssertionError, e:
+        expectedMessage = 'A non-bytestring value was supplied for self.correlation_id'
+        assert e.message == expectedMessage, \
+            "Expected a different message on assertion failure; got: " + repr(e.message)
+
+def encode_basic_properties_with_encoded_unicode_test():
+    frame_data = ('02 0001 0000000f' + # frametype 2, channel 1, 15 bytes payload
+                  '003c 0000 0000000000000080' + # basic class, "weight" (reserved), len 128
+                  '0400 00' + # correlation_id supplied as the empty string
+                  'ce' + # frame end byte
+                  '').replace(' ', '').decode('hex')
+    frame = pika.frame.Header(1, 128, pika.spec.BasicProperties(correlation_id = \
+                                                                    unicode('').encode('utf-8')))
+    if frame.marshal() != frame_data:
+        assert False, frame.marshal().encode('hex')
+
+###########################################################################
+
 if __name__ == "__main__":
     unittest.main()
