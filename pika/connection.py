@@ -22,8 +22,6 @@ from pika.heartbeat import HeartbeatChecker
 from pika.reconnection_strategies import NullReconnectionStrategy
 from pika.utils import is_callable
 
-#import inspect
-
 PRODUCT = "Pika Python Client Library"
 
 # Connection State Constants
