@@ -3,8 +3,10 @@
 # For copyright and licensing please refer to COPYING.
 #
 # ***** END LICENSE BLOCK *****
+import logging
 
-import pika.log as log
+LOGGER = logging.getLogger(__name__)
+
 
 class PlainCredentials(object):
     """
@@ -52,7 +54,7 @@ class PlainCredentials(object):
         Called by Connection when it no longer needs the credentials
         """
         if self.erase_on_connect:
-            log.info("Erasing stored credential values")
+            LOGGER.info("Erasing stored credential values")
             self.username = None
             self.password = None
 
@@ -64,7 +66,7 @@ class ExternalCredentials(object):
     """
 
     TYPE = 'EXTERNAL'
-    
+
     def __init__(self):
         self.erase_on_connect = False
 

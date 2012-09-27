@@ -7,8 +7,9 @@
 Class that handles heartbeat communication
 
 """
-from pika import frame
 import time
+
+from pika import frame
 
 
 class HeartbeatChecker(object):

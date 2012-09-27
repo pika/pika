@@ -11,13 +11,15 @@ the Pika stack.
 import logging
 from warnings import warn
 
+LOGGER = logging.getLogger(__name__)
+
 
 def _name_or_value(key):
     """Will take Frame objects, classes, etc and attempt to return a valid
     string identifier for them.
 
     :param [Object,str,dict] key: The key to sanitize
-    :returns: str
+    :rtype: str
 
     """
     # Is it a Pika AMQP Method class with a NAME attribute?
@@ -46,7 +48,6 @@ class CallbackManager(object):
 
     def __init__(self):
         """Create an instance of the CallbackManager"""
-        self._logger = logging.getLogger('pika.callback.CallbackManager')
         self._callbacks = dict()
 
     def add(self, prefix, key, callback, one_shot=True, only_caller=None):
@@ -64,7 +65,7 @@ class CallbackManager(object):
         :param bool one_shot: Remove this callback after it is called
         :param Object only_caller: Only allow one_caller value to call the
             event that fires the callback.
-        :returns: tuple(prefix, key)
+        :rtype: tuple(prefix, key)
 
         """
         # Lets not use objects, since we could have object/class issues
@@ -92,8 +93,7 @@ class CallbackManager(object):
 
         # Append the callback to our key list
         self._callbacks[prefix][key].append(callback_dict)
-        self._logger.debug('Added "%s:%s" with callback: %s',
-                           prefix, key, callback)
+        LOGGER.debug('Added "%s:%s" with callback: %s', prefix, key, callback)
         return prefix, key
 
     def clear(self):
@@ -106,7 +106,7 @@ class CallbackManager(object):
 
         :param [str,int] prefix: Categorize the callback
         :param [Object,str,dict] key: The key for the callback
-        :returns: None or int
+        :rtype: None or int
 
         """
         # Lets not use objects, since we could have module class/obj
@@ -114,7 +114,6 @@ class CallbackManager(object):
 
         if not prefix in self._callbacks or not key in self._callbacks[prefix]:
             return None
-
         return len(self._callbacks[prefix][key])
 
     def process(self, prefix, key, caller, *args, **keywords):
@@ -128,7 +127,7 @@ class CallbackManager(object):
         :param Object caller: Who is firing the event
         :param list args: Any optional arguments
         :param dict keywords: Optional keyword arguments
-        :returns: bool
+        :rtype: bool
 
 
         """
@@ -157,7 +156,7 @@ class CallbackManager(object):
 
         # Prevent recursion
         for callback in callbacks:
-            self._logger.debug('Calling %s for "%s:%s"', callback, prefix, key)
+            LOGGER.debug('Calling %s for "%s:%s"', callback, prefix, key)
             callback(*args, **keywords)
 
         # Indicate success
@@ -171,7 +170,7 @@ class CallbackManager(object):
         :param str prefix: The prefix for keeping track of callbacks with
         :param str key: The callback key
         :param method callback: The method defined to call on callback
-        :returns: bool
+        :rtype: bool
 
         """
         # Lets not use objects, since we could have module class/obj
@@ -187,41 +186,39 @@ class CallbackManager(object):
                     for i in xrange(len(callbacks) - 1, -1, -1):
                         if callbacks[i]['handle'] == callback:
                             del(callbacks[i])
-                            self._logger.debug('Removed %s for "%s:%s"',
-                                               callback, prefix, key)
+                            LOGGER.debug('Removed %s for "%s:%s"',
+                                         callback, prefix, key)
                 # callback is a full dict
                 elif callback in self._callbacks[prefix][key]:
                     self._callbacks[prefix][key].remove(callback)
-                    self._logger.debug('Removed %s for "%s:%s"',
-                                       callback, prefix, key)
+                    LOGGER.debug('Removed %s for "%s:%s"',
+                                 callback, prefix, key)
 
                 # Remove the list from the dict if it's empty
                 if not self._callbacks[prefix][key]:
                     del(self._callbacks[prefix][key])
-                    self._logger.debug('Removed empty key "%s:%s"',
-                                       prefix, key)
+                    LOGGER.debug('Removed empty key "%s:%s"', prefix, key)
 
                 # Remove the prefix if it's empty
                 if not self._callbacks[prefix]:
                     del(self._callbacks[prefix])
-                    self._logger.debug('Removed empty prefix "%s"', prefix)
+                    LOGGER.debug('Removed empty prefix "%s"', prefix)
                 return True
             else:
                 # Remove the list from the dict if it's empty
                 del(self._callbacks[prefix][key])
-                self._logger.debug('Removed key "%s:%s"', prefix, key)
+                LOGGER.debug('Removed key "%s:%s"', prefix, key)
 
                 # Remove the prefix if it's empty
                 if not self._callbacks[prefix]:
                     del(self._callbacks[prefix])
-                    self._logger.debug('Removed empty prefix "%s"', prefix)
+                    LOGGER.debug('Removed empty prefix "%s"', prefix)
 
         else:
             # If we just passed in a prefix for a key
             if prefix in self._callbacks and key in self._callbacks[prefix]:
                 del(self._callbacks[prefix][key])
-                self._logger.debug('Removed all callbacks for "%s:%s"',
-                                   prefix, key)
+                LOGGER.debug('Removed all callbacks for "%s:%s"', prefix, key)
             return True
 
         # Prefix, Key or Callback could not be found

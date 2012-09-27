@@ -10,8 +10,8 @@ Example of simple publisher, loop and send messages as fast as we can
 import sys
 import time
 
-from pika.adapters import BlockingConnection
-from pika.connection import ConnectionParameters
+from pika import BlockingConnection
+from pika import ConnectionParameters
 from pika import BasicProperties
 
 if __name__ == '__main__':

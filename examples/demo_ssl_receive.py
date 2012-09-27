@@ -7,6 +7,7 @@
 """
 Example of simple consumer using SSL. Acks each message as it arrives.
 """
+import logging
 from ssl import CERT_REQUIRED, PROTOCOL_SSLv3
 import sys
 
@@ -17,7 +18,7 @@ if exists(normpath('../pika')):
 
 from pika.adapters import SelectConnection
 from pika.connection import ConnectionParameters
-import pika.log as log
+
 
 # We use these to hold our connection & channel
 connection = None
@@ -55,9 +56,7 @@ def handle_delivery(channel, method_frame, header_frame, body):
 
 
 if __name__ == '__main__':
-
-    # Setup pika logging for internal info
-    log.setup(log.INFO, True)
+    logging.basicConfig(level=logging.INFO)
 
     # Setup empty ssl options
     ssl_options = {}

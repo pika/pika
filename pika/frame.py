@@ -3,13 +3,14 @@
 # For copyright and licensing please refer to COPYING.
 #
 # ***** END LICENSE BLOCK *****
-
+import logging
 import struct
-import pika.log as log
-import pika.spec as spec
-import pika.exceptions as exceptions
 
+import pika.exceptions as exceptions
 from pika.object import object_
+import pika.spec as spec
+
+LOGGER = logging.getLogger(__name__)
 
 
 class Frame(object_):
@@ -259,9 +260,9 @@ class Dispatcher(object):
             if seen_so_far[0] == header_frame.body_size:
                 finish()
             elif seen_so_far[0] < header_frame.body_size:
-                log.debug("Received message Body frame, %i of %i bytes of \
-message body received.",
-                          seen_so_far[0], header_frame.body_size)
+                LOGGER.debug('Received message Body frame, %i of %i bytes of '
+                             'message body received.',
+                             seen_so_far[0], header_frame.body_size)
             # Did we get too many bytes?
             elif seen_so_far[0] > header_frame.body_size:
                 error = 'Received %i and only expected %i' % \

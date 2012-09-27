@@ -12,7 +12,6 @@ and append data to the end.
 It's ideal to use as a network buffer, from which you send data to the socket.
 Use this to avoid concatenating or splitting large strings.
 """
-
 import os
 try:
     import cStringIO as StringIO

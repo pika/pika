@@ -3,15 +3,13 @@
 # For copyright and licensing please refer to COPYING.
 #
 # ***** END LICENSE BLOCK *****
-
-import types
+import logging
 from platform import python_version
 from warnings import warn
 
 import pika.channel as channel
 import pika.credentials
 import pika.frame
-import pika.log
 import pika.simplebuffer as simplebuffer
 import pika.spec as spec
 
@@ -32,6 +30,8 @@ CONNECTION_START = 3
 CONNECTION_TUNE = 4
 CONNECTION_OPEN = 5
 CONNECTION_CLOSING = 6
+
+LOGGER = logging.getLogger(__name__)
 
 
 class ConnectionParameters(object):
@@ -452,7 +452,7 @@ class Connection(object):
         self.connection_state = CONNECTION_CLOSING
 
         # Carry our code and text around with us
-        pika.log.info("Closing connection: %i - %s", code, text)
+        LOGGER.info("Closing connection: %i - %s", code, text)
         self.closing = code, text
 
         # Disable reconnection strategy on clean shutdown
@@ -492,8 +492,8 @@ class Connection(object):
         # Call any callbacks registered for this
         self.callbacks.process(0, '_on_connection_closed', self, self)
 
-        pika.log.info("Disconnected from RabbitMQ at %s:%i",
-                      self.parameters.host, self.parameters.port)
+        LOGGER.info("Disconnected from RabbitMQ at %s:%i",
+                    self.parameters.host, self.parameters.port)
 
         # Disconnect our transport if it didn't call on_disconnected
         if not from_adapter:
@@ -720,8 +720,8 @@ class Connection(object):
                     self._channels[\
                         frame.channel_number].transport.deliver(frame)
                 else:
-                    pika.log.error("Received %s for non-existing channel %i",
-                                   frame.method.NAME, frame.channel_number)
+                    LOGGER.error("Received %s for non-existing channel %i",
+                                 frame.method.NAME, frame.channel_number)
 
     def _rpc(self, channel_number, method,
              callback=None, acceptable_replies=None):

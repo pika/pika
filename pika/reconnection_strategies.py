@@ -3,8 +3,11 @@
 # For copyright and licensing please refer to COPYING.
 #
 # ***** END LICENSE BLOCK *****
-from pika.log import info
+import logging
 from random import random
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 class ReconnectionStrategy(object):
@@ -70,9 +73,8 @@ class SimpleReconnectionStrategy(ReconnectionStrategy):
             return
 
         t = self.current_delay * ((random() * self.jitter) + 1)
-        info("%s retrying %r in %r seconds (%r attempts)",
-                 self.__class__.__name__, conn.parameters, t,
-                 self.attempts_since_last_success)
+        LOGGER.info("Retrying %r in %r seconds (%r attempts)",
+                    conn.parameters, t, self.attempts_since_last_success)
         self.current_delay = min(self.max_delay,
                                  self.current_delay * self.multiplier)
         conn.add_timeout(t, conn._reconnect)
