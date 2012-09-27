@@ -49,6 +49,9 @@ class CallbackManager(object):
         self._logger = logging.getLogger('pika.callback.CallbackManager')
         self._callbacks = dict()
 
+    def sanitize(self, key):
+        return _name_or_value(key)
+
     def add(self, prefix, key, callback, one_shot=True, only_caller=None):
         """Add a callback to the stack for the specified key. If the call is
         specified as one_shot, it will be removed after being fired

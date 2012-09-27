@@ -221,6 +221,8 @@ probable permission error when accessing a virtual host")
             # This shouldn't happen, but log it in case it does
             log.error("%s: Tried to handle an error where no error existed",
                       self.__class__.__name__)
+            # Cannot continue as error_code is not set
+            return
 
         # Ok errors, just continue what we were doing before
         if error_code in ERRORS_TO_IGNORE:
