@@ -49,10 +49,13 @@ class SelectConnection(BaseConnection):
         Call the state manager who will figure out that we need to write then
         call the poller's poll function to force it to process events.
         """
-        self._manage_event_state()
-
-        # Force our poller to come up for air
-        self.ioloop.poller.poll()
+        self.ioloop.poller.process_timeouts()
+        self.ioloop.poller._manage_event_state()
+        
+        # Force our poller to come up for air, but in write only mode
+        # write only mode prevents messages from coming in and kicking off
+        # events through the consumer
+        self.ioloop.poller.poll(write_only=True)
 
 
 class IOLoop(object):
@@ -209,7 +212,7 @@ class SelectPoller(object):
             self._manage_event_state()
 
 
-    def poll(self):
+    def poll(self, write_only=False):
         # Build our values to pass into select
         input_fileno, output_fileno, error_fileno = [], [], []
 
@@ -241,7 +244,7 @@ class SelectPoller(object):
         if events:
             pika.log.debug("%s: Calling %s", self.__class__.__name__,
                            self._handler)
-            self._handler(self.fileno, events)
+            self._handler(self.fileno, events, write_only=write_only)
 
 
 class KQueuePoller(SelectPoller):
@@ -331,7 +334,7 @@ class KQueuePoller(SelectPoller):
             # Manage our state for updating the poller
             self._manage_event_state()
 
-    def poll(self):
+    def poll(self, write_only=False):
 
         # We'll build a bitmask of events that happened in kqueue
         events = 0
@@ -364,7 +367,7 @@ class KQueuePoller(SelectPoller):
         if events:
             pika.log.debug("%s: Calling %s(%i)", self.__class__.__name__,
                            self._handler, events)
-            self._handler(self.fileno, events)
+            self._handler(self.fileno, events, write_only=write_only)
 
 
 class PollPoller(SelectPoller):
@@ -401,9 +404,9 @@ class PollPoller(SelectPoller):
             self.update_handler(self.fileno, 0)
             self._poll.unregister(self.fileno)
         except IOError, err:
-           pika.log.debug("Got IOError while shutting down poller: %s" % repr(err))
+            pika.log.debug("Got IOError while shutting down poller: %s" % repr(err))
 
-    def poll(self):
+    def poll(self, write_only=False):
         # Poll until TIMEOUT waiting for an event
         events = self._poll.poll(int(SelectPoller.TIMEOUT * 1000))
 
@@ -412,7 +415,7 @@ class PollPoller(SelectPoller):
             pika.log.debug("%s: Calling %s with %d events", self.__class__.__name__,
                            self._handler, len(events))
             for fileno, event in events:
-                self._handler(fileno, event)
+                self._handler(fileno, event, write_only=write_only)
 
 
 class EPollPoller(PollPoller):
@@ -424,7 +427,7 @@ class EPollPoller(PollPoller):
         self._poll = select.epoll()
         self._poll.register(fileno, self.events)
 
-    def poll(self):
+    def poll(self, write_only=False):
 
         # Poll until TIMEOUT waiting for an event
         events = self._poll.poll(SelectPoller.TIMEOUT)
@@ -434,4 +437,4 @@ class EPollPoller(PollPoller):
             pika.log.debug("%s: Calling %s", self.__class__.__name__,
                            self._handler)
             for fileno, event in events:
-                self._handler(fileno, event)
+                self._handler(fileno, event, write_only=write_only)

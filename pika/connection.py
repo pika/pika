@@ -22,7 +22,7 @@ from pika.heartbeat import HeartbeatChecker
 from pika.reconnection_strategies import NullReconnectionStrategy
 from pika.utils import is_callable
 
-import inspect
+#import inspect
 
 PRODUCT = "Pika Python Client Library"
 
@@ -759,7 +759,7 @@ class Connection(object):
 
         #pika.frame.log_frame(frame.name, marshalled_frame)
         self.outbound_buffer.write(marshalled_frame)
-        #self._flush_outbound()
+        self._flush_outbound()
         self._detect_backpressure()
 
     def _detect_backpressure(self):
