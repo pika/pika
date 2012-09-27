@@ -145,7 +145,8 @@ class ConnectionParameters(object):
             raise TypeError("retry_delay must be an int")
 
         # Validate the socket timeout delay
-        if not isinstance(socket_timeout, int):
+        if socket_timeout is not None and \
+            not isinstance(socket_timeout, int):
             raise TypeError("socket_timeout must be an int")
 
         # Assign our values
