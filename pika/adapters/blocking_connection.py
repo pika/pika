@@ -3,12 +3,11 @@
 # For copyright and licensing please refer to COPYING.
 #
 # ***** END LICENSE BLOCK *****
-
+import logging
 import socket
 import time
 import types
 
-import pika.log as log
 import pika.spec as spec
 
 from pika.adapters import BaseConnection
@@ -19,6 +18,8 @@ from pika.callback import _name_or_value
 SOCKET_TIMEOUT = 0.25
 SOCKET_TIMEOUT_THRESHOLD = 100
 SOCKET_TIMEOUT_MESSAGE = "BlockingConnection: Timeout exceeded, disconnected"
+
+LOGGER = logging.getLogger(__name__)
 
 
 class BlockingConnection(BaseConnection):
@@ -43,7 +44,7 @@ class BlockingConnection(BaseConnection):
         self._timeouts = dict()
 
         # When using a high availability cluster (such as HAProxy) we are always able to connect
-        # even though there might be no RabbitMQ backend. 
+        # even though there might be no RabbitMQ backend.
         socket_timeout_retries = 0
         while not self.is_open and socket_timeout_retries<SOCKET_TIMEOUT_THRESHOLD:
             self._flush_outbound()
@@ -92,7 +93,7 @@ class BlockingConnection(BaseConnection):
         except socket.timeout:
             self._socket_timeouts += 1
             if self._socket_timeouts > SOCKET_TIMEOUT_THRESHOLD:
-                log.error(SOCKET_TIMEOUT_MESSAGE)
+                LOGGER.error(SOCKET_TIMEOUT_MESSAGE)
                 self._handle_disconnect()
 
     def flush_outbound(self):
@@ -116,7 +117,7 @@ class BlockingConnection(BaseConnection):
         except socket.timeout:
             self._socket_timeouts += 1
             if self._socket_timeouts > SOCKET_TIMEOUT_THRESHOLD:
-                log.error(SOCKET_TIMEOUT_MESSAGE)
+                LOGGER.error(SOCKET_TIMEOUT_MESSAGE)
                 self._handle_disconnect()
 
         # Process our timeout events
@@ -175,9 +176,8 @@ class BlockingConnection(BaseConnection):
         for timeout_id in keys:
             if timeout_id in self._timeouts and \
                 self._timeouts[timeout_id]['deadline'] <= start_time:
-                log.debug('%s: Timeout calling %s',
-                          self.__class__.__name__,
-                          self._timeouts[timeout_id]['handler'])
+                LOGGER.debug('Timeout calling %s',
+                             self._timeouts[timeout_id]['handler'])
                 self._timeouts.pop(timeout_id)['handler']()
 
 

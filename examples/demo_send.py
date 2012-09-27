@@ -7,6 +7,7 @@
 """
 Example of simple publisher, sends 10 messages and exits
 """
+import logging
 import sys
 import time
 
@@ -18,7 +19,7 @@ if exists(normpath('../pika')):
 from pika.adapters import SelectConnection
 from pika.connection import ConnectionParameters
 from pika import BasicProperties
-import pika.log
+
 
 # We use these to hold our connection & channel
 connection = None
@@ -66,7 +67,7 @@ def on_queue_declared(frame):
 
 
 if __name__ == '__main__':
-    pika.log.setup(level=pika.log.INFO)
+    logging.basicConfig(level=logging.INFO)
 
     # Connect to RabbitMQ
     host = (len(sys.argv) > 1) and sys.argv[1] or '127.0.0.1'

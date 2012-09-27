@@ -3,12 +3,13 @@
 # For copyright and licensing please refer to COPYING.
 #
 # ***** END LICENSE BLOCK *****
-
+import logging
 import select
 import time
 
 from pika.adapters.base_connection import BaseConnection
-import pika.log
+
+LOGGER = logging.getLogger(__name__)
 
 # One of select, epoll, kqueue or poll
 SELECT_TYPE = None
@@ -188,9 +189,8 @@ class SelectPoller(object):
         for timeout_id in keys:
             if timeout_id in self._timeouts and \
                self._timeouts[timeout_id]['deadline'] <= start_time:
-                pika.log.debug('%s: Timeout calling %s',
-                               self.__class__.__name__,
-                               self._timeouts[timeout_id]['handler'])
+                LOGGER.debug('Timeout calling %s',
+                             self._timeouts[timeout_id]['handler'])
                 self._timeouts[timeout_id]['handler']()
                 del(self._timeouts[timeout_id])
 
@@ -239,8 +239,7 @@ class SelectPoller(object):
             events |= ERROR
 
         if events:
-            pika.log.debug("%s: Calling %s", self.__class__.__name__,
-                           self._handler)
+            LOGGER.debug("Calling %s", self._handler)
             self._handler(self.fileno, events)
 
 
@@ -362,8 +361,7 @@ class KQueuePoller(SelectPoller):
 
         # Call our event handler if we have events in our stack
         if events:
-            pika.log.debug("%s: Calling %s(%i)", self.__class__.__name__,
-                           self._handler, events)
+            LOGGER.debug("Calling %s(%i)", self._handler, events)
             self._handler(self.fileno, events)
 
 
@@ -397,11 +395,11 @@ class PollPoller(SelectPoller):
             return
 
         try:
-            pika.log.info("Unregistering poller on fd %d" % self.fileno)
+            LOGGER.info("Unregistering poller on fd %d" % self.fileno)
             self.update_handler(self.fileno, 0)
             self._poll.unregister(self.fileno)
         except IOError, err:
-           pika.log.debug("Got IOError while shutting down poller: %s" % repr(err))
+           LOGGER.debug("Got IOError while shutting down poller: %s" % repr(err))
 
     def poll(self):
         # Poll until TIMEOUT waiting for an event
@@ -409,8 +407,8 @@ class PollPoller(SelectPoller):
 
         # If we didn't timeout pass the event to the handler
         if events:
-            pika.log.debug("%s: Calling %s with %d events", self.__class__.__name__,
-                           self._handler, len(events))
+            LOGGER.debug("Calling %s with %d events",
+                         self._handler, len(events))
             for fileno, event in events:
                 self._handler(fileno, event)
 
@@ -431,7 +429,6 @@ class EPollPoller(PollPoller):
 
         # If we didn't timeout pass the event to the handler
         if events:
-            pika.log.debug("%s: Calling %s", self.__class__.__name__,
-                           self._handler)
+            LOGGER.debug("Calling %s", self._handler)
             for fileno, event in events:
                 self._handler(fileno, event)

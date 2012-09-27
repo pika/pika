@@ -4,8 +4,7 @@
 #
 # ***** END LICENSE BLOCK *****
 
-"""
-Pika provides multiple adapters to connect to RabbitMQ:
+"""Pika provides multiple adapters to connect to RabbitMQ:
 
 - adapters.select_connection.SelectConnection: A native event based connection
   adapter that implements select, kqueue, poll and epoll.
@@ -15,11 +14,12 @@ Pika provides multiple adapters to connect to RabbitMQ:
 - adapters.tornado_connection.TornadoConnection: Connection adapter for use
   with the Tornado web framework.
 - adapters.blocking_connection.BlockingConnection: Enables blocking,
-  synchronous operation on top of library for simple uses. This is not
-  recommended and is included for legacy reasons only.
+  synchronous operation on top of library for simple uses.
+
 """
 
 import errno
+import logging
 import socket
 import time
 
@@ -40,7 +40,9 @@ from pika.connection import Connection, CONNECTION_PROTOCOL, CONNECTION_START,\
     CONNECTION_TUNE
 from pika.exceptions import AMQPConnectionError, IncompatibleProtocolError, \
     ProbableAuthenticationError, ProbableAccessDeniedError
-import pika.log as log
+
+LOGGER = logging.getLogger(__name__)
+
 
 # Use epoll's constants to keep life easy
 READ = 0x0001
@@ -106,10 +108,10 @@ class BaseConnection(Connection):
             self._ssl_connecting = True
 
         # Try and connect
-        log.info("Connecting fd %d to %s:%i%s", self.socket.fileno(),
-                 self.parameters.host,
-                 self.parameters.port, ssl_text)
-        self.socket.settimeout(self.parameters.socket_timeout or CONNECTION_TIMEOUT)
+        LOGGER.info("Connecting fd %d to %s:%i%s", self.socket.fileno(),
+                    self.parameters.host, self.parameters.port, ssl_text)
+        self.socket.settimeout(self.parameters.socket_timeout or
+                               CONNECTION_TIMEOUT)
         self.socket.connect((self.parameters.host,
                              self.parameters.port))
 
@@ -141,13 +143,13 @@ class BaseConnection(Connection):
                 retry = "Retrying in %i seconds with %i retry(s) left" % \
                         (self.parameters.retry_delay, remaining_attempts)
 
-            log.warning("Could not connect: %s. %s", reason, retry)
+            LOGGER.warning("Could not connect: %s. %s", reason, retry)
 
             if remaining_attempts:
                 time.sleep(self.parameters.retry_delay)
 
         # Log the errors and raise the  exception
-        log.error("Could not connect: %s", reason)
+        LOGGER.error("Could not connect: %s", reason)
         raise AMQPConnectionError(reason)
 
     def add_timeout(self, deadline, callback):
@@ -186,15 +188,16 @@ class BaseConnection(Connection):
         exception types.
         """
         if self.connection_state == CONNECTION_PROTOCOL:
-            log.error("Incompatible Protocol Versions")
+            LOGGER.error("Incompatible Protocol Versions")
             raise IncompatibleProtocolError
         elif self.connection_state == CONNECTION_START:
-            log.error("Socket closed while authenticating indicating a \
-probable authentication error")
+            LOGGER.error("Socket closed while authenticating indicating a "
+                         "probable authentication error")
             raise ProbableAuthenticationError
         elif self.connection_state == CONNECTION_TUNE:
-            log.error("Socket closed while tuning the connection indicating a \
-probable permission error when accessing a virtual host")
+            LOGGER.error("Socket closed while tuning the connection indicating "
+                         "a probable permission error when accessing a virtual "
+                         "host")
             raise ProbableAccessDeniedError
 
     def _handle_disconnect(self):
@@ -219,18 +222,16 @@ probable permission error when accessing a virtual host")
             error_code = error[0]  # Python <= 2.5
         else:
             # This shouldn't happen, but log it in case it does
-            log.error("%s: Tried to handle an error where no error existed",
-                      self.__class__.__name__)
+            LOGGER.error("Tried to handle an error where no error existed")
 
         # Ok errors, just continue what we were doing before
         if error_code in ERRORS_TO_IGNORE:
-            log.debug("Ignoring %s", error_code)
+            LOGGER.debug("Ignoring %s", error_code)
             return None
 
         # Socket is closed, so lets just go to our handle_close method
         elif error_code in (errno.EBADF, errno.ECONNABORTED):
-            log.error("%s: Socket is closed",
-                    self.__class__.__name__)
+            LOGGER.error("Socket is closed")
 
         elif self.parameters.ssl and isinstance(error, ssl.SSLError):
             # SSL socket operation needs to be retried
@@ -238,16 +239,12 @@ probable permission error when accessing a virtual host")
                                ssl.SSL_ERROR_WANT_WRITE):
                 return None
             else:
-                log.error("%s: SSL Socket error on fd %d: %s",
-                      self.__class__.__name__,
-                      self.socket.fileno(),
-                      repr(error))
+                LOGGER.error("SSL Socket error on fd %d: %s",
+                             self.socket.fileno(), repr(error))
         else:
             # Haven't run into this one yet, log it.
-            log.error("%s: Socket Error on fd %d: %s",
-                      self.__class__.__name__,
-                      self.socket.fileno(),
-                      error_code)
+            LOGGER.error("Socket Error on fd %d: %s",
+                         self.socket.fileno(), error_code)
 
         # Disconnect from our IOLoop and let Connection know what's up
         self._handle_disconnect()
@@ -258,7 +255,7 @@ probable permission error when accessing a virtual host")
         Copied from python stdlib test_ssl.py.
 
         """
-        log.debug("_do_ssl_handshake")
+        LOGGER.debug("_do_ssl_handshake")
         try:
             self.socket.do_handshake()
         except ssl.SSLError, err:
@@ -279,8 +276,8 @@ probable permission error when accessing a virtual host")
         Our IO/Event loop have called us with events, so process them
         """
         if not self.socket:
-            log.error("%s: Got events for closed stream %d",
-                      self.__class__.__name__, self.socket.fileno())
+            LOGGER.error("Got events for closed stream %d",
+                         self.socket.fileno())
             return
 
         if events & READ:
@@ -314,7 +311,7 @@ probable permission error when accessing a virtual host")
 
         # We received no data, so disconnect
         if not data:
-            log.debug('Calling disconnect')
+            LOGGER.debug('Calling disconnect')
             return self._adapter_disconnect()
 
         # Pass the data into our top level frame dispatching method
@@ -344,7 +341,7 @@ probable permission error when accessing a virtual host")
         # Remove the content from our output buffer
         self.outbound_buffer.consume(bytes_written)
         if self.outbound_buffer.size:
-            log.debug("Outbound buffer size: %i", self.outbound_buffer.size)
+            LOGGER.debug("Outbound buffer size: %i", self.outbound_buffer.size)
 
     def _manage_event_state(self):
         """

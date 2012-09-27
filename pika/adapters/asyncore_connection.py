@@ -5,6 +5,7 @@
 # ***** END LICENSE BLOCK *****
 
 import asyncore
+import logging
 import select
 import socket
 import time
@@ -18,7 +19,8 @@ except ImportError:
 
 from pika.adapters.base_connection import BaseConnection
 from pika.exceptions import AMQPConnectionError
-import pika.log as log
+
+LOGGER = logging.getLogger(__name__)
 
 
 class AsyncoreDispatcher(asyncore.dispatcher):
@@ -56,15 +58,15 @@ class AsyncoreDispatcher(asyncore.dispatcher):
                 remaining_attempts -= 1
                 if not remaining_attempts:
                     break
-                log.warning("Could not connect: %s. Retrying in %i seconds \
-with %i retry(s) left",
-                            err[-1], self.parameters.retry_delay,
-                            remaining_attempts)
+                LOGGER.warning("Could not connect: %s. Retrying in %i seconds "
+                               "with %i retry(s) left",
+                               err[-1], self.parameters.retry_delay,
+                               remaining_attempts)
                 self.socket.close()
                 time.sleep(self.parameters.retry_delay)
 
         # Log the errors and raise the  exception
-        log.error("Could not connect: %s", err[-1])
+        LOGGER.error("Could not connect: %s", err[-1])
         raise AMQPConnectionError(err[-1])
 
     def _socket_connect(self):
@@ -141,7 +143,6 @@ with %i retry(s) left",
 
         # Remove what we wrote from the outbound buffer
         self.connection.outbound_buffer.consume(bytes_written)
-
 
     def writable(self):
         """

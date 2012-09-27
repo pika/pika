@@ -3,16 +3,15 @@
 # For copyright and licensing please refer to COPYING.
 #
 # ***** END LICENSE BLOCK *****
-
-import types
+import collections
+import logging
 
 import pika.frame as frame
 import pika.exceptions as exceptions
-import pika.log
 import pika.spec as spec
 from pika.utils import is_callable
-from collections import deque
 
+LOGGER = logging.getLogger(__name__)
 MAX_CHANNELS = 32768
 
 
@@ -42,7 +41,7 @@ class ChannelTransport(object):
 
         # We need to block on synchronous commands, but do so asynchronously
         self.blocking = None
-        self._blocked = deque()
+        self._blocked = collections.deque()
 
         # By default we're closed
         self.closed = True
@@ -437,7 +436,7 @@ class Channel(spec.DriverMixin):
         else:
             # Append the message to our pending list
             self._pending[\
-                method_frame.method.consumer_tag].append(\
+                method_frame.method.consumer_tag].append(
                     (method_frame.method, header_frame.properties, body))
 
     def _on_cancel_ok(self, frame):
@@ -478,8 +477,7 @@ class Channel(spec.DriverMixin):
                                      body)
             self._basic_get_ok_callback = None
         else:
-            pika.log.error("%s._on_basic_get: No callback defined.",
-                            self.__class__.__name__)
+            LOGGER.error("No callback defined.")
 
     def _on_basic_get_empty(self, frame):
         """
@@ -524,8 +522,7 @@ class Channel(spec.DriverMixin):
             self._on_flow_ok_callback(frame.method.active)
             self._on_flow_ok_callback = None
         else:
-            pika.log.error("%s._on_flow_ok: No callback defined.",
-                           self.__class__.__name__)
+            LOGGER.error("No callback defined.")
 
     def confirm_delivery(self, callback=None, nowait=False):
         """
@@ -570,4 +567,4 @@ class Channel(spec.DriverMixin):
         """
         Called when the broker sends a Confirm.SelectOk frame
         """
-        pika.log.info("Confirm.SelectOk Received")
+        LOGGER.info("Confirm.SelectOk Received")
