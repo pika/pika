@@ -154,6 +154,10 @@ class Channel(spec.DriverMixin):
     construct the a channel by calling the active connection's channel()
     method.
     """
+    CLOSED = 0
+    OPENING = 1
+    OPEN = 2
+    CLOSING = 3
 
     def __init__(self, connection, channel_number, on_open_callback=None,
                  transport=None):
@@ -176,6 +180,7 @@ class Channel(spec.DriverMixin):
         self.channel_number = channel_number
         self.callbacks = connection.callbacks
         self._on_open_callback = on_open_callback
+        self._state = self.CLOSED
         self.closing = None
         self._cancelled = list()
         self._consumers = dict()
@@ -320,19 +325,13 @@ class Channel(spec.DriverMixin):
         """
         Will invoke a clean shutdown of the channel with the AMQP Broker.
         """
-        # Set our closing code and text
+        self._set_state(self.CLOSING)
         self.closing = code, text
-
-        # Let an application that registered itself our callbacks know we're
-        # Closing/Closed
         self.callbacks.process(self.channel_number, '_on_channel_close',
                                self, code, text)
-
-        # Send our basic cancel for all of our consumers
-        for consumer_tag in self._consumers.keys():
-            self.basic_cancel(consumer_tag)
-
-        # If we have an open connection send a RPC call to close the channel
+        if not from_server:
+            for consumer_tag in self._consumers.keys():
+                self.basic_cancel(consumer_tag)
         if not len(self._consumers) and not from_server:
             self._close()
 
@@ -483,25 +482,34 @@ class Channel(spec.DriverMixin):
         constructor is not the first callback we make. ChannelTransport needs
         to know before the app that passed in the callback.
         """
-        # Call our on open callback
+        self._set_state(self.OPEN)
         if self._on_open_callback:
             self._on_open_callback(self)
 
-    def on_remote_close(self, frame):
+    def on_remote_close(self, frame_value):
         """Handle the case where our channel has been closed for us
+
+        :param pika.frame.Method frame_value: The close frame
+
         """
         # Set our closing code and text
-        self.closing = frame.method.reply_code, frame.method.reply_text
-
-        # Let an application that registered itself our callbacks know we're
-        # Closing/Closed
-        self.callbacks.process(self.channel_number, '_on_channel_close',
-                               self, frame.method.reply_code,
-                               frame.method.reply_text)
+        self.closing = (frame_value.method.reply_code,
+                        frame_value.method.reply_text)
+        self.transport.closed = True
+        self._set_state(self.CLOSED)
+        self.callbacks.process(self.channel_number,
+                               '_on_channel_close',
+                               self,
+                               frame_value.method.reply_code,
+                               frame_value.method.reply_text)
 
     def open(self):
         """Open the channel"""
+        self._set_state(self.OPENING)
         self.transport.send_method(spec.Channel.Open())
+
+    def _set_state(self, CONNECTION_STATE):
+        self._state = CONNECTION_STATE
 
     def _add_callbacks(self):
         # Add a callback for Basic.Deliver
@@ -537,9 +545,14 @@ class Channel(spec.DriverMixin):
         Channel.close and Channel._on_cancel_ok if self.closing
 
         """
+        self._set_state(self.CLOSING)
         self.transport.send_method(spec.Channel.Close(self.closing[0],
                                                       self.closing[1],
                                                       0, 0))
 
     def _get_pending_msg(self, consumer_tag):
         return self._pending[consumer_tag].pop(0)
+
+    @property
+    def is_open(self):
+        return self._state == self.OPEN
