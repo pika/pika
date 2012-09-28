@@ -165,6 +165,8 @@ class BaseConnection(connection.Connection):
         :rtype: int
 
         """
+        if not error_value:
+            return None
         if hasattr(error_value, 'errno'):  # Python >= 2.6
             return error_value.errno
         elif error_value is not None:
