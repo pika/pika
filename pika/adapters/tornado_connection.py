@@ -3,109 +3,55 @@
 # For copyright and licensing please refer to COPYING.
 #
 # ***** END LICENSE BLOCK *****
-try:
-    from tornado import ioloop
-    IOLoop = ioloop.IOLoop
-except ImportError:
-    IOLoop = None
-
-from pika.adapters.base_connection import BaseConnection
-from pika.exceptions import AMQPConnectionError
-from pika.reconnection_strategies import NullReconnectionStrategy
-
-# Redefine our constants with Tornado's
-if IOLoop:
-    ERROR = ioloop.IOLoop.ERROR
-    READ = ioloop.IOLoop.READ
-    WRITE = ioloop.IOLoop.WRITE
-
+from tornado import ioloop
 import time
 
-class TornadoConnection(BaseConnection):
+from pika.adapters import base_connection
+
+
+class TornadoConnection(base_connection.BaseConnection):
 
     def __init__(self, parameters=None,
                  on_open_callback=None,
                  reconnection_strategy=None,
-                 callback_interval=250,
-                 io_loop=None):
-
-        # Validate we have Tornado installed
-        if not IOLoop:
-            raise ImportError("Tornado not installed")
-
-        self.callback_interval = callback_interval
-        self._pc = None
-        self._default_ioloop = io_loop or IOLoop.instance()
-
-        BaseConnection.__init__(self, parameters, on_open_callback,
-                                reconnection_strategy)
+                 io_loop=None,
+                 stop_ioloop_on_close=False):
+        super(TornadoConnection, self).__init__(parameters, on_open_callback,
+                                                reconnection_strategy,
+                                                stop_ioloop_on_close)
 
     def _adapter_connect(self):
-        """
-        Connect to the given host and port
-        """
-        # Setup our ioloop
-        if self.ioloop is None:
-            self.ioloop = self._default_ioloop
-
-        # Setup a periodic callbacks
-        if self._pc is None:
-            self._pc = ioloop.PeriodicCallback(self._manage_event_state,
-                                               self.callback_interval,
-                                               self.ioloop)
-
-        try:
-            # Connect to RabbitMQ and start polling
-            BaseConnection._adapter_connect(self)
-            self.start_poller()
-
-            # Let everyone know we're connected
-            self._on_connected()
-        except AMQPConnectionError, e:
-            # If we don't have RS just raise the exception
-            if isinstance(self.reconnection, NullReconnectionStrategy):
-                raise e
-            # Trying to reconnect
-            self.reconnection.on_connection_closed(self)
-
-    def _handle_disconnect(self):
-        """
-        Called internally when we know our socket is disconnected already
-        """
-        self.stop_poller()
-
-        BaseConnection._handle_disconnect(self)
-
-    def _adapter_disconnect(self):
-        """
-        Disconnect from the RabbitMQ Broker
-        """
-        self.stop_poller()
-
-        BaseConnection._adapter_disconnect(self)
-
-    def start_poller(self):
-        # Start periodic _manage_event_state
-        self._pc.start()
-
-        # Add the ioloop handler for the event state
+        """Connect to the RabbitMQ broker"""
+        super(TornadoConnection, self)._adapter_connect()
+        self.ioloop = ioloop.IOLoop.instance()
         self.ioloop.add_handler(self.socket.fileno(),
                                 self._handle_events,
                                 self.event_state)
+        self._on_connected()
 
-    def stop_poller(self):
-        # Stop periodic _manage_event_state
-        self._pc.stop()
-
-        # Remove from the IOLoop
+    def _adapter_disconnect(self):
+        """Disconnect from the RabbitMQ broker"""
+        super(TornadoConnection, self)._adapter_disconnect()
         self.ioloop.remove_handler(self.socket.fileno())
 
-    def add_timeout(self, deadline, callback):
+    def add_timeout(self, deadline, callback_method):
+        """Add the callback_method to the IOLoop timer to fire after deadline
+        seconds. Returns a handle to the timeout. Do not confuse with
+        Tornado's timeout where you pass in the time you want to have your
+        callback called. Only pass in the seconds until it's to be called.
+
+        :param int deadline: The number of seconds to wait to call callback
+        :param method callback_method: The callback method
+        :rtype: str
+
         """
-        Adds a timeout that will be called in `deadline` seconds.
-        Not to be confused with tornado.ioloop.add_timeout()
-        which accepts a timestamp or timedelta as the `deadline` argument.
+        return self.ioloop.add_timeout(time.time() + deadline, callback_method)
+
+    def remove_timeout(self, timeout_id):
+        """Remove the timeout from the IOLoop by the ID returned from
+        add_timeout.
+
+        :rtype: str
+
         """
-        # This override is required for the API
-        # to be consistent with other Connection classes
-        return self.ioloop.add_timeout(time.time() + deadline, callback)
+        return self.ioloop.remove_timeout(timeout_id)
