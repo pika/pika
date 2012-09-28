@@ -36,10 +36,10 @@ class BaseConnection(connection.Connection):
     SOCKET_TIMEOUT = 2
     ERRORS_TO_IGNORE = [errno.EWOULDBLOCK, errno.EAGAIN, errno.EINTR]
     HANDSHAKE = 'do_handshake_on_connect'
-
     def __init__(self, parameters=None,
                        on_open_callback=None,
-                       reconnection_strategy=None):
+                       reconnection_strategy=None,
+                       stop_ioloop_on_close=True):
         """Create a new instance of the Connection object.
 
         :param parameters: Connection parameters
@@ -47,7 +47,10 @@ class BaseConnection(connection.Connection):
         :param on_open_callback: The method to call when the connection is open
         :type on_open_callback: method
         :param reconnection_strategy: A reconnection strategy object
-        :type reconnection_strategy: pika.reconnection_strategies.ReconnectionStrategy
+        :type reconnection_strategy:
+            pika.reconnection_strategies.ReconnectionStrategy
+        :param bool stop_ioloop_on_close: Will stop the ioloop when the
+                connection is fully closed.
         :raises: RuntimeError
 
         """
@@ -56,6 +59,7 @@ class BaseConnection(connection.Connection):
             raise RuntimeError("SSL specified but it is not available")
         self.fd = None
         self.ioloop = None
+        self.stop_ioloop_on_close = stop_ioloop_on_close
         self.base_events = self.READ | self.ERROR
         self.event_state = self.base_events
         self.socket = None
@@ -68,20 +72,33 @@ class BaseConnection(connection.Connection):
 
     def add_timeout(self, deadline, callback_method):
         """Add the callback_method to the IOLoop timer to fire after deadline
-        seconds.
+        seconds. Returns a handle to the timeout
 
         :param int deadline: The number of seconds to wait to call callback
         :param method callback_method: The callback method
-        :rtype: int
+        :rtype: str
 
         """
         return self.ioloop.add_timeout(deadline, callback_method)
+
+    def close(self, reply_code=200, reply_text='Normal shutdown'):
+        """Disconnect from RabbitMQ. If there are any open channels, it will
+        attempt to close them prior to fully disconnecting. Channels which
+        have active consumers will attempt to send a Basic.Cancel to RabbitMQ
+        to cleanly stop the delivery of messages prior to closing the channel.
+
+        :param int reply_code: The code number for the close
+        :param str reply_text: The text reason for the close
+
+        """
+        super(BaseConnection, self).close(reply_code, reply_text)
+        self._handle_ioloop_stop()
 
     def remove_timeout(self, timeout_id):
         """Remove the timeout from the IOLoop by the ID returned from
         add_timeout.
 
-        :rtype: int
+        :rtype: str
 
         """
         self.ioloop.remove_timeout(timeout_id)
@@ -115,9 +132,9 @@ class BaseConnection(connection.Connection):
 
     def _adapter_disconnect(self):
         """Invoked if the connection is being told to disconnect"""
-        self.ioloop.stop()
         self.socket.shutdown(socket.SHUT_RDWR)
         self._check_state_on_disconnect()
+        self._handle_ioloop_stop()
 
     def _check_state_on_disconnect(self):
         """
@@ -180,8 +197,18 @@ class BaseConnection(connection.Connection):
     def _handle_disconnect(self):
         """Called internally when the socket is disconnected already
         """
-        self.ioloop.stop()
         self._on_connection_closed(None, True)
+        self._handle_ioloop_stop()
+
+    def _handle_ioloop_stop(self):
+        """Invoked when the connection is closed to determine if the IOLoop
+        should be stopped or not.
+
+        """
+        if self.stop_ioloop_on_close and self.ioloop:
+            self.ioloop.stop()
+        else:
+            LOGGER.warning('Connection is closed but not stopping IOLoop')
 
     def _handle_error(self, error_value):
         """Internal error handling method. Here we expect a socket.error
