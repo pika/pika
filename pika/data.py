@@ -123,6 +123,8 @@ def decode_value(encoded, offset):
         while offset < offset_end:
             v, offset = decode_value(encoded, offset)
             value.append(v)
+    elif kind == 'V':
+        value = None
     else:
         raise InvalidTableError("Unsupported field kind %s during decoding" % \
                                 kind)
