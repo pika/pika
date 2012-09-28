@@ -287,7 +287,7 @@ class BlockingChannelTransport(channel.ChannelTransport):
                 self.connection.flush_outbound()
             except exceptions.AMQPConnectionError:
                 break
-        while self.wait and not self._received_response:
+        while wait and not self._received_response:
             try:
                 self.connection.process_data_events()
             except exceptions.AMQPConnectionError:
