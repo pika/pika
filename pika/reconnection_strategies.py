@@ -77,4 +77,4 @@ class SimpleReconnectionStrategy(ReconnectionStrategy):
                     conn.parameters, t, self.attempts_since_last_success)
         self.current_delay = min(self.max_delay,
                                  self.current_delay * self.multiplier)
-        conn.add_timeout(t, conn._reconnect)
+        conn.add_timeout(t, conn.reconnect)
