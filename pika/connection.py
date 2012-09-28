@@ -33,7 +33,7 @@ class ConnectionParameters(object):
 
     """
     DEFAULT_LOCALE = 'en_US'
-    DEFAULT_SOCKET_TIMEOUT = 2
+    DEFAULT_SOCKET_TIMEOUT = 0.25
     def __init__(self,
                  host='localhost',
                  port=spec.PORT,
@@ -74,7 +74,7 @@ class ConnectionParameters(object):
         :param int retry_delay: Time to wait in seconds, before the next attempt
             Defaults to 2
         :param int|float socket_timeout: Use for high latency networks
-            Defaults to 2
+            Defaults to 0.25
         :param str locale: Set the locale value
             Defaults to en_US
 
@@ -411,12 +411,6 @@ class Connection(object):
         :param int channel_number: The channel number for the callbacks
 
         """
-        # Handle broker requested channel closing
-        self.callbacks.add(channel_number,
-                           spec.Channel.Close,
-                           self._on_channel_close)
-
-        # Handle the broker acknowledging a Channel.Close request
         self.callbacks.add(channel_number,
                            spec.Channel.CloseOk,
                            self._on_channel_close)
@@ -431,11 +425,6 @@ class Connection(object):
     def _add_connection_tune_callback(self):
         """Add a callback for when a Connection.Tune frame is received."""
         self.callbacks.add(0, spec.Connection.Tune, self._on_connection_tune)
-
-    def _add_reconnection_callbacks(self):
-        """Add the reconnection callbacks"""
-        self.add_on_open_callback(self.reconnection.on_connection_open)
-        self.add_on_close_callback(self.reconnection.on_connection_closed)
 
     def _add_reconnection_callbacks(self):
         """Add the reconnection callbacks"""
@@ -499,13 +488,14 @@ class Connection(object):
         :param bool remote: The close was due to a remote close
 
         """
-        LOGGER.info('Closing channel %i due to remote close (%s): %s',
-                    channel_number, reply_code, reply_text)
-        self._channels[channel_number].close(reply_code, reply_text, remote)
-        if remote:
-            self._send_channel_close_ok(channel_number)
-        self._channels[channel_number].cleanup()
-        del(self._channels[channel_number])
+        if self.is_open:
+            LOGGER.info('Closing channel %i due to remote close (%s): %s',
+                        channel_number, reply_code, reply_text)
+            self._channels[channel_number].close(reply_code, reply_text, remote)
+            if remote:
+                self._send_channel_close_ok(channel_number)
+            self._channels[channel_number].cleanup()
+            del(self._channels[channel_number])
 
     def _close_channels(self, reply_code, reply_text, remote=False):
         """Close the open channels with the specified reply_code and reply_text.
@@ -514,8 +504,16 @@ class Connection(object):
         :param str reply_text: The text reason for why the channels are closing
 
         """
-        for channel_number in self._channels.keys():
-            self._close_channel(channel_number, reply_code, reply_text, remote)
+        if self.is_open:
+            for channel_number in self._channels.keys():
+                if self._channels[channel_number].is_open:
+                    self._close_channel(channel_number, reply_code,
+                                        reply_text, remote)
+                else:
+                    del self._channels[channel_number]
+        else:
+            del self._channels
+            self._channels = dict()
 
     def _combine(self, a, b):
         """Pass in two values, if a is 0, return b otherwise if b is 0,
@@ -707,6 +705,8 @@ class Connection(object):
         :rtype: bool
 
         """
+        if not value:
+            return False
         return isinstance(value.method, spec.Connection.Close)
 
     def _is_method_frame(self, value):
@@ -745,13 +745,15 @@ class Connection(object):
         :param frame pika.frame.Method method_frame: The frame received
 
         """
-        if (method_frame.channel_number in self._channels and
-            self._is_channel_close_frame(method_frame)):
+        channel_number = method_frame.channel_number
+        if (self.is_open and channel_number in self._channels and
+            self._channels[channel_number].is_open):
+            self._channels[channel_number].on_remote_close(method_frame)
             self._close_channel(method_frame.channel_number,
                                 method_frame.reply_code,
                                 method_frame.reply_text)
-
-        # If the connection is closing and there are no more channels
+        else:
+            del self._channels[channel_number]
         if self.is_closing and not self._channels:
             self._on_close_ready()
 
@@ -789,19 +791,19 @@ class Connection(object):
         :param bool from_adapter: Called by the connection adapter
 
         """
-        LOGGER.info("Disconnected from RabbitMQ at %s:%i",
-                    self.params.host, self.params.port)
         if method_frame and self._is_connection_close_frame(method_frame):
-            self.closing = method_frame.reply_code, method_frame.reply_text
-
+            self.closing = (method_frame.method.reply_code,
+                            method_frame.method.reply_text)
+        LOGGER.warning("Disconnected from RabbitMQ at %s:%i (%s): %s",
+                        self.params.host, self.params.port,
+                        self.closing[0], self.closing[1])
         self._set_connection_state(self.CONNECTION_CLOSED)
-
-        # Disconnect the adapter if the method was not invoked by it
+        self._remove_connection_callbacks()
         if not from_adapter:
             self._adapter_disconnect()
-
+        for channel in self._channels:
+            self._channels[channel].on_remote_close(method_frame)
         self._process_connection_closed_callbacks()
-        self._close_channels(self.closing[0], self.closing[1])
         self._remove_connection_callbacks()
 
     def _on_connection_open(self, method_frame):
@@ -813,7 +815,7 @@ class Connection(object):
         self.known_hosts = method_frame.method.known_hosts
 
         # Add a callback handler for the Broker telling us to disconnect
-        self.callbacks.add(0, spec.Connection.Close, self._on_remote_close)
+        self.callbacks.add(0, spec.Connection.Close, self._on_connection_closed)
 
         # We're now connected at the AMQP level
         self._set_connection_state(self.CONNECTION_OPEN)
@@ -869,9 +871,11 @@ class Connection(object):
         self._send_connection_open()
 
     def _on_data_available(self, data_in):
-        """
-        This is called by our Adapter, passing in the data from the socket.
+        """This is called by our Adapter, passing in the data from the socket.
         As long as we have buffer try and map out frame data.
+
+        :param str data_in: The data that is available to read
+
         """
         self._append_frame_buffer(data_in)
         while self._frame_buffer:
@@ -880,12 +884,6 @@ class Connection(object):
                 return
             self._trim_frame_buffer(consumed_count)
             self._process_frame(frame_value)
-
-    def _on_remote_close(self, frame_value):
-        """
-        We've received a remote close from the server.
-        """
-        self.close(frame_value.method.reply_code, frame_value.method.reply_text)
 
     def _process_callbacks(self, frame_value):
         """Process the callbacks for the frame if the frame is a method frame
@@ -1014,14 +1012,15 @@ class Connection(object):
         self._send_method(channel_number, method_frame)
 
     def _send_channel_close_ok(self, channel_number):
-        """Send a Channel.CloseOk frame for the given channel number and remove
+        """Send a Channel._ frame for the given channel number and remove
         the expectation of a Channel.CloseOk in the callbacks for the channel.
 
         :param int channel_number: The channel number to send CloseOk to
 
         """
-        self._rpc(channel_number, spec.Channel.CloseOk())
-        self._remove_callback(channel_number, spec.Channel.CloseOk)
+        if not self.is_closed:
+            self._rpc(channel_number, spec.Channel.CloseOk())
+            self._remove_callback(channel_number, spec.Channel.CloseOk)
 
     def _send_connection_close(self, reply_code, reply_text):
         """Send a Connection.Close method frame.
@@ -1061,10 +1060,12 @@ class Connection(object):
         """This appends the fully generated frame to send to the broker to the
         output buffer which will be then sent via the connection adapter.
 
-        :param frame: The frame to write
-        :type frame:  pika.frame.Frame|pika.frame.ProtocolHeader
+        :param frame_value: The frame to write
+        :type frame_value:  pika.frame.Frame|pika.frame.ProtocolHeader
 
         """
+        if self.is_closed:
+            raise exceptions.ConnectionClosed
         marshaled_frame = frame_value.marshal()
         self.bytes_sent += len(marshaled_frame)
         self.frames_sent += 1
