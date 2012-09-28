@@ -6,9 +6,9 @@
 import logging
 import struct
 
-import pika.exceptions as exceptions
+from pika import exceptions
 from pika.object import object_
-import pika.spec as spec
+from pika import spec
 
 LOGGER = logging.getLogger(__name__)
 
@@ -39,6 +39,14 @@ class Frame(object_):
                            self.frame_type,
                            self.channel_number,
                            len(payload)) + payload + chr(spec.FRAME_END)
+
+    def marshal(self):
+        """To be ended by child classes
+
+        :raises NotImplementedError
+
+        """
+        raise NotImplementedError
 
 
 class Method(Frame):
@@ -194,33 +202,33 @@ class Dispatcher(object):
         self._handler = self._handle_method_frame
         self.callbacks = callback_manager
 
-    def process(self, frame):
+    def process(self, frame_value):
         """
         Invoked by the ChannelTransport object when passed frames that are not
         setup in the rpc process and that don't have explicit reply types
         defined. This includes Basic.Publish, Basic.GetOk and Basic.Return
         """
-        self._handler(frame)
+        self._handler(frame_value)
 
-    def _handle_method_frame(self, frame):
+    def _handle_method_frame(self, frame_value):
         """
         Receive a frame and process it, we should have content by the time we
         reach this handler, set the next handler to be the header frame handler
         """
         # If we don't have FrameMethod something is wrong so throw an exception
-        if not isinstance(frame, Method):
-            raise exceptions.UnexpectedFrameError(frame)
+        if not isinstance(frame_value, Method):
+            raise exceptions.UnexpectedFrameError(frame_value)
 
         # If the frame is a content related frame go deal with the content
         # By getting the content header frame
-        if spec.has_content(frame.method.INDEX):
-            self._handler = self._handle_header_frame(frame)
+        if spec.has_content(frame_value.method.INDEX):
+            self._handler = self._handle_header_frame(frame_value)
 
         # We were passed a frame we don't know how to deal with
         else:
-            raise NotImplementedError(frame.method.__class__)
+            raise NotImplementedError(repr(frame_value.method))
 
-    def _handle_header_frame(self, frame):
+    def _handle_header_frame(self, frame_value):
         """
         Receive a header frame and process that, setting the next handler
         to the body frame handler
@@ -232,7 +240,7 @@ class Dispatcher(object):
                 raise exceptions.UnexpectedFrameError(header_frame)
 
             # Call the handle body frame including our header frame
-            self._handle_body_frame(frame, header_frame)
+            self._handle_body_frame(frame_value, header_frame)
 
         return handler
 

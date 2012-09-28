@@ -3,6 +3,7 @@
 # For copyright and licensing please refer to COPYING.
 #
 # ***** END LICENSE BLOCK *****
+import spec
 
 
 class AMQPError(Exception):
@@ -10,7 +11,8 @@ class AMQPError(Exception):
 
 
 class AMQPConnectionError(AMQPError):
-    pass
+    def __repr__(self):
+        return "No connection could be opened after %s retries" % self.args[0]
 
 
 class IncompatibleProtocolError(AMQPConnectionError):
@@ -18,7 +20,8 @@ class IncompatibleProtocolError(AMQPConnectionError):
 
 
 class AuthenticationError(AMQPConnectionError):
-    pass
+    def __repr__(self):
+        return "No %s support for the credentials" % self.args[0]
 
 
 class ProbableAuthenticationError(AMQPConnectionError):
@@ -113,8 +116,14 @@ class CallbackReplyAlreadyRegistered(ChannelTransportError):
     pass
 
 
-class InvalidFrameSize(ProtocolSyntaxError):
-    pass
+class InvalidMinimumFrameSize(ProtocolSyntaxError):
+    def __repr__(self):
+        return "AMQP Minimum Frame Size is %i Bytes" % spec.FRAME_MIN_SIZE
+
+
+class InvalidMaximumFrameSize(ProtocolSyntaxError):
+    def __repr__(self):
+        return "AMQP Maximum Frame Size is %i Bytes" % spec.FRAME_MAX_SIZE
 
 
 class InvalidRPCParameterType(Exception):

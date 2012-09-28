@@ -9,7 +9,6 @@ the Pika stack.
 
 """
 import logging
-from warnings import warn
 
 LOGGER = logging.getLogger(__name__)
 
@@ -18,7 +17,7 @@ def _name_or_value(key):
     """Will take Frame objects, classes, etc and attempt to return a valid
     string identifier for them.
 
-    :param [Object,str,dict] key: The key to sanitize
+    :param object|str|dict key: The key to sanitize
     :rtype: str
 
     """
@@ -59,12 +58,12 @@ class CallbackManager(object):
         CallbackManager will restrict processing of the callback to only
         the calling function/object that you specify.
 
-        :param [str,int] prefix: Categorize the callback
-        :param [Object,str,dict] key: The key for the callback
+        :param str|int prefix: Categorize the callback
+        :param object|str|dict key: The key for the callback
         :param method callback: The callback to call
         :param bool one_shot: Remove this callback after it is called
-        :param Object only_caller: Only allow one_caller value to call the
-            event that fires the callback.
+        :param object only_caller: Only allow one_caller value to call the
+                                   event that fires the callback.
         :rtype: tuple(prefix, key)
 
         """
@@ -87,9 +86,8 @@ class CallbackManager(object):
         # If we passed in that we do not want duplicates, check and keep us
         # from adding it a second time
         if callback_dict in self._callbacks[prefix][key]:
-            warn('%s.add: Duplicate callback found for "%s:%s"' %\
-                 (self.__class__.__name__, prefix, key))
-            return
+            LOGGER.warning('Duplicate callback found for "%s:%s"', prefix, key)
+            return prefix, key
 
         # Append the callback to our key list
         self._callbacks[prefix][key].append(callback_dict)
@@ -99,6 +97,7 @@ class CallbackManager(object):
     def clear(self):
         """Clear all the callbacks if there are any defined."""
         if self._callbacks:
+            LOGGER.debug('Clearing callbacks')
             self._callbacks = dict()
 
     def pending(self, prefix, key):
