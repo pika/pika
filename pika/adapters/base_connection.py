@@ -333,9 +333,10 @@ class BaseConnection(connection.Connection):
         LOGGER.info("Connecting fd %d to %s:%i%s",
                     self.socket.fileno(), self.params.host,
                     self.params.port, ssl_text)
+        self.socket.settimeout(self.SOCKET_TIMEOUT)
         self.socket.connect((self.params.host, self.params.port))
         self.socket.setblocking(0)
-
+        
     def _wrap_socket(self, sock):
         """Wrap the socket for connecting over SSL.
 
