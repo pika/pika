@@ -90,7 +90,7 @@ class IOLoop(object):
     def remove_timeout(self, timeout_id):
         """Remove a timeout if it's still in the timeout stack of the poller
 
-        :param int timeout_id: The timeout id to remove
+        :param str timeout_id: The timeout id to remove
 
         """
         self.poller.remove_timeout(timeout_id)
@@ -100,7 +100,6 @@ class IOLoop(object):
         LOGGER.debug('Starting IOLoop')
         while not self.poller:
             time.sleep(SelectPoller.TIMEOUT)
-        LOGGER.debug('Passing off to Poller')
         self.poller.start()
         self.poller.flush_pending_timeouts()
 
@@ -178,12 +177,13 @@ class SelectPoller(object):
 
         :param int deadline: The number of seconds to wait until calling handler
         :param method handler: The method to call at deadline
-        :rtype: int
+        :rtype: str
 
         """
-        timeout_id = '%.8f' % time.time()
-        self._timeouts[timeout_id] = {'deadline': deadline,
-                                      'handler': handler}
+        value = time.time() + deadline
+        LOGGER.debug('Will call %r on or after %i', handler, value)
+        timeout_id = '%.8f' % value
+        self._timeouts[timeout_id] = {'timestamp': value, 'handler': handler}
         return timeout_id
 
     def flush_pending_timeouts(self):
@@ -229,24 +229,21 @@ class SelectPoller(object):
             events |= ERROR
 
         if events:
-            LOGGER.debug("Calling %s", self._handler)
             self._handler(self.fileno, events, write_only=write_only)
 
     def process_timeouts(self):
         """Process the self._timeouts event stack"""
         start_time = time.time()
         for timeout_id in self._timeouts.keys():
-            if (timeout_id in self._timeouts and
-                self._timeouts[timeout_id]['deadline'] <= start_time):
-                LOGGER.debug('Timeout calling %s',
-                             self._timeouts[timeout_id]['handler'])
-                self._timeouts[timeout_id]['handler']()
-                del(self._timeouts[timeout_id])
+            if self._timeouts[timeout_id]['timestamp'] <= start_time:
+                handler = self._timeouts[timeout_id]['handler']
+                del self._timeouts[timeout_id]
+                handler()
 
     def remove_timeout(self, timeout_id):
         """Remove a timeout if it's still in the timeout stack
 
-        :param int timeout_id: The timeout id to remove
+        :param str timeout_id: The timeout id to remove
 
         """
         if timeout_id in self._timeouts:
