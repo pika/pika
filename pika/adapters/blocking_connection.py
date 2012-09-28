@@ -26,7 +26,7 @@ class BlockingConnection(base_connection.BaseConnection):
 
     """
     SOCKET_TIMEOUT = 0.25
-    SOCKET_TIMEOUT_THRESHOLD = 100
+    SOCKET_TIMEOUT_THRESHOLD = 5
     SOCKET_TIMEOUT_MESSAGE = "Timeout exceeded, disconnected"
 
     def add_timeout(self, deadline, callback_method):
@@ -77,13 +77,8 @@ class BlockingConnection(base_connection.BaseConnection):
         """
         self._remove_connection_callbacks()
         super(BlockingConnection, self).close(reply_code, reply_text)
-        LOGGER.debug('Back from parent')
         while not self.is_closed:
-            LOGGER.debug('Closed: %r (%i)', self.is_closed, self.connection_state)
-            try:
-                self.process_data_events()
-            except exceptions.AMQPConnectionError:
-                break
+            self.process_data_events()
 
     def disconnect(self):
         """Disconnect from the socket"""
@@ -91,8 +86,6 @@ class BlockingConnection(base_connection.BaseConnection):
 
     def flush_outbound(self):
         """May be called to flush the outbound socket buffer."""
-        if not self.is_open and not self.is_closing:
-            raise exceptions.AMQPConnectionError
         self._flush_outbound()
         self.process_timeouts()
 
@@ -101,8 +94,6 @@ class BlockingConnection(base_connection.BaseConnection):
         block on this method.
 
         """
-        if not self.is_open and not self.is_closing:
-            raise exceptions.AMQPConnectionError
         try:
             self._handle_read()
             self._socket_timeouts = 0
@@ -148,6 +139,7 @@ class BlockingConnection(base_connection.BaseConnection):
         super(BlockingConnection, self)._adapter_connect()
         LOGGER.debug('Post initial config, setting to blocking behaviors')
         self.socket.setblocking(1)
+        self.socket.settimeout(self.params.socket_timeout)
         self._socket_timeouts = 0
         self._on_connected()
         self._timeouts = dict()
@@ -161,29 +153,6 @@ class BlockingConnection(base_connection.BaseConnection):
         self.disconnect()
         self._check_state_on_disconnect()
 
-
-    def _close_channel(self, channel_number, reply_code, reply_text,
-                       remote=True):
-        """Close the specified channel number in response to the broker sending
-        a Channel.Close. If remote is True, Close.Ok will be sent
-
-        :param int channel_number: The channel number to close
-        :param int reply_code: The Channel.Close reply code from RabbitMQ
-        :param str reply_text: The Channel.Close reply text from RabbitMQ
-        :param bool remote: The close was due to a remote close
-
-        """
-        LOGGER.info('Closing channel %i due to remote close (%s): %s',
-                    channel_number, reply_code, reply_text)
-        self._channels[channel_number].close(reply_code, reply_text, remote)
-        if remote:
-            self._send_channel_close_ok(channel_number)
-        self._channels[channel_number].cleanup()
-        del(self._channels[channel_number])
-        LOGGER.debug('Channel removed')
-        if self.is_closing and not self._channels:
-            self._on_close_ready()
-
     def _handle_disconnect(self):
         """Called internally when the socket is disconnected already"""
         self.disconnect()
@@ -192,20 +161,44 @@ class BlockingConnection(base_connection.BaseConnection):
     def _handle_timeout(self):
         """Invoked whenever the socket times out"""
         self._socket_timeouts += 1
-        if self._socket_timeouts > self.SOCKET_TIMEOUT_THRESHOLD:
-            LOGGER.error(self.SOCKET_TIMEOUT_MESSAGE)
-            self._handle_disconnect()
+        if (self.is_closing and
+            self._socket_timeouts > self.SOCKET_TIMEOUT_THRESHOLD):
+            self._on_connection_closed(None, True)
 
     def _flush_outbound(self):
         """Flush the outbound socket buffer."""
         try:
-            self._handle_write()
-            self._socket_timeouts = 0
+            if self._handle_write():
+                self._socket_timeouts = 0
         except socket.timeout:
-            self._socket_timeouts += 1
-            if self._socket_timeouts > self.SOCKET_TIMEOUT_THRESHOLD:
-                LOGGER.error(self.SOCKET_TIMEOUT_MESSAGE)
-                self._handle_disconnect()
+            return self._handle_timeout()
+
+    def _on_connection_closed(self, method_frame, from_adapter=False):
+        """Called when the connection is closed remotely. The from_adapter value
+        will be true if the connection adapter has been disconnected from
+        the broker and the method was invoked directly instead of by receiving
+        a Connection.Close frame.
+
+        :param pika.frame.Method: The Connection.Close frame
+        :param bool from_adapter: Called by the connection adapter
+        :raises: AMQPConnectionError
+
+        """
+        if self._is_connection_close_frame(method_frame):
+            self.closing = (method_frame.method.reply_code,
+                            method_frame.method.reply_text)
+            LOGGER.warning("Disconnected from RabbitMQ at %s:%i (%s): %s",
+                           self.params.host, self.params.port,
+                           self.closing[0], self.closing[1])
+        self._set_connection_state(self.CONNECTION_CLOSED)
+        self._remove_connection_callbacks()
+        if not from_adapter:
+            self._adapter_disconnect()
+        for channel in self._channels:
+            self._channels[channel].on_remote_close(method_frame)
+        self._remove_connection_callbacks()
+        if self.closing[0] != 200:
+            raise exceptions.AMQPConnectionError(*self.closing)
 
     def _wait_on_open(self):
         """When using a high availability cluster (such as HAProxy) we are
@@ -218,7 +211,7 @@ class BlockingConnection(base_connection.BaseConnection):
                socket_timeout_retries < self.SOCKET_TIMEOUT_THRESHOLD):
             self._flush_outbound()
             self._handle_read()
-            socket_timeout_retries +=1
+            socket_timeout_retries += 1
 
 
 class BlockingChannelTransport(channel.ChannelTransport):
@@ -424,8 +417,9 @@ class BlockingChannel(channel.Channel):
 
     def on_remote_close(self, method_frame):
         super(BlockingChannel, self).on_remote_close(method_frame)
-        raise exceptions.AMQPChannelError(method_frame.method.reply_code,
-                                          method_frame.method.reply_text)
+        if self.transport.connection.is_open:
+            raise exceptions.AMQPChannelError(method_frame.method.reply_code,
+                                              method_frame.method.reply_text)
 
     def start_consuming(self):
         """
