@@ -258,11 +258,12 @@ class BaseConnection(connection.Connection):
 
         # Empty data, should disconnect
         if not data:
-            LOGGER.debug('Calling disconnect')
+            LOGGER.error('Read empty data, calling disconnect')
             return self._adapter_disconnect()
 
         # Pass the data into our top level frame dispatching method
         self._on_data_available(data)
+        return len(data)
 
     def _handle_write(self):
         """Handle any outbound buffer writes that need to take place."""
@@ -278,13 +279,14 @@ class BaseConnection(connection.Connection):
         except socket.error, error:
             return self._handle_error(error)
 
-        if bytes_written:
-            self.write_buffer = None
-
         # Remove the content from our output buffer
         self.outbound_buffer.consume(bytes_written)
         if self.outbound_buffer.size:
             LOGGER.debug("Outbound buffer size: %i", self.outbound_buffer.size)
+
+        if bytes_written:
+            self.write_buffer = None
+            return bytes_written
 
     def _init_connection_state(self):
         """Initialize or reset all of our internal state variables for a given
@@ -322,7 +324,6 @@ class BaseConnection(connection.Connection):
         LOGGER.debug('Creating the socket')
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
         self.socket.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
-        self.socket.settimeout(self.params.socket_timeout or self.SOCKET_TIMEOUT)
         ssl_text = ""
         if self.params.ssl:
             self.socket = self._wrap_socket(self.socket)
