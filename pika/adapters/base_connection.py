@@ -259,7 +259,7 @@ class BaseConnection(connection.Connection):
             return self._handle_error(error)
 
         # Empty data, should disconnect
-        if not data:
+        if not data or data == 0:
             LOGGER.error('Read empty data, calling disconnect')
             return self._adapter_disconnect()
 
@@ -336,7 +336,7 @@ class BaseConnection(connection.Connection):
         self.socket.settimeout(self.SOCKET_TIMEOUT)
         self.socket.connect((self.params.host, self.params.port))
         self.socket.setblocking(0)
-        
+
     def _wrap_socket(self, sock):
         """Wrap the socket for connecting over SSL.
 
