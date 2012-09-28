@@ -12,8 +12,12 @@ class AMQPError(Exception):
 
 class AMQPConnectionError(AMQPError):
     def __repr__(self):
-        return "No connection could be opened after %s retries" % self.args[0]
 
+        if len(self.args) == 1:
+            return ("No connection could be opened after %s retries" %
+                    self.args[0])
+        elif len(self.args) == 2:
+            return "%s: %s" % (self.args[0], self.args[1])
 
 class IncompatibleProtocolError(AMQPConnectionError):
     pass
