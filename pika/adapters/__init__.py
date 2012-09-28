@@ -28,11 +28,17 @@ from select_connection import IOLoop
 try:
     from tornado_connection import TornadoConnection
 except ImportError:
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.warning('Tried to import unsupported TornadoConnection adapter')
     TornadoConnection = None
 
 try:
     from twisted_connection import TwistedConnection
     from twisted_connection import TwistedProtocolConnection
 except ImportError:
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.warning('Tried to import unsupported TwistedConnection adapter')
     TwistedConnection = None
     TwistedProtocolConnection = None
