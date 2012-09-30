@@ -17,6 +17,8 @@ class AMQPObject(object):
         for key, value in self.__dict__.iteritems():
             if getattr(self.__class__, key, None) != value:
                 items.append('%s=%s' % (key, value))
+        if not items:
+            return "<%s>" % self.NAME
         return "<%s(%s)>" % (self.NAME, items)
 
 
@@ -59,3 +61,4 @@ class Method(AMQPObject):
 
 class Properties(AMQPObject):
     """Class to encompass message properties (AMQP Basic.Properties)"""
+    NAME = 'Unextended Properties'
