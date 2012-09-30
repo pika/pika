@@ -26,7 +26,7 @@ class BlockingConnection(base_connection.BaseConnection):
 
     """
     SOCKET_TIMEOUT = 0.25
-    SOCKET_TIMEOUT_THRESHOLD = 5
+    SOCKET_TIMEOUT_THRESHOLD = 10
     SOCKET_TIMEOUT_MESSAGE = "Timeout exceeded, disconnected"
 
     def add_timeout(self, deadline, callback_method):
@@ -210,9 +210,12 @@ class BlockingConnection(base_connection.BaseConnection):
         while (not self.is_open and
                socket_timeout_retries < self.SOCKET_TIMEOUT_THRESHOLD):
             self._flush_outbound()
-            self._handle_read()
-            socket_timeout_retries += 1
-
+            try:
+                self._handle_read()
+            except socket.timeout:
+                socket_timeout_retries += 1
+            except socket.error, error:
+                raise exceptions.AMQPConnectionError(error)
 
 class BlockingChannelTransport(channel.ChannelTransport):
 
