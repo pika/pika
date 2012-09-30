@@ -514,11 +514,13 @@ class Channel(spec.DriverMixin):
     def _add_callbacks(self):
         # Add a callback for Basic.Deliver
         self.callbacks.add(self.channel_number, '_on_basic_deliver',
-                           self.on_basic_deliver, False, frame.Dispatcher)
+                           self.on_basic_deliver, False,
+                           self.transport.frame_dispatcher)
 
         # Add a callback for Basic.Get
         self.callbacks.add(self.channel_number, '_on_basic_get',
-                           self.on_basic_get_ok, False, frame.Dispatcher)
+                           self.on_basic_get_ok, False,
+                           self.transport.frame_dispatcher)
 
         # Add a callback for Basic.GetEmpty
         self.callbacks.add(self.channel_number, spec.Basic.GetEmpty,
