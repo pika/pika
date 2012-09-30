@@ -1,6 +1,6 @@
 # -*- coding: utf8 -*-
 """
-File Description
+Tests for pika.callback
 
 """
 import logging
