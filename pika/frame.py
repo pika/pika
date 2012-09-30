@@ -6,14 +6,14 @@
 import logging
 import struct
 
+from pika import amqp_object
 from pika import exceptions
-from pika.object import object_
 from pika import spec
 
 LOGGER = logging.getLogger(__name__)
 
 
-class Frame(object_):
+class Frame(amqp_object.AMQPObject):
     """
     Base Frame object mapping. Defines a behavior for all child classes for
     assignment of core attributes and implementation of the a core _marshal
@@ -142,7 +142,7 @@ class Heartbeat(Frame):
         return self._marshal(list())
 
 
-class ProtocolHeader(object_):
+class ProtocolHeader(amqp_object.AMQPObject):
     """
     AMQP Protocol header frame class which provides a pythonic interface
     for creating AMQP Protocol headers
