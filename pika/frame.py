@@ -14,12 +14,12 @@ LOGGER = logging.getLogger(__name__)
 
 
 class Frame(amqp_object.AMQPObject):
-    """
-    Base Frame object mapping. Defines a behavior for all child classes for
+    """Base Frame object mapping. Defines a behavior for all child classes for
     assignment of core attributes and implementation of the a core _marshal
     method which child classes use to create the binary AMQP frame.
-    """
 
+    """
+    NAME = 'Frame'
     def __init__(self, frame_type, channel_number):
         """
         Parameters:
@@ -50,10 +50,11 @@ class Frame(amqp_object.AMQPObject):
 
 
 class Method(Frame):
-    """
-    Base Method frame object mapping. AMQP method frames are mappend on top
+    """Base Method frame object mapping. AMQP method frames are mappend on top
     of this class for creating or accessing their data and attributes.
+
     """
+    NAME = 'METHOD'
 
     def __init__(self, channel_number, method):
         """
@@ -75,10 +76,11 @@ class Method(Frame):
 
 
 class Header(Frame):
-    """
-    Header frame object mapping. AMQP content header frames are mapped
+    """Header frame object mapping. AMQP content header frames are mapped
     on top of this class for creating or accessing their data and attributes.
+
     """
+    NAME = 'Header'
 
     def __init__(self, channel_number, body_size, props):
         """
@@ -104,10 +106,11 @@ class Header(Frame):
 
 
 class Body(Frame):
-    """
-    Body frame object mapping class. AMQP content body frames are mapped on
+    """Body frame object mapping class. AMQP content body frames are mapped on
     to this base class for getting/setting of attributes/data.
+
     """
+    NAME = 'Body'
 
     def __init__(self, channel_number, fragment):
         """
@@ -127,10 +130,11 @@ class Body(Frame):
 
 
 class Heartbeat(Frame):
-    """
-    Heartbeat frame object mapping class. AMQP Heartbeat frames are mapped on
+    """Heartbeat frame object mapping class. AMQP Heartbeat frames are mapped on
     to this class for a common access structure to the attributes/data values.
+
     """
+    NAME = 'Heartbeat'
 
     def __init__(self):
         Frame.__init__(self, spec.FRAME_HEARTBEAT, 0)
@@ -143,10 +147,11 @@ class Heartbeat(Frame):
 
 
 class ProtocolHeader(amqp_object.AMQPObject):
-    """
-    AMQP Protocol header frame class which provides a pythonic interface
+    """AMQP Protocol header frame class which provides a pythonic interface
     for creating AMQP Protocol headers
+
     """
+    NAME = 'ProtocolHeader'
 
     def __init__(self, major=None, minor=None, revision=None):
         """

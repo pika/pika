@@ -10,7 +10,7 @@ class AMQPObject(object):
     and methods.
 
     """
-    NAME = 'PikaObject'
+    NAME = 'AMQPObject'
 
     def __repr__(self):
         items = list()
