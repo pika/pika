@@ -35,12 +35,12 @@ class BlockingConnection(base_connection.BaseConnection):
 
         :param int deadline: The number of seconds to wait to call callback
         :param method callback_method: The callback method
-        :rtype: int
+        :rtype: str
 
         """
         timeout_id = '%.8f' % time.time()
-        self._timeouts[timeout_id] = {'deadline': deadline,
-                                      'handler': callback_method}
+        self._timeouts[timeout_id] = {'deadline': deadline + time.time(),
+                                      'method': callback_method}
         return timeout_id
 
     def channel(self, channel_number=None):
@@ -104,20 +104,15 @@ class BlockingConnection(base_connection.BaseConnection):
 
     def process_timeouts(self):
         """Process the self._timeouts event stack"""
-        keys = self._timeouts.keys()
-        start_time = time.time()
-        for timeout_id in keys:
-            if timeout_id in self._timeouts and \
-                self._timeouts[timeout_id]['deadline'] <= start_time:
-                LOGGER.debug('Timeout calling %s',
-                             self._timeouts[timeout_id]['handler'])
-                self._timeouts.pop(timeout_id)['handler']()
+        for timeout_id in self._timeouts.keys():
+            if self._deadline_passed(timeout_id):
+                self._call_timeout_method(self._timeouts.pop(timeout_id))
 
     def remove_timeout(self, timeout_id):
         """Remove the timeout from the IOLoop by the ID returned from
         add_timeout.
 
-        :rtype: int
+        :param str timeout_id: The id of the timeout to remove
 
         """
         if timeout_id in self._timeouts:
@@ -152,6 +147,26 @@ class BlockingConnection(base_connection.BaseConnection):
         """Called if the connection is being requested to disconnect."""
         self.disconnect()
         self._check_state_on_disconnect()
+
+    def _call_timeout_method(self, timeout_value):
+        """Execute the method that was scheduled to be called.
+
+        :param dict timeout_value: The configuration for the timeout
+
+        """
+        LOGGER.debug('Invoking scheduled call of %s', timeout_value['method'])
+        timeout_value['method']()
+
+    def _deadline_passed(self, timeout_id):
+        """Returns True if the deadline has passed for the specified timeout_id.
+
+        :param str timeout_id: The id of the timeout to check
+        :rtype: bool
+
+        """
+        if timeout_id not in self._timeouts.keys():
+            return False
+        return self._timeouts[timeout_id]['deadline'] <= time.time()
 
     def _handle_disconnect(self):
         """Called internally when the socket is disconnected already"""
