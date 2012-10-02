@@ -1,8 +1,4 @@
-# ***** BEGIN LICENSE BLOCK *****
-#
-# For copyright and licensing please refer to COPYING.
-#
-# ***** END LICENSE BLOCK *****
+"""Channel objects"""
 import collections
 import logging
 
@@ -301,7 +297,7 @@ class Channel(spec.DriverMixin):
                                                   no_ack=no_ack))
 
     def basic_publish(self, exchange, routing_key, body,
-                      properties=None, mandatory=False, immediate=False):
+                      properties=None, mandatory=False):
         """
         Publish to the channel with the given exchange, routing key and body.
         For more information on basic_publish and what the parameters do, see:
@@ -313,8 +309,7 @@ class Channel(spec.DriverMixin):
 
         self.transport.send_method(spec.Basic.Publish(exchange=exchange,
                                                       routing_key=routing_key,
-                                                      mandatory=mandatory,
-                                                      immediate=immediate),
+                                                      mandatory=mandatory),
                                    (properties, body))
 
     def cleanup(self):

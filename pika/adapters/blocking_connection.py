@@ -1,8 +1,5 @@
-# ***** BEGIN LICENSE BLOCK *****
-#
-# For copyright and licensing please refer to COPYING.
-#
-# ***** END LICENSE BLOCK *****
+# -*- encoding: utf-8 -*-
+
 import logging
 import socket
 import time
@@ -402,7 +399,7 @@ class BlockingChannel(channel.Channel):
         return self._response[0], self._response[1], self._response[2]
 
     def basic_publish(self, exchange, routing_key, body,
-                      properties=None, mandatory=False, immediate=False):
+                      properties=None, mandatory=False):
         """
         Publish to the channel with the given exchange, routing key and body.
 
@@ -413,8 +410,7 @@ class BlockingChannel(channel.Channel):
         properties = properties or spec.BasicProperties()
         self.transport.send_method(spec.Basic.Publish(exchange=exchange,
                                                       routing_key=routing_key,
-                                                      mandatory=mandatory,
-                                                      immediate=immediate),
+                                                      mandatory=mandatory),
                                    (properties, body), False)
 
     def on_basic_get(self, caller, method_frame, header_frame, body):
