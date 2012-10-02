@@ -193,10 +193,22 @@ class IOLoopReactorAdapter(object):
         self.started = False
 
     def add_timeout(self, deadline, callback):
+        """Add a timeout, in seconds
+
+        :param int deadline: The number of seconds until call
+        :param method callback: The callback to call
+        :rtype: twisted.internet.interfaces.IDelayedCall
+
+        """
         secs = deadline - time.time()
         return self.reactor.callLater(secs, callback)
 
     def remove_timeout(self, call):
+        """Remove a call
+
+        :param twisted.internet.interfaces.IDelayedCall call: The call to cancel
+
+        """
         call.cancel()
 
     def stop(self):
