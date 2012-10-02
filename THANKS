@@ -1,7 +1,0 @@
-Github's enlavin (Miguel Hernandez Martos) and itkach for patches for python 2.4 support.
-Stephen Day (stevvooe@github) for cutting the Gordian Knot of pip-installability.
-Ask Solem (ask@github) for timeout support in drain_events.
-Sigurd Høgsbro (shogsbro@github) for timeout support in asyncore_adapter.
-Brian Jones (bkjones@github) for additional unit tests and code review.
-Jason J. W. Williams (williamsjj@github) for bug-fixes and updates to BlockingChannel to allow multiple consumers.
-Marek Majkowski (majek@github) for multiple contributions including encoding/decoding fixes and additions.
