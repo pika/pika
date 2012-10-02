@@ -1,8 +1,4 @@
-# ***** BEGIN LICENSE BLOCK *****
-#
-# For copyright and licensing please refer to COPYING.
-#
-# ***** END LICENSE BLOCK *****
+"""Run pika on the Tornado IOLoop"""
 from tornado import ioloop
 import time
 
@@ -10,14 +6,16 @@ from pika.adapters import base_connection
 
 
 class TornadoConnection(base_connection.BaseConnection):
+    """The TornadoConnection runs on the Tornado IOLoop. If you're running the
+    connection in a web app, make sure you set stop_ioloop_on_close to False,
+    which is the default behavior for this adapter, otherwise the web app
+    will stop taking requests.
 
+    """
     def __init__(self, parameters=None,
                  on_open_callback=None,
-                 reconnection_strategy=None,
-                 io_loop=None,
                  stop_ioloop_on_close=False):
         super(TornadoConnection, self).__init__(parameters, on_open_callback,
-                                                reconnection_strategy,
                                                 stop_ioloop_on_close)
 
     def _adapter_connect(self):
