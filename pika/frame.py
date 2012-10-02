@@ -1,8 +1,4 @@
-# ***** BEGIN LICENSE BLOCK *****
-#
-# For copyright and licensing please refer to COPYING.
-#
-# ***** END LICENSE BLOCK *****
+"""Frame objects that do the frame demarshaling and marshaling."""
 import logging
 import struct
 
@@ -50,7 +46,7 @@ class Frame(amqp_object.AMQPObject):
 
 
 class Method(Frame):
-    """Base Method frame object mapping. AMQP method frames are mappend on top
+    """Base Method frame object mapping. AMQP method frames are mapped on top
     of this class for creating or accessing their data and attributes.
 
     """
