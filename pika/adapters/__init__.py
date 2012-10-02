@@ -24,21 +24,15 @@ from blocking_connection import BlockingConnection
 from select_connection import SelectConnection
 from select_connection import IOLoop
 
-# Handle 3rd party library dependencies
+# Dynamically handle 3rd party library dependencies for optional imports
 try:
     from tornado_connection import TornadoConnection
 except ImportError:
-    import logging
-    logger = logging.getLogger(__name__)
-    logger.warning('Tried to import unsupported TornadoConnection adapter')
     TornadoConnection = None
 
 try:
     from twisted_connection import TwistedConnection
     from twisted_connection import TwistedProtocolConnection
 except ImportError:
-    import logging
-    logger = logging.getLogger(__name__)
-    logger.warning('Tried to import unsupported TwistedConnection adapter')
     TwistedConnection = None
     TwistedProtocolConnection = None
