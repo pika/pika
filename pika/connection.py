@@ -277,11 +277,6 @@ class Connection(object):
         if self._has_open_channels:
             return self._close_channels(reply_code, reply_text, False)
 
-    def force_reconnect(self):
-        """Disconnect from the broker and reconnect"""
-        self._on_connection_closed(None)
-        self._connect()
-
     def reconnect(self):
         """Invoked by the Reconnection Strategy or callback handle to handle
         the reconnection process. If the connection is already closing, add
@@ -683,7 +678,7 @@ class Connection(object):
     def _is_basic_deliver_frame(self, frame_value):
         """Returns true if the frame is a Basic.Deliver
 
-        :param pika.frame.Method value: The frame to check
+        :param pika.frame.Method frame_value: The frame to check
         :rtype: bool
 
         """
@@ -927,11 +922,13 @@ class Connection(object):
         if self._process_callbacks(frame_value):
             return
 
-        # Don't check for heartbeat frames because we can not count
-        # atomic frames reliably due to different message behaviors
-        # such as large content frames being transferred slowly
+        # If a heartbeat is received, update the checker
         if isinstance(frame_value, frame.Heartbeat):
-            return
+            if self.heartbeat:
+                self.heartbeat.received()
+            else:
+                LOGGER.warning('Received heartbeat frame without a heartbeat '
+                               'checker')
 
         # If the frame has a channel number beyond the base channel, deliver it
         elif frame_value.channel_number > 0:
