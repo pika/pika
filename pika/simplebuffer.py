@@ -1,11 +1,4 @@
-# ***** BEGIN LICENSE BLOCK *****
-#
-# For copyright and licensing please refer to COPYING.
-#
-# ***** END LICENSE BLOCK *****
-
-"""
-This is an implementation of a simple buffer. SimpleBuffer just handles
+"""This is an implementation of a simple buffer. SimpleBuffer just handles
 a string of bytes. The clue, is that you can pop data from the beginning
 and append data to the end.
 

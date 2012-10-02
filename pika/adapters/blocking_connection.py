@@ -1,5 +1,7 @@
-# -*- encoding: utf-8 -*-
+"""Implement a blocking, procedural style connection adapter on top of the
+asynchronous core.
 
+"""
 import logging
 import socket
 import time

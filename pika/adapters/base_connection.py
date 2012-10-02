@@ -1,8 +1,8 @@
-# ***** BEGIN LICENSE BLOCK *****
-#
-# For copyright and licensing please refer to COPYING.
-#
-# ***** END LICENSE BLOCK *****
+"""Base class extended by connection adapters. This extends the
+connection.Connection class to encapsulate connection behavior but still
+isolate socket and low level communication.
+
+"""
 import errno
 import logging
 import socket

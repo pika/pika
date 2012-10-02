@@ -1,9 +1,5 @@
-# ***** BEGIN LICENSE BLOCK *****
-#
-# For copyright and licensing please refer to COPYING.
-#
-# ***** END LICENSE BLOCK *****
-import spec
+"""Pika specific exceptions"""
+from pika import spec
 
 
 class AMQPError(Exception):

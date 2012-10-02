@@ -1,9 +1,4 @@
-# ***** BEGIN LICENSE BLOCK *****
-#
-# For copyright and licensing please refer to COPYING.
-#
-# ***** END LICENSE BLOCK *****
-
+"""Use pika with the stdlib asyncore module"""
 import asyncore
 import logging
 import select

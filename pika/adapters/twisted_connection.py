@@ -1,8 +1,3 @@
-# ***** BEGIN LICENSE BLOCK *****
-#
-# For copyright and licensing please refer to COPYING.
-#
-# ***** END LICENSE BLOCK *****
 """Using Pika with a Twisted reactor.
 
 Supports two methods of establishing the connection, using TwistedConnection

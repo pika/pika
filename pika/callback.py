@@ -1,10 +1,4 @@
-# ***** BEGIN LICENSE BLOCK *****
-#
-# For copyright and licensing please refer to COPYING.
-#
-# ***** END LICENSE BLOCK *****
-"""
-Callback management class, common area for keeping track of all callbacks in
+"""Callback management class, common area for keeping track of all callbacks in
 the Pika stack.
 
 """

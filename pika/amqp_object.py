@@ -1,9 +1,7 @@
-# ***** BEGIN LICENSE BLOCK *****
-#
-# For copyright and licensing please refer to COPYING.
-#
-# ***** END LICENSE BLOCK *****
+"""Base classes that are extended by low level AMQP frames and higher level
+AMQP classes and methods.
 
+"""
 
 class AMQPObject(object):
     """Base object that is extended by AMQP low level frames and AMQP classes

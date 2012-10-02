@@ -1,8 +1,4 @@
-# ***** BEGIN LICENSE BLOCK *****
-#
-# For copyright and licensing please refer to COPYING.
-#
-# ***** END LICENSE BLOCK *****
+"""Core connection objects"""
 import logging
 import platform
 
@@ -25,10 +21,8 @@ LOGGER = logging.getLogger(__name__)
 
 
 class ConnectionParameters(object):
-    """
-    Connection parameters object that is passed into the connection adapter
-    upon construction. The following parameters are passed and are used to
-    negotiate communication with RabbitMQ:
+    """Connection parameters object that is passed into the connection adapter
+    upon construction.
 
     """
     DEFAULT_LOCALE = 'en_US'

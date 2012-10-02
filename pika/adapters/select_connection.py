@@ -1,8 +1,7 @@
-# ***** BEGIN LICENSE BLOCK *****
-#
-# For copyright and licensing please refer to COPYING.
-#
-# ***** END LICENSE BLOCK *****
+"""A connection adapter that tries to use the best polling method for the
+platform pika is running on.
+
+"""
 import logging
 import select
 import time
