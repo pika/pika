@@ -17,7 +17,7 @@ try:
 except ImportError:
     SSL = False
 
-from pika.adapters.base_connection import BaseConnection
+from pika.adapters import base_connection
 from pika.exceptions import AMQPConnectionError
 
 LOGGER = logging.getLogger(__name__)
@@ -53,7 +53,8 @@ class AsyncoreDispatcher(asyncore.dispatcher):
         # Loop while we have remaining attempts
         while remaining_attempts:
             try:
-                return self._socket_connect()
+                self._socket_connect()
+                return
             except socket.error, err:
                 remaining_attempts -= 1
                 if not remaining_attempts:
@@ -214,7 +215,7 @@ class AsyncoreDispatcher(asyncore.dispatcher):
         self.close()
 
 
-class AsyncoreConnection(BaseConnection):
+class AsyncoreConnection(base_connection.BaseConnection):
 
     def _adapter_connect(self):
         """
@@ -223,10 +224,9 @@ class AsyncoreConnection(BaseConnection):
         the handle to self so that the AsyncoreDispatcher object can call back
         into our various state methods.
         """
-        self.ioloop = AsyncoreDispatcher(self.parameters)
+        self.ioloop = AsyncoreDispatcher(self.params)
 
         # Map some core values for compatibility
         self.ioloop._handle_error = self._handle_error
         self.ioloop.connection = self
-        self.ioloop.suggested_buffer_size = self._suggested_buffer_size
         self.socket = self.ioloop.socket
