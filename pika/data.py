@@ -1,9 +1,4 @@
-# ***** BEGIN LICENSE BLOCK *****
-#
-# For copyright and licensing please refer to COPYING.
-#
-# ***** END LICENSE BLOCK *****
-
+"""AMQP Table Encoding/Decoding"""
 import struct
 import decimal
 import calendar
@@ -27,7 +22,8 @@ def encode_table(pieces, table):
 
 
 def encode_value(pieces, value):
-    if isinstance(value, str):
+    if isinstance(value, basestring):
+        value = value.encode('utf8')
         pieces.append(struct.pack('>cI', 'S', len(value)))
         pieces.append(value)
         return 5 + len(value)
@@ -91,7 +87,20 @@ def decode_value(encoded, offset):
     if kind == 'S':
         length = struct.unpack_from('>I', encoded, offset)[0]
         offset += 4
-        value = encoded[offset: offset + length]
+        value = encoded[offset: offset + length].decode('utf8')
+        try:
+            value = str(value)
+        except UnicodeEncodeError:
+            pass
+        offset += length
+    elif kind == 's':
+        length = struct.unpack_from('B', encoded, offset)[0]
+        offset += 1
+        value = encoded[offset: offset + length].decode('utf8')
+        try:
+            value = str(value)
+        except UnicodeEncodeError:
+            pass
         offset += length
     elif kind == 't':
         value = struct.unpack_from('>B', encoded, offset)[0]
@@ -138,9 +147,12 @@ def validate_type(field_name, value, data_type):
     if data_type == 'bit' and not isinstance(value, bool):
         raise InvalidRPCParameterType("%s must be a bool" % field_name)
 
-    if data_type == 'shortstr' and \
-       (not isinstance(value, str) and not isinstance(value, unicode)):
-        raise InvalidRPCParameterType("%s must be a str or unicode" % \
+    if data_type == 'shortstr' and not isinstance(value, basestring):
+        raise InvalidRPCParameterType("%s must be a str or unicode" %
+                                      field_name)
+
+    if data_type == 'longstr' and not isinstance(value, basestring):
+        raise InvalidRPCParameterType("%s must be a str or unicode" %
                                       field_name)
 
     if data_type == 'short' and not isinstance(value, int):
