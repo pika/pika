@@ -45,7 +45,7 @@ class ConnectionParameters(object):
                  ssl=False,
                  ssl_options=None,
                  connection_attempts=1,
-                 retry_delay=2,
+                 retry_delay=2.0,
                  socket_timeout=DEFAULT_SOCKET_TIMEOUT,
                  locale=DEFAULT_LOCALE):
         """Create a new ConnectionParameters instance.
@@ -71,8 +71,8 @@ class ConnectionParameters(object):
             described at http://docs.python.org/dev/library/ssl.html
         :param int connection_attempts: Maximum number of retry attempts.
             None for infinite. Defaults to 1
-        :param int retry_delay: Time to wait in seconds, before the next attempt
-            Defaults to 2
+        :param int|float retry_delay: Time to wait in seconds, before the next
+            attempt. Defaults to 2
         :param int|float socket_timeout: Use for high latency networks
             Defaults to 0.25
         :param str locale: Set the locale value
@@ -109,8 +109,9 @@ class ConnectionParameters(object):
         if (connection_attempts is not None and
             not isinstance(connection_attempts, int)):
             raise TypeError("connection_attempts must be either None or int")
-        if not isinstance(retry_delay, int):
-            raise TypeError("retry_delay must be an int")
+        if (not isinstance(retry_delay, int) and
+            not isinstance(retry_delay, float)):
+            raise TypeError("retry_delay must be a float or int")
         if (not isinstance(socket_timeout, int) and
             not isinstance(socket_timeout, float)):
             raise TypeError("socket_timeout must be a float or int")

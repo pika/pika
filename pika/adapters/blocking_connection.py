@@ -25,7 +25,6 @@ class BlockingConnection(base_connection.BaseConnection):
     messages from Basic.Deliver, Basic.GetOk, and Basic.Return.
 
     """
-    SOCKET_TIMEOUT = 0.25
     SOCKET_TIMEOUT_THRESHOLD = 10
     SOCKET_TIMEOUT_MESSAGE = "Timeout exceeded, disconnected"
 
