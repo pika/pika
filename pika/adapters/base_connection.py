@@ -38,7 +38,6 @@ class BaseConnection(connection.Connection):
     HANDSHAKE = 'do_handshake_on_connect'
     def __init__(self, parameters=None,
                        on_open_callback=None,
-                       reconnection_strategy=None,
                        stop_ioloop_on_close=True):
         """Create a new instance of the Connection object.
 
@@ -46,9 +45,6 @@ class BaseConnection(connection.Connection):
         :type parameters: pika.connection.ConnectionParameters
         :param on_open_callback: The method to call when the connection is open
         :type on_open_callback: method
-        :param reconnection_strategy: A reconnection strategy object
-        :type reconnection_strategy:
-            pika.reconnection_strategies.ReconnectionStrategy
         :param bool stop_ioloop_on_close: Will stop the ioloop when the
                 connection is fully closed.
         :raises: RuntimeError
@@ -66,9 +62,7 @@ class BaseConnection(connection.Connection):
         self.write_buffer = None
         self._ssl_connecting = False
         self._ssl_handshake = False
-        super(BaseConnection, self).__init__(parameters,
-                                             on_open_callback,
-                                             reconnection_strategy)
+        super(BaseConnection, self).__init__(parameters, on_open_callback)
 
     def add_timeout(self, deadline, callback_method):
         """Add the callback_method to the IOLoop timer to fire after deadline

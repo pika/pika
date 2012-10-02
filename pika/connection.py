@@ -13,7 +13,6 @@ from pika import credentials as pika_credentials
 from pika import exceptions
 from pika import frame
 from pika import heartbeat
-from pika import reconnection_strategies
 from pika import utils
 from pika import simplebuffer
 from pika import spec
@@ -159,21 +158,15 @@ class Connection(object):
     CONNECTION_CLOSING = 6
 
     def __init__(self, parameters=None,
-                 on_open_callback=None,
-                 reconnection_strategy=None):
+                 on_open_callback=None):
         """Connection initialization expects a ConnectionParameters object and
         a callback function to notify when we have successfully connected
         to the AMQP Broker.
-
-        A reconnection_strategy of None will use the NullReconnectionStrategy.
 
         :param parameters: Connection parameters
         :type parameters: pika.connection.ConnectionParameters
         :param on_open_callback: The method to call when the connection is open
         :type on_open_callback: method
-        :param reconnection_strategy: The reconnection strategy to use
-        :type reconnection_strategy:
-            pika.reconnection_strategies.ReconnectionStrategy
 
         """
         # Define our callback dictionary
@@ -185,12 +178,6 @@ class Connection(object):
 
         # Set our configuration options
         self.params = parameters or ConnectionParameters()
-
-        # If we did not pass in a reconnection_strategy, setup the default
-        self.reconnection = (reconnection_strategy or
-                             reconnection_strategies.NullReconnectionStrategy())
-        self._add_reconnection_callbacks()
-        self._validate_credentials_removal()
 
         # Initialize the connection state and connect
         self._init_connection_state()
@@ -269,27 +256,9 @@ class Connection(object):
         LOGGER.info("Closing connection (%s): %s", reply_code, reply_text)
         self.closing = reply_code, reply_text
 
-        # Disable reconnection strategy on clean shutdown
-        if reply_code == 200:
-            self.reconnection.set_active(False)
-
         # If channels are open, _on_close_ready will be called when they close
         if self._has_open_channels:
             return self._close_channels(reply_code, reply_text, False)
-
-    def reconnect(self):
-        """Invoked by the Reconnection Strategy or callback handle to handle
-        the reconnection process. If the connection is already closing, add
-        a callback to call the method one more time, once the connection is
-        actually closed.
-
-        """
-        if self.is_open:
-            self.add_on_close_callback(self.reconnect)
-            self._ensure_closed()
-        else:
-            self._init_connection_state()
-            self._connect()
 
     def remove_timeout(self, callback_method):
         """Adapters should override to call the callback after the
@@ -421,11 +390,6 @@ class Connection(object):
         """Add a callback for when a Connection.Tune frame is received."""
         self.callbacks.add(0, spec.Connection.Tune, self._on_connection_tune)
 
-    def _add_reconnection_callbacks(self):
-        """Add the reconnection callbacks"""
-        self.add_on_open_callback(self.reconnection.on_connection_open)
-        self.add_on_close_callback(self.reconnection.on_connection_closed)
-
     def _append_frame_buffer(self, bytes):
         """Append the bytes to the frame buffer.
 
@@ -527,10 +491,9 @@ class Connection(object):
 
         """
         LOGGER.debug('Attempting connection')
-        self.reconnection.on_connect_attempt(self)
         self._set_connection_state(self.CONNECTION_INIT)
         self._adapter_connect()
-        LOGGER.debug('Connectioned')
+        LOGGER.debug('Connected')
 
     def _create_channel(self, channel_number, on_open_callback):
         """Create a new channel using the specified channel number and calling
@@ -772,9 +735,6 @@ class Connection(object):
 
         # Start the communication with the RabbitMQ Broker
         self._send_frame(frame.ProtocolHeader())
-
-        # Let our reconnection_strategy know we're connected
-        self.reconnection.on_transport_connected(self)
 
     def _on_connection_closed(self, method_frame, from_adapter=False):
         """Called when the connection is closed remotely. The from_adapter value
@@ -1122,18 +1082,3 @@ class Connection(object):
         """
         self._frame_buffer = self._frame_buffer[byte_count:]
         self.bytes_received += byte_count
-
-    def _validate_credentials_removal(self):
-        """Check to see if there is both a reconnection strategy and a
-        credentials object that will remove the connection credential values.
-        Log a warning if so.
-
-        """
-        if (self.params.credentials.erase_on_connect and
-            not isinstance(self.reconnection,
-                           reconnection_strategies.NullReconnectionStrategy)):
-            LOGGER.warning('%s was initialized to erase credentials but a '
-                           'reconnection strategy (%s) was specified. '
-                           'Attempts to reconnect will fail.',
-                           self.params.credentials.__class__.__name__,
-                           self.reconnection.__class__.__name__)
