@@ -7,7 +7,6 @@ __version__ = '0.9.6-pre1'
 
 from pika.connection import ConnectionParameters
 from pika.credentials import PlainCredentials
-from pika.reconnection_strategies import ReconnectionStrategy
 from pika.spec import BasicProperties
 
 from pika.adapters.base_connection import BaseConnection
