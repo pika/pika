@@ -51,7 +51,7 @@ class BaseConnection(connection.Connection):
 
         """
         # Let the developer know we could not import SSL
-        if parameters and parameters.ssl and ssl:
+        if parameters and parameters.ssl and not ssl:
             raise RuntimeError("SSL specified but it is not available")
         self.fd = None
         self.ioloop = None
