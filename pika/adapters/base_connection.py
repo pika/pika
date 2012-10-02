@@ -33,7 +33,6 @@ class BaseConnection(connection.Connection):
     WRITE = 0x0004
     ERROR = 0x0008
 
-    SOCKET_TIMEOUT = 2
     ERRORS_TO_IGNORE = [errno.EWOULDBLOCK, errno.EAGAIN, errno.EINTR]
     HANDSHAKE = 'do_handshake_on_connect'
     def __init__(self, parameters=None,
@@ -354,7 +353,7 @@ class BaseConnection(connection.Connection):
         LOGGER.info("Connecting fd %d to %s:%i%s",
                     self.socket.fileno(), self.params.host,
                     self.params.port, ssl_text)
-        self.socket.settimeout(self.SOCKET_TIMEOUT)
+        self.socket.settimeout(self.params.socket_timeout)
         self.socket.connect((self.params.host, self.params.port))
         self.socket.setblocking(0)
 
