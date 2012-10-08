@@ -398,7 +398,6 @@ class Channel(spec.DriverMixin):
         self._cancelled.append(consumer_tag)
         if consumer_tag in self._consumers:
             del self._consumers[consumer_tag]
-        self.transport.send_method(spec.Basic.CancelOk(consumer_tag))
 
     def on_basic_cancel_ok(self, frame_value):
         """Called in response to a frame from the Broker when the
