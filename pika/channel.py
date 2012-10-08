@@ -185,14 +185,14 @@ class Channel(spec.DriverMixin):
         self._on_flow_ok_callback = None
         self._add_callbacks()
 
-    def add_callback(self, callback, replies):
+    def add_callback(self, callback, replies, one_shot=True):
         """
         Pass in a callback handler and a list replies from the
         RabbitMQ broker which you'd like the callback notified of. Callbacks
         should allow for the frame parameter to be passed in.
         """
         for reply in replies:
-            self.callbacks.add(self.channel_number, reply, callback)
+            self.callbacks.add(self.channel_number, reply, callback, one_shot)
 
     def add_on_close_callback(self, callback):
         """Pass a callback function that will be called when the channel is
@@ -202,6 +202,17 @@ class Channel(spec.DriverMixin):
 
         """
         self.callbacks.add(self.channel_number, '_on_channel_close', callback)
+
+    def add_on_basic_cancel_callback(self, callback):
+        """Pass a callback function that will be called when the basic_cancel
+        is sent by the server. The callback function should receive a frame
+        parameter.
+
+        :param method callback: The method to call on callback
+
+        """
+        self.callbacks.add(self.channel_number, '_on_basic_cancel', callback,
+                           one_shot=False)
 
     def add_on_return_callback(self, callback):
         """Pass a callback function that will be called when basic_publish as
@@ -251,10 +262,10 @@ class Channel(spec.DriverMixin):
         # If a consumer tag was not passed, create one
         if not consumer_tag:
             consumer_tag = 'ctag%i.%i' % (self.channel_number,
-                                          len(self._consumers))
+                                          len(self._consumers)+len(self._cancelled))
 
         # Make sure we've not already registered this consumer tag
-        if consumer_tag in self._consumers:
+        if consumer_tag in self._consumers or consumer_tag in self._cancelled:
             raise exceptions.DuplicateConsumerTag(consumer_tag)
 
         # The consumer tag has not been used before, add it to our consumers
@@ -398,7 +409,10 @@ class Channel(spec.DriverMixin):
         self._cancelled.append(consumer_tag)
         if consumer_tag in self._consumers:
             del self._consumers[consumer_tag]
-        self.transport.send_method(spec.Basic.CancelOk(consumer_tag))
+        self.callbacks.process(self.channel_number,
+                               '_on_basic_cancel',
+                               self,
+                               frame_value)
 
     def on_basic_cancel_ok(self, frame_value):
         """Called in response to a frame from the Broker when the
