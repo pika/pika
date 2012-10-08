@@ -185,14 +185,14 @@ class Channel(spec.DriverMixin):
         self._on_flow_ok_callback = None
         self._add_callbacks()
 
-    def add_callback(self, callback, replies):
+    def add_callback(self, callback, replies, one_shot=True):
         """
         Pass in a callback handler and a list replies from the
         RabbitMQ broker which you'd like the callback notified of. Callbacks
         should allow for the frame parameter to be passed in.
         """
         for reply in replies:
-            self.callbacks.add(self.channel_number, reply, callback)
+            self.callbacks.add(self.channel_number, reply, callback, one_shot)
 
     def add_on_close_callback(self, callback):
         """Pass a callback function that will be called when the channel is
