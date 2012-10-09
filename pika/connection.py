@@ -81,8 +81,7 @@ class ConnectionParameters(object):
             raise TypeError("Port must be an int")
         if not credentials:
             credentials = pika_credentials.PlainCredentials('guest', 'guest')
-        else:
-            self._validate_credentials(credentials)
+        self._validate_credentials(credentials)
         if not isinstance(channel_max, int):
             raise TypeError("max-channels must be an int")
         if not isinstance(frame_max, int):
@@ -119,7 +118,7 @@ class ConnectionParameters(object):
         self.locale = locale
         self.heartbeat = heartbeat_interval
         self.ssl = ssl
-        self.ssl_options = ssl_options
+        self.ssl_options = ssl_options or dict()
         self.connection_attempts = connection_attempts
         self.retry_delay = retry_delay
         self.socket_timeout = socket_timeout
@@ -498,7 +497,6 @@ class Connection(object):
         :param method on_open_callback: The callback when the channel is opened
 
         """
-        LOGGER.debug('Creating channel')
         return channel.Channel(self, channel_number, on_open_callback)
 
     def _create_heartbeat_checker(self):
