@@ -1,213 +1,87 @@
 """Use pika with the stdlib asyncore module"""
 import asyncore
 import logging
-import select
-import socket
 import time
 
-# See if we have SSL support
-try:
-    import ssl
-    SSL = True
-except ImportError:
-    SSL = False
-
 from pika.adapters import base_connection
-from pika.exceptions import AMQPConnectionError
 
 LOGGER = logging.getLogger(__name__)
 
 
-class AsyncoreDispatcher(asyncore.dispatcher):
-    """
-    We extend asyncore.dispatcher here and throw in everything we need to
-    handle both asyncore's needs and pika's. In the async adapter structure
-    we expect a ioloop behavior which includes timeouts and a start and stop
-    function.
-    """
+class PikaDispatcher(asyncore.dispatcher):
 
-    def __init__(self, parameters):
-        """
-        Initialize the dispatcher, socket and our defaults. We turn of nageling
-        in the socket to allow for faster throughput.
-        """
-        super(AsyncoreDispatcher, self).__init__()
+    # Use epoll's constants to keep life easy
+    READ = 0x0001
+    WRITE = 0x0004
+    ERROR = 0x0008
 
-        # Carry the parameters for this as well
-        self.parameters = parameters
-
-        # Setup defaults
-        self.connecting = True
-        self.connection = None
+    def __init__(self, sock=None, map=None, event_callback=None):
+        # Is an old style class...
+        asyncore.dispatcher.__init__(self, sock, map)
         self._timeouts = dict()
-        self.map = None
+        self._event_callback = event_callback
+        self.events = self.READ | self.WRITE
 
-        # Set our remaining attempts to the value or True if it's none
-        remaining_attempts = self.parameters.connection_attempts or True
-
-        # Loop while we have remaining attempts
-        while remaining_attempts:
-            try:
-                self._socket_connect()
-                return
-            except socket.error, err:
-                remaining_attempts -= 1
-                if not remaining_attempts:
-                    break
-                LOGGER.warning("Could not connect: %s. Retrying in %i seconds "
-                               "with %i retry(s) left",
-                               err[-1], self.parameters.retry_delay,
-                               remaining_attempts)
-                self.socket.close()
-                time.sleep(self.parameters.retry_delay)
-
-        # Log the errors and raise the  exception
-        LOGGER.error("Could not connect: %s", err[-1])
-        raise AMQPConnectionError(err[-1])
-
-    def _socket_connect(self):
-        """Create socket and connect to it, using SSL if enabled"""
-        # Create our socket and set our socket options
-        self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
-
-        # Wrap the SSL socket if we SSL turned on
-        if self.parameters.ssl:
-            if self.parameters.ssl_options:
-                self.socket = ssl.wrap_socket(self.socket,
-                                              **self.parameters.ssl_options)
-            else:
-                self.socket = ssl.wrap_socket(self.socket)
-
-        # Try and connect
-        self.connect((self.parameters.host, self.parameters.port))
-
-        # Set the socket to non-blocking
-        self.socket.setblocking(0)
-
-    def handle_connect(self):
-        """
-        asyncore required method. Is called on connection.
-        """
-        self.connecting = False
-        self.connection._on_connected()
-
-        # Make our own map to pass in places
-        self.map = dict({self.socket.fileno(): self})
-
-    def handle_close(self):
-        """
-        asyncore required method. Is called on close.
-        """
-        # If we're not already closing or closed, disconnect the Connection
-        if not self.connection.closing and not self.connection.closed:
-            self.connection._adapter_disconnect()
-
-    def handle_read(self):
-        """
-        Read from the socket and call our on_data_available with the data
-        """
-        try:
-            data = self.recv(self.suggested_buffer_size)
-        except socket.timeout:
-            raise
-        except socket.error, error:
-            return self._handle_error(error)
-
-        # We received no data, so disconnect
-        if not data:
-            return self.connection._adapter_disconnect()
-
-        # Pass the data into our top level frame dispatching method
-        self.connection._on_data_available(data)
-
-    def handle_write(self):
-        """
-        asyncore required function, is called when we can write to the socket
-        """
-        data = self.connection.outbound_buffer.read(self.suggested_buffer_size)
-        try:
-            bytes_written = self.send(data)
-        except socket.timeout:
-            raise
-        except socket.error, error:
-            return self._handle_error(error)
-
-        # Remove the content we used from our buffer
-        if not bytes_written:
-            return self.connection._adapter_disconnect()
-
-        # Remove what we wrote from the outbound buffer
-        self.connection.outbound_buffer.consume(bytes_written)
-
-    def writable(self):
-        """
-        asyncore required function, used to toggle the write bit on the
-        select poller. For some reason, if we return false while connecting
-        asyncore hangs, so we check for that explicitly and tell it that
-        it can write while it's connecting.
-        """
-        if not self.connected:
-            return True
-
-        # If we have data to write, return true
-        if self.connection.outbound_buffer.size:
-            return True
-        return False
-
-    # IOLoop Compatibility
     def add_timeout(self, deadline, handler):
+        """Add a timeout with with given deadline, should return a timeout id.
+
+        :param int deadline: The number of seconds to wait until calling handler
+        :param method handler: The method to call at deadline
+        :rtype: str
+
         """
-        Add a timeout to the stack by deadline.
-        """
-        timeout_id = '%.8f' % time.time()
-        self._timeouts[timeout_id] = {'deadline': deadline,
-                                      'handler': handler}
+        value = time.time() + deadline
+        LOGGER.debug('Will call %r on or after %i', handler, value)
+        timeout_id = '%.8f' % value
+        self._timeouts[timeout_id] = {'timestamp': value, 'handler': handler}
         return timeout_id
 
+    def readable(self):
+        return bool(self.events & self.READ)
+
+    def writable(self):
+        return bool(self.events & self.WRITE)
+
+    def handle_read(self):
+        self._event_callback(self.socket, self.READ)
+
+    def handle_write(self):
+        self._event_callback(self.socket, self.WRITE, None, True)
+
+    def process_timeouts(self):
+        """Process the self._timeouts event stack"""
+        start_time = time.time()
+        for timeout_id in self._timeouts.keys():
+            if self._timeouts[timeout_id]['timestamp'] <= start_time:
+                handler = self._timeouts[timeout_id]['handler']
+                del self._timeouts[timeout_id]
+                handler()
+
     def remove_timeout(self, timeout_id):
-        """
-        Remove a timeout from the stack.
+        """Remove a timeout if it's still in the timeout stack
+
+        :param str timeout_id: The timeout id to remove
+
         """
         if timeout_id in self._timeouts:
             del self._timeouts[timeout_id]
 
-    def _process_timeouts(self):
-        """
-        Process our self._timeouts event stack.
-        """
-        # Process our timeout events
-        keys = self._timeouts.keys()
-        start_time = time.time()
-        for timeout_id in keys:
-            if timeout_id in self._timeouts and \
-               self._timeouts[timeout_id]['deadline'] <= start_time:
-                self._timeouts[timeout_id]['handler']()
-                del(self._timeouts[timeout_id])
-
     def start(self):
-        """
-        Pika Adapter IOLoop start function. This blocks until we are no longer
-        connected.
-        """
-        while self.connected or self.connecting:
-            try:
-                # Use our socket map if we've made it, makes things less buggy
-                if self.map:
-                    asyncore.loop(timeout=1, map=self.map, count=1)
-                else:
-                    asyncore.loop(timeout=1, count=1)
-            except select.error, e:
-                if e[0] == 9:
-                    break
-            self._process_timeouts()
+        LOGGER.debug('Starting IOLoop')
+        asyncore.loop()
 
     def stop(self):
-        """
-        Pika Adapter IOLoop stop function. When called, it will close an open
-        connection, exiting us out of the IOLoop running in start.
-        """
+        LOGGER.debug('Stopping IOLoop')
         self.close()
+
+    def update_handler(self, fileno, events):
+        """Set the events to the current events
+
+        :param int fileno: The file descriptor
+        :param int events: The event mask
+
+        """
+        self.events = events
 
 
 class AsyncoreConnection(base_connection.BaseConnection):
@@ -219,9 +93,7 @@ class AsyncoreConnection(base_connection.BaseConnection):
         the handle to self so that the AsyncoreDispatcher object can call back
         into our various state methods.
         """
-        self.ioloop = AsyncoreDispatcher(self.params)
-
-        # Map some core values for compatibility
-        self.ioloop._handle_error = self._handle_error
-        self.ioloop.connection = self
-        self.socket = self.ioloop.socket
+        super(AsyncoreConnection, self)._adapter_connect()
+        self.socket = PikaDispatcher(self.socket, None, self._handle_events)
+        self.ioloop = self.socket
+        self._on_connected()
