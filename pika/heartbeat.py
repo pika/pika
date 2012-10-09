@@ -11,11 +11,11 @@ class HeartbeatChecker(object):
     intervals.
 
     """
-    MAX_MISSED_HEARTBEATS = 2
+    MAX_IDLE_COUNT = 2
     _CONNECTION_FORCED = 320
     _STALE_CONNECTION = "Too Many Missed Heartbeats, No reply in %i seconds"
 
-    def __init__(self, connection, interval, idle_count=MAX_MISSED_HEARTBEATS):
+    def __init__(self, connection, interval, idle_count=MAX_IDLE_COUNT):
         """Create a heartbeat on connection sending a heartbeat frame every
         interval seconds.
 
@@ -35,8 +35,6 @@ class HeartbeatChecker(object):
         self._heartbeat_frames_received = 0
         self._heartbeat_frames_sent = 0
         self._idle_byte_intervals = 0
-        self._idle_heartbeat_intervals = 0
-        self._last_interval_frames_received = 0
 
         # Setup the timer to fire in _interval seconds
         self._setup_timer()
@@ -83,17 +81,12 @@ class HeartbeatChecker(object):
                      self._heartbeat_frames_received,
                      self._heartbeat_frames_sent)
 
-        # If too many heartbeats have been missed, close the connection
-        if self.too_many_missed_heartbeats or self.connection_is_idle:
+        if self.connection_is_idle:
             return self._close_connection()
 
         # Connection has not received any data, increment the counter
         if not self._has_received_data:
             self._idle_byte_intervals += 1
-
-        # Connection has not received any heartbeats, increment the counter
-        if not self._has_received_frames:
-            self._idle_heartbeat_intervals += 1
 
         # Update the counters of bytes sent/received and the frames received
         self._update_counters()
@@ -104,22 +97,10 @@ class HeartbeatChecker(object):
         # Update the timer to fire again
         self._start_timer()
 
-    @property
-    def too_many_missed_heartbeats(self):
-        """Return if the number of missed heartbeats exceeds the maximum amount
-        of missed heartbeats.
-
-        :rtype True
-
-        """
-        return self._idle_heartbeat_intervals >= self._max_idle_count
-
     def _close_connection(self):
         """Close the connection with the AMQP Connection-Forced value."""
-        LOGGER.info('Connection has missed too many heartbeats or the '
-                    'connection is idle')
-        LOGGER.debug('%i missed frames, %i stale byte intervals',
-                     self._idle_heartbeat_intervals, self._idle_byte_intervals)
+        LOGGER.info('Connection is idle, %i stale byte intervals',
+                    self._idle_byte_intervals)
         duration = self._max_idle_count * self._interval
         self._connection.close(HeartbeatChecker._CONNECTION_FORCED,
                                HeartbeatChecker._STALE_CONNECTION % duration)
@@ -132,16 +113,6 @@ class HeartbeatChecker(object):
 
         """
         return not self._bytes_received == self.bytes_received_on_connection
-
-    @property
-    def _has_received_frames(self):
-        """Returns True if the connection has received heartbeat frames.
-
-        :rtype: bool
-
-        """
-        return not (self._heartbeat_frames_received ==
-                    self._last_interval_frames_received)
 
     def _new_heartbeat_frame(self):
         """Return a new heartbeat frame.
@@ -182,4 +153,3 @@ class HeartbeatChecker(object):
         """
         self._bytes_sent = self._connection.bytes_sent
         self._bytes_received = self._connection.bytes_received
-        self._last_interval_frames_received = self._heartbeat_frames_received

@@ -29,7 +29,7 @@ class HeartbeatTests(unittest.TestCase):
 
     def test_default_initialization_max_idle_count(self):
         self.assertEqual(self.obj._max_idle_count,
-                         self.obj.MAX_MISSED_HEARTBEATS)
+                         self.obj.MAX_IDLE_COUNT)
 
     def test_constructor_assignment_connection(self):
         self.assertEqual(self.obj._connection, self.mock_conn)
@@ -51,12 +51,6 @@ class HeartbeatTests(unittest.TestCase):
 
     def test_constructor_initial_idle_byte_intervals(self):
         self.assertEqual(self.obj._idle_byte_intervals, 0)
-
-    def test_constructor_initial_idle_heartbeat_intervals(self):
-        self.assertEqual(self.obj._idle_heartbeat_intervals, 0)
-
-    def test_constructor_initial_last_interval_frames_received(self):
-        self.assertEqual(self.obj._last_interval_frames_received, 0)
 
     @mock.patch('pika.heartbeat.HeartbeatChecker._setup_timer')
     def test_constructor_called_setup_timer(self, timer):
@@ -93,13 +87,6 @@ class HeartbeatTests(unittest.TestCase):
         close_connection.assert_not_called()
 
     @mock.patch('pika.heartbeat.HeartbeatChecker._close_connection')
-    def test_send_and_check_missed_heartbeats(self, close_connection):
-        obj = heartbeat.HeartbeatChecker(self.mock_conn, self.INTERVAL)
-        obj._idle_heartbeat_intervals = self.INTERVAL
-        obj.send_and_check()
-        close_connection.assert_called_once_with()
-
-    @mock.patch('pika.heartbeat.HeartbeatChecker._close_connection')
     def test_send_and_check_missed_bytes(self, close_connection):
         obj = heartbeat.HeartbeatChecker(self.mock_conn, self.INTERVAL)
         obj._idle_byte_intervals = self.INTERVAL
@@ -117,18 +104,6 @@ class HeartbeatTests(unittest.TestCase):
         self.obj._bytes_received = 128
         self.obj.send_and_check()
         self.assertEqual(self.obj._idle_byte_intervals, 0)
-
-    def test_send_and_check_increment_no_heartbeats(self):
-        self.obj._heartbeat_frames_received = 1
-        self.obj._last_interval_frames_received = 1
-        self.obj.send_and_check()
-        self.assertEqual(self.obj._idle_heartbeat_intervals, 1)
-
-    def test_send_and_check_increment_heartbeats(self):
-        self.obj._heartbeat_frames_received = 1
-        self.obj._last_interval_frames_received = 0
-        self.obj.send_and_check()
-        self.assertEqual(self.obj._idle_heartbeat_intervals, 0)
 
     @mock.patch('pika.heartbeat.HeartbeatChecker._update_counters')
     def test_send_and_check_update_counters(self, update_counters):
@@ -148,13 +123,6 @@ class HeartbeatTests(unittest.TestCase):
         obj.send_and_check()
         start_timer.assert_called_once_with()
 
-    def test_too_many_missed_heartbeats_false(self):
-        self.assertFalse(self.obj.too_many_missed_heartbeats)
-
-    def test_too_many_missed_heartbeats_true(self):
-        self.obj._idle_heartbeat_intervals = self.INTERVAL
-        self.assertTrue(self.obj.too_many_missed_heartbeats)
-
     def test_connection_close(self):
         self.obj._idle_byte_intervals = 3
         self.obj._idle_heartbeat_intervals = 4
@@ -172,16 +140,6 @@ class HeartbeatTests(unittest.TestCase):
         self.mock_conn.bytes_received = 128
         self.obj._bytes_received = 100
         self.assertTrue(self.obj._has_received_data)
-
-    def test_has_received_frames_false(self):
-        self.obj._heartbeat_frames_received = 100
-        self.obj._last_interval_frames_received = 100
-        self.assertFalse(self.obj._has_received_frames)
-
-    def test_has_received_frames_true(self):
-        self.obj._heartbeat_frames_received = 128
-        self.obj._last_interval_frames_received = 100
-        self.assertTrue(self.obj._has_received_frames)
 
     def test_new_heartbeat_frame(self):
         self.assertIsInstance(self.obj._new_heartbeat_frame(), frame.Heartbeat)
@@ -219,8 +177,3 @@ class HeartbeatTests(unittest.TestCase):
         self.mock_conn.bytes_sent = 256
         self.obj._update_counters()
         self.assertEqual(self.obj._bytes_sent, 256)
-
-    def test_update_counters_heartbeat_frames(self):
-        self.obj._heartbeat_frames_received = 100
-        self.obj._update_counters()
-        self.assertEqual(self.obj._last_interval_frames_received, 100)
