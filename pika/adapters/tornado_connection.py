@@ -14,14 +14,16 @@ class TornadoConnection(base_connection.BaseConnection):
     """
     def __init__(self, parameters=None,
                  on_open_callback=None,
-                 stop_ioloop_on_close=False):
+                 stop_ioloop_on_close=False,
+                 custom_ioloop=None):
+        self._ioloop = custom_ioloop or ioloop.IOLoop.instance()
         super(TornadoConnection, self).__init__(parameters, on_open_callback,
                                                 stop_ioloop_on_close)
 
     def _adapter_connect(self):
         """Connect to the RabbitMQ broker"""
         super(TornadoConnection, self)._adapter_connect()
-        self.ioloop = ioloop.IOLoop.instance()
+        self.ioloop = self._ioloop
         self.ioloop.add_handler(self.socket.fileno(),
                                 self._handle_events,
                                 self.event_state)
