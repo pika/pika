@@ -24,7 +24,10 @@ class BlockingConnection(base_connection.BaseConnection):
     messages from Basic.Deliver, Basic.GetOk, and Basic.Return.
 
     """
-    SOCKET_TIMEOUT_THRESHOLD = 10
+    WRITE_TO_READ_RATIO = 10000
+    DO_HANDSHAKE = True
+    SOCKET_CONNECT_TIMEOUT = .25
+    SOCKET_TIMEOUT_THRESHOLD = 12
     SOCKET_TIMEOUT_MESSAGE = "Timeout exceeded, disconnected"
 
     def add_timeout(self, deadline, callback_method):
@@ -82,23 +85,18 @@ class BlockingConnection(base_connection.BaseConnection):
         """Disconnect from the socket"""
         self.socket.close()
 
-    def flush_outbound(self):
-        """May be called to flush the outbound socket buffer."""
-        self._flush_outbound()
-        self.process_timeouts()
-
     def process_data_events(self):
         """Will make sure that data events are processed. Your app can
         block on this method.
 
         """
         try:
-            self._handle_read()
-            self._socket_timeouts = 0
+            if self._handle_read():
+                self._socket_timeouts = 0
         except socket.timeout:
             self._handle_timeout()
-        self.process_timeouts()
         self._flush_outbound()
+        self.process_timeouts()
 
     def process_timeouts(self):
         """Process the self._timeouts event stack"""
@@ -130,15 +128,17 @@ class BlockingConnection(base_connection.BaseConnection):
     def _adapter_connect(self):
         """Connect to the RabbitMQ broker"""
         super(BlockingConnection, self)._adapter_connect()
-        LOGGER.debug('Post initial config, setting to blocking behaviors')
-        self.socket.setblocking(1)
-        self.socket.settimeout(self.params.socket_timeout)
+        LOGGER.debug('Setting socket connection timeout')
+        self.socket.settimeout(self.SOCKET_CONNECT_TIMEOUT)
+        self._frames_written = 0
         self._socket_timeouts = 0
-        self._on_connected()
         self._timeouts = dict()
-        self._wait_on_open()
-        if not self.is_open:
-            raise exceptions.AMQPConnectionError(self.SOCKET_TIMEOUT_THRESHOLD)
+        self._on_connected()
+        while not self.is_open:
+            self.process_data_events()
+
+        LOGGER.debug('Setting socket timeout to %s', self.params.socket_timeout)
+        self.socket.settimeout(self.params.socket_timeout)
         LOGGER.debug('Adapter connected')
 
     def _adapter_disconnect(self):
@@ -168,23 +168,32 @@ class BlockingConnection(base_connection.BaseConnection):
 
     def _handle_disconnect(self):
         """Called internally when the socket is disconnected already"""
+        LOGGER.debug('Handling disconnect')
         self.disconnect()
         self._on_connection_closed(None, True)
+
+    def _handle_read(self):
+        super(BlockingConnection, self)._handle_read()
+        self._frames_written_without_read = 0
 
     def _handle_timeout(self):
         """Invoked whenever the socket times out"""
         self._socket_timeouts += 1
+        LOGGER.warning('Handling timeout %i with a threshold of %i',
+                       self._socket_timeouts, self.SOCKET_TIMEOUT_THRESHOLD)
         if (self.is_closing and
             self._socket_timeouts > self.SOCKET_TIMEOUT_THRESHOLD):
+            LOGGER.critical('Closing connection due to timeout')
             self._on_connection_closed(None, True)
 
     def _flush_outbound(self):
         """Flush the outbound socket buffer."""
-        try:
-            if self._handle_write():
-                self._socket_timeouts = 0
-        except socket.timeout:
-            return self._handle_timeout()
+        if self.outbound_buffer.size:
+            try:
+                if self._handle_write():
+                    self._socket_timeouts = 0
+            except socket.timeout:
+                return self._handle_timeout()
 
     def _on_connection_closed(self, method_frame, from_adapter=False):
         """Called when the connection is closed remotely. The from_adapter value
@@ -213,22 +222,20 @@ class BlockingConnection(base_connection.BaseConnection):
         if self.closing[0] != 200:
             raise exceptions.AMQPConnectionError(*self.closing)
 
-    def _wait_on_open(self):
-        """When using a high availability cluster (such as HAProxy) we are
-        always able to connect even though there might be no RabbitMQ backend.
-        So loop while trying to open for up to self.SOCKET_TIMEOUT_THRESHOLD
+    def _send_frame(self, frame_value):
+        """This appends the fully generated frame to send to the broker to the
+        output buffer which will be then sent via the connection adapter.
+
+        :param frame_value: The frame to write
+        :type frame_value:  pika.frame.Frame|pika.frame.ProtocolHeader
 
         """
-        socket_timeout_retries = 0
-        while (not self.is_open and
-               socket_timeout_retries < self.SOCKET_TIMEOUT_THRESHOLD):
-            self._flush_outbound()
-            try:
-                self._handle_read()
-            except socket.timeout:
-                socket_timeout_retries += 1
-            except socket.error, error:
-                raise exceptions.AMQPConnectionError(error)
+        super(BlockingConnection, self)._send_frame(frame_value)
+        self._frames_written_without_read += 1
+        if self._frames_written_without_read == self.WRITE_TO_READ_RATIO:
+            self._frames_written_without_read = 0
+            self.process_data_events()
+
 
 class BlockingChannelTransport(channel.ChannelTransport):
 
@@ -300,7 +307,7 @@ class BlockingChannelTransport(channel.ChannelTransport):
         self.connection.send_method(self.channel_number, method_frame, content)
         while self.connection.outbound_buffer.size > 0:
             try:
-                self.connection.flush_outbound()
+                self.connection.process_data_events()
             except exceptions.AMQPConnectionError:
                 break
         while wait and not self._received_response:

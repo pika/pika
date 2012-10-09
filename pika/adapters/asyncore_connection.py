@@ -31,7 +31,7 @@ class AsyncoreDispatcher(asyncore.dispatcher):
         Initialize the dispatcher, socket and our defaults. We turn of nageling
         in the socket to allow for faster throughput.
         """
-        asyncore.dispatcher.__init__(self)
+        super(AsyncoreDispatcher, self).__init__()
 
         # Carry the parameters for this as well
         self.parameters = parameters

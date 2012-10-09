@@ -6,7 +6,6 @@ isolate socket and low level communication.
 import errno
 import logging
 import socket
-import sys
 import time
 
 # Workaround for 2.5 support
@@ -34,7 +33,8 @@ class BaseConnection(connection.Connection):
     ERROR = 0x0008
 
     ERRORS_TO_IGNORE = [errno.EWOULDBLOCK, errno.EAGAIN, errno.EINTR]
-    HANDSHAKE = 'do_handshake_on_connect'
+    DO_HANDSHAKE = True
+
     def __init__(self, parameters=None,
                        on_open_callback=None,
                        stop_ioloop_on_close=True):
@@ -59,8 +59,6 @@ class BaseConnection(connection.Connection):
         self.event_state = self.base_events
         self.socket = None
         self.write_buffer = None
-        self._ssl_connecting = False
-        self._ssl_handshake = False
         super(BaseConnection, self).__init__(parameters, on_open_callback)
 
     def add_timeout(self, deadline, callback_method):
@@ -99,29 +97,27 @@ class BaseConnection(connection.Connection):
     def _adapter_connect(self):
         """Connect to the RabbitMQ broker"""
         LOGGER.debug('Connecting the adapter to the remote host')
-        remaining_attempts = self.params.connection_attempts or sys.maxint
         reason = 'Unknown'
-
-        # Loop while we have remaining attempts
+        remaining_attempts = self.params.connection_attempts
         while remaining_attempts:
             remaining_attempts -= 1
             try:
-                self._socket_connect()
+                self._create_and_connect_to_socket()
                 return
-            except socket.timeout, timeout:
-                reason = "timeout"
+            except socket.timeout:
+                reason = 'timeout'
             except socket.error, err:
+                LOGGER.error('socket error: %s', err[-1])
                 reason = err[-1]
                 self.socket.close()
-            retry = ''
-            if remaining_attempts:
-                retry = "Retrying in %i seconds with %i retry(s) left" %\
-                        (self.params.retry_delay, remaining_attempts)
-            LOGGER.warning("Could not connect: %s. %s", reason, retry)
-            if remaining_attempts:
-                time.sleep(self.params.retry_delay)
-        LOGGER.error("Could not connect: %s", reason)
-        raise exceptions.AMQPConnectionError(reason)
+
+            LOGGER.warning('Could not connect due to "%s," retrying in %i sec',
+                           reason, self.params.retry_delay)
+            time.sleep(self.params.retry_delay)
+
+        LOGGER.error('Could not connect: %s', reason)
+        raise exceptions.AMQPConnectionError(self.params.connection_attempts *
+                                             self.params.retry_delay)
 
     def _adapter_disconnect(self):
         """Invoked if the connection is being told to disconnect"""
@@ -136,7 +132,7 @@ class BaseConnection(connection.Connection):
         exception types.
         """
         if self.connection_state == self.CONNECTION_PROTOCOL:
-            LOGGER.error("Incompatible Protocol Versions")
+            LOGGER.error('Incompatible Protocol Versions')
             raise exceptions.IncompatibleProtocolError
         elif self.connection_state == self.CONNECTION_START:
             LOGGER.error("Socket closed while authenticating indicating a "
@@ -148,25 +144,44 @@ class BaseConnection(connection.Connection):
                          "host")
             raise exceptions.ProbableAccessDeniedError
 
+    def _create_and_connect_to_socket(self):
+        """Create socket and connect to it, using SSL if enabled."""
+        LOGGER.debug('Creating the socket')
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
+        #self.socket.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
+        if self.params.ssl:
+            self.socket = self._wrap_socket(self.socket)
+            ssl_text = " with SSL"
+        else:
+            ssl_text = ""
+        LOGGER.info("Connecting fd %d to %s:%i%s",
+                    self.socket.fileno(), self.params.host,
+                    self.params.port, ssl_text)
+        self.socket.settimeout(self.params.socket_timeout)
+        self.socket.connect((self.params.host, self.params.port))
+        if self.params.ssl and self.DO_HANDSHAKE:
+            self._do_ssl_handshake()
+
     def _do_ssl_handshake(self):
         """Perform SSL handshaking, copied from python stdlib test_ssl.py.
 
         """
+        if not self.DO_HANDSHAKE:
+            return
         LOGGER.debug('_do_ssl_handshake')
-        try:
-            self.socket.do_handshake()
-        except ssl.SSLError, err:
-            if err.args[0] in (ssl.SSL_ERROR_WANT_READ,
-                               ssl.SSL_ERROR_WANT_WRITE):
-                return
-            elif err.args[0] == ssl.SSL_ERROR_EOF:
-                return self._handle_disconnect()
-            raise
-        except socket.error, err:
-            if err.args[0] == errno.ECONNABORTED:
-                return self._handle_disconnect()
-        else:
-            self._ssl_connecting = False
+        while True:
+            try:
+                self.socket.do_handshake()
+                break
+            except ssl.SSLError, err:
+                if err.args[0] == ssl.SSL_ERROR_WANT_READ:
+                    self.event_state = self.READ
+                elif err.args[0] == ssl.SSL_ERROR_WANT_WRITE:
+                    self.event_state = self.WRITE
+                else:
+                    LOGGER.error('SSL handshaking error: %s', err)
+                    raise
+                self._manage_event_state()
 
     def _get_error_code(self, error_value):
         """Get the error code from the error_value accounting for Python
@@ -210,6 +225,8 @@ class BaseConnection(connection.Connection):
         :param int|object error_value: The inbound error
 
         """
+        if 'timed out' in str(error_value):
+            raise socket.timeout
         error_code = self._get_error_code(error_value)
         if not error_code:
             LOGGER.critical("Tried to handle an error where no error existed")
@@ -225,10 +242,11 @@ class BaseConnection(connection.Connection):
             LOGGER.error("Socket is closed")
 
         elif self.params.ssl and isinstance(error_value, ssl.SSLError):
-            # SSL socket operation needs to be retried
-            if error_code in (ssl.SSL_ERROR_WANT_READ,
-                              ssl.SSL_ERROR_WANT_WRITE):
-                return
+
+            if error_value.args[0] == ssl.SSL_ERROR_WANT_READ:
+                self.event_state = self.READ
+            elif error_value.args[0] == ssl.SSL_ERROR_WANT_WRITE:
+                self.event_state = self.WRITE
             else:
                 LOGGER.error("SSL Socket error on fd %d: %r",
                              self.socket.fileno(), error_value)
@@ -249,15 +267,15 @@ class BaseConnection(connection.Connection):
         :param bool write_only: Only handle write events
 
         """
-        if not self.socket:
-            LOGGER.error('Received events on closed socket: %d',
-                         self.socket.fileno())
+        if not fd:
+            LOGGER.error('Received events on closed socket: %d', fd)
             return
 
         if not write_only and (events & self.READ):
             self._handle_read()
 
         if events & self.ERROR:
+            LOGGER.error('Error event %r, %r', events, error)
             self._handle_error(error)
 
         if events & self.WRITE:
@@ -266,10 +284,8 @@ class BaseConnection(connection.Connection):
 
     def _handle_read(self):
         """Read from the socket and call our on_data_available with the data."""
-        if self.params.ssl and self._ssl_connecting:
-            return self._do_ssl_handshake()
         try:
-            if self.params.ssl and self.socket.pending():
+            if self.params.ssl:
                 data = self.socket.read(self._buffer_size)
             else:
                 data = self.socket.recv(self._buffer_size)
@@ -289,9 +305,6 @@ class BaseConnection(connection.Connection):
 
     def _handle_write(self):
         """Handle any outbound buffer writes that need to take place."""
-        if self.params.ssl and self._ssl_connecting:
-            return self._do_ssl_handshake()
-
         if not self.write_buffer:
             self.write_buffer = self.outbound_buffer.read(self._buffer_size)
         try:
@@ -323,8 +336,6 @@ class BaseConnection(connection.Connection):
         self.event_state = self.base_events
         self.socket = None
         self.write_buffer = None
-        self._ssl_connecting = False
-        self._ssl_handshake = False
 
     def _manage_event_state(self):
         """Manage the bitmask for reading/writing/error which is used by the
@@ -341,33 +352,12 @@ class BaseConnection(connection.Connection):
             self.event_state = self.base_events
             self.ioloop.update_handler(self.socket.fileno(), self.event_state)
 
-    def _socket_connect(self):
-        """Create socket and connect to it, using SSL if enabled."""
-        LOGGER.debug('Creating the socket')
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
-        self.socket.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
-        ssl_text = ""
-        if self.params.ssl:
-            self.socket = self._wrap_socket(self.socket)
-            ssl_text = " with SSL"
-        LOGGER.info("Connecting fd %d to %s:%i%s",
-                    self.socket.fileno(), self.params.host,
-                    self.params.port, ssl_text)
-        self.socket.settimeout(self.params.socket_timeout)
-        self.socket.connect((self.params.host, self.params.port))
-        self.socket.setblocking(0)
-
     def _wrap_socket(self, sock):
         """Wrap the socket for connecting over SSL.
 
         :rtype: ssl.SSLSocket
 
         """
-        if self.params.ssl_options:
-            self.params.ssl_options[self.HANDSHAKE] = self._ssl_handshake
-            sock = ssl.wrap_socket(sock, **self.params.ssl_options)
-        else:
-            sock = ssl.wrap_socket(sock,
-                                   do_handshake_on_connect=self._ssl_handshake)
-        self._ssl_connecting = True
-        return sock
+        return ssl.wrap_socket(sock,
+                               do_handshake_on_connect=self.DO_HANDSHAKE,
+                               **self.params.ssl_options)
