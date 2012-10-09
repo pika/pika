@@ -130,7 +130,7 @@ class BlockingConnection(base_connection.BaseConnection):
         super(BlockingConnection, self)._adapter_connect()
         LOGGER.debug('Setting socket connection timeout')
         self.socket.settimeout(self.SOCKET_CONNECT_TIMEOUT)
-        self._frames_written = 0
+        self._frames_written_without_read = 0
         self._socket_timeouts = 0
         self._timeouts = dict()
         self._on_connected()
@@ -139,7 +139,7 @@ class BlockingConnection(base_connection.BaseConnection):
 
         LOGGER.debug('Setting socket timeout to %s', self.params.socket_timeout)
         self.socket.settimeout(self.params.socket_timeout)
-        LOGGER.debug('Adapter connected')
+        LOGGER.info('Adapter connected')
 
     def _adapter_disconnect(self):
         """Called if the connection is being requested to disconnect."""
