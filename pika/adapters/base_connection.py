@@ -121,7 +121,9 @@ class BaseConnection(connection.Connection):
 
     def _adapter_disconnect(self):
         """Invoked if the connection is being told to disconnect"""
-        self.socket.shutdown(socket.SHUT_RDWR)
+        #self.socket.shutdown(socket.SHUT_RDWR)
+        self.socket.close()
+        self.socket = None
         self._check_state_on_disconnect()
         self._handle_ioloop_stop()
 
@@ -143,6 +145,9 @@ class BaseConnection(connection.Connection):
                          "a probable permission error when accessing a virtual "
                          "host")
             raise exceptions.ProbableAccessDeniedError
+        else:
+            LOGGER.warning('Unknown state on disconnect: %i',
+                           self.connection_state)
 
     def _create_and_connect_to_socket(self):
         """Create socket and connect to it, using SSL if enabled."""
@@ -205,8 +210,8 @@ class BaseConnection(connection.Connection):
     def _handle_disconnect(self):
         """Called internally when the socket is disconnected already
         """
+        self._adapter_disconnect()
         self._on_connection_closed(None, True)
-        self._handle_ioloop_stop()
 
     def _handle_ioloop_stop(self):
         """Invoked when the connection is closed to determine if the IOLoop
@@ -297,7 +302,7 @@ class BaseConnection(connection.Connection):
         # Empty data, should disconnect
         if not data or data == 0:
             LOGGER.error('Read empty data, calling disconnect')
-            return self._adapter_disconnect()
+            return self._handle_disconnect()
 
         # Pass the data into our top level frame dispatching method
         self._on_data_available(data)
