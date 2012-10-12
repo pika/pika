@@ -262,7 +262,8 @@ class Channel(spec.DriverMixin):
         # If a consumer tag was not passed, create one
         if not consumer_tag:
             consumer_tag = 'ctag%i.%i' % (self.channel_number,
-                                          len(self._consumers)+len(self._cancelled))
+                                          len(self._consumers) +
+                                          len(self._cancelled))
 
         # Make sure we've not already registered this consumer tag
         if consumer_tag in self._consumers or consumer_tag in self._cancelled:
@@ -506,6 +507,7 @@ class Channel(spec.DriverMixin):
                         frame_value.method.reply_text)
         self.transport.closed = True
         self._set_state(self.CLOSED)
+        self.transport.send_method(spec.Channel.CloseOk)
         self.callbacks.process(self.channel_number,
                                '_on_channel_close',
                                self,
