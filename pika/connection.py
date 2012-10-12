@@ -745,10 +745,10 @@ class Connection(object):
         LOGGER.warning("Disconnected from RabbitMQ at %s:%i (%s): %s",
                         self.params.host, self.params.port,
                         self.closing[0], self.closing[1])
-        self._set_connection_state(self.CONNECTION_CLOSED)
-        self._remove_connection_callbacks()
         if not from_adapter:
             self._adapter_disconnect()
+        self._set_connection_state(self.CONNECTION_CLOSED)
+        self._remove_connection_callbacks()
         for channel in self._channels:
             self._channels[channel].on_remote_close(method_frame)
         self._process_connection_closed_callbacks()
