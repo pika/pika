@@ -1,4 +1,7 @@
-"""Channel objects"""
+"""The Channel class provides a wrapper for interacting with RabbitMQ
+implementing the methods and behaviors for an AMQP Channel.
+
+"""
 import collections
 import logging
 
@@ -11,197 +14,62 @@ LOGGER = logging.getLogger(__name__)
 MAX_CHANNELS = 32768
 
 
-class ChannelTransport(object):
-    """
-    The ChannelTransport class is meant to handle the communication paths to
-    and from the AMQP Broker. It is not supposed to implement client behavior
-    other than what is pre-specified by the Channel class. It is not meant
-    to be invoked by applications using Pika.
-
-    Note that as of RabbitMQ 2.0 Channel.Flow is no longer used and has been
-    removed and uses tcp backpressure instead. Since we only support 0-9-1
-    which was not introduced in RabbitMQ until 2.0, server side channel
-    flow detection has been removed.
-    """
-
-    def __init__(self, connection, channel_number):
-
-        self.connection = connection
-        self.channel_number = channel_number
-
-        # Use the global callback handler
-        self.callbacks = connection.callbacks
-
-        # The frame-handler changes depending on the type of frame processed
-        self.frame_dispatcher = frame.Dispatcher(self.callbacks)
-
-        # We need to block on synchronous commands, but do so asynchronously
-        self.blocking = None
-        self._blocked = collections.deque()
-
-        # By default we're closed
-        self.closed = True
-
-        # Add callbacks for channel open event
-        self.callbacks.add(self.channel_number, spec.Channel.OpenOk,
-                           self._on_open)
-
-    def _on_open(self, frame):
-        """
-        Called as a result of receiving a spec.Channel.OpenOk frame.
-        """
-        self.closed = False
-
-    def deliver(self, frame):
-        """
-        Deliver a frame to the frame handler. When it's gotten to a point that
-        it has build our frame responses in a way we can use them, it will
-        call our callback stack to figure out what to do.
-        """
-        self.frame_dispatcher.process(frame)
-
-    def _ensure(self):
-        """
-        Make sure the transport is open
-        """
-        if self.closed:
-            raise exceptions.ChannelClosed
-
-        return True
-
-    def _has_content(self, method):
-        """
-        Return a bool if it's a content method as defined by the spec
-        """
-        return spec.has_content(method.INDEX)
-
-    def rpc(self, method, callback=None, acceptable_replies=None):
-        """
-        Shortcut wrapper to the Connection's rpc command using its callback
-        stack, passing in our channel number
-        """
-        # Make sure the channel is open
-        self._ensure()
-
-        # If we're blocking, add subsequent commands to our stack
-        if self.blocking:
-            self._blocked.append([method, callback, acceptable_replies])
-            return
-
-        # Validate we got None or a list of acceptable_replies
-        if acceptable_replies and not isinstance(acceptable_replies, list):
-            raise TypeError("acceptable_replies should be list or None")
-
-        # Validate the callback is callable
-        if callback and not is_callable(callback):
-            raise TypeError("callback should be None, a function or method.")
-
-        # If this is a synchronous method, block connections until we're done
-        if method.synchronous:
-            self.blocking = method.NAME
-
-        if acceptable_replies:
-            for reply in acceptable_replies:
-                self.callbacks.add(self.channel_number, reply,
-                                   self._on_synchronous_complete)
-                if callback:
-                    self.callbacks.add(self.channel_number, reply, callback)
-
-        self.send_method(method)
-
-    def send_method(self, method, content=None):
-        """
-        Shortcut wrapper to send a method through our connection, passing in
-        our channel number
-        """
-        self.connection._send_method(self.channel_number, method, content)
-
-    def _on_event_ok(self, frame):
-        """
-        Generic events that returned ok that may have internal callbacks.
-        We keep a list of what we've yet to implement so that we don't silently
-        drain events that we don't support.
-        """
-        pass
-
-    def _on_synchronous_complete(self, frame):
-        """
-        This is called when a synchronous command is completed. It will undo
-        the blocking state and send all the frames that stacked up while we
-        were in the blocking state.
-        """
-        # Release the lock
-        self.blocking = None
-
-        # Loop through and call all that were blocked during our last command
-        while self._blocked and not self.blocking:
-
-            # Get the function to call next
-            method = self._blocked.popleft()
-
-            # Call the RPC for each of our blocked calls
-            self.rpc(*method)
-
-
-class Channel(spec.DriverMixin):
+class Channel(object):
     """A Channel is the primary communication method for interacting with
     RabbitMQ. It is recommended that you do not directly invoke
     the creation of a channel object in your application code but rather
     construct the a channel by calling the active connection's channel()
     method.
+
     """
     CLOSED = 0
     OPENING = 1
     OPEN = 2
     CLOSING = 3
 
-    def __init__(self, connection, channel_number, on_open_callback=None,
-                 transport=None):
+    def __init__(self, connection, channel_number, on_open_callback=None):
         """Create a new instance of the Channel
 
         :param pika.connection.Connection connection: The connection
         :param int channel_number: The channel number for this instance
         :param method on_open_callback: The method to call on channel open
-        :param pika.channel.ChannelTransport: A ChannelTransport instance
 
         """
         if not isinstance(channel_number, int):
             raise exceptions.InvalidChannelNumber
-
-        # Get the handle to our transport, either passed in or made here
-        if transport:
-            self.transport = transport
-        else:
-            self.transport = ChannelTransport(connection, channel_number)
         self.channel_number = channel_number
         self.callbacks = connection.callbacks
+        self.connection = connection
+
+        # The frame-handler changes depending on the type of frame processed
+        self.frame_dispatcher = frame.Dispatcher(self.callbacks)
+
+        self._blocked = collections.deque(list())
+        self._blocking = None
+        self._flow = None
+
         self._on_open_callback = on_open_callback
         self._state = self.CLOSED
-        self.closing = None
         self._cancelled = list()
         self._consumers = dict()
         self._pending = dict()
         self._on_get_ok_callback = None
         self._on_flow_ok_callback = None
-        self._add_callbacks()
+        self._reply_code = None
+        self._reply_text = None
 
     def add_callback(self, callback, replies, one_shot=True):
-        """
-        Pass in a callback handler and a list replies from the
+        """Pass in a callback handler and a list replies from the
         RabbitMQ broker which you'd like the callback notified of. Callbacks
         should allow for the frame parameter to be passed in.
+
+        :param method callback: The method to call
+        :param list replies: The replies to get a callback for
+        :param bool one_shot: Only handle the first type callback
+
         """
         for reply in replies:
             self.callbacks.add(self.channel_number, reply, callback, one_shot)
-
-    def add_on_close_callback(self, callback):
-        """Pass a callback function that will be called when the channel is
-        closed. The callback function should receive a frame parameter.
-
-        :param method callback: The method to call on callback
-
-        """
-        self.callbacks.add(self.channel_number, '_on_channel_close', callback)
 
     def add_on_basic_cancel_callback(self, callback):
         """Pass a callback function that will be called when the basic_cancel
@@ -211,8 +79,17 @@ class Channel(spec.DriverMixin):
         :param method callback: The method to call on callback
 
         """
-        self.callbacks.add(self.channel_number, '_on_basic_cancel', callback,
+        self.callbacks.add(self.channel_number, spec.Basic.Cancel, callback,
                            one_shot=False)
+
+    def add_on_close_callback(self, callback):
+        """Pass a callback function that will be called when the channel is
+        closed. The callback function should receive a frame parameter.
+
+        :param method callback: The method to call on callback
+
+        """
+        self.callbacks.add(self.channel_number, spec.Channel.Close, callback)
 
     def add_on_return_callback(self, callback):
         """Pass a callback function that will be called when basic_publish as
@@ -224,32 +101,60 @@ class Channel(spec.DriverMixin):
         :param method callback: The method to call on callback
 
         """
-        self.callbacks.add(self.channel_number, '_on_basic_return', callback,
+        self.callbacks.add(self.channel_number, spec.Basic.Return, callback,
                            one_shot=False)
 
-    def basic_cancel(self, consumer_tag, nowait=False, callback=None):
-        """
-        Pass in the consumer tag to cancel a basic_consume request with. The
-        consumer_tag is optionally passed to basic_consume as a parameter and
-        it is always returned by the Basic.ConsumeOk frame. For more
-        information see:
+    def basic_ack(self, delivery_tag=0, multiple=False):
+        """Acknowledge one or more messages. When sent by the client, this
+        method acknowledges one or more messages delivered via the Deliver or
+        Get-Ok methods. When sent by server, this method acknowledges one or
+        more messages published with the Publish method on a channel in
+        confirm mode. The acknowledgement can be for a single message or a
+        set of messages up to and including a specific message.
 
-        http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.cancel
+        :param int delivery-tag: The server-assigned delivery tag
+        :param bool multiple: If set to True, the delivery tag is treated as
+                              "up to and including", so that multiple messages
+                              can be acknowledged with a single method. If set
+                              to False, the delivery tag refers to a single
+                              message. If the multiple field is 1, and the
+                              delivery tag is zero, this indicates
+                              acknowledgement of all outstanding messages.
         """
+        if not self.is_open:
+            raise exceptions.ChannelClosed()
+        return self._rpc(spec.Basic.Ack(delivery_tag, multiple))
+
+    def basic_cancel(self, callback=None, consumer_tag='', nowait=False):
+        """This method cancels a consumer. This does not affect already
+        delivered messages, but it does mean the server will not send any more
+        messages for that consumer. The client may receive an arbitrary number
+        of messages in between sending the cancel method and receiving the
+        cancel-ok reply. It may also be sent from the server to the client in
+        the event of the consumer being unexpectedly cancelled (i.e. cancelled
+        for any reason other than the server receiving the corresponding
+        basic.cancel from the client). This allows clients to be notified of
+        the loss of consumers due to events such as queue deletion.
+
+        :param method callback: Method to call for a Basic.CancelOk response
+        :param str consumer_tag: Identifier for the consumer
+        :param bool nowait: Do not expect a Basic.CancelOk response
+
+        """
+        self._validate_channel_and_callback(callback)
         if consumer_tag not in self._consumers:
             return
         self._cancelled.append(consumer_tag)
-        if callback:
+        if callback and nowait:
             self.callbacks.add(self.channel_number,
                                spec.Basic.CancelOk,
                                callback)
-        self.transport.rpc(spec.Basic.Cancel(consumer_tag=consumer_tag,
-                                             nowait=nowait),
-                           self.on_basic_cancel_ok, [spec.Basic.CancelOk])
+        self._rpc(spec.Basic.Cancel(consumer_tag=consumer_tag, nowait=nowait),
+                  self._on_basic_cancel_ok,
+                  [spec.Basic.CancelOk])
 
-    def basic_consume(self, consumer_callback,
-                      queue='', no_ack=False, exclusive=False,
-                      consumer_tag=None):
+    def basic_consume(self, callback, queue='', no_ack=False,
+                      exclusive=False, consumer_tag=None):
         """Sends the AMQP command Basic.Consume to the broker and binds messages
         for the consumer_tag to the consumer callback. If you do not pass in
         a consumer_tag, one will be automatically generated for you. Returns
@@ -258,40 +163,34 @@ class Channel(spec.DriverMixin):
         For more information on basic_consume, see:
         http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.consume
 
-        """
-        # If a consumer tag was not passed, create one
-        if not consumer_tag:
-            consumer_tag = 'ctag%i.%i' % (self.channel_number,
-                                          len(self._consumers) +
-                                          len(self._cancelled))
+        :param method callback: The method to callback when consuming
+        :param str|unicode queue: The queue to consume from
+        :param bool no_ack: Tell the broker to not expect a response
+        :param bool exclusive: Don't allow other consumers on the queue
+        :param str|unicode consumer_tag: Specify your own consumer tag
 
-        # Make sure we've not already registered this consumer tag
+        """
+        self._validate_channel_and_callback(callback)
+        # If a consumer tag was not passed, create one
+        consumer_tag = consumer_tag or 'ctag%i.%i' % (self.channel_number,
+                                                      len(self._consumers) +
+                                                      len(self._cancelled))
+
         if consumer_tag in self._consumers or consumer_tag in self._cancelled:
             raise exceptions.DuplicateConsumerTag(consumer_tag)
 
-        # The consumer tag has not been used before, add it to our consumers
-        self._consumers[consumer_tag] = consumer_callback
-
-        # Setup a list for appending frames into
+        self._consumers[consumer_tag] = callback
         self._pending[consumer_tag] = list()
+        self._rpc(spec.Basic.Consume(queue=queue,
+                                     consumer_tag=consumer_tag,
+                                     no_ack=no_ack,
+                                              exclusive=exclusive),
+                           self._on_event_ok,
+                           [spec.Basic.ConsumeOk])
 
-        # Send our Basic.Consume RPC call
-        try:
-            self.transport.rpc(spec.Basic.Consume(queue=queue,
-                                                  consumer_tag=consumer_tag,
-                                                  no_ack=no_ack,
-                                                  exclusive=exclusive),
-                               self.transport._on_event_ok,
-                               [spec.Basic.ConsumeOk])
-        except exceptions.ChannelClosed, e:
-            del(self._consumers[consumer_tag])
-            del(self._pending[consumer_tag])
-            raise exceptions.ChannelClosed(e)
-
-        # Return the consumer tag for the user reference
         return consumer_tag
 
-    def basic_get(self, callback, ticket=0, queue='', no_ack=False):
+    def basic_get(self, callback=None, queue='', no_ack=False):
         """Get a single message from the AMQP broker. The callback method
         signature should have 3 parameters: The method frame, header frame and
         the body, like the consumer callback for Basic.Consume. If you want to
@@ -302,67 +201,177 @@ class Channel(spec.DriverMixin):
 
         http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.get
 
+        :param method callback: The method to callback with a message
+        :param str|unicode queue: The queue to get a message from
+        :param bool no_ack: Tell the broker to not expect a reply
+
         """
+        self._validate_channel_and_callback(callback)
         self._on_get_ok_callback = callback
-        self.transport.send_method(spec.Basic.Get(ticket=ticket,
-                                                  queue=queue,
-                                                  no_ack=no_ack))
+        self._send_method(spec.Basic.Get(ticket=0,
+                                         queue=queue,
+                                         no_ack=no_ack))
+
+    def basic_nack(self, delivery_tag=None, multiple=False, requeue=True):
+        """This method allows a client to reject one or more incoming messages.
+        It can be used to interrupt and cancel large incoming messages, or
+        return untreatable messages to their original queue.
+
+        :param int delivery-tag: The server-assigned delivery tag
+        :param bool multiple: If set to True, the delivery tag is treated as
+                              "up to and including", so that multiple messages
+                              can be acknowledged with a single method. If set
+                              to False, the delivery tag refers to a single
+                              message. If the multiple field is 1, and the
+                              delivery tag is zero, this indicates
+                              acknowledgement of all outstanding messages.
+        :param bool requeue: If requeue is true, the server will attempt to
+                             requeue the message. If requeue is false or the
+                             requeue attempt fails the messages are discarded or
+                             dead-lettered.
+
+        """
+        if not self.is_open:
+            raise exceptions.ChannelClosed()
+        return self._rpc(spec.Basic.Nack(delivery_tag, multiple, requeue))
 
     def basic_publish(self, exchange, routing_key, body,
-                      properties=None, mandatory=False):
-        """
-        Publish to the channel with the given exchange, routing key and body.
+                      properties=None, mandatory=False, immediate=False):
+        """Publish to the channel with the given exchange, routing key and body.
         For more information on basic_publish and what the parameters do, see:
 
         http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.publish
+
+        :param str exchange: The exchange name
+        :param str routing_key: The routing key
+        :param str body: The message body
+        :param pika.spec.Properties properties: Basic.properties
+        :param bool mandatory: The mandatory flag
+        :param bool immediate: The immediate flag
+
         """
-        # If properties are not passed in, use the spec's default
+        if not self.is_open:
+            raise exceptions.ChannelClosed()
+        if immediate:
+            LOGGER.warning('The immediate flag is deprecated in RabbitMQ')
         properties = properties or spec.BasicProperties()
+        self._send_method(spec.Basic.Publish(exchange=exchange,
+                                             routing_key=routing_key,
+                                             mandatory=mandatory,
+                                             immediate=immediate),
+                          (properties, body))
 
-        self.transport.send_method(spec.Basic.Publish(exchange=exchange,
-                                                      routing_key=routing_key,
-                                                      mandatory=mandatory),
-                                   (properties, body))
+    def basic_qos(self, callback=None, prefetch_size=0, prefetch_count=0,
+                  all_channels=False):
+        """Specify quality of service. This method requests a specific quality
+        of service. The QoS can be specified for the current channel or for all
+        channels on the connection. The client can request that messages be sent
+        in advance so that when the client finishes processing a message, the
+        following message is already held locally, rather than needing to be
+        sent down the channel. Prefetching gives a performance improvement.
 
-    def cleanup(self):
-        """Remove any callbacks for the channel."""
-        self.callbacks.cleanup(str(self.channel_number))
+        :param method callback: The method to callback for Basic.QosOk response
+        :param int prefetch_size:  This field specifies the prefetch window
+                                   size. The server will send a message in
+                                   advance if it is equal to or smaller in size
+                                   than the available prefetch size (and also
+                                   falls into other prefetch limits). May be set
+                                   to zero, meaning "no specific limit",
+                                   although other prefetch limits may still
+                                   apply. The prefetch-size is ignored if the
+                                   no-ack option is set.
+        :param int prefetch_count: Specifies a prefetch window in terms of whole
+                                   messages. This field may be used in
+                                   combination with the prefetch-size field; a
+                                   message will only be sent in advance if both
+                                   prefetch windows (and those at the channel
+                                   and connection level) allow it. The
+                                   prefetch-count is ignored if the no-ack
+                                   option is set.
+        :param bool all_channels: Should the QoS apply to all channels
 
-    def close(self, code=0, text="Normal Shutdown", from_server=False):
         """
-        Will invoke a clean shutdown of the channel with the AMQP Broker.
+        self._validate_channel_and_callback(callback)
+        return self._rpc(spec.Basic.Qos(prefetch_size, prefetch_count,
+                                        all_channels),
+                         callback,
+                         [spec.Basic.QosOk])
+
+    def basic_reject(self, delivery_tag=None, requeue=True):
+        """Reject an incoming message. This method allows a client to reject a
+        message. It can be used to interrupt and cancel large incoming messages,
+        or return untreatable messages to their original queue.
+
+        :param int delivery-tag: The server-assigned delivery tag
+        :param bool requeue: If requeue is true, the server will attempt to
+                             requeue the message. If requeue is false or the
+                             requeue attempt fails the messages are discarded or
+                             dead-lettered.
+
         """
+        if not self.is_open:
+            raise exceptions.ChannelClosed()
+        return self._rpc(spec.Basic.Reject(delivery_tag, requeue))
+
+    def basic_recover(self, callback=None, requeue=False):
+        """This method asks the server to redeliver all unacknowledged messages
+        on a specified channel. Zero or more messages may be redelivered. This
+        method replaces the asynchronous Recover.
+
+        :param method callback: Method to call when receiving Basic.RecoverOk
+        :param bool requeue: If False, the message will be redelivered to the
+                             original recipient. If True, the server will
+                             attempt to requeue the message, potentially then
+                             delivering it to an alternative subscriber.
+
+        """
+        self._validate_channel_and_callback(callback)
+        return self._rpc(spec.Basic.Recover(requeue), callback,
+                         [spec.Basic.RecoverOk])
+
+    def close(self, reply_code=0, reply_text="Normal Shutdown"):
+        """Will invoke a clean shutdown of the channel with the AMQP Broker.
+
+        :param int reply_code: The reply code to close the channel with
+        :param str reply_text: The reply text to close the channel with
+
+        """
+        if not self.is_open:
+            raise exceptions.ChannelClosed()
+        LOGGER.info('Channel.close(%s, %s)', self._reply_code, self._reply_text)
         self._set_state(self.CLOSING)
-        self.closing = code, text
-        self.callbacks.process(self.channel_number, '_on_channel_close',
-                               self, code, text)
-        if not from_server:
-            for consumer_tag in self._consumers.keys():
-                self.basic_cancel(consumer_tag)
-        if not len(self._consumers) and not from_server:
-            self._close()
+        self._reply_code, self._reply_text = reply_code, reply_text
+        LOGGER.debug('Cancelling %i consumers', len(self._consumers))
+        for consumer_tag in self._consumers.keys():
+            self.basic_cancel(consumer_tag)
+        self._shutdown()
 
     def confirm_delivery(self, callback=None, nowait=False):
-        """
-        Turn on Confirm mode in the channel. Pass in a callback to be notified
+        """Turn on Confirm mode in the channel. Pass in a callback to be notified
         by the Broker when a message has been confirmed as received (Basic.Ack
         from the broker to the publisher).
 
         For more information see:
             http://www.rabbitmq.com/extensions.html#confirms
+
+        :param method callback: The callback for delivery confirmations
+        :param bool nowait: Do not send a reply frame (Confirm.SelectOk)
+
         """
-        # Validate we can do this (that the server supports it)
-        if not self.transport.connection.publisher_confirms or\
-           not self.transport.connection.basic_nack:
-            raise exceptions.MethodNotImplemented("Not Supported on Server")
+        self._validate_channel_and_callback(callback)
+        if (not self.connection.publisher_confirms or
+            not self.connection.basic_nack):
+            raise exceptions.MethodNotImplemented('Not Supported on Server')
 
         # Add the delivery confirmation callbacks
         if callback:
+
             # Register the SelectOk
-            self.callbacks.add(self.channel_number,
-                               spec.Confirm.SelectOk,
-                               callback,
-                               False)
+            if  not nowait:
+                self.callbacks.add(self.channel_number,
+                                   spec.Confirm.SelectOk,
+                                   callback,
+                                   False)
 
             # Register the ack
             self.callbacks.add(self.channel_number,
@@ -377,61 +386,374 @@ class Channel(spec.DriverMixin):
                                False)
 
         # Send the RPC command
-        self.transport.rpc(spec.Confirm.Select(nowait),
-                           self.on_confirm_select_ok,
-                           [spec.Confirm.SelectOk])
+        self._rpc(spec.Confirm.Select(nowait),
+                  self._on_confirm_select_ok,
+                  [spec.Confirm.SelectOk])
 
     @property
     def consumer_tags(self):
-        """
-        Property method that returns a list of currently active consumers
+        """Property method that returns a list of currently active consumers
+
+        :rtype: list
+
         """
         return self._consumers.keys()
 
-    def flow(self, callback, active):
+    def deliver(self, method_frame):
+        """ Deliver a frame to the frame handler. When it's gotten to a point
+        that it has build our frame responses in a way we can use them, it will
+        call our callback stack to figure out what to do. This is called
+        by the Connection object.
+
+        :param pika.amqp_object.Frame method_frame: The frame to deliver
+
         """
-        Turn Channel flow control off and on. Pass a callback to be notified
+        self.frame_dispatcher.process(method_frame)
+
+    def exchange_bind(self, callback=None, destination=None, source=None,
+                      routing_key='', nowait=False, arguments=None):
+        """Bind an exchange to another exchange.
+
+        :param method callback: The method to call on Exchange.BindOk
+        :param str|unicode destination: The destination exchange to bind
+        :param str|unicode source: The source exchange to bind to
+        :param str|unicode routing_key: The routing key to bind on
+        :param bool nowait: Do not wait for an Exchange.BindOk
+        :param dict arguments: Custom key/value pair arguments for the binding
+
+        """
+        self._validate_channel_and_callback(callback)
+        return self._rpc(spec.Exchange.Bind(0, destination, source,
+                                            routing_key, nowait,
+                                            arguments or dict()), callback,
+                         [spec.Exchange.BindOk])
+
+    def exchange_declare(self, callback=None, exchange=None,
+                         exchange_type='direct', passive=False, durable=False,
+                         auto_delete=False, internal=False, nowait=False,
+                         arguments=None):
+        """This method creates an exchange if it does not already exist, and if
+        the exchange exists, verifies that it is of the correct and expected
+         class.
+
+        If passive set, the server will reply with Declare-Ok if the exchange
+        already exists with the same name, and raise an error if not and if the
+        exchange does not already exist, the server MUST raise a channel
+        exception with reply code 404 (not found).
+
+        :param method callback: Call this method on Exchange.DeclareOk
+        :param str|unicode exchange: The exchange name consists of a non-empty
+                                     sequence of these characters: letters,
+                                     digits, hyphen, underscore, period, or
+                                     colon.
+        :param str exchange_type: The exchange type to use
+        :param bool passive: Perform a declare or just check to see if it exists
+        :param bool durable: Survive a reboot of RabbitMQ
+        :param bool auto_delete: Remove when no more queues are bound to it
+        :param bool internal: Can only be published to by other exchanges
+        :param bool nowait: Do not expect an Exchange.DeclareOk response
+        :param dict arguments: Custom key/value pair arguments for the exchange
+
+        """
+        self._validate_channel_and_callback(callback)
+        return self._rpc(spec.Exchange.Declare(0, exchange, exchange_type,
+                                               passive, durable, auto_delete,
+                                               internal, nowait,
+                                               arguments or dict()),
+                         callback,
+                         [spec.Exchange.DeclareOk])
+
+    def exchange_delete(self, callback=None, exchange=None, if_unused=False,
+                        nowait=False):
+        """Delete the exchange.
+
+        :param method callback: The method to call on Exchange.DeleteOk
+        :param str|unicode exchange: The exchange name
+        :param bool if_unused: only delete if the exchange is unused
+        :param bool nowait: Do not wait for an Exchange.DeleteOk
+
+        """
+        self._validate_channel_and_callback(callback)
+        return self._rpc(spec.Exchange.Delete(0, exchange, if_unused, nowait),
+                         callback,
+                         [spec.Exchange.DeleteOk])
+
+    def exchange_unbind(self, callback=None, destination=None, source=None,
+                        routing_key='', nowait=False, arguments=None):
+        """Unbind an exchange from another exchange.
+
+        :param method callback: The method to call on Exchange.UnbindOk
+        :param str|unicode destination: The destination exchange to unbind
+        :param str|unicode source: The source exchange to unbind from
+        :param str|unicode routing_key: The routing key to unbind
+        :param bool nowait: Do not wait for an Exchange.UnbindOk
+        :param dict arguments: Custom key/value pair arguments for the binding
+
+        """
+        self._validate_channel_and_callback(callback)
+        return self._rpc(spec.Exchange.Unbind(0, destination, source,
+                                              routing_key, nowait, arguments),
+                         callback,
+                         [spec.Exchange.UnbindOk])
+
+    def flow(self, callback, active):
+        """Turn Channel flow control off and on. Pass a callback to be notified
         of the response from the server. active is a bool. Callback should
         expect a bool in response indicating channel flow state. For more
         information, please reference:
 
         http://www.rabbitmq.com/amqp-0-9-1-reference.html#channel.flow
-        """
-        self._on_flow_ok_callback = callback
-        self.transport.rpc(spec.Channel.Flow(active), self.on_channel_flow_ok,
-                           [spec.Channel.FlowOk])
 
-    def on_basic_cancel(self, frame_value):
+        :param method callback: The callback method
+        :param bool active: Turn flow on or off
+
+        """
+        if not self.is_open:
+            raise exceptions.ChannelClosed()
+        self._on_flow_ok_callback = callback
+        self._rpc(spec.Channel.Flow(active),
+                  self._on_flow_ok,
+                  [spec.Channel.FlowOk])
+
+    @property
+    def is_closed(self):
+        """Returns True if the channel is closed.
+
+        :rtype: bool
+
+        """
+        return self._state == self.CLOSED
+
+    @property
+    def is_closing(self):
+        """Returns True if the channel is closing.
+
+        :rtype: bool
+
+        """
+        return self._state == self.CLOSING
+
+    @property
+    def is_open(self):
+        """Returns True if the channel is open.
+
+        :rtype: bool
+
+        """
+        return self._state == self.OPEN
+
+    def open(self):
+        """Open the channel"""
+        self._set_state(self.OPENING)
+        self._add_callbacks()
+        self._rpc(spec.Channel.Open(), self._on_open_ok, [spec.Channel.OpenOk])
+
+    def queue_bind(self, callback, queue, exchange, routing_key,
+                   nowait=False, arguments=None):
+        """Bind the queue to the specified exchange
+
+        :param method callback: The method to call on Queue.BindOk
+        :param str|unicode queue: The queue to bind to the exchange
+        :param str|unicode exchange: The source exchange to bind to
+        :param str|unicode routing_key: The routing key to bind on
+        :param bool nowait: Do not wait for a Queue.BindOk
+        :param dict arguments: Custom key/value pair arguments for the binding
+
+        """
+        self._validate_channel_and_callback(callback)
+        return self._rpc(spec.Queue.Bind(0, queue, exchange, routing_key,
+                                         nowait, arguments or dict()), callback,
+                         [spec.Queue.BindOk])
+
+    def queue_declare(self, callback, queue, passive=False, durable=False,
+                      exclusive=False, auto_delete=False, nowait=False,
+                      arguments=None):
+        """Declare queue, create if needed. This method creates or checks a
+        queue. When creating a new queue the client can specify various
+        properties that control the durability of the queue and its contents,
+        and the level of sharing for the queue.
+
+        :param method callback: The method to call on Queue.DeclareOk
+        :param str|unicode queue: The queue name
+        :param bool passive: Only check to see if the queue exists
+        :param bool durable: Survive reboots of the broker
+        :param bool exclusive: Only allow access by the current connection
+        :param bool auto_delete: Delete after consumer cancels or disconnects
+        :param bool nowait: Do not wait for a Queue.DeclareOk
+        :param dict arguments: Custom key/value arguments for the queue
+
+        """
+        self._validate_channel_and_callback(callback)
+        return self._rpc(spec.Queue.Declare(0, queue, passive, durable,
+                                            exclusive, auto_delete, nowait,
+                                            arguments or dict()), callback,
+                         [spec.Queue.DeclareOk])
+
+    def queue_delete(self, callback=None, queue='', if_unused=False,
+                     if_empty=False, nowait=False):
+        """Delete a queue from the broker.
+
+        :param method callback: The method to call on Queue.DeleteOk
+        :param str|unicode queue: The queue to delete
+        :param bool if_unused: only delete if it's unused
+        :param bool if_empty: only delete if the queue is empty
+        :param bool nowait: Do not wait for a Queue.DeleteOk
+
+        """
+        self._validate_channel_and_callback(callback)
+        return self._rpc(spec.Queue.Delete(0, queue, if_unused, if_empty,
+                                           nowait), callback,
+                         [spec.Queue.DeleteOk])
+
+    def queue_purge(self, callback=None, queue='', nowait=False):
+        """Purge all of the messages from the specified queue
+
+        :param method callback: The method to call on Queue.PurgeOk
+        :param str|unicode: The queue to purge
+        :param bool nowait: Do not expect a Queue.PurgeOk response
+
+        """
+        self._validate_channel_and_callback(callback)
+        return self._rpc(spec.Queue.Purge(0, queue, nowait), callback,
+                         [spec.Queue.PurgeOk])
+
+    def queue_unbind(self, callback=None, queue='', exchange=None,
+                     routing_key='', arguments=None):
+        """Unbind a queue from an exchange.
+
+        :param method callback: The method to call on Queue.UnbindOk
+        :param str|unicode queue: The queue to unbind from the exchange
+        :param str|unicode exchange: The source exchange to bind from
+        :param str|unicode routing_key: The routing key to unbind
+        :param dict arguments: Custom key/value pair arguments for the binding
+
+        """
+        self._validate_channel_and_callback(callback)
+        return self._rpc(spec.Queue.Unbind(0, queue, exchange, routing_key,
+                                           arguments or dict()), callback,
+                         [spec.Queue.UnbindOk])
+
+    def tx_commit(self, callback=None):
+        """Commit a transaction
+
+        :param method callback: The callback for delivery confirmations
+
+        """
+        self._validate_channel_and_callback(callback)
+        return self._rpc(spec.Tx.Commit(), callback, [spec.Tx.CommitOk])
+
+    def tx_rollback(self, callback=None):
+        """Rollback a transaction.
+
+        :param method callback: The callback for delivery confirmations
+
+        """
+        self._validate_channel_and_callback(callback)
+        return self._rpc(spec.Tx.Rollback(), callback, [spec.Tx.RollbackOk])
+
+    def tx_select(self, callback=None):
+        """Select standard transaction mode. This method sets the channel to use
+        standard transactions. The client must use this method at least once on
+        a channel before using the Commit or Rollback methods.
+
+        :param method callback: The callback for delivery confirmations
+
+        """
+        self._validate_channel_and_callback(callback)
+        return self._rpc(spec.Tx.Select(), callback, [spec.Tx.SelectOk])
+
+    # Internal methods
+
+    def _add_callbacks(self):
+        """Callbacks that add the required behavior for a channel when
+        connecting and connected to a server.
+
+        """
+        # Add a callback for Basic.Deliver
+        self.callbacks.add(self.channel_number,
+                           spec.Basic.Deliver,
+                           self._on_basic_deliver,
+                           False,
+                           self.frame_dispatcher)
+
+        # Add a callback for Basic.Get
+        self.callbacks.add(self.channel_number,
+                           spec.Basic.Get,
+                           self._on_basic_get_ok,
+                           False,
+                           self.frame_dispatcher)
+
+        # Add a callback for Basic.GetEmpty
+        self.callbacks.add(self.channel_number,
+                           spec.Basic.GetEmpty,
+                           self._on_basic_get_empty,
+                           False)
+
+        # Add a callback for Basic.Cancel
+        self.callbacks.add(self.channel_number,
+                           spec.Basic.Cancel,
+                           self._on_basic_cancel,
+                           False)
+
+        # Add a callback for when the server closes our channel
+        self.callbacks.add(self.channel_number,
+                           spec.Channel.Close,
+                           self._on_close,
+                           False)
+
+    def _add_pending_msg(self, consumer_tag, method_frame,  header_frame, body):
+        self._pending[consumer_tag].append((self, method_frame.method,
+                                            header_frame.properties, body))
+
+    def _cleanup(self):
+        """Remove any callbacks for the channel."""
+        self.callbacks.cleanup(str(self.channel_number))
+
+    def _get_pending_msg(self, consumer_tag):
+        return self._pending[consumer_tag].pop(0)
+
+    def _has_content(self, method_frame):
+        """Return a bool if it's a content method as defined by the spec
+
+        :param pika.amqp_object.Method method_frame: The method frame received
+
+        """
+        return spec.has_content(method_frame.INDEX)
+
+    def _on_basic_cancel(self, method_frame):
         """When the broker cancels a consumer, delete it from our internal
         dictionary.
 
-        """
-        consumer_tag = frame_value.method.consumer_tag
-        self._cancelled.append(consumer_tag)
-        if consumer_tag in self._consumers:
-            del self._consumers[consumer_tag]
-        self.callbacks.process(self.channel_number,
-                               '_on_basic_cancel',
-                               self,
-                               frame_value)
+        :param pika.frame.Method method_frame: The method frame received
 
-    def on_basic_cancel_ok(self, frame_value):
+        """
+        self._cancelled.append(method_frame.method.consumer_tag)
+        if method_frame.method.consumer_tag in self._consumers:
+            del self._consumers[method_frame.method.consumer_tag]
+
+    def _on_basic_cancel_ok(self, method_frame):
         """Called in response to a frame from the Broker when the
          client sends Basic.Cancel
 
-        """
-        if frame_value.method.consumer_tag in self._consumers:
-            if frame_value.method.consumer_tag in self._consumers:
-                del self._consumers[frame_value.method.consumer_tag]
-            if frame_value.method.consumer_tag in self._pending:
-                del self._pending[frame_value.method.consumer_tag]
-        if self.closing and not len(self._consumers):
-            self._close()
+        :param pika.frame.Method method_frame: The method frame received
 
-    def on_basic_deliver(self, method_frame, header_frame, body):
+        """
+        if method_frame.method.consumer_tag in self._consumers:
+            if method_frame.method.consumer_tag in self._consumers:
+                del self._consumers[method_frame.method.consumer_tag]
+            if method_frame.method.consumer_tag in self._pending:
+                del self._pending[method_frame.method.consumer_tag]
+        if self.is_closing and not len(self._consumers):
+            self._shutdown()
+
+    def _on_basic_deliver(self, method_frame, header_frame, body):
         """Cope with reentrancy. If a particular consumer is still active when
         another delivery appears for it, queue the deliveries up until it
         finally exits.
+
+        :param pika.frame.Method method_frame: The method frame received
+        :param pika.frame.Header header_frame: The header frame received
+        :param str body: The body received
 
         """
         consumer_tag = method_frame.method.consumer_tag
@@ -449,13 +771,22 @@ class Channel(spec.DriverMixin):
                                       header_frame.properties,
                                       body)
 
-    def on_basic_get_empty(self, frame):
-        """
-        When we receive an empty reply do nothing but log it
-        """
-        pass
+    def _on_basic_get_empty(self, method_frame):
+        """When we receive an empty reply do nothing but log it
 
-    def on_basic_get_ok(self, method_frame, header_frame, body):
+        :param pika.frame.Method method_frame: The method frame received
+
+        """
+        LOGGER.debug('Received Basic.GetEmpty: %r', method_frame)
+
+    def _on_basic_get_ok(self, method_frame, header_frame, body):
+        """Called in reply to a Basic.Get when there is a message.
+
+        :param pika.frame.Method method_frame: The method frame received
+        :param pika.frame.Header header_frame: The header frame received
+        :param str body: The body received
+
+        """
         if self._on_get_ok_callback:
             self._on_get_ok_callback(self,
                                      method_frame.method,
@@ -463,109 +794,145 @@ class Channel(spec.DriverMixin):
                                      body)
             self._basic_get_ok_callback = None
         else:
-            LOGGER.error("No callback defined.")
+            LOGGER.error('Basic.GetOk received with no active callback')
 
-    def on_channel_flow_ok(self, frame):
-        """
-        Called in response to us asking the server to toggle on Channel.Flow
-        """
-        # Update the channel flow_active state
-        self.transport.flow_active = frame.method.active
+    def _on_close(self, method_frame):
+        """Handle the case where our channel has been closed for us
 
-        # If we have a callback defined, process it
+        :param pika.frame.Method method_frame: The close frame
+
+        """
+        LOGGER.warning('Received Channel.Close, closing: %r', method_frame)
+        self._send_method(spec.Channel.CloseOk())
+        self._set_state(self.CLOSED)
+
+    def _on_confirm_select_ok(self, method_frame):
+        """Called when the broker sends a Confirm.SelectOk frame
+
+        :param pika.frame.Method method_frame: The method frame received
+
+        """
+        LOGGER.info("Confirm.SelectOk Received: %r", method_frame)
+
+    def _on_event_ok(self, method_frame):
+        """Generic events that returned ok that may have internal callbacks.
+        We keep a list of what we've yet to implement so that we don't silently
+        drain events that we don't support.
+
+        :param pika.frame.Method method_frame: The method frame received
+
+        """
+        LOGGER.debug('Discarding frame %r', method_frame)
+
+    def _on_flow_ok(self, method_frame):
+        """Called in response to us asking the server to toggle on Channel.Flow
+
+        :param pika.frame.Method method_frame: The method frame received
+
+        """
+        self.flow_active = method_frame.method.active
         if self._on_flow_ok_callback:
-            self._on_flow_ok_callback(frame.method.active)
+            self._on_flow_ok_callback(method_frame.method.active)
             self._on_flow_ok_callback = None
         else:
-            LOGGER.error("No callback defined.")
+            LOGGER.warning('Channel.FlowOk received with no active callbacks')
 
-    def on_confirm_select_ok(self, frame_value):
-        """Called when the broker sends a Confirm.SelectOk frame"""
-        LOGGER.info("Confirm.SelectOk Received: %r", frame_value)
-
-    def on_openok(self, frame_unused):
-        """
-        Called by our callback handler when we receive a Channel.OpenOk and
+    def _on_open_ok(self, frame_unused):
+        """Called by our callback handler when we receive a Channel.OpenOk and
         subsequently calls our _on_open_callback which was passed into the
         Channel constructor. The reason we do this is because we want to make
         sure that the on_open_callback parameter passed into the Channel
         constructor is not the first callback we make. ChannelTransport needs
         to know before the app that passed in the callback.
+
         """
         self._set_state(self.OPEN)
         if self._on_open_callback:
             self._on_open_callback(self)
 
-    def on_remote_close(self, frame_value):
-        """Handle the case where our channel has been closed for us
+    def _on_synchronous_complete(self, method_frame):
+        """This is called when a synchronous command is completed. It will undo
+        the blocking state and send all the frames that stacked up while we
+        were in the blocking state.
 
-        :param pika.frame.Method frame_value: The close frame
+        :param pika.frame.Method method_frame: The method frame received
 
         """
-        # Set our closing code and text
-        self.closing = (frame_value.method.reply_code,
-                        frame_value.method.reply_text)
-        self.transport.closed = True
-        self._set_state(self.CLOSED)
-        self.transport.send_method(spec.Channel.CloseOk)
-        self.callbacks.process(self.channel_number,
-                               '_on_channel_close',
-                               self,
-                               frame_value.method.reply_code,
-                               frame_value.method.reply_text)
+        LOGGER.debug('Synchronous complete for %r', method_frame)
+        self._blocking = None
+        while self._blocked and not self.blocking:
+            self._rpc(*self._blocked.popleft())
 
-    def open(self):
-        """Open the channel"""
-        self._set_state(self.OPENING)
-        self.transport.send_method(spec.Channel.Open())
+    def _rpc(self, method_frame, callback=None, acceptable_replies=None):
+        """Shortcut wrapper to the Connection's rpc command using its callback
+        stack, passing in our channel number.
+
+        :param pika.amqp_object.Method method_frame: The method frame to call
+        :param method callback: The callback for the RPC response
+        :param list acceptable_replies: The replies this RPC call expects
+
+        """
+        # Make sure the channel is open
+        if self.is_closed:
+            raise exceptions.ChannelClosed
+
+        # If the channel is blocking, add subsequent commands to our stack
+        if self._blocking:
+            self._blocked.append([method_frame,
+                                  callback,
+                                  acceptable_replies])
+            return
+
+        # Validate we got None or a list of acceptable_replies
+        if acceptable_replies and not isinstance(acceptable_replies, list):
+            raise TypeError("acceptable_replies should be list or None")
+
+        # Validate the callback is callable
+        if callback and not is_callable(callback):
+            raise TypeError("callback should be None, a function or method.")
+
+        # Block until a response frame is received for synchronous frames
+        if method_frame.synchronous:
+            self.blocking = method_frame.NAME
+
+        # If acceptable replies are set, add callbacks
+        if acceptable_replies:
+            for reply in acceptable_replies or list():
+                self.callbacks.add(self.channel_number,
+                                   reply,
+                                   self._on_synchronous_complete)
+                if callback:
+                    self.callbacks.add(self.channel_number,
+                                       reply,
+                                       callback)
+
+        self._send_method(method_frame)
+
+    def _send_method(self, method_frame, content=None):
+        """Shortcut wrapper to send a method through our connection, passing in
+        the channel number
+
+        :param pika.object.Method method_frame: The method frame to send
+        :param tuple content: If set, is a content frame, is tuple of
+                              properties and body.
+
+        """
+        self.connection._send_method(self.channel_number, method_frame, content)
 
     def _set_state(self, CONNECTION_STATE):
         self._state = CONNECTION_STATE
 
-    def _add_callbacks(self):
-        # Add a callback for Basic.Deliver
-        self.callbacks.add(self.channel_number, '_on_basic_deliver',
-                           self.on_basic_deliver, False,
-                           self.transport.frame_dispatcher)
-
-        # Add a callback for Basic.Get
-        self.callbacks.add(self.channel_number, '_on_basic_get',
-                           self.on_basic_get_ok, False,
-                           self.transport.frame_dispatcher)
-
-        # Add a callback for Basic.GetEmpty
-        self.callbacks.add(self.channel_number, spec.Basic.GetEmpty,
-                           self.on_basic_get_empty, False)
-
-        # Add a callback for Basic.Cancel
-        self.callbacks.add(self.channel_number, spec.Basic.Cancel,
-                           self.on_basic_cancel, False)
-
-        # Add a callback for when the server closes our channel
-        self.callbacks.add(self.channel_number, spec.Channel.Close,
-                           self.on_remote_close, False)
-
-        # Add the callback for our Channel.OpenOk to call our on_open_callback
-        self.callbacks.add(self.channel_number, spec.Channel.OpenOk,
-                           self.on_openok)
-
-    def _add_pending_msg(self, consumer_tag, method_frame,  header_frame, body):
-        self._pending[consumer_tag].append((self, method_frame.method,
-                                            header_frame.properties, body))
-
-    def _close(self):
-        """Internal close, is called when all the consumers are closed by both
-        Channel.close and Channel._on_cancel_ok if self.closing
+    def _shutdown(self):
+        """Called when close() is invoked either directly or when all of the
+        consumers have been cancelled.
 
         """
         self._set_state(self.CLOSING)
-        self.transport.send_method(spec.Channel.Close(self.closing[0],
-                                                      self.closing[1],
-                                                      0, 0))
+        self._send_method(spec.Channel.Close(self._reply_code,
+                                             self._reply_text, 0, 0))
 
-    def _get_pending_msg(self, consumer_tag):
-        return self._pending[consumer_tag].pop(0)
-
-    @property
-    def is_open(self):
-        return self._state == self.OPEN
+    def _validate_channel_and_callback(self, callback):
+        if not self.is_open:
+            raise exceptions.ChannelClosed()
+        if callback is not None and not is_callable(callback):
+            raise ValueError('callback must be a function or method')
