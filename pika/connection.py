@@ -252,7 +252,7 @@ class Connection(object):
 
         # If channels are open, _on_close_ready will be called when they close
         if self._has_open_channels:
-            return self._close_channels(reply_code, reply_text, False)
+            return self._close_channels(reply_code, reply_text)
 
     def remove_timeout(self, callback_method):
         """Adapters should override to call the callback after the
@@ -371,7 +371,17 @@ class Connection(object):
         """
         self.callbacks.add(channel_number,
                            spec.Channel.CloseOk,
-                           self._on_channel_close)
+                           self.on_channel_closeok)
+
+    def on_channel_closeok(self, method_frame):
+        """Remove the channel from the dict of channels when Channel.CloseOk is
+        sent.
+
+        :param spec.Channel.CloseOk method_frame: The response
+
+        """
+        LOGGER.debug('Received Channel.CloseOk')
+        del self._channels[method_frame.channel_number]
 
     def _add_connection_start_callback(self):
         """Add a callback for when a Connection.Start frame is received from
@@ -430,27 +440,7 @@ class Connection(object):
                 'information': 'See http://pika.github.com',
                 'version': __version__}
 
-    def _close_channel(self, channel_number, reply_code, reply_text,
-                       remote=True):
-        """Close the specified channel number in response to the broker sending
-        a Channel.Close. If remote is True, Close.Ok will be sent
-
-        :param int channel_number: The channel number to close
-        :param int reply_code: The Channel.Close reply code from RabbitMQ
-        :param str reply_text: The Channel.Close reply text from RabbitMQ
-        :param bool remote: The close was due to a remote close
-
-        """
-        if self.is_open:
-            LOGGER.info('Closing channel %i due to remote close (%s): %s',
-                        channel_number, reply_code, reply_text)
-            self._channels[channel_number].close(reply_code, reply_text, remote)
-            if remote:
-                self._send_channel_close_ok(channel_number)
-            self._channels[channel_number].cleanup()
-            del(self._channels[channel_number])
-
-    def _close_channels(self, reply_code, reply_text, remote=False):
+    def _close_channels(self, reply_code, reply_text):
         """Close the open channels with the specified reply_code and reply_text.
 
         :param int reply_code: The code for why the channels are being closed
@@ -460,12 +450,10 @@ class Connection(object):
         if self.is_open:
             for channel_number in self._channels.keys():
                 if self._channels[channel_number].is_open:
-                    self._close_channel(channel_number, reply_code,
-                                        reply_text, remote)
+                    self._channels[channel_number].close(reply_code, reply_text)
                 else:
                     del self._channels[channel_number]
         else:
-            del self._channels
             self._channels = dict()
 
     def _combine(self, a, b):
@@ -640,15 +628,6 @@ class Connection(object):
         """
         return isinstance(frame_value, spec.Basic.Deliver)
 
-    def _is_channel_close_frame(self, value):
-        """Returns true if the frame is a Channel.Close frame.
-
-        :param pika.frame.Method value: The frame to check
-        :rtype: bool
-
-        """
-        return isinstance(value.method, spec.Channel.Close)
-
     def _is_connection_close_frame(self, value):
         """Returns true if the frame is a Connection.Close frame.
 
@@ -690,24 +669,6 @@ class Connection(object):
             return 1
         return max(self._channels.keys()) + 1
 
-    def _on_channel_close(self, method_frame):
-        """Handle a RPC request from the server to close the channel.
-
-        :param frame pika.frame.Method method_frame: The frame received
-
-        """
-        channel_number = method_frame.channel_number
-        if (self.is_open and channel_number in self._channels and
-            self._channels[channel_number].is_open):
-            self._channels[channel_number].on_remote_close(method_frame)
-            self._close_channel(method_frame.channel_number,
-                                method_frame.reply_code,
-                                method_frame.reply_text)
-        else:
-            del self._channels[channel_number]
-        if self.is_closing and not self._channels:
-            self._on_close_ready()
-
     def _on_close_ready(self):
         """Called when the Connection is in a state that it can close after
         a close has been requested. This happens, for example, when all of the
@@ -748,7 +709,6 @@ class Connection(object):
         if not from_adapter:
             self._adapter_disconnect()
         self._set_connection_state(self.CONNECTION_CLOSED)
-        self._remove_connection_callbacks()
         for channel in self._channels:
             self._channels[channel].on_remote_close(method_frame)
         self._process_connection_closed_callbacks()
@@ -961,17 +921,6 @@ class Connection(object):
         # Send the rpc call to RabbitMQ
         self._send_method(channel_number, method_frame)
 
-    def _send_channel_close_ok(self, channel_number):
-        """Send a Channel._ frame for the given channel number and remove
-        the expectation of a Channel.CloseOk in the callbacks for the channel.
-
-        :param int channel_number: The channel number to send CloseOk to
-
-        """
-        if not self.is_closed:
-            self._rpc(channel_number, spec.Channel.CloseOk())
-            self._remove_callback(channel_number, spec.Channel.CloseOk)
-
     def _send_connection_close(self, reply_code, reply_text):
         """Send a Connection.Close method frame.
 
@@ -1020,6 +969,7 @@ class Connection(object):
         self.bytes_sent += len(marshaled_frame)
         self.frames_sent += 1
         self.outbound_buffer.write(marshaled_frame)
+        LOGGER.debug('Added %i bytes to the outbound buffer', len(marshaled_frame))
         self._flush_outbound()
         self._detect_backpressure()
 
