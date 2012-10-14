@@ -310,23 +310,17 @@ class BaseConnection(connection.Connection):
 
     def _handle_write(self):
         """Handle any outbound buffer writes that need to take place."""
-        if not self.write_buffer:
-            self.write_buffer = self.outbound_buffer.read(self._buffer_size)
-        try:
-            bytes_written = self.socket.send(self.write_buffer)
-        except socket.timeout:
-            raise
-        except socket.error, error:
-            return self._handle_error(error)
-
-        # Remove the content from our output buffer
-        self.outbound_buffer.consume(bytes_written)
+        total_written = 0
         if self.outbound_buffer.size:
-            LOGGER.debug("Outbound buffer size: %i", self.outbound_buffer.size)
-
-        if bytes_written:
-            self.write_buffer = None
-            return bytes_written
+            try:
+                bytes_written = self.socket.send(self.outbound_buffer.read())
+            except socket.timeout:
+                raise
+            except socket.error, error:
+                return self._handle_error(error)
+            self.outbound_buffer.consume(bytes_written)
+            total_written += bytes_written
+        return total_written
 
     def _init_connection_state(self):
         """Initialize or reset all of our internal state variables for a given
@@ -340,7 +334,6 @@ class BaseConnection(connection.Connection):
         self.base_events = self.READ | self.ERROR
         self.event_state = self.base_events
         self.socket = None
-        self.write_buffer = None
 
     def _manage_event_state(self):
         """Manage the bitmask for reading/writing/error which is used by the
