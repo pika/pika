@@ -9,6 +9,7 @@ class AMQPObject(object):
 
     """
     NAME = 'AMQPObject'
+    INDEX = None
 
     def __repr__(self):
         items = list()
@@ -28,6 +29,7 @@ class Class(AMQPObject):
 class Method(AMQPObject):
     """Is extended by AMQP methods"""
     NAME = 'Unextended Method'
+    synchronous = False
 
     def _set_content(self, properties, body):
         """If the method is a content frame, set the properties and body to
