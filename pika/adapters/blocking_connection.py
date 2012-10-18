@@ -624,7 +624,7 @@ class BlockingChannel(channel.Channel):
 
     def _on_open_ok(self, method_frame):
         """Open the channel by sending the RPC command and remove the reply
-        from the transport.
+        from the stack.
 
         """
         super(BlockingChannel, self)._on_open_ok(method_frame)

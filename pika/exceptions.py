@@ -108,11 +108,11 @@ class MethodNotImplemented(AMQPError):
     pass
 
 
-class ChannelTransportError(Exception):
+class ChannelError(Exception):
     pass
 
 
-class CallbackReplyAlreadyRegistered(ChannelTransportError):
+class CallbackReplyAlreadyRegistered(ChannelError):
     pass
 
 

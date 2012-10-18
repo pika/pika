@@ -842,8 +842,7 @@ class Channel(object):
         subsequently calls our _on_open_callback which was passed into the
         Channel constructor. The reason we do this is because we want to make
         sure that the on_open_callback parameter passed into the Channel
-        constructor is not the first callback we make. ChannelTransport needs
-        to know before the app that passed in the callback.
+        constructor is not the first callback we make.
 
         """
         self._set_state(self.OPEN)

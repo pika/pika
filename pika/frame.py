@@ -205,7 +205,7 @@ class Dispatcher(object):
 
     def process(self, frame_value):
         """
-        Invoked by the ChannelTransport object when passed frames that are not
+        Invoked by the Channel object when passed frames that are not
         setup in the rpc process and that don't have explicit reply types
         defined. This includes Basic.Publish, Basic.GetOk and Basic.Return
         """
@@ -249,7 +249,7 @@ class Dispatcher(object):
         """
         Receive body frames. We'll keep receiving them in handler until we've
         received the body size specified in the header frame. When done
-        call our finish function which will call our transports callbacks
+        call our finish function which will call channel callbacks.
         """
         seen_so_far = [0]
         body_fragments = list()

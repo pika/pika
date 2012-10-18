@@ -505,7 +505,7 @@ class Connection(object):
 
         """
         if value.channel_number in self._channels:
-            return self._channels[value.channel_number].transport.deliver(value)
+            return self._channels[value.channel_number].deliver(value)
         if self._is_basic_deliver_frame(value):
             self._reject_out_of_band_delivery(value.channel_number,
                                               value.method.delivery_tag)
