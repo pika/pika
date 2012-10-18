@@ -165,7 +165,7 @@ class Channel(object):
                   self._on_basic_cancel_ok,
                   [spec.Basic.CancelOk])
 
-    def basic_consume(self, callback, queue='', no_ack=False,
+    def basic_consume(self, consumer_callback, queue='', no_ack=False,
                       exclusive=False, consumer_tag=None):
         """Sends the AMQP command Basic.Consume to the broker and binds messages
         for the consumer_tag to the consumer callback. If you do not pass in
@@ -175,14 +175,14 @@ class Channel(object):
         For more information on basic_consume, see:
         http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.consume
 
-        :param method callback: The method to callback when consuming
+        :param method consumer_callback: The method to callback when consuming
         :param str|unicode queue: The queue to consume from
         :param bool no_ack: Tell the broker to not expect a response
         :param bool exclusive: Don't allow other consumers on the queue
         :param str|unicode consumer_tag: Specify your own consumer tag
 
         """
-        self._validate_channel_and_callback(callback)
+        self._validate_channel_and_callback(consumer_callback)
 
         # If a consumer tag was not passed, create one
         consumer_tag = consumer_tag or 'ctag%i.%i' % (self.channel_number,
@@ -192,7 +192,7 @@ class Channel(object):
         if consumer_tag in self._consumers or consumer_tag in self._cancelled:
             raise exceptions.DuplicateConsumerTag(consumer_tag)
 
-        self._consumers[consumer_tag] = callback
+        self._consumers[consumer_tag] = consumer_callback
         self._pending[consumer_tag] = list()
         self._rpc(spec.Basic.Consume(queue=queue,
                                      consumer_tag=consumer_tag,
