@@ -1,7 +1,3 @@
-.. pika documentation master file, created by
-   sphinx-quickstart on Thu Oct 18 17:16:01 2012.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
 Introduction to Pika
 ====================
 
@@ -36,6 +32,26 @@ Pika supports two modes of development, synchronous using the BlockingConnection
    examples
    faq
 
+0.9.6 Release Notes
+-------------------
+- New features
+ - URLParameters
+ - BlockingChannel.start_consuming() and BlockingChannel.stop_consuming()
+ - Delivery Confirmations
+ - Improved unittests
+- Major bugfix areas
+ - Connection handling
+ - Blocking functionality in the BlockingConnection
+ - SSL
+ - UTF-8 Handling
+- Removals
+ - pika.reconnection_strategies
+ - pika.channel.ChannelTransport
+ - pika.log
+ - pika.template
+ - examples directory
+- Over 700 commits from 37 contributors
+
 Pika Core Modules and Classes
 -----------------------------
 .. NOTE::
@@ -65,6 +81,7 @@ Authors
 
 Contributors
 ------------
+- Alexey Myasnikov
 - Anton V. Yanchenko
 - Ask Solem
 - Asko Soukka
