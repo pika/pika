@@ -178,8 +178,7 @@ AMQP Reference page.
 .. autoclass:: pika.channel.Channel
    :members:
    :inherited-members:
-   :member-order: bysource
-
+ 
 BlockingChannel
 -----------------------------------
 
@@ -188,4 +187,3 @@ Implements blocking behaviors on top of the Channel class.
 .. autoclass:: pika.adapters.blocking_connection.BlockingChannel
    :members:
    :inherited-members:
-   :member-order: bysource
