@@ -128,3 +128,8 @@ class InvalidMaximumFrameSize(ProtocolSyntaxError):
 
 class InvalidRPCParameterType(Exception):
     pass
+
+
+class UnimplementedContentReturn(ProtocolSyntaxError):
+    def __repr__(self):
+        return "Unimplemented Content Return Key"

@@ -844,6 +844,8 @@ class Channel(object):
         sure that the on_open_callback parameter passed into the Channel
         constructor is not the first callback we make.
 
+        :param pika.frame.Method frame_unused: Unused Channel.OpenOk frame
+
         """
         self._set_state(self.OPEN)
         if self._on_open_callback:

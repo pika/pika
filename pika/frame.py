@@ -17,18 +17,20 @@ class Frame(amqp_object.AMQPObject):
     """
     NAME = 'Frame'
     def __init__(self, frame_type, channel_number):
-        """
-        Parameters:
+        """Create a new instance of a frame
 
-        - frame_type: int
-        - channel_number: int
+        :param int frame_type: The frame type
+        :param int channel_number: The channel number for the frame
+
         """
         self.frame_type = frame_type
         self.channel_number = channel_number
 
     def _marshal(self, pieces):
-        """
-        Create the full AMQP wire protocol frame data representation
+        """Create the full AMQP wire protocol frame data representation
+
+        :rtype: str
+
         """
         payload = ''.join(pieces)
         return struct.pack('>BHI',
@@ -53,18 +55,20 @@ class Method(Frame):
     NAME = 'METHOD'
 
     def __init__(self, channel_number, method):
-        """
-        Parameters:
+        """Create a new instance of a frame
 
-        - channel_number: int
-        - method: a spec.Class.Method object
+        :param int channel_number: The frame type
+        :param pika.Spec.Class.Method method: The AMQP Class.Method
+
         """
         Frame.__init__(self, spec.FRAME_METHOD, channel_number)
         self.method = method
 
     def marshal(self):
-        """
-        Return the AMQP binary encoded value of the frame
+        """Return the AMQP binary encoded value of the frame
+
+        :rtype: str
+
         """
         pieces = self.method.encode()
         pieces.insert(0, struct.pack('>I', self.method.INDEX))
@@ -79,20 +83,22 @@ class Header(Frame):
     NAME = 'Header'
 
     def __init__(self, channel_number, body_size, props):
-        """
-        Parameters:
+        """Create a new instance of a AMQP ContentHeader object
 
-        - channel_number: int
-        - body_size: int
-        - props: spec.BasicProperties object
+        :param int channel_number: The channel number for the frame
+        :param int body_size: The number of bytes for the body
+        :param pika.spec.BasicProperties props: Basic.Properties object
+
         """
         Frame.__init__(self, spec.FRAME_HEADER, channel_number)
         self.body_size = body_size
         self.properties = props
 
     def marshal(self):
-        """
-        Return the AMQP binary encoded value of the frame
+        """Return the AMQP binary encoded value of the frame
+
+        :rtype: str
+
         """
         pieces = self.properties.encode()
         pieces.insert(0, struct.pack('>HxxQ',
@@ -119,8 +125,10 @@ class Body(Frame):
         self.fragment = fragment
 
     def marshal(self):
-        """
-        Return the AMQP binary encoded value of the frame
+        """Return the AMQP binary encoded value of the frame
+
+        :rtype: str
+
         """
         return self._marshal([self.fragment])
 
@@ -133,11 +141,14 @@ class Heartbeat(Frame):
     NAME = 'Heartbeat'
 
     def __init__(self):
+        """Create a new instance of the Heartbeat frame"""
         Frame.__init__(self, spec.FRAME_HEARTBEAT, 0)
 
     def marshal(self):
-        """
-        Return the AMQP binary encoded value of the frame
+        """Return the AMQP binary encoded value of the frame
+
+        :rtype: str
+
         """
         return self._marshal(list())
 
@@ -150,14 +161,13 @@ class ProtocolHeader(amqp_object.AMQPObject):
     NAME = 'ProtocolHeader'
 
     def __init__(self, major=None, minor=None, revision=None):
-        """
-        Construct a Protocol Header frame object for the specified AMQP version
+        """Construct a Protocol Header frame object for the specified AMQP
+        version
 
-        Parameters:
+        :param int major: Major version number
+        :param int minor: Minor version number
+        :param int revision: Revision
 
-        - major: int
-        - miinor: int
-        - revision: int
         """
         self.frame_type = -1
         self.major = major or spec.PROTOCOL_VERSION[0]
@@ -165,9 +175,11 @@ class ProtocolHeader(amqp_object.AMQPObject):
         self.revision = revision or spec.PROTOCOL_VERSION[2]
 
     def marshal(self):
-        """
-        Return the full AMQP wire protocol frame data representation of the
+        """Return the full AMQP wire protocol frame data representation of the
         ProtocolHeader frame
+
+        :rtype: str
+
         """
         return 'AMQP' + struct.pack('BBBB', 0,
                                     self.major,
@@ -176,8 +188,8 @@ class ProtocolHeader(amqp_object.AMQPObject):
 
 
 class Dispatcher(object):
-    """
-    This handles content frames which come in in synchronous order as follows:
+    """This handles content frames which come in in synchronous order as
+    follows:
 
     1) Method Frame
     2) Header Frame
@@ -196,25 +208,36 @@ class Dispatcher(object):
     been met at which point it will call the finish method. This calls
     the callback manager with the method frame, header frame and assembled
     body and then reset the self._handler to the _handle_method_frame method.
-    """
 
+    """
     def __init__(self, callback_manager):
+        """Create a new instance of the Dispatcher passing in the callback
+        manager.
+
+        :param pika.callback.CallbackManager callback_manager: Callback manager
+
+        """
         # We start with Method frames always
         self._handler = self._handle_method_frame
         self.callbacks = callback_manager
 
     def process(self, frame_value):
-        """
-        Invoked by the Channel object when passed frames that are not
+        """Invoked by the Channel object when passed frames that are not
         setup in the rpc process and that don't have explicit reply types
         defined. This includes Basic.Publish, Basic.GetOk and Basic.Return
+
+        :param Method|Header|Body frame_value: The frame to process
+
         """
         self._handler(frame_value)
 
     def _handle_method_frame(self, frame_value):
-        """
-        Receive a frame and process it, we should have content by the time we
+        """Receive a frame and process it, we should have content by the time we
         reach this handler, set the next handler to be the header frame handler
+
+        :param Method|Header frame_value: The method frame to process
+        :raises: pika.exceptions.InvalidFrameError
+
         """
         # If we don't have FrameMethod something is wrong so throw an exception
         if not isinstance(frame_value, Method):
@@ -227,34 +250,47 @@ class Dispatcher(object):
 
         # We were passed a frame we don't know how to deal with
         else:
-            raise NotImplementedError(repr(frame_value.method))
+            raise exceptions.InvalidFrameError(repr(frame_value.method))
 
     def _handle_header_frame(self, frame_value):
-        """
-        Receive a header frame and process that, setting the next handler
+        """Receive a header frame and process that, setting the next handler
         to the body frame handler
-        """
 
+        :param Method frame_value: The header frame to process
+        :rtype: method
+
+        """
         def handler(header_frame):
-            # Make sure it's a header frame
+            """Method to process header frames
+
+            :param Header header_frame: The content header frame
+            :raises: UnexpectedFrameError
+
+            """
             if not isinstance(header_frame, Header):
                 raise exceptions.UnexpectedFrameError(header_frame)
-
-            # Call the handle body frame including our header frame
             self._handle_body_frame(frame_value, header_frame)
-
         return handler
 
     def _handle_body_frame(self, method_frame, header_frame):
-        """
-        Receive body frames. We'll keep receiving them in handler until we've
+        """Receive body frames. We'll keep receiving them in handler until we've
         received the body size specified in the header frame. When done
-        call our finish function which will call channel callbacks.
+        call our finish function which will call our transports callbacks
+
+        :param Method method_frame: The method frame for the message
+        :param Header header_frame: The header frame for the message
+
         """
         seen_so_far = [0]
         body_fragments = list()
 
         def handler(body_frame):
+            """Handle body frames and append them to the content.
+
+            :param Body body_frame: The body frame
+            :raises: pika.exceptions.BodyTooLongError
+
+            """
             # Make sure it's a body frame
             if not isinstance(body_frame, Body):
                 raise exceptions.UnexpectedFrameError(body_frame)
@@ -279,6 +315,11 @@ class Dispatcher(object):
                 raise exceptions.BodyTooLongError(error)
 
         def finish():
+            """Invoked when all of the message has been received
+
+            :raises: pika.exception.UnimplementedContentReturn
+
+            """
             # We're done so set our handler back to the method frame
             self._handler = self._handle_method_frame
 
@@ -291,7 +332,7 @@ class Dispatcher(object):
             elif method == 'Return':
                 key = '_on_basic_return'
             else:
-                raise Exception('Unimplemented Content Return Key')
+                raise exceptions.UnimplementedContentReturn
 
             # Check for a processing callback for our method name
             self.callbacks.process(method_frame.channel_number,  # Prefix
@@ -310,9 +351,13 @@ class Dispatcher(object):
 
 
 def decode_frame(data_in):
-    """
-    Receives raw socket data and attempts to turn it into a frame.
+    """Receives raw socket data and attempts to turn it into a frame.
     Returns bytes used to make the frame and the frame
+
+    :param str data_in: Theraw data stream
+    :rtype: tuple(bytes consumed, frame)
+    :raises pika.exceptions.InvalidFrameError
+
     """
     # Look to see if it's a protocol header frame
     try:

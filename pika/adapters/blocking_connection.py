@@ -176,8 +176,9 @@ class BlockingConnection(base_connection.BaseConnection):
 
         LOGGER.debug('Handling timeout %i with a threshold of %i',
                      self._socket_timeouts, threshold)
-        if (self.is_closing and self._socket_timeouts > threshold):
-            LOGGER.critical('Closing connection due to timeout')
+        if self.is_closing and self._socket_timeouts > threshold:
+            if not self.is_closing:
+                LOGGER.critical('Closing connection due to timeout')
             self._on_connection_closed(None, True)
 
     def _flush_outbound(self):
@@ -230,8 +231,6 @@ class BlockingConnection(base_connection.BaseConnection):
         if self._frames_written_without_read == self.WRITE_TO_READ_RATIO:
             self._frames_written_without_read = 0
             self.process_data_events()
-
-
 
 
 class BlockingChannel(channel.Channel):
@@ -624,7 +623,7 @@ class BlockingChannel(channel.Channel):
 
     def _on_open_ok(self, method_frame):
         """Open the channel by sending the RPC command and remove the reply
-        from the stack.
+        from the stack of replies.
 
         """
         super(BlockingChannel, self)._on_open_ok(method_frame)
@@ -670,6 +669,7 @@ class BlockingChannel(channel.Channel):
         :param method callback: The callback for the RPC response
         :param list acceptable_replies: The replies this RPC call expects
         :param tuple content: Properties and Body for content frames
+        :rtype: pika.frame.Method
 
         """
         if self.is_closed:

@@ -12,6 +12,8 @@ class TornadoConnection(base_connection.BaseConnection):
     will stop taking requests.
 
     """
+    WARN_ABOUT_IOLOOP = True
+
     def __init__(self, parameters=None,
                  on_open_callback=None,
                  stop_ioloop_on_close=False,
