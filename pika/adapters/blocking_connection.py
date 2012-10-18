@@ -603,8 +603,12 @@ class BlockingChannel(channel.Channel):
     def _add_callbacks(self):
         """Add callbacks for when the channel opens and closes."""
         self.connection.callbacks.add(self.channel_number,
+                                      spec.Channel.Close,
+                                      self._on_close)
+        self.connection.callbacks.add(self.channel_number,
                                       spec.Channel.CloseOk,
                                       self._on_rpc_complete)
+
 
     def _on_basic_get(self, caller_unused, method_frame, header_frame, body):
         self._received_response = True
