@@ -6,6 +6,7 @@
 __version__ = '0.9.6-pre5'
 
 from pika.connection import ConnectionParameters
+from pika.connection import URLParameters
 from pika.credentials import PlainCredentials
 from pika.spec import BasicProperties
 

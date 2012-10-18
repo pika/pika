@@ -1,6 +1,8 @@
 """Core connection objects"""
 import logging
 import platform
+import urllib
+import urlparse
 
 from pika import __version__
 from pika import callback
@@ -19,127 +21,431 @@ PRODUCT = "Pika Python Client Library"
 
 LOGGER = logging.getLogger(__name__)
 
+class Parameters(object):
+    """Base connection parameters class definition"""
 
-class ConnectionParameters(object):
-    """Connection parameters object that is passed into the connection adapter
-    upon construction.
-
-    """
+    DEFAULT_BACKPRESSURE_DETECTION = False
+    DEFAULT_CONNECTION_ATTEMPTS = 1
+    DEFAULT_CHANNEL_MAX = 0
+    DEFAULT_FRAME_MAX = spec.FRAME_MAX_SIZE
+    DEFAULT_HEARTBEAT_INTERVAL = 0
+    DEFAULT_HOST = 'localhost'
     DEFAULT_LOCALE = 'en_US'
+    DEFAULT_PASSWORD = 'guest'
+    DEFAULT_PORT = 5672
+    DEFAULT_RETRY_DELAY = 2.0
     DEFAULT_SOCKET_TIMEOUT = 0.25
-    def __init__(self,
-                 host='localhost',
-                 port=spec.PORT,
-                 virtual_host='/',
-                 credentials=None,
-                 channel_max=0,
-                 frame_max=spec.FRAME_MAX_SIZE,
-                 heartbeat_interval=0,
-                 ssl=False,
-                 ssl_options=None,
-                 connection_attempts=1,
-                 retry_delay=2.0,
-                 socket_timeout=DEFAULT_SOCKET_TIMEOUT,
-                 locale=DEFAULT_LOCALE,
-                 backpressure_detection=False):
-        """Create a new ConnectionParameters instance.
+    DEFAULT_SSL = False
+    DEFAULT_SSL_OPTIONS = {}
+    DEFAULT_USERNAME = 'guest'
+    DEFAULT_VIRTUAL_HOST = '/'
 
-        :param str host: Hostname or IP Address to connect to.
-            Defaults to localhost.
-        :param int port: TCP port to connect to.
-            Defaults to 5672
-        :param str virtual_host: RabbitMQ virtual host to use.
-            Defaults to /
-        :param pika.credentials.Credentials credentials: A instance of a
-            credentials class to authenticate with.
-                Defaults to PlainCredentials for the guest user.
-        :param int channel_max: Maximum number of channels to allow,.
-            Defaults to 0 for None
-        :param int frame_max: The maximum byte size for an AMQP frame.
-            Defaults to 131072
-        :param int heartbeat_interval: Heartbeat Interval. 0 for heartbeat off.
-            Defaults to 0
-        :param bool ssl: Enable SSL
-            Defaults to False
-        :param dict ssl_options: Arguments passed to ssl.wrap_socket as
-            described at http://docs.python.org/dev/library/ssl.html
-        :param int connection_attempts: Maximum number of retry attempts.
-            None for infinite. Defaults to 1
-        :param int|float retry_delay: Time to wait in seconds, before the next
-            attempt. Defaults to 2
-        :param int|float socket_timeout: Use for high latency networks
-            Defaults to 0.25
-        :param str locale: Set the locale value
-            Defaults to en_US
-        :param bool backpressure_detection: Toggle backpressure detection
+    def __init__(self):
+        self.virtual_host = self.DEFAULT_VIRTUAL_HOST
+        self.backpressure_detection = self.DEFAULT_BACKPRESSURE_DETECTION
+        self.channel_max = self.DEFAULT_CHANNEL_MAX
+        self.connection_attempts = self.DEFAULT_CONNECTION_ATTEMPTS
+        self.credentials = self._credentials(self.DEFAULT_USERNAME,
+                                             self.DEFAULT_PASSWORD)
+        self.frame_max = self.DEFAULT_FRAME_MAX
+        self.heartbeat = self.DEFAULT_HEARTBEAT_INTERVAL
+        self.host = self.DEFAULT_HOST
+        self.locale = self.DEFAULT_LOCALE
+        self.port = self.DEFAULT_PORT
+        self.retry_delay = self.DEFAULT_RETRY_DELAY
+        self.ssl = self.DEFAULT_SSL
+        self.ssl_options = self.DEFAULT_SSL_OPTIONS
+        self.socket_timeout = self.DEFAULT_SOCKET_TIMEOUT
 
-        :raises: InvalidFrameSize
+    def __repr__(self):
+        """Represent the info about the instance.
+
+        :rtype: str
+
+        """
+        return ('<%s host=%s port=%s virtual_host=%s ssl=%s>' %
+                (self.__class__.__name__, self.host, self.port,
+                 self.virtual_host, self.ssl))
+
+    def _credentials(self, username, password):
+        """Return a plain credentials object for the specified username and
+        password.
+
+        :param str username: The username to use
+        :param str password: The password to use
+        :rtype: pika_credentials.PlainCredentials
+
+        """
+        return pika_credentials.PlainCredentials(username, password)
+
+    def _validate_backpressure(self, backpressure_detection):
+        """Validate that the backpressure detection option is a bool.
+
+        :param bool backpressure_detection: The backpressure detection value
+        :rtype: bool
         :raises: TypeError
 
         """
-        if not isinstance(host, str):
-            raise TypeError("Host must be a str")
-        if not isinstance(port, int):
-            raise TypeError("Port must be an int")
-        if not credentials:
-            credentials = pika_credentials.PlainCredentials('guest', 'guest')
-        self._validate_credentials(credentials)
-        if not isinstance(channel_max, int):
-            raise TypeError("max-channels must be an int")
-        if not isinstance(frame_max, int):
-            raise TypeError("frame_max must be an int")
-        if frame_max < spec.FRAME_MIN_SIZE:
-            raise exceptions.InvalidMinimumFrameSize
-        elif frame_max > spec.FRAME_MAX_SIZE:
-            raise exceptions.InvalidMaximumFrameSize
-        if not isinstance(frame_max, int):
-            raise TypeError("frame_max must be an int")
-        if not isinstance(heartbeat_interval, int):
-            raise TypeError("heartbeat must be an int")
-        if not isinstance(ssl, bool):
-            raise TypeError("ssl must be a bool")
-        if not isinstance(ssl_options, dict) and ssl_options is not None:
-            raise TypeError("ssl_options must be either None or dict")
-        if (connection_attempts is not None and
-            not isinstance(connection_attempts, int)):
-            raise TypeError("connection_attempts must be either None or int")
-        if (not isinstance(retry_delay, int) and
-            not isinstance(retry_delay, float)):
-            raise TypeError("retry_delay must be a float or int")
-        if (not isinstance(socket_timeout, int) and
-            not isinstance(socket_timeout, float)):
-            raise TypeError("socket_timeout must be a float or int")
         if not isinstance(backpressure_detection, bool):
             raise TypeError('backpressure detection must be a bool')
+        return True
 
-        # Assign the values
-        self.host = host
-        self.port = port
-        self.virtual_host = virtual_host
-        self.credentials = credentials
-        self.channel_max = channel_max
-        self.frame_max = frame_max
-        self.locale = locale
-        self.heartbeat = heartbeat_interval
-        self.ssl = ssl
-        self.ssl_options = ssl_options or dict()
-        self.connection_attempts = connection_attempts
-        self.retry_delay = retry_delay
-        self.socket_timeout = socket_timeout
-        self.backpressure_detection = backpressure_detection
+    def _validate_channel_max(self, channel_max):
+        """Validate that the channel_max value is an int
+
+        :param int channel_max: The value to validate
+        :rtype: bool
+        :raises: TypeError
+        :raises: ValueError
+
+        """
+        if not isinstance(channel_max, int):
+            raise TypeError('channel_max must be an int')
+        if channel_max < 1 or channel_max > 65535:
+            raise ValueError('channel_max must be <= 65535 and >= 0')
+        return True
+
+    def _validate_connection_attempts(self, connection_attempts):
+        """Validate that the channel_max value is an int
+
+        :param int connection_attempts: The value to validate
+        :rtype: bool
+        :raises: TypeError
+        :raises: ValueError
+
+        """
+        if not isinstance(connection_attempts, int):
+            raise TypeError('connection_attempts must be an int')
+        if connection_attempts < 1:
+            raise ValueError('connection_attempts must be None or > 0')
+        return True
 
     def _validate_credentials(self, credentials):
         """Validate the credentials passed in are using a valid object type.
 
         :param pika.credentials.Credentials credentials: Credentials to validate
+        :rtype: bool
         :raises: TypeError
 
         """
         for credential_type in pika_credentials.VALID_TYPES:
             if isinstance(credentials, credential_type):
-                return
+                return True
         raise TypeError('Credentials must be an object of type: %r' %
                         pika_credentials.VALID_TYPES)
+
+    def _validate_frame_max(self, frame_max):
+        """Validate that the frame_max value is an int and does not exceed
+         the maximum frame size and is not less than the frame min size.
+
+        :param int frame_max: The value to validate
+        :rtype: bool
+        :raises: TypeError
+        :raises: InvalidMinimumFrameSize
+
+        """
+        if not isinstance(frame_max, int):
+            raise TypeError('frame_max must be an int')
+        if frame_max < spec.FRAME_MIN_SIZE:
+            raise exceptions.InvalidMinimumFrameSize
+        elif frame_max > spec.FRAME_MAX_SIZE:
+            raise exceptions.InvalidMaximumFrameSize
+        return True
+
+    def _validate_heartbeat_interval(self, heartbeat_interval):
+        """Validate that the heartbeat_interval value is an int
+
+        :param int heartbeat_interval: The value to validate
+        :rtype: bool
+        :raises: TypeError
+        :raises: ValueError
+
+        """
+        if not isinstance(heartbeat_interval, int):
+            raise TypeError('heartbeat must be an int')
+        if heartbeat_interval < 1:
+            raise ValueError('heartbeat_interval must be None or > 0')
+        return True
+
+    def _validate_host(self, host):
+        """Validate that the host value is an str
+
+        :param str host: The value to validate
+        :rtype: bool
+        :raises: TypeError
+
+        """
+        if not isinstance(host, str):
+            raise TypeError('host must be a str')
+        return True
+
+    def _validate_locale(self, locale):
+        """Validate that the locale value is an str
+
+        :param str locale: The value to validate
+        :rtype: bool
+        :raises: TypeError
+
+        """
+        if not isinstance(locale, str):
+            raise TypeError('locale must be a str')
+        return True
+
+    def _validate_port(self, port):
+        """Validate that the port value is an int
+
+        :param int port: The value to validate
+        :rtype: bool
+        :raises: TypeError
+
+        """
+        if not isinstance(port, int):
+            raise TypeError('port must be an int')
+        return True
+
+    def _validate_retry_delay(self, retry_delay):
+        """Validate that the retry_delay value is an int or float
+
+        :param int|float retry_delay: The value to validate
+        :rtype: bool
+        :raises: TypeError
+
+        """
+        if (not isinstance(retry_delay, int) and
+            not isinstance(retry_delay, float)):
+            raise TypeError('retry_delay must be a float or int')
+        return True
+
+    def _validate_socket_timeout(self, socket_timeout):
+        """Validate that the socket_timeout value is an int or float
+
+        :param int|float socket_timeout: The value to validate
+        :rtype: bool
+        :raises: TypeError
+
+        """
+        if (not isinstance(socket_timeout, int) and
+            not isinstance(socket_timeout, float)):
+            raise TypeError('socket_timeout must be a float or int')
+        if not socket_timeout > 0:
+            raise ValueError('socket_timeout must be > 0')
+        return True
+
+    def _validate_ssl(self, ssl):
+        """Validate the SSL toggle is a bool
+
+        :param bool ssl: The SSL enabled/disabled value
+        :rtype: bool
+        :raises: TypeError
+
+        """
+        if not isinstance(ssl, bool):
+            raise TypeError('ssl must be a bool')
+        return True
+
+    def _validate_ssl_options(self, ssl_options):
+        """Validate the SSL options value is a dictionary.
+
+        :param dict|None ssl_options: SSL Options to validate
+        :rtype: bool
+        :raises: TypeError
+
+        """
+        if not isinstance(ssl_options, dict) and ssl_options is not None:
+            raise TypeError('ssl_options must be either None or dict')
+        return True
+
+    def _validate_virtual_host(self, virtual_host):
+        """Validate that the virtual_host value is an str
+
+        :param str virtual_host: The value to validate
+        :rtype: bool
+        :raises: TypeError
+
+        """
+        if not isinstance(virtual_host, str):
+            raise TypeError('virtual_host must be a str')
+        return True
+
+
+class ConnectionParameters(Parameters):
+    """Connection parameters object that is passed into the connection adapter
+    upon construction.
+
+    """
+    def __init__(self,
+                 host=None,
+                 port=None,
+                 virtual_host=None,
+                 credentials=None,
+                 channel_max=None,
+                 frame_max=None,
+                 heartbeat_interval=None,
+                 ssl=None,
+                 ssl_options=None,
+                 connection_attempts=None,
+                 retry_delay=None,
+                 socket_timeout=None,
+                 locale=None,
+                 backpressure_detection=None):
+        """Create a new ConnectionParameters instance.
+
+        :param str host: Hostname or IP Address to connect to
+        :param int port: TCP port to connect to
+        :param str virtual_host: RabbitMQ virtual host to use
+        :param pika.credentials.Credentials credentials: auth credentials
+        :param int channel_max: Maximum number of channels to allow
+        :param int frame_max: The maximum byte size for an AMQP frame
+        :param int heartbeat_interval: How often to send heartbeats
+        :param bool ssl: Enable SSL
+        :param dict ssl_options: Arguments passed to ssl.wrap_socket as
+        :param int connection_attempts: Maximum number of retry attempts
+        :param int|float retry_delay: Time to wait in seconds, before the next
+        :param int|float socket_timeout: Use for high latency networks
+        :param str locale: Set the locale value
+        :param bool backpressure_detection: Toggle backpressure detection
+
+        """
+        super(ConnectionParameters, self).__init__()
+
+        # Create the default credentials object
+        if not credentials:
+            credentials = self._credentials(self.DEFAULT_USERNAME,
+                                            self.DEFAULT_PASSWORD)
+
+        # Assign the values
+        if host and self._validate_host(host):
+            self.host = host
+        if port is not None and self._validate_port(port):
+            self.port = port
+        if virtual_host and self._validate_host(virtual_host):
+            self.virtual_host = virtual_host
+        if credentials and self._validate_credentials(credentials):
+            self.credentials = credentials
+        if channel_max is not None and self._validate_channel_max(channel_max):
+            self.channel_max = channel_max
+        if frame_max is not None and self._validate_frame_max(frame_max):
+            self.frame_max = frame_max
+        if locale and self._validate_locale(locale):
+            self.locale = locale
+        if (heartbeat_interval is not None and
+            self._validate_heartbeat_interval(heartbeat_interval)):
+            self.heartbeat = heartbeat_interval
+        if ssl is not None and self._validate_ssl(ssl):
+            self.ssl = ssl
+        if ssl_options and self._validate_ssl_options(ssl_options):
+            self.ssl_options = ssl_options or dict()
+        if (connection_attempts is not None and
+            self._validate_connection_attempts(connection_attempts)):
+            self.connection_attempts = connection_attempts
+        if retry_delay is not None and self._validate_retry_delay(retry_delay):
+            self.retry_delay = retry_delay
+        if (socket_timeout is not None and
+            self._validate_socket_timeout(socket_timeout)):
+            self.socket_timeout = socket_timeout
+        if (backpressure_detection is not None and
+            self._validate_backpressure(backpressure_detection)):
+            self.backpressure_detection = backpressure_detection
+
+
+class URLParameters(Parameters):
+    """Create a Connection parameters object based off of URIParameters"""
+
+    def __init__(self, url):
+
+        """Create a new URLParameters instance.
+
+        :param str url: The URL value
+
+        """
+        super(URLParameters, self).__init__()
+        self._process_url(url)
+
+    def _process_url(self, url):
+        """Take an AMQP URL and break it up into the various parameters.
+
+        :param str url: The URL to parse
+
+        """
+        if url[0:4] == 'amqp':
+            url = 'http' + url[4:]
+
+        parts = urlparse.urlparse(url)
+
+        # Handle the Protocol scheme, changing to HTTPS so urlparse doesnt barf
+        if parts.scheme == 'https':
+            self.ssl = True
+
+        if self._validate_host(parts.hostname):
+            self.host = parts.hostname
+        if self._validate_port(parts.port):
+            self.port = parts.port
+        self.credentials = pika_credentials.PlainCredentials(parts.username,
+                                                             parts.password)
+
+        # Get the Virtual Host
+        if len(parts.path) == 1:
+            raise ValueError('No virtual host specify, use %2f for /')
+        path_parts = parts.path.split('/')
+        virtual_host = urllib.unquote(path_parts[1])
+        if self._validate_virtual_host(virtual_host):
+            self.virtual_host = virtual_host
+
+        # Handle query string values, validating and assigning them
+        values = urlparse.parse_qs(parts.query)
+
+        # Cast the various numeric values to the appropriate values
+        for key in values.keys():
+            # Always reassign the first list item in query values
+            values[key] = values[key].pop(0)
+            if values[key].isdigit():
+                values[key] = int(values[key])
+            else:
+                try:
+                    values[key] = float(values[key])
+                except ValueError:
+                    pass
+
+        if 'backpressure_detection' in values:
+            if values['backpressure_detection'] == 't':
+                self.backpressure_detection = True
+            elif values['backpressure_detection'] == 'f':
+                self.backpressure_detection = False
+            else:
+                raise ValueError('Invalid backpressure_detection value: %s' %
+                                 values['backpressure_detection'])
+
+        if ('channel_max' in values and
+            self._validate_channel_max(values['channel_max'])):
+            self.channel_max = values['channel_max']
+
+        if ('connection_attempts' in values and
+            self._validate_connection_attempts(values['connection_attempts'])):
+            self.connection_attempts = values['connection_attempts']
+
+        if ('frame_max' in values and
+            self._validate_frame_max(values['frame_max'])):
+            self.frame_max = values['frame_max']
+
+        if ('heartbeat_interval' in values and
+            self._validate_heartbeat_interval(values['heartbeat_interval'])):
+            self.heartbeat = values['heartbeat_interval']
+
+        if ('locale' in values and
+            self._validate_locale(values['locale'])):
+            self.locale = values['locale']
+
+        if ('retry_delay' in values and
+            self._validate_retry_delay(values['retry_delay'])):
+            self.retry_delay = values['retry_delay']
+
+        if ('socket_timeout' in values and
+            self._validate_socket_timeout(values['socket_timeout'])):
+            self.socket_timeout = values['socket_timeout']
+
+        if ('ssl_options' in values and
+            self._validate_ssl_options(values['ssl_options'])):
+            self.ssl_options = values['ssl_options']
 
 
 class Connection(object):
@@ -158,12 +464,14 @@ class Connection(object):
 
     def __init__(self, parameters=None,
                  on_open_callback=None):
-        """Connection initialization expects a ConnectionParameters object and
-        a callback function to notify when we have successfully connected
-        to the AMQP Broker.
+        """Connection initialization expects an object that has implemented the
+         Parameters class and a callback function to notify when we have
+         successfully connected to the AMQP Broker.
 
-        :param parameters: Connection parameters
-        :type parameters: pika.connection.ConnectionParameters
+        Available Parameters classes are the ConnectionParameters class and
+        URLParameters class.
+
+        :param pika.connection.Parameters parameters: Connection parameters
         :param on_open_callback: The method to call when the connection is open
         :type on_open_callback: method
 
@@ -386,7 +694,11 @@ class Connection(object):
 
         """
         LOGGER.debug('Received Channel.CloseOk')
-        del self._channels[method_frame.channel_number]
+        try:
+            del self._channels[method_frame.channel_number]
+        except KeyError:
+            LOGGER.error('Channel %r not in channels',
+                         method_frame.channel_number)
 
     def _add_connection_start_callback(self):
         """Add a callback for when a Connection.Start frame is received from
@@ -499,8 +811,9 @@ class Connection(object):
         :rtype: pika.heartbeat.Heartbeat
 
         """
-        LOGGER.debug('Creating a HeartbeatChecker')
-        if self.params.heartbeat:
+        if self.params.heartbeat is not None and self.params.heartbeat > 0:
+            LOGGER.debug('Creating a HeartbeatChecker: %r',
+                         self.params.heartbeat)
             return heartbeat.HeartbeatChecker(self, self.params.heartbeat)
 
     def _deliver_frame_to_channel(self, value):
@@ -914,12 +1227,12 @@ class Connection(object):
         """
         # Validate that acceptable_replies is a list or None
         if acceptable_replies and not isinstance(acceptable_replies, list):
-            raise TypeError("acceptable_replies should be list or None")
+            raise TypeError('acceptable_replies should be list or None')
 
         # Validate the callback is callable
         if callback_method:
             if not utils.is_callable(callback_method):
-                raise TypeError("callback should be None, function or method.")
+                raise TypeError('callback should be None, function or method.')
 
             for reply in acceptable_replies:
                 self.callbacks.add(channel_number, reply, callback_method)

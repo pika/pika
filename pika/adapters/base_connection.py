@@ -41,10 +41,8 @@ class BaseConnection(connection.Connection):
                        stop_ioloop_on_close=True):
         """Create a new instance of the Connection object.
 
-        :param parameters: Connection parameters
-        :type parameters: pika.connection.ConnectionParameters
-        :param on_open_callback: The method to call when the connection is open
-        :type on_open_callback: method
+        :param pika.connection.Parameters parameters: Connection parameters
+        :param method on_open_callback: Method to call on connection open
         :param bool stop_ioloop_on_close: Will stop the ioloop when the
                 connection is fully closed.
         :raises: RuntimeError
