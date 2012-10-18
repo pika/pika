@@ -40,7 +40,8 @@ class ConnectionParameters(object):
                  connection_attempts=1,
                  retry_delay=2.0,
                  socket_timeout=DEFAULT_SOCKET_TIMEOUT,
-                 locale=DEFAULT_LOCALE):
+                 locale=DEFAULT_LOCALE,
+                 backpressure_detection=False):
         """Create a new ConnectionParameters instance.
 
         :param str host: Hostname or IP Address to connect to.
@@ -70,6 +71,7 @@ class ConnectionParameters(object):
             Defaults to 0.25
         :param str locale: Set the locale value
             Defaults to en_US
+        :param bool backpressure_detection: Toggle backpressure detection
 
         :raises: InvalidFrameSize
         :raises: TypeError
@@ -107,6 +109,8 @@ class ConnectionParameters(object):
         if (not isinstance(socket_timeout, int) and
             not isinstance(socket_timeout, float)):
             raise TypeError("socket_timeout must be a float or int")
+        if not isinstance(backpressure_detection, bool):
+            raise TypeError('backpressure detection must be a bool')
 
         # Assign the values
         self.host = host
@@ -122,6 +126,7 @@ class ConnectionParameters(object):
         self.connection_attempts = connection_attempts
         self.retry_delay = retry_delay
         self.socket_timeout = socket_timeout
+        self.backpressure_detection = backpressure_detection
 
     def _validate_credentials(self, credentials):
         """Validate the credentials passed in are using a valid object type.
@@ -969,9 +974,11 @@ class Connection(object):
         self.bytes_sent += len(marshaled_frame)
         self.frames_sent += 1
         self.outbound_buffer.write(marshaled_frame)
-        LOGGER.debug('Added %i bytes to the outbound buffer', len(marshaled_frame))
+        LOGGER.debug('Added %i bytes to the outbound buffer',
+                     len(marshaled_frame))
         self._flush_outbound()
-        self._detect_backpressure()
+        if self.params.backpressure_detection:
+            self._detect_backpressure()
 
     def _send_method(self, channel_number, method_frame, content=None):
         """Constructs a RPC method frame and then sends it to the broker.
