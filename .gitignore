@@ -11,3 +11,4 @@ examples/blocking/pika
 atlassian*xml
 build
 dist
+docs/_build
