@@ -4,9 +4,15 @@
 #
 # ***** END LICENSE BLOCK *****
 from setuptools import setup
-
+import os
 import platform
 
+# Conditionally include additional modules for docs
+on_rtd = os.environ.get('READTHEDOCS', None) == 'True'
+requirements = list()
+if on_rtd:
+    requirements.append('tornado')
+    
 # Conditional include unittest2 for versions of python < 2.7
 tests_require=['nose', 'mock']
 platform_version = list(platform.python_version_tuple())[0:2]
@@ -30,6 +36,7 @@ setup(name='pika',
       url='https://github.com/pika ',
       packages=['pika', 'pika.adapters'],
       license='MPL v1.1 and GPL v2.0 or newer',
+      install_requires=requirements,
       tests_require=tests_require,
       test_suite = "nose.collector",
       classifiers=[

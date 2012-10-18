@@ -178,7 +178,7 @@ AMQP Reference page.
 .. autoclass:: pika.channel.Channel
    :members:
    :inherited-members:
- 
+
 BlockingChannel
 -----------------------------------
 
