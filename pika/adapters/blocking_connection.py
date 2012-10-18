@@ -28,6 +28,7 @@ class BlockingConnection(base_connection.BaseConnection):
     DO_HANDSHAKE = True
     SOCKET_CONNECT_TIMEOUT = .25
     SOCKET_TIMEOUT_THRESHOLD = 12
+    SOCKET_TIMEOUT_CLOSE_THRESHOLD = 3
     SOCKET_TIMEOUT_MESSAGE = "Timeout exceeded, disconnected"
 
     def add_timeout(self, deadline, callback):
@@ -170,10 +171,12 @@ class BlockingConnection(base_connection.BaseConnection):
     def _handle_timeout(self):
         """Invoked whenever the socket times out"""
         self._socket_timeouts += 1
-        LOGGER.warning('Handling timeout %i with a threshold of %i',
-                       self._socket_timeouts, self.SOCKET_TIMEOUT_THRESHOLD)
-        if (self.is_closing and
-            self._socket_timeouts > self.SOCKET_TIMEOUT_THRESHOLD):
+        threshold = (self.SOCKET_CONNECT_TIMEOUT if not self.is_closing else
+                     self.SOCKET_TIMEOUT_CLOSE_THRESHOLD)
+
+        LOGGER.debug('Handling timeout %i with a threshold of %i',
+                     self._socket_timeouts, threshold)
+        if (self.is_closing and self._socket_timeouts > threshold):
             LOGGER.critical('Closing connection due to timeout')
             self._on_connection_closed(None, True)
 
@@ -599,20 +602,11 @@ class BlockingChannel(channel.Channel):
         reply = callback._name_or_value(reply)
         self._replies.append(reply)
 
-    def _add_transport_callbacks(self, connection, channel_number, transport):
-        """Add callbacks for when the channel opens and closes.
-
-        :param BlockingConnection connection: The connection
-        :param int channel_number: The channel number for this instance
-        :param BlockingChannelTransport transport: The channel transport
-
-        """
-        connection.callbacks.add(channel_number,
-                                 spec.Channel.OpenOk,
-                                 transport.on_rpc_complete)
-        connection.callbacks.add(channel_number,
-                                 spec.Channel.CloseOk,
-                                 transport.on_rpc_complete)
+    def _add_callbacks(self):
+        """Add callbacks for when the channel opens and closes."""
+        self.connection.callbacks.add(self.channel_number,
+                                      spec.Channel.CloseOk,
+                                      self._on_rpc_complete)
 
     def _on_basic_get(self, caller_unused, method_frame, header_frame, body):
         self._received_response = True

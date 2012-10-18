@@ -3,7 +3,7 @@
 # For copyright and licensing please refer to COPYING.
 #
 # ***** END LICENSE BLOCK *****
-__version__ = '0.9.6-pre3'
+__version__ = '0.9.6-pre4'
 
 from pika.connection import ConnectionParameters
 from pika.credentials import PlainCredentials
