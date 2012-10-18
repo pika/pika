@@ -397,7 +397,7 @@ class PollPoller(SelectPoller):
     def poll(self, write_only=False):
         """Poll until TIMEOUT waiting for an event
 
-        :param write_only bool: Only process write events
+        :param bool write_only: Only process write events
 
         """
         events = self._poll.poll(int(SelectPoller.TIMEOUT * 1000))
@@ -430,7 +430,7 @@ class EPollPoller(PollPoller):
     def poll(self, write_only=False):
         """Poll until TIMEOUT waiting for an event
 
-        :param write_only bool: Only process write events
+        :param bool write_only: Only process write events
 
         """
         events = self._poll.poll(SelectPoller.TIMEOUT)

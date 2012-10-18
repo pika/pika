@@ -509,14 +509,15 @@ class Connection(object):
         :param pika.frame.Method value: The frame to deliver
 
         """
-        if value.channel_number in self._channels:
-            return self._channels[value.channel_number].deliver(value)
-        if self._is_basic_deliver_frame(value):
-            self._reject_out_of_band_delivery(value.channel_number,
-                                              value.method.delivery_tag)
-        else:
-            LOGGER.warning("Received %r for non-existing channel %i",
-                           value, value.channel_number)
+        if not value.channel_number in self._channels:
+            if self._is_basic_deliver_frame(value):
+                self._reject_out_of_band_delivery(value.channel_number,
+                                                  value.method.delivery_tag)
+            else:
+                LOGGER.warning("Received %r for non-existing channel %i",
+                               value, value.channel_number)
+            return
+        return self._channels[value.channel_number].handle_content_frames(value)
 
     def _detect_backpressure(self):
         """Attempt to calculate if TCP backpressure is being applied due to
@@ -836,7 +837,7 @@ class Connection(object):
         # Keep track of how many frames have been read
         self.frames_received += 1
 
-        # If we have a Method Frame and have callbacks for it
+        # Process any callbacks, if True, exit method
         if self._process_callbacks(frame_value):
             return
 
@@ -989,18 +990,21 @@ class Connection(object):
                               properties and body.
 
         """
-        LOGGER.debug('Sending on channel %i: %r', channel_number, method_frame)
         self._send_frame(frame.Method(channel_number, method_frame))
-        if isinstance(content, tuple):
-            self._send_frame(frame.Header(channel_number,
-                                          len(content[1]),
-                                           content[0]))
-            if content[1]:
-                body_buf = simplebuffer.SimpleBuffer(content[1])
-                while body_buf:
-                    piece_len = min(len(body_buf), self._body_max_length)
-                    piece = body_buf.read_and_consume(piece_len)
-                    self._send_frame(frame.Body(channel_number, piece))
+
+        # If it's not a tuple of Header, str|unicode then return
+        if not isinstance(content, tuple):
+            return
+
+        self._send_frame(frame.Header(channel_number,
+                                      len(content[1]),
+                                      content[0]))
+        if content[1]:
+            body_buf = simplebuffer.SimpleBuffer(content[1])
+            while body_buf:
+                piece_len = min(len(body_buf), self._body_max_length)
+                piece = body_buf.read_and_consume(piece_len)
+                self._send_frame(frame.Body(channel_number, piece))
 
     def _set_connection_state(self, connection_state):
         """Set the connection state.

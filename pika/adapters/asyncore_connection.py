@@ -74,10 +74,10 @@ class PikaDispatcher(asyncore.dispatcher):
         LOGGER.debug('Stopping IOLoop')
         self.close()
 
-    def update_handler(self, fileno, events):
+    def update_handler(self, fileno_unused, events):
         """Set the events to the current events
 
-        :param int fileno: The file descriptor
+        :param int fileno_unused: The file descriptor
         :param int events: The event mask
 
         """
@@ -87,11 +87,11 @@ class PikaDispatcher(asyncore.dispatcher):
 class AsyncoreConnection(base_connection.BaseConnection):
 
     def _adapter_connect(self):
-        """
-        Connect to our RabbitMQ boker using AsyncoreDispatcher, then setting
+        """Connect to our RabbitMQ broker using AsyncoreDispatcher, then setting
         Pika's suggested buffer size for socket reading and writing. We pass
         the handle to self so that the AsyncoreDispatcher object can call back
         into our various state methods.
+
         """
         super(AsyncoreConnection, self)._adapter_connect()
         self.socket = PikaDispatcher(self.socket, None, self._handle_events)

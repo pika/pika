@@ -451,7 +451,6 @@ class BlockingChannel(channel.Channel):
     def exchange_delete(self, exchange=None, if_unused=False, nowait=False):
         """Delete the exchange.
 
-        :param method callback: The method to call on Exchange.DeleteOk
         :param str|unicode exchange: The exchange name
         :param bool if_unused: only delete if the exchange is unused
         :param bool nowait: Do not wait for an Exchange.DeleteOk

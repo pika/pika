@@ -42,11 +42,12 @@ class Channel(object):
         self.connection = connection
 
         # The frame-handler changes depending on the type of frame processed
-        self.frame_dispatcher = frame.Dispatcher(self.callbacks)
+        self.frame_dispatcher = ContentFrameDispatcher()
 
         self._blocked = collections.deque(list())
         self._blocking = None
         self._flow = None
+        self._has_on_flow_callback = False
 
         self._on_open_callback = on_open_callback
         self._state = self.CLOSED
@@ -91,6 +92,17 @@ class Channel(object):
         """
         self.callbacks.add(self.channel_number, spec.Channel.Close, callback)
 
+    def add_on_flow_callback(self, callback):
+        """Pass a callback function that will be called when Channel.Flow is
+        called by the remote server. Note that newer versions of RabbitMQ
+        will not issue this but instead use TCP backpressure
+
+        :param method callback: The method to call on callback
+
+        """
+        self._has_on_flow_callback = True
+        self.callbacks.add(self.channel_number, spec.Channel.Flow, callback)
+
     def add_on_return_callback(self, callback):
         """Pass a callback function that will be called when basic_publish as
         sent a message that has been rejected and returned by the server. The
@@ -101,7 +113,7 @@ class Channel(object):
         :param method callback: The method to call on callback
 
         """
-        self.callbacks.add(self.channel_number, spec.Basic.Return, callback,
+        self.callbacks.add(self.channel_number, '_on_basic_return', callback,
                            one_shot=False)
 
     def basic_ack(self, delivery_tag=0, multiple=False):
@@ -171,6 +183,7 @@ class Channel(object):
 
         """
         self._validate_channel_and_callback(callback)
+
         # If a consumer tag was not passed, create one
         consumer_tag = consumer_tag or 'ctag%i.%i' % (self.channel_number,
                                                       len(self._consumers) +
@@ -184,7 +197,7 @@ class Channel(object):
         self._rpc(spec.Basic.Consume(queue=queue,
                                      consumer_tag=consumer_tag,
                                      no_ack=no_ack,
-                                              exclusive=exclusive),
+                                     exclusive=exclusive),
                            self._on_event_ok,
                            [spec.Basic.ConsumeOk])
 
@@ -399,17 +412,6 @@ class Channel(object):
         """
         return self._consumers.keys()
 
-    def deliver(self, method_frame):
-        """ Deliver a frame to the frame handler. When it's gotten to a point
-        that it has build our frame responses in a way we can use them, it will
-        call our callback stack to figure out what to do. This is called
-        by the Connection object.
-
-        :param pika.amqp_object.Frame method_frame: The frame to deliver
-
-        """
-        self.frame_dispatcher.process(method_frame)
-
     def exchange_bind(self, callback=None, destination=None, source=None,
                       routing_key='', nowait=False, arguments=None):
         """Bind an exchange to another exchange.
@@ -514,6 +516,28 @@ class Channel(object):
         self._rpc(spec.Channel.Flow(active),
                   self._on_flow_ok,
                   [spec.Channel.FlowOk])
+
+    def handle_content_frames(self, frame_value):
+        """This is invoked by the connection when frames that are not registered
+        with the CallbackManager have been found. This should only be the case
+        when the frames are related to content delivery.
+
+        The frame_dispatcher will be invoked which will return the fully formed
+        message in three parts when all of the body frames have been received.
+
+        :param pika.amqp_object.Frame frame_value: The frame to deliver
+
+        """
+        response = self.frame_dispatcher.process(frame_value)
+        if response is not None:
+            if isinstance(response[0].method, spec.Basic.Deliver):
+                self._on_basic_deliver(*response)
+            elif isinstance(response[0].method, spec.Basic.GetOk):
+                self._on_basic_get_ok(*response)
+            elif isinstance(response[0].method, spec.Basic.Return):
+                self._on_basic_return(*response)
+            else:
+                raise exceptions.UnexpectedFrameError(response[0])
 
     @property
     def is_closed(self):
@@ -669,20 +693,6 @@ class Channel(object):
         connecting and connected to a server.
 
         """
-        # Add a callback for Basic.Deliver
-        self.callbacks.add(self.channel_number,
-                           spec.Basic.Deliver,
-                           self._on_basic_deliver,
-                           False,
-                           self.frame_dispatcher)
-
-        # Add a callback for Basic.Get
-        self.callbacks.add(self.channel_number,
-                           spec.Basic.Get,
-                           self._on_basic_get_ok,
-                           False,
-                           self.frame_dispatcher)
-
         # Add a callback for Basic.GetEmpty
         self.callbacks.add(self.channel_number,
                            spec.Basic.GetEmpty,
@@ -695,6 +705,12 @@ class Channel(object):
                            self._on_basic_cancel,
                            False)
 
+        # Deprecated in newer versions of RabbitMQ but still register for it
+        self.callbacks.add(self.channel_number,
+                           spec.Channel.Flow,
+                           self._on_flow,
+                           False)
+
         # Add a callback for when the server closes our channel
         self.callbacks.add(self.channel_number,
                            spec.Channel.Close,
@@ -702,6 +718,14 @@ class Channel(object):
                            False)
 
     def _add_pending_msg(self, consumer_tag, method_frame,  header_frame, body):
+        """Add the received message to the pending message stack.
+
+        :param str consumer_tag: The consumer tag for the message
+        :param pika.frame.Method method_frame: The received method frame
+        :param pika.frame.Header header_frame: The received header frame
+        :param str|unicode body: The message body
+
+        """
         self._pending[consumer_tag].append((self, method_frame.method,
                                             header_frame.properties, body))
 
@@ -710,6 +734,12 @@ class Channel(object):
         self.callbacks.cleanup(str(self.channel_number))
 
     def _get_pending_msg(self, consumer_tag):
+        """Get a pending message for the consumer tag from the stack.
+
+        :param str consumer_tag: The consumer tag to get a message from
+        :rtype: tuple(pika.frame.Header, pika.frame.Method, str|unicode)
+
+        """
         return self._pending[consumer_tag].pop(0)
 
     def _has_content(self, method_frame):
@@ -756,6 +786,7 @@ class Channel(object):
         :param str body: The body received
 
         """
+        LOGGER.debug('Called with %r, %r, %r', method_frame, header_frame, body)
         consumer_tag = method_frame.method.consumer_tag
         if consumer_tag in self._cancelled:
             LOGGER.debug('Rejected message for cancelled consumer')
@@ -796,13 +827,30 @@ class Channel(object):
         else:
             LOGGER.error('Basic.GetOk received with no active callback')
 
+    def _on_basic_return(self, method_frame, header_frame, body):
+        """Called if the server sends a Basic.Return frame.
+
+        :param pika.frame.Method method_frame: The Basic.Return frame
+        :param pika.frame.Header header_frame: The content header frame
+        :param str|unicode body: The message body
+
+        """
+        if not self.callbacks.process(self.channel_number, '_on_basic_return',
+                                      (self, method_frame.method,
+                                       header_frame.properties,
+                                       body)):
+            LOGGER.warning('Basic.Return received from server (%r, %r)',
+                           method_frame.method, header_frame.properties)
+
     def _on_close(self, method_frame):
         """Handle the case where our channel has been closed for us
 
         :param pika.frame.Method method_frame: The close frame
 
         """
-        LOGGER.warning('Received Channel.Close, closing: %r', method_frame)
+        LOGGER.warning('Received remote Channel.Close (%s): %s',
+                       method_frame.method.reply_code,
+                       method_frame.method.reply_text)
         self._send_method(spec.Channel.CloseOk())
         self._set_state(self.CLOSED)
 
@@ -812,7 +860,7 @@ class Channel(object):
         :param pika.frame.Method method_frame: The method frame received
 
         """
-        LOGGER.info("Confirm.SelectOk Received: %r", method_frame)
+        LOGGER.debug("Confirm.SelectOk Received: %r", method_frame)
 
     def _on_event_ok(self, method_frame):
         """Generic events that returned ok that may have internal callbacks.
@@ -823,6 +871,15 @@ class Channel(object):
 
         """
         LOGGER.debug('Discarding frame %r', method_frame)
+
+    def _on_flow(self, method_frame_unused):
+        """Called if the server sends a Channel.Flow frame.
+
+        :param pika.frame.Method method_frame_unused: The Channel.Flow frame
+
+        """
+        if not self._has_on_flow_callback:
+            LOGGER.warning('Channel.Flow received from server')
 
     def _on_flow_ok(self, method_frame):
         """Called in response to us asking the server to toggle on Channel.Flow
@@ -851,15 +908,14 @@ class Channel(object):
         if self._on_open_callback:
             self._on_open_callback(self)
 
-    def _on_synchronous_complete(self, method_frame):
+    def _on_synchronous_complete(self, method_frame_unused):
         """This is called when a synchronous command is completed. It will undo
         the blocking state and send all the frames that stacked up while we
         were in the blocking state.
 
-        :param pika.frame.Method method_frame: The method frame received
+        :param pika.frame.Method method_frame_unused: The method frame received
 
         """
-        LOGGER.debug('Synchronous complete for %r', method_frame)
         self._blocking = None
         while self._blocked and not self.blocking:
             self._rpc(*self._blocked.popleft())
@@ -899,13 +955,10 @@ class Channel(object):
         # If acceptable replies are set, add callbacks
         if acceptable_replies:
             for reply in acceptable_replies or list():
-                self.callbacks.add(self.channel_number,
-                                   reply,
+                self.callbacks.add(self.channel_number, reply,
                                    self._on_synchronous_complete)
                 if callback:
-                    self.callbacks.add(self.channel_number,
-                                       reply,
-                                       callback)
+                    self.callbacks.add(self.channel_number, reply, callback)
 
         self._send_method(method_frame)
 
@@ -920,8 +973,13 @@ class Channel(object):
         """
         self.connection._send_method(self.channel_number, method_frame, content)
 
-    def _set_state(self, CONNECTION_STATE):
-        self._state = CONNECTION_STATE
+    def _set_state(self, connection_state):
+        """Set the channel connection state to the specified state value.
+
+        :param int connection_state: The connection_state value
+
+        """
+        self._state = connection_state
 
     def _shutdown(self):
         """Called when close() is invoked either directly or when all of the
@@ -937,3 +995,80 @@ class Channel(object):
             raise exceptions.ChannelClosed()
         if callback is not None and not is_callable(callback):
             raise ValueError('callback must be a function or method')
+
+
+
+class ContentFrameDispatcher(object):
+    """Handle content related frames, building a message and return the message
+    back in three parts upon receipt.
+
+    """
+    def __init__(self):
+        """Create a new instance of the Dispatcher passing in the callback
+        manager.
+
+        """
+        self._method_frame = None
+        self._header_frame = None
+        self._seen_so_far = 0
+        self._body_fragments = list()
+
+    def process(self, frame_value):
+        """Invoked by the Channel object when passed frames that are not
+        setup in the rpc process and that don't have explicit reply types
+        defined. This includes Basic.Publish, Basic.GetOk and Basic.Return
+
+        :param Method|Header|Body frame_value: The frame to process
+
+        """
+        if (isinstance(frame_value, frame.Method) and
+            spec.has_content(frame_value.method.INDEX)):
+            self._method_frame = frame_value
+        elif isinstance(frame_value, frame.Header):
+            self._header_frame = frame_value
+        elif isinstance(frame_value, frame.Body):
+            return self._handle_body_frame(frame_value)
+        else:
+            raise exceptions.UnexpectedFrameError(frame_value)
+
+    def _finish(self):
+        """Invoked when all of the message has been received
+
+        :rtype: tuple(pika.frame.Method, pika.frame.Header, str|unicode)
+
+        """
+        ascii_value = ''.join(self._body_fragments)
+        utf8_value = ''.join(self._body_fragments).encode('utf-8')
+        value = ascii_value if ascii_value == utf8_value else utf8_value
+        content = (self._method_frame,
+                   self._header_frame,
+                   value)
+        self._reset()
+        return content
+
+    def _handle_body_frame(self, body_frame):
+        """Receive body frames and append them to the stack. When the body size
+        matches, call the finish method.
+
+        :param Body body_frame: The body frame
+        :raises: pika.exceptions.BodyTooLongError
+        :rtype: tuple(pika.frame.Method, pika.frame.Header, str|unicode)|None
+
+        """
+        if not isinstance(body_frame, frame.Body):
+            raise exceptions.UnexpectedFrameError(body_frame)
+        self._seen_so_far += len(body_frame.fragment)
+        self._body_fragments.append(body_frame.fragment)
+        if self._seen_so_far == self._header_frame.body_size:
+            return self._finish()
+        elif self._seen_so_far > self._header_frame.body_size:
+            raise exceptions.BodyTooLongError(self._seen_so_far,
+                                              self._header_frame.body_size)
+        return None
+
+    def _reset(self):
+        """Reset the values for processing frames"""
+        self._method_frame = None
+        self._header_frame = None
+        self._seen_so_far = 0
+        self._body_fragments = list()

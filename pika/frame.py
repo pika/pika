@@ -187,169 +187,6 @@ class ProtocolHeader(amqp_object.AMQPObject):
                                     self.revision)
 
 
-class Dispatcher(object):
-    """This handles content frames which come in in synchronous order as
-    follows:
-
-    1) Method Frame
-    2) Header Frame
-    3) Body Frame(s)
-
-    The way that content handler works is to assign the active frame type to
-    the self._handler variable. When we receive a header frame that is either
-    a Basic.Deliver, Basic.GetOk, or Basic.Return, we will assign the handler
-    to the ContentHandler._handle_header_frame. This will fire the next time
-    we are called and parse out the attributes required to receive the body
-    frames and assemble the content to be returned. We will then assign the
-    self._handler to ContentHandler._handle_body_frame.
-
-    _handle_body_frame has two methods inside of it, handle and finish.
-    handle will be invoked until the requirements set by the header frame have
-    been met at which point it will call the finish method. This calls
-    the callback manager with the method frame, header frame and assembled
-    body and then reset the self._handler to the _handle_method_frame method.
-
-    """
-    def __init__(self, callback_manager):
-        """Create a new instance of the Dispatcher passing in the callback
-        manager.
-
-        :param pika.callback.CallbackManager callback_manager: Callback manager
-
-        """
-        # We start with Method frames always
-        self._handler = self._handle_method_frame
-        self.callbacks = callback_manager
-
-    def process(self, frame_value):
-        """Invoked by the Channel object when passed frames that are not
-        setup in the rpc process and that don't have explicit reply types
-        defined. This includes Basic.Publish, Basic.GetOk and Basic.Return
-
-        :param Method|Header|Body frame_value: The frame to process
-
-        """
-        self._handler(frame_value)
-
-    def _handle_method_frame(self, frame_value):
-        """Receive a frame and process it, we should have content by the time we
-        reach this handler, set the next handler to be the header frame handler
-
-        :param Method|Header frame_value: The method frame to process
-        :raises: pika.exceptions.InvalidFrameError
-
-        """
-        # If we don't have FrameMethod something is wrong so throw an exception
-        if not isinstance(frame_value, Method):
-            raise exceptions.UnexpectedFrameError(frame_value)
-
-        # If the frame is a content related frame go deal with the content
-        # By getting the content header frame
-        if spec.has_content(frame_value.method.INDEX):
-            self._handler = self._handle_header_frame(frame_value)
-
-        # We were passed a frame we don't know how to deal with
-        else:
-            raise exceptions.InvalidFrameError(repr(frame_value.method))
-
-    def _handle_header_frame(self, frame_value):
-        """Receive a header frame and process that, setting the next handler
-        to the body frame handler
-
-        :param Method frame_value: The header frame to process
-        :rtype: method
-
-        """
-        def handler(header_frame):
-            """Method to process header frames
-
-            :param Header header_frame: The content header frame
-            :raises: UnexpectedFrameError
-
-            """
-            if not isinstance(header_frame, Header):
-                raise exceptions.UnexpectedFrameError(header_frame)
-            self._handle_body_frame(frame_value, header_frame)
-        return handler
-
-    def _handle_body_frame(self, method_frame, header_frame):
-        """Receive body frames. We'll keep receiving them in handler until we've
-        received the body size specified in the header frame. When done
-        call our finish function which will call our transports callbacks
-
-        :param Method method_frame: The method frame for the message
-        :param Header header_frame: The header frame for the message
-
-        """
-        seen_so_far = [0]
-        body_fragments = list()
-
-        def handler(body_frame):
-            """Handle body frames and append them to the content.
-
-            :param Body body_frame: The body frame
-            :raises: pika.exceptions.BodyTooLongError
-
-            """
-            # Make sure it's a body frame
-            if not isinstance(body_frame, Body):
-                raise exceptions.UnexpectedFrameError(body_frame)
-
-            # Increment our counter so we know when we've had enough
-            seen_so_far[0] += len(body_frame.fragment)
-
-            # Append the fragment to our list
-            body_fragments.append(body_frame.fragment)
-
-            # Did we get enough bytes? If so finish
-            if seen_so_far[0] == header_frame.body_size:
-                finish()
-            elif seen_so_far[0] < header_frame.body_size:
-                LOGGER.debug('Received message Body frame, %i of %i bytes of '
-                             'message body received.',
-                             seen_so_far[0], header_frame.body_size)
-            # Did we get too many bytes?
-            elif seen_so_far[0] > header_frame.body_size:
-                error = 'Received %i and only expected %i' % \
-                        (seen_so_far[0], header_frame.body_size)
-                raise exceptions.BodyTooLongError(error)
-
-        def finish():
-            """Invoked when all of the message has been received
-
-            :raises: pika.exception.UnimplementedContentReturn
-
-            """
-            # We're done so set our handler back to the method frame
-            self._handler = self._handle_method_frame
-
-            # Get our method name
-            method = method_frame.method.__class__.__name__
-            if method == 'Deliver':
-                key = '_on_basic_deliver'
-            elif method == 'GetOk':
-                key = '_on_basic_get'
-            elif method == 'Return':
-                key = '_on_basic_return'
-            else:
-                raise exceptions.UnimplementedContentReturn
-
-            # Check for a processing callback for our method name
-            self.callbacks.process(method_frame.channel_number,  # Prefix
-                                   key,                          # Key
-                                   self,                         # Caller
-                                   method_frame,                 # Arg 1
-                                   header_frame,                 # Arg 2
-                                   ''.join(body_fragments))      # Arg 3
-
-        # If we don't have a header frame body size, finish. Otherwise keep
-        # going and keep our handler function as the frame handler
-        if not header_frame.body_size:
-            finish()
-        else:
-            self._handler = handler
-
-
 def decode_frame(data_in):
     """Receives raw socket data and attempts to turn it into a frame.
     Returns bytes used to make the frame and the frame
@@ -364,25 +201,19 @@ def decode_frame(data_in):
         if data_in[0:4] == 'AMQP':
             major, minor, revision = struct.unpack_from('BBB', data_in, 5)
             return 8, ProtocolHeader(major, minor, revision)
-    except IndexError:
-        # We didn't get a full frame
-        return 0, None
-    except struct.error:
-        # We didn't get a full frame
+    except (IndexError, struct.error):
         return 0, None
 
     # Get the Frame Type, Channel Number and Frame Size
     try:
-        frame_type, channel_number, frame_size = \
-            struct.unpack('>BHL', data_in[0:7])
+        (frame_type,
+         channel_number,
+         frame_size) = struct.unpack('>BHL', data_in[0:7])
     except struct.error:
-        # We didn't get a full frame
         return 0, None
 
     # Get the frame data
-    frame_end = spec.FRAME_HEADER_SIZE +\
-                frame_size +\
-                spec.FRAME_END_SIZE
+    frame_end = spec.FRAME_HEADER_SIZE + frame_size + spec.FRAME_END_SIZE
 
     # We don't have all of the frame yet
     if frame_end > len(data_in):
