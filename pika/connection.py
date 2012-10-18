@@ -22,8 +22,25 @@ PRODUCT = "Pika Python Client Library"
 LOGGER = logging.getLogger(__name__)
 
 class Parameters(object):
-    """Base connection parameters class definition"""
+    """Base connection parameters class definition
 
+    :param str DEFAULT_HOST: 'localhost'
+    :param int DEFAULT_PORT: 5672
+    :param str DEFAULT_VIRTUAL_HOST: '/'
+    :param str DEFAULT_USERNAME: 'guest'
+    :param str DEFAULT_PASSWORD: 'guest'
+    :param int DEFAULT_HEARTBEAT_INTERVAL: 0
+    :param int DEFAULT_CHANNEL_MAX: 0
+    :param int DEFAULT_FRAME_MAX: pika.spec.FRAME_MAX_SIZE
+    :param str DEFAULT_LOCALE: 'en_US'
+    :param int DEFAULT_CONNECTION_ATTEMPTS: 1
+    :param int|float DEFAULT_RETRY_DELAY: 2.0
+    :param int|float DEFAULT_SOCKET_TIMEOUT: 0.25
+    :param bool DEFAULT_SSL: False
+    :param dict DEFAULT_SSL_OPTIONS: {}
+    :param bool DEFAULT_BACKPRESSURE_DETECTION: False
+
+    """
     DEFAULT_BACKPRESSURE_DETECTION = False
     DEFAULT_CONNECTION_ATTEMPTS = 1
     DEFAULT_CHANNEL_MAX = 0
