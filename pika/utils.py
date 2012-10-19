@@ -4,7 +4,7 @@ Non-module specific functions shared by modules in the pika package
 """
 try:
     from collections import Callable
-except ImportError:
+except ImportError:  #pragma: no cover
     Callable = None
 
 
