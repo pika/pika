@@ -119,7 +119,7 @@ class Parameters(object):
         if not isinstance(channel_max, int):
             raise TypeError('channel_max must be an int')
         if channel_max < 1 or channel_max > 65535:
-            raise ValueError('channel_max must be <= 65535 and >= 0')
+            raise ValueError('channel_max must be <= 65535 and > 0')
         return True
 
     def _validate_connection_attempts(self, connection_attempts):
@@ -180,8 +180,8 @@ class Parameters(object):
         """
         if not isinstance(heartbeat_interval, int):
             raise TypeError('heartbeat must be an int')
-        if heartbeat_interval < 1:
-            raise ValueError('heartbeat_interval must be None or > 0')
+        if heartbeat_interval < 0:
+            raise ValueError('heartbeat_interval must >= 0')
         return True
 
     def _validate_host(self, host):
