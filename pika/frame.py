@@ -16,6 +16,7 @@ class Frame(amqp_object.AMQPObject):
 
     """
     NAME = 'Frame'
+
     def __init__(self, frame_type, channel_number):
         """Create a new instance of a frame
 
@@ -134,8 +135,9 @@ class Body(Frame):
 
 
 class Heartbeat(Frame):
-    """Heartbeat frame object mapping class. AMQP Heartbeat frames are mapped on
-    to this class for a common access structure to the attributes/data values.
+    """Heartbeat frame object mapping class. AMQP Heartbeat frames are mapped
+    on to this class for a common access structure to the attributes/data
+    values.
 
     """
     NAME = 'Heartbeat'
