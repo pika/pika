@@ -4,22 +4,25 @@ and append data to the end.
 
 It's ideal to use as a network buffer, from which you send data to the socket.
 Use this to avoid concatenating or splitting large strings.
+
 """
 import os
 try:
     import cStringIO as StringIO
-except ImportError:
+except ImportError: #pragma: no coverage
     import StringIO
 
 # Python 2.4 support: os lacks SEEK_END and friends
 try:
     getattr(os, "SEEK_END")
-except AttributeError:
+except AttributeError: #pragma: no coverage
     os.SEEK_SET, os.SEEK_CUR, os.SEEK_END = range(3)
 
 
 class SimpleBuffer(object):
-    """
+    """A simple buffer that will handle storing, reading and sending strings
+    to a socket.
+
     >>> b = SimpleBuffer("abcdef")
     >>> b.read_and_consume(3)
     'abc'
@@ -39,14 +42,30 @@ class SimpleBuffer(object):
     size = 0
 
     def __init__(self, data=None):
-        self.buf = StringIO.StringIO()
+        """Create a new instance of the SimpleBuffer. If you pass in data,
+        the buffer will be primed with that value.
+
+        :param str|unicode data: Optional data to prime the buffer with
+
+        """
+        self.buf = self._get_stringio()
         if data is not None:
             self.write(data)
         self.buf.seek(0, os.SEEK_END)
 
-    def write(self, *data_strings):
+    def _get_stringio(self):
+        """Return an instance of the StringIO file object.
+
+        :rtype: file
+
         """
-        Append given strings to the buffer.
+        return StringIO.StringIO()
+
+    def write(self, *data_strings):
+        """Append given strings to the buffer.
+
+        :param str|unicode data_strings: Value to write to the buffer
+
         """
         for data in data_strings:
             if not data:
@@ -55,8 +74,10 @@ class SimpleBuffer(object):
             self.size += len(data)
 
     def read(self, size=None):
-        """
-        Read the data from the buffer, at most 'size' bytes.
+        """Read the data from the buffer, at most 'size' bytes.
+
+        :param int size: The number of bytes to read
+
         """
         if size is 0:
             return ''
@@ -72,8 +93,10 @@ class SimpleBuffer(object):
         return data
 
     def consume(self, size):
-        """
-        Move pointer and discard first 'size' bytes.
+        """Move pointer and discard first 'size' bytes.
+
+        :param int size: The number of bytes to consume
+
         """
         self.offset += size
         self.size -= size
@@ -85,8 +108,11 @@ class SimpleBuffer(object):
             self.offset = 0
 
     def read_and_consume(self, size):
-        """
-        Read up to 'size' bytes, also remove it from the buffer.
+        """Read up to 'size' bytes, also remove it from the buffer.
+
+        :param int size: The number of bytes to read and consume
+        :rtype: str
+
         """
         assert(self.size >= size)
         data = self.read(size)
@@ -94,8 +120,11 @@ class SimpleBuffer(object):
         return data
 
     def send_to_socket(self, sd):
-        """
-        Faster way of sending buffer data to socket 'sd'.
+        """Faster way of sending buffer data to socket 'sd'.
+
+        :param socket.socket sd: The socket to send data to
+        :rtype: int
+
         """
         self.buf.seek(self.offset)
         r = sd.send(self.buf.read())
@@ -107,22 +136,39 @@ class SimpleBuffer(object):
         return r
 
     def flush(self):
-        """
-        Remove all the data from buffer.
-        """
+        """Remove all the data from buffer."""
         self.consume(self.size)
 
     def __nonzero__(self):
-        """Are we empty?"""
+        """Is there any data in the buffer? ie not foo
+
+        :rtype: bool
+
+        """
         return self.size > 0
 
     def __len__(self):
+        """Return the amount of readable data in the buffer.
+
+        :rtype: len
+
+        """
         return self.size
 
     def __str__(self):
+        """Return the string representation of the class.
+
+        :rtype: str
+
+        """
         return self.__repr__()
 
     def __repr__(self):
+        """Return the string representation of the class.
+
+        :rtype: str
+
+        """
         return '<SimpleBuffer of %i bytes, %i total size, %r%s>' % \
                     (self.size, self.size + self.offset, self.read(16),
                     (self.size > 16) and '...' or '')
