@@ -12,7 +12,7 @@ on_rtd = os.environ.get('READTHEDOCS', None) == 'True'
 requirements = list()
 if on_rtd:
     requirements.append('tornado')
-    
+
 # Conditional include unittest2 for versions of python < 2.7
 tests_require=['nose', 'mock']
 platform_version = list(platform.python_version_tuple())[0:2]
