@@ -1,6 +1,7 @@
 # -*- coding: utf8 -*-
 """
 Tests for connection parameters.
+
 """
 import socket
 from mock import patch
@@ -22,12 +23,10 @@ class ConnectionTests(unittest.TestCase):
     def test_parameters(self):
         params = ConnectionParameters(socket_timeout=0.5,
                                       retry_delay=0.1,
-                                      connection_attempts=3,
-                                      )
+                                      connection_attempts=3)
         self.assertEqual(params.socket_timeout, 0.5)
         self.assertEqual(params.retry_delay, 0.1)
         self.assertEqual(params.connection_attempts, 3)
-
 
     @patch.object(socket.socket, 'settimeout')
     @patch.object(socket.socket, 'connect')
