@@ -15,6 +15,7 @@ class AMQPConnectionError(AMQPError):
         elif len(self.args) == 2:
             return "%s: %s" % (self.args[0], self.args[1])
 
+
 class IncompatibleProtocolError(AMQPConnectionError):
     pass
 
