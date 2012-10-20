@@ -21,6 +21,7 @@ PRODUCT = "Pika Python Client Library"
 
 LOGGER = logging.getLogger(__name__)
 
+
 class Parameters(object):
     """Base connection parameters class definition
 
