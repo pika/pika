@@ -1055,8 +1055,6 @@ class ContentFrameDispatcher(object):
         :rtype: tuple(pika.frame.Method, pika.frame.Header, str|unicode)|None
 
         """
-        if not isinstance(body_frame, frame.Body):
-            raise exceptions.UnexpectedFrameError(body_frame)
         self._seen_so_far += len(body_frame.fragment)
         self._body_fragments.append(body_frame.fragment)
         if self._seen_so_far == self._header_frame.body_size:
