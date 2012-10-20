@@ -663,7 +663,7 @@ class BlockingChannel(channel.Channel):
             self._replies.remove(key)
 
     def _rpc(self, method_frame, callback=None, acceptable_replies=None,
-             content=None):
+             content=None, force_data_events=True):
         """Make an RPC call for the given callback, channel number and method.
         acceptable_replies lists out what responses we'll process from the
         server with the specified callback.
@@ -672,6 +672,7 @@ class BlockingChannel(channel.Channel):
         :param method callback: The callback for the RPC response
         :param list acceptable_replies: The replies this RPC call expects
         :param tuple content: Properties and Body for content frames
+        :param bool force_data_events: Call process data events before reply
         :rtype: pika.frame.Method
 
         """
@@ -688,6 +689,8 @@ class BlockingChannel(channel.Channel):
         self._received_response = False
         self._send_method(method_frame, content,
                           self._wait_on_response(method_frame))
+        if force_data_events:
+            self.connection.process_data_events()
         return self._process_replies(replies, callback)
 
     def _send_method(self, method_frame, content=None, wait=True):
