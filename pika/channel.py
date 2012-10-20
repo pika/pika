@@ -81,7 +81,7 @@ class Channel(object):
 
         """
         self.callbacks.add(self.channel_number, spec.Basic.Cancel, callback,
-                           one_shot=False)
+                           False)
 
     def add_on_close_callback(self, callback):
         """Pass a callback function that will be called when the channel is
@@ -90,7 +90,8 @@ class Channel(object):
         :param method callback: The method to call on callback
 
         """
-        self.callbacks.add(self.channel_number, spec.Channel.Close, callback)
+        self.callbacks.add(self.channel_number, spec.Channel.Close, callback,
+                           False)
 
     def add_on_flow_callback(self, callback):
         """Pass a callback function that will be called when Channel.Flow is
@@ -101,7 +102,8 @@ class Channel(object):
 
         """
         self._has_on_flow_callback = True
-        self.callbacks.add(self.channel_number, spec.Channel.Flow, callback)
+        self.callbacks.add(self.channel_number, spec.Channel.Flow, callback,
+                           False)
 
     def add_on_return_callback(self, callback):
         """Pass a callback function that will be called when basic_publish as
@@ -114,7 +116,7 @@ class Channel(object):
 
         """
         self.callbacks.add(self.channel_number, '_on_basic_return', callback,
-                           one_shot=False)
+                           False)
 
     def basic_ack(self, delivery_tag=0, multiple=False):
         """Acknowledge one or more messages. When sent by the client, this
