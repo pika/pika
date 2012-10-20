@@ -22,7 +22,8 @@ class ExceptionTests(unittest.TestCase):
 
     def test_authentication_error_repr(self):
         self.assertEqual(repr(exceptions.AuthenticationError('PLAIN')),
-                         'No PLAIN support for the credentials')
+                         'Server and client could not negotiate use of the '
+                         'PLAIN authentication mechanism')
 
     def test_body_too_long_error_repr(self):
         self.assertEqual(repr(exceptions.BodyTooLongError(100, 50)),
