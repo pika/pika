@@ -15,9 +15,7 @@ class PlainCredentials(object):
     will create credentials for 'guest' with the password of 'guest'.
 
     If you pass True to erase_on_connect the credentials will not be stored
-    in memory after the Connection attempt has been made. This means that you
-    will not be able to use a Reconnection Strategy successfully if this is
-    enabled.
+    in memory after the Connection attempt has been made.
 
     """
     TYPE = 'PLAIN'
@@ -79,6 +77,7 @@ class ExternalCredentials(object):
     def erase_credentials(self):
         """Called by Connection when it no longer needs the credentials"""
         LOGGER.debug('Not supported by this Credentials type')
+
 
 # Append custom credential types to this list for validation support
 VALID_TYPES = [PlainCredentials, ExternalCredentials]
