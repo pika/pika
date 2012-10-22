@@ -159,7 +159,7 @@ class Channel(object):
         if consumer_tag not in self._consumers:
             return
         self._cancelled.append(consumer_tag)
-        if callback and nowait:
+        if callback and nowait is False:
             self.callbacks.add(self.channel_number,
                                spec.Basic.CancelOk,
                                callback)
@@ -182,6 +182,7 @@ class Channel(object):
         :param bool no_ack: Tell the broker to not expect a response
         :param bool exclusive: Don't allow other consumers on the queue
         :param str|unicode consumer_tag: Specify your own consumer tag
+        :rtype: str
 
         """
         self._validate_channel_and_callback(consumer_callback)
@@ -382,7 +383,7 @@ class Channel(object):
         if callback:
 
             # Register the SelectOk
-            if  not nowait:
+            if nowait is False:
                 self.callbacks.add(self.channel_number,
                                    spec.Confirm.SelectOk,
                                    callback,
@@ -426,11 +427,12 @@ class Channel(object):
         :param dict arguments: Custom key/value pair arguments for the binding
 
         """
+        replies = [spec.Exchange.BindOk] if nowait is False else []
         self._validate_channel_and_callback(callback)
         return self._rpc(spec.Exchange.Bind(0, destination, source,
                                             routing_key, nowait,
                                             arguments or dict()), callback,
-                         [spec.Exchange.BindOk])
+                         replies)
 
     def exchange_declare(self, callback=None, exchange=None,
                          exchange_type='direct', passive=False, durable=False,
@@ -459,13 +461,13 @@ class Channel(object):
         :param dict arguments: Custom key/value pair arguments for the exchange
 
         """
+        replies = [spec.Exchange.DeclareOk] if nowait is False else []
         self._validate_channel_and_callback(callback)
         return self._rpc(spec.Exchange.Declare(0, exchange, exchange_type,
                                                passive, durable, auto_delete,
                                                internal, nowait,
                                                arguments or dict()),
-                         callback,
-                         [spec.Exchange.DeclareOk])
+                         callback, replies)
 
     def exchange_delete(self, callback=None, exchange=None, if_unused=False,
                         nowait=False):
@@ -477,10 +479,10 @@ class Channel(object):
         :param bool nowait: Do not wait for an Exchange.DeleteOk
 
         """
+        replies = [spec.Exchange.DeleteOk] if nowait is False else []
         self._validate_channel_and_callback(callback)
         return self._rpc(spec.Exchange.Delete(0, exchange, if_unused, nowait),
-                         callback,
-                         [spec.Exchange.DeleteOk])
+                         callback, replies)
 
     def exchange_unbind(self, callback=None, destination=None, source=None,
                         routing_key='', nowait=False, arguments=None):
@@ -494,11 +496,11 @@ class Channel(object):
         :param dict arguments: Custom key/value pair arguments for the binding
 
         """
+        replies = [spec.Exchange.UnbindOk] if nowait is False else []
         self._validate_channel_and_callback(callback)
         return self._rpc(spec.Exchange.Unbind(0, destination, source,
                                               routing_key, nowait, arguments),
-                         callback,
-                         [spec.Exchange.UnbindOk])
+                         callback, replies)
 
     def flow(self, callback, active):
         """Turn Channel flow control off and on. Pass a callback to be notified
@@ -586,10 +588,11 @@ class Channel(object):
         :param dict arguments: Custom key/value pair arguments for the binding
 
         """
+        replies = [spec.Queue.BindOk] if nowait is False else []
         self._validate_channel_and_callback(callback)
         return self._rpc(spec.Queue.Bind(0, queue, exchange, routing_key,
                                          nowait, arguments or dict()), callback,
-                         [spec.Queue.BindOk])
+                         replies)
 
     def queue_declare(self, callback, queue, passive=False, durable=False,
                       exclusive=False, auto_delete=False, nowait=False,
@@ -609,11 +612,12 @@ class Channel(object):
         :param dict arguments: Custom key/value arguments for the queue
 
         """
+        replies = [spec.Queue.DeclareOk] if nowait is False else []
         self._validate_channel_and_callback(callback)
         return self._rpc(spec.Queue.Declare(0, queue, passive, durable,
                                             exclusive, auto_delete, nowait,
                                             arguments or dict()), callback,
-                         [spec.Queue.DeclareOk])
+                         replies)
 
     def queue_delete(self, callback=None, queue='', if_unused=False,
                      if_empty=False, nowait=False):
@@ -626,10 +630,11 @@ class Channel(object):
         :param bool nowait: Do not wait for a Queue.DeleteOk
 
         """
+        replies = [spec.Queue.DeleteOk] if nowait is False else []
         self._validate_channel_and_callback(callback)
         return self._rpc(spec.Queue.Delete(0, queue, if_unused, if_empty,
                                            nowait), callback,
-                         [spec.Queue.DeleteOk])
+                         replies)
 
     def queue_purge(self, callback=None, queue='', nowait=False):
         """Purge all of the messages from the specified queue
@@ -639,9 +644,10 @@ class Channel(object):
         :param bool nowait: Do not expect a Queue.PurgeOk response
 
         """
+        replies = [spec.Queue.PurgeOk] if nowait is False else []
         self._validate_channel_and_callback(callback)
         return self._rpc(spec.Queue.Purge(0, queue, nowait), callback,
-                         [spec.Queue.PurgeOk])
+                         replies)
 
     def queue_unbind(self, callback=None, queue='', exchange=None,
                      routing_key='', arguments=None):

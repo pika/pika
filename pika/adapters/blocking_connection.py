@@ -288,7 +288,7 @@ class BlockingChannel(channel.Channel):
         if consumer_tag not in self._consumers:
             return
         self._cancelled.append(consumer_tag)
-        replies = [spec.Basic.CancelOk] if not nowait else []
+        replies = [spec.Basic.CancelOk] if nowait is False else []
         self._rpc(spec.Basic.Cancel(consumer_tag=consumer_tag, nowait=nowait),
                   self._on_basic_cancel_ok, replies)
 
@@ -411,7 +411,7 @@ class BlockingChannel(channel.Channel):
             not self.connection.basic_nack):
             raise exceptions.MethodNotImplemented('Not Supported on Server')
         self._confirmation = True
-        replies = [spec.Confirm.SelectOk] if not nowait else []
+        replies = [spec.Confirm.SelectOk] if nowait is False else []
         self._rpc(spec.Confirm.Select(nowait), None, replies)
 
     def exchange_bind(self, destination=None, source=None, routing_key='',
@@ -425,7 +425,7 @@ class BlockingChannel(channel.Channel):
         :param dict arguments: Custom key/value pair arguments for the binding
 
         """
-        replies = [spec.Exchange.BindOk] if not nowait else []
+        replies = [spec.Exchange.BindOk] if nowait is False else []
         return self._rpc(spec.Exchange.Bind(0, destination, source,
                                             routing_key, nowait,
                                             arguments or dict()), None, replies)
@@ -456,7 +456,7 @@ class BlockingChannel(channel.Channel):
         :param dict arguments: Custom key/value pair arguments for the exchange
 
         """
-        replies = [spec.Exchange.DeclareOk] if not nowait else []
+        replies = [spec.Exchange.DeclareOk] if nowait is False else []
         return self._rpc(spec.Exchange.Declare(0, exchange, exchange_type,
                                                passive, durable, auto_delete,
                                                internal, nowait,
@@ -471,7 +471,7 @@ class BlockingChannel(channel.Channel):
         :param bool nowait: Do not wait for an Exchange.DeleteOk
 
         """
-        replies = [spec.Exchange.DeleteOk] if not nowait else []
+        replies = [spec.Exchange.DeleteOk] if nowait is False else []
         return self._rpc(spec.Exchange.Delete(0, exchange, if_unused, nowait),
                          None, replies)
 
@@ -486,7 +486,7 @@ class BlockingChannel(channel.Channel):
         :param dict arguments: Custom key/value pair arguments for the binding
 
         """
-        replies = [spec.Exchange.UnbindOk] if not nowait else []
+        replies = [spec.Exchange.UnbindOk] if nowait is False else []
         return self._rpc(spec.Exchange.Unbind(0, destination, source,
                                               routing_key, nowait, arguments),
                          None, replies)
@@ -508,7 +508,7 @@ class BlockingChannel(channel.Channel):
         :param dict arguments: Custom key/value pair arguments for the binding
 
         """
-        replies = [spec.Queue.BindOk] if not nowait else []
+        replies = [spec.Queue.BindOk] if nowait is False else []
         return self._rpc(spec.Queue.Bind(0, queue, exchange, routing_key,
                                          nowait, arguments or dict()),
                          None, replies)
@@ -530,7 +530,7 @@ class BlockingChannel(channel.Channel):
         :param dict arguments: Custom key/value arguments for the queue
 
         """
-        replies = [spec.Queue.DeclareOk] if not nowait else []
+        replies = [spec.Queue.DeclareOk] if nowait is False else []
         return self._rpc(spec.Queue.Declare(0, queue, passive, durable,
                                             exclusive, auto_delete, nowait,
                                             arguments or dict()),
@@ -546,7 +546,7 @@ class BlockingChannel(channel.Channel):
         :param bool nowait: Do not wait for a Queue.DeleteOk
 
         """
-        replies = [spec.Queue.DeleteOk] if not nowait else []
+        replies = [spec.Queue.DeleteOk] if nowait is False else []
         return self._rpc(spec.Queue.Delete(0, queue, if_unused, if_empty,
                                            nowait), None, replies)
 
@@ -557,7 +557,7 @@ class BlockingChannel(channel.Channel):
         :param bool nowait: Do not expect a Queue.PurgeOk response
 
         """
-        replies = [spec.Queue.PurgeOk] if not nowait else []
+        replies = [spec.Queue.PurgeOk] if nowait is False else []
         return self._rpc(spec.Queue.Purge(0, queue, nowait), None, replies)
 
     def queue_unbind(self, queue='', exchange=None, routing_key='',
