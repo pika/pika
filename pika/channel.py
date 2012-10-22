@@ -362,9 +362,9 @@ class Channel(object):
         self._shutdown()
 
     def confirm_delivery(self, callback=None, nowait=False):
-        """Turn on Confirm mode in the channel. Pass in a callback to be notified
-        by the Broker when a message has been confirmed as received (Basic.Ack
-        from the broker to the publisher).
+        """Turn on Confirm mode in the channel. Pass in a callback to be
+        notified by the Broker when a message has been confirmed as received or
+        rejected (Basic.Ack, Basic.Nack) from the broker to the publisher.
 
         For more information see:
             http://www.rabbitmq.com/extensions.html#confirms
@@ -1039,9 +1039,11 @@ class ContentFrameDispatcher(object):
         :rtype: tuple(pika.frame.Method, pika.frame.Header, str|unicode)
 
         """
-        ascii_value = ''.join(self._body_fragments)
-        utf8_value = ''.join(self._body_fragments).encode('utf-8')
-        value = ascii_value if ascii_value == utf8_value else utf8_value
+        value = ''.join(self._body_fragments).decode('utf-8')
+        try:
+            value = str(value)
+        except UnicodeEncodeError:
+            pass
         content = (self._method_frame,
                    self._header_frame,
                    value)

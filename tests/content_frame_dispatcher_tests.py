@@ -1,3 +1,4 @@
+# -*- encoding: utf-8 -*-
 """
 Tests for pika.channel.ContentFrameDispatcher
 
@@ -132,3 +133,47 @@ class ContentFrameDispatcherTests(unittest.TestCase):
         obj.process(body_frame)
         obj._reset()
         self.assertEqual(obj._body_fragments, list())
+
+
+    def test_utf8_body_instance(self):
+        obj = channel.ContentFrameDispatcher()
+        method_frame = frame.Method(1, spec.Basic.Deliver())
+        obj.process(method_frame)
+        header_frame = frame.Header(1, 14, spec.BasicProperties)
+        obj.process(header_frame)
+        body_frame = frame.Body(1, 'utf8_value=\xe2\x9c\x93')
+        method_frame, header_frame, body_value = obj.process(body_frame)
+        self.assertIsInstance(body_value, unicode)
+
+    def test_utf8_body_value(self):
+        expectation = u'utf8_value=✓'
+        obj = channel.ContentFrameDispatcher()
+        method_frame = frame.Method(1, spec.Basic.Deliver())
+        obj.process(method_frame)
+        header_frame = frame.Header(1, 14, spec.BasicProperties)
+        obj.process(header_frame)
+        body_frame = frame.Body(1, 'utf8_value=\xe2\x9c\x93')
+        method_frame, header_frame, body_value = obj.process(body_frame)
+        self.assertEqual(body_value, expectation)
+
+    def test_ascii_body_instance(self):
+        obj = channel.ContentFrameDispatcher()
+        method_frame = frame.Method(1, spec.Basic.Deliver())
+        obj.process(method_frame)
+        header_frame = frame.Header(1, 11, spec.BasicProperties)
+        obj.process(header_frame)
+        body_frame = frame.Body(1, 'foo-bar-baz')
+        method_frame, header_frame, body_value = obj.process(body_frame)
+        self.assertIsInstance(body_value, str)
+
+    def test_ascii_body_value(self):
+        expectation ='foo-bar-baz'
+        obj = channel.ContentFrameDispatcher()
+        method_frame = frame.Method(1, spec.Basic.Deliver())
+        obj.process(method_frame)
+        header_frame = frame.Header(1, 11, spec.BasicProperties)
+        obj.process(header_frame)
+        body_frame = frame.Body(1, 'foo-bar-baz')
+        method_frame, header_frame, body_value = obj.process(body_frame)
+        self.assertEqual(body_value, expectation)
+        self.assertIsInstance(body_value, str)
