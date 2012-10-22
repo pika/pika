@@ -9,19 +9,19 @@ try:
 except ImportError:
     import unittest
 
-from pika import callback
 from pika import channel
-from pika import connection
 from pika import exceptions
-from pika import frame
 from pika import spec
 
 
 class ChannelTest(unittest.TestCase):
 
     @mock.patch('pika.connection.Connection')
-    def setUp(self, connection):
-        self.connection = connection
+    def _create_connection(self, connection):
+        return connection
+
+    def setUp(self):
+        self.connection = self._create_connection()
         self._on_open_callback = mock.Mock()
         self.obj = channel.Channel(self.connection, 1,
                                    self._on_open_callback)
@@ -150,9 +150,9 @@ class ChannelTest(unittest.TestCase):
         self.obj.basic_cancel(callback_mock, consumer_tag)
         validate.assert_called_once_with(callback_mock)
 
-    @mock.patch('pika.channel.Channel._rpc')
     @mock.patch('pika.spec.Basic.Ack')
-    def test_basic_ack_calls_rpc(self, basic_ack, rpc):
+    @mock.patch('pika.channel.Channel._rpc')
+    def test_basic_ack_calls_rpc(self, rpc, unused):
         self.obj._set_state(self.obj.OPEN)
         self.obj.basic_ack(1, False)
         rpc.assert_called_once_with(spec.Basic.Ack(1, False))
@@ -166,7 +166,7 @@ class ChannelTest(unittest.TestCase):
         self.assertFalse(rpc.called)
 
     @mock.patch('pika.channel.Channel._rpc')
-    def test_basic_cancel_channel_cancelled_appended(self, rpc):
+    def test_basic_cancel_channel_cancelled_appended(self, unused):
         self.obj._set_state(self.obj.OPEN)
         callback_mock = mock.Mock()
         consumer_tag = 'ctag0'
@@ -176,7 +176,7 @@ class ChannelTest(unittest.TestCase):
 
 
     @mock.patch('pika.channel.Channel._rpc')
-    def test_basic_cancel_callback_appended(self, rpc):
+    def test_basic_cancel_callback_appended(self, unused):
         self.obj._set_state(self.obj.OPEN)
         consumer_tag = 'ctag0'
         callback_mock = mock.Mock()
@@ -200,7 +200,7 @@ class ChannelTest(unittest.TestCase):
         validate.assert_called_once_with(mock_callback)
 
     @mock.patch('pika.channel.Channel._rpc')
-    def test_basic_consume_consumer_tag(self, rpc):
+    def test_basic_consume_consumer_tag(self, unused):
         self.obj._set_state(self.obj.OPEN)
         expectation = 'ctag1.0'
         mock_callback = mock.Mock()
@@ -208,7 +208,7 @@ class ChannelTest(unittest.TestCase):
                          expectation)
 
     @mock.patch('pika.channel.Channel._rpc')
-    def test_basic_consume_consumer_tag_appended(self, rpc):
+    def test_basic_consume_consumer_tag_appended(self, unused):
         self.obj._set_state(self.obj.OPEN)
         consumer_tag = 'ctag1.0'
         mock_callback = mock.Mock()
@@ -216,7 +216,7 @@ class ChannelTest(unittest.TestCase):
         self.assertIn(consumer_tag, self.obj._consumers)
 
     @mock.patch('pika.channel.Channel._rpc')
-    def test_basic_consume_consumer_tag_in_consumers(self, rpc):
+    def test_basic_consume_consumer_tag_in_consumers(self, unused):
         self.obj._set_state(self.obj.OPEN)
         consumer_tag = 'ctag1.0'
         mock_callback = mock.Mock()
@@ -224,7 +224,7 @@ class ChannelTest(unittest.TestCase):
         self.assertIn(consumer_tag, self.obj._consumers)
 
     @mock.patch('pika.channel.Channel._rpc')
-    def test_basic_consume_consumers_callback_value(self, rpc):
+    def test_basic_consume_consumers_callback_value(self, unused):
         self.obj._set_state(self.obj.OPEN)
         consumer_tag = 'ctag1.0'
         mock_callback = mock.Mock()
@@ -232,7 +232,7 @@ class ChannelTest(unittest.TestCase):
         self.assertEqual(self.obj._consumers[consumer_tag], mock_callback)
 
     @mock.patch('pika.channel.Channel._rpc')
-    def test_basic_consume_has_pending_list(self, rpc):
+    def test_basic_consume_has_pending_list(self, unused):
         self.obj._set_state(self.obj.OPEN)
         consumer_tag = 'ctag1.0'
         mock_callback = mock.Mock()
@@ -240,7 +240,7 @@ class ChannelTest(unittest.TestCase):
         self.assertIn(consumer_tag, self.obj._pending)
 
     @mock.patch('pika.channel.Channel._rpc')
-    def test_basic_consume_consumers_pending_list_is_empty(self, rpc):
+    def test_basic_consume_consumers_pending_list_is_empty(self, unused):
         self.obj._set_state(self.obj.OPEN)
         consumer_tag = 'ctag1.0'
         mock_callback = mock.Mock()
@@ -249,7 +249,7 @@ class ChannelTest(unittest.TestCase):
 
     @mock.patch('pika.spec.Basic.Consume')
     @mock.patch('pika.channel.Channel._rpc')
-    def test_basic_consume_consumers_rpc_called(self, rpc, consume):
+    def test_basic_consume_consumers_rpc_called(self, rpc, unused):
         self.obj._set_state(self.obj.OPEN)
         consumer_tag = 'ctag1.0'
         mock_callback = mock.Mock()
@@ -262,3 +262,109 @@ class ChannelTest(unittest.TestCase):
                                     self.obj._on_event_ok,
                                     [spec.Basic.ConsumeOk])
 
+    @mock.patch('pika.channel.Channel._validate_channel_and_callback')
+    def test_basic_get_calls_validate(self, validate):
+        self.obj._set_state(self.obj.OPEN)
+        mock_callback = mock.Mock()
+        self.obj.basic_get(mock_callback, 'test-queue')
+        validate.assert_called_once_with(mock_callback)
+
+    @mock.patch('pika.channel.Channel._send_method')
+    def test_basic_get_callback(self, unused):
+        self.obj._set_state(self.obj.OPEN)
+        mock_callback = mock.Mock()
+        self.obj.basic_get(mock_callback, 'test-queue')
+        self.assertEqual(self.obj._on_get_ok_callback, mock_callback)
+
+    @mock.patch('pika.spec.Basic.Get')
+    @mock.patch('pika.channel.Channel._send_method')
+    def test_basic_get_send_mehtod_called(self, send_method, unused):
+        self.obj._set_state(self.obj.OPEN)
+        mock_callback = mock.Mock()
+        self.obj.basic_get(mock_callback, 'test-queue', False)
+        send_method.assert_called_once_with(spec.Basic.Get(queue='test-queue',
+                                                           no_ack=False))
+
+    def test_basic_nack_raises_channel_closed(self):
+        self.assertRaises(exceptions.ChannelClosed, self.obj.basic_nack,
+                          0, False, True)
+
+    @mock.patch('pika.spec.Basic.Nack')
+    @mock.patch('pika.channel.Channel._rpc')
+    def test_basic_nack_rpc_request(self, rpc, unused):
+        self.obj._set_state(self.obj.OPEN)
+        self.obj.basic_nack(1, False, True)
+        rpc.assert_called_once_with(spec.Basic.Nack(1, False, True))
+
+    def test_basic_publish_raises_channel_closed(self):
+        self.assertRaises(exceptions.ChannelClosed, self.obj.basic_publish,
+                          'foo', 'bar', 'baz')
+
+    @mock.patch('pika.channel.LOGGER')
+    @mock.patch('pika.spec.Basic.Publish')
+    @mock.patch('pika.channel.Channel._send_method')
+    def test_immediate_called_logger_warning(self, send_method, unused, logger):
+        self.obj._set_state(self.obj.OPEN)
+        exchange = 'basic_publish_test'
+        routing_key = 'routing-key-fun'
+        body = 'This is my body'
+        properties = spec.BasicProperties(content_type='text/plain')
+        mandatory = False
+        immediate = True
+        self.obj.basic_publish(exchange, routing_key, body, properties, mandatory, immediate)
+        logger.warning.assert_called_once_with('The immediate flag is deprecated in RabbitMQ')
+
+    @mock.patch('pika.spec.Basic.Publish')
+    @mock.patch('pika.channel.Channel._send_method')
+    def test_basic_publish_send_method_request(self, send_method, unused):
+        self.obj._set_state(self.obj.OPEN)
+        exchange = 'basic_publish_test'
+        routing_key = 'routing-key-fun'
+        body = 'This is my body'
+        properties = spec.BasicProperties(content_type='text/plain')
+        mandatory = False
+        immediate = False
+        self.obj.basic_publish(exchange, routing_key, body, properties, mandatory, immediate)
+        send_method.assert_called_once_with(spec.Basic.Publish(exchange=exchange,
+                                                               routing_key=routing_key,
+                                                               mandatory=mandatory,
+                                                               immediate=immediate),
+                                            (properties, body))
+
+    def test_basic_qos_raises_channel_closed(self):
+        self.assertRaises(exceptions.ChannelClosed, self.obj.basic_qos,
+                          0, False, True)
+
+    @mock.patch('pika.spec.Basic.Qos')
+    @mock.patch('pika.channel.Channel._rpc')
+    def test_basic_qos_rpc_request(self, rpc, unused):
+        self.obj._set_state(self.obj.OPEN)
+        mock_callback = mock.Mock()
+        self.obj.basic_qos(mock_callback, 10, 20, False)
+        rpc.assert_called_once_with(spec.Basic.Qos(mock_callback, 10, 20,
+                                                   False),
+                                    mock_callback, [spec.Basic.QosOk])
+
+    def test_basic_reject_raises_channel_closed(self):
+        self.assertRaises(exceptions.ChannelClosed, self.obj.basic_reject,
+                          1, False)
+
+    @mock.patch('pika.spec.Basic.Reject')
+    @mock.patch('pika.channel.Channel._rpc')
+    def test_basic_reject_rpc_request(self, rpc, unused):
+        self.obj._set_state(self.obj.OPEN)
+        self.obj.basic_reject(1, True)
+        rpc.assert_called_once_with(spec.Basic.Reject(1, True))
+
+    def test_basic_recover_raises_channel_closed(self):
+        self.assertRaises(exceptions.ChannelClosed, self.obj.basic_qos,
+                          0, False, True)
+
+    @mock.patch('pika.spec.Basic.Recover')
+    @mock.patch('pika.channel.Channel._rpc')
+    def test_basic_recover_rpc_request(self, rpc, unused):
+        self.obj._set_state(self.obj.OPEN)
+        mock_callback = mock.Mock()
+        self.obj.basic_recover(mock_callback, True)
+        rpc.assert_called_once_with(spec.Basic.Recover(mock_callback, True),
+                                    mock_callback, [spec.Basic.RecoverOk])

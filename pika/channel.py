@@ -224,8 +224,7 @@ class Channel(object):
         """
         self._validate_channel_and_callback(callback)
         self._on_get_ok_callback = callback
-        self._send_method(spec.Basic.Get(ticket=0,
-                                         queue=queue,
+        self._send_method(spec.Basic.Get(queue=queue,
                                          no_ack=no_ack))
 
     def basic_nack(self, delivery_tag=None, multiple=False, requeue=True):
