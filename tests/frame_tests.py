@@ -1,4 +1,7 @@
-import mock
+"""
+Tests for pika.frame
+
+"""
 try:
     import unittest2 as unittest
 except ImportError:
