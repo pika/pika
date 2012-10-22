@@ -26,7 +26,8 @@ class BlockingConnection(base_connection.BaseConnection):
     """
     WRITE_TO_READ_RATIO = 1000
     DO_HANDSHAKE = True
-    SOCKET_CONNECT_TIMEOUT = .25
+    SLEEP_DURATION = 0.1
+    SOCKET_CONNECT_TIMEOUT = 0.25
     SOCKET_TIMEOUT_THRESHOLD = 12
     SOCKET_TIMEOUT_CLOSE_THRESHOLD = 3
     SOCKET_TIMEOUT_MESSAGE = "Timeout exceeded, disconnected"
@@ -116,6 +117,20 @@ class BlockingConnection(base_connection.BaseConnection):
 
         """
         self._send_method(channel_number, method_frame, content)
+
+    def sleep(self, duration):
+        """A safer way to sleep than calling time.sleep() directly which will
+         keep the adapter from ignoring frames sent from RabbitMQ. The
+         connection will "sleep" or block the number of seconds specified in
+         duration in small intervals.
+
+        :param int duration: The time to sleep
+
+        """
+        deadline = time.time() + duration
+        while time.time() < deadline:
+            time.sleep(self.SLEEP_DURATION)
+            self.process_data_events()
 
     def _adapter_connect(self):
         """Connect to the RabbitMQ broker"""
@@ -213,7 +228,7 @@ class BlockingConnection(base_connection.BaseConnection):
         if not from_adapter:
             self._adapter_disconnect()
         for channel in self._channels:
-            self._channels[channel].on_remote_close(method_frame)
+            self._channels[channel]._on_close(method_frame)
         self._remove_connection_callbacks()
         if self.closing[0] != 200:
             raise exceptions.AMQPConnectionError(*self.closing)
