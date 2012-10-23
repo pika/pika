@@ -112,7 +112,8 @@ class BaseConnection(connection.Connection):
 
             LOGGER.warning('Could not connect due to "%s," retrying in %i sec',
                            reason, self.params.retry_delay)
-            time.sleep(self.params.retry_delay)
+            if remaining_attempts:
+                time.sleep(self.params.retry_delay)
 
         LOGGER.error('Could not connect: %s', reason)
         raise exceptions.AMQPConnectionError(self.params.connection_attempts *
