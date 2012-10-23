@@ -264,6 +264,7 @@ class BlockingChannel(channel.Channel):
         """
         super(BlockingChannel, self).__init__(connection, channel_number)
         self._confirmation = False
+        self._force_data_events_override = None
         self._frames = dict()
         self._replies = list()
         self._wait = False
@@ -413,6 +414,37 @@ class BlockingChannel(channel.Channel):
         self._confirmation = True
         replies = [spec.Confirm.SelectOk] if nowait is False else []
         self._rpc(spec.Confirm.Select(nowait), None, replies)
+
+    def force_data_events(self, enable):
+        """Turn on and off forcing the blocking adapter to stop and look to see
+        if there are any frames from RabbitMQ in the read buffer. By default
+        the BlockingChannel will check for a read after every RPC command which
+        can cause performance to degrade in scenarios where you do not care if
+        RabbitMQ is trying to send RPC commands to your client connection.
+
+        Examples of RPC commands of this sort are:
+
+        - Heartbeats
+        - Connection.Close
+        - Channel.Close
+        - Basic.Return
+        - Basic.Ack and Basic.Nack when using delivery confirmations
+
+        Turning off forced data events can be a bad thing and prevents your
+        client from properly communicating with RabbitMQ. Forced data events
+        were added in 0.9.6 to enforce proper channel behavior when
+        communicating with RabbitMQ.
+
+        Note that the BlockingConnection also has the constant
+        WRITE_TO_READ_RATIO which forces the connection to stop and try and
+        read after writing the number of frames specified in the constant.
+        This is a way to force the client to received these types of frames
+        in a very publish/write IO heavy workload.
+
+        :param bool enable: Set to False to disable
+
+        """
+        self._force_data_events_override = enable
 
     def exchange_bind(self, destination=None, source=None, routing_key='',
                       nowait=False, arguments=None):
@@ -704,7 +736,7 @@ class BlockingChannel(channel.Channel):
         self._received_response = False
         self._send_method(method_frame, content,
                           self._wait_on_response(method_frame))
-        if force_data_events:
+        if force_data_events and self._force_data_events_override is not False:
             self.connection.process_data_events()
         return self._process_replies(replies, callback)
 
