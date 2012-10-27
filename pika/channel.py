@@ -153,19 +153,23 @@ class Channel(object):
         :param method callback: Method to call for a Basic.CancelOk response
         :param str consumer_tag: Identifier for the consumer
         :param bool nowait: Do not expect a Basic.CancelOk response
+        :raises: ValueError
 
         """
         self._validate_channel_and_callback(callback)
-        if consumer_tag not in self._consumers:
+        if consumer_tag not in self.consumer_tags:
             return
-        self._cancelled.append(consumer_tag)
-        if callback and nowait is False:
+        if callback:
+            if nowait is True:
+                raise ValueError('Can not pass a callback if nowait is True')
             self.callbacks.add(self.channel_number,
                                spec.Basic.CancelOk,
                                callback)
-        self._rpc(spec.Basic.Cancel(consumer_tag=consumer_tag, nowait=nowait),
+        self._cancelled.append(consumer_tag)
+        self._rpc(spec.Basic.Cancel(consumer_tag=consumer_tag,
+                                    nowait=nowait),
                   self._on_basic_cancel_ok,
-                  [spec.Basic.CancelOk])
+                  [spec.Basic.CancelOk] if nowait is False else [])
 
     def basic_consume(self, consumer_callback, queue='', no_ack=False,
                       exclusive=False, consumer_tag=None):
@@ -374,27 +378,16 @@ class Channel(object):
 
         """
         self._validate_channel_and_callback(callback)
-        if (not self.connection.publisher_confirms or
-            not self.connection.basic_nack):
+        if (self.connection.publisher_confirms is False or
+            self.connection.basic_nack is False):
             raise exceptions.MethodNotImplemented('Not Supported on Server')
 
-        # Add the delivery confirmation callbacks
+        # Add the ack and nack callbacks
         if callback:
-
-            # Register the SelectOk
-            if nowait is False:
-                self.callbacks.add(self.channel_number,
-                                   spec.Confirm.SelectOk,
-                                   callback,
-                                   False)
-
-            # Register the ack
             self.callbacks.add(self.channel_number,
                                spec.Basic.Ack,
                                callback,
                                False)
-
-            # Register the nack too
             self.callbacks.add(self.channel_number,
                                spec.Basic.Nack,
                                callback,
@@ -403,7 +396,7 @@ class Channel(object):
         # Send the RPC command
         self._rpc(spec.Confirm.Select(nowait),
                   self._on_confirm_select_ok,
-                  [spec.Confirm.SelectOk])
+                  [spec.Confirm.SelectOk] if nowait is False else [])
 
     @property
     def consumer_tags(self):
@@ -426,12 +419,11 @@ class Channel(object):
         :param dict arguments: Custom key/value pair arguments for the binding
 
         """
-        replies = [spec.Exchange.BindOk] if nowait is False else []
         self._validate_channel_and_callback(callback)
         return self._rpc(spec.Exchange.Bind(0, destination, source,
                                             routing_key, nowait,
                                             arguments or dict()), callback,
-                         replies)
+                         [spec.Exchange.BindOk] if nowait is False else [])
 
     def exchange_declare(self, callback=None, exchange=None,
                          exchange_type='direct', passive=False, durable=False,
@@ -460,13 +452,13 @@ class Channel(object):
         :param dict arguments: Custom key/value pair arguments for the exchange
 
         """
-        replies = [spec.Exchange.DeclareOk] if nowait is False else []
         self._validate_channel_and_callback(callback)
         return self._rpc(spec.Exchange.Declare(0, exchange, exchange_type,
                                                passive, durable, auto_delete,
                                                internal, nowait,
                                                arguments or dict()),
-                         callback, replies)
+                         callback,
+                         [spec.Exchange.DeclareOk] if nowait is False else [])
 
     def exchange_delete(self, callback=None, exchange=None, if_unused=False,
                         nowait=False):
@@ -478,10 +470,10 @@ class Channel(object):
         :param bool nowait: Do not wait for an Exchange.DeleteOk
 
         """
-        replies = [spec.Exchange.DeleteOk] if nowait is False else []
         self._validate_channel_and_callback(callback)
         return self._rpc(spec.Exchange.Delete(0, exchange, if_unused, nowait),
-                         callback, replies)
+                         callback,
+                         [spec.Exchange.DeleteOk] if nowait is False else [])
 
     def exchange_unbind(self, callback=None, destination=None, source=None,
                         routing_key='', nowait=False, arguments=None):
@@ -495,11 +487,11 @@ class Channel(object):
         :param dict arguments: Custom key/value pair arguments for the binding
 
         """
-        replies = [spec.Exchange.UnbindOk] if nowait is False else []
         self._validate_channel_and_callback(callback)
         return self._rpc(spec.Exchange.Unbind(0, destination, source,
                                               routing_key, nowait, arguments),
-                         callback, replies)
+                         callback,
+                         [spec.Exchange.UnbindOk] if nowait is False else [])
 
     def flow(self, callback, active):
         """Turn Channel flow control off and on. Pass a callback to be notified
@@ -513,8 +505,7 @@ class Channel(object):
         :param bool active: Turn flow on or off
 
         """
-        if not self.is_open:
-            raise exceptions.ChannelClosed()
+        self._validate_channel_and_callback(callback)
         self._on_flow_ok_callback = callback
         self._rpc(spec.Channel.Flow(active),
                   self._on_flow_ok,
