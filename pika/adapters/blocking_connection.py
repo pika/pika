@@ -71,8 +71,8 @@ class BlockingConnection(base_connection.BaseConnection):
         """
         self._remove_connection_callbacks()
         super(BlockingConnection, self).close(reply_code, reply_text)
-        while not self.is_closed:
-            self.process_data_events()
+        self.process_data_events()
+        self.disconnect()
 
     def disconnect(self):
         """Disconnect from the socket"""
