@@ -3,6 +3,7 @@
 Tests for pika.channel.ContentFrameDispatcher
 
 """
+import marshal
 try:
     import unittest2 as unittest
 except ImportError:
@@ -177,3 +178,14 @@ class ContentFrameDispatcherTests(unittest.TestCase):
         method_frame, header_frame, body_value = obj.process(body_frame)
         self.assertEqual(body_value, expectation)
         self.assertIsInstance(body_value, str)
+
+    def test_binary_non_unicode_value(self):
+        expectation =('a', 0.8)
+        obj = channel.ContentFrameDispatcher()
+        method_frame = frame.Method(1, spec.Basic.Deliver())
+        obj.process(method_frame)
+        header_frame = frame.Header(1, 20, spec.BasicProperties)
+        obj.process(header_frame)
+        body_frame = frame.Body(1, marshal.dumps(expectation))
+        method_frame, header_frame, body_value = obj.process(body_frame)
+        self.assertEqual(marshal.loads(body_value), expectation)

@@ -1044,11 +1044,14 @@ class ContentFrameDispatcher(object):
         :rtype: tuple(pika.frame.Method, pika.frame.Header, str|unicode)
 
         """
-        value = ''.join(self._body_fragments).decode('utf-8')
         try:
-            value = str(value)
-        except UnicodeEncodeError:
-            pass
+            value = ''.join(self._body_fragments).decode('utf-8')
+            try:
+                value = str(value)
+            except UnicodeEncodeError:
+                pass
+        except UnicodeDecodeError:
+            value = ''.join(self._body_fragments)
         content = (self._method_frame,
                    self._header_frame,
                    value)

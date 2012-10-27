@@ -368,3 +368,6 @@ class ChannelTest(unittest.TestCase):
         self.obj.basic_recover(mock_callback, True)
         rpc.assert_called_once_with(spec.Basic.Recover(mock_callback, True),
                                     mock_callback, [spec.Basic.RecoverOk])
+
+    def test_close_raises_channel_closed(self):
+        self.assertRaises(exceptions.ChannelClosed, self.obj.close)
