@@ -46,18 +46,16 @@ class Channel(object):
 
         self._blocked = collections.deque(list())
         self._blocking = None
-        self._flow = None
         self._has_on_flow_callback = False
-
-        self._on_open_callback = on_open_callback
-        self._state = self.CLOSED
         self._cancelled = list()
         self._consumers = dict()
+        self._on_flowok_callback = None
+        self._on_getok_callback = None
+        self._on_openok_callback = on_open_callback
         self._pending = dict()
-        self._on_get_ok_callback = None
-        self._on_flow_ok_callback = None
         self._reply_code = None
         self._reply_text = None
+        self._state = self.CLOSED
 
     def add_callback(self, callback, replies, one_shot=True):
         """Pass in a callback handler and a list replies from the
@@ -72,7 +70,7 @@ class Channel(object):
         for reply in replies:
             self.callbacks.add(self.channel_number, reply, callback, one_shot)
 
-    def add_on_basic_cancel_callback(self, callback):
+    def add_on_cancel_callback(self, callback):
         """Pass a callback function that will be called when the basic_cancel
         is sent by the server. The callback function should receive a frame
         parameter.
@@ -115,8 +113,7 @@ class Channel(object):
         :param method callback: The method to call on callback
 
         """
-        self.callbacks.add(self.channel_number, '_on_basic_return', callback,
-                           False)
+        self.callbacks.add(self.channel_number, '_on_return', callback, False)
 
     def basic_ack(self, delivery_tag=0, multiple=False):
         """Acknowledge one or more messages. When sent by the client, this
@@ -168,7 +165,7 @@ class Channel(object):
         self._cancelled.append(consumer_tag)
         self._rpc(spec.Basic.Cancel(consumer_tag=consumer_tag,
                                     nowait=nowait),
-                  self._on_basic_cancel_ok,
+                  self._on_cancelok,
                   [spec.Basic.CancelOk] if nowait is False else [])
 
     def basic_consume(self, consumer_callback, queue='', no_ack=False,
@@ -205,7 +202,7 @@ class Channel(object):
                                      consumer_tag=consumer_tag,
                                      no_ack=no_ack,
                                      exclusive=exclusive),
-                           self._on_event_ok,
+                           self._on_eventok,
                            [spec.Basic.ConsumeOk])
 
         return consumer_tag
@@ -227,7 +224,7 @@ class Channel(object):
 
         """
         self._validate_channel_and_callback(callback)
-        self._on_get_ok_callback = callback
+        self._on_getok_callback = callback
         self._send_method(spec.Basic.Get(queue=queue,
                                          no_ack=no_ack))
 
@@ -395,7 +392,7 @@ class Channel(object):
 
         # Send the RPC command
         self._rpc(spec.Confirm.Select(nowait),
-                  self._on_confirm_select_ok,
+                  self._on_selectok,
                   [spec.Confirm.SelectOk] if nowait is False else [])
 
     @property
@@ -506,9 +503,9 @@ class Channel(object):
 
         """
         self._validate_channel_and_callback(callback)
-        self._on_flow_ok_callback = callback
+        self._on_flowok_callback = callback
         self._rpc(spec.Channel.Flow(active),
-                  self._on_flow_ok,
+                  self._on_flowok,
                   [spec.Channel.FlowOk])
 
     @property
@@ -542,7 +539,7 @@ class Channel(object):
         """Open the channel"""
         self._set_state(self.OPENING)
         self._add_callbacks()
-        self._rpc(spec.Channel.Open(), self._on_open_ok, [spec.Channel.OpenOk])
+        self._rpc(spec.Channel.Open(), self._on_openok, [spec.Channel.OpenOk])
 
     def queue_bind(self, callback, queue, exchange, routing_key,
                    nowait=False, arguments=None):
@@ -672,13 +669,13 @@ class Channel(object):
         # Add a callback for Basic.GetEmpty
         self.callbacks.add(self.channel_number,
                            spec.Basic.GetEmpty,
-                           self._on_basic_get_empty,
+                           self._on_getempty,
                            False)
 
         # Add a callback for Basic.Cancel
         self.callbacks.add(self.channel_number,
                            spec.Basic.Cancel,
-                           self._on_basic_cancel,
+                           self._on_cancel,
                            False)
 
         # Deprecated in newer versions of RabbitMQ but still register for it
@@ -732,11 +729,11 @@ class Channel(object):
         response = self.frame_dispatcher.process(frame_value)
         if response:
             if isinstance(response[0].method, spec.Basic.Deliver):
-                self._on_basic_deliver(*response)
+                self._on_deliver(*response)
             elif isinstance(response[0].method, spec.Basic.GetOk):
-                self._on_basic_get_ok(*response)
+                self._on_getok(*response)
             elif isinstance(response[0].method, spec.Basic.Return):
-                self._on_basic_return(*response)
+                self._on_return(*response)
 
     def _has_content(self, method_frame):
         """Return a bool if it's a content method as defined by the spec
@@ -746,7 +743,7 @@ class Channel(object):
         """
         return spec.has_content(method_frame.INDEX)
 
-    def _on_basic_cancel(self, method_frame):
+    def _on_cancel(self, method_frame):
         """When the broker cancels a consumer, delete it from our internal
         dictionary.
 
@@ -757,7 +754,7 @@ class Channel(object):
         if method_frame.method.consumer_tag in self._consumers:
             del self._consumers[method_frame.method.consumer_tag]
 
-    def _on_basic_cancel_ok(self, method_frame):
+    def _on_cancelok(self, method_frame):
         """Called in response to a frame from the Broker when the
          client sends Basic.Cancel
 
@@ -765,14 +762,25 @@ class Channel(object):
 
         """
         if method_frame.method.consumer_tag in self._consumers:
-            if method_frame.method.consumer_tag in self._consumers:
-                del self._consumers[method_frame.method.consumer_tag]
-            if method_frame.method.consumer_tag in self._pending:
-                del self._pending[method_frame.method.consumer_tag]
+            del self._consumers[method_frame.method.consumer_tag]
+        if method_frame.method.consumer_tag in self._pending:
+            del self._pending[method_frame.method.consumer_tag]
         if self.is_closing and not len(self._consumers):
             self._shutdown()
 
-    def _on_basic_deliver(self, method_frame, header_frame, body):
+    def _on_close(self, method_frame):
+        """Handle the case where our channel has been closed for us
+
+        :param pika.frame.Method method_frame: The close frame
+
+        """
+        LOGGER.warning('Received remote Channel.Close (%s): %s',
+                       method_frame.method.reply_code,
+                       method_frame.method.reply_text)
+        self._send_method(spec.Channel.CloseOk())
+        self._set_state(self.CLOSED)
+
+    def _on_deliver(self, method_frame, header_frame, body):
         """Cope with reentrancy. If a particular consumer is still active when
         another delivery appears for it, queue the deliveries up until it
         finally exits.
@@ -791,74 +799,13 @@ class Channel(object):
             return self._add_pending_msg(consumer_tag, method_frame,
                                          header_frame, body)
         while self._pending[consumer_tag]:
-            self._consumers[consumer_tag](self,
-                                          *self._get_pending_msg(consumer_tag))
+            self._consumers[consumer_tag](*self._get_pending_msg(consumer_tag))
         self._consumers[consumer_tag](self,
                                       method_frame.method,
                                       header_frame.properties,
                                       body)
 
-    def _on_basic_get_empty(self, method_frame):
-        """When we receive an empty reply do nothing but log it
-
-        :param pika.frame.Method method_frame: The method frame received
-
-        """
-        LOGGER.debug('Received Basic.GetEmpty: %r', method_frame)
-
-    def _on_basic_get_ok(self, method_frame, header_frame, body):
-        """Called in reply to a Basic.Get when there is a message.
-
-        :param pika.frame.Method method_frame: The method frame received
-        :param pika.frame.Header header_frame: The header frame received
-        :param str body: The body received
-
-        """
-        if self._on_get_ok_callback:
-            self._on_get_ok_callback(self,
-                                     method_frame.method,
-                                     header_frame.properties,
-                                     body)
-            self._basic_get_ok_callback = None
-        else:
-            LOGGER.error('Basic.GetOk received with no active callback')
-
-    def _on_basic_return(self, method_frame, header_frame, body):
-        """Called if the server sends a Basic.Return frame.
-
-        :param pika.frame.Method method_frame: The Basic.Return frame
-        :param pika.frame.Header header_frame: The content header frame
-        :param str|unicode body: The message body
-
-        """
-        if not self.callbacks.process(self.channel_number, '_on_basic_return',
-                                      (self, method_frame.method,
-                                       header_frame.properties,
-                                       body)):
-            LOGGER.warning('Basic.Return received from server (%r, %r)',
-                           method_frame.method, header_frame.properties)
-
-    def _on_close(self, method_frame):
-        """Handle the case where our channel has been closed for us
-
-        :param pika.frame.Method method_frame: The close frame
-
-        """
-        LOGGER.warning('Received remote Channel.Close (%s): %s',
-                       method_frame.method.reply_code,
-                       method_frame.method.reply_text)
-        self._send_method(spec.Channel.CloseOk())
-        self._set_state(self.CLOSED)
-
-    def _on_confirm_select_ok(self, method_frame):
-        """Called when the broker sends a Confirm.SelectOk frame
-
-        :param pika.frame.Method method_frame: The method frame received
-
-        """
-        LOGGER.debug("Confirm.SelectOk Received: %r", method_frame)
-
-    def _on_event_ok(self, method_frame):
+    def _on_eventok(self, method_frame):
         """Generic events that returned ok that may have internal callbacks.
         We keep a list of what we've yet to implement so that we don't silently
         drain events that we don't support.
@@ -874,25 +821,50 @@ class Channel(object):
         :param pika.frame.Method method_frame_unused: The Channel.Flow frame
 
         """
-        if not self._has_on_flow_callback:
+        if self._has_on_flow_callback is False:
             LOGGER.warning('Channel.Flow received from server')
 
-    def _on_flow_ok(self, method_frame):
+    def _on_flowok(self, method_frame):
         """Called in response to us asking the server to toggle on Channel.Flow
 
         :param pika.frame.Method method_frame: The method frame received
 
         """
         self.flow_active = method_frame.method.active
-        if self._on_flow_ok_callback:
-            self._on_flow_ok_callback(method_frame.method.active)
-            self._on_flow_ok_callback = None
+        if self._on_flowok_callback:
+            self._on_flowok_callback(method_frame.method.active)
+            self._on_flowok_callback = None
         else:
             LOGGER.warning('Channel.FlowOk received with no active callbacks')
 
-    def _on_open_ok(self, frame_unused):
+    def _on_getempty(self, method_frame):
+        """When we receive an empty reply do nothing but log it
+
+        :param pika.frame.Method method_frame: The method frame received
+
+        """
+        LOGGER.debug('Received Basic.GetEmpty: %r', method_frame)
+
+    def _on_getok(self, method_frame, header_frame, body):
+        """Called in reply to a Basic.Get when there is a message.
+
+        :param pika.frame.Method method_frame: The method frame received
+        :param pika.frame.Header header_frame: The header frame received
+        :param str body: The body received
+
+        """
+        if self._on_getok_callback is not None:
+            self._on_getok_callback(self,
+                                    method_frame.method,
+                                    header_frame.properties,
+                                    body)
+            self._on_getok_callback = None
+        else:
+            LOGGER.error('Basic.GetOk received with no active callback')
+
+    def _on_openok(self, frame_unused):
         """Called by our callback handler when we receive a Channel.OpenOk and
-        subsequently calls our _on_open_callback which was passed into the
+        subsequently calls our _on_openok_callback which was passed into the
         Channel constructor. The reason we do this is because we want to make
         sure that the on_open_callback parameter passed into the Channel
         constructor is not the first callback we make.
@@ -901,8 +873,31 @@ class Channel(object):
 
         """
         self._set_state(self.OPEN)
-        if self._on_open_callback:
-            self._on_open_callback(self)
+        if self._on_openok_callback is not None:
+            self._on_openok_callback(self)
+
+    def _on_return(self, method_frame, header_frame, body):
+        """Called if the server sends a Basic.Return frame.
+
+        :param pika.frame.Method method_frame: The Basic.Return frame
+        :param pika.frame.Header header_frame: The content header frame
+        :param str|unicode body: The message body
+
+        """
+        if not self.callbacks.process(self.channel_number, '_on_return',
+                                      (self, method_frame.method,
+                                       header_frame.properties,
+                                       body)):
+            LOGGER.warning('Basic.Return received from server (%r, %r)',
+                           method_frame.method, header_frame.properties)
+
+    def _on_selectok(self, method_frame):
+        """Called when the broker sends a Confirm.SelectOk frame
+
+        :param pika.frame.Method method_frame: The method frame received
+
+        """
+        LOGGER.debug("Confirm.SelectOk Received: %r", method_frame)
 
     def _on_synchronous_complete(self, method_frame_unused):
         """This is called when a synchronous command is completed. It will undo
@@ -912,8 +907,9 @@ class Channel(object):
         :param pika.frame.Method method_frame_unused: The method frame received
 
         """
+        LOGGER.debug('%i blocked frames', len(self._blocked))
         self._blocking = None
-        while self._blocked and not self.blocking:
+        while len(self._blocked) > 0 and self._blocking is None:
             self._rpc(*self._blocked.popleft())
 
     def _rpc(self, method_frame, callback=None, acceptable_replies=None):
@@ -931,10 +927,9 @@ class Channel(object):
 
         # If the channel is blocking, add subsequent commands to our stack
         if self._blocking:
-            self._blocked.append([method_frame,
-                                  callback,
-                                  acceptable_replies])
-            return
+            return self._blocked.append([method_frame,
+                                         callback,
+                                         acceptable_replies])
 
         # Validate we got None or a list of acceptable_replies
         if acceptable_replies and not isinstance(acceptable_replies, list):
