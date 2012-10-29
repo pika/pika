@@ -678,9 +678,16 @@ class BlockingChannel(channel.Channel):
         super(BlockingChannel, self)._on_cancel(method_frame)
         raise exceptions.ConsumerCancelled(method_frame.method)
 
-    def _on_get(self, caller_unused, method_frame, header_frame, body):
+    def _on_getok(self, method_frame, header_frame, body):
+        """Called in reply to a Basic.Get when there is a message.
+
+        :param pika.frame.Method method_frame: The method frame received
+        :param pika.frame.Header header_frame: The header frame received
+        :param str body: The body received
+
+        """
         self._received_response = True
-        self._response = method_frame, header_frame, body
+        self._response = method_frame.method, header_frame.properties, body
 
     def _on_getempty(self, frame):
         self._received_response = True
