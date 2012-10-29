@@ -25,31 +25,47 @@ Using Pika
 Pika supports two modes of development, synchronous using the BlockingConnection adapter and asynchronous using one of the AsyncoreConnection, SelectConnection and TwistedConnection adapters.
 
 .. toctree::
+   :glob:
    :maxdepth: 2
 
    connecting
-   communicating
-   examples
    faq
+
+The following examples demonstrate various features and ways to use pika:
+
+.. toctree::
+   :glob:
+   :maxdepth: 2
+
+   examples
+   examples/*
+
 
 0.9.6 Release Notes
 -------------------
+
 - New features
- - URLParameters
- - BlockingChannel.start_consuming() and BlockingChannel.stop_consuming()
- - Delivery Confirmations
- - Improved unittests
+
+  - URLParameters
+  - BlockingChannel.start_consuming() and BlockingChannel.stop_consuming()
+  - Delivery Confirmations
+  - Improved unittests
+
 - Major bugfix areas
- - Connection handling
- - Blocking functionality in the BlockingConnection
- - SSL
- - UTF-8 Handling
+
+  - Connection handling
+  - Blocking functionality in the BlockingConnection
+  - SSL
+  - UTF-8 Handling
+
 - Removals
- - pika.reconnection_strategies
- - pika.channel.ChannelTransport
- - pika.log
- - pika.template
- - examples directory
+
+  - pika.reconnection_strategies
+  - pika.channel.ChannelTransport
+  - pika.log
+  - pika.template
+  - examples directory
+
 - Over 700 commits from 37 contributors
 
 Pika Core Modules and Classes
@@ -58,7 +74,7 @@ Pika Core Modules and Classes
    The following documentation is for Pika development and is not intended to be end-user documentation.
 
 .. toctree::
-   :maxdepth: 3
+   :maxdepth: 2
 
    adapters
    amqp_object

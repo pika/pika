@@ -5,14 +5,6 @@ Frequently Asked Questions
 
     Pika does not have any notion of threading in the code. If you want to use Pika with threading, make sure you have a Pika connection per thread, created in that thread. It is not safe to share one Pika connection across threads.
 
-- Pika starts sending messages quickly but slows down over time, what gives?
-
-    Most likely you are being throttled by the RabbitMQ broker, see :ref:`intro_to_backpressure`.
-
-- I need to connect to a RabbitMQ version before 2.0 that only supports AMQP 0-8, what should I do?
-
-    Use `version 0.5.2 <https://github.com/pika/pika/tree/v0.5.2>`_  which only supports 0-8. `[Download] <https://github.com/pika/pika/tarball/v0.5.2>`_
-
 - How do I report a bug with Pika?
 
     The `main Pika repository <https://github.com/pika/pika>`_ is hosted on `Github <https://github.com>`_ and we use the Issue tracker at https://github.com/pika/pika/issues.
