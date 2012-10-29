@@ -657,11 +657,11 @@ class BlockingChannel(channel.Channel):
                                       self._on_rpc_complete)
 
 
-    def _on_basic_get(self, caller_unused, method_frame, header_frame, body):
+    def _on_get(self, caller_unused, method_frame, header_frame, body):
         self._received_response = True
         self._response = method_frame, header_frame, body
 
-    def _on_basic_get_empty(self, frame):
+    def _on_getempty(self, frame):
         self._received_response = True
         self._response = frame.method, None, None
 
@@ -671,12 +671,12 @@ class BlockingChannel(channel.Channel):
         self._set_state(self.CLOSED)
         raise exceptions.ChannelClosed(self._reply_code, self._reply_text)
 
-    def _on_open_ok(self, method_frame):
+    def _on_openok(self, method_frame):
         """Open the channel by sending the RPC command and remove the reply
         from the stack of replies.
 
         """
-        super(BlockingChannel, self)._on_open_ok(method_frame)
+        super(BlockingChannel, self)._on_openok(method_frame)
         self._remove_reply(method_frame)
 
     def _on_rpc_complete(self, frame):
