@@ -120,9 +120,9 @@ class BlockingConnection(base_connection.BaseConnection):
 
     def sleep(self, duration):
         """A safer way to sleep than calling time.sleep() directly which will
-         keep the adapter from ignoring frames sent from RabbitMQ. The
-         connection will "sleep" or block the number of seconds specified in
-         duration in small intervals.
+        keep the adapter from ignoring frames sent from RabbitMQ. The
+        connection will "sleep" or block the number of seconds specified in
+        duration in small intervals.
 
         :param int duration: The time to sleep
 
@@ -268,7 +268,6 @@ class BlockingChannel(channel.Channel):
         self._frames = dict()
         self._replies = list()
         self._wait = False
-        self.connection = connection
         self.open()
 
     def basic_cancel(self, consumer_tag='', nowait=False):
@@ -290,8 +289,9 @@ class BlockingChannel(channel.Channel):
             return
         self._cancelled.append(consumer_tag)
         replies = [spec.Basic.CancelOk] if nowait is False else []
-        self._rpc(spec.Basic.Cancel(consumer_tag=consumer_tag, nowait=nowait),
-                  self._on_basic_cancel_ok, replies)
+        self._rpc(spec.Basic.Cancel(consumer_tag=consumer_tag,
+                                             nowait=nowait),
+                  self._on_cancelok, replies)
 
     def basic_get(self, queue=None, no_ack=False):
         """Get a single message from the AMQP broker. The callback method
@@ -300,13 +300,18 @@ class BlockingChannel(channel.Channel):
 
         :param str|unicode queue: The queue to get a message from
         :param bool no_ack: Tell the broker to not expect a reply
+        :rtype: (None, None, None)|(spec.Basic.Get,
+                                    spec.Basic.Properties,
+                                    str|unicode)
 
         """
         self._response = None
-        super(BlockingChannel, self).basic_get(self._on_basic_get, queue,
-                                               no_ack)
+        self._send_method(spec.Basic.Get(queue=queue,
+                                         no_ack=no_ack))
         while not self._response:
             self.connection.process_data_events()
+        if isinstance(self._response[0], spec.Basic.GetEmpty):
+            return None, None, None
         return self._response[0], self._response[1], self._response[2]
 
     def basic_publish(self, exchange, routing_key, body,
@@ -527,7 +532,7 @@ class BlockingChannel(channel.Channel):
         """Open the channel"""
         self._set_state(self.OPENING)
         self._add_callbacks()
-        self._rpc(spec.Channel.Open(), self._on_open_ok, [spec.Channel.OpenOk])
+        self._rpc(spec.Channel.Open(), self._on_openok, [spec.Channel.OpenOk])
 
     def queue_bind(self, queue, exchange, routing_key, nowait=False,
                    arguments=None):
@@ -652,10 +657,26 @@ class BlockingChannel(channel.Channel):
         self.connection.callbacks.add(self.channel_number,
                                       spec.Channel.Close,
                                       self._on_close)
+        self.callbacks.add(self.channel_number,
+                           spec.Basic.GetEmpty,
+                           self._on_getempty,
+                           False)
+        self.callbacks.add(self.channel_number,
+                           spec.Basic.Cancel,
+                           self._on_cancel,
+                           False)
         self.connection.callbacks.add(self.channel_number,
                                       spec.Channel.CloseOk,
                                       self._on_rpc_complete)
 
+    def _on_cancel(self, method_frame):
+        """Raises a ConsumerCanceled exception after processing the frame
+
+        :param pika.frame.Method method_frame: The method frame received
+
+        """
+        super(BlockingChannel, self)._on_cancel(method_frame)
+        raise exceptions.ConsumerCancelled(method_frame.method)
 
     def _on_get(self, caller_unused, method_frame, header_frame, body):
         self._received_response = True

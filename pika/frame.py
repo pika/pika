@@ -195,7 +195,7 @@ def decode_frame(data_in):
 
     :param str data_in: Theraw data stream
     :rtype: tuple(bytes consumed, frame)
-    :raises pika.exceptions.InvalidFrameError
+    :raises: pika.exceptions.InvalidFrameError
 
     """
     # Look to see if it's a protocol header frame
