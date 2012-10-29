@@ -54,15 +54,21 @@ class AMQPChannelError(AMQPError):
         return 'An unspecified AMQP channel error has occurred'
 
 
+class ChannelClosed(AMQPChannelError):
+    def __repr__(self):
+        return 'The channel is closed'
+
+
 class DuplicateConsumerTag(AMQPChannelError):
     def __repr__(self):
         return ('The consumer tag specified already exists for this '
                 'channel: %s' % self.args[0])
 
 
-class ChannelClosed(AMQPChannelError):
+class ConsumerCancelled(AMQPChannelError):
     def __repr__(self):
-        return 'The channel is closed'
+        return 'Server cancelled consumer (%s): %s' % (self.args[0].reply_code,
+                                                       self.args[0].reply_text)
 
 
 class InvalidChannelNumber(AMQPError):
