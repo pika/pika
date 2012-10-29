@@ -383,7 +383,7 @@ class Channel(object):
             raise exceptions.MethodNotImplemented('Not Supported on Server')
 
         # Add the ack and nack callbacks
-        if callback:
+        if callback is not None:
             self.callbacks.add(self.channel_number,
                                spec.Basic.Ack,
                                callback,
@@ -510,28 +510,6 @@ class Channel(object):
         self._rpc(spec.Channel.Flow(active),
                   self._on_flow_ok,
                   [spec.Channel.FlowOk])
-
-    def handle_content_frames(self, frame_value):
-        """This is invoked by the connection when frames that are not registered
-        with the CallbackManager have been found. This should only be the case
-        when the frames are related to content delivery.
-
-        The frame_dispatcher will be invoked which will return the fully formed
-        message in three parts when all of the body frames have been received.
-
-        :param pika.amqp_object.Frame frame_value: The frame to deliver
-
-        """
-        response = self.frame_dispatcher.process(frame_value)
-        if response is not None:
-            if isinstance(response[0].method, spec.Basic.Deliver):
-                self._on_basic_deliver(*response)
-            elif isinstance(response[0].method, spec.Basic.GetOk):
-                self._on_basic_get_ok(*response)
-            elif isinstance(response[0].method, spec.Basic.Return):
-                self._on_basic_return(*response)
-            else:
-                raise exceptions.UnexpectedFrameError(response[0])
 
     @property
     def is_closed(self):
@@ -739,6 +717,26 @@ class Channel(object):
 
         """
         return self._pending[consumer_tag].pop(0)
+
+    def _handle_content_frame(self, frame_value):
+        """This is invoked by the connection when frames that are not registered
+        with the CallbackManager have been found. This should only be the case
+        when the frames are related to content delivery.
+
+        The frame_dispatcher will be invoked which will return the fully formed
+        message in three parts when all of the body frames have been received.
+
+        :param pika.amqp_object.Frame frame_value: The frame to deliver
+
+        """
+        response = self.frame_dispatcher.process(frame_value)
+        if response:
+            if isinstance(response[0].method, spec.Basic.Deliver):
+                self._on_basic_deliver(*response)
+            elif isinstance(response[0].method, spec.Basic.GetOk):
+                self._on_basic_get_ok(*response)
+            elif isinstance(response[0].method, spec.Basic.Return):
+                self._on_basic_return(*response)
 
     def _has_content(self, method_frame):
         """Return a bool if it's a content method as defined by the spec

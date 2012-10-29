@@ -848,7 +848,7 @@ class Connection(object):
                 LOGGER.warning("Received %r for non-existing channel %i",
                                value, value.channel_number)
             return
-        return self._channels[value.channel_number].handle_content_frames(value)
+        return self._channels[value.channel_number]._handle_content_frame(value)
 
     def _detect_backpressure(self):
         """Attempt to calculate if TCP backpressure is being applied due to
