@@ -39,6 +39,7 @@ class Parameters(object):
     :param int|float DEFAULT_SOCKET_TIMEOUT: 0.25
     :param bool DEFAULT_SSL: False
     :param dict DEFAULT_SSL_OPTIONS: {}
+    :param int DEFAULT_SSL_PORT: 5671
     :param bool DEFAULT_BACKPRESSURE_DETECTION: False
 
     """
@@ -55,6 +56,7 @@ class Parameters(object):
     DEFAULT_SOCKET_TIMEOUT = 0.25
     DEFAULT_SSL = False
     DEFAULT_SSL_OPTIONS = {}
+    DEFAULT_SSL_PORT = 5671
     DEFAULT_USERNAME = 'guest'
     DEFAULT_VIRTUAL_HOST = '/'
 
@@ -396,7 +398,9 @@ class URLParameters(Parameters):
 
         if self._validate_host(parts.hostname):
             self.host = parts.hostname
-        if self._validate_port(parts.port):
+        if not parts.port and self.ssl:
+            self.port = self.DEFAULT_SSL_PORT
+        elif self._validate_port(parts.port):
             self.port = parts.port
         self.credentials = pika_credentials.PlainCredentials(parts.username,
                                                              parts.password)
@@ -702,21 +706,7 @@ class Connection(object):
         """
         self.callbacks.add(channel_number,
                            spec.Channel.CloseOk,
-                           self.on_channel_closeok)
-
-    def on_channel_closeok(self, method_frame):
-        """Remove the channel from the dict of channels when Channel.CloseOk is
-        sent.
-
-        :param spec.Channel.CloseOk method_frame: The response
-
-        """
-        LOGGER.debug('Received Channel.CloseOk')
-        try:
-            del self._channels[method_frame.channel_number]
-        except KeyError:
-            LOGGER.error('Channel %r not in channels',
-                         method_frame.channel_number)
+                           self._on_channel_closeok)
 
     def _add_connection_start_callback(self):
         """Add a callback for when a Connection.Start frame is received from
@@ -1005,6 +995,20 @@ class Connection(object):
         if not self._channels:
             return 1
         return max(self._channels.keys()) + 1
+
+    def _on_channel_closeok(self, method_frame):
+        """Remove the channel from the dict of channels when Channel.CloseOk is
+        sent.
+
+        :param spec.Channel.CloseOk method_frame: The response
+
+        """
+        LOGGER.debug('Received Channel.CloseOk')
+        try:
+            del self._channels[method_frame.channel_number]
+        except KeyError:
+            LOGGER.error('Channel %r not in channels',
+                         method_frame.channel_number)
 
     def _on_close_ready(self):
         """Called when the Connection is in a state that it can close after
