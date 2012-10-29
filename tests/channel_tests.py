@@ -16,7 +16,7 @@ from pika import frame
 from pika import spec
 
 
-class ChannelTest(unittest.TestCase):
+class ChannelTests(unittest.TestCase):
 
     @mock.patch('pika.connection.Connection')
     def _create_connection(self, connection=None):
@@ -1310,5 +1310,3 @@ class ChannelTest(unittest.TestCase):
         warning.assert_called_with('Received remote Channel.Close (%s): %s',
                                    method_frame.method.reply_code,
                                    method_frame.method.reply_text)
-
-
