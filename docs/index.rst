@@ -29,17 +29,8 @@ Pika supports two modes of development, synchronous using the BlockingConnection
    :maxdepth: 2
 
    connecting
+   examples/index
    faq
-
-The following examples demonstrate various features and ways to use pika:
-
-.. toctree::
-   :glob:
-   :maxdepth: 2
-
-   examples
-   examples/*
-
 
 0.9.6 Release Notes
 -------------------
