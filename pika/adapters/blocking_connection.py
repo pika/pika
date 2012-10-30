@@ -335,6 +335,9 @@ class BlockingChannel(channel.Channel):
             LOGGER.warning('The immediate flag is deprecated in RabbitMQ')
         properties = properties or spec.BasicProperties()
 
+        if mandatory:
+            self._response = None
+
         if self._confirmation:
             response = self._rpc(spec.Basic.Publish(exchange=exchange,
                                                     routing_key=routing_key,
@@ -342,13 +345,18 @@ class BlockingChannel(channel.Channel):
                                                     immediate=immediate),
                                  None,
                                  [spec.Basic.Ack,
-                                  spec.Basic.Nack,
-                                  spec.Basic.Reject],
+                                  spec.Basic.Nack],
                                  (properties, body))
+            if mandatory and self._response:
+                response = self._response[0]
+                LOGGER.warning('Message was returned (%s): %s',
+                               response.reply_code,
+                               response.reply_text)
+                return False
+
             if isinstance(response.method, spec.Basic.Ack):
                 return True
-            elif (isinstance(response.method, spec.Basic.Nack) or
-                  isinstance(response.method, spec.Basic.Reject)):
+            elif isinstance(response.method, spec.Basic.Nack):
                 return False
             else:
                 raise ValueError('Unexpected frame type: %r', response)
@@ -358,6 +366,14 @@ class BlockingChannel(channel.Channel):
                                                  mandatory=mandatory,
                                                  immediate=immediate),
                               (properties, body), False)
+            if mandatory:
+                if self._response:
+                    response = self._response[0]
+                    LOGGER.warning('Message was returned (%s): %s',
+                                   response.reply_code,
+                                   response.reply_text)
+                    return False
+                return True
 
     def basic_qos(self, prefetch_size=0, prefetch_count=0, all_channels=False):
         """Specify quality of service. This method requests a specific quality
@@ -706,6 +722,17 @@ class BlockingChannel(channel.Channel):
         """
         super(BlockingChannel, self)._on_openok(method_frame)
         self._remove_reply(method_frame)
+
+    def _on_return(self, method_frame, header_frame, body):
+        """Called when a Basic.Return is received from publishing
+
+        :param pika.frame.Method method_frame: The method frame received
+        :param pika.frame.Header header_frame: The header frame received
+        :param str body: The body received
+
+        """
+        self._received_response = True
+        self._response = method_frame.method, header_frame.properties, body
 
     def _on_rpc_complete(self, frame):
         key = callback._name_or_value(frame)
