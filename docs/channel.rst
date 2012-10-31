@@ -13,9 +13,11 @@ Channel
    :undoc-members:
    :noindex:
 
+
+
 ContentFrameDispatcher
 ----------------------
-.. autoclass:: ContentFrameDispatcher
+.. autoclass:: pika.channel.ContentFrameDispatcher
    :members:
    :inherited-members:
    :member-order: bysource

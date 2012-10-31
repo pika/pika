@@ -22,13 +22,14 @@ To install from source, run "python setup.py install" in the root source directo
 
 Using Pika
 ----------
-Pika supports two modes of development, synchronous using the BlockingConnection adapter and asynchronous using one of the AsyncoreConnection, SelectConnection and TwistedConnection adapters.
+Pika supports two modes of development, synchronous using the BlockingConnection adapter and asynchronous using one of the AsyncoreConnection, SelectConnection and TornadoConnection adapters.
 
 .. toctree::
    :glob:
    :maxdepth: 2
 
    connecting
+   channel_use
    examples/index
    faq
 
