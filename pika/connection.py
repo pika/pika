@@ -557,6 +557,7 @@ class Connection(object):
         :param method on_open_callback: The callback when the channel is opened
         :param int channel_number: The channel number to use, defaults to the
                                    next available.
+        :rtype: pika.channel.Channel
 
         """
         if not channel_number:
@@ -565,6 +566,7 @@ class Connection(object):
                                                               on_open_callback)
         self._add_channel_callbacks(channel_number)
         self._channels[channel_number].open()
+        return self._channels[channel_number]
 
     def close(self, reply_code=200, reply_text='Normal shutdown'):
         """Disconnect from RabbitMQ. If there are any open channels, it will
