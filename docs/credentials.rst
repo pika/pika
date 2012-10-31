@@ -11,7 +11,7 @@ PlainCredentials
    :noindex:
 
 ExternalCredentials
-----------------
+-------------------
 .. autoclass:: ExternalCredentials
    :members:
    :inherited-members:

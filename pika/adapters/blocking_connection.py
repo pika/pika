@@ -489,7 +489,7 @@ class BlockingChannel(channel.Channel):
                          arguments=None):
         """This method creates an exchange if it does not already exist, and if
         the exchange exists, verifies that it is of the correct and expected
-         class.
+        class.
 
         If passive set, the server will reply with Declare-Ok if the exchange
         already exists with the same name, and raise an error if not and if the
