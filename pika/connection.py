@@ -1175,6 +1175,7 @@ class Connection(object):
         self.frames_received += 1
 
         # Process any callbacks, if True, exit method
+        LOGGER.debug('Frame: %r', frame_value)
         if self._process_callbacks(frame_value):
             return
 
@@ -1308,12 +1309,11 @@ class Connection(object):
         """
         if self.is_closed:
             raise exceptions.ConnectionClosed
+        LOGGER.debug('Frame: %r', frame_value)
         marshaled_frame = frame_value.marshal()
         self.bytes_sent += len(marshaled_frame)
         self.frames_sent += 1
         self.outbound_buffer.write(marshaled_frame)
-        LOGGER.debug('Added %i bytes to the outbound buffer',
-                     len(marshaled_frame))
         self._flush_outbound()
         if self.params.backpressure_detection:
             self._detect_backpressure()
