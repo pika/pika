@@ -21,7 +21,7 @@ Frequently Asked Questions
 
     Main developent is currently on the Python 2.6 branch. For a release, Pika passes its tests on the latest versions of 2.5, 2.6 and 2.7.
 
-- Does Python work with Python 3?
+- Does Pika work with Python 3?
 
     Not yet.
 
