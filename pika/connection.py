@@ -1052,8 +1052,9 @@ class Connection(object):
         if not from_adapter:
             self._adapter_disconnect()
         self._set_connection_state(self.CONNECTION_CLOSED)
-        for channel in self._channels:
-            self._channels[channel].on_remote_close(method_frame)
+        if method_frame:
+            for channel in self._channels:
+                self._channels[channel].on_remote_close(method_frame)
         self._process_connection_closed_callbacks()
         self._remove_connection_callbacks()
 
