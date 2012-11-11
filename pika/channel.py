@@ -135,7 +135,7 @@ class Channel(object):
         """
         if not self.is_open:
             raise exceptions.ChannelClosed()
-        return self._rpc(spec.Basic.Ack(delivery_tag, multiple))
+        return self._send_method(spec.Basic.Ack(delivery_tag, multiple))
 
     def basic_cancel(self, callback=None, consumer_tag='', nowait=False):
         """This method cancels a consumer. This does not affect already
@@ -250,7 +250,8 @@ class Channel(object):
         """
         if not self.is_open:
             raise exceptions.ChannelClosed()
-        return self._rpc(spec.Basic.Nack(delivery_tag, multiple, requeue))
+        return self._send_method(spec.Basic.Nack(delivery_tag, multiple,
+                                                 requeue))
 
     def basic_publish(self, exchange, routing_key, body,
                       properties=None, mandatory=False, immediate=False):
@@ -328,7 +329,7 @@ class Channel(object):
         """
         if not self.is_open:
             raise exceptions.ChannelClosed()
-        return self._rpc(spec.Basic.Reject(delivery_tag, requeue))
+        return self._send_method(spec.Basic.Reject(delivery_tag, requeue))
 
     def basic_recover(self, callback=None, requeue=False):
         """This method asks the server to redeliver all unacknowledged messages

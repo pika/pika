@@ -156,11 +156,11 @@ class ChannelTests(unittest.TestCase):
         validate.assert_called_once_with(callback_mock)
 
     @mock.patch('pika.spec.Basic.Ack')
-    @mock.patch('pika.channel.Channel._rpc')
-    def test_basic_ack_calls_rpc(self, rpc, unused):
+    @mock.patch('pika.channel.Channel._send_method')
+    def test_basic_send_method_calls_rpc(self, send_method, unused):
         self.obj._set_state(self.obj.OPEN)
         self.obj.basic_ack(1, False)
-        rpc.assert_called_once_with(spec.Basic.Ack(1, False))
+        send_method.assert_called_once_with(spec.Basic.Ack(1, False))
 
     @mock.patch('pika.channel.Channel._rpc')
     def test_basic_cancel_no_consumer_tag(self, rpc):
@@ -316,11 +316,11 @@ class ChannelTests(unittest.TestCase):
                           0, False, True)
 
     @mock.patch('pika.spec.Basic.Nack')
-    @mock.patch('pika.channel.Channel._rpc')
-    def test_basic_nack_rpc_request(self, rpc, unused):
+    @mock.patch('pika.channel.Channel._send_method')
+    def test_basic_nack_send_method_request(self, send_method, unused):
         self.obj._set_state(self.obj.OPEN)
         self.obj.basic_nack(1, False, True)
-        rpc.assert_called_once_with(spec.Basic.Nack(1, False, True))
+        send_method.assert_called_once_with(spec.Basic.Nack(1, False, True))
 
     def test_basic_publish_raises_channel_closed(self):
         self.assertRaises(exceptions.ChannelClosed, self.obj.basic_publish,
@@ -379,11 +379,11 @@ class ChannelTests(unittest.TestCase):
                           1, False)
 
     @mock.patch('pika.spec.Basic.Reject')
-    @mock.patch('pika.channel.Channel._rpc')
-    def test_basic_reject_rpc_request(self, rpc, unused):
+    @mock.patch('pika.channel.Channel._send_method')
+    def test_basic_reject_send_method_request(self, send_method, unused):
         self.obj._set_state(self.obj.OPEN)
         self.obj.basic_reject(1, True)
-        rpc.assert_called_once_with(spec.Basic.Reject(1, True))
+        send_method.assert_called_once_with(spec.Basic.Reject(1, True))
 
     def test_basic_recover_raises_channel_closed(self):
         self.assertRaises(exceptions.ChannelClosed, self.obj.basic_qos,
