@@ -448,13 +448,14 @@ class Channel(object):
         :param bool internal: Can only be published to by other exchanges
         :param bool nowait: Do not expect an Exchange.DeclareOk response
         :param dict arguments: Custom key/value pair arguments for the exchange
-        :param
+        :param str type: The deprecated exchange type parameter
+
         """
         self._validate_channel_and_callback(callback)
-        if type:
-            warnings.warn('Use exchange_type instead of type',
+        if type is not None:
+            warnings.warn('type is deprecated, use exchange_type instead',
                           DeprecationWarning)
-            if not exchange_type:
+            if exchange_type == 'direct' and type != exchange_type:
                 exchange_type = type
         return self._rpc(spec.Exchange.Declare(0, exchange, exchange_type,
                                                passive, durable, auto_delete,
