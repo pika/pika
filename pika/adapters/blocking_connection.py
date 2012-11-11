@@ -5,6 +5,7 @@ asynchronous core.
 import logging
 import socket
 import time
+import warnings
 
 from pika import callback
 from pika import channel
@@ -486,7 +487,7 @@ class BlockingChannel(channel.Channel):
     def exchange_declare(self, exchange=None,
                          exchange_type='direct', passive=False, durable=False,
                          auto_delete=False, internal=False, nowait=False,
-                         arguments=None):
+                         arguments=None, type=None):
         """This method creates an exchange if it does not already exist, and if
         the exchange exists, verifies that it is of the correct and expected
         class.
@@ -509,6 +510,11 @@ class BlockingChannel(channel.Channel):
         :param dict arguments: Custom key/value pair arguments for the exchange
 
         """
+        if type is not None:
+            warnings.warn('type is deprecated, use exchange_type instead',
+                          DeprecationWarning)
+            if exchange_type == 'direct' and type != exchange_type:
+                exchange_type = type
         replies = [spec.Exchange.DeclareOk] if nowait is False else []
         return self._rpc(spec.Exchange.Declare(0, exchange, exchange_type,
                                                passive, durable, auto_delete,
@@ -566,13 +572,15 @@ class BlockingChannel(channel.Channel):
                                          nowait, arguments or dict()),
                          None, replies)
 
-    def queue_declare(self, queue, passive=False, durable=False,
+    def queue_declare(self, queue='', passive=False, durable=False,
                       exclusive=False, auto_delete=False, nowait=False,
                       arguments=None):
         """Declare queue, create if needed. This method creates or checks a
         queue. When creating a new queue the client can specify various
         properties that control the durability of the queue and its contents,
         and the level of sharing for the queue.
+
+        Leave the queue name empty for a auto-named queue in RabbitMQ
 
         :param str|unicode queue: The queue name
         :param bool passive: Only check to see if the queue exists
