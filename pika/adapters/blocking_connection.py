@@ -508,7 +508,8 @@ class BlockingChannel(channel.Channel):
         :param bool internal: Can only be published to by other exchanges
         :param bool nowait: Do not expect an Exchange.DeclareOk response
         :param dict arguments: Custom key/value pair arguments for the exchange
-
+        :param str type: The deprecated exchange type parameter
+        
         """
         if type is not None:
             warnings.warn('type is deprecated, use exchange_type instead',
