@@ -9,6 +9,7 @@ try:
     import unittest2 as unittest
 except ImportError:
     import unittest
+import warnings
 
 from pika import channel
 from pika import exceptions
@@ -545,6 +546,15 @@ class ChannelTests(unittest.TestCase):
         self.assertRaises(exceptions.ChannelClosed,
                           self.obj.exchange_declare,
                           exchange='foo')
+
+    @mock.patch('pika.channel.Channel._rpc')
+    def test_exchange_with_type_parameter_raises_deprecation_warning(self, _rpc):
+        self.obj._set_state(self.obj.OPEN)
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            self.obj.exchange_declare(None, 'foo', type='direct')
+            self.assertEqual(len(w), 1)
+            self.assertIs(w[-1].category, DeprecationWarning)
 
     def test_exchange_declare_raises_value_error_on_invalid_callback(self):
         self.obj._set_state(self.obj.OPEN)

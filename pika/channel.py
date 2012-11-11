@@ -4,6 +4,7 @@ implementing the methods and behaviors for an AMQP Channel.
 """
 import collections
 import logging
+import warnings
 
 import pika.frame as frame
 import pika.exceptions as exceptions
@@ -425,7 +426,7 @@ class Channel(object):
     def exchange_declare(self, callback=None, exchange=None,
                          exchange_type='direct', passive=False, durable=False,
                          auto_delete=False, internal=False, nowait=False,
-                         arguments=None):
+                         arguments=None, type=None):
         """This method creates an exchange if it does not already exist, and if
         the exchange exists, verifies that it is of the correct and expected
         class.
@@ -447,9 +448,14 @@ class Channel(object):
         :param bool internal: Can only be published to by other exchanges
         :param bool nowait: Do not expect an Exchange.DeclareOk response
         :param dict arguments: Custom key/value pair arguments for the exchange
-
+        :param
         """
         self._validate_channel_and_callback(callback)
+        if type:
+            warnings.warn('Use exchange_type instead of type',
+                          DeprecationWarning)
+            if not exchange_type:
+                exchange_type = type
         return self._rpc(spec.Exchange.Declare(0, exchange, exchange_type,
                                                passive, durable, auto_delete,
                                                internal, nowait,
