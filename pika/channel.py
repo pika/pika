@@ -566,13 +566,15 @@ class Channel(object):
                                          nowait, arguments or dict()), callback,
                          replies)
 
-    def queue_declare(self, callback, queue, passive=False, durable=False,
+    def queue_declare(self, callback, queue='', passive=False, durable=False,
                       exclusive=False, auto_delete=False, nowait=False,
                       arguments=None):
         """Declare queue, create if needed. This method creates or checks a
         queue. When creating a new queue the client can specify various
         properties that control the durability of the queue and its contents,
         and the level of sharing for the queue.
+
+        Leave the queue name empty for a auto-named queue in RabbitMQ
 
         :param method callback: The method to call on Queue.DeclareOk
         :param str|unicode queue: The queue name
