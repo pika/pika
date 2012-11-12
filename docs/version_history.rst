@@ -4,82 +4,86 @@ Version History
 0.9.7 - 2012-10-11
 ------------------
 
-New features
+**New features**
 
-  - generator based consumer in BlockingChannel
+- generator based consumer in BlockingChannel (See :doc:`examples/blocking_consumer_generator` for example)
 
-Bugfixes
+**Changes**
 
-  - Added the exchange "type" parameter back but issue a DeprecationWarning
-  - Dont require a queue name in Channel.queue_declare()
-  - Fixed KeyError when processing timeouts (Issue # 215 - Fix by Raphael De Giusti)
-  - Don't try and close channels when the connection is closed (Issue #216 - Fix by Charles Law)
-  - Dont raise UnexpectedFrame exceptions, log them instead
-  - Handle multiple synchronous RPC calls made without waiting for the call result (Issues #192, #204, #211)
-  - Typo in docs (Issue #207 Fix by Luca Wehrstedt)
-  - Only sleep on connection failure when retry attempts are > 0 (Issue #200)
-  - Bypass _rpc method and just send frames for Basic.Ack, Basic.Nack, Basic.Reject (Issue #205)
+- BlockingChannel._send_method will only wait if explicitly told to
+
+**Bugfixes**
+
+- Added the exchange "type" parameter back but issue a DeprecationWarning
+- Dont require a queue name in Channel.queue_declare()
+- Fixed KeyError when processing timeouts (Issue # 215 - Fix by Raphael De Giusti)
+- Don't try and close channels when the connection is closed (Issue #216 - Fix by Charles Law)
+- Dont raise UnexpectedFrame exceptions, log them instead
+- Handle multiple synchronous RPC calls made without waiting for the call result (Issues #192, #204, #211)
+- Typo in docs (Issue #207 Fix by Luca Wehrstedt)
+- Only sleep on connection failure when retry attempts are > 0 (Issue #200)
+- Bypass _rpc method and just send frames for Basic.Ack, Basic.Nack, Basic.Reject (Issue #205)
 
 0.9.6 - 2012-10-29
 ------------------
 
-New features
+**New features**
 
-  - URLParameters
-  - BlockingChannel.start_consuming() and BlockingChannel.stop_consuming()
-  - Delivery Confirmations
-  - Improved unittests
+- URLParameters
+- BlockingChannel.start_consuming() and BlockingChannel.stop_consuming()
+- Delivery Confirmations
+- Improved unittests
 
-Major bugfix areas
+**Major bugfix areas**
 
-  - Connection handling
-  - Blocking functionality in the BlockingConnection
-  - SSL
-  - UTF-8 Handling
+- Connection handling
+- Blocking functionality in the BlockingConnection
+- SSL
+- UTF-8 Handling
 
-Removals
+**Removals**
 
-  - pika.reconnection_strategies
-  - pika.channel.ChannelTransport
-  - pika.log
-  - pika.template
-  - examples directory
+- pika.reconnection_strategies
+- pika.channel.ChannelTransport
+- pika.log
+- pika.template
+- examples directory
 
 0.9.5 - 2011-03-29
 ------------------
 
-Changelog
+**Changelog**
 
-    - Scope changes with adapter IOLoops and CallbackManager allowing for cleaner, multi-threaded operation
-    - Add support for Confirm.Select with channel.Channel.confirm_delivery()
-    - Add examples of delivery confirmation to examples (demo_send_confirmed.py)
-    - Update uses of log.warn with warning.warn for TCP Back-pressure alerting
-    - License boilerplate updated to simplify license text in source files
-    - Increment the timeout in select_connection.SelectPoller reducing CPU utilization
-    - Bug fix in Heartbeat frame delivery addressing issue #35
-    - Remove abuse of pika.log.method_call through a majority of the code
-    - Rename of key modules: table to data, frames to frame
-    - Cleanup of frame module and related classes
-    - Restructure of tests and test runner
-    - Update functional tests to respect RABBITMQ_HOST, RABBITMQ_PORT environment variables
-    - Bug fixes to reconnection_strategies module
-    - Fix the scale of timeout for PollPoller to be specified in milliseconds
-    - Remove mutable default arguments in RPC calls
-    - Add data type validation to RPC calls
-    - Move optional credentials erasing out of connection.Connection into credentials module
-    - Add support to allow for additional external credential types
-    - Add a NullHandler to prevent the 'No handlers could be found for logger "pika"' error message when not using pika.log in a client app at all.
-    - Clean up all examples to make them easier to read and use
-    - Move documentation into its own repository https://github.com/pika/documentation
+- Scope changes with adapter IOLoops and CallbackManager allowing for cleaner, multi-threaded operation
+- Add support for Confirm.Select with channel.Channel.confirm_delivery()
+- Add examples of delivery confirmation to examples (demo_send_confirmed.py)
+- Update uses of log.warn with warning.warn for TCP Back-pressure alerting
+- License boilerplate updated to simplify license text in source files
+- Increment the timeout in select_connection.SelectPoller reducing CPU utilization
+- Bug fix in Heartbeat frame delivery addressing issue #35
+- Remove abuse of pika.log.method_call through a majority of the code
+- Rename of key modules: table to data, frames to frame
+- Cleanup of frame module and related classes
+- Restructure of tests and test runner
+- Update functional tests to respect RABBITMQ_HOST, RABBITMQ_PORT environment variables
+- Bug fixes to reconnection_strategies module
+- Fix the scale of timeout for PollPoller to be specified in milliseconds
+- Remove mutable default arguments in RPC calls
+- Add data type validation to RPC calls
+- Move optional credentials erasing out of connection.Connection into credentials module
+- Add support to allow for additional external credential types
+- Add a NullHandler to prevent the 'No handlers could be found for logger "pika"' error message when not using pika.log in a client app at all.
+- Clean up all examples to make them easier to read and use
+- Move documentation into its own repository https://github.com/pika/documentation
 
-channel.py:
+- channel.py
 
   - Move channel.MAX_CHANNELS constant from connection.CHANNEL_MAX
   - Add default value of None to ChannelTransport.rpc
   - Validate callback and acceptable replies parameters in ChannelTransport.RPC
   - Remove unused connection attribute from Channel
 
-connection.py:
+- connection.py
 
   - Remove unused import of struct
   - Remove direct import of pika.credentials.PlainCredentials
@@ -92,7 +96,7 @@ connection.py:
   - Change the default types for callback and acceptable_replies in Connection._rpc
   - Validate the callback and acceptable_replies data types in Connection._rpc
 
-adapters.blocking_connection.BlockingConnection:
+- adapters.blocking_connection.BlockingConnection
 
   - Addition of _adapter_disconnect to blocking_connection.BlockingConnection
   - Add timeout methods to BlockingConnection addressing issue #41
