@@ -264,8 +264,11 @@ class BlockingChannel(channel.Channel):
 
         """
         super(BlockingChannel, self).__init__(connection, channel_number)
+        self.connection = connection
         self._confirmation = False
         self._force_data_events_override = None
+        self._generator = None
+        self._generator_messages = list()
         self._frames = dict()
         self._replies = list()
         self._wait = False
@@ -300,11 +303,12 @@ class BlockingChannel(channel.Channel):
         signature should have 3 parameters: The method frame, header frame and
         the body, like the consumer callback for Basic.Consume.
 
-        :param str|unicode queue: The queue to get a message from
+        :param queue: The queue to get a message from
+        :type queue: str or unicode
         :param bool no_ack: Tell the broker to not expect a reply
         :rtype: (None, None, None)|(spec.Basic.Get,
                                     spec.Basic.Properties,
-                                    str|unicode)
+                                    str or unicode)
 
         """
         self._response = None
@@ -323,9 +327,12 @@ class BlockingChannel(channel.Channel):
 
         http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.publish
 
-        :param str exchange: The exchange name
-        :param str routing_key: The routing key
-        :param str body: The message body
+        :param exchange: The exchange to publish to
+        :type exchange: str or unicode
+        :param routing_key: The routing key to bind on
+        :type routing_key: str or unicode
+        :param body: The message body
+        :type body: str or unicode
         :param pika.spec.Properties properties: Basic.properties
         :param bool mandatory: The mandatory flag
         :param bool immediate: The immediate flag
@@ -405,8 +412,8 @@ class BlockingChannel(channel.Channel):
         :param bool all_channels: Should the QoS apply to all channels
 
         """
-        return self._rpc(spec.Basic.Qos(prefetch_size, prefetch_count,
-                                        all_channels), None, [spec.Basic.QosOk])
+        self._rpc(spec.Basic.Qos(prefetch_size, prefetch_count, all_channels),
+                  None, [spec.Basic.QosOk])
 
     def basic_recover(self, requeue=False):
         """This method asks the server to redeliver all unacknowledged messages
@@ -419,8 +426,7 @@ class BlockingChannel(channel.Channel):
                              delivering it to an alternative subscriber.
 
         """
-        return self._rpc(spec.Basic.Recover(requeue), None,
-                         [spec.Basic.RecoverOk])
+        self._rpc(spec.Basic.Recover(requeue), None, [spec.Basic.RecoverOk])
 
     def confirm_delivery(self, nowait=False):
         """Turn on Confirm mode in the channel.
@@ -437,6 +443,59 @@ class BlockingChannel(channel.Channel):
         self._confirmation = True
         replies = [spec.Confirm.SelectOk] if nowait is False else []
         self._rpc(spec.Confirm.Select(nowait), None, replies)
+        self.connection.process_data_events()
+
+    def cancel(self):
+        """Cancel the consumption of a queue, rejecting all pending messages.
+        This should only work with the generator based BlockingChannel.consume
+        method. If you're looking to cancel a consumer issues with
+        BlockingChannel.basic_consume then you should call
+        BlockingChannel.basic_cancel.
+
+        :return int: The number of messages requeued by Basic.Nack
+
+        """
+        self.basic_cancel(self._generator)
+        if self._generator_messages:
+            # Get the last item
+            (method, properties, body) = self._generator_messages.pop()
+            messages = len(self._generator_messages)
+            LOGGER.info('Requeueing %i messages with delivery tag %s',
+                        messages, method.delivery_tag)
+            self.basic_nack(method.delivery_tag, multiple=True, requeue=True)
+            self.connection.process_data_events()
+        self._generator = None
+        return messages
+
+    def consume(self, queue):
+        """Blocking consumption of a queue instead of via a callback. This
+        method is a generator that returns messages a tuple of method,
+        properties, and body.
+
+        Example:
+
+            for method, properties, body in channel.consume('queue'):
+                print body
+                channel.basic_ack(method.delivery_tag)
+
+        You should call BlockingChannel.cancel() when you escape out of the
+        generator loop. Also note this turns on forced data events to make
+        sure that any acked messages actually get acked.
+
+        :param queue: The queue name to consume
+        :type queue: str or unicode
+        :rtype: tuple(spec.Basic.Deliver, spec.BasicProperties, str or unicode)
+
+        """
+        LOGGER.debug('Forcing data events on')
+        if not self._generator:
+            LOGGER.debug('Issuing Basic.Consume')
+            self._generator = self.basic_consume(self._generator_callback,
+                                                 queue)
+        while True:
+            if self._generator_messages:
+                yield self._generator_messages.pop(0)
+            self.connection.process_data_events()
 
     def force_data_events(self, enable):
         """Turn on and off forcing the blocking adapter to stop and look to see
@@ -473,9 +532,12 @@ class BlockingChannel(channel.Channel):
                       nowait=False, arguments=None):
         """Bind an exchange to another exchange.
 
-        :param str|unicode destination: The destination exchange to bind
-        :param str|unicode source: The source exchange to bind to
-        :param str|unicode routing_key: The routing key to bind on
+        :param destination: The destination exchange to bind
+        :type destination: str or unicode
+        :param source: The source exchange to bind to
+        :type source: str or unicode
+        :param routing_key: The routing key to bind on
+        :type routing_key: str or unicode
         :param bool nowait: Do not wait for an Exchange.BindOk
         :param dict arguments: Custom key/value pair arguments for the binding
 
@@ -498,10 +560,10 @@ class BlockingChannel(channel.Channel):
         exchange does not already exist, the server MUST raise a channel
         exception with reply code 404 (not found).
 
-        :param str|unicode exchange: The exchange name consists of a non-empty
-                                     sequence of these characters: letters,
-                                     digits, hyphen, underscore, period, or
-                                     colon.
+        :param exchange: The exchange name consists of a non-empty sequence of
+                          these characters: letters, digits, hyphen, underscore,
+                          period, or colon.
+        :type exchange: str or unicode
         :param str exchange_type: The exchange type to use
         :param bool passive: Perform a declare or just check to see if it exists
         :param bool durable: Survive a reboot of RabbitMQ
@@ -527,7 +589,8 @@ class BlockingChannel(channel.Channel):
     def exchange_delete(self, exchange=None, if_unused=False, nowait=False):
         """Delete the exchange.
 
-        :param str|unicode exchange: The exchange name
+        :param exchange: The exchange name
+        :type exchange: str or unicode
         :param bool if_unused: only delete if the exchange is unused
         :param bool nowait: Do not wait for an Exchange.DeleteOk
 
@@ -540,9 +603,12 @@ class BlockingChannel(channel.Channel):
                         nowait=False, arguments=None):
         """Unbind an exchange from another exchange.
 
-        :param str|unicode destination: The destination exchange to unbind
-        :param str|unicode source: The source exchange to unbind from
-        :param str|unicode routing_key: The routing key to unbind
+        :param destination: The destination exchange to unbind
+        :type destination: str or unicode
+        :param source: The source exchange to unbind from
+        :type source: str or unicode
+        :param routing_key: The routing key to unbind
+        :type routing_key: str or unicode
         :param bool nowait: Do not wait for an Exchange.UnbindOk
         :param dict arguments: Custom key/value pair arguments for the binding
 
@@ -562,9 +628,12 @@ class BlockingChannel(channel.Channel):
                    arguments=None):
         """Bind the queue to the specified exchange
 
-        :param str|unicode queue: The queue to bind to the exchange
-        :param str|unicode exchange: The source exchange to bind to
-        :param str|unicode routing_key: The routing key to bind on
+        :param queue: The queue to bind to the exchange
+        :type queue: str or unicode
+        :param exchange: The source exchange to bind to
+        :type exchange: str or unicode
+        :param routing_key: The routing key to bind on
+        :type routing_key: str or unicode
         :param bool nowait: Do not wait for a Queue.BindOk
         :param dict arguments: Custom key/value pair arguments for the binding
 
@@ -584,7 +653,8 @@ class BlockingChannel(channel.Channel):
 
         Leave the queue name empty for a auto-named queue in RabbitMQ
 
-        :param str|unicode queue: The queue name
+        :param queue: The queue name
+        :type queue: str or unicode
         :param bool passive: Only check to see if the queue exists
         :param bool durable: Survive reboots of the broker
         :param bool exclusive: Only allow access by the current connection
@@ -604,7 +674,8 @@ class BlockingChannel(channel.Channel):
                      nowait=False):
         """Delete a queue from the broker.
 
-        :param str|unicode queue: The queue to delete
+        :param queue: The queue to delete
+        :type queue: str or unicode
         :param bool if_unused: only delete if it's unused
         :param bool if_empty: only delete if the queue is empty
         :param bool nowait: Do not wait for a Queue.DeleteOk
@@ -617,7 +688,8 @@ class BlockingChannel(channel.Channel):
     def queue_purge(self, queue='', nowait=False):
         """Purge all of the messages from the specified queue
 
-        :param str|unicode: The queue to purge
+        :param queue: The queue to purge
+        :type  queue: str or unicode
         :param bool nowait: Do not expect a Queue.PurgeOk response
 
         """
@@ -628,9 +700,12 @@ class BlockingChannel(channel.Channel):
                      arguments=None):
         """Unbind a queue from an exchange.
 
-        :param str|unicode queue: The queue to unbind from the exchange
-        :param str|unicode exchange: The source exchange to bind from
-        :param str|unicode routing_key: The routing key to unbind
+        :param queue: The queue to unbind from the exchange
+        :type queue: str or unicode
+        :param exchange: The source exchange to bind from
+        :type exchange: str or unicode
+        :param routing_key: The routing key to unbind
+        :type routing_key: str or unicode
         :param dict arguments: Custom key/value pair arguments for the binding
 
         """
@@ -696,8 +771,23 @@ class BlockingChannel(channel.Channel):
                                       spec.Channel.CloseOk,
                                       self._on_rpc_complete)
 
+    def _generator_callback(self, unused, method, properties, body):
+        """Called when a message is received from RabbitMQ and appended to the
+        list of messages to be returned when a message is received by RabbitMQ.
+
+        :param pika.spec.Basic.Deliver: The method frame received
+        :param pika.spec.BasicProperties: The  message properties
+        :param body: The body received
+        :type body: str or unicode
+
+        """
+        LOGGER.debug('Adding a message to generator messages')
+        self._generator_messages.append((method, properties, body))
+        LOGGER.debug('%i pending messages', len(self._generator_messages))
+
     def _on_cancel(self, method_frame):
         """Raises a ConsumerCanceled exception after processing the frame
+
 
         :param pika.frame.Method method_frame: The method frame received
 
@@ -710,7 +800,8 @@ class BlockingChannel(channel.Channel):
 
         :param pika.frame.Method method_frame: The method frame received
         :param pika.frame.Header header_frame: The header frame received
-        :param str body: The body received
+        :param body: The body received
+        :type body: str or unicode
 
         """
         self._received_response = True
@@ -739,7 +830,8 @@ class BlockingChannel(channel.Channel):
 
         :param pika.frame.Method method_frame: The method frame received
         :param pika.frame.Header header_frame: The header frame received
-        :param str body: The body received
+        :param body: The body received
+        :type body: str or unicode
 
         """
         self._received_response = True
@@ -811,12 +903,13 @@ class BlockingChannel(channel.Channel):
             self.connection.process_data_events()
         return self._process_replies(replies, callback)
 
-    def _send_method(self, method_frame, content=None, wait=True):
+    def _send_method(self, method_frame, content=None, wait=False):
         """Shortcut wrapper to send a method through our connection, passing in
         our channel number.
 
         :param pika.amqp_object.Method method_frame: The method frame to send
-        :param str|tuple content: The content to send
+        :param content: The content to send
+        :type content: str or tuple
         :param bool wait: Wait for a response
 
         """
