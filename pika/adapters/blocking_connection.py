@@ -289,7 +289,8 @@ class BlockingChannel(channel.Channel):
         if consumer_tag not in self._consumers:
             return
         self._cancelled.append(consumer_tag)
-        replies = [spec.Basic.CancelOk] if nowait is False else []
+        replies = [(spec.Basic.CancelOk,
+                   {'consumer_tag': consumer_tag})] if nowait is False else []
         self._rpc(spec.Basic.Cancel(consumer_tag=consumer_tag,
                                              nowait=nowait),
                   self._on_cancelok, replies)
@@ -592,7 +593,8 @@ class BlockingChannel(channel.Channel):
         :param dict arguments: Custom key/value arguments for the queue
 
         """
-        replies = [spec.Queue.DeclareOk] if nowait is False else []
+        replies = [(spec.Queue.DeclareOk,
+                    {'queue': queue})] if nowait is False else []
         return self._rpc(spec.Queue.Declare(0, queue, passive, durable,
                                             exclusive, auto_delete, nowait,
                                             arguments or dict()),
@@ -793,9 +795,14 @@ class BlockingChannel(channel.Channel):
         self._validate_callback(callback)
         replies = list()
         for reply in acceptable_replies or list():
+            if isinstance(reply, tuple):
+                reply, arguments = reply
+            else:
+                arguments = None
             prefix, key = self.callbacks.add(self.channel_number,
                                              reply,
-                                             self._on_rpc_complete)
+                                             self._on_rpc_complete,
+                                             arguments=arguments)
             replies.append(key)
         self._received_response = False
         self._send_method(method_frame, content,
