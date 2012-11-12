@@ -167,7 +167,8 @@ class Channel(object):
         self._rpc(spec.Basic.Cancel(consumer_tag=consumer_tag,
                                     nowait=nowait),
                   self._on_cancelok,
-                  [spec.Basic.CancelOk] if nowait is False else [])
+                  [(spec.Basic.CancelOk,
+                    {'consumer_tag': consumer_tag})] if nowait is False else [])
 
     def basic_consume(self, consumer_callback, queue='', no_ack=False,
                       exclusive=False, consumer_tag=None):
@@ -204,7 +205,8 @@ class Channel(object):
                                      no_ack=no_ack,
                                      exclusive=exclusive),
                            self._on_eventok,
-                           [spec.Basic.ConsumeOk])
+                           [(spec.Basic.ConsumeOk,
+                             {'consumer_tag': consumer_tag})])
 
         return consumer_tag
 
@@ -587,7 +589,8 @@ class Channel(object):
         :param dict arguments: Custom key/value arguments for the queue
 
         """
-        replies = [spec.Queue.DeclareOk] if nowait is False else []
+        replies = [(spec.Queue.DeclareOk,
+                    {'queue': queue})] if nowait is False else []
         self._validate_channel_and_callback(callback)
         return self._rpc(spec.Queue.Declare(0, queue, passive, durable,
                                             exclusive, auto_delete, nowait,
@@ -736,7 +739,11 @@ class Channel(object):
         :param pika.amqp_object.Frame frame_value: The frame to deliver
 
         """
-        response = self.frame_dispatcher.process(frame_value)
+        try:
+            response = self.frame_dispatcher.process(frame_value)
+        except exceptions.UnexpectedFrameError:
+            return self._unexpected_frame(frame_value)
+
         if response:
             if isinstance(response[0].method, spec.Basic.Deliver):
                 self._on_deliver(*response)
@@ -956,10 +963,17 @@ class Channel(object):
         # If acceptable replies are set, add callbacks
         if acceptable_replies:
             for reply in acceptable_replies or list():
+                if isinstance(reply, tuple):
+                    reply, arguments = reply
+                else:
+                    arguments = None
+                LOGGER.debug('Adding in on_synchronous_complete callback')
                 self.callbacks.add(self.channel_number, reply,
-                                   self._on_synchronous_complete)
+                                   self._on_synchronous_complete,
+                                   arguments=arguments)
                 if callback:
-                    self.callbacks.add(self.channel_number, reply, callback)
+                    LOGGER.debug('Adding passed in callback')
+                    self.callbacks.add(self.channel_number, reply, callback, arguments=arguments)
 
         self._send_method(method_frame)
 
@@ -990,6 +1004,9 @@ class Channel(object):
         self._set_state(self.CLOSING)
         self._send_method(spec.Channel.Close(self._reply_code,
                                              self._reply_text, 0, 0))
+
+    def _unexpected_frame(self, frame_value):
+        LOGGER.warning('Unexpected frame: %r', frame_value)
 
     def _validate_channel_and_callback(self, callback):
         if not self.is_open:
