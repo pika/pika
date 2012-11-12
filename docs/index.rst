@@ -33,32 +33,22 @@ Pika supports two modes of development, synchronous using the BlockingConnection
    examples/index
    faq
 
-0.9.6 Release Notes
+0.9.7 Release Nodes
 -------------------
 
-- New features
+- New featurs
+ - generator based consumer in BlockingChannel
 
-  - URLParameters
-  - BlockingChannel.start_consuming() and BlockingChannel.stop_consuming()
-  - Delivery Confirmations
-  - Improved unittests
-
-- Major bugfix areas
-
-  - Connection handling
-  - Blocking functionality in the BlockingConnection
-  - SSL
-  - UTF-8 Handling
-
-- Removals
-
-  - pika.reconnection_strategies
-  - pika.channel.ChannelTransport
-  - pika.log
-  - pika.template
-  - examples directory
-
-- Over 700 commits from 37 contributors
+- Bugfixs
+ - Added the exchange "type" parameter back but issue a DeprecationWarning
+ - Dont require a queue name in Channel.queue_declare()
+ - Fixed KeyError when processing timeouts (Issue # 215 - Fix by Raphael De Giusti)
+ - Don't try and close channels when the connection is closed (Issue #216 - Fix by Charles Law)
+ - Dont raise UnexpectedFrame exceptions, log them instead
+ - Handle multiple synchronous RPC calls made without waiting for the call result (Issues #192, #204, #211)
+ - Typo in docs (Issue #207 Fix by Luca Wehrstedt)
+ - Only sleep on connection failure when retry attempts are > 0 (Issue #200)
+ - Bypass _rpc method and just send frames for Basic.Ack, Basic.Nack, Basic.Reject (Issue #205)
 
 Pika Core Modules and Classes
 -----------------------------
