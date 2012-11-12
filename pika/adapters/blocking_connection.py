@@ -732,12 +732,10 @@ class BlockingChannel(channel.Channel):
 
     def tx_commit(self):
         """Commit a transaction."""
-        self._validate_channel_and_callback(callback)
         return self._rpc(spec.Tx.Commit(), None, [spec.Tx.CommitOk])
 
     def tx_rollback(self):
         """Rollback a transaction."""
-        self._validate_channel_and_callback(callback)
         return self._rpc(spec.Tx.Rollback(), None, [spec.Tx.RollbackOk])
 
     def tx_select(self):
