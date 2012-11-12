@@ -10,6 +10,7 @@ Pika has various methods of use, between the synchronous BlockingConnection adap
    using_urlparameters
    connecting_async
    blocking_basic_get
+   blocking_consume
    comparing_publishing_sync_async
    blocking_delivery_confirmations
    blocking_publish_mandatory
