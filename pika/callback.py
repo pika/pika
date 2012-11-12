@@ -94,11 +94,11 @@ def check_for_prefix_and_key(function):
 
 
 class CallbackManager(object):
-    """
-    CallbackManager is a global callback system designed to be a single place
+    """CallbackManager is a global callback system designed to be a single place
     where Pika can manage callbacks and process them. It should be referenced
     by the CallbackManager.instance() method instead of constructing new
     instances of it.
+
     """
     CALLS = 'calls'
     ARGUMENTS = 'arguments'
@@ -122,8 +122,10 @@ class CallbackManager(object):
         CallbackManager will restrict processing of the callback to only
         the calling function/object that you specify.
 
-        :param str|int prefix: Categorize the callback
-        :param object|str|dict key: The key for the callback
+        :param prefix: Categorize the callback
+        :type prefix: str or int
+        :param key: The key for the callback
+        :type key: object or str or dict
         :param method callback: The callback to call
         :param bool one_shot: Remove this callback after it is called
         :param object only_caller: Only allow one_caller value to call the
@@ -182,8 +184,10 @@ class CallbackManager(object):
     def pending(self, prefix, key):
         """Return count of callbacks for a given prefix or key or None
 
-        :param str|int prefix: Categorize the callback
-        :param Object|str|dict key: The key for the callback
+        :param prefix: Categorize the callback
+        :type prefix: str or int
+        :param key: The key for the callback
+        :type key: object or str or dict
         :rtype: None or int
 
         """
@@ -199,8 +203,10 @@ class CallbackManager(object):
         require a specific function to call CallbackManager.process will
         not be processed.
 
-        :param str|int prefix: Categorize the callback
-        :param Object|str|dict key: The key for the callback
+        :param prefix: Categorize the callback
+        :type prefix: str or int
+        :param key: The key for the callback
+        :type key: object or str or dict
         :param Object caller: Who is firing the event
         :param list args: Any optional arguments
         :param dict keywords: Optional keyword arguments

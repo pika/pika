@@ -67,7 +67,7 @@ class ExternalCredentials(object):
         """Validate that this type of authentication is supported
 
         :param spec.Connection.Start start: Connection.Start method
-        :rtype: tuple(str|None, str|None)
+        :rtype: tuple(str or None, str or None)
 
         """
         if ExternalCredentials.TYPE not in start.mechanisms.split():

@@ -193,7 +193,7 @@ def decode_frame(data_in):
     """Receives raw socket data and attempts to turn it into a frame.
     Returns bytes used to make the frame and the frame
 
-    :param str data_in: Theraw data stream
+    :param str data_in: The raw data stream
     :rtype: tuple(bytes consumed, frame)
     :raises: pika.exceptions.InvalidFrameError
 

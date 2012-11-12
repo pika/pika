@@ -181,10 +181,12 @@ class Channel(object):
         http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.consume
 
         :param method consumer_callback: The method to callback when consuming
-        :param str|unicode queue: The queue to consume from
+        :param queue: The queue to consume from
+        :type queue: str or unicode
         :param bool no_ack: Tell the broker to not expect a response
         :param bool exclusive: Don't allow other consumers on the queue
-        :param str|unicode consumer_tag: Specify your own consumer tag
+        :param consumer_tag: Specify your own consumer tag
+        :type consumer_tag: str or unicode
         :rtype: str
 
         """
@@ -222,7 +224,8 @@ class Channel(object):
         http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.get
 
         :param method callback: The method to callback with a message
-        :param str|unicode queue: The queue to get a message from
+        :param queue: The queue to get a message from
+        :type queue: str or unicode
         :param bool no_ack: Tell the broker to not expect a reply
 
         """
@@ -262,9 +265,12 @@ class Channel(object):
 
         http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.publish
 
-        :param str exchange: The exchange name
-        :param str routing_key: The routing key
-        :param str body: The message body
+        :param exchange: The exchange to publish to
+        :type exchange: str or unicode
+        :param routing_key: The routing key to bind on
+        :type routing_key: str or unicode
+        :param body: The message body
+        :type body: str or unicode
         :param pika.spec.Properties properties: Basic.properties
         :param bool mandatory: The mandatory flag
         :param bool immediate: The immediate flag
@@ -413,9 +419,12 @@ class Channel(object):
         """Bind an exchange to another exchange.
 
         :param method callback: The method to call on Exchange.BindOk
-        :param str|unicode destination: The destination exchange to bind
-        :param str|unicode source: The source exchange to bind to
-        :param str|unicode routing_key: The routing key to bind on
+        :param destination: The destination exchange to bind
+        :type destination: str or unicode
+        :param source: The source exchange to bind to
+        :type source: str or unicode
+        :param routing_key: The routing key to bind on
+        :type routing_key: str or unicode
         :param bool nowait: Do not wait for an Exchange.BindOk
         :param dict arguments: Custom key/value pair arguments for the binding
 
@@ -440,7 +449,8 @@ class Channel(object):
         exception with reply code 404 (not found).
 
         :param method callback: Call this method on Exchange.DeclareOk
-        :param str|unicode exchange: The exchange name consists of a non-empty
+        :param exchange: The exchange name consists of a non-empty
+        :type exchange: str or unicode
                                      sequence of these characters: letters,
                                      digits, hyphen, underscore, period, or
                                      colon.
@@ -472,7 +482,8 @@ class Channel(object):
         """Delete the exchange.
 
         :param method callback: The method to call on Exchange.DeleteOk
-        :param str|unicode exchange: The exchange name
+        :param exchange: The exchange name
+        :type exchange: str or unicode
         :param bool if_unused: only delete if the exchange is unused
         :param bool nowait: Do not wait for an Exchange.DeleteOk
 
@@ -487,9 +498,12 @@ class Channel(object):
         """Unbind an exchange from another exchange.
 
         :param method callback: The method to call on Exchange.UnbindOk
-        :param str|unicode destination: The destination exchange to unbind
-        :param str|unicode source: The source exchange to unbind from
-        :param str|unicode routing_key: The routing key to unbind
+        :param destination: The destination exchange to unbind
+        :type destination: str or unicode
+        :param source: The source exchange to unbind from
+        :type source: str or unicode
+        :param routing_key: The routing key to unbind
+        :type routing_key: str or unicode
         :param bool nowait: Do not wait for an Exchange.UnbindOk
         :param dict arguments: Custom key/value pair arguments for the binding
 
@@ -556,9 +570,12 @@ class Channel(object):
         """Bind the queue to the specified exchange
 
         :param method callback: The method to call on Queue.BindOk
-        :param str|unicode queue: The queue to bind to the exchange
-        :param str|unicode exchange: The source exchange to bind to
-        :param str|unicode routing_key: The routing key to bind on
+        :param queue: The queue to bind to the exchange
+        :type queue: str or unicode
+        :param exchange: The source exchange to bind to
+        :type exchange: str or unicode
+        :param routing_key: The routing key to bind on
+        :type routing_key: str or unicode
         :param bool nowait: Do not wait for a Queue.BindOk
         :param dict arguments: Custom key/value pair arguments for the binding
 
@@ -580,7 +597,8 @@ class Channel(object):
         Leave the queue name empty for a auto-named queue in RabbitMQ
 
         :param method callback: The method to call on Queue.DeclareOk
-        :param str|unicode queue: The queue name
+        :param queue: The queue name
+        :type queue: str or unicode
         :param bool passive: Only check to see if the queue exists
         :param bool durable: Survive reboots of the broker
         :param bool exclusive: Only allow access by the current connection
@@ -602,7 +620,8 @@ class Channel(object):
         """Delete a queue from the broker.
 
         :param method callback: The method to call on Queue.DeleteOk
-        :param str|unicode queue: The queue to delete
+        :param queue: The queue to delete
+        :type queue: str or unicode
         :param bool if_unused: only delete if it's unused
         :param bool if_empty: only delete if the queue is empty
         :param bool nowait: Do not wait for a Queue.DeleteOk
@@ -618,7 +637,8 @@ class Channel(object):
         """Purge all of the messages from the specified queue
 
         :param method callback: The method to call on Queue.PurgeOk
-        :param str|unicode: The queue to purge
+        :param queue: The queue to purge
+        :type queue: str or unicode
         :param bool nowait: Do not expect a Queue.PurgeOk response
 
         """
@@ -632,9 +652,12 @@ class Channel(object):
         """Unbind a queue from an exchange.
 
         :param method callback: The method to call on Queue.UnbindOk
-        :param str|unicode queue: The queue to unbind from the exchange
-        :param str|unicode exchange: The source exchange to bind from
-        :param str|unicode routing_key: The routing key to unbind
+        :param queue: The queue to unbind from the exchange
+        :type queue: str or unicode
+        :param exchange: The source exchange to bind from
+        :type exchange: str or unicode
+        :param routing_key: The routing key to unbind
+        :type routing_key: str or unicode
         :param dict arguments: Custom key/value pair arguments for the binding
 
         """
@@ -709,7 +732,8 @@ class Channel(object):
         :param str consumer_tag: The consumer tag for the message
         :param pika.frame.Method method_frame: The received method frame
         :param pika.frame.Header header_frame: The received header frame
-        :param str|unicode body: The message body
+        :param body: The message body
+        :type body: str or unicode
 
         """
         self._pending[consumer_tag].append((self, method_frame.method,
@@ -804,7 +828,8 @@ class Channel(object):
 
         :param pika.frame.Method method_frame: The method frame received
         :param pika.frame.Header header_frame: The header frame received
-        :param str body: The body received
+        :param body: The body received
+        :type body: str or unicode
 
         """
         LOGGER.debug('Called with %r, %r, %r', method_frame, header_frame, body)
@@ -867,7 +892,8 @@ class Channel(object):
 
         :param pika.frame.Method method_frame: The method frame received
         :param pika.frame.Header header_frame: The header frame received
-        :param str body: The body received
+        :param body: The body received
+        :type body: str or unicode
 
         """
         if self._on_getok_callback is not None:
@@ -898,7 +924,8 @@ class Channel(object):
 
         :param pika.frame.Method method_frame: The Basic.Return frame
         :param pika.frame.Header header_frame: The content header frame
-        :param str|unicode body: The message body
+        :param body: The message body
+        :type body: str or unicode
 
         """
         if not self.callbacks.process(self.channel_number, '_on_return',

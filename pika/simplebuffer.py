@@ -45,7 +45,8 @@ class SimpleBuffer(object):
         """Create a new instance of the SimpleBuffer. If you pass in data,
         the buffer will be primed with that value.
 
-        :param str|unicode data: Optional data to prime the buffer with
+        :param data: Optional data to prime the buffer with
+        :type data: str or unicode
 
         """
         self.buf = self._get_stringio()
@@ -64,7 +65,8 @@ class SimpleBuffer(object):
     def write(self, *data_strings):
         """Append given strings to the buffer.
 
-        :param str|unicode data_strings: Value to write to the buffer
+        :param data_strings: Value to write to the buffer
+        :type data_strings: str or unicode
 
         """
         for data in data_strings:

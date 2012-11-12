@@ -36,7 +36,8 @@ class Method(AMQPObject):
         be carried as attributes of the class.
 
         :param pika.frame.Properties properties: AMQP Basic Properties
-        :param str|unicode body: The message body
+        :param body: The message body
+        :type body: str or unicode
 
         """
         self._properties = properties
