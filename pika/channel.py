@@ -565,7 +565,7 @@ class Channel(object):
         self._add_callbacks()
         self._rpc(spec.Channel.Open(), self._on_openok, [spec.Channel.OpenOk])
 
-    def queue_bind(self, callback, queue, exchange, routing_key,
+    def queue_bind(self, callback, queue, exchange, routing_key=None,
                    nowait=False, arguments=None):
         """Bind the queue to the specified exchange
 
@@ -580,8 +580,10 @@ class Channel(object):
         :param dict arguments: Custom key/value pair arguments for the binding
 
         """
-        replies = [spec.Queue.BindOk] if nowait is False else []
         self._validate_channel_and_callback(callback)
+        replies = [spec.Queue.BindOk] if nowait is False else []
+        if not routing_key:
+            routing_key = queue
         return self._rpc(spec.Queue.Bind(0, queue, exchange, routing_key,
                                          nowait, arguments or dict()), callback,
                          replies)

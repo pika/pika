@@ -624,7 +624,7 @@ class BlockingChannel(channel.Channel):
         self._add_callbacks()
         self._rpc(spec.Channel.Open(), self._on_openok, [spec.Channel.OpenOk])
 
-    def queue_bind(self, queue, exchange, routing_key, nowait=False,
+    def queue_bind(self, queue, exchange, routing_key=None, nowait=False,
                    arguments=None):
         """Bind the queue to the specified exchange
 
@@ -639,6 +639,8 @@ class BlockingChannel(channel.Channel):
 
         """
         replies = [spec.Queue.BindOk] if nowait is False else []
+        if not routing_key:
+            routing_key = queue
         return self._rpc(spec.Queue.Bind(0, queue, exchange, routing_key,
                                          nowait, arguments or dict()),
                          None, replies)
@@ -663,8 +665,9 @@ class BlockingChannel(channel.Channel):
         :param dict arguments: Custom key/value arguments for the queue
 
         """
-        replies = [(spec.Queue.DeclareOk,
-                    {'queue': queue})] if nowait is False else []
+        condition = (spec.Queue.DeclareOk,
+                     {'queue': queue}) if queue else spec.Queue.DeclareOk
+        replies = [condition] if nowait is False else []
         return self._rpc(spec.Queue.Declare(0, queue, passive, durable,
                                             exclusive, auto_delete, nowait,
                                             arguments or dict()),
