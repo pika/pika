@@ -607,9 +607,9 @@ class Channel(object):
         :param dict arguments: Custom key/value arguments for the queue
 
         """
-        condition = {'queue': queue} if queue else None
-        replies = [(spec.Queue.DeclareOk,
-                    condition)] if nowait is False else []
+        condition = (spec.Queue.DeclareOk,
+                     {'queue': queue}) if queue else spec.Queue.DeclareOk
+        replies = [condition] if nowait is False else []
         self._validate_channel_and_callback(callback)
         return self._rpc(spec.Queue.Declare(0, queue, passive, durable,
                                             exclusive, auto_delete, nowait,
