@@ -1054,7 +1054,7 @@ class Connection(object):
         self._set_connection_state(self.CONNECTION_CLOSED)
         if method_frame:
             for channel in self._channels:
-                self._channels[channel].on_remote_close(method_frame)
+                self._channels[channel]._on_close(method_frame)
         self._process_connection_closed_callbacks()
         self._remove_connection_callbacks()
 
