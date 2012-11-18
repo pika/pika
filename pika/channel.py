@@ -1003,7 +1003,8 @@ class Channel(object):
                                    arguments=arguments)
                 if callback:
                     LOGGER.debug('Adding passed in callback')
-                    self.callbacks.add(self.channel_number, reply, callback, arguments=arguments)
+                    self.callbacks.add(self.channel_number, reply, callback,
+                                       arguments=arguments)
 
         self._send_method(method_frame)
 
