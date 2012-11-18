@@ -34,28 +34,15 @@ Pika supports two modes of development, synchronous using the BlockingConnection
    faq
    version_history
 
-0.9.7 Release Notes
--------------------
-
-**New features**
-
-- generator based consumer in BlockingChannel (See :doc:`examples/blocking_consumer_generator` for example)
-
-**Changes**
-
-- BlockingChannel._send_method will only wait if explicitly told to
+0.9.8 - 2012-11-18
+------------------
 
 **Bugfixes**
 
-- Added the exchange "type" parameter back but issue a DeprecationWarning
-- Dont require a queue name in Channel.queue_declare()
-- Fixed KeyError when processing timeouts (Issue # 215 - Fix by Raphael De Giusti)
-- Don't try and close channels when the connection is closed (Issue #216 - Fix by Charles Law)
-- Dont raise UnexpectedFrame exceptions, log them instead
-- Handle multiple synchronous RPC calls made without waiting for the call result (Issues #192, #204, #211)
-- Typo in docs (Issue #207 Fix by Luca Wehrstedt)
-- Only sleep on connection failure when retry attempts are > 0 (Issue #200)
-- Bypass _rpc method and just send frames for Basic.Ack, Basic.Nack, Basic.Reject (Issue #205)
+- Channel.queue_declare/BlockingChannel.queue_declare not setting up callbacks property for empty queue name (Issue #218)
+- Channel.queue_bind/BlockingChannel.queue_bind not allowing empty routing key
+- Connection._on_connection_closed calling wrong method in Channel (Issue #219)
+- Fix tx_commit and tx_rollback bugs in BlockingChannel (Issue #217)
 
 Pika Core Modules and Classes
 -----------------------------

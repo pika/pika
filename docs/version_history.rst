@@ -1,7 +1,17 @@
 Version History
 ===============
 
-0.9.7 - 2012-10-11
+0.9.8 - 2012-11-18
+------------------
+
+**Bugfixes**
+
+- Channel.queue_declare/BlockingChannel.queue_declare not setting up callbacks property for empty queue name (Issue #218)
+- Channel.queue_bind/BlockingChannel.queue_bind not allowing empty routing key
+- Connection._on_connection_closed calling wrong method in Channel (Issue #219)
+- Fix tx_commit and tx_rollback bugs in BlockingChannel (Issue #217)
+
+0.9.7 - 2012-11-11
 ------------------
 
 **New features**
