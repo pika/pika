@@ -34,7 +34,8 @@ class TornadoConnection(base_connection.BaseConnection):
     def _adapter_disconnect(self):
         """Disconnect from the RabbitMQ broker"""
         super(TornadoConnection, self)._adapter_disconnect()
-        self.ioloop.remove_handler(self.socket.fileno())
+        if self.socket:
+            self.ioloop.remove_handler(self.socket.fileno())
 
     def add_timeout(self, deadline, callback_method):
         """Add the callback_method to the IOLoop timer to fire after deadline
