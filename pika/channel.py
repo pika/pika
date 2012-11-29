@@ -582,7 +582,7 @@ class Channel(object):
         """
         self._validate_channel_and_callback(callback)
         replies = [spec.Queue.BindOk] if nowait is False else []
-        if not routing_key:
+        if routing_key is None:
             routing_key = queue
         return self._rpc(spec.Queue.Bind(0, queue, exchange, routing_key,
                                          nowait, arguments or dict()), callback,
