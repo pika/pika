@@ -1075,6 +1075,8 @@ class ContentFrameDispatcher(object):
             self._method_frame = frame_value
         elif isinstance(frame_value, frame.Header):
             self._header_frame = frame_value
+            if frame_value.body_size == 0:
+                return self._finish()
         elif isinstance(frame_value, frame.Body):
             return self._handle_body_frame(frame_value)
         else:
