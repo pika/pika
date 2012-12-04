@@ -1309,7 +1309,8 @@ class Connection(object):
 
         """
         if self.is_closed:
-            raise exceptions.ConnectionClosed
+            LOGGER.critical('Attempted to send frame when closed')
+            return
         LOGGER.debug('Frame: %r', frame_value)
         marshaled_frame = frame_value.marshal()
         self.bytes_sent += len(marshaled_frame)
