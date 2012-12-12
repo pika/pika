@@ -187,7 +187,7 @@ class BlockingConnection(base_connection.BaseConnection):
     def _handle_timeout(self):
         """Invoked whenever the socket times out"""
         self._socket_timeouts += 1
-        threshold = (self.SOCKET_CONNECT_TIMEOUT if not self.is_closing else
+        threshold = (self.SOCKET_TIMEOUT_THRESHOLD if not self.is_closing else
                      self.SOCKET_TIMEOUT_CLOSE_THRESHOLD)
 
         LOGGER.debug('Handling timeout %i with a threshold of %i',
