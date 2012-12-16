@@ -110,14 +110,13 @@ class BaseConnection(connection.Connection):
                 reason = err[-1]
                 self.socket.close()
 
-            LOGGER.warning('Could not connect due to "%s," retrying in %i sec',
-                           reason, self.params.retry_delay)
             if remaining_attempts:
+                LOGGER.warning('Could not connect due to "%s," retrying in %i sec',
+                               reason, self.params.retry_delay)
                 time.sleep(self.params.retry_delay)
 
         LOGGER.error('Could not connect: %s', reason)
-        raise exceptions.AMQPConnectionError(self.params.connection_attempts *
-                                             self.params.retry_delay)
+        raise exceptions.AMQPConnectionError(self.params.connection_attempts)
 
     def _adapter_disconnect(self):
         """Invoked if the connection is being told to disconnect"""
