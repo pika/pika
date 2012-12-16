@@ -87,6 +87,8 @@ class HeartbeatChecker(object):
         # Connection has not received any data, increment the counter
         if not self._has_received_data:
             self._idle_byte_intervals += 1
+        else:
+            self._idle_byte_intervals = 0
 
         # Update the counters of bytes sent/received and the frames received
         self._update_counters()
