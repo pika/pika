@@ -3,7 +3,7 @@ Using the BlockingChannel.consume generator to consume messages
 
 .. _example_blocking_basic_get:
 
-The :py:meth:`BlockingChannel.consume` is a generator that will return a tuple of method, properties and body.
+The :py:meth:`BlockingChannel.consume <pika.adapters.blocking_connection.BlockingChannel.consume>` method is a generator that will return a tuple of method, properties and body.
 
 When you escape out of the loop, be sure to call consumer.cancel() to return any unprocessed messages.
 

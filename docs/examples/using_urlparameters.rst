@@ -1,14 +1,14 @@
 Using URLParameters
 ===================
 Pika has two methods of encapsulating the data that lets it know how to connect
-to RabbitMQ, :py:meth:`pika.connection.ConnectionParameters` and :py:meth:`pika.connection.URLParameters`.
+to RabbitMQ, :py:class:`pika.connection.ConnectionParameters` and :py:class:`pika.connection.URLParameters`.
 
 .. note::
     If you're connecting to RabbitMQ on localhost on port 5672, with the default virtual host of */* and the default username and password of *guest* and *guest*, you do not need to specify connection parameters when connecting.
 
-Using :py:meth:`pika.connection.URLParameters` is an easy way to minimize the
+Using :py:class:`pika.connection.URLParameters` is an easy way to minimize the
 variables required to connect to RabbitMQ and supports all of the directives
-that :py:meth:`pika.connection.ConnectionParameters` supports.
+that :py:class:`pika.connection.ConnectionParameters` supports.
 
 The following is the format for the URLParameters connection value::
 
@@ -65,5 +65,5 @@ The following example demonstrates how to generate the ssl_options string with `
 
 .. rubric:: Footnotes
 
-.. [#f1] The :py:meth:`pika.adapters.blocking_connection.BlockingConnection` adapter does not respect the *connection_attempts* parameter.
+.. [#f1] The :py:class:`pika.adapters.blocking_connection.BlockingConnection` adapter does not respect the *connection_attempts* parameter.
 .. [#f2] The AMQP specification states that a server can reject a request for a frame size larger than the value it passes during content negotiation.
