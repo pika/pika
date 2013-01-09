@@ -3,6 +3,7 @@ asynchronous core.
 
 """
 import logging
+import select
 import socket
 import time
 import warnings
@@ -15,6 +16,46 @@ from pika import utils
 from pika.adapters import base_connection
 
 LOGGER = logging.getLogger(__name__)
+
+
+class ReadPoller(object):
+    """A poller that will check to see if data is ready on the socket using
+    very short timeouts to avoid having to read on the socket, speeding up the
+    BlockingConnection._handle_read() method.
+
+    """
+    POLL_TIMEOUT = 0.01
+
+    def __init__(self, fd, poll_timeout=POLL_TIMEOUT):
+        """Create a new instance of the ReadPoller which wraps poll and select
+        to determine if the socket has data to read on it.
+
+        :param int fd: The file descriptor for the socket
+        :param float poll_timeout: How long to wait for events
+
+        """
+        self.fd = fd
+        self.poll_timeout = poll_timeout
+        if hasattr(select, 'poll'):
+            self.poller = select.poll()
+            self.poll_events = select.POLLIN | select.POLLPRI
+            self.poller.register(self.fd, self.poll_events)
+        else:
+            self.poller = None
+
+    def ready(self):
+        """Check to see if the socket has data to read.
+
+        :rtype: bool
+
+        """
+        if self.poller:
+            events = self.poller.poll(self.poll_timeout)
+            return True if events else False
+        else:
+            ready, unused_wri, unused_err = select.select([self.fd], [], [],
+                                                          self.poll_timeout)
+            return len(ready) > 0
 
 
 class BlockingConnection(base_connection.BaseConnection):
@@ -141,6 +182,7 @@ class BlockingConnection(base_connection.BaseConnection):
         self._frames_written_without_read = 0
         self._socket_timeouts = 0
         self._timeouts = dict()
+        self._read_poller = ReadPoller(self.socket.fileno())
         self._on_connected()
         while not self.is_open:
             self.process_data_events()
@@ -181,8 +223,14 @@ class BlockingConnection(base_connection.BaseConnection):
         self._on_connection_closed(None, True)
 
     def _handle_read(self):
-        super(BlockingConnection, self)._handle_read()
-        self._frames_written_without_read = 0
+        """If the ReadPoller says there is data to read, try adn read it in the
+        _handle_read of the parent class. Once read, reset the counter that
+        keeps track of how many frames have been written since the last read.
+
+        """
+        if self._read_poller.ready():
+            super(BlockingConnection, self)._handle_read()
+            self._frames_written_without_read = 0
 
     def _handle_timeout(self):
         """Invoked whenever the socket times out"""
