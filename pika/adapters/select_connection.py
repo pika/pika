@@ -38,7 +38,6 @@ class SelectConnection(BaseConnection):
         call the poller's poll function to force it to process events.
 
         """
-        self.ioloop.poller.process_timeouts()
         self.ioloop.poller._manage_event_state()
         # Force our poller to come up for air, but in write only mode
         # write only mode prevents messages from coming in and kicking off
