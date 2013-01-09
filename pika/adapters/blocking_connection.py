@@ -814,7 +814,8 @@ class BlockingChannel(channel.Channel):
 
     def _on_close(self, method_frame):
         LOGGER.warning('Received Channel.Close, closing: %r', method_frame)
-        self._send_method(spec.Channel.CloseOk(), None, False)
+        if not self.connection.is_closed:
+            self._send_method(spec.Channel.CloseOk(), None, False)
         self._set_state(self.CLOSED)
         raise exceptions.ChannelClosed(self._reply_code, self._reply_text)
 
