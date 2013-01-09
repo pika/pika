@@ -369,7 +369,7 @@ class Channel(object):
         self._reply_code, self._reply_text = reply_code, reply_text
         LOGGER.debug('Cancelling %i consumers', len(self._consumers))
         for consumer_tag in self._consumers.keys():
-            self.basic_cancel(consumer_tag)
+            self.basic_cancel(consumer_tag=consumer_tag)
         self._shutdown()
 
     def confirm_delivery(self, callback=None, nowait=False):
