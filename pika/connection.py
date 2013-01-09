@@ -190,13 +190,13 @@ class Parameters(object):
     def _validate_host(self, host):
         """Validate that the host value is an str
 
-        :param str host: The value to validate
+        :param str|unicode host: The value to validate
         :rtype: bool
         :raises: TypeError
 
         """
-        if not isinstance(host, str):
-            raise TypeError('host must be a str')
+        if not isinstance(host, basestring):
+            raise TypeError('host must be a str or unicode str')
         return True
 
     def _validate_locale(self, locale):
