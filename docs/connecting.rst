@@ -18,10 +18,14 @@ If you are using an external IOLoop such as Tornado's IOLoop, you may invoke tha
 
 Example::
 
-    from pika.adapters import SelectConnection
+    import pika
 
-    # Create our connection object
-    connection = SelectConnection()
+    def on_open(connection):
+        # Invoked when the connection is open
+        pass
+
+    # Create our connection object, passing in the on_open method
+    connection = pika.SelectConnection(on_open)
 
     try:
         # Loop so we can communicate with RabbitMQ
@@ -214,11 +218,10 @@ For more information on using the BlockingConnection, see :py:meth:`BlockingChan
 
 Publishing Example::
 
-    from pika.adapters import BlockingConnection
-    from pika import BasicProperties
+    import pika
 
     # Open a connection to RabbitMQ on localhost using all default parameters
-    connection = BlockingConnection()
+    connection = pika.BlockingConnection()
 
     # Open the channel
     channel = connection.channel()
@@ -230,15 +233,15 @@ Publishing Example::
     channel.basic_publish(exchange='',
                           routing_key="test",
                           body="Hello World!",
-                          properties=BasicProperties(content_type="text/plain",
-                                                     delivery_mode=1))
+                          properties=pika.BasicProperties(content_type="text/plain",
+                                                          delivery_mode=1))
 
 Consuming Example::
 
-    from pika.adapters import BlockingConnection
+    import pika
 
     # Open a connection to RabbitMQ on localhost using all default parameters
-    connection = BlockingConnection()
+    connection = pika.BlockingConnection()
 
     # Open the channel
     channel = connection.channel()
@@ -294,7 +297,8 @@ SelectConnection object instance. Valid values are: kqueue, poll, epoll, select
 
 Poller Type Override Example::
 
-  import select_connection
+  from pika.adapters import select_connection
+
   select_connection.POLLER_TYPE = 'epoll'
   connection = select_connection.SelectConnection()
 
