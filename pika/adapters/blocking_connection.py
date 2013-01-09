@@ -266,6 +266,7 @@ class BlockingConnection(base_connection.BaseConnection):
         :raises: AMQPConnectionError
 
         """
+        LOGGER.info('on_connection_closed: %r, %r', method_frame, from_adapter)
         if self._is_connection_close_frame(method_frame):
             self.closing = (method_frame.method.reply_code,
                             method_frame.method.reply_text)
@@ -865,7 +866,8 @@ class BlockingChannel(channel.Channel):
         if not self.connection.is_closed:
             self._send_method(spec.Channel.CloseOk(), None, False)
         self._set_state(self.CLOSED)
-        raise exceptions.ChannelClosed(self._reply_code, self._reply_text)
+        raise exceptions.ChannelClosed(method_frame.method.reply_code,
+                                       method_frame.method.reply_text)
 
     def _on_openok(self, method_frame):
         """Open the channel by sending the RPC command and remove the reply

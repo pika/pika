@@ -946,7 +946,7 @@ class Connection(object):
         self._set_connection_state(self.CONNECTION_CLOSED)
 
         # When closing, hold reason why
-        self.closing = 0, ''
+        self.closing = 0, 'Not specified'
 
         # Our starting point once connected, first frame received
         self._add_connection_start_callback()
