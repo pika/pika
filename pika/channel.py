@@ -821,7 +821,8 @@ class Channel(object):
         LOGGER.warning('Received remote Channel.Close (%s): %s',
                        method_frame.method.reply_code,
                        method_frame.method.reply_text)
-        self._send_method(spec.Channel.CloseOk())
+        if self.connection.is_open:
+            self._send_method(spec.Channel.CloseOk())
         self._set_state(self.CLOSED)
 
     def _on_deliver(self, method_frame, header_frame, body):
