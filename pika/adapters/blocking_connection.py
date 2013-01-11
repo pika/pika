@@ -6,6 +6,7 @@ import logging
 import select
 import socket
 import time
+import threading
 import warnings
 
 from pika import callback
@@ -73,6 +74,9 @@ class BlockingConnection(base_connection.BaseConnection):
     SOCKET_TIMEOUT_THRESHOLD = 12
     SOCKET_TIMEOUT_CLOSE_THRESHOLD = 3
     SOCKET_TIMEOUT_MESSAGE = "Timeout exceeded, disconnected"
+    
+    _timeoutIdSequence = 0
+    _sequenceLock = threading.Lock()
 
     def add_timeout(self, deadline, callback):
         """Add the callback to the IOLoop timer to fire after deadline
@@ -83,7 +87,9 @@ class BlockingConnection(base_connection.BaseConnection):
         :rtype: str
 
         """
-        timeout_id = '%.8f' % time.time()
+        with BlockingConnection._sequenceLock:
+            timeout_id = str(BlockingConnection._timeoutIdSequence++)
+            
         self._timeouts[timeout_id] = {'deadline': deadline + time.time(),
                                       'method': callback}
         return timeout_id
