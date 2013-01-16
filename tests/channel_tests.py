@@ -198,6 +198,18 @@ class ChannelTests(unittest.TestCase):
         self.assertRaises(ValueError, self.obj.basic_cancel, callback_mock,
                           consumer_tag, nowait=True)
 
+    def test_basic_cancel_then_close(self):
+        self.obj._set_state(self.obj.OPEN)
+        callback_mock = mock.Mock()
+        consumer_tag = 'ctag0'
+        self.obj._consumers[consumer_tag] = mock.Mock()
+        self.obj.basic_cancel(callback_mock, consumer_tag)
+        try:
+            self.obj.close()
+        except exceptions.ChannelClosed:
+            self.fail('unable to cancel consumers as channel is closing')
+        self.assertTrue(self.obj.is_closing)
+
     def test_basic_cancel_on_cancel_appended(self):
         self.obj._set_state(self.obj.OPEN)
         self.obj._consumers['ctag0'] = logging.debug
