@@ -14,7 +14,7 @@ class ExceptionTests(unittest.TestCase):
 
     def test_amqp_connection_error_one_param_repr(self):
         self.assertEqual(repr(exceptions.AMQPConnectionError(10)),
-                         "No connection could be opened after 10 retries")
+                         "No connection could be opened after 10 connection attempts")
 
     def test_amqp_connection_error_two_params_repr(self):
         self.assertEqual(repr(exceptions.AMQPConnectionError(1, 'Test')),
