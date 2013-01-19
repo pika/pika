@@ -365,7 +365,6 @@ class Channel(object):
         if not self.is_open:
             raise exceptions.ChannelClosed()
         LOGGER.info('Channel.close(%s, %s)', self._reply_code, self._reply_text)
-        self._set_state(self.CLOSING)
         self._reply_code, self._reply_text = reply_code, reply_text
         LOGGER.debug('Cancelling %i consumers', len(self._consumers))
         for consumer_tag in self._consumers.keys():
