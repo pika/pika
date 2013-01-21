@@ -232,10 +232,10 @@ class IOLoopReactorAdapter(object):
         self.reactor.removeReader(self.connection)
         self.reactor.removeWriter(self.connection)
 
-        if event_state & base_connection.READ:
+        if event_state & self.connection.READ:
             self.reactor.addReader(self.connection)
 
-        if event_state & base_connection.WRITE:
+        if event_state & self.connection.WRITE:
             self.reactor.addWriter(self.connection)
 
 
@@ -259,7 +259,7 @@ class TwistedConnection(base_connection.BaseConnection):
     def _adapter_connect(self):
         """Connect to the RabbitMQ broker"""
         # Connect (blockignly!) to the server
-        super(base_connection.BaseConnection, self)._adapter_connect()
+        super(TwistedConnection, self)._adapter_connect()
 
         # Create an I/O loop by adapting the Twisted reactor
         self.ioloop = IOLoopReactorAdapter(self, reactor)
