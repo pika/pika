@@ -35,7 +35,7 @@ Pika supports two modes of development, synchronous using the BlockingConnection
    faq
    version_history
 
-0.9.9 - Unreleased
+0.9.9 - 2013-01-29
 ------------------
 
 **Bugfixes**
@@ -44,7 +44,7 @@ Pika supports two modes of development, synchronous using the BlockingConnection
 - Allow messages with no body (Issue #227)
 - Allow for empty routing keys (Issue #224)
 - Don't raise an exception when trying to send a frame to a closed connection (Issue #229)
-- Only send a Connection.CloseOk if the connection is still open. (Issue #236 - Fix by "noleaf")
+- Only send a Connection.CloseOk if the connection is still open. (Issue #236 - Fix by noleaf)
 - Fix timeout threshold in blocking connection - (Issue #232 - Fix by Adam Flynn)
 - Fix closing connection while a channel is still open (Issue #230 - Fix by Adam Flynn)
 - Fixed misleading warning and exception messages in BaseConnection (Issue #237 - Fix by Tristan Penman)
@@ -55,6 +55,9 @@ Pika supports two modes of development, synchronous using the BlockingConnection
 - Change the string validation to basestring for host connection parameters (Issue #231)
 - Add a poller to the BlockingConnection to address latency issues introduced in Pika 0.9.8 (Issue #242)
 - reply_code and reply_text is not set in ChannelException (Issue #250)
+- Add the missing constraint parameter for Channel._on_return callback processing (Issue #257 - Fix by patcpsc)
+- Channel callbacks not being removed from callback manager when channel is closed or deleted (Issue #261)
+
 
 Pika Core Modules and Classes
 -----------------------------
