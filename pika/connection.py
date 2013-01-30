@@ -582,17 +582,15 @@ class Connection(object):
             LOGGER.warning("Invoked while closing or closed")
             return
 
+        if self._has_open_channels:
+            self._close_channels(reply_code, reply_text)
+
         # Set our connection state
         self._set_connection_state(self.CONNECTION_CLOSING)
         LOGGER.info("Closing connection (%s): %s", reply_code, reply_text)
         self.closing = reply_code, reply_text
 
-        # If channels are open, _on_close_ready will be called when they close
-        if self._has_open_channels:
-            return self._close_channels(reply_code, reply_text)
-        else:
-            self._on_close_ready()
-            return
+        self._on_close_ready()
 
     def remove_timeout(self, callback_method):
         """Adapters should override to call the callback after the
