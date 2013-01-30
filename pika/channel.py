@@ -808,8 +808,6 @@ class Channel(object):
             del self._consumers[method_frame.method.consumer_tag]
         if method_frame.method.consumer_tag in self._pending:
             del self._pending[method_frame.method.consumer_tag]
-        if self.is_closing and not len(self._consumers):
-            self._shutdown()
 
     def _on_close(self, method_frame):
         """Handle the case where our channel has been closed for us
