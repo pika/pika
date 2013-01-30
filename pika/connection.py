@@ -724,13 +724,13 @@ class Connection(object):
         """Add a callback for when a Connection.Tune frame is received."""
         self.callbacks.add(0, spec.Connection.Tune, self._on_connection_tune)
 
-    def _append_frame_buffer(self, bytes):
+    def _append_frame_buffer(self, value):
         """Append the bytes to the frame buffer.
 
-        :param str bytes: The bytes to append to the frame buffer
+        :param str value: The bytes to append to the frame buffer
 
         """
-        self._frame_buffer += bytes
+        self._frame_buffer += value
 
     @property
     def _buffer_size(self):
@@ -783,6 +783,8 @@ class Connection(object):
                     self._channels[channel_number].close(reply_code, reply_text)
                 else:
                     del self._channels[channel_number]
+                # Force any lingering callbacks to be removed
+                self.callbacks.cleanup(channel_number)
         else:
             self._channels = dict()
 
@@ -1005,7 +1007,7 @@ class Connection(object):
         """Remove the channel from the dict of channels when Channel.CloseOk is
         sent.
 
-        :param spec.Channel.CloseOk method_frame: The response
+        :param pika.frame.Method method_frame: The response
 
         """
         LOGGER.debug('Received Channel.CloseOk')
@@ -1014,6 +1016,8 @@ class Connection(object):
         except KeyError:
             LOGGER.error('Channel %r not in channels',
                          method_frame.channel_number)
+        # Force any callbacks to be removed for this channel
+        self.callbacks.cleanup(method_frame.channel_number)
 
     def _on_close_ready(self):
         """Called when the Connection is in a state that it can close after
