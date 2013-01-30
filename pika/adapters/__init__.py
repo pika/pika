@@ -14,6 +14,8 @@
   with the Tornado web framework.
 - adapters.blocking_connection.BlockingConnection: Enables blocking,
   synchronous operation on top of library for simple uses.
+- adapters.twisted_connection.TwistedConnection: Connection adapter for use
+  with the Twisted framework
 
 """
 from base_connection import BaseConnection
@@ -27,3 +29,10 @@ try:
     from tornado_connection import TornadoConnection
 except ImportError:
     TornadoConnection = None
+
+try:
+    from twisted_connection import TwistedConnection
+    from twisted_connection import TwistedProtocolConnection
+except ImportError:
+    TwistedConnection = None
+    TwistedProtocolConnection = None
