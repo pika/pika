@@ -171,10 +171,11 @@ class CallbackManager(object):
         """Remove all callbacks from the stack by a prefix. Returns True
         if keys were there to be removed
 
-        :param str prefix: The prefix for keeping track of callbacks with
+        :param str or int prefix: The prefix for keeping track of callbacks with
         :rtype: bool
 
         """
+        LOGGER.info('Clearing out %r from the stack', prefix)
         if prefix not in self._stack or not self._stack[prefix]:
             return False
         del self._stack[prefix]
