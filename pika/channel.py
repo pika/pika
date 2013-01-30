@@ -823,6 +823,7 @@ class Channel(object):
         if self.connection.is_open:
             self._send_method(spec.Channel.CloseOk())
         self._set_state(self.CLOSED)
+        self._cleanup()
 
     def _on_deliver(self, method_frame, header_frame, body):
         """Cope with reentrancy. If a particular consumer is still active when
@@ -1035,6 +1036,7 @@ class Channel(object):
         self._set_state(self.CLOSING)
         self._send_method(spec.Channel.Close(self._reply_code,
                                              self._reply_text, 0, 0))
+        self._cleanup()
 
     def _unexpected_frame(self, frame_value):
         LOGGER.warning('Unexpected frame: %r', frame_value)
