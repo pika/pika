@@ -932,8 +932,9 @@ class Channel(object):
         :type body: str or unicode
 
         """
-        if not self.callbacks.process(self.channel_number, '_on_return',
-                                      (self, method_frame.method,
+        if not self.callbacks.process(self.channel_number, '_on_return', self,
+                                      (self,
+                                       method_frame.method,
                                        header_frame.properties,
                                        body)):
             LOGGER.warning('Basic.Return received from server (%r, %r)',

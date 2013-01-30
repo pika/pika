@@ -1219,6 +1219,7 @@ class ChannelTests(unittest.TestCase):
         self.obj._on_return(method_value, header_value, body_value)
         self.obj.callbacks.process.assert_called_with(self.obj.channel_number,
                                                       '_on_return',
+                                                      self.obj,
                                                       (self.obj,
                                                        method_value.method,
                                                        header_value.properties,
