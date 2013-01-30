@@ -1026,14 +1026,14 @@ class ChannelTests(unittest.TestCase):
         self.obj._on_cancelok(frame_value)
         self.assertNotIn(consumer_tag, self.obj._pending)
 
-    def test_on_cancelok_called_shutdown(self):
+    def test_on_cancelok_does_not_call_shutdown(self):
         consumer_tag = 'ctag0'
         self.obj._pending[consumer_tag] = logging.debug
         frame_value = frame.Method(1, spec.Basic.CancelOk(consumer_tag))
         self.obj._set_state(self.obj.CLOSING)
         with mock.patch.object(self.obj, '_shutdown') as shutdown:
             self.obj._on_cancelok(frame_value)
-            shutdown.assert_called_once_with()
+            self.assertFalse(shutdown.called)
 
     @mock.patch('logging.Logger.debug')
     def test_on_deliver(self, debug):
