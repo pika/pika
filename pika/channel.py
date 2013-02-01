@@ -1035,7 +1035,6 @@ class Channel(object):
         self._set_state(self.CLOSING)
         self._send_method(spec.Channel.Close(self._reply_code,
                                              self._reply_text, 0, 0))
-        self._cleanup()
 
     def _unexpected_frame(self, frame_value):
         LOGGER.warning('Unexpected frame: %r', frame_value)
