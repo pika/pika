@@ -24,14 +24,14 @@ class ReadPoller(object):
     BlockingConnection._handle_read() method.
 
     """
-    POLL_TIMEOUT = 0.01
+    POLL_TIMEOUT = 10
 
     def __init__(self, fd, poll_timeout=POLL_TIMEOUT):
         """Create a new instance of the ReadPoller which wraps poll and select
         to determine if the socket has data to read on it.
 
         :param int fd: The file descriptor for the socket
-        :param float poll_timeout: How long to wait for events
+        :param float poll_timeout: How long to wait for events (milliseconds)
 
         """
         self.fd = fd
@@ -42,6 +42,7 @@ class ReadPoller(object):
             self.poller.register(self.fd, self.poll_events)
         else:
             self.poller = None
+            self.poll_timeout = float(poll_timeout) / 1000
 
     def ready(self):
         """Check to see if the socket has data to read.
