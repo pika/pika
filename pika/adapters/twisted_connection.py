@@ -193,8 +193,7 @@ class IOLoopReactorAdapter(object):
         :rtype: twisted.internet.interfaces.IDelayedCall
 
         """
-        secs = deadline - time.time()
-        return self.reactor.callLater(secs, callback)
+        return self.reactor.callLater(deadline, callback)
 
     def remove_timeout(self, call):
         """Remove a call
