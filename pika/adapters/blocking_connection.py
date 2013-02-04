@@ -867,8 +867,11 @@ class BlockingChannel(channel.Channel):
             self._send_method(spec.Channel.CloseOk(), None, False)
         self._set_state(self.CLOSED)
         self._cleanup()
-        raise exceptions.ChannelClosed(method_frame.method.reply_code,
-                                       method_frame.method.reply_text)
+        if method_frame is None:
+            raise exceptions.ChannelClosed(0, 'Not specified')
+        else:
+            raise exceptions.ChannelClosed(method_frame.method.reply_code,
+                                           method_frame.method.reply_text)
 
     def _on_openok(self, method_frame):
         """Open the channel by sending the RPC command and remove the reply
