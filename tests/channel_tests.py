@@ -121,10 +121,7 @@ class ChannelTests(unittest.TestCase):
     def test_add_on_close_callback(self):
         mock_callback = mock.Mock()
         self.obj.add_on_close_callback(mock_callback)
-        self.connection.callbacks.add.assert_called_once_with(self.obj.channel_number,
-                                                              spec.Channel.Close,
-                                                              mock_callback,
-                                                              False)
+        self.assertIn(mock_callback, self.obj._close_callbacks)
 
     def test_add_on_flow_callback(self):
         mock_callback = mock.Mock()
@@ -1335,3 +1332,15 @@ class ChannelTests(unittest.TestCase):
         warning.assert_called_with('Received remote Channel.Close (%s): %s',
                                    method_frame.method.reply_code,
                                    method_frame.method.reply_text)
+
+    def test_on_close_callbacks(self):
+        mock_callback = mock.Mock()
+        self.obj.add_on_close_callback(mock_callback)
+        method_frame = frame.Method(self.obj.channel_number,
+                                    spec.Channel.Close(999, 'Test_Value'))
+        self.obj._on_close(method_frame)
+        mock_callback.assert_called_with(self.obj,
+                                   method_frame.method.reply_code,
+                                   method_frame.method.reply_text)
+
+        self.assertEqual(self.obj._close_callbacks, set())

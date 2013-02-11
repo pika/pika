@@ -57,6 +57,7 @@ class Channel(object):
         self._reply_code = None
         self._reply_text = None
         self._state = self.CLOSED
+        self._close_callbacks = set()
 
     def add_callback(self, callback, replies, one_shot=True):
         """Pass in a callback handler and a list replies from the
@@ -89,8 +90,7 @@ class Channel(object):
         :param method callback: The method to call on callback
 
         """
-        self.callbacks.add(self.channel_number, spec.Channel.Close, callback,
-                           False)
+        self._close_callbacks.add(callback)
 
     def add_on_flow_callback(self, callback):
         """Pass a callback function that will be called when Channel.Flow is
@@ -815,13 +815,16 @@ class Channel(object):
         :param pika.frame.Method method_frame: The close frame
 
         """
-        LOGGER.warning('Received remote Channel.Close (%s): %s',
-                       method_frame.method.reply_code,
-                       method_frame.method.reply_text)
+        code, text = method_frame.method.reply_code, method_frame.method.reply_text
+
+        LOGGER.warning('Received remote Channel.Close (%s): %s', code, text)
         if self.connection.is_open:
             self._send_method(spec.Channel.CloseOk())
         self._set_state(self.CLOSED)
         self._cleanup()
+        for callback in self._close_callbacks:
+            callback(self, code, text)
+        self._close_callbacks = set()
 
     def _on_deliver(self, method_frame, header_frame, body):
         """Cope with reentrancy. If a particular consumer is still active when
