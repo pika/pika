@@ -590,7 +590,10 @@ class Connection(object):
         LOGGER.info("Closing connection (%s): %s", reply_code, reply_text)
         self.closing = reply_code, reply_text
 
-        self._on_close_ready()
+        if not self._has_open_channels:
+            # if there are open channels then _on_close_ready will finally be
+            # called in _on_channel_closeok once all channels have been closed
+            self._on_close_ready()
 
     def remove_timeout(self, callback_method):
         """Adapters should override to call the callback after the
@@ -781,8 +784,10 @@ class Connection(object):
                     self._channels[channel_number].close(reply_code, reply_text)
                 else:
                     del self._channels[channel_number]
-                # Force any lingering callbacks to be removed
-                self.callbacks.cleanup(channel_number)
+                    # Force any lingering callbacks to be removed
+                    # moved inside else block since _on_channel_closeok removes
+                    # callbacks
+                    self.callbacks.cleanup(channel_number)
         else:
             self._channels = dict()
 
@@ -1016,6 +1021,9 @@ class Connection(object):
                          method_frame.channel_number)
         # Force any callbacks to be removed for this channel
         self.callbacks.cleanup(method_frame.channel_number)
+
+        if self.is_closing and not self._has_open_channels:
+            self._on_close_ready()
 
     def _on_close_ready(self):
         """Called when the Connection is in a state that it can close after
