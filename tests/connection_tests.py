@@ -61,3 +61,11 @@ class ConnectionTests(unittest.TestCase):
         '''if connection isn't closing _on_close_ready should not be called'''
         self.connection._on_channel_closeok(mock.Mock())
         self.assertFalse(on_close_ready.called, '_on_close_ready should not have been called')
+
+    def test_on_disconnect(self):
+        '''if connection isn't closing _on_close_ready should not be called'''
+        self.connection._on_disconnect(0, 'Undefined')
+        self.assertTrue(self.channel._on_close.called, 'channel._on_close should have been called')
+        method_frame = self.channel._on_close.call_args[0][0]
+        self.assertEqual(method_frame.method.reply_code, 0)
+        self.assertEqual(method_frame.method.reply_text, 'Undefined')
