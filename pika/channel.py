@@ -650,7 +650,7 @@ class Channel(object):
                          replies)
 
     def queue_unbind(self, callback=None, queue='', exchange=None,
-                     routing_key='', arguments=None):
+                     routing_key=None, arguments=None):
         """Unbind a queue from an exchange.
 
         :param method callback: The method to call on Queue.UnbindOk
@@ -664,6 +664,8 @@ class Channel(object):
 
         """
         self._validate_channel_and_callback(callback)
+        if routing_key is None:
+            routing_key = queue
         return self._rpc(spec.Queue.Unbind(0, queue, exchange, routing_key,
                                            arguments or dict()), callback,
                          [spec.Queue.UnbindOk])
