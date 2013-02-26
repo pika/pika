@@ -9,7 +9,7 @@ In the following example, a connection is made to RabbitMQ listening to port *56
 
   parameters = pika.URLParameters('amqp://guest:guest@localhost:5672/%2F')
 
-  connection = pika.BlockingConnection(paramters)
+  connection = pika.BlockingConnection(parameters)
 
   channel = connection.channel()
 
