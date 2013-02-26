@@ -505,6 +505,7 @@ class BlockingChannel(channel.Channel):
         :return int: The number of messages requeued by Basic.Nack
 
         """
+        messages = 0
         self.basic_cancel(self._generator)
         if self._generator_messages:
             # Get the last item
