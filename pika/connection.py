@@ -1159,8 +1159,9 @@ class Connection(object):
                        self.params.host, self.params.port,
                        reply_code, reply_text)
         self._set_connection_state(self.CONNECTION_CLOSED)
-        method_frame = spec.Channel.Close(reply_code, reply_text)
         for channel in self._channels:
+            method_frame = frame.Method(
+                channel, spec.Channel.Close(reply_code, reply_text))
             self._channels[channel]._on_close(method_frame)
         self._process_connection_closed_callbacks(reply_code, reply_text)
         self._remove_connection_callbacks()
