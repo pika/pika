@@ -750,7 +750,7 @@ class BlockingChannel(channel.Channel):
         replies = [spec.Queue.PurgeOk] if nowait is False else []
         return self._rpc(spec.Queue.Purge(0, queue, nowait), None, replies)
 
-    def queue_unbind(self, queue='', exchange=None, routing_key='',
+    def queue_unbind(self, queue='', exchange=None, routing_key=None,
                      arguments=None):
         """Unbind a queue from an exchange.
 
@@ -763,6 +763,8 @@ class BlockingChannel(channel.Channel):
         :param dict arguments: Custom key/value pair arguments for the binding
 
         """
+        if routing_key is None:
+            routing_key = queue
         return self._rpc(spec.Queue.Unbind(0, queue, exchange, routing_key,
                                            arguments or dict()), None,
                          [spec.Queue.UnbindOk])
