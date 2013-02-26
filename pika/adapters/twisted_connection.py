@@ -75,9 +75,11 @@ class TwistedChannel(object):
 
         channel.add_on_close_callback(self.channel_closed)
 
-    def channel_closed(self, code, text):
+    def channel_closed(self, method_frame):
         # enter the closed state
-        self.__closed = exceptions.ChannelClosed(code, text)
+        self.__closed = exceptions.ChannelClosed(
+            method_frame.method.reply_code,
+            method_frame.method.reply_text)
         # errback all pending calls
         for d in self.__calls:
             d.errback(self.__closed)
@@ -255,6 +257,12 @@ class TwistedConnection(base_connection.BaseConnection):
     IReadWriteDescriptor interface.
 
     """
+    def __init__(self, parameters=None,
+                 on_open_callback=None,
+                 stop_ioloop_on_close=False):
+        super(TwistedConnection, self).__init__(parameters, on_open_callback,
+                                                stop_ioloop_on_close)
+
     def _adapter_connect(self):
         """Connect to the RabbitMQ broker"""
         # Connect (blockignly!) to the server
