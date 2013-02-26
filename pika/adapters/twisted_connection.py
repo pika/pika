@@ -257,6 +257,12 @@ class TwistedConnection(base_connection.BaseConnection):
     IReadWriteDescriptor interface.
 
     """
+    def __init__(self, parameters=None,
+                 on_open_callback=None,
+                 stop_ioloop_on_close=False):
+        super(TwistedConnection, self).__init__(parameters, on_open_callback,
+                                                stop_ioloop_on_close)
+
     def _adapter_connect(self):
         """Connect to the RabbitMQ broker"""
         # Connect (blockignly!) to the server
