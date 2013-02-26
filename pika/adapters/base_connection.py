@@ -275,16 +275,16 @@ class BaseConnection(connection.Connection):
             LOGGER.error('Received events on closed socket: %d', fd)
             return
 
+        if events & self.WRITE:
+            self._handle_write()
+            self._manage_event_state()
+
         if not write_only and (events & self.READ):
             self._handle_read()
 
         if events & self.ERROR:
             LOGGER.error('Error event %r, %r', events, error)
             self._handle_error(error)
-
-        if events & self.WRITE:
-            self._handle_write()
-            self._manage_event_state()
 
     def _handle_read(self):
         """Read from the socket and call our on_data_available with the data."""
