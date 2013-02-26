@@ -104,8 +104,10 @@ class HeartbeatChecker(object):
         LOGGER.info('Connection is idle, %i stale byte intervals',
                     self._idle_byte_intervals)
         duration = self._max_idle_count * self._interval
-        self._connection.close(HeartbeatChecker._CONNECTION_FORCED,
-                               HeartbeatChecker._STALE_CONNECTION % duration)
+        text = HeartbeatChecker._STALE_CONNECTION % duration
+        self._connection.close(HeartbeatChecker._CONNECTION_FORCED, text)
+        self._connection._on_disconnect(HeartbeatChecker._CONNECTION_FORCED,
+                                        text)
 
     @property
     def _has_received_data(self):

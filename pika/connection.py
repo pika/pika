@@ -1059,18 +1059,13 @@ class Connection(object):
         if method_frame and self._is_connection_close_frame(method_frame):
             self.closing = (method_frame.method.reply_code,
                             method_frame.method.reply_text)
-        LOGGER.warning("Disconnected from RabbitMQ at %s:%i (%s): %s",
-                        self.params.host, self.params.port,
-                        self.closing[0], self.closing[1])
+
+        # If this did not come from the connection adapter, close the socket
         if not from_adapter:
             self._adapter_disconnect()
-        self._set_connection_state(self.CONNECTION_CLOSED)
-        if method_frame:
-            for channel in self._channels:
-                self._channels[channel]._on_close(method_frame)
-        self._process_connection_closed_callbacks(self.closing[0],
-                                                  self.closing[1])
-        self._remove_connection_callbacks()
+
+        # Invoke a method frame neutral close
+        self._on_disconnect(self.closing[0], self.closing[1])
 
     def _on_connection_open(self, method_frame):
         """
@@ -1150,6 +1145,25 @@ class Connection(object):
                 return
             self._trim_frame_buffer(consumed_count)
             self._process_frame(frame_value)
+
+    def _on_disconnect(self, reply_code, reply_text):
+        """Invoke passing in the reply_code and reply_text from internal
+        methods to the adapter. Called from on_connection_closed and Heartbeat
+        timeouts.
+
+        :param str reply_code: The numeric close code
+        :param str reply_text: The text close reason
+
+        """
+        LOGGER.warning("Disconnected from RabbitMQ at %s:%i (%s): %s",
+                       self.params.host, self.params.port,
+                       reply_code, reply_text)
+        self._set_connection_state(self.CONNECTION_CLOSED)
+        method_frame = spec.Channel.Close(reply_code, reply_text)
+        for channel in self._channels:
+            self._channels[channel]._on_close(method_frame)
+        self._process_connection_closed_callbacks(reply_code, reply_text)
+        self._remove_connection_callbacks()
 
     def _process_callbacks(self, frame_value):
         """Process the callbacks for the frame if the frame is a method frame
