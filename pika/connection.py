@@ -1068,7 +1068,8 @@ class Connection(object):
         if method_frame:
             for channel in self._channels:
                 self._channels[channel]._on_close(method_frame)
-        self._process_connection_closed_callbacks()
+        self._process_connection_closed_callbacks(self.closing[0],
+                                                  self.closing[1])
         self._remove_connection_callbacks()
 
     def _on_connection_open(self, method_frame):
@@ -1167,12 +1168,16 @@ class Connection(object):
             return True
         return False
 
-    def _process_connection_closed_callbacks(self):
+    def _process_connection_closed_callbacks(self, reason_code, reason_text):
         """Process any callbacks that should be called when the connection is
         closed.
 
+        :param str reason_code: The numeric code from RabbitMQ for the close
+        :param str reason_text: The text reason fro closing
+
         """
-        self.callbacks.process(0, '_on_connection_closed', self, self)
+        self.callbacks.process(0, '_on_connection_closed', self, self,
+                               reason_code, reason_text)
 
     def _process_frame(self, frame_value):
         """Process an inbound frame from the socket.
