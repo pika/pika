@@ -127,10 +127,10 @@ class BaseConnection(connection.Connection):
         self._handle_ioloop_stop()
 
     def _check_state_on_disconnect(self):
-        """
-        Checks to see if we were in opening a connection with RabbitMQ when
+        """Checks to see if we were in opening a connection with RabbitMQ when
         we were disconnected and raises exceptions for the anticipated
         exception types.
+
         """
         if self.connection_state == self.CONNECTION_PROTOCOL:
             LOGGER.error('Incompatible Protocol Versions')
@@ -144,6 +144,8 @@ class BaseConnection(connection.Connection):
                          "a probable permission error when accessing a virtual "
                          "host")
             raise exceptions.ProbableAccessDeniedError
+        elif self.connection_state == self.CONNECTION_OPEN:
+            LOGGER.warning("Socket closed when connection was open")
         else:
             LOGGER.warning('Unknown state on disconnect: %i',
                            self.connection_state)
