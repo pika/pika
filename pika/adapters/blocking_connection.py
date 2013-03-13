@@ -143,6 +143,7 @@ class BlockingConnection(base_connection.BaseConnection):
         :param str reply_text: The text reason for the close
 
         """
+        self._set_connection_state(self.CONNECTION_CLOSING)
         self._remove_connection_callbacks()
         super(BlockingConnection, self).close(reply_code, reply_text)
         self.process_data_events()
@@ -150,6 +151,7 @@ class BlockingConnection(base_connection.BaseConnection):
 
     def disconnect(self):
         """Disconnect from the socket"""
+        self._set_connection_state(self.CONNECTION_CLOSED)
         self.socket.close()
 
     def process_data_events(self):
@@ -221,6 +223,7 @@ class BlockingConnection(base_connection.BaseConnection):
 
         LOGGER.debug('Setting socket timeout to %s', self.params.socket_timeout)
         self.socket.settimeout(self.params.socket_timeout)
+        self._set_connection_state(self.CONNECTION_OPEN)
         LOGGER.info('Adapter connected')
 
     def _adapter_disconnect(self):
