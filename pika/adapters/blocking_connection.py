@@ -75,6 +75,37 @@ class BlockingConnection(base_connection.BaseConnection):
     SOCKET_TIMEOUT_CLOSE_THRESHOLD = 3
     SOCKET_TIMEOUT_MESSAGE = "Timeout exceeded, disconnected"
 
+    def __init__(self, parameters=None):
+        """Create a new instance of the Connection object.
+
+        :param pika.connection.Parameters parameters: Connection parameters
+        :raises: RuntimeError
+
+        """
+        super(BlockingConnection, self).__init__(parameters, None, False)
+
+    def add_on_close_callback(self, callback_method_unused):
+        """This is not supported in BlockingConnection. When a connection is
+        closed in BlockingConnection, a ConnectionClosed exception will be
+        raised.
+
+        :param method callback_method_unused: Unused
+        :raises: NotImplementedError
+
+        """
+        raise NotImplementedError('Blocking connection will raise '
+                                  'ConnectionClosed exception')
+
+    def add_on_open_callback(self, callback_method_unused):
+        """This method is not supported in BlockingConnection.
+
+        :param method callback_method_unused: Unused
+        :raises: NotImplementedError
+
+        """
+        raise NotImplementedError('Connection callbacks not supported in '
+                                  'BlockingConnection')
+
     def add_timeout(self, deadline, callback):
         """Add the callback to the IOLoop timer to fire after deadline
         seconds.
@@ -264,7 +295,7 @@ class BlockingConnection(base_connection.BaseConnection):
 
         :param pika.frame.Method: The Connection.Close frame
         :param bool from_adapter: Called by the connection adapter
-        :raises: AMQPConnectionError
+        :raises: pika.exceptions.ConnectionClosed
 
         """
         LOGGER.info('on_connection_closed: %r, %r', method_frame, from_adapter)
@@ -282,7 +313,7 @@ class BlockingConnection(base_connection.BaseConnection):
             self._channels[channel]._on_close(method_frame)
         self._remove_connection_callbacks()
         if self.closing[0] != 200:
-            raise exceptions.AMQPConnectionError(*self.closing)
+            raise exceptions.ConnectionClosed(*self.closing)
 
     def _send_frame(self, frame_value):
         """This appends the fully generated frame to send to the broker to the
