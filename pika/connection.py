@@ -1,4 +1,5 @@
 """Core connection objects"""
+import ast
 import logging
 import platform
 import urllib
@@ -465,9 +466,10 @@ class URLParameters(Parameters):
             self._validate_socket_timeout(values['socket_timeout'])):
             self.socket_timeout = values['socket_timeout']
 
-        if ('ssl_options' in values and
-            self._validate_ssl_options(values['ssl_options'])):
-            self.ssl_options = values['ssl_options']
+        if 'ssl_options' in values:
+            options = ast.literal_eval(values['ssl_options'])
+            if self._validate_ssl_options(options):
+                self.ssl_options = options
 
 
 class Connection(object):
