@@ -21,6 +21,8 @@ def encode_table(pieces, table):
     pieces.append(None)  # placeholder
     tablesize = 0
     for (key, value) in table.iteritems():
+        if isinstance(key, unicode):
+            key = key.encode('utf-8')
         pieces.append(struct.pack('B', len(key)))
         pieces.append(key)
         tablesize = tablesize + 1 + len(key)
@@ -40,7 +42,8 @@ def encode_value(pieces, value):
 
     """
     if isinstance(value, basestring):
-        value = value.encode('utf8')
+        if isinstance(value, unicode):
+            value = value.encode('utf-8')
         pieces.append(struct.pack('>cI', 'S', len(value)))
         pieces.append(value)
         return 5 + len(value)
