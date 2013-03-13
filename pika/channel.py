@@ -280,6 +280,8 @@ class Channel(object):
             raise exceptions.ChannelClosed()
         if immediate:
             LOGGER.warning('The immediate flag is deprecated in RabbitMQ')
+        if isinstance(body, unicode):
+            body = body.encode('utf-8')
         properties = properties or spec.BasicProperties()
         self._send_method(spec.Basic.Publish(exchange=exchange,
                                              routing_key=routing_key,
