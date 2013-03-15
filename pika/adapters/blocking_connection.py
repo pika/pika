@@ -152,7 +152,8 @@ class BlockingConnection(base_connection.BaseConnection):
     def disconnect(self):
         """Disconnect from the socket"""
         self._set_connection_state(self.CONNECTION_CLOSED)
-        self.socket.close()
+        if self.socket:
+           self.socket.close()
 
     def process_data_events(self):
         """Will make sure that data events are processed. Your app can

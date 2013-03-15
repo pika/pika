@@ -90,7 +90,7 @@ class TestCase(BaseTestCase):
         self.connection.add_on_close_callback(self._on_closed)
         self.connection.close()
 
-    def _on_closed(self, frame):
+    def _on_closed(self, connection, reply_code, reply_text):
         '''called when the connection has finished closing'''
         self.connection.ioloop.stop()
         if self._timed_out:
