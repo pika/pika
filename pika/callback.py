@@ -175,7 +175,7 @@ class CallbackManager(object):
         :rtype: bool
 
         """
-        LOGGER.info('Clearing out %r from the stack', prefix)
+        LOGGER.debug('Clearing out %r from the stack', prefix)
         if prefix not in self._stack or not self._stack[prefix]:
             return False
         del self._stack[prefix]
