@@ -910,7 +910,7 @@ class Connection(object):
         :rtype: bool
 
         """
-        return bool(self._channels)
+        return any([self._channels[num].is_open for num in self._channels])
 
     def _has_pending_callbacks(self, value):
         """Return true if there are any callbacks pending for the specified
