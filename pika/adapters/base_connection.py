@@ -36,9 +36,10 @@ class BaseConnection(connection.Connection):
     DO_HANDSHAKE = True
     WARN_ABOUT_IOLOOP = False
 
-    def __init__(self, parameters=None,
-                       on_open_callback=None,
-                       stop_ioloop_on_close=True):
+    def __init__(self,
+                 parameters=None,
+                 on_open_callback=None,
+                 stop_ioloop_on_close=True):
         """Create a new instance of the Connection object.
 
         :param pika.connection.Parameters parameters: Connection parameters
@@ -58,6 +59,7 @@ class BaseConnection(connection.Connection):
         self.event_state = self.base_events
         self.socket = None
         self.write_buffer = None
+        self._remaining_attempts = 0
         super(BaseConnection, self).__init__(parameters, on_open_callback)
 
     def add_timeout(self, deadline, callback_method):
@@ -97,26 +99,32 @@ class BaseConnection(connection.Connection):
         """Connect to the RabbitMQ broker"""
         LOGGER.debug('Connecting the adapter to the remote host')
         reason = 'Unknown'
-        remaining_attempts = self.params.connection_attempts
-        while remaining_attempts:
-            remaining_attempts -= 1
-            try:
-                self._create_and_connect_to_socket()
-                return
-            except socket.timeout:
-                reason = 'timeout'
-            except socket.error, err:
-                LOGGER.error('socket error: %s', err[-1])
-                reason = err[-1]
-                self.socket.close()
+        self._remaining_attempts -= 1
+        try:
+            self._create_and_connect_to_socket()
+            return
+        except socket.timeout:
+            reason = 'timeout'
+        except socket.error, err:
+            LOGGER.error('socket error: %s', err[-1])
+            reason = err[-1]
+            self.socket.close()
 
-            if remaining_attempts:
-                LOGGER.warning('Could not connect due to "%s," retrying in %i sec',
-                               reason, self.params.retry_delay)
+        if self._remaining_attempts:
+            LOGGER.warning('Could not connect due to "%s," retrying in %i sec',
+                           reason, self.params.retry_delay)
+
+            if hasattr(self, 'ioloop') and self.ioloop:
+                LOGGER.debug('Using ioloop to wait on retry')
+                self.ioloop.add_timeout(self.params.retry_delay,
+                                        self._adapter_connect)
+            else:
                 time.sleep(self.params.retry_delay)
-
-        LOGGER.error('Could not connect: %s', reason)
-        raise exceptions.AMQPConnectionError(self.params.connection_attempts)
+                self._adapter_connect()
+        else:
+            LOGGER.error('Could not connect: %s', reason)
+            raise \
+                exceptions.AMQPConnectionError(self.params.connection_attempts)
 
     def _adapter_disconnect(self):
         """Invoked if the connection is being told to disconnect"""
@@ -335,6 +343,7 @@ class BaseConnection(connection.Connection):
         self.base_events = self.READ | self.ERROR
         self.event_state = self.base_events
         self.socket = None
+        self._remaining_attempts = self.params.connection_attempts
 
     def _manage_event_state(self):
         """Manage the bitmask for reading/writing/error which is used by the

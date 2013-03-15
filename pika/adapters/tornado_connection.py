@@ -1,8 +1,13 @@
 """Run pika on the Tornado IOLoop"""
 from tornado import ioloop
+import logging
+import socket
 import time
 
 from pika.adapters import base_connection
+from pika import exceptions
+
+LOGGER = logging.getLogger(__name__)
 
 
 class TornadoConnection(base_connection.BaseConnection):
@@ -24,12 +29,30 @@ class TornadoConnection(base_connection.BaseConnection):
 
     def _adapter_connect(self):
         """Connect to the RabbitMQ broker"""
-        super(TornadoConnection, self)._adapter_connect()
+        LOGGER.debug('Connecting the adapter to the remote host')
         self.ioloop = self._ioloop
-        self.ioloop.add_handler(self.socket.fileno(),
-                                self._handle_events,
-                                self.event_state)
-        self._on_connected()
+        self._remaining_attempts -= 1
+        try:
+            self._create_and_connect_to_socket()
+            self.ioloop.add_handler(self.socket.fileno(),
+                                    self._handle_events,
+                                    self.event_state)
+            return self._on_connected()
+        except socket.timeout:
+            reason = 'timeout'
+        except socket.error, err:
+            LOGGER.error('socket error: %s', err[-1])
+            reason = err[-1]
+            self.socket.close()
+
+        if self._remaining_attempts:
+            LOGGER.warning('Could not connect due to "%s," retrying in %i sec',
+                           reason, self.params.retry_delay)
+            self.add_timeout(self.params.retry_delay, self._adapter_connect)
+        else:
+            LOGGER.error('Could not connect: %s', reason)
+            raise \
+                exceptions.AMQPConnectionError(self.params.connection_attempts)
 
     def _adapter_disconnect(self):
         """Disconnect from the RabbitMQ broker"""
