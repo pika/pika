@@ -152,9 +152,9 @@ class BaseConnection(connection.Connection):
                          "a probable permission error when accessing a virtual "
                          "host")
             raise exceptions.ProbableAccessDeniedError
-        elif self.connection_state == self.CONNECTION_OPEN:
+        elif self.is_open:
             LOGGER.warning("Socket closed when connection was open")
-        else:
+        elif not self.is_closing:
             LOGGER.warning('Unknown state on disconnect: %i',
                            self.connection_state)
 
