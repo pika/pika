@@ -54,9 +54,15 @@ class Channel(object):
         self._on_getok_callback = None
         self._on_openok_callback = on_open_callback
         self._pending = dict()
-        self._reply_code = None
-        self._reply_text = None
         self._state = self.CLOSED
+
+    def __int__(self):
+        """Return the channel object as its channel number
+
+        :rtype: int
+
+        """
+        return self.channel_number
 
     def add_callback(self, callback, replies, one_shot=True):
         """Pass in a callback handler and a list replies from the
@@ -89,8 +95,8 @@ class Channel(object):
         :param method callback: The method to call on callback
 
         """
-        self.callbacks.add(self.channel_number, spec.Channel.Close, callback,
-                           False)
+        self.callbacks.add(self.channel_number, '_on_channel_close', callback,
+                           False, self)
 
     def add_on_flow_callback(self, callback):
         """Pass a callback function that will be called when Channel.Flow is
@@ -366,12 +372,14 @@ class Channel(object):
         """
         if not self.is_open:
             raise exceptions.ChannelClosed()
-        LOGGER.info('Channel.close(%s, %s)', self._reply_code, self._reply_text)
-        self._reply_code, self._reply_text = reply_code, reply_text
-        LOGGER.debug('Cancelling %i consumers', len(self._consumers))
-        for consumer_tag in self._consumers.keys():
-            self.basic_cancel(consumer_tag=consumer_tag)
-        self._shutdown()
+        LOGGER.info('Channel.close(%s, %s)', reply_code, reply_text)
+        if self._consumers:
+            LOGGER.debug('Cancelling %i consumers', len(self._consumers))
+            for consumer_tag in self._consumers.keys():
+                self.basic_cancel(consumer_tag=consumer_tag)
+        self._set_state(self.CLOSING)
+        self._rpc(spec.Channel.Close(reply_code, reply_text, 0, 0),
+                  self._on_closeok, [spec.Channel.CloseOk])
 
     def confirm_delivery(self, callback=None, nowait=False):
         """Turn on Confirm mode in the channel. Pass in a callback to be
@@ -730,7 +738,7 @@ class Channel(object):
         self.callbacks.add(self.channel_number,
                            spec.Channel.Close,
                            self._on_close,
-                           False)
+                           True)
 
     def _add_pending_msg(self, consumer_tag, method_frame,  header_frame, body):
         """Add the received message to the pending message stack.
@@ -746,7 +754,8 @@ class Channel(object):
                                             header_frame.properties, body))
 
     def _cleanup(self):
-        """Remove any callbacks for the channel."""
+        """Remove all consumers and any callbacks for the channel."""
+        self._consumers = dict()
         self.callbacks.cleanup(str(self.channel_number))
 
     def _get_pending_msg(self, consumer_tag):
@@ -819,12 +828,32 @@ class Channel(object):
         :param pika.frame.Method method_frame: The close frame
 
         """
+        LOGGER.info('%s', method_frame)
         LOGGER.warning('Received remote Channel.Close (%s): %s',
                        method_frame.method.reply_code,
                        method_frame.method.reply_text)
         if self.connection.is_open:
             self._send_method(spec.Channel.CloseOk())
         self._set_state(self.CLOSED)
+        self.callbacks.process(self.channel_number,
+                               '_on_channel_close',
+                               self, self,
+                               method_frame.method.reply_code,
+                               method_frame.method.reply_text)
+        self._cleanup()
+
+    def _on_closeok(self, method_frame):
+        """Invoked when RabbitMQ replies to a Channel.Close method
+
+        :param pika.frame.Method method_frame: The CloseOk frame
+
+        """
+        LOGGER.warning('Received %s', method_frame.method)
+        self._set_state(self.CLOSED)
+        self.callbacks.process(self.channel_number,
+                               '_on_channel_close',
+                               self, self,
+                               0, '')
         self._cleanup()
 
     def _on_deliver(self, method_frame, header_frame, body):
@@ -1030,15 +1059,6 @@ class Channel(object):
 
         """
         self._state = connection_state
-
-    def _shutdown(self):
-        """Called when close() is invoked either directly or when all of the
-        consumers have been cancelled.
-
-        """
-        self._set_state(self.CLOSING)
-        self._send_method(spec.Channel.Close(self._reply_code,
-                                             self._reply_text, 0, 0))
 
     def _unexpected_frame(self, frame_value):
         """Invoked when a frame is received that is not setup to be processed.

@@ -1021,9 +1021,6 @@ class Connection(object):
         except KeyError:
             LOGGER.error('Channel %r not in channels',
                          method_frame.channel_number)
-        # Force any callbacks to be removed for this channel
-        self.callbacks.cleanup(method_frame.channel_number)
-
         if self.is_closing and not self._has_open_channels:
             self._on_close_ready()
 
@@ -1162,8 +1159,8 @@ class Connection(object):
                        reply_code, reply_text)
         self._set_connection_state(self.CONNECTION_CLOSED)
         for channel in self._channels:
-            method_frame = frame.Method(
-                channel, spec.Channel.Close(reply_code, reply_text))
+            method_frame = frame.Method(channel, spec.Channel.Close(reply_code,
+                                                                    reply_text))
             self._channels[channel]._on_close(method_frame)
         self._process_connection_closed_callbacks(reply_code, reply_text)
         self._remove_connection_callbacks()
