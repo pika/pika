@@ -87,7 +87,6 @@ consumer.py::
                                reply_code, reply_text)
                 self._connection.add_timeout(5, self.reconnect)
 
-
         def on_connection_open(self, unused_connection):
             """This method is called by pika once the connection to RabbitMQ has
             been established. It passes the handle to the connection object in

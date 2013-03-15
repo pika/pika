@@ -76,19 +76,23 @@ publisher.py::
             LOGGER.info('Adding connection close callback')
             self._connection.add_on_close_callback(self.on_connection_closed)
 
-        def on_connection_closed(self, method_frame):
+        def on_connection_closed(self, connection, reply_code, reply_text):
             """This method is invoked by pika when the connection to RabbitMQ is
             closed unexpectedly. Since it is unexpected, we will reconnect to
             RabbitMQ if it disconnects.
 
-            :param pika.frame.Method method_frame: The method frame from RabbitMQ
+            :param pika.connection.Connection connection: The closed connection obj
+            :param int reply_code: The server provided reply_code if given
+            :param str reply_text: The server provided reply_text if given
 
             """
-            LOGGER.warning('Server closed connection, reopening: (%s) %s',
-                           method_frame.method.reply_code,
-                           method_frame.method.reply_text)
             self._channel = None
-            self._connection = self.connect()
+            if self._closing:
+                self._connection.ioloop.stop()
+            else:
+                LOGGER.warning('Connection closed, reopening in 5 seconds: (%s) %s',
+                               reply_code, reply_text)
+                self._connection.add_timeout(5, self.reconnect)
 
         def on_connection_open(self, unused_connection):
             """This method is called by pika once the connection to RabbitMQ has
@@ -139,22 +143,6 @@ publisher.py::
             LOGGER.warning('Channel was closed: (%s) %s', reply_code, reply_text)
             if not self._closing:
                 self._connection.close()
-
-        def on_connection_closed(self, connection, reply_code, reply_text):
-            """This method is invoked by pika when the connection to RabbitMQ is
-            closed unexpectedly. Since it is unexpected, we will reconnect to
-            RabbitMQ if it disconnects.
-
-            :param pika.connection.Connection connection: The closed connection obj
-            :param int reply_code: The server provided reply_code if given
-            :param str reply_text: The server provided reply_text if given
-
-            """
-            LOGGER.warning('Connection closed, reopening in 5 seconds: (%s) %s',
-                           reply_code, reply_text)
-            self._channel = None
-            if not self._closing:
-                self._connection.add_timeout(5, self.reconnect)
 
         def on_channel_open(self, channel):
             """This method is invoked by pika when the channel has been opened.
