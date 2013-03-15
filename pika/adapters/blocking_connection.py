@@ -1028,6 +1028,7 @@ class BlockingChannel(channel.Channel):
         self._rpc(spec.Channel.Close(self._reply_code, self._reply_text, 0, 0),
                   None,
                   [spec.Channel.CloseOk])
+        self._set_state(self.CLOSED)
         self._cleanup()
 
     def _validate_acceptable_replies(self, acceptable_replies):
