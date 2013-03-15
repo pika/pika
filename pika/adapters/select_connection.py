@@ -236,9 +236,9 @@ class SelectPoller(object):
             if timeout_id not in self._timeouts:
                 continue
             if self._timeouts[timeout_id]['deadline'] <= start_time:
-                handler = self._timeouts[timeout_id]['handler']
+                callback = self._timeouts[timeout_id]['callback']
                 del self._timeouts[timeout_id]
-                handler()
+                callback()
 
     def remove_timeout(self, timeout_id):
         """Remove a timeout if it's still in the timeout stack

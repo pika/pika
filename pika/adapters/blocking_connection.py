@@ -115,7 +115,7 @@ class BlockingConnection(base_connection.BaseConnection):
         :rtype: str
 
         """
-        value = {'deadline': time.time() + deadline, 'handler': callback}
+        value = {'deadline': time.time() + deadline, 'callback': callback}
         timeout_id = hash(frozenset(value))
         self._timeouts[timeout_id] = value
         return timeout_id
@@ -237,8 +237,8 @@ class BlockingConnection(base_connection.BaseConnection):
         :param dict timeout_value: The configuration for the timeout
 
         """
-        LOGGER.debug('Invoking scheduled call of %s', timeout_value['method'])
-        timeout_value['method']()
+        LOGGER.debug('Invoking scheduled call of %s', timeout_value['callback'])
+        timeout_value['callback']()
 
     def _deadline_passed(self, timeout_id):
         """Returns True if the deadline has passed for the specified timeout_id.
