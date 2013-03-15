@@ -170,18 +170,18 @@ class SelectPoller(object):
         self._timeouts = dict()
         self._manage_event_state = state_manager
 
-    def add_timeout(self, deadline, handler):
-        """Add a timeout with with given deadline, should return a timeout id.
+    def add_timeout(self, deadline, callback):
+        """Add the callback to the IOLoop timer to fire after deadline
+        seconds.
 
-        :param int deadline: The number of seconds to wait until calling handler
-        :param method handler: The method to call at deadline
+        :param int deadline: The number of seconds to wait to call callback
+        :param method callback: The callback method
         :rtype: str
 
         """
-        value = time.time() + deadline
-        LOGGER.debug('Will call %r on or after %i', handler, value)
-        timeout_id = '%.8f' % value
-        self._timeouts[timeout_id] = {'timestamp': value, 'handler': handler}
+        value = {'timestamp': time.time() + deadline, 'handler': callback}
+        timeout_id = hash(frozenset(value))
+        self._timeouts[timeout_id] = value
         return timeout_id
 
     def flush_pending_timeouts(self):
@@ -233,8 +233,9 @@ class SelectPoller(object):
         """Process the self._timeouts event stack"""
         start_time = time.time()
         for timeout_id in self._timeouts.keys():
-            if (timeout_id in self._timeouts and
-                self._timeouts[timeout_id]['timestamp'] <= start_time):
+            if timeout_id not in self._timeouts:
+                continue
+            if self._timeouts[timeout_id]['timestamp'] <= start_time:
                 handler = self._timeouts[timeout_id]['handler']
                 del self._timeouts[timeout_id]
                 handler()

@@ -115,9 +115,9 @@ class BlockingConnection(base_connection.BaseConnection):
         :rtype: str
 
         """
-        timeout_id = '%.8f' % time.time()
-        self._timeouts[timeout_id] = {'deadline': deadline + time.time(),
-                                      'method': callback}
+        value = {'timestamp': time.time() + deadline, 'handler': callback}
+        timeout_id = hash(frozenset(value))
+        self._timeouts[timeout_id] = value
         return timeout_id
 
     def channel(self, channel_number=None):
