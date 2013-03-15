@@ -1041,6 +1041,11 @@ class Channel(object):
                                              self._reply_text, 0, 0))
 
     def _unexpected_frame(self, frame_value):
+        """Invoked when a frame is received that is not setup to be processed.
+
+        :param pika.frame.Frame frame_value: The frame received
+
+        """
         LOGGER.warning('Unexpected frame: %r', frame_value)
 
     def _validate_channel_and_callback(self, callback):
