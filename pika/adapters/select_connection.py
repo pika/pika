@@ -179,7 +179,7 @@ class SelectPoller(object):
         :rtype: str
 
         """
-        value = {'timestamp': time.time() + deadline, 'handler': callback}
+        value = {'deadline': time.time() + deadline, 'handler': callback}
         timeout_id = hash(frozenset(value))
         self._timeouts[timeout_id] = value
         return timeout_id
@@ -235,7 +235,7 @@ class SelectPoller(object):
         for timeout_id in self._timeouts.keys():
             if timeout_id not in self._timeouts:
                 continue
-            if self._timeouts[timeout_id]['timestamp'] <= start_time:
+            if self._timeouts[timeout_id]['deadline'] <= start_time:
                 handler = self._timeouts[timeout_id]['handler']
                 del self._timeouts[timeout_id]
                 handler()

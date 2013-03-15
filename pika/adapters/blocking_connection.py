@@ -115,7 +115,7 @@ class BlockingConnection(base_connection.BaseConnection):
         :rtype: str
 
         """
-        value = {'timestamp': time.time() + deadline, 'handler': callback}
+        value = {'deadline': time.time() + deadline, 'handler': callback}
         timeout_id = hash(frozenset(value))
         self._timeouts[timeout_id] = value
         return timeout_id

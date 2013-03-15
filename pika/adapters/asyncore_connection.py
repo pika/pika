@@ -33,7 +33,7 @@ class PikaDispatcher(asyncore.dispatcher):
         value = time.time() + deadline
         LOGGER.debug('Will call %r on or after %i', handler, value)
         timeout_id = '%.8f' % value
-        self._timeouts[timeout_id] = {'timestamp': value, 'handler': handler}
+        self._timeouts[timeout_id] = {'deadline': value, 'handler': handler}
         return timeout_id
 
     def readable(self):
@@ -52,7 +52,7 @@ class PikaDispatcher(asyncore.dispatcher):
         """Process the self._timeouts event stack"""
         start_time = time.time()
         for timeout_id in self._timeouts.keys():
-            if self._timeouts[timeout_id]['timestamp'] <= start_time:
+            if self._timeouts[timeout_id]['deadline'] <= start_time:
                 handler = self._timeouts[timeout_id]['handler']
                 del self._timeouts[timeout_id]
                 handler()
