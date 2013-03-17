@@ -12,10 +12,10 @@ Version History
 - Addressed exception on close (Issue #279 - fix by patcpsc)
 - 'messages' not initialized in BlockingConnection.cancel() (Issue #289 - fix by Mik Kocikowski)
 - Make queue_unbind behave like queue_bind (Issue #277)
-- Address closing behavioral issues for connections and channels (Issues #275,
-- Pass a Method frame to Channel._on_close in Connection._on_disconnect (Submitted by wulczer)
-- Fix channel closed callback signature in the Twisted adapter (Submitted by wulczer)
-- Don't stop the IOLoop on connection close for in the Twisted adapter (Submitted by wulczer)
+- Address closing behavioral issues for connections and channels (Issue #275)
+- Pass a Method frame to Channel._on_close in Connection._on_disconnect (Submitted by Jan Urbański)
+- Fix channel closed callback signature in the Twisted adapter (Submitted by Jan Urbański)
+- Don't stop the IOLoop on connection close for in the Twisted adapter (Submitted by Jan Urbański)
 - Update the asynchronous examples to fix reconnecting and have it work
 - Warn if the socket was closed such as if RabbitMQ dies without a Close frame
 - Fix URLParameters ssl_options (Issue #296)
