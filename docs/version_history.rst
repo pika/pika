@@ -1,6 +1,40 @@
 Version History
 ===============
 
+0.9.10 - 2013-03-16
+-------------------
+
+**Bugfixes**
+
+- Fix timeout in twisted adapter (Submitted by cellscape)
+- Fix blocking_connection poll timer resolution to milliseconds (Submitted by cellscape)
+- Fix channel._on_close() without a method frame (Submitted by Richard Boulton)
+- Addressed exception on close (Issue #279 - fix by patcpsc)
+- 'messages' not initialized in BlockingConnection.cancel() (Issue #289 - fix by Mik Kocikowski)
+- Make queue_unbind behave like queue_bind (Issue #277)
+- Address closing behavioral issues for connections and channels (Issues #275,
+- Pass a Method frame to Channel._on_close in Connection._on_disconnect (Submitted by wulczer)
+- Fix channel closed callback signature in the Twisted adapter (Submitted by wulczer)
+- Don't stop the IOLoop on connection close for in the Twisted adapter (Submitted by wulczer)
+- Update the asynchronous examples to fix reconnecting and have it work
+- Warn if the socket was closed such as if RabbitMQ dies without a Close frame
+- Fix URLParameters ssl_options (Issue #296)
+- Add state to BlockingConnection addressing (Issue #301)
+- Encode unicode body content prior to publishing (Issue #282)
+- Fix an issue with unicode keys in BasicProperties headers key (Issue #280)
+- Change how timeout ids are generated (Issue #254)
+- Address post close state issues in Channel (Issue #302)
+
+** Behavior changes **
+
+- Change core connection communication behavior to prefer outbound writes over reads, addressing a recursion issue
+- Update connection on close callbacks, changing callback method signature
+- Update channel on close callbacks, changing callback method signature
+- Give more info in the ChannelClosed exception
+- Change the constructor signature for BlockingConnection, block open/close callbacks
+- Disable the use of add_on_open_callback/add_on_close_callback methods in BlockingConnection
+
+
 0.9.9 - 2013-01-29
 ------------------
 
