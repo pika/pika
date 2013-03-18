@@ -1,6 +1,13 @@
 Version History
 ===============
 
+0.9.12 - 2012-11-19
+-------------------
+
+**Bugfixes**
+
+- New timeout id hashing was not unique
+
 0.9.11 - 2013-03-17
 -------------------
 

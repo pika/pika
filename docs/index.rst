@@ -35,6 +35,13 @@ Pika supports two modes of development, synchronous using the BlockingConnection
    faq
    version_history
 
+0.9.12 - 2012-11-19
+------------------
+
+**Bugfixes**
+
+- New timeout id hashing was not unique
+
 0.9.11 - 2013-03-17
 -------------------
 
@@ -45,7 +52,7 @@ Pika supports two modes of development, synchronous using the BlockingConnection
 - Address a missed timeout related internal data structure name change
   introduced in the SelectConnection 0.9.10 release. Update all connection
   adapters to use same signature and docstring (#306).
-  
+
 0.9.10 - 2013-03-16
 -------------------
 
