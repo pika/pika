@@ -837,9 +837,7 @@ class Channel(object):
         self._set_state(self.CLOSED)
         self.callbacks.process(self.channel_number,
                                '_on_channel_close',
-                               self, self,
-                               method_frame.method.reply_code,
-                               method_frame.method.reply_text)
+                               self, method_frame)
         self._cleanup()
 
     def _on_closeok(self, method_frame):
@@ -852,8 +850,7 @@ class Channel(object):
         self._set_state(self.CLOSED)
         self.callbacks.process(self.channel_number,
                                '_on_channel_close',
-                               self, self,
-                               0, '')
+                               self, method_frame)
         self._cleanup()
 
     def _on_deliver(self, method_frame, header_frame, body):
