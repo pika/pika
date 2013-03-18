@@ -1,6 +1,17 @@
 Version History
 ===============
 
+0.9.11 - 2013-03-17
+-------------------
+
+**Bugfixes**
+
+- Address inconsistent channel close callback documentation and add the signature
+  change to the TwistedChannel class (#305)
+- Address a missed timeout related internal data structure name change
+  introduced in the SelectConnection 0.9.10 release. Update all connection
+  adapters to use same signature and docstring (#306).
+
 0.9.10 - 2013-03-16
 -------------------
 
