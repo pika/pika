@@ -64,17 +64,18 @@ class IOLoop(object):
         self.poller = None
         self._manage_event_state = state_manager
 
-    def add_timeout(self, deadline, handler):
-        """Add a timeout with with given deadline, should return a timeout id.
+    def add_timeout(self, deadline, callback_method):
+        """Add the callback_method to the IOLoop timer to fire after deadline
+        seconds. Returns a handle to the timeout. Do not confuse with
+        Tornado's timeout where you pass in the time you want to have your
+        callback called. Only pass in the seconds until it's to be called.
 
-        Pass through a deadline and handler to the active poller.
-
-        :param int deadline: The number of seconds to wait until calling handler
-        :param method handler: The method to call at deadline
-        :rtype: int
+        :param int deadline: The number of seconds to wait to call callback
+        :param method callback_method: The callback method
+        :rtype: str
 
         """
-        return self.poller.add_timeout(deadline, handler)
+        return self.poller.add_timeout(deadline, callback_method)
 
     @property
     def poller_type(self):
@@ -170,16 +171,19 @@ class SelectPoller(object):
         self._timeouts = dict()
         self._manage_event_state = state_manager
 
-    def add_timeout(self, deadline, callback):
-        """Add the callback to the IOLoop timer to fire after deadline
-        seconds.
+    def add_timeout(self, deadline, callback_method):
+        """Add the callback_method to the IOLoop timer to fire after deadline
+        seconds. Returns a handle to the timeout. Do not confuse with
+        Tornado's timeout where you pass in the time you want to have your
+        callback called. Only pass in the seconds until it's to be called.
 
         :param int deadline: The number of seconds to wait to call callback
-        :param method callback: The callback method
+        :param method callback_method: The callback method
         :rtype: str
 
         """
-        value = {'deadline': time.time() + deadline, 'handler': callback}
+        value = {'deadline': time.time() + deadline,
+                 'callback': callback_method}
         timeout_id = hash(frozenset(value))
         self._timeouts[timeout_id] = value
         return timeout_id

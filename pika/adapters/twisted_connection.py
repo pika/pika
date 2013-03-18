@@ -187,15 +187,18 @@ class IOLoopReactorAdapter(object):
         self.reactor = reactor
         self.started = False
 
-    def add_timeout(self, deadline, callback):
-        """Add a timeout, in seconds
+    def add_timeout(self, deadline, callback_method):
+        """Add the callback_method to the IOLoop timer to fire after deadline
+        seconds. Returns a handle to the timeout. Do not confuse with
+        Tornado's timeout where you pass in the time you want to have your
+        callback called. Only pass in the seconds until it's to be called.
 
-        :param int deadline: The number of seconds until call
-        :param method callback: The callback to call
+        :param int deadline: The number of seconds to wait to call callback
+        :param method callback_method: The callback method
         :rtype: twisted.internet.interfaces.IDelayedCall
 
         """
-        return self.reactor.callLater(deadline, callback)
+        return self.reactor.callLater(deadline, callback_method)
 
     def remove_timeout(self, call):
         """Remove a call

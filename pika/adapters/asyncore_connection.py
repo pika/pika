@@ -22,18 +22,22 @@ class PikaDispatcher(asyncore.dispatcher):
         self._event_callback = event_callback
         self.events = self.READ | self.WRITE
 
-    def add_timeout(self, deadline, handler):
-        """Add a timeout with with given deadline, should return a timeout id.
 
-        :param int deadline: The number of seconds to wait until calling handler
-        :param method handler: The method to call at deadline
+    def add_timeout(self, deadline, callback_method):
+        """Add the callback_method to the IOLoop timer to fire after deadline
+        seconds. Returns a handle to the timeout. Do not confuse with
+        Tornado's timeout where you pass in the time you want to have your
+        callback called. Only pass in the seconds until it's to be called.
+
+        :param int deadline: The number of seconds to wait to call callback
+        :param method callback_method: The callback method
         :rtype: str
 
         """
-        value = time.time() + deadline
-        LOGGER.debug('Will call %r on or after %i', handler, value)
-        timeout_id = '%.8f' % value
-        self._timeouts[timeout_id] = {'deadline': value, 'callback': handler}
+        value = {'deadline': time.time() + deadline,
+                 'callback': callback_method}
+        timeout_id = hash(frozenset(value))
+        self._timeouts[timeout_id] = value
         return timeout_id
 
     def readable(self):
