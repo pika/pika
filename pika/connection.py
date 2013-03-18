@@ -524,7 +524,9 @@ class Connection(object):
         self.callbacks.add(0, 'backpressure', callback_method, False)
 
     def add_on_close_callback(self, callback_method):
-        """Add a callback notification when the connection has closed.
+        """Add a callback notification when the connection has closed. The
+        callback will be passed the connection, the reply_code (int) and the
+        reply_text (str), if sent by the remote server.
 
         :param method callback_method: The callback when the channel is opened
 

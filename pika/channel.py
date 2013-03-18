@@ -90,7 +90,9 @@ class Channel(object):
 
     def add_on_close_callback(self, callback):
         """Pass a callback function that will be called when the channel is
-        closed. The callback function should receive a frame parameter.
+        closed. The callback function will receive the channel, the
+        reply_code (int) and the reply_text (int) sent by the server describing
+        why the channel was closed.
 
         :param method callback: The method to call on callback
 
