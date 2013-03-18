@@ -36,7 +36,7 @@ class PikaDispatcher(asyncore.dispatcher):
         """
         value = {'deadline': time.time() + deadline,
                  'callback': callback_method}
-        timeout_id = hash(frozenset(value))
+        timeout_id = hash(frozenset(value.items()))
         self._timeouts[timeout_id] = value
         return timeout_id
 
