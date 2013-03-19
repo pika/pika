@@ -35,8 +35,8 @@ Pika supports two modes of development, synchronous using the BlockingConnection
    faq
    version_history
 
-0.9.12 - 2012-11-19
-------------------
+0.9.12 - 2013-03-18
+-------------------
 
 **Bugfixes**
 
