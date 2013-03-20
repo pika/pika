@@ -14,7 +14,7 @@ if on_rtd:
     requirements.append('tornado')
 
 # Conditional include unittest2 for versions of python < 2.7
-tests_require=['nose', 'mock']
+tests_require = ['nose', 'mock']
 platform_version = list(platform.python_version_tuple())[0:2]
 if platform_version[0] != '3' and platform_version != ['2', '7']:
     tests_require.append('unittest2')
@@ -37,17 +37,17 @@ setup(name='pika',
       packages=['pika', 'pika.adapters'],
       license='MPL v1.1 and GPL v2.0 or newer',
       install_requires=requirements,
+      extras_require={'tornado_connection': ['tornado'],
+                      'twisted_connection': ['twisted']},
       tests_require=tests_require,
-      test_suite = "nose.collector",
+      test_suite='nose.collector',
       classifiers=[
-        'Development Status :: 4 - Beta',
-        'Intended Audience :: Developers',
-        'License :: OSI Approved :: GNU General Public License (GPL)',
-        'License :: OSI Approved :: Mozilla Public License 1.1 (MPL 1.1)',
-        'Operating System :: OS Independent',
-        'Topic :: Communications',
-        'Topic :: Internet',
-        'Topic :: Software Development :: Libraries',
-        ],
-        zip_safe=True
-      )
+          'Development Status :: 4 - Beta',
+          'Intended Audience :: Developers',
+          'License :: OSI Approved :: GNU General Public License (GPL)',
+          'License :: OSI Approved :: Mozilla Public License 1.1 (MPL 1.1)',
+          'Operating System :: OS Independent',
+          'Topic :: Communications',
+          'Topic :: Internet',
+          'Topic :: Software Development :: Libraries'],
+      zip_safe=True)

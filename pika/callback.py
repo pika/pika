@@ -208,7 +208,7 @@ class CallbackManager(object):
         :type prefix: str or int
         :param key: The key for the callback
         :type key: object or str or dict
-        :param Object caller: Who is firing the event
+        :param object caller: Who is firing the event
         :param list args: Any optional arguments
         :param dict keywords: Optional keyword arguments
         :rtype: bool
@@ -239,7 +239,7 @@ class CallbackManager(object):
         the callback itself. If you only pass in prefix and key, all
         callbacks for that prefix and key will be removed.
 
-        :param str prefix: The prefix for keeping track of callbacks with
+        :param str or int prefix: The prefix for keeping track of callbacks with
         :param str key: The callback key
         :param method callback_value: The method defined to call on callback
         :param dict arguments: Optional arguments to check
@@ -317,7 +317,7 @@ class CallbackManager(object):
     def _cleanup_callback_dict(self, prefix, key=None):
         """Remove empty dict nodes in the callback stack.
 
-        :param str prefix: The prefix for keeping track of callbacks with
+        :param str or int prefix: The prefix for keeping track of callbacks with
         :param str key: The callback key
 
         """
@@ -365,7 +365,7 @@ class CallbackManager(object):
         """Returns True if the callback should be processed.
 
         :param dict callback_dict: The callback configuration
-        :param Object caller: Who is firing the event
+        :param object caller: Who is firing the event
         :param list args: Any optional arguments
         :rtype: bool
 
@@ -382,7 +382,7 @@ class CallbackManager(object):
         """Process the one-shot callback, decrementing the use counter and
         removing it from the stack if it's now been fully used.
 
-        :param str prefix: The prefix for keeping track of callbacks with
+        :param str or int prefix: The prefix for keeping track of callbacks with
         :param str key: The callback key
         :param dict callback_dict: The callback dict to process
 
