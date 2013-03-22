@@ -6,11 +6,15 @@ It's ideal to use as a network buffer, from which you send data to the socket.
 Use this to avoid concatenating or splitting large strings.
 
 """
-import os, io
-# try:
-    # import io as StringIO
-# except ImportError: #pragma: no coverage
-    # import io
+import os
+try:
+    from io import BytesIO as BytesIO
+except ImportError: #pragma: no coverage
+    try:
+        from cStringIO import StringIO as BytesIO
+    except ImportError:
+        from StringIO import StringIO as BytesIO
+
 
 # Python 2.4 support: os lacks SEEK_END and friends
 try:
@@ -60,7 +64,7 @@ class SimpleBuffer(object):
         :rtype: file
 
         """
-        return io.BytesIO()
+        return BytesIO()
 
     def write(self, *data_strings):
         """Append given strings to the buffer.
@@ -108,7 +112,7 @@ class SimpleBuffer(object):
         if self.size == 0 and self.offset > 65536:
             self.buf.close()
             del self.buf
-            self.buf = io.StringIO()
+            self.buf = BytesIO()
             self.offset = 0
 
     def read_and_consume(self, size):
