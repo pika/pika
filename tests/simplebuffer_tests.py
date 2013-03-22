@@ -2,7 +2,7 @@
 Tests for pika.simplebuffer
 
 """
-import cStringIO
+import io
 import mock
 import os
 import socket
@@ -19,7 +19,7 @@ class SimpleBuffer(unittest.TestCase):
 
     def test_simple_buffer_init_buf_is_stringio(self):
         obj = simplebuffer.SimpleBuffer()
-        self.assertIsInstance(obj.buf, cStringIO.OutputType)
+        self.assertIsInstance(obj.buf, io.OutputType)
 
     def test_simple_buffer_init_buf_position(self):
         # Position should be set to the end

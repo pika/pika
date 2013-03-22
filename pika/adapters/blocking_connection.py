@@ -120,7 +120,7 @@ class BlockingConnection(base_connection.BaseConnection):
 
         value = {'deadline': time.time() + deadline,
                  'callback': callback_method}
-        timeout_id = hash(frozenset(value.items()))
+        timeout_id = hash(frozenset(list(value.items())))
         self._timeouts[timeout_id] = value
         return timeout_id
 
@@ -174,7 +174,7 @@ class BlockingConnection(base_connection.BaseConnection):
 
     def process_timeouts(self):
         """Process the self._timeouts event stack"""
-        for timeout_id in self._timeouts.keys():
+        for timeout_id in list(self._timeouts.keys()):
             if self._deadline_passed(timeout_id):
                 self._call_timeout_method(self._timeouts.pop(timeout_id))
 
@@ -252,7 +252,7 @@ class BlockingConnection(base_connection.BaseConnection):
         :rtype: bool
 
         """
-        if timeout_id not in self._timeouts.keys():
+        if timeout_id not in list(self._timeouts.keys()):
             return False
         return self._timeouts[timeout_id]['deadline'] <= time.time()
 
@@ -821,7 +821,7 @@ class BlockingChannel(channel.Channel):
         if consumer_tag:
             self.basic_cancel(consumer_tag)
         else:
-            for consumer_tag in self._consumers.keys():
+            for consumer_tag in list(self._consumers.keys()):
                 self.basic_cancel(consumer_tag)
         self.wait = True
 

@@ -144,10 +144,10 @@ class ContentFrameDispatcherTests(unittest.TestCase):
         obj.process(header_frame)
         body_frame = frame.Body(1, 'utf8_value=\xe2\x9c\x93')
         method_frame, header_frame, body_value = obj.process(body_frame)
-        self.assertIsInstance(body_value, unicode)
+        self.assertIsInstance(body_value, str)
 
     def test_utf8_body_value(self):
-        expectation = u'utf8_value=✓'
+        expectation = 'utf8_value=✓'
         obj = channel.ContentFrameDispatcher()
         method_frame = frame.Method(1, spec.Basic.Deliver())
         obj.process(method_frame)

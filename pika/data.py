@@ -20,8 +20,8 @@ def encode_table(pieces, table):
     length_index = len(pieces)
     pieces.append(None)  # placeholder
     tablesize = 0
-    for (key, value) in table.iteritems():
-        if isinstance(key, unicode):
+    for (key, value) in table.items():
+        if isinstance(key, str):
             key = key.encode('utf-8')
         pieces.append(struct.pack('B', len(key)))
         pieces.append(key)
@@ -41,8 +41,8 @@ def encode_value(pieces, value):
     :rtype: int
 
     """
-    if isinstance(value, basestring):
-        if isinstance(value, unicode):
+    if isinstance(value, str):
+        if isinstance(value, str):
             value = value.encode('utf-8')
         pieces.append(struct.pack('>cI', 'S', len(value)))
         pieces.append(value)
@@ -53,7 +53,7 @@ def encode_value(pieces, value):
     elif isinstance(value, int):
         pieces.append(struct.pack('>ci', 'I', value))
         return 5
-    elif isinstance(value, long):
+    elif isinstance(value, int):
         pieces.append(struct.pack('>cq', 'l', value))
         return 9
     elif isinstance(value, decimal.Decimal):
@@ -149,7 +149,7 @@ def decode_value(encoded, offset):
         value = struct.unpack_from('>i', encoded, offset)[0]
         offset += 4
     elif kind == 'l':
-        value = long(struct.unpack_from('>q', encoded, offset)[0])
+        value = int(struct.unpack_from('>q', encoded, offset)[0])
         offset += 8
     elif kind == 'D':
         decimals = struct.unpack_from('B', encoded, offset)[0]

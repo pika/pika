@@ -509,7 +509,7 @@ class ChannelTests(unittest.TestCase):
                          self.obj.callbacks.add.call_args_list)
 
     def test_consumer_tags(self):
-        self.assertListEqual(self.obj.consumer_tags, self.obj._consumers.keys())
+        self.assertListEqual(self.obj.consumer_tags, list(self.obj._consumers.keys()))
 
     def test_exchange_bind_raises_channel_closed(self):
         self.assertRaises(exceptions.ChannelClosed,
