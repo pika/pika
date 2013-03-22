@@ -2,8 +2,10 @@
 import ast
 import logging
 import platform
-import urllib.request, urllib.parse, urllib.error
-import urllib.parse
+try:
+    from urllib.parse import urlparse, parse_qs, unquote
+except ImportError:
+    from urlparse import urlparse, parse_qs, unquote
 
 from pika import __version__
 from pika import callback
@@ -391,7 +393,7 @@ class URLParameters(Parameters):
         if url[0:4] == 'amqp':
             url = 'http' + url[4:]
 
-        parts = urllib.parse.urlparse(url)
+        parts = urlparse(url)
 
         # Handle the Protocol scheme, changing to HTTPS so urlparse doesnt barf
         if parts.scheme == 'https':
@@ -410,12 +412,12 @@ class URLParameters(Parameters):
         if len(parts.path) == 1:
             raise ValueError('No virtual host specify, use %2f for /')
         path_parts = parts.path.split('/')
-        virtual_host = urllib.parse.unquote(path_parts[1])
+        virtual_host = unquote(path_parts[1])
         if self._validate_virtual_host(virtual_host):
             self.virtual_host = virtual_host
 
         # Handle query string values, validating and assigning them
-        values = urllib.parse.parse_qs(parts.query)
+        values = parse_qs(parts.query)
 
         # Cast the various numeric values to the appropriate values
         for key in list(values.keys()):
