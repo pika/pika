@@ -1120,13 +1120,13 @@ class ContentFrameDispatcher(object):
 
         """
         try:
-            value = ''.join(self._body_fragments).decode('utf-8')
+            value = b''.join(self._body_fragments).decode('utf-8')
             try:
                 value = str(value)
             except UnicodeEncodeError:
                 pass
         except UnicodeDecodeError:
-            value = ''.join(self._body_fragments)
+            value = b''.join(self._body_fragments)
         content = (self._method_frame,
                    self._header_frame,
                    value)

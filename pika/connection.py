@@ -732,7 +732,7 @@ class Connection(object):
     def _append_frame_buffer(self, value):
         """Append the bytes to the frame buffer.
 
-        :param str value: The bytes to append to the frame buffer
+        :param bytes value: The bytes to append to the frame buffer
 
         """
         self._frame_buffer += value
@@ -934,7 +934,7 @@ class Connection(object):
         self.outbound_buffer = simplebuffer.SimpleBuffer()
 
         # Inbound buffer for decoding frames
-        self._frame_buffer = ''
+        self._frame_buffer = b''
 
         # Connection state, server properties and channels all change on
         # each connection
@@ -1136,7 +1136,7 @@ class Connection(object):
         """This is called by our Adapter, passing in the data from the socket.
         As long as we have buffer try and map out frame data.
 
-        :param str data_in: The data that is available to read
+        :param bytes data_in: The data that is available to read
 
         """
         self._append_frame_buffer(data_in)
