@@ -82,7 +82,7 @@ class TwistedChannel(object):
         for d in self.__calls:
             d.errback(self.__closed)
         # close all open queues
-        for consumers in self.__consumers.values():
+        for consumers in list(self.__consumers.values()):
             for c in consumers:
                 c.close(self.__closed)
         # release references to stored objects

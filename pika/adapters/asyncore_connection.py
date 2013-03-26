@@ -36,7 +36,7 @@ class PikaDispatcher(asyncore.dispatcher):
         """
         value = {'deadline': time.time() + deadline,
                  'callback': callback_method}
-        timeout_id = hash(frozenset(value.items()))
+        timeout_id = hash(frozenset(list(value.items())))
         self._timeouts[timeout_id] = value
         return timeout_id
 
@@ -55,7 +55,7 @@ class PikaDispatcher(asyncore.dispatcher):
     def process_timeouts(self):
         """Process the self._timeouts event stack"""
         start_time = time.time()
-        for timeout_id in self._timeouts.keys():
+        for timeout_id in list(self._timeouts.keys()):
             if self._timeouts[timeout_id]['deadline'] <= start_time:
                 callback = self._timeouts[timeout_id]['callback']
                 del self._timeouts[timeout_id]

@@ -13,3 +13,7 @@ build
 dist
 docs/_build
 *.conf.in
+
+#Sublime Text 2
+*.sublime-project
+*.sublime-workspace

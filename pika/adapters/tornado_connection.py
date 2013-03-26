@@ -40,7 +40,7 @@ class TornadoConnection(base_connection.BaseConnection):
             return self._on_connected()
         except socket.timeout:
             reason = 'timeout'
-        except socket.error, err:
+        except socket.error as err:
             LOGGER.error('socket error: %s', err[-1])
             reason = err[-1]
             self.socket.close()

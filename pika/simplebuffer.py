@@ -8,15 +8,19 @@ Use this to avoid concatenating or splitting large strings.
 """
 import os
 try:
-    import cStringIO as StringIO
+    from io import BytesIO as BytesIO
 except ImportError: #pragma: no coverage
-    import StringIO
+    try:
+        from cStringIO import StringIO as BytesIO
+    except ImportError:
+        from StringIO import StringIO as BytesIO
+
 
 # Python 2.4 support: os lacks SEEK_END and friends
 try:
     getattr(os, "SEEK_END")
 except AttributeError: #pragma: no coverage
-    os.SEEK_SET, os.SEEK_CUR, os.SEEK_END = range(3)
+    os.SEEK_SET, os.SEEK_CUR, os.SEEK_END = list(range(3))
 
 
 class SimpleBuffer(object):
@@ -46,7 +50,7 @@ class SimpleBuffer(object):
         the buffer will be primed with that value.
 
         :param data: Optional data to prime the buffer with
-        :type data: str or unicode
+        :type data: bytes
 
         """
         self.buf = self._get_stringio()
@@ -60,18 +64,20 @@ class SimpleBuffer(object):
         :rtype: file
 
         """
-        return StringIO.StringIO()
+        return BytesIO()
 
     def write(self, *data_strings):
         """Append given strings to the buffer.
 
         :param data_strings: Value to write to the buffer
-        :type data_strings: str or unicode
+        :type data_strings: bytes
 
         """
         for data in data_strings:
             if not data:
                 continue
+            if type(data) is str:
+                data = data.encode('utf-8')
             self.buf.write(data)
             self.size += len(data)
 
@@ -106,7 +112,7 @@ class SimpleBuffer(object):
         if self.size == 0 and self.offset > 65536:
             self.buf.close()
             del self.buf
-            self.buf = StringIO.StringIO()
+            self.buf = BytesIO()
             self.offset = 0
 
     def read_and_consume(self, size):
@@ -141,7 +147,7 @@ class SimpleBuffer(object):
         """Remove all the data from buffer."""
         self.consume(self.size)
 
-    def __nonzero__(self):
+    def __bool__(self):
         """Is there any data in the buffer? ie not foo
 
         :rtype: bool

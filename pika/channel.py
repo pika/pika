@@ -288,7 +288,7 @@ class Channel(object):
             raise exceptions.ChannelClosed()
         if immediate:
             LOGGER.warning('The immediate flag is deprecated in RabbitMQ')
-        if isinstance(body, unicode):
+        if isinstance(body, str):
             body = body.encode('utf-8')
         properties = properties or spec.BasicProperties()
         self._send_method(spec.Basic.Publish(exchange=exchange,
@@ -377,7 +377,7 @@ class Channel(object):
         LOGGER.info('Channel.close(%s, %s)', reply_code, reply_text)
         if self._consumers:
             LOGGER.debug('Cancelling %i consumers', len(self._consumers))
-            for consumer_tag in self._consumers.keys():
+            for consumer_tag in list(self._consumers.keys()):
                 self.basic_cancel(consumer_tag=consumer_tag)
         self._set_state(self.CLOSING)
         self._rpc(spec.Channel.Close(reply_code, reply_text, 0, 0),
@@ -423,7 +423,7 @@ class Channel(object):
         :rtype: list
 
         """
-        return self._consumers.keys()
+        return list(self._consumers.keys())
 
     def exchange_bind(self, callback=None, destination=None, source=None,
                       routing_key='', nowait=False, arguments=None):
@@ -870,6 +870,8 @@ class Channel(object):
 
         """
         LOGGER.debug('Called with %r, %r, %r', method_frame, header_frame, body)
+        if type(body) is str:
+            body = body.encode()
         consumer_tag = method_frame.method.consumer_tag
         if consumer_tag in self._cancelled:
             LOGGER.debug('Rejected message for cancelled consumer')
@@ -1120,13 +1122,13 @@ class ContentFrameDispatcher(object):
 
         """
         try:
-            value = ''.join(self._body_fragments).decode('utf-8')
+            value = b''.join(self._body_fragments).decode('utf-8')
             try:
                 value = str(value)
             except UnicodeEncodeError:
                 pass
         except UnicodeDecodeError:
-            value = ''.join(self._body_fragments)
+            value = b''.join(self._body_fragments)
         content = (self._method_frame,
                    self._header_frame,
                    value)

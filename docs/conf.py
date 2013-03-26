@@ -43,8 +43,8 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'pika'
-copyright = u'2010-2013, Tony Garnock-Jones, Gavin M. Roy, VMWare and others.'
+project = 'pika'
+copyright = '2010-2013, Tony Garnock-Jones, Gavin M. Roy, VMWare and others.'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -186,8 +186,8 @@ latex_elements = {
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
-  ('index', 'pika.tex', u'pika Documentation',
-   u'Gavin M. Roy', 'manual'),
+  ('index', 'pika.tex', 'pika Documentation',
+   'Gavin M. Roy', 'manual'),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of
@@ -216,8 +216,8 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    ('index', 'pika', u'pika Documentation',
-     [u'Gavin M. Roy'], 1)
+    ('index', 'pika', 'pika Documentation',
+     ['Gavin M. Roy'], 1)
 ]
 
 # If true, show URL addresses after external links.
@@ -230,8 +230,8 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-  ('index', 'pika', u'pika Documentation',
-   u'Gavin M. Roy', 'pika', 'One line description of project.',
+  ('index', 'pika', 'pika Documentation',
+   'Gavin M. Roy', 'pika', 'One line description of project.',
    'Miscellaneous'),
 ]
 

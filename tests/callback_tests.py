@@ -77,7 +77,7 @@ class CallbackTests(unittest.TestCase):
         self.assertEqual(callback._name_or_value(value), expectation)
 
     def test_name_or_value_unicode(self):
-        value = u'Это тест значения'
+        value = 'Это тест значения'
         expectation = ('\xd0\xad\xd1\x82\xd0\xbe \xd1\x82\xd0\xb5\xd1\x81\xd1'
                        '\x82 \xd0\xb7\xd0\xbd\xd0\xb0\xd1\x87\xd0\xb5\xd0\xbd'
                        '\xd0\xb8\xd1\x8f')
@@ -88,15 +88,15 @@ class CallbackTests(unittest.TestCase):
 
     def test_sanitize_decorator_with_args_only(self):
         self.obj.add(self.PREFIX_CLASS, self.KEY, None)
-        self.assertIn(self.PREFIX, self.obj._stack.keys())
+        self.assertIn(self.PREFIX, list(self.obj._stack.keys()))
 
     def test_sanitize_decorator_with_kwargs(self):
         self.obj.add(prefix=self.PREFIX_CLASS, key=self.KEY, callback=None)
-        self.assertIn(self.PREFIX, self.obj._stack.keys())
+        self.assertIn(self.PREFIX, list(self.obj._stack.keys()))
 
     def test_sanitize_decorator_with_mixed_args_and_kwargs(self):
         self.obj.add(self.PREFIX_CLASS, key=self.KEY, callback=None)
-        self.assertIn(self.PREFIX, self.obj._stack.keys())
+        self.assertIn(self.PREFIX, list(self.obj._stack.keys()))
 
     def test_add_first_time_prefix_added(self):
         self.obj.add(self.PREFIX, self.KEY, None)

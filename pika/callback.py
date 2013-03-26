@@ -248,7 +248,7 @@ class CallbackManager(object):
         """
         if callback_value:
             offsets_to_remove = list()
-            for offset in xrange(len(self._stack[prefix][key]), 0, -1):
+            for offset in range(len(self._stack[prefix][key]), 0, -1):
                 callback_dict = self._stack[prefix][key][offset - 1]
 
                 if (callback_dict[self.CALLBACK] == callback_value and
