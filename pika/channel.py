@@ -870,6 +870,8 @@ class Channel(object):
 
         """
         LOGGER.debug('Called with %r, %r, %r', method_frame, header_frame, body)
+        if type(body) is str:
+            body = body.encode()
         consumer_tag = method_frame.method.consumer_tag
         if consumer_tag in self._cancelled:
             LOGGER.debug('Rejected message for cancelled consumer')
