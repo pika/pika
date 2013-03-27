@@ -162,8 +162,9 @@ class BaseConnection(connection.Connection):
     def _create_and_connect_to_socket(self):
         """Create socket and connect to it, using SSL if enabled."""
         LOGGER.debug('Creating the socket')
-        connInfo = socket.getaddrinfo(self.params.host, self.params.port, 0, 0, socket.getprotobyname("tcp"))[0]
-        self.socket = socket.socket(connInfo[0], socket.SOCK_STREAM, 0)
+        conn_info = socket.getaddrinfo(self.params.host, self.params.port, 
+                                       0, 0, socket.getprotobyname("tcp"))[0]
+        self.socket = socket.socket(conn_info[0], socket.SOCK_STREAM, 0)
         #self.socket.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
         if self.params.ssl:
             self.socket = self._wrap_socket(self.socket)
