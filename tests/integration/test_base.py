@@ -1,37 +1,28 @@
 import os
 import sys
 try:
-    from unittest2 import TestCase as BaseTestCase
+    import unittest2 as unittest
 except ImportError:
-    from unittest import TestCase as BaseTestCase
+    import unittest
 import logging
 
 import pika
 import yaml
 
-config = yaml.load(
-    open(
-        os.path.join(
-            os.path.abspath(os.path.dirname(__file__)),
-            'broker.conf'
-        )
-    )
-)
+CONFIG = yaml.load(open(os.path.join(os.path.abspath(os.path.dirname(__file__)),
+                                     'broker.conf')))
+
+LOGGING_LEVEL = logging.critical
+TIMEOUT = 4
 
 
-class TestCase(BaseTestCase):
-
-    timeout = 4
-    pika_log_level = logging.CRITICAL
+class TestCase(unittest.TestCase):
 
     def __call__(self, result=None):
         self._result = result
         test_method = getattr(self, self._testMethodName)
-        skipped = (
-            getattr(self.__class__, '__unittest_skip__', False) or
-            getattr(test_method, '__unittest_skip__', False)
-        )
-
+        skipped = (getattr(self.__class__, '__unittest_skip__', False) or
+                   getattr(test_method, '__unittest_skip__', False))
         if not skipped:
             try:
                 self._pre_setup()
@@ -51,19 +42,21 @@ class TestCase(BaseTestCase):
                 result.addError(self, sys.exc_info())
                 return
 
+    def _get_parameters(self):
+        self.credentials = pika.PlainCredentials(CONFIG['username'],
+                                                 CONFIG['password'])
+        return pika.ConnectionParameters(host=CONFIG['host'],
+                                         port=CONFIG['port'],
+                                         virtual_host=CONFIG['virtual_host'],
+                                         credentials=self.credentials)
+
     def _pre_setup(self):
         self._timed_out = False
-        logging.getLogger('pika').setLevel(self.pika_log_level)
-        self.credentials = pika.PlainCredentials(config['username'], config['password'])
-        self.parameters = pika.ConnectionParameters(
-            host=config['host'],
-            port=config['port'],
-            virtual_host=config['virtual_host'],
-            credentials=self.credentials,
-        )
+        logging.getLogger('pika').setLevel(LOGGING_LEVEL)
+        self.parameters = self._get_parameters()
         self._timeout_id = None
         self.connection = None
-        self.config = config
+        self.config = CONFIG
 
     def _post_teardown(self):
         del self.credentials
@@ -73,31 +66,24 @@ class TestCase(BaseTestCase):
         del self._timeout_id
         del self._timed_out
 
-    def start(self, on_connected):
-        '''connect to rabbitmq and start the ioloop'''
-        self.connection = pika.SelectConnection(
-            self.parameters,
-            on_connected,
-            stop_ioloop_on_close=False,
-        )
-        self._timeout_id = self.connection.add_timeout(self.timeout, self._on_timeout)
-        self.connection.ioloop.start()
+    def start(self):
+        pass
 
     def stop(self):
-        '''close the connection and stop the ioloop'''
+        """close the connection and stop the ioloop"""
         self.connection.remove_timeout(self._timeout_id)
         self.connection.add_timeout(4, self._on_close_timeout)
         self.connection.add_on_close_callback(self._on_closed)
         self.connection.close()
 
     def _on_closed(self, connection, reply_code, reply_text):
-        '''called when the connection has finished closing'''
+        """called when the connection has finished closing"""
         self.connection.ioloop.stop()
         if self._timed_out:
             raise AssertionError('Timed out. Did you call `stop`?')
 
     def _on_close_timeout(self):
-        '''called when stuck waiting for connection to close'''
+        """called when stuck waiting for connection to close"""
         # force the ioloop to stop
         self.connection.ioloop.stop()
         raise AssertionError('Timed out waiting for connection to close')
@@ -105,3 +91,17 @@ class TestCase(BaseTestCase):
     def _on_timeout(self):
         self._timed_out = True
         self.stop()
+
+
+def SelectConnectionTestCase(TestCase):
+
+    def start(self, on_connected, on_error, on_closed):
+        """Connect to rabbitmq and start the ioloop
+
+        """
+        self.connection = pika.SelectConnection(self.parameters,
+                                                on_connected,
+                                                on_error,
+                                                on_closed,
+                                                False)
+        self.connection.ioloop.start()
