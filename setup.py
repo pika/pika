@@ -14,7 +14,7 @@ if on_rtd:
     requirements.append('tornado')
 
 # Conditional include unittest2 for versions of python < 2.7
-tests_require = ['nose', 'mock']
+tests_require = ['nose', 'mock', 'pyyaml']
 platform_version = list(platform.python_version_tuple())[0:2]
 if platform_version[0] != '3' and platform_version != ['2', '7']:
     tests_require.append('unittest2')
@@ -26,7 +26,7 @@ long_description = ('Pika is a pure-Python implementation of the AMQP 0-9-1 '
                     'with other AMQP 0-9-1 brokers.')
 
 setup(name='pika',
-      version='0.9.12',
+      version='0.9.13p0',
       description='Pika Python AMQP Client Library',
       long_description=long_description,
       author='Tony Garnock-Jones',
