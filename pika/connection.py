@@ -619,7 +619,6 @@ class Connection(object):
 
         """
         if self.is_closing or self.is_closed:
-            LOGGER.warning("Invoked while closing or closed")
             return
 
         if self._has_open_channels:
