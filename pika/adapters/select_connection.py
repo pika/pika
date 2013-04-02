@@ -25,13 +25,19 @@ class SelectConnection(BaseConnection):
 
     """
     def _adapter_connect(self):
-        """Connect to the RabbitMQ broker"""
-        super(SelectConnection, self)._adapter_connect()
-        self.ioloop = IOLoop(self._manage_event_state)
-        self.ioloop.start_poller(self._handle_events,
-                                 self.event_state,
-                                 self.socket.fileno())
-        self._on_connected()
+        """Connect to the RabbitMQ broker, returning True on success, False
+        on failure.
+
+        :rtype: bool
+
+        """
+        if super(SelectConnection, self)._adapter_connect():
+            self.ioloop = IOLoop(self._manage_event_state)
+            self.ioloop.start_poller(self._handle_events,
+                                     self.event_state,
+                                     self.socket.fileno())
+            return True
+        return False
 
     def _flush_outbound(self):
         """Call the state manager who will figure out that we need to write then

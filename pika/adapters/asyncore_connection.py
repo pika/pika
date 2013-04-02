@@ -97,7 +97,7 @@ class AsyncoreConnection(base_connection.BaseConnection):
         into our various state methods.
 
         """
-        super(AsyncoreConnection, self)._adapter_connect()
-        self.socket = PikaDispatcher(self.socket, None, self._handle_events)
-        self.ioloop = self.socket
-        self._on_connected()
+        if super(AsyncoreConnection, self)._adapter_connect():
+            self.socket = PikaDispatcher(self.socket, None, self._handle_events)
+            self.ioloop = self.socket
+            self._on_connected()

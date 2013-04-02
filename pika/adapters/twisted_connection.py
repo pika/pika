@@ -13,7 +13,6 @@ TwistedChannel class for details.
 
 """
 import functools
-import time
 from twisted.internet import defer, error, reactor
 from twisted.python import log
 
@@ -260,24 +259,24 @@ class TwistedConnection(base_connection.BaseConnection):
     """
     def __init__(self, parameters=None,
                  on_open_callback=None,
+                 on_open_error_callback=None,
                  stop_ioloop_on_close=False):
-        super(TwistedConnection, self).__init__(parameters, on_open_callback,
+        super(TwistedConnection, self).__init__(parameters,
+                                                on_open_callback,
+                                                on_open_error_callback,
+                                                IOLoopReactorAdapter(self,
+                                                                     reactor),
                                                 stop_ioloop_on_close)
 
     def _adapter_connect(self):
         """Connect to the RabbitMQ broker"""
         # Connect (blockignly!) to the server
-        super(TwistedConnection, self)._adapter_connect()
-
-        # Create an I/O loop by adapting the Twisted reactor
-        self.ioloop = IOLoopReactorAdapter(self, reactor)
-
-        # Set the I/O events we're waiting for (see IOLoopReactorAdapter
-        # docstrings for why it's OK to pass None as the file descriptor)
-        self.ioloop.update_handler(None, self.event_state)
-
-        # Let everyone know we're connected
-        self._on_connected()
+        if super(TwistedConnection, self)._adapter_connect():
+            # Set the I/O events we're waiting for (see IOLoopReactorAdapter
+            # docstrings for why it's OK to pass None as the file descriptor)
+            self.ioloop.update_handler(None, self.event_state)
+            return True
+        return False
 
     def _adapter_disconnect(self):
         """Called when the adapter should disconnect"""
@@ -351,9 +350,11 @@ class TwistedProtocolConnection(base_connection.BaseConnection):
     """
     def __init__(self, parameters):
         self.ready = defer.Deferred()
-        super(TwistedProtocolConnection, self).__init__(parameters,
-                                                        self.connectionReady)
-        self.ioloop = IOLoopReactorAdapter(self, reactor)
+        super(TwistedProtocolConnection,
+              self).__init__(parameters,
+                             self.connectionReady,
+                             None,
+                             IOLoopReactorAdapter(self, reactor))
 
     def _adapter_connect(self):
         # We get connected by Twisted, as is normal for protocols

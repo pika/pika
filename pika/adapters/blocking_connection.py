@@ -67,7 +67,7 @@ class BlockingConnection(base_connection.BaseConnection):
     messages from Basic.Deliver, Basic.GetOk, and Basic.Return.
 
     """
-    WRITE_TO_READ_RATIO = 1000
+    WRITE_TO_READ_RATIO = 10
     DO_HANDSHAKE = True
     SLEEP_DURATION = 0.1
     SOCKET_CONNECT_TIMEOUT = 0.25
@@ -86,8 +86,8 @@ class BlockingConnection(base_connection.BaseConnection):
 
     def add_on_close_callback(self, callback_method_unused):
         """This is not supported in BlockingConnection. When a connection is
-        closed in BlockingConnection, a ConnectionClosed exception will be
-        raised.
+        closed in BlockingConnection, a pika.exceptions.ConnectionClosed
+        exception will raised instead.
 
         :param method callback_method_unused: Unused
         :raises: NotImplementedError
@@ -98,6 +98,19 @@ class BlockingConnection(base_connection.BaseConnection):
 
     def add_on_open_callback(self, callback_method_unused):
         """This method is not supported in BlockingConnection.
+
+        :param method callback_method_unused: Unused
+        :raises: NotImplementedError
+
+        """
+        raise NotImplementedError('Connection callbacks not supported in '
+                                  'BlockingConnection')
+
+    def add_on_open_error_callback(self, callback_method_unused,
+                                   remove_default=False):
+        """This method is not supported in BlockingConnection.
+
+        A pika.exceptions.AMQPConnectionError will be raised instead.
 
         :param method callback_method_unused: Unused
         :raises: NotImplementedError
@@ -153,11 +166,21 @@ class BlockingConnection(base_connection.BaseConnection):
         self.process_data_events()
         self.disconnect()
 
+
+    def connect(self):
+        """Invoke if trying to reconnect to a RabbitMQ server. Constructing the
+        Connection object should connect on its own.
+
+        """
+        self._set_connection_state(self.CONNECTION_INIT)
+        if not self._adapter_connect():
+            raise exceptions.AMQPConnectionError('Could not connect')
+
     def disconnect(self):
         """Disconnect from the socket"""
         self._set_connection_state(self.CONNECTION_CLOSED)
         if self.socket:
-           self.socket.close()
+            self.socket.close()
 
     def process_data_events(self):
         """Will make sure that data events are processed. Your app can
@@ -214,9 +237,16 @@ class BlockingConnection(base_connection.BaseConnection):
             self.process_data_events()
 
     def _adapter_connect(self):
-        """Connect to the RabbitMQ broker"""
-        super(BlockingConnection, self)._adapter_connect()
-        LOGGER.debug('Setting socket connection timeout')
+        """Connect to the RabbitMQ broker
+
+        :rtype: bool
+        :raises: pika.Exceptions.AMQPConnectionError
+
+        """
+        # Remove the default behavior for connection errors
+        self.callbacks.remove(0, self.ON_CONNECTION_ERROR)
+        if not super(BlockingConnection, self)._adapter_connect():
+            raise exceptions.AMQPConnectionError(1)
         self.socket.settimeout(self.SOCKET_CONNECT_TIMEOUT)
         self._frames_written_without_read = 0
         self._socket_timeouts = 0
@@ -225,11 +255,9 @@ class BlockingConnection(base_connection.BaseConnection):
         self._on_connected()
         while not self.is_open:
             self.process_data_events()
-
-        LOGGER.debug('Setting socket timeout to %s', self.params.socket_timeout)
         self.socket.settimeout(self.params.socket_timeout)
         self._set_connection_state(self.CONNECTION_OPEN)
-        LOGGER.info('Adapter connected')
+        return True
 
     def _adapter_disconnect(self):
         """Called if the connection is being requested to disconnect."""
@@ -258,7 +286,6 @@ class BlockingConnection(base_connection.BaseConnection):
 
     def _handle_disconnect(self):
         """Called internally when the socket is disconnected already"""
-        LOGGER.debug('Handling disconnect')
         self.disconnect()
         self._on_connection_closed(None, True)
 
@@ -287,7 +314,6 @@ class BlockingConnection(base_connection.BaseConnection):
 
     def _flush_outbound(self):
         """Flush the outbound socket buffer."""
-        LOGGER.debug('Outbound buffer size: %r', self.outbound_buffer.size)
         if self.outbound_buffer.size > 0:
             try:
                 if self._handle_write():
@@ -306,7 +332,6 @@ class BlockingConnection(base_connection.BaseConnection):
         :raises: pika.exceptions.ConnectionClosed
 
         """
-        LOGGER.info('on_connection_closed: %r, %r', method_frame, from_adapter)
         if self._is_connection_close_frame(method_frame):
             self.closing = (method_frame.method.reply_code,
                             method_frame.method.reply_text)

@@ -39,28 +39,36 @@ class BaseConnection(connection.Connection):
     def __init__(self,
                  parameters=None,
                  on_open_callback=None,
+                 on_open_error_callback=None,
+                 on_close_callback=None,
+                 ioloop=None,
                  stop_ioloop_on_close=True):
         """Create a new instance of the Connection object.
 
         :param pika.connection.Parameters parameters: Connection parameters
         :param method on_open_callback: Method to call on connection open
-        :param bool stop_ioloop_on_close: Will stop the ioloop when the
-                connection is fully closed.
+        :param on_open_error_callback: Method to call if the connection cant
+                                       be opened
+        :type on_open_error_callback: method
+        :param method on_close_callback: Method to call on connection close
+        :param object ioloop: IOLoop object to use
+        :param bool stop_ioloop_on_close: Call ioloop.stop() if disconnected
         :raises: RuntimeError
 
         """
         # Let the developer know we could not import SSL
         if parameters and parameters.ssl and not ssl:
             raise RuntimeError("SSL specified but it is not available")
-        self.fd = None
-        self.ioloop = None
-        self.stop_ioloop_on_close = stop_ioloop_on_close
         self.base_events = self.READ | self.ERROR
         self.event_state = self.base_events
+        self.fd = None
+        self.ioloop = ioloop
         self.socket = None
+        self.stop_ioloop_on_close = stop_ioloop_on_close
         self.write_buffer = None
-        self._remaining_attempts = 0
-        super(BaseConnection, self).__init__(parameters, on_open_callback)
+        super(BaseConnection, self).__init__(parameters,
+                                             on_open_callback,
+                                             on_open_error_callback)
 
     def add_timeout(self, deadline, callback_method):
         """Add the callback_method to the IOLoop timer to fire after deadline
@@ -96,44 +104,33 @@ class BaseConnection(connection.Connection):
         self.ioloop.remove_timeout(timeout_id)
 
     def _adapter_connect(self):
-        """Connect to the RabbitMQ broker"""
-        LOGGER.debug('Connecting the adapter to the remote host')
-        reason = 'Unknown'
-        self._remaining_attempts -= 1
-        try:
-            self._create_and_connect_to_socket()
-            return
-        except socket.timeout:
-            reason = 'timeout'
-        except socket.error, err:
-            LOGGER.error('socket error: %s', err[-1])
-            reason = err[-1]
-            self.socket.close()
+        """Connect to the RabbitMQ broker, returning True if connected
 
-        if self._remaining_attempts:
-            LOGGER.warning('Could not connect due to "%s," retrying in %i sec',
-                           reason, self.params.retry_delay)
+        :rtype: bool
 
-            if hasattr(self, 'ioloop') and self.ioloop:
-                LOGGER.debug('Using ioloop to wait on retry')
-                self.ioloop.add_timeout(self.params.retry_delay,
-                                        self._adapter_connect)
-            else:
-                time.sleep(self.params.retry_delay)
-                self._adapter_connect()
-        else:
-            LOGGER.error('Could not connect: %s', reason)
-            raise \
-                exceptions.AMQPConnectionError(self.params.connection_attempts)
+        """
+        # Get the addresses for the socket, supporting IPv4 & IPv6
+        sock_addrs = socket.getaddrinfo(self.params.host, self.params.port,
+                            0, 0, socket.getprotobyname("tcp"))
+
+        # Iterate through each addr tuple trying to connect
+        for sock_addr in sock_addrs:
+
+            # If the socket is created and connected, continue on
+            if self._create_and_connect_to_socket(sock_addr):
+                return True
+
+        # Failed to connect
+        return False
 
     def _adapter_disconnect(self):
         """Invoked if the connection is being told to disconnect"""
-        #self.socket.shutdown(socket.SHUT_RDWR)
         if self.socket:
             self.socket.close()
         self.socket = None
         self._check_state_on_disconnect()
         self._handle_ioloop_stop()
+        self._init_connection_state()
 
     def _check_state_on_disconnect(self):
         """Checks to see if we were in opening a connection with RabbitMQ when
@@ -159,25 +156,45 @@ class BaseConnection(connection.Connection):
             LOGGER.warning('Unknown state on disconnect: %i',
                            self.connection_state)
 
-    def _create_and_connect_to_socket(self):
+    def _create_and_connect_to_socket(self, sock_addr_tuple):
         """Create socket and connect to it, using SSL if enabled."""
-        LOGGER.debug('Creating the socket')
-        conn_info = socket.getaddrinfo(self.params.host, self.params.port, 
-                                       0, 0, socket.getprotobyname("tcp"))[0]
-        self.socket = socket.socket(conn_info[0], socket.SOCK_STREAM, 0)
-        #self.socket.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
+        self.socket = socket.socket(sock_addr_tuple[0], socket.SOCK_STREAM, 0)
+        self.socket.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
+        self.socket.settimeout(self.params.socket_timeout)
+
+        # Wrap socket if using SSL
         if self.params.ssl:
             self.socket = self._wrap_socket(self.socket)
             ssl_text = " with SSL"
         else:
             ssl_text = ""
-        LOGGER.info("Connecting fd %d to %s:%i%s",
-                    self.socket.fileno(), self.params.host,
-                    self.params.port, ssl_text)
-        self.socket.settimeout(self.params.socket_timeout)
-        self.socket.connect((self.params.host, self.params.port))
+
+        LOGGER.info('Connecting to %s:%s%s',
+                    sock_addr_tuple[4][0], sock_addr_tuple[4][1], ssl_text)
+
+        # Connect to the socket
+        try:
+            self.socket.connect(sock_addr_tuple[4])
+        except socket.timeout:
+            LOGGER.error('Connection to %s:%s failed: timeout',
+                         sock_addr_tuple[4][0],sock_addr_tuple[4][1])
+            return False
+        except socket.error as error:
+            LOGGER.error('Connection to %s:%s failed: %s',
+                         sock_addr_tuple[4][0],sock_addr_tuple[4][1], error)
+            return False
+
+        # Handle SSL Connection Negotiation
         if self.params.ssl and self.DO_HANDSHAKE:
-            self._do_ssl_handshake()
+            try:
+                self._do_ssl_handshake()
+            except ssl.SSLError as error:
+                LOGGER.error('SSL connection to %s:%s failed: %s',
+                             sock_addr_tuple[4][0],sock_addr_tuple[4][1], error)
+                return False
+
+        # Made it this far
+        return True
 
     def _do_ssl_handshake(self):
         """Perform SSL handshaking, copied from python stdlib test_ssl.py.
@@ -185,7 +202,6 @@ class BaseConnection(connection.Connection):
         """
         if not self.DO_HANDSHAKE:
             return
-        LOGGER.debug('_do_ssl_handshake')
         while True:
             try:
                 self.socket.do_handshake()
@@ -196,7 +212,6 @@ class BaseConnection(connection.Connection):
                 elif err.args[0] == ssl.SSL_ERROR_WANT_WRITE:
                     self.event_state = self.WRITE
                 else:
-                    LOGGER.error('SSL handshaking error: %s', err)
                     raise
                 self._manage_event_state()
 
@@ -342,11 +357,9 @@ class BaseConnection(connection.Connection):
         """
         super(BaseConnection, self)._init_connection_state()
         self.fd = None
-        self.ioloop = None
         self.base_events = self.READ | self.ERROR
         self.event_state = self.base_events
         self.socket = None
-        self._remaining_attempts = self.params.connection_attempts
 
     def _manage_event_state(self):
         """Manage the bitmask for reading/writing/error which is used by the
