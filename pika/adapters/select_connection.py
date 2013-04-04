@@ -425,7 +425,7 @@ class EPollPoller(PollPoller):
 
     """
     def __init__(self, fileno, handler, events, state_manager):
-        """Create an instance of the KQueuePoller
+        """Create an instance of the EPollPoller
 
         :param int fileno: The file descriptor to check events for
         :param method handler: What is called when an event happens
