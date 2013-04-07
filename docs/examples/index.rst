@@ -17,3 +17,4 @@ Pika has various methods of use, between the synchronous BlockingConnection adap
    blocking_publish_mandatory
    asynchronous_consumer_example
    asynchronous_publisher_example
+   twisted_example

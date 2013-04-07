@@ -35,56 +35,30 @@ Pika supports two modes of development, synchronous using the BlockingConnection
    faq
    version_history
 
-0.9.12 - 2013-03-18
+0.9.13 - 2013-04-??
 -------------------
+**Major Changes**
+- Connection and Disconnection logic refactored, allowing for cleaner separation of protocol logic and socket handling logic as well as connection state management
+- IPv6 Support with thanks to Alessandro Tagliapietra for initial prototype
+- New "on_open_error_callback" argument in creating connection objects and new Connection.add_on_open_error_callback method
+- Support for all AMQP field types, using protocol specified signed/unsigned unpacking
+- New Connection.connect method to cleanly allow for reconnection code
+
+**Backwards Incompatible Changes**
+
+- Method signature for creating connection objects has new argument "on_open_error_callback" which is positionally before "on_close_callback"
+- Internal callback variable names in connection.Connection have been renamed and constants used. If you relied on any of these callbacks outside of their internal use, make sure to check out the new constants.
+- Connection._connect method, which was an internal only method is now deprecated and will raise a DeprecationWarning. If you relied on this method, your code needs to change.
 
 **Bugfixes**
 
-- New timeout id hashing was not unique
+- Support "b" short-short-int AMQP data type (#318)
+- Docstring type fix in adapters/select_connection (#316) fix by Rikard Hultén
+- IPv6 not supported (#309)
 
-0.9.11 - 2013-03-17
--------------------
+**Other**
 
-**Bugfixes**
-
-- Address inconsistent channel close callback documentation and add the signature
-  change to the TwistedChannel class (#305)
-- Address a missed timeout related internal data structure name change
-  introduced in the SelectConnection 0.9.10 release. Update all connection
-  adapters to use same signature and docstring (#306).
-
-0.9.10 - 2013-03-16
--------------------
-
-**Bugfixes**
-
-- Fix timeout in twisted adapter (Submitted by cellscape)
-- Fix blocking_connection poll timer resolution to milliseconds (Submitted by cellscape)
-- Fix channel._on_close() without a method frame (Submitted by Richard Boulton)
-- Addressed exception on close (Issue #279 - fix by patcpsc)
-- 'messages' not initialized in BlockingConnection.cancel() (Issue #289 - fix by Mik Kocikowski)
-- Make queue_unbind behave like queue_bind (Issue #277)
-- Address closing behavioral issues for connections and channels (Issues #275,
-- Pass a Method frame to Channel._on_close in Connection._on_disconnect (Submitted by wulczer)
-- Fix channel closed callback signature in the Twisted adapter (Submitted by wulczer)
-- Don't stop the IOLoop on connection close for in the Twisted adapter (Submitted by wulczer)
-- Update the asynchronous examples to fix reconnecting and have it work
-- Warn if the socket was closed such as if RabbitMQ dies without a Close frame
-- Fix URLParameters ssl_options (Issue #296)
-- Add state to BlockingConnection addressing (Issue #301)
-- Encode unicode body content prior to publishing (Issue #282)
-- Fix an issue with unicode keys in BasicProperties headers key (Issue #280)
-- Change how timeout ids are generated (Issue #254)
-- Address post close state issues in Channel (Issue #302)
-
-** Behavioral changes **
-
-- Change core connection communication behavior to prefer outbound writes over reads, addressing a recursion issue
-- Update connection on close callbacks, changing callback method signature
-- Update channel on close callbacks, changing callback method signature
-- Give more info in the ChannelClosed exception
-- Change the constructor signature for BlockingConnection, block open/close callbacks
-- Disable the use of add_on_open_callback/add_on_close_callback methods in BlockingConnection
+- Added Twisted Adapter example (#314)
 
 
 Pika Core Modules and Classes
