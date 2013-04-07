@@ -160,12 +160,20 @@ class BlockingConnection(base_connection.BaseConnection):
         :param str reply_text: The text reason for the close
 
         """
+        LOGGER.info("Closing connection (%s): %s", reply_code, reply_text)
         self._set_connection_state(self.CONNECTION_CLOSING)
         self._remove_connection_callbacks()
-        super(BlockingConnection, self).close(reply_code, reply_text)
-        self.process_data_events()
-        self.disconnect()
-        self._close_channels(reply_code, reply_text)
+        if self._has_open_channels:
+            self._close_channels(reply_code, reply_text)
+        while self._has_open_channels:
+            self.process_data_events()
+        self._send_connection_close(reply_code, reply_text)
+        while self.is_closing:
+            self.process_data_events()
+        if self.heartbeat:
+            self.heartbeat.stop()
+        self._remove_connection_callbacks()
+        self._adapter_disconnect()
 
     def connect(self):
         """Invoke if trying to reconnect to a RabbitMQ server. Constructing the
@@ -176,12 +184,6 @@ class BlockingConnection(base_connection.BaseConnection):
         if not self._adapter_connect():
             raise exceptions.AMQPConnectionError('Could not connect')
 
-    def disconnect(self):
-        """Disconnect from the socket"""
-        self._set_connection_state(self.CONNECTION_CLOSED)
-        if self.socket:
-            self.socket.close()
-
     def process_data_events(self):
         """Will make sure that data events are processed. Your app can
         block on this method.
@@ -190,6 +192,8 @@ class BlockingConnection(base_connection.BaseConnection):
         try:
             if self._handle_read():
                 self._socket_timeouts = 0
+        except AttributeError:
+            raise exceptions.ConnectionClosed()
         except socket.timeout:
             self._handle_timeout()
         self._flush_outbound()
@@ -261,8 +265,11 @@ class BlockingConnection(base_connection.BaseConnection):
 
     def _adapter_disconnect(self):
         """Called if the connection is being requested to disconnect."""
-        self.disconnect()
+        if self.socket:
+            self.socket.close()
+        self.socket = None
         self._check_state_on_disconnect()
+        self._init_connection_state()
 
     def _call_timeout_method(self, timeout_value):
         """Execute the method that was scheduled to be called.
@@ -345,7 +352,7 @@ class BlockingConnection(base_connection.BaseConnection):
         for channel in self._channels:
             self._channels[channel]._on_close(method_frame)
         self._remove_connection_callbacks()
-        if self.closing[0] != 200:
+        if self.closing[0] not in [0, 200]:
             raise exceptions.ConnectionClosed(*self.closing)
 
     def _send_frame(self, frame_value):
