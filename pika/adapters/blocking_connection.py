@@ -165,7 +165,7 @@ class BlockingConnection(base_connection.BaseConnection):
         super(BlockingConnection, self).close(reply_code, reply_text)
         self.process_data_events()
         self.disconnect()
-
+        self._close_channels(reply_code, reply_text)
 
     def connect(self):
         """Invoke if trying to reconnect to a RabbitMQ server. Constructing the
