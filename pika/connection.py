@@ -1116,6 +1116,10 @@ class Connection(object):
             self.closing = (method_frame.method.reply_code,
                             method_frame.method.reply_text)
 
+        # Stop the heartbeat checker if it exists
+        if self.heartbeat:
+            self.heartbeat.stop()
+
         # If this did not come from the connection adapter, close the socket
         if not from_adapter:
             self._adapter_disconnect()
