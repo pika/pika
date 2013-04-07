@@ -358,6 +358,41 @@ Example::
    :inherited-members:
    :member-order: bysource
 
+
+Twisted
+^^^^^^^
+::
+
+    import pika
+    from pika import exceptions
+    from pika.adapters import twisted_connection
+    from twisted.internet import defer, reactor, protocol,task
+
+
+    @defer.inlineCallbacks
+    def run(connection):
+
+        channel = yield connection.channel()
+
+    parameters = pika.ConnectionParameters()
+    cc = protocol.ClientCreator(reactor, twisted_connection.TwistedProtocolConnection, parameters)
+    d = cc.connectTCP('hostname', 5672)
+    d.addCallback(lambda protocol: protocol.ready)
+    d.addCallback(run)
+    reactor.run()
+
+.. automodule:: pika.adapters.twisted_connection
+.. autoclass:: TwistedConnection
+   :members:
+   :inherited-members:
+   :member-order: bysource
+.. autoclass:: TwistedProtocolConnection
+   :members:
+   :inherited-members:
+   :member-order: bysource
+
+
 .. rubric:: Footnotes
 
 .. [#f1] "more effective flow control mechanism that does not require cooperation from clients and reacts quickly to prevent the broker from exhausing memory - see http://www.rabbitmq.com/extensions.html#memsup" from http://lists.rabbitmq.com/pipermail/rabbitmq-announce/attachments/20100825/2c672695/attachment.txt
+

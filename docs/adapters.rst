@@ -40,6 +40,7 @@ PikaDispatcher
    :undoc-members:
    :noindex:
 
+
 blocking_connection
 -------------------
 .. automodule:: pika.adapters.blocking_connection
@@ -52,6 +53,7 @@ BlockingConnection
    :private-members: True
    :undoc-members:
    :noindex:
+
 
 select_connection
 -----------------
@@ -119,6 +121,27 @@ tornado_connection
 TornadoConnection
 ^^^^^^^^^^^^^^^^^
 .. autoclass:: TornadoConnection
+   :members:
+   :member-order: bysource
+   :private-members: True
+   :undoc-members:
+   :noindex:
+
+
+twisted_connection
+-------------------
+.. automodule:: pika.adapters.twisted_connection
+
+TwistedConnection
+^^^^^^^^^^^^^^^^^
+.. autoclass:: TwistedConnection
+   :members:
+   :member-order: bysource
+   :private-members: True
+   :undoc-members:
+   :noindex:
+
+.. autoclass:: TwistedProtocolConnection
    :members:
    :member-order: bysource
    :private-members: True
