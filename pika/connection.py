@@ -826,7 +826,7 @@ class Connection(object):
                 'capabilities': {'basic.nack': True,
                                  'consumer_cancel_notify': True,
                                  'publisher_confirms': True},
-                'information': 'See http://pika.github.com',
+                'information': 'See http://pika.rtfd.org',
                 'version': __version__}
 
     def _close_channels(self, reply_code, reply_text):
@@ -1073,7 +1073,6 @@ class Connection(object):
         :param pika.frame.Method method_frame: The response
 
         """
-        LOGGER.debug('Received Channel.CloseOk')
         try:
             del self._channels[method_frame.channel_number]
         except KeyError:
@@ -1220,7 +1219,7 @@ class Connection(object):
         :param str reply_text: The text close reason
 
         """
-        LOGGER.warning("Disconnected from RabbitMQ at %s:%i (%s): %s",
+        LOGGER.warning('Disconnected from RabbitMQ at %s:%i (%s): %s',
                        self.params.host, self.params.port,
                        reply_code, reply_text)
         self._set_connection_state(self.CONNECTION_CLOSED)
@@ -1276,7 +1275,6 @@ class Connection(object):
         self.frames_received += 1
 
         # Process any callbacks, if True, exit method
-        LOGGER.debug('Frame: %r', frame_value)
         if self._process_callbacks(frame_value):
             return
 
