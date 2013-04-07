@@ -38,6 +38,7 @@ Pika supports two modes of development, synchronous using the BlockingConnection
 0.9.13 - 2013-04-??
 -------------------
 **Major Changes**
+
 - Connection and Disconnection logic refactored, allowing for cleaner separation of protocol logic and socket handling logic as well as connection state management
 - IPv6 Support with thanks to Alessandro Tagliapietra for initial prototype
 - New "on_open_error_callback" argument in creating connection objects and new Connection.add_on_open_error_callback method
@@ -55,6 +56,7 @@ Pika supports two modes of development, synchronous using the BlockingConnection
 - Support "b" short-short-int AMQP data type (#318)
 - Docstring type fix in adapters/select_connection (#316) fix by Rikard Hultén
 - IPv6 not supported (#309)
+- Stop the HeartbeatChecker when connection is closed (#307)
 
 **Other**
 
