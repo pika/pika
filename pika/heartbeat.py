@@ -36,6 +36,9 @@ class HeartbeatChecker(object):
         self._heartbeat_frames_sent = 0
         self._idle_byte_intervals = 0
 
+        # The handle for the last timer
+        self._timer = None
+
         # Setup the timer to fire in _interval seconds
         self._setup_timer()
 
@@ -99,6 +102,13 @@ class HeartbeatChecker(object):
         # Update the timer to fire again
         self._start_timer()
 
+    def stop(self):
+        """Stop the heartbeat checker"""
+        if self._timer:
+            LOGGER.debug('Removing timeout for next heartbeat interval')
+            self._connection.remove_timeout(self._timer)
+            self._timer = None
+
     def _close_connection(self):
         """Close the connection with the AMQP Connection-Forced value."""
         LOGGER.info('Connection is idle, %i stale byte intervals',
@@ -140,7 +150,8 @@ class HeartbeatChecker(object):
         every interval seconds.
 
         """
-        self._connection.add_timeout(self._interval, self.send_and_check)
+        self._timer = self._connection.add_timeout(self._interval,
+                                                   self.send_and_check)
 
     def _start_timer(self):
         """If the connection still has this object set for heartbeats, add a
