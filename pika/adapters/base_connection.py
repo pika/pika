@@ -180,8 +180,8 @@ class BaseConnection(connection.Connection):
                          sock_addr_tuple[4][0],sock_addr_tuple[4][1])
             return False
         except socket.error as error:
-            LOGGER.error('Connection to %s:%s failed: %s',
-                         sock_addr_tuple[4][0],sock_addr_tuple[4][1], error)
+            LOGGER.warning('Connection to %s:%s failed: %s',
+                           sock_addr_tuple[4][0],sock_addr_tuple[4][1], error)
             return False
 
         # Handle SSL Connection Negotiation
