@@ -68,7 +68,8 @@ class BaseConnection(connection.Connection):
         self.write_buffer = None
         super(BaseConnection, self).__init__(parameters,
                                              on_open_callback,
-                                             on_open_error_callback)
+                                             on_open_error_callback,
+                                             on_close_callback)
 
     def add_timeout(self, deadline, callback_method):
         """Add the callback_method to the IOLoop timer to fire after deadline
