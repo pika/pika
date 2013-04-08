@@ -253,8 +253,9 @@ consumer.py::
 
         def on_cancelok(self, unused_frame):
             """This method is invoked by pika when RabbitMQ acknowledges the
-            cancellation of a consumer. At this point we will close the connection
-            which will automatically close the channel if it's open.
+            cancellation of a consumer. At this point we will close the channel.
+            This will invoke the on_channel_closed method once the channel has been
+            closed, which will in-turn close the connection.
 
             :param pika.frame.Method unused_frame: The Basic.CancelOk frame
 
