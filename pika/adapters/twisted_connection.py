@@ -260,13 +260,15 @@ class TwistedConnection(base_connection.BaseConnection):
     def __init__(self, parameters=None,
                  on_open_callback=None,
                  on_open_error_callback=None,
+                 on_close_callback=None,
                  stop_ioloop_on_close=False):
-        super(TwistedConnection, self).__init__(parameters,
-                                                on_open_callback,
-                                                on_open_error_callback,
-                                                IOLoopReactorAdapter(self,
-                                                                     reactor),
-                                                stop_ioloop_on_close)
+        super(TwistedConnection, self).__init__(
+            parameters=parameters,
+            on_open_callback=on_open_callback,
+            on_open_error_callback=on_open_error_callback,
+            on_close_callback=on_close_callback,
+            ioloop=IOLoopReactorAdapter(self, reactor),
+            stop_ioloop_on_close=stop_ioloop_on_close)
 
     def _adapter_connect(self):
         """Connect to the RabbitMQ broker"""
@@ -350,15 +352,24 @@ class TwistedProtocolConnection(base_connection.BaseConnection):
     """
     def __init__(self, parameters):
         self.ready = defer.Deferred()
-        super(TwistedProtocolConnection,
-              self).__init__(parameters,
-                             self.connectionReady,
-                             None,
-                             IOLoopReactorAdapter(self, reactor))
+        super(TwistedProtocolConnection, self).__init__(
+            parameters=parameters,
+            on_open_callback=self.connectionReady,
+            on_open_error_callback=self.connectionFailed,
+            on_close_callback=None,
+            ioloop=IOLoopReactorAdapter(self, reactor),
+            stop_ioloop_on_close=False)
+
+    def connect(self):
+        # The connection is open asynchronously by Twisted, so skip the whole
+        # connect() part, except for setting the connection state
+        self._set_connection_state(self.CONNECTION_INIT)
 
     def _adapter_connect(self):
-        # We get connected by Twisted, as is normal for protocols
-        pass
+        # Should never be called, as we override connect() and leave the
+        # building of a TCP connection to Twisted, but implement anyway to keep
+        # the interface
+        return False
 
     def _adapter_disconnect(self):
         # Disconnect from the server
@@ -422,3 +433,10 @@ class TwistedProtocolConnection(base_connection.BaseConnection):
         d, self.ready = self.ready, None
         if d:
             d.callback(res)
+
+    def connectionFailed(self, connection_unused):
+        d, self.ready = self.ready, None
+        if d:
+            attempts = self.params.connection_attempts
+            exc = exceptions.AMQPConnectionError(attempts)
+            d.errback(exc)
