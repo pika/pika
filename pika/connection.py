@@ -647,11 +647,28 @@ class Connection(object):
                        self.remaining_connection_attempts)
         if self.remaining_connection_attempts:
             LOGGER.info('Retrying in %i seconds', self.params.retry_delay)
-            self.add_timeout(self.params.retry_delay, self.connect)
+            if hasattr(self, 'ioloop') and self.ioloop:
+                self.add_timeout(self.params.retry_delay, self.connect)
+            else:
+                self._retry_connection()
         else:
-            self.callbacks.process(0, self.ON_CONNECTION_ERROR, self, self)
-            self.remaining_connection_attempts = self.params.connection_attempts
-            self._set_connection_state(self.CONNECTION_CLOSED)
+            self._process_clean_close()
+
+    def _process_clean_close(self):
+        self.callbacks.process(0, self.ON_CONNECTION_ERROR, self, self)
+        self.remaining_connection_attempts = self.params.connection_attempts
+        self._set_connection_state(self.CONNECTION_CLOSED)
+
+    def _retry_connection(self):
+        while self.remaining_connection_attempts > 0:
+            LOGGER.info('Retry attempt #%d in %i seconds',
+                        self.remaining_connection_attempts,
+                        self.params.retry_delay)
+            time.sleep(self.params.retry_delay)
+            if self._adapter_connect():
+                return self._on_connected()
+            self.remaining_connection_attempts -= 1
+        self._process_clean_close()
 
     def remove_timeout(self, callback_method):
         """Adapters should override to call the callback after the
