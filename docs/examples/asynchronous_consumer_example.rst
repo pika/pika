@@ -72,7 +72,10 @@ consumer.py::
         def on_connection_closed(self, connection, reply_code, reply_text):
             """This method is invoked by pika when the connection to RabbitMQ is
             closed unexpectedly. Since it is unexpected, we will reconnect to
-            RabbitMQ if it disconnects.
+            RabbitMQ if it disconnects. Let's reconnect as soon as possible or
+            the ioloop will be stopped before the reconnect timeout is
+            processed.
+
 
             :param pika.connection.Connection connection: The closed connection obj
             :param int reply_code: The server provided reply_code if given
@@ -85,7 +88,7 @@ consumer.py::
             else:
                 LOGGER.warning('Connection closed, reopening in 5 seconds: (%s) %s',
                                reply_code, reply_text)
-                self._connection.add_timeout(5, self.reconnect)
+                self._connection.add_timeout(0, self.reconnect)
 
         def on_connection_open(self, unused_connection):
             """This method is called by pika once the connection to RabbitMQ has
