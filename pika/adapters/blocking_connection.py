@@ -935,7 +935,6 @@ class BlockingChannel(channel.Channel):
         :type body: str or unicode
 
         """
-        LOGGER.debug('Adding a message to generator messages')
         self._generator_messages.append((method, properties, body))
         LOGGER.debug('%i pending messages', len(self._generator_messages))
 
