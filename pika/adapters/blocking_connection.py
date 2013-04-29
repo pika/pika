@@ -587,7 +587,36 @@ class BlockingChannel(channel.Channel):
             self.basic_nack(method.delivery_tag, multiple=True, requeue=True)
             self.connection.process_data_events()
         self._generator = None
+        self._generator_messages = list()
         return messages
+
+    def close(self, reply_code=0, reply_text="Normal Shutdown"):
+        """Will invoke a clean shutdown of the channel with the AMQP Broker.
+
+        :param int reply_code: The reply code to close the channel with
+        :param str reply_text: The reply text to close the channel with
+
+        """
+
+        LOGGER.info('Channel.close(%s, %s)', reply_code, reply_text)
+        if not self.is_open:
+            raise exceptions.ChannelClosed()
+
+        # Cancel the generator if it's running
+        if self._generator:
+            self.cancel()
+
+        # If there are any consumers, cancel them as well
+        if self._consumers:
+            LOGGER.debug('Cancelling %i consumers', len(self._consumers))
+            for consumer_tag in self._consumers.keys():
+                self.basic_cancel(consumer_tag=consumer_tag)
+        self._set_state(self.CLOSING)
+        self._rpc(spec.Channel.Close(reply_code, reply_text, 0, 0),
+                  None,
+                  [spec.Channel.CloseOk])
+        self._set_state(self.CLOSED)
+        self._cleanup()
 
     def consume(self, queue):
         """Blocking consumption of a queue instead of via a callback. This
@@ -942,6 +971,8 @@ class BlockingChannel(channel.Channel):
             self._send_method(spec.Channel.CloseOk(), None, False)
         self._set_state(self.CLOSED)
         self._cleanup()
+        self._generator_messages = list()
+        self._generator = None
         if method_frame is None:
             raise exceptions.ChannelClosed(0, 'Not specified')
         else:
@@ -1058,15 +1089,6 @@ class BlockingChannel(channel.Channel):
                 self.connection.process_data_events()
             except exceptions.AMQPConnectionError:
                 break
-
-    def _shutdown(self):
-        """Handle Channel.Close as a blocking RPC call"""
-        self._set_state(self.CLOSING)
-        self._rpc(spec.Channel.Close(self._reply_code, self._reply_text, 0, 0),
-                  None,
-                  [spec.Channel.CloseOk])
-        self._set_state(self.CLOSED)
-        self._cleanup()
 
     def _validate_acceptable_replies(self, acceptable_replies):
         """Validate the list of acceptable replies
