@@ -34,6 +34,7 @@ class Channel(object):
         :param pika.connection.Connection connection: The connection
         :param int channel_number: The channel number for this instance
         :param method on_open_callback: The method to call on channel open
+        :param bool force_binary: Prevents channel from autodetecting unicode
 
         """
         if not isinstance(channel_number, int):
