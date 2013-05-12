@@ -815,9 +815,13 @@ class Channel(object):
         :param pika.frame.Method method_frame: The close frame
 
         """
-        LOGGER.warning('Received remote Channel.Close (%s): %s',
-                       method_frame.method.reply_code,
-                       method_frame.method.reply_text)
+        LOGGER.warning('Closing after receiving remote frame %s',
+                       method_frame.method.NAME)
+        if hasattr(method_frame.method, 'reply_code'):
+            LOGGER.warning('Reply code/text (%s): %s',
+                           method_frame.method.reply_code,
+                           method_frame.method.reply_text)
+
         if self.connection.is_open:
             self._send_method(spec.Channel.CloseOk())
         self._set_state(self.CLOSED)
