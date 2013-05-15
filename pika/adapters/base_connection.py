@@ -6,17 +6,7 @@ isolate socket and low level communication.
 import errno
 import logging
 import socket
-import time
-
-# Workaround for 2.5 support
-try:
-    socket.SOL_TCP
-except AttributeError:
-    socket.SOL_TCP = socket.IPPROTO_TCP
-try:
-    import ssl
-except ImportError:
-    ssl = None
+import ssl
 
 from pika import connection
 from pika import exceptions

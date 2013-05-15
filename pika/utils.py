@@ -2,10 +2,7 @@
 Non-module specific functions shared by modules in the pika package
 
 """
-try:
-    from collections import Callable
-except ImportError:  #pragma: no cover
-    Callable = None
+import collections
 
 
 def is_callable(handle):
@@ -16,6 +13,4 @@ def is_callable(handle):
     :rtype: bool
 
     """
-    if Callable:
-        return isinstance(handle, Callable)
-    return hasattr(handle, '__call__')
+    return isinstance(handle, collections.Callable)
