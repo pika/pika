@@ -3,6 +3,7 @@ AMQP classes and methods.
 
 """
 
+
 class AMQPObject(object):
     """Base object that is extended by AMQP low level frames and AMQP classes
     and methods.
