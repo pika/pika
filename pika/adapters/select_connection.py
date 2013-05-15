@@ -24,6 +24,32 @@ class SelectConnection(BaseConnection):
     event loop adapter for the given platform.
 
     """
+
+    def __init__(self,
+                 parameters=None,
+                 on_open_callback=None,
+                 on_open_error_callback=None,
+                 on_close_callback=None,
+                 stop_ioloop_on_close=True):
+        """Create a new instance of the Connection object.
+
+        :param pika.connection.Parameters parameters: Connection parameters
+        :param method on_open_callback: Method to call on connection open
+        :param on_open_error_callback: Method to call if the connection cant
+                                       be opened
+        :type on_open_error_callback: method
+        :param method on_close_callback: Method to call on connection close
+        :param bool stop_ioloop_on_close: Call ioloop.stop() if disconnected
+        :raises: RuntimeError
+
+        """
+        ioloop = IOLoop(self._manage_event_state)
+        super(SelectConnection, self).__init__(parameters, on_open_callback,
+                                               on_open_error_callback,
+                                               on_close_callback,
+                                               ioloop,
+                                               stop_ioloop_on_close)
+
     def _adapter_connect(self):
         """Connect to the RabbitMQ broker, returning True on success, False
         on failure.
@@ -32,7 +58,6 @@ class SelectConnection(BaseConnection):
 
         """
         if super(SelectConnection, self)._adapter_connect():
-            self.ioloop = IOLoop(self._manage_event_state)
             self.ioloop.start_poller(self._handle_events,
                                      self.event_state,
                                      self.socket.fileno())
@@ -81,6 +106,9 @@ class IOLoop(object):
         :rtype: str
 
         """
+        if not self.poller:
+            time.sleep(deadline)
+            return callback_method()
         return self.poller.add_timeout(deadline, callback_method)
 
     @property
