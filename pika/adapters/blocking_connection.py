@@ -321,7 +321,7 @@ class BlockingConnection(base_connection.BaseConnection):
 
     def _flush_outbound(self):
         """Flush the outbound socket buffer."""
-        if self.outbound_buffer.size > 0:
+        if self.outbound_buffer:
             try:
                 if self._handle_write():
                     self._socket_timeouts = 0
@@ -1078,7 +1078,7 @@ class BlockingChannel(channel.Channel):
         self._received_response = False
         LOGGER.debug('Connection: %r', self.connection)
         self.connection.send_method(self.channel_number, method_frame, content)
-        while self.connection.outbound_buffer.size > 0:
+        while self.connection.outbound_buffer:
             try:
                 self.connection.process_data_events()
             except exceptions.AMQPConnectionError:

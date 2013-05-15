@@ -1,6 +1,8 @@
 """Core connection objects"""
 import ast
+import collections
 import logging
+import math
 import platform
 import urllib
 import urlparse
@@ -14,7 +16,7 @@ from pika import exceptions
 from pika import frame
 from pika import heartbeat
 from pika import utils
-from pika import simplebuffer
+
 from pika import spec
 
 BACKPRESSURE_WARNING = ("Pika: Write buffer exceeded warning threshold at "
@@ -48,7 +50,7 @@ class Parameters(object):
     DEFAULT_BACKPRESSURE_DETECTION = False
     DEFAULT_CONNECTION_ATTEMPTS = 1
     DEFAULT_CHANNEL_MAX = 0
-    DEFAULT_FRAME_MAX = spec.FRAME_MAX_SIZE
+    DEFAULT_FRAME_MAX = 32768 #spec.FRAME_MAX_SIZE
     DEFAULT_HEARTBEAT_INTERVAL = 0
     DEFAULT_HOST = 'localhost'
     DEFAULT_LOCALE = 'en_US'
@@ -982,15 +984,19 @@ class Connection(object):
         be wiped.
 
         """
+        # Connection state
+        self._set_connection_state(self.CONNECTION_CLOSED)
+
+        # Negotiated server properties
+        self.server_properties = None
+
         # Outbound buffer for buffering writes until we're able to send them
-        self.outbound_buffer = simplebuffer.SimpleBuffer()
+        self.outbound_buffer = collections.deque([])
 
         # Inbound buffer for decoding frames
-        self._frame_buffer = ''
+        self._frame_buffer = bytes()
 
-        # Connection state, server properties and channels all change on
-        # each connection
-        self.server_properties = None
+        # Dict of open channels
         self._channels = dict()
 
         # Remaining connection attempts
@@ -1005,9 +1011,6 @@ class Connection(object):
 
         # Default back-pressure multiplier value
         self._backpressure = 10
-
-        # Connection state
-        self._set_connection_state(self.CONNECTION_CLOSED)
 
         # When closing, hold reason why
         self.closing = 0, 'Not specified'
@@ -1415,7 +1418,7 @@ class Connection(object):
         marshaled_frame = frame_value.marshal()
         self.bytes_sent += len(marshaled_frame)
         self.frames_sent += 1
-        self.outbound_buffer.write(marshaled_frame)
+        self.outbound_buffer.append(marshaled_frame)
         self._flush_outbound()
         if self.params.backpressure_detection:
             self._detect_backpressure()
@@ -1435,15 +1438,17 @@ class Connection(object):
         if not isinstance(content, tuple):
             return
 
-        self._send_frame(frame.Header(channel_number,
-                                      len(content[1]),
-                                      content[0]))
+        length = len(content[1])
+        self._send_frame(frame.Header(channel_number, length, content[0]))
         if content[1]:
-            body_buf = simplebuffer.SimpleBuffer(content[1])
-            while body_buf:
-                piece_len = min(len(body_buf), self._body_max_length)
-                piece = body_buf.read_and_consume(piece_len)
-                self._send_frame(frame.Body(channel_number, piece))
+            chunks = int(math.ceil(float(length) / self._body_max_length))
+            for chunk in range(0, chunks):
+                start = chunk * self._body_max_length
+                end = start + self._body_max_length
+                if end > length:
+                    end = length
+                self._send_frame(frame.Body(channel_number,
+                                            content[1][start:end]))
 
     def _set_connection_state(self, connection_state):
         """Set the connection state.
