@@ -329,7 +329,7 @@ class BaseConnection(connection.Connection):
     def _handle_write(self):
         """Handle any outbound buffer writes that need to take place."""
         total_written = 0
-        if len(self.outbound_buffer):
+        if self.outbound_buffer:
             try:
                 bytes_written = self.socket.send(self.outbound_buffer.popleft())
             except socket.timeout:
@@ -357,7 +357,7 @@ class BaseConnection(connection.Connection):
         write.
 
         """
-        if len(self.outbound_buffer):
+        if self.outbound_buffer:
             if not self.event_state & self.WRITE:
                 self.event_state |= self.WRITE
                 self.ioloop.update_handler(self.socket.fileno(),
