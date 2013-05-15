@@ -2,7 +2,6 @@
 import ast
 import logging
 import platform
-import time
 import urllib
 import urlparse
 import warnings
