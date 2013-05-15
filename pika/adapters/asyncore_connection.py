@@ -90,6 +90,35 @@ class PikaDispatcher(asyncore.dispatcher):
 
 class AsyncoreConnection(base_connection.BaseConnection):
 
+    def __init__(self,
+                 parameters=None,
+                 on_open_callback=None,
+                 on_open_error_callback=None,
+                 on_close_callback=None,
+                 stop_ioloop_on_close=True):
+        """Create a new instance of the Connection object.
+
+        :param pika.connection.Parameters parameters: Connection parameters
+        :param method on_open_callback: Method to call on connection open
+        :param on_open_error_callback: Method to call if the connection cant
+                                       be opened
+        :type on_open_error_callback: method
+        :param method on_close_callback: Method to call on connection close
+        :param bool stop_ioloop_on_close: Call ioloop.stop() if disconnected
+        :raises: RuntimeError
+
+        """
+        class ConnectingIOLoop(object):
+            def add_timeout(self, duration, callback_method):
+                time.sleep(duration)
+                return callback_method()
+        ioloop = ConnectingIOLoop()
+        super(AsyncoreConnection, self).__init__(parameters, on_open_callback,
+                                                 on_open_error_callback,
+                                                 on_close_callback,
+                                                 ioloop,
+                                                 stop_ioloop_on_close)
+
     def _adapter_connect(self):
         """Connect to our RabbitMQ broker using AsyncoreDispatcher, then setting
         Pika's suggested buffer size for socket reading and writing. We pass
