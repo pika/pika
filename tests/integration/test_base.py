@@ -93,7 +93,7 @@ class TestCase(unittest.TestCase):
         self.stop()
 
 
-def SelectConnectionTestCase(TestCase):
+class SelectConnectionTestCase(TestCase):
 
     def start(self, on_connected, on_error, on_closed):
         """Connect to rabbitmq and start the ioloop
