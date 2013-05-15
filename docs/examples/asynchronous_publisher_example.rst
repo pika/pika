@@ -268,7 +268,7 @@ publisher.py::
                        u'键': u'值',
                        u'キー': u'値'}
             properties = pika.BasicProperties(app_id='example-publisher',
-                                              content_type='text/plain',
+                                              content_type='application/json',
                                               headers=message)
 
             self._channel.basic_publish(self.EXCHANGE, self.ROUTING_KEY,
