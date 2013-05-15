@@ -4,6 +4,8 @@
 Pika is a pure-Python implementation of the AMQP 0-9-1 protocol that tries
 to stay fairly independent of the underlying network support library.
 
+ * Currently supports Python 2.6 and Python 2.7 only. 3.3+ support planned.
+
  * Since threads aren't appropriate to every situation, it doesn't
    require threads. It takes care not to forbid them, either. The same
    goes for greenlets, callbacks, continuations and generators. It is
@@ -54,6 +56,7 @@ And an example of writing a blocking consumer:
  * BlockingConnection - enables blocking, synchronous operation on top of
                         library for simple uses
  * SelectConnection   - fast asynchronous adapter
+ * TwistedConnection  - adapter for use with the Twisted asynchronous package http://twistedmatrix.com/
  * TornadoConnection  - adapter for use with the Tornado IO Loop http://tornadoweb.org
 
 ## License
