@@ -468,6 +468,9 @@ class BlockingChannel(channel.Channel):
         if mandatory:
             self._response = None
 
+        if isinstance(body, unicode):
+            body = body.encode('utf-8')
+
         if self._confirmation:
             response = self._rpc(spec.Basic.Publish(exchange=exchange,
                                                     routing_key=routing_key,
@@ -1070,19 +1073,13 @@ class BlockingChannel(channel.Channel):
 
         :param pika.amqp_object.Method method_frame: The method frame to send
         :param content: The content to send
-        :type content: str or tuple
+        :type content: tuple
         :param bool wait: Wait for a response
 
         """
         self.wait = wait
         self._received_response = False
-        LOGGER.debug('Connection: %r', self.connection)
         self.connection.send_method(self.channel_number, method_frame, content)
-        while self.connection.outbound_buffer:
-            try:
-                self.connection.process_data_events()
-            except exceptions.AMQPConnectionError:
-                break
         while wait and not self._received_response:
             try:
                 self.connection.process_data_events()
