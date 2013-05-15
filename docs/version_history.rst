@@ -1,6 +1,40 @@
 Version History
 ===============
 
+0.9.13 - 2013-05-15
+-------------------
+**Major Changes**
+
+- Officially remove support for <= Python 2.5 even though it was broken already
+- New "Raw" mode for frame decoding content frames (#334) addresses issues #331, #229 added by Garth Williamson
+- Connection and Disconnection logic refactored, allowing for cleaner separation of protocol logic and socket handling logic as well as connection state management
+- IPv6 Support with thanks to Alessandro Tagliapietra for initial prototype
+- New "on_open_error_callback" argument in creating connection objects and new Connection.add_on_open_error_callback method
+- Support for all AMQP field types, using protocol specified signed/unsigned unpacking
+- New Connection.connect method to cleanly allow for reconnection code
+
+**Backwards Incompatible Changes**
+
+- Method signature for creating connection objects has new argument "on_open_error_callback" which is positionally before "on_close_callback"
+- Internal callback variable names in connection.Connection have been renamed and constants used. If you relied on any of these callbacks outside of their internal use, make sure to check out the new constants.
+- Connection._connect method, which was an internal only method is now deprecated and will raise a DeprecationWarning. If you relied on this method, your code needs to change.
+
+**Bugfixes**
+
+- BlockingConnection consumer generator does not free buffer when exited (#328)
+- Unicode body payloads in the blocking adapter raises exception (#333)
+- Support "b" short-short-int AMQP data type (#318)
+- Docstring type fix in adapters/select_connection (#316) fix by Rikard Hultén
+- IPv6 not supported (#309)
+- Stop the HeartbeatChecker when connection is closed (#307)
+- Unittest fix for SelectConnection (#336) fix by Erik Andersson
+- Handle condition where no connection or socket exists but SelectConnection needs a timeout for retrying a connection (#322)
+- TwistedAdapter lagging behind BaseConnection changes (#321) fix by Jan Urbański
+
+**Other**
+
+- Added Twisted Adapter example (#314) by nolinksoft
+
 0.9.12 - 2013-03-18
 -------------------
 
