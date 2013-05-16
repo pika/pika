@@ -20,7 +20,7 @@ project = 'pika'
 copyright = '2010-2013, Tony Garnock-Jones, Gavin M. Roy, VMWare and others.'
 
 version = '0.9'
-release = '0.9.13p2'
+release = '0.9.13'
 
 exclude_patterns = ['_build']
 add_function_parentheses = True
