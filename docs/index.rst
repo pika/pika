@@ -33,19 +33,22 @@ Using Pika
 -------------------
 **Major Changes**
 
+- IPv6 Support with thanks to Alessandro Tagliapietra for initial prototype
 - Officially remove support for <= Python 2.5 even though it was broken already
+- Drop pika.simplebuffer.SimpleBuffer in favor of the Python stdlib collections.deque object
+- New default object for receiving content is a "bytes" object which is a str wrapper in Python 2, but paves way for Python 3 support
 - New "Raw" mode for frame decoding content frames (#334) addresses issues #331, #229 added by Garth Williamson
 - Connection and Disconnection logic refactored, allowing for cleaner separation of protocol logic and socket handling logic as well as connection state management
-- IPv6 Support with thanks to Alessandro Tagliapietra for initial prototype
 - New "on_open_error_callback" argument in creating connection objects and new Connection.add_on_open_error_callback method
-- Support for all AMQP field types, using protocol specified signed/unsigned unpacking
 - New Connection.connect method to cleanly allow for reconnection code
+- Support for all AMQP field types, using protocol specified signed/unsigned unpacking
 
 **Backwards Incompatible Changes**
 
 - Method signature for creating connection objects has new argument "on_open_error_callback" which is positionally before "on_close_callback"
 - Internal callback variable names in connection.Connection have been renamed and constants used. If you relied on any of these callbacks outside of their internal use, make sure to check out the new constants.
 - Connection._connect method, which was an internal only method is now deprecated and will raise a DeprecationWarning. If you relied on this method, your code needs to change.
+- pika.simplebuffer has been removed
 
 **Bugfixes**
 
@@ -61,6 +64,7 @@ Using Pika
 
 **Other**
 
+- Refactored documentation
 - Added Twisted Adapter example (#314) by nolinksoft
 
 Authors
