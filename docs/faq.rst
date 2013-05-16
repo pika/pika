@@ -7,7 +7,7 @@ Frequently Asked Questions
 
 - How do I report a bug with Pika?
 
-    The `main Pika repository <https://github.com/pika/pika>`_ is hosted on `Github <https://github.com>`_ and we use the Issue tracker at https://github.com/pika/pika/issues.
+    The `main Pika repository <https://github.com/pika/pika>`_ is hosted on `Github <https://github.com>`_ and we use the Issue tracker at `https://github.com/pika/pika/issues <https://github.com/pika/pika/issues>`_.
 
 - Is there a mailing list for Pika?
 
@@ -19,7 +19,7 @@ Frequently Asked Questions
 
 - What versions of Python are supported?
 
-    Main developent is currently on the Python 2.6 branch. For a release, Pika passes its tests on the latest versions of 2.5, 2.6 and 2.7.
+    Main development is currently on the Python 2.7 branch. For a release, Pika passes its tests on the latest versions of 2.6 and 2.7.
 
 - Does Pika work with Python 3?
 

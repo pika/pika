@@ -1,21 +1,39 @@
-"""Credentials Classes"""
+"""The credentials classes are used to encapsulate all authentication
+information for the :class:`~pika.connection.ConnectionParameters` class.
+
+The :class:`~pika.credentials.PlainCredentials` class returns the properly
+formatted username and password to the :class:`~pika.connection.Connection`.
+
+To authenticate with Pika, create a :class:`~pika.credentials.PlainCredentials`
+object passing in the username and password and pass it as the credentials
+argument value to the :class:`~pika.connection.ConnectionParameters` object.
+
+If you are using :class:`~pika.connection.URLParameters` you do not need a
+credentials object, one will automatically be created for you.
+
+If you are looking to implement SSL certificate style authentication, you would
+extend the :class:`~pika.credentials.ExternalCredentials` class implementing
+the required behavior.
+
+"""
 import logging
 
 LOGGER = logging.getLogger(__name__)
 
 
 class PlainCredentials(object):
-    """The PlainCredentials class returns the properly formatted username and
-    password to the Connection. As of this version of Pika, only
-    PlainCredentials are supported. To authenticate with Pika, simply create a
-    credentials object passing in the username and password and pass that to
-    the ConnectionParameters object.
+    """A credentials object for the default authentication methodology with
+    RabbitMQ.
 
     If you do not pass in credentials to the ConnectionParameters object, it
     will create credentials for 'guest' with the password of 'guest'.
 
     If you pass True to erase_on_connect the credentials will not be stored
     in memory after the Connection attempt has been made.
+
+    :param str username: The username to authenticate with
+    :param str password: The password to authenticate with
+    :param bool erase_on_connect: erase credentials on connect.
 
     """
     TYPE = 'PLAIN'

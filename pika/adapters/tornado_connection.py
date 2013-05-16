@@ -1,4 +1,4 @@
-"""Run pika on the Tornado IOLoop"""
+"""Use pika with the Tornado IOLoop"""
 from tornado import ioloop
 import logging
 import time
@@ -13,6 +13,15 @@ class TornadoConnection(base_connection.BaseConnection):
     connection in a web app, make sure you set stop_ioloop_on_close to False,
     which is the default behavior for this adapter, otherwise the web app
     will stop taking requests.
+
+    :param pika.connection.Parameters parameters: Connection parameters
+    :param on_open_callback: The method to call when the connection is open
+    :type on_open_callback: method
+    :param on_open_error_callback: Method to call if the connection cant
+                                   be opened
+    :type on_open_error_callback: method
+    :param bool stop_ioloop_on_close: Call ioloop.stop() if disconnected
+    :param custom_ioloop: Override using the global IOLoop in Tornado
 
     """
     WARN_ABOUT_IOLOOP = True

@@ -296,6 +296,21 @@ class ConnectionParameters(Parameters):
     """Connection parameters object that is passed into the connection adapter
     upon construction.
 
+    :param str host: Hostname or IP Address to connect to
+    :param int port: TCP port to connect to
+    :param str virtual_host: RabbitMQ virtual host to use
+    :param pika.credentials.Credentials credentials: auth credentials
+    :param int channel_max: Maximum number of channels to allow
+    :param int frame_max: The maximum byte size for an AMQP frame
+    :param int heartbeat_interval: How often to send heartbeats
+    :param bool ssl: Enable SSL
+    :param dict ssl_options: Arguments passed to ssl.wrap_socket as
+    :param int connection_attempts: Maximum number of retry attempts
+    :param int|float retry_delay: Time to wait in seconds, before the next
+    :param int|float socket_timeout: Use for high latency networks
+    :param str locale: Set the locale value
+    :param bool backpressure_detection: Toggle backpressure detection
+
     """
     def __init__(self,
                  host=None,
@@ -322,7 +337,7 @@ class ConnectionParameters(Parameters):
         :param int frame_max: The maximum byte size for an AMQP frame
         :param int heartbeat_interval: How often to send heartbeats
         :param bool ssl: Enable SSL
-        :param dict ssl_options: Arguments passed to ssl.wrap_socket as
+        :param dict ssl_options: Arguments passed to ssl.wrap_socket
         :param int connection_attempts: Maximum number of retry attempts
         :param int|float retry_delay: Time to wait in seconds, before the next
         :param int|float socket_timeout: Use for high latency networks
@@ -373,8 +388,41 @@ class ConnectionParameters(Parameters):
 
 
 class URLParameters(Parameters):
-    """Create a Connection parameters object based off of URIParameters"""
+    """Connect to RabbitMQ via an AMQP URL in the format::
 
+         amqp://username:password@host:port/<virtual_host>[?query-string]
+
+    Ensure that the virtual host is URI encoded when specified. For example if
+    you are using the default "/" virtual host, the value should be `%2f`.
+
+    Valid query string values are:
+
+        - backpressure_detection:
+            Toggle backpressure detection, possible values are `t` or `f`
+        - channel_max:
+            Override the default maximum channel count value
+        - connection_attempts:
+            Specify how many times pika should try and reconnect before it gives up
+        - frame_max:
+            Override the default maximum frame size for communication
+        - heartbeat_interval:
+            Specify the number of seconds between heartbeat frames to ensure that
+            the link between RabbitMQ and your application is up
+        - locale:
+            Override the default `en_US` locale value
+        - ssl:
+            Toggle SSL, possible values are `t`, `f`
+        - ssl_options:
+            Arguments passed to :meth:`ssl.wrap_socket`
+        - retry_delay:
+            The number of seconds to sleep before attempting to connect on
+            connection failure.
+        - socket_timeout:
+            Override low level socket timeout value
+
+    :param str url: The AMQP URL to connect to
+
+    """
     def __init__(self, url):
 
         """Create a new URLParameters instance.
@@ -479,6 +527,12 @@ class Connection(object):
     """This is the core class that implements communication with RabbitMQ. This
     class should not be invoked directly but rather through the use of an
     adapter such as SelectConnection or BlockingConnection.
+
+    :param pika.connection.Parameters parameters: Connection parameters
+    :param method on_open_callback: Called when the connection is opened
+    :param method on_open_error_callback: Called if the connection cant
+                                   be opened
+    :param method on_open_callback: Called when the connection is closed
 
     """
     ON_CONNECTION_BACKPRESSURE = '_on_connection_backpressure'

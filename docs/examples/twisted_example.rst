@@ -1,9 +1,6 @@
 Twisted Consumer Example
 ========================
-
-.. _example_twisted_consumer:
-
-Example of writing a consumer using :py:class:`TwistedConnection <TwistedConnection>`::
+Example of writing a consumer using the :py:class:`Twisted connection adapter <pika.adapters.twisted_connection.TwistedConnection>`::
 
     # -*- coding:utf-8 -*-
 

@@ -1,4 +1,7 @@
-"""Use pika with the stdlib asyncore module"""
+"""
+Use Pika with the stdlib :py:mod:`asyncore` module.
+
+"""
 import asyncore
 import logging
 import time
@@ -89,7 +92,19 @@ class PikaDispatcher(asyncore.dispatcher):
 
 
 class AsyncoreConnection(base_connection.BaseConnection):
+    """The AsyncoreConnection adapter uses the stdlib asyncore module as an
+    IOLoop for asyncronous client development.
 
+    :param pika.connection.Parameters parameters: Connection parameters
+    :param method on_open_callback: Method to call on connection open
+    :param on_open_error_callback: Method to call if the connection cant
+                                   be opened
+    :type on_open_error_callback: method
+    :param method on_close_callback: Method to call on connection close
+    :param bool stop_ioloop_on_close: Call ioloop.stop() if disconnected
+    :raises: RuntimeError
+
+    """
     def __init__(self,
                  parameters=None,
                  on_open_callback=None,

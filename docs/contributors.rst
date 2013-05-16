@@ -1,0 +1,45 @@
+Contributors
+============
+The following people have directly contributes code by way of new features and/or bug fixes to Pika:
+
+- Adam Flynn
+- Ales Teska
+- Alexey Myasnikov
+- Anton V. Yanchenko
+- Ask Solem
+- Asko Soukka
+- Brian K. Jones
+- Charles Law
+- David Strauss
+- Erik Andersson
+- Fredrik Svensson
+- Garth Williamson
+- George y
+- Hunter Morris
+- Jacek 'Forger' Całusiński
+- Jan Urbański
+- Jason J. W. Williams
+- Jonty Wareing
+- Josh Braegger
+- Josh Hansen
+- Jozef Van Eenbergen
+- Kamil Kisiel
+- Kane
+- Kyösti Herrala
+- Lars van de Kerkhof
+- Marek Majkowski
+- Michael Kenney
+- Michael Laing
+- Milan Skuhra
+- Njal Karevoll
+- nonleaf
+- Olivier Le Thanh Duong
+- Pankrat
+- Pavlobaron
+- Peter Magnusson
+- Raphaël De Giusti
+- Rikard Hultén
+- Roey Berman
+- Samuel Stauffer
+- Sigurd Høgsbro
+- Tristan Penman

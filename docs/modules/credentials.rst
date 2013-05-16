@@ -1,6 +1,5 @@
-credentials
-===========
-
+Authentication Credentials
+==========================
 .. automodule:: pika.credentials
 
 PlainCredentials

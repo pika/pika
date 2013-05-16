@@ -1,5 +1,13 @@
-"""Implement a blocking, procedural style connection adapter on top of the
-asynchronous core.
+"""The blocking connection adapter module implements blocking semantics on top
+of Pika's core AMQP driver. While most of the asynchronous expectations are
+removed when using the blocking connection adapter, it attempts to remain true
+to the asynchronous RPC nature of the AMQP protocol, supporting server sent
+RPC commands.
+
+The user facing classes in the module consist of the
+:py:class:`~pika.adapters.blocking_connection.BlockingConnection`
+and the :class:`~pika.adapters.blocking_connection.BlockingChannel`
+classes.
 
 """
 import logging
@@ -60,11 +68,25 @@ class ReadPoller(object):
 
 
 class BlockingConnection(base_connection.BaseConnection):
-    """The BlockingConnection adapter is meant for simple implementations where
-    you want to have blocking behavior. The behavior layered on top of the
-    async library. Because of the nature of AMQP there are a few callbacks
-    one needs to do, even in a blocking implementation. These include receiving
-    messages from Basic.Deliver, Basic.GetOk, and Basic.Return.
+    """The BlockingConnection creates a layer on top of Pika's asynchronous core
+    providing methods that will block until their expected response has returned.
+    Due to the asynchronous nature of the `Basic.Deliver` and `Basic.Return` calls
+    from RabbitMQ to your application, you can still implement
+    continuation-passing style asynchronous methods if you'd like to receive
+    messages from RabbitMQ using
+    :meth:`basic_consume <BlockingChannel.basic_consume>` or if you want  to be
+    notified of a delivery failure when using
+    :meth:`basic_publish <BlockingChannel.basic_publish>` .
+
+    `Basic.Get` is a blocking call which will either return the Method Frame,
+    Header Frame and Body of a message, or it will return a `Basic.GetEmpty`
+    frame as the method frame.
+
+    For more information about communicating with the blocking_connection
+    adapter, be sure to check out the
+    :class:`BlockingChannel <BlockingChannel>` class which implements the
+    :class:`Channel <pika.channel.Channel>` based communication for the
+    blocking_connection adapter.
 
     """
     WRITE_TO_READ_RATIO = 10
@@ -371,8 +393,25 @@ class BlockingConnection(base_connection.BaseConnection):
 
 
 class BlockingChannel(channel.Channel):
-    """The BlockingChannel class implements a blocking layer on top of the
-    Channel class.
+    """The BlockingChannel implements blocking semantics for most things that
+    one would use callback-passing-style for with the
+    :py:class:`~pika.channel.Channel` class. In addition,
+    the `BlockingChannel` class implements a :term:`generator` that allows you
+    to :doc:`consume messages </examples/blocking_consumer_generator>` without
+    using callbacks.
+
+    Example of creating a BlockingChannel::
+
+        import pika
+
+        # Create our connection object
+        connection = pika.BlockingConnection()
+
+        # The returned object will be a blocking channel
+        channel = connection.channel()
+
+    :param BlockingConnection connection: The connection
+    :param int channel_number: The channel number for this instance
 
     """
     NO_RESPONSE_FRAMES = ['Basic.Ack', 'Basic.Reject', 'Basic.RecoverAsync']
