@@ -315,7 +315,7 @@ class BlockingConnection(base_connection.BaseConnection):
 
     def _handle_disconnect(self):
         """Called internally when the socket is disconnected already"""
-        self.disconnect()
+        self._adapter_disconnect()
         self._on_connection_closed(None, True)
 
     def _handle_read(self):
