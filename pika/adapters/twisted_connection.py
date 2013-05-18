@@ -50,7 +50,7 @@ class ClosableDeferredQueue(defer.DeferredQueue):
 class TwistedChannel(object):
     """A wrapper wround Pika's Channel.
 
-    Channel methods that are normally take a callback argument are wrapped to
+    Channel methods that normally take a callback argument are wrapped to
     return a Deferred that fires with whatever would be passed to the callback.
     If the channel gets closed, all pending Deferreds are errbacked with a
     ChannelClosed exception. The returned Deferreds fire with whatever
