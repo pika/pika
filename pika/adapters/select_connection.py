@@ -131,6 +131,7 @@ class IOLoop(object):
     def start(self):
         """Start the IOLoop, waiting for a Poller to take over."""
         LOGGER.debug('Starting IOLoop')
+        self.poller.open = True
         while not self.poller:
             time.sleep(SelectPoller.TIMEOUT)
         self.poller.start()
