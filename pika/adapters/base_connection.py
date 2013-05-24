@@ -330,13 +330,14 @@ class BaseConnection(connection.Connection):
         """Handle any outbound buffer writes that need to take place."""
         total_written = 0
         if self.outbound_buffer:
+            frame = self.outbound_buffer.popleft()
             try:
-                bytes_written = self.socket.send(self.outbound_buffer.popleft())
+                self.socket.sendall(frame)
             except socket.timeout:
                 raise
             except socket.error, error:
                 return self._handle_error(error)
-            total_written += bytes_written
+            total_written += len(frame)
         return total_written
 
     def _init_connection_state(self):
