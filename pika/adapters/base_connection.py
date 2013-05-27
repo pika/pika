@@ -143,7 +143,7 @@ class BaseConnection(connection.Connection):
             raise exceptions.ProbableAccessDeniedError
         elif self.is_open:
             LOGGER.warning("Socket closed when connection was open")
-        elif not self.is_closing:
+        elif not self.is_closed:
             LOGGER.warning('Unknown state on disconnect: %i',
                            self.connection_state)
 
@@ -332,12 +332,12 @@ class BaseConnection(connection.Connection):
         if self.outbound_buffer:
             frame = self.outbound_buffer.popleft()
             try:
-                self.socket.sendall(frame)
+                while total_written < len(frame):
+                    total_written += self.socket.send(frame)
             except socket.timeout:
                 raise
             except socket.error, error:
                 return self._handle_error(error)
-            total_written += len(frame)
         return total_written
 
     def _init_connection_state(self):
