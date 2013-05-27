@@ -143,7 +143,7 @@ class BaseConnection(connection.Connection):
             raise exceptions.ProbableAccessDeniedError
         elif self.is_open:
             LOGGER.warning("Socket closed when connection was open")
-        elif not self.is_closing:
+        elif not self.is_closed:
             LOGGER.warning('Unknown state on disconnect: %i',
                            self.connection_state)
 
