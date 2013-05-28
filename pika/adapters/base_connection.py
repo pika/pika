@@ -333,7 +333,7 @@ class BaseConnection(connection.Connection):
             frame = self.outbound_buffer.popleft()
             try:
                 while total_written < len(frame):
-                    total_written += self.socket.send(frame)
+                    total_written += self.socket.send(frame[total_written:])
             except socket.timeout:
                 raise
             except socket.error, error:
