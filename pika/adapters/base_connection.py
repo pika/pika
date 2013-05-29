@@ -331,13 +331,13 @@ class BaseConnection(connection.Connection):
         total_written = 0
         if self.outbound_buffer:
             frame = self.outbound_buffer.popleft()
-            try:
-                while total_written < len(frame):
+            while total_written < len(frame):
+                try:
                     total_written += self.socket.send(frame[total_written:])
-            except socket.timeout:
-                raise
-            except socket.error, error:
-                return self._handle_error(error)
+                except socket.timeout:
+                    raise
+                except socket.error, error:
+                    return self._handle_error(error)
         return total_written
 
     def _init_connection_state(self):
