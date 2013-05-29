@@ -969,10 +969,10 @@ class Connection(object):
 
         """
         avg_frame_size = self.bytes_sent / self.frames_sent
-        if self.outbound_buffer.size > (avg_frame_size * self._backpressure):
-            LOGGER.warning(BACKPRESSURE_WARNING,
-                           self.outbound_buffer.size,
-                           int(self.outbound_buffer.size / avg_frame_size))
+        buffer_size = sum([len(frame) for frame in self.outbound_buffer])
+        if buffer_size > (avg_frame_size * self._backpressure):
+            LOGGER.warning(BACKPRESSURE_WARNING, buffer_size,
+                           int(buffer_size / avg_frame_size))
             self.callbacks.process(0, self.ON_CONNECTION_BACKPRESSURE, self)
 
     def _ensure_closed(self):
