@@ -450,20 +450,23 @@ class URLParameters(Parameters):
 
         if self._validate_host(parts.hostname):
             self.host = parts.hostname
-        if not parts.port and self.ssl:
-            self.port = self.DEFAULT_SSL_PORT
+        if not parts.port:
+            if self.ssl:
+                self.port = self.DEFAULT_SSL_PORT if \
+                    self.ssl else self.DEFAULT_PORT
         elif self._validate_port(parts.port):
             self.port = parts.port
         self.credentials = pika_credentials.PlainCredentials(parts.username,
                                                              parts.password)
 
         # Get the Virtual Host
-        if len(parts.path) == 1:
-            raise ValueError('No virtual host specify, use %2f for /')
-        path_parts = parts.path.split('/')
-        virtual_host = urllib.unquote(path_parts[1])
-        if self._validate_virtual_host(virtual_host):
-            self.virtual_host = virtual_host
+        if len(parts.path) <= 1:
+            self.virtual_host = self.DEFAULT_VIRTUAL_HOST
+        else:
+            path_parts = parts.path.split('/')
+            virtual_host = urllib.unquote(path_parts[1])
+            if self._validate_virtual_host(virtual_host):
+                self.virtual_host = virtual_host
 
         # Handle query string values, validating and assigning them
         values = urlparse.parse_qs(parts.query)
