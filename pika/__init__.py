@@ -3,7 +3,7 @@
 # For copyright and licensing please refer to COPYING.
 #
 # ***** END LICENSE BLOCK *****
-__version__ = '0.9.13'
+__version__ = '0.9.14p0'
 
 import logging
 try:
