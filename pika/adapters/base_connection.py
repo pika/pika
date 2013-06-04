@@ -102,17 +102,14 @@ class BaseConnection(connection.Connection):
         """
         # Get the addresses for the socket, supporting IPv4 & IPv6
         try:
-            sock_addrs = socket.getaddrinfo(self.params.host, self.params.port,
-                                0, 0, socket.getprotobyname("tcp"))
-        except socket.gaierror as error:
-            LOGGER.error('Could not get socket protocol by name (TCP): %s',
-                         error)
+            addresses = socket.getaddrinfo(self.params.host, self.params.port)
+        except socket.error as error:
+            LOGGER.critical('Could not get addresses to use: %s (%s)',
+                            error, self.params.host)
             return False
 
-        # Iterate through each addr tuple trying to connect
-        for sock_addr in sock_addrs:
-
-            # If the socket is created and connected, continue on
+        # If the socket is created and connected, continue on
+        for sock_addr in addresses:
             if self._create_and_connect_to_socket(sock_addr):
                 return True
 
