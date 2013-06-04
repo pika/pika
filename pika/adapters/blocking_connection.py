@@ -15,6 +15,7 @@ import select
 import socket
 import time
 import warnings
+import errno
 
 from pika import callback
 from pika import channel
@@ -59,7 +60,14 @@ class ReadPoller(object):
 
         """
         if self.poller:
-            events = self.poller.poll(self.poll_timeout)
+            while True:
+                try:
+                    events = self.poller.poll(self.poll_timeout)
+                    break
+                except select.error as e:
+                    if e[0] != errno.EINTR:
+                        raise
+
             return True if events else False
         else:
             ready, unused_wri, unused_err = select.select([self.fd], [], [],
