@@ -101,8 +101,13 @@ class BaseConnection(connection.Connection):
 
         """
         # Get the addresses for the socket, supporting IPv4 & IPv6
-        sock_addrs = socket.getaddrinfo(self.params.host, self.params.port,
-                            0, 0, socket.getprotobyname("tcp"))
+        try:
+            sock_addrs = socket.getaddrinfo(self.params.host, self.params.port,
+                                0, 0, socket.getprotobyname("tcp"))
+        except socket.gaierror as error:
+            LOGGER.error('Could not get socket protocol by name (TCP): %s',
+                         error)
+            return False
 
         # Iterate through each addr tuple trying to connect
         for sock_addr in sock_addrs:
