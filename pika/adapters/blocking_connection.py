@@ -197,7 +197,8 @@ class BlockingConnection(base_connection.BaseConnection):
             self._close_channels(reply_code, reply_text)
         while self._has_open_channels:
             self.process_data_events()
-        self._send_connection_close(reply_code, reply_text)
+        if self.socket:
+            self._send_connection_close(reply_code, reply_text)
         while self.is_closing:
             self.process_data_events()
         if self.heartbeat:
