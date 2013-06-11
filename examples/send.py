@@ -10,7 +10,7 @@ connection = pika.BlockingConnection(pika.URLParameters('amqp://guest:guest@loca
 channel = connection.channel()
 
 def closeit():
-    print 'Close it'
+    print('Close it')
     connection.close()
 
 connection.add_timeout(5, closeit)

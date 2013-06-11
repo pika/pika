@@ -5,7 +5,7 @@ import pika
 import json
 import random
 
-print ('pika version: %s') % pika.__version__
+print(('pika version: %s') % pika.__version__)
 
 connection   = pika.BlockingConnection(pika.ConnectionParameters(host='localhost'))
 main_channel = connection.channel()  
@@ -36,6 +36,6 @@ for i in range(0,_COUNT_):
                                body=json.dumps(msg),
                                properties=pika.BasicProperties(content_type='application/json')
                               )                          
-    print 'send ticker %s' %  ticker                         
+    print('send ticker %s' %  ticker)                         
 
 connection.close()
