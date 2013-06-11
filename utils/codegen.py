@@ -295,7 +295,7 @@ from pika import data
     for c, v, cls in spec.constants:
         constants[constantName(c)] = v
 
-    for key in sorted(constants.iterkeys()):
+    for key in sorted(constants.keys()):
         print("%s = %s" % (key, constants[key]))
     print()
 

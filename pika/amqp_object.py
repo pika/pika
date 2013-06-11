@@ -14,7 +14,7 @@ class AMQPObject(object):
 
     def __repr__(self):
         items = list()
-        for key, value in self.__dict__.iteritems():
+        for key, value in self.__dict__.items():
             if getattr(self.__class__, key, None) != value:
                 items.append('%s=%s' % (key, value))
         if not items:

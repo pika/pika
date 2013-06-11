@@ -24,7 +24,7 @@ tickers['MXSE.EQBR.SBER'] = (90,92)
 tickers['MXSE.EQNE.GAZP'] = (156,162)
 tickers['MXSE.EQNE.PLZL'] = (1025,1040)
 tickers['MXSE.EQNL.VTBR'] = (0.05,0.06)
-def getticker(): return tickers.keys()[random.randrange(0,len(tickers)-1)]
+def getticker(): return list(tickers.keys())[random.randrange(0,len(tickers)-1)]
 
 _COUNT_ = 10
 
