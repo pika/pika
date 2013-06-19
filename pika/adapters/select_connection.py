@@ -147,7 +147,7 @@ class IOLoop(object):
         """
         LOGGER.debug('Starting the Poller')
         self.poller = None
-        if hasattr(select, 'poll') and hasattr(select.poll, 'modify'):
+        if hasattr(select, 'poll') and hasattr(select.poll(), 'modify'):
             if not SELECT_TYPE or SELECT_TYPE == 'poll':
                 LOGGER.debug('Using PollPoller')
                 self.poller = PollPoller(fileno, handler, events,
@@ -440,7 +440,10 @@ class PollPoller(SelectPoller):
         :param bool write_only: Only process write events
 
         """
-        events = self._poll.poll(int(SelectPoller.TIMEOUT * 1000))
+        try:
+            events = self._poll.poll(int(SelectPoller.TIMEOUT * 1000))
+        except select.error, error:
+            return self._handler(self.fileno, ERROR, error)
         if events:
             LOGGER.debug("Calling %s with %d events",
                          self._handler, len(events))
@@ -473,7 +476,10 @@ class EPollPoller(PollPoller):
         :param bool write_only: Only process write events
 
         """
-        events = self._poll.poll(SelectPoller.TIMEOUT)
+        try:
+            events = self._poll.poll(SelectPoller.TIMEOUT)
+        except IOError, error:
+            return self._handler(self.fileno, ERROR, error)
         if events:
             LOGGER.debug("Calling %s", self._handler)
             for fileno, event in events:
