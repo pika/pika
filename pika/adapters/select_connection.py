@@ -147,12 +147,7 @@ class IOLoop(object):
         """
         LOGGER.debug('Starting the Poller')
         self.poller = None
-        if hasattr(select, 'poll') and hasattr(select.poll(), 'modify'):
-            if not SELECT_TYPE or SELECT_TYPE == 'poll':
-                LOGGER.debug('Using PollPoller')
-                self.poller = PollPoller(fileno, handler, events,
-                                         self._manage_event_state)
-        if not self.poller and hasattr(select, 'epoll'):
+        if hasattr(select, 'epoll'):
             if not SELECT_TYPE or SELECT_TYPE == 'epoll':
                 LOGGER.debug('Using EPollPoller')
                 self.poller = EPollPoller(fileno, handler, events,
@@ -162,6 +157,11 @@ class IOLoop(object):
                 LOGGER.debug('Using KQueuePoller')
                 self.poller = KQueuePoller(fileno, handler, events,
                                            self._manage_event_state)
+        if not self.poller and hasattr(select, 'poll') and hasattr(select.poll(), 'modify'):
+            if not SELECT_TYPE or SELECT_TYPE == 'poll':
+                LOGGER.debug('Using PollPoller')
+                self.poller = PollPoller(fileno, handler, events,
+                                         self._manage_event_state)
         if not self.poller:
             LOGGER.debug('Using SelectPoller')
             self.poller = SelectPoller(fileno, handler, events,
