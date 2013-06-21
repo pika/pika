@@ -13,6 +13,7 @@ requirements = list()
 if on_rtd:
     requirements.append('tornado')
     requirements.append('twisted')
+    requirements.append('pyev')
 
 # Conditional include unittest2 for versions of python < 2.7
 tests_require = ['nose', 'mock', 'pyyaml']
@@ -37,7 +38,8 @@ setup(name='pika',
       license='MPL v1.1 and GPL v2.0 or newer',
       install_requires=requirements,
       extras_require={'tornado': ['tornado'],
-                      'twisted': ['twisted']},
+                      'twisted': ['twisted'],
+                      'libev': ['pyev']},
       tests_require=tests_require,
       test_suite='nose.collector',
       classifiers=[

@@ -17,6 +17,7 @@ from pika.adapters import blocking_connection
 from pika.adapters import select_connection
 from pika.adapters import tornado_connection
 from pika.adapters import twisted_connection
+from pika.adapters import libev_connection
 
 from pika import exceptions
 
@@ -87,4 +88,13 @@ class ConnectionTests(unittest.TestCase):
         with self.assertRaises(exceptions.AMQPConnectionError):
             params = pika.ConnectionParameters(socket_timeout=2.0)
             twisted_connection.TwistedConnection(params)
+        settimeout.assert_called_with(2.0)
+
+    @patch.object(socket.socket, 'settimeout')
+    @patch.object(socket.socket, 'connect')
+    def test_libev_connection_timeout(self, connect, settimeout):
+        connect.side_effect = mock_timeout
+        with self.assertRaises(exceptions.AMQPConnectionError):
+            params = pika.ConnectionParameters(socket_timeout=2.0)
+            libev_connection.LibevConnection(params)
         settimeout.assert_called_with(2.0)

@@ -36,3 +36,9 @@ try:
 except ImportError:
     TwistedConnection = None
     TwistedProtocolConnection = None
+
+try:
+    from libev_connection import LibevConnection
+except ImportError:
+    LibevConnection = None
+

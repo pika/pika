@@ -23,7 +23,9 @@ from pika.adapters.base_connection import BaseConnection
 from pika.adapters.asyncore_connection import AsyncoreConnection
 from pika.adapters.blocking_connection import BlockingConnection
 from pika.adapters.select_connection import SelectConnection
-
+from pika.adapters.tornado_connection import TornadoConnection
+from pika.adapters.twisted_connection import TwistedConnection
+from pika.adapters.libev_connection import LibevConnection
 
 # Add NullHandler to prevent logging warnings
 logging.getLogger(__name__).addHandler(NullHandler())
