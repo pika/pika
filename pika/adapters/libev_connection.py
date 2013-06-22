@@ -109,24 +109,27 @@ class LibevConnection(BaseConnection):
         :rtype: bool
 
         """
-        LOGGER.debug('create io and signal watchers')
+        LOGGER.debug('init io and signal watchers')
                 
         if super(LibevConnection, self)._adapter_connect():
-            self.sigterm_watcher = self.ioloop.signal(
-                signal.SIGTERM,
-                self._handle_signal
-            )
+            if not self.sigterm_watcher:
+                self.sigterm_watcher = self.ioloop.signal(
+                    signal.SIGTERM,
+                    self._handle_signal
+                )
 
-            self.sigint_watcher = self.ioloop.signal(
-                signal.SIGINT,
-                self._handle_signal
-            )
+            if not self.sigint_watcher:
+                self.sigint_watcher = self.ioloop.signal(
+                    signal.SIGINT,
+                    self._handle_signal
+                )
 
-            self.io_watcher = self.ioloop.io(
-                self.socket.fileno(),
-                self.PIKA_TO_LIBEV_ARRAY[self.event_state],
-                self._handle_events
-            )
+            if not self.io_watcher:
+                self.io_watcher = self.ioloop.io(
+                    self.socket.fileno(),
+                    self.PIKA_TO_LIBEV_ARRAY[self.event_state],
+                    self._handle_events
+                )
             
             self.sigterm_watcher.start()
             self.sigint_watcher.start()
@@ -134,14 +137,18 @@ class LibevConnection(BaseConnection):
             return True
         return False
 
-    def _adapter_disconnect(self):
-        """Disconnect from the RabbitMQ broker"""
-        LOGGER.debug('disconnect')
+    def _init_connection_state(self):
+        """Initialize or reset all of our internal state variables for a given
+        connection. If we disconnect and reconnect, all of our state needs to
+        be wiped.
+
+        """
+        for timer in self._active_timers: self.remove_timeout(timer)
         if self.sigint_watcher: self.sigint_watcher.stop()
         if self.sigterm_watcher: self.sigterm_watcher.stop()
         if self.io_watcher: self.io_watcher.stop()
-        super(LibevConnection, self)._adapter_disconnect()
-        
+        super(LibevConnection, self)._init_connection_state()
+
     def _handle_signal(self, signal_watcher, libev_events):
         LOGGER.debug('SIGINT or SIGTERM')
         raise KeyboardInterrupt
