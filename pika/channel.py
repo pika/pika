@@ -49,7 +49,7 @@ class Channel(object):
         self._blocked = collections.deque(list())
         self._blocking = None
         self._has_on_flow_callback = False
-        self._cancelled = list()
+        self._cancelled = collections.deque(list(), maxlen=10)
         self._consumers = dict()
         self._on_flowok_callback = None
         self._on_getok_callback = None

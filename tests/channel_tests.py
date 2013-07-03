@@ -73,7 +73,7 @@ class ChannelTests(unittest.TestCase):
         self.assertEqual(self.obj._state, channel.Channel.CLOSED)
 
     def test_init_cancelled(self):
-        self.assertEqual(self.obj._cancelled, list())
+        self.assertIsInstance(self.obj._cancelled, collections.deque)
 
     def test_init_consumers(self):
         self.assertEqual(self.obj._consumers, dict())
@@ -172,7 +172,20 @@ class ChannelTests(unittest.TestCase):
         consumer_tag = 'ctag0'
         self.obj._consumers[consumer_tag] = mock.Mock()
         self.obj.basic_cancel(callback_mock, consumer_tag)
-        self.assertListEqual(self.obj._cancelled, [consumer_tag])
+        self.assertListEqual(list(self.obj._cancelled), [consumer_tag])
+
+    @mock.patch('pika.channel.Channel._rpc')
+    def test_channel_cancelled_does_not_grow_unlimited(self, unused):
+        self.obj._set_state(self.obj.OPEN)
+        callback_mock = mock.Mock()
+        consumer_tag = 'ctagN'
+        self.obj._consumers[consumer_tag] = mock.Mock()
+        already_cancelled = ['ctag%i' % ii for ii in range(10)]
+        for ctag in already_cancelled:
+            self.obj._cancelled.append(ctag)
+        expectation = already_cancelled[1:] + [consumer_tag]
+        self.obj.basic_cancel(callback_mock, consumer_tag)
+        self.assertListEqual(list(self.obj._cancelled), expectation)
 
     def test_basic_cancel_callback_appended(self):
         self.obj._set_state(self.obj.OPEN)
