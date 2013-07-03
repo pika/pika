@@ -5,6 +5,7 @@ implementing the methods and behaviors for an AMQP Channel.
 import collections
 import logging
 import warnings
+import uuid
 
 import pika.frame as frame
 import pika.exceptions as exceptions
@@ -202,9 +203,8 @@ class Channel(object):
         self._validate_channel_and_callback(consumer_callback)
 
         # If a consumer tag was not passed, create one
-        consumer_tag = consumer_tag or 'ctag%i.%i' % (self.channel_number,
-                                                      len(self._consumers) +
-                                                      len(self._cancelled))
+        consumer_tag = consumer_tag or 'ctag%i.%s' % (self.channel_number,
+                                                      uuid.uuid4().get_hex())
 
         if consumer_tag in self._consumers or consumer_tag in self._cancelled:
             raise exceptions.DuplicateConsumerTag(consumer_tag)
