@@ -442,6 +442,57 @@ class Connection(amqp_object.Class):
             pieces = list()
             return pieces
 
+    class Blocked(amqp_object.Method):
+
+        INDEX = 0x000A003C  # 10, 60; 655420
+        NAME = 'Connection.Blocked'
+
+        def __init__(self, reason=''):
+            self.reason = reason
+
+        @property
+        def synchronous(self):
+            return False
+
+        def decode(self, encoded, offset=0):
+            length = struct.unpack_from('B', encoded, offset)[0]
+            offset += 1
+            self.reason = encoded[offset:offset + length].decode('utf8')
+            try:
+                self.reason = str(self.reason)
+            except UnicodeEncodeError:
+                pass
+            offset += length
+            return self
+
+        def encode(self):
+            pieces = list()
+            assert isinstance(self.reason, basestring),\
+                   'A non-bytestring value was supplied for self.reason'
+            value = self.reason.encode('utf-8') if isinstance(self.reason, unicode) else self.reason
+            pieces.append(struct.pack('B', len(value)))
+            pieces.append(value)
+            return pieces
+
+    class Unblocked(amqp_object.Method):
+
+        INDEX = 0x000A003D  # 10, 61; 655421
+        NAME = 'Connection.Unblocked'
+
+        def __init__(self):
+            pass
+
+        @property
+        def synchronous(self):
+            return False
+
+        def decode(self, encoded, offset=0):
+            return self
+
+        def encode(self):
+            pieces = list()
+            return pieces
+
 
 class Channel(amqp_object.Class):
 
@@ -2692,6 +2743,8 @@ methods = {
     0x000A0029: Connection.OpenOk,
     0x000A0032: Connection.Close,
     0x000A0033: Connection.CloseOk,
+    0x000A003C: Connection.Blocked,
+    0x000A003D: Connection.Unblocked,
     0x0014000A: Channel.Open,
     0x0014000B: Channel.OpenOk,
     0x00140014: Channel.Flow,
