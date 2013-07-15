@@ -935,11 +935,12 @@ class Channel(object):
 
         """
         if self._on_getok_callback is not None:
-            self._on_getok_callback(self,
-                                    method_frame.method,
-                                    header_frame.properties,
-                                    body)
+            callback = self._on_getok_callback
             self._on_getok_callback = None
+            callback(self,
+                     method_frame.method,
+                     header_frame.properties,
+                     body)
         else:
             LOGGER.error('Basic.GetOk received with no active callback')
 
