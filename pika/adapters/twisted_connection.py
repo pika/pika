@@ -273,12 +273,12 @@ class TwistedConnection(base_connection.BaseConnection):
     def _adapter_connect(self):
         """Connect to the RabbitMQ broker"""
         # Connect (blockignly!) to the server
-        if super(TwistedConnection, self)._adapter_connect():
+        error = super(TwistedConnection, self)._adapter_connect()
+        if not error:
             # Set the I/O events we're waiting for (see IOLoopReactorAdapter
             # docstrings for why it's OK to pass None as the file descriptor)
             self.ioloop.update_handler(None, self.event_state)
-            return True
-        return False
+        return error
 
     def _adapter_disconnect(self):
         """Called when the adapter should disconnect"""
@@ -434,7 +434,7 @@ class TwistedProtocolConnection(base_connection.BaseConnection):
         if d:
             d.callback(res)
 
-    def connectionFailed(self, connection_unused):
+    def connectionFailed(self, connection_unused, error_message=None):
         d, self.ready = self.ready, None
         if d:
             attempts = self.params.connection_attempts
