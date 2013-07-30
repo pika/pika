@@ -147,7 +147,19 @@ class TwistedChannel(object):
             d = defer.Deferred()
             self.__calls.add(d)
             d.addCallback(self.__clear_call, d)
-            kwargs['callback'] = d.callback
+
+            def single_argument(*args):
+                """
+                Make sure that the deferred is called with a single argument.
+                In case the original callback fires with more than one, convert
+                to a tuple.
+                """
+                if len(args) > 1:
+                    d.callback(tuple(args))
+                else:
+                    d.callback(*args)
+
+            kwargs['callback'] = single_argument
 
             try:
                 method(*args, **kwargs)
