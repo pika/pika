@@ -110,8 +110,9 @@ class LibevConnection(BaseConnection):
 
         """
         LOGGER.debug('init io and signal watchers')
-                
-        if super(LibevConnection, self)._adapter_connect():
+        error = super(LibevConnection, self)._adapter_connect()
+
+        if not error:
             if not self.sigterm_watcher:
                 self.sigterm_watcher = self.ioloop.signal(
                     signal.SIGTERM,
@@ -134,8 +135,8 @@ class LibevConnection(BaseConnection):
             self.sigterm_watcher.start()
             self.sigint_watcher.start()
             self.io_watcher.start()
-            return True
-        return False
+            
+        return error
 
     def _init_connection_state(self):
         """Initialize or reset all of our internal state variables for a given
