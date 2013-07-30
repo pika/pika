@@ -16,6 +16,8 @@
   synchronous operation on top of library for simple uses.
 - adapters.twisted_connection.TwistedConnection: Connection adapter for use
   with the Twisted framework
+- adapters.libev_connection.LibevConnection: Connection adapter for use
+  with the libev event loop and employing nonblocking IO
 
 """
 from base_connection import BaseConnection
@@ -36,3 +38,9 @@ try:
 except ImportError:
     TwistedConnection = None
     TwistedProtocolConnection = None
+
+try:
+    from libev_connection import LibevConnection
+except ImportError:
+    LibevConnection = None
+
