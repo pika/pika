@@ -16,6 +16,7 @@ import socket
 import time
 import warnings
 import errno
+from functools import wraps
 
 from pika import callback
 from pika import channel
@@ -27,6 +28,18 @@ from pika.adapters import base_connection
 LOGGER = logging.getLogger(__name__)
 
 
+def retry_on_eintr(f):
+    @wraps(f)
+    def inner(*args, **kwargs):
+        while True:
+            try:
+                return f(*args, **kwargs)
+            except select.error as e:
+                if e[0] != errno.EINTR:
+                    raise
+    return inner
+
+
 class ReadPoller(object):
     """A poller that will check to see if data is ready on the socket using
     very short timeouts to avoid having to read on the socket, speeding up the
@@ -35,6 +48,7 @@ class ReadPoller(object):
     """
     POLL_TIMEOUT = 10
 
+    @retry_on_eintr
     def __init__(self, fd, poll_timeout=POLL_TIMEOUT):
         """Create a new instance of the ReadPoller which wraps poll and select
         to determine if the socket has data to read on it.
@@ -53,6 +67,7 @@ class ReadPoller(object):
             self.poller = None
             self.poll_timeout = float(poll_timeout) / 1000
 
+    @retry_on_eintr
     def ready(self):
         """Check to see if the socket has data to read.
 
@@ -60,19 +75,12 @@ class ReadPoller(object):
 
         """
         if self.poller:
-            while True:
-                try:
-                    events = self.poller.poll(self.poll_timeout)
-                    break
-                except select.error as e:
-                    if e[0] != errno.EINTR:
-                        raise
-
-            return True if events else False
+            events = self.poller.poll(self.poll_timeout)
+            return bool(events)
         else:
             ready, unused_wri, unused_err = select.select([self.fd], [], [],
                                                           self.poll_timeout)
-            return len(ready) > 0
+            return bool(ready)
 
 
 class BlockingConnection(base_connection.BaseConnection):
