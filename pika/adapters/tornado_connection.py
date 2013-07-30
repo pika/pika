@@ -61,12 +61,12 @@ class TornadoConnection(base_connection.BaseConnection):
         :rtype: bool
 
         """
-        if super(TornadoConnection, self)._adapter_connect():
+        error = super(TornadoConnection, self)._adapter_connect()
+        if not error:
             self.ioloop.add_handler(self.socket.fileno(),
                                     self._handle_events,
                                     self.event_state)
-            return True
-        return False
+        return error
 
     def _adapter_disconnect(self):
         """Disconnect from the RabbitMQ broker"""

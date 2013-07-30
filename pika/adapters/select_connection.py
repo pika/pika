@@ -57,12 +57,12 @@ class SelectConnection(BaseConnection):
         :rtype: bool
 
         """
-        if super(SelectConnection, self)._adapter_connect():
+        error = super(SelectConnection, self)._adapter_connect()
+        if not error:
             self.ioloop.start_poller(self._handle_events,
                                      self.event_state,
                                      self.socket.fileno())
-            return True
-        return False
+        return error
 
     def _flush_outbound(self):
         """Call the state manager who will figure out that we need to write then

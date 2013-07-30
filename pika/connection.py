@@ -624,7 +624,7 @@ class Connection(object):
         """Add a callback notification when the connection can not be opened.
 
         The callback method should accept the connection object that could not
-        connect.
+        connect, and an optional error message.
 
         :param method callback_method: Callback to call when can't connect
         :param bool remove_default: Remove default exception raising callback
@@ -698,7 +698,8 @@ class Connection(object):
 
         """
         self._set_connection_state(self.CONNECTION_INIT)
-        if self._adapter_connect():
+        error = self._adapter_connect()
+        if not error:
             return self._on_connected()
         self.remaining_connection_attempts -= 1
         LOGGER.warning('Could not connect, %i attempts left',
@@ -707,7 +708,7 @@ class Connection(object):
             LOGGER.info('Retrying in %i seconds', self.params.retry_delay)
             self.add_timeout(self.params.retry_delay, self.connect)
         else:
-            self.callbacks.process(0, self.ON_CONNECTION_ERROR, self, self)
+            self.callbacks.process(0, self.ON_CONNECTION_ERROR, self, self, error)
             self.remaining_connection_attempts = self.params.connection_attempts
             self._set_connection_state(self.CONNECTION_CLOSED)
 
@@ -1186,13 +1187,14 @@ class Connection(object):
         # Invoke a method frame neutral close
         self._on_disconnect(self.closing[0], self.closing[1])
 
-    def _on_connection_error(self, connection_unused):
+    def _on_connection_error(self, connection_unused, error_message=None):
         """Default behavior when the connecting connection can not connect.
 
         :raises: exceptions.AMQPConnectionError
 
         """
-        raise exceptions.AMQPConnectionError(self.params.connection_attempts)
+        raise exceptions.AMQPConnectionError(error_message or
+                                             self.params.connection_attempts)
 
     def _on_connection_open(self, method_frame):
         """

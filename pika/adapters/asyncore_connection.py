@@ -141,7 +141,9 @@ class AsyncoreConnection(base_connection.BaseConnection):
         into our various state methods.
 
         """
-        if super(AsyncoreConnection, self)._adapter_connect():
+        error = super(AsyncoreConnection, self)._adapter_connect()
+        if not error:
             self.socket = PikaDispatcher(self.socket, None, self._handle_events)
             self.ioloop = self.socket
             self._on_connected()
+        return error
