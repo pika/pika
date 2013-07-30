@@ -109,12 +109,13 @@ class BaseConnection(connection.Connection):
             return False
 
         # If the socket is created and connected, continue on
+        error = "No socket addresses available"
         for sock_addr in addresses:
-            if self._create_and_connect_to_socket(sock_addr):
-                return True
-
+            error = self._create_and_connect_to_socket(sock_addr)
+            if not error:
+                return None
         # Failed to connect
-        return False
+        return error
 
     def _adapter_disconnect(self):
         """Invoked if the connection is being told to disconnect"""
@@ -169,25 +170,27 @@ class BaseConnection(connection.Connection):
         try:
             self.socket.connect(sock_addr_tuple[4])
         except socket.timeout:
-            LOGGER.error('Connection to %s:%s failed: timeout',
-                         sock_addr_tuple[4][0],sock_addr_tuple[4][1])
-            return False
+            error = 'Connection to %s:%s failed: timeout' % (
+                sock_addr_tuple[4][0], sock_addr_tuple[4][1])
+            LOGGER.error(error)
+            return error
         except socket.error as error:
-            LOGGER.warning('Connection to %s:%s failed: %s',
-                           sock_addr_tuple[4][0],sock_addr_tuple[4][1], error)
-            return False
+            error = 'Connection to %s:%s failed: %s' % (
+                sock_addr_tuple[4][0], sock_addr_tuple[4][1], error)
+            LOGGER.warning(error)
+            return error
 
         # Handle SSL Connection Negotiation
         if self.params.ssl and self.DO_HANDSHAKE:
             try:
                 self._do_ssl_handshake()
             except ssl.SSLError as error:
-                LOGGER.error('SSL connection to %s:%s failed: %s',
-                             sock_addr_tuple[4][0],sock_addr_tuple[4][1], error)
-                return False
-
+                error = 'SSL connection to %s:%s failed: %s' % (
+                    sock_addr_tuple[4][0], sock_addr_tuple[4][1], error)
+                LOGGER.error(error)
+                return error
         # Made it this far
-        return True
+        return None
 
     def _do_ssl_handshake(self):
         """Perform SSL handshaking, copied from python stdlib test_ssl.py.

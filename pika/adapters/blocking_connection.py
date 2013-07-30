@@ -220,8 +220,9 @@ class BlockingConnection(base_connection.BaseConnection):
 
         """
         self._set_connection_state(self.CONNECTION_INIT)
-        if not self._adapter_connect():
-            raise exceptions.AMQPConnectionError('Could not connect')
+        error = self._adapter_connect()
+        if error:
+            raise exceptions.AMQPConnectionError(error)
 
     def process_data_events(self):
         """Will make sure that data events are processed. Your app can
@@ -288,8 +289,9 @@ class BlockingConnection(base_connection.BaseConnection):
         """
         # Remove the default behavior for connection errors
         self.callbacks.remove(0, self.ON_CONNECTION_ERROR)
-        if not super(BlockingConnection, self)._adapter_connect():
-            raise exceptions.AMQPConnectionError(1)
+        error = super(BlockingConnection, self)._adapter_connect()
+        if error:
+            raise exceptions.AMQPConnectionError(error)
         self.socket.settimeout(self.SOCKET_CONNECT_TIMEOUT)
         self._frames_written_without_read = 0
         self._socket_timeouts = 0
@@ -300,7 +302,6 @@ class BlockingConnection(base_connection.BaseConnection):
             self.process_data_events()
         self.socket.settimeout(self.params.socket_timeout)
         self._set_connection_state(self.CONNECTION_OPEN)
-        return True
 
     def _adapter_disconnect(self):
         """Called if the connection is being requested to disconnect."""
