@@ -424,7 +424,7 @@ class Channel(object):
         :rtype: list
 
         """
-        return self._consumers.keys()
+        return list(self._consumers.keys())
 
     def exchange_bind(self, callback=None, destination=None, source=None,
                       routing_key='', nowait=False, arguments=None):
