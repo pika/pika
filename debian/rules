@@ -1,0 +1,22 @@
+#!/usr/bin/make -f
+
+PYVERS :=  $(shell pyversions -r)
+
+%:
+	dh --with python2 --buildsystem=python_distutils $@
+
+override_dh_auto_test:
+ifeq (,$(filter nocheck,$(DEB_BUILD_OPTIONS)))
+	set -ex; \
+	for py in $(PYVERS); do \
+		$$py setup.py test; \
+	done
+endif
+
+
+override_dh_auto_clean:
+	rm -rf dist build setup.cfg PKG-INFO pika.egg-info
+	find -name '*\.py[co]' -delete
+
+override_dh_compress:
+	dh_compress -X.py

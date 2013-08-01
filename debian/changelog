@@ -1,0 +1,25 @@
+python-pika (0.9.13-1) unstable; urgency=low
+
+  [ Thomas Bechtold ]
+  * New upstream release.
+  * Update debian/watch to match github tags.
+  * debian/control:
+    - Bump Standards-version to 3.9.4.
+    - Add python-twisted, python-tornado, python-yaml, python-nose,
+      python-mock and netbase to Build-Depends to be able to run the testsuite.
+  * debian/rules: Run testsuite.
+  * debian/python-pika.docs:
+    - Remove THANKS. No longer available.
+    - Remove ROADMAP. No longer available.
+    - Add docs/.
+
+  [ Jan Dittberner ]
+  * debian/control: canonical Vcs-Svn URL
+
+ -- Jan Dittberner <jandd@debian.org>  Thu, 11 Jul 2013 22:38:30 +0200
+
+python-pika (0.9.5-1) unstable; urgency=low
+
+  * Initial release. (Closes: #635891)
+
+ -- Jan Dittberner <jandd@debian.org>  Sat, 30 Jul 2011 11:54:54 +0200

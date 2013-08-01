@@ -1,0 +1,27 @@
+Source: python-pika
+Section: python
+Priority: optional
+Maintainer: Jan Dittberner <jandd@debian.org>
+Uploaders: Debian Python Modules Team <python-modules-team@lists.alioth.debian.org>
+Build-Depends: debhelper (>= 7.0.50~),
+               python (>= 2.6.5~),
+               python-setuptools,
+               python-twisted,
+               python-tornado,
+               python-yaml,
+               python-nose,
+               python-mock,
+               netbase
+Standards-Version: 3.9.4
+Homepage: http://pika.github.com/
+Vcs-Svn: svn://anonscm.debian.org/python-modules/packages/python-pika/trunk
+Vcs-Browser: http://anonscm.debian.org/viewvc/python-modules/packages/python-pika/trunk/
+
+Package: python-pika
+Architecture: all
+Depends: ${python:Depends}, ${misc:Depends}
+Description: AMQP client library
+ Pika is a pure-Python implementation of the AMQP-0-9-1 protocol that tries to
+ stay fairly independent of the underlying network support library. Pika was
+ developed primarily for use with RabitMQ, but also works with other
+ AMQP-0-9-1 brokers.
