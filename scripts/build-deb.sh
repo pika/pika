@@ -10,9 +10,9 @@ cd `dirname $0`
 cd ..
 
 # Set version information
-VERSION=`git describe --tags  | awk -F"-" '{print $1}'`
-RELEASE=`git describe --tags  | awk -F"-" '{print $2}'`
-COMMIT=`git describe --tags  | awk -F"-" '{print $3}'`
+VERSION=`git describe --tags --long | awk -F"-" '{print $1}'`
+RELEASE=`git describe --tags --long | awk -F"-" '{print $2}'`
+COMMIT=`git describe --tags --long | awk -F"-" '{print $3}'`
 MESSAGE="Release $VERSION-$RELEASE-$COMMIT"
 
 echo $MESSAGE
