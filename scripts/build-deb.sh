@@ -1,5 +1,6 @@
 #!/bin/bash
 
+export DEB_BUILD_OPTIONS=nocheck
 NAME="python-pika"
 TMP_DIR=/tmp/python-pika
 DEBEMAIL="builder-deb@comodit.com"
