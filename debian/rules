@@ -3,7 +3,7 @@
 PYVERS :=  $(shell pyversions -r)
 
 %:
-	dh --with python2 --buildsystem=python_distutils $@
+	dh $@ --with python2 --buildsystem=python_distutils
 
 override_dh_auto_test:
 ifeq (,$(filter nocheck,$(DEB_BUILD_OPTIONS)))

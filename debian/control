@@ -1,21 +1,17 @@
 Source: python-pika
 Section: python
 Priority: optional
-Maintainer: Jan Dittberner <jandd@debian.org>
-Uploaders: Debian Python Modules Team <python-modules-team@lists.alioth.debian.org>
+Maintainer: Raphael De Giusti <raphael.degiusti@gmail.com>
 Build-Depends: debhelper (>= 7.0.50~),
                python (>= 2.6.5~),
-               python-setuptools,
-               python-twisted,
-               python-tornado,
-               python-yaml,
-               python-nose,
-               python-mock,
-               netbase
+               python-support (>= 0.6),
+               python-all-dev,
+               cdbs,
+               python-setuptools
 Standards-Version: 3.9.4
+XS-Python-Version: >=2.6
+XB-Python-Version: ${python:Versions}
 Homepage: http://pika.github.com/
-Vcs-Svn: svn://anonscm.debian.org/python-modules/packages/python-pika/trunk
-Vcs-Browser: http://anonscm.debian.org/viewvc/python-modules/packages/python-pika/trunk/
 
 Package: python-pika
 Architecture: all
