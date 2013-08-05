@@ -2,13 +2,13 @@
 
 
 Name:           python-pika
-Version:        0.9.13
-Release:        0
+Version:        #VERSION#
+Release:        #RELEASE#%{dist}
 Url:            http://pika.readthedocs.org/en/0.9.13
 Summary:        Pika Python AMQP Client Library
 License:        MPL v1.1 and GPL v2.0 or newer
 Group:          Development/Languages/Python
-Source:         %{name}-%{version}-%{release}.tar.gz
+Source:         %{name}-%{version}-#RELEASE#.tar.gz
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildRequires:  python-devel python-setuptools
 BuildArch:      noarch
@@ -39,3 +39,4 @@ rm -rf %{buildroot}
 %python_sitelib/*.egg-info
 
 %changelog
+
