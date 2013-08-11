@@ -60,6 +60,7 @@ And an example of writing a blocking consumer:
  * SelectConnection   - fast asynchronous adapter
  * TwistedConnection  - adapter for use with the Twisted asynchronous package http://twistedmatrix.com/
  * TornadoConnection  - adapter for use with the Tornado IO Loop http://tornadoweb.org
+ * LibevConnection    - adapter for use with the libev event loop http://libev.schmorp.de
 
 ## License
 Pika is licensed under the MPL, and may also be used under the terms
