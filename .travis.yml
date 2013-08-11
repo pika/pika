@@ -5,5 +5,6 @@ python:
     - pypy
 install:
     - if [[ $TRAVIS_PYTHON_VERSION == '2.6' ]]; then pip install --use-mirrors unittest2; fi
-    - pip install --use-mirrors tornado twisted pyev pyyaml 
+    - if [[ $TRAVIS_PYTHON_VERSION == '2.7' ]]; then pip install --use-mirrors pyev; fi
+    - pip install --use-mirrors tornado twisted pyyaml 
 script: nosetests
