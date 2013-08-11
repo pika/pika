@@ -4,7 +4,7 @@
 Pika is a pure-Python implementation of the AMQP 0-9-1 protocol that tries
 to stay fairly independent of the underlying network support library.
 
- * Currently supports Python 2.6 and Python 2.7 only. 3.3+ support planned.
+ * Currently supports Python 2.6 and Python 2.7 only. 3.2+ support planned.
 
  * Since threads aren't appropriate to every situation, it doesn't
    require threads. It takes care not to forbid them, either. The same
@@ -15,6 +15,8 @@ to stay fairly independent of the underlying network support library.
    or any of the wide variety of ways of getting network events to and from a
    python application. Pika tries to stay compatible with all of these, and to
    make adapting it to a new environment as simple as possible.
+
+[![Build Status](https://travis-ci.org/pika/pika.png?branch=master)](https://travis-ci.org/pika/pika)
 
 ## Documentation
 Pika's documentation is now at https://pika.readthedocs.org
