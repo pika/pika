@@ -14,6 +14,7 @@ XB-Python-Version: ${python:Versions}
 Homepage: http://pika.github.com/
 
 Package: python-pika
+Replaces: python-pika-ssl
 Architecture: all
 Depends: ${python:Depends}, ${misc:Depends}
 Description: AMQP client library
