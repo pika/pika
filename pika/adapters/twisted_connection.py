@@ -13,39 +13,52 @@ TwistedChannel class for details.
 
 """
 import functools
-from twisted.internet import defer, error, reactor
-from twisted.python import log
 
 from pika import exceptions
 from pika.adapters import base_connection
 
 
-class ClosableDeferredQueue(defer.DeferredQueue):
-    """
-    Like the normal Twisted DeferredQueue, but after close() is called with an
-    Exception instance all pending Deferreds are errbacked and further attempts
-    to call get() or put() return a Failure wrapping that exception.
-    """
-    def __init__(self, size=None, backlog=None):
-        self.closed = None
-        super(ClosableDeferredQueue, self).__init__(size, backlog)
+def _loader():
+    module_dict = globals()
+    export = ['defer', 'error', 'log', 'reactor', 'ClosableDeferredQueue']
 
-    def put(self, obj):
-        if self.closed:
-            return defer.fail(self.closed)
-        return defer.DeferredQueue.put(self, obj)
+    if any(name in module_dict for name in export):
+        # Already loaded
+        return
 
-    def get(self):
-        if self.closed:
-            return defer.fail(self.closed)
-        return defer.DeferredQueue.get(self)
+    from twisted.internet import defer, error, reactor
+    from twisted.python import log
 
-    def close(self, reason):
-        self.closed = reason
-        while self.waiting:
-            self.waiting.pop().errback(reason)
-        self.pending = []
+    class ClosableDeferredQueue(defer.DeferredQueue):
+        """
+        Like the normal Twisted DeferredQueue, but after close() is called with an
+        Exception instance all pending Deferreds are errbacked and further attempts
+        to call get() or put() return a Failure wrapping that exception.
+        """
+        def __init__(self, size=None, backlog=None):
+            self.closed = None
+            super(ClosableDeferredQueue, self).__init__(size, backlog)
 
+        def put(self, obj):
+            if self.closed:
+                return defer.fail(self.closed)
+            return defer.DeferredQueue.put(self, obj)
+
+        def get(self):
+            if self.closed:
+                return defer.fail(self.closed)
+            return defer.DeferredQueue.get(self)
+
+        def close(self, reason):
+            self.closed = reason
+            while self.waiting:
+                self.waiting.pop().errback(reason)
+            self.pending = []
+
+    # Export to module
+    local_dict = locals()
+    for name in export:
+        module_dict[name] = local_dict[name]
 
 class TwistedChannel(object):
     """A wrapper wround Pika's Channel.
@@ -67,6 +80,8 @@ class TwistedChannel(object):
                        'tx_rollback', 'flow', 'basic_cancel')
 
     def __init__(self, channel):
+        _loader()
+
         self.__channel = channel
         self.__closed = None
         self.__calls = set()
@@ -192,6 +207,8 @@ class IOLoopReactorAdapter(object):
 
     """
     def __init__(self, connection, reactor):
+        _loader()
+
         self.connection = connection
         self.reactor = reactor
         self.started = False
@@ -274,6 +291,8 @@ class TwistedConnection(base_connection.BaseConnection):
                  on_open_error_callback=None,
                  on_close_callback=None,
                  stop_ioloop_on_close=False):
+        _loader()
+
         super(TwistedConnection, self).__init__(
             parameters=parameters,
             on_open_callback=on_open_callback,
@@ -363,6 +382,8 @@ class TwistedProtocolConnection(base_connection.BaseConnection):
 
     """
     def __init__(self, parameters):
+        _loader()
+
         self.ready = defer.Deferred()
         super(TwistedProtocolConnection, self).__init__(
             parameters=parameters,

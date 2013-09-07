@@ -1,5 +1,4 @@
 """Use pika with the libev IOLoop via pyev"""
-import pyev
 import signal
 import array
 import logging
@@ -14,7 +13,7 @@ class LibevConnection(BaseConnection):
     connection in a web app, make sure you set stop_ioloop_on_close to False,
     which is the default behavior for this adapter, otherwise the web app
     will stop taking requests.
-    
+
     You should be familiar with pyev and libev to use this selector, esp.
     with regard to the use of libev ioloops and signal handling.
 
@@ -31,45 +30,58 @@ class LibevConnection(BaseConnection):
 
     """
     WARN_ABOUT_IOLOOP = True
-    
-    # use static arrays to translate masks between pika and libev
-    _PIKA_TO_LIBEV_ARRAY = array.array(
-        'i', 
-        [0] * (
-            (BaseConnection.READ|BaseConnection.WRITE|BaseConnection.ERROR) + 1
+
+    @classmethod
+    def _loader(cls):
+        if hasattr(cls, 'pyev'):
+            # Already loaded
+            return
+
+        import pyev
+
+        # use static arrays to translate masks between pika and libev
+        _PIKA_TO_LIBEV_ARRAY = array.array(
+            'i',
+            [0] * (
+                (BaseConnection.READ|BaseConnection.WRITE|BaseConnection.ERROR) + 1
+            )
         )
-    )
-    
-    _PIKA_TO_LIBEV_ARRAY[BaseConnection.READ] = pyev.EV_READ
-    _PIKA_TO_LIBEV_ARRAY[BaseConnection.WRITE] = pyev.EV_WRITE
-    
-    _PIKA_TO_LIBEV_ARRAY[
-        BaseConnection.READ|BaseConnection.WRITE
-    ] = pyev.EV_READ|pyev.EV_WRITE
-    
-    _PIKA_TO_LIBEV_ARRAY[
-        BaseConnection.READ|BaseConnection.ERROR
-    ] = pyev.EV_READ
-    
-    _PIKA_TO_LIBEV_ARRAY[
-        BaseConnection.WRITE|BaseConnection.ERROR
-    ] = pyev.EV_WRITE
-    
-    _PIKA_TO_LIBEV_ARRAY[
-        BaseConnection.READ|BaseConnection.WRITE|BaseConnection.ERROR
-    ] = pyev.EV_READ|pyev.EV_WRITE
-    
-    _LIBEV_TO_PIKA_ARRAY = array.array(
-        'i', 
-        [0] * ((pyev.EV_READ|pyev.EV_WRITE) + 1)
-    )
-    
-    _LIBEV_TO_PIKA_ARRAY[pyev.EV_READ] = BaseConnection.READ
-    _LIBEV_TO_PIKA_ARRAY[pyev.EV_WRITE] = BaseConnection.WRITE
-    
-    _LIBEV_TO_PIKA_ARRAY[
-        pyev.EV_READ|pyev.EV_WRITE
-    ] = BaseConnection.READ|BaseConnection.WRITE
+
+        _PIKA_TO_LIBEV_ARRAY[BaseConnection.READ] = pyev.EV_READ
+        _PIKA_TO_LIBEV_ARRAY[BaseConnection.WRITE] = pyev.EV_WRITE
+
+        _PIKA_TO_LIBEV_ARRAY[
+            BaseConnection.READ|BaseConnection.WRITE
+        ] = pyev.EV_READ|pyev.EV_WRITE
+
+        _PIKA_TO_LIBEV_ARRAY[
+            BaseConnection.READ|BaseConnection.ERROR
+        ] = pyev.EV_READ
+
+        _PIKA_TO_LIBEV_ARRAY[
+            BaseConnection.WRITE|BaseConnection.ERROR
+        ] = pyev.EV_WRITE
+
+        _PIKA_TO_LIBEV_ARRAY[
+            BaseConnection.READ|BaseConnection.WRITE|BaseConnection.ERROR
+        ] = pyev.EV_READ|pyev.EV_WRITE
+
+        _LIBEV_TO_PIKA_ARRAY = array.array(
+            'i',
+            [0] * ((pyev.EV_READ|pyev.EV_WRITE) + 1)
+        )
+
+        _LIBEV_TO_PIKA_ARRAY[pyev.EV_READ] = BaseConnection.READ
+        _LIBEV_TO_PIKA_ARRAY[pyev.EV_WRITE] = BaseConnection.WRITE
+
+        _LIBEV_TO_PIKA_ARRAY[
+            pyev.EV_READ|pyev.EV_WRITE
+        ] = BaseConnection.READ|BaseConnection.WRITE
+
+        # Export to class
+        cls.pyev = pyev
+        cls._PIKA_TO_LIBEV_ARRAY = _PIKA_TO_LIBEV_ARRAY
+        cls._LIBEV_TO_PIKA_ARRAY = _LIBEV_TO_PIKA_ARRAY
 
     def __init__(
         self, parameters=None,
@@ -95,7 +107,9 @@ class LibevConnection(BaseConnection):
         :type on_signal_callback: method
 
         """
-        self.ioloop = custom_ioloop or pyev.default_loop()
+        self._loader()
+
+        self.ioloop = custom_ioloop or self.pyev.default_loop()
         self._on_signal_callback = on_signal_callback
         self._sigint_watcher = None
         self._sigterm_watcher = None
@@ -128,7 +142,7 @@ class LibevConnection(BaseConnection):
                     signal.SIGTERM,
                     self._handle_sigterm
                 )
-                
+
             if self._on_signal_callback and not self._sigint_watcher:
                 self._sigint_watcher = self.ioloop.signal(
                     signal.SIGINT,
@@ -141,11 +155,11 @@ class LibevConnection(BaseConnection):
                     self._PIKA_TO_LIBEV_ARRAY[self.event_state],
                     self._handle_events
                 )
-            
+
             if self._on_signal_callback: self._sigterm_watcher.start()
             if self._on_signal_callback: self._sigint_watcher.start()
             self._io_watcher.start()
-            
+
         return error
 
     def _init_connection_state(self):
@@ -167,7 +181,7 @@ class LibevConnection(BaseConnection):
         """
         LOGGER.debug('SIGINT')
         self._on_signal_callback('SIGINT')
-        
+
     def _handle_sigterm(self, signal_watcher, libev_events):
         """If an on_signal_callback has been defined, call it returning the
         string 'SIGTERM'.
@@ -182,7 +196,7 @@ class LibevConnection(BaseConnection):
 
         """
         super(LibevConnection, self)._handle_events(
-            io_watcher.fd, 
+            io_watcher.fd,
             self._LIBEV_TO_PIKA_ARRAY[libev_events]
         )
 
@@ -190,10 +204,10 @@ class LibevConnection(BaseConnection):
         """Manage the bitmask for reading/writing/error which is used by the
         io/event handler to specify when there is an event such as a read or
         write.
-        
+
         """
         if self.outbound_buffer:
-            if not self.event_state & self.WRITE: 
+            if not self.event_state & self.WRITE:
                 self.event_state |= self.WRITE
                 self._io_watcher.stop()
 
@@ -203,7 +217,7 @@ class LibevConnection(BaseConnection):
                 )
 
                 self._io_watcher.start()
-        elif self.event_state & self.WRITE:            
+        elif self.event_state & self.WRITE:
             self.event_state = self.base_events
             self._io_watcher.stop()
 
@@ -216,12 +230,12 @@ class LibevConnection(BaseConnection):
 
     def _timer_callback(self, timer, libev_events):
         """Manage timer callbacks indirectly."""
-        if timer in self._active_timers: 
+        if timer in self._active_timers:
             self._active_timers[timer]()
             self.remove_timeout(timer)
         else:
             LOGGER.warning('Timer callback_method not found')
-            
+
     def _get_timer(self, deadline):
         """Get a timer from the pool or allocate a new one."""
         if self._stopped_timers:
@@ -229,13 +243,13 @@ class LibevConnection(BaseConnection):
             timer.set(deadline, 0.0)
         else:
             timer = self.ioloop.timer(deadline, 0.0, self._timer_callback)
-            
+
         return timer
 
     def add_timeout(self, deadline, callback_method):
         """Add the callback_method indirectly to the IOLoop timer to fire
          after deadline seconds. Returns the timer handle.
-        
+
         :param int deadline: The number of seconds to wait to call callback
         :param method callback_method: The callback method
         :rtype: timer instance handle.
@@ -246,11 +260,11 @@ class LibevConnection(BaseConnection):
         self._active_timers[timer] = callback_method
         timer.start()
         return timer
-        
+
     def remove_timeout(self, timer):
         """Remove the timer from the IOLoop using the handle returned from
         add_timeout.
-        
+
         param: timer instance handle
 
         """
@@ -258,12 +272,12 @@ class LibevConnection(BaseConnection):
         self._active_timers.pop(timer, None)
         timer.stop()
         self._stopped_timers.append(timer)
-        
+
     def _create_and_connect_to_socket(self, sock_addr_tuple):
         """Call super and then set the socket to nonblocking."""
         result = super(LibevConnection, self)._create_and_connect_to_socket(
             sock_addr_tuple
         )
-        
+
         if result: self.socket.setblocking(0)
         return result
