@@ -8,8 +8,8 @@ from collections import deque
 from pika.adapters.base_connection import BaseConnection
 
 LOGGER = logging.getLogger(__name__)
-global_sigint_watcher = None
-global_sigterm_watcher = None
+global global_sigint_watcher, global_sigterm_watcher
+global_sigint_watcher = global_sigterm_watcher = None
 
 class LibevConnection(BaseConnection):
     """The LibevConnection runs on the libev IOLoop. If you're running the
@@ -122,20 +122,17 @@ class LibevConnection(BaseConnection):
 
         """
         LOGGER.debug('init io and signal watchers')
+        global global_sigint_watcher, global_sigterm_watcher
         error = super(LibevConnection, self)._adapter_connect()
 
         if not error:
             if self._on_signal_callback and not global_sigterm_watcher:
-                global global_sigterm_watcher
-                
                 global_sigterm_watcher = self.ioloop.signal(
                     signal.SIGTERM,
                     self._handle_sigterm
                 )
                 
             if self._on_signal_callback and not global_sigint_watcher:
-                global global_sigint_watcher
-                
                 global_sigint_watcher = self.ioloop.signal(
                     signal.SIGINT,
                     self._handle_sigint
