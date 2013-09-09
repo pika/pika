@@ -158,8 +158,8 @@ class LibevConnection(BaseConnection):
 
         """
         for timer in self._active_timers: self.remove_timeout(timer)
-        if global_sigint_watcher: self._sigint_watcher.stop()
-        if global_sigterm_watcher: self._sigterm_watcher.stop()
+        if global_sigint_watcher: global_sigint_watcher.stop()
+        if global_sigterm_watcher: global_sigterm_watcher.stop()
         if self._io_watcher: self._io_watcher.stop()
         super(LibevConnection, self)._init_connection_state()
 
