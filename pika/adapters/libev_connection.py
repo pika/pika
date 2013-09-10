@@ -17,8 +17,13 @@ class LibevConnection(BaseConnection):
     which is the default behavior for this adapter, otherwise the web app
     will stop taking requests.
     
-    You should be familiar with pyev and libev to use this selector, esp.
-    with regard to the use of libev ioloops and signal handling.
+    You should be familiar with pyev and libev to use this adapter, esp.
+    with regard to the use of libev ioloops.
+    
+    If an on_signal_callback method is provided, the adapter creates signal
+    watchers the first time; subsequent instantiations with a provided method
+    reuse the same watchers but will call the new method upon receiving a
+    signal. See pyev/libev signal handling to understand why this is done.
 
     :param pika.connection.Parameters parameters: Connection parameters
     :param on_open_callback: The method to call when the connection is open
@@ -93,12 +98,10 @@ class LibevConnection(BaseConnection):
         :type on_open_error_callback: method
         :param bool stop_ioloop_on_close: Call ioloop.stop() if disconnected
         :param custom_ioloop: Override using the default IOLoop in libev
-                              Only allow on_signal_callback to one custom_ioloop
         :param on_signal_callback: Method to call if SIGINT or SIGTERM occur
         :type on_signal_callback: method
 
         """
-
         self.ioloop = custom_ioloop or pyev.default_loop()
         self._on_signal_callback = on_signal_callback
         self._io_watcher = None
@@ -121,7 +124,8 @@ class LibevConnection(BaseConnection):
         :rtype: bool
 
         """
-        LOGGER.debug('init io and signal watchers')
+        LOGGER.debug('init io and signal watchers if any')
+        # reuse existing signal watchers as they can only be declared for 1 ioloop
         global global_sigint_watcher, global_sigterm_watcher
         error = super(LibevConnection, self)._adapter_connect()
 
