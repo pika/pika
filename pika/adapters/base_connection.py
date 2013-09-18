@@ -106,7 +106,7 @@ class BaseConnection(connection.Connection):
         except socket.error as error:
             LOGGER.critical('Could not get addresses to use: %s (%s)',
                             error, self.params.host)
-            return False
+            return error
 
         # If the socket is created and connected, continue on
         error = "No socket addresses available"
