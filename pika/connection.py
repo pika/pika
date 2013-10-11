@@ -1120,11 +1120,32 @@ class Connection(object):
 
         """
         limit = self.params.channel_max or channel.MAX_CHANNELS
+        base = 1
+
         if len(self._channels) == limit:
             raise exceptions.NoFreeChannels()
         if not self._channels:
-            return 1
-        return max(self._channels.keys()) + 1
+            return base
+
+        # first channel number
+        used_numbers = sorted(self._channels.keys())
+
+        left = 0
+        right = len(used_numbers) - 1
+        # look for free channel numbers
+        while True:
+            if used_numbers[right] == right + base:
+                return right + 1 + base
+
+            if used_numbers[left] > left + base:
+                return left + base
+
+            middle = left + (right - left) // 2
+            if used_numbers[middle] > base + middle:
+                right = middle
+            else:
+                left = middle + 1
+
 
     def _on_channel_closeok(self, method_frame):
         """Remove the channel from the dict of channels when Channel.CloseOk is
