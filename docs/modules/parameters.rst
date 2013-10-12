@@ -14,7 +14,7 @@ Example::
     # on the / virtual host using the username "guest" and password "guest"
     credentials = pika.PlainCredentials('guest', 'guest')
     parameters = pika.ConnectionParameters('rabbit-server1',
-                                           5672
+                                           5672,
                                            '/',
                                            credentials)
 
