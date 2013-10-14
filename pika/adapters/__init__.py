@@ -26,21 +26,9 @@ from blocking_connection import BlockingConnection
 from select_connection import SelectConnection
 from select_connection import IOLoop
 
-# Dynamically handle 3rd party library dependencies for optional imports
-try:
-    from tornado_connection import TornadoConnection
-except ImportError:
-    TornadoConnection = None
+from tornado_connection import TornadoConnection
 
-try:
-    from twisted_connection import TwistedConnection
-    from twisted_connection import TwistedProtocolConnection
-except ImportError:
-    TwistedConnection = None
-    TwistedProtocolConnection = None
+from twisted_connection import TwistedConnection
+from twisted_connection import TwistedProtocolConnection
 
-try:
-    from libev_connection import LibevConnection
-except ImportError:
-    LibevConnection = None
-
+from libev_connection import LibevConnection

@@ -1,5 +1,4 @@
 """Use pika with the Tornado IOLoop"""
-from tornado import ioloop
 import logging
 import time
 
@@ -45,6 +44,8 @@ class TornadoConnection(base_connection.BaseConnection):
         :param custom_ioloop: Override using the global IOLoop in Tornado
 
         """
+        from tornado import ioloop
+
         self.sleep_counter = 0
         self.ioloop = custom_ioloop or ioloop.IOLoop.instance()
         super(TornadoConnection, self).__init__(parameters,

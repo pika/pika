@@ -15,16 +15,19 @@ from pika.adapters import asyncore_connection
 from pika.adapters import base_connection
 from pika.adapters import blocking_connection
 from pika.adapters import select_connection
+from pika.adapters import tornado_connection
+from pika.adapters import twisted_connection
+from pika.adapters import libev_connection
 try:
-    from pika.adapters import tornado_connection
+    import tornado
 except ImportError:
     tornado_connection = None
 try:
-    from pika.adapters import twisted_connection
+    import twisted
 except ImportError:
     twisted_connection = None
 try:
-    from pika.adapters import libev_connection
+    import pyev
 except ImportError:
     libev_connection = None
 
