@@ -119,6 +119,8 @@ class BaseConnection(connection.Connection):
 
     def _adapter_disconnect(self):
         """Invoked if the connection is being told to disconnect"""
+        if hasattr(self, 'heartbeat') and self.heartbeat is not None:
+            self.heartbeat.stop()
         if self.socket:
             self.socket.close()
         self.socket = None
@@ -305,6 +307,11 @@ class BaseConnection(connection.Connection):
 
         if not write_only and (events & self.READ):
             self._handle_read()
+
+        if write_only and (events & self.READ) and (events & self.ERROR):
+            LOGGER.error('BAD libc:  Write-Only but Read+Error. '
+                         'Assume socket disconnected.')
+            self._handle_disconnect()
 
         if events & self.ERROR:
             LOGGER.error('Error event %r, %r', events, error)
