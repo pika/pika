@@ -679,7 +679,7 @@ class BlockingChannel(channel.Channel):
         self._set_state(self.CLOSED)
         self._cleanup()
 
-    def consume(self, queue):
+    def consume(self, queue, no_ack=False, exclusive=False):
         """Blocking consumption of a queue instead of via a callback. This
         method is a generator that returns messages a tuple of method,
         properties, and body.
@@ -696,6 +696,10 @@ class BlockingChannel(channel.Channel):
 
         :param queue: The queue name to consume
         :type queue: str or unicode
+        :param no_ack: Tell the broker to not expect a response
+        :type no_ack: bool
+        :param exclusive: Don't allow other consumers on the queue
+        :type exclusive: bool
         :rtype: tuple(spec.Basic.Deliver, spec.BasicProperties, str or unicode)
 
         """
@@ -703,7 +707,9 @@ class BlockingChannel(channel.Channel):
         if not self._generator:
             LOGGER.debug('Issuing Basic.Consume')
             self._generator = self.basic_consume(self._generator_callback,
-                                                 queue)
+                                                 queue,
+                                                 no_ack,
+                                                 exclusive)
         while True:
             if self._generator_messages:
                 yield self._generator_messages.pop(0)
