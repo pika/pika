@@ -19,6 +19,8 @@ from pika import utils
 
 from pika import spec
 
+from threading import Lock
+
 BACKPRESSURE_WARNING = ("Pika: Write buffer exceeded warning threshold at "
                         "%i bytes and an estimated %i frames behind")
 PRODUCT = "Pika Python Client Library"
@@ -1463,6 +1465,8 @@ class Connection(object):
                                                     self.params.frame_max,
                                                     self.params.heartbeat))
 
+    lock = Lock()
+
     def _send_frame(self, frame_value):
         """This appends the fully generated frame to send to the broker to the
         output buffer which will be then sent via the connection adapter.
@@ -1471,16 +1475,17 @@ class Connection(object):
         :type frame_value:  pika.frame.Frame|pika.frame.ProtocolHeader
 
         """
-        if self.is_closed:
-            LOGGER.critical('Attempted to send frame when closed')
-            return
-        marshaled_frame = frame_value.marshal()
-        self.bytes_sent += len(marshaled_frame)
-        self.frames_sent += 1
-        self.outbound_buffer.append(marshaled_frame)
-        self._flush_outbound()
-        if self.params.backpressure_detection:
-            self._detect_backpressure()
+        with self.lock:
+            if self.is_closed:
+                LOGGER.critical('Attempted to send frame when closed')
+                return
+            marshaled_frame = frame_value.marshal()
+            self.bytes_sent += len(marshaled_frame)
+            self.frames_sent += 1
+            self.outbound_buffer.append(marshaled_frame)
+            self._flush_outbound()
+            if self.params.backpressure_detection:
+                self._detect_backpressure()
 
     def _send_method(self, channel_number, method_frame, content=None):
         """Constructs a RPC method frame and then sends it to the broker.
