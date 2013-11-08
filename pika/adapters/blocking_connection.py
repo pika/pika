@@ -450,6 +450,7 @@ class BlockingChannel(channel.Channel):
         self._frames = dict()
         self._replies = list()
         self._wait = False
+        self._received_response = False
         self.open()
 
     def basic_cancel(self, consumer_tag='', nowait=False):
@@ -1117,7 +1118,6 @@ class BlockingChannel(channel.Channel):
                                              self._on_rpc_complete,
                                              arguments=arguments)
             replies.append(key)
-        self._received_response = False
         self._send_method(method_frame, content,
                           self._wait_on_response(method_frame))
         if force_data_events and self._force_data_events_override is not False:
@@ -1135,6 +1135,7 @@ class BlockingChannel(channel.Channel):
 
         """
         self.wait = wait
+        prev_received_response = self._received_response
         self._received_response = False
         self.connection.send_method(self.channel_number, method_frame, content)
         while wait and not self._received_response:
@@ -1142,6 +1143,7 @@ class BlockingChannel(channel.Channel):
                 self.connection.process_data_events()
             except exceptions.AMQPConnectionError:
                 break
+        self._received_response = prev_received_response
 
     def _validate_acceptable_replies(self, acceptable_replies):
         """Validate the list of acceptable replies
