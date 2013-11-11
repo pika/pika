@@ -85,7 +85,7 @@ def encode_value(pieces, value):
         pieces.append(struct.pack('>c', 'V'))
         return 1
     else:
-        raise exceptions.UnspportedAMQPFieldException(pieces, value)
+        raise exceptions.UnsupportedAMQPFieldException(pieces, value)
 
 
 def decode_table(encoded, offset):
