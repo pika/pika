@@ -72,19 +72,6 @@ class BaseConnection(connection.Connection):
         """
         return self.ioloop.add_timeout(deadline, callback_method)
 
-    def close(self, reply_code=200, reply_text='Normal shutdown'):
-        """Disconnect from RabbitMQ. If there are any open channels, it will
-        attempt to close them prior to fully disconnecting. Channels which
-        have active consumers will attempt to send a Basic.Cancel to RabbitMQ
-        to cleanly stop the delivery of messages prior to closing the channel.
-
-        :param int reply_code: The code number for the close
-        :param str reply_text: The text reason for the close
-
-        """
-        super(BaseConnection, self).close(reply_code, reply_text)
-        self._handle_ioloop_stop()
-
     def remove_timeout(self, timeout_id):
         """Remove the timeout from the IOLoop by the ID returned from
         add_timeout.
