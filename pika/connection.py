@@ -535,7 +535,7 @@ class Connection(object):
     :param method on_open_callback: Called when the connection is opened
     :param method on_open_error_callback: Called if the connection cant
                                    be opened
-    :param method on_open_callback: Called when the connection is closed
+    :param method on_close_callback: Called when the connection is closed
 
     """
     ON_CONNECTION_BACKPRESSURE = '_on_connection_backpressure'
@@ -566,7 +566,7 @@ class Connection(object):
         :param method on_open_callback: Called when the connection is opened
         :param method on_open_error_callback: Called if the connection cant
                                        be opened
-        :param method on_open_callback: Called when the connection is closed
+        :param method on_close_callback: Called when the connection is closed
 
         """
         # Define our callback dictionary
