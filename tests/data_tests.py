@@ -57,7 +57,7 @@ class DataTests(unittest.TestCase):
         self.assertEqual(byte_count, 191)
 
     def test_encode_raises(self):
-        self.assertRaises(exceptions.UnspportedAMQPFieldException,
+        self.assertRaises(exceptions.UnsupportedAMQPFieldException,
                           data.encode_table,
                           [], {'foo': set([1, 2, 3])})
 
