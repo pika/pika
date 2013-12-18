@@ -181,7 +181,7 @@ class Channel(object):
                     {'consumer_tag': consumer_tag})] if nowait is False else [])
 
     def basic_consume(self, consumer_callback, queue='', no_ack=False,
-                      exclusive=False, consumer_tag=None):
+                      exclusive=False, consumer_tag=None, arguments=None):
         """Sends the AMQP command Basic.Consume to the broker and binds messages
         for the consumer_tag to the consumer callback. If you do not pass in
         a consumer_tag, one will be automatically generated for you. Returns
@@ -197,6 +197,7 @@ class Channel(object):
         :param bool exclusive: Don't allow other consumers on the queue
         :param consumer_tag: Specify your own consumer tag
         :type consumer_tag: str or unicode
+        :param dict arguments: Custom key/value pair arguments for the consume
         :rtype: str
 
         """
@@ -214,7 +215,8 @@ class Channel(object):
         self._rpc(spec.Basic.Consume(queue=queue,
                                      consumer_tag=consumer_tag,
                                      no_ack=no_ack,
-                                     exclusive=exclusive),
+                                     exclusive=exclusive,
+                                     arguments=arguments or dict()),
                            self._on_eventok,
                            [(spec.Basic.ConsumeOk,
                              {'consumer_tag': consumer_tag})])
