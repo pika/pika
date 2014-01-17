@@ -8,6 +8,8 @@ from collections import deque
 from pika.adapters.base_connection import BaseConnection
 
 LOGGER = logging.getLogger(__name__)
+global global_sigint_watcher, global_sigterm_watcher
+global_sigint_watcher = global_sigterm_watcher = None
 
 class LibevConnection(BaseConnection):
     """The LibevConnection runs on the libev IOLoop. If you're running the
@@ -15,8 +17,13 @@ class LibevConnection(BaseConnection):
     which is the default behavior for this adapter, otherwise the web app
     will stop taking requests.
     
-    You should be familiar with pyev and libev to use this selector, esp.
-    with regard to the use of libev ioloops and signal handling.
+    You should be familiar with pyev and libev to use this adapter, esp.
+    with regard to the use of libev ioloops.
+    
+    If an on_signal_callback method is provided, the adapter creates signal
+    watchers the first time; subsequent instantiations with a provided method
+    reuse the same watchers but will call the new method upon receiving a
+    signal. See pyev/libev signal handling to understand why this is done.
 
     :param pika.connection.Parameters parameters: Connection parameters
     :param on_open_callback: The method to call when the connection is open
@@ -70,7 +77,7 @@ class LibevConnection(BaseConnection):
     _LIBEV_TO_PIKA_ARRAY[
         pyev.EV_READ|pyev.EV_WRITE
     ] = BaseConnection.READ|BaseConnection.WRITE
-
+    
     def __init__(
         self, parameters=None,
         on_open_callback=None,
@@ -86,7 +93,7 @@ class LibevConnection(BaseConnection):
         :param pika.connection.Parameters parameters: Connection parameters
         :param on_open_callback: The method to call when the connection is open
         :type on_open_callback: method
-        :param on_open_error_callback: Method to call if the connection cant
+        :param on_open_error_callback: Method to call if the connection cannot
                                        be opened
         :type on_open_error_callback: method
         :param bool stop_ioloop_on_close: Call ioloop.stop() if disconnected
@@ -97,8 +104,6 @@ class LibevConnection(BaseConnection):
         """
         self.ioloop = custom_ioloop or pyev.default_loop()
         self._on_signal_callback = on_signal_callback
-        self._sigint_watcher = None
-        self._sigterm_watcher = None
         self._io_watcher = None
         self._active_timers = {}
         self._stopped_timers = deque()
@@ -119,18 +124,20 @@ class LibevConnection(BaseConnection):
         :rtype: bool
 
         """
-        LOGGER.debug('init io and signal watchers')
+        LOGGER.debug('init io and signal watchers if any')
+        # reuse existing signal watchers as they can only be declared for 1 ioloop
+        global global_sigint_watcher, global_sigterm_watcher
         error = super(LibevConnection, self)._adapter_connect()
 
         if not error:
-            if self._on_signal_callback and not self._sigterm_watcher:
-                self._sigterm_watcher = self.ioloop.signal(
+            if self._on_signal_callback and not global_sigterm_watcher:
+                global_sigterm_watcher = self.ioloop.signal(
                     signal.SIGTERM,
                     self._handle_sigterm
                 )
                 
-            if self._on_signal_callback and not self._sigint_watcher:
-                self._sigint_watcher = self.ioloop.signal(
+            if self._on_signal_callback and not global_sigint_watcher:
+                global_sigint_watcher = self.ioloop.signal(
                     signal.SIGINT,
                     self._handle_sigint
                 )
@@ -142,8 +149,8 @@ class LibevConnection(BaseConnection):
                     self._handle_events
                 )
             
-            if self._on_signal_callback: self._sigterm_watcher.start()
-            if self._on_signal_callback: self._sigint_watcher.start()
+            if self._on_signal_callback: global_sigterm_watcher.start()
+            if self._on_signal_callback: global_sigint_watcher.start()
             self._io_watcher.start()
             
         return error
@@ -155,8 +162,8 @@ class LibevConnection(BaseConnection):
 
         """
         for timer in self._active_timers: self.remove_timeout(timer)
-        if self._sigint_watcher: self._sigint_watcher.stop()
-        if self._sigterm_watcher: self._sigterm_watcher.stop()
+        if global_sigint_watcher: global_sigint_watcher.stop()
+        if global_sigterm_watcher: global_sigterm_watcher.stop()
         if self._io_watcher: self._io_watcher.stop()
         super(LibevConnection, self)._init_connection_state()
 
