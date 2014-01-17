@@ -117,9 +117,13 @@ class InvalidFieldTypeException(ProtocolSyntaxError):
         return 'Unsupported field kind %s' % self.args[0]
 
 
-class UnspportedAMQPFieldException(ProtocolSyntaxError):
+class UnsupportedAMQPFieldException(ProtocolSyntaxError):
     def __repr__(self):
         return 'Unsupported field kind %s' % type(self.args[1])
+
+
+class UnspportedAMQPFieldException(UnsupportedAMQPFieldException):
+    """Deprecated version of UnsupportedAMQPFieldException"""
 
 
 class MethodNotImplemented(AMQPError):
