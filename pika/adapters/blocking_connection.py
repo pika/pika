@@ -502,7 +502,8 @@ class BlockingChannel(channel.Channel):
     def basic_publish(self, exchange, routing_key, body,
                       properties=None, mandatory=False, immediate=False):
         """Publish to the channel with the given exchange, routing key and body.
-        For more information on basic_publish and what the parameters do, see:
+        Returns a boolean value indicating the success of the operation. For 
+        more information on basic_publish and what the parameters do, see:
 
         http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.publish
 
