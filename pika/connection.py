@@ -884,7 +884,9 @@ class Connection(object):
         """
         return {'product': PRODUCT,
                 'platform': 'Python %s' % platform.python_version(),
-                'capabilities': {'basic.nack': True,
+                'capabilities': {'authentication_failure_close': True,
+                                 'basic.nack': True,
+                                 'connection.blocked': True,
                                  'consumer_cancel_notify': True,
                                  'publisher_confirms': True},
                 'information': 'See http://pika.rtfd.org',
