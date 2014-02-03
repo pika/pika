@@ -1029,7 +1029,8 @@ class Connection(object):
         :rtype: bool
 
         """
-        return any([self._channels[num].is_open for num in self._channels])
+        return any([self._channels[num].is_open for num in
+                    self._channels.keys()])
 
     def _has_pending_callbacks(self, value):
         """Return true if there are any callbacks pending for the specified
