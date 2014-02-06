@@ -2,7 +2,7 @@
 
 NAME="python-pika"
 SPEC_FILE_NAME="python-pika"
-PLATFORMS="epel-6-i386 fedora-18-i386 fedora-19-i386"
+PLATFORMS="epel-6-i386 fedora-18-i386 fedora-19-i386 fedora-20-i386"
 TAR_CONTENT="pika setup.py docs examples integration.cfg LICENSE-GPL-2.0 LICENSE-MPL-Pika README.md tests utils"
 
 cd `dirname $0`
