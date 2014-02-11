@@ -18,6 +18,7 @@ import warnings
 import errno
 from functools import wraps
 
+from pika import frame
 from pika import callback
 from pika import channel
 from pika import exceptions
@@ -405,9 +406,10 @@ class BlockingConnection(base_connection.BaseConnection):
         """
         super(BlockingConnection, self)._send_frame(frame_value)
         self._frames_written_without_read += 1
-        if self._frames_written_without_read == self.WRITE_TO_READ_RATIO:
-            self._frames_written_without_read = 0
-            self.process_data_events()
+        if self._frames_written_without_read >= self.WRITE_TO_READ_RATIO:
+            if not isinstance(frame_value, frame.Method):
+                self._frames_written_without_read = 0
+                self.process_data_events()
 
 
 class BlockingChannel(channel.Channel):
