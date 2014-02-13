@@ -182,7 +182,7 @@ class Channel(object):
                   [(spec.Basic.CancelOk,
                     {'consumer_tag': consumer_tag})] if nowait is False else [])
 
-    def basic_consume(self, on_consumeok_callback, consumer_callback, queue='', no_ack=False,
+    def basic_consume(self, consumer_callback, on_consumeok_callback=None, queue='', no_ack=False,
                       exclusive=False, consumer_tag='', arguments=None):
         """Sends the AMQP command Basic.Consume to the broker and binds messages
         for the consumer_tag to the consumer callback. If you do not pass in
@@ -228,14 +228,14 @@ class Channel(object):
 
 
     def _on_consumeok(self, method_frame):
-        print(method_frame)
         consumer_tag = method_frame.method.consumer_tag
         if consumer_tag in self._cancelled:
             self._cancelled.remove(consumer_tag)
 
         self._consumers[consumer_tag] = self.temporary_callback
         self._pending[consumer_tag] = list()
-        self._on_consumeok_callback(consumer_tag)
+        if self._on_consumeok_callback:
+            self._on_consumeok_callback(consumer_tag)
 
     def basic_get(self, callback=None, queue='', no_ack=False):
         """Get a single message from the AMQP broker. The callback method
