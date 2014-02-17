@@ -58,7 +58,7 @@ class ConnectionClosed(AMQPConnectionError):
                                                                self.args[1])
         else:
             return 'The AMQP connection was closed'
-    
+
 
 class AMQPChannelError(AMQPError):
     def __repr__(self):
@@ -67,8 +67,11 @@ class AMQPChannelError(AMQPError):
 
 class ChannelClosed(AMQPChannelError):
     def __repr__(self):
-        return 'The channel was remotely closed (%s) %s' % (self.args[0],
-                                                            self.args[1])
+        if len(self.args) == 2:
+            return 'The channel was remotely closed (%s) %s' % (self.args[0],
+                                                                self.args[1])
+        else:
+            return 'The channel was remotely closed'
 
 
 class DuplicateConsumerTag(AMQPChannelError):
