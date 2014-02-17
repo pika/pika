@@ -53,9 +53,12 @@ class NoFreeChannels(AMQPConnectionError):
 
 class ConnectionClosed(AMQPConnectionError):
     def __repr__(self):
-        return 'The AMQP connection was closed (%s) %s' % (self.args[0],
-                                                           self.args[1])
-
+        if len(self.args) == 2:
+            return 'The AMQP connection was closed (%s) %s' % (self.args[0],
+                                                               self.args[1])
+        else:
+            return 'The AMQP connection was closed'
+    
 
 class AMQPChannelError(AMQPError):
     def __repr__(self):
