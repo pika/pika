@@ -10,6 +10,7 @@ import ssl
 
 from pika import connection
 from pika import exceptions
+from threading import Lock
 
 try:
     SOL_TCP = socket.SOL_TCP
@@ -322,40 +323,46 @@ class BaseConnection(connection.Connection):
             LOGGER.error('Error event %r, %r', events, error)
             self._handle_error(error)
 
+    readLock = Lock()
+    writeLock = Lock()
+
     def _handle_read(self):
         """Read from the socket and call our on_data_available with the data."""
-        try:
-            if self.params.ssl:
-                data = self.socket.read(self._buffer_size)
-            else:
-                data = self.socket.recv(self._buffer_size)
-        except socket.timeout:
-            raise
-        except socket.error as error:
-            return self._handle_error(error)
 
-        # Empty data, should disconnect
-        if not data or data == 0:
-            LOGGER.error('Read empty data, calling disconnect')
-            return self._handle_disconnect()
+        with self.readLock:
+            try:
+                if self.params.ssl:
+                    data = self.socket.read(self._buffer_size)
+                else:
+                    data = self.socket.recv(self._buffer_size)
+            except socket.timeout:
+                raise
+            except socket.error as error:
+                return self._handle_error(error)
 
-        # Pass the data into our top level frame dispatching method
-        self._on_data_available(data)
-        return len(data)
+            # Empty data, should disconnect
+            if not data or data == 0:
+                LOGGER.error('Read empty data, calling disconnect')
+                return self._handle_disconnect()
+
+            # Pass the data into our top level frame dispatching method
+            self._on_data_available(data)
+            return len(data)
 
     def _handle_write(self):
         """Handle any outbound buffer writes that need to take place."""
         total_written = 0
-        if self.outbound_buffer:
-            frame = self.outbound_buffer.popleft()
-            while total_written < len(frame):
-                try:
-                    total_written += self.socket.send(frame[total_written:])
-                except socket.timeout:
-                    raise
-                except socket.error as error:
-                    return self._handle_error(error)
-        return total_written
+        with self.writeLock: 
+            if self.outbound_buffer:
+                frame = self.outbound_buffer.popleft()
+                while total_written < len(frame):
+                    try:
+                        total_written += self.socket.send(frame[total_written:])
+                    except socket.timeout:
+                        raise
+                    except socket.error as error:
+                        return self._handle_error(error)
+            return total_written
 
     def _init_connection_state(self):
         """Initialize or reset all of our internal state variables for a given
