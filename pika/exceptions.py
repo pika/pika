@@ -82,8 +82,7 @@ class DuplicateConsumerTag(AMQPChannelError):
 
 class ConsumerCancelled(AMQPChannelError):
     def __repr__(self):
-        return 'Server cancelled consumer (%s): %s' % (self.args[0].reply_code,
-                                                       self.args[0].reply_text)
+        return 'Server cancelled consumer'
 
 
 class InvalidChannelNumber(AMQPError):
