@@ -11,6 +11,11 @@ import ssl
 from pika import connection
 from pika import exceptions
 
+try:
+    SOL_TCP = socket.SOL_TCP
+except AttributeError:
+    SOL_TCP = 6
+
 LOGGER = logging.getLogger(__name__)
 
 
@@ -155,7 +160,7 @@ class BaseConnection(connection.Connection):
     def _create_and_connect_to_socket(self, sock_addr_tuple):
         """Create socket and connect to it, using SSL if enabled."""
         self.socket = socket.socket(sock_addr_tuple[0], socket.SOCK_STREAM, 0)
-        self.socket.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
+        self.socket.setsockopt(SOL_TCP, socket.TCP_NODELAY, 1)
         self.socket.settimeout(self.params.socket_timeout)
 
         # Wrap socket if using SSL
