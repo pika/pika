@@ -19,7 +19,7 @@ class AMQPObject(object):
                 items.append('%s=%s' % (key, value))
         if not items:
             return "<%s>" % self.NAME
-        return "<%s(%s)>" % (self.NAME, items)
+        return "<%s(%s)>" % (self.NAME, sorted(items))
 
 
 class Class(AMQPObject):
