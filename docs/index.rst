@@ -38,8 +38,6 @@ Using Pika
 - Fix a bug in SelectConnection that did not allow for a IOLoop to be restarted (#337) fix by Ralf Nyrén
 - Fix an issue in BlockingConnection disconnections (#340) fix by Mark Unsworth
 
-
-
 **Other**
 
 - Add NullHandler to prevent logging warnings when not configured (#339) by Cenk Altı

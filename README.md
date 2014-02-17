@@ -63,8 +63,5 @@ And an example of writing a blocking consumer:
  * LibevConnection    - adapter for use with the libev event loop http://libev.schmorp.de
 
 ## License
-Pika is licensed under the MPL, and may also be used under the terms
-of the GPL. The full license text is included with the source code for
-the package in the LICENSE-GPL-2.0 and LICENSE-MPL-Pika files. If you
-have any questions regarding licensing, please contact the RabbitMQ team
-at <info@rabbitmq.com>.
+Pika is licensed under the MPLv2. If you have any questions regarding licensing,
+please contact the RabbitMQ team at <info@rabbitmq.com>.
