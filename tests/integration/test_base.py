@@ -12,7 +12,7 @@ import yaml
 CONFIG = yaml.load(open(os.path.join(os.path.abspath(os.path.dirname(__file__)),
                                      'broker.conf')))
 
-LOGGING_LEVEL = logging.critical
+LOGGING_LEVEL = logging.CRITICAL
 TIMEOUT = 4
 
 
@@ -95,13 +95,10 @@ class TestCase(unittest.TestCase):
 
 class SelectConnectionTestCase(TestCase):
 
-    def start(self, on_connected, on_error, on_closed):
+    def start(self, on_connected):
         """Connect to rabbitmq and start the ioloop
 
         """
         self.connection = pika.SelectConnection(self.parameters,
-                                                on_connected,
-                                                on_error,
-                                                on_closed,
-                                                False)
+                                                on_connected)
         self.connection.ioloop.start()
