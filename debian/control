@@ -10,13 +10,13 @@ Build-Depends: debhelper (>= 7.0.50~),
                python-setuptools
 Standards-Version: 3.9.4
 XS-Python-Version: >=2.6
-XB-Python-Version: ${python:Versions}
 Homepage: http://pika.github.com/
 
 Package: python-pika
 Replaces: python-pika-ssl
 Architecture: all
-Depends: python, ${misc:Depends}
+Depends: ${python:Depends}, ${misc:Depends}
+XB-Python-Version: ${python:Versions}
 Description: AMQP client library
  Pika is a pure-Python implementation of the AMQP-0-9-1 protocol that tries to
  stay fairly independent of the underlying network support library. Pika was

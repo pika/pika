@@ -11,7 +11,6 @@ import platform
 on_rtd = os.environ.get('READTHEDOCS', None) == 'True'
 requirements = list()
 if on_rtd:
-    requirements.append('python >= 2.6')
     requirements.append('tornado')
     requirements.append('twisted')
     requirements.append('pyev')
