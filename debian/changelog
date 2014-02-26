@@ -1,3 +1,10 @@
+python-pika (0.9.13-72) UNRELEASED; urgency=medium
+
+  * Release 0.9.13-72-g40d8731
+  * Release 0.9.13-72-g40d8731
+
+ -- ComodIT <builder-deb@comodit.com>  Tue, 25 Feb 2014 16:51:41 +0100
+
 python-pika (0.9.13-1) unstable; urgency=low
 
   [ Thomas Bechtold ]
