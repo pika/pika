@@ -1,0 +1,19 @@
+set_version()
+{
+    if [ -z $1 ]
+    then
+      VERSION=`git describe --tags  | awk -F"-" '{print $1}'`
+    else
+      VERSION=$1
+    fi
+
+    if [ -z $2 ]
+    then
+      RELEASE=`git describe --tags  | awk -F"-" '{print $2}'`
+    else
+      RELEASE=$2
+    fi
+
+    COMMIT=`git describe --tags  | awk -F"-" '{print $3}'`
+}
+

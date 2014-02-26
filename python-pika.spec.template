@@ -1,0 +1,42 @@
+%{!?python_sitelib: %global python_sitelib %(%{__python} -c "from distutils.sysconfig import get_python_lib; print get_python_lib()")}
+
+
+Name:           python-pika
+Version:        #VERSION#
+Release:        #RELEASE#%{dist}
+Url:            http://pika.readthedocs.org/en/0.9.13
+Summary:        Pika Python AMQP Client Library
+License:        MPL v1.1 and GPL v2.0 or newer
+Group:          Development/Languages/Python
+Source:         %{name}-%{version}-#RELEASE#.tar.gz
+BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
+BuildRequires:  python-devel python-setuptools
+BuildArch:      noarch
+Obsoletes:      python-pika-ssl
+
+%description
+Pika is a pure-Python implementation of the AMQP 0-9-1 protocol that tries to
+stay fairly independent of the underlying network support library. Currently
+pika only supports Python 2.6 and 2.7. Work to support 3.3+ is underway.
+
+%prep
+%setup -q -c
+
+%build
+export CFLAGS="%{optflags}"
+%{__python} setup.py build
+
+%install
+python setup.py install --prefix=%{_prefix} --root=%{buildroot}
+
+%clean
+rm -rf %{buildroot}
+
+%files
+%defattr(-,root,root,-)
+# You may have to add additional files here (documentation and binaries mostly)
+%python_sitelib/pika*
+%python_sitelib/*.egg-info
+
+%changelog
+
