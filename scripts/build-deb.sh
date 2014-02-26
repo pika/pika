@@ -25,6 +25,9 @@ debchange --newversion $VERSION-$RELEASE "$MESSAGE"
 unset DEBEMAIL
 unset DEBFULLNAME
 
+# Move Makefile (integration tests file)
+mv Makefile Makefile.build-deb
+
 # Build package
 DIST_DIR=${TMP_DIR}/dist
 python setup.py sdist --dist-dir=${DIST_DIR}
@@ -37,3 +40,6 @@ make -f debian/rules clean
 find . -name '*.pyc' -delete
 rm -rf *.egg-info
 rm -f $NAME\_$VERSION.$RELEASE.orig.tar.gz
+
+# Move Makefile (integration tests file)
+mv Makefile.build-deb Makefile
