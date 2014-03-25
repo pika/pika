@@ -338,11 +338,6 @@ class BlockingConnection(base_connection.BaseConnection):
             return False
         return self._timeouts[timeout_id]['deadline'] <= time.time()
 
-    def _handle_disconnect(self):
-        """Called internally when the socket is disconnected already"""
-        self._adapter_disconnect()
-        self._on_connection_closed(None, True)
-
     def _handle_read(self):
         """If the ReadPoller says there is data to read, try adn read it in the
         _handle_read of the parent class. Once read, reset the counter that
