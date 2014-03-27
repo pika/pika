@@ -5,6 +5,7 @@ platform pika is running on.
 import logging
 import select
 import time
+from collections import OrderedDict
 
 from pika.adapters.base_connection import BaseConnection
 
@@ -203,7 +204,7 @@ class SelectPoller(object):
         self.events = events
         self.open = True
         self._handler = handler
-        self._timeouts = dict()
+        self._timeouts = OrderedDict()
         self._manage_event_state = state_manager
 
     def add_timeout(self, deadline, callback_method):
