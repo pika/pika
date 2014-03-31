@@ -5,7 +5,6 @@ platform pika is running on.
 import logging
 import select
 import time
-from collections import OrderedDict
 
 from pika.adapters.base_connection import BaseConnection
 
