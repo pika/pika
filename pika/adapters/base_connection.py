@@ -345,6 +345,7 @@ class BaseConnection(connection.Connection):
 
     def _handle_write(self):
         """Handle any outbound buffer writes that need to take place."""
+        bytes_written = 0
         if self.outbound_buffer:
             frame = self.outbound_buffer.popleft()
             try:
