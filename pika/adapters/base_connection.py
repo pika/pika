@@ -357,8 +357,6 @@ class BaseConnection(connection.Connection):
                 except socket.timeout:
                     raise
                 except socket.error as error:
-                    import pdb ; pdb.set_trace()
-                    print "******* SOCKET ERROR THAT I'LL HIDE: %s" % error
                     return self._handle_error(error)
         return total_written
 
