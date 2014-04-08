@@ -361,6 +361,15 @@ class BlockingConnection(base_connection.BaseConnection):
                 LOGGER.critical('Closing connection due to timeout')
             self._on_connection_closed(None, True)
 
+    def _check_state_on_disconnect(self):
+        """Checks closing corner cases to see why we were disconnected and if we should
+        raise exceptions for the anticipated exception types.
+        """
+        super(BlockingConnection, self)._check_state_on_disconnect()
+        if self.is_open:
+            # already logged a warning in the base class, now fire an exception
+            raise exceptions.ConnectionClosed()
+
     def _flush_outbound(self):
         """Flush the outbound socket buffer."""
         if self.outbound_buffer:
