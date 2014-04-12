@@ -91,8 +91,8 @@ class ConnectionTests(unittest.TestCase):
 
     def test_next_channel_number_returns_lowest_unused(self):
         """_next_channel_number must return lowest available channel number"""
-        self.connection._channels = {channel_num: 'channel'
-                                     for channel_num in xrange(1, 50)}
+        for channel_num in xrange(1, 50):
+            self.connection._channels[channel_num] = True
         expectation = random.randint(5, 50)
         del self.connection._channels[expectation]
         self.assertEqual(self.connection._next_channel_number(),
