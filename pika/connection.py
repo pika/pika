@@ -211,7 +211,7 @@ class Parameters(object):
         :raises: TypeError
 
         """
-        if not isinstance(locale, str):
+        if not isinstance(locale, basestring):
             raise TypeError('locale must be a str')
         return True
 
@@ -287,7 +287,7 @@ class Parameters(object):
         :raises: TypeError
 
         """
-        if not isinstance(virtual_host, str):
+        if not isinstance(virtual_host, basestring):
             raise TypeError('virtual_host must be a str')
         return True
 
@@ -357,7 +357,7 @@ class ConnectionParameters(Parameters):
             self.host = host
         if port is not None and self._validate_port(port):
             self.port = port
-        if virtual_host and self._validate_host(virtual_host):
+        if virtual_host and self._validate_virtual_host(virtual_host):
             self.virtual_host = virtual_host
         if credentials and self._validate_credentials(credentials):
             self.credentials = credentials
