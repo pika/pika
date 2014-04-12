@@ -49,8 +49,13 @@ class BaseConnection(connection.Connection):
         :param object ioloop: IOLoop object to use
         :param bool stop_ioloop_on_close: Call ioloop.stop() if disconnected
         :raises: RuntimeError
+        :raises: ValueError
 
         """
+        if parameters and not isinstance(parameters, connection.Parameters):
+            raise ValueError('Expected instance of Parameters, not %r' %
+                             parameters)
+
         # Let the developer know we could not import SSL
         if parameters and parameters.ssl and not ssl:
             raise RuntimeError("SSL specified but it is not available")
