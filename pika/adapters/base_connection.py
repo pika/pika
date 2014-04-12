@@ -345,17 +345,18 @@ class BaseConnection(connection.Connection):
 
     def _handle_write(self):
         """Handle any outbound buffer writes that need to take place."""
-        total_written = 0
+        bytes_written = 0
         if self.outbound_buffer:
             frame = self.outbound_buffer.popleft()
-            while total_written < len(frame):
-                try:
-                    total_written += self.socket.send(frame[total_written:])
-                except socket.timeout:
-                    raise
-                except socket.error as error:
-                    return self._handle_error(error)
-        return total_written
+            try:
+                bytes_written = self.socket.send(frame)
+                if bytes_written < len(frame):
+                    self.outbound_buffer.appendleft(frame[bytes_written:])
+            except socket.timeout:
+                raise
+            except socket.error as error:
+                return self._handle_error(error)
+        return bytes_written
 
     def _init_connection_state(self):
         """Initialize or reset all of our internal state variables for a given
