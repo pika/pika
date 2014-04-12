@@ -104,16 +104,10 @@ consumer.py::
             closed. See the on_connection_closed method.
 
             """
-            # This is the old connection IOLoop instance, stop its ioloop
-            self._connection.ioloop.stop()
-
             if not self._closing:
 
                 # Create a new connection
                 self._connection = self.connect()
-
-                # There is now a new connection, needs a new ioloop to run
-                self._connection.ioloop.start()
 
         def add_on_channel_close_callback(self):
             """This method tells pika to call the on_channel_closed method if
