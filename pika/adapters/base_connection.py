@@ -285,6 +285,9 @@ class BaseConnection(connection.Connection):
             else:
                 LOGGER.error("SSL Socket error on fd %d: %r",
                              self.socket.fileno(), error_value)
+        elif error_code == errno.EPIPE:
+            # Broken pipe, happens when connection reset
+            LOGGER.error("Socket connection was broken")
         else:
             # Haven't run into this one yet, log it.
             LOGGER.error("Socket Error on fd %d: %s",
