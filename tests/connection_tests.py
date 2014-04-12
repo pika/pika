@@ -3,6 +3,7 @@ Tests for pika.connection.Connection
 
 """
 import mock
+import random
 try:
     import unittest2 as unittest
 except ImportError:
@@ -81,3 +82,18 @@ class ConnectionTests(unittest.TestCase):
         method_frame = self.channel._on_close.call_args[0][0]
         self.assertEqual(method_frame.method.reply_code, 0)
         self.assertEqual(method_frame.method.reply_text, 'Undefined')
+
+    @mock.patch('pika.connection.Connection.connect')
+    def test_new_conn_should_use_first_channel(self, connect):
+        """_next_channel_number in new conn should always be 1"""
+        conn = connection.Connection()
+        self.assertEqual(1, conn._next_channel_number())
+
+    def test_next_channel_number_returns_lowest_unused(self):
+        """_next_channel_number must return lowest available channel number"""
+        self.connection._channels = {channel_num: 'channel'
+                                     for channel_num in xrange(1, 50)}
+        expectation = random.randint(5, 50)
+        del self.connection._channels[expectation]
+        self.assertEqual(self.connection._next_channel_number(),
+                         expectation)

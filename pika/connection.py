@@ -1128,9 +1128,8 @@ class Connection(object):
         limit = self.params.channel_max or channel.MAX_CHANNELS
         if len(self._channels) == limit:
             raise exceptions.NoFreeChannels()
-        if not self._channels:
-            return 1
-        return max(self._channels.keys()) + 1
+        return [x + 1 for x in sorted(self._channels.keys() or [0])
+                if x + 1 not in self._channels.keys()][0]
 
     def _on_channel_closeok(self, method_frame):
         """Remove the channel from the dict of channels when Channel.CloseOk is
