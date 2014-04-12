@@ -18,7 +18,7 @@ Example::
         pass
 
     # Create our connection object, passing in the on_open method
-    connection = pika.SelectConnection(on_open)
+    connection = pika.SelectConnection(on_open_callback=on_open)
 
     try:
         # Loop so we can communicate with RabbitMQ
@@ -125,4 +125,3 @@ Example::
 .. rubric:: Footnotes
 
 .. [#f1] "more effective flow control mechanism that does not require cooperation from clients and reacts quickly to prevent the broker from exhausing memory - see http://www.rabbitmq.com/extensions.html#memsup" from http://lists.rabbitmq.com/pipermail/rabbitmq-announce/attachments/20100825/2c672695/attachment.txt
-
