@@ -81,3 +81,14 @@ class ConnectionTests(unittest.TestCase):
         method_frame = self.channel._on_close.call_args[0][0]
         self.assertEqual(method_frame.method.reply_code, 0)
         self.assertEqual(method_frame.method.reply_text, 'Undefined')
+
+    def test_next_channel_number(self):
+        """_next_channel_number must return lowest available channel number"""
+        self.connection._channels = {}
+        self.assertEqual(1, self.connection._next_channel_number(), 'first channel must be number 1')
+        for i in xrange(1, 50):
+            self.connection._channels = {channel_num: 'channel' for channel_num in xrange(1, 50)}
+            self.connection._channels.pop(i)
+            next_number = self.connection._next_channel_number()
+            self.assertEqual(i, next_number,
+                             'Channel number %i was released, but %i returned' % (i, next_number))
