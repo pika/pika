@@ -5,7 +5,6 @@ implementing the methods and behaviors for an AMQP Channel.
 import collections
 import logging
 import warnings
-import uuid
 
 import pika.frame as frame
 import pika.exceptions as exceptions
@@ -57,6 +56,9 @@ class Channel(object):
         self._on_openok_callback = on_open_callback
         self._pending = dict()
         self._state = self.CLOSED
+        self._consumer_callback = None
+        self._on_consumeok_callback = None
+        self.temporary_callback = None
 
     def __int__(self):
         """Return the channel object as its channel number
@@ -180,8 +182,8 @@ class Channel(object):
                   [(spec.Basic.CancelOk,
                     {'consumer_tag': consumer_tag})] if nowait is False else [])
 
-    def basic_consume(self, consumer_callback, queue='', no_ack=False,
-                      exclusive=False, consumer_tag=None, arguments=None):
+    def basic_consume(self, consumer_callback, on_consumeok_callback=None, queue='', no_ack=False,
+                      exclusive=False, consumer_tag='', arguments=None):
         """Sends the AMQP command Basic.Consume to the broker and binds messages
         for the consumer_tag to the consumer callback. If you do not pass in
         a consumer_tag, one will be automatically generated for you. Returns
@@ -201,27 +203,39 @@ class Channel(object):
         :rtype: str
 
         """
+        self.temporary_callback = consumer_callback
+        self._on_consumeok_callback = on_consumeok_callback
         self._validate_channel_and_callback(consumer_callback)
 
         # If a consumer tag was not passed, create one
-        consumer_tag = consumer_tag or 'ctag%i.%s' % (self.channel_number,
-                                                      uuid.uuid4().get_hex())
+        # consumer_tag = consumer_tag or 'ctag%i.%s' % (self.channel_number,
+        #                                               uuid.uuid4().get_hex())
 
-        if consumer_tag in self._consumers or consumer_tag in self._cancelled:
-            raise exceptions.DuplicateConsumerTag(consumer_tag)
-
-        self._consumers[consumer_tag] = consumer_callback
-        self._pending[consumer_tag] = list()
+        # if consumer_tag in self._cancelled:
+        #     self._cancelled.remove(consumer_tag)
+        #
+        # self._consumers[consumer_tag] = consumer_callback
+        # self._pending[consumer_tag] = list()
         self._rpc(spec.Basic.Consume(queue=queue,
                                      consumer_tag=consumer_tag,
                                      no_ack=no_ack,
                                      exclusive=exclusive,
                                      arguments=arguments or dict()),
-                           self._on_eventok,
-                           [(spec.Basic.ConsumeOk,
-                             {'consumer_tag': consumer_tag})])
+                           self._on_consumeok,
+                           [(spec.Basic.ConsumeOk)])
 
         return consumer_tag
+
+
+    def _on_consumeok(self, method_frame):
+        consumer_tag = method_frame.method.consumer_tag
+        if consumer_tag in self._cancelled:
+            self._cancelled.remove(consumer_tag)
+
+        self._consumers[consumer_tag] = self.temporary_callback
+        self._pending[consumer_tag] = list()
+        if self._on_consumeok_callback:
+            self._on_consumeok_callback(consumer_tag)
 
     def basic_get(self, callback=None, queue='', no_ack=False):
         """Get a single message from the AMQP broker. The callback method
@@ -400,7 +414,7 @@ class Channel(object):
         """
         self._validate_channel_and_callback(callback)
         if (self.connection.publisher_confirms is False or
-            self.connection.basic_nack is False):
+                    self.connection.basic_nack is False):
             raise exceptions.MethodNotImplemented('Not Supported on Server')
 
         # Add the ack and nack callbacks
@@ -745,7 +759,7 @@ class Channel(object):
                            self._on_close,
                            True)
 
-    def _add_pending_msg(self, consumer_tag, method_frame,  header_frame, body):
+    def _add_pending_msg(self, consumer_tag, method_frame, header_frame, body):
         """Add the received message to the pending message stack.
 
         :param str consumer_tag: The consumer tag for the message
@@ -1081,12 +1095,12 @@ class Channel(object):
             raise ValueError('callback must be a function or method')
 
 
-
 class ContentFrameDispatcher(object):
     """Handle content related frames, building a message and return the message
     back in three parts upon receipt.
 
     """
+
     def __init__(self, force_binary):
         """Create a new instance of the Dispatcher passing in the callback
         manager.
@@ -1107,7 +1121,7 @@ class ContentFrameDispatcher(object):
 
         """
         if (isinstance(frame_value, frame.Method) and
-            spec.has_content(frame_value.method.INDEX)):
+                spec.has_content(frame_value.method.INDEX)):
             self._method_frame = frame_value
         elif isinstance(frame_value, frame.Header):
             self._header_frame = frame_value
