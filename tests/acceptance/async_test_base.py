@@ -8,7 +8,7 @@ import pika
 
 LOGGER = logging.getLogger(__name__)
 PARAMETERS = pika.URLParameters('amqp://guest:guest@localhost:5672/%2f')
-DEFAULT_TIMEOUT = 15
+DEFAULT_TIMEOUT = 30
 
 
 class AsyncTestCase(unittest.TestCase):
@@ -70,7 +70,6 @@ class BoundQueueTestCase(AsyncTestCase):
 
     def tearDown(self):
         """Cleanup auto-declared queue and exchange"""
-        print "Cleanup time"
         self._cconn = self.ADAPTER(PARAMETERS,
                                    self._on_cconn_open,
                                    self._on_cconn_error,
@@ -124,4 +123,3 @@ class BoundQueueTestCase(AsyncTestCase):
         channel.exchange_delete(None, self.exchange, nowait=True)
         channel.queue_delete(None, self.queue, nowait=True)
         self._cconn.close()
-        print "Cleanup Finished"

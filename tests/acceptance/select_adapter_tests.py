@@ -329,7 +329,7 @@ class TestZ_PublishAndConsumeBig(BoundQueueTestCase):
         self.channel.basic_cancel(self.on_cancelled, self.ctag)
 
     def start_test(self):
-        """SelectConnection should publish a message and consume it"""
+        """SelectConnection should publish a big message and consume it"""
         self.start()
 
 
