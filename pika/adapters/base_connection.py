@@ -357,9 +357,8 @@ class BaseConnection(connection.Connection):
         if self.outbound_buffer:
             frame = self.outbound_buffer.popleft()
             try:
-                bytes_written = self.socket.send(frame)
-                if bytes_written < len(frame):
-                    self.outbound_buffer.appendleft(frame[bytes_written:])
+                self.socket.sendall(frame)
+                bytes_written = len(frame)
             except socket.timeout:
                 raise
             except socket.error as error:
