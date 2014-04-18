@@ -10,6 +10,8 @@ import platform
 # Conditionally include additional modules for docs
 on_rtd = os.environ.get('READTHEDOCS', None) == 'True'
 requirements = list()
+requirements.append('openssl')
+
 if on_rtd:
     requirements.append('tornado')
     requirements.append('twisted')
