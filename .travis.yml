@@ -5,7 +5,8 @@ python:
     - pypy
 install:
     - if [[ $TRAVIS_PYTHON_VERSION == '2.6' ]]; then pip install --use-mirrors unittest2; fi
-    - pip install --use-mirrors tornado twisted pyyaml 
+    - apt-get -y install libev
+    - pip install --use-mirrors -r test-requirements.pip
 services:
   - rabbitmq
-script: nosetests tests tests/integration
+script: nosetests -c nose.cfg
