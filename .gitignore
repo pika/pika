@@ -14,3 +14,4 @@ build
 dist
 docs/_build
 *.conf.in
+python-pika.spec

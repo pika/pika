@@ -9,6 +9,8 @@ import os
 # Conditionally include additional modules for docs
 on_rtd = os.environ.get('READTHEDOCS', None) == 'True'
 requirements = list()
+requirements.append('openssl')
+
 if on_rtd:
     requirements.append('tornado')
     requirements.append('twisted')
@@ -41,8 +43,6 @@ setup(name='pika',
           'License :: OSI Approved :: Mozilla Public License 1.1 (MPL 1.1)',
           'Natural Language :: English',
           'Operating System :: OS Independent',
-          'Programming Language :: Python :: 2.6',
-          'Programming Language :: Python :: 2.7',
           'Programming Language :: Python :: Implementation :: CPython',
           'Programming Language :: Python :: Implementation :: Jython',
           'Programming Language :: Python :: Implementation :: PyPy',
