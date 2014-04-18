@@ -5,7 +5,7 @@ python:
     - pypy
 before_install:
   - sudo apt-get update -qq
-  - sudo apt-get install -y libev
+  - sudo apt-get install -y libev-dev
 install:
     - if [[ $TRAVIS_PYTHON_VERSION == '2.6' ]]; then pip install --use-mirrors unittest2; fi
     - pip install --use-mirrors -r test-requirements.pip
