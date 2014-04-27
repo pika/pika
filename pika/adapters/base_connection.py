@@ -49,8 +49,13 @@ class BaseConnection(connection.Connection):
         :param object ioloop: IOLoop object to use
         :param bool stop_ioloop_on_close: Call ioloop.stop() if disconnected
         :raises: RuntimeError
+        :raises: ValueError
 
         """
+        if parameters and not isinstance(parameters, connection.Parameters):
+            raise ValueError('Expected instance of Parameters, not %r' %
+                             parameters)
+
         # Let the developer know we could not import SSL
         if parameters and parameters.ssl and not ssl:
             raise RuntimeError("SSL specified but it is not available")
@@ -285,6 +290,9 @@ class BaseConnection(connection.Connection):
             else:
                 LOGGER.error("SSL Socket error on fd %d: %r",
                              self.socket.fileno(), error_value)
+        elif error_code == errno.EPIPE:
+            # Broken pipe, happens when connection reset
+            LOGGER.error("Socket connection was broken")
         else:
             # Haven't run into this one yet, log it.
             LOGGER.error("Socket Error on fd %d: %s",
@@ -345,17 +353,17 @@ class BaseConnection(connection.Connection):
 
     def _handle_write(self):
         """Handle any outbound buffer writes that need to take place."""
-        total_written = 0
+        bytes_written = 0
         if self.outbound_buffer:
             frame = self.outbound_buffer.popleft()
-            while total_written < len(frame):
-                try:
-                    total_written += self.socket.send(frame[total_written:])
-                except socket.timeout:
-                    raise
-                except socket.error as error:
-                    return self._handle_error(error)
-        return total_written
+            try:
+                self.socket.sendall(frame)
+                bytes_written = len(frame)
+            except socket.timeout:
+                raise
+            except socket.error as error:
+                return self._handle_error(error)
+        return bytes_written
 
     def _init_connection_state(self):
         """Initialize or reset all of our internal state variables for a given

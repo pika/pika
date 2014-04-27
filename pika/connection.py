@@ -211,7 +211,7 @@ class Parameters(object):
         :raises: TypeError
 
         """
-        if not isinstance(locale, str):
+        if not isinstance(locale, basestring):
             raise TypeError('locale must be a str')
         return True
 
@@ -287,7 +287,7 @@ class Parameters(object):
         :raises: TypeError
 
         """
-        if not isinstance(virtual_host, str):
+        if not isinstance(virtual_host, basestring):
             raise TypeError('virtual_host must be a str')
         return True
 
@@ -357,7 +357,7 @@ class ConnectionParameters(Parameters):
             self.host = host
         if port is not None and self._validate_port(port):
             self.port = port
-        if virtual_host and self._validate_host(virtual_host):
+        if virtual_host and self._validate_virtual_host(virtual_host):
             self.virtual_host = virtual_host
         if credentials and self._validate_credentials(credentials):
             self.credentials = credentials
@@ -1128,9 +1128,8 @@ class Connection(object):
         limit = self.params.channel_max or channel.MAX_CHANNELS
         if len(self._channels) == limit:
             raise exceptions.NoFreeChannels()
-        if not self._channels:
-            return 1
-        return max(self._channels.keys()) + 1
+        return [x + 1 for x in sorted(self._channels.keys() or [0])
+                if x + 1 not in self._channels.keys()][0]
 
     def _on_channel_closeok(self, method_frame):
         """Remove the channel from the dict of channels when Channel.CloseOk is

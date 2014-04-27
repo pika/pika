@@ -4,8 +4,8 @@ python:
     - 2.7
     - pypy
 install:
-    - if [[ $TRAVIS_PYTHON_VERSION == '2.6' ]]; then pip install --use-mirrors unittest2; fi
-    - pip install --use-mirrors tornado twisted pyyaml 
+    - if [[ $TRAVIS_PYTHON_VERSION == '2.6' ]]; then pip install unittest2; fi
+    - pip install --use-mirrors -r test-requirements.pip
 services:
   - rabbitmq
-script: nosetests tests tests/integration
+script: nosetests -c nose.cfg

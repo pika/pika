@@ -44,7 +44,8 @@ class SelectConnection(BaseConnection):
 
         """
         ioloop = IOLoop(self._manage_event_state)
-        super(SelectConnection, self).__init__(parameters, on_open_callback,
+        super(SelectConnection, self).__init__(parameters,
+                                               on_open_callback,
                                                on_open_error_callback,
                                                on_close_callback,
                                                ioloop,

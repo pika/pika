@@ -5,7 +5,6 @@
 # ***** END LICENSE BLOCK *****
 from setuptools import setup
 import os
-import platform
 
 # Conditionally include additional modules for docs
 on_rtd = os.environ.get('READTHEDOCS', None) == 'True'
@@ -15,12 +14,6 @@ if on_rtd:
     requirements.append('twisted')
     requirements.append('pyev')
 
-# Conditional include unittest2 for versions of python < 2.7
-tests_require = ['nose', 'mock', 'pyyaml']
-platform_version = list(platform.python_version_tuple())[0:2]
-if platform_version[0] != '3' and platform_version != ['2', '7']:
-    tests_require.append('unittest2')
-
 long_description = ('Pika is a pure-Python implementation of the AMQP 0-9-1 '
                     'protocol that tries to stay fairly independent of the '
                     'underlying network support  library. Pika was developed '
@@ -28,7 +21,7 @@ long_description = ('Pika is a pure-Python implementation of the AMQP 0-9-1 '
                     'with other AMQP 0-9-1 brokers.')
 
 setup(name='pika',
-      version='0.9.14p1',
+      version='0.9.14p2',
       description='Pika Python AMQP Client Library',
       long_description=long_description,
       maintainer='Gavin M. Roy',
@@ -37,11 +30,10 @@ setup(name='pika',
       packages=['pika', 'pika.adapters'],
       license='MPL v2.0',
       install_requires=requirements,
+      package_data={'': ['LICENSE', 'README.md']},
       extras_require={'tornado': ['tornado'],
                       'twisted': ['twisted'],
                       'libev': ['pyev']},
-      tests_require=tests_require,
-      test_suite='nose.collector',
       classifiers=[
           'Development Status :: 5 - Production/Stable',
           'Intended Audience :: Developers',

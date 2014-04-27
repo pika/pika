@@ -338,11 +338,6 @@ class BlockingConnection(base_connection.BaseConnection):
             return False
         return self._timeouts[timeout_id]['deadline'] <= time.time()
 
-    def _handle_disconnect(self):
-        """Called internally when the socket is disconnected already"""
-        self._adapter_disconnect()
-        self._on_connection_closed(None, True)
-
     def _handle_read(self):
         """If the ReadPoller says there is data to read, try adn read it in the
         _handle_read of the parent class. Once read, reset the counter that
@@ -365,6 +360,15 @@ class BlockingConnection(base_connection.BaseConnection):
             if not self.is_closing:
                 LOGGER.critical('Closing connection due to timeout')
             self._on_connection_closed(None, True)
+
+    def _check_state_on_disconnect(self):
+        """Checks closing corner cases to see why we were disconnected and if we should
+        raise exceptions for the anticipated exception types.
+        """
+        super(BlockingConnection, self)._check_state_on_disconnect()
+        if self.is_open:
+            # already logged a warning in the base class, now fire an exception
+            raise exceptions.ConnectionClosed()
 
     def _flush_outbound(self):
         """Flush the outbound socket buffer."""
