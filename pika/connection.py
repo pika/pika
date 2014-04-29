@@ -1,12 +1,17 @@
 """Core connection objects"""
 import ast
+import sys
 import collections
 import logging
 import math
 import platform
 import urllib
-import urlparse
 import warnings
+
+if sys.version_info > (3,):
+    import urllib.parse as urlparse
+else:
+    import urlparse
 
 from pika import __version__
 from pika import callback
