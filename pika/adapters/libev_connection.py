@@ -3,6 +3,7 @@ import pyev
 import signal
 import array
 import logging
+import warnings
 from collections import deque
 
 from pika.adapters.base_connection import BaseConnection
@@ -79,7 +80,8 @@ class LibevConnection(BaseConnection):
     ] = BaseConnection.READ|BaseConnection.WRITE
     
     def __init__(
-        self, parameters=None,
+        self, 
+        parameters=None,
         on_open_callback=None,
         on_open_error_callback=None,
         on_close_callback=None,
@@ -102,7 +104,13 @@ class LibevConnection(BaseConnection):
         :type on_signal_callback: method
 
         """
-        self.ioloop = custom_ioloop or pyev.default_loop()
+        if custom_ioloop:
+            self.ioloop = custom_ioloop
+        else:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", RuntimeWarning)
+                self.ioloop = pyev.default_loop()
+                
         self.async = None
         self._on_signal_callback = on_signal_callback
         self._io_watcher = None
@@ -185,14 +193,15 @@ class LibevConnection(BaseConnection):
         LOGGER.debug('SIGTERM')
         self._on_signal_callback('SIGTERM')
 
-    def _handle_events(self, io_watcher, libev_events):
+    def _handle_events(self, io_watcher, libev_events, **kwargs):
         """Handle IO events by efficiently translating to BaseConnection
         events and calling super.
 
         """
         super(LibevConnection, self)._handle_events(
             io_watcher.fd, 
-            self._LIBEV_TO_PIKA_ARRAY[libev_events]
+            self._LIBEV_TO_PIKA_ARRAY[libev_events],
+            **kwargs
         )
 
     def _manage_event_state(self):
