@@ -4,10 +4,8 @@ python:
     - 2.7
     - pypy
 before_install:
-    - sudo dpkg -i debs/locales-all_2.18-4_amd64.deb
-    - sudo dpkg --auto-deconfigure -i debs/libc6_2.18-4_amd64.deb
-    - sudo dpkg -i debs/libev4_4.15-3_amd64.deb
-    - sudo dpkg -i debs/libev-dev_4.15-3_amd64.deb
+    - sudo apt-get update -qq
+    - sudo apt-get install libev-dev/trusty
 install:
     - if [[ $TRAVIS_PYTHON_VERSION == '2.6' ]]; then pip install unittest2; fi
     - pip install --use-mirrors -r test-requirements.pip
