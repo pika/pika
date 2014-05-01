@@ -1,12 +1,13 @@
-import time
-
-import async_test_base
-
-from pika import adapters
-from pika import spec
-
 import sys
 if sys.version_info[:2] == (2,7) and not getattr(sys, 'pypy_version_info', None):
+    
+    import time
+
+    import async_test_base
+
+    from pika import adapters
+    from pika import spec
+
     class AsyncTestCase(async_test_base.AsyncTestCase):
         ADAPTER = adapters.LibevConnection
 
