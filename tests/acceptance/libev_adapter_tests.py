@@ -6,7 +6,7 @@ from pika import adapters
 from pika import spec
 
 import sys
-if sys.version_info[:2] == (2,7) and not sys.executable.split('/')[-1] == 'pypy':
+if sys.version_info[:2] == (2,7) and not getattr(sys, 'pypy_version_info', None):
     class AsyncTestCase(async_test_base.AsyncTestCase):
         ADAPTER = adapters.LibevConnection
 
