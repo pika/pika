@@ -10,6 +10,7 @@ before_install:
     - sudo apt-get install libev-dev/trusty
 install:
     - if [[ $TRAVIS_PYTHON_VERSION == '2.6' ]]; then pip install unittest2; fi
+    - if [[ $TRAVIS_PYTHON_VERSION == '2.7' ]]; then pip install pyev; fi
     - pip install --use-mirrors -r test-requirements.pip
 services:
   - rabbitmq

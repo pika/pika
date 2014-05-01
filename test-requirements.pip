@@ -2,4 +2,3 @@ mock
 nose
 tornado
 twisted
-pyev
