@@ -1,6 +1,6 @@
 # Pika, an AMQP 0-9-1 client library for Python
 
-[![PyPI version](https://badge.fury.io/py/pika.png)](http://badge.fury.io/py/pika) [![Downloads](https://pypip.in/d/pika/badge.png)](https://crate.io/packages/pika) [![Build Status](https://travis-ci.org/pika/pika.png?branch=master)](https://travis-ci.org/pika/pika)
+|Version| |Downloads| |Status| |Coverage| |License|
 
 ## Introduction
 Pika is a pure-Python implementation of the AMQP 0-9-1 protocol that tries
@@ -65,3 +65,19 @@ And an example of writing a blocking consumer:
 ## License
 Pika is licensed under the MPLv2. If you have any questions regarding licensing,
 please contact the RabbitMQ team at <info@rabbitmq.com>.
+
+
+.. |Version| image:: https://badge.fury.io/py/pika.svg?
+   :target: http://badge.fury.io/py/pika
+
+.. |Status| image:: https://travis-ci.org/pika/pika.svg?branch=master
+   :target: https://travis-ci.org/pika/pika
+
+.. |Coverage| image:: https://coveralls.io/repos/pika/pika/badge.png
+   :target: https://coveralls.io/r/pika/pika
+  
+.. |Downloads| image:: https://pypip.in/d/pika/badge.svg?
+   :target: https://pypi.python.org/pypi/pika
+   
+.. |License| image:: https://pypip.in/license/pika/badge.svg?
+   :target: https://pika.readthedocs.org
