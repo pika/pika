@@ -108,7 +108,7 @@ class BoundQueueTestCase(AsyncTestCase):
     def on_ready(self, frame):
         raise NotImplementedError
 
-    def _on_cconn_closed(self, cconn):
+    def _on_cconn_closed(self, cconn, *args, **kwargs):
         cconn.ioloop.stop()
         self._cconn = None
 

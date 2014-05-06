@@ -3,6 +3,7 @@ import pyev
 import signal
 import array
 import logging
+import warnings
 from collections import deque
 
 from pika.adapters.base_connection import BaseConnection
@@ -79,7 +80,8 @@ class LibevConnection(BaseConnection):
     ] = BaseConnection.READ|BaseConnection.WRITE
     
     def __init__(
-        self, parameters=None,
+        self, 
+        parameters=None,
         on_open_callback=None,
         on_open_error_callback=None,
         on_close_callback=None,
@@ -102,7 +104,14 @@ class LibevConnection(BaseConnection):
         :type on_signal_callback: method
 
         """
-        self.ioloop = custom_ioloop or pyev.default_loop()
+        if custom_ioloop:
+            self.ioloop = custom_ioloop
+        else:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", RuntimeWarning)
+                self.ioloop = pyev.default_loop()
+                
+        self.async = None
         self._on_signal_callback = on_signal_callback
         self._io_watcher = None
         self._active_timers = {}
@@ -148,7 +157,8 @@ class LibevConnection(BaseConnection):
                     self._PIKA_TO_LIBEV_ARRAY[self.event_state],
                     self._handle_events
                 )
-            
+                
+            self.async = pyev.Async(self.ioloop, self._handle_events)
             if self._on_signal_callback: global_sigterm_watcher.start()
             if self._on_signal_callback: global_sigint_watcher.start()
             self._io_watcher.start()
@@ -183,14 +193,15 @@ class LibevConnection(BaseConnection):
         LOGGER.debug('SIGTERM')
         self._on_signal_callback('SIGTERM')
 
-    def _handle_events(self, io_watcher, libev_events):
+    def _handle_events(self, io_watcher, libev_events, **kwargs):
         """Handle IO events by efficiently translating to BaseConnection
         events and calling super.
 
         """
         super(LibevConnection, self)._handle_events(
             io_watcher.fd, 
-            self._LIBEV_TO_PIKA_ARRAY[libev_events]
+            self._LIBEV_TO_PIKA_ARRAY[libev_events],
+            **kwargs
         )
 
     def _manage_event_state(self):
@@ -223,8 +234,14 @@ class LibevConnection(BaseConnection):
 
     def _timer_callback(self, timer, libev_events):
         """Manage timer callbacks indirectly."""
-        if timer in self._active_timers: 
-            self._active_timers[timer]()
+        if timer in self._active_timers:
+            callback_method, callback_timeout, kwargs = self._active_timers[timer]
+            
+            if callback_timeout:
+                callback_method(timeout=timer, **kwargs)
+            else:
+                callback_method(**kwargs)
+            
             self.remove_timeout(timer)
         else:
             LOGGER.warning('Timer callback_method not found')
@@ -239,18 +256,20 @@ class LibevConnection(BaseConnection):
             
         return timer
 
-    def add_timeout(self, deadline, callback_method):
+    def add_timeout(self, deadline, callback_method, callback_timeout=False, **callback_kwargs):
         """Add the callback_method indirectly to the IOLoop timer to fire
          after deadline seconds. Returns the timer handle.
         
         :param int deadline: The number of seconds to wait to call callback
         :param method callback_method: The callback method
+        :param boolean callback_timeout: Whether timeout kwarg should be passed on callback
+        :param kwargs callback_kwargs: additional kwargs to pass on callback
         :rtype: timer instance handle.
 
         """
         LOGGER.debug('deadline: {0}'.format(deadline))
         timer = self._get_timer(deadline)
-        self._active_timers[timer] = callback_method
+        self._active_timers[timer] = (callback_method, callback_timeout, callback_kwargs)
         timer.start()
         return timer
         
