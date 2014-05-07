@@ -193,10 +193,6 @@ def decode_value(encoded, offset):
         length = struct.unpack_from('B', encoded, offset)[0]
         offset += 1
         value = encoded[offset: offset + length].decode('utf8')
-        try:
-            value = str(value)
-        except UnicodeEncodeError:
-            pass
         offset += length
 
     # Long String
@@ -204,10 +200,6 @@ def decode_value(encoded, offset):
         length = struct.unpack_from('>I', encoded, offset)[0]
         offset += 4
         value = encoded[offset: offset + length].decode('utf8')
-        try:
-            value = str(value)
-        except UnicodeEncodeError:
-            pass
         offset += length
 
     # Field Array
