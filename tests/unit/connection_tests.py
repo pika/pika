@@ -17,9 +17,11 @@ from pika import credentials
 from pika import frame
 from pika import spec
 
-def my_callback_method():
+
+def callback_method():
     """Callback method to use in tests"""
     pass
+
 
 class ConnectionTests(unittest.TestCase):
 
@@ -126,28 +128,27 @@ class ConnectionTests(unittest.TestCase):
                  self.connection.ON_CONNECTION_CLOSED)
                 ):
             self.connection.callbacks.reset_mock()
-            test_method(my_callback_method)
+            test_method(callback_method)
             self.connection.callbacks.add.assert_called_once_with(0,
-                expected_key, my_callback_method, False)
+                expected_key, callback_method, False)
 
     def test_add_on_close_callback(self):
         """make sure the add on close callback is added"""
         self.connection.callbacks = mock.Mock(spec=self.connection.callbacks)
-        self.connection.add_on_open_callback(my_callback_method)
+        self.connection.add_on_open_callback(callback_method)
         self.connection.callbacks.add.assert_called_once_with(0,
-            self.connection.ON_CONNECTION_OPEN, my_callback_method,
-            False)
+            self.connection.ON_CONNECTION_OPEN, callback_method, False)
 
     def test_add_on_open_error_callback(self):
         """make sure the add on open error callback is added"""
         self.connection.callbacks = mock.Mock(spec=self.connection.callbacks)
         #Test with remove default first (also checks default is True)
-        self.connection.add_on_open_error_callback(my_callback_method)
+        self.connection.add_on_open_error_callback(callback_method)
         self.connection.callbacks.remove.assert_called_once_with(
             0, self.connection.ON_CONNECTION_ERROR,
             self.connection._on_connection_error)
         self.connection.callbacks.add.assert_called_once_with(0,
-            self.connection.ON_CONNECTION_ERROR, my_callback_method,
+            self.connection.ON_CONNECTION_ERROR, callback_method,
             False)
 
     def test_channel(self):
@@ -156,10 +157,10 @@ class ConnectionTests(unittest.TestCase):
         test_channel = mock.Mock(spec=channel.Channel)
         self.connection._create_channel = mock.Mock(return_value=test_channel)
         self.connection._add_channel_callbacks = mock.Mock()
-        ret_channel = self.connection.channel(my_callback_method)
+        ret_channel = self.connection.channel(callback_method)
         self.assertEqual(test_channel, ret_channel)
-        self.connection._create_channel.assert_called_once_with(
-            42, my_callback_method, False)
+        self.connection._create_channel.assert_called_once_with(42,
+                                                                callback_method)
         self.connection._add_channel_callbacks.assert_called_once_with(42)
         test_channel.open.assert_called_once_with()
 
