@@ -73,7 +73,7 @@ class Connection(amqp_object.Class):
             (self.server_properties, offset) = data.decode_table(encoded, offset)
             length = struct.unpack_from('>I', encoded, offset)[0]
             offset += 4
-            self.mechanisms = encoded[offset:offset + length].decode('utf8')
+            self.mechanisms = encoded[offset:offset + length]
             try:
                 self.mechanisms = str(self.mechanisms)
             except UnicodeEncodeError:
@@ -81,7 +81,7 @@ class Connection(amqp_object.Class):
             offset += length
             length = struct.unpack_from('>I', encoded, offset)[0]
             offset += 4
-            self.locales = encoded[offset:offset + length].decode('utf8')
+            self.locales = encoded[offset:offset + length]
             try:
                 self.locales = str(self.locales)
             except UnicodeEncodeError:
@@ -125,7 +125,7 @@ class Connection(amqp_object.Class):
             (self.client_properties, offset) = data.decode_table(encoded, offset)
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.mechanism = encoded[offset:offset + length].decode('utf8')
+            self.mechanism = encoded[offset:offset + length]
             try:
                 self.mechanism = str(self.mechanism)
             except UnicodeEncodeError:
@@ -133,7 +133,7 @@ class Connection(amqp_object.Class):
             offset += length
             length = struct.unpack_from('>I', encoded, offset)[0]
             offset += 4
-            self.response = encoded[offset:offset + length].decode('utf8')
+            self.response = encoded[offset:offset + length]
             try:
                 self.response = str(self.response)
             except UnicodeEncodeError:
@@ -141,7 +141,7 @@ class Connection(amqp_object.Class):
             offset += length
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.locale = encoded[offset:offset + length].decode('utf8')
+            self.locale = encoded[offset:offset + length]
             try:
                 self.locale = str(self.locale)
             except UnicodeEncodeError:
@@ -184,7 +184,7 @@ class Connection(amqp_object.Class):
         def decode(self, encoded, offset=0):
             length = struct.unpack_from('>I', encoded, offset)[0]
             offset += 4
-            self.challenge = encoded[offset:offset + length].decode('utf8')
+            self.challenge = encoded[offset:offset + length]
             try:
                 self.challenge = str(self.challenge)
             except UnicodeEncodeError:
@@ -216,7 +216,7 @@ class Connection(amqp_object.Class):
         def decode(self, encoded, offset=0):
             length = struct.unpack_from('>I', encoded, offset)[0]
             offset += 4
-            self.response = encoded[offset:offset + length].decode('utf8')
+            self.response = encoded[offset:offset + length]
             try:
                 self.response = str(self.response)
             except UnicodeEncodeError:
@@ -310,7 +310,7 @@ class Connection(amqp_object.Class):
         def decode(self, encoded, offset=0):
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.virtual_host = encoded[offset:offset + length].decode('utf8')
+            self.virtual_host = encoded[offset:offset + length]
             try:
                 self.virtual_host = str(self.virtual_host)
             except UnicodeEncodeError:
@@ -318,7 +318,7 @@ class Connection(amqp_object.Class):
             offset += length
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.capabilities = encoded[offset:offset + length].decode('utf8')
+            self.capabilities = encoded[offset:offset + length]
             try:
                 self.capabilities = str(self.capabilities)
             except UnicodeEncodeError:
@@ -362,7 +362,7 @@ class Connection(amqp_object.Class):
         def decode(self, encoded, offset=0):
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.known_hosts = encoded[offset:offset + length].decode('utf8')
+            self.known_hosts = encoded[offset:offset + length]
             try:
                 self.known_hosts = str(self.known_hosts)
             except UnicodeEncodeError:
@@ -399,7 +399,7 @@ class Connection(amqp_object.Class):
             offset += 2
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.reply_text = encoded[offset:offset + length].decode('utf8')
+            self.reply_text = encoded[offset:offset + length]
             try:
                 self.reply_text = str(self.reply_text)
             except UnicodeEncodeError:
@@ -457,7 +457,7 @@ class Connection(amqp_object.Class):
         def decode(self, encoded, offset=0):
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.reason = encoded[offset:offset + length].decode('utf8')
+            self.reason = encoded[offset:offset + length]
             try:
                 self.reason = str(self.reason)
             except UnicodeEncodeError:
@@ -514,7 +514,7 @@ class Channel(amqp_object.Class):
         def decode(self, encoded, offset=0):
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.out_of_band = encoded[offset:offset + length].decode('utf8')
+            self.out_of_band = encoded[offset:offset + length]
             try:
                 self.out_of_band = str(self.out_of_band)
             except UnicodeEncodeError:
@@ -546,7 +546,7 @@ class Channel(amqp_object.Class):
         def decode(self, encoded, offset=0):
             length = struct.unpack_from('>I', encoded, offset)[0]
             offset += 4
-            self.channel_id = encoded[offset:offset + length].decode('utf8')
+            self.channel_id = encoded[offset:offset + length]
             try:
                 self.channel_id = str(self.channel_id)
             except UnicodeEncodeError:
@@ -635,7 +635,7 @@ class Channel(amqp_object.Class):
             offset += 2
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.reply_text = encoded[offset:offset + length].decode('utf8')
+            self.reply_text = encoded[offset:offset + length]
             try:
                 self.reply_text = str(self.reply_text)
             except UnicodeEncodeError:
@@ -704,7 +704,7 @@ class Access(amqp_object.Class):
         def decode(self, encoded, offset=0):
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.realm = encoded[offset:offset + length].decode('utf8')
+            self.realm = encoded[offset:offset + length]
             try:
                 self.realm = str(self.realm)
             except UnicodeEncodeError:
@@ -793,7 +793,7 @@ class Exchange(amqp_object.Class):
             offset += 2
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.exchange = encoded[offset:offset + length].decode('utf8')
+            self.exchange = encoded[offset:offset + length]
             try:
                 self.exchange = str(self.exchange)
             except UnicodeEncodeError:
@@ -801,7 +801,7 @@ class Exchange(amqp_object.Class):
             offset += length
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.type = encoded[offset:offset + length].decode('utf8')
+            self.type = encoded[offset:offset + length]
             try:
                 self.type = str(self.type)
             except UnicodeEncodeError:
@@ -884,7 +884,7 @@ class Exchange(amqp_object.Class):
             offset += 2
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.exchange = encoded[offset:offset + length].decode('utf8')
+            self.exchange = encoded[offset:offset + length]
             try:
                 self.exchange = str(self.exchange)
             except UnicodeEncodeError:
@@ -953,7 +953,7 @@ class Exchange(amqp_object.Class):
             offset += 2
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.destination = encoded[offset:offset + length].decode('utf8')
+            self.destination = encoded[offset:offset + length]
             try:
                 self.destination = str(self.destination)
             except UnicodeEncodeError:
@@ -961,7 +961,7 @@ class Exchange(amqp_object.Class):
             offset += length
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.source = encoded[offset:offset + length].decode('utf8')
+            self.source = encoded[offset:offset + length]
             try:
                 self.source = str(self.source)
             except UnicodeEncodeError:
@@ -969,7 +969,7 @@ class Exchange(amqp_object.Class):
             offset += length
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.routing_key = encoded[offset:offset + length].decode('utf8')
+            self.routing_key = encoded[offset:offset + length]
             try:
                 self.routing_key = str(self.routing_key)
             except UnicodeEncodeError:
@@ -1047,7 +1047,7 @@ class Exchange(amqp_object.Class):
             offset += 2
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.destination = encoded[offset:offset + length].decode('utf8')
+            self.destination = encoded[offset:offset + length]
             try:
                 self.destination = str(self.destination)
             except UnicodeEncodeError:
@@ -1055,7 +1055,7 @@ class Exchange(amqp_object.Class):
             offset += length
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.source = encoded[offset:offset + length].decode('utf8')
+            self.source = encoded[offset:offset + length]
             try:
                 self.source = str(self.source)
             except UnicodeEncodeError:
@@ -1063,7 +1063,7 @@ class Exchange(amqp_object.Class):
             offset += length
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.routing_key = encoded[offset:offset + length].decode('utf8')
+            self.routing_key = encoded[offset:offset + length]
             try:
                 self.routing_key = str(self.routing_key)
             except UnicodeEncodeError:
@@ -1149,7 +1149,7 @@ class Queue(amqp_object.Class):
             offset += 2
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.queue = encoded[offset:offset + length].decode('utf8')
+            self.queue = encoded[offset:offset + length]
             try:
                 self.queue = str(self.queue)
             except UnicodeEncodeError:
@@ -1205,7 +1205,7 @@ class Queue(amqp_object.Class):
         def decode(self, encoded, offset=0):
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.queue = encoded[offset:offset + length].decode('utf8')
+            self.queue = encoded[offset:offset + length]
             try:
                 self.queue = str(self.queue)
             except UnicodeEncodeError:
@@ -1250,7 +1250,7 @@ class Queue(amqp_object.Class):
             offset += 2
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.queue = encoded[offset:offset + length].decode('utf8')
+            self.queue = encoded[offset:offset + length]
             try:
                 self.queue = str(self.queue)
             except UnicodeEncodeError:
@@ -1258,7 +1258,7 @@ class Queue(amqp_object.Class):
             offset += length
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.exchange = encoded[offset:offset + length].decode('utf8')
+            self.exchange = encoded[offset:offset + length]
             try:
                 self.exchange = str(self.exchange)
             except UnicodeEncodeError:
@@ -1266,7 +1266,7 @@ class Queue(amqp_object.Class):
             offset += length
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.routing_key = encoded[offset:offset + length].decode('utf8')
+            self.routing_key = encoded[offset:offset + length]
             try:
                 self.routing_key = str(self.routing_key)
             except UnicodeEncodeError:
@@ -1341,7 +1341,7 @@ class Queue(amqp_object.Class):
             offset += 2
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.queue = encoded[offset:offset + length].decode('utf8')
+            self.queue = encoded[offset:offset + length]
             try:
                 self.queue = str(self.queue)
             except UnicodeEncodeError:
@@ -1409,7 +1409,7 @@ class Queue(amqp_object.Class):
             offset += 2
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.queue = encoded[offset:offset + length].decode('utf8')
+            self.queue = encoded[offset:offset + length]
             try:
                 self.queue = str(self.queue)
             except UnicodeEncodeError:
@@ -1483,7 +1483,7 @@ class Queue(amqp_object.Class):
             offset += 2
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.queue = encoded[offset:offset + length].decode('utf8')
+            self.queue = encoded[offset:offset + length]
             try:
                 self.queue = str(self.queue)
             except UnicodeEncodeError:
@@ -1491,7 +1491,7 @@ class Queue(amqp_object.Class):
             offset += length
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.exchange = encoded[offset:offset + length].decode('utf8')
+            self.exchange = encoded[offset:offset + length]
             try:
                 self.exchange = str(self.exchange)
             except UnicodeEncodeError:
@@ -1499,7 +1499,7 @@ class Queue(amqp_object.Class):
             offset += length
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.routing_key = encoded[offset:offset + length].decode('utf8')
+            self.routing_key = encoded[offset:offset + length]
             try:
                 self.routing_key = str(self.routing_key)
             except UnicodeEncodeError:
@@ -1631,7 +1631,7 @@ class Basic(amqp_object.Class):
             offset += 2
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.queue = encoded[offset:offset + length].decode('utf8')
+            self.queue = encoded[offset:offset + length]
             try:
                 self.queue = str(self.queue)
             except UnicodeEncodeError:
@@ -1639,7 +1639,7 @@ class Basic(amqp_object.Class):
             offset += length
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.consumer_tag = encoded[offset:offset + length].decode('utf8')
+            self.consumer_tag = encoded[offset:offset + length]
             try:
                 self.consumer_tag = str(self.consumer_tag)
             except UnicodeEncodeError:
@@ -1695,7 +1695,7 @@ class Basic(amqp_object.Class):
         def decode(self, encoded, offset=0):
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.consumer_tag = encoded[offset:offset + length].decode('utf8')
+            self.consumer_tag = encoded[offset:offset + length]
             try:
                 self.consumer_tag = str(self.consumer_tag)
             except UnicodeEncodeError:
@@ -1728,7 +1728,7 @@ class Basic(amqp_object.Class):
         def decode(self, encoded, offset=0):
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.consumer_tag = encoded[offset:offset + length].decode('utf8')
+            self.consumer_tag = encoded[offset:offset + length]
             try:
                 self.consumer_tag = str(self.consumer_tag)
             except UnicodeEncodeError:
@@ -1767,7 +1767,7 @@ class Basic(amqp_object.Class):
         def decode(self, encoded, offset=0):
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.consumer_tag = encoded[offset:offset + length].decode('utf8')
+            self.consumer_tag = encoded[offset:offset + length]
             try:
                 self.consumer_tag = str(self.consumer_tag)
             except UnicodeEncodeError:
@@ -1805,7 +1805,7 @@ class Basic(amqp_object.Class):
             offset += 2
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.exchange = encoded[offset:offset + length].decode('utf8')
+            self.exchange = encoded[offset:offset + length]
             try:
                 self.exchange = str(self.exchange)
             except UnicodeEncodeError:
@@ -1813,7 +1813,7 @@ class Basic(amqp_object.Class):
             offset += length
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.routing_key = encoded[offset:offset + length].decode('utf8')
+            self.routing_key = encoded[offset:offset + length]
             try:
                 self.routing_key = str(self.routing_key)
             except UnicodeEncodeError:
@@ -1866,7 +1866,7 @@ class Basic(amqp_object.Class):
             offset += 2
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.reply_text = encoded[offset:offset + length].decode('utf8')
+            self.reply_text = encoded[offset:offset + length]
             try:
                 self.reply_text = str(self.reply_text)
             except UnicodeEncodeError:
@@ -1874,7 +1874,7 @@ class Basic(amqp_object.Class):
             offset += length
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.exchange = encoded[offset:offset + length].decode('utf8')
+            self.exchange = encoded[offset:offset + length]
             try:
                 self.exchange = str(self.exchange)
             except UnicodeEncodeError:
@@ -1882,7 +1882,7 @@ class Basic(amqp_object.Class):
             offset += length
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.routing_key = encoded[offset:offset + length].decode('utf8')
+            self.routing_key = encoded[offset:offset + length]
             try:
                 self.routing_key = str(self.routing_key)
             except UnicodeEncodeError:
@@ -1929,7 +1929,7 @@ class Basic(amqp_object.Class):
         def decode(self, encoded, offset=0):
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.consumer_tag = encoded[offset:offset + length].decode('utf8')
+            self.consumer_tag = encoded[offset:offset + length]
             try:
                 self.consumer_tag = str(self.consumer_tag)
             except UnicodeEncodeError:
@@ -1942,7 +1942,7 @@ class Basic(amqp_object.Class):
             self.redelivered = (bit_buffer & (1 << 0)) != 0
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.exchange = encoded[offset:offset + length].decode('utf8')
+            self.exchange = encoded[offset:offset + length]
             try:
                 self.exchange = str(self.exchange)
             except UnicodeEncodeError:
@@ -1950,7 +1950,7 @@ class Basic(amqp_object.Class):
             offset += length
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.routing_key = encoded[offset:offset + length].decode('utf8')
+            self.routing_key = encoded[offset:offset + length]
             try:
                 self.routing_key = str(self.routing_key)
             except UnicodeEncodeError:
@@ -2001,7 +2001,7 @@ class Basic(amqp_object.Class):
             offset += 2
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.queue = encoded[offset:offset + length].decode('utf8')
+            self.queue = encoded[offset:offset + length]
             try:
                 self.queue = str(self.queue)
             except UnicodeEncodeError:
@@ -2050,7 +2050,7 @@ class Basic(amqp_object.Class):
             self.redelivered = (bit_buffer & (1 << 0)) != 0
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.exchange = encoded[offset:offset + length].decode('utf8')
+            self.exchange = encoded[offset:offset + length]
             try:
                 self.exchange = str(self.exchange)
             except UnicodeEncodeError:
@@ -2058,7 +2058,7 @@ class Basic(amqp_object.Class):
             offset += length
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.routing_key = encoded[offset:offset + length].decode('utf8')
+            self.routing_key = encoded[offset:offset + length]
             try:
                 self.routing_key = str(self.routing_key)
             except UnicodeEncodeError:
@@ -2103,7 +2103,7 @@ class Basic(amqp_object.Class):
         def decode(self, encoded, offset=0):
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.cluster_id = encoded[offset:offset + length].decode('utf8')
+            self.cluster_id = encoded[offset:offset + length]
             try:
                 self.cluster_id = str(self.cluster_id)
             except UnicodeEncodeError:
@@ -2507,7 +2507,7 @@ class BasicProperties(amqp_object.Properties):
         if flags & BasicProperties.FLAG_CONTENT_TYPE:
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.content_type = encoded[offset:offset + length].decode('utf8')
+            self.content_type = encoded[offset:offset + length]
             try:
                 self.content_type = str(self.content_type)
             except UnicodeEncodeError:
@@ -2518,7 +2518,7 @@ class BasicProperties(amqp_object.Properties):
         if flags & BasicProperties.FLAG_CONTENT_ENCODING:
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.content_encoding = encoded[offset:offset + length].decode('utf8')
+            self.content_encoding = encoded[offset:offset + length]
             try:
                 self.content_encoding = str(self.content_encoding)
             except UnicodeEncodeError:
@@ -2543,7 +2543,7 @@ class BasicProperties(amqp_object.Properties):
         if flags & BasicProperties.FLAG_CORRELATION_ID:
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.correlation_id = encoded[offset:offset + length].decode('utf8')
+            self.correlation_id = encoded[offset:offset + length]
             try:
                 self.correlation_id = str(self.correlation_id)
             except UnicodeEncodeError:
@@ -2554,7 +2554,7 @@ class BasicProperties(amqp_object.Properties):
         if flags & BasicProperties.FLAG_REPLY_TO:
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.reply_to = encoded[offset:offset + length].decode('utf8')
+            self.reply_to = encoded[offset:offset + length]
             try:
                 self.reply_to = str(self.reply_to)
             except UnicodeEncodeError:
@@ -2565,7 +2565,7 @@ class BasicProperties(amqp_object.Properties):
         if flags & BasicProperties.FLAG_EXPIRATION:
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.expiration = encoded[offset:offset + length].decode('utf8')
+            self.expiration = encoded[offset:offset + length]
             try:
                 self.expiration = str(self.expiration)
             except UnicodeEncodeError:
@@ -2576,7 +2576,7 @@ class BasicProperties(amqp_object.Properties):
         if flags & BasicProperties.FLAG_MESSAGE_ID:
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.message_id = encoded[offset:offset + length].decode('utf8')
+            self.message_id = encoded[offset:offset + length]
             try:
                 self.message_id = str(self.message_id)
             except UnicodeEncodeError:
@@ -2592,7 +2592,7 @@ class BasicProperties(amqp_object.Properties):
         if flags & BasicProperties.FLAG_TYPE:
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.type = encoded[offset:offset + length].decode('utf8')
+            self.type = encoded[offset:offset + length]
             try:
                 self.type = str(self.type)
             except UnicodeEncodeError:
@@ -2603,7 +2603,7 @@ class BasicProperties(amqp_object.Properties):
         if flags & BasicProperties.FLAG_USER_ID:
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.user_id = encoded[offset:offset + length].decode('utf8')
+            self.user_id = encoded[offset:offset + length]
             try:
                 self.user_id = str(self.user_id)
             except UnicodeEncodeError:
@@ -2614,7 +2614,7 @@ class BasicProperties(amqp_object.Properties):
         if flags & BasicProperties.FLAG_APP_ID:
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.app_id = encoded[offset:offset + length].decode('utf8')
+            self.app_id = encoded[offset:offset + length]
             try:
                 self.app_id = str(self.app_id)
             except UnicodeEncodeError:
@@ -2625,7 +2625,7 @@ class BasicProperties(amqp_object.Properties):
         if flags & BasicProperties.FLAG_CLUSTER_ID:
             length = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.cluster_id = encoded[offset:offset + length].decode('utf8')
+            self.cluster_id = encoded[offset:offset + length]
             try:
                 self.cluster_id = str(self.cluster_id)
             except UnicodeEncodeError:
