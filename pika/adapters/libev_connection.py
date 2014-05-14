@@ -190,11 +190,10 @@ class LibevConnection(BaseConnection):
         events and calling super.
 
         """
-        super(LibevConnection, self)._handle_events(
-            io_watcher.fd, 
-            self._LIBEV_TO_PIKA_ARRAY[libev_events],
-            **kwargs
-        )
+        super(LibevConnection, 
+              self)._handle_events(io_watcher.fd, 
+                                   self._LIBEV_TO_PIKA_ARRAY[libev_events],
+                                   **kwargs)
         
     def _reset_io_watcher(self):
         """Reset the IO watcher; retry as necessary
