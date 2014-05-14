@@ -852,7 +852,6 @@ class Channel(object):
         :param pika.frame.Method method_frame: The CloseOk frame
 
         """
-        LOGGER.warning('Received %s', method_frame.method)
         self._set_state(self.CLOSED)
         self.callbacks.process(self.channel_number,
                                '_on_channel_close',
@@ -871,11 +870,11 @@ class Channel(object):
         :type body: str or unicode
 
         """
-        LOGGER.debug('Called with %r, %r, %r', method_frame, header_frame, body)
         consumer_tag = method_frame.method.consumer_tag
         if consumer_tag in self._cancelled:
-            LOGGER.debug('Rejected message for cancelled consumer')
-            return self.basic_reject(method_frame.method.delivery_tag)
+            if self.is_open:
+                self.basic_reject(method_frame.method.delivery_tag)
+            return
         if consumer_tag not in self._consumers:
             return self._add_pending_msg(consumer_tag, method_frame,
                                          header_frame, body)
