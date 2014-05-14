@@ -1022,16 +1022,6 @@ class ChannelTests(unittest.TestCase):
         debug.assert_called_with('Called with %r, %r, %r', method_value,
                                  header_value, body_value)
 
-    def test_on_deliver_cancelled(self):
-        self.obj._set_state(self.obj.OPEN)
-        consumer_tag = 'ctag0'
-        self.obj._cancelled = [consumer_tag]
-        method_value = frame.Method(1, spec.Basic.Deliver(consumer_tag, 1))
-        header_value = frame.Header(1, 10, spec.BasicProperties())
-        body_value = '0123456789'
-        with mock.patch.object(self.obj, 'basic_reject') as basic_reject:
-            self.obj._on_deliver(method_value, header_value, body_value)
-            basic_reject.assert_called_with(method_value.method.delivery_tag)
 
     def test_on_deliver_pending_called(self):
         self.obj._set_state(self.obj.OPEN)
