@@ -1010,19 +1010,6 @@ class ChannelTests(unittest.TestCase):
         self.obj._on_cancelok(frame_value)
         self.assertNotIn(consumer_tag, self.obj._pending)
 
-    @mock.patch('logging.Logger.debug')
-    def test_on_deliver(self, debug):
-        consumer_tag = 'ctag0'
-        mock_callback = mock.Mock()
-        self.obj._pending[consumer_tag] = mock_callback
-        method_value = frame.Method(1, spec.Basic.Deliver(consumer_tag, 1))
-        header_value = frame.Header(1, 10, spec.BasicProperties())
-        body_value = '0123456789'
-        self.obj._on_deliver(method_value, header_value, body_value)
-        debug.assert_called_with('Called with %r, %r, %r', method_value,
-                                 header_value, body_value)
-
-
     def test_on_deliver_pending_called(self):
         self.obj._set_state(self.obj.OPEN)
         consumer_tag = 'ctag0'
