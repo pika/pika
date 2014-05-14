@@ -153,3 +153,4 @@ class AsyncoreConnection(base_connection.BaseConnection):
             self.ioloop = self.socket
             self._on_connected()
         return error
+
