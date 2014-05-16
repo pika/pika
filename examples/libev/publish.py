@@ -165,6 +165,7 @@ class PublishService(object):
         """
         if self._stopped:
             return
+
         self._stopped = True
         logger.info("Stopping service")
 
@@ -238,6 +239,7 @@ def main(argv=None):
     """
     if argv is None:
         argv = sys.argv
+
     logger.info("Initializing...")
 
     try:

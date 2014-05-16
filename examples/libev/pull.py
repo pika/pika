@@ -128,9 +128,7 @@ class CachePushService(object):
         Set callbacks.
 
         """
-        substitution_args = (
-            message['hash_key'],
-        )
+        substitution_args = (message['hash_key'],) # tuple
 
         try:
             future = self._cql_session.execute_async(
@@ -150,7 +148,7 @@ class CachePushService(object):
 
     def handle_message(self, message, delivery_info, properties):
         """
-        Grab the message and th delivery_tag.
+        Grab the message and the delivery_tag.
 
         """
         self.submit_query(message, delivery_info.delivery_tag)
@@ -170,7 +168,7 @@ class CachePushService(object):
 
     def cleanup_journal(self):
         """
-        The journal queue is waiting for us so we can close this publisher.
+        The journal queue is ready so we can close this publisher.
 
         """
         self._journal.close()
@@ -191,7 +189,7 @@ class CachePushService(object):
     def init_publish(self):
         """
         Get a generic publisher so we can publish directly to the queue
-        dynamically requested in the query.
+        dynamically requested in the query's 'reply_to' property.
 
         """
         self._publish = MessagePublish(
@@ -212,6 +210,7 @@ class CachePushService(object):
         """
         if self._stopped:
             return
+
         self._stopped = True
         raise_exception = False
         logger.info("Stopping service.")
@@ -293,16 +292,18 @@ class CachePushService(object):
         """
         logger.info("Starting service.")
         self.connection()
-
-        if self._rabbit_connection:
-            self._rabbit_connection.ioloop_start()
-
+        self._rabbit_connection.ioloop_start()
         logger.info("Ending service.")
 
 
 def main(argv=None):
+    """
+    Start up. Catch interrupts and exceptions.
+
+    """
     if argv is None:
         argv = sys.argv
+
     logger.info("Initializing...")
 
     try:

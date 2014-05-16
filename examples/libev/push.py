@@ -22,7 +22,6 @@ import uuid
 from time import time
 
 import pyev
-#import cassandra
 from cassandra.cluster import Cluster
 
 import logging
@@ -114,6 +113,7 @@ class CachePushService(object):
         """
         if not self._start_time:
             self._start_time = time()
+
         body = message.pop('body')
 
         substitution_args = (
@@ -169,6 +169,7 @@ class CachePushService(object):
         """
         if self._stopped:
             return
+
         print("PREFETCH_COUNT: {} msgs".format(PREFETCH_COUNT))
         print("MESSAGE_COUNT: {} msgs".format(self._message_count))
 
@@ -263,8 +264,13 @@ class CachePushService(object):
 
 
 def main(argv=None):
+    """
+    Start up. Catch interrupts and exceptions.
+
+    """
     if argv is None:
         argv = sys.argv
+
     logger.info("Initializing...")
 
     try:

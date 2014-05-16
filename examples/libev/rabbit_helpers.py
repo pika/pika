@@ -105,6 +105,7 @@ class RabbitConnection(object):
     def close(self):
         self._logger.debug('')
         self._closing = True  # stop handling any normal stuff
+
         # cancel consumers, close channels, disconnect, stop io_loop
         if self._connection:
             self._connection.close()
@@ -119,7 +120,8 @@ class RabbitConnection(object):
 
         self._logger.warning(
             "{0}: connection closed: ({1}) {2}".format(
-                self._conn_info, reply_code, reply_text)
+                self._conn_info, reply_code, reply_text
+            )
         )
 
         self.close()  # shut everything down
@@ -156,15 +158,18 @@ class RabbitConnection(object):
 
     def _connect(self):
         """
-        Perform actual connection.
+        Perform the actual connection.
 
         """
         self._logger.debug('')
         self._logger.info("Attempting to connect using libev event_loop...")
 
         self._conn_info = "{0}@{1}:{2}{3}".format(
-            self._user_id, self._amqp_host, int(
-                self._amqp_port), self._virtual_host)
+            self._user_id,
+            self._amqp_host,
+            int(self._amqp_port),
+            self._virtual_host
+        )
 
         parameters = pika.ConnectionParameters(
             virtual_host=self._virtual_host,
@@ -234,6 +239,7 @@ class MessagePublish(object):
     def put_message(self, message, routing_key='', **kwargs):
         # kwargs should be valid keys for BasicProperties
         self._logger.debug('')
+
         if self._rabbit_connection._closing:
             return
 
@@ -244,7 +250,9 @@ class MessagePublish(object):
 
         basic_properties = {
             bp: str(
-                message[bp]) for bp in self.BASIC_PROPERTIES if bp in message}
+                message[bp]
+            ) for bp in self.BASIC_PROPERTIES if bp in message
+        }
 
         if 'delivery_mode' in message:
             basic_properties['delivery_mode'] = int(message['delivery_mode'])
@@ -254,9 +262,11 @@ class MessagePublish(object):
 
         if 'timestamp' in message:
             basic_properties['timestamp'] = isots_to_amqpts(
-                message['timestamp'])
+                message['timestamp']
+            )
 
         basic_properties.update(kwargs)
+
         if not 'headers' in basic_properties:
             basic_properties['headers'] = {}
 
@@ -318,6 +328,7 @@ class MessagePublish(object):
 
         self.queue_message_count = method_frame.method.message_count
         self.queue_consumer_count = method_frame.method.consumer_count
+
         if self._on_open_callback:
             self._on_open_callback()
 
@@ -458,7 +469,8 @@ class MessageSubscribe(object):
             self._message_callback(
                 message,
                 method_frame,
-                properties=header_frame)
+                properties=header_frame
+            )
         else:
             self._logger.warning("No callback.")
             self._channel.basic_ack(method_frame.delivery_tag)
@@ -469,6 +481,7 @@ class MessageSubscribe(object):
 
         if not message:
             raise Exception('header_frame is missing metadata')
+
         if body:
             message['body'] = body
 
@@ -491,7 +504,8 @@ class MessageSubscribe(object):
             self._handle_message(method_frame, header_frame, message)
         except Exception as e:
             error_msg = "Unable to process message: {}".format(
-                traceback.format_exc(e))
+                traceback.format_exc(e)
+            )
 
             if self._failed_message_action is 'nack':
                 self._logger.warning("Message nacked: {}".format(error_msg))
@@ -559,7 +573,6 @@ class MessageSubscribe(object):
         if self._rabbit_connection._closing or self._closing:
             return
 
-        # overwrite queue (handles anonymous queues)
         self._queue = method_frame.method.queue
 
         if self._exchange and self._routing_key:
@@ -620,7 +633,7 @@ class MessageSubscribe(object):
         else:
             self._channel.queue_declare(
                 self._queue_declare_ok,
-                self._queue,
+                '',
                 exclusive=True
             )
 

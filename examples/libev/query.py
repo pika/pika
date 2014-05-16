@@ -57,7 +57,6 @@ class QueryService(object):
         Match up using correlation_id and print some of the response.
 
         """
-
         hash_key = self._correlation_cache.pop(response['correlation_id'])
 
         print(
@@ -79,7 +78,6 @@ class QueryService(object):
         The correlation_id will be used to match the query with the response.
 
         """
-
         message_id = str(uuid.uuid1())  # UUID version 1
 
         hash_key = \
@@ -212,8 +210,7 @@ class QueryService(object):
         """
         logger.info("Starting service")
         self.connection()
-        if self._rabbit_connection:
-            self._rabbit_connection.ioloop_start()
+        self._rabbit_connection.ioloop_start()
         logger.info("Ending service")
 
 
@@ -224,6 +221,7 @@ def main(argv=None):
     """
     if argv is None:
         argv = sys.argv
+
     logger.info("Initializing...")
 
     try:
