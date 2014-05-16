@@ -55,7 +55,7 @@ class CachePushService(object):
 
     def send_response(self, rows, query):
         """
-        Make up the respnse and send it.
+        Make up the response and send it.
 
         Create an array of messages and marshal as json.
 
@@ -248,7 +248,7 @@ class CachePushService(object):
         if raise_exception:
             raise Exception('Exception encountered shutting down services')
 
-    def halt(self, signal):
+    def halt(self, signal='nada'):
         """
         Usually called only when SIGINT or SIGHUP are received.
 
