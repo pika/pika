@@ -256,6 +256,11 @@ class CachePushService(object):
         logger.info("Halting service - received {0}".format(signal))
         self.stop()
 
+    def connected(self, connection=None):
+        logger.info('Connected to RabbitMQ')
+        self._connected = True
+        self.init_publish()
+
     def connection(self):
         try:
             self._cql_cluster = Cluster()
@@ -279,11 +284,6 @@ class CachePushService(object):
             stop_method=self.stop,
             logger_name=logger.name
         )
-
-    def connected(self, connection=None):
-        logger.info('Connected to RabbitMQ')
-        self._connected = True
-        self.init_publish()
 
     def run(self):
         """

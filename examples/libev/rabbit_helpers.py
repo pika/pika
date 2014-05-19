@@ -9,6 +9,7 @@ import sys
 import calendar
 import logging
 import traceback
+from itertools import count
 from datetime import datetime
 
 import pika
@@ -17,9 +18,13 @@ import pyev
 
 def isots_to_datetime(isotimestamp):
     try:
-        datetime_utc = datetime.strptime(isotimestamp, '%Y-%m-%dT%H:%M:%S.%fZ')
+        datetime_utc = datetime.strptime(
+            isotimestamp, '%Y-%m-%dT%H:%M:%S.%fZ'
+        )
     except ValueError:
-        datetime_utc = datetime.strptime(isotimestamp, '%Y-%m-%dT%H:%M:%SZ')
+        datetime_utc = datetime.strptime(
+            isotimestamp, '%Y-%m-%dT%H:%M:%SZ'
+        )
 
     return datetime_utc
 
@@ -175,7 +180,8 @@ class RabbitConnection(object):
             virtual_host=self._virtual_host,
             credentials=pika.PlainCredentials(self._user_id, self._password),
             host=self._amqp_host,
-            port=self._amqp_port
+            port=self._amqp_port,
+            socket_timeout=30.0
         )
 
         connection_adapter = pika.LibevConnection
@@ -226,7 +232,7 @@ class MessagePublish(object):
         self._on_close_callback = on_close_callback
         self._on_confirm_callback = on_confirm_callback
 
-        self.delivery_tag = 0
+        self.delivery_tag = count(1)
         self.queue_message_count = 0
         self.queue_consumer_count = 0
         self._channel = None
@@ -289,8 +295,7 @@ class MessagePublish(object):
                 properties=properties
             )
 
-        self.delivery_tag += 1
-        return self.delivery_tag
+        return self.delivery_tag.next()
 
     def close(self):
         self._logger.debug('')
