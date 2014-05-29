@@ -54,7 +54,7 @@ class RabbitConnection(object):
         rabbit_connection_callback=None,
         rabbit_connection_error_callback=None,
         stop_method=None,  # graceful shutdown
-        logger_name=None
+        logger_name=__name__
     ):
         self._virtual_host = virtual_host
         self._user_id = user_id
