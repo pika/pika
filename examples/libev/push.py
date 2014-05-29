@@ -117,7 +117,7 @@ class CachePushService(object):
         body = message.pop('body')
 
         substitution_args = (
-            json.dumps(message, self.JSON_DUMPS_ARGS),
+            json.dumps(message, **self.JSON_DUMPS_ARGS),
             body,
             message['hash_key'],
             uuid.UUID(message['message_id'])

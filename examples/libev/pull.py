@@ -69,7 +69,7 @@ class CachePushService(object):
             body.append(message)
 
         count = len(body)
-        body_json = json.dumps(body, self.JSON_DUMPS_ARGS)
+        body_json = json.dumps(body, **self.JSON_DUMPS_ARGS)
 
         response = {
             "correlation_id": query['correlation_id'],
