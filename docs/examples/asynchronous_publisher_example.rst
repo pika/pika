@@ -5,6 +5,7 @@ The following example implements a publisher that will respond to RPC commands s
 publisher.py::
 
     # -*- coding: utf-8 -*-
+
     import logging
     import pika
     import json
@@ -65,11 +66,17 @@ publisher.py::
                                          self.on_connection_open,
                                          stop_ioloop_on_close=False)
 
-        def close_connection(self):
-            """This method closes the connection to RabbitMQ."""
-            LOGGER.info('Closing connection')
-            self._closing = True
-            self._connection.close()
+        def on_connection_open(self, unused_connection):
+            """This method is called by pika once the connection to RabbitMQ has
+            been established. It passes the handle to the connection object in
+            case we need it, but in this case, we'll just mark it unused.
+
+            :type unused_connection: pika.SelectConnection
+
+            """
+            LOGGER.info('Connection opened')
+            self.add_on_connection_close_callback()
+            self.open_channel()
 
         def add_on_connection_close_callback(self):
             """This method adds an on close callback that will be invoked by pika
@@ -97,18 +104,6 @@ publisher.py::
                                reply_code, reply_text)
                 self._connection.add_timeout(5, self.reconnect)
 
-        def on_connection_open(self, unused_connection):
-            """This method is called by pika once the connection to RabbitMQ has
-            been established. It passes the handle to the connection object in
-            case we need it, but in this case, we'll just mark it unused.
-
-            :type unused_connection: pika.SelectConnection
-
-            """
-            LOGGER.info('Connection opened')
-            self.add_on_connection_close_callback()
-            self.open_channel()
-
         def reconnect(self):
             """Will be invoked by the IOLoop timer if the connection is
             closed. See the on_connection_closed method.
@@ -122,6 +117,30 @@ publisher.py::
 
             # There is now a new connection, needs a new ioloop to run
             self._connection.ioloop.start()
+
+        def open_channel(self):
+            """This method will open a new channel with RabbitMQ by issuing the
+            Channel.Open RPC command. When RabbitMQ confirms the channel is open
+            by sending the Channel.OpenOK RPC reply, the on_channel_open method
+            will be invoked.
+
+            """
+            LOGGER.info('Creating a new channel')
+            self._connection.channel(on_open_callback=self.on_channel_open)
+
+        def on_channel_open(self, channel):
+            """This method is invoked by pika when the channel has been opened.
+            The channel object is passed in so we can make use of it.
+
+            Since the channel is now open, we'll declare the exchange to use.
+
+            :param pika.channel.Channel channel: The channel object
+
+            """
+            LOGGER.info('Channel opened')
+            self._channel = channel
+            self.add_on_channel_close_callback()
+            self.setup_exchange(self.EXCHANGE)
 
         def add_on_channel_close_callback(self):
             """This method tells pika to call the on_channel_closed method if
@@ -146,20 +165,6 @@ publisher.py::
             LOGGER.warning('Channel was closed: (%s) %s', reply_code, reply_text)
             if not self._closing:
                 self._connection.close()
-
-        def on_channel_open(self, channel):
-            """This method is invoked by pika when the channel has been opened.
-            The channel object is passed in so we can make use of it.
-
-            Since the channel is now open, we'll declare the exchange to use.
-
-            :param pika.channel.Channel channel: The channel object
-
-            """
-            LOGGER.info('Channel opened')
-            self._channel = channel
-            self.add_on_channel_close_callback()
-            self.setup_exchange(self.EXCHANGE)
 
         def setup_exchange(self, exchange_name):
             """Setup the exchange on RabbitMQ by invoking the Exchange.Declare RPC
@@ -210,6 +215,36 @@ publisher.py::
             self._channel.queue_bind(self.on_bindok, self.QUEUE,
                                      self.EXCHANGE, self.ROUTING_KEY)
 
+        def on_bindok(self, unused_frame):
+            """This method is invoked by pika when it receives the Queue.BindOk
+            response from RabbitMQ. Since we know we're now setup and bound, it's
+            time to start publishing."""
+            LOGGER.info('Queue bound')
+            self.start_publishing()
+
+        def start_publishing(self):
+            """This method will enable delivery confirmations and schedule the
+            first message to be sent to RabbitMQ
+
+            """
+            LOGGER.info('Issuing consumer related RPC commands')
+            self.enable_delivery_confirmations()
+            self.schedule_next_message()
+
+        def enable_delivery_confirmations(self):
+            """Send the Confirm.Select RPC method to RabbitMQ to enable delivery
+            confirmations on the channel. The only way to turn this off is to close
+            the channel and create a new one.
+
+            When the message is confirmed from RabbitMQ, the
+            on_delivery_confirmation method will be invoked passing in a Basic.Ack
+            or Basic.Nack method from RabbitMQ that will indicate which messages it
+            is confirming or rejecting.
+
+            """
+            LOGGER.info('Issuing Confirm.Select RPC command')
+            self._channel.confirm_delivery(self.on_delivery_confirmation)
+
         def on_delivery_confirmation(self, method_frame):
             """Invoked by pika when RabbitMQ responds to a Basic.Publish RPC
             command, passing in either a Basic.Ack or Basic.Nack frame with
@@ -237,19 +272,17 @@ publisher.py::
                         self._message_number, len(self._deliveries),
                         self._acked, self._nacked)
 
-        def enable_delivery_confirmations(self):
-            """Send the Confirm.Select RPC method to RabbitMQ to enable delivery
-            confirmations on the channel. The only way to turn this off is to close
-            the channel and create a new one.
-
-            When the message is confirmed from RabbitMQ, the
-            on_delivery_confirmation method will be invoked passing in a Basic.Ack
-            or Basic.Nack method from RabbitMQ that will indicate which messages it
-            is confirming or rejecting.
+        def schedule_next_message(self):
+            """If we are not closing our connection to RabbitMQ, schedule another
+            message to be delivered in PUBLISH_INTERVAL seconds.
 
             """
-            LOGGER.info('Issuing Confirm.Select RPC command')
-            self._channel.confirm_delivery(self.on_delivery_confirmation)
+            if self._stopping:
+                return
+            LOGGER.info('Scheduling next message for %0.1f seconds',
+                        self.PUBLISH_INTERVAL)
+            self._connection.add_timeout(self.PUBLISH_INTERVAL,
+                                         self.publish_message)
 
         def publish_message(self):
             """If the class is not stopping, publish a message to RabbitMQ,
@@ -282,34 +315,6 @@ publisher.py::
             LOGGER.info('Published message # %i', self._message_number)
             self.schedule_next_message()
 
-        def schedule_next_message(self):
-            """If we are not closing our connection to RabbitMQ, schedule another
-            message to be delivered in PUBLISH_INTERVAL seconds.
-
-            """
-            if self._stopping:
-                return
-            LOGGER.info('Scheduling next message for %0.1f seconds',
-                        self.PUBLISH_INTERVAL)
-            self._connection.add_timeout(self.PUBLISH_INTERVAL,
-                                         self.publish_message)
-
-        def start_publishing(self):
-            """This method will enable delivery confirmations and schedule the
-            first message to be sent to RabbitMQ
-
-            """
-            LOGGER.info('Issuing consumer related RPC commands')
-            self.enable_delivery_confirmations()
-            self.schedule_next_message()
-
-        def on_bindok(self, unused_frame):
-            """This method is invoked by pika when it receives the Queue.BindOk
-            response from RabbitMQ. Since we know we're now setup and bound, it's
-            time to start publishing."""
-            LOGGER.info('Queue bound')
-            self.start_publishing()
-
         def close_channel(self):
             """Invoke this command to close the channel with RabbitMQ by sending
             the Channel.Close RPC command.
@@ -318,16 +323,6 @@ publisher.py::
             LOGGER.info('Closing the channel')
             if self._channel:
                 self._channel.close()
-
-        def open_channel(self):
-            """This method will open a new channel with RabbitMQ by issuing the
-            Channel.Open RPC command. When RabbitMQ confirms the channel is open
-            by sending the Channel.OpenOK RPC reply, the on_channel_open method
-            will be invoked.
-
-            """
-            LOGGER.info('Creating a new channel')
-            self._connection.channel(on_open_callback=self.on_channel_open)
 
         def run(self):
             """Run the example code by connecting and then starting the IOLoop.
@@ -351,6 +346,13 @@ publisher.py::
             self.close_connection()
             self._connection.ioloop.start()
             LOGGER.info('Stopped')
+
+        def close_connection(self):
+            """This method closes the connection to RabbitMQ."""
+            LOGGER.info('Closing connection')
+            self._closing = True
+            self._connection.close()
+
 
     def main():
         logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT)
