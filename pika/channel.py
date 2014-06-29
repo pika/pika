@@ -281,7 +281,7 @@ class Channel(object):
         :type routing_key: str or unicode
         :param body: The message body
         :type body: str or unicode
-        :param pika.spec.Properties properties: Basic.properties
+        :param pika.spec.BasicProperties properties: Basic.properties
         :param bool mandatory: The mandatory flag
         :param bool immediate: The immediate flag
 
