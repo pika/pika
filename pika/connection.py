@@ -461,8 +461,10 @@ class URLParameters(Parameters):
                     self.ssl else self.DEFAULT_PORT
         elif self._validate_port(parts.port):
             self.port = parts.port
-        self.credentials = pika_credentials.PlainCredentials(parts.username,
-                                                             parts.password)
+
+        if parts.username is not None:
+            self.credentials = pika_credentials.PlainCredentials(parts.username,
+                                                                 parts.password)
 
         # Get the Virtual Host
         if len(parts.path) <= 1:
