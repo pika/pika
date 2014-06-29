@@ -144,7 +144,8 @@ class LibevConnection(BaseConnection):
                                    self._PIKA_TO_LIBEV_ARRAY[self.event_state],
                                    self._handle_events)
 
-            self.async = pyev.Async(self.ioloop, self._handle_events)
+            self.async = pyev.Async(self.ioloop, self._noop_callable)
+            self.async.start()
             if self._on_signal_callback:
                 global_sigterm_watcher.start()
             if self._on_signal_callback:
@@ -152,6 +153,9 @@ class LibevConnection(BaseConnection):
             self._io_watcher.start()
 
         return error
+        
+    def _noop_callable(self, *args, **kwargs):
+        pass
 
     def _init_connection_state(self):
         """Initialize or reset all of our internal state variables for a given
