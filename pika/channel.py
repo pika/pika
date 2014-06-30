@@ -51,6 +51,7 @@ class Channel(object):
         self._has_on_flow_callback = False
         self._cancelled = collections.deque(list())
         self._consumers = dict()
+        self._consumer_params = dict()
         self._on_flowok_callback = None
         self._on_getok_callback = None
         self._on_openok_callback = on_open_callback
@@ -210,6 +211,7 @@ class Channel(object):
             raise exceptions.DuplicateConsumerTag(consumer_tag)
 
         self._consumers[consumer_tag] = consumer_callback
+        self._consumer_params[consumer_tag] = {'no_ack': no_ack}
         self._pending[consumer_tag] = list()
         self._rpc(spec.Basic.Consume(queue=queue,
                                      consumer_tag=consumer_tag,
@@ -760,6 +762,7 @@ class Channel(object):
     def _cleanup(self):
         """Remove all consumers and any callbacks for the channel."""
         self._consumers = dict()
+        self._consumers_params = dict()
         self.callbacks.cleanup(str(self.channel_number))
 
     def _get_pending_msg(self, consumer_tag):
@@ -813,6 +816,7 @@ class Channel(object):
         self._cancelled.append(method_frame.method.consumer_tag)
         if method_frame.method.consumer_tag in self._consumers:
             del self._consumers[method_frame.method.consumer_tag]
+            del self._consumer_params[method_frame.method.consumer_tag]
 
     def _on_cancelok(self, method_frame):
         """Called in response to a frame from the Broker when the
@@ -823,6 +827,8 @@ class Channel(object):
         """
         if method_frame.method.consumer_tag in self._consumers:
             del self._consumers[method_frame.method.consumer_tag]
+        if method_frame.method.consumer_tag in self._consumer_params:
+            del self._consumer_params[method_frame.method.consumer_tag]
         if method_frame.method.consumer_tag in self._pending:
             del self._pending[method_frame.method.consumer_tag]
 
@@ -872,7 +878,8 @@ class Channel(object):
         """
         consumer_tag = method_frame.method.consumer_tag
         if consumer_tag in self._cancelled:
-            if self.is_open:
+            no_ack = self._consumer_params.get(consumer_tag, {}).get('no_ack')
+            if self.is_open and not no_ack:
                 self.basic_reject(method_frame.method.delivery_tag)
             return
         if consumer_tag not in self._consumers:
