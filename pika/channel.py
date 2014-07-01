@@ -816,6 +816,7 @@ class Channel(object):
         self._cancelled.append(method_frame.method.consumer_tag)
         if method_frame.method.consumer_tag in self._consumers:
             del self._consumers[method_frame.method.consumer_tag]
+        if method_frame.method.consumer_tag in self._consumer_params:
             del self._consumer_params[method_frame.method.consumer_tag]
 
     def _on_cancelok(self, method_frame):
