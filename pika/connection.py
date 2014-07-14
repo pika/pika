@@ -1,12 +1,17 @@
 """Core connection objects"""
 import ast
+import sys
 import collections
 import logging
 import math
 import platform
 import urllib
-import urlparse
 import warnings
+
+if sys.version_info > (3,):
+    import urllib.parse as urlparse
+else:
+    import urlparse
 
 from pika import __version__
 from pika import callback
@@ -50,7 +55,7 @@ class Parameters(object):
     DEFAULT_BACKPRESSURE_DETECTION = False
     DEFAULT_CONNECTION_ATTEMPTS = 1
     DEFAULT_CHANNEL_MAX = 0
-    DEFAULT_FRAME_MAX = 32768 #spec.FRAME_MAX_SIZE
+    DEFAULT_FRAME_MAX = spec.FRAME_MAX_SIZE
     DEFAULT_HEARTBEAT_INTERVAL = 0
     DEFAULT_HOST = 'localhost'
     DEFAULT_LOCALE = 'en_US'
@@ -211,7 +216,7 @@ class Parameters(object):
         :raises: TypeError
 
         """
-        if not isinstance(locale, str):
+        if not isinstance(locale, basestring):
             raise TypeError('locale must be a str')
         return True
 
@@ -287,7 +292,7 @@ class Parameters(object):
         :raises: TypeError
 
         """
-        if not isinstance(virtual_host, str):
+        if not isinstance(virtual_host, basestring):
             raise TypeError('virtual_host must be a str')
         return True
 
@@ -357,7 +362,7 @@ class ConnectionParameters(Parameters):
             self.host = host
         if port is not None and self._validate_port(port):
             self.port = port
-        if virtual_host and self._validate_host(virtual_host):
+        if virtual_host and self._validate_virtual_host(virtual_host):
             self.virtual_host = virtual_host
         if credentials and self._validate_credentials(credentials):
             self.credentials = credentials
@@ -450,20 +455,25 @@ class URLParameters(Parameters):
 
         if self._validate_host(parts.hostname):
             self.host = parts.hostname
-        if not parts.port and self.ssl:
-            self.port = self.DEFAULT_SSL_PORT
+        if not parts.port:
+            if self.ssl:
+                self.port = self.DEFAULT_SSL_PORT if \
+                    self.ssl else self.DEFAULT_PORT
         elif self._validate_port(parts.port):
             self.port = parts.port
-        self.credentials = pika_credentials.PlainCredentials(parts.username,
-                                                             parts.password)
+
+        if parts.username is not None:
+            self.credentials = pika_credentials.PlainCredentials(parts.username,
+                                                                 parts.password)
 
         # Get the Virtual Host
-        if len(parts.path) == 1:
-            raise ValueError('No virtual host specify, use %2f for /')
-        path_parts = parts.path.split('/')
-        virtual_host = urllib.unquote(path_parts[1])
-        if self._validate_virtual_host(virtual_host):
-            self.virtual_host = virtual_host
+        if len(parts.path) <= 1:
+            self.virtual_host = self.DEFAULT_VIRTUAL_HOST
+        else:
+            path_parts = parts.path.split('/')
+            virtual_host = urllib.unquote(path_parts[1])
+            if self._validate_virtual_host(virtual_host):
+                self.virtual_host = virtual_host
 
         # Handle query string values, validating and assigning them
         values = urlparse.parse_qs(parts.query)
@@ -532,7 +542,7 @@ class Connection(object):
     :param method on_open_callback: Called when the connection is opened
     :param method on_open_error_callback: Called if the connection cant
                                    be opened
-    :param method on_open_callback: Called when the connection is closed
+    :param method on_close_callback: Called when the connection is closed
 
     """
     ON_CONNECTION_BACKPRESSURE = '_on_connection_backpressure'
@@ -563,7 +573,7 @@ class Connection(object):
         :param method on_open_callback: Called when the connection is opened
         :param method on_open_error_callback: Called if the connection cant
                                        be opened
-        :param method on_open_callback: Called when the connection is closed
+        :param method on_close_callback: Called when the connection is closed
 
         """
         # Define our callback dictionary
@@ -621,7 +631,7 @@ class Connection(object):
         """Add a callback notification when the connection can not be opened.
 
         The callback method should accept the connection object that could not
-        connect.
+        connect, and an optional error message.
 
         :param method callback_method: Callback to call when can't connect
         :param bool remove_default: Remove default exception raising callback
@@ -695,7 +705,8 @@ class Connection(object):
 
         """
         self._set_connection_state(self.CONNECTION_INIT)
-        if self._adapter_connect():
+        error = self._adapter_connect()
+        if not error:
             return self._on_connected()
         self.remaining_connection_attempts -= 1
         LOGGER.warning('Could not connect, %i attempts left',
@@ -704,7 +715,7 @@ class Connection(object):
             LOGGER.info('Retrying in %i seconds', self.params.retry_delay)
             self.add_timeout(self.params.retry_delay, self.connect)
         else:
-            self.callbacks.process(0, self.ON_CONNECTION_ERROR, self, self)
+            self.callbacks.process(0, self.ON_CONNECTION_ERROR, self, self, error)
             self.remaining_connection_attempts = self.params.connection_attempts
             self._set_connection_state(self.CONNECTION_CLOSED)
 
@@ -878,7 +889,9 @@ class Connection(object):
         """
         return {'product': PRODUCT,
                 'platform': 'Python %s' % platform.python_version(),
-                'capabilities': {'basic.nack': True,
+                'capabilities': {'authentication_failure_close': True,
+                                 'basic.nack': True,
+                                 'connection.blocked': True,
                                  'consumer_cancel_notify': True,
                                  'publisher_confirms': True},
                 'information': 'See http://pika.rtfd.org',
@@ -969,10 +982,10 @@ class Connection(object):
 
         """
         avg_frame_size = self.bytes_sent / self.frames_sent
-        if self.outbound_buffer.size > (avg_frame_size * self._backpressure):
-            LOGGER.warning(BACKPRESSURE_WARNING,
-                           self.outbound_buffer.size,
-                           int(self.outbound_buffer.size / avg_frame_size))
+        buffer_size = sum([len(frame) for frame in self.outbound_buffer])
+        if buffer_size > (avg_frame_size * self._backpressure):
+            LOGGER.warning(BACKPRESSURE_WARNING, buffer_size,
+                           int(buffer_size / avg_frame_size))
             self.callbacks.process(0, self.ON_CONNECTION_BACKPRESSURE, self)
 
     def _ensure_closed(self):
@@ -1020,7 +1033,8 @@ class Connection(object):
         :rtype: bool
 
         """
-        return any([self._channels[num].is_open for num in self._channels])
+        return any([self._channels[num].is_open for num in
+                    self._channels.keys()])
 
     def _has_pending_callbacks(self, value):
         """Return true if there are any callbacks pending for the specified
@@ -1118,9 +1132,8 @@ class Connection(object):
         limit = self.params.channel_max or channel.MAX_CHANNELS
         if len(self._channels) == limit:
             raise exceptions.NoFreeChannels()
-        if not self._channels:
-            return 1
-        return max(self._channels.keys()) + 1
+        return [x + 1 for x in sorted(self._channels.keys() or [0])
+                if x + 1 not in self._channels.keys()][0]
 
     def _on_channel_closeok(self, method_frame):
         """Remove the channel from the dict of channels when Channel.CloseOk is
@@ -1183,13 +1196,14 @@ class Connection(object):
         # Invoke a method frame neutral close
         self._on_disconnect(self.closing[0], self.closing[1])
 
-    def _on_connection_error(self, connection_unused):
+    def _on_connection_error(self, connection_unused, error_message=None):
         """Default behavior when the connecting connection can not connect.
 
         :raises: exceptions.AMQPConnectionError
 
         """
-        raise exceptions.AMQPConnectionError(self.params.connection_attempts)
+        raise exceptions.AMQPConnectionError(error_message or
+                                             self.params.connection_attempts)
 
     def _on_connection_open(self, method_frame):
         """

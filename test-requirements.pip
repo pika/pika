@@ -1,0 +1,6 @@
+coverage
+mock
+nose
+python-coveralls
+tornado
+twisted

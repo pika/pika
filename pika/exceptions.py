@@ -9,12 +9,15 @@ class AMQPError(Exception):
 class AMQPConnectionError(AMQPError):
     def __repr__(self):
         if len(self.args) == 1:
-            if (self.args[0] == 1):
+            if self.args[0] == 1:
                 return ('No connection could be opened after 1 '
                         'connection attempt')
-            else:
+            elif isinstance(self.args[0], int):
                 return ('No connection could be opened after %s '
                         'connection attempts' %
+                        self.args[0])
+            else:
+                return ('No connection could be opened: %s' %
                         self.args[0])
         elif len(self.args) == 2:
             return '%s: %s' % (self.args[0], self.args[1])
@@ -50,8 +53,11 @@ class NoFreeChannels(AMQPConnectionError):
 
 class ConnectionClosed(AMQPConnectionError):
     def __repr__(self):
-        return 'The AMQP connection was closed (%s) %s' % (self.args[0],
-                                                           self.args[1])
+        if len(self.args) == 2:
+            return 'The AMQP connection was closed (%s) %s' % (self.args[0],
+                                                               self.args[1])
+        else:
+            return 'The AMQP connection was closed'
 
 
 class AMQPChannelError(AMQPError):
@@ -61,8 +67,11 @@ class AMQPChannelError(AMQPError):
 
 class ChannelClosed(AMQPChannelError):
     def __repr__(self):
-        return 'The channel was remotely closed (%s) %s' % (self.args[0],
-                                                            self.args[1])
+        if len(self.args) == 2:
+            return 'The channel was remotely closed (%s) %s' % (self.args[0],
+                                                                self.args[1])
+        else:
+            return 'The channel was remotely closed'
 
 
 class DuplicateConsumerTag(AMQPChannelError):
@@ -73,8 +82,7 @@ class DuplicateConsumerTag(AMQPChannelError):
 
 class ConsumerCancelled(AMQPChannelError):
     def __repr__(self):
-        return 'Server cancelled consumer (%s): %s' % (self.args[0].reply_code,
-                                                       self.args[0].reply_text)
+        return 'Server cancelled consumer'
 
 
 class InvalidChannelNumber(AMQPError):
@@ -114,9 +122,13 @@ class InvalidFieldTypeException(ProtocolSyntaxError):
         return 'Unsupported field kind %s' % self.args[0]
 
 
-class UnspportedAMQPFieldException(ProtocolSyntaxError):
+class UnsupportedAMQPFieldException(ProtocolSyntaxError):
     def __repr__(self):
         return 'Unsupported field kind %s' % type(self.args[1])
+
+
+class UnspportedAMQPFieldException(UnsupportedAMQPFieldException):
+    """Deprecated version of UnsupportedAMQPFieldException"""
 
 
 class MethodNotImplemented(AMQPError):

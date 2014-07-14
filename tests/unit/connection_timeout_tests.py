@@ -15,8 +15,18 @@ from pika.adapters import asyncore_connection
 from pika.adapters import base_connection
 from pika.adapters import blocking_connection
 from pika.adapters import select_connection
-from pika.adapters import tornado_connection
-from pika.adapters import twisted_connection
+try:
+    from pika.adapters import tornado_connection
+except ImportError:
+    tornado_connection = None
+try:
+    from pika.adapters import twisted_connection
+except ImportError:
+    twisted_connection = None
+try:
+    from pika.adapters import libev_connection
+except ImportError:
+    libev_connection = None
 
 from pika import exceptions
 
@@ -71,6 +81,8 @@ class ConnectionTests(unittest.TestCase):
             select_connection.SelectConnection(params)
         settimeout.assert_called_with(2.0)
 
+    @unittest.skipUnless(tornado_connection is not None,
+                         'tornado is not installed')
     @patch.object(socket.socket, 'settimeout')
     @patch.object(socket.socket, 'connect')
     def test_tornado_connection_timeout(self, connect, settimeout):
@@ -80,6 +92,8 @@ class ConnectionTests(unittest.TestCase):
             tornado_connection.TornadoConnection(params)
         settimeout.assert_called_with(2.0)
 
+    @unittest.skipUnless(twisted_connection is not None,
+                         'twisted is not installed')
     @patch.object(socket.socket, 'settimeout')
     @patch.object(socket.socket, 'connect')
     def test_twisted_connection_timeout(self, connect, settimeout):
@@ -87,4 +101,14 @@ class ConnectionTests(unittest.TestCase):
         with self.assertRaises(exceptions.AMQPConnectionError):
             params = pika.ConnectionParameters(socket_timeout=2.0)
             twisted_connection.TwistedConnection(params)
+        settimeout.assert_called_with(2.0)
+
+    @unittest.skipUnless(libev_connection is not None, 'pyev is not installed')
+    @patch.object(socket.socket, 'settimeout')
+    @patch.object(socket.socket, 'connect')
+    def test_libev_connection_timeout(self, connect, settimeout):
+        connect.side_effect = mock_timeout
+        with self.assertRaises(exceptions.AMQPConnectionError):
+            params = pika.ConnectionParameters(socket_timeout=2.0)
+            libev_connection.LibevConnection(params)
         settimeout.assert_called_with(2.0)

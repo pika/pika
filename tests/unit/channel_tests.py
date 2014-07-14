@@ -73,7 +73,7 @@ class ChannelTests(unittest.TestCase):
         self.assertEqual(self.obj._state, channel.Channel.CLOSED)
 
     def test_init_cancelled(self):
-        self.assertEqual(self.obj._cancelled, list())
+        self.assertIsInstance(self.obj._cancelled, collections.deque)
 
     def test_init_consumers(self):
         self.assertEqual(self.obj._consumers, dict())
@@ -172,7 +172,7 @@ class ChannelTests(unittest.TestCase):
         consumer_tag = 'ctag0'
         self.obj._consumers[consumer_tag] = mock.Mock()
         self.obj.basic_cancel(callback_mock, consumer_tag)
-        self.assertListEqual(self.obj._cancelled, [consumer_tag])
+        self.assertListEqual(list(self.obj._cancelled), [consumer_tag])
 
     def test_basic_cancel_callback_appended(self):
         self.obj._set_state(self.obj.OPEN)
@@ -230,23 +230,25 @@ class ChannelTests(unittest.TestCase):
 
     def test_basic_consume_consumer_tag(self):
         self.obj._set_state(self.obj.OPEN)
-        expectation = 'ctag1.0'
+        expectation = 'ctag1.'
         mock_callback = mock.Mock()
-        self.assertEqual(self.obj.basic_consume(mock_callback, 'test-queue'),
+        self.assertEqual(self.obj.basic_consume(mock_callback, 'test-queue')[:6],
                          expectation)
 
-    def test_basic_consume_consumer_tag_appended(self):
+    def test_basic_consume_consumer_tag_cancelled_full(self):
         self.obj._set_state(self.obj.OPEN)
-        consumer_tag = 'ctag1.0'
+        expectation = 'ctag1.'
         mock_callback = mock.Mock()
-        self.obj.basic_consume(mock_callback, 'test-queue')
-        self.assertIn(consumer_tag, self.obj._consumers)
+        for ctag in ['ctag1.%i' % ii for ii in range(11)]:
+            self.obj._cancelled.append(ctag)
+        self.assertEqual(self.obj.basic_consume(mock_callback, 'test-queue')[:6],
+                         expectation)
 
     def test_basic_consume_consumer_tag_in_consumers(self):
         self.obj._set_state(self.obj.OPEN)
         consumer_tag = 'ctag1.0'
         mock_callback = mock.Mock()
-        self.obj.basic_consume(mock_callback, 'test-queue')
+        self.obj.basic_consume(mock_callback, 'test-queue', consumer_tag=consumer_tag)
         self.assertIn(consumer_tag, self.obj._consumers)
 
     def test_basic_consume_duplicate_consumer_tag_raises(self):
@@ -264,21 +266,21 @@ class ChannelTests(unittest.TestCase):
         self.obj._set_state(self.obj.OPEN)
         consumer_tag = 'ctag1.0'
         mock_callback = mock.Mock()
-        self.obj.basic_consume(mock_callback, 'test-queue')
+        self.obj.basic_consume(mock_callback, 'test-queue', consumer_tag=consumer_tag)
         self.assertEqual(self.obj._consumers[consumer_tag], mock_callback)
 
     def test_basic_consume_has_pending_list(self):
         self.obj._set_state(self.obj.OPEN)
         consumer_tag = 'ctag1.0'
         mock_callback = mock.Mock()
-        self.obj.basic_consume(mock_callback, 'test-queue')
+        self.obj.basic_consume(mock_callback, 'test-queue', consumer_tag=consumer_tag)
         self.assertIn(consumer_tag, self.obj._pending)
 
     def test_basic_consume_consumers_pending_list_is_empty(self):
         self.obj._set_state(self.obj.OPEN)
         consumer_tag = 'ctag1.0'
         mock_callback = mock.Mock()
-        self.obj.basic_consume(mock_callback, 'test-queue')
+        self.obj.basic_consume(mock_callback, 'test-queue', consumer_tag=consumer_tag)
         self.assertEqual(self.obj._pending[consumer_tag], list())
 
     @mock.patch('pika.spec.Basic.Consume')
@@ -287,7 +289,7 @@ class ChannelTests(unittest.TestCase):
         self.obj._set_state(self.obj.OPEN)
         consumer_tag = 'ctag1.0'
         mock_callback = mock.Mock()
-        self.obj.basic_consume(mock_callback, 'test-queue')
+        self.obj.basic_consume(mock_callback, 'test-queue', consumer_tag=consumer_tag)
         expectation = spec.Basic.Consume(queue='test-queue',
                                          consumer_tag=consumer_tag,
                                          no_ack=False,
@@ -1007,29 +1009,6 @@ class ChannelTests(unittest.TestCase):
         frame_value = frame.Method(1, spec.Basic.CancelOk(consumer_tag))
         self.obj._on_cancelok(frame_value)
         self.assertNotIn(consumer_tag, self.obj._pending)
-
-    @mock.patch('logging.Logger.debug')
-    def test_on_deliver(self, debug):
-        consumer_tag = 'ctag0'
-        mock_callback = mock.Mock()
-        self.obj._pending[consumer_tag] = mock_callback
-        method_value = frame.Method(1, spec.Basic.Deliver(consumer_tag, 1))
-        header_value = frame.Header(1, 10, spec.BasicProperties())
-        body_value = '0123456789'
-        self.obj._on_deliver(method_value, header_value, body_value)
-        debug.assert_called_with('Called with %r, %r, %r', method_value,
-                                 header_value, body_value)
-
-    def test_on_deliver_cancelled(self):
-        self.obj._set_state(self.obj.OPEN)
-        consumer_tag = 'ctag0'
-        self.obj._cancelled = [consumer_tag]
-        method_value = frame.Method(1, spec.Basic.Deliver(consumer_tag, 1))
-        header_value = frame.Header(1, 10, spec.BasicProperties())
-        body_value = '0123456789'
-        with mock.patch.object(self.obj, 'basic_reject') as basic_reject:
-            self.obj._on_deliver(method_value, header_value, body_value)
-            basic_reject.assert_called_with(method_value.method.delivery_tag)
 
     def test_on_deliver_pending_called(self):
         self.obj._set_state(self.obj.OPEN)

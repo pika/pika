@@ -29,11 +29,11 @@ Connect to a host *rabbit1* as the user *www-data* using the password *rabbit_pw
 
 Connecting via SSL is pretty easy too. To connect via SSL for the previous example, simply change the scheme to *amqps*. If you do not specify a port, Pika will use the default SSL port of 5671::
 
-  amqp://www-data:rabbit_pwd@rabbit1/web_messages
+  amqps://www-data:rabbit_pwd@rabbit1/web_messages
 
 If you're looking to tweak other parameters, such as enabling heartbeats, simply add the key/value pair as a query string value. The following builds upon the SSL connection, enabling heartbeats every 30 seconds::
 
-  amqp://www-data:rabbit_pwd@rabbit1/web_messages?heartbeat_interval=30
+  amqps://www-data:rabbit_pwd@rabbit1/web_messages?heartbeat_interval=30
 
 
 Options that are available as query string values:

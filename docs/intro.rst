@@ -5,9 +5,9 @@ Introduction to Pika
 
 IO and Event Looping
 --------------------
-As AMQP is a two-way RPC protocol where the client can send requests to the server and the server can send requests to a client, Pika implements or extends IO loops in each of its asynchronous connection adapters. These IO loops are blocking methods which loop and listen for events. Each asynchronous adapters follows the same standard for invoking the IO loop. The IO loop is created when the connection adapter is created. To start an IO loop for any given adapter, call the connection.ioloop.start() method.
+As AMQP is a two-way RPC protocol where the client can send requests to the server and the server can send requests to a client, Pika implements or extends IO loops in each of its asynchronous connection adapters. These IO loops are blocking methods which loop and listen for events. Each asynchronous adapters follows the same standard for invoking the IO loop. The IO loop is created when the connection adapter is created. To start an IO loop for any given adapter, call the ``connection.ioloop.start()`` method.
 
-If you are using an external IO loop such as Tornado's :class:`tornado.ioloop.IOLoop`, you invoke it as you normally would and then add the adapter to it.
+If you are using an external IO loop such as Tornado's :class:`~tornado.ioloop.IOLoop`, you invoke it as you normally would and then add the adapter to it.
 
 Example::
 
@@ -18,7 +18,7 @@ Example::
         pass
 
     # Create our connection object, passing in the on_open method
-    connection = pika.SelectConnection(on_open)
+    connection = pika.SelectConnection(on_open_callback=on_open)
 
     try:
         # Loop so we can communicate with RabbitMQ
@@ -94,7 +94,7 @@ Example::
 
 Credentials
 -----------
-The :module:`pika.credentials` module provides the mechanism by which you pass the username and password to the :py:class:`ConnectionParameters <pika.connection.ConnectionParameters>` class when it is created.
+The :mod:`pika.credentials` module provides the mechanism by which you pass the username and password to the :py:class:`ConnectionParameters <pika.connection.ConnectionParameters>` class when it is created.
 
 Example::
 
@@ -125,4 +125,3 @@ Example::
 .. rubric:: Footnotes
 
 .. [#f1] "more effective flow control mechanism that does not require cooperation from clients and reacts quickly to prevent the broker from exhausing memory - see http://www.rabbitmq.com/extensions.html#memsup" from http://lists.rabbitmq.com/pipermail/rabbitmq-announce/attachments/20100825/2c672695/attachment.txt
-

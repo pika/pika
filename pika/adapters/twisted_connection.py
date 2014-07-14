@@ -50,7 +50,7 @@ class ClosableDeferredQueue(defer.DeferredQueue):
 class TwistedChannel(object):
     """A wrapper wround Pika's Channel.
 
-    Channel methods that are normally take a callback argument are wrapped to
+    Channel methods that normally take a callback argument are wrapped to
     return a Deferred that fires with whatever would be passed to the callback.
     If the channel gets closed, all pending Deferreds are errbacked with a
     ChannelClosed exception. The returned Deferreds fire with whatever
@@ -147,7 +147,19 @@ class TwistedChannel(object):
             d = defer.Deferred()
             self.__calls.add(d)
             d.addCallback(self.__clear_call, d)
-            kwargs['callback'] = d.callback
+
+            def single_argument(*args):
+                """
+                Make sure that the deferred is called with a single argument.
+                In case the original callback fires with more than one, convert
+                to a tuple.
+                """
+                if len(args) > 1:
+                    d.callback(tuple(args))
+                else:
+                    d.callback(*args)
+
+            kwargs['callback'] = single_argument
 
             try:
                 method(*args, **kwargs)
@@ -273,12 +285,12 @@ class TwistedConnection(base_connection.BaseConnection):
     def _adapter_connect(self):
         """Connect to the RabbitMQ broker"""
         # Connect (blockignly!) to the server
-        if super(TwistedConnection, self)._adapter_connect():
+        error = super(TwistedConnection, self)._adapter_connect()
+        if not error:
             # Set the I/O events we're waiting for (see IOLoopReactorAdapter
             # docstrings for why it's OK to pass None as the file descriptor)
             self.ioloop.update_handler(None, self.event_state)
-            return True
-        return False
+        return error
 
     def _adapter_disconnect(self):
         """Called when the adapter should disconnect"""
@@ -434,7 +446,7 @@ class TwistedProtocolConnection(base_connection.BaseConnection):
         if d:
             d.callback(res)
 
-    def connectionFailed(self, connection_unused):
+    def connectionFailed(self, connection_unused, error_message=None):
         d, self.ready = self.ready, None
         if d:
             attempts = self.params.connection_attempts

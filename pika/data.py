@@ -20,7 +20,7 @@ def encode_table(pieces, table):
     length_index = len(pieces)
     pieces.append(None)  # placeholder
     tablesize = 0
-    for (key, value) in table.iteritems():
+    for (key, value) in table.items():
         if isinstance(key, unicode):
             key = key.encode('utf-8')
         pieces.append(struct.pack('B', len(key)))
@@ -85,7 +85,7 @@ def encode_value(pieces, value):
         pieces.append(struct.pack('>c', 'V'))
         return 1
     else:
-        raise exceptions.UnspportedAMQPFieldException(pieces, value)
+        raise exceptions.UnsupportedAMQPFieldException(pieces, value)
 
 
 def decode_table(encoded, offset):
@@ -193,10 +193,6 @@ def decode_value(encoded, offset):
         length = struct.unpack_from('B', encoded, offset)[0]
         offset += 1
         value = encoded[offset: offset + length].decode('utf8')
-        try:
-            value = str(value)
-        except UnicodeEncodeError:
-            pass
         offset += length
 
     # Long String
@@ -204,10 +200,6 @@ def decode_value(encoded, offset):
         length = struct.unpack_from('>I', encoded, offset)[0]
         offset += 4
         value = encoded[offset: offset + length].decode('utf8')
-        try:
-            value = str(value)
-        except UnicodeEncodeError:
-            pass
         offset += length
 
     # Field Array

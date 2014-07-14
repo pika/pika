@@ -5,6 +5,7 @@ pika.data tests
 """
 import datetime
 import decimal
+import platform
 try:
     import unittest2 as unittest
 except ImportError:
@@ -25,19 +26,22 @@ class DataTests(unittest.TestCase):
                          '\x04Test\x0ctimestampvalT\x00\x00\x00\x00Ec)\x92'
                          '\x07decimalD\x02\x00\x00\x01:\x07boolvalt\x01'
                          '\x0bdecimal_tooD\x00\x00\x00\x00d')
-    FIELD_TBL_VALUE = {'intval': 1,
-                       'strval': 'Test',
+
+    FIELD_TBL_VALUE = {'array': [1, 2, 3],
                        'boolval': True,
-                       'unicode': u'utf8=✓',
                        'decimal': decimal.Decimal('3.14'),
                        'decimal_too': decimal.Decimal('100'),
+                       'dictval': {'foo': 'bar'},
+                       'intval': 1,
+                       'longval': long(912598613),
+                       'null': None,
+                       'strval': 'Test',
                        'timestampval': datetime.datetime(2006, 11, 21, 16, 30,
                                                          10),
-                       'longval': long(912598613),
-                       'array': [1, 2, 3],
-                       'null': None,
-                       'dictval': {'foo': 'bar'}}
+                       'unicode': u'utf8=✓'}
 
+    @unittest.skipIf(platform.python_implementation() == 'PyPy',
+                     'pypy sort order issue')
     def test_encode_table(self):
         result = []
         data.encode_table(result, self.FIELD_TBL_VALUE)
@@ -57,7 +61,7 @@ class DataTests(unittest.TestCase):
         self.assertEqual(byte_count, 191)
 
     def test_encode_raises(self):
-        self.assertRaises(exceptions.UnspportedAMQPFieldException,
+        self.assertRaises(exceptions.UnsupportedAMQPFieldException,
                           data.encode_table,
                           [], {'foo': set([1, 2, 3])})
 

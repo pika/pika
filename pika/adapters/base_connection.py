@@ -11,6 +11,11 @@ import ssl
 from pika import connection
 from pika import exceptions
 
+try:
+    SOL_TCP = socket.SOL_TCP
+except AttributeError:
+    SOL_TCP = 6
+
 LOGGER = logging.getLogger(__name__)
 
 
@@ -44,8 +49,13 @@ class BaseConnection(connection.Connection):
         :param object ioloop: IOLoop object to use
         :param bool stop_ioloop_on_close: Call ioloop.stop() if disconnected
         :raises: RuntimeError
+        :raises: ValueError
 
         """
+        if parameters and not isinstance(parameters, connection.Parameters):
+            raise ValueError('Expected instance of Parameters, not %r' %
+                             parameters)
+
         # Let the developer know we could not import SSL
         if parameters and parameters.ssl and not ssl:
             raise RuntimeError("SSL specified but it is not available")
@@ -101,21 +111,26 @@ class BaseConnection(connection.Connection):
 
         """
         # Get the addresses for the socket, supporting IPv4 & IPv6
-        sock_addrs = socket.getaddrinfo(self.params.host, self.params.port,
-                            0, 0, socket.getprotobyname("tcp"))
+        try:
+            addresses = socket.getaddrinfo(self.params.host, self.params.port)
+        except socket.error as error:
+            LOGGER.critical('Could not get addresses to use: %s (%s)',
+                            error, self.params.host)
+            return error
 
-        # Iterate through each addr tuple trying to connect
-        for sock_addr in sock_addrs:
-
-            # If the socket is created and connected, continue on
-            if self._create_and_connect_to_socket(sock_addr):
-                return True
-
+        # If the socket is created and connected, continue on
+        error = "No socket addresses available"
+        for sock_addr in addresses:
+            error = self._create_and_connect_to_socket(sock_addr)
+            if not error:
+                return None
         # Failed to connect
-        return False
+        return error
 
     def _adapter_disconnect(self):
         """Invoked if the connection is being told to disconnect"""
+        if hasattr(self, 'heartbeat') and self.heartbeat is not None:
+            self.heartbeat.stop()
         if self.socket:
             self.socket.close()
         self.socket = None
@@ -143,14 +158,14 @@ class BaseConnection(connection.Connection):
             raise exceptions.ProbableAccessDeniedError
         elif self.is_open:
             LOGGER.warning("Socket closed when connection was open")
-        elif not self.is_closing:
+        elif not self.is_closed:
             LOGGER.warning('Unknown state on disconnect: %i',
                            self.connection_state)
 
     def _create_and_connect_to_socket(self, sock_addr_tuple):
         """Create socket and connect to it, using SSL if enabled."""
         self.socket = socket.socket(sock_addr_tuple[0], socket.SOCK_STREAM, 0)
-        self.socket.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
+        self.socket.setsockopt(SOL_TCP, socket.TCP_NODELAY, 1)
         self.socket.settimeout(self.params.socket_timeout)
 
         # Wrap socket if using SSL
@@ -167,25 +182,27 @@ class BaseConnection(connection.Connection):
         try:
             self.socket.connect(sock_addr_tuple[4])
         except socket.timeout:
-            LOGGER.error('Connection to %s:%s failed: timeout',
-                         sock_addr_tuple[4][0],sock_addr_tuple[4][1])
-            return False
+            error = 'Connection to %s:%s failed: timeout' % (
+                sock_addr_tuple[4][0], sock_addr_tuple[4][1])
+            LOGGER.error(error)
+            return error
         except socket.error as error:
-            LOGGER.warning('Connection to %s:%s failed: %s',
-                           sock_addr_tuple[4][0],sock_addr_tuple[4][1], error)
-            return False
+            error = 'Connection to %s:%s failed: %s' % (
+                sock_addr_tuple[4][0], sock_addr_tuple[4][1], error)
+            LOGGER.warning(error)
+            return error
 
         # Handle SSL Connection Negotiation
         if self.params.ssl and self.DO_HANDSHAKE:
             try:
                 self._do_ssl_handshake()
             except ssl.SSLError as error:
-                LOGGER.error('SSL connection to %s:%s failed: %s',
-                             sock_addr_tuple[4][0],sock_addr_tuple[4][1], error)
-                return False
-
+                error = 'SSL connection to %s:%s failed: %s' % (
+                    sock_addr_tuple[4][0], sock_addr_tuple[4][1], error)
+                LOGGER.error(error)
+                return error
         # Made it this far
-        return True
+        return None
 
     def _do_ssl_handshake(self):
         """Perform SSL handshaking, copied from python stdlib test_ssl.py.
@@ -197,7 +214,7 @@ class BaseConnection(connection.Connection):
             try:
                 self.socket.do_handshake()
                 break
-            except ssl.SSLError, err:
+            except ssl.SSLError as err:
                 if err.args[0] == ssl.SSL_ERROR_WANT_READ:
                     self.event_state = self.READ
                 elif err.args[0] == ssl.SSL_ERROR_WANT_WRITE:
@@ -273,6 +290,9 @@ class BaseConnection(connection.Connection):
             else:
                 LOGGER.error("SSL Socket error on fd %d: %r",
                              self.socket.fileno(), error_value)
+        elif error_code == errno.EPIPE:
+            # Broken pipe, happens when connection reset
+            LOGGER.error("Socket connection was broken")
         else:
             # Haven't run into this one yet, log it.
             LOGGER.error("Socket Error on fd %d: %s",
@@ -301,6 +321,11 @@ class BaseConnection(connection.Connection):
         if not write_only and (events & self.READ):
             self._handle_read()
 
+        if write_only and (events & self.READ) and (events & self.ERROR):
+            LOGGER.error('BAD libc:  Write-Only but Read+Error. '
+                         'Assume socket disconnected.')
+            self._handle_disconnect()
+
         if events & self.ERROR:
             LOGGER.error('Error event %r, %r', events, error)
             self._handle_error(error)
@@ -314,7 +339,7 @@ class BaseConnection(connection.Connection):
                 data = self.socket.recv(self._buffer_size)
         except socket.timeout:
             raise
-        except socket.error, error:
+        except socket.error as error:
             return self._handle_error(error)
 
         # Empty data, should disconnect
@@ -328,16 +353,17 @@ class BaseConnection(connection.Connection):
 
     def _handle_write(self):
         """Handle any outbound buffer writes that need to take place."""
-        total_written = 0
+        bytes_written = 0
         if self.outbound_buffer:
+            frame = self.outbound_buffer.popleft()
             try:
-                bytes_written = self.socket.send(self.outbound_buffer.popleft())
+                self.socket.sendall(frame)
+                bytes_written = len(frame)
             except socket.timeout:
                 raise
-            except socket.error, error:
+            except socket.error as error:
                 return self._handle_error(error)
-            total_written += bytes_written
-        return total_written
+        return bytes_written
 
     def _init_connection_state(self):
         """Initialize or reset all of our internal state variables for a given

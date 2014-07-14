@@ -1,11 +1,12 @@
 *.pyc
 *~
-.idea/
+.idea
 .coverage
-pika.iml
+.tox
 .DS_Store
-codegen/
-pika.egg-info/
+pika.iml
+codegen
+pika.egg-info
 examples/pika
 examples/blocking/pika
 atlassian*xml

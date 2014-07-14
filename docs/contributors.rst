@@ -9,6 +9,7 @@ The following people have directly contributes code by way of new features and/o
 - Ask Solem
 - Asko Soukka
 - Brian K. Jones
+- Cenk Altı
 - Charles Law
 - David Strauss
 - Erik Andersson
@@ -28,6 +29,7 @@ The following people have directly contributes code by way of new features and/o
 - Kyösti Herrala
 - Lars van de Kerkhof
 - Marek Majkowski
+- Mark Unsworth
 - Michael Kenney
 - Michael Laing
 - Milan Skuhra
@@ -37,6 +39,7 @@ The following people have directly contributes code by way of new features and/o
 - Pankrat
 - Pavlobaron
 - Peter Magnusson
+- Ralf Nyrén
 - Raphaël De Giusti
 - Rikard Hultén
 - Roey Berman

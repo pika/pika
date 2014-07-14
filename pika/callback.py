@@ -256,9 +256,12 @@ class CallbackManager(object):
                     offsets_to_remove.append(offset - 1)
 
             for offset in offsets_to_remove:
-                LOGGER.debug('Removing callback #%i: %r', offset,
-                             self._stack[prefix][key][offset])
-                del self._stack[prefix][key][offset]
+                try:
+                    LOGGER.debug('Removing callback #%i: %r', offset,
+                                 self._stack[prefix][key][offset])
+                    del self._stack[prefix][key][offset]
+                except KeyError:
+                    pass
 
         self._cleanup_callback_dict(prefix, key)
         return True

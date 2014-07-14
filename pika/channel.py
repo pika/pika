@@ -5,6 +5,7 @@ implementing the methods and behaviors for an AMQP Channel.
 import collections
 import logging
 import warnings
+import uuid
 
 import pika.frame as frame
 import pika.exceptions as exceptions
@@ -28,13 +29,12 @@ class Channel(object):
     OPEN = 2
     CLOSING = 3
 
-    def __init__(self, connection, channel_number, on_open_callback=None, force_binary=False):
+    def __init__(self, connection, channel_number, on_open_callback=None):
         """Create a new instance of the Channel
 
         :param pika.connection.Connection connection: The connection
         :param int channel_number: The channel number for this instance
         :param method on_open_callback: The method to call on channel open
-        :param bool force_binary: Prevents channel from autodetecting unicode
 
         """
         if not isinstance(channel_number, int):
@@ -44,12 +44,12 @@ class Channel(object):
         self.connection = connection
 
         # The frame-handler changes depending on the type of frame processed
-        self.frame_dispatcher = ContentFrameDispatcher(force_binary)
+        self.frame_dispatcher = ContentFrameDispatcher()
 
         self._blocked = collections.deque(list())
         self._blocking = None
         self._has_on_flow_callback = False
-        self._cancelled = list()
+        self._cancelled = collections.deque(list())
         self._consumers = dict()
         self._on_flowok_callback = None
         self._on_getok_callback = None
@@ -180,7 +180,7 @@ class Channel(object):
                     {'consumer_tag': consumer_tag})] if nowait is False else [])
 
     def basic_consume(self, consumer_callback, queue='', no_ack=False,
-                      exclusive=False, consumer_tag=None):
+                      exclusive=False, consumer_tag=None, arguments=None):
         """Sends the AMQP command Basic.Consume to the broker and binds messages
         for the consumer_tag to the consumer callback. If you do not pass in
         a consumer_tag, one will be automatically generated for you. Returns
@@ -196,15 +196,15 @@ class Channel(object):
         :param bool exclusive: Don't allow other consumers on the queue
         :param consumer_tag: Specify your own consumer tag
         :type consumer_tag: str or unicode
+        :param dict arguments: Custom key/value pair arguments for the consume
         :rtype: str
 
         """
         self._validate_channel_and_callback(consumer_callback)
 
         # If a consumer tag was not passed, create one
-        consumer_tag = consumer_tag or 'ctag%i.%i' % (self.channel_number,
-                                                      len(self._consumers) +
-                                                      len(self._cancelled))
+        consumer_tag = consumer_tag or 'ctag%i.%s' % (self.channel_number,
+                                                      uuid.uuid4().get_hex())
 
         if consumer_tag in self._consumers or consumer_tag in self._cancelled:
             raise exceptions.DuplicateConsumerTag(consumer_tag)
@@ -214,7 +214,8 @@ class Channel(object):
         self._rpc(spec.Basic.Consume(queue=queue,
                                      consumer_tag=consumer_tag,
                                      no_ack=no_ack,
-                                     exclusive=exclusive),
+                                     exclusive=exclusive,
+                                     arguments=arguments or dict()),
                            self._on_eventok,
                            [(spec.Basic.ConsumeOk,
                              {'consumer_tag': consumer_tag})])
@@ -280,7 +281,7 @@ class Channel(object):
         :type routing_key: str or unicode
         :param body: The message body
         :type body: str or unicode
-        :param pika.spec.Properties properties: Basic.properties
+        :param pika.spec.BasicProperties properties: Basic.properties
         :param bool mandatory: The mandatory flag
         :param bool immediate: The immediate flag
 
@@ -424,7 +425,7 @@ class Channel(object):
         :rtype: list
 
         """
-        return self._consumers.keys()
+        return list(self._consumers.keys())
 
     def exchange_bind(self, callback=None, destination=None, source=None,
                       routing_key='', nowait=False, arguments=None):
@@ -851,7 +852,6 @@ class Channel(object):
         :param pika.frame.Method method_frame: The CloseOk frame
 
         """
-        LOGGER.warning('Received %s', method_frame.method)
         self._set_state(self.CLOSED)
         self.callbacks.process(self.channel_number,
                                '_on_channel_close',
@@ -870,11 +870,11 @@ class Channel(object):
         :type body: str or unicode
 
         """
-        LOGGER.debug('Called with %r, %r, %r', method_frame, header_frame, body)
         consumer_tag = method_frame.method.consumer_tag
         if consumer_tag in self._cancelled:
-            LOGGER.debug('Rejected message for cancelled consumer')
-            return self.basic_reject(method_frame.method.delivery_tag)
+            if self.is_open:
+                self.basic_reject(method_frame.method.delivery_tag)
+            return
         if consumer_tag not in self._consumers:
             return self._add_pending_msg(consumer_tag, method_frame,
                                          header_frame, body)
@@ -935,11 +935,12 @@ class Channel(object):
 
         """
         if self._on_getok_callback is not None:
-            self._on_getok_callback(self,
-                                    method_frame.method,
-                                    header_frame.properties,
-                                    body)
+            callback = self._on_getok_callback
             self._on_getok_callback = None
+            callback(self,
+                     method_frame.method,
+                     header_frame.properties,
+                     body)
         else:
             LOGGER.error('Basic.GetOk received with no active callback')
 
@@ -1084,7 +1085,7 @@ class ContentFrameDispatcher(object):
     back in three parts upon receipt.
 
     """
-    def __init__(self, force_binary):
+    def __init__(self):
         """Create a new instance of the Dispatcher passing in the callback
         manager.
 
@@ -1093,7 +1094,6 @@ class ContentFrameDispatcher(object):
         self._header_frame = None
         self._seen_so_far = 0
         self._body_fragments = list()
-        self.force_binary = force_binary
 
     def process(self, frame_value):
         """Invoked by the Channel object when passed frames that are not
@@ -1118,25 +1118,12 @@ class ContentFrameDispatcher(object):
     def _finish(self):
         """Invoked when all of the message has been received
 
-        :rtype: tuple(pika.frame.Method, pika.frame.Header, str|unicode)
+        :rtype: tuple(pika.frame.Method, pika.frame.Header, str)
 
         """
-        value = None
-        if self.force_binary:
-            value = ''.join(self._body_fragments)
-        else:
-            try:
-                value = ''.join(self._body_fragments).decode('utf-8')
-                try:
-                    value = str(value)
-                except UnicodeEncodeError:
-                    pass
-            except UnicodeDecodeError:
-                value = ''.join(self._body_fragments)
-
         content = (self._method_frame,
                    self._header_frame,
-                   value)
+                   ''.join(self._body_fragments))
         self._reset()
         return content
 
@@ -1146,7 +1133,7 @@ class ContentFrameDispatcher(object):
 
         :param Body body_frame: The body frame
         :raises: pika.exceptions.BodyTooLongError
-        :rtype: tuple(pika.frame.Method, pika.frame.Header, str|unicode)|None
+        :rtype: tuple(pika.frame.Method, pika.frame.Header, str)|None
 
         """
         self._seen_so_far += len(body_frame.fragment)

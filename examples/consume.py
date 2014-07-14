@@ -6,11 +6,11 @@ def on_message(channel, method_frame, header_frame, body):
     if body.startswith("queue:"):
         queue = body.replace("queue:", "")
         key = body + "_key"
-        print "Declaring queue %s bound with key %s" %(queue, key)
+        print("Declaring queue %s bound with key %s" %(queue, key))
         channel.queue_declare(queue=queue, auto_delete=True)
         channel.queue_bind(queue=queue, exchange="test_exchange", routing_key=key)
     else:
-        print "Message body", body
+        print("Message body", body)
 
     channel.basic_ack(delivery_tag=method_frame.delivery_tag)
 

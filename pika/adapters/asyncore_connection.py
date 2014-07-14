@@ -25,7 +25,6 @@ class PikaDispatcher(asyncore.dispatcher):
         self._event_callback = event_callback
         self.events = self.READ | self.WRITE
 
-
     def add_timeout(self, deadline, callback_method):
         """Add the callback_method to the IOLoop timer to fire after deadline
         seconds. Returns a handle to the timeout. Do not confuse with
@@ -43,6 +42,12 @@ class PikaDispatcher(asyncore.dispatcher):
         self._timeouts[timeout_id] = value
         return timeout_id
 
+    def fileno(self):
+        return self.socket.fileno()
+
+    def sendall(self, data):
+        return self.socket.sendall(data)
+
     def readable(self):
         return bool(self.events & self.READ)
 
@@ -50,10 +55,10 @@ class PikaDispatcher(asyncore.dispatcher):
         return bool(self.events & self.WRITE)
 
     def handle_read(self):
-        self._event_callback(self.socket, self.READ)
+        self._event_callback(self.socket.fileno, self.READ)
 
     def handle_write(self):
-        self._event_callback(self.socket, self.WRITE, None, True)
+        self._event_callback(self.socket.fileno, self.WRITE, None, True)
 
     def process_timeouts(self):
         """Process the self._timeouts event stack"""
@@ -141,7 +146,11 @@ class AsyncoreConnection(base_connection.BaseConnection):
         into our various state methods.
 
         """
-        if super(AsyncoreConnection, self)._adapter_connect():
-            self.socket = PikaDispatcher(self.socket, None, self._handle_events)
+        error = super(AsyncoreConnection, self)._adapter_connect()
+        if not error:
+            self.socket = PikaDispatcher(self.socket, None,
+                                         self._handle_events)
             self.ioloop = self.socket
             self._on_connected()
+        return error
+

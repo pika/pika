@@ -5,7 +5,6 @@
 # ***** END LICENSE BLOCK *****
 from setuptools import setup
 import os
-import platform
 
 # Conditionally include additional modules for docs
 on_rtd = os.environ.get('READTHEDOCS', None) == 'True'
@@ -13,12 +12,7 @@ requirements = list()
 if on_rtd:
     requirements.append('tornado')
     requirements.append('twisted')
-
-# Conditional include unittest2 for versions of python < 2.7
-tests_require = ['nose', 'mock', 'pyyaml']
-platform_version = list(platform.python_version_tuple())[0:2]
-if platform_version[0] != '3' and platform_version != ['2', '7']:
-    tests_require.append('unittest2')
+    requirements.append('pyev')
 
 long_description = ('Pika is a pure-Python implementation of the AMQP 0-9-1 '
                     'protocol that tries to stay fairly independent of the '
@@ -34,12 +28,12 @@ setup(name='pika',
       maintainer_email='gavinmroy@gmail.com',
       url='https://pika.readthedocs.org ',
       packages=['pika', 'pika.adapters'],
-      license='MPL v1.1 and GPL v2.0 or newer',
+      license='MPL v2.0',
       install_requires=requirements,
+      package_data={'': ['LICENSE', 'README.md']},
       extras_require={'tornado': ['tornado'],
-                      'twisted': ['twisted']},
-      tests_require=tests_require,
-      test_suite='nose.collector',
+                      'twisted': ['twisted'],
+                      'libev': ['pyev']},
       classifiers=[
           'Development Status :: 5 - Production/Stable',
           'Intended Audience :: Developers',
@@ -50,6 +44,7 @@ setup(name='pika',
           'Programming Language :: Python :: 2.6',
           'Programming Language :: Python :: 2.7',
           'Programming Language :: Python :: Implementation :: CPython',
+          'Programming Language :: Python :: Implementation :: Jython',
           'Programming Language :: Python :: Implementation :: PyPy',
           'Topic :: Communications',
           'Topic :: Internet',
