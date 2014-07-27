@@ -246,8 +246,15 @@ publisher.py::
             on_delivery_confirmation method will be invoked passing in a Basic.Ack
             or Basic.Nack method from RabbitMQ that will indicate which messages it
             is confirming or rejecting.
+            
+            Housekeeping variables are re-set to their initial state, so reconnects
+            will work.
 
             """
+            self._deliveries = []
+            self._acked = 0
+            self._nacked = 0
+            self._message_number = 0
             LOGGER.info('Issuing Confirm.Select RPC command')
             self._channel.confirm_delivery(self.on_delivery_confirmation)
 
