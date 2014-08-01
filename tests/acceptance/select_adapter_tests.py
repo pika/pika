@@ -353,3 +353,21 @@ class TestZ_PublishAndGet(BoundQueueTestCase):
         """SelectConnection should publish a message and get it"""
         self.start()
 
+
+class TestZ_PublishFailingMandatoryExpectOnReturn(BoundQueueTestCase):
+
+    def on_ready(self, frame):
+        self.msg_body = "%s: %i" % (self.__class__.__name__, time.time())
+        self.channel.add_on_return_callback(self.on_return)
+        self.channel.basic_publish(self.exchange,
+                                   self.routing_key + '_invalid',
+                                   self.msg_body,
+                                   mandatory=True)
+
+    def on_return(self, channel, method, header, body):
+        self.stop()
+
+    def start_test(self):
+        """SelectConnection should publish a mandatory message with invalid routing key and on_return callback should
+           trigger"""
+        self.start()

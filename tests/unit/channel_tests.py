@@ -1172,10 +1172,10 @@ class ChannelTests(unittest.TestCase):
         self.obj.callbacks.process.assert_called_with(self.obj.channel_number,
                                                       '_on_return',
                                                       self.obj,
-                                                      (self.obj,
-                                                       method_value.method,
-                                                       header_value.properties,
-                                                       body_value))
+                                                      self.obj,
+                                                      method_value.method,
+                                                      header_value.properties,
+                                                      body_value)
 
     @mock.patch('logging.Logger.warning')
     def test_onreturn_warning(self, warning):
