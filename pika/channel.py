@@ -335,7 +335,7 @@ class Channel(object):
                          callback,
                          [spec.Basic.QosOk])
 
-    def basic_reject(self, delivery_tag=None, requeue=True):
+    def basic_reject(self, delivery_tag, requeue=True):
         """Reject an incoming message. This method allows a client to reject a
         message. It can be used to interrupt and cancel large incoming messages,
         or return untreatable messages to their original queue.
