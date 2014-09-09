@@ -7,6 +7,7 @@ import errno
 import logging
 import socket
 import ssl
+import select
 
 from pika import connection
 from pika import exceptions
@@ -28,7 +29,6 @@ class BaseConnection(connection.Connection):
     ERROR = 0x0008
 
     ERRORS_TO_IGNORE = [errno.EWOULDBLOCK, errno.EAGAIN, errno.EINTR]
-    DO_HANDSHAKE = True
     WARN_ABOUT_IOLOOP = False
 
     def __init__(self,
@@ -181,6 +181,16 @@ class BaseConnection(connection.Connection):
         # Connect to the socket
         try:
             self.socket.connect(sock_addr_tuple[4])
+
+            # Handle SSL Connection Negotiation
+            if self.params.ssl:
+                self._do_ssl_handshake()
+
+        except ssl.SSLError as error:
+            error = 'SSL connection to %s:%s failed: %s' % (
+                sock_addr_tuple[4][0], sock_addr_tuple[4][1], error)
+            LOGGER.error(error)
+            return error
         except socket.timeout:
             error = 'Connection to %s:%s failed: timeout' % (
                 sock_addr_tuple[4][0], sock_addr_tuple[4][1])
@@ -192,15 +202,6 @@ class BaseConnection(connection.Connection):
             LOGGER.warning(error)
             return error
 
-        # Handle SSL Connection Negotiation
-        if self.params.ssl and self.DO_HANDSHAKE:
-            try:
-                self._do_ssl_handshake()
-            except ssl.SSLError as error:
-                error = 'SSL connection to %s:%s failed: %s' % (
-                    sock_addr_tuple[4][0], sock_addr_tuple[4][1], error)
-                LOGGER.error(error)
-                return error
         # Made it this far
         return None
 
@@ -208,20 +209,17 @@ class BaseConnection(connection.Connection):
         """Perform SSL handshaking, copied from python stdlib test_ssl.py.
 
         """
-        if not self.DO_HANDSHAKE:
-            return
         while True:
             try:
                 self.socket.do_handshake()
                 break
             except ssl.SSLError as err:
                 if err.args[0] == ssl.SSL_ERROR_WANT_READ:
-                    self.event_state = self.READ
+                    select.select([self.socket], [], [])
                 elif err.args[0] == ssl.SSL_ERROR_WANT_WRITE:
-                    self.event_state = self.WRITE
+                    select.select([], [self.socket], [])
                 else:
                     raise
-                self._manage_event_state()
 
     def _get_error_code(self, error_value):
         """Get the error code from the error_value accounting for Python
@@ -398,6 +396,4 @@ class BaseConnection(connection.Connection):
         :rtype: ssl.SSLSocket
 
         """
-        return ssl.wrap_socket(sock,
-                               do_handshake_on_connect=self.DO_HANDSHAKE,
-                               **self.params.ssl_options)
+        return ssl.wrap_socket(sock, **self.params.ssl_options)
