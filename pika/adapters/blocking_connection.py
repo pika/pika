@@ -490,9 +490,8 @@ class BlockingChannel(channel.Channel):
                   self._on_cancelok, replies)
 
     def basic_get(self, queue=None, no_ack=False):
-        """Get a single message from the AMQP broker. The callback method
-        signature should have 3 parameters: The method frame, header frame and
-        the body, like the consumer callback for Basic.Consume.
+        """Get a single message from the AMQP broker. Returns a set with the 
+        method frame, header frame and body.
 
         :param queue: The queue to get a message from
         :type queue: str or unicode
