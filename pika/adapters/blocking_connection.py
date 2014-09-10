@@ -67,12 +67,17 @@ class ReadPoller(object):
         self.fd = fd
         self.poll_timeout = poll_timeout
         if hasattr(select, 'poll') and os.name != 'java':
-            self.poller = select.poll()
-            self.poll_events = select.POLLIN | select.POLLPRI
-            self.poller.register(self.fd, self.poll_events)
+            self._initialize_poller()
         else:
             self.poller = None
             self.poll_timeout = float(poll_timeout) / 1000
+
+    def _initialize_poller(self):
+        """Initialize the poller.
+        """
+        self.poller = select.poll()
+        self.poll_events = select.POLLIN | select.POLLPRI
+        self.poller.register(self.fd, self.poll_events)
 
     @retry_on_eintr
     def ready(self):
@@ -82,7 +87,19 @@ class ReadPoller(object):
 
         """
         if self.poller:
-            events = self.poller.poll(self.poll_timeout)
+            # Due to the change from http://bugs.python.org/issue8865, the
+            # poller throws a RuntimeError to prevent concurrent pollings.
+            # If that happens, the read poller needs to re-initialize the
+            # internal poller.
+            try:
+                events = self.poller.poll(self.poll_timeout)
+            except RuntimeError as exception:
+                LOGGER.debug('Reinitializing the poller.')
+                self._initialize_poller()
+
+                LOGGER.debug('Now, try to poll again.')
+                events = self.poller.poll(self.poll_timeout)
+
             return bool(events)
         else:
             ready, unused_wri, unused_err = select_function([self.fd], [], [],
@@ -514,7 +531,7 @@ class BlockingChannel(channel.Channel):
     def basic_publish(self, exchange, routing_key, body,
                       properties=None, mandatory=False, immediate=False):
         """Publish to the channel with the given exchange, routing key and body.
-        Returns a boolean value indicating the success of the operation. For 
+        Returns a boolean value indicating the success of the operation. For
         more information on basic_publish and what the parameters do, see:
 
         http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.publish
