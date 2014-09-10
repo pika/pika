@@ -282,9 +282,11 @@ class BaseConnection(connection.Connection):
         elif self.params.ssl and isinstance(error_value, ssl.SSLError):
 
             if error_value.args[0] == ssl.SSL_ERROR_WANT_READ:
-                self.event_state = self.READ
+                self.event_state |= self.READ
+                return
             elif error_value.args[0] == ssl.SSL_ERROR_WANT_WRITE:
-                self.event_state = self.WRITE
+                self.event_state |= self.WRITE
+                return
             else:
                 LOGGER.error("SSL Socket error on fd %d: %r",
                              self.socket.fileno(), error_value)
@@ -314,7 +316,6 @@ class BaseConnection(connection.Connection):
 
         if events & self.WRITE:
             self._handle_write()
-            self._manage_event_state()
 
         if not write_only and (events & self.READ):
             self._handle_read()
@@ -361,6 +362,7 @@ class BaseConnection(connection.Connection):
                 raise
             except socket.error as error:
                 return self._handle_error(error)
+        self._manage_event_state()
         return bytes_written
 
     def _init_connection_state(self):
