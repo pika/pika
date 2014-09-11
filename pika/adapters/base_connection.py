@@ -28,6 +28,7 @@ class BaseConnection(connection.Connection):
     ERROR = 0x0008
 
     ERRORS_TO_IGNORE = [errno.EWOULDBLOCK, errno.EAGAIN, errno.EINTR]
+    ERRORS_TO_ABORT = [errno.EBADF, errno.ECONNABORTED, errno.EPIPE]
     DO_HANDSHAKE = True
     WARN_ABOUT_IOLOOP = False
 
@@ -272,14 +273,15 @@ class BaseConnection(connection.Connection):
             LOGGER.critical("Tried to handle an error where no error existed")
             return
 
-        # Ok errors, just continue what we were doing before
         if error_code in self.ERRORS_TO_IGNORE:
+            # Ok errors, just continue what we were doing before
             LOGGER.debug("Ignoring %s", error_code)
             return
 
-        # Socket is closed, so lets just go to our handle_close method
-        elif error_code in (errno.EBADF, errno.ECONNABORTED):
-            LOGGER.error("Socket is closed")
+        elif error_code in self.ERRORS_TO_ABORT:
+            # Socket is closed, so lets just go to our handle_close method
+            LOGGER.error("Fatal Socket Error on fd %d: %r",
+                         self.socket.fileno(), error_value)
 
         elif self.params.ssl and isinstance(error_value, ssl.SSLError):
 
@@ -290,12 +292,9 @@ class BaseConnection(connection.Connection):
             else:
                 LOGGER.error("SSL Socket error on fd %d: %r",
                              self.socket.fileno(), error_value)
-        elif error_code == errno.EPIPE:
-            # Broken pipe, happens when connection reset
-            LOGGER.error("Socket connection was broken")
         else:
             # Haven't run into this one yet, log it.
-            LOGGER.error("Socket Error on fd %d: %s",
+            LOGGER.error("Unknown Socket Error on fd %d: %s",
                          self.socket.fileno(), error_code)
 
         # Disconnect from our IOLoop and let Connection know what's up
