@@ -130,9 +130,7 @@ class BaseConnection(connection.Connection):
         """Invoked if the connection is being told to disconnect"""
         if hasattr(self, 'heartbeat') and self.heartbeat is not None:
             self.heartbeat.stop()
-        if self.socket:
-            self.socket.close()
-        self.socket = None
+        self._cleanup_socket()
         self._check_state_on_disconnect()
         self._handle_ioloop_stop()
         self._init_connection_state()
@@ -373,7 +371,20 @@ class BaseConnection(connection.Connection):
         super(BaseConnection, self)._init_connection_state()
         self.base_events = self.READ | self.ERROR
         self.event_state = self.base_events
-        self.socket = None
+        self._cleanup_socket()
+
+    def _cleanup_socket(self):
+        """Close the socket.
+
+        :return:
+        """
+        if self.socket:
+            try:
+                self.socket.shutdown(socket.SHUT_RDWR)
+            except socket.error as err:
+                pass
+            self.socket.close()
+            self.socket = None
 
     def _manage_event_state(self):
         """Manage the bitmask for reading/writing/error which is used by the

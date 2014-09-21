@@ -295,7 +295,7 @@ class TwistedConnection(base_connection.BaseConnection):
     def _adapter_disconnect(self):
         """Called when the adapter should disconnect"""
         self.ioloop.remove_handler(None)
-        self.socket.close()
+        self._cleanup_socket()
 
     def _handle_disconnect(self):
         """Do not stop the reactor, this would cause the entire process to exit,
