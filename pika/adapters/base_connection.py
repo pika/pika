@@ -123,6 +123,9 @@ class BaseConnection(connection.Connection):
             error = self._create_and_connect_to_socket(sock_addr)
             if not error:
                 return None
+            else:
+                self._cleanup_socket()
+
         # Failed to connect
         return error
 
