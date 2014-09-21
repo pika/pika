@@ -309,23 +309,23 @@ class BaseConnection(connection.Connection):
         :param bool write_only: Only handle write events
 
         """
-        if not fd:
+        if not self.socket:
             LOGGER.error('Received events on closed socket: %d', fd)
             return
 
-        if events & self.WRITE:
+        if self.socket and (events & self.WRITE):
             self._handle_write()
             self._manage_event_state()
 
-        if not write_only and (events & self.READ):
+        if self.socket and not write_only and (events & self.READ):
             self._handle_read()
 
-        if write_only and (events & self.READ) and (events & self.ERROR):
+        if self.socket and write_only and (events & self.READ) and (events & self.ERROR):
             LOGGER.error('BAD libc:  Write-Only but Read+Error. '
                          'Assume socket disconnected.')
             self._handle_disconnect()
 
-        if events & self.ERROR:
+        if self.socket and (events & self.ERROR):
             LOGGER.error('Error event %r, %r', events, error)
             self._handle_error(error)
 
