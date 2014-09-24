@@ -67,17 +67,12 @@ class ReadPoller(object):
         self.fd = fd
         self.poll_timeout = poll_timeout
         if hasattr(select, 'poll') and os.name != 'java':
-            self._initialize_poller()
+            self.poller = select.poll()
+            self.poll_events = select.POLLIN | select.POLLPRI
+            self.poller.register(self.fd, self.poll_events)
         else:
             self.poller = None
             self.poll_timeout = float(poll_timeout) / 1000
-
-    def _initialize_poller(self):
-        """Initialize the poller.
-        """
-        self.poller = select.poll()
-        self.poll_events = select.POLLIN | select.POLLPRI
-        self.poller.register(self.fd, self.poll_events)
 
     @retry_on_eintr
     def ready(self):
@@ -94,10 +89,11 @@ class ReadPoller(object):
             try:
                 events = self.poller.poll(self.poll_timeout)
             except RuntimeError as exception:
-                LOGGER.debug('Reinitializing the poller.')
-                self._initialize_poller()
+                LOGGER.debug('poll RuntimeException, reinitializing')
+                self.poller = select.poll()
+                self.poller.register(self.fd, self.poll_events)
 
-                LOGGER.debug('Now, try to poll again.')
+                # Re-poll again.
                 events = self.poller.poll(self.poll_timeout)
 
             return bool(events)
