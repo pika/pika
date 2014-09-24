@@ -91,6 +91,7 @@ class ReadPoller(object):
             except RuntimeError as exception:
                 LOGGER.debug('poll RuntimeException, reinitializing')
                 self.poller = select.poll()
+                self.poll_events = select.POLLIN | select.POLLPRI
                 self.poller.register(self.fd, self.poll_events)
 
                 # Re-poll again.
