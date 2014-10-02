@@ -1491,7 +1491,8 @@ class Connection(object):
         if self.params.backpressure_detection:
             self._detect_backpressure()
 
-    def _send_method(self, channel_number, method_frame, content=None):
+
+    def _send_method_unbuffered(self, channel_number, method_frame, content=None):
         """Constructs a RPC method frame and then sends it to the broker.
 
         :param int channel_number: The channel number for the frame
@@ -1517,6 +1518,92 @@ class Connection(object):
                     end = length
                 self._send_frame(frame.Body(channel_number,
                                             content[1][start:end]))
+
+
+    def _send_frame_buffered(self, frame_value, frame_acc):
+        """This appends the fully generated frame to send to the broker to the
+        frame accumulator (frame_acc) which will then be sent via the
+        connection adapter when _flush_buffered_frames() is called with the
+        frame accumulator.
+
+        :param frame_value: The frame to write
+        :type frame_value:  pika.frame.Frame|pika.frame.ProtocolHeader
+        :param frame_acc:   The frame accumulator
+        :type frame_acc:    list
+
+        """
+        if frame_acc is None:
+            frame_acc = []
+        if self.is_closed:
+            LOGGER.critical('Attempted to send frame when closed')
+            return
+        marshaled_frame = frame_value.marshal()
+        self.bytes_sent += len(marshaled_frame)
+        self.frames_sent += 1
+        frame_acc.append(marshaled_frame)
+        self._flush_outbound()
+        if self.params.backpressure_detection:
+            self._detect_backpressure()
+        return frame_acc
+
+
+    def _send_method_buffered(self, channel_number, method_frame, content=None):
+        """Constructs a RPC method frame and then sends it to the broker.
+
+        :param int channel_number: The channel number for the frame
+        :param pika.object.Method method_frame: The method frame to send
+        :param tuple content: If set, is a content frame, is tuple of
+                              properties and body.
+
+        """
+        LOGGER.debug("\n ===== Entered conn:_send_method_buffered()")
+        # Accumulate the frames for this method here.
+        frames = []
+        self._send_frame_buffered(frame.Method(channel_number, method_frame), frames)
+
+        # If it's not a tuple of Header, str|unicode then return
+        if not isinstance(content, tuple):
+            self._flush_buffered_frames(frames)
+            return
+
+        length = len(content[1])
+        try:
+            self._send_frame_buffered(frame.Header(channel_number, length,
+                content[0]), frames)
+        except Exception, e:
+            raise
+        if content[1]:
+            chunks = int(math.ceil(float(length) / self._body_max_length))
+            LOGGER.debug("Number of body chunks: %d", chunks)
+            for chunk in range(0, chunks):
+                start = chunk * self._body_max_length
+                end = start + self._body_max_length
+                if end > length:
+                    end = length
+                self._send_frame_buffered(frame.Body(channel_number,
+                                            content[1][start:end]), frames)
+        self._flush_buffered_frames(frames)
+
+
+    def _flush_buffered_frames(self, frame_acc):
+        """Put accumulated marshaled frames onto the outbound buffer.
+        This might still be subject to a race condition on access to the
+        outbound_buffer, but I *think* it is significantly lessened.
+        """
+        for marshaled_frame in frame_acc:
+            self.bytes_sent += len(marshaled_frame)
+            self.frames_sent += 1
+            self.outbound_buffer.append(marshaled_frame)
+            LOGGER.debug("added marshaled frame, %d bytes", len(marshaled_frame))
+        self._flush_outbound()
+        if self.params.backpressure_detection:
+            self._detect_backpressure()
+
+
+    def _send_method(self, *args):
+        """Wrapper around the buffered and unbuffered _send_method* methods."""
+        return self._send_method_buffered(*args)
+        # return self._send_method_unbuffered(*args)
 
     def _set_connection_state(self, connection_state):
         """Set the connection state.
