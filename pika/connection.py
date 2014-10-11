@@ -1472,27 +1472,43 @@ class Connection(object):
                                                     self.params.frame_max,
                                                     self.params.heartbeat))
 
-    def _send_frame(self, frame_value):
+
+    def _send_frame(self, frame_value, frame_acc=None):
         """This appends the fully generated frame to send to the broker to the
-        output buffer which will be then sent via the connection adapter.
+        either the output buffer or to the frame accumulator frame_acc (if it
+        is defined).
+
+        When frame_acc is specified, it is the caller's responsiblity to
+        send the buffered frames to the output buffer by passing frame_acc to
+        _flush_buffered_frames().
 
         :param frame_value: The frame to write
         :type frame_value:  pika.frame.Frame|pika.frame.ProtocolHeader
+        :type frame_acc:    Optional list to accumulate this frame onto
 
         """
         if self.is_closed:
             LOGGER.critical('Attempted to send frame when closed')
             return
+
         marshaled_frame = frame_value.marshal()
-        self.bytes_sent += len(marshaled_frame)
-        self.frames_sent += 1
-        self.outbound_buffer.append(marshaled_frame)
+        if frame_acc is None:
+            self.bytes_sent += len(marshaled_frame)
+            self.frames_sent += 1
+            self.outbound_buffer.append(marshaled_frame)
+        else:
+            frame_acc.append(marshaled_frame)
         self._flush_outbound()
         if self.params.backpressure_detection:
             self._detect_backpressure()
 
+
     def _send_method(self, channel_number, method_frame, content=None):
-        """Constructs a RPC method frame and then sends it to the broker.
+        """Constructs an RPC method frame and then sends it to the broker.
+        Note that the entire message is buffered and delivered to the broker
+        as a contiguous set of frames.  This can have an impact in latency for
+        large messages since they must be buffered in their entirety prior to
+        being sent to the broker.
 
         :param int channel_number: The channel number for the frame
         :param pika.object.Method method_frame: The method frame to send
@@ -1500,14 +1516,21 @@ class Connection(object):
                               properties and body.
 
         """
-        self._send_frame(frame.Method(channel_number, method_frame))
+        frames_acc = []
+        self._send_frame(frame.Method(channel_number, method_frame),
+                frames_acc)
 
         # If it's not a tuple of Header, str|unicode then return
         if not isinstance(content, tuple):
+            self._flush_buffered_frames(frames_acc)
             return
 
         length = len(content[1])
-        self._send_frame(frame.Header(channel_number, length, content[0]))
+        try:
+            self._send_frame(frame.Header(channel_number, length,
+                content[0]), frames_acc)
+        except Exception, e:
+            raise
         if content[1]:
             chunks = int(math.ceil(float(length) / self._body_max_length))
             for chunk in range(0, chunks):
@@ -1516,7 +1539,27 @@ class Connection(object):
                 if end > length:
                     end = length
                 self._send_frame(frame.Body(channel_number,
-                                            content[1][start:end]))
+                                            content[1][start:end]), frames_acc)
+        self._flush_buffered_frames(frames_acc)
+
+
+    def _flush_buffered_frames(self, frame_acc):
+        """Put accumulated marshaled frames onto the outbound buffer.
+        The method sending path is still not thread safe (for multiple writing
+        threads publishing to the same channel), but it is safe otherwise.
+
+        :param frame_acc: The frame accumulator.
+        :type  frame_acc: List of marshaled frames
+
+        """
+        for marshaled_frame in frame_acc:
+            self.bytes_sent += len(marshaled_frame)
+            self.frames_sent += 1
+            self.outbound_buffer.append(marshaled_frame)
+            LOGGER.debug("added marshaled frame, %d bytes", len(marshaled_frame))
+        self._flush_outbound()
+        if self.params.backpressure_detection:
+            self._detect_backpressure()
 
     def _set_connection_state(self, connection_state):
         """Set the connection state.

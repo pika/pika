@@ -387,12 +387,14 @@ class TwistedProtocolConnection(base_connection.BaseConnection):
         # Disconnect from the server
         self.transport.loseConnection()
 
-    def _send_frame(self, frame_value):
+    def _send_frame(self, frame_value, frame_acc=None):
         """Send data the Twisted way, by writing to the transport. No need for
         buffering, Twisted handles that by itself.
 
         :param frame_value: The frame to write
         :type frame_value:  pika.frame.Frame|pika.frame.ProtocolHeader
+        :param frame_acc:   The frame accumulator, ignored.
+        :type frame_acc:    list (empty because it is ignored)
 
         """
         if self.is_closed:
