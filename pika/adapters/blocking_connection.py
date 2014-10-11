@@ -406,15 +406,17 @@ class BlockingConnection(base_connection.BaseConnection):
         if self.closing[0] not in [0, 200]:
             raise exceptions.ConnectionClosed(*self.closing)
 
-    def _send_frame(self, frame_value):
+    def _send_frame(self, frame_value, frame_acc=None):
         """This appends the fully generated frame to send to the broker to the
         output buffer which will be then sent via the connection adapter.
 
         :param frame_value: The frame to write
         :type frame_value:  pika.frame.Frame|pika.frame.ProtocolHeader
+        :param frame_acc:   The frame accumulator, optional
+        :type frame_acc:    list of marshaled frames, or None
 
         """
-        super(BlockingConnection, self)._send_frame(frame_value)
+        super(BlockingConnection, self)._send_frame(frame_value, frame_acc)
         self._frames_written_without_read += 1
         if self._frames_written_without_read >= self.WRITE_TO_READ_RATIO:
             if not isinstance(frame_value, frame.Method):
