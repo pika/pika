@@ -5,6 +5,7 @@ import collections
 import logging
 import math
 import platform
+import threading
 import urllib
 import warnings
 
@@ -576,6 +577,8 @@ class Connection(object):
         :param method on_close_callback: Called when the connection is closed
 
         """
+        self._write_lock = threading.Lock()
+
         # Define our callback dictionary
         self.callbacks = callback.CallbackManager()
 
@@ -1500,23 +1503,43 @@ class Connection(object):
                               properties and body.
 
         """
-        self._send_frame(frame.Method(channel_number, method_frame))
+        if not content:
+            with self._write_lock:
+                self._send_frame(frame.Method(channel_number, method_frame))
+                return
+        self._send_message(channel_number, method_frame, content)
 
-        # If it's not a tuple of Header, str|unicode then return
-        if not isinstance(content, tuple):
-            return
+    def _send_message(self, channel_number, method_frame, content=None):
+        """Send the message directly, bypassing the single _send_frame
+        invocation by directly appending to the output buffer and flushing
+        within a lock.
 
+        :param int channel_number: The channel number for the frame
+        :param pika.object.Method method_frame: The method frame to send
+        :param tuple content: If set, is a content frame, is tuple of
+                              properties and body.
+
+        """
         length = len(content[1])
-        self._send_frame(frame.Header(channel_number, length, content[0]))
+        write_buffer = [frame.Method(channel_number, method_frame).marshal(),
+                        frame.Header(channel_number,
+                                     length, content[0]).marshal()]
         if content[1]:
             chunks = int(math.ceil(float(length) / self._body_max_length))
             for chunk in range(0, chunks):
-                start = chunk * self._body_max_length
-                end = start + self._body_max_length
-                if end > length:
-                    end = length
-                self._send_frame(frame.Body(channel_number,
-                                            content[1][start:end]))
+                s = chunk * self._body_max_length
+                e = s + self._body_max_length
+                if e > length:
+                    e = length
+                write_buffer.append(frame.Body(channel_number,
+                                               content[1][s:e]).marshal())
+
+        with self._write_lock:
+            self.outbound_buffer += write_buffer
+            self.frames_sent += len(write_buffer)
+            self._flush_outbound()
+            if self.params.backpressure_detection:
+                self._detect_backpressure()
 
     def _set_connection_state(self, connection_state):
         """Set the connection state.
