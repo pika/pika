@@ -264,7 +264,7 @@ consumer.py::
             """
             if self._channel:
                 LOGGER.info('Sending a Basic.Cancel RPC command to RabbitMQ')
-                self._channel.basic_cancel(self.on_cancelok, self._consumer_tag)
+                self._channel.basic_cancel(callback=self.on_cancelok, consumer_tag=self._consumer_tag)
 
         def start_consuming(self):
             """This method sets up the consumer by first calling
