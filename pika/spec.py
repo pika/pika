@@ -2805,14 +2805,9 @@ props = {
 
 
 def has_content(methodNumber):
-
-    if methodNumber == Basic.Publish.INDEX:
-        return True
-    if methodNumber == Basic.Return.INDEX:
-        return True
-    if methodNumber == Basic.Deliver.INDEX:
-        return True
-    if methodNumber == Basic.GetOk.INDEX:
-        return True
-    return False
-
+    return methodNumber in (
+        Basic.Publish.INDEX,
+        Basic.Return.INDEX,
+        Basic.Deliver.INDEX,
+        Basic.GetOk.INDEX,
+    )

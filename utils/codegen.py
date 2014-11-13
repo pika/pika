@@ -369,13 +369,11 @@ from pika import data
     print('')
 
     print("def has_content(methodNumber):")
-    print('')
+    print('    return methodNumber in (')
     for m in spec.allMethods():
         if m.hasContent:
-            print('    if methodNumber == %s.INDEX:' % m.structName())
-            print('        return True')
-    print("    return False")
-    print('')
+            print('        %s.INDEX,' % m.structName())
+    print('    )')
 
 if __name__ == "__main__":
     with open(PIKA_SPEC, 'w') as handle:
