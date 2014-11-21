@@ -208,14 +208,15 @@ class ConnectionTests(unittest.TestCase):
             'ssl': True,
             'connection_attempts': 2,
             'locale': 'en',
-            'ssl_options': {'ssl': 'options'}
+            'ssl_options': {'ssl': 'options'},
+            'skip_incompatible_protocol_error': True
         }
         conn = connection.ConnectionParameters(**kwargs)
         #check values
         for t_param in ('host', 'port', 'virtual_host', 'channel_max',
                 'frame_max', 'backpressure_detection', 'ssl',
                 'credentials', 'retry_delay', 'connection_attempts',
-                'locale'):
+                'locale', 'skip_incompatible_protocol_error'):
             self.assertEqual(kwargs[t_param], getattr(conn, t_param), t_param)
         self.assertEqual(kwargs['heartbeat_interval'], conn.heartbeat)
 
@@ -246,7 +247,8 @@ class ConnectionTests(unittest.TestCase):
                 ('backpressure_detection', 'true'),
                 ('ssl', {'ssl': 'dict'}),
                 ('ssl_options', True),
-                ('connection_attempts', 'hello')
+                ('connection_attempts', 'hello'),
+                ('skip_incompatible_protocol_error', 123)
                 ):
             bkwargs = copy.deepcopy(kwargs)
             bkwargs[bad_field] = bad_value
