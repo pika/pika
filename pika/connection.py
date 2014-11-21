@@ -62,6 +62,7 @@ class Parameters(object):
     DEFAULT_PASSWORD = 'guest'
     DEFAULT_PORT = 5672
     DEFAULT_RETRY_DELAY = 2.0
+    DEFAULT_SKIP_INCOMPATIBLE_PROTOCOL_ERROR = False
     DEFAULT_SOCKET_TIMEOUT = 0.25
     DEFAULT_SSL = False
     DEFAULT_SSL_OPTIONS = {}
@@ -82,6 +83,7 @@ class Parameters(object):
         self.locale = self.DEFAULT_LOCALE
         self.port = self.DEFAULT_PORT
         self.retry_delay = self.DEFAULT_RETRY_DELAY
+        self.skip_incompatible_protocol_error = self.DEFAULT_SKIP_INCOMPATIBLE_PROTOCOL_ERROR
         self.ssl = self.DEFAULT_SSL
         self.ssl_options = self.DEFAULT_SSL_OPTIONS
         self.socket_timeout = self.DEFAULT_SOCKET_TIMEOUT
@@ -245,6 +247,18 @@ class Parameters(object):
             raise TypeError('retry_delay must be a float or int')
         return True
 
+    def _validate_skip_incompatible_protocol_error(self, skip_incompatible_protocol_error):
+        """Validate that the skip_incompatible_protocol_error option is a bool.
+
+        :param bool skip_incompatible_protocol_error: The skip_incompatible_protocol_error value
+        :rtype: bool
+        :raises: TypeError
+
+        """
+        if not isinstance(skip_incompatible_protocol_error, bool):
+            raise TypeError('skip_incompatible_protocol_error must be a bool')
+        return True
+
     def _validate_socket_timeout(self, socket_timeout):
         """Validate that the socket_timeout value is an int or float
 
@@ -315,6 +329,7 @@ class ConnectionParameters(Parameters):
     :param int|float socket_timeout: Use for high latency networks
     :param str locale: Set the locale value
     :param bool backpressure_detection: Toggle backpressure detection
+    :param bool skip_incompatible_protocol_error: Not raising IncompatibleProtocolError as it is normal error
 
     """
     def __init__(self,
@@ -331,7 +346,8 @@ class ConnectionParameters(Parameters):
                  retry_delay=None,
                  socket_timeout=None,
                  locale=None,
-                 backpressure_detection=None):
+                 backpressure_detection=None,
+                 skip_incompatible_protocol_error=None):
         """Create a new ConnectionParameters instance.
 
         :param str host: Hostname or IP Address to connect to
@@ -348,6 +364,7 @@ class ConnectionParameters(Parameters):
         :param int|float socket_timeout: Use for high latency networks
         :param str locale: Set the locale value
         :param bool backpressure_detection: Toggle backpressure detection
+        :param bool skip_incompatible_protocol_error: Not raising IncompatibleProtocolError as it is normal error
 
         """
         super(ConnectionParameters, self).__init__()
@@ -390,6 +407,9 @@ class ConnectionParameters(Parameters):
         if (backpressure_detection is not None and
             self._validate_backpressure(backpressure_detection)):
             self.backpressure_detection = backpressure_detection
+        if (skip_incompatible_protocol_error is not None and
+            self._validate_skip_incompatible_protocol_error(skip_incompatible_protocol_error)):
+            self.skip_incompatible_protocol_error = skip_incompatible_protocol_error
 
 
 class URLParameters(Parameters):
