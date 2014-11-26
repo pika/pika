@@ -61,14 +61,15 @@ class PikaProtocol(twisted_connection.TwistedProtocolConnection):
         yield self.channel.basic_qos(prefetch_count=PREFETCH_COUNT)
         self.connected = True
         for (exchange, routing_key, callback,) in self.factory.read_list:
-            self.setup_read(exchange, routing_key, callback)
+            yield self.setup_read(exchange, routing_key, callback)
 
         self.send()
 
+    @inlineCallbacks
     def read(self, exchange, routing_key, callback):
         """Add an exchange to the list of exchanges to read from."""
         if self.connected:
-            self.setup_read(exchange, routing_key, callback)
+            yield self.setup_read(exchange, routing_key, callback)
 
     @inlineCallbacks
     def setup_read(self, exchange, routing_key, callback):
@@ -174,7 +175,9 @@ class TestService(service.Service):
 
     def startService(self):
         self.amqp = self.parent.getServiceNamed("amqp").getFactory()
-        self.amqp.read_messages("foobar", "request", self.respond)
+        self.amqp.read_messages("foobar", "request1", self.respond)
+        self.amqp.read_messages("foobar", "request2", self.respond)
+        self.amqp.read_messages("foobar", "request3", self.respond)
 
 ts = TestService()
 ts.setServiceParent(application)
