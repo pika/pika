@@ -146,7 +146,8 @@ class BaseConnection(connection.Connection):
         """
         if self.connection_state == self.CONNECTION_PROTOCOL:
             LOGGER.error('Incompatible Protocol Versions')
-            raise exceptions.IncompatibleProtocolError
+            if not self.params.skip_incompatible_protocol_error:
+                raise exceptions.IncompatibleProtocolError
         elif self.connection_state == self.CONNECTION_START:
             LOGGER.error("Socket closed while authenticating indicating a "
                          "probable authentication error")
