@@ -113,7 +113,6 @@ class BlockingConnection(base_connection.BaseConnection):
 
     """
     WRITE_TO_READ_RATIO = 10
-    DO_HANDSHAKE = True
     SLEEP_DURATION = 0.1
     SOCKET_CONNECT_TIMEOUT = 0.25
     SOCKET_TIMEOUT_THRESHOLD = 12
