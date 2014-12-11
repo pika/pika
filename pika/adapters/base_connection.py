@@ -28,6 +28,7 @@ class BaseConnection(connection.Connection):
     ERROR = 0x0008
 
     ERRORS_TO_IGNORE = [errno.EWOULDBLOCK, errno.EAGAIN, errno.EINTR]
+    ERRORS_TO_ABORT = [errno.EBADF, errno.ECONNABORTED, errno.EPIPE]
     DO_HANDSHAKE = True
     WARN_ABOUT_IOLOOP = False
 
@@ -61,7 +62,6 @@ class BaseConnection(connection.Connection):
             raise RuntimeError("SSL specified but it is not available")
         self.base_events = self.READ | self.ERROR
         self.event_state = self.base_events
-        self.fd = None
         self.ioloop = ioloop
         self.socket = None
         self.stop_ioloop_on_close = stop_ioloop_on_close
@@ -124,6 +124,9 @@ class BaseConnection(connection.Connection):
             error = self._create_and_connect_to_socket(sock_addr)
             if not error:
                 return None
+            else:
+                self._cleanup_socket()
+
         # Failed to connect
         return error
 
@@ -131,9 +134,7 @@ class BaseConnection(connection.Connection):
         """Invoked if the connection is being told to disconnect"""
         if hasattr(self, 'heartbeat') and self.heartbeat is not None:
             self.heartbeat.stop()
-        if self.socket:
-            self.socket.close()
-        self.socket = None
+        self._cleanup_socket()
         self._check_state_on_disconnect()
         self._handle_ioloop_stop()
         self._init_connection_state()
@@ -272,14 +273,15 @@ class BaseConnection(connection.Connection):
             LOGGER.critical("Tried to handle an error where no error existed")
             return
 
-        # Ok errors, just continue what we were doing before
         if error_code in self.ERRORS_TO_IGNORE:
+            # Ok errors, just continue what we were doing before
             LOGGER.debug("Ignoring %s", error_code)
             return
 
-        # Socket is closed, so lets just go to our handle_close method
-        elif error_code in (errno.EBADF, errno.ECONNABORTED):
-            LOGGER.error("Socket is closed")
+        elif error_code in self.ERRORS_TO_ABORT:
+            # Socket is closed, so lets just go to our handle_close method
+            LOGGER.error("Fatal Socket Error on fd %d: %r",
+                         self.socket.fileno(), error_value)
 
         elif self.params.ssl and isinstance(error_value, ssl.SSLError):
 
@@ -290,12 +292,9 @@ class BaseConnection(connection.Connection):
             else:
                 LOGGER.error("SSL Socket error on fd %d: %r",
                              self.socket.fileno(), error_value)
-        elif error_code == errno.EPIPE:
-            # Broken pipe, happens when connection reset
-            LOGGER.error("Socket connection was broken")
         else:
             # Haven't run into this one yet, log it.
-            LOGGER.error("Socket Error on fd %d: %s",
+            LOGGER.error("Unknown Socket Error on fd %d: %s",
                          self.socket.fileno(), error_code)
 
         # Disconnect from our IOLoop and let Connection know what's up
@@ -310,23 +309,23 @@ class BaseConnection(connection.Connection):
         :param bool write_only: Only handle write events
 
         """
-        if not fd:
+        if not self.socket:
             LOGGER.error('Received events on closed socket: %d', fd)
             return
 
-        if events & self.WRITE:
+        if self.socket and (events & self.WRITE):
             self._handle_write()
             self._manage_event_state()
 
-        if not write_only and (events & self.READ):
+        if self.socket and not write_only and (events & self.READ):
             self._handle_read()
 
-        if write_only and (events & self.READ) and (events & self.ERROR):
+        if self.socket and write_only and (events & self.READ) and (events & self.ERROR):
             LOGGER.error('BAD libc:  Write-Only but Read+Error. '
                          'Assume socket disconnected.')
             self._handle_disconnect()
 
-        if events & self.ERROR:
+        if self.socket and (events & self.ERROR):
             LOGGER.error('Error event %r, %r', events, error)
             self._handle_error(error)
 
@@ -372,10 +371,22 @@ class BaseConnection(connection.Connection):
 
         """
         super(BaseConnection, self)._init_connection_state()
-        self.fd = None
         self.base_events = self.READ | self.ERROR
         self.event_state = self.base_events
-        self.socket = None
+        self._cleanup_socket()
+
+    def _cleanup_socket(self):
+        """Close the socket.
+
+        :return:
+        """
+        if self.socket:
+            try:
+                self.socket.shutdown(socket.SHUT_RDWR)
+            except socket.error as err:
+                pass
+            self.socket.close()
+            self.socket = None
 
     def _manage_event_state(self):
         """Manage the bitmask for reading/writing/error which is used by the
