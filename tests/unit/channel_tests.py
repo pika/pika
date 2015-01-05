@@ -388,6 +388,10 @@ class ChannelTests(unittest.TestCase):
     def test_basic_reject_raises_channel_closed(self):
         self.assertRaises(exceptions.ChannelClosed, self.obj.basic_reject,
                           1, False)
+    
+    def test_basic_reject_raises_type_error(self):
+        self.assertRaises(TypeError, self.obj.basic_reject,
+                          requeue = False)
 
     @mock.patch('pika.spec.Basic.Reject')
     @mock.patch('pika.channel.Channel._send_method')
@@ -1273,3 +1277,5 @@ class ChannelTests(unittest.TestCase):
         warning.assert_called_with('Received remote Channel.Close (%s): %s',
                                    method_frame.method.reply_code,
                                    method_frame.method.reply_text)
+
+unittest.main()
