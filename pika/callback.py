@@ -229,7 +229,12 @@ class CallbackManager(object):
         # Call each callback
         for callback in callbacks:
             LOGGER.debug('Calling %s for "%s:%s"', callback, prefix, key)
-            callback(*args, **keywords)
+            try:
+                callback(*args, **keywords)
+            except:
+                LOGGER.exception('Calling %s for "%s:%s" failed',
+                        callback, prefix, key)
+                raise
         return True
 
     @sanitize_prefix
