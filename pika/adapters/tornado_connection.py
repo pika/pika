@@ -3,6 +3,7 @@ from tornado import ioloop
 import logging
 import time
 
+from pika import exceptions
 from pika.adapters import base_connection
 
 LOGGER = logging.getLogger(__name__)
@@ -72,7 +73,10 @@ class TornadoConnection(base_connection.BaseConnection):
         """Disconnect from the RabbitMQ broker"""
         if self.socket:
             self.ioloop.remove_handler(self.socket.fileno())
-        super(TornadoConnection, self)._adapter_disconnect()
+        try:
+            super(TornadoConnection, self)._adapter_disconnect()
+        except exceptions.AMQPConnectionError as e:
+            LOGGER.warning("TornadoConnection._adapter_disconnect: %s", repr(e))
 
     def add_timeout(self, deadline, callback_method):
         """Add the callback_method to the IOLoop timer to fire after deadline
