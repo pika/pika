@@ -134,9 +134,23 @@ class BaseConnection(connection.Connection):
         if self.socket:
             self.socket.close()
         self.socket = None
-        self._check_state_on_disconnect()
-        self._handle_ioloop_stop()
-        self._init_connection_state()
+
+        try:
+            self._check_state_on_disconnect()
+        except exceptions.AMQPConnectionError as e:
+            # If the connection is neither open, not closed, it probably
+            # was never successfully established.
+            if not self.is_open and not self.is_closed:
+                self.callbacks.process(0, self.ON_CONNECTION_ERROR,
+                                       self, self, repr(e))
+
+            # reraise this exception to keep existing behavior.
+            raise
+
+        finally:
+            # Make sure we cleanup
+            self._handle_ioloop_stop()
+            self._init_connection_state()
 
     def _check_state_on_disconnect(self):
         """Checks to see if we were in opening a connection with RabbitMQ when
