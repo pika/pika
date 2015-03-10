@@ -14,6 +14,7 @@ import os
 import logging
 import select
 import socket
+import sys
 import time
 import warnings
 import errno
@@ -240,7 +241,7 @@ class BlockingConnection(base_connection.BaseConnection):
             if self._handle_read():
                 self._socket_timeouts = 0
         except AttributeError:
-            raise exceptions.ConnectionClosed()
+            raise exceptions.ConnectionClosed(), None, sys.exc_info()[2]
         except socket.timeout:
             self._handle_timeout()
         self._flush_outbound()
