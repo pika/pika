@@ -2,6 +2,8 @@
 from tornado import ioloop
 import logging
 import time
+import socket
+import errno
 
 from pika.adapters import base_connection
 
@@ -47,6 +49,7 @@ class TornadoConnection(base_connection.BaseConnection):
         """
         self.sleep_counter = 0
         self.ioloop = custom_ioloop or ioloop.IOLoop.instance()
+
         super(TornadoConnection, self).__init__(parameters,
                                                 on_open_callback,
                                                 on_open_error_callback,
@@ -56,7 +59,7 @@ class TornadoConnection(base_connection.BaseConnection):
 
     def _adapter_connect(self):
         """Connect to the remote socket, adding the socket to the IOLoop if
-        connected
+        connected.
 
         :rtype: bool
 
@@ -73,6 +76,45 @@ class TornadoConnection(base_connection.BaseConnection):
         if self.socket:
             self.ioloop.remove_handler(self.socket.fileno())
         super(TornadoConnection, self)._adapter_disconnect()
+
+    def _handle_write(self):
+        """Try and write as much as we can, if we get blocked requeue 
+        what's left"""
+        bytes_written = 0
+        try:
+            while self.outbound_buffer:
+                frame = self.outbound_buffer.popleft()
+                bw = self.socket.send(frame)
+                frame = frame[bw:]
+                bytes_written += bw
+
+                if frame:
+                    LOGGER.warning("Partial write, requeing remaining data")
+                    self.outbound_buffer.appendleft(frame)
+                    break
+
+        except socket.timeout:
+            # Will get a timeout if the socket is blocking
+            LOGGER.warning("socket timeout, requeuing frame")
+            self.outbound_buffer.appendleft(frame)
+            
+        except socket.error as error:
+			# If the socket is non-blocking, we'll come here instead
+            if error.errno in (errno.EAGAIN, errno.EWOULDBLOCK):
+                LOGGER.warning("Would block, requeuing frame")
+                self.outbound_buffer.appendleft(frame)
+            else:
+                return self._handle_error(error)
+            
+        #LOGGER.warning("wrote %s bytes", bytes_written)
+        return bytes_written     
+
+    def _flush_outbound(self):
+        """write early, if the socket will take the data why not get it out
+        there asap.
+        """
+        self._handle_write()
+        return super(TornadoConnection, self)._flush_outbound()
 
     def add_timeout(self, deadline, callback_method):
         """Add the callback_method to the IOLoop timer to fire after deadline
