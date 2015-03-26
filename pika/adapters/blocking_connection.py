@@ -356,7 +356,7 @@ class BlockingConnection(base_connection.BaseConnection):
 
         LOGGER.debug('Handling timeout %i with a threshold of %i',
                      self._socket_timeouts, threshold)
-        if self.is_closing and self._socket_timeouts > threshold:
+        if self._socket_timeouts > threshold:
             if not self.is_closing:
                 LOGGER.critical('Closing connection due to timeout')
             self._on_connection_closed(None, True)
