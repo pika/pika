@@ -27,8 +27,7 @@ class BlockingConnectionTests(unittest.TestCase):
     @patch.object(blocking_connection.BlockingConnection, 'connect',
                   spec_set=blocking_connection.BlockingConnection.connect)
     def test_handle_timeout_when_closing_exceeds_threshold(self, connect_mock):
-        params = pika.ConnectionParameters(socket_timeout=2.0)
-        connection = BlockingConnectionMockTemplate(params)
+        connection = BlockingConnectionMockTemplate()
 
         connection_patch = patch.multiple(
             connection,
@@ -45,8 +44,7 @@ class BlockingConnectionTests(unittest.TestCase):
     @patch.object(blocking_connection.BlockingConnection, 'connect',
                   spec_set=blocking_connection.BlockingConnection.connect)
     def test_handle_timeout_when_closing_below_threshold(self, connect_mock):
-        params = pika.ConnectionParameters(socket_timeout=2.0)
-        connection = BlockingConnectionMockTemplate(params)
+        connection = BlockingConnectionMockTemplate()
 
         connection_patch = patch.multiple(
             connection,
@@ -63,8 +61,7 @@ class BlockingConnectionTests(unittest.TestCase):
                   spec_set=blocking_connection.BlockingConnection.connect)
     def test_handle_timeout_when_not_closing_exceeds_threshold(self,
                                                                connect_mock):
-        params = pika.ConnectionParameters(socket_timeout=2.0)
-        connection = BlockingConnectionMockTemplate(params)
+        connection = BlockingConnectionMockTemplate()
 
         connection_patch = patch.multiple(
             connection,
@@ -81,8 +78,7 @@ class BlockingConnectionTests(unittest.TestCase):
                   spec_set=blocking_connection.BlockingConnection.connect)
     def test_handle_timeout_when_not_closing_below_threshold(self,
                                                                connect_mock):
-        params = pika.ConnectionParameters(socket_timeout=2.0)
-        connection = BlockingConnectionMockTemplate(params)
+        connection = BlockingConnectionMockTemplate()
 
         connection_patch = patch.multiple(
             connection,
