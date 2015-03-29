@@ -61,7 +61,6 @@ class BaseConnection(connection.Connection):
             raise RuntimeError("SSL specified but it is not available")
         self.base_events = self.READ | self.ERROR
         self.event_state = self.base_events
-        self.fd = None
         self.ioloop = ioloop
         self.socket = None
         self.stop_ioloop_on_close = stop_ioloop_on_close
@@ -372,7 +371,6 @@ class BaseConnection(connection.Connection):
 
         """
         super(BaseConnection, self)._init_connection_state()
-        self.fd = None
         self.base_events = self.READ | self.ERROR
         self.event_state = self.base_events
         self.socket = None
