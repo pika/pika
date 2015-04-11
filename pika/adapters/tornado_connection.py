@@ -61,11 +61,14 @@ class TornadoConnection(base_connection.BaseConnection):
         """Connect to the remote socket, adding the socket to the IOLoop if
         connected.
 
+        Set the socket non-blocking after super() call
+
         :rtype: bool
 
         """
         error = super(TornadoConnection, self)._adapter_connect()
         if not error:
+            self.socket.setblocking(0) 
             self.ioloop.add_handler(self.socket.fileno(),
                                     self._handle_events,
                                     self.event_state)
@@ -99,7 +102,7 @@ class TornadoConnection(base_connection.BaseConnection):
             self.outbound_buffer.appendleft(frame)
             
         except socket.error as error:
-			# If the socket is non-blocking, we'll come here instead
+            # If the socket is non-blocking, we'll come here instead
             if error.errno in (errno.EAGAIN, errno.EWOULDBLOCK):
                 LOGGER.warning("Would block, requeuing frame")
                 self.outbound_buffer.appendleft(frame)
