@@ -59,14 +59,13 @@ class TornadoConnection(base_connection.BaseConnection):
 
     def _adapter_connect(self):
         """Connect to the remote socket, adding the socket to the IOLoop if
-        connected. Set the socket non-blocking after super() call.
+        connected. 
 
         :rtype: bool
 
         """
         error = super(TornadoConnection, self)._adapter_connect()
         if not error:
-            self.socket.setblocking(0)
             self.ioloop.add_handler(self.socket.fileno(),
                                     self._handle_events,
                                     self.event_state)

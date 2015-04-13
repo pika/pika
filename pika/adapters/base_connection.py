@@ -348,7 +348,8 @@ class BaseConnection(connection.Connection):
         except socket.timeout:
             # We're using non-blocking sockets now so we should never
             # get a timeout.
-            raise
+            LOGGER.warning("handle_read received a socket.timeout, ignoring")
+            pass
         
         except socket.error as error:
             if error.errno in (errno.EAGAIN, errno.EWOULDBLOCK):
@@ -360,7 +361,6 @@ class BaseConnection(connection.Connection):
             LOGGER.error('Read empty data, calling disconnect')
             return self._handle_disconnect()
 
-        #LOGGER.debug("read %s bytes", len(data))
         # Pass the data into our top level frame dispatching method
         self._on_data_available(data)
         return len(data)
@@ -373,22 +373,20 @@ class BaseConnection(connection.Connection):
             while self.outbound_buffer:
                 frame = self.outbound_buffer.popleft()
                 bw = self.socket.send(frame)
-                frame = frame[bw:]
                 bytes_written += bw
-
-                if frame:
-                    LOGGER.warning("Partial write, requeing remaining data")
-                    self.outbound_buffer.appendleft(frame)
+                if bw < len(frame):
+                    LOGGER.debug("Partial write, requeing remaining data")
+                    self.outbound_buffer.appendleft(frame[bw:])
                     break
 
         except socket.timeout:
             # Will only come here if the socket is blocking
-            LOGGER.warning("socket timeout, requeuing frame")
+            LOGGER.debug("socket timeout, requeuing frame")
             self.outbound_buffer.appendleft(frame)
             
         except socket.error as error:
             if error.errno in (errno.EAGAIN, errno.EWOULDBLOCK):
-                LOGGER.warning("Would block, requeuing frame")
+                LOGGER.debug("Would block, requeuing frame")
                 self.outbound_buffer.appendleft(frame)
             else:
                 LOGGER.warning("Socket error: %s", errno.errorcode[error.errno])
