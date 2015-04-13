@@ -411,6 +411,8 @@ class BlockingConnection(base_connection.BaseConnection):
             self._channels[channel]._on_close(method_frame)
         self._remove_connection_callbacks()
         if reply_code not in [0, 200]:
+            LOGGER.error("Raising ConnectionClosed due to reply_code=%s",
+                         reply_code)
             raise exceptions.ConnectionClosed(reply_code, reply_text)
         elif from_adapter:
             raise exceptions.ConnectionClosed("Socket connection lost")
@@ -1168,6 +1170,9 @@ class BlockingChannel(channel.Channel):
         while wait and not self._received_response:
             try:
                 self.connection.process_data_events()
+            except exceptions.ConnectionClosed:
+                # No further I/O is possible, so propagate exception
+                raise
             except exceptions.AMQPConnectionError:
                 break
         self._received_response = prev_received_response
