@@ -7,7 +7,6 @@ import errno
 import logging
 import socket
 import ssl
-import collections
 
 from pika import connection
 from pika import exceptions
@@ -389,7 +388,6 @@ class BaseConnection(connection.Connection):
                 LOGGER.debug("Would block, requeuing frame")
                 self.outbound_buffer.appendleft(frame)
             else:
-                LOGGER.warning("Socket error: %s", errno.errorcode[error.errno])
                 return self._handle_error(error)
 
         #LOGGER.debug("wrote %s bytes", bytes_written)
