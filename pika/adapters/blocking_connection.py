@@ -241,8 +241,6 @@ class BlockingConnection(base_connection.BaseConnection):
                 self._socket_timeouts = 0
         except AttributeError:
             raise exceptions.ConnectionClosed()
-        except socket.timeout:
-            self._handle_timeout()
         self._flush_outbound()
         self.process_timeouts()
 
@@ -373,11 +371,8 @@ class BlockingConnection(base_connection.BaseConnection):
     def _flush_outbound(self):
         """Flush the outbound socket buffer."""
         if self.outbound_buffer:
-            try:
-                if self._handle_write():
-                    self._socket_timeouts = 0
-            except socket.timeout:
-                return self._handle_timeout()
+            if self._handle_write():
+                self._socket_timeouts = 0
 
     def _on_connection_closed(self, method_frame, from_adapter=False):
         """Called when the connection is closed remotely. The from_adapter value

@@ -307,6 +307,12 @@ class BaseConnection(connection.Connection):
         # Disconnect from our IOLoop and let Connection know what's up
         self._handle_disconnect()
 
+    def _handle_timeout(self):
+        """Handle a socket timeout in read or write.
+        We don't do anything in the non-blocking handlers because we
+        only have the socket in a blocking state during connect."""
+        pass
+
     def _handle_events(self, fd, events, error=None, write_only=False):
         """Handle IO/Event loop events, processing them.
 
@@ -345,11 +351,9 @@ class BaseConnection(connection.Connection):
                 data = self.socket.recv(self._buffer_size)
         
         except socket.timeout:
-            # We're using non-blocking sockets now so we should never
-            # get a timeout.
-            LOGGER.warning("handle_read received a socket.timeout, ignoring")
-            pass
-        
+            self._handle_timeout()
+            return 0
+            
         except socket.error as error:
             if error.errno in (errno.EAGAIN, errno.EWOULDBLOCK):
                 return 0
@@ -382,6 +386,7 @@ class BaseConnection(connection.Connection):
             # Will only come here if the socket is blocking
             LOGGER.debug("socket timeout, requeuing frame")
             self.outbound_buffer.appendleft(frame)
+            self._handle_timeout()
             
         except socket.error as error:
             if error.errno in (errno.EAGAIN, errno.EWOULDBLOCK):
