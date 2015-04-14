@@ -490,7 +490,7 @@ class BlockingChannel(channel.Channel):
                   self._on_cancelok, replies)
 
     def basic_get(self, queue=None, no_ack=False):
-        """Get a single message from the AMQP broker. Returns a set with the 
+        """Get a single message from the AMQP broker. Returns a set with the
         method frame, header frame and body.
 
         :param queue: The queue to get a message from
@@ -513,7 +513,7 @@ class BlockingChannel(channel.Channel):
     def basic_publish(self, exchange, routing_key, body,
                       properties=None, mandatory=False, immediate=False):
         """Publish to the channel with the given exchange, routing key and body.
-        Returns a boolean value indicating the success of the operation. For 
+        Returns a boolean value indicating the success of the operation. For
         more information on basic_publish and what the parameters do, see:
 
         http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.publish
@@ -726,6 +726,13 @@ class BlockingChannel(channel.Channel):
             if self._generator_messages:
                 yield self._generator_messages.pop(0)
             self.connection.process_data_events()
+
+    def get_waiting_message_count(self):
+        """Returns the amount of messages waiting in the generator messages list.
+
+        :rtype: int
+        """
+        return len(self._generator_messages)
 
     def force_data_events(self, enable):
         """Turn on and off forcing the blocking adapter to stop and look to see
