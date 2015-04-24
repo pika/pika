@@ -14,14 +14,14 @@ from pika import spec
 
 class FrameTests(unittest.TestCase):
 
-    BASIC_ACK = ('\x01\x00\x01\x00\x00\x00\r\x00<\x00P\x00\x00\x00\x00\x00\x00'
-                 '\x00d\x00\xce')
-    BODY_FRAME = '\x03\x00\x01\x00\x00\x00\x14I like it that sound\xce'
-    BODY_FRAME_VALUE = 'I like it that sound'
-    CONTENT_HEADER = ('\x02\x00\x01\x00\x00\x00\x0f\x00<\x00\x00\x00'
-                      '\x00\x00\x00\x00\x00\x00d\x10\x00\x02\xce')
-    HEARTBEAT = '\x08\x00\x00\x00\x00\x00\x00\xce'
-    PROTOCOL_HEADER = 'AMQP\x00\x00\t\x01'
+    BASIC_ACK = (b'\x01\x00\x01\x00\x00\x00\r\x00<\x00P\x00\x00\x00\x00\x00\x00'
+                 b'\x00d\x00\xce')
+    BODY_FRAME = b'\x03\x00\x01\x00\x00\x00\x14I like it that sound\xce'
+    BODY_FRAME_VALUE = b'I like it that sound'
+    CONTENT_HEADER = (b'\x02\x00\x01\x00\x00\x00\x0f\x00<\x00\x00\x00'
+                      b'\x00\x00\x00\x00\x00\x00d\x10\x00\x02\xce')
+    HEARTBEAT = b'\x08\x00\x00\x00\x00\x00\x00\xce'
+    PROTOCOL_HEADER = b'AMQP\x00\x00\t\x01'
 
     def frame_marshal_not_implemented_test(self):
         frame_obj = frame.Frame(0x000A000B, 1)
@@ -37,7 +37,7 @@ class FrameTests(unittest.TestCase):
         self.assertEqual(header.marshal(), self.CONTENT_HEADER)
 
     def body_marshal_test(self):
-        body = frame.Body(1, 'I like it that sound')
+        body = frame.Body(1, b'I like it that sound')
         self.assertEqual(body.marshal(), self.BODY_FRAME)
 
     def heartbeat_marshal_test(self):
@@ -60,7 +60,7 @@ class FrameTests(unittest.TestCase):
                               frame.Method)
 
     def decode_protocol_header_failure_test(self):
-        self.assertEqual(frame.decode_frame('AMQPa'), (0, None))
+        self.assertEqual(frame.decode_frame(b'AMQPa'), (0, None))
 
     def decode_method_frame_bytes_test(self):
         self.assertEqual(frame.decode_frame(self.BASIC_ACK)[0], 21)
@@ -81,7 +81,7 @@ class FrameTests(unittest.TestCase):
         self.assertIsInstance(frame_value.properties, spec.BasicProperties)
 
     def decode_frame_decoding_failure_test(self):
-        self.assertEqual(frame.decode_frame('\x01\x00\x01\x00\x00\xce'),
+        self.assertEqual(frame.decode_frame(b'\x01\x00\x01\x00\x00\xce'),
                          (0, None))
 
     def decode_frame_decoding_no_end_byte_test(self):
@@ -90,7 +90,7 @@ class FrameTests(unittest.TestCase):
     def decode_frame_decoding_wrong_end_byte_test(self):
         self.assertRaises(exceptions.InvalidFrameError,
                           frame.decode_frame,
-                          self.BASIC_ACK[:-1] + 'A')
+                          self.BASIC_ACK[:-1] + b'A')
 
     def decode_body_frame_instance_test(self):
         self.assertIsInstance(frame.decode_frame(self.BODY_FRAME)[1],
@@ -113,4 +113,4 @@ class FrameTests(unittest.TestCase):
     def decode_frame_invalid_frame_type_test(self):
         self.assertRaises(exceptions.InvalidFrameError,
                           frame.decode_frame,
-                          '\x09\x00\x00\x00\x00\x00\x00\xce')
+                          b'\x09\x00\x00\x00\x00\x00\x00\xce')

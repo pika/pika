@@ -25,6 +25,9 @@ from pika import utils
 
 from pika import spec
 
+from pika.compat import basestring, url_unquote, dictkeys
+
+
 BACKPRESSURE_WARNING = ("Pika: Write buffer exceeded warning threshold at "
                         "%i bytes and an estimated %i frames behind")
 PRODUCT = "Pika Python Client Library"
@@ -472,7 +475,7 @@ class URLParameters(Parameters):
             self.virtual_host = self.DEFAULT_VIRTUAL_HOST
         else:
             path_parts = parts.path.split('/')
-            virtual_host = urllib.unquote(path_parts[1])
+            virtual_host = url_unquote(path_parts[1])
             if self._validate_virtual_host(virtual_host):
                 self.virtual_host = virtual_host
 
@@ -480,7 +483,7 @@ class URLParameters(Parameters):
         values = urlparse.parse_qs(parts.query)
 
         # Cast the various numeric values to the appropriate values
-        for key in values.keys():
+        for key in dictkeys(values):
             # Always reassign the first list item in query values
             values[key] = values[key].pop(0)
             if values[key].isdigit():
@@ -908,7 +911,7 @@ class Connection(object):
 
         """
         if self.is_open:
-            for channel_number in self._channels.keys():
+            for channel_number in dictkeys(self._channels):
                 if self._channels[channel_number].is_open:
                     self._channels[channel_number].close(reply_code, reply_text)
                 else:
@@ -1024,6 +1027,10 @@ class Connection(object):
         """
         (auth_type,
          response) = self.params.credentials.response_for(method_frame.method)
+        print(method_frame)
+        print(method_frame.method)
+        print(self.params.credentials)
+        print(auth_type, response)
         if not auth_type:
             raise exceptions.AuthenticationError(self.params.credentials.TYPE)
         self.params.credentials.erase_credentials()

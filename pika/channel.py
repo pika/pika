@@ -11,6 +11,8 @@ import pika.frame as frame
 import pika.exceptions as exceptions
 import pika.spec as spec
 from pika.utils import is_callable
+from pika.compat import unicode_type
+
 
 LOGGER = logging.getLogger(__name__)
 MAX_CHANNELS = 32768
@@ -204,7 +206,7 @@ class Channel(object):
 
         # If a consumer tag was not passed, create one
         consumer_tag = consumer_tag or 'ctag%i.%s' % (self.channel_number,
-                                                      uuid.uuid4().get_hex())
+                                                      uuid.uuid4().hex)
 
         if consumer_tag in self._consumers or consumer_tag in self._cancelled:
             raise exceptions.DuplicateConsumerTag(consumer_tag)
@@ -290,7 +292,7 @@ class Channel(object):
             raise exceptions.ChannelClosed()
         if immediate:
             LOGGER.warning('The immediate flag is deprecated in RabbitMQ')
-        if isinstance(body, unicode):
+        if isinstance(body, unicode_type):
             body = body.encode('utf-8')
         properties = properties or spec.BasicProperties()
         self._send_method(spec.Basic.Publish(exchange=exchange,

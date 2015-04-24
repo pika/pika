@@ -2,7 +2,11 @@
 Tests for pika.base_connection.BaseConnection
 
 """
-import mock
+try:
+    import mock
+except:
+    from unittest import mock
+
 try:
     import unittest2 as unittest
 except ImportError:

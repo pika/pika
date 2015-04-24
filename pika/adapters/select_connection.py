@@ -6,6 +6,8 @@ import logging
 import select
 import time
 
+from pika.compat import xrange
+
 from pika.adapters.base_connection import BaseConnection
 
 LOGGER = logging.getLogger(__name__)

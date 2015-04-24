@@ -4,7 +4,12 @@ Tests for pika.adapters.blocking_connection.BlockingChannel
 
 """
 import logging
-import mock
+
+try:
+    import mock
+except ImportError:
+    from unittest import mock
+
 try:
     import unittest2 as unittest
 except ImportError:
