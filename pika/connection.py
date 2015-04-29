@@ -1188,6 +1188,9 @@ class Connection(object):
             self.closing = (method_frame.method.reply_code,
                             method_frame.method.reply_text)
 
+        # Save the codes because self.closing gets reset by _adapter_disconnect
+        reply_code, reply_text = self.closing
+
         # Stop the heartbeat checker if it exists
         if self.heartbeat:
             self.heartbeat.stop()
@@ -1197,7 +1200,7 @@ class Connection(object):
             self._adapter_disconnect()
 
         # Invoke a method frame neutral close
-        self._on_disconnect(self.closing[0], self.closing[1])
+        self._on_disconnect(reply_code, reply_text)
 
     def _on_connection_error(self, connection_unused, error_message=None):
         """Default behavior when the connecting connection can not connect.
