@@ -314,9 +314,8 @@ class BlockingConnection(base_connection.BaseConnection):
 
     def _adapter_disconnect(self):
         """Called if the connection is being requested to disconnect."""
-        if self.socket:
-            self.socket.close()
-        self.socket = None
+        self._remove_heartbeat()
+        self._cleanup_socket()
         self._check_state_on_disconnect()
         self._init_connection_state()
 

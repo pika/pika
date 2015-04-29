@@ -61,7 +61,6 @@ class BaseConnection(connection.Connection):
             raise RuntimeError("SSL specified but it is not available")
         self.base_events = self.READ | self.ERROR
         self.event_state = self.base_events
-        self.fd = None
         self.ioloop = ioloop
         self.socket = None
         self.stop_ioloop_on_close = stop_ioloop_on_close
@@ -125,15 +124,15 @@ class BaseConnection(connection.Connection):
             error = self._create_and_connect_to_socket(sock_addr)
             if not error:
                 return None
+            self._cleanup_socket()
+
         # Failed to connect
         return error
 
     def _adapter_disconnect(self):
         """Invoked if the connection is being told to disconnect"""
         self._remove_heartbeat()
-        if self.socket:
-            self.socket.close()
-        self.socket = None
+        self._cleanup_socket()
         self._check_state_on_disconnect()
         self._handle_ioloop_stop()
         self._init_connection_state()
@@ -161,6 +160,19 @@ class BaseConnection(connection.Connection):
         elif not self.is_closed:
             LOGGER.warning('Unknown state on disconnect: %i',
                            self.connection_state)
+
+    def _cleanup_socket(self):
+        """Close the socket cleanly"""
+        if self.socket:
+            try:
+                if hasattr('socket', self.socket):
+                    self.socket.socket.shutdown(socket.SHUT_RDWR)
+                else:
+                    self.socket.shutdown(socket.SHUT_RDWR)
+            except socket.error:
+                pass
+            self.socket.close()
+            self.socket = None
 
     def _create_and_connect_to_socket(self, sock_addr_tuple):
         """Create socket and connect to it, using SSL if enabled."""
@@ -311,23 +323,24 @@ class BaseConnection(connection.Connection):
         :param bool write_only: Only handle write events
 
         """
-        if not fd:
-            LOGGER.error('Received events on closed socket: %d', fd)
+        if not self.socket:
+            LOGGER.error('Received events on closed socket: %r', fd)
             return
 
-        if events & self.WRITE:
+        if self.socket and (events & self.WRITE):
             self._handle_write()
             self._manage_event_state()
 
-        if not write_only and (events & self.READ):
+        if self.socket and not write_only and (events & self.READ):
             self._handle_read()
 
-        if write_only and (events & self.READ) and (events & self.ERROR):
+        if (self.socket and write_only and (events & self.READ) and
+            (events & self.ERROR)):
             LOGGER.error('BAD libc:  Write-Only but Read+Error. '
                          'Assume socket disconnected.')
             self._handle_disconnect()
 
-        if events & self.ERROR:
+        if self.socket and (events & self.ERROR):
             LOGGER.error('Error event %r, %r', events, error)
             self._handle_error(error)
 
@@ -376,7 +389,6 @@ class BaseConnection(connection.Connection):
 
         """
         super(BaseConnection, self)._init_connection_state()
-        self.fd = None
         self.base_events = self.READ | self.ERROR
         self.event_state = self.base_events
         self.socket = None
