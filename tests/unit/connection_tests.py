@@ -374,12 +374,13 @@ class ConnectionTests(unittest.TestCase):
         method_frame.method = mock.Mock(spec=spec.Connection.Close)
         method_frame.method.reply_code = 1
         method_frame.method.reply_text = 'hello'
-        self.connection.heartbeat = mock.Mock()
+        heartbeat = mock.Mock()
+        self.connection.heartbeat = heartbeat
         self.connection._adapter_disconnect = mock.Mock()
         self.connection._on_connection_closed(method_frame, from_adapter=False)
         #Check
         self.assertTupleEqual((1, 'hello'), self.connection.closing)
-        self.connection.heartbeat.stop.assert_called_once_with()
+        heartbeat.stop.assert_called_once_with()
         self.connection._adapter_disconnect.assert_called_once_with()
 
     @mock.patch('pika.frame.decode_frame')
