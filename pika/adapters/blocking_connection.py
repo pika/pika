@@ -219,8 +219,7 @@ class BlockingConnection(base_connection.BaseConnection):
             self._send_connection_close(reply_code, reply_text)
         while self.is_closing:
             self.process_data_events()
-        if self.heartbeat:
-            self.heartbeat.stop()
+        self._remove_heartbeat()
         self._remove_connection_callbacks()
         self._adapter_disconnect()
 
