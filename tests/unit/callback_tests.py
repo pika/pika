@@ -54,35 +54,35 @@ class CallbackTests(unittest.TestCase):
 
     def test_name_or_value_method_object(self):
         value = spec.Basic.Consume()
-        self.assertEqual(callback._name_or_value(value), self.PREFIX)
+        self.assertEqual(callback.name_or_value(value), self.PREFIX)
 
     def test_name_or_value_basic_consume_object(self):
-        self.assertEqual(callback._name_or_value(spec.Basic.Consume()),
+        self.assertEqual(callback.name_or_value(spec.Basic.Consume()),
                          self.PREFIX)
 
     def test_name_or_value_amqpobject_class(self):
-        self.assertEqual(callback._name_or_value(self.PREFIX_CLASS),
+        self.assertEqual(callback.name_or_value(self.PREFIX_CLASS),
                          self.PREFIX)
 
     def test_name_or_value_protocol_header(self):
-        self.assertEqual(callback._name_or_value(frame.ProtocolHeader()),
+        self.assertEqual(callback.name_or_value(frame.ProtocolHeader()),
                          'ProtocolHeader')
 
     def test_name_or_value_method_frame(self):
         value = frame.Method(1, self.PREFIX_CLASS())
-        self.assertEqual(callback._name_or_value(value), self.PREFIX)
+        self.assertEqual(callback.name_or_value(value), self.PREFIX)
 
     def test_name_or_value_str(self):
         value = 'Test String Value'
         expectation = value
-        self.assertEqual(callback._name_or_value(value), expectation)
+        self.assertEqual(callback.name_or_value(value), expectation)
 
     def test_name_or_value_unicode(self):
         value = u'Это тест значения'
         expectation = ('\xd0\xad\xd1\x82\xd0\xbe \xd1\x82\xd0\xb5\xd1\x81\xd1'
                        '\x82 \xd0\xb7\xd0\xbd\xd0\xb0\xd1\x87\xd0\xb5\xd0\xbd'
                        '\xd0\xb8\xd1\x8f')
-        self.assertEqual(callback._name_or_value(value), expectation)
+        self.assertEqual(callback.name_or_value(value), expectation)
 
     def test_empty_callbacks_on_init(self):
         self.assertFalse(self.obj._stack)
