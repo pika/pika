@@ -8,7 +8,7 @@ import pika
 
 LOGGER = logging.getLogger(__name__)
 PARAMETERS = pika.URLParameters('amqp://guest:guest@localhost:5672/%2f')
-DEFAULT_TIMEOUT = 30
+DEFAULT_TIMEOUT = 5
 
 
 class AsyncTestCase(unittest.TestCase):
