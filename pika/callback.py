@@ -237,8 +237,8 @@ class CallbackManager(object):
             try:
                 callback(*args, **keywords)
             except:
-                LOGGER.exception('Calling %s for "%s:%s" failed',
-                        callback, prefix, key)
+                LOGGER.exception('Calling %s for "%s:%s" failed', callback,
+                                 prefix, key)
                 raise
         return True
 
