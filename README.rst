@@ -29,7 +29,7 @@ Example
 -------
 Here is the most simple example of use, sending a message with the BlockingConnection adapter:
 
-.. code :: python 
+.. code :: python
 
     import pika
     connection = pika.BlockingConnection()
@@ -41,7 +41,7 @@ Here is the most simple example of use, sending a message with the BlockingConne
 
 And an example of writing a blocking consumer:
 
-.. code :: python 
+.. code :: python
 
     import pika
     connection = pika.BlockingConnection()
@@ -84,11 +84,11 @@ please contact the RabbitMQ team at <info@rabbitmq.com>.
 .. |Status| image:: https://travis-ci.org/pika/pika.svg?branch=master
    :target: https://travis-ci.org/pika/pika
 
-.. |Coverage| image:: https://coveralls.io/repos/pika/pika/badge.png
-   :target: https://coveralls.io/r/pika/pika
-  
+.. |Coverage| image:: https://codecov.io/github/pika/pika/coverage.svg?branch=master
+   :target: https://codecov.io/github/pika/pika?branch=master
+
 .. |Downloads| image:: https://pypip.in/d/pika/badge.svg?
    :target: https://pypi.python.org/pypi/pika
-   
+
 .. |License| image:: https://pypip.in/license/pika/badge.svg?
    :target: https://pika.readthedocs.org
