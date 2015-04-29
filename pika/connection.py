@@ -136,7 +136,7 @@ class Parameters(object):
         return True
 
     def _validate_connection_attempts(self, connection_attempts):
-        """Validate that the channel_max value is an int
+        """Validate that the connection_attempts value is an int
 
         :param int connection_attempts: The value to validate
         :rtype: bool
