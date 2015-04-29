@@ -51,6 +51,7 @@ class Channel(object):
         self._has_on_flow_callback = False
         self._cancelled = collections.deque(list())
         self._consumers = dict()
+        self._consumers_with_no_ack = set()
         self._on_flowok_callback = None
         self._on_getok_callback = None
         self._on_openok_callback = on_open_callback
@@ -212,6 +213,8 @@ class Channel(object):
             raise exceptions.DuplicateConsumerTag(consumer_tag)
 
         self._consumers[consumer_tag] = consumer_callback
+        if no_ack:
+            self._consumers_with_no_ack.add(consumer_tag)
         self._pending[consumer_tag] = list()
         self._rpc(spec.Basic.Consume(queue=queue,
                                      consumer_tag=consumer_tag,
@@ -782,6 +785,7 @@ class Channel(object):
     def _cleanup(self):
         """Remove all consumers and any callbacks for the channel."""
         self._consumers = dict()
+        self._consumers_with_no_ack = set()
         self.callbacks.cleanup(str(self.channel_number))
 
     def _get_pending_msg(self, consumer_tag):
@@ -835,6 +839,7 @@ class Channel(object):
         self._cancelled.append(method_frame.method.consumer_tag)
         if method_frame.method.consumer_tag in self._consumers:
             del self._consumers[method_frame.method.consumer_tag]
+        self._consumers_with_no_ack.discard(method_frame.consumer_tag)
 
     def _on_cancelok(self, method_frame):
         """Called in response to a frame from the Broker when the
@@ -847,6 +852,7 @@ class Channel(object):
             del self._consumers[method_frame.method.consumer_tag]
         if method_frame.method.consumer_tag in self._pending:
             del self._pending[method_frame.method.consumer_tag]
+        self._consumers_with_no_ack.discard(method_frame.consumer_tag)
 
     def _on_close(self, method_frame):
         """Handle the case where our channel has been closed for us
@@ -890,7 +896,8 @@ class Channel(object):
         """
         consumer_tag = method_frame.method.consumer_tag
         if consumer_tag in self._cancelled:
-            if self.is_open:
+            no_ack = consumer_tag in self._consumers_with_no_ack
+            if self.is_open and not no_ack:
                 self.basic_reject(method_frame.method.delivery_tag)
             return
         if consumer_tag not in self._consumers:
