@@ -290,15 +290,13 @@ class BaseConnection(connection.Connection):
             elif error_value.args[0] == ssl.SSL_ERROR_WANT_WRITE:
                 self.event_state = self.WRITE
             else:
-                LOGGER.error("SSL Socket error on fd %d: %r",
-                             self.socket.fileno(), error_value)
+                LOGGER.error("SSL Socket error: %r", error_value)
         elif error_code == errno.EPIPE:
             # Broken pipe, happens when connection reset
             LOGGER.error("Socket connection was broken")
         else:
             # Haven't run into this one yet, log it.
-            LOGGER.error("Socket Error on fd %d: %s", self.socket.fileno(),
-                         error_code)
+            LOGGER.error("Socket Error: %s", error_code)
 
         # Disconnect from our IOLoop and let Connection know what's up
         self._handle_disconnect()
