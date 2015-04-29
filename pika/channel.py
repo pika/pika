@@ -1049,25 +1049,32 @@ class Channel(object):
 
         # Block until a response frame is received for synchronous frames
         if method_frame.synchronous:
-            self.blocking = method_frame.NAME
+            self._blocking = method_frame.NAME
 
-        # If acceptable replies are set, add callbacks
-        if acceptable_replies:
-            for reply in acceptable_replies or list():
-                if isinstance(reply, tuple):
-                    reply, arguments = reply
-                else:
-                    arguments = None
-                LOGGER.debug('Adding in on_synchronous_complete callback')
-                self.callbacks.add(self.channel_number, reply,
-                                   self._on_synchronous_complete,
-                                   arguments=arguments)
-                if callback:
-                    LOGGER.debug('Adding passed in callback')
-                    self.callbacks.add(self.channel_number, reply, callback,
+        try:
+            # If acceptable replies are set, add callbacks
+            if acceptable_replies:
+                for reply in acceptable_replies or list():
+                    if isinstance(reply, tuple):
+                        reply, arguments = reply
+                    else:
+                        arguments = None
+                    LOGGER.debug('Adding in on_synchronous_complete callback')
+                    self.callbacks.add(self.channel_number, reply,
+                                       self._on_synchronous_complete,
                                        arguments=arguments)
+                    if callback:
+                        LOGGER.debug('Adding passed in callback')
+                        self.callbacks.add(self.channel_number, reply, callback,
+                                           arguments=arguments)
 
-        self._send_method(method_frame)
+            self._send_method(method_frame)
+        except Exception:
+            # Ensure that if we fail to actually send the RPC that we exit
+            # blocking mode.  If we don't, subsequent RPC requests will just get
+            # enqueued and never executed.
+            self._blocking = None
+            raise
 
     def _send_method(self, method_frame, content=None):
         """Shortcut wrapper to send a method through our connection, passing in
