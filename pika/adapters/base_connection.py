@@ -166,7 +166,7 @@ class BaseConnection(connection.Connection):
         """Close the socket cleanly"""
         if self.socket:
             try:
-                if hasattr('socket', self.socket):
+                if hasattr(self.socket, 'socket'):
                     self.socket.socket.shutdown(socket.SHUT_RDWR)
                 else:
                     self.socket.shutdown(socket.SHUT_RDWR)
