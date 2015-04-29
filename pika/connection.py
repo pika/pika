@@ -547,9 +547,11 @@ class Connection(object):
 
     """
     ON_CONNECTION_BACKPRESSURE = '_on_connection_backpressure'
+    ON_CONNECTION_BLOCKED = '_on_connection_blocked'
     ON_CONNECTION_CLOSED = '_on_connection_closed'
     ON_CONNECTION_ERROR = '_on_connection_error'
     ON_CONNECTION_OPEN = '_on_connection_open'
+    ON_CONNECTION_UNBLOCKED = '_on_connection_unblocked'
     CONNECTION_CLOSED = 0
     CONNECTION_INIT = 1
     CONNECTION_PROTOCOL = 2
@@ -621,6 +623,30 @@ class Connection(object):
 
         """
         self.callbacks.add(0, self.ON_CONNECTION_CLOSED, callback_method,
+                           False)
+
+    def add_on_connection_blocked_callback(self, callback_method):
+        """Add a callback to be notified when RabbitMQ has sent a
+        ``Connection.Blocked`` frame indicating that RabbitMQ is low on
+        resources. Publishers can use this to voluntarily suspend publishing,
+        instead of relying on back pressure throttling. The callback
+        will bet passed the ``Connection.Blocked`` method frame.
+
+        :param method callback_method: Callback to call on close
+
+        """
+        self.callbacks.add(0, spec.Connection.Blocked, callback_method, False)
+
+    def add_on_connection_unblocked_callback(self, callback_method):
+        """Add a callback to be notified when RabbitMQ has sent a
+        ``Connection.Unblocked`` frame letting publishers know it's ok
+        to start publishing again. The callback will be passed the
+        ``Connection.Unblocked`` method frame.
+
+        :param method callback_method: Callback to call on close
+
+        """
+        self.callbacks.add(0, spec.Connection.Unblocked, callback_method,
                            False)
 
     def add_on_open_callback(self, callback_method):
