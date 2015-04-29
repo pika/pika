@@ -188,7 +188,7 @@ class SelectPoller(object):
     to override the update_handler and start methods for additional types.
 
     """
-    TIMEOUT = 1
+    TIMEOUT = 0.01
 
     def __init__(self, fileno, handler, events, state_manager):
         """Create an instance of the SelectPoller
