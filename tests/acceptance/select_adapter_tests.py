@@ -50,8 +50,8 @@ class TestConsumeCancel(AsyncTestCase):
 
     def on_queue_declared(self, frame):
         for i in range(0, 100):
-            msg_body = '{}:{}:{}'.format(self.__class__.__name__, i,
-                                         time.time())
+            msg_body = '{0}:{1}:{2}'.format(self.__class__.__name__, i,
+                                            time.time())
             self.channel.basic_publish('', self.queue_name, msg_body)
         self.ctag = self.channel.basic_consume(self.on_message,
                                                queue=self.queue_name,
