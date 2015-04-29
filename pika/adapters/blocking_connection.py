@@ -20,7 +20,7 @@ import errno
 from functools import wraps
 
 from pika import frame
-from pika import callback
+from pika import callback as callback_manager
 from pika import channel
 from pika import exceptions
 from pika import spec
@@ -36,6 +36,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 def retry_on_eintr(f):
+
     @wraps(f)
     def inner(*args, **kwargs):
         while True:
@@ -129,6 +130,7 @@ class BlockingConnection(base_connection.BaseConnection):
 
         """
         super(BlockingConnection, self).__init__(parameters, None, False)
+        self._socket_timeouts = 0
 
     def add_on_close_callback(self, callback_method_unused):
         """This is not supported in BlockingConnection. When a connection is
@@ -315,20 +317,17 @@ class BlockingConnection(base_connection.BaseConnection):
         if self.socket:
             self.socket.close()
         self.socket = None
-        try:
-            self._check_state_on_disconnect()
-        finally:
-            # Make sure connection state reflects that it's closed
-            self._init_connection_state()
+        self._check_state_on_disconnect()
+        self._init_connection_state()
 
-    def _call_timeout_method(self, timeout_value):
+    @staticmethod
+    def _call_timeout_method(timeout_value):
         """Execute the method that was scheduled to be called.
 
         :param dict timeout_value: The configuration for the timeout
 
         """
-        LOGGER.debug('Invoking scheduled call of %s',
-                     timeout_value['callback'])
+        LOGGER.debug('Invoking scheduled call of %s', timeout_value['callback'])
         timeout_value['callback']()
 
     def _deadline_passed(self, timeout_id):
@@ -365,15 +364,6 @@ class BlockingConnection(base_connection.BaseConnection):
                 LOGGER.critical('Closing connection due to timeout')
             self._on_connection_closed(None, True)
 
-    def _check_state_on_disconnect(self):
-        """Checks closing corner cases to see why we were disconnected and if we should
-        raise exceptions for the anticipated exception types.
-        """
-        super(BlockingConnection, self)._check_state_on_disconnect()
-        if self.is_open:
-            # already logged a warning in the base class, now fire an exception
-            raise exceptions.ConnectionClosed()
-
     def _flush_outbound(self):
         """Flush the outbound socket buffer."""
         if self.outbound_buffer:
@@ -408,8 +398,8 @@ class BlockingConnection(base_connection.BaseConnection):
         self._remove_connection_callbacks()
         if not from_adapter:
             self._adapter_disconnect()
-        for channel in self._channels:
-            self._channels[channel]._on_close(method_frame)
+        for chan in self._channels:
+            self._channels[chan]._on_close(method_frame)
         self._remove_connection_callbacks()
         if reply_code not in [0, 200]:
             LOGGER.error("Raising ConnectionClosed due to reply_code=%s",
@@ -475,6 +465,7 @@ class BlockingChannel(channel.Channel):
         self._replies = list()
         self._wait = False
         self._received_response = False
+        self._response = None
         self.open()
 
     def basic_cancel(self, consumer_tag='', nowait=False):
@@ -663,8 +654,8 @@ class BlockingChannel(channel.Channel):
             # Get the last item
             (method, properties, body) = self._generator_messages.pop()
             messages = len(self._generator_messages)
-            LOGGER.info('Requeueing %i messages with delivery tag %s',
-                        messages, method.delivery_tag)
+            LOGGER.info('Requeueing %i messages with delivery tag %s', messages,
+                        method.delivery_tag)
             self.basic_nack(method.delivery_tag, multiple=True, requeue=True)
             self.connection.process_data_events()
         self._generator = None
@@ -789,9 +780,8 @@ class BlockingChannel(channel.Channel):
 
         """
         replies = [spec.Exchange.BindOk] if nowait is False else []
-        return self._rpc(spec.Exchange.Bind(0, destination, source,
-                                            routing_key, nowait,
-                                            arguments or dict()), None,
+        return self._rpc(spec.Exchange.Bind(0, destination, source, routing_key,
+                                            nowait, arguments or dict()), None,
                          replies)
 
     def exchange_declare(self,
@@ -934,8 +924,7 @@ class BlockingChannel(channel.Channel):
         replies = [condition] if nowait is False else []
         return self._rpc(spec.Queue.Declare(0, queue, passive, durable,
                                             exclusive, auto_delete, nowait,
-                                            arguments or dict()), None,
-                         replies)
+                                            arguments or dict()), None, replies)
 
     def queue_delete(self,
                      queue='',
@@ -1024,7 +1013,7 @@ class BlockingChannel(channel.Channel):
     # Internal methods
 
     def _add_reply(self, reply):
-        reply = callback._name_or_value(reply)
+        reply = callback_manager.name_or_value(reply)
         self._replies.append(reply)
 
     def _add_callbacks(self):
@@ -1035,8 +1024,7 @@ class BlockingChannel(channel.Channel):
                            self._on_getempty, False)
         self.callbacks.add(self.channel_number, spec.Basic.Cancel,
                            self._on_cancel, False)
-        self.connection.callbacks.add(self.channel_number,
-                                      spec.Channel.CloseOk,
+        self.connection.callbacks.add(self.channel_number, spec.Channel.CloseOk,
                                       self._on_rpc_complete)
 
     def _generator_callback(self, unused, method, properties, body):
@@ -1074,9 +1062,9 @@ class BlockingChannel(channel.Channel):
         self._received_response = True
         self._response = method_frame.method, header_frame.properties, body
 
-    def _on_getempty(self, frame):
+    def _on_getempty(self, frame_value):
         self._received_response = True
-        self._response = frame.method, None, None
+        self._response = frame_value.method, None, None
 
     def _on_close(self, method_frame):
         LOGGER.warning('Received Channel.Close, closing: %r', method_frame)
@@ -1112,10 +1100,10 @@ class BlockingChannel(channel.Channel):
         self._received_response = True
         self._response = method_frame.method, header_frame.properties, body
 
-    def _on_rpc_complete(self, frame):
-        key = callback._name_or_value(frame)
+    def _on_rpc_complete(self, frame_value):
+        key = callback_manager.name_or_value(frame_value)
         self._replies.append(key)
-        self._frames[key] = frame
+        self._frames[key] = frame_value
         self._received_response = True
 
     def _process_replies(self, replies, callback):
@@ -1137,8 +1125,8 @@ class BlockingChannel(channel.Channel):
                 del (self._frames[reply])
                 return frame_value
 
-    def _remove_reply(self, frame):
-        key = callback._name_or_value(frame)
+    def _remove_reply(self, frame_value):
+        key = callback_manager.name_or_value(frame_value)
         if key in self._replies:
             self._replies.remove(key)
 
@@ -1203,7 +1191,8 @@ class BlockingChannel(channel.Channel):
                 break
         self._received_response = prev_received_response
 
-    def _validate_acceptable_replies(self, acceptable_replies):
+    @staticmethod
+    def _validate_acceptable_replies(acceptable_replies):
         """Validate the list of acceptable replies
 
         :param acceptable_replies:
@@ -1214,14 +1203,15 @@ class BlockingChannel(channel.Channel):
             raise TypeError("acceptable_replies should be list or None, is %s",
                             type(acceptable_replies))
 
-    def _validate_callback(self, callback):
+    @staticmethod
+    def _validate_callback(callback):
         """Validate the value passed in is a method or function.
 
-        :param method callback callback: The method to validate
+        :param method callback: The method to validate
         :raises: TypeError
 
         """
-        if (callback is not None and not utils.is_callable(callback)):
+        if callback is not None and not utils.is_callable(callback):
             raise TypeError("Callback should be a function or method, is %s",
                             type(callback))
 
