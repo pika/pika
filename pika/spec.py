@@ -2983,9 +2983,5 @@ props = {0x003C: BasicProperties}
 
 
 def has_content(methodNumber):
-    return methodNumber in (
-        Basic.Publish.INDEX,
-        Basic.Return.INDEX,
-        Basic.Deliver.INDEX,
-        Basic.GetOk.INDEX,
-    )
+    return methodNumber in (Basic.Publish.INDEX, Basic.Return.INDEX,
+                            Basic.Deliver.INDEX, Basic.GetOk.INDEX, )
