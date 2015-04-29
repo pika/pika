@@ -2,6 +2,8 @@
 from tornado import ioloop
 import logging
 import time
+import socket
+import errno
 
 from pika.adapters import base_connection
 
@@ -47,6 +49,7 @@ class TornadoConnection(base_connection.BaseConnection):
         """
         self.sleep_counter = 0
         self.ioloop = custom_ioloop or ioloop.IOLoop.instance()
+
         super(TornadoConnection, self).__init__(parameters,
                                                 on_open_callback,
                                                 on_open_error_callback,
@@ -56,7 +59,7 @@ class TornadoConnection(base_connection.BaseConnection):
 
     def _adapter_connect(self):
         """Connect to the remote socket, adding the socket to the IOLoop if
-        connected
+        connected. 
 
         :rtype: bool
 

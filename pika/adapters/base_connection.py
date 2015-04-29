@@ -66,6 +66,7 @@ class BaseConnection(connection.Connection):
         self.socket = None
         self.stop_ioloop_on_close = stop_ioloop_on_close
         self.write_buffer = None
+        self.buffer_hist = None
         super(BaseConnection, self).__init__(parameters,
                                              on_open_callback,
                                              on_open_error_callback,
@@ -105,7 +106,7 @@ class BaseConnection(connection.Connection):
         self.ioloop.remove_timeout(timeout_id)
 
     def _adapter_connect(self):
-        """Connect to the RabbitMQ broker, returning True if connected
+        """Connect to the RabbitMQ broker, returning True if connected.
 
         :rtype: bool
 
@@ -123,6 +124,8 @@ class BaseConnection(connection.Connection):
         for sock_addr in addresses:
             error = self._create_and_connect_to_socket(sock_addr)
             if not error:
+                # Make the socket non-blocking after the connect
+                self.socket.setblocking(0)
                 return None
         # Failed to connect
         return error
@@ -239,7 +242,10 @@ class BaseConnection(connection.Connection):
         return None
 
     def _flush_outbound(self):
-        """Call the state manager who will figure out that we need to write."""
+        """write early, if the socket will take the data why not get it out
+        there asap.
+        """
+        self._handle_write()
         self._manage_event_state()
 
     def _handle_disconnect(self):
@@ -301,6 +307,12 @@ class BaseConnection(connection.Connection):
         # Disconnect from our IOLoop and let Connection know what's up
         self._handle_disconnect()
 
+    def _handle_timeout(self):
+        """Handle a socket timeout in read or write.
+        We don't do anything in the non-blocking handlers because we
+        only have the socket in a blocking state during connect."""
+        pass
+
     def _handle_events(self, fd, events, error=None, write_only=False):
         """Handle IO/Event loop events, processing them.
 
@@ -337,9 +349,19 @@ class BaseConnection(connection.Connection):
                 data = self.socket.read(self._buffer_size)
             else:
                 data = self.socket.recv(self._buffer_size)
+        
         except socket.timeout:
-            raise
+            self._handle_timeout()
+            return 0
+
+        except ssl.SSLWantReadError:
+            # ssl wants more data but there is nothing currently
+            # available in the socket, wait for it to become readable.
+            return 0
+            
         except socket.error as error:
+            if error.errno in (errno.EAGAIN, errno.EWOULDBLOCK):
+                return 0
             return self._handle_error(error)
 
         # Empty data, should disconnect
@@ -352,18 +374,35 @@ class BaseConnection(connection.Connection):
         return len(data)
 
     def _handle_write(self):
-        """Handle any outbound buffer writes that need to take place."""
+        """Try and write as much as we can, if we get blocked requeue 
+        what's left"""
         bytes_written = 0
-        if self.outbound_buffer:
-            frame = self.outbound_buffer.popleft()
-            try:
-                self.socket.sendall(frame)
-                bytes_written = len(frame)
-            except socket.timeout:
-                raise
-            except socket.error as error:
+        try:
+            while self.outbound_buffer:
+                frame = self.outbound_buffer.popleft()
+                bw = self.socket.send(frame)
+                bytes_written += bw
+                if bw < len(frame):
+                    LOGGER.debug("Partial write, requeing remaining data")
+                    self.outbound_buffer.appendleft(frame[bw:])
+                    break
+
+        except socket.timeout:
+            # Will only come here if the socket is blocking
+            LOGGER.debug("socket timeout, requeuing frame")
+            self.outbound_buffer.appendleft(frame)
+            self._handle_timeout()
+            
+        except socket.error as error:
+            if error.errno in (errno.EAGAIN, errno.EWOULDBLOCK):
+                LOGGER.debug("Would block, requeuing frame")
+                self.outbound_buffer.appendleft(frame)
+            else:
                 return self._handle_error(error)
-        return bytes_written
+
+        #LOGGER.debug("wrote %s bytes", bytes_written)
+        return bytes_written     
+
 
     def _init_connection_state(self):
         """Initialize or reset all of our internal state variables for a given
