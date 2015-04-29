@@ -9,7 +9,7 @@ import threading
 import urllib
 import warnings
 
-if sys.version_info > (3, ):
+if sys.version_info > (3,):
     import urllib.parse as urlparse
 else:
     import urlparse
@@ -465,8 +465,8 @@ class URLParameters(Parameters):
             self.port = parts.port
 
         if parts.username is not None:
-            self.credentials = pika_credentials.PlainCredentials(
-                parts.username, parts.password)
+            self.credentials = pika_credentials.PlainCredentials(parts.username,
+                                                                 parts.password)
 
         # Get the Virtual Host
         if len(parts.path) <= 1:
@@ -624,8 +624,7 @@ class Connection(object):
         :param method callback_method: Callback to call on close
 
         """
-        self.callbacks.add(0, self.ON_CONNECTION_CLOSED, callback_method,
-                           False)
+        self.callbacks.add(0, self.ON_CONNECTION_CLOSED, callback_method, False)
 
     def add_on_connection_blocked_callback(self, callback_method):
         """Add a callback to be notified when RabbitMQ has sent a
@@ -648,8 +647,7 @@ class Connection(object):
         :param method callback_method: Callback to call on close
 
         """
-        self.callbacks.add(0, spec.Connection.Unblocked, callback_method,
-                           False)
+        self.callbacks.add(0, spec.Connection.Unblocked, callback_method, False)
 
     def add_on_open_callback(self, callback_method):
         """Add a callback notification when the connection has opened.
@@ -828,8 +826,7 @@ class Connection(object):
         :rtype: bool
 
         """
-        return self.server_capabilities.get('exchange_exchange_bindings',
-                                            False)
+        return self.server_capabilities.get('exchange_exchange_bindings', False)
 
     @property
     def publisher_confirms(self):
@@ -943,8 +940,7 @@ class Connection(object):
         if self.is_open:
             for channel_number in self._channels.keys():
                 if self._channels[channel_number].is_open:
-                    self._channels[channel_number].close(reply_code,
-                                                         reply_text)
+                    self._channels[channel_number].close(reply_code, reply_text)
                 else:
                     del self._channels[channel_number]
                     # Force any lingering callbacks to be removed
@@ -1015,8 +1011,8 @@ class Connection(object):
                 self._reject_out_of_band_delivery(value.channel_number,
                                                   value.method.delivery_tag)
             else:
-                LOGGER.warning("Received %r for non-existing channel %i",
-                               value, value.channel_number)
+                LOGGER.warning("Received %r for non-existing channel %i", value,
+                               value.channel_number)
             return
         return self._channels[value.channel_number]._handle_content_frame(value)
 
@@ -1053,8 +1049,9 @@ class Connection(object):
         :rtype: int
 
         """
-        return (self.params.frame_max - spec.FRAME_HEADER_SIZE -
-                spec.FRAME_END_SIZE)
+        return (
+            self.params.frame_max - spec.FRAME_HEADER_SIZE - spec.FRAME_END_SIZE
+        )
 
     def _get_credentials(self, method_frame):
         """Get credentials for authentication.
@@ -1260,8 +1257,7 @@ class Connection(object):
         self.known_hosts = method_frame.method.known_hosts
 
         # Add a callback handler for the Broker telling us to disconnect
-        self.callbacks.add(0, spec.Connection.Close,
-                           self._on_connection_closed)
+        self.callbacks.add(0, spec.Connection.Close, self._on_connection_closed)
 
         # We're now connected at the AMQP level
         self._set_connection_state(self.CONNECTION_OPEN)
@@ -1297,8 +1293,8 @@ class Connection(object):
         self._set_connection_state(self.CONNECTION_TUNE)
 
         # Get our max channels, frames and heartbeat interval
-        self.params.channel_max = self._combine(
-            self.params.channel_max, method_frame.method.channel_max)
+        self.params.channel_max = self._combine(self.params.channel_max,
+                                                method_frame.method.channel_max)
         self.params.frame_max = self._combine(self.params.frame_max,
                                               method_frame.method.frame_max)
         self.params.heartbeat = self._combine(self.params.heartbeat,
@@ -1347,9 +1343,8 @@ class Connection(object):
         for channel in self._channels.keys():
             if channel not in self._channels:
                 continue
-            method_frame = frame.Method(channel,
-                                        spec.Channel.Close(reply_code,
-                                                           reply_text))
+            method_frame = frame.Method(channel, spec.Channel.Close(reply_code,
+                                                                    reply_text))
             self._channels[channel]._on_close(method_frame)
         self._process_connection_closed_callbacks(reply_code, reply_text)
         self._remove_connection_callbacks()
@@ -1455,9 +1450,8 @@ class Connection(object):
 
     def _remove_connection_callbacks(self):
         """Remove all callbacks for the connection"""
-        self._remove_callbacks(0,
-                               [spec.Connection.Close, spec.Connection.Start,
-                                spec.Connection.Open])
+        self._remove_callbacks(0, [spec.Connection.Close, spec.Connection.Start,
+                                   spec.Connection.Open])
 
     def _rpc(self, channel_number, method_frame,
              callback_method=None,
@@ -1510,10 +1504,10 @@ class Connection(object):
         :param str response: The encoded value to send
 
         """
-        self._send_method(0, spec.Connection.StartOk(self._client_properties,
-                                                     authentication_type,
-                                                     response,
-                                                     self.params.locale))
+        self._send_method(0,
+                          spec.Connection.StartOk(self._client_properties,
+                                                  authentication_type, response,
+                                                  self.params.locale))
 
     def _send_connection_tune_ok(self):
         """Send a Connection.TuneOk frame"""

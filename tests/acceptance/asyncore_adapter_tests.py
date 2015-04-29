@@ -27,6 +27,7 @@ class TestA_Connect(AsyncTestCase):
 
 
 class TestConfirmSelect(AsyncTestCase):
+
     def begin(self, channel):
         channel._on_selectok = self.on_complete
         channel.confirm_delivery()
@@ -105,6 +106,7 @@ class TestExchangeRedeclareWithDifferentValues(AsyncTestCase):
 
 
 class TestQueueDeclareAndDelete(AsyncTestCase):
+
     def begin(self, channel):
         channel.queue_declare(self.on_queue_declared,
                               passive=False,
@@ -128,6 +130,7 @@ class TestQueueDeclareAndDelete(AsyncTestCase):
 
 
 class TestQueueNameDeclareAndDelete(AsyncTestCase):
+
     def begin(self, channel):
         channel.queue_declare(self.on_queue_declared, str(id(self)),
                               passive=False,
@@ -152,6 +155,7 @@ class TestQueueNameDeclareAndDelete(AsyncTestCase):
 
 
 class TestQueueRedeclareWithDifferentValues(AsyncTestCase):
+
     def begin(self, channel):
         self.channel.add_on_close_callback(self.on_channel_closed)
         channel.queue_declare(self.on_queue_declared, str(id(self)),
@@ -186,6 +190,7 @@ class TestQueueRedeclareWithDifferentValues(AsyncTestCase):
 
 
 class TestTX1_Select(AsyncTestCase):
+
     def begin(self, channel):
         channel.tx_select(self.on_complete)
 
@@ -199,6 +204,7 @@ class TestTX1_Select(AsyncTestCase):
 
 
 class TestTX2_Commit(AsyncTestCase):
+
     def begin(self, channel):
         channel.tx_select(self.on_selectok)
 
@@ -216,6 +222,7 @@ class TestTX2_Commit(AsyncTestCase):
 
 
 class TestTX2_CommitFailure(AsyncTestCase):
+
     def begin(self, channel):
         self.channel.add_on_close_callback(self.on_channel_closed)
         self.channel.tx_commit(self.on_commitok)
@@ -235,6 +242,7 @@ class TestTX2_CommitFailure(AsyncTestCase):
 
 
 class TestTX3_Rollback(AsyncTestCase):
+
     def begin(self, channel):
         channel.tx_select(self.on_selectok)
 
@@ -252,6 +260,7 @@ class TestTX3_Rollback(AsyncTestCase):
 
 
 class TestTX3_RollbackFailure(AsyncTestCase):
+
     def begin(self, channel):
         self.channel.add_on_close_callback(self.on_channel_closed)
         self.channel.tx_rollback(self.on_commitok)
@@ -268,6 +277,7 @@ class TestTX3_RollbackFailure(AsyncTestCase):
 
 
 class TestZ_PublishAndConsume(BoundQueueTestCase):
+
     def on_ready(self, frame):
         self.ctag = self.channel.basic_consume(self.on_message, self.queue)
         self.msg_body = "%s: %i" % (self.__class__.__name__, time.time())
@@ -290,6 +300,7 @@ class TestZ_PublishAndConsume(BoundQueueTestCase):
 
 
 class TestZ_PublishAndConsumeBig(BoundQueueTestCase):
+
     def _get_msg_body(self):
         return '\n'.join(["%s" % i for i in range(0, 2097152)])
 
@@ -315,6 +326,7 @@ class TestZ_PublishAndConsumeBig(BoundQueueTestCase):
 
 
 class TestZ_PublishAndGet(BoundQueueTestCase):
+
     def on_ready(self, frame):
         self.msg_body = "%s: %i" % (self.__class__.__name__, time.time())
         self.channel.basic_publish(self.exchange, self.routing_key,

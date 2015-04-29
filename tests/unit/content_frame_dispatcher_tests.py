@@ -16,6 +16,7 @@ from pika import spec
 
 
 class ContentFrameDispatcherTests(unittest.TestCase):
+
     def setUp(self):
         self.obj = channel.ContentFrameDispatcher()
 

@@ -41,6 +41,7 @@ class PlainCredentialsTests(unittest.TestCase):
 
 
 class ExternalCredentialsTest(unittest.TestCase):
+
     def test_response_for(self):
         obj = credentials.ExternalCredentials()
         start = spec.Connection.Start()

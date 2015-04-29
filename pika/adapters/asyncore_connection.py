@@ -133,6 +133,7 @@ class AsyncoreConnection(base_connection.BaseConnection):
         """
 
         class ConnectingIOLoop(object):
+
             def add_timeout(self, duration, callback_method):
                 time.sleep(duration)
                 return callback_method()
@@ -152,8 +153,7 @@ class AsyncoreConnection(base_connection.BaseConnection):
         """
         error = super(AsyncoreConnection, self)._adapter_connect()
         if not error:
-            self.socket = PikaDispatcher(self.socket, None,
-                                         self._handle_events)
+            self.socket = PikaDispatcher(self.socket, None, self._handle_events)
             self.ioloop = self.socket
             self._on_connected()
         return error

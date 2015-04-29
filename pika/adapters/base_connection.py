@@ -150,10 +150,9 @@ class BaseConnection(connection.Connection):
                          "probable authentication error")
             raise exceptions.ProbableAuthenticationError
         elif self.connection_state == self.CONNECTION_TUNE:
-            LOGGER.error(
-                "Socket closed while tuning the connection indicating "
-                "a probable permission error when accessing a virtual "
-                "host")
+            LOGGER.error("Socket closed while tuning the connection indicating "
+                         "a probable permission error when accessing a virtual "
+                         "host")
             raise exceptions.ProbableAccessDeniedError
         elif self.is_open:
             LOGGER.warning("Socket closed when connection was open")

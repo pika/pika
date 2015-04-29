@@ -21,6 +21,7 @@ except ImportError:
 
 
 class TornadoConnectionTests(unittest.TestCase):
+
     @unittest.skipIf(ioloop is None, 'requires Tornado')
     @mock.patch('pika.adapters.base_connection.BaseConnection.__init__')
     def test_tornado_connection_call_parent(self, mock_init):

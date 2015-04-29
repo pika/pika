@@ -414,8 +414,7 @@ class PollPoller(SelectPoller):
         :param method state_manager: The method to manage state
 
         """
-        super(PollPoller, self).__init__(fileno, handler, events,
-                                         state_manager)
+        super(PollPoller, self).__init__(fileno, handler, events, state_manager)
         self._poll = select.poll()
         self._poll.register(fileno, self.events)
 

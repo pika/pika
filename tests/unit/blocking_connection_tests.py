@@ -22,6 +22,7 @@ class BlockingConnectionMockTemplate(blocking_connection.BlockingConnection):
 
 
 class BlockingConnectionTests(unittest.TestCase):
+
     @patch.object(blocking_connection.BlockingConnection, 'connect',
                   spec_set=blocking_connection.BlockingConnection.connect)
     def test_handle_timeout_when_closing_exceeds_threshold(self, connect_mock):

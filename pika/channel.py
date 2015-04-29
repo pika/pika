@@ -451,10 +451,10 @@ class Channel(object):
 
         """
         self._validate_channel_and_callback(callback)
-        return self._rpc(spec.Exchange.Bind(0, destination, source,
-                                            routing_key, nowait,
-                                            arguments or dict()), callback,
-                         [spec.Exchange.BindOk] if nowait is False else [])
+        return self._rpc(spec.Exchange.Bind(0, destination, source, routing_key,
+                                            nowait, arguments or dict()),
+                         callback, [spec.Exchange.BindOk] if nowait is False
+                         else [])
 
     def exchange_declare(self,
                          callback=None,
@@ -621,8 +621,8 @@ class Channel(object):
         if routing_key is None:
             routing_key = queue
         return self._rpc(spec.Queue.Bind(0, queue, exchange, routing_key,
-                                         nowait, arguments or dict()),
-                         callback, replies)
+                                         nowait, arguments or dict()), callback,
+                         replies)
 
     def queue_declare(self, callback,
                       queue='',
@@ -1078,8 +1078,7 @@ class Channel(object):
                               properties and body.
 
         """
-        self.connection._send_method(self.channel_number, method_frame,
-                                     content)
+        self.connection._send_method(self.channel_number, method_frame, content)
 
     def _set_state(self, connection_state):
         """Set the channel connection state to the specified state value.

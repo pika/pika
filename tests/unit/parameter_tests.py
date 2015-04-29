@@ -3,6 +3,7 @@ import pika
 
 
 class ParameterTests(unittest.TestCase):
+
     def test_parameters_accepts_plain_string_virtualhost(self):
         parameters = pika.ConnectionParameters(virtual_host="prtfqpeo")
         self.assertEqual(parameters.virtual_host, "prtfqpeo")

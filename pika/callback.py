@@ -226,8 +226,7 @@ class CallbackManager(object):
         callbacks = list()
         # Check each callback, append it to the list if it should be called
         for callback_dict in list(self._stack[prefix][key]):
-            if self._should_process_callback(callback_dict, caller,
-                                             list(args)):
+            if self._should_process_callback(callback_dict, caller, list(args)):
                 callbacks.append(callback_dict[self.CALLBACK])
                 if callback_dict[self.ONE_SHOT]:
                     self._use_one_shot_callback(prefix, key, callback_dict)
@@ -301,9 +300,8 @@ class CallbackManager(object):
             return self._dict_arguments_match(args[0],
                                               callback_dict[self.ARGUMENTS])
         return self._obj_arguments_match(args[0].method
-                                         if hasattr(args[0],
-                                                    'method') else args[0],
-                                         callback_dict[self.ARGUMENTS])
+                                         if hasattr(args[0], 'method') else
+                                         args[0], callback_dict[self.ARGUMENTS])
 
     def _callback_dict(self, callback, one_shot, only_caller, arguments):
         """Return the callback dictionary.

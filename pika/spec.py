@@ -1276,10 +1276,7 @@ class Queue(amqp_object.Class):
         INDEX = 0x0032000B  # 50, 11; 3276811
         NAME = 'Queue.DeclareOk'
 
-        def __init__(self,
-                     queue=None,
-                     message_count=None,
-                     consumer_count=None):
+        def __init__(self, queue=None, message_count=None, consumer_count=None):
             self.queue = queue
             self.message_count = message_count
             self.consumer_count = consumer_count
@@ -2984,4 +2981,4 @@ props = {0x003C: BasicProperties}
 
 def has_content(methodNumber):
     return methodNumber in (Basic.Publish.INDEX, Basic.Return.INDEX,
-                            Basic.Deliver.INDEX, Basic.GetOk.INDEX, )
+                            Basic.Deliver.INDEX, Basic.GetOk.INDEX,)

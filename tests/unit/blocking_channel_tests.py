@@ -20,6 +20,7 @@ BLOCKING_CONNECTION = 'pika.adapters.blocking_connection.BlockingConnection'
 
 
 class BlockingChannelTests(unittest.TestCase):
+
     @mock.patch(BLOCKING_CONNECTION)
     def _create_connection(self, connection=None):
         return connection

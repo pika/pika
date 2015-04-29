@@ -357,6 +357,7 @@ class CallbackTests(unittest.TestCase):
                                                    [{'foo': 'baz'}]))
 
     def test_arguments_match_obj_argument(self):
+
         class TestObj(object):
             foo = 'bar'
 
@@ -365,6 +366,7 @@ class CallbackTests(unittest.TestCase):
                                                   [test_instance]))
 
     def test_arguments_match_obj_no_attribute(self):
+
         class TestObj(object):
             qux = 'bar'
 
@@ -373,6 +375,7 @@ class CallbackTests(unittest.TestCase):
                                                    [test_instance]))
 
     def test_arguments_match_obj_argument_no_match(self):
+
         class TestObj(object):
             foo = 'baz'
 
@@ -381,6 +384,7 @@ class CallbackTests(unittest.TestCase):
                                                    [test_instance]))
 
     def test_arguments_match_obj_argument_with_method(self):
+
         class TestFrame(object):
             method = None
 
@@ -393,6 +397,7 @@ class CallbackTests(unittest.TestCase):
                                                   [test_instance]))
 
     def test_arguments_match_obj_argument_with_method_no_match(self):
+
         class TestFrame(object):
             method = None
 

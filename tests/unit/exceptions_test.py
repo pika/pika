@@ -11,6 +11,7 @@ from pika import exceptions
 
 
 class ExceptionTests(unittest.TestCase):
+
     def test_amqp_connection_error_one_param_repr(self):
         self.assertEqual(
             repr(exceptions.AMQPConnectionError(10)),

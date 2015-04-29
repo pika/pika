@@ -65,6 +65,7 @@ class AsyncTestCase(unittest.TestCase):
 
 
 class BoundQueueTestCase(AsyncTestCase):
+
     def tearDown(self):
         """Cleanup auto-declared queue and exchange"""
         self._cconn = self.ADAPTER(PARAMETERS, self._on_cconn_open,

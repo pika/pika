@@ -62,9 +62,9 @@ class TwistedChannel(object):
     """
 
     WRAPPED_METHODS = ('exchange_declare', 'exchange_delete', 'queue_declare',
-                       'queue_bind', 'queue_purge', 'queue_unbind',
-                       'basic_qos', 'basic_get', 'basic_recover', 'tx_select',
-                       'tx_commit', 'tx_rollback', 'flow', 'basic_cancel')
+                       'queue_bind', 'queue_purge', 'queue_unbind', 'basic_qos',
+                       'basic_get', 'basic_recover', 'tx_select', 'tx_commit',
+                       'tx_rollback', 'flow', 'basic_cancel')
 
     def __init__(self, channel):
         self.__channel = channel
@@ -323,8 +323,7 @@ class TwistedConnection(base_connection.BaseConnection):
 
         """
         d = defer.Deferred()
-        base_connection.BaseConnection.channel(self, d.callback,
-                                               channel_number)
+        base_connection.BaseConnection.channel(self, d.callback, channel_number)
         return d.addCallback(TwistedChannel)
 
     # IReadWriteDescriptor methods
@@ -421,8 +420,7 @@ class TwistedProtocolConnection(base_connection.BaseConnection):
 
         """
         d = defer.Deferred()
-        base_connection.BaseConnection.channel(self, d.callback,
-                                               channel_number)
+        base_connection.BaseConnection.channel(self, d.callback, channel_number)
         return d.addCallback(TwistedChannel)
 
     # IProtocol methods

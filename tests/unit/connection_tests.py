@@ -24,6 +24,7 @@ def callback_method():
 
 
 class ConnectionTests(unittest.TestCase):
+
     @mock.patch('pika.connection.Connection.connect')
     def setUp(self, connect):
         self.connection = connection.Connection()
@@ -156,8 +157,8 @@ class ConnectionTests(unittest.TestCase):
         self.connection._add_channel_callbacks = mock.Mock()
         ret_channel = self.connection.channel(callback_method)
         self.assertEqual(test_channel, ret_channel)
-        self.connection._create_channel.assert_called_once_with(
-            42, callback_method)
+        self.connection._create_channel.assert_called_once_with(42,
+                                                                callback_method)
         self.connection._add_channel_callbacks.assert_called_once_with(42)
         test_channel.open.assert_called_once_with()
 
@@ -184,10 +185,9 @@ class ConnectionTests(unittest.TestCase):
             for t_param in ('channel_max', 'connection_attempts', 'frame_max',
                             'locale', 'retry_delay', 'socket_timeout',
                             'ssl_options'):
-                self.assertEqual(test_params[t_param],
-                                 getattr(params, t_param), t_param)
-            self.assertEqual(params.backpressure_detection,
-                             backpressure == 't')
+                self.assertEqual(test_params[t_param], getattr(params, t_param),
+                                 t_param)
+            self.assertEqual(params.backpressure_detection, backpressure == 't')
             self.assertEqual(test_params['heartbeat_interval'],
                              params.heartbeat)
 
