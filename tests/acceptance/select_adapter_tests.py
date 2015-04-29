@@ -1,4 +1,5 @@
 import time
+import uuid
 
 import async_test_base
 
@@ -33,6 +34,35 @@ class TestConfirmSelect(AsyncTestCase):
 
     def on_complete(self, frame):
         self.assertIsInstance(frame.method, spec.Confirm.SelectOk)
+        self.stop()
+
+    def start_test(self):
+        """SelectConnection should receive confirmation of Confirm.Select"""
+        self.start()
+
+
+class TestConsumeCancel(AsyncTestCase):
+    def begin(self, channel):
+        self.queue_name = str(uuid.uuid4())
+        channel.queue_declare(self.on_queue_declared,
+                              queue=self.queue_name)
+
+    def on_queue_declared(self, frame):
+        for i in range(0, 100):
+            msg_body = '{}:{}:{}'.format(self.__class__.__name__,
+                                         i, time.time())
+            self.channel.basic_publish('', self.queue_name, msg_body)
+        self.ctag = self.channel.basic_consume(self.on_message,
+                                               queue=self.queue_name,
+                                               no_ack=True)
+
+    def on_message(self, _channel, _frame, _header, body):
+        self.channel.basic_cancel(self.on_cancel, self.ctag)
+
+    def on_cancel(self, _frame):
+        self.channel.queue_delete(self.on_deleted, self.queue_name)
+
+    def on_deleted(self, _frame):
         self.stop()
 
     def start_test(self):

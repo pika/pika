@@ -51,6 +51,7 @@ class Channel(object):
         self._has_on_flow_callback = False
         self._cancelled = collections.deque(list())
         self._consumers = dict()
+        self._consumers_with_noack = set()
         self._on_flowok_callback = None
         self._on_getok_callback = None
         self._on_openok_callback = on_open_callback
@@ -210,6 +211,9 @@ class Channel(object):
 
         if consumer_tag in self._consumers or consumer_tag in self._cancelled:
             raise exceptions.DuplicateConsumerTag(consumer_tag)
+
+        if no_ack:
+            self._consumers_with_noack.add(consumer_tag)
 
         self._consumers[consumer_tag] = consumer_callback
         self._pending[consumer_tag] = list()
@@ -784,6 +788,20 @@ class Channel(object):
         self._consumers = dict()
         self.callbacks.cleanup(str(self.channel_number))
 
+    def _cleanup_consumer_ref(self, consumer_tag):
+        """Remove any references to the consumer tag in internal structures
+        for consumer state.
+
+        :param str consumer_tag: The consumer tag to cleanup
+
+        """
+        if consumer_tag in self._consumers_with_noack:
+            self._consumers_with_noack.remove(consumer_tag)
+        if consumer_tag in self._consumers:
+            del self._consumers[consumer_tag]
+        if consumer_tag in self._pending:
+            del self._pending[consumer_tag]
+
     def _get_pending_msg(self, consumer_tag):
         """Get a pending message for the consumer tag from the stack.
 
@@ -833,8 +851,7 @@ class Channel(object):
 
         """
         self._cancelled.append(method_frame.method.consumer_tag)
-        if method_frame.method.consumer_tag in self._consumers:
-            del self._consumers[method_frame.method.consumer_tag]
+        self._cleanup_consumer_ref(method_frame.method.consumer_tag)
 
     def _on_cancelok(self, method_frame):
         """Called in response to a frame from the Broker when the
@@ -843,10 +860,7 @@ class Channel(object):
         :param pika.frame.Method method_frame: The method frame received
 
         """
-        if method_frame.method.consumer_tag in self._consumers:
-            del self._consumers[method_frame.method.consumer_tag]
-        if method_frame.method.consumer_tag in self._pending:
-            del self._pending[method_frame.method.consumer_tag]
+        self._cleanup_consumer_ref(method_frame.method.consumer_tag)
 
     def _on_close(self, method_frame):
         """Handle the case where our channel has been closed for us
@@ -890,7 +904,7 @@ class Channel(object):
         """
         consumer_tag = method_frame.method.consumer_tag
         if consumer_tag in self._cancelled:
-            if self.is_open:
+            if self.is_open and consumer_tag not in self._consumers_with_noack:
                 self.basic_reject(method_frame.method.delivery_tag)
             return
         if consumer_tag not in self._consumers:
