@@ -72,6 +72,13 @@ Pika provides the following adapters
 - TwistedConnection  - adapter for use with the Twisted asynchronous package http://twistedmatrix.com/
 - TornadoConnection  - adapter for use with the Tornado IO Loop http://tornadoweb.org
 
+Contributing
+------------
+To contribute to pika, please make sure that any new features or changes
+to existing functionality include test coverage. Additionally, please format
+your code using `yapf <http://pypi.python.org/pypi/yapf>`_ with pep8 style
+prior to issuing your pull request.
+
 License
 -------
 Pika is licensed under the MPLv2. If you have any questions regarding licensing,
