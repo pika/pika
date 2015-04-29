@@ -193,8 +193,8 @@ def generate(specPath):
                 bitindex += 1
             else:
                 bitindex = None
-                genSingleDecode("            ", "self.%s" %
-                                (pyize(f.name), ), f.domain)
+                genSingleDecode("            ", "self.%s" % (pyize(f.name), ),
+                                f.domain)
         print("            return self")
         print('')
 
@@ -217,8 +217,8 @@ def generate(specPath):
                       (pyize(f.name), flagName(c, f)))
             else:
                 print("        if flags & %s:" % (flagName(c, f), ))
-                genSingleDecode("            ", "self.%s" %
-                                (pyize(f.name), ), f.domain)
+                genSingleDecode("            ", "self.%s" % (pyize(f.name), ),
+                                f.domain)
                 print("        else:")
                 print("            self.%s = None" % (pyize(f.name), ))
         print("        return self")
@@ -250,8 +250,8 @@ def generate(specPath):
             else:
                 finishBits()
                 bitindex = None
-                genSingleEncode("            ", "self.%s" %
-                                (pyize(f.name), ), f.domain)
+                genSingleEncode("            ", "self.%s" % (pyize(f.name), ),
+                                f.domain)
         finishBits()
         print("            return pieces")
         print('')
@@ -267,8 +267,8 @@ def generate(specPath):
             else:
                 print("        if self.%s is not None:" % (pyize(f.name), ))
                 print("            flags = flags | %s" % (flagName(c, f), ))
-                genSingleEncode("            ", "self.%s" %
-                                (pyize(f.name), ), f.domain)
+                genSingleEncode("            ", "self.%s" % (pyize(f.name), ),
+                                f.domain)
         print("        flag_pieces = list()")
         print("        while True:")
         print("            remainder = flags >> 16")
