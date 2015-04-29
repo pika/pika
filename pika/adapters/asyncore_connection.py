@@ -36,8 +36,10 @@ class PikaDispatcher(asyncore.dispatcher):
         :rtype: str
 
         """
-        value = {'deadline': time.time() + deadline,
-                 'callback': callback_method}
+        value = {
+            'deadline': time.time() + deadline,
+            'callback': callback_method
+        }
         timeout_id = hash(frozenset(value.items()))
         self._timeouts[timeout_id] = value
         return timeout_id
@@ -110,6 +112,7 @@ class AsyncoreConnection(base_connection.BaseConnection):
     :raises: RuntimeError
 
     """
+
     def __init__(self,
                  parameters=None,
                  on_open_callback=None,
@@ -128,15 +131,16 @@ class AsyncoreConnection(base_connection.BaseConnection):
         :raises: RuntimeError
 
         """
+
         class ConnectingIOLoop(object):
             def add_timeout(self, duration, callback_method):
                 time.sleep(duration)
                 return callback_method()
+
         ioloop = ConnectingIOLoop()
         super(AsyncoreConnection, self).__init__(parameters, on_open_callback,
                                                  on_open_error_callback,
-                                                 on_close_callback,
-                                                 ioloop,
+                                                 on_close_callback, ioloop,
                                                  stop_ioloop_on_close)
 
     def _adapter_connect(self):
@@ -153,4 +157,3 @@ class AsyncoreConnection(base_connection.BaseConnection):
             self.ioloop = self.socket
             self._on_connected()
         return error
-

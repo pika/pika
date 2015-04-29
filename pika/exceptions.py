@@ -14,11 +14,9 @@ class AMQPConnectionError(AMQPError):
                         'connection attempt')
             elif isinstance(self.args[0], int):
                 return ('No connection could be opened after %s '
-                        'connection attempts' %
-                        self.args[0])
+                        'connection attempts' % self.args[0])
             else:
-                return ('No connection could be opened: %s' %
-                        self.args[0])
+                return ('No connection could be opened: %s' % self.args[0])
         elif len(self.args) == 2:
             return '%s: %s' % (self.args[0], self.args[1])
 

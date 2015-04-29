@@ -96,6 +96,5 @@ class ExternalCredentials(object):
         """Called by Connection when it no longer needs the credentials"""
         LOGGER.debug('Not supported by this Credentials type')
 
-
 # Append custom credential types to this list for validation support
 VALID_TYPES = [PlainCredentials, ExternalCredentials]

@@ -169,18 +169,20 @@ class Channel(object):
         if callback:
             if nowait is True:
                 raise ValueError('Can not pass a callback if nowait is True')
-            self.callbacks.add(self.channel_number,
-                               spec.Basic.CancelOk,
+            self.callbacks.add(self.channel_number, spec.Basic.CancelOk,
                                callback)
         self._cancelled.append(consumer_tag)
         self._rpc(spec.Basic.Cancel(consumer_tag=consumer_tag,
-                                    nowait=nowait),
-                  self._on_cancelok,
-                  [(spec.Basic.CancelOk,
-                    {'consumer_tag': consumer_tag})] if nowait is False else [])
+                                    nowait=nowait), self._on_cancelok,
+                  [(spec.Basic.CancelOk, {'consumer_tag': consumer_tag})] if
+                  nowait is False else [])
 
-    def basic_consume(self, consumer_callback, queue='', no_ack=False,
-                      exclusive=False, consumer_tag=None, arguments=None):
+    def basic_consume(self, consumer_callback,
+                      queue='',
+                      no_ack=False,
+                      exclusive=False,
+                      consumer_tag=None,
+                      arguments=None):
         """Sends the AMQP command Basic.Consume to the broker and binds messages
         for the consumer_tag to the consumer callback. If you do not pass in
         a consumer_tag, one will be automatically generated for you. Returns
@@ -216,9 +218,8 @@ class Channel(object):
                                      no_ack=no_ack,
                                      exclusive=exclusive,
                                      arguments=arguments or dict()),
-                           self._on_eventok,
-                           [(spec.Basic.ConsumeOk,
-                             {'consumer_tag': consumer_tag})])
+                  self._on_eventok, [(spec.Basic.ConsumeOk,
+                                      {'consumer_tag': consumer_tag})])
 
         return consumer_tag
 
@@ -241,8 +242,7 @@ class Channel(object):
         """
         self._validate_channel_and_callback(callback)
         self._on_getok_callback = callback
-        self._send_method(spec.Basic.Get(queue=queue,
-                                         no_ack=no_ack))
+        self._send_method(spec.Basic.Get(queue=queue, no_ack=no_ack))
 
     def basic_nack(self, delivery_tag=None, multiple=False, requeue=True):
         """This method allows a client to reject one or more incoming messages.
@@ -269,7 +269,9 @@ class Channel(object):
                                                  requeue))
 
     def basic_publish(self, exchange, routing_key, body,
-                      properties=None, mandatory=False, immediate=False):
+                      properties=None,
+                      mandatory=False,
+                      immediate=False):
         """Publish to the channel with the given exchange, routing key and body.
         For more information on basic_publish and what the parameters do, see:
 
@@ -299,7 +301,10 @@ class Channel(object):
                                              immediate=immediate),
                           (properties, body))
 
-    def basic_qos(self, callback=None, prefetch_size=0, prefetch_count=0,
+    def basic_qos(self,
+                  callback=None,
+                  prefetch_size=0,
+                  prefetch_count=0,
                   all_channels=False):
         """Specify quality of service. This method requests a specific quality
         of service. The QoS can be specified for the current channel or for all
@@ -331,8 +336,7 @@ class Channel(object):
         """
         self._validate_channel_and_callback(callback)
         return self._rpc(spec.Basic.Qos(prefetch_size, prefetch_count,
-                                        all_channels),
-                         callback,
+                                        all_channels), callback,
                          [spec.Basic.QosOk])
 
     def basic_reject(self, delivery_tag=None, requeue=True):
@@ -404,18 +408,13 @@ class Channel(object):
 
         # Add the ack and nack callbacks
         if callback is not None:
-            self.callbacks.add(self.channel_number,
-                               spec.Basic.Ack,
-                               callback,
+            self.callbacks.add(self.channel_number, spec.Basic.Ack, callback,
                                False)
-            self.callbacks.add(self.channel_number,
-                               spec.Basic.Nack,
-                               callback,
+            self.callbacks.add(self.channel_number, spec.Basic.Nack, callback,
                                False)
 
         # Send the RPC command
-        self._rpc(spec.Confirm.Select(nowait),
-                  self._on_selectok,
+        self._rpc(spec.Confirm.Select(nowait), self._on_selectok,
                   [spec.Confirm.SelectOk] if nowait is False else [])
 
     @property
@@ -427,8 +426,13 @@ class Channel(object):
         """
         return list(self._consumers.keys())
 
-    def exchange_bind(self, callback=None, destination=None, source=None,
-                      routing_key='', nowait=False, arguments=None):
+    def exchange_bind(self,
+                      callback=None,
+                      destination=None,
+                      source=None,
+                      routing_key='',
+                      nowait=False,
+                      arguments=None):
         """Bind an exchange to another exchange.
 
         :param method callback: The method to call on Exchange.BindOk
@@ -448,10 +452,17 @@ class Channel(object):
                                             arguments or dict()), callback,
                          [spec.Exchange.BindOk] if nowait is False else [])
 
-    def exchange_declare(self, callback=None, exchange=None,
-                         exchange_type='direct', passive=False, durable=False,
-                         auto_delete=False, internal=False, nowait=False,
-                         arguments=None, type=None):
+    def exchange_declare(self,
+                         callback=None,
+                         exchange=None,
+                         exchange_type='direct',
+                         passive=False,
+                         durable=False,
+                         auto_delete=False,
+                         internal=False,
+                         nowait=False,
+                         arguments=None,
+                         type=None):
         """This method creates an exchange if it does not already exist, and if
         the exchange exists, verifies that it is of the correct and expected
         class.
@@ -486,11 +497,13 @@ class Channel(object):
         return self._rpc(spec.Exchange.Declare(0, exchange, exchange_type,
                                                passive, durable, auto_delete,
                                                internal, nowait,
-                                               arguments or dict()),
-                         callback,
+                                               arguments or dict()), callback,
                          [spec.Exchange.DeclareOk] if nowait is False else [])
 
-    def exchange_delete(self, callback=None, exchange=None, if_unused=False,
+    def exchange_delete(self,
+                        callback=None,
+                        exchange=None,
+                        if_unused=False,
                         nowait=False):
         """Delete the exchange.
 
@@ -503,11 +516,16 @@ class Channel(object):
         """
         self._validate_channel_and_callback(callback)
         return self._rpc(spec.Exchange.Delete(0, exchange, if_unused, nowait),
-                         callback,
-                         [spec.Exchange.DeleteOk] if nowait is False else [])
+                         callback, [spec.Exchange.DeleteOk] if nowait is False
+                         else [])
 
-    def exchange_unbind(self, callback=None, destination=None, source=None,
-                        routing_key='', nowait=False, arguments=None):
+    def exchange_unbind(self,
+                        callback=None,
+                        destination=None,
+                        source=None,
+                        routing_key='',
+                        nowait=False,
+                        arguments=None):
         """Unbind an exchange from another exchange.
 
         :param method callback: The method to call on Exchange.UnbindOk
@@ -524,8 +542,8 @@ class Channel(object):
         self._validate_channel_and_callback(callback)
         return self._rpc(spec.Exchange.Unbind(0, destination, source,
                                               routing_key, nowait, arguments),
-                         callback,
-                         [spec.Exchange.UnbindOk] if nowait is False else [])
+                         callback, [spec.Exchange.UnbindOk] if nowait is False
+                         else [])
 
     def flow(self, callback, active):
         """Turn Channel flow control off and on. Pass a callback to be notified
@@ -541,8 +559,7 @@ class Channel(object):
         """
         self._validate_channel_and_callback(callback)
         self._on_flowok_callback = callback
-        self._rpc(spec.Channel.Flow(active),
-                  self._on_flowok,
+        self._rpc(spec.Channel.Flow(active), self._on_flowok,
                   [spec.Channel.FlowOk])
 
     @property
@@ -578,8 +595,10 @@ class Channel(object):
         self._add_callbacks()
         self._rpc(spec.Channel.Open(), self._on_openok, [spec.Channel.OpenOk])
 
-    def queue_bind(self, callback, queue, exchange, routing_key=None,
-                   nowait=False, arguments=None):
+    def queue_bind(self, callback, queue, exchange,
+                   routing_key=None,
+                   nowait=False,
+                   arguments=None):
         """Bind the queue to the specified exchange
 
         :param method callback: The method to call on Queue.BindOk
@@ -598,11 +617,16 @@ class Channel(object):
         if routing_key is None:
             routing_key = queue
         return self._rpc(spec.Queue.Bind(0, queue, exchange, routing_key,
-                                         nowait, arguments or dict()), callback,
-                         replies)
+                                         nowait, arguments or dict()),
+                         callback, replies)
 
-    def queue_declare(self, callback, queue='', passive=False, durable=False,
-                      exclusive=False, auto_delete=False, nowait=False,
+    def queue_declare(self, callback,
+                      queue='',
+                      passive=False,
+                      durable=False,
+                      exclusive=False,
+                      auto_delete=False,
+                      nowait=False,
                       arguments=None):
         """Declare queue, create if needed. This method creates or checks a
         queue. When creating a new queue the client can specify various
@@ -631,8 +655,12 @@ class Channel(object):
                                             arguments or dict()), callback,
                          replies)
 
-    def queue_delete(self, callback=None, queue='', if_unused=False,
-                     if_empty=False, nowait=False):
+    def queue_delete(self,
+                     callback=None,
+                     queue='',
+                     if_unused=False,
+                     if_empty=False,
+                     nowait=False):
         """Delete a queue from the broker.
 
         :param method callback: The method to call on Queue.DeleteOk
@@ -646,8 +674,7 @@ class Channel(object):
         replies = [spec.Queue.DeleteOk] if nowait is False else []
         self._validate_channel_and_callback(callback)
         return self._rpc(spec.Queue.Delete(0, queue, if_unused, if_empty,
-                                           nowait), callback,
-                         replies)
+                                           nowait), callback, replies)
 
     def queue_purge(self, callback=None, queue='', nowait=False):
         """Purge all of the messages from the specified queue
@@ -660,11 +687,14 @@ class Channel(object):
         """
         replies = [spec.Queue.PurgeOk] if nowait is False else []
         self._validate_channel_and_callback(callback)
-        return self._rpc(spec.Queue.Purge(0, queue, nowait), callback,
-                         replies)
+        return self._rpc(spec.Queue.Purge(0, queue, nowait), callback, replies)
 
-    def queue_unbind(self, callback=None, queue='', exchange=None,
-                     routing_key=None, arguments=None):
+    def queue_unbind(self,
+                     callback=None,
+                     queue='',
+                     exchange=None,
+                     routing_key=None,
+                     arguments=None):
         """Unbind a queue from an exchange.
 
         :param method callback: The method to call on Queue.UnbindOk
@@ -721,30 +751,22 @@ class Channel(object):
 
         """
         # Add a callback for Basic.GetEmpty
-        self.callbacks.add(self.channel_number,
-                           spec.Basic.GetEmpty,
-                           self._on_getempty,
-                           False)
+        self.callbacks.add(self.channel_number, spec.Basic.GetEmpty,
+                           self._on_getempty, False)
 
         # Add a callback for Basic.Cancel
-        self.callbacks.add(self.channel_number,
-                           spec.Basic.Cancel,
-                           self._on_cancel,
-                           False)
+        self.callbacks.add(self.channel_number, spec.Basic.Cancel,
+                           self._on_cancel, False)
 
         # Deprecated in newer versions of RabbitMQ but still register for it
-        self.callbacks.add(self.channel_number,
-                           spec.Channel.Flow,
-                           self._on_flow,
-                           False)
+        self.callbacks.add(self.channel_number, spec.Channel.Flow,
+                           self._on_flow, False)
 
         # Add a callback for when the server closes our channel
-        self.callbacks.add(self.channel_number,
-                           spec.Channel.Close,
-                           self._on_close,
-                           True)
+        self.callbacks.add(self.channel_number, spec.Channel.Close,
+                           self._on_close, True)
 
-    def _add_pending_msg(self, consumer_tag, method_frame,  header_frame, body):
+    def _add_pending_msg(self, consumer_tag, method_frame, header_frame, body):
         """Add the received message to the pending message stack.
 
         :param str consumer_tag: The consumer tag for the message
@@ -839,10 +861,8 @@ class Channel(object):
         if self.connection.is_open:
             self._send_method(spec.Channel.CloseOk())
         self._set_state(self.CLOSED)
-        self.callbacks.process(self.channel_number,
-                               '_on_channel_close',
-                               self, self,
-                               method_frame.method.reply_code,
+        self.callbacks.process(self.channel_number, '_on_channel_close', self,
+                               self, method_frame.method.reply_code,
                                method_frame.method.reply_text)
         self._cleanup()
 
@@ -853,10 +873,8 @@ class Channel(object):
 
         """
         self._set_state(self.CLOSED)
-        self.callbacks.process(self.channel_number,
-                               '_on_channel_close',
-                               self, self,
-                               0, '')
+        self.callbacks.process(self.channel_number, '_on_channel_close', self,
+                               self, 0, '')
         self._cleanup()
 
     def _on_deliver(self, method_frame, header_frame, body):
@@ -880,10 +898,8 @@ class Channel(object):
                                          header_frame, body)
         while self._pending[consumer_tag]:
             self._consumers[consumer_tag](*self._get_pending_msg(consumer_tag))
-        self._consumers[consumer_tag](self,
-                                      method_frame.method,
-                                      header_frame.properties,
-                                      body)
+        self._consumers[consumer_tag](self, method_frame.method,
+                                      header_frame.properties, body)
 
     def _on_eventok(self, method_frame):
         """Generic events that returned ok that may have internal callbacks.
@@ -937,10 +953,7 @@ class Channel(object):
         if self._on_getok_callback is not None:
             callback = self._on_getok_callback
             self._on_getok_callback = None
-            callback(self,
-                     method_frame.method,
-                     header_frame.properties,
-                     body)
+            callback(self, method_frame.method, header_frame.properties, body)
         else:
             LOGGER.error('Basic.GetOk received with no active callback')
 
@@ -968,10 +981,8 @@ class Channel(object):
 
         """
         if not self.callbacks.process(self.channel_number, '_on_return', self,
-                                      (self,
-                                       method_frame.method,
-                                       header_frame.properties,
-                                       body)):
+                                      (self, method_frame.method,
+                                       header_frame.properties, body)):
             LOGGER.warning('Basic.Return received from server (%r, %r)',
                            method_frame.method, header_frame.properties)
 
@@ -1011,8 +1022,7 @@ class Channel(object):
 
         # If the channel is blocking, add subsequent commands to our stack
         if self._blocking:
-            return self._blocked.append([method_frame,
-                                         callback,
+            return self._blocked.append([method_frame, callback,
                                          acceptable_replies])
 
         # Validate we got None or a list of acceptable_replies
@@ -1054,7 +1064,8 @@ class Channel(object):
                               properties and body.
 
         """
-        self.connection._send_method(self.channel_number, method_frame, content)
+        self.connection._send_method(self.channel_number, method_frame,
+                                     content)
 
     def _set_state(self, connection_state):
         """Set the channel connection state to the specified state value.
@@ -1079,12 +1090,12 @@ class Channel(object):
             raise ValueError('callback must be a function or method')
 
 
-
 class ContentFrameDispatcher(object):
     """Handle content related frames, building a message and return the message
     back in three parts upon receipt.
 
     """
+
     def __init__(self):
         """Create a new instance of the Dispatcher passing in the callback
         manager.
@@ -1121,8 +1132,7 @@ class ContentFrameDispatcher(object):
         :rtype: tuple(pika.frame.Method, pika.frame.Header, str)
 
         """
-        content = (self._method_frame,
-                   self._header_frame,
+        content = (self._method_frame, self._header_frame,
                    ''.join(self._body_fragments))
         self._reset()
         return content

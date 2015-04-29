@@ -34,9 +34,7 @@ class Frame(amqp_object.AMQPObject):
 
         """
         payload = ''.join(pieces)
-        return struct.pack('>BHI',
-                           self.frame_type,
-                           self.channel_number,
+        return struct.pack('>BHI', self.frame_type, self.channel_number,
                            len(payload)) + payload + chr(spec.FRAME_END)
 
     def marshal(self):
@@ -102,8 +100,7 @@ class Header(Frame):
 
         """
         pieces = self.properties.encode()
-        pieces.insert(0, struct.pack('>HxxQ',
-                                     self.properties.INDEX,
+        pieces.insert(0, struct.pack('>HxxQ', self.properties.INDEX,
                                      self.body_size))
         return self._marshal(pieces)
 
@@ -183,9 +180,7 @@ class ProtocolHeader(amqp_object.AMQPObject):
         :rtype: str
 
         """
-        return 'AMQP' + struct.pack('BBBB', 0,
-                                    self.major,
-                                    self.minor,
+        return 'AMQP' + struct.pack('BBBB', 0, self.major, self.minor,
                                     self.revision)
 
 
@@ -208,8 +203,7 @@ def decode_frame(data_in):
 
     # Get the Frame Type, Channel Number and Frame Size
     try:
-        (frame_type,
-         channel_number,
+        (frame_type, channel_number,
          frame_size) = struct.unpack('>BHL', data_in[0:7])
     except struct.error:
         return 0, None

@@ -9,7 +9,7 @@ import threading
 import urllib
 import warnings
 
-if sys.version_info > (3,):
+if sys.version_info > (3, ):
     import urllib.parse as urlparse
 else:
     import urlparse
@@ -318,6 +318,7 @@ class ConnectionParameters(Parameters):
     :param bool backpressure_detection: Toggle backpressure detection
 
     """
+
     def __init__(self,
                  host=None,
                  port=None,
@@ -429,8 +430,8 @@ class URLParameters(Parameters):
     :param str url: The AMQP URL to connect to
 
     """
-    def __init__(self, url):
 
+    def __init__(self, url):
         """Create a new URLParameters instance.
 
         :param str url: The URL value
@@ -464,8 +465,8 @@ class URLParameters(Parameters):
             self.port = parts.port
 
         if parts.username is not None:
-            self.credentials = pika_credentials.PlainCredentials(parts.username,
-                                                                 parts.password)
+            self.credentials = pika_credentials.PlainCredentials(
+                parts.username, parts.password)
 
         # Get the Virtual Host
         if len(parts.path) <= 1:
@@ -516,8 +517,7 @@ class URLParameters(Parameters):
             self._validate_heartbeat_interval(values['heartbeat_interval'])):
             self.heartbeat = values['heartbeat_interval']
 
-        if ('locale' in values and
-            self._validate_locale(values['locale'])):
+        if ('locale' in values and self._validate_locale(values['locale'])):
             self.locale = values['locale']
 
         if ('retry_delay' in values and
@@ -609,8 +609,8 @@ class Connection(object):
         :param method callback_method: The method to call
 
         """
-        self.callbacks.add(0, self.ON_CONNECTION_BACKPRESSURE,
-                           callback_method, False)
+        self.callbacks.add(0, self.ON_CONNECTION_BACKPRESSURE, callback_method,
+                           False)
 
     def add_on_close_callback(self, callback_method):
         """Add a callback notification when the connection has closed. The
@@ -620,7 +620,8 @@ class Connection(object):
         :param method callback_method: Callback to call on close
 
         """
-        self.callbacks.add(0, self.ON_CONNECTION_CLOSED, callback_method, False)
+        self.callbacks.add(0, self.ON_CONNECTION_CLOSED, callback_method,
+                           False)
 
     def add_on_open_callback(self, callback_method):
         """Add a callback notification when the connection has opened.
@@ -718,7 +719,8 @@ class Connection(object):
             LOGGER.info('Retrying in %i seconds', self.params.retry_delay)
             self.add_timeout(self.params.retry_delay, self.connect)
         else:
-            self.callbacks.process(0, self.ON_CONNECTION_ERROR, self, self, error)
+            self.callbacks.process(0, self.ON_CONNECTION_ERROR, self, self,
+                                   error)
             self.remaining_connection_attempts = self.params.connection_attempts
             self._set_connection_state(self.CONNECTION_CLOSED)
 
@@ -837,8 +839,7 @@ class Connection(object):
         :param int channel_number: The channel number for the callbacks
 
         """
-        self.callbacks.add(channel_number,
-                           spec.Channel.CloseOk,
+        self.callbacks.add(channel_number, spec.Channel.CloseOk,
                            self._on_channel_closeok)
 
     def _add_connection_start_callback(self):
@@ -890,15 +891,19 @@ class Connection(object):
         :rtype: dict
 
         """
-        return {'product': PRODUCT,
-                'platform': 'Python %s' % platform.python_version(),
-                'capabilities': {'authentication_failure_close': True,
-                                 'basic.nack': True,
-                                 'connection.blocked': True,
-                                 'consumer_cancel_notify': True,
-                                 'publisher_confirms': True},
-                'information': 'See http://pika.rtfd.org',
-                'version': __version__}
+        return {
+            'product': PRODUCT,
+            'platform': 'Python %s' % platform.python_version(),
+            'capabilities': {
+                'authentication_failure_close': True,
+                'basic.nack': True,
+                'connection.blocked': True,
+                'consumer_cancel_notify': True,
+                'publisher_confirms': True
+            },
+            'information': 'See http://pika.rtfd.org',
+            'version': __version__
+        }
 
     def _close_channels(self, reply_code, reply_text):
         """Close the open channels with the specified reply_code and reply_text.
@@ -910,7 +915,8 @@ class Connection(object):
         if self.is_open:
             for channel_number in self._channels.keys():
                 if self._channels[channel_number].is_open:
-                    self._channels[channel_number].close(reply_code, reply_text)
+                    self._channels[channel_number].close(reply_code,
+                                                         reply_text)
                 else:
                     del self._channels[channel_number]
                     # Force any lingering callbacks to be removed
@@ -1011,8 +1017,7 @@ class Connection(object):
         :rtype: int
 
         """
-        return (self.params.frame_max -
-                spec.FRAME_HEADER_SIZE -
+        return (self.params.frame_max - spec.FRAME_HEADER_SIZE -
                 spec.FRAME_END_SIZE)
 
     def _get_credentials(self, method_frame):
@@ -1036,8 +1041,8 @@ class Connection(object):
         :rtype: bool
 
         """
-        return any([self._channels[num].is_open for num in
-                    self._channels.keys()])
+        return any([self._channels[num].is_open
+                    for num in self._channels.keys()])
 
     def _has_pending_callbacks(self, value):
         """Return true if there are any callbacks pending for the specified
@@ -1124,7 +1129,7 @@ class Connection(object):
         :rtype: bool
 
         """
-        return  isinstance(value, frame.ProtocolHeader)
+        return isinstance(value, frame.ProtocolHeader)
 
     def _next_channel_number(self):
         """Return the next available channel number or raise on exception.
@@ -1220,7 +1225,8 @@ class Connection(object):
         self.known_hosts = method_frame.method.known_hosts
 
         # Add a callback handler for the Broker telling us to disconnect
-        self.callbacks.add(0, spec.Connection.Close, self._on_connection_closed)
+        self.callbacks.add(0, spec.Connection.Close,
+                           self._on_connection_closed)
 
         # We're now connected at the AMQP level
         self._set_connection_state(self.CONNECTION_OPEN)
@@ -1256,8 +1262,8 @@ class Connection(object):
         self._set_connection_state(self.CONNECTION_TUNE)
 
         # Get our max channels, frames and heartbeat interval
-        self.params.channel_max = self._combine(self.params.channel_max,
-                                                method_frame.method.channel_max)
+        self.params.channel_max = self._combine(
+            self.params.channel_max, method_frame.method.channel_max)
         self.params.frame_max = self._combine(self.params.frame_max,
                                               method_frame.method.frame_max)
         self.params.heartbeat = self._combine(self.params.heartbeat,
@@ -1300,14 +1306,15 @@ class Connection(object):
 
         """
         LOGGER.warning('Disconnected from RabbitMQ at %s:%i (%s): %s',
-                       self.params.host, self.params.port,
-                       reply_code, reply_text)
+                       self.params.host, self.params.port, reply_code,
+                       reply_text)
         self._set_connection_state(self.CONNECTION_CLOSED)
         for channel in self._channels.keys():
             if channel not in self._channels:
                 continue
-            method_frame = frame.Method(channel, spec.Channel.Close(reply_code,
-                                                                    reply_text))
+            method_frame = frame.Method(channel,
+                                        spec.Channel.Close(reply_code,
+                                                           reply_text))
             self._channels[channel]._on_close(method_frame)
         self._process_connection_closed_callbacks(reply_code, reply_text)
         self._remove_connection_callbacks()
@@ -1323,9 +1330,9 @@ class Connection(object):
         if (self._is_method_frame(frame_value) and
             self._has_pending_callbacks(frame_value)):
             self.callbacks.process(frame_value.channel_number,  # Prefix
-                                   frame_value.method,          # Key
-                                   self,                        # Caller
-                                   frame_value)                 # Args
+                                   frame_value.method,  # Key
+                                   self,  # Caller
+                                   frame_value)  # Args
             return True
         return False
 
@@ -1413,12 +1420,13 @@ class Connection(object):
 
     def _remove_connection_callbacks(self):
         """Remove all callbacks for the connection"""
-        self._remove_callbacks(0, [spec.Connection.Close,
-                                   spec.Connection.Start,
-                                   spec.Connection.Open])
+        self._remove_callbacks(0,
+                               [spec.Connection.Close, spec.Connection.Start,
+                                spec.Connection.Open])
 
     def _rpc(self, channel_number, method_frame,
-             callback_method=None, acceptable_replies=None):
+             callback_method=None,
+             acceptable_replies=None):
         """Make an RPC call for the given callback, channel number and method.
         acceptable_replies lists out what responses we'll process from the
         server with the specified callback.
@@ -1525,8 +1533,8 @@ class Connection(object):
         """
         length = len(content[1])
         write_buffer = [frame.Method(channel_number, method_frame).marshal(),
-                        frame.Header(channel_number,
-                                     length, content[0]).marshal()]
+                        frame.Header(channel_number, length,
+                                     content[0]).marshal()]
         if content[1]:
             chunks = int(math.ceil(float(length) / self._body_max_length))
             for chunk in range(0, chunks):

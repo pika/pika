@@ -66,8 +66,7 @@ class BaseConnection(connection.Connection):
         self.socket = None
         self.stop_ioloop_on_close = stop_ioloop_on_close
         self.write_buffer = None
-        super(BaseConnection, self).__init__(parameters,
-                                             on_open_callback,
+        super(BaseConnection, self).__init__(parameters, on_open_callback,
                                              on_open_error_callback,
                                              on_close_callback)
 
@@ -114,8 +113,8 @@ class BaseConnection(connection.Connection):
         try:
             addresses = socket.getaddrinfo(self.params.host, self.params.port)
         except socket.error as error:
-            LOGGER.critical('Could not get addresses to use: %s (%s)',
-                            error, self.params.host)
+            LOGGER.critical('Could not get addresses to use: %s (%s)', error,
+                            self.params.host)
             return error
 
         # If the socket is created and connected, continue on
@@ -152,9 +151,10 @@ class BaseConnection(connection.Connection):
                          "probable authentication error")
             raise exceptions.ProbableAuthenticationError
         elif self.connection_state == self.CONNECTION_TUNE:
-            LOGGER.error("Socket closed while tuning the connection indicating "
-                         "a probable permission error when accessing a virtual "
-                         "host")
+            LOGGER.error(
+                "Socket closed while tuning the connection indicating "
+                "a probable permission error when accessing a virtual "
+                "host")
             raise exceptions.ProbableAccessDeniedError
         elif self.is_open:
             LOGGER.warning("Socket closed when connection was open")
@@ -175,20 +175,22 @@ class BaseConnection(connection.Connection):
         else:
             ssl_text = ""
 
-        LOGGER.info('Connecting to %s:%s%s',
-                    sock_addr_tuple[4][0], sock_addr_tuple[4][1], ssl_text)
+        LOGGER.info('Connecting to %s:%s%s', sock_addr_tuple[4][0],
+                    sock_addr_tuple[4][1], ssl_text)
 
         # Connect to the socket
         try:
             self.socket.connect(sock_addr_tuple[4])
         except socket.timeout:
             error = 'Connection to %s:%s failed: timeout' % (
-                sock_addr_tuple[4][0], sock_addr_tuple[4][1])
+                sock_addr_tuple[4][0], sock_addr_tuple[4][1]
+            )
             LOGGER.error(error)
             return error
         except socket.error as error:
-            error = 'Connection to %s:%s failed: %s' % (
-                sock_addr_tuple[4][0], sock_addr_tuple[4][1], error)
+            error = 'Connection to %s:%s failed: %s' % (sock_addr_tuple[4][0],
+                                                        sock_addr_tuple[4][1],
+                                                        error)
             LOGGER.warning(error)
             return error
 
@@ -198,7 +200,8 @@ class BaseConnection(connection.Connection):
                 self._do_ssl_handshake()
             except ssl.SSLError as error:
                 error = 'SSL connection to %s:%s failed: %s' % (
-                    sock_addr_tuple[4][0], sock_addr_tuple[4][1], error)
+                    sock_addr_tuple[4][0], sock_addr_tuple[4][1], error
+                )
                 LOGGER.error(error)
                 return error
         # Made it this far
@@ -295,8 +298,8 @@ class BaseConnection(connection.Connection):
             LOGGER.error("Socket connection was broken")
         else:
             # Haven't run into this one yet, log it.
-            LOGGER.error("Socket Error on fd %d: %s",
-                         self.socket.fileno(), error_code)
+            LOGGER.error("Socket Error on fd %d: %s", self.socket.fileno(),
+                         error_code)
 
         # Disconnect from our IOLoop and let Connection know what's up
         self._handle_disconnect()

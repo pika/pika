@@ -42,10 +42,9 @@ class LibevConnection(BaseConnection):
     WARN_ABOUT_IOLOOP = True
 
     # use static arrays to translate masks between pika and libev
-    _PIKA_TO_LIBEV_ARRAY = array.array('i',
-                                       [0] * ((BaseConnection.READ |
-                                               BaseConnection.WRITE |
-                                               BaseConnection.ERROR) + 1))
+    _PIKA_TO_LIBEV_ARRAY = array.array('i', [0] * (
+        (BaseConnection.READ | BaseConnection.WRITE | BaseConnection.ERROR) + 1
+    ))
 
     _PIKA_TO_LIBEV_ARRAY[BaseConnection.READ] = pyev.EV_READ
     _PIKA_TO_LIBEV_ARRAY[BaseConnection.WRITE] = pyev.EV_WRITE
@@ -59,13 +58,11 @@ class LibevConnection(BaseConnection):
     _PIKA_TO_LIBEV_ARRAY[BaseConnection.WRITE |
                          BaseConnection.ERROR] = pyev.EV_WRITE
 
-    _PIKA_TO_LIBEV_ARRAY[BaseConnection.READ |
-                         BaseConnection.WRITE |
+    _PIKA_TO_LIBEV_ARRAY[BaseConnection.READ | BaseConnection.WRITE |
                          BaseConnection.ERROR] = pyev.EV_READ | pyev.EV_WRITE
 
-    _LIBEV_TO_PIKA_ARRAY = array.array('i',
-                                       [0] * ((pyev.EV_READ |
-                                               pyev.EV_WRITE) + 1))
+    _LIBEV_TO_PIKA_ARRAY = array.array('i', [0] *
+                                       ((pyev.EV_READ | pyev.EV_WRITE) + 1))
 
     _LIBEV_TO_PIKA_ARRAY[pyev.EV_READ] = BaseConnection.READ
     _LIBEV_TO_PIKA_ARRAY[pyev.EV_WRITE] = BaseConnection.WRITE
@@ -109,11 +106,9 @@ class LibevConnection(BaseConnection):
         self._active_timers = {}
         self._stopped_timers = deque()
 
-        super(LibevConnection, self).__init__(parameters,
-                                              on_open_callback,
+        super(LibevConnection, self).__init__(parameters, on_open_callback,
                                               on_open_error_callback,
-                                              on_close_callback,
-                                              self.ioloop,
+                                              on_close_callback, self.ioloop,
                                               stop_ioloop_on_close)
 
     def _adapter_connect(self):
@@ -132,7 +127,7 @@ class LibevConnection(BaseConnection):
             if self._on_signal_callback and not global_sigterm_watcher:
                 global_sigterm_watcher = \
                     self.ioloop.signal(signal.SIGTERM,
-                                       self._handle_sigterm)
+                                                                                  self._handle_sigterm)
 
             if self._on_signal_callback and not global_sigint_watcher:
                 global_sigint_watcher = self.ioloop.signal(signal.SIGINT,
@@ -141,8 +136,8 @@ class LibevConnection(BaseConnection):
             if not self._io_watcher:
                 self._io_watcher = \
                     self.ioloop.io(self.socket.fileno(),
-                                   self._PIKA_TO_LIBEV_ARRAY[self.event_state],
-                                   self._handle_events)
+                                                                        self._PIKA_TO_LIBEV_ARRAY[self.event_state],
+                                                                        self._handle_events)
 
             self.async = pyev.Async(self.ioloop, self._noop_callable)
             self.async.start()
@@ -153,7 +148,7 @@ class LibevConnection(BaseConnection):
             self._io_watcher.start()
 
         return error
-        
+
     def _noop_callable(self, *args, **kwargs):
         pass
 
@@ -204,21 +199,20 @@ class LibevConnection(BaseConnection):
         
         """
         self._io_watcher.stop()
-        
+
         retries = 0
         while True:
             try:
                 self._io_watcher.set(
                     self._io_watcher.fd,
-                    self._PIKA_TO_LIBEV_ARRAY[self.event_state]
-                )
-                
+                    self._PIKA_TO_LIBEV_ARRAY[self.event_state])
+
                 break
-            except: # sometimes the stop() doesn't complete in time
+            except:  # sometimes the stop() doesn't complete in time
                 if retries > 5: raise
-                self._io_watcher.stop() # so try it again
+                self._io_watcher.stop()  # so try it again
                 retries += 1
-                
+
         self._io_watcher.start()
 
     def _manage_event_state(self):
@@ -238,8 +232,7 @@ class LibevConnection(BaseConnection):
     def _timer_callback(self, timer, libev_events):
         """Manage timer callbacks indirectly."""
         if timer in self._active_timers:
-            (callback_method,
-             callback_timeout,
+            (callback_method, callback_timeout,
              kwargs) = self._active_timers[timer]
 
             if callback_timeout:
@@ -276,8 +269,7 @@ class LibevConnection(BaseConnection):
         """
         LOGGER.debug('deadline: {0}'.format(deadline))
         timer = self._get_timer(deadline)
-        self._active_timers[timer] = (callback_method,
-                                      callback_timeout,
+        self._active_timers[timer] = (callback_method, callback_timeout,
                                       callback_kwargs)
         timer.start()
         return timer

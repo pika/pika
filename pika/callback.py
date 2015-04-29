@@ -44,13 +44,14 @@ def _name_or_value(value):
 
 def sanitize_prefix(function):
     """Automatically call _name_or_value on the prefix passed in."""
+
     @functools.wraps(function)
     def wrapper(*args, **kwargs):
         args = list(args)
         offset = 1
         if 'prefix' in kwargs:
             kwargs['prefix'] = _name_or_value(kwargs['prefix'])
-        elif len(args) - 1  >= offset:
+        elif len(args) - 1 >= offset:
             args[offset] = _name_or_value(args[offset])
             offset += 1
         if 'key' in kwargs:
@@ -59,6 +60,7 @@ def sanitize_prefix(function):
             args[offset] = _name_or_value(args[offset])
 
         return function(*tuple(args), **kwargs)
+
     return wrapper
 
 
@@ -67,6 +69,7 @@ def check_for_prefix_and_key(function):
     for the instance.
 
     """
+
     @functools.wraps(function)
     def wrapper(*args, **kwargs):
         offset = 1
@@ -84,12 +87,12 @@ def check_for_prefix_and_key(function):
             key = _name_or_value(args[offset])
 
         # Make sure prefix and key are in the stack
-        if (prefix not in args[0]._stack or
-            key not in args[0]._stack[prefix]):
+        if (prefix not in args[0]._stack or key not in args[0]._stack[prefix]):
             return False
 
         # Execute the method
         return function(*args, **kwargs)
+
     return wrapper
 
 
@@ -112,7 +115,9 @@ class CallbackManager(object):
         self._stack = dict()
 
     @sanitize_prefix
-    def add(self, prefix, key, callback, one_shot=True, only_caller=None,
+    def add(self, prefix, key, callback,
+            one_shot=True,
+            only_caller=None,
             arguments=None):
         """Add a callback to the stack for the specified key. If the call is
         specified as one_shot, it will be removed after being fired
@@ -221,7 +226,8 @@ class CallbackManager(object):
         callbacks = list()
         # Check each callback, append it to the list if it should be called
         for callback_dict in list(self._stack[prefix][key]):
-            if self._should_process_callback(callback_dict, caller, list(args)):
+            if self._should_process_callback(callback_dict, caller,
+                                             list(args)):
                 callbacks.append(callback_dict[self.CALLBACK])
                 if callback_dict[self.ONE_SHOT]:
                     self._use_one_shot_callback(prefix, key, callback_dict)
@@ -294,9 +300,9 @@ class CallbackManager(object):
         if isinstance(args[0], dict):
             return self._dict_arguments_match(args[0],
                                               callback_dict[self.ARGUMENTS])
-        return self._obj_arguments_match(args[0].method if hasattr(args[0],
-                                                                   'method')
-                                         else args[0],
+        return self._obj_arguments_match(args[0].method
+                                         if hasattr(args[0],
+                                                    'method') else args[0],
                                          callback_dict[self.ARGUMENTS])
 
     def _callback_dict(self, callback, one_shot, only_caller, arguments):
@@ -309,10 +315,12 @@ class CallbackManager(object):
         :rtype: dict
 
         """
-        value = {self.CALLBACK: callback,
-                 self.ONE_SHOT: one_shot,
-                 self.ONLY_CALLER: only_caller,
-                 self.ARGUMENTS: arguments}
+        value = {
+            self.CALLBACK: callback,
+            self.ONE_SHOT: one_shot,
+            self.ONLY_CALLER: only_caller,
+            self.ARGUMENTS: arguments
+        }
         if one_shot:
             value[self.CALLS] = 1
         return value
@@ -359,8 +367,8 @@ class CallbackManager(object):
                              type(value), key)
                 return False
             if getattr(value, key) != expectation[key]:
-                LOGGER.debug('Values in %s do not match for %s',
-                             type(value), key)
+                LOGGER.debug('Values in %s do not match for %s', type(value),
+                             key)
                 return False
         return True
 
@@ -374,8 +382,8 @@ class CallbackManager(object):
 
         """
         if not self._arguments_match(callback_dict, args):
-            LOGGER.debug('Arguments do not match for %r, %r',
-                         callback_dict, args)
+            LOGGER.debug('Arguments do not match for %r, %r', callback_dict,
+                         args)
             return False
         return (callback_dict[self.ONLY_CALLER] is None or
                 (callback_dict[self.ONLY_CALLER] and
@@ -395,6 +403,5 @@ class CallbackManager(object):
         LOGGER.debug('%i registered uses left', callback_dict[self.CALLS])
 
         if callback_dict[self.CALLS] <= 0:
-            self.remove(prefix, key,
-                        callback_dict[self.CALLBACK],
+            self.remove(prefix, key, callback_dict[self.CALLBACK],
                         callback_dict[self.ARGUMENTS])

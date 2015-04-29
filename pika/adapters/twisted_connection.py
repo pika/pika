@@ -26,6 +26,7 @@ class ClosableDeferredQueue(defer.DeferredQueue):
     Exception instance all pending Deferreds are errbacked and further attempts
     to call get() or put() return a Failure wrapping that exception.
     """
+
     def __init__(self, size=None, backlog=None):
         self.closed = None
         super(ClosableDeferredQueue, self).__init__(size, backlog)
@@ -60,11 +61,10 @@ class TwistedChannel(object):
     details.
     """
 
-    WRAPPED_METHODS = ('exchange_declare', 'exchange_delete',
-                       'queue_declare', 'queue_bind', 'queue_purge',
-                       'queue_unbind', 'basic_qos', 'basic_get',
-                       'basic_recover', 'tx_select', 'tx_commit',
-                       'tx_rollback', 'flow', 'basic_cancel')
+    WRAPPED_METHODS = ('exchange_declare', 'exchange_delete', 'queue_declare',
+                       'queue_bind', 'queue_purge', 'queue_unbind',
+                       'basic_qos', 'basic_get', 'basic_recover', 'tx_select',
+                       'tx_commit', 'tx_rollback', 'flow', 'basic_cancel')
 
     def __init__(self, channel):
         self.__channel = channel
@@ -191,6 +191,7 @@ class IOLoopReactorAdapter(object):
     Accepts a TwistedConnection object and a Twisted reactor object.
 
     """
+
     def __init__(self, connection, reactor):
         self.connection = connection
         self.reactor = reactor
@@ -269,7 +270,9 @@ class TwistedConnection(base_connection.BaseConnection):
     IReadWriteDescriptor interface.
 
     """
-    def __init__(self, parameters=None,
+
+    def __init__(self,
+                 parameters=None,
                  on_open_callback=None,
                  on_open_error_callback=None,
                  on_close_callback=None,
@@ -320,7 +323,8 @@ class TwistedConnection(base_connection.BaseConnection):
 
         """
         d = defer.Deferred()
-        base_connection.BaseConnection.channel(self, d.callback, channel_number)
+        base_connection.BaseConnection.channel(self, d.callback,
+                                               channel_number)
         return d.addCallback(TwistedChannel)
 
     # IReadWriteDescriptor methods
@@ -362,6 +366,7 @@ class TwistedProtocolConnection(base_connection.BaseConnection):
     because, yet again, it's Twisted who manages the connection.
 
     """
+
     def __init__(self, parameters):
         self.ready = defer.Deferred()
         super(TwistedProtocolConnection, self).__init__(
@@ -416,7 +421,8 @@ class TwistedProtocolConnection(base_connection.BaseConnection):
 
         """
         d = defer.Deferred()
-        base_connection.BaseConnection.channel(self, d.callback, channel_number)
+        base_connection.BaseConnection.channel(self, d.callback,
+                                               channel_number)
         return d.addCallback(TwistedChannel)
 
     # IProtocol methods
