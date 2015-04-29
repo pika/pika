@@ -11,7 +11,7 @@ from pika import amqp_object
 LOGGER = logging.getLogger(__name__)
 
 
-def _name_or_value(value):
+def name_or_value(value):
     """Will take Frame objects, classes, etc and attempt to return a valid
     string identifier for them.
 
@@ -50,14 +50,14 @@ def sanitize_prefix(function):
         args = list(args)
         offset = 1
         if 'prefix' in kwargs:
-            kwargs['prefix'] = _name_or_value(kwargs['prefix'])
+            kwargs['prefix'] = name_or_value(kwargs['prefix'])
         elif len(args) - 1 >= offset:
-            args[offset] = _name_or_value(args[offset])
+            args[offset] = name_or_value(args[offset])
             offset += 1
         if 'key' in kwargs:
-            kwargs['key'] = _name_or_value(kwargs['key'])
+            kwargs['key'] = name_or_value(kwargs['key'])
         elif len(args) - 1 >= offset:
-            args[offset] = _name_or_value(args[offset])
+            args[offset] = name_or_value(args[offset])
 
         return function(*tuple(args), **kwargs)
 
@@ -75,19 +75,19 @@ def check_for_prefix_and_key(function):
         offset = 1
         # Sanitize the prefix
         if 'prefix' in kwargs:
-            prefix = _name_or_value(kwargs['prefix'])
+            prefix = name_or_value(kwargs['prefix'])
         else:
-            prefix = _name_or_value(args[offset])
+            prefix = name_or_value(args[offset])
             offset += 1
 
         # Make sure to sanitize the key as well
         if 'key' in kwargs:
-            key = _name_or_value(kwargs['key'])
+            key = name_or_value(kwargs['key'])
         else:
-            key = _name_or_value(args[offset])
+            key = name_or_value(args[offset])
 
         # Make sure prefix and key are in the stack
-        if (prefix not in args[0]._stack or key not in args[0]._stack[prefix]):
+        if prefix not in args[0]._stack or key not in args[0]._stack[prefix]:
             return False
 
         # Execute the method
@@ -335,7 +335,8 @@ class CallbackManager(object):
         if prefix in self._stack and not self._stack[prefix]:
             del self._stack[prefix]
 
-    def _dict_arguments_match(self, value, expectation):
+    @staticmethod
+    def _dict_arguments_match(value, expectation):
         """Checks an dict to see if it has attributes that meet the expectation.
 
         :param dict value: The dict to evaluate
@@ -350,7 +351,8 @@ class CallbackManager(object):
                 return False
         return True
 
-    def _obj_arguments_match(self, value, expectation):
+    @staticmethod
+    def _obj_arguments_match(value, expectation):
         """Checks an object to see if it has attributes that meet the
         expectation.
 
