@@ -111,7 +111,9 @@ class BaseConnection(connection.Connection):
         """
         # Get the addresses for the socket, supporting IPv4 & IPv6
         try:
-            addresses = socket.getaddrinfo(self.params.host, self.params.port, 0, socket.SOCK_STREAM)
+            addresses = socket.getaddrinfo(self.params.host, self.params.port,
+                                           0, socket.SOCK_STREAM,
+                                           socket.IPPROTO_TCP)
         except socket.error as error:
             LOGGER.critical('Could not get addresses to use: %s (%s)', error,
                             self.params.host)
