@@ -85,17 +85,17 @@ Pika is licensed under the MPLv2. If you have any questions regarding licensing,
 please contact the RabbitMQ team at <info@rabbitmq.com>.
 
 
-.. |Version| image:: https://badge.fury.io/py/pika.svg?
+.. |Version| image:: https://img.shields.io/pypi/v/pika.svg?
    :target: http://badge.fury.io/py/pika
 
-.. |Status| image:: https://travis-ci.org/pika/pika.svg?branch=master
+.. |Status| image:: https://img.shields.io/travis/pika/pika.svg?
    :target: https://travis-ci.org/pika/pika
 
-.. |Coverage| image:: https://codecov.io/github/pika/pika/coverage.svg?branch=master
+.. |Coverage| image:: https://img.shields.io/codecov/c/github/pika/pika.svg?
    :target: https://codecov.io/github/pika/pika?branch=master
 
-.. |Downloads| image:: https://pypip.in/d/pika/badge.svg?
+.. |Downloads| image:: https://img.shields.io/pypi/dm/pika.svg?
    :target: https://pypi.python.org/pypi/pika
 
-.. |License| image:: https://pypip.in/license/pika/badge.svg?
+.. |License| image:: https://img.shields.io/pypi/l/pika.svg?
    :target: https://pika.readthedocs.org
