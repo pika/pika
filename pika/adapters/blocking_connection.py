@@ -349,6 +349,8 @@ class BlockingConnection(base_connection.BaseConnection):
         keeps track of how many frames have been written since the last read.
 
         """
+        if not hasattr(self, '_read_poller'):
+            raise exceptions.ConnectionClosed()
         if self._read_poller.ready():
             super(BlockingConnection, self)._handle_read()
             self._frames_written_without_read = 0
