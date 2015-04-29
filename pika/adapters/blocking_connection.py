@@ -242,8 +242,6 @@ class BlockingConnection(base_connection.BaseConnection):
         try:
             if self._handle_read():
                 self._socket_timeouts = 0
-        except AttributeError:
-            raise exceptions.ConnectionClosed()
         except socket.timeout:
             self._handle_timeout()
         self._flush_outbound()
@@ -504,7 +502,7 @@ class BlockingChannel(channel.Channel):
                                     nowait=nowait), self._on_cancelok, replies)
 
     def basic_get(self, queue=None, no_ack=False):
-        """Get a single message from the AMQP broker. Returns a set with the 
+        """Get a single message from the AMQP broker. Returns a set with the
         method frame, header frame and body.
 
         :param queue: The queue to get a message from
@@ -528,7 +526,7 @@ class BlockingChannel(channel.Channel):
                       mandatory=False,
                       immediate=False):
         """Publish to the channel with the given exchange, routing key and body.
-        Returns a boolean value indicating the success of the operation. For 
+        Returns a boolean value indicating the success of the operation. For
         more information on basic_publish and what the parameters do, see:
 
         http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.publish
