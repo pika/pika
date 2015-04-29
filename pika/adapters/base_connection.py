@@ -27,6 +27,7 @@ class BaseConnection(connection.Connection):
     WRITE = 0x0004
     ERROR = 0x0008
 
+    ERRORS_TO_ABORT = [errno.EBADF, errno.ECONNABORTED, errno.EPIPE]
     ERRORS_TO_IGNORE = [errno.EWOULDBLOCK, errno.EAGAIN, errno.EINTR]
     DO_HANDSHAKE = True
     WARN_ABOUT_IOLOOP = False
@@ -238,7 +239,8 @@ class BaseConnection(connection.Connection):
                     raise
                 self._manage_event_state()
 
-    def _get_error_code(self, error_value):
+    @staticmethod
+    def _get_error_code(error_value):
         """Get the error code from the error_value accounting for Python
         version differences.
 
@@ -292,9 +294,9 @@ class BaseConnection(connection.Connection):
             LOGGER.debug("Ignoring %s", error_code)
             return
 
-        # Socket is closed, so lets just go to our handle_close method
-        elif error_code in (errno.EBADF, errno.ECONNABORTED):
-            LOGGER.error("Socket is closed")
+        # Socket is no longer connected, abort
+        elif error_code in self.ERRORS_TO_ABORT:
+            LOGGER.error("Fatal Socket Error: %r", error_value)
 
         elif self.params.ssl and isinstance(error_value, ssl.SSLError):
 
@@ -304,9 +306,7 @@ class BaseConnection(connection.Connection):
                 self.event_state = self.WRITE
             else:
                 LOGGER.error("SSL Socket error: %r", error_value)
-        elif error_code == errno.EPIPE:
-            # Broken pipe, happens when connection reset
-            LOGGER.error("Socket connection was broken")
+
         else:
             # Haven't run into this one yet, log it.
             LOGGER.error("Socket Error: %s", error_code)
