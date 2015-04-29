@@ -27,18 +27,19 @@ class DataTests(unittest.TestCase):
                          '\x07decimalD\x02\x00\x00\x01:\x07boolvalt\x01'
                          '\x0bdecimal_tooD\x00\x00\x00\x00d')
 
-    FIELD_TBL_VALUE = {'array': [1, 2, 3],
-                       'boolval': True,
-                       'decimal': decimal.Decimal('3.14'),
-                       'decimal_too': decimal.Decimal('100'),
-                       'dictval': {'foo': 'bar'},
-                       'intval': 1,
-                       'longval': long(912598613),
-                       'null': None,
-                       'strval': 'Test',
-                       'timestampval': datetime.datetime(2006, 11, 21, 16, 30,
-                                                         10),
-                       'unicode': u'utf8=✓'}
+    FIELD_TBL_VALUE = {
+        'array': [1, 2, 3],
+        'boolval': True,
+        'decimal': decimal.Decimal('3.14'),
+        'decimal_too': decimal.Decimal('100'),
+        'dictval': {'foo': 'bar'},
+        'intval': 1,
+        'longval': long(912598613),
+        'null': None,
+        'strval': 'Test',
+        'timestampval': datetime.datetime(2006, 11, 21, 16, 30, 10),
+        'unicode': u'utf8=✓'
+    }
 
     @unittest.skipIf(platform.python_implementation() == 'PyPy',
                      'pypy sort order issue')
@@ -62,8 +63,7 @@ class DataTests(unittest.TestCase):
 
     def test_encode_raises(self):
         self.assertRaises(exceptions.UnsupportedAMQPFieldException,
-                          data.encode_table,
-                          [], {'foo': set([1, 2, 3])})
+                          data.encode_table, [], {'foo': set([1, 2, 3])})
 
     def test_decode_raises(self):
         self.assertRaises(exceptions.InvalidFieldTypeException,

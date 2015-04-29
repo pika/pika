@@ -19,11 +19,9 @@ from pika.adapters import blocking_connection
 class BlockingConnectionMockTemplate(blocking_connection.BlockingConnection):
     _socket_timeouts = None
     connection_state = None
-    
 
 
 class BlockingConnectionTests(unittest.TestCase):
-
     @patch.object(blocking_connection.BlockingConnection, 'connect',
                   spec_set=blocking_connection.BlockingConnection.connect)
     def test_handle_timeout_when_closing_exceeds_threshold(self, connect_mock):
@@ -39,7 +37,6 @@ class BlockingConnectionTests(unittest.TestCase):
             connection._handle_timeout()
 
         self.assertEqual(mocks["_on_connection_closed"].call_count, 1)
-
 
     @patch.object(blocking_connection.BlockingConnection, 'connect',
                   spec_set=blocking_connection.BlockingConnection.connect)
@@ -77,7 +74,7 @@ class BlockingConnectionTests(unittest.TestCase):
     @patch.object(blocking_connection.BlockingConnection, 'connect',
                   spec_set=blocking_connection.BlockingConnection.connect)
     def test_handle_timeout_when_not_closing_below_threshold(self,
-                                                               connect_mock):
+                                                             connect_mock):
         connection = BlockingConnectionMockTemplate()
 
         connection_patch = patch.multiple(
@@ -90,4 +87,3 @@ class BlockingConnectionTests(unittest.TestCase):
             connection._handle_timeout()
 
         self.assertEqual(mocks["_on_connection_closed"].call_count, 0)
-

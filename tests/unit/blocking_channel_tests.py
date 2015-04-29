@@ -20,7 +20,6 @@ BLOCKING_CONNECTION = 'pika.adapters.blocking_connection.BlockingConnection'
 
 
 class BlockingChannelTests(unittest.TestCase):
-
     @mock.patch(BLOCKING_CONNECTION)
     def _create_connection(self, connection=None):
         return connection
@@ -53,11 +52,9 @@ class BlockingChannelTests(unittest.TestCase):
     def test_init_open_called(self):
         self._open.assert_called_once_with()
 
-
     def test_init_create_generator(self):
         self.obj.consume("queue")
         self.assertEquals(self.obj.get_waiting_message_count(), 0)
-
 
     def test_init_value_waiting_message_count(self):
         self.obj.consume("queue")
@@ -67,4 +64,3 @@ class BlockingChannelTests(unittest.TestCase):
         self.assertEquals(self.obj.get_waiting_message_count(), 2)
         self.obj._generator_messages.pop(0)
         self.assertEquals(self.obj.get_waiting_message_count(), 1)
-

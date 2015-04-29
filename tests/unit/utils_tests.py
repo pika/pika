@@ -7,7 +7,6 @@ from pika import utils
 
 
 class UtilsTests(unittest.TestCase):
-
     def test_is_callable_true(self):
         self.assertTrue(utils.is_callable(utils.is_callable))
 

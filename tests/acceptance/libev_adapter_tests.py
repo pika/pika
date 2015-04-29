@@ -1,4 +1,3 @@
-
 import platform
 import time
 try:
@@ -22,10 +21,7 @@ class BoundQueueTestCase(async_test_base.BoundQueueTestCase):
     ADAPTER = adapters.LibevConnection
 
 
-
-
 class TestConfirmSelect(AsyncTestCase):
-
     def begin(self, channel):
         channel._on_selectok = self.on_complete
         channel.confirm_delivery()
@@ -33,7 +29,6 @@ class TestConfirmSelect(AsyncTestCase):
     def on_complete(self, frame):
         self.assertIsInstance(frame.method, spec.Confirm.SelectOk)
         self.stop()
-
 
     @unittest.skipIf(target == 'PyPy', 'PyPy is not supported')
     @unittest.skipIf(adapters.LibevConnection is None, 'pyev is not installed')
@@ -48,8 +43,7 @@ class TestExchangeDeclareAndDelete(AsyncTestCase):
 
     def begin(self, channel):
         self.name = self.__class__.__name__ + ':' + str(id(self))
-        channel.exchange_declare(self.on_exchange_declared,
-                                 self.name,
+        channel.exchange_declare(self.on_exchange_declared, self.name,
                                  exchange_type=self.X_TYPE,
                                  passive=False,
                                  durable=False,
@@ -78,13 +72,11 @@ class TestExchangeRedeclareWithDifferentValues(AsyncTestCase):
     def begin(self, channel):
         self.name = self.__class__.__name__ + ':' + str(id(self))
         self.channel.add_on_close_callback(self.on_channel_closed)
-        channel.exchange_declare(self.on_exchange_declared,
-                                 self.name,
+        channel.exchange_declare(self.on_exchange_declared, self.name,
                                  exchange_type=self.X_TYPE1,
                                  passive=False,
                                  durable=False,
                                  auto_delete=True)
-
 
     def on_cleanup_channel(self, channel):
         channel.exchange_delete(None, self.name, nowait=True)
@@ -94,8 +86,7 @@ class TestExchangeRedeclareWithDifferentValues(AsyncTestCase):
         self.connection.channel(self.on_cleanup_channel)
 
     def on_exchange_declared(self, frame):
-        self.channel.exchange_declare(self.on_exchange_declared,
-                                      self.name,
+        self.channel.exchange_declare(self.on_exchange_declared, self.name,
                                       exchange_type=self.X_TYPE2,
                                       passive=False,
                                       durable=False,
@@ -115,7 +106,6 @@ class TestExchangeRedeclareWithDifferentValues(AsyncTestCase):
 
 
 class TestQueueDeclareAndDelete(AsyncTestCase):
-
     def begin(self, channel):
         channel.queue_declare(self.on_queue_declared,
                               passive=False,
@@ -141,7 +131,6 @@ class TestQueueDeclareAndDelete(AsyncTestCase):
 
 
 class TestQueueNameDeclareAndDelete(AsyncTestCase):
-
     def begin(self, channel):
         channel.queue_declare(self.on_queue_declared, str(id(self)),
                               passive=False,
@@ -168,11 +157,9 @@ class TestQueueNameDeclareAndDelete(AsyncTestCase):
 
 
 class TestQueueRedeclareWithDifferentValues(AsyncTestCase):
-
     def begin(self, channel):
         self.channel.add_on_close_callback(self.on_channel_closed)
-        channel.queue_declare(self.on_queue_declared,
-                              str(id(self)),
+        channel.queue_declare(self.on_queue_declared, str(id(self)),
                               passive=False,
                               durable=False,
                               exclusive=True,
@@ -184,8 +171,7 @@ class TestQueueRedeclareWithDifferentValues(AsyncTestCase):
         self.stop()
 
     def on_queue_declared(self, frame):
-        self.channel.queue_declare(self.on_bad_result,
-                                   str(id(self)),
+        self.channel.queue_declare(self.on_bad_result, str(id(self)),
                                    passive=False,
                                    durable=True,
                                    exclusive=False,
@@ -207,7 +193,6 @@ class TestQueueRedeclareWithDifferentValues(AsyncTestCase):
 
 
 class TestTX1_Select(AsyncTestCase):
-
     def begin(self, channel):
         channel.tx_select(self.on_complete)
 
@@ -223,7 +208,6 @@ class TestTX1_Select(AsyncTestCase):
 
 
 class TestTX2_Commit(AsyncTestCase):
-
     def begin(self, channel):
         channel.tx_select(self.on_selectok)
 
@@ -243,7 +227,6 @@ class TestTX2_Commit(AsyncTestCase):
 
 
 class TestTX2_CommitFailure(AsyncTestCase):
-
     def begin(self, channel):
         self.channel.add_on_close_callback(self.on_channel_closed)
         self.channel.tx_commit(self.on_commitok)
@@ -265,7 +248,6 @@ class TestTX2_CommitFailure(AsyncTestCase):
 
 
 class TestTX3_Rollback(AsyncTestCase):
-
     def begin(self, channel):
         channel.tx_select(self.on_selectok)
 
@@ -285,7 +267,6 @@ class TestTX3_Rollback(AsyncTestCase):
 
 
 class TestTX3_RollbackFailure(AsyncTestCase):
-
     def begin(self, channel):
         self.channel.add_on_close_callback(self.on_channel_closed)
         self.channel.tx_rollback(self.on_commitok)
@@ -304,12 +285,10 @@ class TestTX3_RollbackFailure(AsyncTestCase):
 
 
 class TestZ_PublishAndConsume(BoundQueueTestCase):
-
     def on_ready(self, frame):
         self.ctag = self.channel.basic_consume(self.on_message, self.queue)
         self.msg_body = "%s: %i" % (self.__class__.__name__, time.time())
-        self.channel.basic_publish(self.exchange,
-                                   self.routing_key,
+        self.channel.basic_publish(self.exchange, self.routing_key,
                                    self.msg_body)
 
     def on_cancelled(self, frame):
@@ -330,15 +309,13 @@ class TestZ_PublishAndConsume(BoundQueueTestCase):
 
 
 class TestZ_PublishAndConsumeBig(BoundQueueTestCase):
-
     def _get_msg_body(self):
         return '\n'.join(["%s" % i for i in range(0, 2097152)])
 
     def on_ready(self, frame):
         self.ctag = self.channel.basic_consume(self.on_message, self.queue)
         self.msg_body = self._get_msg_body()
-        self.channel.basic_publish(self.exchange,
-                                   self.routing_key,
+        self.channel.basic_publish(self.exchange, self.routing_key,
                                    self.msg_body)
 
     def on_cancelled(self, frame):
@@ -358,13 +335,10 @@ class TestZ_PublishAndConsumeBig(BoundQueueTestCase):
         self.start()
 
 
-
 class TestZ_PublishAndGet(BoundQueueTestCase):
-
     def on_ready(self, frame):
         self.msg_body = "%s: %i" % (self.__class__.__name__, time.time())
-        self.channel.basic_publish(self.exchange,
-                                   self.routing_key,
+        self.channel.basic_publish(self.exchange, self.routing_key,
                                    self.msg_body)
         self.channel.basic_get(self.on_get, self.queue)
 
@@ -379,4 +353,3 @@ class TestZ_PublishAndGet(BoundQueueTestCase):
     def start_test(self):
         """LibevConnection should publish a message and get it"""
         self.start()
-

@@ -21,10 +21,8 @@ class AsyncTestCase(unittest.TestCase):
         raise AssertionError("AsyncTestCase.begin_test not extended")
 
     def start(self):
-        self.connection = self.ADAPTER(PARAMETERS,
-                                       self.on_open,
-                                       self.on_open_error,
-                                       self.on_closed)
+        self.connection = self.ADAPTER(PARAMETERS, self.on_open,
+                                       self.on_open_error, self.on_closed)
         self.timeout = self.connection.add_timeout(self.TIMEOUT,
                                                    self.on_timeout)
         self.connection.ioloop.start()
@@ -67,13 +65,10 @@ class AsyncTestCase(unittest.TestCase):
 
 
 class BoundQueueTestCase(AsyncTestCase):
-
     def tearDown(self):
         """Cleanup auto-declared queue and exchange"""
-        self._cconn = self.ADAPTER(PARAMETERS,
-                                   self._on_cconn_open,
-                                   self._on_cconn_error,
-                                   self._on_cconn_closed)
+        self._cconn = self.ADAPTER(PARAMETERS, self._on_cconn_open,
+                                   self._on_cconn_error, self._on_cconn_closed)
 
     def start(self):
         self.exchange = 'e' + str(id(self))
@@ -82,16 +77,14 @@ class BoundQueueTestCase(AsyncTestCase):
         super(BoundQueueTestCase, self).start()
 
     def begin(self, channel):
-        self.channel.exchange_declare(self.on_exchange_declared,
-                                      self.exchange,
+        self.channel.exchange_declare(self.on_exchange_declared, self.exchange,
                                       exchange_type='direct',
                                       passive=False,
                                       durable=False,
                                       auto_delete=True)
 
     def on_exchange_declared(self, frame):
-        self.channel.queue_declare(self.on_queue_declared,
-                                   self.queue,
+        self.channel.queue_declare(self.on_queue_declared, self.queue,
                                    passive=False,
                                    durable=False,
                                    exclusive=True,
@@ -100,9 +93,7 @@ class BoundQueueTestCase(AsyncTestCase):
                                    arguments={'x-expires': self.TIMEOUT})
 
     def on_queue_declared(self, frame):
-        self.channel.queue_bind(self.on_ready,
-                                self.queue,
-                                self.exchange,
+        self.channel.queue_bind(self.on_ready, self.queue, self.exchange,
                                 self.routing_key)
 
     def on_ready(self, frame):

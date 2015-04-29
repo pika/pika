@@ -32,8 +32,7 @@ class FrameTests(unittest.TestCase):
         self.assertEqual(basic_ack.marshal(), self.BASIC_ACK)
 
     def headers_marshal_test(self):
-        header = frame.Header(1, 100,
-                              spec.BasicProperties(delivery_mode=2))
+        header = frame.Header(1, 100, spec.BasicProperties(delivery_mode=2))
         self.assertEqual(header.marshal(), self.CONTENT_HEADER)
 
     def body_marshal_test(self):
@@ -88,8 +87,7 @@ class FrameTests(unittest.TestCase):
         self.assertEqual(frame.decode_frame(self.BASIC_ACK[:-1]), (0, None))
 
     def decode_frame_decoding_wrong_end_byte_test(self):
-        self.assertRaises(exceptions.InvalidFrameError,
-                          frame.decode_frame,
+        self.assertRaises(exceptions.InvalidFrameError, frame.decode_frame,
                           self.BASIC_ACK[:-1] + 'A')
 
     def decode_body_frame_instance_test(self):
@@ -111,6 +109,5 @@ class FrameTests(unittest.TestCase):
         self.assertEqual(frame.decode_frame(self.HEARTBEAT)[0], 8)
 
     def decode_frame_invalid_frame_type_test(self):
-        self.assertRaises(exceptions.InvalidFrameError,
-                          frame.decode_frame,
+        self.assertRaises(exceptions.InvalidFrameError, frame.decode_frame,
                           '\x09\x00\x00\x00\x00\x00\x00\xce')

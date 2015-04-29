@@ -36,7 +36,6 @@ def mock_timeout(*args, **kwargs):
 
 
 class ConnectionTests(unittest.TestCase):
-
     def test_parameters(self):
         params = pika.ConnectionParameters(socket_timeout=0.5,
                                            retry_delay=0.1,

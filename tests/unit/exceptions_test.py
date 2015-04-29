@@ -11,10 +11,10 @@ from pika import exceptions
 
 
 class ExceptionTests(unittest.TestCase):
-
     def test_amqp_connection_error_one_param_repr(self):
-        self.assertEqual(repr(exceptions.AMQPConnectionError(10)),
-                         "No connection could be opened after 10 connection attempts")
+        self.assertEqual(
+            repr(exceptions.AMQPConnectionError(10)),
+            "No connection could be opened after 10 connection attempts")
 
     def test_amqp_connection_error_two_params_repr(self):
         self.assertEqual(repr(exceptions.AMQPConnectionError(1, 'Test')),
@@ -28,7 +28,7 @@ class ExceptionTests(unittest.TestCase):
     def test_body_too_long_error_repr(self):
         self.assertEqual(repr(exceptions.BodyTooLongError(100, 50)),
                          'Received too many bytes for a message delivery: '
-                         'Received 100, expected 50' )
+                         'Received 100, expected 50')
 
     def test_invalid_minimum_frame_size_repr(self):
         self.assertEqual(repr(exceptions.InvalidMinimumFrameSize()),

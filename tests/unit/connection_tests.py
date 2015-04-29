@@ -24,14 +24,14 @@ def callback_method():
 
 
 class ConnectionTests(unittest.TestCase):
-
     @mock.patch('pika.connection.Connection.connect')
     def setUp(self, connect):
         self.connection = connection.Connection()
         self.channel = mock.Mock(spec=channel.Channel)
         self.channel.is_open = True
         self.connection._channels[1] = self.channel
-        self.connection._set_connection_state(connection.Connection.CONNECTION_OPEN)
+        self.connection._set_connection_state(
+            connection.Connection.CONNECTION_OPEN)
 
     def tearDown(self):
         del self.connection
@@ -45,7 +45,7 @@ class ConnectionTests(unittest.TestCase):
     @mock.patch('pika.connection.Connection._send_connection_close')
     def test_close_ignores_closed_channels(self, send_connection_close):
         for closed_state in (self.connection.CONNECTION_CLOSED,
-                self.connection.CONNECTION_CLOSING):
+                             self.connection.CONNECTION_CLOSING):
             self.connection.connection_state = closed_state
             self.connection.close()
             self.assertFalse(self.channel.close.called)
@@ -113,31 +113,29 @@ class ConnectionTests(unittest.TestCase):
             self.connection._channels[channel_num] = True
         expectation = random.randint(5, 49)
         del self.connection._channels[expectation]
-        self.assertEqual(self.connection._next_channel_number(),
-                         expectation)
+        self.assertEqual(self.connection._next_channel_number(), expectation)
 
     def test_add_callbacks(self):
         """make sure the callback adding works"""
         self.connection.callbacks = mock.Mock(spec=self.connection.callbacks)
         for test_method, expected_key in (
-                (self.connection.add_backpressure_callback,
-                 self.connection.ON_CONNECTION_BACKPRESSURE),
-                (self.connection.add_on_open_callback,
-                 self.connection.ON_CONNECTION_OPEN),
-                (self.connection.add_on_close_callback,
-                 self.connection.ON_CONNECTION_CLOSED)
-                ):
+            (self.connection.add_backpressure_callback,
+             self.connection.ON_CONNECTION_BACKPRESSURE),
+            (self.connection.add_on_open_callback,
+             self.connection.ON_CONNECTION_OPEN),
+            (self.connection.add_on_close_callback,
+             self.connection.ON_CONNECTION_CLOSED)):
             self.connection.callbacks.reset_mock()
             test_method(callback_method)
-            self.connection.callbacks.add.assert_called_once_with(0,
-                expected_key, callback_method, False)
+            self.connection.callbacks.add.assert_called_once_with(
+                0, expected_key, callback_method, False)
 
     def test_add_on_close_callback(self):
         """make sure the add on close callback is added"""
         self.connection.callbacks = mock.Mock(spec=self.connection.callbacks)
         self.connection.add_on_open_callback(callback_method)
-        self.connection.callbacks.add.assert_called_once_with(0,
-            self.connection.ON_CONNECTION_OPEN, callback_method, False)
+        self.connection.callbacks.add.assert_called_once_with(
+            0, self.connection.ON_CONNECTION_OPEN, callback_method, False)
 
     def test_add_on_open_error_callback(self):
         """make sure the add on open error callback is added"""
@@ -147,9 +145,8 @@ class ConnectionTests(unittest.TestCase):
         self.connection.callbacks.remove.assert_called_once_with(
             0, self.connection.ON_CONNECTION_ERROR,
             self.connection._on_connection_error)
-        self.connection.callbacks.add.assert_called_once_with(0,
-            self.connection.ON_CONNECTION_ERROR, callback_method,
-            False)
+        self.connection.callbacks.add.assert_called_once_with(
+            0, self.connection.ON_CONNECTION_ERROR, callback_method, False)
 
     def test_channel(self):
         """test the channel method"""
@@ -159,8 +156,8 @@ class ConnectionTests(unittest.TestCase):
         self.connection._add_channel_callbacks = mock.Mock()
         ret_channel = self.connection.channel(callback_method)
         self.assertEqual(test_channel, ret_channel)
-        self.connection._create_channel.assert_called_once_with(42,
-                                                                callback_method)
+        self.connection._create_channel.assert_called_once_with(
+            42, callback_method)
         self.connection._add_channel_callbacks.assert_called_once_with(42)
         test_channel.open.assert_called_once_with()
 
@@ -185,7 +182,8 @@ class ConnectionTests(unittest.TestCase):
             params = connection.URLParameters(test_url)
             #check each value
             for t_param in ('channel_max', 'connection_attempts', 'frame_max',
-                    'locale', 'retry_delay', 'socket_timeout', 'ssl_options'):
+                            'locale', 'retry_delay', 'socket_timeout',
+                            'ssl_options'):
                 self.assertEqual(test_params[t_param],
                                  getattr(params, t_param), t_param)
             self.assertEqual(params.backpressure_detection,
@@ -213,9 +211,9 @@ class ConnectionTests(unittest.TestCase):
         conn = connection.ConnectionParameters(**kwargs)
         #check values
         for t_param in ('host', 'port', 'virtual_host', 'channel_max',
-                'frame_max', 'backpressure_detection', 'ssl',
-                'credentials', 'retry_delay', 'connection_attempts',
-                'locale'):
+                        'frame_max', 'backpressure_detection', 'ssl',
+                        'credentials', 'retry_delay', 'connection_attempts',
+                        'locale'):
             self.assertEqual(kwargs[t_param], getattr(conn, t_param), t_param)
         self.assertEqual(kwargs['heartbeat_interval'], conn.heartbeat)
 
@@ -233,21 +231,12 @@ class ConnectionTests(unittest.TestCase):
         }
         #Test Type Errors
         for bad_field, bad_value in (
-                ('host', 15672) ,
-                ('port', '5672'),
-                ('virtual_host', True),
-                ('channel_max', '4'),
-                ('frame_max', '5'),
-                ('credentials', 'bad'),
-                ('locale', 1),
-                ('heartbeat_interval', '6'),
-                ('socket_timeout', '42'),
-                ('retry_delay', 'two'),
-                ('backpressure_detection', 'true'),
-                ('ssl', {'ssl': 'dict'}),
-                ('ssl_options', True),
-                ('connection_attempts', 'hello')
-                ):
+            ('host', 15672), ('port', '5672'), ('virtual_host', True),
+            ('channel_max', '4'), ('frame_max', '5'), ('credentials', 'bad'),
+            ('locale', 1), ('heartbeat_interval', '6'),
+            ('socket_timeout', '42'), ('retry_delay', 'two'),
+            ('backpressure_detection', 'true'), ('ssl', {'ssl': 'dict'}),
+            ('ssl_options', True), ('connection_attempts', 'hello')):
             bkwargs = copy.deepcopy(kwargs)
             bkwargs[bad_field] = bad_value
             self.assertRaises(TypeError, connection.ConnectionParameters,
@@ -275,8 +264,8 @@ class ConnectionTests(unittest.TestCase):
         self.connection.add_timeout = mock.Mock()
         #first failure
         self.connection.connect()
-        self.connection.add_timeout.assert_called_once_with(555,
-            self.connection.connect)
+        self.connection.add_timeout.assert_called_once_with(
+            555, self.connection.connect)
         self.assertEqual(1, self.connection.remaining_connection_attempts)
         self.assertFalse(self.connection.callbacks.process.called)
         self.assertEqual(self.connection.CONNECTION_INIT,
@@ -286,8 +275,8 @@ class ConnectionTests(unittest.TestCase):
         self.connection.connect()
         self.assertFalse(self.connection.add_timeout.called)
         self.assertEqual(99, self.connection.remaining_connection_attempts)
-        self.connection.callbacks.process.assert_called_once_with(0,
-            self.connection.ON_CONNECTION_ERROR, self.connection,
+        self.connection.callbacks.process.assert_called_once_with(
+            0, self.connection.ON_CONNECTION_ERROR, self.connection,
             self.connection, 'error')
         self.assertEqual(self.connection.CONNECTION_CLOSED,
                          self.connection.connection_state)
@@ -297,7 +286,7 @@ class ConnectionTests(unittest.TestCase):
         client_props = self.connection._client_properties
         self.assertTrue(isinstance(client_props, dict))
         for required_key in ('product', 'platform', 'capabilities',
-                'information', 'version'):
+                             'information', 'version'):
             self.assertTrue(required_key in client_props,
                             '%s missing' % required_key)
 
@@ -313,10 +302,7 @@ class ConnectionTests(unittest.TestCase):
         self.connection.callbacks = mock.Mock(spec=self.connection.callbacks)
         open_channel = mock.Mock(is_open=True)
         closed_channel = mock.Mock(is_open=False)
-        self.connection._channels = {
-            'oc': open_channel,
-            'cc': closed_channel
-        }
+        self.connection._channels = {'oc': open_channel, 'cc': closed_channel}
         self.connection._close_channels('reply code', 'reply text')
         open_channel.close.assert_called_once_with('reply code', 'reply text')
         self.assertTrue('oc' in self.connection._channels)
@@ -417,4 +403,3 @@ class ConnectionTests(unittest.TestCase):
             self.assertEqual(1, self.connection.frames_received)
             if frame_type == frame.Heartbeat:
                 self.assertTrue(self.connection.heartbeat.received.called)
-
