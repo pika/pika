@@ -733,6 +733,13 @@ class BlockingChannel(channel.Channel):
                 yield self._generator_messages.pop(0)
             self.connection.process_data_events()
 
+    def get_waiting_message_count(self):
+        """Returns the amount of messages waiting in the generator messages list.
+
+        :rtype: int
+        """
+        return len(self._generator_messages)
+
     def force_data_events(self, enable):
         """Turn on and off forcing the blocking adapter to stop and look to see
         if there are any frames from RabbitMQ in the read buffer. By default
