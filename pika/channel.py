@@ -1049,7 +1049,7 @@ class Channel(object):
 
         # Block until a response frame is received for synchronous frames
         if method_frame.synchronous:
-            self.blocking = method_frame.NAME
+            self._blocking = method_frame.NAME
 
         # If acceptable replies are set, add callbacks
         if acceptable_replies:
