@@ -62,17 +62,6 @@ class SelectConnection(BaseConnection):
                                      self.socket.fileno())
         return error
 
-    def _flush_outbound(self):
-        """Call the state manager who will figure out that we need to write then
-        call the poller's poll function to force it to process events.
-
-        """
-        self.ioloop.poller._manage_event_state()
-        # Force our poller to come up for air, but in write only mode
-        # write only mode prevents messages from coming in and kicking off
-        # events through the consumer
-        self.ioloop.poller.poll(write_only=True)
-
 
 class IOLoop(object):
     """Singlton wrapper that decides which type of poller to use, creates an
