@@ -11,6 +11,7 @@ from pika import amqp_object
 from pika import data
 from pika.compat import basestring, unicode_type
 
+str = bytes
 
 PROTOCOL_VERSION = (0, 9, 1)
 PORT = 5672

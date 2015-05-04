@@ -5,7 +5,7 @@ import calendar
 from datetime import datetime
 
 from pika import exceptions
-from pika.compat import unicode_type, PY2, int_types, long
+from pika.compat import unicode_type, PY2, long
 
 
 def encode_table(pieces, table):
