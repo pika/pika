@@ -43,4 +43,3 @@ try:
     from pika.adapters.libev_connection import LibevConnection
 except ImportError:
     LibevConnection = None
-

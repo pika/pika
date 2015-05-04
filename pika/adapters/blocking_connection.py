@@ -20,7 +20,7 @@ import errno
 from functools import wraps
 
 from pika import frame
-from pika import callback
+from pika import callback as callback_manager
 from pika import channel
 from pika import exceptions
 from pika import spec
@@ -36,6 +36,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 def retry_on_eintr(f):
+
     @wraps(f)
     def inner(*args, **kwargs):
         while True:
@@ -44,6 +45,7 @@ def retry_on_eintr(f):
             except select.error as e:
                 if e[0] != errno.EINTR:
                     raise
+
     return inner
 
 
@@ -128,6 +130,7 @@ class BlockingConnection(base_connection.BaseConnection):
 
         """
         super(BlockingConnection, self).__init__(parameters, None, False)
+        self._socket_timeouts = 0
 
     def add_on_close_callback(self, callback_method_unused):
         """This is not supported in BlockingConnection. When a connection is
@@ -176,8 +179,10 @@ class BlockingConnection(base_connection.BaseConnection):
 
         """
 
-        value = {'deadline': time.time() + deadline,
-                 'callback': callback_method}
+        value = {
+            'deadline': time.time() + deadline,
+            'callback': callback_method
+        }
         timeout_id = hash(frozenset(value.items()))
         self._timeouts[timeout_id] = value
         return timeout_id
@@ -216,8 +221,7 @@ class BlockingConnection(base_connection.BaseConnection):
             self._send_connection_close(reply_code, reply_text)
         while self.is_closing:
             self.process_data_events()
-        if self.heartbeat:
-            self.heartbeat.stop()
+        self._remove_heartbeat()
         self._remove_connection_callbacks()
         self._adapter_disconnect()
 
@@ -239,8 +243,6 @@ class BlockingConnection(base_connection.BaseConnection):
         try:
             if self._handle_read():
                 self._socket_timeouts = 0
-        except AttributeError:
-            raise exceptions.ConnectionClosed()
         except socket.timeout:
             self._handle_timeout()
         self._flush_outbound()
@@ -312,13 +314,13 @@ class BlockingConnection(base_connection.BaseConnection):
 
     def _adapter_disconnect(self):
         """Called if the connection is being requested to disconnect."""
-        if self.socket:
-            self.socket.close()
-        self.socket = None
+        self._remove_heartbeat()
+        self._cleanup_socket()
         self._check_state_on_disconnect()
         self._init_connection_state()
 
-    def _call_timeout_method(self, timeout_value):
+    @staticmethod
+    def _call_timeout_method(timeout_value):
         """Execute the method that was scheduled to be called.
 
         :param dict timeout_value: The configuration for the timeout
@@ -356,19 +358,10 @@ class BlockingConnection(base_connection.BaseConnection):
 
         LOGGER.debug('Handling timeout %i with a threshold of %i',
                      self._socket_timeouts, threshold)
-        if self.is_closing and self._socket_timeouts > threshold:
+        if self._socket_timeouts > threshold:
             if not self.is_closing:
                 LOGGER.critical('Closing connection due to timeout')
             self._on_connection_closed(None, True)
-
-    def _check_state_on_disconnect(self):
-        """Checks closing corner cases to see why we were disconnected and if we should
-        raise exceptions for the anticipated exception types.
-        """
-        super(BlockingConnection, self)._check_state_on_disconnect()
-        if self.is_open:
-            # already logged a warning in the base class, now fire an exception
-            raise exceptions.ConnectionClosed()
 
     def _flush_outbound(self):
         """Flush the outbound socket buffer."""
@@ -394,17 +387,25 @@ class BlockingConnection(base_connection.BaseConnection):
             self.closing = (method_frame.method.reply_code,
                             method_frame.method.reply_text)
             LOGGER.warning("Disconnected from RabbitMQ at %s:%i (%s): %s",
-                           self.params.host, self.params.port,
-                           self.closing[0], self.closing[1])
+                           self.params.host, self.params.port, self.closing[0],
+                           self.closing[1])
+
+        # Save the codes because self.closing gets reset by _adapter_disconnect
+        reply_code, reply_text = self.closing
+
         self._set_connection_state(self.CONNECTION_CLOSED)
         self._remove_connection_callbacks()
         if not from_adapter:
             self._adapter_disconnect()
-        for channel in self._channels:
-            self._channels[channel]._on_close(method_frame)
+        for chan in self._channels:
+            self._channels[chan]._on_close(method_frame)
         self._remove_connection_callbacks()
-        if self.closing[0] not in [0, 200]:
-            raise exceptions.ConnectionClosed(*self.closing)
+        if reply_code not in [0, 200]:
+            LOGGER.error("Raising ConnectionClosed due to reply_code=%s",
+                         reply_code)
+            raise exceptions.ConnectionClosed(reply_code, reply_text)
+        elif from_adapter:
+            raise exceptions.ConnectionClosed("Socket connection lost")
 
     def _send_frame(self, frame_value):
         """This appends the fully generated frame to send to the broker to the
@@ -463,6 +464,7 @@ class BlockingChannel(channel.Channel):
         self._replies = list()
         self._wait = False
         self._received_response = False
+        self._response = None
         self.open()
 
     def basic_cancel(self, consumer_tag='', nowait=False):
@@ -484,13 +486,12 @@ class BlockingChannel(channel.Channel):
             return
         self._cancelled.append(consumer_tag)
         replies = [(spec.Basic.CancelOk,
-                   {'consumer_tag': consumer_tag})] if nowait is False else []
+                    {'consumer_tag': consumer_tag})] if nowait is False else []
         self._rpc(spec.Basic.Cancel(consumer_tag=consumer_tag,
-                                             nowait=nowait),
-                  self._on_cancelok, replies)
+                                    nowait=nowait), self._on_cancelok, replies)
 
     def basic_get(self, queue=None, no_ack=False):
-        """Get a single message from the AMQP broker. Returns a set with the 
+        """Get a single message from the AMQP broker. Returns a set with the
         method frame, header frame and body.
 
         :param queue: The queue to get a message from
@@ -502,8 +503,7 @@ class BlockingChannel(channel.Channel):
 
         """
         self._response = None
-        self._send_method(spec.Basic.Get(queue=queue,
-                                         no_ack=no_ack))
+        self._send_method(spec.Basic.Get(queue=queue, no_ack=no_ack))
         while not self._response:
             self.connection.process_data_events()
         if isinstance(self._response[0], spec.Basic.GetEmpty):
@@ -511,9 +511,11 @@ class BlockingChannel(channel.Channel):
         return self._response[0], self._response[1], self._response[2]
 
     def basic_publish(self, exchange, routing_key, body,
-                      properties=None, mandatory=False, immediate=False):
+                      properties=None,
+                      mandatory=False,
+                      immediate=False):
         """Publish to the channel with the given exchange, routing key and body.
-        Returns a boolean value indicating the success of the operation. For 
+        Returns a boolean value indicating the success of the operation. For
         more information on basic_publish and what the parameters do, see:
 
         http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.publish
@@ -545,16 +547,13 @@ class BlockingChannel(channel.Channel):
             response = self._rpc(spec.Basic.Publish(exchange=exchange,
                                                     routing_key=routing_key,
                                                     mandatory=mandatory,
-                                                    immediate=immediate),
-                                 None,
+                                                    immediate=immediate), None,
                                  [spec.Basic.Ack,
-                                  spec.Basic.Nack],
-                                 (properties, body))
+                                  spec.Basic.Nack], (properties, body))
             if mandatory and self._response:
                 response = self._response[0]
                 LOGGER.warning('Message was returned (%s): %s',
-                               response.reply_code,
-                               response.reply_text)
+                               response.reply_code, response.reply_text)
                 return False
 
             if isinstance(response.method, spec.Basic.Ack):
@@ -573,8 +572,7 @@ class BlockingChannel(channel.Channel):
                 if self._response:
                     response = self._response[0]
                     LOGGER.warning('Message was returned (%s): %s',
-                                   response.reply_code,
-                                   response.reply_text)
+                                   response.reply_code, response.reply_text)
                     return False
                 return True
 
@@ -655,8 +653,8 @@ class BlockingChannel(channel.Channel):
             # Get the last item
             (method, properties, body) = self._generator_messages.pop()
             messages = len(self._generator_messages)
-            LOGGER.info('Requeueing %i messages with delivery tag %s',
-                        messages, method.delivery_tag)
+            LOGGER.info('Requeueing %i messages with delivery tag %s', messages,
+                        method.delivery_tag)
             self.basic_nack(method.delivery_tag, multiple=True, requeue=True)
             self.connection.process_data_events()
         self._generator = None
@@ -685,8 +683,7 @@ class BlockingChannel(channel.Channel):
             for consumer_tag in self._consumers.keys():
                 self.basic_cancel(consumer_tag=consumer_tag)
         self._set_state(self.CLOSING)
-        self._rpc(spec.Channel.Close(reply_code, reply_text, 0, 0),
-                  None,
+        self._rpc(spec.Channel.Close(reply_code, reply_text, 0, 0), None,
                   [spec.Channel.CloseOk])
         self._set_state(self.CLOSED)
         self._cleanup()
@@ -719,13 +716,18 @@ class BlockingChannel(channel.Channel):
         if not self._generator:
             LOGGER.debug('Issuing Basic.Consume')
             self._generator = self.basic_consume(self._generator_callback,
-                                                 queue,
-                                                 no_ack,
-                                                 exclusive)
+                                                 queue, no_ack, exclusive)
         while True:
             if self._generator_messages:
                 yield self._generator_messages.pop(0)
             self.connection.process_data_events()
+
+    def get_waiting_message_count(self):
+        """Returns the amount of messages waiting in the generator messages list.
+
+        :rtype: int
+        """
+        return len(self._generator_messages)
 
     def force_data_events(self, enable):
         """Turn on and off forcing the blocking adapter to stop and look to see
@@ -758,8 +760,12 @@ class BlockingChannel(channel.Channel):
         """
         self._force_data_events_override = enable
 
-    def exchange_bind(self, destination=None, source=None, routing_key='',
-                      nowait=False, arguments=None):
+    def exchange_bind(self,
+                      destination=None,
+                      source=None,
+                      routing_key='',
+                      nowait=False,
+                      arguments=None):
         """Bind an exchange to another exchange.
 
         :param destination: The destination exchange to bind
@@ -773,14 +779,20 @@ class BlockingChannel(channel.Channel):
 
         """
         replies = [spec.Exchange.BindOk] if nowait is False else []
-        return self._rpc(spec.Exchange.Bind(0, destination, source,
-                                            routing_key, nowait,
-                                            arguments or dict()), None, replies)
+        return self._rpc(spec.Exchange.Bind(0, destination, source, routing_key,
+                                            nowait, arguments or dict()), None,
+                         replies)
 
-    def exchange_declare(self, exchange=None,
-                         exchange_type='direct', passive=False, durable=False,
-                         auto_delete=False, internal=False, nowait=False,
-                         arguments=None, type=None):
+    def exchange_declare(self,
+                         exchange=None,
+                         exchange_type='direct',
+                         passive=False,
+                         durable=False,
+                         auto_delete=False,
+                         internal=False,
+                         nowait=False,
+                         arguments=None,
+                         type=None):
         """This method creates an exchange if it does not already exist, and if
         the exchange exists, verifies that it is of the correct and expected
         class.
@@ -813,8 +825,8 @@ class BlockingChannel(channel.Channel):
         return self._rpc(spec.Exchange.Declare(0, exchange, exchange_type,
                                                passive, durable, auto_delete,
                                                internal, nowait,
-                                               arguments or dict()),
-                         None, replies)
+                                               arguments or dict()), None,
+                         replies)
 
     def exchange_delete(self, exchange=None, if_unused=False, nowait=False):
         """Delete the exchange.
@@ -829,8 +841,12 @@ class BlockingChannel(channel.Channel):
         return self._rpc(spec.Exchange.Delete(0, exchange, if_unused, nowait),
                          None, replies)
 
-    def exchange_unbind(self, destination=None, source=None, routing_key='',
-                        nowait=False, arguments=None):
+    def exchange_unbind(self,
+                        destination=None,
+                        source=None,
+                        routing_key='',
+                        nowait=False,
+                        arguments=None):
         """Unbind an exchange from another exchange.
 
         :param destination: The destination exchange to unbind
@@ -854,7 +870,9 @@ class BlockingChannel(channel.Channel):
         self._add_callbacks()
         self._rpc(spec.Channel.Open(), self._on_openok, [spec.Channel.OpenOk])
 
-    def queue_bind(self, queue, exchange, routing_key=None, nowait=False,
+    def queue_bind(self, queue, exchange,
+                   routing_key=None,
+                   nowait=False,
                    arguments=None):
         """Bind the queue to the specified exchange
 
@@ -872,11 +890,16 @@ class BlockingChannel(channel.Channel):
         if routing_key is None:
             routing_key = queue
         return self._rpc(spec.Queue.Bind(0, queue, exchange, routing_key,
-                                         nowait, arguments or dict()),
-                         None, replies)
+                                         nowait, arguments or dict()), None,
+                         replies)
 
-    def queue_declare(self, queue='', passive=False, durable=False,
-                      exclusive=False, auto_delete=False, nowait=False,
+    def queue_declare(self,
+                      queue='',
+                      passive=False,
+                      durable=False,
+                      exclusive=False,
+                      auto_delete=False,
+                      nowait=False,
                       arguments=None):
         """Declare queue, create if needed. This method creates or checks a
         queue. When creating a new queue the client can specify various
@@ -900,10 +923,12 @@ class BlockingChannel(channel.Channel):
         replies = [condition] if nowait is False else []
         return self._rpc(spec.Queue.Declare(0, queue, passive, durable,
                                             exclusive, auto_delete, nowait,
-                                            arguments or dict()),
-                         None, replies)
+                                            arguments or dict()), None, replies)
 
-    def queue_delete(self, queue='', if_unused=False, if_empty=False,
+    def queue_delete(self,
+                     queue='',
+                     if_unused=False,
+                     if_empty=False,
                      nowait=False):
         """Delete a queue from the broker.
 
@@ -929,7 +954,10 @@ class BlockingChannel(channel.Channel):
         replies = [spec.Queue.PurgeOk] if nowait is False else []
         return self._rpc(spec.Queue.Purge(0, queue, nowait), None, replies)
 
-    def queue_unbind(self, queue='', exchange=None, routing_key=None,
+    def queue_unbind(self,
+                     queue='',
+                     exchange=None,
+                     routing_key=None,
                      arguments=None):
         """Unbind a queue from an exchange.
 
@@ -984,24 +1012,18 @@ class BlockingChannel(channel.Channel):
     # Internal methods
 
     def _add_reply(self, reply):
-        reply = callback._name_or_value(reply)
+        reply = callback_manager.name_or_value(reply)
         self._replies.append(reply)
 
     def _add_callbacks(self):
         """Add callbacks for when the channel opens and closes."""
-        self.connection.callbacks.add(self.channel_number,
-                                      spec.Channel.Close,
+        self.connection.callbacks.add(self.channel_number, spec.Channel.Close,
                                       self._on_close)
-        self.callbacks.add(self.channel_number,
-                           spec.Basic.GetEmpty,
-                           self._on_getempty,
-                           False)
-        self.callbacks.add(self.channel_number,
-                           spec.Basic.Cancel,
-                           self._on_cancel,
-                           False)
-        self.connection.callbacks.add(self.channel_number,
-                                      spec.Channel.CloseOk,
+        self.callbacks.add(self.channel_number, spec.Basic.GetEmpty,
+                           self._on_getempty, False)
+        self.callbacks.add(self.channel_number, spec.Basic.Cancel,
+                           self._on_cancel, False)
+        self.connection.callbacks.add(self.channel_number, spec.Channel.CloseOk,
                                       self._on_rpc_complete)
 
     def _generator_callback(self, unused, method, properties, body):
@@ -1039,9 +1061,9 @@ class BlockingChannel(channel.Channel):
         self._received_response = True
         self._response = method_frame.method, header_frame.properties, body
 
-    def _on_getempty(self, frame):
+    def _on_getempty(self, frame_value):
         self._received_response = True
-        self._response = frame.method, None, None
+        self._response = frame_value.method, None, None
 
     def _on_close(self, method_frame):
         LOGGER.warning('Received Channel.Close, closing: %r', method_frame)
@@ -1077,10 +1099,10 @@ class BlockingChannel(channel.Channel):
         self._received_response = True
         self._response = method_frame.method, header_frame.properties, body
 
-    def _on_rpc_complete(self, frame):
-        key = callback._name_or_value(frame)
+    def _on_rpc_complete(self, frame_value):
+        key = callback_manager.name_or_value(frame_value)
         self._replies.append(key)
-        self._frames[key] = frame
+        self._frames[key] = frame_value
         self._received_response = True
 
     def _process_replies(self, replies, callback):
@@ -1099,16 +1121,19 @@ class BlockingChannel(channel.Channel):
                 self._received_response = True
                 if callback:
                     callback(frame_value)
-                del(self._frames[reply])
+                del (self._frames[reply])
                 return frame_value
 
-    def _remove_reply(self, frame):
-        key = callback._name_or_value(frame)
+    def _remove_reply(self, frame_value):
+        key = callback_manager.name_or_value(frame_value)
         if key in self._replies:
             self._replies.remove(key)
 
-    def _rpc(self, method_frame, callback=None, acceptable_replies=None,
-             content=None, force_data_events=True):
+    def _rpc(self, method_frame,
+             callback=None,
+             acceptable_replies=None,
+             content=None,
+             force_data_events=True):
         """Make an RPC call for the given callback, channel number and method.
         acceptable_replies lists out what responses we'll process from the
         server with the specified callback.
@@ -1131,8 +1156,7 @@ class BlockingChannel(channel.Channel):
                 reply, arguments = reply
             else:
                 arguments = None
-            prefix, key = self.callbacks.add(self.channel_number,
-                                             reply,
+            prefix, key = self.callbacks.add(self.channel_number, reply,
                                              self._on_rpc_complete,
                                              arguments=arguments)
             replies.append(key)
@@ -1159,11 +1183,15 @@ class BlockingChannel(channel.Channel):
         while wait and not self._received_response:
             try:
                 self.connection.process_data_events()
+            except exceptions.ConnectionClosed:
+                # No further I/O is possible, so propagate exception
+                raise
             except exceptions.AMQPConnectionError:
                 break
         self._received_response = prev_received_response
 
-    def _validate_acceptable_replies(self, acceptable_replies):
+    @staticmethod
+    def _validate_acceptable_replies(acceptable_replies):
         """Validate the list of acceptable replies
 
         :param acceptable_replies:
@@ -1174,15 +1202,15 @@ class BlockingChannel(channel.Channel):
             raise TypeError("acceptable_replies should be list or None, is %s",
                             type(acceptable_replies))
 
-    def _validate_callback(self, callback):
+    @staticmethod
+    def _validate_callback(callback):
         """Validate the value passed in is a method or function.
 
-        :param method callback callback: The method to validate
+        :param method callback: The method to validate
         :raises: TypeError
 
         """
-        if (callback is not None and
-            not utils.is_callable(callback)):
+        if callback is not None and not utils.is_callable(callback):
             raise TypeError("Callback should be a function or method, is %s",
                             type(callback))
 

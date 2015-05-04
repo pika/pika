@@ -37,6 +37,7 @@ class ClassTests(unittest.TestCase):
     def test_base_name(self):
         self.assertEqual(amqp_object.Class().NAME, 'Unextended Class')
 
+
 class MethodTests(unittest.TestCase):
 
     def test_base_name(self):
@@ -69,6 +70,7 @@ class MethodTests(unittest.TestCase):
         obj = amqp_object.Method()
         obj._set_content(properties, body)
         self.assertEqual(obj.get_properties(), properties)
+
 
 class PropertiesTests(unittest.TestCase):
 

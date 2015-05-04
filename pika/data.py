@@ -114,7 +114,7 @@ def decode_table(encoded, offset):
     while offset < limit:
         keylen = struct.unpack_from('B', encoded, offset)[0]
         offset += 1
-        key = encoded[offset: offset + keylen]
+        key = encoded[offset:offset + keylen]
         offset += keylen
         value, offset = decode_value(encoded, offset)
         result[key] = value
@@ -203,14 +203,14 @@ def decode_value(encoded, offset):
     elif kind == b's':
         length = struct.unpack_from('B', encoded, offset)[0]
         offset += 1
-        value = encoded[offset: offset + length].decode('utf8')
+        value = encoded[offset:offset + length].decode('utf8')
         offset += length
 
     # Long String
     elif kind == b'S':
         length = struct.unpack_from('>I', encoded, offset)[0]
         offset += 4
-        value = encoded[offset: offset + length].decode('utf8')
+        value = encoded[offset:offset + length].decode('utf8')
         offset += length
 
     # Field Array

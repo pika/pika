@@ -15,9 +15,11 @@ except ImportError:
 from pika import credentials
 from pika import spec
 
+
 class PlainCredentialsTests(unittest.TestCase):
 
     CREDENTIALS = 'guest', 'guest'
+
     def test_response_for(self):
         obj = credentials.PlainCredentials(*self.CREDENTIALS)
         start = spec.Connection.Start()
@@ -37,8 +39,7 @@ class PlainCredentialsTests(unittest.TestCase):
 
     def test_erase_credentials_true(self):
         obj = credentials.PlainCredentials(self.CREDENTIALS[0],
-                                           self.CREDENTIALS[1],
-                                           True)
+                                           self.CREDENTIALS[1], True)
         obj.erase_credentials()
         self.assertEqual((obj.username, obj.password), (None, None))
 

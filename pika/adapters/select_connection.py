@@ -46,11 +46,9 @@ class SelectConnection(BaseConnection):
 
         """
         ioloop = IOLoop(self._manage_event_state)
-        super(SelectConnection, self).__init__(parameters,
-                                               on_open_callback,
+        super(SelectConnection, self).__init__(parameters, on_open_callback,
                                                on_open_error_callback,
-                                               on_close_callback,
-                                               ioloop,
+                                               on_close_callback, ioloop,
                                                stop_ioloop_on_close)
 
     def _adapter_connect(self):
@@ -62,8 +60,7 @@ class SelectConnection(BaseConnection):
         """
         error = super(SelectConnection, self)._adapter_connect()
         if not error:
-            self.ioloop.start_poller(self._handle_events,
-                                     self.event_state,
+            self.ioloop.start_poller(self._handle_events, self.event_state,
                                      self.socket.fileno())
         return error
 
@@ -89,6 +86,7 @@ class IOLoop(object):
     Also provides a convenient pass-through for add_timeout and set_events
 
     """
+
     def __init__(self, state_manager):
         """Create an instance of the IOLoop object.
 
@@ -160,7 +158,8 @@ class IOLoop(object):
                 LOGGER.debug('Using KQueuePoller')
                 self.poller = KQueuePoller(fileno, handler, events,
                                            self._manage_event_state)
-        if not self.poller and hasattr(select, 'poll') and hasattr(select.poll(), 'modify'):
+        if not self.poller and hasattr(select, 'poll') and hasattr(
+            select.poll(), 'modify'):
             if not SELECT_TYPE or SELECT_TYPE == 'poll':
                 LOGGER.debug('Using PollPoller')
                 self.poller = PollPoller(fileno, handler, events,
@@ -191,7 +190,7 @@ class SelectPoller(object):
     to override the update_handler and start methods for additional types.
 
     """
-    TIMEOUT = 1
+    TIMEOUT = 0.01
 
     def __init__(self, fileno, handler, events, state_manager):
         """Create an instance of the SelectPoller
@@ -220,8 +219,10 @@ class SelectPoller(object):
         :rtype: str
 
         """
-        value = {'deadline': time.time() + deadline,
-                 'callback': callback_method}
+        value = {
+            'deadline': time.time() + deadline,
+            'callback': callback_method
+        }
         timeout_id = hash(frozenset(value.items()))
         self._timeouts.append((timeout_id, value))
         return timeout_id
@@ -252,8 +253,7 @@ class SelectPoller(object):
 
         # Wait on select to let us know what's up
         try:
-            read, write, error = select.select(input_fileno,
-                                               output_fileno,
+            read, write, error = select.select(input_fileno, output_fileno,
                                                error_fileno,
                                                SelectPoller.TIMEOUT)
         except select.error as error:
@@ -317,6 +317,7 @@ class SelectPoller(object):
 
 class KQueuePoller(SelectPoller):
     """KQueuePoller works on BSD based systems and is faster than select"""
+
     def __init__(self, fileno, handler, events, state_manager):
         """Create an instance of the KQueuePoller
 
@@ -405,6 +406,7 @@ class PollPoller(SelectPoller):
     certain scenarios.  Both are faster than select.
 
     """
+
     def __init__(self, fileno, handler, events, state_manager):
         """Create an instance of the KQueuePoller
 
@@ -455,8 +457,8 @@ class PollPoller(SelectPoller):
         except select.error as error:
             return self._handler(self.fileno, ERROR, error)
         if events:
-            LOGGER.debug("Calling %s with %d events",
-                         self._handler, len(events))
+            LOGGER.debug("Calling %s with %d events", self._handler,
+                         len(events))
             for fileno, event in events:
                 self._handler(fileno, event, write_only=write_only)
 
@@ -466,6 +468,7 @@ class EPollPoller(PollPoller):
     certain scenarios. Both are faster than select.
 
     """
+
     def __init__(self, fileno, handler, events, state_manager):
         """Create an instance of the EPollPoller
 

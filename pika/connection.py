@@ -139,7 +139,7 @@ class Parameters(object):
         return True
 
     def _validate_connection_attempts(self, connection_attempts):
-        """Validate that the channel_max value is an int
+        """Validate that the connection_attempts value is an int
 
         :param int connection_attempts: The value to validate
         :rtype: bool
@@ -321,6 +321,7 @@ class ConnectionParameters(Parameters):
     :param bool backpressure_detection: Toggle backpressure detection
 
     """
+
     def __init__(self,
                  host=None,
                  port=None,
@@ -432,8 +433,8 @@ class URLParameters(Parameters):
     :param str url: The AMQP URL to connect to
 
     """
-    def __init__(self, url):
 
+    def __init__(self, url):
         """Create a new URLParameters instance.
 
         :param str url: The URL value
@@ -519,8 +520,7 @@ class URLParameters(Parameters):
             self._validate_heartbeat_interval(values['heartbeat_interval'])):
             self.heartbeat = values['heartbeat_interval']
 
-        if ('locale' in values and
-            self._validate_locale(values['locale'])):
+        if ('locale' in values and self._validate_locale(values['locale'])):
             self.locale = values['locale']
 
         if ('retry_delay' in values and
@@ -550,9 +550,11 @@ class Connection(object):
 
     """
     ON_CONNECTION_BACKPRESSURE = '_on_connection_backpressure'
+    ON_CONNECTION_BLOCKED = '_on_connection_blocked'
     ON_CONNECTION_CLOSED = '_on_connection_closed'
     ON_CONNECTION_ERROR = '_on_connection_error'
     ON_CONNECTION_OPEN = '_on_connection_open'
+    ON_CONNECTION_UNBLOCKED = '_on_connection_unblocked'
     CONNECTION_CLOSED = 0
     CONNECTION_INIT = 1
     CONNECTION_PROTOCOL = 2
@@ -590,6 +592,8 @@ class Connection(object):
                            on_open_error_callback or self._on_connection_error,
                            False)
 
+        self.heartbeat = None
+
         # On connection callback
         if on_open_callback:
             self.add_on_open_callback(on_open_callback)
@@ -612,8 +616,8 @@ class Connection(object):
         :param method callback_method: The method to call
 
         """
-        self.callbacks.add(0, self.ON_CONNECTION_BACKPRESSURE,
-                           callback_method, False)
+        self.callbacks.add(0, self.ON_CONNECTION_BACKPRESSURE, callback_method,
+                           False)
 
     def add_on_close_callback(self, callback_method):
         """Add a callback notification when the connection has closed. The
@@ -624,6 +628,29 @@ class Connection(object):
 
         """
         self.callbacks.add(0, self.ON_CONNECTION_CLOSED, callback_method, False)
+
+    def add_on_connection_blocked_callback(self, callback_method):
+        """Add a callback to be notified when RabbitMQ has sent a
+        ``Connection.Blocked`` frame indicating that RabbitMQ is low on
+        resources. Publishers can use this to voluntarily suspend publishing,
+        instead of relying on back pressure throttling. The callback
+        will bet passed the ``Connection.Blocked`` method frame.
+
+        :param method callback_method: Callback to call on close
+
+        """
+        self.callbacks.add(0, spec.Connection.Blocked, callback_method, False)
+
+    def add_on_connection_unblocked_callback(self, callback_method):
+        """Add a callback to be notified when RabbitMQ has sent a
+        ``Connection.Unblocked`` frame letting publishers know it's ok
+        to start publishing again. The callback will be passed the
+        ``Connection.Unblocked`` method frame.
+
+        :param method callback_method: Callback to call on close
+
+        """
+        self.callbacks.add(0, spec.Connection.Unblocked, callback_method, False)
 
     def add_on_open_callback(self, callback_method):
         """Add a callback notification when the connection has opened.
@@ -721,7 +748,8 @@ class Connection(object):
             LOGGER.info('Retrying in %i seconds', self.params.retry_delay)
             self.add_timeout(self.params.retry_delay, self.connect)
         else:
-            self.callbacks.process(0, self.ON_CONNECTION_ERROR, self, self, error)
+            self.callbacks.process(0, self.ON_CONNECTION_ERROR, self, self,
+                                   error)
             self.remaining_connection_attempts = self.params.connection_attempts
             self._set_connection_state(self.CONNECTION_CLOSED)
 
@@ -801,8 +829,7 @@ class Connection(object):
         :rtype: bool
 
         """
-        return self.server_capabilities.get('exchange_exchange_bindings',
-                                            False)
+        return self.server_capabilities.get('exchange_exchange_bindings', False)
 
     @property
     def publisher_confirms(self):
@@ -840,8 +867,7 @@ class Connection(object):
         :param int channel_number: The channel number for the callbacks
 
         """
-        self.callbacks.add(channel_number,
-                           spec.Channel.CloseOk,
+        self.callbacks.add(channel_number, spec.Channel.CloseOk,
                            self._on_channel_closeok)
 
     def _add_connection_start_callback(self):
@@ -893,15 +919,19 @@ class Connection(object):
         :rtype: dict
 
         """
-        return {'product': PRODUCT,
-                'platform': 'Python %s' % platform.python_version(),
-                'capabilities': {'authentication_failure_close': True,
-                                 'basic.nack': True,
-                                 'connection.blocked': True,
-                                 'consumer_cancel_notify': True,
-                                 'publisher_confirms': True},
-                'information': 'See http://pika.rtfd.org',
-                'version': __version__}
+        return {
+            'product': PRODUCT,
+            'platform': 'Python %s' % platform.python_version(),
+            'capabilities': {
+                'authentication_failure_close': True,
+                'basic.nack': True,
+                'connection.blocked': True,
+                'consumer_cancel_notify': True,
+                'publisher_confirms': True
+            },
+            'information': 'See http://pika.rtfd.org',
+            'version': __version__
+        }
 
     def _close_channels(self, reply_code, reply_text):
         """Close the open channels with the specified reply_code and reply_text.
@@ -965,6 +995,14 @@ class Connection(object):
                          self.params.heartbeat)
             return heartbeat.HeartbeatChecker(self, self.params.heartbeat)
 
+    def _remove_heartbeat(self):
+        """Stop the heartbeat checker if it exists
+
+        """
+        if self.heartbeat:
+            self.heartbeat.stop()
+            self.heartbeat = None
+
     def _deliver_frame_to_channel(self, value):
         """Deliver the frame to the channel specified in the frame.
 
@@ -976,8 +1014,8 @@ class Connection(object):
                 self._reject_out_of_band_delivery(value.channel_number,
                                                   value.method.delivery_tag)
             else:
-                LOGGER.warning("Received %r for non-existing channel %i",
-                               value, value.channel_number)
+                LOGGER.warning("Received %r for non-existing channel %i", value,
+                               value.channel_number)
             return
         return self._channels[value.channel_number]._handle_content_frame(value)
 
@@ -1014,9 +1052,9 @@ class Connection(object):
         :rtype: int
 
         """
-        return (self.params.frame_max -
-                spec.FRAME_HEADER_SIZE -
-                spec.FRAME_END_SIZE)
+        return (
+            self.params.frame_max - spec.FRAME_HEADER_SIZE - spec.FRAME_END_SIZE
+        )
 
     def _get_credentials(self, method_frame):
         """Get credentials for authentication.
@@ -1043,8 +1081,8 @@ class Connection(object):
         :rtype: bool
 
         """
-        return any([self._channels[num].is_open for num in
-                    self._channels.keys()])
+        return any([self._channels[num].is_open
+                    for num in self._channels.keys()])
 
     def _has_pending_callbacks(self, value):
         """Return true if there are any callbacks pending for the specified
@@ -1131,7 +1169,7 @@ class Connection(object):
         :rtype: bool
 
         """
-        return  isinstance(value, frame.ProtocolHeader)
+        return isinstance(value, frame.ProtocolHeader)
 
     def _next_channel_number(self):
         """Return the next available channel number or raise on exception.
@@ -1195,16 +1233,18 @@ class Connection(object):
             self.closing = (method_frame.method.reply_code,
                             method_frame.method.reply_text)
 
+        # Save the codes because self.closing gets reset by _adapter_disconnect
+        reply_code, reply_text = self.closing
+
         # Stop the heartbeat checker if it exists
-        if self.heartbeat:
-            self.heartbeat.stop()
+        self._remove_heartbeat()
 
         # If this did not come from the connection adapter, close the socket
         if not from_adapter:
             self._adapter_disconnect()
 
         # Invoke a method frame neutral close
-        self._on_disconnect(self.closing[0], self.closing[1])
+        self._on_disconnect(reply_code, reply_text)
 
     def _on_connection_error(self, connection_unused, error_message=None):
         """Default behavior when the connecting connection can not connect.
@@ -1304,8 +1344,8 @@ class Connection(object):
 
         """
         LOGGER.warning('Disconnected from RabbitMQ at %s:%i (%s): %s',
-                       self.params.host, self.params.port,
-                       reply_code, reply_text)
+                       self.params.host, self.params.port, reply_code,
+                       reply_text)
         self._set_connection_state(self.CONNECTION_CLOSED)
         for channel in self._channels.keys():
             if channel not in self._channels:
@@ -1327,9 +1367,9 @@ class Connection(object):
         if (self._is_method_frame(frame_value) and
             self._has_pending_callbacks(frame_value)):
             self.callbacks.process(frame_value.channel_number,  # Prefix
-                                   frame_value.method,          # Key
-                                   self,                        # Caller
-                                   frame_value)                 # Args
+                                   frame_value.method,  # Key
+                                   self,  # Caller
+                                   frame_value)  # Args
             return True
         return False
 
@@ -1417,12 +1457,12 @@ class Connection(object):
 
     def _remove_connection_callbacks(self):
         """Remove all callbacks for the connection"""
-        self._remove_callbacks(0, [spec.Connection.Close,
-                                   spec.Connection.Start,
+        self._remove_callbacks(0, [spec.Connection.Close, spec.Connection.Start,
                                    spec.Connection.Open])
 
     def _rpc(self, channel_number, method_frame,
-             callback_method=None, acceptable_replies=None):
+             callback_method=None,
+             acceptable_replies=None):
         """Make an RPC call for the given callback, channel number and method.
         acceptable_replies lists out what responses we'll process from the
         server with the specified callback.
@@ -1471,10 +1511,10 @@ class Connection(object):
         :param str response: The encoded value to send
 
         """
-        self._send_method(0, spec.Connection.StartOk(self._client_properties,
-                                                     authentication_type,
-                                                     response,
-                                                     self.params.locale))
+        self._send_method(0,
+                          spec.Connection.StartOk(self._client_properties,
+                                                  authentication_type, response,
+                                                  self.params.locale))
 
     def _send_connection_tune_ok(self):
         """Send a Connection.TuneOk frame"""
@@ -1529,8 +1569,8 @@ class Connection(object):
         """
         length = len(content[1])
         write_buffer = [frame.Method(channel_number, method_frame).marshal(),
-                        frame.Header(channel_number,
-                                     length, content[0]).marshal()]
+                        frame.Header(channel_number, length,
+                                     content[0]).marshal()]
         if content[1]:
             chunks = int(math.ceil(float(length) / self._body_max_length))
             for chunk in range(0, chunks):

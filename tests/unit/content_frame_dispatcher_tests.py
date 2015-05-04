@@ -18,7 +18,7 @@ from pika import spec
 class ContentFrameDispatcherTests(unittest.TestCase):
 
     def setUp(self):
-         self.obj = channel.ContentFrameDispatcher()
+        self.obj = channel.ContentFrameDispatcher()
 
     def test_init_method_frame(self):
         self.assertEqual(self.obj._method_frame, None)
@@ -75,13 +75,13 @@ class ContentFrameDispatcherTests(unittest.TestCase):
         header_frame = frame.Header(1, 6, spec.BasicProperties)
         self.obj.process(header_frame)
         body_frame = frame.Body(1, 'abcd1234')
-        self.assertRaises(exceptions.BodyTooLongError,
-                          self.obj.process, body_frame)
+        self.assertRaises(exceptions.BodyTooLongError, self.obj.process,
+                          body_frame)
 
     def test_process_with_unexpected_frame_type(self):
         value = frame.Method(1, spec.Basic.Qos())
-        self.assertRaises(exceptions.UnexpectedFrameError,
-                          self.obj.process, value)
+        self.assertRaises(exceptions.UnexpectedFrameError, self.obj.process,
+                          value)
 
     def test_reset_method_frame(self):
         method_frame = frame.Method(1, spec.Basic.Deliver())
@@ -133,7 +133,7 @@ class ContentFrameDispatcherTests(unittest.TestCase):
         self.assertIsInstance(body_value, str)
 
     def test_ascii_body_value(self):
-        expectation ='foo-bar-baz'
+        expectation = 'foo-bar-baz'
         self.obj = channel.ContentFrameDispatcher()
         method_frame = frame.Method(1, spec.Basic.Deliver())
         self.obj.process(method_frame)
@@ -145,7 +145,7 @@ class ContentFrameDispatcherTests(unittest.TestCase):
         self.assertIsInstance(body_value, str)
 
     def test_binary_non_unicode_value(self):
-        expectation =('a', 0.8)
+        expectation = ('a', 0.8)
         self.obj = channel.ContentFrameDispatcher()
         method_frame = frame.Method(1, spec.Basic.Deliver())
         self.obj.process(method_frame)
