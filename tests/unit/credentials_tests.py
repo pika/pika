@@ -24,12 +24,12 @@ class PlainCredentialsTests(unittest.TestCase):
         obj = credentials.PlainCredentials(*self.CREDENTIALS)
         start = spec.Connection.Start()
         self.assertEqual(obj.response_for(start),
-                         ('PLAIN', '\x00guest\x00guest'))
+                         (b'PLAIN', b'\x00guest\x00guest'))
 
     def test_erase_response_for_no_mechanism_match(self):
         obj = credentials.PlainCredentials(*self.CREDENTIALS)
         start = spec.Connection.Start()
-        start.mechanisms = 'FOO BAR BAZ'
+        start.mechanisms = b'FOO BAR BAZ'
         self.assertEqual(obj.response_for(start), (None, None))
 
     def test_erase_credentials_false(self):
@@ -49,13 +49,13 @@ class ExternalCredentialsTest(unittest.TestCase):
     def test_response_for(self):
         obj = credentials.ExternalCredentials()
         start = spec.Connection.Start()
-        start.mechanisms = 'PLAIN EXTERNAL'
-        self.assertEqual(obj.response_for(start), ('EXTERNAL', ''))
+        start.mechanisms = b'PLAIN EXTERNAL'
+        self.assertEqual(obj.response_for(start), (b'EXTERNAL', ''))
 
     def test_erase_response_for_no_mechanism_match(self):
         obj = credentials.ExternalCredentials()
         start = spec.Connection.Start()
-        start.mechanisms = 'FOO BAR BAZ'
+        start.mechanisms = b'FOO BAR BAZ'
         self.assertEqual(obj.response_for(start), (None, None))
 
     def test_erase_credentials(self):
