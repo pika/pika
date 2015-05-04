@@ -87,9 +87,6 @@ class ChannelTests(unittest.TestCase):
     def test_init_on_getok_callback(self):
         self.assertEqual(self.obj._on_getok_callback, None)
 
-    def test_init_on_flowok_callback(self):
-        self.assertEqual(self.obj._on_flowok_callback, None)
-
     def test_add_callback(self):
         mock_callback = mock.Mock()
         self.obj.add_callback(mock_callback, [spec.Basic.Qos])
@@ -907,7 +904,7 @@ class ChannelTests(unittest.TestCase):
         with mock.patch.object(self.obj, '_on_deliver') as deliver:
             self.obj._handle_content_frame(body_value)
             deliver.assert_called_once_with(method_value, header_value,
-                                            '0123456789')
+                                            b'0123456789')
 
     def test_handle_content_frame_basic_get_called(self):
         method_value = frame.Method(1, spec.Basic.GetOk('ctag0', 1))
@@ -918,7 +915,7 @@ class ChannelTests(unittest.TestCase):
         with mock.patch.object(self.obj, '_on_getok') as getok:
             self.obj._handle_content_frame(body_value)
             getok.assert_called_once_with(method_value, header_value,
-                                          '0123456789')
+                                          b'0123456789')
 
     def test_handle_content_frame_basic_return_called(self):
         method_value = frame.Method(1, spec.Basic.Return(999, 'Reply Text',
@@ -931,7 +928,7 @@ class ChannelTests(unittest.TestCase):
         with mock.patch.object(self.obj, '_on_return') as basic_return:
             self.obj._handle_content_frame(body_value)
             basic_return.assert_called_once_with(method_value, header_value,
-                                                 '0123456789')
+                                                 b'0123456789')
 
     def test_has_content_true(self):
         self.assertTrue(self.obj._has_content(spec.Basic.GetOk))
