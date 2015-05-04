@@ -13,6 +13,9 @@ if not PY2:
     # *only* the str here as this is used for textual data.
     basestring = (str,)
 
+    # for assertions that the data is either encoded or non-encoded text
+    str_or_bytes = (str, bytes)
+
     # xrange is gone, replace it with range
     xrange = range
 
@@ -62,6 +65,7 @@ else:
     from urllib import unquote as url_unquote, urlencode
 
     basestring = basestring
+    str_or_bytes = basestring
     xrange = xrange
     unicode_type = unicode
     dictkeys = dict.keys
