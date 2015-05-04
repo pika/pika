@@ -11,6 +11,7 @@ try:
 except ImportError:
     import unittest
 
+from collections import OrderedDict
 from pika import data
 from pika import exceptions
 from pika.compat import long
@@ -18,28 +19,34 @@ from pika.compat import long
 
 class DataTests(unittest.TestCase):
 
-    FIELD_TBL_ENCODED = (b'\x00\x00\x00\xbb\x07longvall\x00\x00\x00\x006e&U'
-                         b'\x06intvalI\x00\x00\x00\x01\x07dictvalF\x00\x00'
-                         b'\x00\x0c\x03fooS\x00\x00\x00\x03bar\x07unicodeS'
-                         b'\x00\x00\x00\x08utf8=\xe2\x9c\x93\x05arrayA\x00'
-                         b'\x00\x00\x0fI\x00\x00\x00\x01I\x00\x00\x00\x02I'
-                         b'\x00\x00\x00\x03\x04nullV\x06strvalS\x00\x00\x00'
-                         b'\x04Test\x0ctimestampvalT\x00\x00\x00\x00Ec)\x92'
-                         b'\x07decimalD\x02\x00\x00\x01:\x07boolvalt\x01'
-                         b'\x0bdecimal_tooD\x00\x00\x00\x00d')
+    FIELD_TBL_ENCODED = (
+        b'\x00\x00\x00\xbb'
+        b'\x05arrayA\x00\x00\x00\x0fI\x00\x00\x00\x01I\x00\x00\x00\x02I\x00\x00\x00\x03'
+        b'\x07boolvalt\x01'
+        b'\x07decimalD\x02\x00\x00\x01:'
+        b'\x0bdecimal_tooD\x00\x00\x00\x00d'
+        b'\x07dictvalF\x00\x00\x00\x0c\x03fooS\x00\x00\x00\x03bar'
+        b'\x06intvalI\x00\x00\x00\x01'
+        b'\x07longvall\x00\x00\x00\x006e&U'
+        b'\x04nullV'
+        b'\x06strvalS\x00\x00\x00\x04Test'
+        b'\x0ctimestampvalT\x00\x00\x00\x00Ec)\x92'
+        b'\x07unicodeS\x00\x00\x00\x08utf8=\xe2\x9c\x93'
+    )
 
-    FIELD_TBL_VALUE = {b'array': [1, 2, 3],
-                       b'boolval': True,
-                       b'decimal': decimal.Decimal('3.14'),
-                       b'decimal_too': decimal.Decimal('100'),
-                       b'dictval': {b'foo': 'bar'},
-                       b'intval': 1,
-                       b'longval': long(912598613),
-                       b'null': None,
-                       b'strval': 'Test',
-                       b'timestampval': datetime.datetime(2006, 11, 21, 16, 30,
-                                                         10),
-                       b'unicode': u'utf8=✓'}
+    FIELD_TBL_VALUE = OrderedDict([
+        (b'array', [1, 2, 3]),
+        (b'boolval', True),
+        (b'decimal', decimal.Decimal('3.14')),
+        (b'decimal_too', decimal.Decimal('100')),
+        (b'dictval', {b'foo': 'bar'}),
+        (b'intval', 1)	,
+        (b'longval', long(912598613)),
+        (b'null', None),
+        (b'strval', 'Test'),
+        (b'timestampval', datetime.datetime(2006, 11, 21, 16, 30, 10)),
+        (b'unicode', u'utf8=✓')
+    ])
 
     @unittest.skipIf(platform.python_implementation() == 'PyPy',
                      'pypy sort order issue')
