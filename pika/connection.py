@@ -1065,10 +1065,6 @@ class Connection(object):
         """
         (auth_type,
          response) = self.params.credentials.response_for(method_frame.method)
-        print(method_frame)
-        print(method_frame.method)
-        print(self.params.credentials)
-        print(auth_type, response)
         if not auth_type:
             raise exceptions.AuthenticationError(self.params.credentials.TYPE)
         self.params.credentials.erase_credentials()
