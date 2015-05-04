@@ -8,7 +8,7 @@ import socket
 try:
     from unittest import mock
     patch = mock.patch
-except ImportError
+except ImportError:
     import mock
     from mock import patch
 try:
