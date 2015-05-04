@@ -106,7 +106,7 @@ class BaseConnection(connection.Connection):
     def _adapter_connect(self):
         """Connect to the RabbitMQ broker, returning True if connected
 
-        :rtype: bool
+        :returns: error string or exception instance on error; None on success
 
         """
         # Get the addresses for the socket, supporting IPv4 & IPv6
@@ -158,7 +158,7 @@ class BaseConnection(connection.Connection):
             raise exceptions.ProbableAccessDeniedError
         elif self.is_open:
             LOGGER.warning("Socket closed when connection was open")
-        elif not self.is_closed:
+        elif not self.is_closed and not self.is_closing:
             LOGGER.warning('Unknown state on disconnect: %i',
                            self.connection_state)
 
@@ -176,7 +176,10 @@ class BaseConnection(connection.Connection):
             self.socket = None
 
     def _create_and_connect_to_socket(self, sock_addr_tuple):
-        """Create socket and connect to it, using SSL if enabled."""
+        """Create socket and connect to it, using SSL if enabled.
+
+        :returns: error string on failure; None on success
+        """
         self.socket = socket.socket(sock_addr_tuple[0], socket.SOCK_STREAM, 0)
         self.socket.setsockopt(SOL_TCP, socket.TCP_NODELAY, 1)
         self.socket.settimeout(self.params.socket_timeout)

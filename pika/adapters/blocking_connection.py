@@ -231,9 +231,7 @@ class BlockingConnection(base_connection.BaseConnection):
 
         """
         self._set_connection_state(self.CONNECTION_INIT)
-        error = self._adapter_connect()
-        if error:
-            raise exceptions.AMQPConnectionError(error)
+        self._adapter_connect()
 
     def process_data_events(self):
         """Will make sure that data events are processed. Your app can
@@ -292,7 +290,6 @@ class BlockingConnection(base_connection.BaseConnection):
     def _adapter_connect(self):
         """Connect to the RabbitMQ broker
 
-        :rtype: bool
         :raises: pika.Exceptions.AMQPConnectionError
 
         """
@@ -300,6 +297,8 @@ class BlockingConnection(base_connection.BaseConnection):
         self.callbacks.remove(0, self.ON_CONNECTION_ERROR)
         error = super(BlockingConnection, self)._adapter_connect()
         if error:
+            # Restore disconnected state and raise
+            self._adapter_disconnect(reset_only=True)
             raise exceptions.AMQPConnectionError(error)
         self.socket.settimeout(self.SOCKET_CONNECT_TIMEOUT)
         self._frames_written_without_read = 0
@@ -312,12 +311,21 @@ class BlockingConnection(base_connection.BaseConnection):
         self.socket.settimeout(self.params.socket_timeout)
         self._set_connection_state(self.CONNECTION_OPEN)
 
-    def _adapter_disconnect(self):
-        """Called if the connection is being requested to disconnect."""
+    def _adapter_disconnect(self, reset_only=False):
+        """Called if the connection is being requested to disconnect.
+
+        :param bool reset_only: if true, just reset the connection and don't
+          bother interpreting connection state
+        """
         self._remove_heartbeat()
         self._cleanup_socket()
-        self._check_state_on_disconnect()
-        self._init_connection_state()
+        try:
+            if not reset_only:
+                # NOTE: this may raise an exception
+                self._check_state_on_disconnect()
+        finally:
+            # Complete transition to diconnected state
+            self._init_connection_state()
 
     @staticmethod
     def _call_timeout_method(timeout_value):
