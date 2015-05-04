@@ -84,7 +84,7 @@ class CallbackTests(unittest.TestCase):
     def test_name_or_value_unicode(self):
         value = u'Это тест значения'
         expectation = 'Это тест значения'
-        self.assertEqual(callback._name_or_value(value), expectation)
+        self.assertEqual(callback.name_or_value(value), expectation)
 
     def test_empty_callbacks_on_init(self):
         self.assertFalse(self.obj._stack)

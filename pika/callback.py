@@ -41,7 +41,7 @@ def name_or_value(value):
 
 
 def sanitize_prefix(function):
-    """Automatically call _name_or_value on the prefix passed in."""
+    """Automatically call name_or_value on the prefix passed in."""
 
     @functools.wraps(function)
     def wrapper(*args, **kwargs):

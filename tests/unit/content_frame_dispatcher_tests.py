@@ -149,8 +149,10 @@ class ContentFrameDispatcherTests(unittest.TestCase):
         self.obj = channel.ContentFrameDispatcher()
         method_frame = frame.Method(1, spec.Basic.Deliver())
         self.obj.process(method_frame)
-        header_frame = frame.Header(1, 20, spec.BasicProperties)
+        marshalled_body = marshal.dumps(expectation)
+        header_frame = frame.Header(1, len(marshalled_body),
+                                    spec.BasicProperties)
         self.obj.process(header_frame)
-        body_frame = frame.Body(1, marshal.dumps(expectation))
+        body_frame = frame.Body(1, marshalled_body)
         method_frame, header_frame, body_value = self.obj.process(body_frame)
         self.assertEqual(marshal.loads(body_value), expectation)
