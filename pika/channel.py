@@ -1148,7 +1148,7 @@ class ContentFrameDispatcher(object):
 
         """
         content = (self._method_frame, self._header_frame,
-                   ''.join(self._body_fragments))
+                   b''.join(self._body_fragments))
         self._reset()
         return content
 
