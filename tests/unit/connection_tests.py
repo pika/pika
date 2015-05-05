@@ -328,10 +328,10 @@ class ConnectionTests(unittest.TestCase):
         #This may be incorrectly mocked, or the code is wrong
         #TODO: Code does hasattr check, should this be a has_key/in check?
         method_frame.method.server_properties = {
-            'capabilities': {
-                'basic.nack': True,
-                'consumer_cancel_notify': False,
-                'exchange_exchange_bindings': False
+            b'capabilities': {
+                b'basic.nack': True,
+                b'consumer_cancel_notify': False,
+                b'exchange_exchange_bindings': False
             }
         }
         #This will be called, but shoudl not be implmented here, just mock it
