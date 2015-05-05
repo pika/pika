@@ -11,6 +11,8 @@ import time
 from operator import itemgetter
 from collections import defaultdict
 
+from pika.compat import dictkeys
+
 from pika.adapters.base_connection import BaseConnection
 
 LOGGER = logging.getLogger(__name__)
@@ -308,7 +310,7 @@ class SelectPoller(object):
         
         try:
             # Send byte to interrupt the poll loop
-            self._w_interrupt.send('X')
+            self._w_interrupt.send(b'X')
         except Exception as err:
             # There's nothing sensible to do here, we'll exit the interrupt
             # loop after POLL_TIMEOUT secs in worst case anyway.
@@ -353,7 +355,7 @@ class SelectPoller(object):
 
         self._processing_fd_event_map = fd_event_map
 
-        for fileno in fd_event_map.keys():
+        for fileno in dictkeys(fd_event_map):
             if fileno not in fd_event_map:
                 # the fileno has been removed from the map under our feet.
                 continue

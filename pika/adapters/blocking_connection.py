@@ -26,6 +26,7 @@ from pika import exceptions
 from pika import spec
 from pika import utils
 from pika.adapters import base_connection
+from pika.compat import dictkeys
 
 if os.name == 'java':
     from select import cpython_compatible_select as select_function
@@ -248,7 +249,7 @@ class BlockingConnection(base_connection.BaseConnection):
 
     def process_timeouts(self):
         """Process the self._timeouts event stack"""
-        for timeout_id in self._timeouts.keys():
+        for timeout_id in dictkeys(self._timeouts):
             if self._deadline_passed(timeout_id):
                 self._call_timeout_method(self._timeouts.pop(timeout_id))
 
@@ -344,7 +345,7 @@ class BlockingConnection(base_connection.BaseConnection):
         :rtype: bool
 
         """
-        if timeout_id not in self._timeouts.keys():
+        if timeout_id not in self._timeouts:
             return False
         return self._timeouts[timeout_id]['deadline'] <= time.time()
 
@@ -688,7 +689,7 @@ class BlockingChannel(channel.Channel):
         # If there are any consumers, cancel them as well
         if self._consumers:
             LOGGER.debug('Cancelling %i consumers', len(self._consumers))
-            for consumer_tag in self._consumers.keys():
+            for consumer_tag in dictkeys(self._consumers):
                 self.basic_cancel(consumer_tag=consumer_tag)
         self._set_state(self.CLOSING)
         self._rpc(spec.Channel.Close(reply_code, reply_text, 0, 0), None,
@@ -704,7 +705,7 @@ class BlockingChannel(channel.Channel):
         Example:
 
             for method, properties, body in channel.consume('queue'):
-                print body
+                print(body)
                 channel.basic_ack(method.delivery_tag)
 
         You should call BlockingChannel.cancel() when you escape out of the
@@ -997,7 +998,7 @@ class BlockingChannel(channel.Channel):
         if consumer_tag:
             self.basic_cancel(consumer_tag)
         else:
-            for consumer_tag in self._consumers.keys():
+            for consumer_tag in dictkeys(self._consumers):
                 self.basic_cancel(consumer_tag)
         self.wait = True
 

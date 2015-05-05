@@ -2,7 +2,11 @@
 Tests for pika.connection.Connection
 
 """
-import mock
+try:
+    import mock
+except ImportError:
+    from unittest import mock
+
 import random
 import urllib
 import copy
@@ -16,6 +20,7 @@ from pika import channel
 from pika import credentials
 from pika import frame
 from pika import spec
+from pika.compat import xrange, urlencode
 
 
 def callback_method():
@@ -178,7 +183,7 @@ class ConnectionTests(unittest.TestCase):
         for backpressure in ('t', 'f'):
             test_params = copy.deepcopy(url_params)
             test_params['backpressure_detection'] = backpressure
-            query_string = urllib.urlencode(test_params)
+            query_string = urlencode(test_params)
             test_url = 'https://www.test.com?%s' % query_string
             params = connection.URLParameters(test_url)
             #check each value
@@ -323,10 +328,10 @@ class ConnectionTests(unittest.TestCase):
         #This may be incorrectly mocked, or the code is wrong
         #TODO: Code does hasattr check, should this be a has_key/in check?
         method_frame.method.server_properties = {
-            'capabilities': {
-                'basic.nack': True,
-                'consumer_cancel_notify': False,
-                'exchange_exchange_bindings': False
+            b'capabilities': {
+                b'basic.nack': True,
+                b'consumer_cancel_notify': False,
+                b'exchange_exchange_bindings': False
             }
         }
         #This will be called, but shoudl not be implmented here, just mock it
