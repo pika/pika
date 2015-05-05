@@ -4,6 +4,8 @@ Tests for pika.channel.ContentFrameDispatcher
 
 """
 import marshal
+from pika.compat import str_or_bytes
+
 try:
     import unittest2 as unittest
 except ImportError:
@@ -58,7 +60,7 @@ class ContentFrameDispatcherTests(unittest.TestCase):
         self.obj.process(header_frame)
         body_frame = frame.Body(1, b'abc123')
         response = self.obj.process(body_frame)
-        self.assertEqual(response, (method_frame, header_frame, 'abc123'))
+        self.assertEqual(response, (method_frame, header_frame, b'abc123'))
 
     def test_process_with_body_frame_six_bytes(self):
         method_frame = frame.Method(1, spec.Basic.Deliver())
@@ -130,10 +132,10 @@ class ContentFrameDispatcherTests(unittest.TestCase):
         self.obj.process(header_frame)
         body_frame = frame.Body(1, b'foo-bar-baz')
         method_frame, header_frame, body_value = self.obj.process(body_frame)
-        self.assertIsInstance(body_value, str)
+        self.assertIsInstance(body_value, str_or_bytes)
 
     def test_ascii_body_value(self):
-        expectation = 'foo-bar-baz'
+        expectation = b'foo-bar-baz'
         self.obj = channel.ContentFrameDispatcher()
         method_frame = frame.Method(1, spec.Basic.Deliver())
         self.obj.process(method_frame)
@@ -142,7 +144,7 @@ class ContentFrameDispatcherTests(unittest.TestCase):
         body_frame = frame.Body(1, b'foo-bar-baz')
         method_frame, header_frame, body_value = self.obj.process(body_frame)
         self.assertEqual(body_value, expectation)
-        self.assertIsInstance(body_value, str)
+        self.assertIsInstance(body_value, str_or_bytes)
 
     def test_binary_non_unicode_value(self):
         expectation = ('a', 0.8)
