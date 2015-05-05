@@ -11,7 +11,7 @@ import time
 from operator import itemgetter
 from collections import defaultdict
 
-from pika.compat import xrange
+from pika.compat import xrange, dictkeys
 
 from pika.adapters.base_connection import BaseConnection
 
@@ -355,7 +355,7 @@ class SelectPoller(object):
 
         self._processing_fd_event_map = fd_event_map
 
-        for fileno in fd_event_map.keys():
+        for fileno in dictkeys(fd_event_map):
             if fileno not in fd_event_map:
                 # the fileno has been removed from the map under our feet.
                 continue

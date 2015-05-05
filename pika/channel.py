@@ -11,7 +11,7 @@ import pika.frame as frame
 import pika.exceptions as exceptions
 import pika.spec as spec
 from pika.utils import is_callable
-from pika.compat import unicode_type
+from pika.compat import unicode_type, dictkeys
 
 
 LOGGER = logging.getLogger(__name__)
@@ -389,7 +389,7 @@ class Channel(object):
         LOGGER.info('Channel.close(%s, %s)', reply_code, reply_text)
         if self._consumers:
             LOGGER.debug('Cancelling %i consumers', len(self._consumers))
-            for consumer_tag in self._consumers.keys():
+            for consumer_tag in dictkeys(self._consumers):
                 self.basic_cancel(consumer_tag=consumer_tag)
         self._set_state(self.CLOSING)
         self._rpc(spec.Channel.Close(reply_code, reply_text, 0, 0),
@@ -430,7 +430,7 @@ class Channel(object):
         :rtype: list
 
         """
-        return list(self._consumers.keys())
+        return dictkeys(self._consumers)
 
     def exchange_bind(self,
                       callback=None,

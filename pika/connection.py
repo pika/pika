@@ -1078,7 +1078,7 @@ class Connection(object):
 
         """
         return any([self._channels[num].is_open
-                    for num in self._channels.keys()])
+                    for num in dictkeys(self._channels)])
 
     def _has_pending_callbacks(self, value):
         """Return true if there are any callbacks pending for the specified
@@ -1176,8 +1176,11 @@ class Connection(object):
         limit = self.params.channel_max or channel.MAX_CHANNELS
         if len(self._channels) == limit:
             raise exceptions.NoFreeChannels()
-        return [x + 1 for x in sorted(self._channels.keys() or [0])
-                if x + 1 not in self._channels.keys()][0]
+
+        ckeys = set(self._channels.keys())
+        if not ckeys:
+            return 1
+        return [x + 1 for x in sorted(ckeys) if x + 1 not in ckeys][0]
 
     def _on_channel_closeok(self, method_frame):
         """Remove the channel from the dict of channels when Channel.CloseOk is
@@ -1343,7 +1346,7 @@ class Connection(object):
                        self.params.host, self.params.port, reply_code,
                        reply_text)
         self._set_connection_state(self.CONNECTION_CLOSED)
-        for channel in self._channels.keys():
+        for channel in dictkeys(self._channels):
             if channel not in self._channels:
                 continue
             method_frame = frame.Method(channel, spec.Channel.Close(reply_code,
