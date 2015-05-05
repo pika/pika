@@ -4,9 +4,13 @@ import array
 import errno
 import multiprocessing
 import socket
-import SocketServer
 import sys
 import threading
+
+try:
+    import SocketServer
+except ImportError:
+    import socketserver as SocketServer
 
 
 

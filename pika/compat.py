@@ -22,6 +22,7 @@ if not PY2:
     # the unicode type is str
     unicode_type = str
 
+
     def dictkeys(dct):
         """
         Returns a list of keys of dictionary
@@ -33,6 +34,7 @@ if not PY2:
         """
 
         return list(dct.keys())
+
 
     def byte(*args):
         """
