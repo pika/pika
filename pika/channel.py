@@ -208,8 +208,9 @@ class Channel(object):
         self._validate_channel_and_callback(consumer_callback)
 
         # If a consumer tag was not passed, create one
-        consumer_tag = consumer_tag or 'ctag%i.%s' % (self.channel_number,
-                                                      uuid.uuid4().hex)
+        if not consumer_tag:
+            consumer_tag = ('ctag%i.%s' % (self.channel_number,
+                                           uuid.uuid4().hex)).encode()
 
         if consumer_tag in self._consumers or consumer_tag in self._cancelled:
             raise exceptions.DuplicateConsumerTag(consumer_tag)
