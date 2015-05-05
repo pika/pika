@@ -16,6 +16,7 @@ extend the :class:`~pika.credentials.ExternalCredentials` class implementing
 the required behavior.
 
 """
+from .compat import as_bytes
 import logging
 
 LOGGER = logging.getLogger(__name__)
@@ -36,7 +37,7 @@ class PlainCredentials(object):
     :param bool erase_on_connect: erase credentials on connect.
 
     """
-    TYPE = b'PLAIN'
+    TYPE = 'PLAIN'
 
     def __init__(self, username, password, erase_on_connect=False):
         """Create a new instance of PlainCredentials
@@ -57,10 +58,11 @@ class PlainCredentials(object):
         :rtype: tuple(str|None, str|None)
 
         """
-        if PlainCredentials.TYPE not in start.mechanisms.split():
+        if as_bytes(PlainCredentials.TYPE) not in start.mechanisms.split():
             return None, None
         return (PlainCredentials.TYPE,
-                '\0' + self.username + '\0' + self.password)
+                b'\0' + as_bytes(self.username) +
+                b'\0' + as_bytes(self.password))
 
     def erase_credentials(self):
         """Called by Connection when it no longer needs the credentials"""
@@ -75,7 +77,7 @@ class ExternalCredentials(object):
     authentication, generally with a client SSL certificate.
 
     """
-    TYPE = b'EXTERNAL'
+    TYPE = 'EXTERNAL'
 
     def __init__(self):
         """Create a new instance of ExternalCredentials"""
@@ -88,7 +90,7 @@ class ExternalCredentials(object):
         :rtype: tuple(str or None, str or None)
 
         """
-        if ExternalCredentials.TYPE not in start.mechanisms.split():
+        if as_bytes(ExternalCredentials.TYPE) not in start.mechanisms.split():
             return None, None
         return ExternalCredentials.TYPE, b''
 

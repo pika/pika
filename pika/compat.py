@@ -83,3 +83,10 @@ else:
             return str(value)
         except UnicodeEncodeError:
             return str(value.encode('utf-8'))
+
+
+def as_bytes(value):
+    if not isinstance(value, bytes):
+        return value.encode('UTF-8')
+    return value
+
