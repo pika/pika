@@ -91,7 +91,8 @@ class BoundQueueTestCase(AsyncTestCase):
                                    exclusive=True,
                                    auto_delete=True,
                                    nowait=False,
-                                   arguments={'x-expires': self.TIMEOUT})
+                                   arguments={'x-expires': self.TIMEOUT * 1000}
+                                   )
 
     def on_queue_declared(self, frame):
         self.channel.queue_bind(self.on_ready, self.queue, self.exchange,
