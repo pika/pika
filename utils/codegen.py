@@ -93,6 +93,7 @@ def generate(specPath):
                 prefix + "length = struct.unpack_from('B', encoded, offset)[0]")
             print(prefix + "offset += 1")
             print(prefix + "%s = encoded[offset:offset + length]" % cLvalue)
+            # What is this trying to do???
             print(prefix + "try:")
             print(prefix + "    %s = str(%s)" % (cLvalue, cLvalue))
             print(prefix + "except UnicodeEncodeError:")
@@ -140,21 +141,21 @@ def generate(specPath):
         type = spec.resolveDomain(unresolved_domain)
         if type == 'shortstr':
             print(prefix + \
-                "assert isinstance(%s, basestring),\\\n%s       'A non-bytestring value was supplied for %s'" \
+                "assert isinstance(%s, str_or_bytes),\\\n%s       'A non-string value was supplied for %s'" \
                 % (cValue, prefix, cValue))
             print(
                 prefix +
-                "value = %s.encode('utf-8') if isinstance(%s, unicode) else %s"
+                "value = %s.encode('utf-8') if isinstance(%s, unicode_type) else %s"
                 % (cValue, cValue, cValue))
             print(prefix + "pieces.append(struct.pack('B', len(value)))")
             print(prefix + "pieces.append(value)")
         elif type == 'longstr':
             print(prefix + \
-                "assert isinstance(%s, basestring),\\\n%s       'A non-bytestring value was supplied for %s'" \
+                "assert isinstance(%s, str_or_bytes),\\\n%s       'A non-string value was supplied for %s'" \
                 % (cValue, prefix, cValue))
             print(
                 prefix +
-                "value = %s.encode('utf-8') if isinstance(%s, unicode) else %s"
+                "value = %s.encode('utf-8') if isinstance(%s, unicode_type) else %s"
                 % (cValue, cValue, cValue))
             print(prefix + "pieces.append(struct.pack('>I', len(value)))")
             print(prefix + "pieces.append(value)")
@@ -304,6 +305,9 @@ def generate(specPath):
 import struct
 from pika import amqp_object
 from pika import data
+from pika.compat import str_or_bytes, unicode_type
+
+str = bytes
 
 """)
 
