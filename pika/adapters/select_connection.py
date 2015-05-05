@@ -310,7 +310,7 @@ class SelectPoller(object):
         
         try:
             # Send byte to interrupt the poll loop
-            self._w_interrupt.send('X')
+            self._w_interrupt.send(b'X')
         except Exception as err:
             # There's nothing sensible to do here, we'll exit the interrupt
             # loop after POLL_TIMEOUT secs in worst case anyway.
