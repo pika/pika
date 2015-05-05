@@ -11,7 +11,7 @@ import time
 from operator import itemgetter
 from collections import defaultdict
 
-from pika.compat import xrange, dictkeys
+from pika.compat import dictkeys
 
 from pika.adapters.base_connection import BaseConnection
 
