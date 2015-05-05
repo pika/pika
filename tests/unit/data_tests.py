@@ -11,7 +11,11 @@ try:
 except ImportError:
     import unittest
 
-from collections import OrderedDict
+try:
+    from collections import OrderedDict
+except ImportError:
+    from ordereddict import OrderedDict
+
 from pika import data
 from pika import exceptions
 from pika.compat import long
@@ -48,8 +52,6 @@ class DataTests(unittest.TestCase):
         (b'unicode', u'utf8=✓')
     ])
 
-    @unittest.skipIf(platform.python_implementation() == 'PyPy',
-                     'pypy sort order issue')
     def test_encode_table(self):
         result = []
         data.encode_table(result, self.FIELD_TBL_VALUE)
