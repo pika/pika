@@ -102,7 +102,7 @@ class TestQueueDeclareAndDelete(AsyncTestCase):
                               exclusive=True,
                               auto_delete=False,
                               nowait=False,
-                              arguments={'x-expires': self.TIMEOUT})
+                              arguments={'x-expires': self.TIMEOUT * 1000})
 
     def on_queue_declared(self, frame):
         self.assertIsInstance(frame.method, spec.Queue.DeclareOk)
@@ -126,7 +126,7 @@ class TestQueueNameDeclareAndDelete(AsyncTestCase):
                               exclusive=True,
                               auto_delete=True,
                               nowait=False,
-                              arguments={'x-expires': self.TIMEOUT})
+                              arguments={'x-expires': self.TIMEOUT * 1000})
 
     def on_queue_declared(self, frame):
         self.assertIsInstance(frame.method, spec.Queue.DeclareOk)
@@ -152,7 +152,7 @@ class TestQueueRedeclareWithDifferentValues(AsyncTestCase):
                               exclusive=True,
                               auto_delete=True,
                               nowait=False,
-                              arguments={'x-expires': self.TIMEOUT})
+                              arguments={'x-expires': self.TIMEOUT * 1000})
 
     def on_channel_closed(self, channel, reply_code, reply_text):
         self.stop()
@@ -164,7 +164,7 @@ class TestQueueRedeclareWithDifferentValues(AsyncTestCase):
                                    exclusive=False,
                                    auto_delete=True,
                                    nowait=False,
-                                   arguments={'x-expires': self.TIMEOUT})
+                                   arguments={'x-expires': self.TIMEOUT * 1000})
 
     def on_bad_result(self, frame):
         self.channel.queue_delete(None, str(id(self)), nowait=True)
