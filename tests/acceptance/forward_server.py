@@ -6,6 +6,12 @@ import multiprocessing
 import socket
 import sys
 import threading
+from pika.compat import PY3
+
+if PY3:
+    def buffer(object, offset, size):
+        # array etc. have the buffer protocol
+        return object[offset:offset + size]
 
 try:
     import SocketServer
