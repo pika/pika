@@ -218,7 +218,7 @@ class ChannelTests(unittest.TestCase):
 
     def test_basic_consume_consumer_tag(self):
         self.obj._set_state(self.obj.OPEN)
-        expectation = 'ctag1.'
+        expectation = b'ctag1.'
         mock_callback = mock.Mock()
         self.assertEqual(
             self.obj.basic_consume(mock_callback, 'test-queue')[:6],
@@ -226,7 +226,7 @@ class ChannelTests(unittest.TestCase):
 
     def test_basic_consume_consumer_tag_cancelled_full(self):
         self.obj._set_state(self.obj.OPEN)
-        expectation = 'ctag1.'
+        expectation = b'ctag1.'
         mock_callback = mock.Mock()
         for ctag in ['ctag1.%i' % ii for ii in range(11)]:
             self.obj._cancelled.append(ctag)
