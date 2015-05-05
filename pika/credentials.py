@@ -58,7 +58,8 @@ class PlainCredentials(object):
         :rtype: tuple(str|None, str|None)
 
         """
-        if as_bytes(PlainCredentials.TYPE) not in start.mechanisms.split():
+        if as_bytes(PlainCredentials.TYPE) not in\
+                as_bytes(start.mechanisms).split():
             return None, None
         return (PlainCredentials.TYPE,
                 b'\0' + as_bytes(self.username) +
@@ -90,9 +91,10 @@ class ExternalCredentials(object):
         :rtype: tuple(str or None, str or None)
 
         """
-        if as_bytes(ExternalCredentials.TYPE) not in start.mechanisms.split():
+        if as_bytes(ExternalCredentials.TYPE) not in\
+                as_bytes(start.mechanisms).split():
             return None, None
-        return ExternalCredentials.TYPE, ''
+        return ExternalCredentials.TYPE, b''
 
     def erase_credentials(self):
         """Called by Connection when it no longer needs the credentials"""
