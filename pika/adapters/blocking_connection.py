@@ -26,6 +26,7 @@ from pika import exceptions
 from pika import spec
 from pika import utils
 from pika.adapters import base_connection
+from pika.compat import dictkeys
 
 if os.name == 'java':
     from select import cpython_compatible_select as select_function
