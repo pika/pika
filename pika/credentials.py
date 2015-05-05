@@ -36,7 +36,7 @@ class PlainCredentials(object):
     :param bool erase_on_connect: erase credentials on connect.
 
     """
-    TYPE = b'PLAIN'
+    TYPE = 'PLAIN'
 
     def __init__(self, username, password, erase_on_connect=False):
         """Create a new instance of PlainCredentials
@@ -75,7 +75,7 @@ class ExternalCredentials(object):
     authentication, generally with a client SSL certificate.
 
     """
-    TYPE = b'EXTERNAL'
+    TYPE = 'EXTERNAL'
 
     def __init__(self):
         """Create a new instance of ExternalCredentials"""
@@ -90,7 +90,7 @@ class ExternalCredentials(object):
         """
         if ExternalCredentials.TYPE not in start.mechanisms.split():
             return None, None
-        return ExternalCredentials.TYPE, b''
+        return ExternalCredentials.TYPE, ''
 
     def erase_credentials(self):
         """Called by Connection when it no longer needs the credentials"""
