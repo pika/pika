@@ -45,7 +45,7 @@ class TestConfirmSelect(AsyncTestCase):
 class TestConsumeCancel(AsyncTestCase):
 
     def begin(self, channel):
-        self.queue_name = str(uuid.uuid4())
+        self.queue_name = str(uuid.uuid4()).encode()
         channel.queue_declare(self.on_queue_declared, queue=self.queue_name)
 
     def on_queue_declared(self, frame):
@@ -162,7 +162,7 @@ class TestQueueDeclareAndDelete(AsyncTestCase):
 class TestQueueNameDeclareAndDelete(AsyncTestCase):
 
     def begin(self, channel):
-        channel.queue_declare(self.on_queue_declared, str(id(self)),
+        channel.queue_declare(self.on_queue_declared, str(id(self)).encode(),
                               passive=False,
                               durable=False,
                               exclusive=True,
@@ -172,7 +172,7 @@ class TestQueueNameDeclareAndDelete(AsyncTestCase):
 
     def on_queue_declared(self, frame):
         self.assertIsInstance(frame.method, spec.Queue.DeclareOk)
-        self.assertEqual(frame.method.queue, str(id(self)))
+        self.assertEqual(frame.method.queue, str(id(self)).encode())
         self.channel.queue_delete(self.on_queue_delete, frame.method.queue)
 
     def on_queue_delete(self, frame):
@@ -188,7 +188,7 @@ class TestQueueRedeclareWithDifferentValues(AsyncTestCase):
 
     def begin(self, channel):
         self.channel.add_on_close_callback(self.on_channel_closed)
-        channel.queue_declare(self.on_queue_declared, str(id(self)),
+        channel.queue_declare(self.on_queue_declared, str(id(self)).encode(),
                               passive=False,
                               durable=False,
                               exclusive=True,
@@ -200,7 +200,7 @@ class TestQueueRedeclareWithDifferentValues(AsyncTestCase):
         self.stop()
 
     def on_queue_declared(self, frame):
-        self.channel.queue_declare(self.on_bad_result, str(id(self)),
+        self.channel.queue_declare(self.on_bad_result, str(id(self)).encode(),
                                    passive=False,
                                    durable=True,
                                    exclusive=False,
@@ -209,7 +209,7 @@ class TestQueueRedeclareWithDifferentValues(AsyncTestCase):
                                    arguments={'x-expires': self.TIMEOUT * 1000})
 
     def on_bad_result(self, frame):
-        self.channel.queue_delete(None, str(id(self)), nowait=True)
+        self.channel.queue_delete(None, str(id(self)).encode(), nowait=True)
         raise AssertionError("Should not have received a Queue.DeclareOk")
 
     def start_test(self):
@@ -320,7 +320,7 @@ class TestZ_PublishAndConsume(BoundQueueTestCase):
 
     def on_message(self, channel, method, header, body):
         self.assertIsInstance(method, spec.Basic.Deliver)
-        self.assertEqual(body, self.msg_body)
+        self.assertEqual(body, self.msg_body.encode())
         self.channel.basic_ack(method.delivery_tag)
         self.channel.basic_cancel(self.on_cancelled, self.ctag)
 
@@ -346,7 +346,7 @@ class TestZ_PublishAndConsumeBig(BoundQueueTestCase):
 
     def on_message(self, channel, method, header, body):
         self.assertIsInstance(method, spec.Basic.Deliver)
-        self.assertEqual(body, self.msg_body)
+        self.assertEqual(body, self.msg_body.encode())
         self.channel.basic_ack(method.delivery_tag)
         self.channel.basic_cancel(self.on_cancelled, self.ctag)
 
@@ -365,7 +365,7 @@ class TestZ_PublishAndGet(BoundQueueTestCase):
 
     def on_get(self, channel, method, header, body):
         self.assertIsInstance(method, spec.Basic.GetOk)
-        self.assertEqual(body, self.msg_body)
+        self.assertEqual(body, self.msg_body.encode())
         self.channel.basic_ack(method.delivery_tag)
         self.stop()
 
