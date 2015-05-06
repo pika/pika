@@ -105,7 +105,9 @@ class IOLoop(object):
 
     def _get_poller(self):
         """Determine the best poller to use for this enviroment."""
-    
+
+        poller = None
+
         if hasattr(select, 'epoll'):
             if not SELECT_TYPE or SELECT_TYPE == 'epoll':
                 LOGGER.debug('Using EPollPoller')
@@ -163,7 +165,7 @@ class SelectPoller(object):
         try:
             return socket.socketpair()
 
-        except:
+        except NameError:
             LOGGER.debug("Using custom socketpair for interrupt")
             read_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             read_sock.setblocking(0)
@@ -307,12 +309,16 @@ class SelectPoller(object):
         self._stopping = True
         
         try:
-            # Send byte to interrupt the poll loop
-            self._w_interrupt.send('X')
+            # Send byte to interrupt the poll loop, use write() for consitency.
+            os.write(self._w_interrupt.fileno(), 'X')
+        except OSError as err:
+            if err.errno != errno.EWOULDBLOCK:
+                raise
         except Exception as err:
             # There's nothing sensible to do here, we'll exit the interrupt
             # loop after POLL_TIMEOUT secs in worst case anyway.
             LOGGER.warning("Failed to send ioloop interrupt: %s", err)
+            raise
 
     def poll(self, write_only=False):
         """Wait for events on interested filedescriptors.
@@ -367,11 +373,11 @@ class SelectPoller(object):
                 handler = self._fd_handlers[fileno]
                 handler(fileno, events, write_only=write_only)
 
-    def flush_outbound(self):
+    def _flush_outbound(self):
         """Call the state manager who will figure out that we need to write
             then call the poller's poll function to force it to process events.
         """
-        self._()
+        self._manage_event_state()
         # Force our poller to come up for air, but in write only mode
         # write only mode prevents messages from coming in and kicking off
         # events through the consumer
@@ -490,7 +496,6 @@ class PollPoller(SelectPoller):
         :param int events: The events to look for
 
         """
-        LOGGER.info("registering file %s", fileno)
         self._poll.register(fileno, events)
         super(PollPoller, self).add_handler(fileno, handler, events)
 

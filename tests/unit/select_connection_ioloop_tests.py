@@ -20,15 +20,18 @@ from pika.adapters import select_connection
 from pika.adapters.select_connection import READ, WRITE, ERROR
 from functools import partial
 
-
 class IOLoopBaseTest(unittest.TestCase):
-
+    
+    SELECT_POLLER=None
     TIMEOUT = 1.0
-    def setUp(self): 
+
+    def setUp(self):
+        select_connection.SELECT_TYPE = self.SELECT_POLLER
         self.ioloop = select_connection.IOLoop()
 
     def tearDown(self):
         self.ioloop.remove_timeout(self.fail_timer)
+        self.ioloop = None
          
     def start(self):
         self.fail_timer = self.ioloop.add_timeout(self.TIMEOUT, self.on_timeout)
@@ -40,20 +43,31 @@ class IOLoopBaseTest(unittest.TestCase):
         self.ioloop.stop()
         raise AssertionError('Test timed out')
 
-class IOLoopThreadStopTest(IOLoopBaseTest):
 
+class IOLoopThreadStopTestSelect(IOLoopBaseTest):
+    SELECT_POLLER='select'
     def start_test(self):
         t = threading.Timer(0.1, self.ioloop.stop)
         t.start()
         self.start()
 
+class IOLoopThreadStopTestPoll(IOLoopThreadStopTestSelect):
+    SELECT_POLLER='poll'
 
-class IOLoopTimerTest(IOLoopBaseTest):
+class IOLoopThreadStopTestEPoll(IOLoopThreadStopTestSelect):
+    SELECT_POLLER='epoll'
+
+class IOLoopThreadStopTestKqueue(IOLoopThreadStopTestSelect):
+    SELECT_POLLER='kqueue'
+
+
+class IOLoopTimerTestSelect(IOLoopBaseTest):
     """ Set a bunch of very short timers to fire in reverse order and check
         that they fire in order of time, not  
     """
     NUM_TIMERS = 5
     TIMER_INTERVAL = 0.02
+    SELECT_POLLER='select'
 
     def set_timers(self):
         self.timer_stack = list()
@@ -71,17 +85,37 @@ class IOLoopTimerTest(IOLoopBaseTest):
         if not self.timer_stack:
             self.ioloop.stop()
 
-class IOLoopSleepTimerTest(IOLoopTimerTest):
+class IOLoopTimerTestPoll(IOLoopTimerTestSelect):
+    SELECT_POLLER='poll'
+
+class IOLoopTimerTestEPoll(IOLoopTimerTestSelect):
+    SELECT_POLLER='epoll'
+
+class IOLoopTimerTestKqueue(IOLoopTimerTestSelect):
+    SELECT_POLLER='kqueue'
+
+
+class IOLoopSleepTimerTestSelect(IOLoopTimerTestSelect):
     """Sleep until all the timers should have passed and check they still
         fire in deadline order"""
-        
+
     def start_test(self):
         self.set_timers()
         time.sleep(self.NUM_TIMERS * self.TIMER_INTERVAL)
         self.start()
 
-class IOLoopSocketBase(IOLoopBaseTest):
+class IOLoopSleepTimerTestPoll(IOLoopSleepTimerTestSelect):
+    SELECT_POLLER='poll'
+
+class IOLoopSleepTimerTestEPoll(IOLoopSleepTimerTestSelect):
+    SELECT_POLLER='epoll'
+
+class IOLoopSleepTimerTestKqueue(IOLoopSleepTimerTestSelect):
+    SELECT_POLLER='kqueue'
+
+class IOLoopSocketBaseSelect(IOLoopBaseTest):
     
+    SELECT_POLLER='select'
     READ_SIZE = 1024
 
     def save_sock(self, sock):
@@ -90,9 +124,16 @@ class IOLoopSocketBase(IOLoopBaseTest):
         return fd
 
     def setUp(self):
-        super(IOLoopSocketBase, self).setUp()
+        super(IOLoopSocketBaseSelect, self).setUp()
         self.sock_map = dict()
         self.create_accept_socket()
+
+    def tearDown(self):
+        for fd in self.sock_map:
+            self.ioloop.remove_handler(fd)
+            self.sock_map[fd].close()
+        super(IOLoopSocketBaseSelect, self).tearDown()
+
 
     def create_accept_socket(self):
         listen_sock = socket.socket()
@@ -135,18 +176,27 @@ class IOLoopSocketBase(IOLoopBaseTest):
         self.ioloop.stop()
         raise AssertionError('Test timed out')
 
+class IOLoopSocketBasePoll(IOLoopSocketBaseSelect):
+    SELECT_POLLER='poll'
 
-class IOLoopSimpleMessageTestCase(IOLoopSocketBase):
+class IOLoopSocketBaseEPoll(IOLoopSocketBaseSelect):
+    SELECT_POLLER='epoll'
+
+class IOLoopSocketBaseKqueue(IOLoopSocketBaseSelect):
+    SELECT_POLLER='kqueue'
+
+
+class IOLoopSimpleMessageTestCaseSelect(IOLoopSocketBaseSelect):
 
     def start(self):
         self.create_write_socket(self.connected)
-        super(IOLoopSimpleMessageTestCase, self).start()
+        super(IOLoopSimpleMessageTestCaseSelect, self).start()
 
     def connected(self, fd, events, write_only):
         self.assertEqual(events, WRITE)
         logging.debug("Writing to %d message: %s", fd, 'X')
         os.write(fd, 'X')
-        self.ioloop.remove_handler(fd)
+        self.ioloop.update_handler(fd, 0)
     
     def verify_message(self, msg):
         self.assertEqual(msg, 'X')
@@ -154,4 +204,14 @@ class IOLoopSimpleMessageTestCase(IOLoopSocketBase):
 
     def start_test(self):
         self.start()
+
+class IOLoopSimpleMessageTestCasetPoll(IOLoopSimpleMessageTestCaseSelect):
+    SELECT_POLLER='poll'
+
+class IOLoopSimpleMessageTestCasetEPoll(IOLoopSimpleMessageTestCaseSelect):
+    SELECT_POLLER='epoll'
+
+class IOLoopSimpleMessageTestCasetKqueue(IOLoopSimpleMessageTestCaseSelect):
+    SELECT_POLLER='kqueue'
+
 
