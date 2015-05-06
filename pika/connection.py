@@ -1302,8 +1302,9 @@ class Connection(object):
                                               method_frame.method.frame_max)
         if self.params.heartbeat is None:
             self.params.heartbeat = method_frame.method.heartbeat
-        else:
-            self.params.heartbeat = min(self.params.heartbeat, method_frame.method.heartbeat)
+        elif self.params.heartbeat != 0:
+            self.params.heartbeat = self._combine(self.params.heartbeat,
+                                                  method_frame.method.heartbeat)
 
         # Calculate the maximum pieces for body frames
         self._body_max_length = self._get_body_frame_max_length()
