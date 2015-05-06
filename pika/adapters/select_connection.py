@@ -105,7 +105,9 @@ class IOLoop(object):
 
     def _get_poller(self):
         """Determine the best poller to use for this enviroment."""
-    
+
+        poller = None
+
         if hasattr(select, 'epoll'):
             if not SELECT_TYPE or SELECT_TYPE == 'epoll':
                 LOGGER.debug('Using EPollPoller')
@@ -494,7 +496,6 @@ class PollPoller(SelectPoller):
         :param int events: The events to look for
 
         """
-        LOGGER.info("registering file %s", fileno)
         self._poll.register(fileno, events)
         super(PollPoller, self).add_handler(fileno, handler, events)
 
