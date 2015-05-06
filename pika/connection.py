@@ -40,7 +40,7 @@ class Parameters(object):
     :param str DEFAULT_VIRTUAL_HOST: '/'
     :param str DEFAULT_USERNAME: 'guest'
     :param str DEFAULT_PASSWORD: 'guest'
-    :param int DEFAULT_HEARTBEAT_INTERVAL: 0
+    :param int DEFAULT_HEARTBEAT_INTERVAL: None
     :param int DEFAULT_CHANNEL_MAX: 0
     :param int DEFAULT_FRAME_MAX: pika.spec.FRAME_MAX_SIZE
     :param str DEFAULT_LOCALE: 'en_US'
@@ -57,7 +57,7 @@ class Parameters(object):
     DEFAULT_CONNECTION_ATTEMPTS = 1
     DEFAULT_CHANNEL_MAX = 0
     DEFAULT_FRAME_MAX = spec.FRAME_MAX_SIZE
-    DEFAULT_HEARTBEAT_INTERVAL = 0
+    DEFAULT_HEARTBEAT_INTERVAL = None          # accept server's proposal
     DEFAULT_HOST = 'localhost'
     DEFAULT_LOCALE = 'en_US'
     DEFAULT_PASSWORD = 'guest'
@@ -342,7 +342,10 @@ class ConnectionParameters(Parameters):
         :param pika.credentials.Credentials credentials: auth credentials
         :param int channel_max: Maximum number of channels to allow
         :param int frame_max: The maximum byte size for an AMQP frame
-        :param int heartbeat_interval: How often to send heartbeats
+        :param int heartbeat_interval: How often to send heartbeats.
+                                  Min between this value and server's proposal
+                                  will be used. Use 0 to deactivate heartbeats
+                                  and None to accept server's proposal.
         :param bool ssl: Enable SSL
         :param dict ssl_options: Arguments passed to ssl.wrap_socket
         :param int connection_attempts: Maximum number of retry attempts
@@ -1297,8 +1300,11 @@ class Connection(object):
                                                 method_frame.method.channel_max)
         self.params.frame_max = self._combine(self.params.frame_max,
                                               method_frame.method.frame_max)
-        self.params.heartbeat = self._combine(self.params.heartbeat,
-                                              method_frame.method.heartbeat)
+        if self.params.heartbeat is None:
+            self.params.heartbeat = method_frame.method.heartbeat
+        elif self.params.heartbeat != 0:
+            self.params.heartbeat = self._combine(self.params.heartbeat,
+                                                  method_frame.method.heartbeat)
 
         # Calculate the maximum pieces for body frames
         self._body_max_length = self._get_body_frame_max_length()
