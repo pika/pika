@@ -12,16 +12,26 @@ DEFAULT_TIMEOUT = 15
 
 
 class AsyncTestCase(unittest.TestCase):
-
+    DESCRIPTION = ""
     ADAPTER = None
     TIMEOUT = DEFAULT_TIMEOUT
+
+
+    def shortDescription(self):
+        method_desc = super(AsyncTestCase, self).shortDescription()
+        if self.DESCRIPTION:
+            return "%s (%s)" % (self.DESCRIPTION, method_desc)
+        else:
+            return method_desc
 
     def begin(self, channel):
         """Extend to start the actual tests on the channel"""
         raise AssertionError("AsyncTestCase.begin_test not extended")
 
-    def start(self):
-        self.connection = self.ADAPTER(PARAMETERS, self.on_open,
+    def start(self, adapter=None):
+        self.adapter = adapter or self.ADAPTER
+
+        self.connection = self.adapter(PARAMETERS, self.on_open,
                                        self.on_open_error, self.on_closed)
         self.timeout = self.connection.add_timeout(self.TIMEOUT,
                                                    self.on_timeout)
@@ -68,14 +78,14 @@ class BoundQueueTestCase(AsyncTestCase):
 
     def tearDown(self):
         """Cleanup auto-declared queue and exchange"""
-        self._cconn = self.ADAPTER(PARAMETERS, self._on_cconn_open,
+        self._cconn = self.adapter(PARAMETERS, self._on_cconn_open,
                                    self._on_cconn_error, self._on_cconn_closed)
 
-    def start(self):
+    def start(self, adapter=None):
         self.exchange = 'e' + str(id(self))
         self.queue = 'q' + str(id(self))
         self.routing_key = self.__class__.__name__
-        super(BoundQueueTestCase, self).start()
+        super(BoundQueueTestCase, self).start(adapter)
 
     def begin(self, channel):
         self.channel.exchange_declare(self.on_exchange_declared, self.exchange,

@@ -1,27 +1,75 @@
-import platform
 import time
+import uuid
+import select
 try:
     import unittest2 as unittest
 except ImportError:
     import unittest
 
-import async_test_base
-
-from pika import adapters
-from pika import spec
-
+import platform
 target = platform.python_implementation()
 
+from async_test_base import (AsyncTestCase, BoundQueueTestCase)
 
-class AsyncTestCase(async_test_base.AsyncTestCase):
-    ADAPTER = adapters.LibevConnection
-
-
-class BoundQueueTestCase(async_test_base.BoundQueueTestCase):
-    ADAPTER = adapters.LibevConnection
+from pika import adapters
+from pika.adapters import select_connection
+from pika import spec
 
 
-class TestConfirmSelect(AsyncTestCase):
+class AllAdapters(object):
+    
+    def select1_test(self):
+        "SelectConnection:DefaultPoller"
+        self.start(adapters.SelectConnection)
+ 
+    def select2_test(self):
+        "SelectConnection:select"
+        select_connection.POLLER_TYPE='select'
+        self.start(adapters.SelectConnection)
+
+    @unittest.skipIf(not hasattr(select, 'poll') 
+        or not hasattr(select.poll(), 'modify'), "poll not supported")
+    def select3_test(self):
+        "SelectConnection:poll"
+        select_connection.POLLER_TYPE='poll'
+        self.start(adapters.SelectConnection)
+    
+    @unittest.skipIf(not hasattr(select, 'epoll'), "epoll not supported")
+    def select4_test(self):
+        "SelectConnection:epoll"
+        select_connection.POLLER_TYPE='epoll'
+        self.start(adapters.SelectConnection)
+    
+    @unittest.skipIf(not hasattr(select, 'kqueue'), "kqueue not supported")
+    def select5_test(self):
+        "SelectConnection:kqueue"
+        select_connection.POLLER_TYPE='kqueue'
+        self.start(adapters.SelectConnection)
+
+    def tornado_test(self):
+        "TornadoConnection"
+        self.start(adapters.TornadoConnection)
+
+    def asyncore_test(self):
+        "AsyncoreConnection"
+        self.start(adapters.AsyncoreConnection)
+
+    @unittest.skipIf(target == 'PyPy', 'PyPy is not supported')
+    @unittest.skipIf(adapters.LibevConnection is None, 'pyev is not installed')
+    def libev_test(self):
+        "LibevConnection"
+        self.start(adapters.LibevConnection)
+
+
+class TestA_Connect(AsyncTestCase, AllAdapters):
+    DESCRIPTION = "Connect, open channel and disconnect"
+    
+    def begin(self, channel):
+        self.stop()
+
+
+class TestConfirmSelect(AsyncTestCase, AllAdapters):
+    DESCRIPTION = "Receive confirmation of Confirm.Select"
 
     def begin(self, channel):
         channel._on_selectok = self.on_complete
@@ -31,14 +79,35 @@ class TestConfirmSelect(AsyncTestCase):
         self.assertIsInstance(frame.method, spec.Confirm.SelectOk)
         self.stop()
 
-    @unittest.skipIf(target == 'PyPy', 'PyPy is not supported')
-    @unittest.skipIf(adapters.LibevConnection is None, 'pyev is not installed')
-    def start_test(self):
-        """LibevConnection should receive confirmation of Confirm.Select"""
-        self.start()
+
+class TestConsumeCancel(AsyncTestCase, AllAdapters):
+    DESCRIPTION = "Consume and cancel"
+
+    def begin(self, channel):
+        self.queue_name = str(uuid.uuid4())
+        channel.queue_declare(self.on_queue_declared, queue=self.queue_name)
+
+    def on_queue_declared(self, frame):
+        for i in range(0, 100):
+            msg_body = '{0}:{1}:{2}'.format(self.__class__.__name__, i,
+                                            time.time())
+            self.channel.basic_publish('', self.queue_name, msg_body)
+        self.ctag = self.channel.basic_consume(self.on_message,
+                                               queue=self.queue_name,
+                                               no_ack=True)
+
+    def on_message(self, _channel, _frame, _header, body):
+        self.channel.basic_cancel(self.on_cancel, self.ctag)
+
+    def on_cancel(self, _frame):
+        self.channel.queue_delete(self.on_deleted, self.queue_name)
+
+    def on_deleted(self, _frame):
+        self.stop()
 
 
-class TestExchangeDeclareAndDelete(AsyncTestCase):
+class TestExchangeDeclareAndDelete(AsyncTestCase, AllAdapters):
+    DESCRIPTION = "Create and delete and exchange"
 
     X_TYPE = 'direct'
 
@@ -58,14 +127,9 @@ class TestExchangeDeclareAndDelete(AsyncTestCase):
         self.assertIsInstance(frame.method, spec.Exchange.DeleteOk)
         self.stop()
 
-    @unittest.skipIf(target == 'PyPy', 'PyPy is not supported')
-    @unittest.skipIf(adapters.LibevConnection is None, 'pyev is not installed')
-    def start_test(self):
-        """LibevConnection should create and delete an exchange"""
-        self.start()
 
-
-class TestExchangeRedeclareWithDifferentValues(AsyncTestCase):
+class TestExchangeRedeclareWithDifferentValues(AsyncTestCase, AllAdapters):
+    DESCRIPTION = "should close chan: re-declared queue w/ diff params"
 
     X_TYPE1 = 'direct'
     X_TYPE2 = 'topic'
@@ -97,16 +161,9 @@ class TestExchangeRedeclareWithDifferentValues(AsyncTestCase):
         self.channel.exchange_delete(None, self.name, nowait=True)
         raise AssertionError("Should not have received a Queue.DeclareOk")
 
-    @unittest.skipIf(target == 'PyPy', 'PyPy is not supported')
-    @unittest.skipIf(adapters.LibevConnection is None, 'pyev is not installed')
-    def start_test(self):
-        """LibevConnection should close chan: re-declared exchange w/ diff params
 
-        """
-        self.start()
-
-
-class TestQueueDeclareAndDelete(AsyncTestCase):
+class TestQueueDeclareAndDelete(AsyncTestCase, AllAdapters):
+    DESCRIPTION = "Create and delete a queue"
 
     def begin(self, channel):
         channel.queue_declare(self.on_queue_declared,
@@ -125,14 +182,10 @@ class TestQueueDeclareAndDelete(AsyncTestCase):
         self.assertIsInstance(frame.method, spec.Queue.DeleteOk)
         self.stop()
 
-    @unittest.skipIf(target == 'PyPy', 'PyPy is not supported')
-    @unittest.skipIf(adapters.LibevConnection is None, 'pyev is not installed')
-    def start_test(self):
-        """LibevConnection should create and delete a queue"""
-        self.start()
 
 
-class TestQueueNameDeclareAndDelete(AsyncTestCase):
+class TestQueueNameDeclareAndDelete(AsyncTestCase, AllAdapters):
+    DESCRIPTION = "Create and delete a named queue"
 
     def begin(self, channel):
         channel.queue_declare(self.on_queue_declared, str(id(self)),
@@ -152,14 +205,10 @@ class TestQueueNameDeclareAndDelete(AsyncTestCase):
         self.assertIsInstance(frame.method, spec.Queue.DeleteOk)
         self.stop()
 
-    @unittest.skipIf(target == 'PyPy', 'PyPy is not supported')
-    @unittest.skipIf(adapters.LibevConnection is None, 'pyev is not installed')
-    def start_test(self):
-        """LibevConnection should create and delete a named queue"""
-        self.start()
 
 
-class TestQueueRedeclareWithDifferentValues(AsyncTestCase):
+class TestQueueRedeclareWithDifferentValues(AsyncTestCase, AllAdapters):
+    DESCRIPTION = "Should close chan: re-declared queue w/ diff params"
 
     def begin(self, channel):
         self.channel.add_on_close_callback(self.on_channel_closed)
@@ -187,16 +236,10 @@ class TestQueueRedeclareWithDifferentValues(AsyncTestCase):
         self.channel.queue_delete(None, str(id(self)), nowait=True)
         raise AssertionError("Should not have received a Queue.DeclareOk")
 
-    @unittest.skipIf(target == 'PyPy', 'PyPy is not supported')
-    @unittest.skipIf(adapters.LibevConnection is None, 'pyev is not installed')
-    def start_test(self):
-        """LibevConnection should close chan: re-declared queue w/ diff params
-
-        """
-        self.start()
 
 
-class TestTX1_Select(AsyncTestCase):
+class TestTX1_Select(AsyncTestCase, AllAdapters):
+    DESCRIPTION="Receive confirmation of Tx.Select"
 
     def begin(self, channel):
         channel.tx_select(self.on_complete)
@@ -205,14 +248,10 @@ class TestTX1_Select(AsyncTestCase):
         self.assertIsInstance(frame.method, spec.Tx.SelectOk)
         self.stop()
 
-    @unittest.skipIf(target == 'PyPy', 'PyPy is not supported')
-    @unittest.skipIf(adapters.LibevConnection is None, 'pyev is not installed')
-    def test_confirm_select(self):
-        """LibevConnection should receive confirmation of Tx.Select"""
-        self.start()
 
 
-class TestTX2_Commit(AsyncTestCase):
+class TestTX2_Commit(AsyncTestCase, AllAdapters):
+    DESCRIPTION="Start a transaction, and commit it"
 
     def begin(self, channel):
         channel.tx_select(self.on_selectok)
@@ -225,14 +264,9 @@ class TestTX2_Commit(AsyncTestCase):
         self.assertIsInstance(frame.method, spec.Tx.CommitOk)
         self.stop()
 
-    @unittest.skipIf(target == 'PyPy', 'PyPy is not supported')
-    @unittest.skipIf(adapters.LibevConnection is None, 'pyev is not installed')
-    def start_test(self):
-        """LibevConnection should start a transaction, then commit it back"""
-        self.start()
 
-
-class TestTX2_CommitFailure(AsyncTestCase):
+class TestTX2_CommitFailure(AsyncTestCase, AllAdapters):
+    DESCRIPTION = "Close the channel: commit without a TX"
 
     def begin(self, channel):
         self.channel.add_on_close_callback(self.on_channel_closed)
@@ -247,14 +281,9 @@ class TestTX2_CommitFailure(AsyncTestCase):
     def on_commitok(self, frame):
         raise AssertionError("Should not have received a Tx.CommitOk")
 
-    @unittest.skipIf(target == 'PyPy', 'PyPy is not supported')
-    @unittest.skipIf(adapters.LibevConnection is None, 'pyev is not installed')
-    def start_test(self):
-        """LibevConnection should close the channel: commit without a TX"""
-        self.start()
 
-
-class TestTX3_Rollback(AsyncTestCase):
+class TestTX3_Rollback(AsyncTestCase, AllAdapters):
+    DESCRIPTION = "Start a transaction, then rollback"
 
     def begin(self, channel):
         channel.tx_select(self.on_selectok)
@@ -267,14 +296,10 @@ class TestTX3_Rollback(AsyncTestCase):
         self.assertIsInstance(frame.method, spec.Tx.RollbackOk)
         self.stop()
 
-    @unittest.skipIf(target == 'PyPy', 'PyPy is not supported')
-    @unittest.skipIf(adapters.LibevConnection is None, 'pyev is not installed')
-    def start_test(self):
-        """LibevConnection should start a transaction, then roll it back"""
-        self.start()
 
 
-class TestTX3_RollbackFailure(AsyncTestCase):
+class TestTX3_RollbackFailure(AsyncTestCase, AllAdapters):
+    DESCRIPTION = "Close the channel: rollback without a TX"
 
     def begin(self, channel):
         self.channel.add_on_close_callback(self.on_channel_closed)
@@ -286,14 +311,10 @@ class TestTX3_RollbackFailure(AsyncTestCase):
     def on_commitok(self, frame):
         raise AssertionError("Should not have received a Tx.RollbackOk")
 
-    @unittest.skipIf(target == 'PyPy', 'PyPy is not supported')
-    @unittest.skipIf(adapters.LibevConnection is None, 'pyev is not installed')
-    def start_test(self):
-        """LibevConnection should close the channel: rollback without a TX"""
-        self.start()
 
 
-class TestZ_PublishAndConsume(BoundQueueTestCase):
+class TestZ_PublishAndConsume(BoundQueueTestCase, AllAdapters):
+    DESCRIPTION = "Publish a message and consume it"
 
     def on_ready(self, frame):
         self.ctag = self.channel.basic_consume(self.on_message, self.queue)
@@ -311,14 +332,10 @@ class TestZ_PublishAndConsume(BoundQueueTestCase):
         self.channel.basic_ack(method.delivery_tag)
         self.channel.basic_cancel(self.on_cancelled, self.ctag)
 
-    @unittest.skipIf(target == 'PyPy', 'PyPy is not supported')
-    @unittest.skipIf(adapters.LibevConnection is None, 'pyev is not installed')
-    def start_test(self):
-        """LibevConnection should publish a message and consume it"""
-        self.start()
 
 
-class TestZ_PublishAndConsumeBig(BoundQueueTestCase):
+class TestZ_PublishAndConsumeBig(BoundQueueTestCase, AllAdapters):
+    DESCRIPTION = "Publish a big message and consume it"
 
     def _get_msg_body(self):
         return '\n'.join(["%s" % i for i in range(0, 2097152)])
@@ -339,14 +356,10 @@ class TestZ_PublishAndConsumeBig(BoundQueueTestCase):
         self.channel.basic_ack(method.delivery_tag)
         self.channel.basic_cancel(self.on_cancelled, self.ctag)
 
-    @unittest.skipIf(target == 'PyPy', 'PyPy is not supported')
-    @unittest.skipIf(adapters.LibevConnection is None, 'pyev is not installed')
-    def start_test(self):
-        """LibevConnection should publish a big message and consume it"""
-        self.start()
 
 
-class TestZ_PublishAndGet(BoundQueueTestCase):
+class TestZ_PublishAndGet(BoundQueueTestCase, AllAdapters):
+    DESCRIPTION = "Publish a message and get it"
 
     def on_ready(self, frame):
         self.msg_body = "%s: %i" % (self.__class__.__name__, time.time())
@@ -359,9 +372,3 @@ class TestZ_PublishAndGet(BoundQueueTestCase):
         self.assertEqual(body, self.msg_body)
         self.channel.basic_ack(method.delivery_tag)
         self.stop()
-
-    @unittest.skipIf(target == 'PyPy', 'PyPy is not supported')
-    @unittest.skipIf(adapters.LibevConnection is None, 'pyev is not installed')
-    def start_test(self):
-        """LibevConnection should publish a message and get it"""
-        self.start()
