@@ -7,7 +7,10 @@ try:
 except ImportError:
     ioloop = None
 
-import mock
+try:
+    import mock
+except ImportError:
+    from unittest import mock
 
 try:
     import unittest2 as unittest

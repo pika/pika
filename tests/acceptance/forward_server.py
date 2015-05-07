@@ -4,9 +4,19 @@ import array
 import errno
 import multiprocessing
 import socket
-import SocketServer
 import sys
 import threading
+from pika.compat import PY3
+
+if PY3:
+    def buffer(object, offset, size):
+        # array etc. have the buffer protocol
+        return object[offset:offset + size]
+
+try:
+    import SocketServer
+except ImportError:
+    import socketserver as SocketServer
 
 
 
