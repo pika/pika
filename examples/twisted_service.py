@@ -98,7 +98,7 @@ class PikaProtocol(twisted_connection.TwistedProtocolConnection):
         callback(item)
 
     def _read_item_err(self, error):
-        print error
+        print(error)
 
     def send(self):
         """If connected, send all waiting messages."""

@@ -88,8 +88,9 @@ class BoundQueueTestCase(AsyncTestCase):
                                    self._on_cconn_error, self._on_cconn_closed)
 
     def start(self, adapter=None):
-        self.exchange = 'e' + str(id(self))
-        self.queue = 'q' + str(id(self))
+        # PY3 compat encoding
+        self.exchange = ('e' + str(id(self))).encode()
+        self.queue = ('q' + str(id(self))).encode()
         self.routing_key = self.__class__.__name__
         super(BoundQueueTestCase, self).start(adapter)
 
@@ -141,12 +142,12 @@ class BoundQueueTestCase(AsyncTestCase):
 #
 
 class AsyncAdapters(object):
-    
+
     def select_default_test(self):
         "SelectConnection:DefaultPoller"
         select_connection.POLLER_TYPE=None
         self.start(adapters.SelectConnection)
- 
+
     def select_select_test(self):
         "SelectConnection:select"
         select_connection.POLLER_TYPE='select'
@@ -158,13 +159,13 @@ class AsyncAdapters(object):
         "SelectConnection:poll"
         select_connection.POLLER_TYPE='poll'
         self.start(adapters.SelectConnection)
-    
+
     @unittest.skipIf(not hasattr(select, 'epoll'), "epoll not supported")
     def select_epoll_test(self):
         "SelectConnection:epoll"
         select_connection.POLLER_TYPE='epoll'
         self.start(adapters.SelectConnection)
-    
+
     @unittest.skipIf(not hasattr(select, 'kqueue'), "kqueue not supported")
     def select_kqueue_test(self):
         "SelectConnection:kqueue"

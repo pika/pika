@@ -4,7 +4,11 @@ Tests for pika.callback
 
 """
 import logging
-import mock
+try:
+    import mock
+except ImportError:
+    from unittest import mock
+
 try:
     import unittest2 as unittest
 except ImportError:
@@ -79,9 +83,7 @@ class CallbackTests(unittest.TestCase):
 
     def test_name_or_value_unicode(self):
         value = u'Это тест значения'
-        expectation = ('\xd0\xad\xd1\x82\xd0\xbe \xd1\x82\xd0\xb5\xd1\x81\xd1'
-                       '\x82 \xd0\xb7\xd0\xbd\xd0\xb0\xd1\x87\xd0\xb5\xd0\xbd'
-                       '\xd0\xb8\xd1\x8f')
+        expectation = 'Это тест значения'
         self.assertEqual(callback.name_or_value(value), expectation)
 
     def test_empty_callbacks_on_init(self):

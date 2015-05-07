@@ -7,6 +7,7 @@ import logging
 import time
 
 from pika.adapters import base_connection
+from pika.compat import dictkeys
 
 LOGGER = logging.getLogger(__name__)
 
@@ -65,7 +66,7 @@ class PikaDispatcher(asyncore.dispatcher):
     def process_timeouts(self):
         """Process the self._timeouts event stack"""
         start_time = time.time()
-        for timeout_id in self._timeouts.keys():
+        for timeout_id in dictkeys(self._timeouts):
             if self._timeouts[timeout_id]['deadline'] <= start_time:
                 callback = self._timeouts[timeout_id]['callback']
                 del self._timeouts[timeout_id]
