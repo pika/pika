@@ -60,6 +60,39 @@ class TestSuddenBrokerDisconnectBeforeChannel(BlockingTestCase):
         self.assertFalse(self.connection.is_open)
         self.assertIsNone(self.connection.socket)
 
+class TestNoAccessToFileDescriptorAfterConnectionClosed(BlockingTestCase):
+
+    TIMEOUT = DEFAULT_TIMEOUT
+
+    def start_test(self):
+        """BlockingConnection can't access file descriptor after \
+        ConnectionClosed
+        """
+        with ForwardServer((PARAMETERS.host, PARAMETERS.port)) as fwd:
+            self.connection = self._connect(
+                pika.URLParameters(
+                    PARAMETERS_TEMPLATE % {"port": fwd.server_address[1]}))
+
+            self.timeout = self.connection.add_timeout(self.TIMEOUT,
+                                                       self._on_test_timeout)
+
+
+        # Once outside the context, the connection is broken
+
+        # BlockingConnection should raise ConnectionClosed
+        with self.assertRaises(pika.exceptions.ConnectionClosed):
+            channel = self.connection.channel()
+
+        self.assertTrue(self.connection.is_closed)
+        self.assertFalse(self.connection.is_open)
+        self.assertIsNone(self.connection.socket)
+
+        # Attempt to operate on the connection once again after ConnectionClosed
+        self.assertIsNone(self.connection._read_poller)
+        self.assertIsNone(self.connection.socket)
+        with self.assertRaises(AttributeError):
+            channel = self.connection.channel()
+
 
 class TestConnectWithDownedBroker(BlockingTestCase):
 
