@@ -26,7 +26,7 @@ from pika import exceptions
 from pika import spec
 from pika import utils
 from pika.adapters import base_connection
-from pika.compat import dictkeys
+from pika.compat import dictkeys, unicode_type
 
 if os.name == 'java':
     from select import cpython_compatible_select as select_function
@@ -549,7 +549,7 @@ class BlockingChannel(channel.Channel):
         if mandatory:
             self._response = None
 
-        if isinstance(body, unicode):
+        if isinstance(body, unicode_type):
             body = body.encode('utf-8')
 
         if self._confirmation:
