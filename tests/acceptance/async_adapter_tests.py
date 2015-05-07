@@ -1,74 +1,18 @@
 import time
 import uuid
-import select
-try:
-    import unittest2 as unittest
-except ImportError:
-    import unittest
 
-import platform
-target = platform.python_implementation()
-
-from async_test_base import (AsyncTestCase, BoundQueueTestCase)
-
-from pika import adapters
-from pika.adapters import select_connection
 from pika import spec
 
+from async_test_base import (AsyncTestCase, BoundQueueTestCase, AsyncAdapters)
 
-class AllAdapters(object):
-    
-    def select1_test(self):
-        "SelectConnection:DefaultPoller"
-        self.start(adapters.SelectConnection)
- 
-    def select2_test(self):
-        "SelectConnection:select"
-        select_connection.POLLER_TYPE='select'
-        self.start(adapters.SelectConnection)
-
-    @unittest.skipIf(not hasattr(select, 'poll') 
-        or not hasattr(select.poll(), 'modify'), "poll not supported")
-    def select3_test(self):
-        "SelectConnection:poll"
-        select_connection.POLLER_TYPE='poll'
-        self.start(adapters.SelectConnection)
-    
-    @unittest.skipIf(not hasattr(select, 'epoll'), "epoll not supported")
-    def select4_test(self):
-        "SelectConnection:epoll"
-        select_connection.POLLER_TYPE='epoll'
-        self.start(adapters.SelectConnection)
-    
-    @unittest.skipIf(not hasattr(select, 'kqueue'), "kqueue not supported")
-    def select5_test(self):
-        "SelectConnection:kqueue"
-        select_connection.POLLER_TYPE='kqueue'
-        self.start(adapters.SelectConnection)
-
-    def tornado_test(self):
-        "TornadoConnection"
-        self.start(adapters.TornadoConnection)
-
-    def asyncore_test(self):
-        "AsyncoreConnection"
-        self.start(adapters.AsyncoreConnection)
-
-    @unittest.skipIf(target == 'PyPy', 'PyPy is not supported')
-    @unittest.skipIf(adapters.LibevConnection is None, 'pyev is not installed')
-    def libev_test(self):
-        "LibevConnection"
-        self.start(adapters.LibevConnection)
-
-
-class TestA_Connect(AsyncTestCase, AllAdapters):
+class TestA_Connect(AsyncTestCase, AsyncAdapters):
     DESCRIPTION = "Connect, open channel and disconnect"
     
     def begin(self, channel):
         self.stop()
 
 
-class TestConfirmSelect(AsyncTestCase, AllAdapters):
+class TestConfirmSelect(AsyncTestCase, AsyncAdapters):
     DESCRIPTION = "Receive confirmation of Confirm.Select"
 
     def begin(self, channel):
@@ -80,7 +24,7 @@ class TestConfirmSelect(AsyncTestCase, AllAdapters):
         self.stop()
 
 
-class TestConsumeCancel(AsyncTestCase, AllAdapters):
+class TestConsumeCancel(AsyncTestCase, AsyncAdapters):
     DESCRIPTION = "Consume and cancel"
 
     def begin(self, channel):
@@ -106,7 +50,7 @@ class TestConsumeCancel(AsyncTestCase, AllAdapters):
         self.stop()
 
 
-class TestExchangeDeclareAndDelete(AsyncTestCase, AllAdapters):
+class TestExchangeDeclareAndDelete(AsyncTestCase, AsyncAdapters):
     DESCRIPTION = "Create and delete and exchange"
 
     X_TYPE = 'direct'
@@ -128,7 +72,7 @@ class TestExchangeDeclareAndDelete(AsyncTestCase, AllAdapters):
         self.stop()
 
 
-class TestExchangeRedeclareWithDifferentValues(AsyncTestCase, AllAdapters):
+class TestExchangeRedeclareWithDifferentValues(AsyncTestCase, AsyncAdapters):
     DESCRIPTION = "should close chan: re-declared queue w/ diff params"
 
     X_TYPE1 = 'direct'
@@ -162,7 +106,7 @@ class TestExchangeRedeclareWithDifferentValues(AsyncTestCase, AllAdapters):
         raise AssertionError("Should not have received a Queue.DeclareOk")
 
 
-class TestQueueDeclareAndDelete(AsyncTestCase, AllAdapters):
+class TestQueueDeclareAndDelete(AsyncTestCase, AsyncAdapters):
     DESCRIPTION = "Create and delete a queue"
 
     def begin(self, channel):
@@ -184,7 +128,7 @@ class TestQueueDeclareAndDelete(AsyncTestCase, AllAdapters):
 
 
 
-class TestQueueNameDeclareAndDelete(AsyncTestCase, AllAdapters):
+class TestQueueNameDeclareAndDelete(AsyncTestCase, AsyncAdapters):
     DESCRIPTION = "Create and delete a named queue"
 
     def begin(self, channel):
@@ -207,7 +151,7 @@ class TestQueueNameDeclareAndDelete(AsyncTestCase, AllAdapters):
 
 
 
-class TestQueueRedeclareWithDifferentValues(AsyncTestCase, AllAdapters):
+class TestQueueRedeclareWithDifferentValues(AsyncTestCase, AsyncAdapters):
     DESCRIPTION = "Should close chan: re-declared queue w/ diff params"
 
     def begin(self, channel):
@@ -238,7 +182,7 @@ class TestQueueRedeclareWithDifferentValues(AsyncTestCase, AllAdapters):
 
 
 
-class TestTX1_Select(AsyncTestCase, AllAdapters):
+class TestTX1_Select(AsyncTestCase, AsyncAdapters):
     DESCRIPTION="Receive confirmation of Tx.Select"
 
     def begin(self, channel):
@@ -250,7 +194,7 @@ class TestTX1_Select(AsyncTestCase, AllAdapters):
 
 
 
-class TestTX2_Commit(AsyncTestCase, AllAdapters):
+class TestTX2_Commit(AsyncTestCase, AsyncAdapters):
     DESCRIPTION="Start a transaction, and commit it"
 
     def begin(self, channel):
@@ -265,7 +209,7 @@ class TestTX2_Commit(AsyncTestCase, AllAdapters):
         self.stop()
 
 
-class TestTX2_CommitFailure(AsyncTestCase, AllAdapters):
+class TestTX2_CommitFailure(AsyncTestCase, AsyncAdapters):
     DESCRIPTION = "Close the channel: commit without a TX"
 
     def begin(self, channel):
@@ -282,7 +226,7 @@ class TestTX2_CommitFailure(AsyncTestCase, AllAdapters):
         raise AssertionError("Should not have received a Tx.CommitOk")
 
 
-class TestTX3_Rollback(AsyncTestCase, AllAdapters):
+class TestTX3_Rollback(AsyncTestCase, AsyncAdapters):
     DESCRIPTION = "Start a transaction, then rollback"
 
     def begin(self, channel):
@@ -298,7 +242,7 @@ class TestTX3_Rollback(AsyncTestCase, AllAdapters):
 
 
 
-class TestTX3_RollbackFailure(AsyncTestCase, AllAdapters):
+class TestTX3_RollbackFailure(AsyncTestCase, AsyncAdapters):
     DESCRIPTION = "Close the channel: rollback without a TX"
 
     def begin(self, channel):
@@ -313,7 +257,7 @@ class TestTX3_RollbackFailure(AsyncTestCase, AllAdapters):
 
 
 
-class TestZ_PublishAndConsume(BoundQueueTestCase, AllAdapters):
+class TestZ_PublishAndConsume(BoundQueueTestCase, AsyncAdapters):
     DESCRIPTION = "Publish a message and consume it"
 
     def on_ready(self, frame):
@@ -334,7 +278,7 @@ class TestZ_PublishAndConsume(BoundQueueTestCase, AllAdapters):
 
 
 
-class TestZ_PublishAndConsumeBig(BoundQueueTestCase, AllAdapters):
+class TestZ_PublishAndConsumeBig(BoundQueueTestCase, AsyncAdapters):
     DESCRIPTION = "Publish a big message and consume it"
 
     def _get_msg_body(self):
@@ -358,7 +302,7 @@ class TestZ_PublishAndConsumeBig(BoundQueueTestCase, AllAdapters):
 
 
 
-class TestZ_PublishAndGet(BoundQueueTestCase, AllAdapters):
+class TestZ_PublishAndGet(BoundQueueTestCase, AsyncAdapters):
     DESCRIPTION = "Publish a message and get it"
 
     def on_ready(self, frame):

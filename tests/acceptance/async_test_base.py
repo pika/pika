@@ -1,10 +1,16 @@
+import select
 import logging
 try:
     import unittest2 as unittest
 except ImportError:
     import unittest
 
+import platform
+target = platform.python_implementation()
+
 import pika
+from pika import adapters
+from pika.adapters import select_connection
 
 LOGGER = logging.getLogger(__name__)
 PARAMETERS = pika.URLParameters('amqp://guest:guest@localhost:5672/%2f')
@@ -126,3 +132,57 @@ class BoundQueueTestCase(AsyncTestCase):
         channel.exchange_delete(None, self.exchange, nowait=True)
         channel.queue_delete(None, self.queue, nowait=True)
         self._cconn.close()
+
+#
+# In order to write test cases that will tested using all the Async Adapters
+# write a class that inherits both from one of TestCase classes above and 
+# from the AsyncAdapters class below. This allows you to avoid duplicating the
+# test methods for each adapter in each test class.
+#
+
+class AsyncAdapters(object):
+    
+    def select_default_test(self):
+        "SelectConnection:DefaultPoller"
+        select_connection.POLLER_TYPE=None
+        self.start(adapters.SelectConnection)
+ 
+    def select_select_test(self):
+        "SelectConnection:select"
+        select_connection.POLLER_TYPE='select'
+        self.start(adapters.SelectConnection)
+
+    @unittest.skipIf(not hasattr(select, 'poll') 
+        or not hasattr(select.poll(), 'modify'), "poll not supported")
+    def select_poll_test(self):
+        "SelectConnection:poll"
+        select_connection.POLLER_TYPE='poll'
+        self.start(adapters.SelectConnection)
+    
+    @unittest.skipIf(not hasattr(select, 'epoll'), "epoll not supported")
+    def select_epoll_test(self):
+        "SelectConnection:epoll"
+        select_connection.POLLER_TYPE='epoll'
+        self.start(adapters.SelectConnection)
+    
+    @unittest.skipIf(not hasattr(select, 'kqueue'), "kqueue not supported")
+    def select_kqueue_test(self):
+        "SelectConnection:kqueue"
+        select_connection.POLLER_TYPE='kqueue'
+        self.start(adapters.SelectConnection)
+
+    def tornado_test(self):
+        "TornadoConnection"
+        self.start(adapters.TornadoConnection)
+
+    def asyncore_test(self):
+        "AsyncoreConnection"
+        self.start(adapters.AsyncoreConnection)
+
+    @unittest.skipIf(target == 'PyPy', 'PyPy is not supported')
+    @unittest.skipIf(adapters.LibevConnection is None, 'pyev is not installed')
+    def libev_test(self):
+        "LibevConnection"
+        self.start(adapters.LibevConnection)
+
+
