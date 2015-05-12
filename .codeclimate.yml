@@ -3,3 +3,5 @@ languages:
 exclude_paths: 
     - tests/*
     - utils/*
+    - pika/examples/*
+    - pika/spec.py
