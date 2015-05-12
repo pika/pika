@@ -1,6 +1,7 @@
 languages:
     Python: true
 exclude_paths: 
+    - docs/*
     - tests/*
     - utils/*
     - pika/examples/*
