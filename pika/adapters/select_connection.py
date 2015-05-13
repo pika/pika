@@ -98,7 +98,7 @@ class IOLoop(object):
     Passes through all operations to the loaded poller object.
 
     """
-    
+
     def __init__(self):
         self._poller = self._get_poller()
 
@@ -114,22 +114,22 @@ class IOLoop(object):
             if not SELECT_TYPE or SELECT_TYPE == 'epoll':
                 LOGGER.debug('Using EPollPoller')
                 poller = EPollPoller()
-    
+
         if not poller and hasattr(select, 'kqueue'):
             if not SELECT_TYPE or SELECT_TYPE == 'kqueue':
                 LOGGER.debug('Using KQueuePoller')
                 poller = KQueuePoller()
-        
+
         if not poller and hasattr(select, 'poll') and hasattr(select.poll(),
                                                               'modify'):
             if not SELECT_TYPE or SELECT_TYPE == 'poll':
                 LOGGER.debug('Using PollPoller')
                 poller = PollPoller()
-        
+
         if not poller:
             LOGGER.debug('Using SelectPoller')
             poller = SelectPoller()
-    
+
         return poller
 
 
@@ -184,7 +184,7 @@ class SelectPoller(object):
         :param int interrupt_sock: The file descriptor to read from
         :param int events: (unused) The events generated for this fd
         :param bool write_only: (unused) True if poll was called to trigger a
-            write 
+            write
         """
         os.read(interrupt_sock, 512)
 
@@ -232,7 +232,7 @@ class SelectPoller(object):
             deadlines = [t['deadline'] for t in self._timeouts.values()]
             self._next_timeout = min(deadlines)
             timeout = max((self._next_timeout - time.time(), 0))
-        
+
         else:
             timeout = SelectPoller.POLL_TIMEOUT
 
@@ -241,7 +241,7 @@ class SelectPoller(object):
 
     def process_timeouts(self):
         """Process the self._timeouts event stack"""
-        
+
         now = time.time()
         to_run = filter(lambda t: t['deadline'] <= now,
                         self._timeouts.values())
@@ -278,11 +278,11 @@ class SelectPoller(object):
                 self._fd_events[ev].add(fileno)
             else:
                 self._fd_events[ev].discard(fileno)
-    
+
 
     def remove_handler(self, fileno):
         """Remove a file descriptor from the set
-        
+
         :param int fileno: The file descriptor
 
         """
@@ -296,10 +296,10 @@ class SelectPoller(object):
 
     def start(self):
         """Start the main poller loop. It will loop here until self._stopping"""
-        
+
         LOGGER.debug('Starting IOLoop')
         self._stopping = False
-        
+
         while not self._stopping:
             self.poll()
             self.process_timeouts()
@@ -309,7 +309,7 @@ class SelectPoller(object):
 
         LOGGER.debug('Stopping IOLoop')
         self._stopping = True
-        
+
         try:
             # Send byte to interrupt the poll loop, use write() for consitency.
             os.write(self._w_interrupt.fileno(), b'X')
@@ -349,8 +349,8 @@ class SelectPoller(object):
 
     def _process_fd_events(self, fd_event_map, write_only):
         """ Processes the callbacks for each fileno we've recieved events.
-            Before doing so we re-calculate the event mask based on what is 
-            currently set in case it has been changed under our feet by a 
+            Before doing so we re-calculate the event mask based on what is
+            currently set in case it has been changed under our feet by a
             previous callback. We also take a store a refernce to the
             fd_event_map in the class so that we can detect removal of an
             fileno during processing of another callback and not generate
@@ -397,8 +397,8 @@ class KQueuePoller(SelectPoller):
         :param int events: The events to look for
 
         """
-        super(KQueuePoller, self).__init__()
         self._kqueue = select.kqueue()
+        super(KQueuePoller, self).__init__()
 
     def update_handler(self, fileno, events):
         """Set the events to the current events
@@ -464,7 +464,7 @@ class KQueuePoller(SelectPoller):
         fd_event_map = defaultdict(int)
         for event in kevents:
             fileno = event.ident
-            fd_event_map[fileno] |= self._map_event(event.filter)
+            fd_event_map[fileno] |= self._map_event(event)
 
         self._process_fd_events(fd_event_map, write_only)
 
@@ -513,9 +513,9 @@ class PollPoller(SelectPoller):
 
     def remove_handler(self, fileno):
         """Remove a fileno to the set
-       
+
         :param int fileno: The file descriptor
-        
+
         """
         super(PollPoller, self).remove_handler(fileno)
         self._poll.unregister(fileno)
