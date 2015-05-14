@@ -1,3 +1,7 @@
+# ----------------------------------------------------------------------
+# Copyright (c) 2015, Vitaly Kruglikov All rights reserved.
+# ----------------------------------------------------------------------
+
 """TCP/IP forwarding/echo service for testing."""
 
 import array
@@ -367,14 +371,14 @@ def socket_pair(family=None, sock_type=socket.SOCK_STREAM,
     :param proto: protocol; defaults to socket.IPPROTO_IP
     """
     if family is None:
-        try:
+        if hasattr(socket, "AF_UNIX"):
             family = socket.AF_UNIX
-        except NameError:
+        else:
             family = socket.AF_INET
 
-    try:
+    if hasattr(socket, "socketpair"):
         socket1, socket2 = socket.socketpair(family, sock_type, proto)
-    except NameError:
+    else:
         # Probably running on Windows where socket.socketpair isn't supported
 
         # Work around lack of socket.socketpair()
