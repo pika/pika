@@ -165,7 +165,7 @@ class SelectPoller(object):
         try:
             return socket.socketpair()
 
-        except NameError:
+        except AttributeError:
             LOGGER.debug("Using custom socketpair for interrupt")
             read_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             read_sock.setblocking(0)
