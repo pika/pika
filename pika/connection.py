@@ -937,7 +937,7 @@ class Connection(object):
             'version': __version__
         }
 
-        if self.params.client_props is not None:
+        if hasattr(self.params, 'client_props') and self.params.client_props is not None:
             for key in self.params.client_props:
                 client_properties[key] = self.params.client_props[key]
 
