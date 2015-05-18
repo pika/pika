@@ -7,6 +7,7 @@ import logging
 
 from pika import frame
 from pika import amqp_object
+from pika.compat import xrange, canonical_str
 
 LOGGER = logging.getLogger(__name__)
 
@@ -35,15 +36,12 @@ def name_or_value(value):
     if isinstance(value, amqp_object.AMQPObject):
         return value.NAME
 
-    # Cast the value to a string, encoding it if it's unicode
-    try:
-        return str(value)
-    except UnicodeEncodeError:
-        return str(value.encode('utf-8'))
+    # Cast the value to a str (python 2 and python 3); encoding as UTF-8 on Python 2
+    return canonical_str(value)
 
 
 def sanitize_prefix(function):
-    """Automatically call _name_or_value on the prefix passed in."""
+    """Automatically call name_or_value on the prefix passed in."""
 
     @functools.wraps(function)
     def wrapper(*args, **kwargs):

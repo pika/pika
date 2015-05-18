@@ -32,7 +32,7 @@ class IOLoopBaseTest(unittest.TestCase):
     def tearDown(self):
         self.ioloop.remove_timeout(self.fail_timer)
         self.ioloop = None
-         
+
     def start(self):
         self.fail_timer = self.ioloop.add_timeout(self.TIMEOUT, self.on_timeout)
         self.ioloop.start()
@@ -63,7 +63,7 @@ class IOLoopThreadStopTestKqueue(IOLoopThreadStopTestSelect):
 
 class IOLoopTimerTestSelect(IOLoopBaseTest):
     """ Set a bunch of very short timers to fire in reverse order and check
-        that they fire in order of time, not  
+        that they fire in order of time, not
     """
     NUM_TIMERS = 5
     TIMER_INTERVAL = 0.02
@@ -75,7 +75,7 @@ class IOLoopTimerTestSelect(IOLoopBaseTest):
             deadline = i * self.TIMER_INTERVAL
             self.ioloop.add_timeout(deadline, partial(self.on_timer, i))
             self.timer_stack.append(i)
-    
+
     def start_test(self):
         self.set_timers()
         self.start()
@@ -103,6 +103,7 @@ class IOLoopSleepTimerTestSelect(IOLoopTimerTestSelect):
         self.set_timers()
         time.sleep(self.NUM_TIMERS * self.TIMER_INTERVAL)
         self.start()
+
 
 class IOLoopSleepTimerTestPoll(IOLoopSleepTimerTestSelect):
     SELECT_POLLER='poll'
@@ -169,7 +170,7 @@ class IOLoopSocketBaseSelect(IOLoopBaseTest):
 
     def verify_message(self, msg):
         raise AssertionError("IOLoopSocketBase.verify_message not extended")
-        
+
     def on_timeout(self):
         """called when stuck waiting for connection to close"""
         # force the ioloop to stop
@@ -195,11 +196,11 @@ class IOLoopSimpleMessageTestCaseSelect(IOLoopSocketBaseSelect):
     def connected(self, fd, events, write_only):
         self.assertEqual(events, WRITE)
         logging.debug("Writing to %d message: %s", fd, 'X')
-        os.write(fd, 'X')
+        os.write(fd, b'X')
         self.ioloop.update_handler(fd, 0)
     
     def verify_message(self, msg):
-        self.assertEqual(msg, 'X')
+        self.assertEqual(msg, b'X')
         self.ioloop.stop()
 
     def start_test(self):
@@ -213,5 +214,3 @@ class IOLoopSimpleMessageTestCasetEPoll(IOLoopSimpleMessageTestCaseSelect):
 
 class IOLoopSimpleMessageTestCasetKqueue(IOLoopSimpleMessageTestCaseSelect):
     SELECT_POLLER='kqueue'
-
-

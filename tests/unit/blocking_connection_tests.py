@@ -5,8 +5,12 @@ Tests for pika.adapters.blocking_connection.BlockingConnection
 """
 import socket
 
-import mock
-from mock import patch
+try:
+    from unittest import mock
+    patch = mock.patch
+except ImportError:
+    import mock
+    from mock import patch
 try:
     import unittest2 as unittest
 except ImportError:
