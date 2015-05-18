@@ -55,7 +55,7 @@ class TornadoConnection(base_connection.BaseConnection):
 
     def _adapter_connect(self):
         """Connect to the remote socket, adding the socket to the IOLoop if
-        connected
+        connected. 
 
         :rtype: bool
 

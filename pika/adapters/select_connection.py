@@ -75,16 +75,6 @@ class SelectConnection(BaseConnection):
             self.ioloop.remove_handler(self.socket.fileno())
         super(SelectConnection, self)._adapter_disconnect()
 
-    def _flush_outbound(self):
-        """Call the state manager who will figure out that we need to write
-            then call the poller's poll function to force it to process events.
-        """
-        self._manage_event_state()
-        # Force our poller to come up for air, but in write only mode
-        # write only mode prevents messages from coming in and kicking off
-        # events through the consumer
-        self.ioloop.poll(write_only=True)
-
 
 class IOLoop(object):
     """Singlton wrapper that decides which type of poller to use, creates an
@@ -377,17 +367,6 @@ class SelectPoller(object):
             if events:
                 handler = self._fd_handlers[fileno]
                 handler(fileno, events, write_only=write_only)
-
-    def _flush_outbound(self):
-        """Call the state manager who will figure out that we need to write
-            then call the poller's poll function to force it to process events.
-        """
-        self._manage_event_state()
-        # Force our poller to come up for air, but in write only mode
-        # write only mode prevents messages from coming in and kicking off
-        # events through the consumer
-        self.poll(write_only=True)
-
 
 class KQueuePoller(SelectPoller):
     """KQueuePoller works on BSD based systems and is faster than select"""
