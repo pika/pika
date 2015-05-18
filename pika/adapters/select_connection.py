@@ -163,17 +163,18 @@ class SelectPoller(object):
             closed and garbage collected by python when the ioloop itself is.
         """
         try:
-            return socket.socketpair()
-
-        except NameError:
+            read_sock, write_sock = socket.socketpair()
+            
+        except AttributeError:
             LOGGER.debug("Using custom socketpair for interrupt")
             read_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            read_sock.setblocking(0)
             read_sock.bind(('localhost', 0))
             write_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            write_sock.setblocking(0)
             write_sock.connect(read_sock.getsockname())
-            return read_sock, write_sock
+        
+        read_sock.setblocking(0)
+        write_sock.setblocking(0)
+        return read_sock, write_sock
 
     def read_interrupt(self, interrupt_sock, events, write_only):
         """ Read the interrupt byte(s). We ignore the event mask and write_only
@@ -184,7 +185,11 @@ class SelectPoller(object):
         :param bool write_only: (unused) True if poll was called to trigger a
             write
         """
-        os.read(interrupt_sock, 512)
+        try:
+            os.read(interrupt_sock, 512)
+        except OSError as err:
+            if err.errno != errno.EAGAIN:
+                raise
 
     def add_timeout(self, deadline, callback_method):
         """Add the callback_method to the IOLoop timer to fire after deadline
