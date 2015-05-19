@@ -4,7 +4,11 @@ Tests for connection parameters.
 
 """
 import socket
-from mock import patch
+try:
+    from mock import patch
+except ImportError:
+    from unittest.mock import patch
+
 try:
     import unittest2 as unittest
 except ImportError:
