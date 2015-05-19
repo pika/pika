@@ -130,7 +130,9 @@ class BlockingConnection(base_connection.BaseConnection):
         :raises: RuntimeError
 
         """
-        super(BlockingConnection, self).__init__(parameters, None, False)
+        super(BlockingConnection, self).__init__(parameters,
+                                                 on_open_callback=None,
+                                                 stop_ioloop_on_close=False)
         self._socket_timeouts = 0
 
     def add_on_close_callback(self, callback_method_unused):
@@ -320,6 +322,7 @@ class BlockingConnection(base_connection.BaseConnection):
         """
         self._remove_heartbeat()
         self._cleanup_socket()
+        self._read_poller = None
         try:
             if not reset_only:
                 # NOTE: this may raise an exception
