@@ -150,9 +150,17 @@ class TestDisconnectDuringConnectionStart(BlockingTestCase):
             0, pika.spec.Connection.Start,
             lambda *args, **kwards: fwd.stop())
 
-        # Now, attempt to reconnect
-        with self.assertRaises(pika.exceptions.ProbableAuthenticationError):
+        # Now, attempt to reconnect; depending on whether our
+        # spec.Connection.Start callback gets called before or after the one
+        # registered by the Connection class, we could be looking at either
+        #     ProbableAuthenticationError in CONNECTION_START state or
+        #     ProbableAccessDeniedError in CONNECTION_TUNE state.
+        with self.assertRaises(pika.exceptions.AMQPConnectionError) as cm:
             self.connection.connect()
+
+        self.assertIsInstance(cm.exception,
+                              (pika.exceptions.ProbableAuthenticationError,
+                               pika.exceptions.ProbableAccessDeniedError))
 
         # Verify that connection state reflects a closed connection
         self.assertTrue(self.connection.is_closed)
