@@ -370,11 +370,13 @@ class BaseConnection(connection.Connection):
             self._handle_timeout()
             return 0
 
-        except ssl.SSLWantReadError:
-            # ssl wants more data but there is nothing currently
-            # available in the socket, wait for it to become readable.
-            return 0
-            
+        except ssl.SSLError as error:
+            if error.args[0] == ssl.SSL_ERROR_WANT_READ:
+                # ssl wants more data but there is nothing currently
+                # available in the socket, wait for it to become readable.
+                return 0
+            return self._handle_error(error)
+
         except socket.error as error:
             if error.errno in (errno.EAGAIN, errno.EWOULDBLOCK):
                 return 0
