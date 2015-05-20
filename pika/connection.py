@@ -1533,11 +1533,13 @@ class Connection(object):
 
         :param frame_value: The frame to write
         :type frame_value:  pika.frame.Frame|pika.frame.ProtocolHeader
+        :raises: exceptions.ConnectionClosed
 
         """
         if self.is_closed:
             LOGGER.critical('Attempted to send frame when closed')
-            return
+            raise exceptions.ConnectionClosed
+
         marshaled_frame = frame_value.marshal()
         self.bytes_sent += len(marshaled_frame)
         self.frames_sent += 1
