@@ -85,7 +85,21 @@ class ReadPoller(object):
 
         """
         if self.poller:
-            events = self.poller.poll(self.poll_timeout)
+            # Due to the change from http://bugs.python.org/issue8865, the
+            # poller throws a RuntimeError to prevent concurrent pollings.
+            # If that happens, the read poller needs to re-initialize the
+            # internal poller.
+            try:
+                events = self.poller.poll(self.poll_timeout)
+            except RuntimeError as exception:
+                LOGGER.debug('poll RuntimeException, reinitializing')
+                self.poller = select.poll()
+                self.poll_events = select.POLLIN | select.POLLPRI
+                self.poller.register(self.fd, self.poll_events)
+
+                # Re-poll again.
+                events = self.poller.poll(self.poll_timeout)
+
             return bool(events)
         else:
             ready, unused_wri, unused_err = select_function([self.fd], [], [],
