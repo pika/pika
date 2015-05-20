@@ -346,7 +346,7 @@ class Channel(object):
                                         all_channels), callback,
                          [spec.Basic.QosOk])
 
-    def basic_reject(self, delivery_tag=None, requeue=True):
+    def basic_reject(self, delivery_tag, requeue=True):
         """Reject an incoming message. This method allows a client to reject a
         message. It can be used to interrupt and cancel large incoming messages,
         or return untreatable messages to their original queue.
@@ -356,10 +356,13 @@ class Channel(object):
                              requeue the message. If requeue is false or the
                              requeue attempt fails the messages are discarded or
                              dead-lettered.
+        :raises: TypeError
 
         """
         if not self.is_open:
             raise exceptions.ChannelClosed()
+        if not isinstance(delivery_tag, int):
+            raise TypeError('delivery_tag must be an integer')
         return self._send_method(spec.Basic.Reject(delivery_tag, requeue))
 
     def basic_recover(self, callback=None, requeue=False):
