@@ -12,7 +12,7 @@ before_install:
 install:
     - if [[ $TRAVIS_PYTHON_VERSION == '2.6' ]]; then pip install unittest2 ordereddict; fi
     - if [[ $TRAVIS_PYTHON_VERSION != '2.6' ]]; then pip install pyev; fi
-    - pip install --use-mirrors -r test-requirements.txt
+    - pip install -r test-requirements.txt
 services:
   - rabbitmq
 script: nosetests -c nose.cfg --with-coverage --cover-package=pika --cover-branches
