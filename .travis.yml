@@ -11,13 +11,11 @@ before_install:
     - sudo apt-get install libev-dev/trusty
 install:
     - if [[ $TRAVIS_PYTHON_VERSION == '2.6' ]]; then pip install unittest2 ordereddict; fi
-    - if [[ $TRAVIS_PYTHON_VERSION == '2.7' ]]; then pip install pyev; fi
-    - if [[ $TRAVIS_PYTHON_VERSION == '3.3' ]]; then pip install pyev; fi
-    - if [[ $TRAVIS_PYTHON_VERSION == '3.4' ]]; then pip install pyev; fi
-    - pip install --use-mirrors -r test-requirements.pip
+    - if [[ $TRAVIS_PYTHON_VERSION != '2.6' ]]; then pip install pyev; fi
+    - pip install --use-mirrors -r test-requirements.txt
 services:
   - rabbitmq
-script: nosetests -c nose.cfg --with-coverage --cover-package=pika
+script: nosetests -c nose.cfg --with-coverage --cover-package=pika --cover-branches
 after_success:
   - codecov
 deploy:
