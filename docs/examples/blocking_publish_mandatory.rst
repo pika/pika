@@ -14,6 +14,9 @@ The following example demonstrates how to check if a message is delivered by set
     # Declare the queue
     channel.queue_declare(queue="test", durable=True, exclusive=False, auto_delete=False)
 
+    # Enabled delivery confirmations
+    channel.confirm_delivery()
+    
     # Send a message
     if channel.basic_publish(exchange='test',
                              routing_key='test',
