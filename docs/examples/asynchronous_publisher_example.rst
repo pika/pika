@@ -109,6 +109,11 @@ publisher.py::
             closed. See the on_connection_closed method.
 
             """
+            self._deliveries = []
+            self._acked = 0
+            self._nacked = 0
+            self._message_number = 0
+
             # This is the old connection IOLoop instance, stop its ioloop
             self._connection.ioloop.stop()
 
