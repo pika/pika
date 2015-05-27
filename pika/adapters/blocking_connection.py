@@ -44,7 +44,9 @@ def retry_on_eintr(f):
             try:
                 return f(*args, **kwargs)
             except select.error as e:
-                if e[0] != errno.EINTR:
+                # Starting with Python 3.3, select.error is now an alias of OSError
+                ern = e.errno if isinstance(e, OSError) else e[0]
+                if ern != errno.EINTR:
                     raise
 
     return inner
