@@ -90,7 +90,7 @@ class TestNoAccessToFileDescriptorAfterConnectionClosed(BlockingTestCase):
         # Attempt to operate on the connection once again after ConnectionClosed
         self.assertIsNone(self.connection._read_poller)
         self.assertIsNone(self.connection.socket)
-        with self.assertRaises(AttributeError):
+        with self.assertRaises(pika.exceptions.ConnectionClosed):
             channel = self.connection.channel()
 
 
