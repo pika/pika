@@ -160,11 +160,14 @@ class BlockingConnection(object):
         'BlockingConnection__OnChannelOpenedArgs',
         'channel')
 
-    def __init__(self, parameters=None):
+    def __init__(self, parameters=None, _impl_class=None):
         """Create a new instance of the Connection object.
 
         :param pika.connection.Parameters parameters: Connection parameters
-        :raises: RuntimeError
+        :param _impl_class: for tests/debugging only; implementation class;
+            None=default
+
+        :raises RuntimeError:
 
         """
         # Receives on_open_callback args from Connection
@@ -182,7 +185,8 @@ class BlockingConnection(object):
         self._user_initiated_close = False
 
         # TODO verify suitability of stop_ioloop_on_close value
-        self._impl = SelectConnection(
+        impl_class = _impl_class or SelectConnection
+        self._impl = impl_class(
             parameters=parameters,
             on_open_callback=self._opened_result.set_value_once,
             on_open_error_callback=self._open_error_result.set_value_once,
@@ -190,15 +194,6 @@ class BlockingConnection(object):
             stop_ioloop_on_close=False)
 
         self._process_io_for_connection_setup()
-
-    def _clean_up(self):
-        """ Perform clean-up that is necessary for re-connecting
-
-        """
-        self._opened_result.reset()
-        self._closed_result.reset()
-        self._open_error_result.reset()
-        self._user_initiated_close = False
 
     def _process_io_for_connection_setup(self):
         """ Perform follow-up processing for connection setup request: flush
@@ -297,21 +292,6 @@ class BlockingConnection(object):
 
         return channel
 
-    def connect(self):
-        """Invoke if trying to reconnect to a RabbitMQ server. Constructing the
-        Connection object should connect on its own.
-
-        """
-        assert not self._impl.is_open, (
-            'Connection was not closed; connection_state=%r'
-            % (self._impl.connection_state,))
-
-        self._clean_up()
-
-        self._impl.connect()
-
-        self._process_io_for_connection_setup()
-
     def sleep(self, duration):
         """A safer way to sleep than calling time.sleep() directly which will
         keep the adapter from ignoring frames sent from RabbitMQ. The
@@ -323,6 +303,7 @@ class BlockingConnection(object):
         """
         assert duration >= 0, duration
 
+        # TODO use ioloop timer for better resolution
         deadline = time.time() + duration
         self._flush_output(lambda: time.time() >= deadline)
 
@@ -1000,19 +981,21 @@ class BlockingChannel(object):
         """
         get_ok_result = _CallbackResult(self._RxMessageArgs)
         assert not self._basic_getempty_result
-        with get_ok_result, self._basic_getempty_result:
-            self._impl.basic_get(callback=get_ok_result.set_value_once,
-                                 queue=queue,
-                                 no_ack=no_ack)
-            self._flush_output(get_ok_result.is_ready,
-                               self._basic_getempty_result.is_ready)
-            if get_ok_result:
-                evt = get_ok_result.value
-                return (evt.method, evt.properties, evt.body)
-            else:
-                assert self._basic_getempty_result, (
-                    "wait completed without GetOk and GetEmpty")
-                return None, None, None
+        # NOTE: nested with for python 2.6 compatibility
+        with get_ok_result:
+            with self._basic_getempty_result:
+                self._impl.basic_get(callback=get_ok_result.set_value_once,
+                                     queue=queue,
+                                     no_ack=no_ack)
+                self._flush_output(get_ok_result.is_ready,
+                                   self._basic_getempty_result.is_ready)
+                if get_ok_result:
+                    evt = get_ok_result.value
+                    return (evt.method, evt.properties, evt.body)
+                else:
+                    assert self._basic_getempty_result, (
+                        "wait completed without GetOk and GetEmpty")
+                    return None, None, None
 
     def basic_publish(self, exchange, routing_key, body,
                       properties=None, mandatory=False, immediate=False):
@@ -1248,43 +1231,6 @@ class BlockingChannel(object):
         # of publisher acknowledgments
         self._raiseAndClearIfReturnedMessagesPending()
 
-    def force_data_events(self, enable):
-        """Turn on and off forcing the blocking adapter to stop and look to see
-        if there are any frames from RabbitMQ in the read buffer. By default
-        the BlockingChannel will check for a read after every RPC command which
-        can cause performance to degrade in scenarios where you do not care if
-        RabbitMQ is trying to send RPC commands to your client connection.
-
-        NOTE: This is a NO-OP here, since we're fixing the performance issue;
-        provided for API compatibility with BlockingChannel
-
-        Examples of RPC commands of this sort are:
-
-        - Heartbeats
-        - Connection.Close
-        - Channel.Close
-        - Basic.Return
-        - Basic.Ack and Basic.Nack when using delivery confirmations
-
-        Turning off forced data events can be a bad thing and prevents your
-        client from properly communicating with RabbitMQ. Forced data events
-        were added in 0.9.6 to enforce proper channel behavior when
-        communicating with RabbitMQ.
-
-        Note that the BlockingConnection also has the constant
-        WRITE_TO_READ_RATIO which forces the connection to stop and try and
-        read after writing the number of frames specified in the constant.
-        This is a way to force the client to received these types of frames
-        in a very publish/write IO heavy workload.
-
-        :param bool enable: Set to False to disable
-
-        """
-        # This is a NO-OP here, since we're fixing the performance issue
-        LOGGER.warn("%s.force_data_events() is a NO-OP",
-                    self.__class__.__name__)
-        pass
-
     def exchange_bind(self, destination=None, source=None, routing_key='',
                       arguments=None):
         """Bind an exchange to another exchange.
@@ -1297,10 +1243,15 @@ class BlockingChannel(object):
         :type routing_key: str or unicode
         :param dict arguments: Custom key/value pair arguments for the binding
 
+        :returns: Method frame from the Exchange.Bind-ok response
+        :rtype: `pika.frame.Method` having `method` attribute of type
+          `spec.Exchange.BindOk`
+
         """
-        with _CallbackResult() as bind_ok_result:
+        with _CallbackResult(
+                self._MethodFrameCallbackResultArgs) as bind_ok_result:
             self._impl.exchange_bind(
-                callback=bind_ok_result.signal_once,
+                callback=bind_ok_result.set_value_once,
                 destination=destination,
                 source=source,
                 routing_key=routing_key,
@@ -1308,6 +1259,7 @@ class BlockingChannel(object):
                 arguments=arguments)
 
             self._flush_output(bind_ok_result.is_ready)
+            return bind_ok_result.value.method_frame
 
     def exchange_declare(self, exchange=None,
                          exchange_type='direct', passive=False, durable=False,
@@ -1334,12 +1286,17 @@ class BlockingChannel(object):
         :param dict arguments: Custom key/value pair arguments for the exchange
         :param str type: via kwargs: the deprecated exchange type parameter
 
+        :returns: Method frame from the Exchange.Declare-ok response
+        :rtype: `pika.frame.Method` having `method` attribute of type
+          `spec.Exchange.DeclareOk`
+
         """
         assert len(kwargs) <= 1, kwargs
 
-        with _CallbackResult() as declare_ok_result:
+        with _CallbackResult(
+                self._MethodFrameCallbackResultArgs) as declare_ok_result:
             self._impl.exchange_declare(
-                callback=declare_ok_result.signal_once,
+                callback=declare_ok_result.set_value_once,
                 exchange=exchange,
                 exchange_type=exchange_type,
                 passive=passive,
@@ -1351,6 +1308,7 @@ class BlockingChannel(object):
                 type=kwargs["type"] if kwargs else None)
 
             self._flush_output(declare_ok_result.is_ready)
+            return declare_ok_result.value.method_frame
 
     def exchange_delete(self, exchange=None, if_unused=False):
         """Delete the exchange.
@@ -1359,15 +1317,21 @@ class BlockingChannel(object):
         :type exchange: str or unicode
         :param bool if_unused: only delete if the exchange is unused
 
+        :returns: Method frame from the Exchange.Delete-ok response
+        :rtype: `pika.frame.Method` having `method` attribute of type
+          `spec.Exchange.DeleteOk`
+
         """
-        with _CallbackResult() as delete_ok_result:
+        with _CallbackResult(
+                self._MethodFrameCallbackResultArgs) as delete_ok_result:
             self._impl.exchange_delete(
-                callback=delete_ok_result.signal_once,
+                callback=delete_ok_result.set_value_once,
                 exchange=exchange,
                 if_unused=if_unused,
                 nowait=False)
 
             self._flush_output(delete_ok_result.is_ready)
+            return delete_ok_result.value.method_frame
 
     def exchange_unbind(self, destination=None, source=None, routing_key='',
                         arguments=None):
@@ -1381,10 +1345,15 @@ class BlockingChannel(object):
         :type routing_key: str or unicode
         :param dict arguments: Custom key/value pair arguments for the binding
 
+        :returns: Method frame from the Exchange.Unbind-ok response
+        :rtype: `pika.frame.Method` having `method` attribute of type
+          `spec.Exchange.UnbindOk`
+
         """
-        with _CallbackResult() as unbind_ok_result:
+        with _CallbackResult(
+                self._MethodFrameCallbackResultArgs) as unbind_ok_result:
             self._impl.exchange_unbind(
-                callback=unbind_ok_result.signal_once,
+                callback=unbind_ok_result.set_value_once,
                 destination=destination,
                 source=source,
                 routing_key=routing_key,
@@ -1392,6 +1361,7 @@ class BlockingChannel(object):
                 arguments=arguments)
 
             self._flush_output(unbind_ok_result.is_ready)
+            return unbind_ok_result.value.method_frame
 
     def queue_bind(self, queue, exchange, routing_key=None,
                    arguments=None):
@@ -1405,9 +1375,14 @@ class BlockingChannel(object):
         :type routing_key: str or unicode
         :param dict arguments: Custom key/value pair arguments for the binding
 
+        :returns: Method frame from the Queue.Bind-ok response
+        :rtype: `pika.frame.Method` having `method` attribute of type
+          `spec.Queue.BindOk`
+
         """
-        with _CallbackResult() as bind_ok_result:
-            self._impl.queue_bind(callback=bind_ok_result.signal_once,
+        with _CallbackResult(
+                self._MethodFrameCallbackResultArgs) as bind_ok_result:
+            self._impl.queue_bind(callback=bind_ok_result.set_value_once,
                                   queue=queue,
                                   exchange=exchange,
                                   routing_key=routing_key,
@@ -1415,6 +1390,7 @@ class BlockingChannel(object):
                                   arguments=arguments)
 
             self._flush_output(bind_ok_result.is_ready)
+            return bind_ok_result.value.method_frame
 
     def queue_declare(self, queue='', passive=False, durable=False,
                       exclusive=False, auto_delete=False,
@@ -1427,17 +1403,23 @@ class BlockingChannel(object):
         Leave the queue name empty for a auto-named queue in RabbitMQ
 
         :param queue: The queue name
-        :type queue: str or unicode
+        :type queue: str or unicode; if empty string, the broker will create a
+          unique queue name;
         :param bool passive: Only check to see if the queue exists
         :param bool durable: Survive reboots of the broker
         :param bool exclusive: Only allow access by the current connection
         :param bool auto_delete: Delete after consumer cancels or disconnects
         :param dict arguments: Custom key/value arguments for the queue
 
+        :returns: Method frame from the Queue.Declare-ok response
+        :rtype: `pika.frame.Method` having `method` attribute of type
+          `spec.Queue.DeclareOk`
+
         """
-        with _CallbackResult() as declare_ok_result:
+        with _CallbackResult(
+                self._MethodFrameCallbackResultArgs) as declare_ok_result:
             self._impl.queue_declare(
-                callback=declare_ok_result.signal_once,
+                callback=declare_ok_result.set_value_once,
                 queue=queue,
                 passive=passive,
                 durable=durable,
@@ -1447,6 +1429,7 @@ class BlockingChannel(object):
                 arguments=arguments)
 
             self._flush_output(declare_ok_result.is_ready)
+            return declare_ok_result.value.method_frame
 
     def queue_delete(self, queue='', if_unused=False, if_empty=False):
         """Delete a queue from the broker.
@@ -1456,15 +1439,21 @@ class BlockingChannel(object):
         :param bool if_unused: only delete if it's unused
         :param bool if_empty: only delete if the queue is empty
 
+        :returns: Method frame from the Queue.Delete-ok response
+        :rtype: `pika.frame.Method` having `method` attribute of type
+          `spec.Queue.DeleteOk`
+
         """
-        with _CallbackResult() as delete_ok_result:
-            self._impl.queue_delete(callback=delete_ok_result.signal_once,
+        with _CallbackResult(
+                self._MethodFrameCallbackResultArgs) as delete_ok_result:
+            self._impl.queue_delete(callback=delete_ok_result.set_value_once,
                                     queue=queue,
                                     if_unused=if_unused,
                                     if_empty=if_empty,
                                     nowait=False)
 
             self._flush_output(delete_ok_result.is_ready)
+            return delete_ok_result.value.method_frame
 
     def queue_purge(self, queue=''):
         """Purge all of the messages from the specified queue
@@ -1472,13 +1461,19 @@ class BlockingChannel(object):
         :param queue: The queue to purge
         :type  queue: str or unicode
 
+        :returns: Method frame from the Queue.Purge-ok response
+        :rtype: `pika.frame.Method` having `method` attribute of type
+          `spec.Queue.PurgeOk`
+
         """
-        with _CallbackResult() as purge_ok_result:
-            self._impl.queue_purge(callback=purge_ok_result.signal_once,
+        with _CallbackResult(
+                self._MethodFrameCallbackResultArgs) as purge_ok_result:
+            self._impl.queue_purge(callback=purge_ok_result.set_value_once,
                                    queue=queue,
                                    nowait=False)
 
             self._flush_output(purge_ok_result.is_ready)
+            return purge_ok_result.value.method_frame
 
     def queue_unbind(self, queue='', exchange=None, routing_key=None,
                      arguments=None):
@@ -1492,33 +1487,64 @@ class BlockingChannel(object):
         :type routing_key: str or unicode
         :param dict arguments: Custom key/value pair arguments for the binding
 
+        :returns: Method frame from the Queue.Unbind-ok response
+        :rtype: `pika.frame.Method` having `method` attribute of type
+          `spec.Queue.UnbindOk`
+
         """
-        with _CallbackResult() as unbind_ok_result:
-            self._impl.queue_unbind(callback=unbind_ok_result.signal_once,
+        with _CallbackResult(
+                self._MethodFrameCallbackResultArgs) as unbind_ok_result:
+            self._impl.queue_unbind(callback=unbind_ok_result.set_value_once,
                                     queue=queue,
                                     exchange=exchange,
                                     routing_key=routing_key,
                                     arguments=arguments)
             self._flush_output(unbind_ok_result.is_ready)
+            return unbind_ok_result.value.method_frame
 
     def tx_select(self):
         """Select standard transaction mode. This method sets the channel to use
         standard transactions. The client must use this method at least once on
         a channel before using the Commit or Rollback methods.
 
+        :returns: Method frame from the Tx.Select-ok response
+        :rtype: `pika.frame.Method` having `method` attribute of type
+          `spec.Tx.SelectOk`
+
         """
-        with _CallbackResult() as select_ok_result:
-            self._impl.tx_select(select_ok_result.signal_once)
+        with _CallbackResult(
+                self._MethodFrameCallbackResultArgs) as select_ok_result:
+            self._impl.tx_select(select_ok_result.set_value_once)
+
             self._flush_output(select_ok_result.is_ready)
+            return select_ok_result.value.method_frame
 
     def tx_commit(self):
-        """Commit a transaction."""
-        with _CallbackResult() as commit_ok_result:
-            self._impl.tx_commit(commit_ok_result.signal_once)
+        """Commit a transaction.
+
+        :returns: Method frame from the Tx.Commit-ok response
+        :rtype: `pika.frame.Method` having `method` attribute of type
+          `spec.Tx.CommitOk`
+
+        """
+        with _CallbackResult(
+                self._MethodFrameCallbackResultArgs) as commit_ok_result:
+            self._impl.tx_commit(commit_ok_result.set_value_once)
+
             self._flush_output(commit_ok_result.is_ready)
+            return commit_ok_result.value.method_frame
 
     def tx_rollback(self):
-        """Rollback a transaction."""
-        with _CallbackResult() as rollback_ok_result:
-            self._impl.tx_rollback(rollback_ok_result.signal_once)
+        """Rollback a transaction.
+
+        :returns: Method frame from the Tx.Commit-ok response
+        :rtype: `pika.frame.Method` having `method` attribute of type
+          `spec.Tx.CommitOk`
+
+        """
+        with _CallbackResult(
+                self._MethodFrameCallbackResultArgs) as rollback_ok_result:
+            self._impl.tx_rollback(rollback_ok_result.set_value_once)
+
             self._flush_output(rollback_ok_result.is_ready)
+            return rollback_ok_result.value.method_frame
