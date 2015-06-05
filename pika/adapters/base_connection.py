@@ -134,11 +134,15 @@ class BaseConnection(connection.Connection):
 
     def _adapter_disconnect(self):
         """Invoked if the connection is being told to disconnect"""
-        self._remove_heartbeat()
-        self._cleanup_socket()
-        self._check_state_on_disconnect()
-        self._handle_ioloop_stop()
-        self._init_connection_state()
+        try:
+            self._remove_heartbeat()
+            self._cleanup_socket()
+            self._check_state_on_disconnect()
+        finally:
+            # Ensure proper cleanup since _check_state_on_disconnect may raise
+            # an exception
+            self._handle_ioloop_stop()
+            self._init_connection_state()
 
     def _check_state_on_disconnect(self):
         """Checks to see if we were in opening a connection with RabbitMQ when
@@ -365,7 +369,7 @@ class BaseConnection(connection.Connection):
                 data = self.socket.read(self._buffer_size)
             else:
                 data = self.socket.recv(self._buffer_size)
-        
+
         except socket.timeout:
             self._handle_timeout()
             return 0
@@ -392,7 +396,7 @@ class BaseConnection(connection.Connection):
         return len(data)
 
     def _handle_write(self):
-        """Try and write as much as we can, if we get blocked requeue 
+        """Try and write as much as we can, if we get blocked requeue
         what's left"""
         bytes_written = 0
         try:
@@ -410,7 +414,7 @@ class BaseConnection(connection.Connection):
             LOGGER.debug("socket timeout, requeuing frame")
             self.outbound_buffer.appendleft(frame)
             self._handle_timeout()
-            
+
         except socket.error as error:
             if error.errno in (errno.EAGAIN, errno.EWOULDBLOCK):
                 LOGGER.debug("Would block, requeuing frame")
@@ -418,7 +422,7 @@ class BaseConnection(connection.Connection):
             else:
                 return self._handle_error(error)
 
-        return bytes_written     
+        return bytes_written
 
 
     def _init_connection_state(self):
