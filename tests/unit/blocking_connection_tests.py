@@ -21,74 +21,183 @@ from pika.adapters import blocking_connection
 
 
 class BlockingConnectionMockTemplate(blocking_connection.BlockingConnection):
-    _socket_timeouts = None
-    connection_state = None
+    pass
 
+class SelectConnectionTemplate(blocking_connection.SelectConnection):
+    is_closed = False
+    is_closing = False
+    is_open = True
+    outbound_buffer = []
 
 class BlockingConnectionTests(unittest.TestCase):
+    """TODO: test properties"""
 
-    @patch.object(blocking_connection.BlockingConnection, 'connect',
-                  spec_set=blocking_connection.BlockingConnection.connect)
-    def test_handle_timeout_when_closing_exceeds_threshold(self, connect_mock):
-        connection = BlockingConnectionMockTemplate()
+    @patch.object(blocking_connection, 'SelectConnection',
+                  spec_set=SelectConnectionTemplate)
+    def test_constructor(self, select_connection_class_mock):
+        with mock.patch.object(blocking_connection.BlockingConnection,
+                               '_process_io_for_connection_setup'):
+            connection = blocking_connection.BlockingConnection('params')
 
-        connection_patch = patch.multiple(
-            connection,
-            _on_connection_closed=mock.DEFAULT,
-            _socket_timeouts=connection.SOCKET_TIMEOUT_CLOSE_THRESHOLD,
-            connection_state=connection.CONNECTION_CLOSING)
+        select_connection_class_mock.assert_called_once_with(
+            parameters='params',
+            on_open_callback=mock.ANY,
+            on_open_error_callback=mock.ANY,
+            on_close_callback=mock.ANY,
+            stop_ioloop_on_close=mock.ANY)
 
-        with connection_patch as mocks:
-            connection._handle_timeout()
+    @patch.object(blocking_connection, 'SelectConnection',
+                  spec_set=SelectConnectionTemplate)
+    def test_process_io_for_connection_setup(self, select_connection_class_mock):
+        with mock.patch.object(blocking_connection.BlockingConnection,
+                               '_process_io_for_connection_setup'):
+            connection = blocking_connection.BlockingConnection('params')
 
-        self.assertEqual(mocks["_on_connection_closed"].call_count, 1)
+        connection._opened_result.set_value_once(
+            select_connection_class_mock.return_value)
 
-    @patch.object(blocking_connection.BlockingConnection, 'connect',
-                  spec_set=blocking_connection.BlockingConnection.connect)
-    def test_handle_timeout_when_closing_below_threshold(self, connect_mock):
-        connection = BlockingConnectionMockTemplate()
+        with mock.patch.object(
+                blocking_connection.BlockingConnection,
+                '_flush_output',
+                spec_set=blocking_connection.BlockingConnection._flush_output):
+            connection._process_io_for_connection_setup()
 
-        connection_patch = patch.multiple(
-            connection,
-            _on_connection_closed=mock.DEFAULT,
-            _socket_timeouts=connection.SOCKET_TIMEOUT_CLOSE_THRESHOLD / 2,
-            connection_state=connection.CONNECTION_CLOSING)
+    @patch.object(blocking_connection, 'SelectConnection',
+                  spec_set=SelectConnectionTemplate)
+    def test_process_io_for_connection_setup_fails_with_open_error(
+            self, select_connection_class_mock):
+        with mock.patch.object(blocking_connection.BlockingConnection,
+                               '_process_io_for_connection_setup'):
+            connection = blocking_connection.BlockingConnection('params')
 
-        with connection_patch as mocks:
-            connection._handle_timeout()
+        connection._open_error_result.set_value_once(
+            select_connection_class_mock.return_value,
+            'failed')
 
-        self.assertEqual(mocks["_on_connection_closed"].call_count, 0)
+        with mock.patch.object(
+                blocking_connection.BlockingConnection,
+                '_flush_output',
+                spec_set=blocking_connection.BlockingConnection._flush_output):
+            with self.assertRaises(pika.exceptions.AMQPConnectionError) as cm:
+                connection._process_io_for_connection_setup()
 
-    @patch.object(blocking_connection.BlockingConnection, 'connect',
-                  spec_set=blocking_connection.BlockingConnection.connect)
-    def test_handle_timeout_when_not_closing_exceeds_threshold(self,
-                                                               connect_mock):
-        connection = BlockingConnectionMockTemplate()
+            self.assertEqual(cm.exception.args[0], 'failed')
 
-        connection_patch = patch.multiple(
-            connection,
-            _on_connection_closed=mock.DEFAULT,
-            _socket_timeouts=connection.SOCKET_TIMEOUT_THRESHOLD,
-            connection_state=connection.CONNECTION_OPEN)
+    @patch.object(blocking_connection, 'SelectConnection',
+                  spec_set=SelectConnectionTemplate,
+                  is_closed=False, outbound_buffer=[])
+    def test_flush_output(self, select_connection_class_mock):
+        with mock.patch.object(blocking_connection.BlockingConnection,
+                               '_process_io_for_connection_setup'):
+            connection = blocking_connection.BlockingConnection('params')
 
-        with connection_patch as mocks:
-            connection._handle_timeout()
+        connection._opened_result.set_value_once(
+            select_connection_class_mock.return_value)
 
-        self.assertEqual(mocks["_on_connection_closed"].call_count, 1)
+        connection._flush_output(lambda: False, lambda: True)
 
-    @patch.object(blocking_connection.BlockingConnection, 'connect',
-                  spec_set=blocking_connection.BlockingConnection.connect)
-    def test_handle_timeout_when_not_closing_below_threshold(self,
-                                                             connect_mock):
-        connection = BlockingConnectionMockTemplate()
+    @patch.object(blocking_connection, 'SelectConnection',
+                  spec_set=SelectConnectionTemplate,
+                  is_closed=False, outbound_buffer=[])
+    def test_flush_output_user_initiated_close(self,
+                                               select_connection_class_mock):
+        with mock.patch.object(blocking_connection.BlockingConnection,
+                               '_process_io_for_connection_setup'):
+            connection = blocking_connection.BlockingConnection('params')
 
-        connection_patch = patch.multiple(
-            connection,
-            _on_connection_closed=mock.DEFAULT,
-            _socket_timeouts=connection.SOCKET_TIMEOUT_THRESHOLD / 2,
-            connection_state=connection.CONNECTION_OPEN)
+        connection._user_initiated_close = True
+        connection._closed_result.set_value_once(
+            select_connection_class_mock.return_value,
+            200, 'success')
 
-        with connection_patch as mocks:
-            connection._handle_timeout()
+        connection._flush_output(lambda: False, lambda: True)
 
-        self.assertEqual(mocks["_on_connection_closed"].call_count, 0)
+    @patch.object(blocking_connection, 'SelectConnection',
+                  spec_set=SelectConnectionTemplate,
+                  is_closed=False, outbound_buffer=[])
+    def test_flush_output_server_initiated_error_close(self,
+                                               select_connection_class_mock):
+        with mock.patch.object(blocking_connection.BlockingConnection,
+                               '_process_io_for_connection_setup'):
+            connection = blocking_connection.BlockingConnection('params')
+
+        connection._user_initiated_close = False
+        connection._closed_result.set_value_once(
+            select_connection_class_mock.return_value,
+            404, 'not found')
+
+        with self.assertRaises(pika.exceptions.ConnectionClosed) as cm:
+            connection._flush_output(lambda: False, lambda: True)
+
+        self.assertSequenceEqual(
+            cm.exception.args,
+            (select_connection_class_mock.return_value, 404, 'not found'))
+
+    @patch.object(blocking_connection, 'SelectConnection',
+                  spec_set=SelectConnectionTemplate,
+                  is_closed=False, outbound_buffer=[])
+    def test_flush_output_server_initiated_no_error_close(self,
+                                                       select_connection_class_mock):
+        with mock.patch.object(blocking_connection.BlockingConnection,
+                               '_process_io_for_connection_setup'):
+            connection = blocking_connection.BlockingConnection('params')
+
+        connection._user_initiated_close = False
+        connection._closed_result.set_value_once(
+            select_connection_class_mock.return_value,
+            200, 'ok')
+
+        with self.assertRaises(pika.exceptions.ConnectionClosed) as cm:
+            connection._flush_output(lambda: False, lambda: True)
+
+        self.assertSequenceEqual(
+            cm.exception.args,
+            ())
+
+    @patch.object(blocking_connection, 'SelectConnection',
+                  spec_set=SelectConnectionTemplate)
+    def test_close(self, select_connection_class_mock):
+        with mock.patch.object(blocking_connection.BlockingConnection,
+                               '_process_io_for_connection_setup'):
+            connection = blocking_connection.BlockingConnection('params')
+
+        with mock.patch.object(
+                blocking_connection.BlockingConnection,
+                '_flush_output',
+                spec_set=blocking_connection.BlockingConnection._flush_output):
+            connection._closed_result.signal_once()
+            connection.close(200, 'text')
+
+        select_connection_class_mock.return_value.close.assert_called_once_with(
+            200, 'text')
+
+    @patch.object(blocking_connection, 'SelectConnection',
+                  spec_set=SelectConnectionTemplate)
+    @patch.object(blocking_connection, 'BlockingChannel',
+                  spec_set=blocking_connection.BlockingChannel)
+    def test_channel(self, blocking_channel_class_mock,
+                     select_connection_class_mock):
+        with mock.patch.object(blocking_connection.BlockingConnection,
+                               '_process_io_for_connection_setup'):
+            connection = blocking_connection.BlockingConnection('params')
+
+        with mock.patch.object(
+                blocking_connection.BlockingConnection,
+                '_flush_output',
+                spec_set=blocking_connection.BlockingConnection._flush_output):
+            channel = connection.channel()
+
+    @patch.object(blocking_connection, 'SelectConnection',
+                  spec_set=SelectConnectionTemplate)
+    def test_sleep(self, select_connection_class_mock):
+        with mock.patch.object(blocking_connection.BlockingConnection,
+                               '_process_io_for_connection_setup'):
+            connection = blocking_connection.BlockingConnection('params')
+
+        with mock.patch.object(
+                blocking_connection.BlockingConnection,
+                '_flush_output',
+                spec_set=blocking_connection.BlockingConnection._flush_output):
+            connection.sleep(300)
+
+

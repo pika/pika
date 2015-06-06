@@ -1,5 +1,6 @@
 import logging
 import socket
+import sys
 try:
     import unittest2 as unittest
 except ImportError:
@@ -11,10 +12,13 @@ from forward_server import ForwardServer
 
 import pika
 import pika.exceptions
+import pika.connection
 
 LOGGER = logging.getLogger(__name__)
-PARAMETERS_TEMPLATE = 'amqp://guest:guest@localhost:%(port)s/%%2f'
-PARAMETERS = pika.URLParameters(PARAMETERS_TEMPLATE % {'port': 5672})
+PARAMETERS_TEMPLATE = (
+    'amqp://guest:guest@127.0.0.1:%(port)s/%%2f?socket_timeout=1')
+DEFAULT_URL = PARAMETERS_TEMPLATE % {'port': 5672}
+PARAMETERS = pika.URLParameters(DEFAULT_URL)
 DEFAULT_TIMEOUT = 15
 
 
@@ -22,11 +26,18 @@ DEFAULT_TIMEOUT = 15
 class BlockingTestCase(unittest.TestCase):
 
     def _connect(self,
-                 parameters=PARAMETERS,
-                 connection_class=pika.BlockingConnection):
-        connection = connection_class(parameters)
-        self.addCleanup(lambda: self.connection.close
-                        if self.connection.is_open else None)
+                 url=DEFAULT_URL,
+                 connection_class=pika.BlockingConnection,
+                 impl_class=None):
+        parameters = pika.URLParameters(url)
+        connection = connection_class(parameters, _impl_class=impl_class)
+        self.addCleanup(lambda: connection.close
+                        if connection.is_open else None)
+
+        connection._impl.add_timeout(
+            self.TIMEOUT, # pylint: disable=E1101
+            self._on_test_timeout)
+
         return connection
 
     def _on_test_timeout(self):
@@ -43,12 +54,7 @@ class TestSuddenBrokerDisconnectBeforeChannel(BlockingTestCase):
         """
         with ForwardServer((PARAMETERS.host, PARAMETERS.port)) as fwd:
             self.connection = self._connect(
-                pika.URLParameters(
-                    PARAMETERS_TEMPLATE % {"port": fwd.server_address[1]}))
-
-            self.timeout = self.connection.add_timeout(self.TIMEOUT,
-                                                       self._on_test_timeout)
-
+                PARAMETERS_TEMPLATE % {"port": fwd.server_address[1]})
 
         # Once outside the context, the connection is broken
 
@@ -58,24 +64,20 @@ class TestSuddenBrokerDisconnectBeforeChannel(BlockingTestCase):
 
         self.assertTrue(self.connection.is_closed)
         self.assertFalse(self.connection.is_open)
-        self.assertIsNone(self.connection.socket)
+        self.assertIsNone(self.connection._impl.socket)
+
 
 class TestNoAccessToFileDescriptorAfterConnectionClosed(BlockingTestCase):
 
     TIMEOUT = DEFAULT_TIMEOUT
 
     def start_test(self):
-        """BlockingConnection can't access file descriptor after \
+        """BlockingConnection can't access file descriptor after
         ConnectionClosed
         """
         with ForwardServer((PARAMETERS.host, PARAMETERS.port)) as fwd:
             self.connection = self._connect(
-                pika.URLParameters(
-                    PARAMETERS_TEMPLATE % {"port": fwd.server_address[1]}))
-
-            self.timeout = self.connection.add_timeout(self.TIMEOUT,
-                                                       self._on_test_timeout)
-
+                PARAMETERS_TEMPLATE % {"port": fwd.server_address[1]})
 
         # Once outside the context, the connection is broken
 
@@ -85,11 +87,10 @@ class TestNoAccessToFileDescriptorAfterConnectionClosed(BlockingTestCase):
 
         self.assertTrue(self.connection.is_closed)
         self.assertFalse(self.connection.is_open)
-        self.assertIsNone(self.connection.socket)
+        self.assertIsNone(self.connection._impl.socket)
 
         # Attempt to operate on the connection once again after ConnectionClosed
-        self.assertIsNone(self.connection._read_poller)
-        self.assertIsNone(self.connection.socket)
+        self.assertIsNone(self.connection._impl.socket)
         with self.assertRaises(pika.exceptions.ConnectionClosed):
             channel = self.connection.channel()
 
@@ -106,51 +107,15 @@ class TestConnectWithDownedBroker(BlockingTestCase):
         sock = socket.socket()
         self.addCleanup(sock.close)
 
-        sock.bind(("localhost", 0))
+        sock.bind(("127.0.0.1", 0))
 
+        port = sock.getsockname()[1]
+
+        sock.close()
 
         with self.assertRaises(pika.exceptions.AMQPConnectionError):
             self.connection = self._connect(
-                pika.URLParameters(
-                    PARAMETERS_TEMPLATE % {"port": sock.getsockname()[1]})
-            )
-
-            # Should never get here
-            self.timeout = self.connection.add_timeout(self.TIMEOUT,
-                                                       self._on_test_timeout)
-
-
-class TestReconnectWithDownedBroker(BlockingTestCase):
-
-    TIMEOUT = DEFAULT_TIMEOUT
-
-    def start_test(self):
-        """ BlockingConnection reconnect with downed broker
-        """
-        with ForwardServer((PARAMETERS.host, PARAMETERS.port)) as fwd:
-            self.connection = self._connect(
-                pika.URLParameters(
-                    PARAMETERS_TEMPLATE % {"port": fwd.server_address[1]}))
-
-            self.timeout = self.connection.add_timeout(self.TIMEOUT,
-                                                       self._on_test_timeout)
-
-        # Once outside the context, the connection is broken
-
-        # BlockingConnection should raise AMQPConnectionError
-        with self.assertRaises(pika.exceptions.ConnectionClosed):
-            channel = self.connection.channel()
-
-        self.assertTrue(self.connection.is_closed)
-        self.assertFalse(self.connection.is_open)
-
-        # Now attempt to reconnect
-        with self.assertRaises(pika.exceptions.AMQPConnectionError):
-            self.connection.connect()
-
-        self.assertTrue(self.connection.is_closed)
-        self.assertFalse(self.connection.is_open)
-        self.assertIsNone(self.connection.socket)
+                PARAMETERS_TEMPLATE % {"port": port})
 
 
 class TestDisconnectDuringConnectionStart(BlockingTestCase):
@@ -164,41 +129,22 @@ class TestDisconnectDuringConnectionStart(BlockingTestCase):
         fwd.start()
         self.addCleanup(lambda: fwd.stop() if fwd.running else None)
 
-        # Establish and close connection
-        self.connection = self._connect(
-            pika.URLParameters(
-                PARAMETERS_TEMPLATE % {"port": fwd.server_address[1]}))
+        class MySelectConnection(pika.SelectConnection):
+            assert hasattr(pika.SelectConnection, '_on_connection_start')
 
-        self.timeout = self.connection.add_timeout(self.TIMEOUT,
-                                                   self._on_test_timeout)
+            def _on_connection_start(self, *args, **kwargs):
+                fwd.stop()
+                return super(MySelectConnection, self)._on_connection_start(
+                    *args, **kwargs)
 
-        self.connection.close()
-
-        self.assertTrue(self.connection.is_closed)
-        self.assertFalse(self.connection.is_open)
-        self.assertIsNone(self.connection.socket)
-
-        # Set up hook to disconnect on Connection.Start frame from broker
-        self.connection.callbacks.add(
-            0, pika.spec.Connection.Start,
-            lambda *args, **kwards: fwd.stop())
-
-        # Now, attempt to reconnect; depending on whether our
-        # spec.Connection.Start callback gets called before or after the one
-        # registered by the Connection class, we could be looking at either
-        #     ProbableAuthenticationError in CONNECTION_START state or
-        #     ProbableAccessDeniedError in CONNECTION_TUNE state.
         with self.assertRaises(pika.exceptions.AMQPConnectionError) as cm:
-            self.connection.connect()
+            self._connect(
+                PARAMETERS_TEMPLATE % {"port": fwd.server_address[1]},
+                impl_class=MySelectConnection)
 
-        self.assertIsInstance(cm.exception,
-                              (pika.exceptions.ProbableAuthenticationError,
-                               pika.exceptions.ProbableAccessDeniedError))
-
-        # Verify that connection state reflects a closed connection
-        self.assertTrue(self.connection.is_closed)
-        self.assertFalse(self.connection.is_open)
-        self.assertIsNone(self.connection.socket)
+            self.assertIsInstance(cm.exception,
+                                  (pika.exceptions.ProbableAuthenticationError,
+                                   pika.exceptions.ProbableAccessDeniedError))
 
 
 class TestDisconnectDuringConnectionTune(BlockingTestCase):
@@ -212,33 +158,18 @@ class TestDisconnectDuringConnectionTune(BlockingTestCase):
         fwd.start()
         self.addCleanup(lambda: fwd.stop() if fwd.running else None)
 
-        # Establish and close connection
-        self.connection = self._connect(
-            pika.URLParameters(
-                PARAMETERS_TEMPLATE % {"port": fwd.server_address[1]}))
+        class MySelectConnection(pika.SelectConnection):
+            assert hasattr(pika.SelectConnection, '_on_connection_tune')
 
-        self.timeout = self.connection.add_timeout(self.TIMEOUT,
-                                                   self._on_test_timeout)
+            def _on_connection_tune(self, *args, **kwargs):
+                fwd.stop()
+                return super(MySelectConnection, self)._on_connection_tune(
+                    *args, **kwargs)
 
-        self.connection.close()
-
-        self.assertTrue(self.connection.is_closed)
-        self.assertFalse(self.connection.is_open)
-        self.assertIsNone(self.connection.socket)
-
-        # Set up hook to disconnect on Connection.Tune frame from broker
-        self.connection.callbacks.add(
-            0, pika.spec.Connection.Tune,
-            lambda *args, **kwards: fwd.stop())
-
-        # Now, attempt to reconnect
         with self.assertRaises(pika.exceptions.ProbableAccessDeniedError):
-            self.connection.connect()
-
-        # Verify that connection state reflects a closed connection
-        self.assertTrue(self.connection.is_closed)
-        self.assertFalse(self.connection.is_open)
-        self.assertIsNone(self.connection.socket)
+            self._connect(
+                PARAMETERS_TEMPLATE % {"port": fwd.server_address[1]},
+                impl_class=MySelectConnection)
 
 
 class TestDisconnectDuringConnectionProtocol(BlockingTestCase):
@@ -252,39 +183,14 @@ class TestDisconnectDuringConnectionProtocol(BlockingTestCase):
         fwd.start()
         self.addCleanup(lambda: fwd.stop() if fwd.running else None)
 
-        class MyConnection(pika.BlockingConnection):
-            DROP_REQUESTED = False
+        class MySelectConnection(pika.SelectConnection):
+            assert hasattr(pika.SelectConnection, '_on_connected')
+
             def _on_connected(self, *args, **kwargs):
-                """Base method override for forcing TCP/IP connection loss"""
-                if self.DROP_REQUESTED:
-                    # Drop
-                    fwd.stop()
-                # Proceede to CONNECTION_PROTOCOL state
-                return super(MyConnection, self)._on_connected(*args, **kwargs)
+                fwd.stop()
+                return super(MySelectConnection, self)._on_connected(
+                    *args, **kwargs)
 
-        # Establish and close connection
-        self.connection = self._connect(
-            pika.URLParameters(
-                PARAMETERS_TEMPLATE % {"port": fwd.server_address[1]}),
-            connection_class=MyConnection)
-
-        self.timeout = self.connection.add_timeout(self.TIMEOUT,
-                                                   self._on_test_timeout)
-
-        self.connection.close()
-
-        self.assertTrue(self.connection.is_closed)
-        self.assertFalse(self.connection.is_open)
-        self.assertIsNone(self.connection.socket)
-
-        # Request TCP/IP connection loss during subsequent reconnect
-        MyConnection.DROP_REQUESTED = True
-
-        # Now, attempt to reconnect
         with self.assertRaises(pika.exceptions.IncompatibleProtocolError):
-            self.connection.connect()
-
-        # Verify that connection state reflects a closed connection
-        self.assertTrue(self.connection.is_closed)
-        self.assertFalse(self.connection.is_open)
-        self.assertIsNone(self.connection.socket)
+            self._connect(PARAMETERS_TEMPLATE % {"port": fwd.server_address[1]},
+                          impl_class=MySelectConnection)
