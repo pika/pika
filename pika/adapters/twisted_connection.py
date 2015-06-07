@@ -13,10 +13,13 @@ TwistedChannel class for details.
 
 """
 import functools
+import math
+
 from twisted.internet import defer, error, reactor
 from twisted.python import log
 
 from pika import exceptions
+from pika import frame
 from pika.adapters import base_connection
 
 
