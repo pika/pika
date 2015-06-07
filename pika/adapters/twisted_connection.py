@@ -426,7 +426,6 @@ class TwistedProtocolConnection(base_connection.BaseConnection):
         self._send_frame(frame.Header(channel_number, length, content[0]))
         
         if content[1]:
-            import math
             chunks = int(math.ceil(float(length) / self._body_max_length))
             for chunk in range(0, chunks):
                 s = chunk * self._body_max_length
