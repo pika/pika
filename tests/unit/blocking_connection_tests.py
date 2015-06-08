@@ -198,6 +198,6 @@ class BlockingConnectionTests(unittest.TestCase):
                 blocking_connection.BlockingConnection,
                 '_flush_output',
                 spec_set=blocking_connection.BlockingConnection._flush_output):
-            connection.sleep(300)
+            connection.sleep(0.00001)
 
 
