@@ -11,7 +11,7 @@ import pika.frame as frame
 import pika.exceptions as exceptions
 import pika.spec as spec
 from pika.utils import is_callable
-from pika.compat import unicode_type, dictkeys
+from pika.compat import unicode_type, dictkeys, as_bytes
 
 
 LOGGER = logging.getLogger(__name__)
@@ -243,8 +243,8 @@ class Channel(object):
         :returns: consumer tag
         :rtype: str
         """
-        return ('ctag%i.%s' % (self.channel_number,
-                                           uuid.uuid4().hex)).encode()
+        return 'ctag%i.%s' % (self.channel_number,
+                              uuid.uuid4().hex)
 
     def basic_get(self, callback=None, queue='', no_ack=False):
         """Get a single message from the AMQP broker. The callback method
@@ -672,8 +672,11 @@ class Channel(object):
         :param dict arguments: Custom key/value arguments for the queue
 
         """
-        condition = (spec.Queue.DeclareOk,
-                     {'queue': queue}) if queue else spec.Queue.DeclareOk
+        if queue:
+            condition = (spec.Queue.DeclareOk,
+                         {'queue': queue})
+        else:
+            condition = spec.Queue.DeclareOk
         replies = [condition] if nowait is False else []
         self._validate_channel_and_callback(callback)
         return self._rpc(spec.Queue.Declare(0, queue, passive, durable,

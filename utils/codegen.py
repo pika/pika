@@ -89,16 +89,7 @@ def generate(specPath):
     def genSingleDecode(prefix, cLvalue, unresolved_domain):
         type = spec.resolveDomain(unresolved_domain)
         if type == 'shortstr':
-            print(
-                prefix + "length = struct.unpack_from('B', encoded, offset)[0]")
-            print(prefix + "offset += 1")
-            print(prefix + "%s = encoded[offset:offset + length]" % cLvalue)
-            # What is this trying to do???
-            print(prefix + "try:")
-            print(prefix + "    %s = str(%s)" % (cLvalue, cLvalue))
-            print(prefix + "except UnicodeEncodeError:")
-            print(prefix + "    pass")
-            print(prefix + "offset += length")
+            print(prefix + "%s, offset = data.decode_short_string(encoded, offset)" % cLvalue)
         elif type == 'longstr':
             print(prefix +
                   "length = struct.unpack_from('>I', encoded, offset)[0]")
@@ -143,12 +134,7 @@ def generate(specPath):
             print(prefix + \
                 "assert isinstance(%s, str_or_bytes),\\\n%s       'A non-string value was supplied for %s'" \
                 % (cValue, prefix, cValue))
-            print(
-                prefix +
-                "value = %s.encode('utf-8') if isinstance(%s, unicode_type) else %s"
-                % (cValue, cValue, cValue))
-            print(prefix + "pieces.append(struct.pack('B', len(value)))")
-            print(prefix + "pieces.append(value)")
+            print(prefix + "data.encode_short_string(pieces, %s)" % cValue)
         elif type == 'longstr':
             print(prefix + \
                 "assert isinstance(%s, str_or_bytes),\\\n%s       'A non-string value was supplied for %s'" \
