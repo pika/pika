@@ -732,7 +732,7 @@ class Connection(object):
 
         if not self._has_open_channels:
             # if there are open channels then _on_close_ready will finally be
-            # called in _on_channel_closeok once all channels have been closed
+            # called in _on_channel_cleanup once all channels have been closed
             self._on_close_ready()
 
     def connect(self):
@@ -870,8 +870,11 @@ class Connection(object):
         :param int channel_number: The channel number for the callbacks
 
         """
-        self.callbacks.add(channel_number, spec.Channel.CloseOk,
-                           self._on_channel_closeok)
+        # This permits us to garbage-collect our reference to the channel
+        # regardless of whether it was closed by client or broker, and do so
+        # after all channel-close callbacks.
+        self._channels[channel_number]._add_on_cleanup_callback(
+            self._on_channel_cleanup)
 
     def _add_connection_start_callback(self):
         """Add a callback for when a Connection.Start frame is received from
@@ -950,7 +953,7 @@ class Connection(object):
                 else:
                     del self._channels[channel_number]
                     # Force any lingering callbacks to be removed
-                    # moved inside else block since _on_channel_closeok removes
+                    # moved inside else block since channel's _cleanup removes
                     # callbacks
                     self.callbacks.cleanup(channel_number)
         else:
@@ -984,6 +987,7 @@ class Connection(object):
         :param method on_open_callback: The callback when the channel is opened
 
         """
+        LOGGER.debug('Creating channel %s', channel_number)
         return channel.Channel(self, channel_number, on_open_callback)
 
     def _create_heartbeat_checker(self):
@@ -1171,7 +1175,7 @@ class Connection(object):
         return isinstance(value, frame.ProtocolHeader)
 
     def _next_channel_number(self):
-        """Return the next available channel number or raise on exception.
+        """Return the next available channel number or raise an exception.
 
         :rtype: int
 
@@ -1185,18 +1189,20 @@ class Connection(object):
             return 1
         return [x + 1 for x in sorted(ckeys) if x + 1 not in ckeys][0]
 
-    def _on_channel_closeok(self, method_frame):
+    def _on_channel_cleanup(self, channel):
         """Remove the channel from the dict of channels when Channel.CloseOk is
-        sent.
+        sent. If connection is closing and no more channels remain, proceed to
+        `_on_close_ready`.
 
-        :param pika.frame.Method method_frame: The response
+        :param pika.channel.Channel channel: channel instance
 
         """
         try:
-            del self._channels[method_frame.channel_number]
+            del self._channels[channel.channel_number]
+            LOGGER.debug('Removed channel %s', channel.channel_number)
         except KeyError:
             LOGGER.error('Channel %r not in channels',
-                         method_frame.channel_number)
+                         channel.channel_number)
         if self.is_closing and not self._has_open_channels:
             self._on_close_ready()
 

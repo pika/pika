@@ -71,7 +71,7 @@ class ConnectionTests(unittest.TestCase):
                         '_on_close_ready should have been called')
 
     @mock.patch('pika.connection.Connection._on_close_ready')
-    def test_on_channel_closeok_no_open_channels(self, on_close_ready):
+    def test_on_channel_cleanup_no_open_channels(self, on_close_ready):
         """Should call _on_close_ready if connection is closing and there are
         no open channels
 
@@ -82,7 +82,7 @@ class ConnectionTests(unittest.TestCase):
                         '_on_close_ready should been called')
 
     @mock.patch('pika.connection.Connection._on_close_ready')
-    def test_on_channel_closeok_open_channels(self, on_close_ready):
+    def test_on_channel_cleanup_open_channels(self, on_close_ready):
         """if connection is closing but channels remain open do not call
         _on_close_ready
 
@@ -92,9 +92,9 @@ class ConnectionTests(unittest.TestCase):
                          '_on_close_ready should not have been called')
 
     @mock.patch('pika.connection.Connection._on_close_ready')
-    def test_on_channel_closeok_non_closing_state(self, on_close_ready):
+    def test_on_channel_cleanup_non_closing_state(self, on_close_ready):
         """if connection isn't closing _on_close_ready should not be called"""
-        self.connection._on_channel_closeok(mock.Mock())
+        self.connection._on_channel_cleanup(mock.Mock())
         self.assertFalse(on_close_ready.called,
                          '_on_close_ready should not have been called')
 

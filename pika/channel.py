@@ -31,6 +31,8 @@ class Channel(object):
     OPEN = 2
     CLOSING = 3
 
+    _ON_CHANNEL_CLEANUP_CB_KEY = '_on_channel_cleanup'
+
     def __init__(self, connection, channel_number, on_open_callback=None):
         """Create a new instance of the Channel
 
@@ -51,7 +53,7 @@ class Channel(object):
         self._blocked = collections.deque(list())
         self._blocking = None
         self._has_on_flow_callback = False
-        self._cancelled = collections.deque(list())
+        self._cancelled = set()
         self._consumers = dict()
         self._consumers_with_noack = set()
         self._on_flowok_callback = None
@@ -59,6 +61,10 @@ class Channel(object):
         self._on_openok_callback = on_open_callback
         self._pending = dict()
         self._state = self.CLOSED
+
+        # opaque cookie value set by wrapper layer (e.g., BlockingConnection)
+        # via _set_cookie
+        self._cookie = None
 
     def __int__(self):
         """Return the channel object as its channel number
@@ -174,7 +180,7 @@ class Channel(object):
                 raise ValueError('Can not pass a callback if nowait is True')
             self.callbacks.add(self.channel_number, spec.Basic.CancelOk,
                                callback)
-        self._cancelled.append(consumer_tag)
+        self._cancelled.add(consumer_tag)
         self._rpc(spec.Basic.Cancel(consumer_tag=consumer_tag,
                                     nowait=nowait), self._on_cancelok,
                   [(spec.Basic.CancelOk, {'consumer_tag': consumer_tag})] if
@@ -209,8 +215,7 @@ class Channel(object):
 
         # If a consumer tag was not passed, create one
         if not consumer_tag:
-            consumer_tag = ('ctag%i.%s' % (self.channel_number,
-                                           uuid.uuid4().hex)).encode()
+            consumer_tag = self._generate_consumer_tag()
 
         if consumer_tag in self._consumers or consumer_tag in self._cancelled:
             raise exceptions.DuplicateConsumerTag(consumer_tag)
@@ -229,6 +234,17 @@ class Channel(object):
                                       {'consumer_tag': consumer_tag})])
 
         return consumer_tag
+
+    def _generate_consumer_tag(self):
+        """Generate a consumer tag
+
+        NOTE: this protected method may be called by derived classes
+
+        :returns: consumer tag
+        :rtype: str
+        """
+        return ('ctag%i.%s' % (self.channel_number,
+                                           uuid.uuid4().hex)).encode()
 
     def basic_get(self, callback=None, queue='', no_ack=False):
         """Get a single message from the AMQP broker. The callback method
@@ -776,6 +792,19 @@ class Channel(object):
         self.callbacks.add(self.channel_number, spec.Channel.Close,
                            self._on_close, True)
 
+    def _add_on_cleanup_callback(self, callback):
+        """For internal use only (e.g., Connection needs to remove closed
+        channels from its channel container). Pass a callback function that will
+        be called when the channel is being cleaned up after all channel-close
+        callbacks callbacks.
+
+        :param method callback: The method to call on callback with the
+            signature: callback(channel)
+
+        """
+        self.callbacks.add(self.channel_number, self._ON_CHANNEL_CLEANUP_CB_KEY,
+                           callback, one_shot=True, only_caller=self)
+
     def _add_pending_msg(self, consumer_tag, method_frame, header_frame, body):
         """Add the received message to the pending message stack.
 
@@ -791,8 +820,12 @@ class Channel(object):
 
     def _cleanup(self):
         """Remove all consumers and any callbacks for the channel."""
+        self.callbacks.process(self.channel_number,
+                               self._ON_CHANNEL_CLEANUP_CB_KEY, self,
+                               self)
         self._consumers = dict()
         self.callbacks.cleanup(str(self.channel_number))
+        self._cookie = None
 
     def _cleanup_consumer_ref(self, consumer_tag):
         """Remove any references to the consumer tag in internal structures
@@ -807,6 +840,15 @@ class Channel(object):
             del self._consumers[consumer_tag]
         if consumer_tag in self._pending:
             del self._pending[consumer_tag]
+        self._cancelled.discard(consumer_tag)
+
+    def _get_cookie(self):
+        """Used by the wrapper implementation (e.g., `BlockingChannel`) to
+        retrieve the cookie that it set via `_set_cookie`
+
+        :returns: opaque cookie value that was set via `_set_cookie`
+        """
+        return self._cookie
 
     def _get_pending_msg(self, consumer_tag):
         """Get a pending message for the consumer tag from the stack.
@@ -856,7 +898,10 @@ class Channel(object):
         :param pika.frame.Method method_frame: The method frame received
 
         """
-        self._cancelled.append(method_frame.method.consumer_tag)
+        if method_frame.method.consumer_tag in self._cancelled:
+            # User-initiated cancel is waiting for Cancel-ok
+            return
+
         self._cleanup_consumer_ref(method_frame.method.consumer_tag)
 
     def _on_cancelok(self, method_frame):
@@ -1087,6 +1132,15 @@ class Channel(object):
 
         """
         self.connection._send_method(self.channel_number, method_frame, content)
+
+    def _set_cookie(self, cookie):
+        """Used by wrapper layer (e.g., `BlockingConnection`) to link the
+        channel implementation back to the proxy. See `_get_cookie`.
+
+        :param cookie: an opaque value; typically a proxy channel implementation
+            instance (e.g., `BlockingChannel` instance)
+        """
+        self._cookie = cookie
 
     def _set_state(self, connection_state):
         """Set the channel connection state to the specified state value.

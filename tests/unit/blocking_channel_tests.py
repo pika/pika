@@ -57,18 +57,12 @@ class BlockingChannelTests(unittest.TestCase):
     def test_init_initial_value_returned_messages(self):
         self.assertListEqual(self.obj._returned_messages, list())
 
-    def test_has_event_and_get_event(self):
-        self.obj.create_consumer("queue")
-        self.assertFalse(self.obj.has_event())
+    def test_basic_consume(self):
+        with mock.patch.object(self.obj._impl, '_generate_consumer_tag'):
+            self.obj._impl._generate_consumer_tag.return_value = 'ctag0'
+            self.obj._impl.basic_consume.return_value = 'ctag0'
 
-        self.obj._pending_events.append("test1")
-        self.assertTrue(self.obj.has_event())
+            self.obj.basic_consume(mock.Mock(), "queue")
 
-        self.obj._pending_events.append("test2")
-        self.assertTrue(self.obj.has_event())
-
-        self.assertEqual(self.obj.get_event(), "test1")
-        self.assertTrue(self.obj.has_event())
-
-        self.assertEqual(self.obj.get_event(), "test2")
-        self.assertFalse(self.obj.has_event())
+            self.assertEqual(self.obj._consumer_infos['ctag0'].state,
+                             blocking_connection._ConsumerInfo.ACTIVE)

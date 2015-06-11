@@ -76,7 +76,7 @@ class ChannelTests(unittest.TestCase):
         self.assertEqual(self.obj._state, channel.Channel.CLOSED)
 
     def test_init_cancelled(self):
-        self.assertIsInstance(self.obj._cancelled, collections.deque)
+        self.assertIsInstance(self.obj._cancelled, set)
 
     def test_init_consumers(self):
         self.assertEqual(self.obj._consumers, dict())
@@ -229,7 +229,7 @@ class ChannelTests(unittest.TestCase):
         expectation = b'ctag1.'
         mock_callback = mock.Mock()
         for ctag in ['ctag1.%i' % ii for ii in range(11)]:
-            self.obj._cancelled.append(ctag)
+            self.obj._cancelled.add(ctag)
         self.assertEqual(
             self.obj.basic_consume(mock_callback, 'test-queue')[:6],
             expectation)
@@ -936,11 +936,11 @@ class ChannelTests(unittest.TestCase):
     def test_has_content_false(self):
         self.assertFalse(self.obj._has_content(spec.Basic.Ack))
 
-    def test_on_cancel_appended_cancelled(self):
+    def test_on_cancel_not_appended_cancelled(self):
         consumer_tag = 'ctag0'
         frame_value = frame.Method(1, spec.Basic.Cancel(consumer_tag))
         self.obj._on_cancel(frame_value)
-        self.assertIn(consumer_tag, self.obj._cancelled)
+        self.assertNotIn(consumer_tag, self.obj._cancelled)
 
     def test_on_cancel_removed_consumer(self):
         consumer_tag = 'ctag0'
