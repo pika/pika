@@ -66,6 +66,23 @@ And an example of writing a blocking consumer:
     print 'Requeued %i messages' % requeued_messages
     connection.close()
 
+And an example of tuning your client properties through Pika 
+
+.. code :: python
+
+     import pika
+
+    client_properties = {
+        'product': 'my product',
+        'information': 'my information',
+        'my_other_props': 'my other property',
+    }
+
+    credentials = pika.PlainCredentials('guest', 'guest')
+    parameters = pika.ConnectionParameters("localhost", 5672, '/',
+                                           credentials=credentials, client_props=client_properties)
+    connection = pika.BlockingConnection(parameters)
+
 Pika provides the following adapters
 ------------------------------------
 
