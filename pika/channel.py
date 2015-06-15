@@ -11,6 +11,8 @@ import pika.frame as frame
 import pika.exceptions as exceptions
 import pika.spec as spec
 from pika.utils import is_callable
+from pika.compat import unicode_type, dictkeys
+
 
 LOGGER = logging.getLogger(__name__)
 MAX_CHANNELS = 32768
@@ -206,8 +208,9 @@ class Channel(object):
         self._validate_channel_and_callback(consumer_callback)
 
         # If a consumer tag was not passed, create one
-        consumer_tag = consumer_tag or 'ctag%i.%s' % (self.channel_number,
-                                                      uuid.uuid4().get_hex())
+        if not consumer_tag:
+            consumer_tag = ('ctag%i.%s' % (self.channel_number,
+                                           uuid.uuid4().hex)).encode()
 
         if consumer_tag in self._consumers or consumer_tag in self._cancelled:
             raise exceptions.DuplicateConsumerTag(consumer_tag)
@@ -296,7 +299,7 @@ class Channel(object):
             raise exceptions.ChannelClosed()
         if immediate:
             LOGGER.warning('The immediate flag is deprecated in RabbitMQ')
-        if isinstance(body, unicode):
+        if isinstance(body, unicode_type):
             body = body.encode('utf-8')
         properties = properties or spec.BasicProperties()
         self._send_method(spec.Basic.Publish(exchange=exchange,
@@ -343,7 +346,7 @@ class Channel(object):
                                         all_channels), callback,
                          [spec.Basic.QosOk])
 
-    def basic_reject(self, delivery_tag=None, requeue=True):
+    def basic_reject(self, delivery_tag, requeue=True):
         """Reject an incoming message. This method allows a client to reject a
         message. It can be used to interrupt and cancel large incoming messages,
         or return untreatable messages to their original queue.
@@ -353,10 +356,13 @@ class Channel(object):
                              requeue the message. If requeue is false or the
                              requeue attempt fails the messages are discarded or
                              dead-lettered.
+        :raises: TypeError
 
         """
         if not self.is_open:
             raise exceptions.ChannelClosed()
+        if not isinstance(delivery_tag, int):
+            raise TypeError('delivery_tag must be an integer')
         return self._send_method(spec.Basic.Reject(delivery_tag, requeue))
 
     def basic_recover(self, callback=None, requeue=False):
@@ -387,7 +393,7 @@ class Channel(object):
         LOGGER.info('Channel.close(%s, %s)', reply_code, reply_text)
         if self._consumers:
             LOGGER.debug('Cancelling %i consumers', len(self._consumers))
-            for consumer_tag in self._consumers.keys():
+            for consumer_tag in dictkeys(self._consumers):
                 self.basic_cancel(consumer_tag=consumer_tag)
         self._set_state(self.CLOSING)
         self._rpc(spec.Channel.Close(reply_code, reply_text, 0, 0),
@@ -428,7 +434,7 @@ class Channel(object):
         :rtype: list
 
         """
-        return list(self._consumers.keys())
+        return dictkeys(self._consumers)
 
     def exchange_bind(self,
                       callback=None,
@@ -995,8 +1001,10 @@ class Channel(object):
 
         """
         if not self.callbacks.process(self.channel_number, '_on_return', self,
-                                      (self, method_frame.method,
-                                       header_frame.properties, body)):
+                                      self,
+                                      method_frame.method,
+                                      header_frame.properties,
+                                      body):
             LOGGER.warning('Basic.Return received from server (%r, %r)',
                            method_frame.method, header_frame.properties)
 
@@ -1146,7 +1154,7 @@ class ContentFrameDispatcher(object):
 
         """
         content = (self._method_frame, self._header_frame,
-                   ''.join(self._body_fragments))
+                   b''.join(self._body_fragments))
         self._reset()
         return content
 

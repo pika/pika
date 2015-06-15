@@ -25,6 +25,9 @@ from pika import utils
 
 from pika import spec
 
+from pika.compat import basestring, url_unquote, dictkeys
+
+
 BACKPRESSURE_WARNING = ("Pika: Write buffer exceeded warning threshold at "
                         "%i bytes and an estimated %i frames behind")
 PRODUCT = "Pika Python Client Library"
@@ -480,7 +483,7 @@ class URLParameters(Parameters):
             self.virtual_host = self.DEFAULT_VIRTUAL_HOST
         else:
             path_parts = parts.path.split('/')
-            virtual_host = urllib.unquote(path_parts[1])
+            virtual_host = url_unquote(path_parts[1])
             if self._validate_virtual_host(virtual_host):
                 self.virtual_host = virtual_host
 
@@ -488,7 +491,7 @@ class URLParameters(Parameters):
         values = urlparse.parse_qs(parts.query)
 
         # Cast the various numeric values to the appropriate values
-        for key in values.keys():
+        for key in dictkeys(values):
             # Always reassign the first list item in query values
             values[key] = values[key].pop(0)
             if values[key].isdigit():
@@ -813,7 +816,7 @@ class Connection(object):
         :rtype: bool
 
         """
-        return self.server_capabilities.get('basic.nack', False)
+        return self.server_capabilities.get(b'basic.nack', False)
 
     @property
     def consumer_cancel_notify(self):
@@ -823,7 +826,7 @@ class Connection(object):
         :rtype: bool
 
         """
-        return self.server_capabilities.get('consumer_cancel_notify', False)
+        return self.server_capabilities.get(b'consumer_cancel_notify', False)
 
     @property
     def exchange_exchange_bindings(self):
@@ -833,7 +836,7 @@ class Connection(object):
         :rtype: bool
 
         """
-        return self.server_capabilities.get('exchange_exchange_bindings', False)
+        return self.server_capabilities.get(b'exchange_exchange_bindings', False)
 
     @property
     def publisher_confirms(self):
@@ -842,7 +845,7 @@ class Connection(object):
         :rtype: bool
 
         """
-        return self.server_capabilities.get('publisher_confirms', False)
+        return self.server_capabilities.get(b'publisher_confirms', False)
 
     #
     # Internal methods for managing the communication process
@@ -951,7 +954,7 @@ class Connection(object):
 
         """
         if self.is_open:
-            for channel_number in self._channels.keys():
+            for channel_number in dictkeys(self._channels):
                 if self._channels[channel_number].is_open:
                     self._channels[channel_number].close(reply_code, reply_text)
                 else:
@@ -1088,7 +1091,7 @@ class Connection(object):
 
         """
         return any([self._channels[num].is_open
-                    for num in self._channels.keys()])
+                    for num in dictkeys(self._channels)])
 
     def _has_pending_callbacks(self, value):
         """Return true if there are any callbacks pending for the specified
@@ -1186,8 +1189,11 @@ class Connection(object):
         limit = self.params.channel_max or channel.MAX_CHANNELS
         if len(self._channels) == limit:
             raise exceptions.NoFreeChannels()
-        return [x + 1 for x in sorted(self._channels.keys() or [0])
-                if x + 1 not in self._channels.keys()][0]
+
+        ckeys = set(self._channels.keys())
+        if not ckeys:
+            return 1
+        return [x + 1 for x in sorted(ckeys) if x + 1 not in ckeys][0]
 
     def _on_channel_closeok(self, method_frame):
         """Remove the channel from the dict of channels when Channel.CloseOk is
@@ -1356,7 +1362,7 @@ class Connection(object):
                        self.params.host, self.params.port, reply_code,
                        reply_text)
         self._set_connection_state(self.CONNECTION_CLOSED)
-        for channel in self._channels.keys():
+        for channel in dictkeys(self._channels):
             if channel not in self._channels:
                 continue
             method_frame = frame.Method(channel, spec.Channel.Close(reply_code,
@@ -1537,11 +1543,13 @@ class Connection(object):
 
         :param frame_value: The frame to write
         :type frame_value:  pika.frame.Frame|pika.frame.ProtocolHeader
+        :raises: exceptions.ConnectionClosed
 
         """
         if self.is_closed:
             LOGGER.critical('Attempted to send frame when closed')
-            return
+            raise exceptions.ConnectionClosed
+
         marshaled_frame = frame_value.marshal()
         self.bytes_sent += len(marshaled_frame)
         self.frames_sent += 1
@@ -1612,7 +1620,7 @@ class Connection(object):
 
         """
         self.server_properties = method_frame.method.server_properties
-        self.server_capabilities = self.server_properties.get('capabilities',
+        self.server_capabilities = self.server_properties.get(b'capabilities',
                                                               dict())
         if hasattr(self.server_properties, 'capabilities'):
             del self.server_properties['capabilities']

@@ -1,12 +1,38 @@
+# ----------------------------------------------------------------------
+# Copyright (c) 2015, Vitaly Kruglikov All rights reserved.
+# ----------------------------------------------------------------------
+
 """TCP/IP forwarding/echo service for testing."""
 
+from __future__ import print_function
+
 import array
+from datetime import datetime
 import errno
+import logging
 import multiprocessing
+import os
 import socket
-import SocketServer
 import sys
 import threading
+import traceback
+
+from pika.compat import PY3
+
+if PY3:
+    def buffer(object, offset, size): # pylint: disable=W0622
+        """array etc. have the buffer protocol"""
+        return object[offset:offset + size]
+
+try:
+    import SocketServer
+except ImportError:
+    import socketserver as SocketServer # pylint: disable=F0401
+
+
+def _trace(fmt, *args):
+    """Format and output the text to stderr"""
+    print(fmt % args, file=sys.stderr)
 
 
 
@@ -47,6 +73,8 @@ class ForwardServer(object):
         worker.join()
 
     """
+    # Amount of time, in seconds, we're willing to wait for the subprocess
+    _SUBPROC_TIMEOUT = 10
 
 
     def __init__(self,
@@ -73,6 +101,8 @@ class ForwardServer(object):
         :param server_socket_type: only socket.SOCK_STREAM is supported at this
           time
         """
+        self._logger = logging.getLogger(__name__)
+
         self._remote_addr = remote_addr
         self._remote_addr_family = remote_addr_family
         assert remote_socket_type == socket.SOCK_STREAM, remote_socket_type
@@ -142,48 +172,40 @@ class ForwardServer(object):
 
         :returns: self
         """
+        q = multiprocessing.Queue()
 
-        server_addr = self._server_addr
-        server_addr_family = self._server_addr_family
-        server_socket_type = self._server_socket_type
-
-        # NOTE: We define _ThreadedTCPServer class as a closure in order to
-        # override some of its class members dynamically
-        class _ThreadedTCPServer(SocketServer.ThreadingMixIn,
-                                 SocketServer.TCPServer,
-                                 object):
-
-            # Override TCPServer's class members
-            address_family = server_addr_family
-            socket_type = server_socket_type
-            allow_reuse_address = True
-
-
-            def __init__(self,
-                         remote_addr,
-                         remote_addr_family,
-                         remote_socket_type):
-                self.remote_addr = remote_addr
-                self.remote_addr_family = remote_addr_family
-                self.remote_socket_type = remote_socket_type
-
-                super(_ThreadedTCPServer, self).__init__(
-                    server_addr,
-                    _TCPHandler,
-                    bind_and_activate=True)
-
-
-        server = _ThreadedTCPServer(self._remote_addr,
-                                    self._remote_addr_family,
-                                    self._remote_socket_type)
-
-        self._server_addr_family = server.socket.family
-        self._server_addr = server.server_address
-
-        self._subproc = multiprocessing.Process(target=_run_server,
-                                                args=(server,))
+        self._subproc = multiprocessing.Process(
+            target=_run_server,
+            kwargs=dict(
+                local_addr=self._server_addr,
+                local_addr_family=self._server_addr_family,
+                local_socket_type=self._server_socket_type,
+                remote_addr=self._remote_addr,
+                remote_addr_family=self._remote_addr_family,
+                remote_socket_type=self._remote_socket_type,
+                q=q))
         self._subproc.daemon = True
         self._subproc.start()
+
+        try:
+            # Get server socket info from subprocess
+            self._server_addr_family, self._server_addr = q.get(
+                block=True,
+                timeout=self._SUBPROC_TIMEOUT)
+        except Exception: # pylint: disable=W0703
+            try:
+                self._logger.exception(
+                    "Failed while waiting for local socket info")
+                # Preserve primary exception and traceback
+                raise
+            finally:
+                # Clean up
+                try:
+                    self.stop()
+                except Exception: # pylint: disable=W0703
+                    # Suppress secondary exception in favor of the primary
+                    self._logger.exception(
+                        "Emergency subprocess shutdown failed")
 
         return self
 
@@ -195,17 +217,81 @@ class ForwardServer(object):
         ForwardServer. start()/stop() are alternatives to the context manager
         use case and are mutually exclusive with it.
         """
-        self._subproc.terminate()
-        self._subproc.join(timeout=10)
-        self._subproc = None
+        self._logger.info("ForwardServer STOPPING")
+
+        try:
+            self._subproc.terminate()
+            self._subproc.join(timeout=self._SUBPROC_TIMEOUT)
+            if self._subproc.is_alive():
+                self._logger.error(
+                    "ForwardServer failed to terminate, killing it")
+                os.kill(self._subproc.pid)
+                self._subproc.join(timeout=self._SUBPROC_TIMEOUT)
+                assert not self._subproc.is_alive(), self._subproc
+
+            # Log subprocess's exit code; NOTE: negative signal.SIGTERM (usually
+            # -15) is normal on POSIX systems - it corresponds to SIGTERM
+            exit_code = self._subproc.exitcode
+            self._logger.info("ForwardServer terminated with exitcode=%s",
+                              exit_code)
+        finally:
+            self._subproc = None
 
 
 
-def _run_server(server):
-    """ Run the server
+def _run_server(local_addr, local_addr_family, local_socket_type,
+                remote_addr, remote_addr_family, remote_socket_type, q):
+    """ Run the server; executed in the subprocess
 
-    :param _ThreadedTCPServer server:
+    :param local_addr: listening address
+    :param local_addr_family: listening address family; one of socket.AF_*
+    :param local_socket_type: listening socket type; typically
+        socket.SOCK_STREAM
+    :param remote_addr: address of the target server
+    :param remote_addr_family: address family for connecting to target server;
+        one of socket.AF_*
+    :param remote_socket_type: socket type for connecting to target server;
+        typically socket.SOCK_STREAM
+    :param multiprocessing.Queue q: queue for depositing the forwarding server's
+        actual listening socket address family and bound address. The parent
+        process waits for this.
     """
+
+    # NOTE: We define _ThreadedTCPServer class as a closure in order to
+    # override some of its class members dynamically
+    class _ThreadedTCPServer(SocketServer.ThreadingMixIn,
+                             SocketServer.TCPServer,
+                             object):
+        """Threaded streaming server for forwarding"""
+
+        # Override TCPServer's class members
+        address_family = local_addr_family
+        socket_type = local_socket_type
+        allow_reuse_address = True
+
+
+        def __init__(self,
+                     remote_addr,
+                     remote_addr_family,
+                     remote_socket_type):
+            self.remote_addr = remote_addr
+            self.remote_addr_family = remote_addr_family
+            self.remote_socket_type = remote_socket_type
+
+            super(_ThreadedTCPServer, self).__init__(
+                local_addr,
+                _TCPHandler,
+                bind_and_activate=True)
+
+
+    server = _ThreadedTCPServer(remote_addr,
+                                remote_addr_family,
+                                remote_socket_type)
+
+    # Send server socket info back to parent process
+    q.put([server.socket.family, server.server_address])
+
+
     server.serve_forever()
 
 
@@ -217,51 +303,9 @@ class _TCPHandler(SocketServer.StreamRequestHandler):
 
     _SOCK_RX_BUF_SIZE = 16 * 1024
 
+
     def handle(self):
-        def forward(src_sock, dest_sock):
-            try:
-                # NOTE: python 2.6 doesn't support bytearray with recv_into, so
-                # we use array.array instead; this is only okay as long as the
-                # array instance isn't shared across threads. See
-                # http://bugs.python.org/issue7827 and
-                # groups.google.com/forum/#!topic/comp.lang.python/M6Pqr-KUjQw
-                rx_buf = array.array("B", [0] * self._SOCK_RX_BUF_SIZE)
-
-                while True:
-                    try:
-                        nbytes = src_sock.recv_into(rx_buf)
-                    except socket.error as e:
-                        if e.errno == errno.EINTR:
-                            continue
-                        elif e.errno == errno.ECONNRESET:
-                            # Source peer forcibly closed connection
-                            break
-                        else:
-                            raise
-
-                    if not nbytes:
-                        # Source input EOF
-                        break
-
-                    try:
-                        dest_sock.sendall(buffer(rx_buf, 0, nbytes))
-                    except socket.error as e:
-                        if e.errno == errno.EPIPE:
-                            # Destination peer closed its end of the connection
-                            break
-                        elif e.errno == errno.ECONNRESET:
-                            # Destination peer forcibly closed connection
-                            break
-                        else:
-                            raise
-            finally:
-                try:
-                    # Let source peer know we're done receiving
-                    _safe_shutdown_socket(src_sock, socket.SHUT_RD)
-                finally:
-                    # Let destination peer know we're done sending
-                    _safe_shutdown_socket(dest_sock, socket.SHUT_WR)
-
+        """Connect to remote and forward data between local and remote"""
         local_sock = self.connection
 
         if self.server.remote_addr is not None:
@@ -271,19 +315,21 @@ class _TCPHandler(SocketServer.StreamRequestHandler):
                 type=self.server.remote_socket_type,
                 proto=socket.IPPROTO_IP)
             remote_dest_sock.connect(self.server.remote_addr)
+            _trace("%s _TCPHandler connected to remote %s",
+                   datetime.utcnow(), remote_dest_sock.getpeername())
         else:
             # Echo set-up
             remote_dest_sock, remote_src_sock = socket_pair()
 
         try:
             local_forwarder = threading.Thread(
-                target=forward,
+                target=self._forward,
                 args=(local_sock, remote_dest_sock,))
             local_forwarder.setDaemon(True)
             local_forwarder.start()
 
             try:
-                forward(remote_src_sock, local_sock)
+                self._forward(remote_src_sock, local_sock)
             finally:
                 # Wait for local forwarder thread to exit
                 local_forwarder.join()
@@ -302,6 +348,76 @@ class _TCPHandler(SocketServer.StreamRequestHandler):
                     remote_src_sock.close()
 
 
+    def _forward(self, src_sock, dest_sock):
+        """Forward from src_sock to dest_sock"""
+        _trace("%s forwarding from %s to %s", datetime.utcnow(),
+               src_sock.getpeername(), dest_sock.getpeername())
+        try:
+            # NOTE: python 2.6 doesn't support bytearray with recv_into, so
+            # we use array.array instead; this is only okay as long as the
+            # array instance isn't shared across threads. See
+            # http://bugs.python.org/issue7827 and
+            # groups.google.com/forum/#!topic/comp.lang.python/M6Pqr-KUjQw
+            rx_buf = array.array("B", [0] * self._SOCK_RX_BUF_SIZE)
+
+            while True:
+                try:
+                    nbytes = src_sock.recv_into(rx_buf)
+                except socket.error as e:
+                    if e.errno == errno.EINTR:
+                        continue
+                    elif e.errno == errno.ECONNRESET:
+                        # Source peer forcibly closed connection
+                        _trace("%s errno.ECONNRESET from %s",
+                               datetime.utcnow(), src_sock.getpeername())
+                        break
+                    else:
+                        _trace("%s Unexpected errno=%s from %s\n%s",
+                               datetime.utcnow(), e.errno,
+                               src_sock.getpeername(),
+                               "".join(traceback.format_stack()))
+                        raise
+
+                if not nbytes:
+                    # Source input EOF
+                    _trace("%s EOF on %s", datetime.utcnow(),
+                           src_sock.getpeername())
+                    break
+
+                try:
+                    dest_sock.sendall(buffer(rx_buf, 0, nbytes))
+                except socket.error as e:
+                    if e.errno == errno.EPIPE:
+                        # Destination peer closed its end of the connection
+                        _trace("%s Destination peer %s closed its end of "
+                               "the connection: errno.EPIPE",
+                               datetime.utcnow(), dest_sock.getpeername())
+                        break
+                    elif e.errno == errno.ECONNRESET:
+                        # Destination peer forcibly closed connection
+                        _trace("%s Destination peer %s forcibly closed "
+                               "connection: errno.ECONNRESET",
+                               datetime.utcnow(), dest_sock.getpeername())
+                        break
+                    else:
+                        _trace(
+                            "%s Unexpected errno=%s in sendall to %s\n%s",
+                            datetime.utcnow(), e.errno,
+                            dest_sock.getpeername(),
+                            "".join(traceback.format_stack()))
+                        raise
+        except:
+            _trace("forward failed\n%s", "".join(traceback.format_stack()))
+            raise
+        finally:
+            _trace("%s done forwarding from %s", datetime.utcnow(),
+                   src_sock.getpeername())
+            try:
+                # Let source peer know we're done receiving
+                _safe_shutdown_socket(src_sock, socket.SHUT_RD)
+            finally:
+                # Let destination peer know we're done sending
+                _safe_shutdown_socket(dest_sock, socket.SHUT_WR)
 
 
 def echo(port=0):
@@ -320,14 +436,14 @@ def echo(port=0):
     lsock = socket.socket()
     lsock.bind(("", port))
     lsock.listen(1)
-    print >> sys.stderr, "Listening on sockname:", lsock.getsockname()
+    _trace("Listening on sockname=%s", lsock.getsockname())
 
     sock, remote_addr = lsock.accept()
     try:
-        print >> sys.stderr, "Connection from peer:", remote_addr
+        _trace("Connection from peer=%s", remote_addr)
         while True:
             try:
-                data = sock.recv(4 * 1024)
+                data = sock.recv(4 * 1024) # pylint: disable=E1101
             except socket.error as e:
                 if e.errno == errno.EINTR:
                     continue
@@ -337,7 +453,7 @@ def echo(port=0):
             if not data:
                 break
 
-            sock.sendall(data)
+            sock.sendall(data) # pylint: disable=E1101
     finally:
         try:
             _safe_shutdown_socket(sock, socket.SHUT_RDWR)
@@ -367,28 +483,28 @@ def socket_pair(family=None, sock_type=socket.SOCK_STREAM,
     :param proto: protocol; defaults to socket.IPPROTO_IP
     """
     if family is None:
-        try:
+        if hasattr(socket, "AF_UNIX"):
             family = socket.AF_UNIX
-        except NameError:
+        else:
             family = socket.AF_INET
 
-    try:
+    if hasattr(socket, "socketpair"):
         socket1, socket2 = socket.socketpair(family, sock_type, proto)
-    except NameError:
+    else:
         # Probably running on Windows where socket.socketpair isn't supported
 
         # Work around lack of socket.socketpair()
 
         socket1 = socket2 = None
 
-        listener = socket(family, sock_type, proto)
+        listener = socket.socket(family, sock_type, proto)
         listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
         listener.bind(("localhost", 0))
         listener.listen(1)
         listener_port = listener.getsockname()[1]
 
-        socket1 = socket(family, sock_type, proto)
+        socket1 = socket.socket(family, sock_type, proto)
 
         # Use thread to connect in background, while foreground issues the
         # blocking accept()
@@ -405,5 +521,6 @@ def socket_pair(family=None, sock_type=socket.SOCK_STREAM,
 
             # Join/reap background thread
             conn_thread.join(timeout=10)
+            assert not conn_thread.isAlive()
 
     return (socket1, socket2)

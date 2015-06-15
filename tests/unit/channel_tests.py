@@ -4,7 +4,12 @@ Tests for pika.channel.ContentFrameDispatcher
 """
 import collections
 import logging
-import mock
+
+try:
+    import mock
+except ImportError:
+    from unittest import mock
+
 try:
     import unittest2 as unittest
 except ImportError:
@@ -81,9 +86,6 @@ class ChannelTests(unittest.TestCase):
 
     def test_init_on_getok_callback(self):
         self.assertEqual(self.obj._on_getok_callback, None)
-
-    def test_init_on_flowok_callback(self):
-        self.assertEqual(self.obj._on_flowok_callback, None)
 
     def test_add_callback(self):
         mock_callback = mock.Mock()
@@ -216,7 +218,7 @@ class ChannelTests(unittest.TestCase):
 
     def test_basic_consume_consumer_tag(self):
         self.obj._set_state(self.obj.OPEN)
-        expectation = 'ctag1.'
+        expectation = b'ctag1.'
         mock_callback = mock.Mock()
         self.assertEqual(
             self.obj.basic_consume(mock_callback, 'test-queue')[:6],
@@ -224,7 +226,7 @@ class ChannelTests(unittest.TestCase):
 
     def test_basic_consume_consumer_tag_cancelled_full(self):
         self.obj._set_state(self.obj.OPEN)
-        expectation = 'ctag1.'
+        expectation = b'ctag1.'
         mock_callback = mock.Mock()
         for ctag in ['ctag1.%i' % ii for ii in range(11)]:
             self.obj._cancelled.append(ctag)
@@ -305,7 +307,7 @@ class ChannelTests(unittest.TestCase):
 
     @mock.patch('pika.spec.Basic.Get')
     @mock.patch('pika.channel.Channel._send_method')
-    def test_basic_get_send_mehtod_called(self, send_method, unused):
+    def test_basic_get_send_method_called(self, send_method, unused):
         self.obj._set_state(self.obj.OPEN)
         mock_callback = mock.Mock()
         self.obj.basic_get(mock_callback, 'test-queue', False)
@@ -334,7 +336,7 @@ class ChannelTests(unittest.TestCase):
         self.obj._set_state(self.obj.OPEN)
         exchange = 'basic_publish_test'
         routing_key = 'routing-key-fun'
-        body = 'This is my body'
+        body = b'This is my body'
         properties = spec.BasicProperties(content_type='text/plain')
         mandatory = False
         immediate = True
@@ -349,7 +351,7 @@ class ChannelTests(unittest.TestCase):
         self.obj._set_state(self.obj.OPEN)
         exchange = 'basic_publish_test'
         routing_key = 'routing-key-fun'
-        body = 'This is my body'
+        body = b'This is my body'
         properties = spec.BasicProperties(content_type='text/plain')
         mandatory = False
         immediate = False
@@ -489,7 +491,7 @@ class ChannelTests(unittest.TestCase):
                          self.obj.callbacks.add.call_args_list)
 
     def test_consumer_tags(self):
-        self.assertListEqual(self.obj.consumer_tags, self.obj._consumers.keys())
+        self.assertListEqual(self.obj.consumer_tags, list(self.obj._consumers.keys()))
 
     def test_exchange_bind_raises_channel_closed(self):
         self.assertRaises(exceptions.ChannelClosed, self.obj.exchange_bind,
@@ -898,22 +900,22 @@ class ChannelTests(unittest.TestCase):
         self.obj._handle_content_frame(method_value)
         header_value = frame.Header(1, 10, spec.BasicProperties())
         self.obj._handle_content_frame(header_value)
-        body_value = frame.Body(1, '0123456789')
+        body_value = frame.Body(1, b'0123456789')
         with mock.patch.object(self.obj, '_on_deliver') as deliver:
             self.obj._handle_content_frame(body_value)
             deliver.assert_called_once_with(method_value, header_value,
-                                            '0123456789')
+                                            b'0123456789')
 
     def test_handle_content_frame_basic_get_called(self):
         method_value = frame.Method(1, spec.Basic.GetOk('ctag0', 1))
         self.obj._handle_content_frame(method_value)
         header_value = frame.Header(1, 10, spec.BasicProperties())
         self.obj._handle_content_frame(header_value)
-        body_value = frame.Body(1, '0123456789')
+        body_value = frame.Body(1, b'0123456789')
         with mock.patch.object(self.obj, '_on_getok') as getok:
             self.obj._handle_content_frame(body_value)
             getok.assert_called_once_with(method_value, header_value,
-                                          '0123456789')
+                                          b'0123456789')
 
     def test_handle_content_frame_basic_return_called(self):
         method_value = frame.Method(1, spec.Basic.Return(999, 'Reply Text',
@@ -922,11 +924,11 @@ class ChannelTests(unittest.TestCase):
         self.obj._handle_content_frame(method_value)
         header_value = frame.Header(1, 10, spec.BasicProperties())
         self.obj._handle_content_frame(header_value)
-        body_value = frame.Body(1, '0123456789')
+        body_value = frame.Body(1, b'0123456789')
         with mock.patch.object(self.obj, '_on_return') as basic_return:
             self.obj._handle_content_frame(body_value)
             basic_return.assert_called_once_with(method_value, header_value,
-                                                 '0123456789')
+                                                 b'0123456789')
 
     def test_has_content_true(self):
         self.assertTrue(self.obj._has_content(spec.Basic.GetOk))
@@ -968,7 +970,7 @@ class ChannelTests(unittest.TestCase):
         self.obj._pending[consumer_tag] = mock_callback
         method_value = frame.Method(1, spec.Basic.Deliver(consumer_tag, 1))
         header_value = frame.Header(1, 10, spec.BasicProperties())
-        body_value = '0123456789'
+        body_value = b'0123456789'
         with mock.patch.object(self.obj, '_add_pending_msg') as add_pending:
             self.obj._on_deliver(method_value, header_value, body_value)
             add_pending.assert_called_with(consumer_tag, method_value,
@@ -982,7 +984,7 @@ class ChannelTests(unittest.TestCase):
         self.obj._consumers[consumer_tag] = mock_callback
         method_value = frame.Method(1, spec.Basic.Deliver(consumer_tag, 1))
         header_value = frame.Header(1, 10, spec.BasicProperties())
-        body_value = '0123456789'
+        body_value = b'0123456789'
         self.obj._on_deliver(method_value, header_value, body_value)
         mock_callback.assert_called_with(self.obj, method_value.method,
                                          header_value.properties, body_value)
@@ -994,7 +996,7 @@ class ChannelTests(unittest.TestCase):
         self.obj._pending[consumer_tag] = list()
         method_value = frame.Method(1, spec.Basic.Deliver(consumer_tag, 1))
         header_value = frame.Header(1, 10, spec.BasicProperties())
-        body_value = '0123456789'
+        body_value = b'0123456789'
         expectation = [mock.call(self.obj, method_value.method,
                                  header_value.properties, body_value)]
 
@@ -1002,7 +1004,7 @@ class ChannelTests(unittest.TestCase):
         self.obj._consumers[consumer_tag] = mock_callback
         method_value = frame.Method(1, spec.Basic.Deliver(consumer_tag, 2))
         header_value = frame.Header(1, 10, spec.BasicProperties())
-        body_value = '0123456789'
+        body_value = b'0123456789'
         self.obj._on_deliver(method_value, header_value, body_value)
         expectation.append(mock.call(self.obj, method_value.method,
                                      header_value.properties, body_value))
@@ -1019,7 +1021,7 @@ class ChannelTests(unittest.TestCase):
     def test_on_getok_no_callback(self, error):
         method_value = frame.Method(1, spec.Basic.GetOk('ctag0', 1))
         header_value = frame.Header(1, 10, spec.BasicProperties())
-        body_value = '0123456789'
+        body_value = b'0123456789'
         self.obj._on_getok(method_value, header_value, body_value)
         error.assert_called_with('Basic.GetOk received with no active callback')
 
@@ -1028,7 +1030,7 @@ class ChannelTests(unittest.TestCase):
         self.obj._on_getok_callback = mock_callback
         method_value = frame.Method(1, spec.Basic.GetOk('ctag0', 1))
         header_value = frame.Header(1, 10, spec.BasicProperties())
-        body_value = '0123456789'
+        body_value = b'0123456789'
         self.obj._on_getok(method_value, header_value, body_value)
         mock_callback.assert_called_once_with(self.obj, method_value.method,
                                               header_value.properties,
@@ -1039,7 +1041,7 @@ class ChannelTests(unittest.TestCase):
         self.obj._on_getok_callback = mock_callback
         method_value = frame.Method(1, spec.Basic.GetOk('ctag0', 1))
         header_value = frame.Header(1, 10, spec.BasicProperties())
-        body_value = '0123456789'
+        body_value = b'0123456789'
         self.obj._on_getok(method_value, header_value, body_value)
         self.assertIsNone(self.obj._on_getok_callback)
 
@@ -1116,12 +1118,15 @@ class ChannelTests(unittest.TestCase):
                                                          'exchange_value',
                                                          'routing.key'))
         header_value = frame.Header(1, 10, spec.BasicProperties())
-        body_value = frame.Body(1, '0123456789')
+        body_value = frame.Body(1, b'0123456789')
         self.obj._on_return(method_value, header_value, body_value)
-        self.obj.callbacks.process.assert_called_with(
-            self.obj.channel_number, '_on_return', self.obj,
-            (self.obj, method_value.method, header_value.properties,
-             body_value))
+        self.obj.callbacks.process.assert_called_with(self.obj.channel_number,
+                                                      '_on_return',
+                                                      self.obj,
+                                                      self.obj,
+                                                      method_value.method,
+                                                      header_value.properties,
+                                                      body_value)
 
     @mock.patch('logging.Logger.warning')
     def test_onreturn_warning(self, warning):
@@ -1129,7 +1134,7 @@ class ChannelTests(unittest.TestCase):
                                                          'exchange_value',
                                                          'routing.key'))
         header_value = frame.Header(1, 10, spec.BasicProperties())
-        body_value = frame.Body(1, '0123456789')
+        body_value = frame.Body(1, b'0123456789')
         self.obj.callbacks.process.return_value = False
         self.obj._on_return(method_value, header_value, body_value)
         warning.assert_called_with('Basic.Return received from server (%r, %r)',

@@ -11,6 +11,8 @@ import time
 from operator import itemgetter
 from collections import defaultdict
 
+from pika.compat import dictkeys
+
 from pika.adapters.base_connection import BaseConnection
 
 LOGGER = logging.getLogger(__name__)
@@ -74,16 +76,6 @@ class SelectConnection(BaseConnection):
         if self.socket:
             self.ioloop.remove_handler(self.socket.fileno())
         super(SelectConnection, self)._adapter_disconnect()
-
-    def _flush_outbound(self):
-        """Call the state manager who will figure out that we need to write
-            then call the poller's poll function to force it to process events.
-        """
-        self._manage_event_state()
-        # Force our poller to come up for air, but in write only mode
-        # write only mode prevents messages from coming in and kicking off
-        # events through the consumer
-        self.ioloop.poll(write_only=True)
 
 
 class IOLoop(object):
@@ -163,17 +155,18 @@ class SelectPoller(object):
             closed and garbage collected by python when the ioloop itself is.
         """
         try:
-            return socket.socketpair()
-
-        except NameError:
+            read_sock, write_sock = socket.socketpair()
+            
+        except AttributeError:
             LOGGER.debug("Using custom socketpair for interrupt")
             read_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            read_sock.setblocking(0)
             read_sock.bind(('localhost', 0))
             write_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            write_sock.setblocking(0)
             write_sock.connect(read_sock.getsockname())
-            return read_sock, write_sock
+        
+        read_sock.setblocking(0)
+        write_sock.setblocking(0)
+        return read_sock, write_sock
 
     def read_interrupt(self, interrupt_sock, events, write_only):
         """ Read the interrupt byte(s). We ignore the event mask and write_only
@@ -184,7 +177,11 @@ class SelectPoller(object):
         :param bool write_only: (unused) True if poll was called to trigger a
             write
         """
-        os.read(interrupt_sock, 512)
+        try:
+            os.read(interrupt_sock, 512)
+        except OSError as err:
+            if err.errno != errno.EAGAIN:
+                raise
 
     def add_timeout(self, deadline, callback_method):
         """Add the callback_method to the IOLoop timer to fire after deadline
@@ -310,7 +307,7 @@ class SelectPoller(object):
 
         try:
             # Send byte to interrupt the poll loop, use write() for consitency.
-            os.write(self._w_interrupt.fileno(), 'X')
+            os.write(self._w_interrupt.fileno(), b'X')
         except OSError as err:
             if err.errno != errno.EWOULDBLOCK:
                 raise
@@ -359,7 +356,7 @@ class SelectPoller(object):
 
         self._processing_fd_event_map = fd_event_map
 
-        for fileno in fd_event_map.keys():
+        for fileno in dictkeys(fd_event_map):
             if fileno not in fd_event_map:
                 # the fileno has been removed from the map under our feet.
                 continue
@@ -372,17 +369,6 @@ class SelectPoller(object):
             if events:
                 handler = self._fd_handlers[fileno]
                 handler(fileno, events, write_only=write_only)
-
-    def _flush_outbound(self):
-        """Call the state manager who will figure out that we need to write
-            then call the poller's poll function to force it to process events.
-        """
-        self._manage_event_state()
-        # Force our poller to come up for air, but in write only mode
-        # write only mode prevents messages from coming in and kicking off
-        # events through the consumer
-        self.poll(write_only=True)
-
 
 class KQueuePoller(SelectPoller):
     """KQueuePoller works on BSD based systems and is faster than select"""
