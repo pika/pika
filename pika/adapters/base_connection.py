@@ -8,6 +8,7 @@ import logging
 import socket
 import ssl
 
+import pika.compat
 from pika import connection
 from pika import exceptions
 
@@ -15,6 +16,14 @@ try:
     SOL_TCP = socket.SOL_TCP
 except AttributeError:
     SOL_TCP = 6
+
+
+if pika.compat.PY2:
+    _SOCKET_ERROR = socket.error
+else:
+    # socket.error was deprecated and replaced by OSError in python 3.3
+    _SOCKET_ERROR = OSError
+
 
 LOGGER = logging.getLogger(__name__)
 
@@ -110,14 +119,19 @@ class BaseConnection(connection.Connection):
 
         """
         # Get the addresses for the socket, supporting IPv4 & IPv6
-        try:
-            addresses = socket.getaddrinfo(self.params.host, self.params.port,
-                                           0, socket.SOCK_STREAM,
-                                           socket.IPPROTO_TCP)
-        except socket.error as error:
-            LOGGER.critical('Could not get addresses to use: %s (%s)', error,
-                            self.params.host)
-            return error
+        while True:
+            try:
+                addresses = socket.getaddrinfo(self.params.host, self.params.port,
+                                               0, socket.SOCK_STREAM,
+                                               socket.IPPROTO_TCP)
+                break
+            except _SOCKET_ERROR as error:
+                if error.errno == errno.EINTR:
+                    continue
+
+                LOGGER.critical('Could not get addresses to use: %s (%s)', error,
+                                self.params.host)
+                return error
 
         # If the socket is created and connected, continue on
         error = "No socket addresses available"
@@ -173,7 +187,7 @@ class BaseConnection(connection.Connection):
         if self.socket:
             try:
                 self.socket.shutdown(socket.SHUT_RDWR)
-            except socket.error:
+            except _SOCKET_ERROR:
                 pass
             self.socket.close()
             self.socket = None
@@ -206,7 +220,7 @@ class BaseConnection(connection.Connection):
             )
             LOGGER.error(error)
             return error
-        except socket.error as error:
+        except _SOCKET_ERROR as error:
             error = 'Connection to %s:%s failed: %s' % (sock_addr_tuple[4][0],
                                                         sock_addr_tuple[4][1],
                                                         error)
@@ -362,10 +376,19 @@ class BaseConnection(connection.Connection):
     def _handle_read(self):
         """Read from the socket and call our on_data_available with the data."""
         try:
-            if self.params.ssl:
-                data = self.socket.read(self._buffer_size)
-            else:
-                data = self.socket.recv(self._buffer_size)
+            while True:
+                try:
+                    if self.params.ssl:
+                        data = self.socket.read(self._buffer_size)
+                    else:
+                        data = self.socket.recv(self._buffer_size)
+
+                    break
+                except _SOCKET_ERROR as error:
+                    if error.errno == errno.EINTR:
+                        continue
+                    else:
+                        raise
 
         except socket.timeout:
             self._handle_timeout()
@@ -378,7 +401,7 @@ class BaseConnection(connection.Connection):
                 return 0
             return self._handle_error(error)
 
-        except socket.error as error:
+        except _SOCKET_ERROR as error:
             if error.errno in (errno.EAGAIN, errno.EWOULDBLOCK):
                 return 0
             return self._handle_error(error)
@@ -399,7 +422,16 @@ class BaseConnection(connection.Connection):
         try:
             while self.outbound_buffer:
                 frame = self.outbound_buffer.popleft()
-                bw = self.socket.send(frame)
+                while True:
+                    try:
+                        bw = self.socket.send(frame)
+                        break
+                    except _SOCKET_ERROR as error:
+                        if error.errno == errno.EINTR:
+                            continue
+                        else:
+                            raise
+
                 bytes_written += bw
                 if bw < len(frame):
                     LOGGER.debug("Partial write, requeing remaining data")
@@ -412,7 +444,7 @@ class BaseConnection(connection.Connection):
             self.outbound_buffer.appendleft(frame)
             self._handle_timeout()
 
-        except socket.error as error:
+        except _SOCKET_ERROR as error:
             if error.errno in (errno.EAGAIN, errno.EWOULDBLOCK):
                 LOGGER.debug("Would block, requeuing frame")
                 self.outbound_buffer.appendleft(frame)
