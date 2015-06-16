@@ -28,13 +28,23 @@ if not PY2:
         Returns a list of keys of dictionary
 
         dict.keys returns a view that works like .keys in Python 2
-       *except* any modifications in the dictionary will be visible
+        *except* any modifications in the dictionary will be visible
         (and will cause errors if the view is being iterated over while
         it is modified).
         """
 
         return list(dct.keys())
 
+    def dictvalues(dct):
+        """
+        Returns a list of values of a dictionary
+
+        dict.values returns a view that works like .values in Python 2
+        *except* any modifications in the dictionary will be visible
+        (and will cause errors if the view is being iterated over while
+        it is modified).
+        """
+        return list(dct.values())
 
     def byte(*args):
         """
@@ -48,7 +58,7 @@ if not PY2:
 
     class long(int):
         """
-        A marker class that signifies that the integer value should be 
+        A marker class that signifies that the integer value should be
         serialized as `l` instead of `I`
         """
 
@@ -71,6 +81,7 @@ else:
     xrange = xrange
     unicode_type = unicode
     dictkeys = dict.keys
+    dictvalues = dict.values
     byte = chr
     long = long
 

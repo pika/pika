@@ -73,7 +73,7 @@ class TestExchangeDeclareAndDelete(AsyncTestCase, AsyncAdapters):
 
 
 class TestExchangeRedeclareWithDifferentValues(AsyncTestCase, AsyncAdapters):
-    DESCRIPTION = "should close chan: re-declared queue w/ diff params"
+    DESCRIPTION = "should close chan: re-declared exchange w/ diff params"
 
     X_TYPE1 = 'direct'
     X_TYPE2 = 'topic'

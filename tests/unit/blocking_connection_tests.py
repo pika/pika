@@ -28,6 +28,8 @@ class SelectConnectionTemplate(blocking_connection.SelectConnection):
     is_closing = False
     is_open = True
     outbound_buffer = []
+    _channels = dict()
+
 
 class BlockingConnectionTests(unittest.TestCase):
     """TODO: test properties"""
@@ -115,23 +117,22 @@ class BlockingConnectionTests(unittest.TestCase):
     @patch.object(blocking_connection, 'SelectConnection',
                   spec_set=SelectConnectionTemplate,
                   is_closed=False, outbound_buffer=[])
-    def test_flush_output_server_initiated_error_close(self,
-                                               select_connection_class_mock):
+    def test_flush_output_server_initiated_error_close(
+            self,
+            select_connection_class_mock):
+
         with mock.patch.object(blocking_connection.BlockingConnection,
                                '_process_io_for_connection_setup'):
             connection = blocking_connection.BlockingConnection('params')
 
         connection._user_initiated_close = False
         connection._closed_result.set_value_once(
-            select_connection_class_mock.return_value,
-            404, 'not found')
+            select_connection_class_mock.return_value, 404, 'not found')
 
         with self.assertRaises(pika.exceptions.ConnectionClosed) as cm:
             connection._flush_output(lambda: False, lambda: True)
 
-        self.assertSequenceEqual(
-            cm.exception.args,
-            (select_connection_class_mock.return_value, 404, 'not found'))
+        self.assertSequenceEqual(cm.exception.args, (404, 'not found'))
 
     @patch.object(blocking_connection, 'SelectConnection',
                   spec_set=SelectConnectionTemplate,
@@ -160,6 +161,8 @@ class BlockingConnectionTests(unittest.TestCase):
         with mock.patch.object(blocking_connection.BlockingConnection,
                                '_process_io_for_connection_setup'):
             connection = blocking_connection.BlockingConnection('params')
+
+        connection._impl._channels = {1: mock.Mock()}
 
         with mock.patch.object(
                 blocking_connection.BlockingConnection,

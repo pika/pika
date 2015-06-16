@@ -63,7 +63,7 @@ class ConnectionClosed(AMQPConnectionError):
             return 'The AMQP connection was closed (%s) %s' % (self.args[0],
                                                                self.args[1])
         else:
-            return 'The AMQP connection was closed'
+            return 'The AMQP connection was closed: %s' % (self.args,)
 
 
 class AMQPChannelError(AMQPError):
@@ -76,10 +76,10 @@ class ChannelClosed(AMQPChannelError):
 
     def __repr__(self):
         if len(self.args) == 2:
-            return 'The channel was remotely closed (%s) %s' % (self.args[0],
-                                                                self.args[1])
+            return 'The channel was closed (%s) %s' % (self.args[0],
+                                                       self.args[1])
         else:
-            return 'The channel was remotely closed'
+            return 'The channel was closed: %s' % (self.args,)
 
 
 class DuplicateConsumerTag(AMQPChannelError):
@@ -93,6 +93,52 @@ class ConsumerCancelled(AMQPChannelError):
 
     def __repr__(self):
         return 'Server cancelled consumer'
+
+
+class UnroutableError(AMQPChannelError):
+    """Exception containing one or more unroutable messages returned by broker
+    via Basic.Return. Used by BlockingChannel.
+
+    In publisher-acknowledgements mode, this is raised upon receipt of Basic.Ack
+    from broker; in the event of Basic.Nack from broker, `NackError` is raised
+    instead
+    """
+
+    def __init__(self, messages):
+        """
+        :param messages: sequence of returned unroutable messages
+        :type messages: sequence of ReturnedMessage objects
+        """
+        super(UnroutableError, self).__init__(
+            "%s unroutable message(s) returned" % (len(messages)))
+
+        self.messages = messages
+
+    def __repr__(self):
+        return '%s: %i unroutable messages returned by broker' % (
+            self.__class__.__name__, len(self.messages))
+
+
+class NackError(AMQPChannelError):
+    """This exception is raised when a message published in
+    publisher-acknowledgements mode is Nack'ed by the broker.
+
+    Used by BlockingChannel.
+    """
+
+    def __init__(self, messages):
+        """
+        :param messages: sequence of returned unroutable messages
+        :type messages: sequence of ReturnedMessage objects
+        """
+        super(NackError, self).__init__(
+            "%s message(s) NACKed" % (len(messages)))
+
+        self.messages = messages
+
+    def __repr__(self):
+        return '%s: %i unroutable messages returned by broker' % (
+            self.__class__.__name__, len(self.messages))
 
 
 class InvalidChannelNumber(AMQPError):
@@ -169,3 +215,12 @@ class InvalidMaximumFrameSize(ProtocolSyntaxError):
 
     def __repr__(self):
         return 'AMQP Maximum Frame Size is 131072 Bytes'
+
+
+class RecursionError(Exception):
+    """The requested operation would result in unsupported recursion or
+    reentrancy.
+
+    Used by BlockingConnection/BlockingChannel
+
+    """
