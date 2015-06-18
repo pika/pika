@@ -11,6 +11,7 @@ import time
 from operator import itemgetter
 from collections import defaultdict
 
+import pika.compat
 from pika.compat import dictkeys
 
 from pika.adapters.base_connection import BaseConnection
@@ -24,6 +25,22 @@ SELECT_TYPE = None
 READ = 0x0001
 WRITE = 0x0004
 ERROR = 0x0008
+
+
+if pika.compat.PY2:
+    _SELECT_ERROR = select.error
+else:
+    # select.error was deprecated and replaced by OSError in python 3.3
+    _SELECT_ERROR = OSError
+
+
+def _get_select_errno(error):
+    if pika.compat.PY2:
+        assert isinstance(error, select.error), repr(error)
+        return error.args[0]
+    else:
+        assert isinstance(error, OSError), repr(error)
+        return error.errno
 
 
 class SelectConnection(BaseConnection):
@@ -110,8 +127,8 @@ class IOLoop(object):
                 LOGGER.debug('Using KQueuePoller')
                 poller = KQueuePoller()
 
-        if not poller and hasattr(select, 'poll') and hasattr(select.poll(),
-                                                              'modify'):
+        if (not poller and hasattr(select, 'poll') and
+                hasattr(select.poll(), 'modify')):  # pylint: disable=E1101
             if not SELECT_TYPE or SELECT_TYPE == 'poll':
                 LOGGER.debug('Using PollPoller')
                 poller = PollPoller()
@@ -156,19 +173,20 @@ class SelectPoller(object):
         """
         try:
             read_sock, write_sock = socket.socketpair()
-            
+
         except AttributeError:
             LOGGER.debug("Using custom socketpair for interrupt")
             read_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             read_sock.bind(('localhost', 0))
             write_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             write_sock.connect(read_sock.getsockname())
-        
+
         read_sock.setblocking(0)
         write_sock.setblocking(0)
         return read_sock, write_sock
 
-    def read_interrupt(self, interrupt_sock, events, write_only):
+    def read_interrupt(self, interrupt_sock,
+                       events, write_only):  # pylint: disable=W0613
         """ Read the interrupt byte(s). We ignore the event mask and write_only
         flag as we can ony get here if there's data to be read on our fd.
 
@@ -238,8 +256,8 @@ class SelectPoller(object):
         """Process the self._timeouts event stack"""
 
         now = time.time()
-        to_run = filter(lambda t: t['deadline'] <= now,
-                        self._timeouts.values())
+        to_run = [timer for timer in self._timeouts.values()
+                  if timer['deadline'] <= now]
 
         # Run the timeouts in order of deadlines. Although this shouldn't
         # be strictly necessary it preserves old behaviour when timeouts
@@ -323,15 +341,18 @@ class SelectPoller(object):
         :param bool write_only: Passed through to the hadnlers to indicate
             that they should only process write events.
         """
-
-        try:
-            read, write, error = select.select(self._fd_events[READ],
-                                               self._fd_events[WRITE],
-                                               self._fd_events[ERROR],
-                                               self.get_next_deadline())
-        except select.error as error:
-            if error.errno != errno.EINTR:
-                raise
+        while True:
+            try:
+                read, write, error = select.select(self._fd_events[READ],
+                                                   self._fd_events[WRITE],
+                                                   self._fd_events[ERROR],
+                                                   self.get_next_deadline())
+                break
+            except _SELECT_ERROR as error:
+                if _get_select_errno(error) == errno.EINTR:
+                    continue
+                else:
+                    raise
 
         # Build an event bit mask for each fileno we've recieved an event for
 
@@ -427,7 +448,7 @@ class KQueuePoller(SelectPoller):
             return READ
         elif kevent.filter == select.KQ_FILTER_WRITE:
             return WRITE
-        elif kevent.flags & KQ_EV_ERROR:
+        elif kevent.flags & select.KQ_EV_ERROR:
             return ERROR
 
     def poll(self, write_only=False):
@@ -437,13 +458,16 @@ class KQueuePoller(SelectPoller):
             the adapter can write.
 
         """
-        events = 0
-        try:
-            kevents = self._kqueue.control(None, 1000, self.get_next_deadline())
-        except OSError as error:
-            if error.errno != errno.EINTR:
-                return
-            raise
+        while True:
+            try:
+                kevents = self._kqueue.control(None, 1000,
+                                               self.get_next_deadline())
+                break
+            except _SELECT_ERROR as error:
+                if _get_select_errno(error) == errno.EINTR:
+                    continue
+                else:
+                    raise
 
         fd_event_map = defaultdict(int)
         for event in kevents:
@@ -472,7 +496,7 @@ class PollPoller(SelectPoller):
         super(PollPoller, self).__init__()
 
     def create_poller(self):
-        return select.poll()
+        return select.poll()  # pylint: disable=E1101
 
     def add_handler(self, fileno, handler, events):
         """Add a file descriptor to the poll set
@@ -510,12 +534,15 @@ class PollPoller(SelectPoller):
         :param bool write_only: Only process write events
 
         """
-        try:
-            events = self._poll.poll(self.get_next_deadline())
-        except (IOError, select.error) as error:
-            if error.errno == errno.EINTR:
-                return
-            raise
+        while True:
+            try:
+                events = self._poll.poll(self.get_next_deadline())
+                break
+            except _SELECT_ERROR as error:
+                if _get_select_errno(error) == errno.EINTR:
+                    continue
+                else:
+                    raise
 
         fd_event_map = defaultdict(int)
         for fileno, event in events:
@@ -532,4 +559,4 @@ class EPollPoller(PollPoller):
     POLL_TIMEOUT_MULT = 1
 
     def create_poller(self):
-        return select.epoll()
+        return select.epoll()  # pylint: disable=E1101
