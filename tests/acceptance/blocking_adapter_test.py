@@ -14,6 +14,7 @@ from forward_server import ForwardServer
 
 import pika
 from pika.adapters import blocking_connection
+from pika.compat import as_bytes
 import pika.connection
 import pika.exceptions
 
@@ -38,13 +39,6 @@ PARAMS_URL_TEMPLATE = (
 DEFAULT_URL = PARAMS_URL_TEMPLATE % {'port': 5672}
 DEFAULT_PARAMS = pika.URLParameters(DEFAULT_URL)
 DEFAULT_TIMEOUT = 15
-
-
-def _p3_as_bytes(value):
-    if pika.compat.PY3:
-        return pika.compat.as_bytes(value)
-    else:
-        return value
 
 
 class BlockingTestCaseBase(unittest.TestCase):
@@ -115,11 +109,11 @@ class TestCreateAndCloseConnectionWithChannelAndConsumer(BlockingTestCaseBase):
 
         ch = connection.channel()
 
-        q_name = _p3_as_bytes(
+        q_name = (
             'TestCreateAndCloseConnectionWithChannelAndConsumer_q' +
             uuid.uuid1().hex)
 
-        body1 = _p3_as_bytes('a' * 1024)
+        body1 = 'a' * 1024
 
         # Declare a new queue
         ch.queue_declare(q_name, auto_delete=True)
@@ -454,7 +448,7 @@ class TestQueueDeclareAndDelete(BlockingTestCaseBase):
 
         ch = connection.channel()
 
-        q_name = _p3_as_bytes('TestQueueDeclareAndDelete_' + uuid.uuid1().hex)
+        q_name = 'TestQueueDeclareAndDelete_' + uuid.uuid1().hex
 
         # Declare a new queue
         frame = ch.queue_declare(q_name, auto_delete=True)
@@ -501,11 +495,9 @@ class TestQueueBindAndUnbindAndPurge(BlockingTestCaseBase):
 
         ch = connection.channel()
 
-        q_name = _p3_as_bytes(
-            'TestQueueBindAndUnbindAndPurge_q' + uuid.uuid1().hex)
-        exg_name = _p3_as_bytes(
-            'TestQueueBindAndUnbindAndPurge_exg_' + uuid.uuid1().hex)
-        routing_key = _p3_as_bytes('TestQueueBindAndUnbindAndPurge')
+        q_name =  'TestQueueBindAndUnbindAndPurge_q' + uuid.uuid1().hex
+        exg_name = 'TestQueueBindAndUnbindAndPurge_exg_' + uuid.uuid1().hex
+        routing_key = 'TestQueueBindAndUnbindAndPurge'
 
         # Place channel in publisher-acknowledgments mode so that we may test
         # whether the queue is reachable by publishing with mandatory=True
@@ -573,7 +565,7 @@ class TestBasicGet(BlockingTestCaseBase):
         ch = connection.channel()
         LOGGER.info('%s CREATED CHANNEL (%s)', datetime.utcnow(), self)
 
-        q_name = _p3_as_bytes('TestBasicGet_q' + uuid.uuid1().hex)
+        q_name = 'TestBasicGet_q' + uuid.uuid1().hex
 
         # Place channel in publisher-acknowledgments mode so that the message
         # may be delivered synchronously to the queue by publishing it with
@@ -591,9 +583,10 @@ class TestBasicGet(BlockingTestCaseBase):
         self.assertTupleEqual(msg, (None, None, None))
         LOGGER.info('%s GOT FROM EMPTY QUEUE (%s)', datetime.utcnow(), self)
 
+        body = 'TestBasicGet'
         # Deposit a message in the queue via default exchange
         ch.publish(exchange='', routing_key=q_name,
-                   body=_p3_as_bytes('TestBasicGet'),
+                   body=body,
                    mandatory=True)
         LOGGER.info('%s PUBLISHED (%s)', datetime.utcnow(), self)
 
@@ -603,13 +596,13 @@ class TestBasicGet(BlockingTestCaseBase):
         self.assertIsInstance(method, pika.spec.Basic.GetOk)
         self.assertEqual(method.delivery_tag, 1)
         self.assertFalse(method.redelivered)
-        self.assertEqual(method.exchange, _p3_as_bytes(''))
+        self.assertEqual(method.exchange, '')
         self.assertEqual(method.routing_key, q_name)
         self.assertEqual(method.message_count, 0)
 
         self.assertIsInstance(properties, pika.BasicProperties)
         self.assertIsNone(properties.headers)
-        self.assertEqual(body, _p3_as_bytes('TestBasicGet'))
+        self.assertEqual(body, as_bytes(body))
 
         # Ack it
         ch.basic_ack(delivery_tag=method.delivery_tag)
@@ -630,7 +623,7 @@ class TestBasicReject(BlockingTestCaseBase):
 
         ch = connection.channel()
 
-        q_name = _p3_as_bytes('TestBasicReject_q' + uuid.uuid1().hex)
+        q_name = 'TestBasicReject_q' + uuid.uuid1().hex
 
         # Place channel in publisher-acknowledgments mode so that the message
         # may be delivered synchronously to the queue by publishing it with
@@ -643,18 +636,18 @@ class TestBasicReject(BlockingTestCaseBase):
 
         # Deposit two messages in the queue via default exchange
         ch.publish(exchange='', routing_key=q_name,
-                   body=_p3_as_bytes('TestBasicReject1'),
+                   body='TestBasicReject1',
                    mandatory=True)
         ch.publish(exchange='', routing_key=q_name,
-                   body=_p3_as_bytes('TestBasicReject2'),
+                   body='TestBasicReject2',
                    mandatory=True)
 
         # Get the messages
         (rx_method, _, rx_body) = ch.basic_get(q_name, no_ack=False)
-        self.assertEqual(rx_body, pika.compat.as_bytes('TestBasicReject1'))
+        self.assertEqual(rx_body, as_bytes('TestBasicReject1'))
 
         (rx_method, _, rx_body) = ch.basic_get(q_name, no_ack=False)
-        self.assertEqual(rx_body, pika.compat.as_bytes('TestBasicReject2'))
+        self.assertEqual(rx_body, as_bytes('TestBasicReject2'))
 
         # Nack the second message
         ch.basic_reject(rx_method.delivery_tag, requeue=True)
@@ -664,7 +657,7 @@ class TestBasicReject(BlockingTestCaseBase):
         frame = ch.queue_declare(q_name, passive=True)
         self.assertEqual(frame.method.message_count, 1)
         (rx_method, _, rx_body) = ch.basic_get(q_name, no_ack=False)
-        self.assertEqual(rx_body, pika.compat.as_bytes('TestBasicReject2'))
+        self.assertEqual(rx_body, as_bytes('TestBasicReject2'))
 
 
 class TestBasicRejectNoRequeue(BlockingTestCaseBase):
@@ -675,7 +668,7 @@ class TestBasicRejectNoRequeue(BlockingTestCaseBase):
 
         ch = connection.channel()
 
-        q_name = _p3_as_bytes('TestBasicRejectNoRequeue_q' + uuid.uuid1().hex)
+        q_name = 'TestBasicRejectNoRequeue_q' + uuid.uuid1().hex
 
         # Place channel in publisher-acknowledgments mode so that the message
         # may be delivered synchronously to the queue by publishing it with
@@ -688,20 +681,20 @@ class TestBasicRejectNoRequeue(BlockingTestCaseBase):
 
         # Deposit two messages in the queue via default exchange
         ch.publish(exchange='', routing_key=q_name,
-                   body=_p3_as_bytes('TestBasicRejectNoRequeue1'),
+                   body='TestBasicRejectNoRequeue1',
                    mandatory=True)
         ch.publish(exchange='', routing_key=q_name,
-                   body=_p3_as_bytes('TestBasicRejectNoRequeue2'),
+                   body='TestBasicRejectNoRequeue2',
                    mandatory=True)
 
         # Get the messages
         (rx_method, _, rx_body) = ch.basic_get(q_name, no_ack=False)
         self.assertEqual(rx_body,
-                         pika.compat.as_bytes('TestBasicRejectNoRequeue1'))
+                         as_bytes('TestBasicRejectNoRequeue1'))
 
         (rx_method, _, rx_body) = ch.basic_get(q_name, no_ack=False)
         self.assertEqual(rx_body,
-                         pika.compat.as_bytes('TestBasicRejectNoRequeue2'))
+                         as_bytes('TestBasicRejectNoRequeue2'))
 
         # Nack the second message
         ch.basic_reject(rx_method.delivery_tag, requeue=False)
@@ -719,7 +712,7 @@ class TestBasicNack(BlockingTestCaseBase):
 
         ch = connection.channel()
 
-        q_name = _p3_as_bytes('TestBasicNack_q' + uuid.uuid1().hex)
+        q_name = 'TestBasicNack_q' + uuid.uuid1().hex
 
         # Place channel in publisher-acknowledgments mode so that the message
         # may be delivered synchronously to the queue by publishing it with
@@ -732,18 +725,18 @@ class TestBasicNack(BlockingTestCaseBase):
 
         # Deposit two messages in the queue via default exchange
         ch.publish(exchange='', routing_key=q_name,
-                   body=_p3_as_bytes('TestBasicNack1'),
+                   body='TestBasicNack1',
                    mandatory=True)
         ch.publish(exchange='', routing_key=q_name,
-                   body=_p3_as_bytes('TestBasicNack2'),
+                   body='TestBasicNack2',
                    mandatory=True)
 
         # Get the messages
         (rx_method, _, rx_body) = ch.basic_get(q_name, no_ack=False)
-        self.assertEqual(rx_body, pika.compat.as_bytes('TestBasicNack1'))
+        self.assertEqual(rx_body, as_bytes('TestBasicNack1'))
 
         (rx_method, _, rx_body) = ch.basic_get(q_name, no_ack=False)
-        self.assertEqual(rx_body, pika.compat.as_bytes('TestBasicNack2'))
+        self.assertEqual(rx_body, as_bytes('TestBasicNack2'))
 
         # Nack the second message
         ch.basic_nack(rx_method.delivery_tag, multiple=False, requeue=True)
@@ -753,7 +746,7 @@ class TestBasicNack(BlockingTestCaseBase):
         frame = ch.queue_declare(q_name, passive=True)
         self.assertEqual(frame.method.message_count, 1)
         (rx_method, _, rx_body) = ch.basic_get(q_name, no_ack=False)
-        self.assertEqual(rx_body, pika.compat.as_bytes('TestBasicNack2'))
+        self.assertEqual(rx_body, as_bytes('TestBasicNack2'))
 
 
 class TestBasicNackNoRequeue(BlockingTestCaseBase):
@@ -764,7 +757,7 @@ class TestBasicNackNoRequeue(BlockingTestCaseBase):
 
         ch = connection.channel()
 
-        q_name = _p3_as_bytes('TestBasicNackNoRequeue_q' + uuid.uuid1().hex)
+        q_name = 'TestBasicNackNoRequeue_q' + uuid.uuid1().hex
 
         # Place channel in publisher-acknowledgments mode so that the message
         # may be delivered synchronously to the queue by publishing it with
@@ -777,20 +770,20 @@ class TestBasicNackNoRequeue(BlockingTestCaseBase):
 
         # Deposit two messages in the queue via default exchange
         ch.publish(exchange='', routing_key=q_name,
-                   body=_p3_as_bytes('TestBasicNackNoRequeue1'),
+                   body='TestBasicNackNoRequeue1',
                    mandatory=True)
         ch.publish(exchange='', routing_key=q_name,
-                   body=_p3_as_bytes('TestBasicNackNoRequeue2'),
+                   body='TestBasicNackNoRequeue2',
                    mandatory=True)
 
         # Get the messages
         (rx_method, _, rx_body) = ch.basic_get(q_name, no_ack=False)
         self.assertEqual(rx_body,
-                         pika.compat.as_bytes('TestBasicNackNoRequeue1'))
+                         as_bytes('TestBasicNackNoRequeue1'))
 
         (rx_method, _, rx_body) = ch.basic_get(q_name, no_ack=False)
         self.assertEqual(rx_body,
-                         pika.compat.as_bytes('TestBasicNackNoRequeue2'))
+                         as_bytes('TestBasicNackNoRequeue2'))
 
         # Nack the second message
         ch.basic_nack(rx_method.delivery_tag, requeue=False)
@@ -808,7 +801,7 @@ class TestBasicNackMultiple(BlockingTestCaseBase):
 
         ch = connection.channel()
 
-        q_name = _p3_as_bytes('TestBasicNackMultiple_q' + uuid.uuid1().hex)
+        q_name = 'TestBasicNackMultiple_q' + uuid.uuid1().hex
 
         # Place channel in publisher-acknowledgments mode so that the message
         # may be delivered synchronously to the queue by publishing it with
@@ -821,20 +814,20 @@ class TestBasicNackMultiple(BlockingTestCaseBase):
 
         # Deposit two messages in the queue via default exchange
         ch.publish(exchange='', routing_key=q_name,
-                   body=_p3_as_bytes('TestBasicNackMultiple1'),
+                   body='TestBasicNackMultiple1',
                    mandatory=True)
         ch.publish(exchange='', routing_key=q_name,
-                   body=_p3_as_bytes('TestBasicNackMultiple2'),
+                   body='TestBasicNackMultiple2',
                    mandatory=True)
 
         # Get the messages
         (rx_method, _, rx_body) = ch.basic_get(q_name, no_ack=False)
         self.assertEqual(rx_body,
-                         pika.compat.as_bytes('TestBasicNackMultiple1'))
+                         as_bytes('TestBasicNackMultiple1'))
 
         (rx_method, _, rx_body) = ch.basic_get(q_name, no_ack=False)
         self.assertEqual(rx_body,
-                         pika.compat.as_bytes('TestBasicNackMultiple2'))
+                         as_bytes('TestBasicNackMultiple2'))
 
         # Nack both messages via the "multiple" option
         ch.basic_nack(rx_method.delivery_tag, multiple=True, requeue=True)
@@ -844,10 +837,10 @@ class TestBasicNackMultiple(BlockingTestCaseBase):
         self.assertEqual(frame.method.message_count, 2)
         (rx_method, _, rx_body) = ch.basic_get(q_name, no_ack=False)
         self.assertEqual(rx_body,
-                         pika.compat.as_bytes('TestBasicNackMultiple1'))
+                         as_bytes('TestBasicNackMultiple1'))
         (rx_method, _, rx_body) = ch.basic_get(q_name, no_ack=False)
         self.assertEqual(rx_body,
-                         pika.compat.as_bytes('TestBasicNackMultiple2'))
+                         as_bytes('TestBasicNackMultiple2'))
 
 
 class TestBasicRecoverWithRequeue(BlockingTestCaseBase):
@@ -862,7 +855,7 @@ class TestBasicRecoverWithRequeue(BlockingTestCaseBase):
 
         ch = connection.channel()
 
-        q_name = _p3_as_bytes(
+        q_name = (
             'TestBasicRecoverWithRequeue_q' + uuid.uuid1().hex)
 
         # Place channel in publisher-acknowledgments mode so that the message
@@ -876,10 +869,10 @@ class TestBasicRecoverWithRequeue(BlockingTestCaseBase):
 
         # Deposit two messages in the queue via default exchange
         ch.publish(exchange='', routing_key=q_name,
-                   body=_p3_as_bytes('TestBasicRecoverWithRequeue1'),
+                   body='TestBasicRecoverWithRequeue1',
                    mandatory=True)
         ch.publish(exchange='', routing_key=q_name,
-                   body=_p3_as_bytes('TestBasicRecoverWithRequeue2'),
+                   body='TestBasicRecoverWithRequeue2',
                    mandatory=True)
 
         rx_messages = []
@@ -901,11 +894,11 @@ class TestBasicRecoverWithRequeue(BlockingTestCaseBase):
         # Get the messages
         (_, _, rx_body) = rx_messages[0]
         self.assertEqual(rx_body,
-                         pika.compat.as_bytes('TestBasicRecoverWithRequeue1'))
+                         as_bytes('TestBasicRecoverWithRequeue1'))
 
         (_, _, rx_body) = rx_messages[1]
         self.assertEqual(rx_body,
-                         pika.compat.as_bytes('TestBasicRecoverWithRequeue2'))
+                         as_bytes('TestBasicRecoverWithRequeue2'))
 
 
 class TestTxCommit(BlockingTestCaseBase):
@@ -916,7 +909,7 @@ class TestTxCommit(BlockingTestCaseBase):
 
         ch = connection.channel()
 
-        q_name = _p3_as_bytes('TestTxCommit_q' + uuid.uuid1().hex)
+        q_name = 'TestTxCommit_q' + uuid.uuid1().hex
 
         # Declare a new queue
         ch.queue_declare(q_name, auto_delete=True)
@@ -928,7 +921,7 @@ class TestTxCommit(BlockingTestCaseBase):
 
         # Deposit a message in the queue via default exchange
         ch.publish(exchange='', routing_key=q_name,
-                   body=_p3_as_bytes('TestTxCommit1'),
+                   body='TestTxCommit1',
                    mandatory=True)
 
         # Verify that queue is still empty
@@ -943,7 +936,7 @@ class TestTxCommit(BlockingTestCaseBase):
         self.assertEqual(frame.method.message_count, 1)
 
         (_, _, rx_body) = ch.basic_get(q_name, no_ack=False)
-        self.assertEqual(rx_body, pika.compat.as_bytes('TestTxCommit1'))
+        self.assertEqual(rx_body, as_bytes('TestTxCommit1'))
 
 
 class TestTxRollback(BlockingTestCaseBase):
@@ -954,7 +947,7 @@ class TestTxRollback(BlockingTestCaseBase):
 
         ch = connection.channel()
 
-        q_name = _p3_as_bytes('TestTxRollback_q' + uuid.uuid1().hex)
+        q_name = 'TestTxRollback_q' + uuid.uuid1().hex
 
         # Declare a new queue
         ch.queue_declare(q_name, auto_delete=True)
@@ -966,7 +959,7 @@ class TestTxRollback(BlockingTestCaseBase):
 
         # Deposit a message in the queue via default exchange
         ch.publish(exchange='', routing_key=q_name,
-                   body=_p3_as_bytes('TestTxRollback1'),
+                   body='TestTxRollback1',
                    mandatory=True)
 
         # Verify that queue is still empty
@@ -1006,11 +999,9 @@ class TestPublishAndConsumeWithPubacksAndQosOfOne(BlockingTestCaseBase):
 
         ch = connection.channel()
 
-        q_name = _p3_as_bytes(
-            'TestPublishAndConsumeAndQos_q' + uuid.uuid1().hex)
-        exg_name = _p3_as_bytes(
-            'TestPublishAndConsumeAndQos_exg_' + uuid.uuid1().hex)
-        routing_key = _p3_as_bytes('TestPublishAndConsumeAndQos')
+        q_name = 'TestPublishAndConsumeAndQos_q' + uuid.uuid1().hex
+        exg_name = 'TestPublishAndConsumeAndQos_exg_' + uuid.uuid1().hex
+        routing_key = 'TestPublishAndConsumeAndQos'
 
         # Place channel in publisher-acknowledgments mode so that publishing
         # with mandatory=True will be synchronous
@@ -1041,7 +1032,7 @@ class TestPublishAndConsumeWithPubacksAndQosOfOne(BlockingTestCaseBase):
         self.assertEqual(msg.method.exchange, exg_name)
         self.assertEqual(msg.method.routing_key, routing_key)
         self.assertIsInstance(msg.properties, pika.BasicProperties)
-        self.assertEqual(msg.body, _p3_as_bytes(''))
+        self.assertEqual(msg.body, as_bytes(''))
 
         # Bind the queue to the exchange using routing key
         frame = ch.queue_bind(q_name, exchange=exg_name,
@@ -1092,7 +1083,7 @@ class TestPublishAndConsumeWithPubacksAndQosOfOne(BlockingTestCaseBase):
         self.assertEqual(rx_method.routing_key, routing_key)
 
         self.assertIsInstance(rx_properties, pika.BasicProperties)
-        self.assertEqual(rx_body, _p3_as_bytes('via-basic_publish'))
+        self.assertEqual(rx_body, as_bytes('via-basic_publish'))
 
         # There shouldn't be any more events now
         self.assertFalse(ch._pending_events)
@@ -1119,7 +1110,7 @@ class TestPublishAndConsumeWithPubacksAndQosOfOne(BlockingTestCaseBase):
         self.assertEqual(rx_method.routing_key, routing_key)
 
         self.assertIsInstance(rx_properties, pika.BasicProperties)
-        self.assertEqual(rx_body, _p3_as_bytes('via-publish'))
+        self.assertEqual(rx_body, as_bytes('via-publish'))
 
         # There shouldn't be any more events now
         self.assertFalse(ch._pending_events)
@@ -1154,9 +1145,9 @@ class TestPublishFromBasicConsumeCallback(BlockingTestCaseBase):
 
         ch = connection.channel()
 
-        src_q_name = _p3_as_bytes(
+        src_q_name = (
             'TestPublishFromBasicConsumeCallback_src_q' + uuid.uuid1().hex)
-        dest_q_name = _p3_as_bytes(
+        dest_q_name = (
             'TestPublishFromBasicConsumeCallback_dest_q' + uuid.uuid1().hex)
 
         # Place channel in publisher-acknowledgments mode so that publishing
@@ -1170,7 +1161,7 @@ class TestPublishFromBasicConsumeCallback(BlockingTestCaseBase):
         self.addCleanup(self._connect().channel().queue_delete, dest_q_name)
 
         # Deposit a message in the source queue
-        ch.publish(_p3_as_bytes(''),
+        ch.publish('',
                    routing_key=src_q_name,
                    body='via-publish',
                    mandatory=True)
@@ -1178,7 +1169,7 @@ class TestPublishFromBasicConsumeCallback(BlockingTestCaseBase):
         # Create a consumer
         def on_consume(channel, method, props, body):
             channel.publish(
-                _p3_as_bytes(''), routing_key=dest_q_name, body=body,
+                '', routing_key=dest_q_name, body=body,
                 properties=props, mandatory=True)
             channel.basic_ack(method.delivery_tag)
 
@@ -1191,7 +1182,7 @@ class TestPublishFromBasicConsumeCallback(BlockingTestCaseBase):
         # Consume from destination queue
         for _, _, rx_body in ch.consume(dest_q_name,
                                                        no_ack=True):
-            self.assertEqual(rx_body, pika.compat.as_bytes('via-publish'))
+            self.assertEqual(rx_body, as_bytes('via-publish'))
             break
         else:
             self.fail('failed to consume a messages from destination q')
@@ -1206,7 +1197,7 @@ class TestStopConsumingFromBasicConsumeCallback(BlockingTestCaseBase):
 
         ch = connection.channel()
 
-        q_name = _p3_as_bytes(
+        q_name = (
             'TestStopConsumingFromBasicConsumeCallback_q' + uuid.uuid1().hex)
 
         # Place channel in publisher-acknowledgments mode so that publishing
@@ -1218,12 +1209,12 @@ class TestStopConsumingFromBasicConsumeCallback(BlockingTestCaseBase):
         self.addCleanup(connection.channel().queue_delete, q_name)
 
         # Deposit two messages in the queue
-        ch.publish(_p3_as_bytes(''),
+        ch.publish('',
                    routing_key=q_name,
                    body='via-publish1',
                    mandatory=True)
 
-        ch.publish(_p3_as_bytes(''),
+        ch.publish('',
                    routing_key=q_name,
                    body='via-publish2',
                    mandatory=True)
@@ -1247,7 +1238,7 @@ class TestStopConsumingFromBasicConsumeCallback(BlockingTestCaseBase):
 
         # Verify that only the second message is present in the queue
         _, _, rx_body = ch.basic_get(q_name)
-        self.assertEqual(rx_body, pika.compat.as_bytes('via-publish2'))
+        self.assertEqual(rx_body, as_bytes('via-publish2'))
 
         msg = ch.basic_get(q_name)
         self.assertTupleEqual(msg, (None, None, None))
@@ -1262,7 +1253,7 @@ class TestCloseChannelFromBasicConsumeCallback(BlockingTestCaseBase):
 
         ch = connection.channel()
 
-        q_name = _p3_as_bytes(
+        q_name = (
             'TestCloseChannelFromBasicConsumeCallback_q' + uuid.uuid1().hex)
 
         # Place channel in publisher-acknowledgments mode so that publishing
@@ -1274,12 +1265,12 @@ class TestCloseChannelFromBasicConsumeCallback(BlockingTestCaseBase):
         self.addCleanup(connection.channel().queue_delete, q_name)
 
         # Deposit two messages in the queue
-        ch.publish(_p3_as_bytes(''),
+        ch.publish('',
                    routing_key=q_name,
                    body='via-publish1',
                    mandatory=True)
 
-        ch.publish(_p3_as_bytes(''),
+        ch.publish('',
                    routing_key=q_name,
                    body='via-publish2',
                    mandatory=True)
@@ -1302,9 +1293,9 @@ class TestCloseChannelFromBasicConsumeCallback(BlockingTestCaseBase):
         # Verify that both messages are present in the queue
         ch = connection.channel()
         _, _, rx_body = ch.basic_get(q_name)
-        self.assertEqual(rx_body, pika.compat.as_bytes('via-publish1'))
+        self.assertEqual(rx_body, as_bytes('via-publish1'))
         _, _, rx_body = ch.basic_get(q_name)
-        self.assertEqual(rx_body, pika.compat.as_bytes('via-publish2'))
+        self.assertEqual(rx_body, as_bytes('via-publish2'))
 
 
 class TestCloseConnectionFromBasicConsumeCallback(BlockingTestCaseBase):
@@ -1316,7 +1307,7 @@ class TestCloseConnectionFromBasicConsumeCallback(BlockingTestCaseBase):
 
         ch = connection.channel()
 
-        q_name = _p3_as_bytes(
+        q_name = (
             'TestCloseConnectionFromBasicConsumeCallback_q' + uuid.uuid1().hex)
 
         # Place channel in publisher-acknowledgments mode so that publishing
@@ -1328,12 +1319,12 @@ class TestCloseConnectionFromBasicConsumeCallback(BlockingTestCaseBase):
         self.addCleanup(self._connect().channel().queue_delete, q_name)
 
         # Deposit two messages in the queue
-        ch.publish(_p3_as_bytes(''),
+        ch.publish('',
                    routing_key=q_name,
                    body='via-publish1',
                    mandatory=True)
 
-        ch.publish(_p3_as_bytes(''),
+        ch.publish('',
                    routing_key=q_name,
                    body='via-publish2',
                    mandatory=True)
@@ -1357,9 +1348,9 @@ class TestCloseConnectionFromBasicConsumeCallback(BlockingTestCaseBase):
         # Verify that both messages are present in the queue
         ch = self._connect().channel()
         _, _, rx_body = ch.basic_get(q_name)
-        self.assertEqual(rx_body, pika.compat.as_bytes('via-publish1'))
+        self.assertEqual(rx_body, as_bytes('via-publish1'))
         _, _, rx_body = ch.basic_get(q_name)
-        self.assertEqual(rx_body, pika.compat.as_bytes('via-publish2'))
+        self.assertEqual(rx_body, as_bytes('via-publish2'))
 
 
 class TestNonPubAckPublishAndConsumeHugeMessage(BlockingTestCaseBase):
@@ -1370,10 +1361,8 @@ class TestNonPubAckPublishAndConsumeHugeMessage(BlockingTestCaseBase):
 
         ch = connection.channel()
 
-        q_name = _p3_as_bytes(
-            'TestPublishAndConsumeHugeMessage_q' + uuid.uuid1().hex)
-
-        body = _p3_as_bytes('a' * 1000000)
+        q_name = 'TestPublishAndConsumeHugeMessage_q' + uuid.uuid1().hex
+        body = 'a' * 1000000
 
         # Declare a new queue
         ch.queue_declare(q_name, auto_delete=False)
@@ -1390,11 +1379,11 @@ class TestNonPubAckPublishAndConsumeHugeMessage(BlockingTestCaseBase):
             self.assertIsInstance(rx_method, pika.spec.Basic.Deliver)
             self.assertEqual(rx_method.delivery_tag, 1)
             self.assertFalse(rx_method.redelivered)
-            self.assertEqual(rx_method.exchange, _p3_as_bytes(''))
+            self.assertEqual(rx_method.exchange, '')
             self.assertEqual(rx_method.routing_key, q_name)
 
             self.assertIsInstance(rx_props, pika.BasicProperties)
-            self.assertEqual(rx_body, body)
+            self.assertEqual(rx_body, as_bytes(body))
 
             # Ack the mesage
             ch.basic_ack(delivery_tag=rx_method.delivery_tag, multiple=False)
@@ -1419,10 +1408,8 @@ class TestNonPubackPublishAndConsumeManyMessages(BlockingTestCaseBase):
 
         ch = connection.channel()
 
-        q_name = _p3_as_bytes(
-            'TestNonPubackPublishAndConsumeManyMessages_q' + uuid.uuid1().hex)
-
-        body = _p3_as_bytes('b' * 1024)
+        q_name = 'TestNonPubackPublishAndConsumeManyMessages_q' + uuid.uuid1().hex
+        body = 'b' * 1024
 
         num_messages_to_publish = 500
 
@@ -1444,11 +1431,11 @@ class TestNonPubackPublishAndConsumeManyMessages(BlockingTestCaseBase):
             self.assertIsInstance(rx_method, pika.spec.Basic.Deliver)
             self.assertEqual(rx_method.delivery_tag, num_consumed)
             self.assertFalse(rx_method.redelivered)
-            self.assertEqual(rx_method.exchange, _p3_as_bytes(''))
+            self.assertEqual(rx_method.exchange, '')
             self.assertEqual(rx_method.routing_key, q_name)
 
             self.assertIsInstance(rx_props, pika.BasicProperties)
-            self.assertEqual(rx_body, body)
+            self.assertEqual(rx_body, as_bytes(body))
 
             # Ack the mesage
             ch.basic_ack(delivery_tag=rx_method.delivery_tag, multiple=False)
@@ -1477,11 +1464,11 @@ class TestBasicCancelWithNonAckableConsumer(BlockingTestCaseBase):
 
         ch = connection.channel()
 
-        q_name = _p3_as_bytes(
+        q_name = (
             'TestBasicCancelWithNonAckableConsumer_q' + uuid.uuid1().hex)
 
-        body1 = _p3_as_bytes('a' * 1024)
-        body2 = _p3_as_bytes('b' * 2048)
+        body1 = 'a' * 1024
+        body2 = 'b' * 2048
 
         # Declare a new queue
         ch.queue_declare(q_name, auto_delete=False)
@@ -1502,10 +1489,10 @@ class TestBasicCancelWithNonAckableConsumer(BlockingTestCaseBase):
         self.assertEqual(len(messages), 2)
 
         _, _, rx_body1 = messages[0]
-        self.assertEqual(rx_body1, body1)
+        self.assertEqual(rx_body1, as_bytes(body1))
 
         _, _, rx_body2 = messages[1]
-        self.assertEqual(rx_body2, body2)
+        self.assertEqual(rx_body2, as_bytes(body2))
 
         ch.close()
 
@@ -1524,11 +1511,11 @@ class TestBasicCancelWithAckableConsumer(BlockingTestCaseBase):
 
         ch = connection.channel()
 
-        q_name = _p3_as_bytes(
+        q_name = (
             'TestBasicCancelWithAckableConsumer_q' + uuid.uuid1().hex)
 
-        body1 = _p3_as_bytes('a' * 1024)
-        body2 = _p3_as_bytes('b' * 2048)
+        body1 = 'a' * 1024
+        body2 = 'b' * 2048
 
         # Declare a new queue
         ch.queue_declare(q_name, auto_delete=False)
@@ -1565,9 +1552,8 @@ class TestUnackedMessageAutoRestoredToQueueOnChannelClose(BlockingTestCaseBase):
 
         ch = connection.channel()
 
-        q_name = _p3_as_bytes(
-            'TestUnackedMessageAutoRestoredToQueueOnChannelClose_q' +
-            uuid.uuid1().hex)
+        q_name = ('TestUnackedMessageAutoRestoredToQueueOnChannelClose_q' +
+                  uuid.uuid1().hex)
 
         body1 = 'a' * 1024
         body2 = 'b' * 2048
@@ -1615,9 +1601,8 @@ class TestNoAckMessageNotRestoredToQueueOnChannelClose(BlockingTestCaseBase):
 
         ch = connection.channel()
 
-        q_name = _p3_as_bytes(
-            'TestNoAckMessageNotRestoredToQueueOnChannelClose_q' +
-            uuid.uuid1().hex)
+        q_name = ('TestNoAckMessageNotRestoredToQueueOnChannelClose_q' +
+                  uuid.uuid1().hex)
 
         body1 = 'a' * 1024
         body2 = 'b' * 2048

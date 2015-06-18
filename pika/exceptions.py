@@ -224,3 +224,10 @@ class RecursionError(Exception):
     Used by BlockingConnection/BlockingChannel
 
     """
+
+
+class ShortStringTooLong(AMQPError):
+
+    def __repr__(self):
+        return ('AMQP Short String can contain up to 255 bytes: '
+                '%.300s' % self.args[0])

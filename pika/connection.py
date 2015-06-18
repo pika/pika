@@ -812,7 +812,7 @@ class Connection(object):
         :rtype: bool
 
         """
-        return self.server_capabilities.get(b'basic.nack', False)
+        return self.server_capabilities.get('basic.nack', False)
 
     @property
     def consumer_cancel_notify(self):
@@ -822,7 +822,7 @@ class Connection(object):
         :rtype: bool
 
         """
-        return self.server_capabilities.get(b'consumer_cancel_notify', False)
+        return self.server_capabilities.get('consumer_cancel_notify', False)
 
     @property
     def exchange_exchange_bindings(self):
@@ -832,7 +832,7 @@ class Connection(object):
         :rtype: bool
 
         """
-        return self.server_capabilities.get(b'exchange_exchange_bindings', False)
+        return self.server_capabilities.get('exchange_exchange_bindings', False)
 
     @property
     def publisher_confirms(self):
@@ -841,7 +841,7 @@ class Connection(object):
         :rtype: bool
 
         """
-        return self.server_capabilities.get(b'publisher_confirms', False)
+        return self.server_capabilities.get('publisher_confirms', False)
 
     #
     # Internal methods for managing the communication process
@@ -1616,7 +1616,7 @@ class Connection(object):
 
         """
         self.server_properties = method_frame.method.server_properties
-        self.server_capabilities = self.server_properties.get(b'capabilities',
+        self.server_capabilities = self.server_properties.get('capabilities',
                                                               dict())
         if hasattr(self.server_properties, 'capabilities'):
             del self.server_properties['capabilities']

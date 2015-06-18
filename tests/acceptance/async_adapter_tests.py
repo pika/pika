@@ -2,8 +2,10 @@ import time
 import uuid
 
 from pika import spec
+from pika.compat import as_bytes
 
 from async_test_base import (AsyncTestCase, BoundQueueTestCase, AsyncAdapters)
+
 
 class TestA_Connect(AsyncTestCase, AsyncAdapters):
     DESCRIPTION = "Connect, open channel and disconnect"
@@ -28,7 +30,7 @@ class TestConsumeCancel(AsyncTestCase, AsyncAdapters):
     DESCRIPTION = "Consume and cancel"
 
     def begin(self, channel):
-        self.queue_name = str(uuid.uuid4()).encode()
+        self.queue_name = str(uuid.uuid4())
         channel.queue_declare(self.on_queue_declared, queue=self.queue_name)
 
     def on_queue_declared(self, frame):
@@ -132,7 +134,7 @@ class TestQueueNameDeclareAndDelete(AsyncTestCase, AsyncAdapters):
     DESCRIPTION = "Create and delete a named queue"
 
     def begin(self, channel):
-        channel.queue_declare(self.on_queue_declared, str(id(self)).encode(),
+        channel.queue_declare(self.on_queue_declared, str(id(self)),
                               passive=False,
                               durable=False,
                               exclusive=True,
@@ -141,8 +143,10 @@ class TestQueueNameDeclareAndDelete(AsyncTestCase, AsyncAdapters):
                               arguments={'x-expires': self.TIMEOUT * 1000})
 
     def on_queue_declared(self, frame):
+        queue = str(id(self))
         self.assertIsInstance(frame.method, spec.Queue.DeclareOk)
-        self.assertEqual(frame.method.queue, str(id(self)).encode())
+        # Frame's method's queue is encoded (impl detail)
+        self.assertEqual(frame.method.queue, queue)
         self.channel.queue_delete(self.on_queue_delete, frame.method.queue)
 
     def on_queue_delete(self, frame):
@@ -156,7 +160,7 @@ class TestQueueRedeclareWithDifferentValues(AsyncTestCase, AsyncAdapters):
 
     def begin(self, channel):
         self.channel.add_on_close_callback(self.on_channel_closed)
-        channel.queue_declare(self.on_queue_declared, str(id(self)).encode(),
+        channel.queue_declare(self.on_queue_declared, str(id(self)),
                               passive=False,
                               durable=False,
                               exclusive=True,
@@ -168,7 +172,7 @@ class TestQueueRedeclareWithDifferentValues(AsyncTestCase, AsyncAdapters):
         self.stop()
 
     def on_queue_declared(self, frame):
-        self.channel.queue_declare(self.on_bad_result, str(id(self)).encode(),
+        self.channel.queue_declare(self.on_bad_result, str(id(self)),
                                    passive=False,
                                    durable=True,
                                    exclusive=False,
@@ -177,7 +181,7 @@ class TestQueueRedeclareWithDifferentValues(AsyncTestCase, AsyncAdapters):
                                    arguments={'x-expires': self.TIMEOUT * 1000})
 
     def on_bad_result(self, frame):
-        self.channel.queue_delete(None, str(id(self)).encode(), nowait=True)
+        self.channel.queue_delete(None, str(id(self)), nowait=True)
         raise AssertionError("Should not have received a Queue.DeclareOk")
 
 
@@ -272,7 +276,7 @@ class TestZ_PublishAndConsume(BoundQueueTestCase, AsyncAdapters):
 
     def on_message(self, channel, method, header, body):
         self.assertIsInstance(method, spec.Basic.Deliver)
-        self.assertEqual(body, self.msg_body.encode())
+        self.assertEqual(body, as_bytes(self.msg_body))
         self.channel.basic_ack(method.delivery_tag)
         self.channel.basic_cancel(self.on_cancelled, self.ctag)
 
@@ -296,7 +300,7 @@ class TestZ_PublishAndConsumeBig(BoundQueueTestCase, AsyncAdapters):
 
     def on_message(self, channel, method, header, body):
         self.assertIsInstance(method, spec.Basic.Deliver)
-        self.assertEqual(body, self.msg_body.encode())
+        self.assertEqual(body, as_bytes(self.msg_body))
         self.channel.basic_ack(method.delivery_tag)
         self.channel.basic_cancel(self.on_cancelled, self.ctag)
 
@@ -313,6 +317,6 @@ class TestZ_PublishAndGet(BoundQueueTestCase, AsyncAdapters):
 
     def on_get(self, channel, method, header, body):
         self.assertIsInstance(method, spec.Basic.GetOk)
-        self.assertEqual(body, self.msg_body.encode())
+        self.assertEqual(body, as_bytes(self.msg_body))
         self.channel.basic_ack(method.delivery_tag)
         self.stop()

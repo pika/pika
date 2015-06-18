@@ -89,8 +89,8 @@ class BoundQueueTestCase(AsyncTestCase):
 
     def start(self, adapter=None):
         # PY3 compat encoding
-        self.exchange = ('e' + str(id(self))).encode()
-        self.queue = ('q' + str(id(self))).encode()
+        self.exchange = 'e' + str(id(self))
+        self.queue = 'q' + str(id(self))
         self.routing_key = self.__class__.__name__
         super(BoundQueueTestCase, self).start(adapter)
 

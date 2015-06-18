@@ -5,7 +5,66 @@ import calendar
 from datetime import datetime
 
 from pika import exceptions
-from pika.compat import unicode_type, PY2, long
+from pika.compat import unicode_type, PY2, long, as_bytes
+
+
+def encode_short_string(pieces, value):
+    """Encode a string value as short string and append it to pieces list
+    returning the size of the encoded value.
+
+    :param list pieces: Already encoded values
+    :param value: String value to encode
+    :type value: str or unicode
+    :rtype: int
+
+    """
+    encoded_value = as_bytes(value)
+    length = len(encoded_value)
+
+    # 4.2.5.3
+    # Short strings, stored as an 8-bit unsigned integer length followed by zero
+    # or more octets of data. Short strings can carry up to 255 octets of UTF-8
+    # data, but may not contain binary zero octets.
+    # ...
+    # 4.2.5.5
+    # The server SHOULD validate field names and upon receiving an invalid field
+    # name, it SHOULD signal a connection exception with reply code 503 (syntax
+    # error).
+    # -> validate length (avoid truncated utf-8 / corrupted data), but skip null
+    # byte check.
+    if length > 255:
+        raise exceptions.ShortStringTooLong(encoded_value)
+
+    pieces.append(struct.pack('B', length))
+    pieces.append(encoded_value)
+    return 1 + length
+
+
+if PY2:
+    def decode_short_string(encoded, offset):
+        """Decode a short string value from ``encoded`` data at ``offset``.
+        """
+        length = struct.unpack_from('B', encoded, offset)[0]
+        offset += 1
+        # Purely for compatibility with original python2 code. No idea what
+        # and why this does.
+        value = encoded[offset:offset + length]
+        try:
+            value = bytes(value)
+        except UnicodeEncodeError:
+            pass
+        offset += length
+        return value, offset
+
+else:
+    def decode_short_string(encoded, offset):
+        """Decode a short string value from ``encoded`` data at ``offset``.
+        """
+        length = struct.unpack_from('B', encoded, offset)[0]
+        offset += 1
+        value = encoded[offset:offset + length].decode('utf8')
+        offset += length
+        return value, offset
 
 
 def encode_table(pieces, table):
@@ -22,11 +81,7 @@ def encode_table(pieces, table):
     pieces.append(None)  # placeholder
     tablesize = 0
     for (key, value) in table.items():
-        if isinstance(key, unicode_type):
-            key = key.encode('utf-8')
-        pieces.append(struct.pack('B', len(key)))
-        pieces.append(key)
-        tablesize = tablesize + 1 + len(key)
+        tablesize += encode_short_string(pieces, key)
         tablesize += encode_value(pieces, value)
 
     pieces[length_index] = struct.pack('>I', tablesize)
@@ -112,10 +167,7 @@ def decode_table(encoded, offset):
     offset += 4
     limit = offset + tablesize
     while offset < limit:
-        keylen = struct.unpack_from('B', encoded, offset)[0]
-        offset += 1
-        key = encoded[offset:offset + keylen]
-        offset += keylen
+        key, offset = decode_short_string(encoded, offset)
         value, offset = decode_value(encoded, offset)
         result[key] = value
     return result, offset
@@ -201,10 +253,7 @@ def decode_value(encoded, offset):
 
     # Short String
     elif kind == b's':
-        length = struct.unpack_from('B', encoded, offset)[0]
-        offset += 1
-        value = encoded[offset:offset + length].decode('utf8')
-        offset += length
+        value, offset = decode_short_string(encoded, offset)
 
     # Long String
     elif kind == b'S':

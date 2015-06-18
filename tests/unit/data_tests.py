@@ -39,17 +39,17 @@ class DataTests(unittest.TestCase):
     )
 
     FIELD_TBL_VALUE = OrderedDict([
-        (b'array', [1, 2, 3]),
-        (b'boolval', True),
-        (b'decimal', decimal.Decimal('3.14')),
-        (b'decimal_too', decimal.Decimal('100')),
-        (b'dictval', {b'foo': 'bar'}),
-        (b'intval', 1)	,
-        (b'longval', long(912598613)),
-        (b'null', None),
-        (b'strval', 'Test'),
-        (b'timestampval', datetime.datetime(2006, 11, 21, 16, 30, 10)),
-        (b'unicode', u'utf8=✓')
+        ('array', [1, 2, 3]),
+        ('boolval', True),
+        ('decimal', decimal.Decimal('3.14')),
+        ('decimal_too', decimal.Decimal('100')),
+        ('dictval', {'foo': 'bar'}),
+        ('intval', 1)	,
+        ('longval', long(912598613)),
+        ('null', None),
+        ('strval', 'Test'),
+        ('timestampval', datetime.datetime(2006, 11, 21, 16, 30, 10)),
+        ('unicode', u'utf8=✓')
     ])
 
     def test_encode_table(self):
