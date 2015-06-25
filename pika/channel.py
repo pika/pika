@@ -124,12 +124,15 @@ class Channel(object):
 
     def add_on_return_callback(self, callback):
         """Pass a callback function that will be called when basic_publish as
-        sent a message that has been rejected and returned by the server. The
-        callback handler should receive a method, header and body frame. The
-        base signature for the callback should be the same as the method
-        signature one creates for a basic_consume callback.
+        sent a message that has been rejected and returned by the server.
 
-        :param method callback: The method to call on callback
+        :param method callback: The method to call on callback with the
+                                signature callback(channel, method, properties,
+                                                   body), where
+                                channel: pika.Channel
+                                method: pika.spec.Basic.Return
+                                properties: pika.spec.BasicProperties
+                                body: str, unicode, or bytes (python 3.x)
 
         """
         self.callbacks.add(self.channel_number, '_on_return', callback, False)
@@ -201,6 +204,13 @@ class Channel(object):
         http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.consume
 
         :param method consumer_callback: The method to callback when consuming
+            with the signature consumer_callback(channel, method, properties,
+                                                 body), where
+                                channel: pika.Channel
+                                method: pika.spec.Basic.Deliver
+                                properties: pika.spec.BasicProperties
+                                body: str, unicode, or bytes (python 3.x)
+
         :param queue: The queue to consume from
         :type queue: str or unicode
         :param bool no_ack: Tell the broker to not expect a response
@@ -247,9 +257,7 @@ class Channel(object):
                               uuid.uuid4().hex)
 
     def basic_get(self, callback=None, queue='', no_ack=False):
-        """Get a single message from the AMQP broker. The callback method
-        signature should have 3 parameters: The method frame, header frame and
-        the body, like the consumer callback for Basic.Consume. If you want to
+        """Get a single message from the AMQP broker. If you want to
         be notified of Basic.GetEmpty, use the Channel.add_callback method
         adding your Basic.GetEmpty callback which should expect only one
         parameter, frame. For more information on basic_get and its
@@ -257,7 +265,12 @@ class Channel(object):
 
         http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.get
 
-        :param method callback: The method to callback with a message
+        :param method callback: The method to callback with a message that has
+            the signature callback(channel, method, properties, body), where:
+            channel: pika.Channel
+            method: pika.spec.Basic.GetOk
+            properties: pika.spec.BasicProperties
+            body: str, unicode, or bytes (python 3.x)
         :param queue: The queue to get a message from
         :type queue: str or unicode
         :param bool no_ack: Tell the broker to not expect a reply

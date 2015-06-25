@@ -836,14 +836,10 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
     _RxMessageArgs = namedtuple(
         'BlockingChannel__RxMessageArgs',
         [
-            # implementation Channel instance
-            'channel',
-            # Basic.Deliver, Basic.Cancel, Basic.Return or Basic.GetOk
-            'method',
-            # pika.spec.BasicProperties; ignore if Basic.Cancel
-            'properties',
-            # returned message body; ignore if Basic.Cancel
-            'body'
+            'channel',  # implementation pika.Channel instance
+            'method',   # Basic.GetOk
+            'properties',  # pika.spec.BasicProperties
+            'body'      # str, unicode, or bytes (python 3.x)
         ])
 
 
@@ -1091,7 +1087,7 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
         :param spec.Basic.Deliver method:
         :param pika.spec.BasicProperties properties: message properties
         :param body: delivered message body; empty string if no body
-        :type body: str, unicode
+        :type body: str, unicode, or bytes (python 3.x)
 
         """
         evt = _ConsumerDeliveryEvt(method, properties, body)
@@ -1525,8 +1521,8 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
 
         :yields: tuple(spec.Basic.Deliver, spec.BasicProperties, str or unicode)
 
-        :raises ValueError: if (queue, no_ack, exclusive) parameters don't match
-            those of the existing queue consumer generator.
+        :raises ValueError: if consumer-creation parameters don't match those
+            of the existing queue consumer generator, if any.
             NEW in pika 0.10.0
         """
         params = (queue, no_ack, exclusive)
@@ -1607,7 +1603,8 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
 
     def get_waiting_message_count(self):
         """Returns the number of messages that may be retrieved from the current
-        queue consumer generator via `BasicChannel.consume` without blocking
+        queue consumer generator via `BasicChannel.consume` without blocking.
+        NEW in pika 0.10.0
 
         :rtype: int
         """
@@ -1888,7 +1885,7 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
                                    to zero, meaning "no specific limit",
                                    although other prefetch limits may still
                                    apply. The prefetch-size is ignored if the
-                                   no-ack option is set.
+                                   no-ack option is set in the consumer.
         :param int prefetch_count: Specifies a prefetch window in terms of whole
                                    messages. This field may be used in
                                    combination with the prefetch-size field; a
@@ -1896,7 +1893,7 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
                                    prefetch windows (and those at the channel
                                    and connection level) allow it. The
                                    prefetch-count is ignored if the no-ack
-                                   option is set.
+                                   option is set in the consumer.
         :param bool all_channels: Should the QoS apply to all channels
 
         """
@@ -1945,7 +1942,8 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
             http://www.rabbitmq.com/extensions.html#confirms
 
         :raises UnroutableError: when unroutable messages that were sent prior
-            to this call are returned before we receive Confirm.Select-ok
+            to this call are returned before we receive Confirm.Select-ok.
+            NEW in pika 0.10.0
         """
         if self._delivery_confirmation:
             LOGGER.error('confirm_delivery: confirmation was already enabled '
