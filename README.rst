@@ -15,7 +15,7 @@ to stay fairly independent of the underlying network support library.
   goes for greenlets, callbacks, continuations and generators. It is
   not necessarily thread-safe however, and your milage will vary.
 
-- People may be using direct sockets, `asyncore`, plain old `select()`,
+- People may be using direct sockets, plain old `select()`,
   or any of the wide variety of ways of getting network events to and from a
   python application. Pika tries to stay compatible with all of these, and to
   make adapting it to a new environment as simple as possible.
@@ -65,7 +65,6 @@ And an example of writing a blocking consumer:
 Pika provides the following adapters
 ------------------------------------
 
-- AsyncoreConnection - based off the standard Python library asyncore
 - BlockingConnection - enables blocking, synchronous operation on top of library for simple uses
 - LibevConnection    - adapter for use with the libev event loop http://libev.schmorp.de
 - SelectConnection   - fast asynchronous adapter

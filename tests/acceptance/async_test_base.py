@@ -176,10 +176,6 @@ class AsyncAdapters(object):
         "TornadoConnection"
         self.start(adapters.TornadoConnection)
 
-    def asyncore_test(self):
-        "AsyncoreConnection"
-        self.start(adapters.AsyncoreConnection)
-
     @unittest.skipIf(target == 'PyPy', 'PyPy is not supported')
     @unittest.skipIf(adapters.LibevConnection is None, 'pyev is not installed')
     def libev_test(self):

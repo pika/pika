@@ -15,7 +15,6 @@ except ImportError:
     import unittest
 
 import pika
-from pika.adapters import asyncore_connection
 from pika.adapters import base_connection
 from pika.adapters import blocking_connection
 from pika.adapters import select_connection
@@ -56,15 +55,6 @@ class ConnectionTests(unittest.TestCase):
         with self.assertRaises(exceptions.AMQPConnectionError):
             params = pika.ConnectionParameters(socket_timeout=2.0)
             base_connection.BaseConnection(params)
-        settimeout.assert_called_with(2.0)
-
-    @patch.object(socket.socket, 'settimeout')
-    @patch.object(socket.socket, 'connect')
-    def test_asyncore_connection_timeout(self, connect, settimeout):
-        connect.side_effect = mock_timeout
-        with self.assertRaises(exceptions.AMQPConnectionError):
-            params = pika.ConnectionParameters(socket_timeout=2.0)
-            asyncore_connection.AsyncoreConnection(params)
         settimeout.assert_called_with(2.0)
 
     @patch.object(socket.socket, 'settimeout')
