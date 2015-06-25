@@ -97,7 +97,9 @@ class ConsumerCancelled(AMQPChannelError):
 
 class UnroutableError(AMQPChannelError):
     """Exception containing one or more unroutable messages returned by broker
-    via Basic.Return. Used by BlockingChannel.
+    via Basic.Return.
+
+    Used by BlockingChannel.
 
     In publisher-acknowledgements mode, this is raised upon receipt of Basic.Ack
     from broker; in the event of Basic.Nack from broker, `NackError` is raised
@@ -107,7 +109,8 @@ class UnroutableError(AMQPChannelError):
     def __init__(self, messages):
         """
         :param messages: sequence of returned unroutable messages
-        :type messages: sequence of ReturnedMessage objects
+        :type messages: sequence of `blocking_connection.ReturnedMessage`
+           objects
         """
         super(UnroutableError, self).__init__(
             "%s unroutable message(s) returned" % (len(messages)))
@@ -129,7 +132,8 @@ class NackError(AMQPChannelError):
     def __init__(self, messages):
         """
         :param messages: sequence of returned unroutable messages
-        :type messages: sequence of ReturnedMessage objects
+        :type messages: sequence of `blocking_connection.ReturnedMessage`
+            objects
         """
         super(NackError, self).__init__(
             "%s message(s) NACKed" % (len(messages)))
