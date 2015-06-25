@@ -10,6 +10,7 @@ import errno
 import time
 from operator import itemgetter
 from collections import defaultdict
+import threading
 
 import pika.compat
 from pika.compat import dictkeys
@@ -156,14 +157,25 @@ class SelectPoller(object):
         """Create an instance of the SelectPoller
 
         """
+        # fd-to-handler function mappings
         self._fd_handlers = dict()
+
+        # event-to-fdset mappings
         self._fd_events = {READ: set(), WRITE: set(), ERROR: set()}
+
         self._stopping = False
         self._timeouts = {}
         self._next_timeout = None
         self._processing_fd_event_map = {}
-        self._r_interrupt, self._w_interrupt = self.get_interrupt_pair()
-        self.add_handler(self._r_interrupt.fileno(), self.read_interrupt, READ)
+
+        # Mutex for controlling critical sections where ioloop-interrupt sockets
+        # are created, used, and destroyed. Needed in case `stop()` is called
+        # from a thread.
+        self._mutex = threading.Lock()
+
+        # ioloop-interrupt socket pair; initialized in start()
+        self._r_interrupt = None
+        self._w_interrupt = None
 
     def get_interrupt_pair(self):
         """ Use a socketpair to be able to interrupt the ioloop if called
@@ -313,27 +325,57 @@ class SelectPoller(object):
         LOGGER.debug('Starting IOLoop')
         self._stopping = False
 
-        while not self._stopping:
-            self.poll()
-            self.process_timeouts()
+        with self._mutex:
+            # Watch out for reentry
+            if self._r_interrupt is None:
+                # Create ioloop-interrupt socket pair and register read handler.
+                # NOTE: we defer their creation because some users (e.g.,
+                # BlockingConnection adapter) don't use the event loop and these
+                # sockets would get reported as leaks
+                self._r_interrupt, self._w_interrupt = self.get_interrupt_pair()
+                self.add_handler(self._r_interrupt.fileno(),
+                                 self.read_interrupt,
+                                 READ)
+                interrupt_sockets_created = True
+            else:
+                interrupt_sockets_created = False
+        try:
+            # Run event loop
+            while not self._stopping:
+                self.poll()
+                self.process_timeouts()
+        finally:
+            # Unregister and close ioloop-interrupt socket pair
+            if interrupt_sockets_created:
+                with self._mutex:
+                    self.remove_handler(self._r_interrupt.fileno())
+                    self._r_interrupt.close()
+                    self._r_interrupt = None
+                    self._w_interrupt.close()
+                    self._w_interrupt = None
 
     def stop(self):
-        """Exit from the ioloop. """
+        """Request exit from the ioloop."""
 
         LOGGER.debug('Stopping IOLoop')
         self._stopping = True
 
-        try:
-            # Send byte to interrupt the poll loop, use write() for consitency.
-            os.write(self._w_interrupt.fileno(), b'X')
-        except OSError as err:
-            if err.errno != errno.EWOULDBLOCK:
+        with self._mutex:
+            if self._w_interrupt is None:
+                return
+
+            try:
+                # Send byte to interrupt the poll loop, use write() for
+                # consitency.
+                os.write(self._w_interrupt.fileno(), b'X')
+            except OSError as err:
+                if err.errno != errno.EWOULDBLOCK:
+                    raise
+            except Exception as err:
+                # There's nothing sensible to do here, we'll exit the interrupt
+                # loop after POLL_TIMEOUT secs in worst case anyway.
+                LOGGER.warning("Failed to send ioloop interrupt: %s", err)
                 raise
-        except Exception as err:
-            # There's nothing sensible to do here, we'll exit the interrupt
-            # loop after POLL_TIMEOUT secs in worst case anyway.
-            LOGGER.warning("Failed to send ioloop interrupt: %s", err)
-            raise
 
     def poll(self, write_only=False):
         """Wait for events on interested filedescriptors.
