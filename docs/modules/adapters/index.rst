@@ -9,7 +9,6 @@ Adapters
    :glob:
    :maxdepth: 1
 
-   asyncore
    blocking
    select
    tornado
