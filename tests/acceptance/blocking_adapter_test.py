@@ -989,6 +989,194 @@ class TestBasicConsumeFromUnknownQueueRaisesChannelClosed(BlockingTestCaseBase):
         self.assertEqual(ex_cm.exception.args[0], 404)
 
 
+class TestPublishAndBasicPublishUnroutable(BlockingTestCaseBase):
+
+    def test(self):  # pylint: disable=R0914
+        """BlockingChannel.publish amd basic_publish unroutable message with pubacks""" # pylint: disable=C0301
+        connection = self._connect()
+
+        ch = connection.channel()
+
+        exg_name = ('TestPublishAndBasicPublishUnroutable_exg_' +
+                    uuid.uuid1().hex)
+        routing_key = 'TestPublishAndBasicPublishUnroutable'
+
+        # Place channel in publisher-acknowledgments mode so that publishing
+        # with mandatory=True will be synchronous
+        res = ch.confirm_delivery()
+        self.assertIsNone(res)
+
+        # Declare a new exchange
+        ch.exchange_declare(exg_name, exchange_type='direct')
+        self.addCleanup(connection.channel().exchange_delete, exg_name)
+
+        # Verify unroutable message handling using basic_publish
+        res = ch.basic_publish(exg_name, routing_key=routing_key, body='',
+                               mandatory=True)
+        self.assertEqual(res, False)
+
+        # Verify unroutable message handling using publish
+        with self.assertRaises(pika.exceptions.UnroutableError) as cm:
+            ch.publish(exg_name, routing_key=routing_key, body='',
+                       mandatory=True)
+        (msg,) = cm.exception.messages
+        self.assertIsInstance(msg, blocking_connection.ReturnedMessage)
+        self.assertIsInstance(msg.method, pika.spec.Basic.Return)
+        self.assertEqual(msg.method.reply_code, 312)
+        self.assertEqual(msg.method.exchange, exg_name)
+        self.assertEqual(msg.method.routing_key, routing_key)
+        self.assertIsInstance(msg.properties, pika.BasicProperties)
+        self.assertEqual(msg.body, as_bytes(''))
+
+
+class TestConfirmDeliveryRaisesUnroutableError(BlockingTestCaseBase):
+
+    def test(self):  # pylint: disable=R0914
+        """BlockingChannel.confirm_delivery raises UnroutableError with pending unroutable message""" # pylint: disable=C0301
+        connection = self._connect()
+
+        ch = connection.channel()
+
+        exg_name = ('TestConfirmDeliveryRaisesUnroutableError_exg_' +
+                    uuid.uuid1().hex)
+        routing_key = 'TestConfirmDeliveryRaisesUnroutableError'
+
+        # Declare a new exchange
+        ch.exchange_declare(exg_name, exchange_type='direct')
+        self.addCleanup(connection.channel().exchange_delete, exg_name)
+
+        # Emit unroutable message without pubacks
+        res = ch.basic_publish(exg_name, routing_key=routing_key, body='',
+                               mandatory=True)
+        self.assertEqual(res, True)
+
+        with self.assertRaises(pika.exceptions.UnroutableError) as cm:
+            ch.confirm_delivery()
+
+        (msg,) = cm.exception.messages
+        self.assertIsInstance(msg, blocking_connection.ReturnedMessage)
+        self.assertIsInstance(msg.method, pika.spec.Basic.Return)
+        self.assertEqual(msg.method.reply_code, 312)
+        self.assertEqual(msg.method.exchange, exg_name)
+        self.assertEqual(msg.method.routing_key, routing_key)
+        self.assertIsInstance(msg.properties, pika.BasicProperties)
+        self.assertEqual(msg.body, as_bytes(''))
+
+
+class TestPublishRaisesUnroutableErrorUponPendingUnroutableMessage(
+        BlockingTestCaseBase):
+
+    def test(self):  # pylint: disable=R0914
+        """BlockingChannel.publish raises UnroutableError upon pending unroutable message without pubacks""" # pylint: disable=C0301
+        connection = self._connect()
+
+        ch = connection.channel()
+
+        exg_name = (
+            'TestPublishRaisesUnroutableErrorUponPendingUnroutableMessage_exg_'
+            + uuid.uuid1().hex)
+        routing_key = (
+            'TestPublishRaisesUnroutableErrorUponPendingUnroutableMessage')
+
+        # Declare a new exchange
+        ch.exchange_declare(exg_name, exchange_type='direct')
+        self.addCleanup(connection.channel().exchange_delete, exg_name)
+
+        # Emit unroutable message without pubacks
+        ch.publish(exg_name, routing_key=routing_key, body='msg1',
+                   mandatory=True)
+
+        # Flush channel to force Basic.Return
+        connection.channel().close()
+
+        with self.assertRaises(pika.exceptions.UnroutableError) as cm:
+            ch.publish(exg_name, routing_key=routing_key, body='msg2',
+                       mandatory=True)
+
+        (msg,) = cm.exception.messages
+        self.assertIsInstance(msg, blocking_connection.ReturnedMessage)
+        self.assertIsInstance(msg.method, pika.spec.Basic.Return)
+        self.assertEqual(msg.method.reply_code, 312)
+        self.assertEqual(msg.method.exchange, exg_name)
+        self.assertEqual(msg.method.routing_key, routing_key)
+        self.assertIsInstance(msg.properties, pika.BasicProperties)
+        self.assertEqual(msg.body, as_bytes('msg1'))
+
+
+class TestBasicPublishDeliveredWhenPendingUnroutable(BlockingTestCaseBase):
+
+    def test(self):  # pylint: disable=R0914
+        """BlockingChannel.basic_publish msg delivered despite pending unroutable message"""  # pylint: disable=C0301
+        connection = self._connect()
+
+        ch = connection.channel()
+
+        q_name = ('TestBasicPublishDeliveredWhenPendingUnroutable_q' +
+                  uuid.uuid1().hex)
+        exg_name = ('TestBasicPublishDeliveredWhenPendingUnroutable_exg_' +
+                    uuid.uuid1().hex)
+        routing_key = 'TestBasicPublishDeliveredWhenPendingUnroutable'
+
+
+        # Declare a new exchange
+        ch.exchange_declare(exg_name, exchange_type='direct')
+        self.addCleanup(connection.channel().exchange_delete, exg_name)
+
+        # Declare a new queue
+        ch.queue_declare(q_name, auto_delete=True)
+        self.addCleanup(self._connect().channel().queue_delete, q_name)
+
+        # Bind the queue to the exchange using routing key
+        frame = ch.queue_bind(q_name, exchange=exg_name,
+                              routing_key=routing_key)
+
+        # Attempt to send an unroutable message in the queue via basic_publish
+        res = ch.basic_publish(exg_name, routing_key='',
+                               body='unroutable-message',
+                               mandatory=True)
+        self.assertEqual(res, True)
+
+        # Flush channel to force Basic.Return
+        connection.channel().close()
+
+        # Deposit a routable message in the queue
+        res = ch.basic_publish(exg_name, routing_key=routing_key,
+                               body='routable-message',
+                               mandatory=True)
+        self.assertEqual(res, True)
+
+        # Wait for the queue to get the routable message
+        while ch.queue_declare(q_name, passive=True).method.message_count < 1:
+            pass
+
+        self.assertEqual(
+            ch.queue_declare(q_name, passive=True).method.message_count, 1)
+
+        msg = ch.basic_get(q_name)
+
+        # Check the first message
+        self.assertIsInstance(msg, tuple)
+        rx_method, rx_properties, rx_body = msg
+        self.assertIsInstance(rx_method, pika.spec.Basic.GetOk)
+        self.assertEqual(rx_method.delivery_tag, 1)
+        self.assertFalse(rx_method.redelivered)
+        self.assertEqual(rx_method.exchange, exg_name)
+        self.assertEqual(rx_method.routing_key, routing_key)
+
+        self.assertIsInstance(rx_properties, pika.BasicProperties)
+        self.assertEqual(rx_body, as_bytes('routable-message'))
+
+        # There shouldn't be any more events now
+        self.assertFalse(ch._pending_events)
+
+        # Ack the message
+        ch.basic_ack(delivery_tag=rx_method.delivery_tag, multiple=False)
+
+        # Verify that the queue is now empty
+        frame = ch.queue_declare(q_name, passive=True)
+        self.assertEqual(frame.method.message_count, 0)
+
+
 class TestPublishAndConsumeWithPubacksAndQosOfOne(BlockingTestCaseBase):
 
     def test(self):  # pylint: disable=R0914
@@ -1015,24 +1203,6 @@ class TestPublishAndConsumeWithPubacksAndQosOfOne(BlockingTestCaseBase):
         # Declare a new queue
         ch.queue_declare(q_name, auto_delete=True)
         self.addCleanup(self._connect().channel().queue_delete, q_name)
-
-        # Verify unroutable message handling using basic_publish
-        res = ch.basic_publish(exg_name, routing_key=routing_key, body='',
-                               mandatory=True)
-        self.assertEqual(res, False)
-
-        # Verify unroutable message handling using publish
-        with self.assertRaises(pika.exceptions.UnroutableError) as cm:
-            ch.publish(exg_name, routing_key=routing_key, body='',
-                       mandatory=True)
-        (msg,) = cm.exception.messages
-        self.assertIsInstance(msg, blocking_connection.ReturnedMessage)
-        self.assertIsInstance(msg.method, pika.spec.Basic.Return)
-        self.assertEqual(msg.method.reply_code, 312)
-        self.assertEqual(msg.method.exchange, exg_name)
-        self.assertEqual(msg.method.routing_key, routing_key)
-        self.assertIsInstance(msg.properties, pika.BasicProperties)
-        self.assertEqual(msg.body, as_bytes(''))
 
         # Bind the queue to the exchange using routing key
         frame = ch.queue_bind(q_name, exchange=exg_name,
@@ -1088,8 +1258,8 @@ class TestPublishAndConsumeWithPubacksAndQosOfOne(BlockingTestCaseBase):
         # There shouldn't be any more events now
         self.assertFalse(ch._pending_events)
 
-        # Ack the mesage so that the next one can arrive (we configured QoS with
-        # prefetch_count=1)
+        # Ack the message so that the next one can arrive (we configured QoS
+        # with prefetch_count=1)
         ch.basic_ack(delivery_tag=rx_method.delivery_tag, multiple=False)
 
         # Get the second message
@@ -1134,6 +1304,117 @@ class TestPublishAndConsumeWithPubacksAndQosOfOne(BlockingTestCaseBase):
         self.assertEqual(len(rx_cancellations), 1)
         frame, = rx_cancellations
         self.assertEqual(frame.method.consumer_tag, consumer_tag)
+
+
+class TestBasicPublishWithoutPubacks(BlockingTestCaseBase):
+
+    def test(self):  # pylint: disable=R0914
+        """BlockingChannel.basic_publish without pubacks"""
+        connection = self._connect()
+
+        ch = connection.channel()
+
+        q_name = 'TestBasicPublishWithoutPubacks_q' + uuid.uuid1().hex
+        exg_name = 'TestBasicPublishWithoutPubacks_exg_' + uuid.uuid1().hex
+        routing_key = 'TestBasicPublishWithoutPubacks'
+
+        # Declare a new exchange
+        ch.exchange_declare(exg_name, exchange_type='direct')
+        self.addCleanup(connection.channel().exchange_delete, exg_name)
+
+        # Declare a new queue
+        ch.queue_declare(q_name, auto_delete=True)
+        self.addCleanup(self._connect().channel().queue_delete, q_name)
+
+        # Bind the queue to the exchange using routing key
+        frame = ch.queue_bind(q_name, exchange=exg_name,
+                              routing_key=routing_key)
+
+        # Deposit a message in the queue via basic_publish and mandatory=True
+        res = ch.basic_publish(exg_name, routing_key=routing_key,
+                               body='via-basic_publish_mandatory=True',
+                               mandatory=True)
+        self.assertEqual(res, True)
+
+        # Deposit a message in the queue via basic_publish and mandatory=False
+        res = ch.basic_publish(exg_name, routing_key=routing_key,
+                               body='via-basic_publish_mandatory=False',
+                               mandatory=True)
+        self.assertEqual(res, True)
+
+        # Wait for the messages to arrive in queue
+        while ch.queue_declare(q_name, passive=True).method.message_count != 2:
+            pass
+
+        # Create a consumer
+        rx_messages = []
+        consumer_tag = ch.basic_consume(
+            lambda *args: rx_messages.append(args),
+            q_name,
+            no_ack=False,
+            exclusive=False,
+            arguments=None)
+
+        # Wait for first message to arrive
+        while not rx_messages:
+            connection.process_data_events(time_limit=None)
+
+        self.assertGreaterEqual(len(rx_messages), 1)
+
+        # Check the first message
+        msg = rx_messages[0]
+        self.assertIsInstance(msg, tuple)
+        rx_ch, rx_method, rx_properties, rx_body = msg
+        self.assertIs(rx_ch, ch)
+        self.assertIsInstance(rx_method, pika.spec.Basic.Deliver)
+        self.assertEqual(rx_method.consumer_tag, consumer_tag)
+        self.assertEqual(rx_method.delivery_tag, 1)
+        self.assertFalse(rx_method.redelivered)
+        self.assertEqual(rx_method.exchange, exg_name)
+        self.assertEqual(rx_method.routing_key, routing_key)
+
+        self.assertIsInstance(rx_properties, pika.BasicProperties)
+        self.assertEqual(rx_body, as_bytes('via-basic_publish_mandatory=True'))
+
+        # There shouldn't be any more events now
+        self.assertFalse(ch._pending_events)
+
+        # Ack the message so that the next one can arrive (we configured QoS
+        # with prefetch_count=1)
+        ch.basic_ack(delivery_tag=rx_method.delivery_tag, multiple=False)
+
+        # Get the second message
+        while len(rx_messages) < 2:
+            connection.process_data_events(time_limit=None)
+
+        self.assertEqual(len(rx_messages), 2)
+
+        msg = rx_messages[1]
+        self.assertIsInstance(msg, tuple)
+        rx_ch, rx_method, rx_properties, rx_body = msg
+        self.assertIs(rx_ch, ch)
+        self.assertIsInstance(rx_method, pika.spec.Basic.Deliver)
+        self.assertEqual(rx_method.consumer_tag, consumer_tag)
+        self.assertEqual(rx_method.delivery_tag, 2)
+        self.assertFalse(rx_method.redelivered)
+        self.assertEqual(rx_method.exchange, exg_name)
+        self.assertEqual(rx_method.routing_key, routing_key)
+
+        self.assertIsInstance(rx_properties, pika.BasicProperties)
+        self.assertEqual(rx_body, as_bytes('via-basic_publish_mandatory=False'))
+
+        # There shouldn't be any more events now
+        self.assertFalse(ch._pending_events)
+
+        ch.basic_ack(delivery_tag=rx_method.delivery_tag, multiple=False)
+
+        # Verify that the queue is now empty
+        frame = ch.queue_declare(q_name, passive=True)
+        self.assertEqual(frame.method.message_count, 0)
+
+        # Attempt to cosume again with a short timeout
+        connection.process_data_events(time_limit=0.005)
+        self.assertEqual(len(rx_messages), 2)
 
 
 class TestPublishFromBasicConsumeCallback(BlockingTestCaseBase):
@@ -1356,7 +1637,7 @@ class TestCloseConnectionFromBasicConsumeCallback(BlockingTestCaseBase):
 class TestNonPubAckPublishAndConsumeHugeMessage(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingChannel publish/consume huge message"""
+        """BlockingChannel.publish/consume huge message"""
         connection = self._connect()
 
         ch = connection.channel()
@@ -1385,7 +1666,7 @@ class TestNonPubAckPublishAndConsumeHugeMessage(BlockingTestCaseBase):
             self.assertIsInstance(rx_props, pika.BasicProperties)
             self.assertEqual(rx_body, as_bytes(body))
 
-            # Ack the mesage
+            # Ack the message
             ch.basic_ack(delivery_tag=rx_method.delivery_tag, multiple=False)
 
             break
@@ -1438,7 +1719,7 @@ class TestNonPubackPublishAndConsumeManyMessages(BlockingTestCaseBase):
             self.assertIsInstance(rx_props, pika.BasicProperties)
             self.assertEqual(rx_body, as_bytes(body))
 
-            # Ack the mesage
+            # Ack the message
             ch.basic_ack(delivery_tag=rx_method.delivery_tag, multiple=False)
 
             if num_consumed >= num_messages_to_publish:

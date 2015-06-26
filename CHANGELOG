@@ -82,11 +82,15 @@ changes:
   * `BlockingChannel.confirm_delivery`: raises UnroutableError when unroutable
     messages that were sent prior to this call are returned before we receive
     Confirm.Select-ok.
-  * `BlockingChannel.basic_publish: always returns None if delivery confirmation
-    is not enabled (bulisher acks = off); the legacy implementation returned a
-    bool in this case to indicate whether the messges was returned; however,
-    this was non-deterministic, because Basic.Return is asynchronous. The new
-    implementation returns a bool only when delivery confirmation is enabled.
+  * `BlockingChannel.basic_publish: always returns True when delivery
+    confirmation is not enabled (publisher-acks = off); the legacy implementation
+    returned a bool in this case if `mandatory=True` to indicate whether the
+    message was delivered; however, this was non-deterministic, because
+    Basic.Return is asynchronous and there is no way to know how long to wait
+    for it or its absence. The legacy implementation returned None when
+    publishing with publisher-acks = off and `mandatory=False`. The new
+    implementation always returns True when publishing while
+    publisher-acks = off.
   * `BlockingChannel.publish`: a new alternate method (vs. `basic_publish`) for
      publishing a message with more detailed error reporting via UnroutableError
      and NackError exceptions.

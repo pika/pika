@@ -1746,7 +1746,7 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
         NOTE: mandatory and immediate may be enabled even without delivery
           confirmation, but in the absence of delivery confirmation the
           synchronous implementation has no way to know how long to wait for
-          the return.
+          the Basic.Return or lack thereof.
 
         :param exchange: The exchange to publish to
         :type exchange: str or unicode
@@ -1758,10 +1758,10 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
         :param bool mandatory: The mandatory flag
         :param bool immediate: The immediate flag
 
-        :returns: None if delivery confirmation is not enabled; otherwise
-                  returns False if the message could not be deliveved (
-                  Basic.nack or msg return) and True if the message was
-                  delivered (Basic.ack and no msg return)
+        :returns: True if delivery confirmation is not enabled (NEW in pika
+            0.10.0); otherwise returns False if the message could not be
+            deliveved (Basic.nack and/or Basic.Return) and True if the message
+            was delivered (Basic.ack and no Basic.Return)
         """
         if self._delivery_confirmation:
             # In publisher-acknowledgments mode
@@ -1784,7 +1784,7 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
                 # already), and repeat the publish call
                 self.publish(exchange, routing_key, body, properties,
                              mandatory, immediate)
-            return None
+            return True
 
     def publish(self, exchange, routing_key, body,  # pylint: disable=R0913
                 properties=None, mandatory=False, immediate=False):
