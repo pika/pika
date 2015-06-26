@@ -1,7 +1,3 @@
-# ----------------------------------------------------------------------
-# Copyright (c) 2015, Vitaly Kruglikov All rights reserved.
-# ----------------------------------------------------------------------
-
 """TCP/IP forwarding/echo service for testing."""
 
 from __future__ import print_function
