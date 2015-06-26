@@ -69,7 +69,7 @@ class BlockingTestCaseBase(unittest.TestCase):
 class TestCreateAndCloseConnection(BlockingTestCaseBase):
 
     def test(self):
-        """Create connection, channel, and consumer, then close connection"""
+        """BlockingConnection: Create and close connection"""
         connection = self._connect()
         self.assertIsInstance(connection, pika.BlockingConnection)
         self.assertTrue(connection.is_open)
@@ -84,7 +84,7 @@ class TestCreateAndCloseConnection(BlockingTestCaseBase):
 
 class TestInvalidExchangeTypeRaisesConnectionClosed(BlockingTestCaseBase):
     def test(self):
-        """ConnectionClosed raised when creating exchange with invalid type"""
+        """BlockingConnection: ConnectionClosed raised when creating exchange with invalid type"""  # pylint: disable=C0301
         # This test exploits behavior specific to RabbitMQ whereby the broker
         # closes the connection if an attempt is made to declare an exchange
         # with an invalid exchange type
@@ -104,7 +104,7 @@ class TestInvalidExchangeTypeRaisesConnectionClosed(BlockingTestCaseBase):
 class TestCreateAndCloseConnectionWithChannelAndConsumer(BlockingTestCaseBase):
 
     def test(self):
-        """Create and close connection"""
+        """BlockingConnection: Create and close connection with channel and consumer"""  # pylint: disable=C0301
         connection = self._connect()
 
         ch = connection.channel()
@@ -393,7 +393,7 @@ class TestConnectionProperties(BlockingTestCaseBase):
 class TestCreateAndCloseChannel(BlockingTestCaseBase):
 
     def test(self):
-        """Create and close channel"""
+        """BlockingChannel: Create and close channel"""
         connection = self._connect()
 
         ch = connection.channel()
@@ -412,7 +412,7 @@ class TestCreateAndCloseChannel(BlockingTestCaseBase):
 class TestExchangeDeclareAndDelete(BlockingTestCaseBase):
 
     def test(self):
-        """Test exchange_declare and exchange_delete"""
+        """BlockingChannel: Test exchange_declare and exchange_delete"""
         connection = self._connect()
 
         ch = connection.channel()
@@ -443,7 +443,7 @@ class TestExchangeDeclareAndDelete(BlockingTestCaseBase):
 class TestQueueDeclareAndDelete(BlockingTestCaseBase):
 
     def test(self):
-        """Test queue_declare and queue_delete"""
+        """BlockingChannel: Test queue_declare and queue_delete"""
         connection = self._connect()
 
         ch = connection.channel()
@@ -474,7 +474,7 @@ class TestQueueDeclareAndDelete(BlockingTestCaseBase):
 class TestPassiveQueueDeclareOfUnknownQueueRaisesChannelClosed(
         BlockingTestCaseBase):
     def test(self):
-        """ChannelClosed raised when passive-declaring unknown queue"""
+        """BlockingChannel: ChannelClosed raised when passive-declaring unknown queue"""  # pylint: disable=C0301
         connection = self._connect()
         ch = connection.channel()
 
@@ -490,12 +490,12 @@ class TestPassiveQueueDeclareOfUnknownQueueRaisesChannelClosed(
 class TestQueueBindAndUnbindAndPurge(BlockingTestCaseBase):
 
     def test(self):
-        """Test queue_bind and queue_unbind"""
+        """BlockingChannel: Test queue_bind and queue_unbind"""
         connection = self._connect()
 
         ch = connection.channel()
 
-        q_name =  'TestQueueBindAndUnbindAndPurge_q' + uuid.uuid1().hex
+        q_name = 'TestQueueBindAndUnbindAndPurge_q' + uuid.uuid1().hex
         exg_name = 'TestQueueBindAndUnbindAndPurge_exg_' + uuid.uuid1().hex
         routing_key = 'TestQueueBindAndUnbindAndPurge'
 
@@ -1127,7 +1127,7 @@ class TestPublishAndConsumeWithPubacksAndQosOfOne(BlockingTestCaseBase):
 
         # Delete the queue and wait for consumer cancellation
         rx_cancellations = []
-        ch.add_on_cancel_callback(lambda frame: rx_cancellations.append(frame))
+        ch.add_on_cancel_callback(rx_cancellations.append)
         ch.queue_delete(q_name)
         ch.start_consuming()
 
@@ -1408,7 +1408,8 @@ class TestNonPubackPublishAndConsumeManyMessages(BlockingTestCaseBase):
 
         ch = connection.channel()
 
-        q_name = 'TestNonPubackPublishAndConsumeManyMessages_q' + uuid.uuid1().hex
+        q_name = ('TestNonPubackPublishAndConsumeManyMessages_q' +
+                  uuid.uuid1().hex)
         body = 'b' * 1024
 
         num_messages_to_publish = 500
@@ -1478,9 +1479,17 @@ class TestBasicCancelWithNonAckableConsumer(BlockingTestCaseBase):
         ch.publish(exchange='', routing_key=q_name, body=body1)
         ch.publish(exchange='', routing_key=q_name, body=body2)
 
+        # Wait for queue to contain both messages
+        while ch.queue_declare(q_name, passive=True).method.message_count != 2:
+            pass
+
         # Create a non-ackable consumer
         consumer_tag = ch.basic_consume(lambda *x: None, q_name, no_ack=True,
                                         exclusive=False, arguments=None)
+
+        # Wait for all messages to be sent by broker to client
+        while ch.queue_declare(q_name, passive=True).method.message_count > 0:
+            pass
 
         # Cancel the consumer
         messages = ch.basic_cancel(consumer_tag)
@@ -1525,9 +1534,17 @@ class TestBasicCancelWithAckableConsumer(BlockingTestCaseBase):
         ch.publish(exchange='', routing_key=q_name, body=body1)
         ch.publish(exchange='', routing_key=q_name, body=body2)
 
+        # Wait for queue to contain both messages
+        while ch.queue_declare(q_name, passive=True).method.message_count != 2:
+            pass
+
         # Create an ackable consumer
         consumer_tag = ch.basic_consume(lambda *x: None, q_name, no_ack=False,
                                         exclusive=False, arguments=None)
+
+        # Wait for all messages to be sent by broker to client
+        while ch.queue_declare(q_name, passive=True).method.message_count > 0:
+            pass
 
         # Cancel the consumer
         messages = ch.basic_cancel(consumer_tag)
