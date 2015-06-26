@@ -13,10 +13,13 @@ TwistedChannel class for details.
 
 """
 import functools
+import math
+
 from twisted.internet import defer, error, reactor
 from twisted.python import log
 
 from pika import exceptions
+from pika import frame
 from pika.adapters import base_connection
 
 
@@ -405,6 +408,31 @@ class TwistedProtocolConnection(base_connection.BaseConnection):
         self.bytes_sent += len(marshaled_frame)
         self.frames_sent += 1
         self.transport.write(marshaled_frame)
+        
+# fixed here
+    def _send_message(self, channel_number, method_frame, content=None):
+        """Send the message directly, bypassing the single _send_frame
+        invocation by directly appending to the output buffer and flushing
+        within a lock.
+
+        :param int channel_number: The channel number for the frame
+        :param pika.object.Method method_frame: The method frame to send
+        :param tuple content: If set, is a content frame, is tuple of
+                              properties and body.
+
+        """
+        length = len(content[1])    
+        self._send_frame(frame.Method(channel_number, method_frame))
+        self._send_frame(frame.Header(channel_number, length, content[0]))
+        
+        if content[1]:
+            chunks = int(math.ceil(float(length) / self._body_max_length))
+            for chunk in range(0, chunks):
+                s = chunk * self._body_max_length
+                e = s + self._body_max_length
+                if e > length:
+                    e = length
+                self._send_frame(frame.Body(channel_number, content[1][s:e]))        
 
     def channel(self, channel_number=None):
         """Create a new channel with the next available channel number or pass
