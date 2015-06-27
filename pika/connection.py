@@ -637,9 +637,9 @@ class Connection(object):
         ``Connection.Blocked`` frame indicating that RabbitMQ is low on
         resources. Publishers can use this to voluntarily suspend publishing,
         instead of relying on back pressure throttling. The callback
-        will bet passed the ``Connection.Blocked`` method frame.
+        will be passed the ``Connection.Blocked`` method frame.
 
-        :param method callback_method: Callback to call on close
+        :param method callback_method: Callback to call on `Connection.Blocked`
 
         """
         self.callbacks.add(0, spec.Connection.Blocked, callback_method, False)
@@ -650,7 +650,8 @@ class Connection(object):
         to start publishing again. The callback will be passed the
         ``Connection.Unblocked`` method frame.
 
-        :param method callback_method: Callback to call on close
+        :param method callback_method: Callback to call on
+                                       `Connection.Unblocked`
 
         """
         self.callbacks.add(0, spec.Connection.Unblocked, callback_method, False)

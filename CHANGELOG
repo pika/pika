@@ -50,7 +50,8 @@ changes:
   * `BlockingConnection.add_backpressure_callback`: not supported
   * `BlockingConnection.set_backpressure_multiplier`: not supported
   * `BlockingChannel.add_on_flow_callback`: not supported
-  * `BlockingChannel.flow`: not supported
+  * `BlockingChannel.flow`: accepts single arg `active` and returns bool; legacy
+    inherited asynchronous `Channel.flow` that accepted `callback` and `active`.
   * `BlockingChannel.force_data_events`: removed as it is no longer necessary
     following redesign of the adapter.
   * Removed the `nowait` parameter from `BlockingChannel` methods, forcing

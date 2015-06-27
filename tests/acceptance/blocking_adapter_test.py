@@ -291,6 +291,37 @@ class TestProcessDataEvents(BlockingTestCaseBase):
         self.assertLess(elapsed, 0.25)
 
 
+class TestConnectionBlockAndUnblock(BlockingTestCaseBase):
+
+    def test(self):
+        """BlockingConnection register for Connection.Blocked/Unblocked"""
+        connection = self._connect()
+
+        # NOTE: I haven't figured out yet how to coerce RabbitMQ to emit
+        # Connection.Block and Connection.Unblock from the test, so we'll
+        # just call the registration functions for now, to make sure that
+        # registration doesn't crash
+
+        connection.add_on_connection_blocked_callback(lambda frame: None)
+
+        blocked_buffer = []
+        evt = blocking_connection._ConnectionBlockedEvt(
+            lambda f: blocked_buffer.append("blocked"),
+            pika.frame.Method(1, pika.spec.Connection.Blocked('reason')))
+        repr(evt)
+        evt.dispatch()
+        self.assertEqual(blocked_buffer, ["blocked"])
+
+        unblocked_buffer = []
+        connection.add_on_connection_unblocked_callback(lambda frame: None)
+        evt = blocking_connection._ConnectionUnblockedEvt(
+            lambda f: unblocked_buffer.append("unblocked"),
+            pika.frame.Method(1, pika.spec.Connection.Unblocked()))
+        repr(evt)
+        evt.dispatch()
+        self.assertEqual(unblocked_buffer, ["unblocked"])
+
+
 class TestAddTimeoutRemoveTimeout(BlockingTestCaseBase):
 
     def test(self):
@@ -323,6 +354,10 @@ class TestAddTimeoutRemoveTimeout(BlockingTestCaseBase):
         connection.process_data_events(time_limit=0.1)
         self.assertFalse(rx_callback)
 
+        # Make sure _TimerEvt repr doesn't crash
+        evt = blocking_connection._TimerEvt(lambda: None)
+        repr(evt)
+
 
 class TestRemoveTimeoutFromTimeoutCallback(BlockingTestCaseBase):
 
@@ -345,7 +380,7 @@ class TestRemoveTimeoutFromTimeoutCallback(BlockingTestCaseBase):
             connection.process_data_events(time_limit=None)
 
         self.assertNotIn(timer_id1, connection._impl.ioloop._timeouts)
-        self.assertFalse(connection._pending_timers)
+        self.assertFalse(connection._ready_events)
 
 
 class TestSleep(BlockingTestCaseBase):
@@ -1938,6 +1973,60 @@ class TestNoAckMessageNotRestoredToQueueOnChannelClose(BlockingTestCaseBase):
         ch = connection.channel()
         frame = ch.queue_declare(q_name, passive=True)
         self.assertEqual(frame.method.message_count, 0)
+
+
+class TestChannelFlow(BlockingTestCaseBase):
+
+    def test(self):
+        """BlockingChannel Channel.Flow activate and deactivate """
+        connection = self._connect()
+
+        ch = connection.channel()
+
+        q_name = ('TestChannelFlow_q' + uuid.uuid1().hex)
+
+        # Declare a new queue
+        ch.queue_declare(q_name, auto_delete=False)
+        self.addCleanup(self._connect().channel().queue_delete, q_name)
+
+        # Verify zero active consumers on the queue
+        frame = ch.queue_declare(q_name, passive=True)
+        self.assertEqual(frame.method.consumer_count, 0)
+
+        # Create consumer
+        ch.basic_consume(lambda *args: None, q_name)
+
+        # Verify one active consumer on the queue now
+        frame = ch.queue_declare(q_name, passive=True)
+        self.assertEqual(frame.method.consumer_count, 1)
+
+        # Activate flow from default state (active by default)
+        active = ch.flow(True)
+        self.assertEqual(active, True)
+
+        # Verify still one active consumer on the queue now
+        frame = ch.queue_declare(q_name, passive=True)
+        self.assertEqual(frame.method.consumer_count, 1)
+
+        # active=False is not supported by RabbitMQ per
+        # https://www.rabbitmq.com/specification.html:
+        #   "active=false is not supported by the server. Limiting prefetch with
+        #   basic.qos provides much better control"
+##        # Deactivate flow
+##        active = ch.flow(False)
+##        self.assertEqual(active, False)
+##
+##        # Verify zero active consumers on the queue now
+##        frame = ch.queue_declare(q_name, passive=True)
+##        self.assertEqual(frame.method.consumer_count, 0)
+##
+##        # Re-activate flow
+##        active = ch.flow(True)
+##        self.assertEqual(active, True)
+##
+##        # Verify one active consumers on the queue once again
+##        frame = ch.queue_declare(q_name, passive=True)
+##        self.assertEqual(frame.method.consumer_count, 1)
 
 
 if __name__ == '__main__':

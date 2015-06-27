@@ -28,7 +28,7 @@ except ImportError:
 
 def _trace(fmt, *args):
     """Format and output the text to stderr"""
-    print(fmt % args, file=sys.stderr)
+    print((fmt % args) + "\n", end="", file=sys.stderr)
 
 
 
@@ -213,6 +213,7 @@ class ForwardServer(object):
         ForwardServer. start()/stop() are alternatives to the context manager
         use case and are mutually exclusive with it.
         """
+        _trace("ForwardServer STOPPING")
         self._logger.info("ForwardServer STOPPING")
 
         try:
@@ -286,7 +287,12 @@ def _run_server(local_addr, local_addr_family, local_socket_type,
 
     # Send server socket info back to parent process
     q.put([server.socket.family, server.server_address])
+    q.close()
 
+##    # Validate server's socket fileno
+##    _trace("Checking server fd=%s after q.put", server.socket.fileno())
+##    fcntl.fcntl(server.socket.fileno(), fcntl.F_GETFL)
+##    _trace("Server fd is OK after q.put")
 
     server.serve_forever()
 
@@ -301,53 +307,59 @@ class _TCPHandler(SocketServer.StreamRequestHandler):
 
 
     def handle(self):
-        """Connect to remote and forward data between local and remote"""
-        local_sock = self.connection
-
-        if self.server.remote_addr is not None:
-            # Forwarding set-up
-            remote_dest_sock = remote_src_sock = socket.socket(
-                family=self.server.remote_addr_family,
-                type=self.server.remote_socket_type,
-                proto=socket.IPPROTO_IP)
-            remote_dest_sock.connect(self.server.remote_addr)
-            _trace("%s _TCPHandler connected to remote %s",
-                   datetime.utcnow(), remote_dest_sock.getpeername())
-        else:
-            # Echo set-up
-            remote_dest_sock, remote_src_sock = socket_pair()
-
         try:
-            local_forwarder = threading.Thread(
-                target=self._forward,
-                args=(local_sock, remote_dest_sock,))
-            local_forwarder.setDaemon(True)
-            local_forwarder.start()
+            local_sock = self.connection
+
+            if self.server.remote_addr is not None:
+                # Forwarding set-up
+                remote_dest_sock = remote_src_sock = socket.socket(
+                    family=self.server.remote_addr_family,
+                    type=self.server.remote_socket_type,
+                    proto=socket.IPPROTO_IP)
+                remote_dest_sock.connect(self.server.remote_addr)
+                _trace("%s _TCPHandler connected to remote %s",
+                       datetime.utcnow(), remote_dest_sock.getpeername())
+            else:
+                # Echo set-up
+                remote_dest_sock, remote_src_sock = socket_pair()
 
             try:
-                self._forward(remote_src_sock, local_sock)
-            finally:
-                # Wait for local forwarder thread to exit
-                local_forwarder.join()
-        finally:
-            try:
+                local_forwarder = threading.Thread(
+                    target=self._forward,
+                    args=(local_sock, remote_dest_sock,))
+                local_forwarder.setDaemon(True)
+                local_forwarder.start()
+
                 try:
-                    _safe_shutdown_socket(remote_dest_sock,
-                                          socket.SHUT_RDWR)
+                    self._forward(remote_src_sock, local_sock)
                 finally:
-                    if remote_src_sock is not remote_dest_sock:
-                        _safe_shutdown_socket(remote_src_sock,
-                                              socket.SHUT_RDWR)
+                    # Wait for local forwarder thread to exit
+                    local_forwarder.join()
             finally:
-                remote_dest_sock.close()
-                if remote_src_sock is not remote_dest_sock:
-                    remote_src_sock.close()
+                try:
+                    try:
+                        _safe_shutdown_socket(remote_dest_sock,
+                                              socket.SHUT_RDWR)
+                    finally:
+                        if remote_src_sock is not remote_dest_sock:
+                            _safe_shutdown_socket(remote_src_sock,
+                                                  socket.SHUT_RDWR)
+                finally:
+                    remote_dest_sock.close()
+                    if remote_src_sock is not remote_dest_sock:
+                        remote_src_sock.close()
+        except:
+            _trace("handle failed:\n%s", "".join(traceback.format_exc()))
+            raise
 
 
     def _forward(self, src_sock, dest_sock):
         """Forward from src_sock to dest_sock"""
+
+        src_peername = src_sock.getpeername()
+
         _trace("%s forwarding from %s to %s", datetime.utcnow(),
-               src_sock.getpeername(), dest_sock.getpeername())
+               src_peername, dest_sock.getpeername())
         try:
             # NOTE: python 2.6 doesn't support bytearray with recv_into, so
             # we use array.array instead; this is only okay as long as the
@@ -365,19 +377,17 @@ class _TCPHandler(SocketServer.StreamRequestHandler):
                     elif e.errno == errno.ECONNRESET:
                         # Source peer forcibly closed connection
                         _trace("%s errno.ECONNRESET from %s",
-                               datetime.utcnow(), src_sock.getpeername())
+                               datetime.utcnow(), src_peername)
                         break
                     else:
                         _trace("%s Unexpected errno=%s from %s\n%s",
-                               datetime.utcnow(), e.errno,
-                               src_sock.getpeername(),
+                               datetime.utcnow(), e.errno, src_peername,
                                "".join(traceback.format_stack()))
                         raise
 
                 if not nbytes:
                     # Source input EOF
-                    _trace("%s EOF on %s", datetime.utcnow(),
-                           src_sock.getpeername())
+                    _trace("%s EOF on %s", datetime.utcnow(), src_peername)
                     break
 
                 try:
@@ -403,11 +413,11 @@ class _TCPHandler(SocketServer.StreamRequestHandler):
                             "".join(traceback.format_stack()))
                         raise
         except:
-            _trace("forward failed\n%s", "".join(traceback.format_stack()))
+            _trace("forward failed\n%s", "".join(traceback.format_exc()))
             raise
         finally:
             _trace("%s done forwarding from %s", datetime.utcnow(),
-                   src_sock.getpeername())
+                   src_peername)
             try:
                 # Let source peer know we're done receiving
                 _safe_shutdown_socket(src_sock, socket.SHUT_RD)
