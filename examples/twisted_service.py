@@ -1,3 +1,4 @@
+"""
 # -*- coding:utf-8 -*-
 # based on:
 #  - txamqp-helpers by Dan Siemon <dan@coverfire.com> (March 2010)
@@ -6,6 +7,14 @@
 #    https://groups.google.com/forum/#!topic/pika-python/o_deVmGondk
 #  - Pika Documentation
 #    http://pika.readthedocs.org/en/latest/examples/twisted_example.html
+
+
+Fire up this test application via `twistd -ny twisted_service.py`
+
+The application will answer to requests to exchange "foobar" and any of the
+routing_key values: "request1", "request2", or "request3"
+with messages to the same exchange, but with routing_key "response"
+"""
 
 import pika
 from pika import spec
@@ -158,15 +167,12 @@ class PikaFactory(protocol.ReconnectingClientFactory):
         if self.client is not None:
             self.client.read(exchange, routing_key, callback)
 
-## Fire up test application with
-# twistd -ny twisted_service.py
-## application will answer to requests to exchange "foobar" and routing_key "request"
-## with messages to the same exchange but with routing_key "response"
 
 application = service.Application("pikaapplication")
 
 ps = PikaService(pika.ConnectionParameters(host="localhost", virtual_host="/", credentials=pika.PlainCredentials("guest", "guest")))
 ps.setServiceParent(application)
+
 
 class TestService(service.Service):
 
