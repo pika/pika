@@ -440,6 +440,66 @@ class TestExchangeDeclareAndDelete(BlockingTestCaseBase):
         self.assertEqual(cm.exception.args[0], 404)
 
 
+class TestExchangeBindAndUnbind(BlockingTestCaseBase):
+
+    def test(self):
+        """BlockingChannel: Test exchange_bind and exchange_unbind"""
+        connection = self._connect()
+
+        ch = connection.channel()
+
+        q_name = 'TestExchangeBindAndUnbind_q' + uuid.uuid1().hex
+        src_exg_name = 'TestExchangeBindAndUnbind_src_exg_' + uuid.uuid1().hex
+        dest_exg_name = 'TestExchangeBindAndUnbind_dest_exg_' + uuid.uuid1().hex
+        routing_key = 'TestExchangeBindAndUnbind'
+
+        # Place channel in publisher-acknowledgments mode so that we may test
+        # whether the queue is reachable by publishing with mandatory=True
+        res = ch.confirm_delivery()
+        self.assertIsNone(res)
+
+        # Declare both exchanges
+        ch.exchange_declare(src_exg_name, exchange_type='direct')
+        self.addCleanup(connection.channel().exchange_delete, src_exg_name)
+        ch.exchange_declare(dest_exg_name, exchange_type='direct')
+        self.addCleanup(connection.channel().exchange_delete, dest_exg_name)
+
+        # Declare a new queue
+        ch.queue_declare(q_name, auto_delete=True)
+        self.addCleanup(self._connect().channel().queue_delete, q_name)
+
+        # Bind the queue to the destination exchange
+        ch.queue_bind(q_name, exchange=dest_exg_name, routing_key=routing_key)
+
+
+        # Verify that the queue is unreachable without exchange-exchange binding
+        with self.assertRaises(pika.exceptions.UnroutableError):
+            ch.publish(src_exg_name, routing_key, body='', mandatory=True)
+
+        # Bind the exchanges
+        frame = ch.exchange_bind(destination=dest_exg_name, source=src_exg_name,
+                                 routing_key=routing_key)
+        self.assertIsInstance(frame.method, pika.spec.Exchange.BindOk)
+
+        # Publish a message via the source exchange
+        ch.publish(src_exg_name, routing_key, body='TestExchangeBindAndUnbind',
+                   mandatory=True)
+
+        # Check that the queue now has one message
+        frame = ch.queue_declare(q_name, passive=True)
+        self.assertEqual(frame.method.message_count, 1)
+
+        # Unbind the exchanges
+        frame = ch.exchange_unbind(destination=dest_exg_name,
+                                   source=src_exg_name,
+                                   routing_key=routing_key)
+        self.assertIsInstance(frame.method, pika.spec.Exchange.UnbindOk)
+
+        # Verify that the queue is now unreachable via the source exchange
+        with self.assertRaises(pika.exceptions.UnroutableError):
+            ch.publish(src_exg_name, routing_key, body='', mandatory=True)
+
+
 class TestQueueDeclareAndDelete(BlockingTestCaseBase):
 
     def test(self):
@@ -989,7 +1049,7 @@ class TestBasicConsumeFromUnknownQueueRaisesChannelClosed(BlockingTestCaseBase):
         self.assertEqual(ex_cm.exception.args[0], 404)
 
 
-class TestPublishAndBasicPublishUnroutable(BlockingTestCaseBase):
+class TestPublishAndBasicPublishWithPubacksUnroutable(BlockingTestCaseBase):
 
     def test(self):  # pylint: disable=R0914
         """BlockingChannel.publish amd basic_publish unroutable message with pubacks""" # pylint: disable=C0301
@@ -1016,9 +1076,12 @@ class TestPublishAndBasicPublishUnroutable(BlockingTestCaseBase):
         self.assertEqual(res, False)
 
         # Verify unroutable message handling using publish
+        msg2_headers = dict(
+            test_name='TestPublishAndBasicPublishWithPubacksUnroutable')
+        msg2_properties = pika.spec.BasicProperties(headers=msg2_headers)
         with self.assertRaises(pika.exceptions.UnroutableError) as cm:
             ch.publish(exg_name, routing_key=routing_key, body='',
-                       mandatory=True)
+                       properties=msg2_properties, mandatory=True)
         (msg,) = cm.exception.messages
         self.assertIsInstance(msg, blocking_connection.ReturnedMessage)
         self.assertIsInstance(msg.method, pika.spec.Basic.Return)
@@ -1026,6 +1089,7 @@ class TestPublishAndBasicPublishUnroutable(BlockingTestCaseBase):
         self.assertEqual(msg.method.exchange, exg_name)
         self.assertEqual(msg.method.routing_key, routing_key)
         self.assertIsInstance(msg.properties, pika.BasicProperties)
+        self.assertEqual(msg.properties.headers, msg2_headers)
         self.assertEqual(msg.body, as_bytes(''))
 
 
@@ -1209,8 +1273,12 @@ class TestPublishAndConsumeWithPubacksAndQosOfOne(BlockingTestCaseBase):
                               routing_key=routing_key)
 
         # Deposit a message in the queue via basic_publish
+        msg1_headers = dict(
+            test_name='TestPublishAndConsumeWithPubacksAndQosOfOne')
+        msg1_properties = pika.spec.BasicProperties(headers=msg1_headers)
         res = ch.basic_publish(exg_name, routing_key=routing_key,
                                body='via-basic_publish',
+                               properties=msg1_properties,
                                mandatory=True)
         self.assertEqual(res, True)
 
@@ -1253,6 +1321,7 @@ class TestPublishAndConsumeWithPubacksAndQosOfOne(BlockingTestCaseBase):
         self.assertEqual(rx_method.routing_key, routing_key)
 
         self.assertIsInstance(rx_properties, pika.BasicProperties)
+        self.assertEqual(rx_properties.headers, msg1_headers)
         self.assertEqual(rx_body, as_bytes('via-basic_publish'))
 
         # There shouldn't be any more events now
@@ -1331,8 +1400,12 @@ class TestBasicPublishWithoutPubacks(BlockingTestCaseBase):
                               routing_key=routing_key)
 
         # Deposit a message in the queue via basic_publish and mandatory=True
+        msg1_headers = dict(
+            test_name='TestBasicPublishWithoutPubacks')
+        msg1_properties = pika.spec.BasicProperties(headers=msg1_headers)
         res = ch.basic_publish(exg_name, routing_key=routing_key,
                                body='via-basic_publish_mandatory=True',
+                               properties=msg1_properties,
                                mandatory=True)
         self.assertEqual(res, True)
 
@@ -1374,6 +1447,7 @@ class TestBasicPublishWithoutPubacks(BlockingTestCaseBase):
         self.assertEqual(rx_method.routing_key, routing_key)
 
         self.assertIsInstance(rx_properties, pika.BasicProperties)
+        self.assertEqual(rx_properties.headers, msg1_headers)
         self.assertEqual(rx_body, as_bytes('via-basic_publish_mandatory=True'))
 
         # There shouldn't be any more events now
