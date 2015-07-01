@@ -380,6 +380,13 @@ class TwistedProtocolConnection(base_connection.BaseConnection):
         # The connection is open asynchronously by Twisted, so skip the whole
         # connect() part, except for setting the connection state
         self._set_connection_state(self.CONNECTION_INIT)
+        
+    def _flush_outbound(self):
+        while self.outbound_buffer:
+            marshaled_frame = self.outbound_buffer.popleft()
+            self.bytes_sent += len(marshaled_frame)
+            self.frames_sent += 1
+            self.transport.write(marshaled_frame)
 
     def _adapter_connect(self):
         # Should never be called, as we override connect() and leave the

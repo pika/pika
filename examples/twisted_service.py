@@ -181,9 +181,8 @@ class TestService(service.Service):
 
     def startService(self):
         self.amqp = self.parent.getServiceNamed("amqp").getFactory()
-        self.amqp.read_messages("foobar", "request1", self.respond)
-        self.amqp.read_messages("foobar", "request2", self.respond)
-        self.amqp.read_messages("foobar", "request3", self.respond)
+        self.amqp.send_message('foobar', 'message1', 'hello pika!')
+        self.amqp.read_messages("foobar", "message1", self.respond)
 
 ts = TestService()
 ts.setServiceParent(application)
