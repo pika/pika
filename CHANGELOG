@@ -46,12 +46,19 @@ changes:
     constructor as the only way to establish connections; this reduces
     maintenance burden, while improving reliability of the adapter.
   * `BlockingConnection.process_data_events`: added the optional parameter
-    `time_limit`
+    `time_limit`.
+  * `BlockingConnection.add_on_close_callback`: removed; legacy raised
+    `NotImplementedError`.
+  * `BlockingConnection.add_on_open_callback`: removed; legacy raised
+    `NotImplementedError`.
+  * `BlockingConnection.add_on_open_error_callback`: removed; legacy raised
+    `NotImplementedError`.
   * `BlockingConnection.add_backpressure_callback`: not supported
   * `BlockingConnection.set_backpressure_multiplier`: not supported
-  * `BlockingChannel.add_on_flow_callback`: not supported
-  * `BlockingChannel.flow`: accepts single arg `active` and returns bool; legacy
-    inherited asynchronous `Channel.flow` that accepted `callback` and `active`.
+  * `BlockingChannel.add_on_flow_callback`: not supported; per docstring in
+    channel.py: "Note that newer versions of RabbitMQ will not issue this but
+    instead use TCP backpressure".
+  * `BlockingChannel.flow`: not supported
   * `BlockingChannel.force_data_events`: removed as it is no longer necessary
     following redesign of the adapter.
   * Removed the `nowait` parameter from `BlockingChannel` methods, forcing
