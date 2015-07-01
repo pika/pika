@@ -85,7 +85,7 @@ class _CallbackResult(object):
         """True if the object is in a signaled state"""
         return self._ready
 
-    def signal_once(self, *_args, **_kwargs):
+    def signal_once(self, *_args, **_kwargs): # pylint: disable=W0613
         """ Set as ready
 
         :raises AssertionError: if result was already signalled
@@ -198,15 +198,62 @@ class _IoloopTimerContext(object):  # pylint: disable=R0903
 
 class _TimerEvt(object):  # pylint: disable=R0903
     """Represents a timer created via `BlockingConnection.add_timeout`"""
-    __slots__ = ('timer_id', 'callback')
+    __slots__ = ('timer_id', '_callback')
 
     def __init__(self, callback):
+        """
+        :param callback: see callback_method in `BlockingConnection.add_timeout`
+        """
+        self._callback = callback
+
+        # Will be set to timer id returned from the underlying implementation's
+        # `add_timeout` method
         self.timer_id = None
-        self.callback = callback
 
     def __repr__(self):
         return '%s(timer_id=%s, callback=%s)' % (self.__class__.__name__,
-                                                 self.timer_id, self.callback)
+                                                 self.timer_id, self._callback)
+
+    def dispatch(self):
+        """Dispatch the user's callback method"""
+        self._callback()
+
+
+class _ConnectionBlockedUnblockedEvtBase(object):  # pylint: disable=R0903
+    """Base class for `_ConnectionBlockedEvt` and `_ConnectionUnblockedEvt`"""
+    __slots__ = ('_callback', '_method_frame')
+
+    def __init__(self, callback, method_frame):
+        """
+        :param callback: see callback_method parameter in
+          `BlockingConnection.add_on_connection_blocked_callback` and
+          `BlockingConnection.add_on_connection_unblocked_callback`
+        :param pika.frame.Method method_frame: with method_frame.method of type
+          `pika.spec.Connection.Blocked` or `pika.spec.Connection.Unblocked`
+        """
+        self._callback = callback
+        self._method_frame = method_frame
+
+    def __repr__(self):
+        return '%s(callback=%s, frame=%s)' % (self.__class__.__name__,
+                                              self._callback,
+                                              self._method_frame)
+
+    def dispatch(self):
+        """Dispatch the user's callback method"""
+        self._callback(self._method_frame)
+
+
+class _ConnectionBlockedEvt(  # pylint: disable=R0903
+        _ConnectionBlockedUnblockedEvtBase):
+    """Represents a Connection.Blocked notification from RabbitMQ broker`"""
+    pass
+
+
+class _ConnectionUnblockedEvt(  # pylint: disable=R0903
+        _ConnectionBlockedUnblockedEvtBase):
+    """Represents a Connection.Unblocked notification from RabbitMQ broker`"""
+    pass
 
 
 class BlockingConnection(object):  # pylint: disable=R0902
@@ -258,8 +305,9 @@ class BlockingConnection(object):  # pylint: disable=R0902
         # than 0, event dispatch is already acquired higher up the call stack
         self._event_dispatch_suspend_depth = 0
 
-        # Ready timers of type _TimerEvt pending dispatch
-        self._pending_timers = deque()
+        # Connection-specific events that are ready for dispatch: _TimerEvt,
+        # _ConnectionBlockedEvt, _ConnectionUnblockedEvt
+        self._ready_events = deque()
 
         # Channel numbers of channels that are requesting a call to their
         # BlockingChannel._dispatch_events method; See
@@ -292,7 +340,7 @@ class BlockingConnection(object):  # pylint: disable=R0902
 
     def _cleanup(self):
         """Clean up members that might inhibit garbage collection"""
-        self._pending_timers.clear()
+        self._ready_events.clear()
         self._opened_result.reset()
         self._open_error_result.reset()
         self._closed_result.reset()
@@ -426,11 +474,33 @@ class BlockingConnection(object):  # pylint: disable=R0902
         :param _TimerEvt evt:
 
         """
-        self._pending_timers.append(evt)
+        self._ready_events.append(evt)
 
-    def _dispatch_timer_events(self):
-        """Invoke callbacks of ready timers"""
-        if not self._pending_timers:
+    def _on_connection_blocked(self, user_callback, method_frame):
+        """Handle Connection.Blocked notification from RabbitMQ broker
+
+        :param callable user_callback: callback_method passed to
+           `add_on_connection_blocked_callback`
+        :param pika.frame.Method method_frame: method frame having `method`
+            member of type `pika.spec.Connection.Blocked`
+        """
+        self._ready_events.append(
+            _ConnectionBlockedEvt(user_callback, method_frame))
+
+    def _on_connection_unblocked(self, user_callback, method_frame):
+        """Handle Connection.Unblocked notification from RabbitMQ broker
+
+        :param callable user_callback: callback_method passed to
+           `add_on_connection_unblocked_callback`
+        :param pika.frame.Method method_frame: method frame having `method`
+            member of type `pika.spec.Connection.Blocked`
+        """
+        self._ready_events.append(
+            _ConnectionUnblockedEvt(user_callback, method_frame))
+
+    def _dispatch_connection_events(self):
+        """Dispatch ready connection events"""
+        if not self._ready_events:
             return
 
         with self._acquire_event_dispatch() as dispatch_acquired:
@@ -438,15 +508,49 @@ class BlockingConnection(object):  # pylint: disable=R0902
                 # Nested dispatch or dispatch blocked higher in call stack
                 return
 
-            for _ in compat.xrange(len(self._pending_timers)):
+            # Limit dispatch to the number of currently ready events to avoid
+            # getting stuck in this loop
+            for _ in compat.xrange(len(self._ready_events)):
                 try:
-                    evt = self._pending_timers.popleft()
+                    evt = self._ready_events.popleft()
                 except IndexError:
-                    # Some ready timers must have been cancelled
+                    # Some events (e.g., timers) must have been cancelled
                     break
 
-                evt.callback()
+                evt.dispatch()
 
+    def add_on_connection_blocked_callback(self,  # pylint: disable=C0103
+                                           callback_method):
+        """Add a callback to be notified when RabbitMQ has sent a
+        `Connection.Blocked` frame indicating that RabbitMQ is low on
+        resources. Publishers can use this to voluntarily suspend publishing,
+        instead of relying on back pressure throttling. The callback
+        will be passed the `Connection.Blocked` method frame.
+
+        :param method callback_method: Callback to call on `Connection.Blocked`,
+            having the signature callback_method(pika.frame.Method), where the
+            method frame's `method` member is of type
+            `pika.spec.Connection.Blocked`
+
+        """
+        self._impl.add_on_connection_blocked_callback(
+            functools.partial(self._on_connection_blocked, callback_method))
+
+    def add_on_connection_unblocked_callback(self,  # pylint: disable=C0103
+                                             callback_method):
+        """Add a callback to be notified when RabbitMQ has sent a
+        `Connection.Unblocked` frame letting publishers know it's ok
+        to start publishing again. The callback will be passed the
+        `Connection.Unblocked` method frame.
+
+        :param method callback_method: Callback to call on
+            `Connection.Unblocked`, having the signature
+            callback_method(pika.frame.Method), where the method frame's
+            `method` member is of type `pika.spec.Connection.Unblocked`
+
+        """
+        self._impl.add_on_connection_unblocked_callback(
+            functools.partial(self._on_connection_unblocked, callback_method))
 
     def add_timeout(self, deadline, callback_method):
         """Create a single-shot timer to fire after deadline seconds. Do not
@@ -488,14 +592,16 @@ class BlockingConnection(object):  # pylint: disable=R0902
         # Remove from the impl's timeout stack
         self._impl.remove_timeout(timeout_id)
 
-        # Remove from pending timers
-        index_to_remove = None
-        for i, evt in enumerate(self._pending_timers):
-            if evt.timer_id == timeout_id:
+        # Remove from ready events, if the timer fired already
+        for i, evt in enumerate(self._ready_events):
+            if isinstance(evt, _TimerEvt) and evt.timer_id == timeout_id:
                 index_to_remove = i
                 break
-        if index_to_remove is not None:
-            del self._pending_timers[index_to_remove]
+        else:
+            # Not found
+            return
+
+        del self._ready_events[index_to_remove]
 
     def close(self, reply_code=200, reply_text='Normal shutdown'):
         """Disconnect from RabbitMQ. If there are any open channels, it will
@@ -535,7 +641,7 @@ class BlockingConnection(object):  # pylint: disable=R0902
             compatibility. This parameter is NEW in pika 0.10.0.
         """
         common_terminator = lambda: bool(
-            self._channels_pending_dispatch or self._pending_timers)
+            self._channels_pending_dispatch or self._ready_events)
 
         if time_limit is None:
             self._flush_output(common_terminator)
@@ -543,8 +649,8 @@ class BlockingConnection(object):  # pylint: disable=R0902
             with _IoloopTimerContext(time_limit, self._impl) as timer:
                 self._flush_output(timer.is_ready, common_terminator)
 
-        if self._pending_timers:
-            self._dispatch_timer_events()
+        if self._ready_events:
+            self._dispatch_connection_events()
 
         if self._channels_pending_dispatch:
             self._dispatch_channel_events()
@@ -862,6 +968,13 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
         'BlockingChannel__OnChannelClosedByBrokerArgs',
         'method_frame')
 
+    # For use as value_class with _CallbackResult expecting Channel.Flow
+    # confirmation.
+    _FlowOkCallbackResultArgs = namedtuple(
+        'BlockingChannel__FlowOkCallbackResultArgs',
+        'active'  # True if broker will start or continue sending; False if not
+    )
+
     _CONSUMER_CANCELLED_CB_KEY = 'blocking_channel_consumer_cancelled'
 
     def __init__(self, channel_impl, connection):
@@ -1178,6 +1291,30 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
                 self._flush_output(close_ok_result.is_ready)
         finally:
             self._cleanup()
+
+    def flow(self, active):
+        """Turn Channel flow control off and on.
+
+        NOTE: RabbitMQ doesn't support active=False; per
+        https://www.rabbitmq.com/specification.html: "active=false is not
+        supported by the server. Limiting prefetch with basic.qos provides much
+        better control"
+
+        For more information, please reference:
+
+        http://www.rabbitmq.com/amqp-0-9-1-reference.html#channel.flow
+
+        :param bool active: Turn flow on (True) or off (False)
+
+        :returns: True if broker will start or continue sending; False if not
+        :rtype: bool
+
+        """
+        with _CallbackResult(self._FlowOkCallbackResultArgs) as flow_ok_result:
+            self._impl.flow(callback=flow_ok_result.set_value_once,
+                            active=active)
+            self._flush_output(flow_ok_result.is_ready)
+            return flow_ok_result.value.active
 
     def add_on_cancel_callback(self, callback):
         """Pass a callback function that will be called when Basic.Cancel
