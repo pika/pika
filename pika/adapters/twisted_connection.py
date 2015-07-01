@@ -391,20 +391,13 @@ class TwistedProtocolConnection(base_connection.BaseConnection):
         # Disconnect from the server
         self.transport.loseConnection()
 
-    def _send_frame(self, frame_value):
-        """Send data the Twisted way, by writing to the transport. No need for
-        buffering, Twisted handles that by itself.
-
-        :param frame_value: The frame to write
-        :type frame_value:  pika.frame.Frame|pika.frame.ProtocolHeader
-
+    def _flush_outbound(self):
+        """Override BaseConnection._flush_outbound to send all bufferred data
+        the Twisted way, by writing to the transport. No need for buffering,
+        Twisted handles that for us.
         """
-        if self.is_closed:
-            raise exceptions.ConnectionClosed
-        marshaled_frame = frame_value.marshal()
-        self.bytes_sent += len(marshaled_frame)
-        self.frames_sent += 1
-        self.transport.write(marshaled_frame)
+        while self.outbound_buffer:
+            self.transport.write(self.outbound_buffer.popleft())
 
     def channel(self, channel_number=None):
         """Create a new channel with the next available channel number or pass
