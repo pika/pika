@@ -14,6 +14,10 @@ Fire up this test application via `twistd -ny twisted_service.py`
 The application will answer to requests to exchange "foobar" and any of the
 routing_key values: "request1", "request2", or "request3"
 with messages to the same exchange, but with routing_key "response"
+
+When a routing_key of "task" is used on the exchange "foobar",
+the application can asynchronously run a maximum of 2 tasks at once
+as defined by PREFETCH_COUNT
 """
 
 import pika
@@ -25,7 +29,9 @@ from twisted.internet import protocol
 from twisted.application import internet
 from twisted.application import service
 from twisted.internet.defer import inlineCallbacks
+from twisted.internet import ssl, defer, task
 from twisted.python import log
+from twisted.internet import reactor
 
 PREFETCH_COUNT = 2
 
@@ -85,14 +91,10 @@ class PikaProtocol(twisted_connection.TwistedProtocolConnection):
         """This function does the work to read from an exchange."""
         if not exchange == '':
             yield self.channel.exchange_declare(exchange=exchange, type='topic', durable=True, auto_delete=False)
-        if not exchange == '':
-            queue = yield self.channel.queue_declare(durable=False, exclusive=True, auto_delete=True)
-            queue_name = queue.method.queue
-            yield self.channel.queue_bind(queue=queue_name, exchange=exchange, routing_key=routing_key)
-        else:
-            queue = yield self.channel.queue_declare(queue=routing_key, durable=False, exclusive=True, auto_delete=True)
-            queue_name = queue.fields[0]
-        (queue, consumer_tag,) = yield self.channel.basic_consume(queue=queue_name, no_ack=True)
+
+        self.channel.queue_declare(queue=routing_key, durable=True)
+
+        (queue, consumer_tag,) = yield self.channel.basic_consume(queue=routing_key, no_ack=False)
         d = queue.get()
         d.addCallback(self._read_item, queue, callback)
         d.addErrback(self._read_item_err)
@@ -103,8 +105,13 @@ class PikaProtocol(twisted_connection.TwistedProtocolConnection):
         d.addCallback(self._read_item, queue, callback)
         d.addErrback(self._read_item_err)
         (channel, deliver, props, msg,) = item
+
         log.msg('%s (%s): %s' % (deliver.exchange, deliver.routing_key, repr(msg)), system='Pika:<=')
-        callback(item)
+        d = defer.maybeDeferred(callback, item)
+        d.addCallbacks(
+            lambda _: channel.basic_ack(deliver.delivery_tag),
+            lambda _: channel.basic_nack(deliver.delivery_tag)
+        )
 
     def _read_item_err(self, error):
         print(error)
@@ -176,6 +183,17 @@ ps.setServiceParent(application)
 
 class TestService(service.Service):
 
+    def task(self, msg):
+        """
+        Method for a time consuming task.
+
+        This function must return a deferred. If it is successfull,
+        a `basic.ack` will be sent to AMQP. If the task was not completed a
+        `basic.nack` will be sent. In this example it will always return
+        successfully after a 2 second pause.
+        """
+        return task.deferLater(reactor, 2, lambda: log.msg("task completed"))
+
     def respond(self, msg):
         self.amqp.send_message('foobar', 'response', msg[3])
 
@@ -184,6 +202,7 @@ class TestService(service.Service):
         self.amqp.read_messages("foobar", "request1", self.respond)
         self.amqp.read_messages("foobar", "request2", self.respond)
         self.amqp.read_messages("foobar", "request3", self.respond)
+        self.amqp.read_messages("foobar", "task", self.task)
 
 ts = TestService()
 ts.setServiceParent(application)
