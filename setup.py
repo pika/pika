@@ -16,7 +16,7 @@ long_description = ('Pika is a pure-Python implementation of the AMQP 0-9-1 '
                     'with other AMQP 0-9-1 brokers.')
 
 setup(name='pika',
-      version='0.10.0dev0',
+      version='0.10.dev0',
       description='Pika Python AMQP Client Library',
       long_description=open('README.rst').read(),
       maintainer='Gavin M. Roy',

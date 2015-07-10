@@ -1,4 +1,4 @@
-__version__ = '0.10.0p0'
+__version__ = '0.10.dev0'
 
 import logging
 try:
