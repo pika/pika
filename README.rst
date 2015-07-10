@@ -8,12 +8,12 @@ Introduction
 Pika is a pure-Python implementation of the AMQP 0-9-1 protocol that tries
 to stay fairly independent of the underlying network support library.
 
-- Currently supports Python 2.6 and Python 2.7 only. 3.2+ support planned.
+- Python 2.6+ and 3.3+ are supported.
 
 - Since threads aren't appropriate to every situation, it doesn't
   require threads. It takes care not to forbid them, either. The same
   goes for greenlets, callbacks, continuations and generators. It is
-  not necessarily thread-safe however, and your milage will vary.
+  not necessarily thread-safe however, and your mileage will vary.
 
 - People may be using direct sockets, plain old `select()`,
   or any of the wide variety of ways of getting network events to and from a
@@ -23,7 +23,7 @@ to stay fairly independent of the underlying network support library.
 Documentation
 -------------
 
-Pika's documentation is now at https://pika.readthedocs.org
+Pika's documentation can be found at `https://pika.readthedocs.org`_
 
 Example
 -------
@@ -77,12 +77,6 @@ To contribute to pika, please make sure that any new features or changes
 to existing functionality include test coverage. Additionally, please format
 your code using `yapf <http://pypi.python.org/pypi/yapf>`_ with ``google`` style
 prior to issuing your pull request.
-
-License
--------
-Pika is licensed under the MPLv2. If you have any questions regarding licensing,
-please contact the RabbitMQ team at <info@rabbitmq.com>.
-
 
 .. |Version| image:: https://img.shields.io/pypi/v/pika.svg?
    :target: http://badge.fury.io/py/pika
