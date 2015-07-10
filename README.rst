@@ -23,7 +23,7 @@ to stay fairly independent of the underlying network support library.
 Documentation
 -------------
 
-Pika's documentation can be found at `https://pika.readthedocs.org`_
+Pika's documentation can be found at `https://pika.readthedocs.org <https://pika.readthedocs.org>`_
 
 Example
 -------
@@ -68,8 +68,8 @@ Pika provides the following adapters
 - BlockingConnection - enables blocking, synchronous operation on top of library for simple uses
 - LibevConnection    - adapter for use with the libev event loop http://libev.schmorp.de
 - SelectConnection   - fast asynchronous adapter
-- TwistedConnection  - adapter for use with the Twisted asynchronous package http://twistedmatrix.com/
 - TornadoConnection  - adapter for use with the Tornado IO Loop http://tornadoweb.org
+- TwistedConnection  - adapter for use with the Twisted asynchronous package http://twistedmatrix.com/
 
 Contributing
 ------------
