@@ -13,18 +13,6 @@ Frequently Asked Questions
 
     Yes, Pika's mailing list is available `on Google Groups <https://groups.google.com/forum/?fromgroups#!forum/pika-python>`_ and the email address is pika-python@googlegroups.com, though traditionally questions about Pika have been asked on the `RabbitMQ-Discuss mailing list <http://lists.rabbitmq.com/cgi-bin/mailman/listinfo/rabbitmq-discuss>`_.
 
-- Is there an IRC channel for Pika?
-
-    People knowledgeable about Pika tend to hang out in #pika and #RabbitMQ on `irc.freenode.net <http://freenode.net/>`_.
-
-- What versions of Python are supported?
-
-    Main development is currently on the Python 2.7 branch. For a release, Pika passes its tests on the latest versions of 2.6 and 2.7.
-
-- Does Pika work with Python 3?
-
-    Not yet.
-
 - How can I contribute to Pika?
 
     You can `fork the project on Github <http://help.github.com/forking/>`_ and issue `Pull Requests <http://help.github.com/pull-requests/>`_ when you believe you have something solid to be added to the main repository.

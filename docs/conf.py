@@ -17,10 +17,10 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 project = 'pika'
-copyright = '2010-2013, Tony Garnock-Jones, Gavin M. Roy, VMWare and others.'
+copyright = '2009-2015, Tony Garnock-Jones, Gavin M. Roy, Pivotal and others.'
 
-version = '0.9'
-release = '0.9.13'
+version = '0.10'
+release = '0.10.0dev0'
 
 exclude_patterns = ['_build']
 add_function_parentheses = True
