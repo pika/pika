@@ -90,9 +90,6 @@ changes:
   - `BlockingChannel.open`: removed in favor of having a single mechanism for
     creating a channel (`BlockingConnection.channel`); this reduces maintenance
     burden, while improving reliability of the adapter.
-  - `BlockingChannel.confirm_delivery`: raises UnroutableError when unroutable
-    messages that were sent prior to this call are returned before we receive
-    Confirm.Select-ok.
   - `BlockingChannel.basic_publish: always returns True when delivery
     confirmation is not enabled (publisher-acks = off); the legacy implementation
     returned a bool in this case if `mandatory=True` to indicate whether the

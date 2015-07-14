@@ -1128,78 +1128,181 @@ class TestPublishAndBasicPublishWithPubacksUnroutable(BlockingTestCaseBase):
         self.assertEqual(msg.body, as_bytes(''))
 
 
-class TestConfirmDeliveryRaisesUnroutableError(BlockingTestCaseBase):
+class TestConfirmDeliveryAfterUnroutableMessage(BlockingTestCaseBase):
 
     def test(self):  # pylint: disable=R0914
-        """BlockingChannel.confirm_delivery raises UnroutableError with pending unroutable message""" # pylint: disable=C0301
+        """BlockingChannel.confirm_delivery following unroutable message"""
         connection = self._connect()
 
         ch = connection.channel()
 
-        exg_name = ('TestConfirmDeliveryRaisesUnroutableError_exg_' +
+        exg_name = ('TestConfirmDeliveryAfterUnroutableMessage_exg_' +
                     uuid.uuid1().hex)
-        routing_key = 'TestConfirmDeliveryRaisesUnroutableError'
+        routing_key = 'TestConfirmDeliveryAfterUnroutableMessage'
 
         # Declare a new exchange
         ch.exchange_declare(exg_name, exchange_type='direct')
         self.addCleanup(connection.channel().exchange_delete, exg_name)
+
+        # Register on-return callback
+        returned_messages = []
+        ch.add_on_return_callback(lambda *args: returned_messages.append(args))
 
         # Emit unroutable message without pubacks
         res = ch.basic_publish(exg_name, routing_key=routing_key, body='',
                                mandatory=True)
         self.assertEqual(res, True)
 
-        with self.assertRaises(pika.exceptions.UnroutableError) as cm:
-            ch.confirm_delivery()
+        # Select delivery confirmations
+        ch.confirm_delivery()
 
-        (msg,) = cm.exception.messages
-        self.assertIsInstance(msg, blocking_connection.ReturnedMessage)
-        self.assertIsInstance(msg.method, pika.spec.Basic.Return)
-        self.assertEqual(msg.method.reply_code, 312)
-        self.assertEqual(msg.method.exchange, exg_name)
-        self.assertEqual(msg.method.routing_key, routing_key)
-        self.assertIsInstance(msg.properties, pika.BasicProperties)
-        self.assertEqual(msg.body, as_bytes(''))
+        # Verify that unroutable message is in pending events
+        self.assertEqual(len(ch._pending_events), 1)
+        self.assertIsInstance(ch._pending_events[0],
+                              blocking_connection._ReturnedMessageEvt)
+        # Verify that repr of _ReturnedMessageEvt instance does crash
+        repr(ch._pending_events[0])
+
+        # Dispach events
+        connection.process_data_events()
+
+        self.assertEqual(len(ch._pending_events), 0)
+
+        # Verify that unroutable message was dispatched
+        ((channel, method, properties, body,),) = returned_messages
+        self.assertIs(channel, ch)
+        self.assertIsInstance(method, pika.spec.Basic.Return)
+        self.assertEqual(method.reply_code, 312)
+        self.assertEqual(method.exchange, exg_name)
+        self.assertEqual(method.routing_key, routing_key)
+        self.assertIsInstance(properties, pika.BasicProperties)
+        self.assertEqual(body, as_bytes(''))
 
 
-class TestPublishRaisesUnroutableErrorUponPendingUnroutableMessage(
-        BlockingTestCaseBase):
+class TestUnroutableMessagesReturnedInNonPubackMode(BlockingTestCaseBase):
 
     def test(self):  # pylint: disable=R0914
-        """BlockingChannel.publish raises UnroutableError upon pending unroutable message without pubacks""" # pylint: disable=C0301
+        """BlockingChannel: unroutable messages is returned in non-puback mode""" # pylint: disable=C0301
         connection = self._connect()
 
         ch = connection.channel()
 
         exg_name = (
-            'TestPublishRaisesUnroutableErrorUponPendingUnroutableMessage_exg_'
+            'TestUnroutableMessageReturnedInNonPubackMode_exg_'
             + uuid.uuid1().hex)
-        routing_key = (
-            'TestPublishRaisesUnroutableErrorUponPendingUnroutableMessage')
+        routing_key = 'TestUnroutableMessageReturnedInNonPubackMode'
 
         # Declare a new exchange
         ch.exchange_declare(exg_name, exchange_type='direct')
         self.addCleanup(connection.channel().exchange_delete, exg_name)
 
-        # Emit unroutable message without pubacks
+        # Register on-return callback
+        returned_messages = []
+        ch.add_on_return_callback(
+            lambda *args: returned_messages.append(args))
+
+        # Emit unroutable messages without pubacks
         ch.publish(exg_name, routing_key=routing_key, body='msg1',
                    mandatory=True)
 
-        # Flush channel to force Basic.Return
-        connection.channel().close()
+        ch.publish(exg_name, routing_key=routing_key, body='msg2',
+                   mandatory=True)
 
-        with self.assertRaises(pika.exceptions.UnroutableError) as cm:
-            ch.publish(exg_name, routing_key=routing_key, body='msg2',
-                       mandatory=True)
+        # Process I/O until Basic.Return are dispatched
+        while len(returned_messages) < 2:
+            connection.process_data_events()
 
-        (msg,) = cm.exception.messages
-        self.assertIsInstance(msg, blocking_connection.ReturnedMessage)
-        self.assertIsInstance(msg.method, pika.spec.Basic.Return)
-        self.assertEqual(msg.method.reply_code, 312)
-        self.assertEqual(msg.method.exchange, exg_name)
-        self.assertEqual(msg.method.routing_key, routing_key)
-        self.assertIsInstance(msg.properties, pika.BasicProperties)
-        self.assertEqual(msg.body, as_bytes('msg1'))
+        self.assertEqual(len(returned_messages), 2)
+
+        self.assertEqual(len(ch._pending_events), 0)
+
+        # Verify returned messages
+        (channel, method, properties, body,) = returned_messages[0]
+        self.assertIs(channel, ch)
+        self.assertIsInstance(method, pika.spec.Basic.Return)
+        self.assertEqual(method.reply_code, 312)
+        self.assertEqual(method.exchange, exg_name)
+        self.assertEqual(method.routing_key, routing_key)
+        self.assertIsInstance(properties, pika.BasicProperties)
+        self.assertEqual(body, as_bytes('msg1'))
+
+        (channel, method, properties, body,) = returned_messages[1]
+        self.assertIs(channel, ch)
+        self.assertIsInstance(method, pika.spec.Basic.Return)
+        self.assertEqual(method.reply_code, 312)
+        self.assertEqual(method.exchange, exg_name)
+        self.assertEqual(method.routing_key, routing_key)
+        self.assertIsInstance(properties, pika.BasicProperties)
+        self.assertEqual(body, as_bytes('msg2'))
+
+
+class TestUnroutableMessageReturnedInPubackMode(BlockingTestCaseBase):
+
+    def test(self):  # pylint: disable=R0914
+        """BlockingChannel: unroutable messages is returned in puback mode"""
+        connection = self._connect()
+
+        ch = connection.channel()
+
+        exg_name = (
+            'TestUnroutableMessageReturnedInPubackMode_exg_'
+            + uuid.uuid1().hex)
+        routing_key = 'TestUnroutableMessageReturnedInPubackMode'
+
+        # Declare a new exchange
+        ch.exchange_declare(exg_name, exchange_type='direct')
+        self.addCleanup(connection.channel().exchange_delete, exg_name)
+
+        # Select delivery confirmations
+        ch.confirm_delivery()
+
+        # Register on-return callback
+        returned_messages = []
+        ch.add_on_return_callback(
+            lambda *args: returned_messages.append(args))
+
+        # Emit unroutable messages with pubacks
+        res = ch.basic_publish(exg_name, routing_key=routing_key, body='msg1',
+                               mandatory=True)
+        self.assertEqual(res, False)
+
+        res = ch.basic_publish(exg_name, routing_key=routing_key, body='msg2',
+                               mandatory=True)
+        self.assertEqual(res, False)
+
+        # Verify that unroutable messages are already in pending events
+        self.assertEqual(len(ch._pending_events), 2)
+        self.assertIsInstance(ch._pending_events[0],
+                              blocking_connection._ReturnedMessageEvt)
+        self.assertIsInstance(ch._pending_events[1],
+                              blocking_connection._ReturnedMessageEvt)
+        # Verify that repr of _ReturnedMessageEvt instance does crash
+        repr(ch._pending_events[0])
+        repr(ch._pending_events[1])
+
+        # Dispatch events
+        connection.process_data_events()
+
+        self.assertEqual(len(ch._pending_events), 0)
+
+        # Verify returned messages
+        (channel, method, properties, body,) = returned_messages[0]
+        self.assertIs(channel, ch)
+        self.assertIsInstance(method, pika.spec.Basic.Return)
+        self.assertEqual(method.reply_code, 312)
+        self.assertEqual(method.exchange, exg_name)
+        self.assertEqual(method.routing_key, routing_key)
+        self.assertIsInstance(properties, pika.BasicProperties)
+        self.assertEqual(body, as_bytes('msg1'))
+
+        (channel, method, properties, body,) = returned_messages[1]
+        self.assertIs(channel, ch)
+        self.assertIsInstance(method, pika.spec.Basic.Return)
+        self.assertEqual(method.reply_code, 312)
+        self.assertEqual(method.exchange, exg_name)
+        self.assertEqual(method.routing_key, routing_key)
+        self.assertIsInstance(properties, pika.BasicProperties)
+        self.assertEqual(body, as_bytes('msg2'))
 
 
 class TestBasicPublishDeliveredWhenPendingUnroutable(BlockingTestCaseBase):
@@ -1278,7 +1381,7 @@ class TestBasicPublishDeliveredWhenPendingUnroutable(BlockingTestCaseBase):
 
 class TestPublishAndConsumeWithPubacksAndQosOfOne(BlockingTestCaseBase):
 
-    def test(self):  # pylint: disable=R0914
+    def test(self):  # pylint: disable=R0914,R0915
         """BlockingChannel.basic_publish, publish, basic_consume, QoS, \
         Basic.Cancel from broker
         """
@@ -1410,9 +1513,61 @@ class TestPublishAndConsumeWithPubacksAndQosOfOne(BlockingTestCaseBase):
         self.assertEqual(frame.method.consumer_tag, consumer_tag)
 
 
+class TestBasicCancelPurgesPendingConsumerCancellationEvt(BlockingTestCaseBase):
+
+    def test(self):
+        """BlockingChannel.basic_cancel purges pending _ConsumerCancellationEvt""" # pylint: disable=C0301
+        connection = self._connect()
+
+        ch = connection.channel()
+
+        q_name = ('TestBasicCancelPurgesPendingConsumerCancellationEvt_q' +
+                  uuid.uuid1().hex)
+
+        ch.queue_declare(q_name)
+        self.addCleanup(self._connect().channel().queue_delete, q_name)
+
+        ch.publish('', routing_key=q_name, body='via-publish', mandatory=True)
+
+        # Create a consumer
+        rx_messages = []
+        consumer_tag = ch.basic_consume(
+            lambda *args: rx_messages.append(args),
+            q_name,
+            no_ack=False,
+            exclusive=False,
+            arguments=None)
+
+        # Wait for the published message to arrive, but don't consume it
+        while not ch._pending_events:
+            # Issue synchronous command that forces processing of incoming I/O
+            connection.channel().close()
+
+        self.assertEqual(len(ch._pending_events), 1)
+        self.assertIsInstance(ch._pending_events[0],
+                              blocking_connection._ConsumerDeliveryEvt)
+
+        # Delete the queue and wait for broker-initiated consumer cancellation
+        ch.queue_delete(q_name)
+        while len(ch._pending_events) < 2:
+            # Issue synchronous command that forces processing of incoming I/O
+            connection.channel().close()
+
+        self.assertEqual(len(ch._pending_events), 2)
+        self.assertIsInstance(ch._pending_events[1],
+                              blocking_connection._ConsumerCancellationEvt)
+
+        # Issue consumer cancellation and verify that the pending
+        # _ConsumerCancellationEvt instance was removed
+        messages = ch.basic_cancel(consumer_tag)
+        self.assertEqual(messages, [])
+
+        self.assertEqual(len(ch._pending_events), 0)
+
+
 class TestBasicPublishWithoutPubacks(BlockingTestCaseBase):
 
-    def test(self):  # pylint: disable=R0914
+    def test(self):  # pylint: disable=R0914,R0915
         """BlockingChannel.basic_publish without pubacks"""
         connection = self._connect()
 
