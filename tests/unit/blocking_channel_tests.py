@@ -54,8 +54,8 @@ class BlockingChannelTests(unittest.TestCase):
     def test_init_initial_value_pending_events(self):
         self.assertEqual(self.obj._pending_events, deque())
 
-    def test_init_initial_value_returned_messages(self):
-        self.assertListEqual(self.obj._returned_messages, list())
+    def test_init_initial_value_buback_return(self):
+        self.assertIsNone(self.obj._puback_return)
 
     def test_basic_consume(self):
         with mock.patch.object(self.obj._impl, '_generate_consumer_tag'):

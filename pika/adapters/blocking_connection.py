@@ -774,8 +774,13 @@ class BlockingConnection(object):  # pylint: disable=R0902
     publisher_confirms = publisher_confirms_supported
 
 
-class _ConsumerDeliveryEvt(object):  # pylint: disable=R0903
-    """Consumer delivery event returned via `BlockingChannel.get_event`;
+class _ChannelPendingEvt(object):  # pylint: disable=R0903
+    """Base class for BlockingChannel pending events"""
+    pass
+
+
+class _ConsumerDeliveryEvt(_ChannelPendingEvt):  # pylint: disable=R0903
+    """This event represents consumer message delivery `Basic.Deliver`; it
     contains method, properties, and body of the delivered message.
     """
 
@@ -794,10 +799,11 @@ class _ConsumerDeliveryEvt(object):  # pylint: disable=R0903
         self.body = body
 
 
-class _ConsumerCancellationEvt(object):  # pylint: disable=R0903
-    """Server-initiated consumer cancellation event returned by
-    `BlockingChannel.get_event`. After receiving this event, there will be no
-    further deliveries for the consumer identified by `consumer_tag`
+class _ConsumerCancellationEvt(_ChannelPendingEvt):  # pylint: disable=R0903
+    """This event represents server-initiated consumer cancellation delivered to
+    client via Basic.Cancel. After receiving Basic.Cancel, there will be no
+    further deliveries for the consumer identified by `consumer_tag` in
+    `Basic.Cancel`
     """
 
     __slots__ = ('method_frame')
@@ -810,7 +816,7 @@ class _ConsumerCancellationEvt(object):  # pylint: disable=R0903
         self.method_frame = method_frame
 
     def __repr__(self):
-        return "%s(method_frame=%r)" % (self.__class__.__name__,
+        return '%s(method_frame=%r)' % (self.__class__.__name__,
                                         self.method_frame)
 
     @property
@@ -819,8 +825,46 @@ class _ConsumerCancellationEvt(object):  # pylint: disable=R0903
         return self.method_frame.method
 
 
+class _ReturnedMessageEvt(_ChannelPendingEvt):  # pylint: disable=R0903
+    """This event represents a message returned by broker via `Basic.Return`"""
+
+    __slots__ = ('callback', 'channel', 'method', 'properties', 'body')
+
+    def __init__(self, callback, channel, method, properties, body):  # pylint: disable=R0913
+        """
+        :param callable callback: user's callback, having the signature
+            callback(channel, method, properties, body), where
+                                channel: pika.Channel
+                                method: pika.spec.Basic.Return
+                                properties: pika.spec.BasicProperties
+                                body: str, unicode, or bytes (python 3.x)
+
+        :param pika.Channel channel:
+        :param pika.spec.Basic.Return method:
+        :param pika.spec.BasicProperties properties:
+        :param body: str, unicode, or bytes (python 3.x)
+        """
+        self.callback = callback
+        self.channel = channel
+        self.method = method
+        self.properties = properties
+        self.body = body
+
+    def __repr__(self):
+        return ('%s(callback=%r, channel=%r, method=%r, properties=%r, '
+                'body=%.300r') % (self.__class__.__name__, self.callback,
+                                  self.channel, self.method, self.properties,
+                                  self.body)
+
+    def dispatch(self):
+        """Dispatch user's callback"""
+        self.callback(self.channel, self.method, self.properties, self.body)
+
+
 class ReturnedMessage(object):  # pylint: disable=R0903
-    """Represents a message returned via Basic.Return"""
+    """Represents a message returned via Basic.Return in publish-acknowledgments
+    mode
+    """
 
     __slots__ = ('method', 'properties', 'body')
 
@@ -839,7 +883,8 @@ class ReturnedMessage(object):  # pylint: disable=R0903
 class _ConsumerInfo(object):
     """Information about an active consumer"""
 
-    __slots__ = ('consumer_tag', 'consumer_cb', 'alternate_event_sink', 'state')
+    __slots__ = ('consumer_tag', 'no_ack', 'consumer_cb',
+                 'alternate_event_sink', 'state')
 
     # Consumer states
     SETTING_UP = 1
@@ -847,12 +892,13 @@ class _ConsumerInfo(object):
     TEARING_DOWN = 3
     CANCELLED_BY_BROKER = 4
 
-    def __init__(self, consumer_tag, consumer_cb=None,
+    def __init__(self, consumer_tag, no_ack, consumer_cb=None,
                  alternate_event_sink=None):
         """
         NOTE: exactly one of consumer_cb/alternate_event_sink musts be non-None.
 
         :param str consumer_tag:
+        :param bool no_ack: the no-ack value for the consumer
         :param callable consumer_cb: The function for dispatching messages to
             user, having the signature:
             consumer_callback(channel, method, properties, body)
@@ -870,6 +916,7 @@ class _ConsumerInfo(object):
             'exactly one of consumer_cb/alternate_event_sink must be non-None',
             consumer_cb, alternate_event_sink)
         self.consumer_tag = consumer_tag
+        self.no_ack = no_ack
         self.consumer_cb = consumer_cb
         self.alternate_event_sink = alternate_event_sink
         self.state = self.SETTING_UP
@@ -1008,8 +1055,9 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
         # `BlockingChannel.get_event()`
         self._pending_events = deque()
 
-        # Holds ReturnedMessage objects received via Basic.Return
-        self._returned_messages = []
+        # Holds a ReturnedMessage object representing a message received via
+        # Basic.Return in publisher-acknowledgments mode.
+        self._puback_return = None
 
         # Receives Basic.ConsumeOk reply from server
         self._basic_consume_ok_result = _CallbackResult()
@@ -1022,8 +1070,6 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
         #  http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.get
         self._basic_getempty_result = _CallbackResult(
             self._MethodFrameCallbackResultArgs)
-
-        self._impl.add_on_return_callback(self._on_message_returned)
 
         self._impl.add_on_cancel_callback(self._on_consumer_cancelled_by_broker)
 
@@ -1126,9 +1172,10 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
                 self._channel_closed_by_broker_result.value.method_frame.method)
             raise exceptions.ChannelClosed(method.reply_code, method.reply_text)
 
-    def _on_message_returned(self, channel, method, properties, body):
-        """ Called as the result of Basic.Return from broker. Appends the info
-        as ReturnedMessage to self._returned_messages.
+    def _on_puback_message_returned(self, channel, method, properties, body):
+        """Called as the result of Basic.Return from broker in
+        publisher-acknowledgements mode. Saves the info as a ReturnedMessage
+        instance in self._puback_return.
 
         :param pika.Channel channel: our self._impl channel
         :param pika.spec.Basic.Return method:
@@ -1151,20 +1198,19 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
             channel.channel_number, method, properties,
             len(body) if body is not None else None, body)
 
-        self._returned_messages.append(
-            ReturnedMessage(method, properties, body))
+        self._puback_return = ReturnedMessage(method, properties, body)
 
-    def _raise_and_clear_if_returned_messages_pending(self): # pylint: disable=C0103
-        """If there are returned messages, raise UnroutableError exception and
-        empty the returned messages list
 
-        :raises UnroutableError: if returned messages are present
+    def _add_pending_event(self, evt):
+        """Append an event to the channel's list of events that are ready for
+        dispatch to user and signal our connection that this channel is ready
+        for event dispatch
+
+        :param _ChannelPendingEvt evt: an event derived from _ChannelPendingEvt
         """
-        if self._returned_messages:
-            messages = self._returned_messages
-            self._returned_messages = []
+        self._pending_events.append(evt)
+        self.connection._request_channel_dispatch(self.channel_number)
 
-            raise exceptions.UnroutableError(messages)
 
     def _on_consumer_cancelled_by_broker(self,  # pylint: disable=C0103
                                          method_frame):
@@ -1182,15 +1228,14 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
 
         consumer = self._consumer_infos[method_frame.method.consumer_tag]
 
-        # Don't interfere with client-initiated cancellation state
+        # Don't interfere with client-initiated cancellation flow
         if not consumer.tearing_down:
             consumer.state = _ConsumerInfo.CANCELLED_BY_BROKER
 
         if consumer.alternate_event_sink is not None:
             consumer.alternate_event_sink(evt)
         else:
-            self._pending_events.append(evt)
-            self.connection._request_channel_dispatch(self.channel_number)
+            self._add_pending_event(evt)
 
     def _on_consumer_message_delivery(self, channel,  # pylint: disable=W0613
                                       method, properties, body):
@@ -1210,8 +1255,7 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
         if consumer.alternate_event_sink is not None:
             consumer.alternate_event_sink(evt)
         else:
-            self._pending_events.append(evt)
-            self.connection._request_channel_dispatch(self.channel_number)
+            self._add_pending_event(evt)
 
     def _on_consumer_generator_event(self, evt):
         """Sink for the queue consumer generator's consumer events; append the
@@ -1265,7 +1309,7 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
                                              self,
                                              evt.method_frame)
             else:
-                LOGGER.error('Unexpected pending event: %r', evt)
+                evt.dispatch()
 
 
     def close(self, reply_code=0, reply_text="Normal Shutdown"):
@@ -1332,6 +1376,24 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
                                  self._CONSUMER_CANCELLED_CB_KEY,
                                  callback,
                                  one_shot=False)
+
+    def add_on_return_callback(self, callback):
+        """Pass a callback function that will be called when a published
+        message is rejected and returned by the server via `Basic.Return`.
+
+        :param callable callback: The method to call on callback with the
+            signature callback(channel, method, properties, body), where
+            channel: pika.Channel
+            method: pika.spec.Basic.Return
+            properties: pika.spec.BasicProperties
+            body: str, unicode, or bytes (python 3.x)
+
+        """
+        self._impl.add_on_return_callback(
+            lambda _channel, method, properties, body: (
+                self._add_pending_event(
+                    _ReturnedMessageEvt(
+                        callback, self, method, properties, body))))
 
     def basic_consume(self,  # pylint: disable=R0913
                       consumer_callback,
@@ -1433,6 +1495,7 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
         # Create new consumer
         self._consumer_infos[consumer_tag] = _ConsumerInfo(
             consumer_tag,
+            no_ack=no_ack,
             consumer_cb=consumer_callback,
             alternate_event_sink=alternate_event_sink)
 
@@ -1495,20 +1558,19 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
         except KeyError:
             LOGGER.warn("User is attempting to cancel an unknown consumer=%s; "
                         "already cancelled by user or broker?", consumer_tag)
-            return[]
+            return []
 
         try:
-            if consumer_info.cancelled_by_broker:
-                return[]
-
             # Assertion failure here is most likely due to reentrance
-            assert consumer_info.active, consumer_info.state
+            assert consumer_info.active or consumer_info.cancelled_by_broker, (
+                consumer_info.state)
 
             # Assertion failure here signals disconnect between consumer state
             # in BlockingConnection and Connection
-            assert consumer_tag in self._impl._consumers, consumer_tag
+            assert (consumer_info.cancelled_by_broker or
+                    consumer_tag in self._impl._consumers), consumer_tag
 
-            no_ack = consumer_tag in self._impl._consumers_with_noack
+            no_ack = consumer_info.no_ack
 
             consumer_info.state = _ConsumerInfo.TEARING_DOWN
 
@@ -1549,7 +1611,10 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
             else:
                 # impl takes care of rejecting any incoming deliveries during
                 # cancellation
-                return[]
+                messages = self._remove_pending_deliveries(consumer_tag)
+                assert not messages, messages
+
+                return []
         finally:
             # NOTE: The entry could be purged if channel or connection closes
             if consumer_tag in self._consumer_infos:
@@ -1572,7 +1637,7 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
                 if evt.method.consumer_tag == consumer_tag:
                     unprocessed_messages.append(evt)
                     continue
-            if type(evt) is _ConsumerDeliveryEvt:
+            if type(evt) is _ConsumerCancellationEvt:
                 if evt.method_frame.method.consumer_tag == consumer_tag:
                     # A broker-initiated Basic.Cancel must have arrived
                     # before our cancel request completed
@@ -1900,27 +1965,12 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
             deliveved (Basic.nack and/or Basic.Return) and True if the message
             was delivered (Basic.ack and no Basic.Return)
         """
-        if self._delivery_confirmation:
-            # In publisher-acknowledgments mode
-            try:
-                self.publish(exchange, routing_key, body, properties,
-                             mandatory, immediate)
-            except (exceptions.NackError, exceptions.UnroutableError):
-                return False
-            else:
-                return True
+        try:
+            self.publish(exchange, routing_key, body, properties,
+                         mandatory, immediate)
+        except (exceptions.NackError, exceptions.UnroutableError):
+            return False
         else:
-            # In non-publisher-acknowledgments mode
-            try:
-                self.publish(exchange, routing_key, body, properties,
-                             mandatory, immediate)
-            except exceptions.UnroutableError:
-                # Republish the message
-                # NOTE: we Implement legacy behavior by suppressing the error as
-                # it applies to previously-published messages (it's been logged
-                # already), and repeat the publish call
-                self.publish(exchange, routing_key, body, properties,
-                             mandatory, immediate)
             return True
 
     def publish(self, exchange, routing_key, body,  # pylint: disable=R0913
@@ -1948,12 +1998,10 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
         :param bool mandatory: The mandatory flag
         :param bool immediate: The immediate flag
 
-        :raises UnroutableError: In publisher-acknowledgments mode (see
-            `BlockingChannel.confirm_delivery`), raised if the given message
-            message is returned via Basic.Return. In
-            non-publisher-acknowledgements mode, raised before attempting to
-            publish the given message if there are pending unroutable messages.
-
+        :raises UnroutableError: raised when a message published in
+            publisher-acknowledgments mode (see
+            `BlockingChannel.confirm_delivery`) is returned via `Basic.Return`
+            followed by `Basic.Ack`.
         :raises NackError: raised when a message published in
             publisher-acknowledgements mode is Nack'ed by the broker. See
             `BlockingChannel.confirm_delivery`.
@@ -1973,6 +2021,7 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
                 conf_method = (self._message_confirmation_result.value
                                .method_frame
                                .method)
+
                 if isinstance(conf_method, pika.spec.Basic.Nack):
                     # Broker was unable to process the message due to internal
                     # error
@@ -1981,29 +2030,30 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
                         "exchange=%s; routing_key=%s; mandatory=%r; "
                         "immediate=%r", conf_method, self.channel_number,
                         exchange, routing_key, mandatory, immediate)
-                    returned_messages = self._returned_messages
-                    self._returned_messages = []
+                    if self._puback_return is not None:
+                        returned_messages = [self._puback_return]
+                        self._puback_return = None
+                    else:
+                        returned_messages = []
                     raise exceptions.NackError(returned_messages)
-                elif isinstance(conf_method, pika.spec.Basic.Ack):
-                    self._raise_and_clear_if_returned_messages_pending()
+
                 else:
-                    # Should never happen
-                    raise TypeError('Unexpected method type: %r', conf_method)
+                    assert isinstance(conf_method, pika.spec.Basic.Ack), (
+                        conf_method)
+
+                    if self._puback_return is not None:
+                        # Unroutable message was returned
+                        messages = [self._puback_return]
+                        self._puback_return = None
+                        raise exceptions.UnroutableError(messages)
         else:
             # In non-publisher-acknowledgments mode
-
-            # Raise UnroutableError before publishing if returned messages are
-            # pending
-            self._raise_and_clear_if_returned_messages_pending()
-
-            # Publish
             self._impl.basic_publish(exchange=exchange,
                                      routing_key=routing_key,
                                      body=body,
                                      properties=properties,
                                      mandatory=mandatory,
                                      immediate=immediate)
-
             self._flush_output()
 
     def basic_qos(self, prefetch_size=0, prefetch_count=0, all_channels=False):
@@ -2077,10 +2127,6 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
 
         For more information see:
             http://www.rabbitmq.com/extensions.html#confirms
-
-        :raises UnroutableError: when unroutable messages that were sent prior
-            to this call are returned before we receive Confirm.Select-ok.
-            NEW in pika 0.10.0
         """
         if self._delivery_confirmation:
             LOGGER.error('confirm_delivery: confirmation was already enabled '
@@ -2102,7 +2148,7 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
 
         # Unroutable messages returned after this point will be in the context
         # of publisher acknowledgments
-        self._raise_and_clear_if_returned_messages_pending()
+        self._impl.add_on_return_callback(self._on_puback_message_returned)
 
     def exchange_declare(self, exchange=None,  # pylint: disable=R0913
                          exchange_type='direct', passive=False, durable=False,
