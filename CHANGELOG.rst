@@ -1,5 +1,10 @@
-0.10.0dev0 2015-07-10
----------------------
+0.10.0b2 2015-07-15
+-------------------
+
+ - f72b58f - Fixed failure to purge _ConsumerCancellationEvt from BlockingChannel._pending_events during basic_cancel. (Vitaly Kruglikov)
+
+0.10.0b1 2015-07-10
+-------------------
 
 High-level summary of notable changes:
 
