@@ -28,7 +28,6 @@ from pika import spec
 
 from pika.compat import basestring, url_unquote, dictkeys
 
-
 BACKPRESSURE_WARNING = ("Pika: Write buffer exceeded warning threshold at "
                         "%i bytes and an estimated %i frames behind")
 PRODUCT = "Pika Python Client Library"
@@ -61,7 +60,7 @@ class Parameters(object):
     DEFAULT_CONNECTION_ATTEMPTS = 1
     DEFAULT_CHANNEL_MAX = 0
     DEFAULT_FRAME_MAX = spec.FRAME_MAX_SIZE
-    DEFAULT_HEARTBEAT_INTERVAL = None          # accept server's proposal
+    DEFAULT_HEARTBEAT_INTERVAL = None  # accept server's proposal
     DEFAULT_HOST = 'localhost'
     DEFAULT_LOCALE = 'en_US'
     DEFAULT_PASSWORD = 'guest'
@@ -437,6 +436,7 @@ class URLParameters(Parameters):
     :param str url: The AMQP URL to connect to
 
     """
+
     def __init__(self, url):
         """Create a new URLParameters instance.
 
@@ -524,7 +524,6 @@ class URLParameters(Parameters):
             self.heartbeat = values['heartbeat_interval']
 
         if ('locale' in values and self._validate_locale(values['locale'])):
-
             self.locale = values['locale']
 
         if ('retry_delay' in values and
