@@ -14,4 +14,3 @@ build
 dist
 docs/_build
 *.conf.in
-
