@@ -1,13 +1,10 @@
-Version History
-===============
-
 0.10.0b2 2015-07-15
 -------------------
 
  - f72b58f - Fixed failure to purge _ConsumerCancellationEvt from BlockingChannel._pending_events during basic_cancel. (Vitaly Kruglikov)
 
 0.10.0b1 2015-07-10
----------------------
+-------------------
 
 High-level summary of notable changes:
 
@@ -98,9 +95,6 @@ changes:
   - `BlockingChannel.open`: removed in favor of having a single mechanism for
     creating a channel (`BlockingConnection.channel`); this reduces maintenance
     burden, while improving reliability of the adapter.
-  - `BlockingChannel.confirm_delivery`: raises UnroutableError when unroutable
-    messages that were sent prior to this call are returned before we receive
-    Confirm.Select-ok.
   - `BlockingChannel.basic_publish: always returns True when delivery
     confirmation is not enabled (publisher-acks = off); the legacy implementation
     returned a bool in this case if `mandatory=True` to indicate whether the
@@ -221,7 +215,6 @@ changes:
  - 765139e - Lower default TIMEOUT to 0.01 (bra-fsn)
  - 6cc22a5 - Fix confirmation on reconnects (bra-fsn)
  - f4faf0a - asynchronous publisher and subscriber examples refactored to follow the StepDown rule (Riccardo Cirimelli)
-
 
 0.9.14 - 2014-07-11
 -------------------

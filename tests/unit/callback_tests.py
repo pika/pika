@@ -4,7 +4,11 @@ Tests for pika.callback
 
 """
 import logging
-import mock
+try:
+    import mock
+except ImportError:
+    from unittest import mock
+
 try:
     import unittest2 as unittest
 except ImportError:
@@ -30,11 +34,13 @@ class CallbackTests(unittest.TestCase):
 
     @property
     def _callback_dict(self):
-        return {self.CALLBACK: self.callback_mock,
-                self.ONE_SHOT: True,
-                self.ONLY_CALLER: self.mock_caller,
-                self.ARGUMENTS: self.ARGUMENTS_VALUE,
-                self.CALLS: 1}
+        return {
+            self.CALLBACK: self.callback_mock,
+            self.ONE_SHOT: True,
+            self.ONLY_CALLER: self.mock_caller,
+            self.ARGUMENTS: self.ARGUMENTS_VALUE,
+            self.CALLS: 1
+        }
 
     def setUp(self):
         self.obj = callback.CallbackManager()
@@ -50,38 +56,35 @@ class CallbackTests(unittest.TestCase):
         obj = callback.CallbackManager()
         self.assertDictEqual(obj._stack, {})
 
-
     def test_name_or_value_method_object(self):
         value = spec.Basic.Consume()
-        self.assertEqual(callback._name_or_value(value), self.PREFIX)
+        self.assertEqual(callback.name_or_value(value), self.PREFIX)
 
     def test_name_or_value_basic_consume_object(self):
-        self.assertEqual(callback._name_or_value(spec.Basic.Consume()),
+        self.assertEqual(callback.name_or_value(spec.Basic.Consume()),
                          self.PREFIX)
 
     def test_name_or_value_amqpobject_class(self):
-        self.assertEqual(callback._name_or_value(self.PREFIX_CLASS),
+        self.assertEqual(callback.name_or_value(self.PREFIX_CLASS),
                          self.PREFIX)
 
     def test_name_or_value_protocol_header(self):
-        self.assertEqual(callback._name_or_value(frame.ProtocolHeader()),
+        self.assertEqual(callback.name_or_value(frame.ProtocolHeader()),
                          'ProtocolHeader')
 
     def test_name_or_value_method_frame(self):
         value = frame.Method(1, self.PREFIX_CLASS())
-        self.assertEqual(callback._name_or_value(value), self.PREFIX)
+        self.assertEqual(callback.name_or_value(value), self.PREFIX)
 
     def test_name_or_value_str(self):
         value = 'Test String Value'
         expectation = value
-        self.assertEqual(callback._name_or_value(value), expectation)
+        self.assertEqual(callback.name_or_value(value), expectation)
 
     def test_name_or_value_unicode(self):
         value = u'Это тест значения'
-        expectation = ('\xd0\xad\xd1\x82\xd0\xbe \xd1\x82\xd0\xb5\xd1\x81\xd1'
-                       '\x82 \xd0\xb7\xd0\xbd\xd0\xb0\xd1\x87\xd0\xb5\xd0\xbd'
-                       '\xd0\xb8\xd1\x8f')
-        self.assertEqual(callback._name_or_value(value), expectation)
+        expectation = 'Это тест значения'
+        self.assertEqual(callback.name_or_value(value), expectation)
 
     def test_empty_callbacks_on_init(self):
         self.assertFalse(self.obj._stack)
@@ -108,24 +111,29 @@ class CallbackTests(unittest.TestCase):
 
     def test_add_first_time_callback_added(self):
         self.obj.add(self.PREFIX, self.KEY, self.callback_mock)
-        self.assertEqual(self.callback_mock,
-                         self.obj._stack[self.PREFIX][self.KEY][0][self.CALLBACK])
+        self.assertEqual(
+            self.callback_mock,
+            self.obj._stack[self.PREFIX][self.KEY][0][self.CALLBACK])
 
     def test_add_oneshot_default_is_true(self):
         self.obj.add(self.PREFIX, self.KEY, None)
-        self.assertTrue(self.obj._stack[self.PREFIX][self.KEY][0][self.ONE_SHOT])
+        self.assertTrue(
+            self.obj._stack[self.PREFIX][self.KEY][0][self.ONE_SHOT])
 
     def test_add_oneshot_is_false(self):
         self.obj.add(self.PREFIX, self.KEY, None, False)
-        self.assertFalse(self.obj._stack[self.PREFIX][self.KEY][0][self.ONE_SHOT])
+        self.assertFalse(
+            self.obj._stack[self.PREFIX][self.KEY][0][self.ONE_SHOT])
 
     def test_add_only_caller_default_is_false(self):
         self.obj.add(self.PREFIX, self.KEY, None)
-        self.assertFalse(self.obj._stack[self.PREFIX][self.KEY][0][self.ONLY_CALLER])
+        self.assertFalse(
+            self.obj._stack[self.PREFIX][self.KEY][0][self.ONLY_CALLER])
 
     def test_add_only_caller_true(self):
         self.obj.add(self.PREFIX, self.KEY, None, only_caller=True)
-        self.assertTrue(self.obj._stack[self.PREFIX][self.KEY][0][self.ONLY_CALLER])
+        self.assertTrue(
+            self.obj._stack[self.PREFIX][self.KEY][0][self.ONLY_CALLER])
 
     def test_add_returns_prefix_value_and_key(self):
         self.assertEqual(self.obj.add(self.PREFIX, self.KEY, None),
@@ -136,7 +144,6 @@ class CallbackTests(unittest.TestCase):
 
         def add_callback():
             self.obj.add(self.PREFIX, self.KEY, mock_callback, False)
-
 
         with mock.patch('pika.callback.LOGGER', spec=logging.Logger) as logger:
             logger.warning = mock.Mock()
@@ -226,12 +233,13 @@ class CallbackTests(unittest.TestCase):
     def test_process_non_one_shot_callback_not_removed(self):
         self.obj.add(self.PREFIX, self.KEY, self.callback_mock, one_shot=False)
         self.obj.process(self.PREFIX, self.KEY, self)
-        self.assertEqual(self.obj._stack[self.PREFIX][self.KEY][0][self.CALLBACK],
-                         self.callback_mock)
+        self.assertEqual(
+            self.obj._stack[self.PREFIX][self.KEY][0][self.CALLBACK],
+            self.callback_mock)
 
     def test_process_only_caller_fails(self):
         self.obj.add(self.PREFIX_CLASS, self.KEY, self.callback_mock,
-                only_caller=self.mock_caller)
+                     only_caller=self.mock_caller)
         self.obj.process(self.PREFIX_CLASS, self.KEY, self)
         self.assertFalse(self.callback_mock.called)
 
@@ -239,8 +247,9 @@ class CallbackTests(unittest.TestCase):
         self.obj.add(self.PREFIX_CLASS, self.KEY, self.callback_mock,
                      only_caller=self.mock_caller)
         self.obj.process(self.PREFIX_CLASS, self.KEY, self)
-        self.assertEqual(self.obj._stack[self.PREFIX][self.KEY][0][self.CALLBACK],
-                         self.callback_mock)
+        self.assertEqual(
+            self.obj._stack[self.PREFIX][self.KEY][0][self.CALLBACK],
+            self.callback_mock)
 
     def test_remove_with_no_callbacks_pending(self):
         self.obj = callback.CallbackManager()
@@ -259,7 +268,8 @@ class CallbackTests(unittest.TestCase):
 
     def test_remove_with_callback_true_empty_stack(self):
         self.obj.add(self.PREFIX_CLASS, self.KEY, self.callback_mock)
-        self.obj.remove(prefix=self.PREFIX, key=self.KEY,
+        self.obj.remove(prefix=self.PREFIX,
+                        key=self.KEY,
                         callback_value=self.callback_mock)
         self.assertDictEqual(self.obj._stack, dict())
 
@@ -267,8 +277,9 @@ class CallbackTests(unittest.TestCase):
         self.obj.add(self.PREFIX_CLASS, self.KEY, self.callback_mock)
         self.obj.add(self.PREFIX_CLASS, self.KEY, self.mock_caller)
         self.obj.remove(self.PREFIX, self.KEY, self.callback_mock)
-        self.assertEqual(self.mock_caller,
-                         self.obj._stack[self.PREFIX][self.KEY][0][self.CALLBACK])
+        self.assertEqual(
+            self.mock_caller,
+            self.obj._stack[self.PREFIX][self.KEY][0][self.CALLBACK])
 
     def test_remove_prefix_key_with_other_key_prefix_remains(self):
         OTHER_KEY = 'Other Key'
@@ -280,7 +291,8 @@ class CallbackTests(unittest.TestCase):
     def test_remove_prefix_key_with_other_key_remains(self):
         OTHER_KEY = 'Other Key'
         self.obj.add(self.PREFIX_CLASS, self.KEY, self.callback_mock)
-        self.obj.add(prefix=self.PREFIX_CLASS, key=OTHER_KEY,
+        self.obj.add(prefix=self.PREFIX_CLASS,
+                     key=OTHER_KEY,
                      callback=self.mock_caller)
         self.obj.remove(self.PREFIX, self.KEY)
         self.assertIn(OTHER_KEY, self.obj._stack[self.PREFIX])
@@ -290,8 +302,9 @@ class CallbackTests(unittest.TestCase):
         self.obj.add(self.PREFIX_CLASS, self.KEY, self.callback_mock)
         self.obj.add(self.PREFIX_CLASS, OTHER_KEY, self.mock_caller)
         self.obj.remove(self.PREFIX, self.KEY)
-        self.assertEqual(self.mock_caller,
-                         self.obj._stack[self.PREFIX][OTHER_KEY][0][self.CALLBACK])
+        self.assertEqual(
+            self.mock_caller,
+            self.obj._stack[self.PREFIX][OTHER_KEY][0][self.CALLBACK])
 
     def test_remove_all(self):
         self.obj.add(self.PREFIX_CLASS, self.KEY, self.callback_mock)
@@ -301,8 +314,8 @@ class CallbackTests(unittest.TestCase):
     def test_should_process_callback_true(self):
         self.obj.add(self.PREFIX_CLASS, self.KEY, self.callback_mock)
         value = self.obj._callback_dict(self.callback_mock, False, None, None)
-        self.assertTrue(self.obj._should_process_callback(value,
-                                                          self.mock_caller, []))
+        self.assertTrue(
+            self.obj._should_process_callback(value, self.mock_caller, []))
 
     def test_should_process_callback_false_argument_fail(self):
         self.obj.clear()
@@ -315,19 +328,19 @@ class CallbackTests(unittest.TestCase):
     def test_should_process_callback_false_only_caller_failure(self):
         self.obj.add(self.PREFIX_CLASS, self.KEY, self.callback_mock)
         value = self.obj._callback_dict(self.callback_mock, False, self, None)
-        self.assertTrue(self.obj._should_process_callback(value,
-                                                          self.mock_caller, []))
+        self.assertTrue(
+            self.obj._should_process_callback(value, self.mock_caller, []))
 
     def test_should_process_callback_false_only_caller_failure(self):
         self.obj.add(self.PREFIX_CLASS, self.KEY, self.callback_mock)
         value = self.obj._callback_dict(self.callback_mock, False,
                                         self.mock_caller, None)
-        self.assertTrue(self.obj._should_process_callback(value,
-                                                          self.mock_caller, []))
+        self.assertTrue(
+            self.obj._should_process_callback(value, self.mock_caller, []))
 
     def test_dict(self):
-        self.assertDictEqual(self.obj._callback_dict(self.callback_mock,
-                                                     True, self.mock_caller,
+        self.assertDictEqual(self.obj._callback_dict(self.callback_mock, True,
+                                                     self.mock_caller,
                                                      self.ARGUMENTS_VALUE),
                              self._callback_dict)
 
@@ -339,49 +352,60 @@ class CallbackTests(unittest.TestCase):
                                                   [self.ARGUMENTS_VALUE]))
 
     def test_arguments_match_dict_argument_no_attribute(self):
-        self.assertFalse(self.obj._arguments_match(self._callback_dict,
-                                                   [{}]))
+        self.assertFalse(self.obj._arguments_match(self._callback_dict, [{}]))
 
     def test_arguments_match_dict_argument_no_match(self):
         self.assertFalse(self.obj._arguments_match(self._callback_dict,
                                                    [{'foo': 'baz'}]))
 
     def test_arguments_match_obj_argument(self):
+
         class TestObj(object):
             foo = 'bar'
+
         test_instance = TestObj()
         self.assertTrue(self.obj._arguments_match(self._callback_dict,
                                                   [test_instance]))
 
     def test_arguments_match_obj_no_attribute(self):
+
         class TestObj(object):
             qux = 'bar'
+
         test_instance = TestObj()
         self.assertFalse(self.obj._arguments_match(self._callback_dict,
-                                                  [test_instance]))
+                                                   [test_instance]))
 
     def test_arguments_match_obj_argument_no_match(self):
+
         class TestObj(object):
             foo = 'baz'
+
         test_instance = TestObj()
         self.assertFalse(self.obj._arguments_match(self._callback_dict,
                                                    [test_instance]))
 
     def test_arguments_match_obj_argument_with_method(self):
+
         class TestFrame(object):
             method = None
+
         class MethodObj(object):
             foo = 'bar'
+
         test_instance = TestFrame()
         test_instance.method = MethodObj()
         self.assertTrue(self.obj._arguments_match(self._callback_dict,
                                                   [test_instance]))
 
     def test_arguments_match_obj_argument_with_method_no_match(self):
+
         class TestFrame(object):
             method = None
+
         class MethodObj(object):
             foo = 'baz'
+
         test_instance = TestFrame()
         test_instance.method = MethodObj()
         self.assertFalse(self.obj._arguments_match(self._callback_dict,

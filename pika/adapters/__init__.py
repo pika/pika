@@ -7,9 +7,6 @@
 
 - adapters.select_connection.SelectConnection: A native event based connection
   adapter that implements select, kqueue, poll and epoll.
-- adapters.asyncore_connection.AsyncoreConnection: Legacy adapter kept for
-  convenience of previous Pika users. It is recommended to use the
-  SelectConnection instead of AsyncoreConnection.
 - adapters.tornado_connection.TornadoConnection: Connection adapter for use
   with the Tornado web framework.
 - adapters.blocking_connection.BlockingConnection: Enables blocking,
@@ -21,7 +18,6 @@
 
 """
 from pika.adapters.base_connection import BaseConnection
-from pika.adapters.asyncore_connection import AsyncoreConnection
 from pika.adapters.blocking_connection import BlockingConnection
 from pika.adapters.select_connection import SelectConnection
 from pika.adapters.select_connection import IOLoop
@@ -43,4 +39,3 @@ try:
     from pika.adapters.libev_connection import LibevConnection
 except ImportError:
     LibevConnection = None
-

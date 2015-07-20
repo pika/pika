@@ -2,7 +2,11 @@
 Tests for pika.heartbeat
 
 """
-import mock
+try:
+    import mock
+except ImportError:
+    from unittest import mock
+
 try:
     import unittest2 as unittest
 except ImportError:
@@ -11,6 +15,7 @@ except ImportError:
 from pika import connection
 from pika import frame
 from pika import heartbeat
+
 
 class HeartbeatTests(unittest.TestCase):
 
@@ -28,8 +33,7 @@ class HeartbeatTests(unittest.TestCase):
         del self.mock_conn
 
     def test_default_initialization_max_idle_count(self):
-        self.assertEqual(self.obj._max_idle_count,
-                         self.obj.MAX_IDLE_COUNT)
+        self.assertEqual(self.obj._max_idle_count, self.obj.MAX_IDLE_COUNT)
 
     def test_constructor_assignment_connection(self):
         self.assertEqual(self.obj._connection, self.mock_conn)
@@ -127,10 +131,13 @@ class HeartbeatTests(unittest.TestCase):
         self.obj._idle_byte_intervals = 3
         self.obj._idle_heartbeat_intervals = 4
         self.obj._close_connection()
-        self.mock_conn.close.assert_called_once_with(self.obj._CONNECTION_FORCED,
-                                                     self.obj._STALE_CONNECTION %
-                                                     (self.obj._max_idle_count *
-                                                      self.obj._interval))
+        reason = self.obj._STALE_CONNECTION % (self.obj._max_idle_count *
+                                               self.obj._interval)
+        self.mock_conn.close.assert_called_once_with(
+            self.obj._CONNECTION_FORCED, reason)
+        self.mock_conn._on_disconnect.assert_called_once_with(
+            self.obj._CONNECTION_FORCED, reason)
+        self.mock_conn._adapter_disconnect.assert_called_once_with()
 
     def test_has_received_data_false(self):
         self.obj._bytes_received = 100

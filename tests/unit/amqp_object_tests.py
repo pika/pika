@@ -2,7 +2,12 @@
 Tests for pika.callback
 
 """
-import mock
+
+try:
+    import mock
+except:
+    from unittest import mock
+
 try:
     import unittest2 as unittest
 except ImportError:
@@ -31,6 +36,7 @@ class ClassTests(unittest.TestCase):
 
     def test_base_name(self):
         self.assertEqual(amqp_object.Class().NAME, 'Unextended Class')
+
 
 class MethodTests(unittest.TestCase):
 
@@ -64,6 +70,7 @@ class MethodTests(unittest.TestCase):
         obj = amqp_object.Method()
         obj._set_content(properties, body)
         self.assertEqual(obj.get_properties(), properties)
+
 
 class PropertiesTests(unittest.TestCase):
 

@@ -9,6 +9,9 @@
 import struct
 from pika import amqp_object
 from pika import data
+from pika.compat import str_or_bytes, unicode_type
+
+str = bytes
 
 
 PROTOCOL_VERSION = (0, 9, 1)
@@ -94,14 +97,14 @@ class Connection(amqp_object.Class):
             pieces.append(struct.pack('B', self.version_major))
             pieces.append(struct.pack('B', self.version_minor))
             data.encode_table(pieces, self.server_properties)
-            assert isinstance(self.mechanisms, basestring),\
-                   'A non-bytestring value was supplied for self.mechanisms'
-            value = self.mechanisms.encode('utf-8') if isinstance(self.mechanisms, unicode) else self.mechanisms
+            assert isinstance(self.mechanisms, str_or_bytes),\
+                   'A non-string value was supplied for self.mechanisms'
+            value = self.mechanisms.encode('utf-8') if isinstance(self.mechanisms, unicode_type) else self.mechanisms
             pieces.append(struct.pack('>I', len(value)))
             pieces.append(value)
-            assert isinstance(self.locales, basestring),\
-                   'A non-bytestring value was supplied for self.locales'
-            value = self.locales.encode('utf-8') if isinstance(self.locales, unicode) else self.locales
+            assert isinstance(self.locales, str_or_bytes),\
+                   'A non-string value was supplied for self.locales'
+            value = self.locales.encode('utf-8') if isinstance(self.locales, unicode_type) else self.locales
             pieces.append(struct.pack('>I', len(value)))
             pieces.append(value)
             return pieces
@@ -123,14 +126,7 @@ class Connection(amqp_object.Class):
 
         def decode(self, encoded, offset=0):
             (self.client_properties, offset) = data.decode_table(encoded, offset)
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset += 1
-            self.mechanism = encoded[offset:offset + length]
-            try:
-                self.mechanism = str(self.mechanism)
-            except UnicodeEncodeError:
-                pass
-            offset += length
+            self.mechanism, offset = data.decode_short_string(encoded, offset)
             length = struct.unpack_from('>I', encoded, offset)[0]
             offset += 4
             self.response = encoded[offset:offset + length]
@@ -139,34 +135,23 @@ class Connection(amqp_object.Class):
             except UnicodeEncodeError:
                 pass
             offset += length
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset += 1
-            self.locale = encoded[offset:offset + length]
-            try:
-                self.locale = str(self.locale)
-            except UnicodeEncodeError:
-                pass
-            offset += length
+            self.locale, offset = data.decode_short_string(encoded, offset)
             return self
 
         def encode(self):
             pieces = list()
             data.encode_table(pieces, self.client_properties)
-            assert isinstance(self.mechanism, basestring),\
-                   'A non-bytestring value was supplied for self.mechanism'
-            value = self.mechanism.encode('utf-8') if isinstance(self.mechanism, unicode) else self.mechanism
-            pieces.append(struct.pack('B', len(value)))
-            pieces.append(value)
-            assert isinstance(self.response, basestring),\
-                   'A non-bytestring value was supplied for self.response'
-            value = self.response.encode('utf-8') if isinstance(self.response, unicode) else self.response
+            assert isinstance(self.mechanism, str_or_bytes),\
+                   'A non-string value was supplied for self.mechanism'
+            data.encode_short_string(pieces, self.mechanism)
+            assert isinstance(self.response, str_or_bytes),\
+                   'A non-string value was supplied for self.response'
+            value = self.response.encode('utf-8') if isinstance(self.response, unicode_type) else self.response
             pieces.append(struct.pack('>I', len(value)))
             pieces.append(value)
-            assert isinstance(self.locale, basestring),\
-                   'A non-bytestring value was supplied for self.locale'
-            value = self.locale.encode('utf-8') if isinstance(self.locale, unicode) else self.locale
-            pieces.append(struct.pack('B', len(value)))
-            pieces.append(value)
+            assert isinstance(self.locale, str_or_bytes),\
+                   'A non-string value was supplied for self.locale'
+            data.encode_short_string(pieces, self.locale)
             return pieces
 
     class Secure(amqp_object.Method):
@@ -194,9 +179,9 @@ class Connection(amqp_object.Class):
 
         def encode(self):
             pieces = list()
-            assert isinstance(self.challenge, basestring),\
-                   'A non-bytestring value was supplied for self.challenge'
-            value = self.challenge.encode('utf-8') if isinstance(self.challenge, unicode) else self.challenge
+            assert isinstance(self.challenge, str_or_bytes),\
+                   'A non-string value was supplied for self.challenge'
+            value = self.challenge.encode('utf-8') if isinstance(self.challenge, unicode_type) else self.challenge
             pieces.append(struct.pack('>I', len(value)))
             pieces.append(value)
             return pieces
@@ -226,9 +211,9 @@ class Connection(amqp_object.Class):
 
         def encode(self):
             pieces = list()
-            assert isinstance(self.response, basestring),\
-                   'A non-bytestring value was supplied for self.response'
-            value = self.response.encode('utf-8') if isinstance(self.response, unicode) else self.response
+            assert isinstance(self.response, str_or_bytes),\
+                   'A non-string value was supplied for self.response'
+            value = self.response.encode('utf-8') if isinstance(self.response, unicode_type) else self.response
             pieces.append(struct.pack('>I', len(value)))
             pieces.append(value)
             return pieces
@@ -308,22 +293,8 @@ class Connection(amqp_object.Class):
             return True
 
         def decode(self, encoded, offset=0):
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset += 1
-            self.virtual_host = encoded[offset:offset + length]
-            try:
-                self.virtual_host = str(self.virtual_host)
-            except UnicodeEncodeError:
-                pass
-            offset += length
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset += 1
-            self.capabilities = encoded[offset:offset + length]
-            try:
-                self.capabilities = str(self.capabilities)
-            except UnicodeEncodeError:
-                pass
-            offset += length
+            self.virtual_host, offset = data.decode_short_string(encoded, offset)
+            self.capabilities, offset = data.decode_short_string(encoded, offset)
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
             self.insist = (bit_buffer & (1 << 0)) != 0
@@ -331,16 +302,12 @@ class Connection(amqp_object.Class):
 
         def encode(self):
             pieces = list()
-            assert isinstance(self.virtual_host, basestring),\
-                   'A non-bytestring value was supplied for self.virtual_host'
-            value = self.virtual_host.encode('utf-8') if isinstance(self.virtual_host, unicode) else self.virtual_host
-            pieces.append(struct.pack('B', len(value)))
-            pieces.append(value)
-            assert isinstance(self.capabilities, basestring),\
-                   'A non-bytestring value was supplied for self.capabilities'
-            value = self.capabilities.encode('utf-8') if isinstance(self.capabilities, unicode) else self.capabilities
-            pieces.append(struct.pack('B', len(value)))
-            pieces.append(value)
+            assert isinstance(self.virtual_host, str_or_bytes),\
+                   'A non-string value was supplied for self.virtual_host'
+            data.encode_short_string(pieces, self.virtual_host)
+            assert isinstance(self.capabilities, str_or_bytes),\
+                   'A non-string value was supplied for self.capabilities'
+            data.encode_short_string(pieces, self.capabilities)
             bit_buffer = 0
             if self.insist:
                 bit_buffer = bit_buffer | (1 << 0)
@@ -360,23 +327,14 @@ class Connection(amqp_object.Class):
             return False
 
         def decode(self, encoded, offset=0):
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset += 1
-            self.known_hosts = encoded[offset:offset + length]
-            try:
-                self.known_hosts = str(self.known_hosts)
-            except UnicodeEncodeError:
-                pass
-            offset += length
+            self.known_hosts, offset = data.decode_short_string(encoded, offset)
             return self
 
         def encode(self):
             pieces = list()
-            assert isinstance(self.known_hosts, basestring),\
-                   'A non-bytestring value was supplied for self.known_hosts'
-            value = self.known_hosts.encode('utf-8') if isinstance(self.known_hosts, unicode) else self.known_hosts
-            pieces.append(struct.pack('B', len(value)))
-            pieces.append(value)
+            assert isinstance(self.known_hosts, str_or_bytes),\
+                   'A non-string value was supplied for self.known_hosts'
+            data.encode_short_string(pieces, self.known_hosts)
             return pieces
 
     class Close(amqp_object.Method):
@@ -397,14 +355,7 @@ class Connection(amqp_object.Class):
         def decode(self, encoded, offset=0):
             self.reply_code = struct.unpack_from('>H', encoded, offset)[0]
             offset += 2
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset += 1
-            self.reply_text = encoded[offset:offset + length]
-            try:
-                self.reply_text = str(self.reply_text)
-            except UnicodeEncodeError:
-                pass
-            offset += length
+            self.reply_text, offset = data.decode_short_string(encoded, offset)
             self.class_id = struct.unpack_from('>H', encoded, offset)[0]
             offset += 2
             self.method_id = struct.unpack_from('>H', encoded, offset)[0]
@@ -414,11 +365,9 @@ class Connection(amqp_object.Class):
         def encode(self):
             pieces = list()
             pieces.append(struct.pack('>H', self.reply_code))
-            assert isinstance(self.reply_text, basestring),\
-                   'A non-bytestring value was supplied for self.reply_text'
-            value = self.reply_text.encode('utf-8') if isinstance(self.reply_text, unicode) else self.reply_text
-            pieces.append(struct.pack('B', len(value)))
-            pieces.append(value)
+            assert isinstance(self.reply_text, str_or_bytes),\
+                   'A non-string value was supplied for self.reply_text'
+            data.encode_short_string(pieces, self.reply_text)
             pieces.append(struct.pack('>H', self.class_id))
             pieces.append(struct.pack('>H', self.method_id))
             return pieces
@@ -455,23 +404,14 @@ class Connection(amqp_object.Class):
             return False
 
         def decode(self, encoded, offset=0):
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset += 1
-            self.reason = encoded[offset:offset + length]
-            try:
-                self.reason = str(self.reason)
-            except UnicodeEncodeError:
-                pass
-            offset += length
+            self.reason, offset = data.decode_short_string(encoded, offset)
             return self
 
         def encode(self):
             pieces = list()
-            assert isinstance(self.reason, basestring),\
-                   'A non-bytestring value was supplied for self.reason'
-            value = self.reason.encode('utf-8') if isinstance(self.reason, unicode) else self.reason
-            pieces.append(struct.pack('B', len(value)))
-            pieces.append(value)
+            assert isinstance(self.reason, str_or_bytes),\
+                   'A non-string value was supplied for self.reason'
+            data.encode_short_string(pieces, self.reason)
             return pieces
 
     class Unblocked(amqp_object.Method):
@@ -512,23 +452,14 @@ class Channel(amqp_object.Class):
             return True
 
         def decode(self, encoded, offset=0):
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset += 1
-            self.out_of_band = encoded[offset:offset + length]
-            try:
-                self.out_of_band = str(self.out_of_band)
-            except UnicodeEncodeError:
-                pass
-            offset += length
+            self.out_of_band, offset = data.decode_short_string(encoded, offset)
             return self
 
         def encode(self):
             pieces = list()
-            assert isinstance(self.out_of_band, basestring),\
-                   'A non-bytestring value was supplied for self.out_of_band'
-            value = self.out_of_band.encode('utf-8') if isinstance(self.out_of_band, unicode) else self.out_of_band
-            pieces.append(struct.pack('B', len(value)))
-            pieces.append(value)
+            assert isinstance(self.out_of_band, str_or_bytes),\
+                   'A non-string value was supplied for self.out_of_band'
+            data.encode_short_string(pieces, self.out_of_band)
             return pieces
 
     class OpenOk(amqp_object.Method):
@@ -556,9 +487,9 @@ class Channel(amqp_object.Class):
 
         def encode(self):
             pieces = list()
-            assert isinstance(self.channel_id, basestring),\
-                   'A non-bytestring value was supplied for self.channel_id'
-            value = self.channel_id.encode('utf-8') if isinstance(self.channel_id, unicode) else self.channel_id
+            assert isinstance(self.channel_id, str_or_bytes),\
+                   'A non-string value was supplied for self.channel_id'
+            value = self.channel_id.encode('utf-8') if isinstance(self.channel_id, unicode_type) else self.channel_id
             pieces.append(struct.pack('>I', len(value)))
             pieces.append(value)
             return pieces
@@ -633,14 +564,7 @@ class Channel(amqp_object.Class):
         def decode(self, encoded, offset=0):
             self.reply_code = struct.unpack_from('>H', encoded, offset)[0]
             offset += 2
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset += 1
-            self.reply_text = encoded[offset:offset + length]
-            try:
-                self.reply_text = str(self.reply_text)
-            except UnicodeEncodeError:
-                pass
-            offset += length
+            self.reply_text, offset = data.decode_short_string(encoded, offset)
             self.class_id = struct.unpack_from('>H', encoded, offset)[0]
             offset += 2
             self.method_id = struct.unpack_from('>H', encoded, offset)[0]
@@ -650,11 +574,9 @@ class Channel(amqp_object.Class):
         def encode(self):
             pieces = list()
             pieces.append(struct.pack('>H', self.reply_code))
-            assert isinstance(self.reply_text, basestring),\
-                   'A non-bytestring value was supplied for self.reply_text'
-            value = self.reply_text.encode('utf-8') if isinstance(self.reply_text, unicode) else self.reply_text
-            pieces.append(struct.pack('B', len(value)))
-            pieces.append(value)
+            assert isinstance(self.reply_text, str_or_bytes),\
+                   'A non-string value was supplied for self.reply_text'
+            data.encode_short_string(pieces, self.reply_text)
             pieces.append(struct.pack('>H', self.class_id))
             pieces.append(struct.pack('>H', self.method_id))
             return pieces
@@ -702,14 +624,7 @@ class Access(amqp_object.Class):
             return True
 
         def decode(self, encoded, offset=0):
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset += 1
-            self.realm = encoded[offset:offset + length]
-            try:
-                self.realm = str(self.realm)
-            except UnicodeEncodeError:
-                pass
-            offset += length
+            self.realm, offset = data.decode_short_string(encoded, offset)
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
             self.exclusive = (bit_buffer & (1 << 0)) != 0
@@ -721,11 +636,9 @@ class Access(amqp_object.Class):
 
         def encode(self):
             pieces = list()
-            assert isinstance(self.realm, basestring),\
-                   'A non-bytestring value was supplied for self.realm'
-            value = self.realm.encode('utf-8') if isinstance(self.realm, unicode) else self.realm
-            pieces.append(struct.pack('B', len(value)))
-            pieces.append(value)
+            assert isinstance(self.realm, str_or_bytes),\
+                   'A non-string value was supplied for self.realm'
+            data.encode_short_string(pieces, self.realm)
             bit_buffer = 0
             if self.exclusive:
                 bit_buffer = bit_buffer | (1 << 0)
@@ -791,22 +704,8 @@ class Exchange(amqp_object.Class):
         def decode(self, encoded, offset=0):
             self.ticket = struct.unpack_from('>H', encoded, offset)[0]
             offset += 2
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset += 1
-            self.exchange = encoded[offset:offset + length]
-            try:
-                self.exchange = str(self.exchange)
-            except UnicodeEncodeError:
-                pass
-            offset += length
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset += 1
-            self.type = encoded[offset:offset + length]
-            try:
-                self.type = str(self.type)
-            except UnicodeEncodeError:
-                pass
-            offset += length
+            self.exchange, offset = data.decode_short_string(encoded, offset)
+            self.type, offset = data.decode_short_string(encoded, offset)
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
             self.passive = (bit_buffer & (1 << 0)) != 0
@@ -820,16 +719,12 @@ class Exchange(amqp_object.Class):
         def encode(self):
             pieces = list()
             pieces.append(struct.pack('>H', self.ticket))
-            assert isinstance(self.exchange, basestring),\
-                   'A non-bytestring value was supplied for self.exchange'
-            value = self.exchange.encode('utf-8') if isinstance(self.exchange, unicode) else self.exchange
-            pieces.append(struct.pack('B', len(value)))
-            pieces.append(value)
-            assert isinstance(self.type, basestring),\
-                   'A non-bytestring value was supplied for self.type'
-            value = self.type.encode('utf-8') if isinstance(self.type, unicode) else self.type
-            pieces.append(struct.pack('B', len(value)))
-            pieces.append(value)
+            assert isinstance(self.exchange, str_or_bytes),\
+                   'A non-string value was supplied for self.exchange'
+            data.encode_short_string(pieces, self.exchange)
+            assert isinstance(self.type, str_or_bytes),\
+                   'A non-string value was supplied for self.type'
+            data.encode_short_string(pieces, self.type)
             bit_buffer = 0
             if self.passive:
                 bit_buffer = bit_buffer | (1 << 0)
@@ -882,14 +777,7 @@ class Exchange(amqp_object.Class):
         def decode(self, encoded, offset=0):
             self.ticket = struct.unpack_from('>H', encoded, offset)[0]
             offset += 2
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset += 1
-            self.exchange = encoded[offset:offset + length]
-            try:
-                self.exchange = str(self.exchange)
-            except UnicodeEncodeError:
-                pass
-            offset += length
+            self.exchange, offset = data.decode_short_string(encoded, offset)
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
             self.if_unused = (bit_buffer & (1 << 0)) != 0
@@ -899,11 +787,9 @@ class Exchange(amqp_object.Class):
         def encode(self):
             pieces = list()
             pieces.append(struct.pack('>H', self.ticket))
-            assert isinstance(self.exchange, basestring),\
-                   'A non-bytestring value was supplied for self.exchange'
-            value = self.exchange.encode('utf-8') if isinstance(self.exchange, unicode) else self.exchange
-            pieces.append(struct.pack('B', len(value)))
-            pieces.append(value)
+            assert isinstance(self.exchange, str_or_bytes),\
+                   'A non-string value was supplied for self.exchange'
+            data.encode_short_string(pieces, self.exchange)
             bit_buffer = 0
             if self.if_unused:
                 bit_buffer = bit_buffer | (1 << 0)
@@ -951,30 +837,9 @@ class Exchange(amqp_object.Class):
         def decode(self, encoded, offset=0):
             self.ticket = struct.unpack_from('>H', encoded, offset)[0]
             offset += 2
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset += 1
-            self.destination = encoded[offset:offset + length]
-            try:
-                self.destination = str(self.destination)
-            except UnicodeEncodeError:
-                pass
-            offset += length
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset += 1
-            self.source = encoded[offset:offset + length]
-            try:
-                self.source = str(self.source)
-            except UnicodeEncodeError:
-                pass
-            offset += length
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset += 1
-            self.routing_key = encoded[offset:offset + length]
-            try:
-                self.routing_key = str(self.routing_key)
-            except UnicodeEncodeError:
-                pass
-            offset += length
+            self.destination, offset = data.decode_short_string(encoded, offset)
+            self.source, offset = data.decode_short_string(encoded, offset)
+            self.routing_key, offset = data.decode_short_string(encoded, offset)
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
             self.nowait = (bit_buffer & (1 << 0)) != 0
@@ -984,21 +849,15 @@ class Exchange(amqp_object.Class):
         def encode(self):
             pieces = list()
             pieces.append(struct.pack('>H', self.ticket))
-            assert isinstance(self.destination, basestring),\
-                   'A non-bytestring value was supplied for self.destination'
-            value = self.destination.encode('utf-8') if isinstance(self.destination, unicode) else self.destination
-            pieces.append(struct.pack('B', len(value)))
-            pieces.append(value)
-            assert isinstance(self.source, basestring),\
-                   'A non-bytestring value was supplied for self.source'
-            value = self.source.encode('utf-8') if isinstance(self.source, unicode) else self.source
-            pieces.append(struct.pack('B', len(value)))
-            pieces.append(value)
-            assert isinstance(self.routing_key, basestring),\
-                   'A non-bytestring value was supplied for self.routing_key'
-            value = self.routing_key.encode('utf-8') if isinstance(self.routing_key, unicode) else self.routing_key
-            pieces.append(struct.pack('B', len(value)))
-            pieces.append(value)
+            assert isinstance(self.destination, str_or_bytes),\
+                   'A non-string value was supplied for self.destination'
+            data.encode_short_string(pieces, self.destination)
+            assert isinstance(self.source, str_or_bytes),\
+                   'A non-string value was supplied for self.source'
+            data.encode_short_string(pieces, self.source)
+            assert isinstance(self.routing_key, str_or_bytes),\
+                   'A non-string value was supplied for self.routing_key'
+            data.encode_short_string(pieces, self.routing_key)
             bit_buffer = 0
             if self.nowait:
                 bit_buffer = bit_buffer | (1 << 0)
@@ -1045,30 +904,9 @@ class Exchange(amqp_object.Class):
         def decode(self, encoded, offset=0):
             self.ticket = struct.unpack_from('>H', encoded, offset)[0]
             offset += 2
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset += 1
-            self.destination = encoded[offset:offset + length]
-            try:
-                self.destination = str(self.destination)
-            except UnicodeEncodeError:
-                pass
-            offset += length
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset += 1
-            self.source = encoded[offset:offset + length]
-            try:
-                self.source = str(self.source)
-            except UnicodeEncodeError:
-                pass
-            offset += length
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset += 1
-            self.routing_key = encoded[offset:offset + length]
-            try:
-                self.routing_key = str(self.routing_key)
-            except UnicodeEncodeError:
-                pass
-            offset += length
+            self.destination, offset = data.decode_short_string(encoded, offset)
+            self.source, offset = data.decode_short_string(encoded, offset)
+            self.routing_key, offset = data.decode_short_string(encoded, offset)
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
             self.nowait = (bit_buffer & (1 << 0)) != 0
@@ -1078,21 +916,15 @@ class Exchange(amqp_object.Class):
         def encode(self):
             pieces = list()
             pieces.append(struct.pack('>H', self.ticket))
-            assert isinstance(self.destination, basestring),\
-                   'A non-bytestring value was supplied for self.destination'
-            value = self.destination.encode('utf-8') if isinstance(self.destination, unicode) else self.destination
-            pieces.append(struct.pack('B', len(value)))
-            pieces.append(value)
-            assert isinstance(self.source, basestring),\
-                   'A non-bytestring value was supplied for self.source'
-            value = self.source.encode('utf-8') if isinstance(self.source, unicode) else self.source
-            pieces.append(struct.pack('B', len(value)))
-            pieces.append(value)
-            assert isinstance(self.routing_key, basestring),\
-                   'A non-bytestring value was supplied for self.routing_key'
-            value = self.routing_key.encode('utf-8') if isinstance(self.routing_key, unicode) else self.routing_key
-            pieces.append(struct.pack('B', len(value)))
-            pieces.append(value)
+            assert isinstance(self.destination, str_or_bytes),\
+                   'A non-string value was supplied for self.destination'
+            data.encode_short_string(pieces, self.destination)
+            assert isinstance(self.source, str_or_bytes),\
+                   'A non-string value was supplied for self.source'
+            data.encode_short_string(pieces, self.source)
+            assert isinstance(self.routing_key, str_or_bytes),\
+                   'A non-string value was supplied for self.routing_key'
+            data.encode_short_string(pieces, self.routing_key)
             bit_buffer = 0
             if self.nowait:
                 bit_buffer = bit_buffer | (1 << 0)
@@ -1147,14 +979,7 @@ class Queue(amqp_object.Class):
         def decode(self, encoded, offset=0):
             self.ticket = struct.unpack_from('>H', encoded, offset)[0]
             offset += 2
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset += 1
-            self.queue = encoded[offset:offset + length]
-            try:
-                self.queue = str(self.queue)
-            except UnicodeEncodeError:
-                pass
-            offset += length
+            self.queue, offset = data.decode_short_string(encoded, offset)
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
             self.passive = (bit_buffer & (1 << 0)) != 0
@@ -1168,11 +993,9 @@ class Queue(amqp_object.Class):
         def encode(self):
             pieces = list()
             pieces.append(struct.pack('>H', self.ticket))
-            assert isinstance(self.queue, basestring),\
-                   'A non-bytestring value was supplied for self.queue'
-            value = self.queue.encode('utf-8') if isinstance(self.queue, unicode) else self.queue
-            pieces.append(struct.pack('B', len(value)))
-            pieces.append(value)
+            assert isinstance(self.queue, str_or_bytes),\
+                   'A non-string value was supplied for self.queue'
+            data.encode_short_string(pieces, self.queue)
             bit_buffer = 0
             if self.passive:
                 bit_buffer = bit_buffer | (1 << 0)
@@ -1203,14 +1026,7 @@ class Queue(amqp_object.Class):
             return False
 
         def decode(self, encoded, offset=0):
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset += 1
-            self.queue = encoded[offset:offset + length]
-            try:
-                self.queue = str(self.queue)
-            except UnicodeEncodeError:
-                pass
-            offset += length
+            self.queue, offset = data.decode_short_string(encoded, offset)
             self.message_count = struct.unpack_from('>I', encoded, offset)[0]
             offset += 4
             self.consumer_count = struct.unpack_from('>I', encoded, offset)[0]
@@ -1219,11 +1035,9 @@ class Queue(amqp_object.Class):
 
         def encode(self):
             pieces = list()
-            assert isinstance(self.queue, basestring),\
-                   'A non-bytestring value was supplied for self.queue'
-            value = self.queue.encode('utf-8') if isinstance(self.queue, unicode) else self.queue
-            pieces.append(struct.pack('B', len(value)))
-            pieces.append(value)
+            assert isinstance(self.queue, str_or_bytes),\
+                   'A non-string value was supplied for self.queue'
+            data.encode_short_string(pieces, self.queue)
             pieces.append(struct.pack('>I', self.message_count))
             pieces.append(struct.pack('>I', self.consumer_count))
             return pieces
@@ -1248,30 +1062,9 @@ class Queue(amqp_object.Class):
         def decode(self, encoded, offset=0):
             self.ticket = struct.unpack_from('>H', encoded, offset)[0]
             offset += 2
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset += 1
-            self.queue = encoded[offset:offset + length]
-            try:
-                self.queue = str(self.queue)
-            except UnicodeEncodeError:
-                pass
-            offset += length
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset += 1
-            self.exchange = encoded[offset:offset + length]
-            try:
-                self.exchange = str(self.exchange)
-            except UnicodeEncodeError:
-                pass
-            offset += length
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset += 1
-            self.routing_key = encoded[offset:offset + length]
-            try:
-                self.routing_key = str(self.routing_key)
-            except UnicodeEncodeError:
-                pass
-            offset += length
+            self.queue, offset = data.decode_short_string(encoded, offset)
+            self.exchange, offset = data.decode_short_string(encoded, offset)
+            self.routing_key, offset = data.decode_short_string(encoded, offset)
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
             self.nowait = (bit_buffer & (1 << 0)) != 0
@@ -1281,21 +1074,15 @@ class Queue(amqp_object.Class):
         def encode(self):
             pieces = list()
             pieces.append(struct.pack('>H', self.ticket))
-            assert isinstance(self.queue, basestring),\
-                   'A non-bytestring value was supplied for self.queue'
-            value = self.queue.encode('utf-8') if isinstance(self.queue, unicode) else self.queue
-            pieces.append(struct.pack('B', len(value)))
-            pieces.append(value)
-            assert isinstance(self.exchange, basestring),\
-                   'A non-bytestring value was supplied for self.exchange'
-            value = self.exchange.encode('utf-8') if isinstance(self.exchange, unicode) else self.exchange
-            pieces.append(struct.pack('B', len(value)))
-            pieces.append(value)
-            assert isinstance(self.routing_key, basestring),\
-                   'A non-bytestring value was supplied for self.routing_key'
-            value = self.routing_key.encode('utf-8') if isinstance(self.routing_key, unicode) else self.routing_key
-            pieces.append(struct.pack('B', len(value)))
-            pieces.append(value)
+            assert isinstance(self.queue, str_or_bytes),\
+                   'A non-string value was supplied for self.queue'
+            data.encode_short_string(pieces, self.queue)
+            assert isinstance(self.exchange, str_or_bytes),\
+                   'A non-string value was supplied for self.exchange'
+            data.encode_short_string(pieces, self.exchange)
+            assert isinstance(self.routing_key, str_or_bytes),\
+                   'A non-string value was supplied for self.routing_key'
+            data.encode_short_string(pieces, self.routing_key)
             bit_buffer = 0
             if self.nowait:
                 bit_buffer = bit_buffer | (1 << 0)
@@ -1339,14 +1126,7 @@ class Queue(amqp_object.Class):
         def decode(self, encoded, offset=0):
             self.ticket = struct.unpack_from('>H', encoded, offset)[0]
             offset += 2
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset += 1
-            self.queue = encoded[offset:offset + length]
-            try:
-                self.queue = str(self.queue)
-            except UnicodeEncodeError:
-                pass
-            offset += length
+            self.queue, offset = data.decode_short_string(encoded, offset)
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
             self.nowait = (bit_buffer & (1 << 0)) != 0
@@ -1355,11 +1135,9 @@ class Queue(amqp_object.Class):
         def encode(self):
             pieces = list()
             pieces.append(struct.pack('>H', self.ticket))
-            assert isinstance(self.queue, basestring),\
-                   'A non-bytestring value was supplied for self.queue'
-            value = self.queue.encode('utf-8') if isinstance(self.queue, unicode) else self.queue
-            pieces.append(struct.pack('B', len(value)))
-            pieces.append(value)
+            assert isinstance(self.queue, str_or_bytes),\
+                   'A non-string value was supplied for self.queue'
+            data.encode_short_string(pieces, self.queue)
             bit_buffer = 0
             if self.nowait:
                 bit_buffer = bit_buffer | (1 << 0)
@@ -1407,14 +1185,7 @@ class Queue(amqp_object.Class):
         def decode(self, encoded, offset=0):
             self.ticket = struct.unpack_from('>H', encoded, offset)[0]
             offset += 2
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset += 1
-            self.queue = encoded[offset:offset + length]
-            try:
-                self.queue = str(self.queue)
-            except UnicodeEncodeError:
-                pass
-            offset += length
+            self.queue, offset = data.decode_short_string(encoded, offset)
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
             self.if_unused = (bit_buffer & (1 << 0)) != 0
@@ -1425,11 +1196,9 @@ class Queue(amqp_object.Class):
         def encode(self):
             pieces = list()
             pieces.append(struct.pack('>H', self.ticket))
-            assert isinstance(self.queue, basestring),\
-                   'A non-bytestring value was supplied for self.queue'
-            value = self.queue.encode('utf-8') if isinstance(self.queue, unicode) else self.queue
-            pieces.append(struct.pack('B', len(value)))
-            pieces.append(value)
+            assert isinstance(self.queue, str_or_bytes),\
+                   'A non-string value was supplied for self.queue'
+            data.encode_short_string(pieces, self.queue)
             bit_buffer = 0
             if self.if_unused:
                 bit_buffer = bit_buffer | (1 << 0)
@@ -1481,51 +1250,24 @@ class Queue(amqp_object.Class):
         def decode(self, encoded, offset=0):
             self.ticket = struct.unpack_from('>H', encoded, offset)[0]
             offset += 2
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset += 1
-            self.queue = encoded[offset:offset + length]
-            try:
-                self.queue = str(self.queue)
-            except UnicodeEncodeError:
-                pass
-            offset += length
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset += 1
-            self.exchange = encoded[offset:offset + length]
-            try:
-                self.exchange = str(self.exchange)
-            except UnicodeEncodeError:
-                pass
-            offset += length
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset += 1
-            self.routing_key = encoded[offset:offset + length]
-            try:
-                self.routing_key = str(self.routing_key)
-            except UnicodeEncodeError:
-                pass
-            offset += length
+            self.queue, offset = data.decode_short_string(encoded, offset)
+            self.exchange, offset = data.decode_short_string(encoded, offset)
+            self.routing_key, offset = data.decode_short_string(encoded, offset)
             (self.arguments, offset) = data.decode_table(encoded, offset)
             return self
 
         def encode(self):
             pieces = list()
             pieces.append(struct.pack('>H', self.ticket))
-            assert isinstance(self.queue, basestring),\
-                   'A non-bytestring value was supplied for self.queue'
-            value = self.queue.encode('utf-8') if isinstance(self.queue, unicode) else self.queue
-            pieces.append(struct.pack('B', len(value)))
-            pieces.append(value)
-            assert isinstance(self.exchange, basestring),\
-                   'A non-bytestring value was supplied for self.exchange'
-            value = self.exchange.encode('utf-8') if isinstance(self.exchange, unicode) else self.exchange
-            pieces.append(struct.pack('B', len(value)))
-            pieces.append(value)
-            assert isinstance(self.routing_key, basestring),\
-                   'A non-bytestring value was supplied for self.routing_key'
-            value = self.routing_key.encode('utf-8') if isinstance(self.routing_key, unicode) else self.routing_key
-            pieces.append(struct.pack('B', len(value)))
-            pieces.append(value)
+            assert isinstance(self.queue, str_or_bytes),\
+                   'A non-string value was supplied for self.queue'
+            data.encode_short_string(pieces, self.queue)
+            assert isinstance(self.exchange, str_or_bytes),\
+                   'A non-string value was supplied for self.exchange'
+            data.encode_short_string(pieces, self.exchange)
+            assert isinstance(self.routing_key, str_or_bytes),\
+                   'A non-string value was supplied for self.routing_key'
+            data.encode_short_string(pieces, self.routing_key)
             data.encode_table(pieces, self.arguments)
             return pieces
 
@@ -1629,22 +1371,8 @@ class Basic(amqp_object.Class):
         def decode(self, encoded, offset=0):
             self.ticket = struct.unpack_from('>H', encoded, offset)[0]
             offset += 2
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset += 1
-            self.queue = encoded[offset:offset + length]
-            try:
-                self.queue = str(self.queue)
-            except UnicodeEncodeError:
-                pass
-            offset += length
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset += 1
-            self.consumer_tag = encoded[offset:offset + length]
-            try:
-                self.consumer_tag = str(self.consumer_tag)
-            except UnicodeEncodeError:
-                pass
-            offset += length
+            self.queue, offset = data.decode_short_string(encoded, offset)
+            self.consumer_tag, offset = data.decode_short_string(encoded, offset)
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
             self.no_local = (bit_buffer & (1 << 0)) != 0
@@ -1657,16 +1385,12 @@ class Basic(amqp_object.Class):
         def encode(self):
             pieces = list()
             pieces.append(struct.pack('>H', self.ticket))
-            assert isinstance(self.queue, basestring),\
-                   'A non-bytestring value was supplied for self.queue'
-            value = self.queue.encode('utf-8') if isinstance(self.queue, unicode) else self.queue
-            pieces.append(struct.pack('B', len(value)))
-            pieces.append(value)
-            assert isinstance(self.consumer_tag, basestring),\
-                   'A non-bytestring value was supplied for self.consumer_tag'
-            value = self.consumer_tag.encode('utf-8') if isinstance(self.consumer_tag, unicode) else self.consumer_tag
-            pieces.append(struct.pack('B', len(value)))
-            pieces.append(value)
+            assert isinstance(self.queue, str_or_bytes),\
+                   'A non-string value was supplied for self.queue'
+            data.encode_short_string(pieces, self.queue)
+            assert isinstance(self.consumer_tag, str_or_bytes),\
+                   'A non-string value was supplied for self.consumer_tag'
+            data.encode_short_string(pieces, self.consumer_tag)
             bit_buffer = 0
             if self.no_local:
                 bit_buffer = bit_buffer | (1 << 0)
@@ -1693,23 +1417,14 @@ class Basic(amqp_object.Class):
             return False
 
         def decode(self, encoded, offset=0):
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset += 1
-            self.consumer_tag = encoded[offset:offset + length]
-            try:
-                self.consumer_tag = str(self.consumer_tag)
-            except UnicodeEncodeError:
-                pass
-            offset += length
+            self.consumer_tag, offset = data.decode_short_string(encoded, offset)
             return self
 
         def encode(self):
             pieces = list()
-            assert isinstance(self.consumer_tag, basestring),\
-                   'A non-bytestring value was supplied for self.consumer_tag'
-            value = self.consumer_tag.encode('utf-8') if isinstance(self.consumer_tag, unicode) else self.consumer_tag
-            pieces.append(struct.pack('B', len(value)))
-            pieces.append(value)
+            assert isinstance(self.consumer_tag, str_or_bytes),\
+                   'A non-string value was supplied for self.consumer_tag'
+            data.encode_short_string(pieces, self.consumer_tag)
             return pieces
 
     class Cancel(amqp_object.Method):
@@ -1726,14 +1441,7 @@ class Basic(amqp_object.Class):
             return True
 
         def decode(self, encoded, offset=0):
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset += 1
-            self.consumer_tag = encoded[offset:offset + length]
-            try:
-                self.consumer_tag = str(self.consumer_tag)
-            except UnicodeEncodeError:
-                pass
-            offset += length
+            self.consumer_tag, offset = data.decode_short_string(encoded, offset)
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
             self.nowait = (bit_buffer & (1 << 0)) != 0
@@ -1741,11 +1449,9 @@ class Basic(amqp_object.Class):
 
         def encode(self):
             pieces = list()
-            assert isinstance(self.consumer_tag, basestring),\
-                   'A non-bytestring value was supplied for self.consumer_tag'
-            value = self.consumer_tag.encode('utf-8') if isinstance(self.consumer_tag, unicode) else self.consumer_tag
-            pieces.append(struct.pack('B', len(value)))
-            pieces.append(value)
+            assert isinstance(self.consumer_tag, str_or_bytes),\
+                   'A non-string value was supplied for self.consumer_tag'
+            data.encode_short_string(pieces, self.consumer_tag)
             bit_buffer = 0
             if self.nowait:
                 bit_buffer = bit_buffer | (1 << 0)
@@ -1765,23 +1471,14 @@ class Basic(amqp_object.Class):
             return False
 
         def decode(self, encoded, offset=0):
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset += 1
-            self.consumer_tag = encoded[offset:offset + length]
-            try:
-                self.consumer_tag = str(self.consumer_tag)
-            except UnicodeEncodeError:
-                pass
-            offset += length
+            self.consumer_tag, offset = data.decode_short_string(encoded, offset)
             return self
 
         def encode(self):
             pieces = list()
-            assert isinstance(self.consumer_tag, basestring),\
-                   'A non-bytestring value was supplied for self.consumer_tag'
-            value = self.consumer_tag.encode('utf-8') if isinstance(self.consumer_tag, unicode) else self.consumer_tag
-            pieces.append(struct.pack('B', len(value)))
-            pieces.append(value)
+            assert isinstance(self.consumer_tag, str_or_bytes),\
+                   'A non-string value was supplied for self.consumer_tag'
+            data.encode_short_string(pieces, self.consumer_tag)
             return pieces
 
     class Publish(amqp_object.Method):
@@ -1803,22 +1500,8 @@ class Basic(amqp_object.Class):
         def decode(self, encoded, offset=0):
             self.ticket = struct.unpack_from('>H', encoded, offset)[0]
             offset += 2
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset += 1
-            self.exchange = encoded[offset:offset + length]
-            try:
-                self.exchange = str(self.exchange)
-            except UnicodeEncodeError:
-                pass
-            offset += length
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset += 1
-            self.routing_key = encoded[offset:offset + length]
-            try:
-                self.routing_key = str(self.routing_key)
-            except UnicodeEncodeError:
-                pass
-            offset += length
+            self.exchange, offset = data.decode_short_string(encoded, offset)
+            self.routing_key, offset = data.decode_short_string(encoded, offset)
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
             self.mandatory = (bit_buffer & (1 << 0)) != 0
@@ -1828,16 +1511,12 @@ class Basic(amqp_object.Class):
         def encode(self):
             pieces = list()
             pieces.append(struct.pack('>H', self.ticket))
-            assert isinstance(self.exchange, basestring),\
-                   'A non-bytestring value was supplied for self.exchange'
-            value = self.exchange.encode('utf-8') if isinstance(self.exchange, unicode) else self.exchange
-            pieces.append(struct.pack('B', len(value)))
-            pieces.append(value)
-            assert isinstance(self.routing_key, basestring),\
-                   'A non-bytestring value was supplied for self.routing_key'
-            value = self.routing_key.encode('utf-8') if isinstance(self.routing_key, unicode) else self.routing_key
-            pieces.append(struct.pack('B', len(value)))
-            pieces.append(value)
+            assert isinstance(self.exchange, str_or_bytes),\
+                   'A non-string value was supplied for self.exchange'
+            data.encode_short_string(pieces, self.exchange)
+            assert isinstance(self.routing_key, str_or_bytes),\
+                   'A non-string value was supplied for self.routing_key'
+            data.encode_short_string(pieces, self.routing_key)
             bit_buffer = 0
             if self.mandatory:
                 bit_buffer = bit_buffer | (1 << 0)
@@ -1864,50 +1543,23 @@ class Basic(amqp_object.Class):
         def decode(self, encoded, offset=0):
             self.reply_code = struct.unpack_from('>H', encoded, offset)[0]
             offset += 2
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset += 1
-            self.reply_text = encoded[offset:offset + length]
-            try:
-                self.reply_text = str(self.reply_text)
-            except UnicodeEncodeError:
-                pass
-            offset += length
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset += 1
-            self.exchange = encoded[offset:offset + length]
-            try:
-                self.exchange = str(self.exchange)
-            except UnicodeEncodeError:
-                pass
-            offset += length
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset += 1
-            self.routing_key = encoded[offset:offset + length]
-            try:
-                self.routing_key = str(self.routing_key)
-            except UnicodeEncodeError:
-                pass
-            offset += length
+            self.reply_text, offset = data.decode_short_string(encoded, offset)
+            self.exchange, offset = data.decode_short_string(encoded, offset)
+            self.routing_key, offset = data.decode_short_string(encoded, offset)
             return self
 
         def encode(self):
             pieces = list()
             pieces.append(struct.pack('>H', self.reply_code))
-            assert isinstance(self.reply_text, basestring),\
-                   'A non-bytestring value was supplied for self.reply_text'
-            value = self.reply_text.encode('utf-8') if isinstance(self.reply_text, unicode) else self.reply_text
-            pieces.append(struct.pack('B', len(value)))
-            pieces.append(value)
-            assert isinstance(self.exchange, basestring),\
-                   'A non-bytestring value was supplied for self.exchange'
-            value = self.exchange.encode('utf-8') if isinstance(self.exchange, unicode) else self.exchange
-            pieces.append(struct.pack('B', len(value)))
-            pieces.append(value)
-            assert isinstance(self.routing_key, basestring),\
-                   'A non-bytestring value was supplied for self.routing_key'
-            value = self.routing_key.encode('utf-8') if isinstance(self.routing_key, unicode) else self.routing_key
-            pieces.append(struct.pack('B', len(value)))
-            pieces.append(value)
+            assert isinstance(self.reply_text, str_or_bytes),\
+                   'A non-string value was supplied for self.reply_text'
+            data.encode_short_string(pieces, self.reply_text)
+            assert isinstance(self.exchange, str_or_bytes),\
+                   'A non-string value was supplied for self.exchange'
+            data.encode_short_string(pieces, self.exchange)
+            assert isinstance(self.routing_key, str_or_bytes),\
+                   'A non-string value was supplied for self.routing_key'
+            data.encode_short_string(pieces, self.routing_key)
             return pieces
 
     class Deliver(amqp_object.Method):
@@ -1927,59 +1579,32 @@ class Basic(amqp_object.Class):
             return False
 
         def decode(self, encoded, offset=0):
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset += 1
-            self.consumer_tag = encoded[offset:offset + length]
-            try:
-                self.consumer_tag = str(self.consumer_tag)
-            except UnicodeEncodeError:
-                pass
-            offset += length
+            self.consumer_tag, offset = data.decode_short_string(encoded, offset)
             self.delivery_tag = struct.unpack_from('>Q', encoded, offset)[0]
             offset += 8
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
             self.redelivered = (bit_buffer & (1 << 0)) != 0
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset += 1
-            self.exchange = encoded[offset:offset + length]
-            try:
-                self.exchange = str(self.exchange)
-            except UnicodeEncodeError:
-                pass
-            offset += length
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset += 1
-            self.routing_key = encoded[offset:offset + length]
-            try:
-                self.routing_key = str(self.routing_key)
-            except UnicodeEncodeError:
-                pass
-            offset += length
+            self.exchange, offset = data.decode_short_string(encoded, offset)
+            self.routing_key, offset = data.decode_short_string(encoded, offset)
             return self
 
         def encode(self):
             pieces = list()
-            assert isinstance(self.consumer_tag, basestring),\
-                   'A non-bytestring value was supplied for self.consumer_tag'
-            value = self.consumer_tag.encode('utf-8') if isinstance(self.consumer_tag, unicode) else self.consumer_tag
-            pieces.append(struct.pack('B', len(value)))
-            pieces.append(value)
+            assert isinstance(self.consumer_tag, str_or_bytes),\
+                   'A non-string value was supplied for self.consumer_tag'
+            data.encode_short_string(pieces, self.consumer_tag)
             pieces.append(struct.pack('>Q', self.delivery_tag))
             bit_buffer = 0
             if self.redelivered:
                 bit_buffer = bit_buffer | (1 << 0)
             pieces.append(struct.pack('B', bit_buffer))
-            assert isinstance(self.exchange, basestring),\
-                   'A non-bytestring value was supplied for self.exchange'
-            value = self.exchange.encode('utf-8') if isinstance(self.exchange, unicode) else self.exchange
-            pieces.append(struct.pack('B', len(value)))
-            pieces.append(value)
-            assert isinstance(self.routing_key, basestring),\
-                   'A non-bytestring value was supplied for self.routing_key'
-            value = self.routing_key.encode('utf-8') if isinstance(self.routing_key, unicode) else self.routing_key
-            pieces.append(struct.pack('B', len(value)))
-            pieces.append(value)
+            assert isinstance(self.exchange, str_or_bytes),\
+                   'A non-string value was supplied for self.exchange'
+            data.encode_short_string(pieces, self.exchange)
+            assert isinstance(self.routing_key, str_or_bytes),\
+                   'A non-string value was supplied for self.routing_key'
+            data.encode_short_string(pieces, self.routing_key)
             return pieces
 
     class Get(amqp_object.Method):
@@ -1999,14 +1624,7 @@ class Basic(amqp_object.Class):
         def decode(self, encoded, offset=0):
             self.ticket = struct.unpack_from('>H', encoded, offset)[0]
             offset += 2
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset += 1
-            self.queue = encoded[offset:offset + length]
-            try:
-                self.queue = str(self.queue)
-            except UnicodeEncodeError:
-                pass
-            offset += length
+            self.queue, offset = data.decode_short_string(encoded, offset)
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
             self.no_ack = (bit_buffer & (1 << 0)) != 0
@@ -2015,11 +1633,9 @@ class Basic(amqp_object.Class):
         def encode(self):
             pieces = list()
             pieces.append(struct.pack('>H', self.ticket))
-            assert isinstance(self.queue, basestring),\
-                   'A non-bytestring value was supplied for self.queue'
-            value = self.queue.encode('utf-8') if isinstance(self.queue, unicode) else self.queue
-            pieces.append(struct.pack('B', len(value)))
-            pieces.append(value)
+            assert isinstance(self.queue, str_or_bytes),\
+                   'A non-string value was supplied for self.queue'
+            data.encode_short_string(pieces, self.queue)
             bit_buffer = 0
             if self.no_ack:
                 bit_buffer = bit_buffer | (1 << 0)
@@ -2048,22 +1664,8 @@ class Basic(amqp_object.Class):
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
             self.redelivered = (bit_buffer & (1 << 0)) != 0
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset += 1
-            self.exchange = encoded[offset:offset + length]
-            try:
-                self.exchange = str(self.exchange)
-            except UnicodeEncodeError:
-                pass
-            offset += length
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset += 1
-            self.routing_key = encoded[offset:offset + length]
-            try:
-                self.routing_key = str(self.routing_key)
-            except UnicodeEncodeError:
-                pass
-            offset += length
+            self.exchange, offset = data.decode_short_string(encoded, offset)
+            self.routing_key, offset = data.decode_short_string(encoded, offset)
             self.message_count = struct.unpack_from('>I', encoded, offset)[0]
             offset += 4
             return self
@@ -2075,16 +1677,12 @@ class Basic(amqp_object.Class):
             if self.redelivered:
                 bit_buffer = bit_buffer | (1 << 0)
             pieces.append(struct.pack('B', bit_buffer))
-            assert isinstance(self.exchange, basestring),\
-                   'A non-bytestring value was supplied for self.exchange'
-            value = self.exchange.encode('utf-8') if isinstance(self.exchange, unicode) else self.exchange
-            pieces.append(struct.pack('B', len(value)))
-            pieces.append(value)
-            assert isinstance(self.routing_key, basestring),\
-                   'A non-bytestring value was supplied for self.routing_key'
-            value = self.routing_key.encode('utf-8') if isinstance(self.routing_key, unicode) else self.routing_key
-            pieces.append(struct.pack('B', len(value)))
-            pieces.append(value)
+            assert isinstance(self.exchange, str_or_bytes),\
+                   'A non-string value was supplied for self.exchange'
+            data.encode_short_string(pieces, self.exchange)
+            assert isinstance(self.routing_key, str_or_bytes),\
+                   'A non-string value was supplied for self.routing_key'
+            data.encode_short_string(pieces, self.routing_key)
             pieces.append(struct.pack('>I', self.message_count))
             return pieces
 
@@ -2101,23 +1699,14 @@ class Basic(amqp_object.Class):
             return False
 
         def decode(self, encoded, offset=0):
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset += 1
-            self.cluster_id = encoded[offset:offset + length]
-            try:
-                self.cluster_id = str(self.cluster_id)
-            except UnicodeEncodeError:
-                pass
-            offset += length
+            self.cluster_id, offset = data.decode_short_string(encoded, offset)
             return self
 
         def encode(self):
             pieces = list()
-            assert isinstance(self.cluster_id, basestring),\
-                   'A non-bytestring value was supplied for self.cluster_id'
-            value = self.cluster_id.encode('utf-8') if isinstance(self.cluster_id, unicode) else self.cluster_id
-            pieces.append(struct.pack('B', len(value)))
-            pieces.append(value)
+            assert isinstance(self.cluster_id, str_or_bytes),\
+                   'A non-string value was supplied for self.cluster_id'
+            data.encode_short_string(pieces, self.cluster_id)
             return pieces
 
     class Ack(amqp_object.Method):
@@ -2505,25 +2094,11 @@ class BasicProperties(amqp_object.Properties):
                 break
             flagword_index += 1
         if flags & BasicProperties.FLAG_CONTENT_TYPE:
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset += 1
-            self.content_type = encoded[offset:offset + length]
-            try:
-                self.content_type = str(self.content_type)
-            except UnicodeEncodeError:
-                pass
-            offset += length
+            self.content_type, offset = data.decode_short_string(encoded, offset)
         else:
             self.content_type = None
         if flags & BasicProperties.FLAG_CONTENT_ENCODING:
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset += 1
-            self.content_encoding = encoded[offset:offset + length]
-            try:
-                self.content_encoding = str(self.content_encoding)
-            except UnicodeEncodeError:
-                pass
-            offset += length
+            self.content_encoding, offset = data.decode_short_string(encoded, offset)
         else:
             self.content_encoding = None
         if flags & BasicProperties.FLAG_HEADERS:
@@ -2541,47 +2116,19 @@ class BasicProperties(amqp_object.Properties):
         else:
             self.priority = None
         if flags & BasicProperties.FLAG_CORRELATION_ID:
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset += 1
-            self.correlation_id = encoded[offset:offset + length]
-            try:
-                self.correlation_id = str(self.correlation_id)
-            except UnicodeEncodeError:
-                pass
-            offset += length
+            self.correlation_id, offset = data.decode_short_string(encoded, offset)
         else:
             self.correlation_id = None
         if flags & BasicProperties.FLAG_REPLY_TO:
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset += 1
-            self.reply_to = encoded[offset:offset + length]
-            try:
-                self.reply_to = str(self.reply_to)
-            except UnicodeEncodeError:
-                pass
-            offset += length
+            self.reply_to, offset = data.decode_short_string(encoded, offset)
         else:
             self.reply_to = None
         if flags & BasicProperties.FLAG_EXPIRATION:
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset += 1
-            self.expiration = encoded[offset:offset + length]
-            try:
-                self.expiration = str(self.expiration)
-            except UnicodeEncodeError:
-                pass
-            offset += length
+            self.expiration, offset = data.decode_short_string(encoded, offset)
         else:
             self.expiration = None
         if flags & BasicProperties.FLAG_MESSAGE_ID:
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset += 1
-            self.message_id = encoded[offset:offset + length]
-            try:
-                self.message_id = str(self.message_id)
-            except UnicodeEncodeError:
-                pass
-            offset += length
+            self.message_id, offset = data.decode_short_string(encoded, offset)
         else:
             self.message_id = None
         if flags & BasicProperties.FLAG_TIMESTAMP:
@@ -2590,47 +2137,19 @@ class BasicProperties(amqp_object.Properties):
         else:
             self.timestamp = None
         if flags & BasicProperties.FLAG_TYPE:
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset += 1
-            self.type = encoded[offset:offset + length]
-            try:
-                self.type = str(self.type)
-            except UnicodeEncodeError:
-                pass
-            offset += length
+            self.type, offset = data.decode_short_string(encoded, offset)
         else:
             self.type = None
         if flags & BasicProperties.FLAG_USER_ID:
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset += 1
-            self.user_id = encoded[offset:offset + length]
-            try:
-                self.user_id = str(self.user_id)
-            except UnicodeEncodeError:
-                pass
-            offset += length
+            self.user_id, offset = data.decode_short_string(encoded, offset)
         else:
             self.user_id = None
         if flags & BasicProperties.FLAG_APP_ID:
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset += 1
-            self.app_id = encoded[offset:offset + length]
-            try:
-                self.app_id = str(self.app_id)
-            except UnicodeEncodeError:
-                pass
-            offset += length
+            self.app_id, offset = data.decode_short_string(encoded, offset)
         else:
             self.app_id = None
         if flags & BasicProperties.FLAG_CLUSTER_ID:
-            length = struct.unpack_from('B', encoded, offset)[0]
-            offset += 1
-            self.cluster_id = encoded[offset:offset + length]
-            try:
-                self.cluster_id = str(self.cluster_id)
-            except UnicodeEncodeError:
-                pass
-            offset += length
+            self.cluster_id, offset = data.decode_short_string(encoded, offset)
         else:
             self.cluster_id = None
         return self
@@ -2640,18 +2159,14 @@ class BasicProperties(amqp_object.Properties):
         flags = 0
         if self.content_type is not None:
             flags = flags | BasicProperties.FLAG_CONTENT_TYPE
-            assert isinstance(self.content_type, basestring),\
-                   'A non-bytestring value was supplied for self.content_type'
-            value = self.content_type.encode('utf-8') if isinstance(self.content_type, unicode) else self.content_type
-            pieces.append(struct.pack('B', len(value)))
-            pieces.append(value)
+            assert isinstance(self.content_type, str_or_bytes),\
+                   'A non-string value was supplied for self.content_type'
+            data.encode_short_string(pieces, self.content_type)
         if self.content_encoding is not None:
             flags = flags | BasicProperties.FLAG_CONTENT_ENCODING
-            assert isinstance(self.content_encoding, basestring),\
-                   'A non-bytestring value was supplied for self.content_encoding'
-            value = self.content_encoding.encode('utf-8') if isinstance(self.content_encoding, unicode) else self.content_encoding
-            pieces.append(struct.pack('B', len(value)))
-            pieces.append(value)
+            assert isinstance(self.content_encoding, str_or_bytes),\
+                   'A non-string value was supplied for self.content_encoding'
+            data.encode_short_string(pieces, self.content_encoding)
         if self.headers is not None:
             flags = flags | BasicProperties.FLAG_HEADERS
             data.encode_table(pieces, self.headers)
@@ -2663,63 +2178,47 @@ class BasicProperties(amqp_object.Properties):
             pieces.append(struct.pack('B', self.priority))
         if self.correlation_id is not None:
             flags = flags | BasicProperties.FLAG_CORRELATION_ID
-            assert isinstance(self.correlation_id, basestring),\
-                   'A non-bytestring value was supplied for self.correlation_id'
-            value = self.correlation_id.encode('utf-8') if isinstance(self.correlation_id, unicode) else self.correlation_id
-            pieces.append(struct.pack('B', len(value)))
-            pieces.append(value)
+            assert isinstance(self.correlation_id, str_or_bytes),\
+                   'A non-string value was supplied for self.correlation_id'
+            data.encode_short_string(pieces, self.correlation_id)
         if self.reply_to is not None:
             flags = flags | BasicProperties.FLAG_REPLY_TO
-            assert isinstance(self.reply_to, basestring),\
-                   'A non-bytestring value was supplied for self.reply_to'
-            value = self.reply_to.encode('utf-8') if isinstance(self.reply_to, unicode) else self.reply_to
-            pieces.append(struct.pack('B', len(value)))
-            pieces.append(value)
+            assert isinstance(self.reply_to, str_or_bytes),\
+                   'A non-string value was supplied for self.reply_to'
+            data.encode_short_string(pieces, self.reply_to)
         if self.expiration is not None:
             flags = flags | BasicProperties.FLAG_EXPIRATION
-            assert isinstance(self.expiration, basestring),\
-                   'A non-bytestring value was supplied for self.expiration'
-            value = self.expiration.encode('utf-8') if isinstance(self.expiration, unicode) else self.expiration
-            pieces.append(struct.pack('B', len(value)))
-            pieces.append(value)
+            assert isinstance(self.expiration, str_or_bytes),\
+                   'A non-string value was supplied for self.expiration'
+            data.encode_short_string(pieces, self.expiration)
         if self.message_id is not None:
             flags = flags | BasicProperties.FLAG_MESSAGE_ID
-            assert isinstance(self.message_id, basestring),\
-                   'A non-bytestring value was supplied for self.message_id'
-            value = self.message_id.encode('utf-8') if isinstance(self.message_id, unicode) else self.message_id
-            pieces.append(struct.pack('B', len(value)))
-            pieces.append(value)
+            assert isinstance(self.message_id, str_or_bytes),\
+                   'A non-string value was supplied for self.message_id'
+            data.encode_short_string(pieces, self.message_id)
         if self.timestamp is not None:
             flags = flags | BasicProperties.FLAG_TIMESTAMP
             pieces.append(struct.pack('>Q', self.timestamp))
         if self.type is not None:
             flags = flags | BasicProperties.FLAG_TYPE
-            assert isinstance(self.type, basestring),\
-                   'A non-bytestring value was supplied for self.type'
-            value = self.type.encode('utf-8') if isinstance(self.type, unicode) else self.type
-            pieces.append(struct.pack('B', len(value)))
-            pieces.append(value)
+            assert isinstance(self.type, str_or_bytes),\
+                   'A non-string value was supplied for self.type'
+            data.encode_short_string(pieces, self.type)
         if self.user_id is not None:
             flags = flags | BasicProperties.FLAG_USER_ID
-            assert isinstance(self.user_id, basestring),\
-                   'A non-bytestring value was supplied for self.user_id'
-            value = self.user_id.encode('utf-8') if isinstance(self.user_id, unicode) else self.user_id
-            pieces.append(struct.pack('B', len(value)))
-            pieces.append(value)
+            assert isinstance(self.user_id, str_or_bytes),\
+                   'A non-string value was supplied for self.user_id'
+            data.encode_short_string(pieces, self.user_id)
         if self.app_id is not None:
             flags = flags | BasicProperties.FLAG_APP_ID
-            assert isinstance(self.app_id, basestring),\
-                   'A non-bytestring value was supplied for self.app_id'
-            value = self.app_id.encode('utf-8') if isinstance(self.app_id, unicode) else self.app_id
-            pieces.append(struct.pack('B', len(value)))
-            pieces.append(value)
+            assert isinstance(self.app_id, str_or_bytes),\
+                   'A non-string value was supplied for self.app_id'
+            data.encode_short_string(pieces, self.app_id)
         if self.cluster_id is not None:
             flags = flags | BasicProperties.FLAG_CLUSTER_ID
-            assert isinstance(self.cluster_id, basestring),\
-                   'A non-bytestring value was supplied for self.cluster_id'
-            value = self.cluster_id.encode('utf-8') if isinstance(self.cluster_id, unicode) else self.cluster_id
-            pieces.append(struct.pack('B', len(value)))
-            pieces.append(value)
+            assert isinstance(self.cluster_id, str_or_bytes),\
+                   'A non-string value was supplied for self.cluster_id'
+            data.encode_short_string(pieces, self.cluster_id)
         flag_pieces = list()
         while True:
             remainder = flags >> 16
@@ -2805,14 +2304,9 @@ props = {
 
 
 def has_content(methodNumber):
-
-    if methodNumber == Basic.Publish.INDEX:
-        return True
-    if methodNumber == Basic.Return.INDEX:
-        return True
-    if methodNumber == Basic.Deliver.INDEX:
-        return True
-    if methodNumber == Basic.GetOk.INDEX:
-        return True
-    return False
-
+    return methodNumber in (
+        Basic.Publish.INDEX,
+        Basic.Return.INDEX,
+        Basic.Deliver.INDEX,
+        Basic.GetOk.INDEX,
+    )

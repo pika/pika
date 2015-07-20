@@ -6,8 +6,8 @@ sys.path.insert(0, '../')
 extensions = ['sphinx.ext.autodoc', 'sphinx.ext.viewcode',
               'sphinx.ext.intersphinx']
 
-intersphinx_mapping = {'python': ('http://docs.python.org/2/objects.inv',
-                                  'http://docs.python.org/2/objects.inv'),
+intersphinx_mapping = {'python': ('https://docs.python.org/3/',
+                                  'https://docs.python.org/3/objects.inv'),
                        'tornado': ('http://www.tornadoweb.org/en/stable/',
                                    'http://www.tornadoweb.org/en/stable/objects.inv')}
 
@@ -17,10 +17,11 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 project = 'pika'
-copyright = '2010-2013, Tony Garnock-Jones, Gavin M. Roy, VMWare and others.'
+copyright = '2009-2015, Tony Garnock-Jones, Gavin M. Roy, Pivotal and others.'
 
-version = '0.9'
-release = '0.9.13'
+import pika
+release = pika.__version__
+version = '.'.join(release.split('.')[0:1])
 
 exclude_patterns = ['_build']
 add_function_parentheses = True

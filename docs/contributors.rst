@@ -2,47 +2,103 @@ Contributors
 ============
 The following people have directly contributes code by way of new features and/or bug fixes to Pika:
 
-- Adam Flynn
-- Ales Teska
-- Alexey Myasnikov
-- Anton V. Yanchenko
-- Ask Solem
-- Asko Soukka
-- Brian K. Jones
-- Cenk Altı
-- Charles Law
-- David Strauss
-- Erik Andersson
-- Fredrik Svensson
-- Garth Williamson
-- George y
-- Hunter Morris
-- Jacek 'Forger' Całusiński
-- Jan Urbański
-- Jason J. W. Williams
-- Jonty Wareing
-- Josh Braegger
-- Josh Hansen
-- Jozef Van Eenbergen
-- Kamil Kisiel
-- Kane
-- Kyösti Herrala
-- Lars van de Kerkhof
-- Marek Majkowski
-- Mark Unsworth
-- Michael Kenney
-- Michael Laing
-- Milan Skuhra
-- Njal Karevoll
-- nonleaf
-- Olivier Le Thanh Duong
-- Pankrat
-- Pavlobaron
-- Peter Magnusson
-- Ralf Nyrén
-- Raphaël De Giusti
-- Rikard Hultén
-- Roey Berman
-- Samuel Stauffer
-- Sigurd Høgsbro
-- Tristan Penman
+ - Gavin M. Roy
+ - Tony Garnock-Jones
+ - Vitaly Kruglikov
+ - Michael Laing
+ - Marek Majkowski
+ - Jan Urbański
+ - Brian K. Jones
+ - Ask Solem
+ - ml
+ - Will
+ - atatsu
+ - Fredrik Svensson
+ - Pedro Abranches
+ - Kyösti Herrala
+ - Erik Andersson
+ - Charles Law
+ - Alex Chandel
+ - Tristan Penman
+ - Raphaël De Giusti
+ - Jozef Van Eenbergen
+ - Josh Braegger
+ - Jason J. W. Williams
+ - James Mutton
+ - Cenk Alti
+ - Asko Soukka
+ - Antti Haapala
+ - Anton Ryzhov
+ - cellscape
+ - cacovsky
+ - bra-fsn
+ - ateska
+ - Roey Berman
+ - Robert Weidlich
+ - Riccardo Cirimelli
+ - Perttu Ranta-aho
+ - Pau Gargallo
+ - Kane
+ - Kamil Kisiel
+ - Jonty Wareing
+ - Jonathan Kirsch
+ - Jacek 'Forger' Całusiński
+ - Garth Williamson
+ - Erik Olof Gunnar Andersson
+ - David Strauss
+ - Anton V. Yanchenko
+ - Alexey Myasnikov
+ - Alessandro Tagliapietra
+ - Adam Flynn
+ - skftn
+ - saarni
+ - pavlobaron
+ - nonleaf
+ - markcf
+ - george y
+ - eivanov
+ - bstemshorn
+ - a-tal
+ - Yang Yang
+ - Stuart Longland
+ - Sigurd Høgsbro
+ - Sean Dwyer
+ - Samuel Stauffer
+ - Roberto Decurnex
+ - Rikard Hultén
+ - Richard Boulton
+ - Ralf Nyren
+ - Qi Fan
+ - Peter Magnusson
+ - Pankrat
+ - Olivier Le Thanh Duong
+ - Njal Karevoll
+ - Milan Skuhra
+ - Mik Kocikowski
+ - Michael Kenney
+ - Mark Unsworth
+ - Luca Wehrstedt
+ - Laurent Eschenauer
+ - Lars van de Kerkhof
+ - Kyösti Herrala
+ - Juhyeong Park
+ - JuhaS
+ - Josh Hansen
+ - Jorge Puente Sarrín
+ - Jeff Tang
+ - Jeff Fein-Worton
+ - Jeff
+ - Hunter Morris
+ - Guruprasad
+ - Garrett Cooper
+ - Frank Slaughter
+ - Dustin Koupal
+ - Bjorn Sandberg
+ - Axel Eirola
+ - Andrew Smith
+ - Andrew Grigorev
+ - Andrew
+ - Allard Hoeve
+ - A.Shaposhnikov
+
+*Contributors listed by commit count.*

@@ -1,11 +1,13 @@
-__version__ = '0.9.14'
+__version__ = '0.10.0b2'
 
 import logging
 try:
     # not available in python 2.6
     from logging import NullHandler
 except ImportError:
+
     class NullHandler(logging.Handler):
+
         def emit(self, record):
             pass
 
@@ -18,7 +20,6 @@ from pika.credentials import PlainCredentials
 from pika.spec import BasicProperties
 
 from pika.adapters import BaseConnection
-from pika.adapters import AsyncoreConnection
 from pika.adapters import BlockingConnection
 from pika.adapters import SelectConnection
 from pika.adapters import TornadoConnection

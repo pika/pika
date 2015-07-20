@@ -8,14 +8,14 @@ Introduction
 Pika is a pure-Python implementation of the AMQP 0-9-1 protocol that tries
 to stay fairly independent of the underlying network support library.
 
-- Currently supports Python 2.6 and Python 2.7 only. 3.2+ support planned.
+- Python 2.6+ and 3.3+ are supported.
 
 - Since threads aren't appropriate to every situation, it doesn't
   require threads. It takes care not to forbid them, either. The same
   goes for greenlets, callbacks, continuations and generators. It is
-  not necessarily thread-safe however, and your milage will vary.
+  not necessarily thread-safe however, and your mileage will vary.
 
-- People may be using direct sockets, `asyncore`, plain old `select()`,
+- People may be using direct sockets, plain old `select()`,
   or any of the wide variety of ways of getting network events to and from a
   python application. Pika tries to stay compatible with all of these, and to
   make adapting it to a new environment as simple as possible.
@@ -23,13 +23,13 @@ to stay fairly independent of the underlying network support library.
 Documentation
 -------------
 
-Pika's documentation is now at https://pika.readthedocs.org
+Pika's documentation can be found at `https://pika.readthedocs.org <https://pika.readthedocs.org>`_
 
 Example
 -------
 Here is the most simple example of use, sending a message with the BlockingConnection adapter:
 
-.. code :: python 
+.. code :: python
 
     import pika
     connection = pika.BlockingConnection()
@@ -41,7 +41,7 @@ Here is the most simple example of use, sending a message with the BlockingConne
 
 And an example of writing a blocking consumer:
 
-.. code :: python 
+.. code :: python
 
     import pika
     connection = pika.BlockingConnection()
@@ -65,30 +65,30 @@ And an example of writing a blocking consumer:
 Pika provides the following adapters
 ------------------------------------
 
-- AsyncoreConnection - based off the standard Python library asyncore
 - BlockingConnection - enables blocking, synchronous operation on top of library for simple uses
 - LibevConnection    - adapter for use with the libev event loop http://libev.schmorp.de
 - SelectConnection   - fast asynchronous adapter
-- TwistedConnection  - adapter for use with the Twisted asynchronous package http://twistedmatrix.com/
 - TornadoConnection  - adapter for use with the Tornado IO Loop http://tornadoweb.org
+- TwistedConnection  - adapter for use with the Twisted asynchronous package http://twistedmatrix.com/
 
-License
--------
-Pika is licensed under the MPLv2. If you have any questions regarding licensing,
-please contact the RabbitMQ team at <info@rabbitmq.com>.
+Contributing
+------------
+To contribute to pika, please make sure that any new features or changes
+to existing functionality include test coverage. Additionally, please format
+your code using `yapf <http://pypi.python.org/pypi/yapf>`_ with ``google`` style
+prior to issuing your pull request.
 
-
-.. |Version| image:: https://badge.fury.io/py/pika.svg?
+.. |Version| image:: https://img.shields.io/pypi/v/pika.svg?
    :target: http://badge.fury.io/py/pika
 
-.. |Status| image:: https://travis-ci.org/pika/pika.svg?branch=master
+.. |Status| image:: https://img.shields.io/travis/pika/pika.svg?
    :target: https://travis-ci.org/pika/pika
 
-.. |Coverage| image:: https://coveralls.io/repos/pika/pika/badge.png
-   :target: https://coveralls.io/r/pika/pika
-  
-.. |Downloads| image:: https://pypip.in/d/pika/badge.svg?
+.. |Coverage| image:: https://img.shields.io/codecov/c/github/pika/pika.svg?
+   :target: https://codecov.io/github/pika/pika?branch=master
+
+.. |Downloads| image:: https://img.shields.io/pypi/dm/pika.svg?
    :target: https://pypi.python.org/pypi/pika
-   
-.. |License| image:: https://pypip.in/license/pika/badge.svg?
+
+.. |License| image:: https://img.shields.io/pypi/l/pika.svg?
    :target: https://pika.readthedocs.org

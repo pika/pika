@@ -26,7 +26,8 @@ class TornadoConnection(base_connection.BaseConnection):
     """
     WARN_ABOUT_IOLOOP = True
 
-    def __init__(self, parameters=None,
+    def __init__(self,
+                 parameters=None,
                  on_open_callback=None,
                  on_open_error_callback=None,
                  on_close_callback=None,
@@ -47,24 +48,21 @@ class TornadoConnection(base_connection.BaseConnection):
         """
         self.sleep_counter = 0
         self.ioloop = custom_ioloop or ioloop.IOLoop.instance()
-        super(TornadoConnection, self).__init__(parameters,
-                                                on_open_callback,
+        super(TornadoConnection, self).__init__(parameters, on_open_callback,
                                                 on_open_error_callback,
-                                                on_close_callback,
-                                                self.ioloop,
+                                                on_close_callback, self.ioloop,
                                                 stop_ioloop_on_close)
 
     def _adapter_connect(self):
         """Connect to the remote socket, adding the socket to the IOLoop if
-        connected
+        connected. 
 
         :rtype: bool
 
         """
         error = super(TornadoConnection, self)._adapter_connect()
         if not error:
-            self.ioloop.add_handler(self.socket.fileno(),
-                                    self._handle_events,
+            self.ioloop.add_handler(self.socket.fileno(), self._handle_events,
                                     self.event_state)
         return error
 

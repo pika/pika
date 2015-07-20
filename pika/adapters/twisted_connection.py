@@ -26,6 +26,7 @@ class ClosableDeferredQueue(defer.DeferredQueue):
     Exception instance all pending Deferreds are errbacked and further attempts
     to call get() or put() return a Failure wrapping that exception.
     """
+
     def __init__(self, size=None, backlog=None):
         self.closed = None
         super(ClosableDeferredQueue, self).__init__(size, backlog)
@@ -60,10 +61,9 @@ class TwistedChannel(object):
     details.
     """
 
-    WRAPPED_METHODS = ('exchange_declare', 'exchange_delete',
-                       'queue_declare', 'queue_bind', 'queue_purge',
-                       'queue_unbind', 'basic_qos', 'basic_get',
-                       'basic_recover', 'tx_select', 'tx_commit',
+    WRAPPED_METHODS = ('exchange_declare', 'exchange_delete', 'queue_declare',
+                       'queue_bind', 'queue_purge', 'queue_unbind', 'basic_qos',
+                       'basic_get', 'basic_recover', 'tx_select', 'tx_commit',
                        'tx_rollback', 'flow', 'basic_cancel')
 
     def __init__(self, channel):
@@ -191,6 +191,7 @@ class IOLoopReactorAdapter(object):
     Accepts a TwistedConnection object and a Twisted reactor object.
 
     """
+
     def __init__(self, connection, reactor):
         self.connection = connection
         self.reactor = reactor
@@ -269,7 +270,9 @@ class TwistedConnection(base_connection.BaseConnection):
     IReadWriteDescriptor interface.
 
     """
-    def __init__(self, parameters=None,
+
+    def __init__(self,
+                 parameters=None,
                  on_open_callback=None,
                  on_open_error_callback=None,
                  on_close_callback=None,
@@ -295,7 +298,7 @@ class TwistedConnection(base_connection.BaseConnection):
     def _adapter_disconnect(self):
         """Called when the adapter should disconnect"""
         self.ioloop.remove_handler(None)
-        self.socket.close()
+        self._cleanup_socket()
 
     def _handle_disconnect(self):
         """Do not stop the reactor, this would cause the entire process to exit,
@@ -362,6 +365,7 @@ class TwistedProtocolConnection(base_connection.BaseConnection):
     because, yet again, it's Twisted who manages the connection.
 
     """
+
     def __init__(self, parameters):
         self.ready = defer.Deferred()
         super(TwistedProtocolConnection, self).__init__(
@@ -387,20 +391,13 @@ class TwistedProtocolConnection(base_connection.BaseConnection):
         # Disconnect from the server
         self.transport.loseConnection()
 
-    def _send_frame(self, frame_value):
-        """Send data the Twisted way, by writing to the transport. No need for
-        buffering, Twisted handles that by itself.
-
-        :param frame_value: The frame to write
-        :type frame_value:  pika.frame.Frame|pika.frame.ProtocolHeader
-
+    def _flush_outbound(self):
+        """Override BaseConnection._flush_outbound to send all bufferred data
+        the Twisted way, by writing to the transport. No need for buffering,
+        Twisted handles that for us.
         """
-        if self.is_closed:
-            raise exceptions.ConnectionClosed
-        marshaled_frame = frame_value.marshal()
-        self.bytes_sent += len(marshaled_frame)
-        self.frames_sent += 1
-        self.transport.write(marshaled_frame)
+        while self.outbound_buffer:
+            self.transport.write(self.outbound_buffer.popleft())
 
     def channel(self, channel_number=None):
         """Create a new channel with the next available channel number or pass

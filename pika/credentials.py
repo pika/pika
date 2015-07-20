@@ -16,6 +16,7 @@ extend the :class:`~pika.credentials.ExternalCredentials` class implementing
 the required behavior.
 
 """
+from .compat import as_bytes
 import logging
 
 LOGGER = logging.getLogger(__name__)
@@ -57,10 +58,12 @@ class PlainCredentials(object):
         :rtype: tuple(str|None, str|None)
 
         """
-        if PlainCredentials.TYPE not in start.mechanisms.split():
+        if as_bytes(PlainCredentials.TYPE) not in\
+                as_bytes(start.mechanisms).split():
             return None, None
         return (PlainCredentials.TYPE,
-                '\0%s\0%s' % (self.username, self.password))
+                b'\0' + as_bytes(self.username) +
+                b'\0' + as_bytes(self.password))
 
     def erase_credentials(self):
         """Called by Connection when it no longer needs the credentials"""
@@ -88,14 +91,14 @@ class ExternalCredentials(object):
         :rtype: tuple(str or None, str or None)
 
         """
-        if ExternalCredentials.TYPE not in start.mechanisms.split():
+        if as_bytes(ExternalCredentials.TYPE) not in\
+                as_bytes(start.mechanisms).split():
             return None, None
-        return ExternalCredentials.TYPE, ''
+        return ExternalCredentials.TYPE, b''
 
     def erase_credentials(self):
         """Called by Connection when it no longer needs the credentials"""
         LOGGER.debug('Not supported by this Credentials type')
-
 
 # Append custom credential types to this list for validation support
 VALID_TYPES = [PlainCredentials, ExternalCredentials]

@@ -1,8 +1,3 @@
-# ***** BEGIN LICENSE BLOCK *****
-#
-# For copyright and licensing please refer to COPYING.
-#
-# ***** END LICENSE BLOCK *****
 from setuptools import setup
 import os
 
@@ -21,28 +16,30 @@ long_description = ('Pika is a pure-Python implementation of the AMQP 0-9-1 '
                     'with other AMQP 0-9-1 brokers.')
 
 setup(name='pika',
-      version='0.9.14',
+      version='0.10.0b2',
       description='Pika Python AMQP Client Library',
-      long_description=long_description,
+      long_description=open('README.rst').read(),
       maintainer='Gavin M. Roy',
       maintainer_email='gavinmroy@gmail.com',
       url='https://pika.readthedocs.org ',
       packages=['pika', 'pika.adapters'],
-      license='MPL v2.0',
+      license='BSD',
       install_requires=requirements,
-      package_data={'': ['LICENSE', 'README.md']},
+      package_data={'': ['LICENSE', 'README.rst']},
       extras_require={'tornado': ['tornado'],
                       'twisted': ['twisted'],
                       'libev': ['pyev']},
       classifiers=[
           'Development Status :: 5 - Production/Stable',
           'Intended Audience :: Developers',
-          'License :: OSI Approved :: GNU General Public License (GPL)',
-          'License :: OSI Approved :: Mozilla Public License 1.1 (MPL 1.1)',
+          'License :: OSI Approved :: BSD License',
           'Natural Language :: English',
           'Operating System :: OS Independent',
           'Programming Language :: Python :: 2.6',
           'Programming Language :: Python :: 2.7',
+          'Programming Language :: Python :: 3',
+          'Programming Language :: Python :: 3.3',
+          'Programming Language :: Python :: 3.4',
           'Programming Language :: Python :: Implementation :: CPython',
           'Programming Language :: Python :: Implementation :: Jython',
           'Programming Language :: Python :: Implementation :: PyPy',
