@@ -1,5 +1,6 @@
 """Core connection objects"""
 import ast
+import socket
 import sys
 import collections
 import logging
@@ -317,6 +318,7 @@ class ConnectionParameters(Parameters):
     :param bool backpressure_detection: Toggle backpressure detection
 
     """
+
     def __init__(self,
                  host=None,
                  port=None,
@@ -373,22 +375,22 @@ class ConnectionParameters(Parameters):
         if locale and self._validate_locale(locale):
             self.locale = locale
         if (heartbeat_interval is not None and
-            self._validate_heartbeat_interval(heartbeat_interval)):
+                self._validate_heartbeat_interval(heartbeat_interval)):
             self.heartbeat = heartbeat_interval
         if ssl is not None and self._validate_ssl(ssl):
             self.ssl = ssl
         if ssl_options and self._validate_ssl_options(ssl_options):
             self.ssl_options = ssl_options or dict()
         if (connection_attempts is not None and
-            self._validate_connection_attempts(connection_attempts)):
+                self._validate_connection_attempts(connection_attempts)):
             self.connection_attempts = connection_attempts
         if retry_delay is not None and self._validate_retry_delay(retry_delay):
             self.retry_delay = retry_delay
         if (socket_timeout is not None and
-            self._validate_socket_timeout(socket_timeout)):
+                self._validate_socket_timeout(socket_timeout)):
             self.socket_timeout = socket_timeout
         if (backpressure_detection is not None and
-            self._validate_backpressure(backpressure_detection)):
+                self._validate_backpressure(backpressure_detection)):
             self.backpressure_detection = backpressure_detection
 
 
@@ -428,6 +430,7 @@ class URLParameters(Parameters):
     :param str url: The AMQP URL to connect to
 
     """
+
     def __init__(self, url):
 
         """Create a new URLParameters instance.
@@ -500,31 +503,31 @@ class URLParameters(Parameters):
                                  values['backpressure_detection'])
 
         if ('channel_max' in values and
-            self._validate_channel_max(values['channel_max'])):
+                self._validate_channel_max(values['channel_max'])):
             self.channel_max = values['channel_max']
 
         if ('connection_attempts' in values and
-            self._validate_connection_attempts(values['connection_attempts'])):
+                self._validate_connection_attempts(values['connection_attempts'])):
             self.connection_attempts = values['connection_attempts']
 
         if ('frame_max' in values and
-            self._validate_frame_max(values['frame_max'])):
+                self._validate_frame_max(values['frame_max'])):
             self.frame_max = values['frame_max']
 
         if ('heartbeat_interval' in values and
-            self._validate_heartbeat_interval(values['heartbeat_interval'])):
+                self._validate_heartbeat_interval(values['heartbeat_interval'])):
             self.heartbeat = values['heartbeat_interval']
 
         if ('locale' in values and
-            self._validate_locale(values['locale'])):
+                self._validate_locale(values['locale'])):
             self.locale = values['locale']
 
         if ('retry_delay' in values and
-            self._validate_retry_delay(values['retry_delay'])):
+                self._validate_retry_delay(values['retry_delay'])):
             self.retry_delay = values['retry_delay']
 
         if ('socket_timeout' in values and
-            self._validate_socket_timeout(values['socket_timeout'])):
+                self._validate_socket_timeout(values['socket_timeout'])):
             self.socket_timeout = values['socket_timeout']
 
         if 'ssl_options' in values:
@@ -887,15 +890,17 @@ class Connection(object):
         :rtype: dict
 
         """
-        return {'product': PRODUCT,
-                'platform': 'Python %s' % platform.python_version(),
-                'capabilities': {'authentication_failure_close': True,
-                                 'basic.nack': True,
-                                 'connection.blocked': True,
-                                 'consumer_cancel_notify': True,
-                                 'publisher_confirms': True},
-                'information': 'See http://pika.rtfd.org',
-                'version': __version__}
+        return {
+            'hostname': socket.gethostname(),
+            'product': PRODUCT,
+            'platform': 'Python %s' % platform.python_version(),
+            'capabilities': {'authentication_failure_close': True,
+                             'basic.nack': True,
+                             'connection.blocked': True,
+                             'consumer_cancel_notify': True,
+                             'publisher_confirms': True},
+            'information': 'See http://pika.rtfd.org',
+            'version': __version__}
 
     def _close_channels(self, reply_code, reply_text):
         """Close the open channels with the specified reply_code and reply_text.
@@ -1121,7 +1126,7 @@ class Connection(object):
         :rtype: bool
 
         """
-        return  isinstance(value, frame.ProtocolHeader)
+        return isinstance(value, frame.ProtocolHeader)
 
     def _next_channel_number(self):
         """Return the next available channel number or raise on exception.
@@ -1315,11 +1320,11 @@ class Connection(object):
 
         """
         if (self._is_method_frame(frame_value) and
-            self._has_pending_callbacks(frame_value)):
+                self._has_pending_callbacks(frame_value)):
             self.callbacks.process(frame_value.channel_number,  # Prefix
-                                   frame_value.method,          # Key
-                                   self,                        # Caller
-                                   frame_value)                 # Args
+                                   frame_value.method,  # Key
+                                   self,  # Caller
+                                   frame_value)  # Args
             return True
         return False
 
