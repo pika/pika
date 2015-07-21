@@ -82,6 +82,42 @@ class TestCreateAndCloseConnection(BlockingTestCaseBase):
         self.assertFalse(connection.is_closing)
 
 
+class TestConnectionContextManagerClosesConnection(BlockingTestCaseBase):
+    def test(self):
+        """BlockingConnection: connection context manager closes connection"""
+        with self._connect() as connection:
+            self.assertIsInstance(connection, pika.BlockingConnection)
+            self.assertTrue(connection.is_open)
+
+        self.assertTrue(connection.is_closed)
+
+
+class TestConnectionContextManagerClosesConnectionAndPassesOriginalException(BlockingTestCaseBase):
+    def test(self):
+        """BlockingConnection: connection context manager closes connection and passes original exception"""
+        class MyException(Exception):
+            pass
+
+        with self.assertRaises(MyException):
+            with self._connect() as connection:
+                self.assertTrue(connection.is_open)
+
+                raise MyException()
+
+        self.assertTrue(connection.is_closed)
+
+
+class TestConnectionContextManagerClosesConnectionAndPassesSystemException(BlockingTestCaseBase):
+    def test(self):
+        """BlockingConnection: connection context manager closes connection and passes system exception"""
+        with self.assertRaises(SystemExit):
+            with self._connect() as connection:
+                self.assertTrue(connection.is_open)
+                raise SystemExit()
+
+        self.assertTrue(connection.is_closed)
+
+
 class TestInvalidExchangeTypeRaisesConnectionClosed(BlockingTestCaseBase):
     def test(self):
         """BlockingConnection: ConnectionClosed raised when creating exchange with invalid type"""  # pylint: disable=C0301

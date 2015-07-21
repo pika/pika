@@ -700,6 +700,14 @@ class BlockingConnection(object):  # pylint: disable=R0902
 
         return channel
 
+    def __enter__(self):
+        # Prepare `with` context
+        return self
+
+    def __exit__(self, tp, value, traceback):
+        # Close connection after `with` context
+        self.close()
+
     #
     # Connections state properties
     #
