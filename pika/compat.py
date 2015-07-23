@@ -1,5 +1,5 @@
 import sys as _sys
-
+import errno
 
 PY2 = _sys.version_info < (3,)
 PY3 = not PY2
@@ -73,6 +73,9 @@ if not PY2:
 
         return str(value)
 
+    _SELECT_ERROR = OSError
+    def _is_resumable_error(x): return x.errno==errno.EINTR
+
 else:
     from urllib import unquote as url_unquote, urlencode
 
@@ -96,6 +99,12 @@ else:
             return str(value)
         except UnicodeEncodeError:
             return str(value.encode('utf-8'))
+
+
+    import select
+    _SELECT_ERROR = _sys.version.startswith('2.7.') and IOError \
+                    or select.error
+    def _is_resumable_error(x): return x.args[0]==errno.EINTR
 
 
 def as_bytes(value):

@@ -28,22 +28,6 @@ WRITE = 0x0004
 ERROR = 0x0008
 
 
-if pika.compat.PY2:
-    _SELECT_ERROR = select.error
-else:
-    # select.error was deprecated and replaced by OSError in python 3.3
-    _SELECT_ERROR = OSError
-
-
-def _get_select_errno(error):
-    if pika.compat.PY2:
-        assert isinstance(error, select.error), repr(error)
-        return error.args[0]
-    else:
-        assert isinstance(error, OSError), repr(error)
-        return error.errno
-
-
 class SelectConnection(BaseConnection):
     """An asynchronous connection adapter that attempts to use the fastest
     event loop adapter for the given platform.
@@ -276,7 +260,9 @@ class SelectPoller(object):
         # were only run periodically.
         for t in sorted(to_run, key=itemgetter('deadline')):
             t['callback']()
-            del self._timeouts[hash(frozenset(t.items()))]
+            k = hash(frozenset(t.items()))
+            if k in self._timeouts:
+                    del self._timeouts[k]
             self._next_timeout = None
 
     def add_handler(self, fileno, handler, events):
@@ -390,8 +376,8 @@ class SelectPoller(object):
                                                    self._fd_events[ERROR],
                                                    self.get_next_deadline())
                 break
-            except _SELECT_ERROR as error:
-                if _get_select_errno(error) == errno.EINTR:
+            except pika.compat._SELECT_ERROR as error:
+                if pika.compat._is_resumable_error(error):
                     continue
                 else:
                     raise
@@ -505,8 +491,8 @@ class KQueuePoller(SelectPoller):
                 kevents = self._kqueue.control(None, 1000,
                                                self.get_next_deadline())
                 break
-            except _SELECT_ERROR as error:
-                if _get_select_errno(error) == errno.EINTR:
+            except pika.compat._SELECT_ERROR as error:
+                if pika.compat._is_resumable_error(error):
                     continue
                 else:
                     raise
@@ -580,8 +566,8 @@ class PollPoller(SelectPoller):
             try:
                 events = self._poll.poll(self.get_next_deadline())
                 break
-            except _SELECT_ERROR as error:
-                if _get_select_errno(error) == errno.EINTR:
+            except pika.compat._SELECT_ERROR as error:
+                if pika.compat._is_resumable_error(error):
                     continue
                 else:
                     raise
