@@ -276,7 +276,9 @@ class SelectPoller(object):
         # were only run periodically.
         for t in sorted(to_run, key=itemgetter('deadline')):
             t['callback']()
-            del self._timeouts[hash(frozenset(t.items()))]
+            k = hash(frozenset(t.items()))
+            if k in self._timeouts:
+                    del self._timeouts[k]
             self._next_timeout = None
 
     def add_handler(self, fileno, handler, events):
