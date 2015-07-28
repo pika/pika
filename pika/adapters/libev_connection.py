@@ -158,7 +158,7 @@ class LibevConnection(BaseConnection):
         be wiped.
 
         """
-        for timer in self._active_timers:
+        for timer in self._active_timers.keys():
             self.remove_timeout(timer)
         if global_sigint_watcher:
             global_sigint_watcher.stop()
