@@ -89,7 +89,7 @@ class IOLoopTimerTestSelect(IOLoopBaseTest):
         self.start()
 
     def on_timer(self, val):
-        self.assertEquals(val, self.timer_stack.pop())
+        self.assertEqual(val, self.timer_stack.pop())
         if not self.timer_stack:
             self.ioloop.stop()
 
