@@ -129,7 +129,7 @@ class IOLoopTimerTestSelect(IOLoopBaseTest):
         self.start( self.check_none_is_left )
 
     def check_none_is_left(self):
-        self.assertEquals(self.timer_stack, [None])
+        self.assertEqual(self.timer_stack, [None])
         self.ioloop.stop()
 
     def on_timer_murder(self, another_timeout):
