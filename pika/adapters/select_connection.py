@@ -278,7 +278,7 @@ class SelectPoller(object):
         # were only run periodically.
         to_run = sorted([(k,timer) for (k,timer) in self._timeouts.items()
                          if timer['deadline'] <= now],
-                        key = lambda (k,timer) : timer['deadline'])
+                        key = lambda item : item[1]['deadline'])
 
         if self.is_ready_to_fire(to_run):
             # Force recalculation as the oldest timer is going to be removed.
