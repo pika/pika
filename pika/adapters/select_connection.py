@@ -264,10 +264,6 @@ class SelectPoller(object):
         timeout = min((timeout, SelectPoller.POLL_TIMEOUT))
         return timeout * SelectPoller.POLL_TIMEOUT_MULT
 
-    @staticmethod
-    def is_ready_to_fire(to_run):
-        """For patching by unittest"""
-        return True
 
     def process_timeouts(self):
         """Process the self._timeouts event stack"""
@@ -280,20 +276,17 @@ class SelectPoller(object):
                          if timer['deadline'] <= now],
                         key = lambda item : item[1]['deadline'])
 
-        if self.is_ready_to_fire(to_run):
-            # Force recalculation as the oldest timer is going to be removed.
-            self._next_timeout = None
-
-            for k, timer in to_run:
-                if k not in self._timeouts:
-                    # Previous invocation(s) should have deleted the timer.
-                    continue
-                try :
-                    timer['callback']()
-                finally:
-                    # Don't do 'del self._timeout[k]' as the key might
-                    # have been deleted just now.
-                    self._timeouts.pop(k, None)
+        for k, timer in to_run:
+            if k not in self._timeouts:
+                # Previous invocation(s) should have deleted the timer.
+                continue
+            try :
+                timer['callback']()
+            finally:
+                # Don't do 'del self._timeout[k]' as the key might
+                # have been deleted just now.
+                if self._timeouts.pop(k, None) is not None:
+                    self._next_timeout = None
 
 
     def add_handler(self, fileno, handler, events):
