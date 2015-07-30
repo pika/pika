@@ -5,12 +5,6 @@ Tests for SelectConnection IOLoops
 """
 import logging
 try:
-    from unittest import mock
-    patch = mock.patch
-except ImportError:
-    import mock
-    from mock import patch
-try:
     import unittest2 as unittest
 except ImportError:
     import unittest
@@ -39,10 +33,8 @@ class IOLoopBaseTest(unittest.TestCase):
         self.ioloop.remove_timeout(self.fail_timer)
         self.ioloop = None
 
-    def start(self, callback = None):
-        if callback is None:
-            callback = self.on_timeout
-        self.fail_timer = self.ioloop.add_timeout(self.TIMEOUT, callback)
+    def start(self):
+        self.fail_timer = self.ioloop.add_timeout(self.TIMEOUT, self.on_timeout)
         self.ioloop.start()
 
     def on_timeout(self):
@@ -96,49 +88,59 @@ class IOLoopTimerTestSelect(IOLoopBaseTest):
     def test_normal(self):
         self.start_test()
 
-    def test_timer_for_suicide(self):
+    def test_timer_for_deleting_itself(self):
+        """This test verifies that an attempt to delete that timeout by
+        the corresponding handler generates no exceptions."""
         self.timer_stack = list()
         handle_holder = []
+        self.timer_got_fired = False
         self.handle = self.ioloop.add_timeout(
-            0.1, partial(self.on_timer_suicide,handle_holder))
+            0.1, partial(self.on_timer_that_deletes_itself, handle_holder))
         handle_holder.append(self.handle)
         self.start()
+        self.assertTrue(self.timer_got_called)
 
-    def on_timer_suicide(self, handle_holder):
+    def on_timer_that_deletes_itself(self, handle_holder):
         self.assertEqual(self.handle, handle_holder.pop())
         # This removal here should not raise exception by itself nor
         # in the caller SelectPoller.process_timeouts().
-        self.ioloop.remove_timeout( self.handle )
+        self.timer_got_called = True
+        self.ioloop.remove_timeout(self.handle)
         self.ioloop.stop()
 
-    # This patch delays the execution of the handlers so that they get fired
-    # in the same invocation of SelectPoller.process_timeouts().
-    @patch('pika.adapters.select_connection.SelectPoller.is_ready_to_fire',
-           side_effect= lambda x : 0<len(x) and
-                                   x[0][1]['deadline'] < time.time()-0.1 )
-    def test_timers_for_murder(self, mocked_is_ready):
-        self.timer_stack = list()
-        self.timer_a = self.ioloop.add_timeout(
-            0.05, partial(self.on_timer_murder, None))
-        self.timer_stack.append(None)
+    def test_timers_for_deleting_anothoer(self):
+        """This test verifies that an attempt by a timeout handler to
+        delete another, that  is ready to run, cancels the execution
+        of the latter without generating an exception."""
+        holder_for_target_timer = []
+        self.ioloop.add_timeout(
+            0.01, partial(self.on_timer_that_deletes_another_ready_timer,
+                          holder_for_target_timer))
+        timer_2 = self.ioloop.add_timeout(
+            0.02, self.on_timer_that_should_not_be_called)
+        holder_for_target_timer.append(timer_2)
+        time.sleep(0.03) # so that timer_1 and timer_2 fires at the same time.
+        self.start()
+        self.assertTrue(self.deleted_another_timer)
+        self.assertTrue(self.concluded)
 
-        self.timer_b = self.ioloop.add_timeout(
-            0.04, partial(self.on_timer_murder, self.timer_a))
-        self.timer_stack.append(self.timer_a)
+    def on_timer_that_deletes_another_ready_timer(self, holder):
+        target_timer = holder[0]
+        self.ioloop.remove_timeout(target_timer)
+        self.deleted_another_timer = True
 
-        self.start( self.check_none_is_left )
-
-    def check_none_is_left(self):
-        self.assertEqual(self.timer_stack, [None])
-        self.ioloop.stop()
-
-    def on_timer_murder(self, another_timeout):
-        self.assertEqual(another_timeout, self.timer_stack.pop())
-
-        if another_timeout is not None:
-            self.ioloop.remove_timeout( another_timeout )
-        if not self.timer_stack:
+        def on_conclude_another_timer_deletion():
+            self.concluded = True
+            self.assertTrue(self.deleted_another_timer)
+            self.assertNotIn(target_timer, self.ioloop._timeouts)
             self.ioloop.stop()
+
+        self.ioloop.add_timeout(
+            0.03, on_conclude_another_timer_deletion)
+
+    def on_timer_that_should_not_be_called(self):
+        self.fail('deleted timer callback was called.')
+
 
 class IOLoopTimerTestPoll(IOLoopTimerTestSelect):
     SELECT_POLLER='poll'
