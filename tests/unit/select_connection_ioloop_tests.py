@@ -86,11 +86,12 @@ class IOLoopTimerTestSelect(IOLoopBaseTest):
             self.ioloop.stop()
 
     def test_normal(self):
+        """Setup 5 timeout handlers and observe them get invoked one by one."""
         self.start_test()
 
     def test_timer_for_deleting_itself(self):
-        """This test verifies that an attempt to delete that timeout by
-        the corresponding handler generates no exceptions."""
+        """Verify that an attempt to delete a timeout within the
+        corresponding handler generates no exceptions."""
         self.timer_stack = list()
         handle_holder = []
         self.timer_got_fired = False
@@ -109,9 +110,9 @@ class IOLoopTimerTestSelect(IOLoopBaseTest):
         self.ioloop.stop()
 
     def test_timers_for_deleting_anothoer(self):
-        """This test verifies that an attempt by a timeout handler to
-        delete another, that  is ready to run, cancels the execution
-        of the latter without generating an exception."""
+        """Verify that an attempt by a timeout handler to delete another,
+        that  is ready to run, cancels the execution of the latter without
+        generating an exception."""
         holder_for_target_timer = []
         self.ioloop.add_timeout(
             0.01, partial(self.on_timer_that_deletes_another_ready_timer,
