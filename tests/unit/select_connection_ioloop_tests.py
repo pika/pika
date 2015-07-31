@@ -106,12 +106,12 @@ class IOLoopTimerTestSelect(IOLoopBaseTest):
         handle_holder = []
         self.timer_got_fired = False
         self.handle = self.ioloop.add_timeout(
-            0.1, partial(self._on_timer_deletes_itself, handle_holder))
+            0.1, partial(self._on_timer_delete_itself, handle_holder))
         handle_holder.append(self.handle)
         self.start()
         self.assertTrue(self.timer_got_called)
 
-    def _on_timer_deletes_itself(self, handle_holder):
+    def _on_timer_delete_itself(self, handle_holder):
         """ A timeout hanlder that tries to remove itself. """
         self.assertEqual(self.handle, handle_holder.pop())
         # This removal here should not raise exception by itself nor
