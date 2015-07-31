@@ -8,7 +8,6 @@ import socket
 import select
 import errno
 import time
-from operator import itemgetter
 from collections import defaultdict
 import threading
 
@@ -272,15 +271,15 @@ class SelectPoller(object):
         # Run the timeouts in order of deadlines. Although this shouldn't
         # be strictly necessary it preserves old behaviour when timeouts
         # were only run periodically.
-        to_run = sorted([(k,timer) for (k,timer) in self._timeouts.items()
+        to_run = sorted([(k, timer) for (k, timer) in self._timeouts.items()
                          if timer['deadline'] <= now],
-                        key = lambda item : item[1]['deadline'])
+                        key=lambda item: item[1]['deadline'])
 
         for k, timer in to_run:
             if k not in self._timeouts:
                 # Previous invocation(s) should have deleted the timer.
                 continue
-            try :
+            try:
                 timer['callback']()
             finally:
                 # Don't do 'del self._timeout[k]' as the key might

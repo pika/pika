@@ -3,6 +3,11 @@
 Tests for SelectConnection IOLoops
 
 """
+# Disable warnings about initialization of members outside of __init__
+# pylint: disable=W0201
+# Disable warnings about too many public methods as they are in base classes
+# pylint: disable=R0904
+
 import logging
 try:
     import unittest2 as unittest
@@ -21,8 +26,8 @@ from pika.adapters.select_connection import READ, WRITE, ERROR
 from functools import partial
 
 class IOLoopBaseTest(unittest.TestCase):
-    
-    SELECT_POLLER=None
+
+    SELECT_POLLER = None
     TIMEOUT = 1.0
 
     def setUp(self):
@@ -45,20 +50,20 @@ class IOLoopBaseTest(unittest.TestCase):
 
 
 class IOLoopThreadStopTestSelect(IOLoopBaseTest):
-    SELECT_POLLER='select'
+    SELECT_POLLER = 'select'
     def start_test(self):
         t = threading.Timer(0.1, self.ioloop.stop)
         t.start()
         self.start()
 
 class IOLoopThreadStopTestPoll(IOLoopThreadStopTestSelect):
-    SELECT_POLLER='poll'
+    SELECT_POLLER = 'poll'
 
 class IOLoopThreadStopTestEPoll(IOLoopThreadStopTestSelect):
-    SELECT_POLLER='epoll'
+    SELECT_POLLER = 'epoll'
 
 class IOLoopThreadStopTestKqueue(IOLoopThreadStopTestSelect):
-    SELECT_POLLER='kqueue'
+    SELECT_POLLER = 'kqueue'
 
 
 class IOLoopTimerTestSelect(IOLoopBaseTest):
@@ -67,9 +72,11 @@ class IOLoopTimerTestSelect(IOLoopBaseTest):
     """
     NUM_TIMERS = 5
     TIMER_INTERVAL = 0.02
-    SELECT_POLLER='select'
+    SELECT_POLLER = 'select'
 
     def set_timers(self):
+        """Set timers that timers that fires in succession with the sepecified
+        interval."""
         self.timer_stack = list()
         for i in range(self.NUM_TIMERS, 0, -1):
             deadline = i * self.TIMER_INTERVAL
@@ -77,10 +84,13 @@ class IOLoopTimerTestSelect(IOLoopBaseTest):
             self.timer_stack.append(i)
 
     def start_test(self):
+        """Set timers and start ioloop."""
         self.set_timers()
         self.start()
 
     def on_timer(self, val):
+        """A timeout handler that verifies that the given parameter matches
+        what is expected."""
         self.assertEqual(val, self.timer_stack.pop())
         if not self.timer_stack:
             self.ioloop.stop()
@@ -90,18 +100,19 @@ class IOLoopTimerTestSelect(IOLoopBaseTest):
         self.start_test()
 
     def test_timer_for_deleting_itself(self):
-        """Verify that an attempt to delete a timeout within the
+        """Verifies that an attempt to delete a timeout within the
         corresponding handler generates no exceptions."""
         self.timer_stack = list()
         handle_holder = []
         self.timer_got_fired = False
         self.handle = self.ioloop.add_timeout(
-            0.1, partial(self.on_timer_that_deletes_itself, handle_holder))
+            0.1, partial(self._on_timer_deletes_itself, handle_holder))
         handle_holder.append(self.handle)
         self.start()
         self.assertTrue(self.timer_got_called)
 
-    def on_timer_that_deletes_itself(self, handle_holder):
+    def _on_timer_deletes_itself(self, handle_holder):
+        """ A timeout hanlder that tries to remove itself. """
         self.assertEqual(self.handle, handle_holder.pop())
         # This removal here should not raise exception by itself nor
         # in the caller SelectPoller.process_timeouts().
@@ -109,48 +120,53 @@ class IOLoopTimerTestSelect(IOLoopBaseTest):
         self.ioloop.remove_timeout(self.handle)
         self.ioloop.stop()
 
-    def test_timers_for_deleting_anothoer(self):
-        """Verify that an attempt by a timeout handler to delete another,
+    def test_timer_delete_anothoer(self):
+        """Verifies that an attempt by a timeout handler to delete another,
         that  is ready to run, cancels the execution of the latter without
-        generating an exception."""
+        generating an exception. This should pose no issues."""
         holder_for_target_timer = []
         self.ioloop.add_timeout(
-            0.01, partial(self.on_timer_that_deletes_another_ready_timer,
+            0.01, partial(self._on_timer_delete_another,
                           holder_for_target_timer))
         timer_2 = self.ioloop.add_timeout(
-            0.02, self.on_timer_that_should_not_be_called)
+            0.02, self._on_timer_no_call)
         holder_for_target_timer.append(timer_2)
         time.sleep(0.03) # so that timer_1 and timer_2 fires at the same time.
         self.start()
         self.assertTrue(self.deleted_another_timer)
         self.assertTrue(self.concluded)
 
-    def on_timer_that_deletes_another_ready_timer(self, holder):
+    def _on_timer_delete_another(self, holder):
+        """A timeout handler that tries to remove another timeout handler
+        that is ready to run. This should pose no issues."""
         target_timer = holder[0]
         self.ioloop.remove_timeout(target_timer)
         self.deleted_another_timer = True
 
-        def on_conclude_another_timer_deletion():
+        def _on_timer_conclude():
+            """A timeout handler that is called to verify outcome of calling
+            or not calling of previously set handlers."""
             self.concluded = True
             self.assertTrue(self.deleted_another_timer)
-            self.assertNotIn(target_timer, self.ioloop._timeouts)
+            self.assertNotIn(target_timer,
+                             getattr(self.ioloop, '_timeouts'))
             self.ioloop.stop()
 
-        self.ioloop.add_timeout(
-            0.03, on_conclude_another_timer_deletion)
+        self.ioloop.add_timeout(0.01, _on_timer_conclude)
 
-    def on_timer_that_should_not_be_called(self):
+    def _on_timer_no_call(self):
+        """A timeout handler that is used when it's assumed not be called."""
         self.fail('deleted timer callback was called.')
 
 
 class IOLoopTimerTestPoll(IOLoopTimerTestSelect):
-    SELECT_POLLER='poll'
+    SELECT_POLLER = 'poll'
 
 class IOLoopTimerTestEPoll(IOLoopTimerTestSelect):
-    SELECT_POLLER='epoll'
+    SELECT_POLLER = 'epoll'
 
 class IOLoopTimerTestKqueue(IOLoopTimerTestSelect):
-    SELECT_POLLER='kqueue'
+    SELECT_POLLER = 'kqueue'
 
 
 class IOLoopSleepTimerTestSelect(IOLoopTimerTestSelect):
@@ -164,17 +180,17 @@ class IOLoopSleepTimerTestSelect(IOLoopTimerTestSelect):
 
 
 class IOLoopSleepTimerTestPoll(IOLoopSleepTimerTestSelect):
-    SELECT_POLLER='poll'
+    SELECT_POLLER = 'poll'
 
 class IOLoopSleepTimerTestEPoll(IOLoopSleepTimerTestSelect):
-    SELECT_POLLER='epoll'
+    SELECT_POLLER = 'epoll'
 
 class IOLoopSleepTimerTestKqueue(IOLoopSleepTimerTestSelect):
-    SELECT_POLLER='kqueue'
+    SELECT_POLLER = 'kqueue'
 
 class IOLoopSocketBaseSelect(IOLoopBaseTest):
-    
-    SELECT_POLLER='select'
+
+    SELECT_POLLER = 'select'
     READ_SIZE = 1024
 
     def save_sock(self, sock):
@@ -236,13 +252,13 @@ class IOLoopSocketBaseSelect(IOLoopBaseTest):
         raise AssertionError('Test timed out')
 
 class IOLoopSocketBasePoll(IOLoopSocketBaseSelect):
-    SELECT_POLLER='poll'
+    SELECT_POLLER = 'poll'
 
 class IOLoopSocketBaseEPoll(IOLoopSocketBaseSelect):
-    SELECT_POLLER='epoll'
+    SELECT_POLLER = 'epoll'
 
 class IOLoopSocketBaseKqueue(IOLoopSocketBaseSelect):
-    SELECT_POLLER='kqueue'
+    SELECT_POLLER = 'kqueue'
 
 
 class IOLoopSimpleMessageTestCaseSelect(IOLoopSocketBaseSelect):
@@ -256,7 +272,7 @@ class IOLoopSimpleMessageTestCaseSelect(IOLoopSocketBaseSelect):
         logging.debug("Writing to %d message: %s", fd, 'X')
         os.write(fd, b'X')
         self.ioloop.update_handler(fd, 0)
-    
+
     def verify_message(self, msg):
         self.assertEqual(msg, b'X')
         self.ioloop.stop()
@@ -265,10 +281,10 @@ class IOLoopSimpleMessageTestCaseSelect(IOLoopSocketBaseSelect):
         self.start()
 
 class IOLoopSimpleMessageTestCasetPoll(IOLoopSimpleMessageTestCaseSelect):
-    SELECT_POLLER='poll'
+    SELECT_POLLER = 'poll'
 
 class IOLoopSimpleMessageTestCasetEPoll(IOLoopSimpleMessageTestCaseSelect):
-    SELECT_POLLER='epoll'
+    SELECT_POLLER = 'epoll'
 
 class IOLoopSimpleMessageTestCasetKqueue(IOLoopSimpleMessageTestCaseSelect):
-    SELECT_POLLER='kqueue'
+    SELECT_POLLER = 'kqueue'
