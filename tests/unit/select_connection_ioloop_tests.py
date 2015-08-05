@@ -120,7 +120,7 @@ class IOLoopTimerTestSelect(IOLoopBaseTest):
         self.ioloop.remove_timeout(self.handle)
         self.ioloop.stop()
 
-    def test_timer_delete_anothoer(self):
+    def test_timer_delete_another(self):
         """Verifies that an attempt by a timeout handler to delete another,
         that  is ready to run, cancels the execution of the latter without
         generating an exception. This should pose no issues."""
