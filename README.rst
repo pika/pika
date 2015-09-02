@@ -1,7 +1,7 @@
 Pika, an AMQP 0-9-1 client library for Python
 =============================================
 
-|Version| |Downloads| |Status| |Coverage| |License|
+|Version| |Downloads| |Status| |Coverage| |License| |Docs|
 
 Introduction
 -------------
@@ -92,3 +92,7 @@ prior to issuing your pull request.
 
 .. |License| image:: https://img.shields.io/pypi/l/pika.svg?
    :target: https://pika.readthedocs.org
+
+.. |Docs| image:: https://readthedocs.org/projects/pika/badge/?version=stable
+   :target: https://pika.readthedocs.org
+   :alt: Documentation Status
