@@ -1,9 +1,8 @@
-# ***** BEGIN LICENSE BLOCK *****
-#
-# For copyright and licensing please refer to COPYING.
-#
-# ***** END LICENSE BLOCK *****
-"""Pika provides multiple adapters to connect to RabbitMQ:
+"""
+Connection Adapters
+===================
+
+Pika provides multiple adapters to connect to RabbitMQ:
 
 - adapters.select_connection.SelectConnection: A native event based connection
   adapter that implements select, kqueue, poll and epoll.
@@ -23,6 +22,7 @@ from pika.adapters.select_connection import SelectConnection
 from pika.adapters.select_connection import IOLoop
 
 # Dynamically handle 3rd party library dependencies for optional imports
+
 try:
     from pika.adapters.tornado_connection import TornadoConnection
 except ImportError:
