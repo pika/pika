@@ -1,6 +1,13 @@
 Version History
 ===============
 
+0.10.0 2015-09-02
+-----------------
+
+ - LibevConnection: Fixed dict chgd size during iteration (Michael Laing)
+ - SelectConnection: Fixed KeyError exceptions in IOLoop timeout executions (Shinji Suzuki)
+ - BlockingConnection: Add support to make BlockingConnection a Context Manager (@reddec)
+
 0.10.0b2 2015-07-15
 -------------------
 
