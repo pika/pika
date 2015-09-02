@@ -7,7 +7,7 @@ requirements = list()
 if on_rtd:
     requirements.append('tornado')
     requirements.append('twisted')
-    requirements.append('pyev')
+    #requirements.append('pyev')
 
 long_description = ('Pika is a pure-Python implementation of the AMQP 0-9-1 '
                     'protocol that tries to stay fairly independent of the '
