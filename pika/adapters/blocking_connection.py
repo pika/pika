@@ -681,7 +681,7 @@ class BlockingConnection(object):  # pylint: disable=R0902
         specify but it is recommended that you let Pika manage the channel
         numbers.
 
-        :rtype: pika.synchronous_connection.BlockingChannel
+        :rtype: pika.adapters.blocking_connection.BlockingChannel
         """
         with _CallbackResult(self._OnChannelOpenedArgs) as opened_args:
             impl_channel = self._impl.channel(
@@ -1813,7 +1813,7 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
 
     def get_waiting_message_count(self):
         """Returns the number of messages that may be retrieved from the current
-        queue consumer generator via `BasicChannel.consume` without blocking.
+        queue consumer generator via `BlockingChannel.consume` without blocking.
         NEW in pika 0.10.0
 
         :rtype: int
@@ -1947,7 +1947,7 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
         Returns a boolean value indicating the success of the operation.
 
         This is the legacy BlockingChannel method for publishing. See also
-        `BasicChannel.publish` that provides more information about failures.
+        `BlockingChannel.publish` that provides more information about failures.
 
         For more information on basic_publish and what the parameters do, see:
 
