@@ -1,12 +1,13 @@
-Pika, an AMQP 0-9-1 client library for Python
-=============================================
+Pika
+====
+Pika is a RabbitMQ (AMQP-0-9-1) client library for Python.
 
 |Version| |Downloads| |Status| |Coverage| |License| |Docs|
 
 Introduction
 -------------
-Pika is a pure-Python implementation of the AMQP 0-9-1 protocol that tries
-to stay fairly independent of the underlying network support library.
+Pika is a pure-Python implementation of the AMQP 0-9-1 protocol including RabbitMQ's
+extensions.
 
 - Python 2.6+ and 3.3+ are supported.
 
@@ -22,7 +23,6 @@ to stay fairly independent of the underlying network support library.
 
 Documentation
 -------------
-
 Pika's documentation can be found at `https://pika.readthedocs.org <https://pika.readthedocs.org>`_
 
 Example
@@ -74,9 +74,12 @@ Pika provides the following adapters
 Contributing
 ------------
 To contribute to pika, please make sure that any new features or changes
-to existing functionality include test coverage. Additionally, please format
-your code using `yapf <http://pypi.python.org/pypi/yapf>`_ with ``google`` style
-prior to issuing your pull request.
+to existing functionality **include test coverage**.
+
+*Pull requests that add or change code without coverage will most likely be rejected.*
+
+Additionally, please format your code using `yapf <http://pypi.python.org/pypi/yapf>`_
+with ``google`` style prior to issuing your pull request.
 
 .. |Version| image:: https://img.shields.io/pypi/v/pika.svg?
    :target: http://badge.fury.io/py/pika
