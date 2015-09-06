@@ -1,12 +1,13 @@
 """Core connection objects"""
 import ast
+import socket
 import sys
 import collections
 import logging
 import math
 import platform
 import threading
-import urllib
+
 import warnings
 
 if sys.version_info > (3,):
@@ -26,7 +27,6 @@ from pika import utils
 from pika import spec
 
 from pika.compat import basestring, url_unquote, dictkeys
-
 
 BACKPRESSURE_WARNING = ("Pika: Write buffer exceeded warning threshold at "
                         "%i bytes and an estimated %i frames behind")
@@ -60,7 +60,7 @@ class Parameters(object):
     DEFAULT_CONNECTION_ATTEMPTS = 1
     DEFAULT_CHANNEL_MAX = 0
     DEFAULT_FRAME_MAX = spec.FRAME_MAX_SIZE
-    DEFAULT_HEARTBEAT_INTERVAL = None          # accept server's proposal
+    DEFAULT_HEARTBEAT_INTERVAL = None  # accept server's proposal
     DEFAULT_HOST = 'localhost'
     DEFAULT_LOCALE = 'en_US'
     DEFAULT_PASSWORD = 'guest'
@@ -381,22 +381,22 @@ class ConnectionParameters(Parameters):
         if locale and self._validate_locale(locale):
             self.locale = locale
         if (heartbeat_interval is not None and
-            self._validate_heartbeat_interval(heartbeat_interval)):
+                self._validate_heartbeat_interval(heartbeat_interval)):
             self.heartbeat = heartbeat_interval
         if ssl is not None and self._validate_ssl(ssl):
             self.ssl = ssl
         if ssl_options and self._validate_ssl_options(ssl_options):
             self.ssl_options = ssl_options or dict()
         if (connection_attempts is not None and
-            self._validate_connection_attempts(connection_attempts)):
+                self._validate_connection_attempts(connection_attempts)):
             self.connection_attempts = connection_attempts
         if retry_delay is not None and self._validate_retry_delay(retry_delay):
             self.retry_delay = retry_delay
         if (socket_timeout is not None and
-            self._validate_socket_timeout(socket_timeout)):
+                self._validate_socket_timeout(socket_timeout)):
             self.socket_timeout = socket_timeout
         if (backpressure_detection is not None and
-            self._validate_backpressure(backpressure_detection)):
+                self._validate_backpressure(backpressure_detection)):
             self.backpressure_detection = backpressure_detection
 
 
@@ -508,30 +508,30 @@ class URLParameters(Parameters):
                                  values['backpressure_detection'])
 
         if ('channel_max' in values and
-            self._validate_channel_max(values['channel_max'])):
+                self._validate_channel_max(values['channel_max'])):
             self.channel_max = values['channel_max']
 
         if ('connection_attempts' in values and
-            self._validate_connection_attempts(values['connection_attempts'])):
+                self._validate_connection_attempts(values['connection_attempts'])):
             self.connection_attempts = values['connection_attempts']
 
         if ('frame_max' in values and
-            self._validate_frame_max(values['frame_max'])):
+                self._validate_frame_max(values['frame_max'])):
             self.frame_max = values['frame_max']
 
         if ('heartbeat_interval' in values and
-            self._validate_heartbeat_interval(values['heartbeat_interval'])):
+                self._validate_heartbeat_interval(values['heartbeat_interval'])):
             self.heartbeat = values['heartbeat_interval']
 
         if ('locale' in values and self._validate_locale(values['locale'])):
             self.locale = values['locale']
 
         if ('retry_delay' in values and
-            self._validate_retry_delay(values['retry_delay'])):
+                self._validate_retry_delay(values['retry_delay'])):
             self.retry_delay = values['retry_delay']
 
         if ('socket_timeout' in values and
-            self._validate_socket_timeout(values['socket_timeout'])):
+                self._validate_socket_timeout(values['socket_timeout'])):
             self.socket_timeout = values['socket_timeout']
 
         if 'ssl_options' in values:
@@ -927,6 +927,7 @@ class Connection(object):
 
         """
         return {
+            'hostname': socket.gethostname(),
             'product': PRODUCT,
             'platform': 'Python %s' % platform.python_version(),
             'capabilities': {
@@ -1377,7 +1378,7 @@ class Connection(object):
 
         """
         if (self._is_method_frame(frame_value) and
-            self._has_pending_callbacks(frame_value)):
+                self._has_pending_callbacks(frame_value)):
             self.callbacks.process(frame_value.channel_number,  # Prefix
                                    frame_value.method,  # Key
                                    self,  # Caller
