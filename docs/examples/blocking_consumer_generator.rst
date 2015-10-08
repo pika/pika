@@ -18,9 +18,9 @@ Example of consuming messages and acknowledging them::
         for method_frame, properties, body in channel.consume('test'):
 
             # Display the message parts
-            print method_frame
-            print properties
-            print body
+            print(method_frame)
+            print(properties)
+            print(body)
 
             # Acknowledge the message
             channel.basic_ack(method_frame.delivery_tag)
@@ -31,7 +31,7 @@ Example of consuming messages and acknowledging them::
 
         # Cancel the consumer and return any pending messages
         requeued_messages = channel.cancel()
-        print 'Requeued %i messages' % requeued_messages
+        print('Requeued %i messages' % requeued_messages)
 
         # Close the channel and the connection
         channel.close()

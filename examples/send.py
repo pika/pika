@@ -28,14 +28,14 @@ for x in range(0, ITERATIONS):
                                  properties=pika.BasicProperties(content_type='text/plain',
                                                                  app_id='test',
                                                                  delivery_mode=1)):
-        print 'Delivery not confirmed'
+        print('Delivery not confirmed')
     else:
-        print 'Confirmed delivery'
+        print('Confirmed delivery')
 
 channel.close()
 connection.close()
 
 duration = time.time() - start_time
-print "Published %i messages in %.4f seconds (%.2f messages per second)" % (ITERATIONS, duration, (ITERATIONS/duration))
+print("Published %i messages in %.4f seconds (%.2f messages per second)" % (ITERATIONS, duration, (ITERATIONS/duration)))
 
 """

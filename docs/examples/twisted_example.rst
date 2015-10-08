@@ -36,7 +36,7 @@ Example of writing a consumer using the :py:class:`Twisted connection adapter <p
         ch,method,properties,body = yield queue_object.get()
 
         if body:
-            print body
+            print(body)
 
         yield ch.basic_ack(delivery_tag=method.delivery_tag)
 
