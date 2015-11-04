@@ -152,8 +152,11 @@ class HeartbeatTests(unittest.TestCase):
         self.assertIsInstance(self.obj._new_heartbeat_frame(), frame.Heartbeat)
 
     def test_send_heartbeat_send_frame_called(self):
-        self.obj._send_heartbeat_frame()
-        self.mock_conn._send_frame.assert_called_once()
+        frame_value = self.obj._new_heartbeat_frame()
+        with mock.patch.object(self.obj, '_new_heartbeat_frame') as new_frame:
+            new_frame.return_value = frame_value
+            self.obj._send_heartbeat_frame()
+            self.mock_conn._send_frame.assert_called_once_with(frame_value)
 
     def test_send_heartbeat_counter_incremented(self):
         self.obj._send_heartbeat_frame()
