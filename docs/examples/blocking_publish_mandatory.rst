@@ -16,7 +16,7 @@ The following example demonstrates how to check if a message is delivered by set
 
     # Enabled delivery confirmations
     channel.confirm_delivery()
-    
+
     # Send a message
     if channel.basic_publish(exchange='test',
                              routing_key='test',
@@ -24,6 +24,6 @@ The following example demonstrates how to check if a message is delivered by set
                              properties=pika.BasicProperties(content_type='text/plain',
                                                              delivery_mode=1),
                              mandatory=True):
-        print 'Message was published'
+        print('Message was published')
     else:
-        print 'Message was returned'
+        print('Message was returned')
