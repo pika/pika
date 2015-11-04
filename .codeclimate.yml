@@ -1,8 +1,8 @@
 languages:
     Python: true
-exclude_paths: 
+exclude_paths:
     - docs/*
     - tests/*
     - utils/*
-    - pika/examples/*
     - pika/spec.py
+    - examples/*
