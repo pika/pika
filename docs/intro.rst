@@ -75,7 +75,7 @@ Example::
     # Step #5
     def handle_delivery(channel, method, header, body):
         """Called when we receive a message from RabbitMQ"""
-        print body
+        print(body)
 
     # Step #1: Connect to RabbitMQ using the default parameters
     parameters = pika.ConnectionParameters()

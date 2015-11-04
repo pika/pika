@@ -23,6 +23,6 @@ The following code demonstrates how to turn on delivery confirmations with the B
                              body='Hello World!',
                              properties=pika.BasicProperties(content_type='text/plain',
                                                              delivery_mode=1)):
-        print 'Message publish was confirmed'
+        print('Message publish was confirmed')
     else:
-        print 'Message could not be confirmed'
+        print('Message could not be confirmed')

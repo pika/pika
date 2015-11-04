@@ -17,7 +17,7 @@ Example of getting a message and acknowledging it::
         channel = connection.channel()
         method_frame, header_frame, body = channel.basic_get('test')
         if method_frame:
-            print method_frame, header_frame, body
+            print(method_frame, header_frame, body)
             channel.basic_ack(method_frame.delivery_tag)
         else:
-            print 'No message returned'
+            print('No message returned')
