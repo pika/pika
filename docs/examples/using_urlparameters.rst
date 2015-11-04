@@ -33,7 +33,7 @@ Connecting via SSL is pretty easy too. To connect via SSL for the previous examp
 
 If you're looking to tweak other parameters, such as enabling heartbeats, simply add the key/value pair as a query string value. The following builds upon the SSL connection, enabling heartbeats every 30 seconds::
 
-  amqps://www-data:rabbit_pwd@rabbit1/web_messages?heartbeat_interval=30
+  amqps://www-data:rabbit_pwd@rabbit1/web_messages?heartbeat=30
 
 
 Options that are available as query string values:
@@ -42,7 +42,7 @@ Options that are available as query string values:
 - channel_max: Alter the default channel maximum by passing in a 32-bit integer value here
 - connection_attempts: Alter the default of 1 connection attempt by passing in an integer value here [#f1]_.
 - frame_max: Alter the default frame maximum size value by passing in a long integer value [#f2]_.
-- heartbeat_interval: Pass a value greater than zero to enable heartbeats between the server and your application. The integer value you pass here will be the number of seconds between heartbeats.
+- heartbeat: Pass a value greater than zero to enable heartbeats between the server and your application. The integer value you pass here will be the number of seconds between heartbeats.
 - locale: Set the locale of the client using underscore delimited posix Locale code in ll_CC format (en_US, pt_BR, de_DE).
 - retry_delay: The number of seconds to wait before attempting to reconnect on a failed connection, if connection_attempts is > 0.
 - socket_timeout: Change the default socket timeout duration from 0.25 seconds to another integer or float value. Adjust with caution.
@@ -55,7 +55,7 @@ Options that are available as query string values:
 
 For an information on what the ssl_options can be set to reference the `official Python documentation <http://docs.python.org/2/library/ssl.html>`_. Here is an example of setting the client certificate and key::
 
-  amqp://www-data:rabbit_pwd@rabbit1/web_messages?heartbeat_interval=30&ssl_options=%7B%27keyfile%27%3A+%27%2Fetc%2Fssl%2Fmykey.pem%27%2C+%27certfile%27%3A+%27%2Fetc%2Fssl%2Fmycert.pem%27%7D
+  amqp://www-data:rabbit_pwd@rabbit1/web_messages?heartbeat=30&ssl_options=%7B%27keyfile%27%3A+%27%2Fetc%2Fssl%2Fmykey.pem%27%2C+%27certfile%27%3A+%27%2Fetc%2Fssl%2Fmycert.pem%27%7D
 
 The following example demonstrates how to generate the ssl_options string with `Python's urllib <http://docs.python.org/2/library/urllib.html>`_::
 
