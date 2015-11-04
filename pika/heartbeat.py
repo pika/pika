@@ -129,7 +129,8 @@ class HeartbeatChecker(object):
         """
         return not self._bytes_received == self.bytes_received_on_connection
 
-    def _new_heartbeat_frame(self):
+    @staticmethod
+    def _new_heartbeat_frame():
         """Return a new heartbeat frame.
 
         :rtype pika.frame.Heartbeat
