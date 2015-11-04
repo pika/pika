@@ -841,27 +841,28 @@ class ChannelTests(unittest.TestCase):
 
     def test_add_callbacks_basic_cancel_empty_added(self):
         self.obj._add_callbacks()
-        self.obj.callbacks.add.assert_any_calls(self.obj.channel_number,
-                                                spec.Basic.Cancel,
-                                                self.obj._on_getempty, False)
+        self.obj.callbacks.add.assert_any_call(self.obj.channel_number,
+                                               spec.Basic.Cancel,
+                                               self.obj._on_cancel, False)
 
     def test_add_callbacks_basic_get_empty_added(self):
         self.obj._add_callbacks()
-        self.obj.callbacks.add.assert_any_calls(self.obj.channel_number,
-                                                spec.Basic.GetEmpty,
-                                                self.obj._on_getempty, False)
+        print(self.obj.callbacks.add.__dict__)
+        self.obj.callbacks.add.assert_any_call(self.obj.channel_number,
+                                               spec.Basic.GetEmpty,
+                                               self.obj._on_getempty, False)
 
     def test_add_callbacks_channel_close_added(self):
         self.obj._add_callbacks()
-        self.obj.callbacks.add.assert_any_calls(self.obj.channel_number,
-                                                spec.Channel.Close,
-                                                self.obj._on_getempty, False)
+        self.obj.callbacks.add.assert_any_call(self.obj.channel_number,
+                                               spec.Channel.Close,
+                                               self.obj._on_close, True)
 
     def test_add_callbacks_channel_flow_added(self):
         self.obj._add_callbacks()
-        self.obj.callbacks.add.assert_any_calls(self.obj.channel_number,
-                                                spec.Channel.Flow,
-                                                self.obj._on_getempty, False)
+        self.obj.callbacks.add.assert_any_call(self.obj.channel_number,
+                                               spec.Channel.Flow,
+                                               self.obj._on_flow, False)
 
     def test_cleanup(self):
         self.obj._cleanup()
