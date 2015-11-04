@@ -8,7 +8,6 @@ except ImportError:
     from unittest import mock
 
 import random
-import urllib
 import copy
 try:
     import unittest2 as unittest
@@ -174,7 +173,7 @@ class ConnectionTests(unittest.TestCase):
             'channel_max': 1,
             'connection_attempts': 2,
             'frame_max': 30000,
-            'heartbeat_interval': 4,
+            'heartbeat': 4,
             'locale': 'en',
             'retry_delay': 5,
             'socket_timeout': 6,
@@ -193,8 +192,7 @@ class ConnectionTests(unittest.TestCase):
                 self.assertEqual(test_params[t_param], getattr(params, t_param),
                                  t_param)
             self.assertEqual(params.backpressure_detection, backpressure == 't')
-            self.assertEqual(test_params['heartbeat_interval'],
-                             params.heartbeat)
+            self.assertEqual(test_params['heartbeat'], params.heartbeat)
 
     def test_good_connection_parameters(self):
         """make sure connection kwargs get set correctly"""
