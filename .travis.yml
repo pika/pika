@@ -1,19 +1,19 @@
+sudo: false
 language: python
+addons:
+  apt:
+    packages:
+      - libev-dev
 python:
-    - 2.6
-    - 2.7
-    - 3.3
-    - 3.4
-    - 3.5
-before_install:
-    - sudo add-apt-repository "deb http://us.archive.ubuntu.com/ubuntu/ trusty main restricted universe multiverse"
-    - sudo add-apt-repository "deb http://us.archive.ubuntu.com/ubuntu/ trusty-updates main restricted universe multiverse"
-    - sudo apt-get update -qq
-    - sudo apt-get install libev-dev/trusty
+  - 2.6
+  - 2.7
+  - 3.3
+  - 3.4
+  - 3.5
 install:
-    - if [[ $TRAVIS_PYTHON_VERSION == '2.6' ]]; then pip install unittest2 ordereddict; fi
-    - if [[ $TRAVIS_PYTHON_VERSION != '2.6' ]]; then pip install pyev; fi
-    - pip install -r test-requirements.txt
+  - if [[ $TRAVIS_PYTHON_VERSION == '2.6' ]]; then pip install unittest2 ordereddict; fi
+  - if [[ $TRAVIS_PYTHON_VERSION != '2.6' ]]; then pip install pyev; fi
+  - pip install -r test-requirements.txt
 services:
   - rabbitmq
 script: nosetests
