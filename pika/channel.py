@@ -145,7 +145,7 @@ class Channel(object):
         confirm mode. The acknowledgement can be for a single message or a
         set of messages up to and including a specific message.
 
-        :param int delivery-tag: The server-assigned delivery tag
+        :param int delivery_tag: The server-assigned delivery tag
         :param bool multiple: If set to True, the delivery tag is treated as
                               "up to and including", so that multiple messages
                               can be acknowledged with a single method. If set
