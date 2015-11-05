@@ -393,9 +393,9 @@ class IOLoopEintrTestCaseSelect(IOLoopBaseTest):
         self.poller.start()
         self.assertTrue(self._eintr_read_handler_is_called)
         if pika.compat.EINTR_IS_EXPOSED:
-            self.assertTrue(is_resumable_mock.call_count == 1)
+            self.assertEqual(is_resumable_mock.call_count, 1)
         else:
-            self.assertFalse(is_resumable_mock.call_count == 0)
+            self.assertEqual(is_resumable_mock.call_count, 0)
 
 
 class IOLoopEintrTestCasePoll(IOLoopEintrTestCaseSelect):
