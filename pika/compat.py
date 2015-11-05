@@ -1,5 +1,5 @@
+import os
 import sys as _sys
-
 
 PY2 = _sys.version_info < (3,)
 PY3 = not PY2
@@ -103,3 +103,7 @@ def as_bytes(value):
         return value.encode('UTF-8')
     return value
 
+
+HAVE_SIGNAL = os.name == 'posix'
+
+EINTR_IS_EXPOSED = _sys.version_info[:2] <= (3,4)
