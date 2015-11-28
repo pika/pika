@@ -12,8 +12,6 @@ import pika
 from pika import adapters
 from pika.adapters import select_connection
 
-LOGGER = logging.getLogger(__name__)
-
 
 class AsyncTestCase(unittest.TestCase):
     DESCRIPTION = ""
@@ -21,6 +19,7 @@ class AsyncTestCase(unittest.TestCase):
     TIMEOUT = 15
 
     def setUp(self):
+        self.logger = logging.getLogger(self.__class__.__name__)
         self.parameters = pika.URLParameters(
             'amqp://guest:guest@localhost:5672/%2F')
         super(AsyncTestCase, self).setUp()
@@ -47,7 +46,7 @@ class AsyncTestCase(unittest.TestCase):
 
     def stop(self):
         """close the connection and stop the ioloop"""
-        LOGGER.info("Stopping test")
+        self.logger.info("Stopping test")
         self.connection.remove_timeout(self.timeout)
         self.timeout = None
         self.connection.close()
@@ -65,19 +64,23 @@ class AsyncTestCase(unittest.TestCase):
 
     def on_closed(self, connection, reply_code, reply_text):
         """called when the connection has finished closing"""
-        LOGGER.debug("Connection Closed")
+        self.logger.debug('on_closed: %r %r %r', connection,
+                          reply_code, reply_text)
         self._stop()
 
     def on_open(self, connection):
+        self.logger.debug('on_open: %r', connection)
         self.channel = connection.channel(self.begin)
 
     def on_open_error(self, connection, error):
+        self.logger.debug('on_open_error: %r %r', connection, error)
         connection.ioloop.stop()
         raise AssertionError('Error connecting to RabbitMQ')
 
     def on_timeout(self):
         """called when stuck waiting for connection to close"""
         # force the ioloop to stop
+        self.logger.debug('on_timeout')
         self.connection.ioloop.stop()
         raise AssertionError('Test timed out')
 
