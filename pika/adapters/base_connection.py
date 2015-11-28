@@ -285,7 +285,16 @@ class BaseConnection(connection.Connection):
     def _handle_disconnect(self):
         """Called internally when the socket is disconnected already
         """
-        self._adapter_disconnect()
+        try:
+            self._adapter_disconnect()
+        except (exceptions.ProbableAccessDeniedError,
+                exceptions.ProbableAuthenticationError) as error:
+            LOGGER.error('disconnected due to %r', error)
+            self.callbacks.process(0,
+                                   self.ON_CONNECTION_ERROR,
+                                   self,
+                                   self, error)
+
         self._on_connection_closed(None, True)
 
     def _handle_ioloop_stop(self):

@@ -1,6 +1,13 @@
 Version History
 ===============
 
+Next Release
+------------
+
+ - Connection failures that occur after the socket is opened and before the
+   AMQP connection is ready to go are now reported by calling the connection
+   error callback.  Previously these were not consistently reported.
+
 0.10.0 2015-09-02
 -----------------
 
@@ -14,7 +21,7 @@ Version History
  - f72b58f - Fixed failure to purge _ConsumerCancellationEvt from BlockingChannel._pending_events during basic_cancel. (Vitaly Kruglikov)
 
 0.10.0b1 2015-07-10
----------------------
+-------------------
 
 High-level summary of notable changes:
 
