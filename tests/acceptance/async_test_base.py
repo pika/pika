@@ -71,7 +71,7 @@ class AsyncTestCase(unittest.TestCase):
     def on_open(self, connection):
         self.channel = connection.channel(self.begin)
 
-    def on_open_error(self, connection):
+    def on_open_error(self, connection, error):
         connection.ioloop.stop()
         raise AssertionError('Error connecting to RabbitMQ')
 
