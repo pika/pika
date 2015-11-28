@@ -13,15 +13,17 @@ from pika import adapters
 from pika.adapters import select_connection
 
 LOGGER = logging.getLogger(__name__)
-PARAMETERS = pika.URLParameters('amqp://guest:guest@localhost:5672/%2f')
-DEFAULT_TIMEOUT = 15
 
 
 class AsyncTestCase(unittest.TestCase):
     DESCRIPTION = ""
     ADAPTER = None
-    TIMEOUT = DEFAULT_TIMEOUT
+    TIMEOUT = 15
 
+    def setUp(self):
+        self.parameters = pika.URLParameters(
+            'amqp://guest:guest@localhost:5672/%2F')
+        super(AsyncTestCase, self).setUp()
 
     def shortDescription(self):
         method_desc = super(AsyncTestCase, self).shortDescription()
@@ -37,7 +39,7 @@ class AsyncTestCase(unittest.TestCase):
     def start(self, adapter=None):
         self.adapter = adapter or self.ADAPTER
 
-        self.connection = self.adapter(PARAMETERS, self.on_open,
+        self.connection = self.adapter(self.parameters, self.on_open,
                                        self.on_open_error, self.on_closed)
         self.timeout = self.connection.add_timeout(self.TIMEOUT,
                                                    self.on_timeout)
@@ -84,7 +86,7 @@ class BoundQueueTestCase(AsyncTestCase):
 
     def tearDown(self):
         """Cleanup auto-declared queue and exchange"""
-        self._cconn = self.adapter(PARAMETERS, self._on_cconn_open,
+        self._cconn = self.adapter(self.parameters, self._on_cconn_open,
                                    self._on_cconn_error, self._on_cconn_closed)
 
     def start(self, adapter=None):
