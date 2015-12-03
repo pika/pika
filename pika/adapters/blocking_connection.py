@@ -374,7 +374,10 @@ class BlockingConnection(object):  # pylint: disable=R0902
                            self._open_error_result.is_ready)
 
         if self._open_error_result.ready:
-            raise self._open_error_result.value.error
+            exception_or_message = self._open_error_result.value.error
+            if isinstance(exception_or_message, Exception):
+                raise exception_or_message
+            raise exceptions.AMQPConnectionError(exception_or_message)
 
         assert self._opened_result.ready
         assert self._opened_result.value.connection is self._impl
@@ -422,9 +425,11 @@ class BlockingConnection(object):  # pylint: disable=R0902
                     # presently passes reason_code=0, so we don't detect that as
                     # an error
                     if self._open_error_result.ready:
+                        maybe_exception = self._open_error_result.value.error
                         LOGGER.critical('Connection open failed - %r',
-                                        self._open_error_result.value.error)
-                        raise self._open_error_result.value.error
+                                        maybe_exception)
+                        if isinstance(maybe_exception, Exception):
+                            raise maybe_exception
 
                     LOGGER.critical('Connection close detected')
                     raise exceptions.ConnectionClosed()
