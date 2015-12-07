@@ -3,4 +3,4 @@ codecov
 mock
 nose
 tornado
-twisted
+twisted<15.4.0

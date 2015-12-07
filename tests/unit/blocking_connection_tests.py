@@ -72,9 +72,9 @@ class BlockingConnectionTests(unittest.TestCase):
                                '_process_io_for_connection_setup'):
             connection = blocking_connection.BlockingConnection('params')
 
+        exc_value = pika.exceptions.AMQPConnectionError('failed')
         connection._open_error_result.set_value_once(
-            select_connection_class_mock.return_value,
-            'failed')
+            select_connection_class_mock.return_value, exc_value)
 
         with mock.patch.object(
                 blocking_connection.BlockingConnection,
@@ -83,7 +83,7 @@ class BlockingConnectionTests(unittest.TestCase):
             with self.assertRaises(pika.exceptions.AMQPConnectionError) as cm:
                 connection._process_io_for_connection_setup()
 
-            self.assertEqual(cm.exception.args[0], 'failed')
+            self.assertEqual(cm.exception, exc_value)
 
     @patch.object(blocking_connection, 'SelectConnection',
                   spec_set=SelectConnectionTemplate,

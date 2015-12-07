@@ -158,7 +158,8 @@ class LibevConnection(BaseConnection):
         be wiped.
 
         """
-        for timer in self._active_timers.keys():
+        active_timers = list(self._active_timers.keys())
+        for timer in active_timers:
             self.remove_timeout(timer)
         if global_sigint_watcher:
             global_sigint_watcher.stop()
@@ -196,7 +197,7 @@ class LibevConnection(BaseConnection):
 
     def _reset_io_watcher(self):
         """Reset the IO watcher; retry as necessary
-        
+
         """
         self._io_watcher.stop()
 

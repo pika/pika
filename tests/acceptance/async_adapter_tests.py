@@ -1,7 +1,7 @@
 import time
 import uuid
 
-from pika import spec
+from pika import spec, URLParameters
 from pika.compat import as_bytes
 
 from async_test_base import (AsyncTestCase, BoundQueueTestCase, AsyncAdapters)
@@ -305,7 +305,6 @@ class TestZ_PublishAndConsumeBig(BoundQueueTestCase, AsyncAdapters):
         self.channel.basic_cancel(self.on_cancelled, self.ctag)
 
 
-
 class TestZ_PublishAndGet(BoundQueueTestCase, AsyncAdapters):
     DESCRIPTION = "Publish a message and get it"
 
@@ -320,3 +319,24 @@ class TestZ_PublishAndGet(BoundQueueTestCase, AsyncAdapters):
         self.assertEqual(body, as_bytes(self.msg_body))
         self.channel.basic_ack(method.delivery_tag)
         self.stop()
+
+
+class TestZ_AccessDenied(AsyncTestCase, AsyncAdapters):
+    DESCRIPTION = "Verify that access denied invokes on open error callback"
+
+    def start(self, *args, **kwargs):
+        self.parameters.virtual_host = str(uuid.uuid4())
+        self.error_captured = False
+        super(TestZ_AccessDenied, self).start(*args, **kwargs)
+
+    def on_open_error(self, connection, error):
+        self.error_captured = True
+        self.stop()
+
+    def on_open(self, connection):
+        super(TestZ_AccessDenied, self).on_open(connection)
+        self.stop()
+
+    def tearDown(self):
+        self.assertTrue(self.error_captured)
+        super(TestZ_AccessDenied, self).tearDown()

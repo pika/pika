@@ -12,16 +12,17 @@ import pika
 from pika import adapters
 from pika.adapters import select_connection
 
-LOGGER = logging.getLogger(__name__)
-PARAMETERS = pika.URLParameters('amqp://guest:guest@localhost:5672/%2f')
-DEFAULT_TIMEOUT = 15
-
 
 class AsyncTestCase(unittest.TestCase):
     DESCRIPTION = ""
     ADAPTER = None
-    TIMEOUT = DEFAULT_TIMEOUT
+    TIMEOUT = 15
 
+    def setUp(self):
+        self.logger = logging.getLogger(self.__class__.__name__)
+        self.parameters = pika.URLParameters(
+            'amqp://guest:guest@localhost:5672/%2F')
+        super(AsyncTestCase, self).setUp()
 
     def shortDescription(self):
         method_desc = super(AsyncTestCase, self).shortDescription()
@@ -37,7 +38,7 @@ class AsyncTestCase(unittest.TestCase):
     def start(self, adapter=None):
         self.adapter = adapter or self.ADAPTER
 
-        self.connection = self.adapter(PARAMETERS, self.on_open,
+        self.connection = self.adapter(self.parameters, self.on_open,
                                        self.on_open_error, self.on_closed)
         self.timeout = self.connection.add_timeout(self.TIMEOUT,
                                                    self.on_timeout)
@@ -45,7 +46,7 @@ class AsyncTestCase(unittest.TestCase):
 
     def stop(self):
         """close the connection and stop the ioloop"""
-        LOGGER.info("Stopping test")
+        self.logger.info("Stopping test")
         self.connection.remove_timeout(self.timeout)
         self.timeout = None
         self.connection.close()
@@ -63,19 +64,23 @@ class AsyncTestCase(unittest.TestCase):
 
     def on_closed(self, connection, reply_code, reply_text):
         """called when the connection has finished closing"""
-        LOGGER.debug("Connection Closed")
+        self.logger.debug('on_closed: %r %r %r', connection,
+                          reply_code, reply_text)
         self._stop()
 
     def on_open(self, connection):
+        self.logger.debug('on_open: %r', connection)
         self.channel = connection.channel(self.begin)
 
-    def on_open_error(self, connection):
+    def on_open_error(self, connection, error):
+        self.logger.debug('on_open_error: %r %r', connection, error)
         connection.ioloop.stop()
         raise AssertionError('Error connecting to RabbitMQ')
 
     def on_timeout(self):
         """called when stuck waiting for connection to close"""
         # force the ioloop to stop
+        self.logger.debug('on_timeout')
         self.connection.ioloop.stop()
         raise AssertionError('Test timed out')
 
@@ -84,7 +89,7 @@ class BoundQueueTestCase(AsyncTestCase):
 
     def tearDown(self):
         """Cleanup auto-declared queue and exchange"""
-        self._cconn = self.adapter(PARAMETERS, self._on_cconn_open,
+        self._cconn = self.adapter(self.parameters, self._on_cconn_open,
                                    self._on_cconn_error, self._on_cconn_closed)
 
     def start(self, adapter=None):

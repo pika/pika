@@ -280,7 +280,7 @@ class BlockingConnection(object):  # pylint: disable=R0902
 
     # Connection-establishment error callback args
     _OnOpenErrorArgs = namedtuple('BlockingConnection__OnOpenErrorArgs',
-                                  'connection error_text')
+                                  'connection error')
 
     # Connection-closing callback args
     _OnClosedArgs = namedtuple('BlockingConnection__OnClosedArgs',
@@ -374,8 +374,10 @@ class BlockingConnection(object):  # pylint: disable=R0902
                            self._open_error_result.is_ready)
 
         if self._open_error_result.ready:
-            raise exceptions.AMQPConnectionError(
-                self._open_error_result.value.error_text)
+            exception_or_message = self._open_error_result.value.error
+            if isinstance(exception_or_message, Exception):
+                raise exception_or_message
+            raise exceptions.AMQPConnectionError(exception_or_message)
 
         assert self._opened_result.ready
         assert self._opened_result.value.connection is self._impl
@@ -422,6 +424,13 @@ class BlockingConnection(object):  # pylint: disable=R0902
                     # NOTE: unfortunately, upon socket error, on_close_callback
                     # presently passes reason_code=0, so we don't detect that as
                     # an error
+                    if self._open_error_result.ready:
+                        maybe_exception = self._open_error_result.value.error
+                        LOGGER.critical('Connection open failed - %r',
+                                        maybe_exception)
+                        if isinstance(maybe_exception, Exception):
+                            raise maybe_exception
+
                     LOGGER.critical('Connection close detected')
                     raise exceptions.ConnectionClosed()
                 else:
