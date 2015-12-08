@@ -24,7 +24,7 @@ from pika import utils
 
 from pika import spec
 
-from pika.compat import basestring, url_unquote, dictkeys
+from pika.compat import xrange, basestring, url_unquote, dictkeys
 
 
 BACKPRESSURE_WARNING = ("Pika: Write buffer exceeded warning threshold at "
