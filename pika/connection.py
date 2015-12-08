@@ -1204,13 +1204,16 @@ class Connection(object):
 
         """
         limit = self.params.channel_max or channel.MAX_CHANNELS
-        if len(self._channels) == limit:
+        if len(self._channels) >= limit:
             raise exceptions.NoFreeChannels()
 
-        ckeys = set(self._channels.keys())
-        if not ckeys:
-            return 1
-        return [x + 1 for x in sorted(ckeys) if x + 1 not in ckeys][0]
+        if self._channels:
+            n = min(self._channels)
+            if n <= 1:
+                for n in xrange(n + 1, n + len(self._channels) + 1):
+                    if n not in self._channels:
+                        return n
+        return 1
 
     def _on_channel_cleanup(self, channel):
         """Remove the channel from the dict of channels when Channel.CloseOk is
