@@ -2,6 +2,10 @@
 Tests for pika.channel.ContentFrameDispatcher
 
 """
+
+# Disable pylint warning about Access to a protected member
+# pylint: disable=W0212
+
 import collections
 import logging
 
@@ -16,17 +20,35 @@ except ImportError:
     import unittest
 import warnings
 
+from pika import callback
 from pika import channel
+from pika import connection
 from pika import exceptions
 from pika import frame
 from pika import spec
 
 
+class ConnectionTemplate(connection.Connection):
+    """Template for using as mock spec_set for the pika Connection class. It
+    defines members accessed by the code under test that would be defined in the
+    base class's constructor.
+    """
+    callbacks = None
+
+    # Suppress pylint warnings about specific abstract methods not being
+    # overridden
+    _adapter_connect = connection.Connection._adapter_connect
+    _adapter_disconnect = connection.Connection._adapter_disconnect
+    _flush_outbound = connection.Connection._flush_outbound
+    add_timeout = connection.Connection.add_timeout
+    remove_timeout = connection.Connection.remove_timeout
+
+
 class ChannelTests(unittest.TestCase):
 
-    @mock.patch('pika.connection.Connection')
-    def _create_connection(self, connection=None):
-        return connection
+    @mock.patch('pika.connection.Connection', autospec=ConnectionTemplate)
+    def _create_connection(self, connectionClassMock=None):
+        return connectionClassMock()
 
     def setUp(self):
         self.connection = self._create_connection()
@@ -440,14 +462,12 @@ class ChannelTests(unittest.TestCase):
         self.obj.confirm_delivery(logging.debug)
         self.obj.callbacks.add.assert_called_with(*expectation, arguments=None)
 
-    def test_confirm_delivery_callback_with_nowait(self):
+    def test_confirm_delivery_callback_with_nowait_raises_value_error(self):
         self.obj._set_state(self.obj.OPEN)
         expectation = [self.obj.channel_number, spec.Confirm.SelectOk,
                        self.obj._on_selectok]
-        self.obj.confirm_delivery(logging.debug, True)
-        self.assertNotIn(mock.call(*expectation,
-                                   arguments=None),
-                         self.obj.callbacks.add.call_args_list)
+        with self.assertRaises(ValueError):
+            self.obj.confirm_delivery(logging.debug, True)
 
     def test_confirm_delivery_callback_basic_ack(self):
         self.obj._set_state(self.obj.OPEN)
@@ -847,7 +867,6 @@ class ChannelTests(unittest.TestCase):
 
     def test_add_callbacks_basic_get_empty_added(self):
         self.obj._add_callbacks()
-        print(self.obj.callbacks.add.__dict__)
         self.obj.callbacks.add.assert_any_call(self.obj.channel_number,
                                                spec.Basic.GetEmpty,
                                                self.obj._on_getempty, False)
@@ -1153,20 +1172,22 @@ class ChannelTests(unittest.TestCase):
 
     def test_rpc_raises_channel_closed(self):
         self.assertRaises(exceptions.ChannelClosed, self.obj._rpc,
-                          frame.Method(self.obj.channel_number,
-                                       spec.Basic.Ack(1)))
+                          spec.Basic.Cancel('tag_abc'))
 
     def test_rpc_while_blocking_appends_blocked_collection(self):
         self.obj._set_state(self.obj.OPEN)
         self.obj._blocking = spec.Confirm.Select()
-        expectation = [frame.Method(self.obj.channel_number, spec.Basic.Ack(1)),
-                       'Foo', None]
+        acceptable_replies = [
+            (spec.Basic.CancelOk, {'consumer_tag': 'tag_abc'})]
+        expectation = [spec.Basic.Cancel('tag_abc'), lambda *args: None,
+                       acceptable_replies]
         self.obj._rpc(*expectation)
         self.assertIn(expectation, self.obj._blocked)
 
     def test_rpc_throws_value_error_with_unacceptable_replies(self):
         self.obj._set_state(self.obj.OPEN)
-        self.assertRaises(TypeError, self.obj._rpc, spec.Basic.Ack(1),
+        self.assertRaises(TypeError, self.obj._rpc,
+                          spec.Basic.Cancel('tag_abc'),
                           logging.debug, 'Foo')
 
     def test_rpc_throws_type_error_with_invalid_callback(self):
@@ -1174,14 +1195,26 @@ class ChannelTests(unittest.TestCase):
         self.assertRaises(TypeError, self.obj._rpc, spec.Channel.Open(1),
                           ['foo'], [spec.Channel.OpenOk])
 
-    def test_rpc_adds_on_synchronous_complete(self):
+    def test_rpc_enters_blocking_and_adds_on_synchronous_complete(self):
         self.obj._set_state(self.obj.OPEN)
         method_frame = spec.Channel.Open()
         self.obj._rpc(method_frame, None, [spec.Channel.OpenOk])
+        self.assertEqual(self.obj._blocking, method_frame.NAME)
         self.obj.callbacks.add.assert_called_with(
             self.obj.channel_number, spec.Channel.OpenOk,
             self.obj._on_synchronous_complete,
             arguments=None)
+
+    def test_rpc_not_blocking_and_no_on_synchronous_complete_when_no_replies(self):
+        self.obj._set_state(self.obj.OPEN)
+        method_frame = spec.Channel.Open()
+        self.obj._rpc(method_frame, None, acceptable_replies=[])
+        self.assertIsNone(self.obj._blocking)
+        with self.assertRaises(AssertionError):
+            self.obj.callbacks.add.assert_called_with(
+                mock.ANY, mock.ANY,
+                self.obj._on_synchronous_complete,
+                arguments=mock.ANY)
 
     def test_rpc_adds_callback(self):
         self.obj._set_state(self.obj.OPEN)
