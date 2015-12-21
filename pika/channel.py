@@ -390,7 +390,7 @@ class Channel(object):
         """
         if not self.is_open:
             raise exceptions.ChannelClosed()
-        if not isinstance(delivery_tag, int):
+        if not isinstance(delivery_tag, (int, long)):
             raise TypeError('delivery_tag must be an integer')
         return self._send_method(spec.Basic.Reject(delivery_tag, requeue))
 
