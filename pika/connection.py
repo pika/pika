@@ -726,11 +726,15 @@ class Connection(object):
         """
         if not channel_number:
             channel_number = self._next_channel_number()
-        self._channels[channel_number] = self._create_channel(channel_number,
-                                                              on_open_callback)
+        channel = self._create_channel(channel_number, on_open_callback)
+        # we have to retain the channel locally,
+        # and not only use self._channels[channel_number]
+        self._channels[channel_number] = channel
         self._add_channel_callbacks(channel_number)
-        self._channels[channel_number].open()
-        return self._channels[channel_number]
+        channel.open()
+        # because otherwise open() might clear self._channels entirely
+        # when the connection was closed previously (by the server).
+        return channel
 
     def close(self, reply_code=200, reply_text='Normal shutdown'):
         """Disconnect from RabbitMQ. If there are any open channels, it will
