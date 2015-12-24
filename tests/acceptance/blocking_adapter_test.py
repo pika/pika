@@ -41,6 +41,11 @@ DEFAULT_PARAMS = pika.URLParameters(DEFAULT_URL)
 DEFAULT_TIMEOUT = 15
 
 
+
+def setUpModule():
+    logging.basicConfig(level=logging.DEBUG)
+
+
 class BlockingTestCaseBase(unittest.TestCase):
 
     TIMEOUT = DEFAULT_TIMEOUT
@@ -178,7 +183,10 @@ class TestSuddenBrokerDisconnectBeforeChannel(BlockingTestCaseBase):
     def test(self):
         """BlockingConnection resets properly on TCP/IP drop during channel()
         """
-        with ForwardServer((DEFAULT_PARAMS.host, DEFAULT_PARAMS.port)) as fwd:
+        with ForwardServer(
+            remote_addr=(DEFAULT_PARAMS.host, DEFAULT_PARAMS.port),
+            local_linger_args=(1, 0)) as fwd:
+
             self.connection = self._connect(
                 PARAMS_URL_TEMPLATE % {"port": fwd.server_address[1]})
 
@@ -198,7 +206,10 @@ class TestNoAccessToFileDescriptorAfterConnectionClosed(BlockingTestCaseBase):
     def test(self):
         """BlockingConnection no access file descriptor after ConnectionClosed
         """
-        with ForwardServer((DEFAULT_PARAMS.host, DEFAULT_PARAMS.port)) as fwd:
+        with ForwardServer(
+            remote_addr=(DEFAULT_PARAMS.host, DEFAULT_PARAMS.port),
+            local_linger_args=(1, 0)) as fwd:
+
             self.connection = self._connect(
                 PARAMS_URL_TEMPLATE % {"port": fwd.server_address[1]})
 
@@ -244,7 +255,10 @@ class TestDisconnectDuringConnectionStart(BlockingTestCaseBase):
     def test(self):
         """ BlockingConnection TCP/IP connection loss in CONNECTION_START
         """
-        fwd = ForwardServer((DEFAULT_PARAMS.host, DEFAULT_PARAMS.port))
+        fwd = ForwardServer(
+            remote_addr=(DEFAULT_PARAMS.host, DEFAULT_PARAMS.port),
+            local_linger_args=(1, 0))
+
         fwd.start()
         self.addCleanup(lambda: fwd.stop() if fwd.running else None)
 
@@ -267,7 +281,9 @@ class TestDisconnectDuringConnectionTune(BlockingTestCaseBase):
     def test(self):
         """ BlockingConnection TCP/IP connection loss in CONNECTION_TUNE
         """
-        fwd = ForwardServer((DEFAULT_PARAMS.host, DEFAULT_PARAMS.port))
+        fwd = ForwardServer(
+            remote_addr=(DEFAULT_PARAMS.host, DEFAULT_PARAMS.port),
+            local_linger_args=(1, 0))
         fwd.start()
         self.addCleanup(lambda: fwd.stop() if fwd.running else None)
 
@@ -290,7 +306,10 @@ class TestDisconnectDuringConnectionProtocol(BlockingTestCaseBase):
     def test(self):
         """ BlockingConnection TCP/IP connection loss in CONNECTION_PROTOCOL
         """
-        fwd = ForwardServer((DEFAULT_PARAMS.host, DEFAULT_PARAMS.port))
+        fwd = ForwardServer(
+            remote_addr=(DEFAULT_PARAMS.host, DEFAULT_PARAMS.port),
+            local_linger_args=(1, 0))
+
         fwd.start()
         self.addCleanup(lambda: fwd.stop() if fwd.running else None)
 
