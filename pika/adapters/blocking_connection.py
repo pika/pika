@@ -27,6 +27,7 @@ import pika.spec
 # NOTE: import SelectConnection after others to avoid circular depenency
 from pika.adapters.select_connection import SelectConnection
 
+
 LOGGER = logging.getLogger(__name__)
 
 
@@ -336,10 +337,13 @@ class BlockingConnection(object):  # pylint: disable=R0902
             on_close_callback=self._closed_result.set_value_once,
             stop_ioloop_on_close=False)
 
+        self._impl.ioloop.activate_poller()
+
         self._process_io_for_connection_setup()
 
     def _cleanup(self):
         """Clean up members that might inhibit garbage collection"""
+        self._impl.ioloop.deactivate_poller()
         self._ready_events.clear()
         self._opened_result.reset()
         self._open_error_result.reset()
@@ -375,10 +379,13 @@ class BlockingConnection(object):  # pylint: disable=R0902
                                self._open_error_result.is_ready)
 
         if self._open_error_result.ready:
-            exception_or_message = self._open_error_result.value.error
-            if isinstance(exception_or_message, Exception):
-                raise exception_or_message
-            raise exceptions.AMQPConnectionError(exception_or_message)
+            try:
+                exception_or_message = self._open_error_result.value.error
+                if isinstance(exception_or_message, Exception):
+                    raise exception_or_message
+                raise exceptions.AMQPConnectionError(exception_or_message)
+            finally:
+                self._cleanup()
 
         assert self._opened_result.ready
         assert self._opened_result.value.connection is self._impl
@@ -620,6 +627,11 @@ class BlockingConnection(object):  # pylint: disable=R0902
         :param str reply_text: The text reason for the close
 
         """
+        if self.is_closed:
+            LOGGER.debug('Close called on closed connection (%s): %s',
+                         reply_code, reply_text)
+            return
+
         LOGGER.info('Closing connection (%s): %s', reply_code, reply_text)
 
         self._user_initiated_close = True

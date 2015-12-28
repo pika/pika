@@ -34,7 +34,9 @@ import pika.exceptions
 # Disable warning Invalid variable name
 # pylint: disable=C0103
 
+
 LOGGER = logging.getLogger(__name__)
+
 PARAMS_URL_TEMPLATE = (
     'amqp://guest:guest@127.0.0.1:%(port)s/%%2f?socket_timeout=1')
 DEFAULT_URL = PARAMS_URL_TEMPLATE % {'port': 5672}
@@ -94,6 +96,25 @@ class TestCreateAndCloseConnection(BlockingTestCaseBase):
         self.assertTrue(connection.is_closed)
         self.assertFalse(connection.is_open)
         self.assertFalse(connection.is_closing)
+
+
+class TestMultiCloseConnection(BlockingTestCaseBase):
+
+    def test(self):
+        """BlockingConnection: Close connection twice"""
+        connection = self._connect()
+        self.assertIsInstance(connection, pika.BlockingConnection)
+        self.assertTrue(connection.is_open)
+        self.assertFalse(connection.is_closed)
+        self.assertFalse(connection.is_closing)
+
+        connection.close()
+        self.assertTrue(connection.is_closed)
+        self.assertFalse(connection.is_open)
+        self.assertFalse(connection.is_closing)
+
+        # Second close call shouldn't crash
+        connection.close()
 
 
 class TestConnectionContextManagerClosesConnection(BlockingTestCaseBase):
@@ -443,7 +464,7 @@ class TestRemoveTimeoutFromTimeoutCallback(BlockingTestCaseBase):
         while not rx_timer2:
             connection.process_data_events(time_limit=None)
 
-        self.assertNotIn(timer_id1, connection._impl.ioloop._timeouts)
+        self.assertNotIn(timer_id1, connection._impl.ioloop._poller._timeouts)
         self.assertFalse(connection._ready_events)
 
 
