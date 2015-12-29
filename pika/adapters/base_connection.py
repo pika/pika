@@ -276,10 +276,16 @@ class BaseConnection(connection.Connection):
         return None
 
     def _flush_outbound(self):
-        """write early, if the socket will take the data why not get it out
-        there asap.
+        """Have the state manager schedule the necessary I/O.
         """
-        self._handle_write()
+        # NOTE: We don't call _handle_write() from this context, because pika
+        # code was not designed to be writing to (or reading from) the socket
+        # from any methods, except from ioloop handler callbacks. Many methods
+        # in pika core and adapters do not deal gracefully with connection
+        # errors occurring in their context; e.g., Connection.channel (pika
+        # issue #659), Connection._on_connection_tune (if connection loss is
+        # detected in _send_connection_tune_ok, before _send_connection_open is
+        # called), etc., etc., etc.
         self._manage_event_state()
 
     def _handle_disconnect(self):
