@@ -96,6 +96,7 @@ publisher.py::
             :param str reply_text: The server provided reply_text if given
 
             """
+            self._stopping = True
             self._channel = None
             if self._closing:
                 self._connection.ioloop.stop()
@@ -168,6 +169,7 @@ publisher.py::
 
             """
             LOGGER.warning('Channel was closed: (%s) %s', reply_code, reply_text)
+            self._stopping = True
             if not self._closing:
                 self._connection.close()
 
@@ -233,6 +235,7 @@ publisher.py::
 
             """
             LOGGER.info('Issuing consumer related RPC commands')
+            self._stopping = False
             self.enable_delivery_confirmations()
             self.schedule_next_message()
 
