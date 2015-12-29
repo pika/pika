@@ -436,7 +436,10 @@ class Channel(object):
         For more information see:
             http://www.rabbitmq.com/extensions.html#confirms
 
-        :param method callback: The callback for delivery confirmations
+        :param method callback: The callback for delivery confirmations that has
+          the following signature: callback(pika.frame.Method), where
+          method_frame contains either method `spec.Basic.Ack` or
+          `spec.Basic.Nack`
         :param bool nowait: Do not send a reply frame (Confirm.SelectOk)
 
         """
@@ -674,7 +677,8 @@ class Channel(object):
 
         Leave the queue name empty for a auto-named queue in RabbitMQ
 
-        :param method callback: The method to call on Queue.DeclareOk
+        :param method callback: callback(pika.frame.Method) for method
+          Queue.DeclareOk
         :param queue: The queue name
         :type queue: str or unicode
         :param bool passive: Only check to see if the queue exists
@@ -694,7 +698,8 @@ class Channel(object):
         self._validate_channel_and_callback(callback)
         return self._rpc(spec.Queue.Declare(0, queue, passive, durable,
                                             exclusive, auto_delete, nowait,
-                                            arguments or dict()), callback,
+                                            arguments or dict()),
+                         callback,
                          replies)
 
     def queue_delete(self,
@@ -1087,52 +1092,74 @@ class Channel(object):
         """
         LOGGER.debug('%i blocked frames', len(self._blocked))
         self._blocking = None
-        while len(self._blocked) > 0 and self._blocking is None:
+        while self._blocked and self._blocking is None:
             self._rpc(*self._blocked.popleft())
 
     def _rpc(self, method_frame, callback=None, acceptable_replies=None):
-        """Shortcut wrapper to the Connection's rpc command using its callback
-        stack, passing in our channel number.
+        """Make a syncronous channel RPC call for a synchronous method frame. If
+        the channel is already in the blocking state, then enqueue the request,
+        but don't send it at this time; it will be eventually sent by
+        `_on_synchronous_complete` after the prior blocking request receives a
+        resposne. If the channel is not in the blocking state and
+        `acceptable_replies` is not empty, transition the channel to the
+        blocking state and register for `_on_synchronous_complete` before
+        sending the request.
+
+        NOTE: A populated callback must be accompanied by populated
+        acceptable_replies.
 
         :param pika.amqp_object.Method method_frame: The method frame to call
         :param method callback: The callback for the RPC response
         :param list acceptable_replies: The replies this RPC call expects
 
         """
+        assert method_frame.synchronous, (
+            'Only synchronous-capable frames may be used with _rpc: %r'
+            % (method_frame,))
+
+        # Validate we got None or a list of acceptable_replies
+        if not isinstance(acceptable_replies, (type(None), list)):
+            raise TypeError('acceptable_replies should be list or None')
+
+        # Validate the callback is callable
+        if callback is not None and not is_callable(callback):
+            raise TypeError('callback should be None, a function or method.')
+
+        if callback is not None and not acceptable_replies:
+            raise ValueError('A populated callback must be accompanied by '
+                             'populated acceptable_replies')
+
         # Make sure the channel is open
         if self.is_closed:
             raise exceptions.ChannelClosed
 
         # If the channel is blocking, add subsequent commands to our stack
         if self._blocking:
+            LOGGER.debug('Already in blocking state, so enqueueing frame %s; '
+                         'acceptable_replies=%r',
+                         method_frame, acceptable_replies)
             return self._blocked.append([method_frame, callback,
                                          acceptable_replies])
 
-        # Validate we got None or a list of acceptable_replies
-        if acceptable_replies and not isinstance(acceptable_replies, list):
-            raise TypeError("acceptable_replies should be list or None")
-
-        # Validate the callback is callable
-        if callback and not is_callable(callback):
-            raise TypeError("callback should be None, a function or method.")
-
-        # Block until a response frame is received for synchronous frames
-        if method_frame.synchronous:
-            self._blocking = method_frame.NAME
-
         # If acceptable replies are set, add callbacks
         if acceptable_replies:
-            for reply in acceptable_replies or list():
+            # Block until a response frame is received for synchronous frames
+            self._blocking = method_frame.NAME
+            LOGGER.debug(
+                'Entering blocking state on frame %s; acceptable_replies=%r',
+                method_frame, acceptable_replies)
+
+            for reply in acceptable_replies:
                 if isinstance(reply, tuple):
                     reply, arguments = reply
                 else:
                     arguments = None
-                LOGGER.debug('Adding in on_synchronous_complete callback')
+                LOGGER.debug('Adding on_synchronous_complete callback')
                 self.callbacks.add(self.channel_number, reply,
                                    self._on_synchronous_complete,
                                    arguments=arguments)
-                if callback:
-                    LOGGER.debug('Adding passed in callback')
+                if callback is not None:
+                    LOGGER.debug('Adding passed-in callback')
                     self.callbacks.add(self.channel_number, reply, callback,
                                        arguments=arguments)
 

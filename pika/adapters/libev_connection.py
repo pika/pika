@@ -127,7 +127,7 @@ class LibevConnection(BaseConnection):
             if self._on_signal_callback and not global_sigterm_watcher:
                 global_sigterm_watcher = \
                     self.ioloop.signal(signal.SIGTERM,
-                                                                                  self._handle_sigterm)
+                                       self._handle_sigterm)
 
             if self._on_signal_callback and not global_sigint_watcher:
                 global_sigint_watcher = self.ioloop.signal(signal.SIGINT,
@@ -136,8 +136,8 @@ class LibevConnection(BaseConnection):
             if not self._io_watcher:
                 self._io_watcher = \
                     self.ioloop.io(self.socket.fileno(),
-                                                                        self._PIKA_TO_LIBEV_ARRAY[self.event_state],
-                                                                        self._handle_events)
+                                   self._PIKA_TO_LIBEV_ARRAY[self.event_state],
+                                   self._handle_events)
 
             self.async = pyev.Async(self.ioloop, self._noop_callable)
             self.async.start()
@@ -209,8 +209,9 @@ class LibevConnection(BaseConnection):
                     self._PIKA_TO_LIBEV_ARRAY[self.event_state])
 
                 break
-            except:  # sometimes the stop() doesn't complete in time
-                if retries > 5: raise
+            except Exception:  # sometimes the stop() doesn't complete in time
+                if retries > 5:
+                    raise
                 self._io_watcher.stop()  # so try it again
                 retries += 1
 
@@ -268,7 +269,7 @@ class LibevConnection(BaseConnection):
         :rtype: timer instance handle.
 
         """
-        LOGGER.debug('deadline: {0}'.format(deadline))
+        LOGGER.debug('deadline: %s', deadline)
         timer = self._get_timer(deadline)
         self._active_timers[timer] = (callback_method, callback_timeout,
                                       callback_kwargs)
