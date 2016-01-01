@@ -99,6 +99,7 @@ class LibevConnection(BaseConnection):
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", RuntimeWarning)
                 self.ioloop = pyev.default_loop()
+                self.ioloop.update()
 
         self.async = None
         self._on_signal_callback = on_signal_callback
@@ -139,8 +140,11 @@ class LibevConnection(BaseConnection):
                                    self._PIKA_TO_LIBEV_ARRAY[self.event_state],
                                    self._handle_events)
 
+            # NOTE: if someone knows why this async is needed here, please add
+            # a comment in the code that explains it.
             self.async = pyev.Async(self.ioloop, self._noop_callable)
             self.async.start()
+
             if self._on_signal_callback:
                 global_sigterm_watcher.start()
             if self._on_signal_callback:
@@ -237,12 +241,12 @@ class LibevConnection(BaseConnection):
             (callback_method, callback_timeout,
              kwargs) = self._active_timers[timer]
 
+            self.remove_timeout(timer)
+
             if callback_timeout:
                 callback_method(timeout=timer, **kwargs)
             else:
                 callback_method(**kwargs)
-
-            self.remove_timeout(timer)
         else:
             LOGGER.warning('Timer callback_method not found')
 
@@ -284,9 +288,13 @@ class LibevConnection(BaseConnection):
 
         """
         LOGGER.debug('stop')
-        self._active_timers.pop(timer, None)
-        timer.stop()
-        self._stopped_timers.append(timer)
+        try:
+            self._active_timers.pop(timer)
+        except KeyError:
+            LOGGER.warning("Attempted to remove inactive timer %s", timer)
+        else:
+            timer.stop()
+            self._stopped_timers.append(timer)
 
     def _create_and_connect_to_socket(self, sock_addr_tuple):
         """Call super and then set the socket to nonblocking."""

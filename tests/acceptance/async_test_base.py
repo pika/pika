@@ -60,12 +60,13 @@ class AsyncTestCase(unittest.TestCase):
     def stop(self):
         """close the connection and stop the ioloop"""
         self.logger.info("Stopping test")
-        self.connection.remove_timeout(self.timeout)
-        self.timeout = None
+        if self.timeout is not None:
+            self.connection.remove_timeout(self.timeout)
+            self.timeout = None
         self.connection.close()
 
     def _stop(self):
-        if hasattr(self, 'timeout') and self.timeout:
+        if hasattr(self, 'timeout') and self.timeout is not None:
             self.logger.info("Removing timeout")
             self.connection.remove_timeout(self.timeout)
             self.timeout = None
@@ -91,11 +92,10 @@ class AsyncTestCase(unittest.TestCase):
 
     def on_timeout(self):
         """called when stuck waiting for connection to close"""
-        self.logger.info('on_timeout at %s', datetime.utcnow())
-        # force the ioloop to stop
-        self.logger.debug('on_timeout called')
-        self.connection.ioloop.stop()
-        raise AssertionError('Test timed out')
+        self.logger.info('on_timeout called at %s', datetime.utcnow())
+        # Initiate cleanup
+        self.timeout = None  # the dispatcher should have removed it
+        self.stop()
 
 
 class BoundQueueTestCase(AsyncTestCase):
