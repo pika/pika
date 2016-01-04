@@ -394,7 +394,7 @@ class BlockingConnection(object):  # pylint: disable=R0902
                         returning true when it's time to stop processing.
                         Their results are OR'ed together.
         """
-        if self._impl.is_closed:
+        if self.is_closed:
             raise exceptions.ConnectionClosed()
 
         # Conditions for terminating the processing loop:
@@ -404,38 +404,35 @@ class BlockingConnection(object):  # pylint: disable=R0902
         #         OR
         #   empty outbound buffer and any waiter is ready
         is_done = (lambda:
-            self._closed_result.ready or
-            (not self._impl.outbound_buffer and
-             (not waiters or any(ready() for ready in  waiters))))
+                   self._closed_result.ready or
+                   (not self._impl.outbound_buffer and
+                    (not waiters or any(ready() for ready in  waiters))))
 
         # Process I/O until our completion condition is satisified
         while not is_done():
             self._impl.ioloop.poll()
             self._impl.ioloop.process_timeouts()
 
-        if self._closed_result.ready:
+        if self._open_error_result.ready or self._closed_result.ready:
             try:
-                result = self._closed_result.value
-                if result.reason_code not in [0, 200]:
-                    LOGGER.critical('Connection close detected; result=%r',
-                                    result)
-                    raise exceptions.ConnectionClosed(result.reason_code,
-                                                      result.reason_text)
-                elif not self._user_initiated_close:
-                    # NOTE: unfortunately, upon socket error, on_close_callback
-                    # presently passes reason_code=0, so we don't detect that as
-                    # an error
+                if not self._user_initiated_close:
                     if self._open_error_result.ready:
                         maybe_exception = self._open_error_result.value.error
-                        LOGGER.critical('Connection open failed - %r',
-                                        maybe_exception)
+                        LOGGER.error('Connection open failed - %r',
+                                     maybe_exception)
                         if isinstance(maybe_exception, Exception):
                             raise maybe_exception
-
-                    LOGGER.critical('Connection close detected')
-                    raise exceptions.ConnectionClosed()
+                        else:
+                            raise exceptions.ConnectionClosed(maybe_exception)
+                    else:
+                        result = self._closed_result.value
+                        LOGGER.error('Connection close detected; result=%r',
+                                     result)
+                        raise exceptions.ConnectionClosed(result.reason_code,
+                                                          result.reason_text)
                 else:
-                    LOGGER.info('Connection closed; result=%r', result)
+                    LOGGER.info('Connection closed; result=%r',
+                                self._closed_result.value)
             finally:
                 self._cleanup()
 
@@ -732,7 +729,8 @@ class BlockingConnection(object):  # pylint: disable=R0902
     @property
     def is_closing(self):
         """
-        Returns a boolean reporting the current connection state.
+        Returns True if connection is in the process of closing due to
+        client-initiated `close` request, but closing is not yet complete.
         """
         return self._impl.is_closing
 
@@ -1143,7 +1141,8 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
 
     @property
     def is_closing(self):
-        """Returns True if the channel is closing.
+        """Returns True if client-initiated closing of the channel is in
+        progress.
 
         :rtype: bool
 
@@ -1173,7 +1172,7 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
                         returning true when it's time to stop processing.
                         Their results are OR'ed together.
         """
-        if self._impl.is_closed:
+        if self.is_closed:
             raise exceptions.ChannelClosed()
 
         if not waiters:

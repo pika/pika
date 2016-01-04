@@ -2,6 +2,18 @@
 Tests for pika.connection.Connection
 
 """
+
+# Suppress pylint warnings concerning access to protected member
+# pylint: disable=W0212
+
+# Suppress pylint messages concerning missing docstrings
+# pylint: disable=C0111
+
+# Suppress pylint messages concerning invalid method name
+# pylint: disable=C0103
+
+
+
 try:
     import mock
 except ImportError:
@@ -17,6 +29,7 @@ except ImportError:
 from pika import connection
 from pika import channel
 from pika import credentials
+from pika import exceptions
 from pika import frame
 from pika import spec
 from pika.compat import xrange, urlencode
@@ -97,14 +110,127 @@ class ConnectionTests(unittest.TestCase):
         self.assertFalse(on_close_ready.called,
                          '_on_close_ready should not have been called')
 
-    def test_on_disconnect(self):
-        """if connection isn't closing _on_close_ready should not be called"""
-        self.connection._on_disconnect(0, 'Undefined')
+    def test_on_terminate_cleans_up(self):
+        """_on_terminate cleans up heartbeat, adapter, and channels"""
+        heartbeat = mock.Mock()
+        self.connection.heartbeat = heartbeat
+        self.connection._adapter_disconnect = mock.Mock()
+
+        self.connection._on_terminate(0, 'Undefined')
+
+        heartbeat.stop.assert_called_once_with()
+        self.connection._adapter_disconnect.assert_called_once_with()
+
         self.assertTrue(self.channel._on_close.called,
                         'channel._on_close should have been called')
         method_frame = self.channel._on_close.call_args[0][0]
         self.assertEqual(method_frame.method.reply_code, 0)
         self.assertEqual(method_frame.method.reply_text, 'Undefined')
+
+        self.assertTrue(self.connection.is_closed)
+
+    def test_on_terminate_invokes_connection_closed_callback(self):
+        """_on_terminate invokes `Connection.ON_CONNECTION_CLOSED` callbacks"""
+        self.connection.callbacks.process = mock.Mock(
+            wraps=self.connection.callbacks.process)
+
+        self.connection._adapter_disconnect = mock.Mock()
+
+        self.connection._on_terminate(1, 'error text')
+
+        self.connection.callbacks.process.assert_called_once_with(
+            0, self.connection.ON_CONNECTION_CLOSED,
+            self.connection, self.connection,
+            1, 'error text')
+
+        with self.assertRaises(AssertionError):
+            self.connection.callbacks.process.assert_any_call(
+                0, self.connection.ON_CONNECTION_ERROR,
+                self.connection, self.connection,
+                mock.ANY)
+
+    def test_on_terminate_invokes_protocol_on_connection_error_and_closed(self):
+        """_on_terminate invokes `ON_CONNECTION_ERROR` with `IncompatibleProtocolError` and `ON_CONNECTION_CLOSED` callbacks"""
+        with mock.patch.object(self.connection.callbacks, 'process'):
+
+            self.connection._adapter_disconnect = mock.Mock()
+
+            self.connection._set_connection_state(
+                self.connection.CONNECTION_PROTOCOL)
+
+            self.connection._on_terminate(1, 'error text')
+
+            self.assertEqual(self.connection.callbacks.process.call_count, 2)
+
+            self.connection.callbacks.process.assert_any_call(
+                0, self.connection.ON_CONNECTION_ERROR,
+                self.connection, self.connection,
+                mock.ANY)
+
+            conn_exc = self.connection.callbacks.process.call_args_list[0][0][4]
+            self.assertIs(type(conn_exc), exceptions.IncompatibleProtocolError)
+            self.assertSequenceEqual(conn_exc.args, [1, 'error text'])
+
+            self.connection.callbacks.process.assert_any_call(
+                0, self.connection.ON_CONNECTION_CLOSED,
+                self.connection, self.connection,
+                1, 'error text')
+
+    def test_on_terminate_invokes_auth_on_connection_error_and_closed(self):
+        """_on_terminate invokes `ON_CONNECTION_ERROR` with `ProbableAuthenticationError` and `ON_CONNECTION_CLOSED` callbacks"""
+        with mock.patch.object(self.connection.callbacks, 'process'):
+
+            self.connection._adapter_disconnect = mock.Mock()
+
+            self.connection._set_connection_state(
+                self.connection.CONNECTION_START)
+
+            self.connection._on_terminate(1, 'error text')
+
+            self.assertEqual(self.connection.callbacks.process.call_count, 2)
+
+            self.connection.callbacks.process.assert_any_call(
+                0, self.connection.ON_CONNECTION_ERROR,
+                self.connection, self.connection,
+                mock.ANY)
+
+            conn_exc = self.connection.callbacks.process.call_args_list[0][0][4]
+            self.assertIs(type(conn_exc),
+                          exceptions.ProbableAuthenticationError)
+            self.assertSequenceEqual(conn_exc.args, [1, 'error text'])
+
+            self.connection.callbacks.process.assert_any_call(
+                0, self.connection.ON_CONNECTION_CLOSED,
+                self.connection, self.connection,
+                1, 'error text')
+
+    def test_on_terminate_invokes_access_denied_on_connection_error_and_closed(
+            self):
+        """_on_terminate invokes `ON_CONNECTION_ERROR` with `ProbableAccessDeniedError` and `ON_CONNECTION_CLOSED` callbacks"""
+        with mock.patch.object(self.connection.callbacks, 'process'):
+
+            self.connection._adapter_disconnect = mock.Mock()
+
+            self.connection._set_connection_state(
+                self.connection.CONNECTION_TUNE)
+
+            self.connection._on_terminate(1, 'error text')
+
+            self.assertEqual(self.connection.callbacks.process.call_count, 2)
+
+            self.connection.callbacks.process.assert_any_call(
+                0, self.connection.ON_CONNECTION_ERROR,
+                self.connection, self.connection,
+                mock.ANY)
+
+            conn_exc = self.connection.callbacks.process.call_args_list[0][0][4]
+            self.assertIs(type(conn_exc), exceptions.ProbableAccessDeniedError)
+            self.assertSequenceEqual(conn_exc.args, [1, 'error text'])
+
+            self.connection.callbacks.process.assert_any_call(
+                0, self.connection.ON_CONNECTION_CLOSED,
+                self.connection, self.connection,
+                1, 'error text')
 
     @mock.patch('pika.connection.Connection.connect')
     def test_new_conn_should_use_first_channel(self, connect):
@@ -124,12 +250,12 @@ class ConnectionTests(unittest.TestCase):
         """make sure the callback adding works"""
         self.connection.callbacks = mock.Mock(spec=self.connection.callbacks)
         for test_method, expected_key in (
-            (self.connection.add_backpressure_callback,
-             self.connection.ON_CONNECTION_BACKPRESSURE),
-            (self.connection.add_on_open_callback,
-             self.connection.ON_CONNECTION_OPEN),
-            (self.connection.add_on_close_callback,
-             self.connection.ON_CONNECTION_CLOSED)):
+                (self.connection.add_backpressure_callback,
+                 self.connection.ON_CONNECTION_BACKPRESSURE),
+                (self.connection.add_on_open_callback,
+                 self.connection.ON_CONNECTION_OPEN),
+                (self.connection.add_on_close_callback,
+                 self.connection.ON_CONNECTION_CLOSED)):
             self.connection.callbacks.reset_mock()
             test_method(callback_method)
             self.connection.callbacks.add.assert_called_once_with(
@@ -234,12 +360,13 @@ class ConnectionTests(unittest.TestCase):
         }
         #Test Type Errors
         for bad_field, bad_value in (
-            ('host', 15672), ('port', '5672'), ('virtual_host', True),
-            ('channel_max', '4'), ('frame_max', '5'), ('credentials', 'bad'),
-            ('locale', 1), ('heartbeat_interval', '6'),
-            ('socket_timeout', '42'), ('retry_delay', 'two'),
-            ('backpressure_detection', 'true'), ('ssl', {'ssl': 'dict'}),
-            ('ssl_options', True), ('connection_attempts', 'hello')):
+                ('host', 15672), ('port', '5672'), ('virtual_host', True),
+                ('channel_max', '4'), ('frame_max', '5'),
+                ('credentials', 'bad'), ('locale', 1),
+                ('heartbeat_interval', '6'), ('socket_timeout', '42'),
+                ('retry_delay', 'two'), ('backpressure_detection', 'true'),
+                ('ssl', {'ssl': 'dict'}), ('ssl_options', True),
+                ('connection_attempts', 'hello')):
             bkwargs = copy.deepcopy(kwargs)
             bkwargs[bad_field] = bad_value
             self.assertRaises(TypeError, connection.ConnectionParameters,
@@ -371,20 +498,28 @@ class ConnectionTests(unittest.TestCase):
         self.assertEqual(['ab'], list(self.connection.outbound_buffer))
         self.assertEqual('hearbeat obj', self.connection.heartbeat)
 
-    def test_on_connection_closed(self):
-        """make sure connection close sends correct frames"""
+    def test_on_connection_close(self):
+        """make sure _on_connection_close terminates connection"""
         method_frame = mock.Mock()
         method_frame.method = mock.Mock(spec=spec.Connection.Close)
         method_frame.method.reply_code = 1
         method_frame.method.reply_text = 'hello'
-        heartbeat = mock.Mock()
-        self.connection.heartbeat = heartbeat
-        self.connection._adapter_disconnect = mock.Mock()
-        self.connection._on_connection_closed(method_frame, from_adapter=False)
+        self.connection._on_terminate = mock.Mock()
+        self.connection._on_connection_close(method_frame)
         #Check
-        self.assertTupleEqual((1, 'hello'), self.connection.closing)
-        heartbeat.stop.assert_called_once_with()
-        self.connection._adapter_disconnect.assert_called_once_with()
+        self.connection._on_terminate.assert_called_once_with(1, 'hello')
+
+    def test_on_connection_close_ok(self):
+        """make sure _on_connection_close_ok terminates connection"""
+        method_frame = mock.Mock()
+        method_frame.method = mock.Mock(spec=spec.Connection.CloseOk)
+        self.connection.closing = (1, 'bye')
+        self.connection._on_terminate = mock.Mock()
+
+        self.connection._on_connection_close_ok(method_frame)
+
+        #Check
+        self.connection._on_terminate.assert_called_once_with(1, 'bye')
 
     @mock.patch('pika.frame.decode_frame')
     def test_on_data_available(self, decode_frame):
