@@ -12,6 +12,10 @@ Next Release
    gracefully.
  - Pass error information from failed socket connection to user callbacks
    on_open_error_callback and on_close_callback with result_code=-1.
+ - ValueError is raised when a completion callback is passed to an asynchronous
+   (nowait) Channel operation. It's an application error to pass a non-None
+   completion callback with an asynchronous request, because this callback can
+   never be serviced in the asynchronous scenario.
 
 0.10.0 2015-09-02
 -----------------
