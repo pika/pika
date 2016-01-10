@@ -7,6 +7,9 @@ Next Release
  - Connection failures that occur after the socket is opened and before the
    AMQP connection is ready to go are now reported by calling the connection
    error callback.  Previously these were not consistently reported.
+ - In BaseConnection.close, call _handle_ioloop_stop only if the connection is
+   already closed to allow the asynchronous close operation to complete
+   gracefully.
 
 0.10.0 2015-09-02
 -----------------
