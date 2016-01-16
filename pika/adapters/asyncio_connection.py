@@ -4,12 +4,12 @@ Supports two methods of establishing the connection, using AsyncioConnection
 or AsyncioProtocolConnection. For details about each method, see the docstrings
 of the corresponding classes.
 
-The interfaces in this module are Deferred-based when possible. This means that
+The interfaces in this module are Future-based when possible. This means that
 the connection.channel() method and most of the channel methods return
-Deferreds instead of taking a callback argument and that basic_consume()
-returns a Twisted DeferredQueue where messages from the server will be
-stored. Refer to the docstrings for TwistedConnection.channel() and the
-TwistedChannel class for details.
+Futures instead of taking a callback argument and that basic_consume()
+returns a asyncion.Queue subclass instance where messages from the server will be
+stored. Refer to the docstrings for AsyncioConnection.channel() and the
+AsyncioChannel class for details.
 
 """
 import functools
@@ -24,7 +24,7 @@ from pika.adapters import base_connection
 class defer:
 
     @staticmethod
-    def fail(failure):
+    def fail(failure=None):
         f = asyncio.Future()
         f.set_exception(failure)
         return f
@@ -38,8 +38,8 @@ class defer:
 
 class ClosableQueue(asyncio.Queue):
     """
-    Like the normal Twisted DeferredQueue, but after close() is called with an
-    Exception instance all pending Deferreds are errbacked and further attempts
+    Like the normal asycio Queue, but after close() is called with an
+    Exception instance all pending Futures are errbacked and further attempts
     to call get() or put() return a Failure wrapping that exception.
     """
 
@@ -59,18 +59,20 @@ class ClosableQueue(asyncio.Queue):
 
     def close(self, reason):
         self.closed = reason
-        while self.waiting:
-            self.waiting.pop().set_exception(reason)
-        self.pending = []
+        while self._getters:
+            waiter = self._getters.popleft()
+            if not waiter.done():
+                waiter.set_exception(reason)
+        self._queue.clear()
 
 
 class AsyncioChannel:
     """A wrapper wround Pika's Channel.
 
     Channel methods that normally take a callback argument are wrapped to
-    return a Deferred that fires with whatever would be passed to the callback.
-    If the channel gets closed, all pending Deferreds are errbacked with a
-    ChannelClosed exception. The returned Deferreds fire with whatever
+    return a Future that fires with whatever would be passed to the callback.
+    If the channel gets closed, all pending Future are set_exception with a
+    ChannelClosed exception. The returned Future fire with whatever
     arguments the callback to the original method would receive.
 
     The basic_consume method is wrapped in a special way, see its docstring for
@@ -83,7 +85,6 @@ class AsyncioChannel:
                        'tx_rollback', 'flow', 'basic_cancel')
 
     def __init__(self, channel):
-        print('Init AsycnioChannel', channel)
         if isinstance(channel, asyncio.Future):
             channel = channel.result()
         self.__channel = channel
@@ -108,9 +109,9 @@ class AsyncioChannel:
         self.__consumers = {}
 
     def basic_consume(self, *args, **kwargs):
-        """Consume from a server queue. Returns a Deferred that fires with a
+        """Consume from a server queue. Returns a Future that fires with a
         tuple: (queue_object, consumer_tag). The queue object is an instance of
-        ClosableDeferredQueue, where data received from the queue will be
+        ClosableQueue, where data received from the queue will be
         stored. Clients should use its get() method to fetch individual
         message.
         """
@@ -121,7 +122,6 @@ class AsyncioChannel:
         queue_name = kwargs['queue']
 
         def consumer_callback(*args):
-            print('in callback', time.time())
             queue.put_nowait(args)
 
         kwargs['consumer_callback'] = consumer_callback
@@ -148,7 +148,7 @@ class AsyncioChannel:
 
     def basic_publish(self, *args, **kwargs):
         """Make sure the channel is not closed and then publish. Return a
-        Deferred that fires with the result of the channel's basic_publish.
+        Future that fires with the result of the channel's basic_publish.
 
         """
         if self.__closed:
@@ -156,10 +156,10 @@ class AsyncioChannel:
         return defer.succeed(self.__channel.basic_publish(*args, **kwargs))
 
     def __wrap_channel_method(self, name):
-        """Wrap Pika's Channel method to make it return a Deferred that fires
+        """Wrap Pika's Channel method to make it return a Future that fires
         when the method completes and errbacks if the channel gets closed. If
         the original method's callback would receive more than one argument, the
-        Deferred fires with a tuple of argument values.
+        Future fires with a tuple of argument values.
 
         """
         method = getattr(self.__channel, name)
@@ -175,7 +175,7 @@ class AsyncioChannel:
 
             def single_argument(*args):
                 """
-                Make sure that the deferred is called with a single argument.
+                Make sure that the Future is called with a single argument.
                 In case the original callback fires with more than one, convert
                 to a tuple.
                 """
@@ -185,11 +185,10 @@ class AsyncioChannel:
                     d.set_result(*args)
 
             kwargs['callback'] = single_argument
-            # print('Call wrapped', method, args, kwargs) 
             try:
                 method(*args, **kwargs)
-            except:
-                return defer.fail()
+            except Exception as e:
+                return defer.fail(e)
             return d
 
         return wrapped
@@ -345,7 +344,7 @@ class AsyncioConnection(base_connection.BaseConnection):
         self._manage_event_state()
 
     def channel(self, channel_number=None):
-        """Return a Deferred that fires with an instance of a wrapper around the
+        """Return a Future that fires with an instance of a wrapper around the
         Pika Channel class.
 
         """
@@ -383,9 +382,9 @@ class AsyncioProtocolConnection(base_connection.BaseConnection):
     server.
 
     It has one caveat: TwistedProtocolConnection objects have a ready
-    instance variable that's a Deferred which fires when the connection is
+    instance variable that's a Future which fires when the connection is
     ready to be used (the initial AMQP handshaking has been done). You *have*
-    to wait for this Deferred to fire before requesting a channel.
+    to wait for this Future to fire before requesting a channel.
 
     Since it's Twisted handling connection establishing it does not accept
     connect callbacks, you have to implement that within Twisted. Also remember
@@ -397,7 +396,6 @@ class AsyncioProtocolConnection(base_connection.BaseConnection):
     def __init__(self, parameters, loop=None):
         self.ready = asyncio.Future()
         loop = loop or asyncio.get_event_loop()
-        print('APC init')
         super().__init__(
             parameters=parameters,
             on_open_callback=self.connection_ready,
@@ -407,7 +405,6 @@ class AsyncioProtocolConnection(base_connection.BaseConnection):
             stop_ioloop_on_close=False)
 
     def connect(self):
-        print('APC connect')
         # The connection is open asynchronously by Twisted, so skip the whole
         # connect() part, except for setting the connection state
         self._set_connection_state(self.CONNECTION_INIT)
@@ -436,7 +433,7 @@ class AsyncioProtocolConnection(base_connection.BaseConnection):
         specify but it is recommended that you let Pika manage the channel
         numbers.
 
-        Return a Deferred that fires with an instance of a wrapper around the
+        Return a Future that fires with an instance of a wrapper around the
         Pika Channel class.
 
         :param int channel_number: The channel number to use, defaults to the
@@ -466,14 +463,11 @@ class AsyncioProtocolConnection(base_connection.BaseConnection):
     def connection_made(self, transport):
         # Tell everyone we're connected
         self.transport = transport
-        print('APC connection_made', transport)
         self._on_connected()
-        print('APC connection_made 2', transport)
 
     # Our own methods
 
     def connection_ready(self, res):
-        print('APC connection_ready')
         d, self.ready = self.ready, None
         if d:
             d.set_result(res)
