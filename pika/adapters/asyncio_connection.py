@@ -1,39 +1,36 @@
 """Using Pika with a asyncio IOLoop.
 
-Supports two methods of establishing the connection, using AsyncioConnection
-or AsyncioProtocolConnection. For details about each method, see the docstrings
-of the corresponding classes.
+This is port of Twisted pika adapter from :pika.adapters.twisted_connection
+
 
 The interfaces in this module are Future-based when possible. This means that
 the connection.channel() method and most of the channel methods return
 Futures instead of taking a callback argument and that basic_consume()
 returns a asyncion.Queue subclass instance where messages from the server will be
-stored. Refer to the docstrings for AsyncioConnection.channel() and the
+stored. Refer to the docstrings for AsyncioProtocolConnection.channel() and the
 AsyncioChannel class for details.
 
 """
 import functools
 import asyncio
-import time
+import socket
 from logging import getLogger
 
 from pika import exceptions
 from pika.adapters import base_connection
 
 
-class defer:
 
-    @staticmethod
-    def fail(failure=None):
-        f = asyncio.Future()
-        f.set_exception(failure)
-        return f
+def _fail(failure=None):
+    f = asyncio.Future()
+    f.set_exception(failure)
+    return f
 
-    @staticmethod
-    def succeed(res):
-        f = asyncio.Future()
-        f.set_result(res)
-        return f
+
+def _succeed(res):
+    f = asyncio.Future()
+    f.set_result(res)
+    return f
 
 
 class ClosableQueue(asyncio.Queue):
@@ -49,12 +46,12 @@ class ClosableQueue(asyncio.Queue):
 
     def put(self, obj):
         if self.closed:
-            return defer.fail(self.closed)
+            return _fail(self.closed)
         return super().put(obj)
 
     def get(self):
         if self.closed:
-            return defer.fail(self.closed)
+            return _fail(self.closed)
         return super().get()
 
     def close(self, reason):
@@ -116,7 +113,7 @@ class AsyncioChannel:
         message.
         """
         if self.__closed:
-            return defer.fail(self.__closed)
+            return _fail(self.__closed)
 
         queue = ClosableQueue()
         queue_name = kwargs['queue']
@@ -130,9 +127,9 @@ class AsyncioChannel:
         try:
             consumer_tag = self.__channel.basic_consume(*args, **kwargs)
         except:
-            return defer.fail()
+            return _fail()
 
-        return defer.succeed((queue, consumer_tag))
+        return _succeed((queue, consumer_tag))
 
     def queue_delete(self, *args, **kwargs):
         """Wraps the method the same way all the others are wrapped, but removes
@@ -152,8 +149,8 @@ class AsyncioChannel:
 
         """
         if self.__closed:
-            return defer.fail(self.__closed)
-        return defer.succeed(self.__channel.basic_publish(*args, **kwargs))
+            return _fail(self.__closed)
+        return _succeed(self.__channel.basic_publish(*args, **kwargs))
 
     def __wrap_channel_method(self, name):
         """Wrap Pika's Channel method to make it return a Future that fires
@@ -167,7 +164,7 @@ class AsyncioChannel:
         @functools.wraps(method)
         def wrapped(*args, **kwargs):
             if self.__closed:
-                return defer.fail(self.__closed)
+                return _fail(self.__closed)
 
             d = asyncio.Future()
             self.__calls.add(d)
@@ -188,7 +185,7 @@ class AsyncioChannel:
             try:
                 method(*args, **kwargs)
             except Exception as e:
-                return defer.fail(e)
+                return _fail(e)
             return d
 
         return wrapped
@@ -271,10 +268,10 @@ class IOLoopAdapter:
         self.loop.remove_writer(self.connection.fileno())
 
         if event_state & self.connection.READ:
-            self.loop.add_reader(self.connection.fileno())
+            self.loop.add_reader(self.connection.fileno(), self._handle_read)
 
         if event_state & self.connection.WRITE:
-            self.loop.add_writer(self.connection.fileno())
+            self.loop.add_writer(self.connection.fileno(), self._handle_write)
 
 
 class AsyncioProtocolConnection(base_connection.BaseConnection):
@@ -346,7 +343,7 @@ class AsyncioProtocolConnection(base_connection.BaseConnection):
             self, lambda ch: d.set_result(AsyncioChannel(ch)), channel_number)
         return d
 
-    # IProtocol methods
+    # Protocol methods
 
     def data_received(self, data):
         # Pass the bytes to Pika for parsing
@@ -358,11 +355,9 @@ class AsyncioProtocolConnection(base_connection.BaseConnection):
         if d:
             d.set_exception(reason)
 
-    # def makeConnection(self, transport):
-    #     self.connection_made()
-
     def connection_made(self, transport):
         # Tell everyone we're connected
+        transport._sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, True)
         self.transport = transport
         self._on_connected()
 
