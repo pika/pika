@@ -229,7 +229,7 @@ class IOLoopAdapter:
 
         :param int deadline: The number of seconds to wait to call callback
         :param method callback_method: The callback method
-        :rtype: twisted.internet.interfaces.IDelayedCall
+        :rtype: asyncio.Handle
 
         """
         return self.loop.call_later(deadline, callback_method)
@@ -237,7 +237,7 @@ class IOLoopAdapter:
     def remove_timeout(self, call):
         """Remove a call
 
-        :param twisted.internet.interfaces.IDelayedCall call: The call to cancel
+        :param asyncio.Handle call: The call to cancel
 
         """
         call.cancel()
@@ -259,7 +259,7 @@ class IOLoopAdapter:
     def remove_handler(self, _):
         # The fileno is irrelevant, as it's the connection's job to provide it
         # to the loop when asked to do so. Removing the handler from the
-        # ioloop is removing it from the loop in Twisted's parlance.
+        # ioloop is removing it from the loop in acyncio's parlance.
         self.loop.remove_reader(self.connection.fileno())
         self.loop.remove_writer(self.connection.fileno())
 
@@ -267,129 +267,30 @@ class IOLoopAdapter:
         # Same as in remove_handler, the fileno is irrelevant. First remove the
         # connection entirely from the reactor, then add it back depending on
         # the event state.
-        self.reactor.remove_reader(self.connection.fileno())
-        self.reactor.remove_writer(self.connection.fileno())
+        self.loop.remove_reader(self.connection.fileno())
+        self.loop.remove_writer(self.connection.fileno())
 
         if event_state & self.connection.READ:
-            self.reactor.add_reader(self.connection.fileno())
+            self.loop.add_reader(self.connection.fileno())
 
         if event_state & self.connection.WRITE:
-            self.reactor.add_writer(self.connection.fileno())
-
-
-class AsyncioConnection(base_connection.BaseConnection):
-    """A standard Pika connection adapter. You instantiate the class passing the
-    connection parameters and the connected callback and when it gets called
-    you can start using it.
-
-    The problem is that connection establishing is done using the blocking
-    socket module. For instance, if the host you are connecting to is behind a
-    misconfigured firewall that just drops packets, the whole process will
-    freeze until the connection timeout passes. To work around that problem,
-    use TwistedProtocolConnection, but read its docstring first.
-
-    Objects of this class get put in the Twisted reactor which will notify them
-    when the socket connection becomes readable or writable, so apart from
-    implementing the BaseConnection interface, they also provide Twisted's
-    IReadWriteDescriptor interface.
-
-    """
-
-    def __init__(self,
-                 parameters=None,
-                 on_open_callback=None,
-                 on_open_error_callback=None,
-                 on_close_callback=None,
-                 stop_ioloop_on_close=False,
-                 loop=None):
-        loop = loop or asyncio.get_event_loop()
-        super().__init__(
-            parameters=parameters,
-            on_open_callback=on_open_callback,
-            on_open_error_callback=on_open_error_callback,
-            on_close_callback=on_close_callback,
-            ioloop=IOLoopAdapter(self, loop),
-            stop_ioloop_on_close=stop_ioloop_on_close)
-
-    def _adapter_connect(self):
-        """Connect to the RabbitMQ broker"""
-        # Connect (blockignly!) to the server
-        error = super()._adapter_connect()
-        if not error:
-            # Set the I/O events we're waiting for (see IOLoopReactorAdapter
-            # docstrings for why it's OK to pass None as the file descriptor)
-            self.ioloop.update_handler(None, self.event_state)
-        return error
-
-    def _adapter_disconnect(self):
-        """Called when the adapter should disconnect"""
-        self.ioloop.remove_handler(None)
-        self._cleanup_socket()
-
-    def _handle_disconnect(self):
-        """Do not stop the reactor, this would cause the entire process to exit,
-        just fire the disconnect callbacks
-
-        """
-        self._on_connection_closed(None, True)
-
-    def _on_connected(self):
-        """Call superclass and then update the event state to flush the outgoing
-        frame out. Commit 50d842526d9f12d32ad9f3c4910ef60b8c301f59 removed a
-        self._flush_outbound call that was in _send_frame which previously
-        made this step unnecessary.
-
-        """
-        super()._on_connected()
-        self._manage_event_state()
-
-    def channel(self, channel_number=None):
-        """Return a Future that fires with an instance of a wrapper around the
-        Pika Channel class.
-
-        """
-        d = asyncio.Future()
-        base_connection.BaseConnection.channel(self, d.set_result, channel_number)
-        d.add_done_callback(AsyncioChannel)
-        return d
-
-    # IReadWriteDescriptor methods
-
-    def fileno(self):
-        return self.socket.fileno()
-
-    def logPrefix(self):
-        return "asyncio-pika"
-
-    def connectionLost(self, reason):
-        # If the connection was not closed cleanly, log the error
-        if not reason.check(error.ConnectionDone):
-            log.err(reason)
-
-        self._handle_disconnect()
-
-    def doRead(self):
-        self._handle_read()
-
-    def doWrite(self):
-        self._handle_write()
-        self._manage_event_state()
+            self.loop.add_writer(self.connection.fileno())
 
 
 class AsyncioProtocolConnection(base_connection.BaseConnection):
-    """A hybrid between a Pika Connection and a Twisted Protocol. Allows using
-    Twisted's non-blocking connectTCP/connectSSL methods for connecting to the
+    """A hybrid between a Pika Connection and a acyncio Protocol. Allows using
+    asyncio's non-blocking loop.create_connection method for connecting to the
     server.
 
-    It has one caveat: TwistedProtocolConnection objects have a ready
+    It has one caveat: AcyncioProtocolConnection objects have a ready
     instance variable that's a Future which fires when the connection is
     ready to be used (the initial AMQP handshaking has been done). You *have*
     to wait for this Future to fire before requesting a channel.
 
-    Since it's Twisted handling connection establishing it does not accept
-    connect callbacks, you have to implement that within Twisted. Also remember
+    Since it's asyncio handling connection establishing it does not accept
+    connect callbacks, you have to implement that within asyncio. Also remember
     that the host, port and ssl values of the connection parameters are ignored
-    because, yet again, it's Twisted who manages the connection.
+    because, yet again, it's asyncio who manages the connection.
 
     """
 
@@ -405,13 +306,13 @@ class AsyncioProtocolConnection(base_connection.BaseConnection):
             stop_ioloop_on_close=False)
 
     def connect(self):
-        # The connection is open asynchronously by Twisted, so skip the whole
+        # The connection is open asynchronously by asyncio, so skip the whole
         # connect() part, except for setting the connection state
         self._set_connection_state(self.CONNECTION_INIT)
 
     def _adapter_connect(self):
         # Should never be called, as we override connect() and leave the
-        # building of a TCP connection to Twisted, but implement anyway to keep
+        # building of a TCP connection to acyncio, but implement anyway to keep
         # the interface
         return False
 
@@ -421,8 +322,8 @@ class AsyncioProtocolConnection(base_connection.BaseConnection):
 
     def _flush_outbound(self):
         """Override BaseConnection._flush_outbound to send all bufferred data
-        the Twisted way, by writing to the transport. No need for buffering,
-        Twisted handles that for us.
+        the acyncio way, by writing to the transport. No need for buffering,
+        acyncio handles that for us.
         """
         while self.outbound_buffer:
             self.transport.write(self.outbound_buffer.popleft())
