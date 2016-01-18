@@ -10,6 +10,106 @@ returns a asyncion.Queue subclass instance where messages from the server will b
 stored. Refer to the docstrings for AsyncioProtocolConnection.channel() and the
 AsyncioChannel class for details.
 
+Usage example:
+
+################
+#RPC client:
+################
+
+import asyncio
+
+import pika
+from pika.adapters import asyncio_connection
+
+@asyncio.coroutine
+def make_connection(loop, host="localhost", port=5672):
+
+    def connection_factory():
+        params = pika.ConnectionParameters()
+        return asyncio_connection.AsyncioProtocolConnection(params, loop=loop)
+
+    transport, connection = yield from loop.create_connection(connection_factory, host, port)
+
+    yield from connection.ready # important!
+    return connection
+
+
+@asyncio.coroutine
+def client(loop):
+    global c
+    conn = yield from make_connection(loop)
+    chan = yield from conn.channel()
+
+    result = yield from chan.queue_declare(exclusive=True)
+    cb_queue = result.method.queue
+    queue, ctag = yield from chan.basic_consume(queue=cb_queue, no_ack=True)
+
+    yield from chan.basic_publish(
+        exchange='',
+        routing_key='rpc_queue',
+        properties=pika.BasicProperties(
+             reply_to=cb_queue,
+             ),
+        body='Hello World!')
+
+    ch, method, props, body = yield from queue.get()
+    print(body)
+
+loop = asyncio.get_event_loop()
+
+try:
+    task = asyncio.ensure_future(client(loop))
+    loop.run_until_complete(task)
+except KeyboardInterrupt:
+    print('Done')
+
+
+################
+# RPC server
+################
+
+import asyncio
+import pika
+
+from pika.adapters import asyncio_connection
+
+
+@asyncio.coroutine
+def make_connection(loop, host="localhost", port=5672):
+
+    def connection_factory():
+        params = pika.ConnectionParameters()
+        return asyncio_connection.AsyncioProtocolConnection(params, loop=loop)
+
+    transport, connection = yield from loop.create_connection(connection_factory, host, port)
+    yield from connection.ready # important!
+    return connection
+
+
+@asyncio.coroutine
+def server(loop):
+    conn = yield from make_connection(loop)
+    chan = yield from conn.channel()
+
+    yield from chan.queue_declare(queue='rpc_queue')
+    queue, ctag = yield from chan.basic_consume(queue='rpc_queue', no_ack=True)
+
+    while True:
+        ch, method, props, body = yield from queue.get()
+        yield from chan.basic_publish(
+            exchange='',
+            routing_key=props.reply_to,
+            body=body[::-1])
+
+
+loop = asyncio.get_event_loop()
+
+try:
+    task = asyncio.ensure_future(server(loop))
+    loop.run_until_complete(task)
+except KeyboardInterrupt:
+    print('Done')
+
 """
 import functools
 import asyncio
