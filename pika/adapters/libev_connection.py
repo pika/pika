@@ -77,7 +77,8 @@ class LibevConnection(BaseConnection):
                  on_close_callback=None,
                  stop_ioloop_on_close=False,
                  custom_ioloop=None,
-                 on_signal_callback=None):
+                 on_signal_callback=None,
+                 client_properties=None):
         """Create a new instance of the LibevConnection class, connecting
         to RabbitMQ automatically
 
@@ -91,6 +92,8 @@ class LibevConnection(BaseConnection):
         :param custom_ioloop: Override using the default IOLoop in libev
         :param on_signal_callback: Method to call if SIGINT or SIGTERM occur
         :type on_signal_callback: method
+        :param dict client_properties: Used to overwrite fields in the default
+            client properties reported to RabbitMQ.
 
         """
         if custom_ioloop:
@@ -107,10 +110,12 @@ class LibevConnection(BaseConnection):
         self._active_timers = {}
         self._stopped_timers = deque()
 
-        super(LibevConnection, self).__init__(parameters, on_open_callback,
+        super(LibevConnection, self).__init__(parameters,
+                                              on_open_callback,
                                               on_open_error_callback,
                                               on_close_callback, self.ioloop,
-                                              stop_ioloop_on_close)
+                                              stop_ioloop_on_close,
+                                              client_properties)
 
     def _adapter_connect(self):
         """Connect to the remote socket, adding the socket to the IOLoop if

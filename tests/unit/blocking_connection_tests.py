@@ -3,7 +3,7 @@
 Tests for pika.adapters.blocking_connection.BlockingConnection
 
 """
-import socket
+import platform
 
 try:
     from unittest import mock
@@ -17,11 +17,14 @@ except ImportError:
     import unittest
 
 import pika
+from pika import connection
+from pika import exceptions
 from pika.adapters import blocking_connection
 
 
 class BlockingConnectionMockTemplate(blocking_connection.BlockingConnection):
     pass
+
 
 class SelectConnectionTemplate(blocking_connection.SelectConnection):
     is_closed = False
@@ -46,7 +49,8 @@ class BlockingConnectionTests(unittest.TestCase):
             on_open_callback=mock.ANY,
             on_open_error_callback=mock.ANY,
             on_close_callback=mock.ANY,
-            stop_ioloop_on_close=mock.ANY)
+            stop_ioloop_on_close=mock.ANY,
+            client_properties=None)
 
     @patch.object(blocking_connection, 'SelectConnection',
                   spec_set=SelectConnectionTemplate)
@@ -204,3 +208,43 @@ class BlockingConnectionTests(unittest.TestCase):
             connection.sleep(0.00001)
 
 
+
+    def test_client_properties_default(self):
+        expectation = {
+            'product': connection.PRODUCT,
+            'platform': 'Python %s' % platform.python_version(),
+            'capabilities': {
+                'authentication_failure_close': True,
+                'basic.nack': True,
+                'connection.blocked': True,
+                'consumer_cancel_notify': True,
+                'publisher_confirms': True
+            },
+            'information': 'See http://pika.rtfd.org',
+            'version': pika.__version__
+        }
+        with mock.patch('pika.connection.Connection.connect'):
+            with self.assertRaises(exceptions.ConnectionClosed):
+                conn = blocking_connection.BlockingConnection()
+                self.assertDictEqual(conn._client_properties, expectation)
+
+    def test_client_properties_override(self):
+        expectation = {
+            'capabilities': {
+                'authentication_failure_close': True,
+                'basic.nack': True,
+                'connection.blocked': True,
+                'consumer_cancel_notify': True,
+                'publisher_confirms': True
+            }
+        }
+        override = {'product': 'My Product',
+                    'platform': 'Your platform',
+                    'version': '0.1',
+                    'information': 'this is my app'}
+        expectation.update(override)
+        with mock.patch('pika.connection.Connection.connect'):
+            with self.assertRaises(exceptions.ConnectionClosed):
+                conn = blocking_connection.BlockingConnection(
+                        client_properties=override)
+                self.assertDictEqual(conn._client_properties, expectation)

@@ -47,7 +47,8 @@ class BaseConnection(connection.Connection):
                  on_open_error_callback=None,
                  on_close_callback=None,
                  ioloop=None,
-                 stop_ioloop_on_close=True):
+                 stop_ioloop_on_close=True,
+                 client_properties=None):
         """Create a new instance of the Connection object.
 
         :param pika.connection.Parameters parameters: Connection parameters
@@ -58,6 +59,8 @@ class BaseConnection(connection.Connection):
         :param method on_close_callback: Method to call on connection close
         :param object ioloop: IOLoop object to use
         :param bool stop_ioloop_on_close: Call ioloop.stop() if disconnected
+        :param dict client_properties: Used to overwrite fields in the default
+            client properties reported to RabbitMQ.
         :raises: RuntimeError
         :raises: ValueError
 
@@ -75,9 +78,11 @@ class BaseConnection(connection.Connection):
         self.socket = None
         self.stop_ioloop_on_close = stop_ioloop_on_close
         self.write_buffer = None
-        super(BaseConnection, self).__init__(parameters, on_open_callback,
+        super(BaseConnection, self).__init__(parameters,
+                                             on_open_callback,
                                              on_open_error_callback,
-                                             on_close_callback)
+                                             on_close_callback,
+                                             client_properties)
 
     def add_timeout(self, deadline, callback_method):
         """Add the callback_method to the IOLoop timer to fire after deadline
