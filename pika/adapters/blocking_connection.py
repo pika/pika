@@ -94,7 +94,7 @@ class _CallbackResult(object):
         self._ready = True
 
     def set_value_once(self, *args, **kwargs):
-        """ Set as ready with value; the value may be retrived via the `value`
+        """ Set as ready with value; the value may be retrieved via the `value`
         property getter
 
         :raises AssertionError: if result was already set
@@ -373,8 +373,9 @@ class BlockingConnection(object):  # pylint: disable=R0902
 
         :raises AMQPConnectionError: on connection open error
         """
-        self._flush_output(self._opened_result.is_ready,
-                           self._open_error_result.is_ready)
+        if not self._open_error_result.ready:
+            self._flush_output(self._opened_result.is_ready,
+                               self._open_error_result.is_ready)
 
         if self._open_error_result.ready:
             exception_or_message = self._open_error_result.value.error
