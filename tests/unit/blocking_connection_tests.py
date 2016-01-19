@@ -4,6 +4,7 @@ Tests for pika.adapters.blocking_connection.BlockingConnection
 
 """
 import platform
+import socket
 
 from pika.exceptions import AMQPConnectionError
 
