@@ -94,7 +94,7 @@ class _CallbackResult(object):
         self._ready = True
 
     def set_value_once(self, *args, **kwargs):
-        """ Set as ready with value; the value may be retrived via the `value`
+        """ Set as ready with value; the value may be retrieved via the `value`
         property getter
 
         :raises AssertionError: if result was already set
@@ -291,13 +291,15 @@ class BlockingConnection(object):  # pylint: disable=R0902
         'BlockingConnection__OnChannelOpenedArgs',
         'channel')
 
-    def __init__(self, parameters=None, _impl_class=None):
+    def __init__(self, parameters=None, client_properties=None,
+                 _impl_class=None):
         """Create a new instance of the Connection object.
 
         :param pika.connection.Parameters parameters: Connection parameters
         :param _impl_class: for tests/debugging only; implementation class;
             None=default
-
+        :param dict client_properties: Used to overwrite fields in the default
+            client properties reported to RabbitMQ.
         :raises RuntimeError:
 
         """
@@ -334,7 +336,8 @@ class BlockingConnection(object):  # pylint: disable=R0902
             on_open_callback=self._opened_result.set_value_once,
             on_open_error_callback=self._open_error_result.set_value_once,
             on_close_callback=self._closed_result.set_value_once,
-            stop_ioloop_on_close=False)
+            stop_ioloop_on_close=False,
+            client_properties=client_properties)
 
         self._process_io_for_connection_setup()
 

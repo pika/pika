@@ -366,7 +366,7 @@ class TwistedProtocolConnection(base_connection.BaseConnection):
 
     """
 
-    def __init__(self, parameters):
+    def __init__(self, parameters=None, client_properties=None):
         self.ready = defer.Deferred()
         super(TwistedProtocolConnection, self).__init__(
             parameters=parameters,
@@ -374,7 +374,8 @@ class TwistedProtocolConnection(base_connection.BaseConnection):
             on_open_error_callback=self.connectionFailed,
             on_close_callback=None,
             ioloop=IOLoopReactorAdapter(self, reactor),
-            stop_ioloop_on_close=False)
+            stop_ioloop_on_close=False,
+            client_properties=client_properties)
 
     def connect(self):
         # The connection is open asynchronously by Twisted, so skip the whole

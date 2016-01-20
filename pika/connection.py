@@ -592,7 +592,8 @@ class Connection(object):
                  parameters=None,
                  on_open_callback=None,
                  on_open_error_callback=None,
-                 on_close_callback=None):
+                 on_close_callback=None,
+                 client_properties=None):
         """Connection initialization expects an object that has implemented the
          Parameters class and a callback function to notify when we have
          successfully connected to the AMQP Broker.
@@ -605,6 +606,8 @@ class Connection(object):
         :param method on_open_error_callback: Called if the connection cant
                                        be opened
         :param method on_close_callback: Called when the connection is closed
+        :param dict client_properties: Used to overwrite fields in the default
+            client properties reported to RabbitMQ.
 
         """
         self._write_lock = threading.Lock()
@@ -617,6 +620,7 @@ class Connection(object):
                            on_open_error_callback or self._on_connection_error,
                            False)
 
+        self._override_properties = client_properties or {}
         self.heartbeat = None
 
         # On connection callback
@@ -928,7 +932,8 @@ class Connection(object):
         """
         return self.params.frame_max or spec.FRAME_MAX_SIZE
 
-    def _check_for_protocol_mismatch(self, value):
+    @staticmethod
+    def _check_for_protocol_mismatch(value):
         """Invoked when starting a connection to make sure it's a supported
         protocol.
 
@@ -948,7 +953,7 @@ class Connection(object):
         :rtype: dict
 
         """
-        return {
+        properties = {
             'product': PRODUCT,
             'platform': 'Python %s' % platform.python_version(),
             'capabilities': {
@@ -961,6 +966,8 @@ class Connection(object):
             'information': 'See http://pika.rtfd.org',
             'version': __version__
         }
+        properties.update(self._override_properties)
+        return properties
 
     def _close_channels(self, reply_code, reply_text):
         """Close the open channels with the specified reply_code and reply_text.

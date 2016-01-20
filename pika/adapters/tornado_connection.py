@@ -32,7 +32,8 @@ class TornadoConnection(base_connection.BaseConnection):
                  on_open_error_callback=None,
                  on_close_callback=None,
                  stop_ioloop_on_close=False,
-                 custom_ioloop=None):
+                 custom_ioloop=None,
+                 client_properties=None):
         """Create a new instance of the TornadoConnection class, connecting
         to RabbitMQ automatically
 
@@ -44,6 +45,8 @@ class TornadoConnection(base_connection.BaseConnection):
         :type on_open_error_callback: method
         :param bool stop_ioloop_on_close: Call ioloop.stop() if disconnected
         :param custom_ioloop: Override using the global IOLoop in Tornado
+        :param dict client_properties: Used to overwrite fields in the default
+            client properties reported to RabbitMQ.
 
         """
         self.sleep_counter = 0
@@ -51,11 +54,12 @@ class TornadoConnection(base_connection.BaseConnection):
         super(TornadoConnection, self).__init__(parameters, on_open_callback,
                                                 on_open_error_callback,
                                                 on_close_callback, self.ioloop,
-                                                stop_ioloop_on_close)
+                                                stop_ioloop_on_close,
+                                                client_properties)
 
     def _adapter_connect(self):
         """Connect to the remote socket, adding the socket to the IOLoop if
-        connected. 
+        connected.
 
         :rtype: bool
 
