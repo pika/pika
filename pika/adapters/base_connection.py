@@ -100,8 +100,11 @@ class BaseConnection(connection.Connection):
         :param str reply_text: The text reason for the close
 
         """
-        super(BaseConnection, self).close(reply_code, reply_text)
-        self._handle_ioloop_stop()
+        try:
+            super(BaseConnection, self).close(reply_code, reply_text)
+        finally:
+            if self.is_closed:
+                self._handle_ioloop_stop()
 
     def remove_timeout(self, timeout_id):
         """Remove the timeout from the IOLoop by the ID returned from
