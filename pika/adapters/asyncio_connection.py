@@ -391,9 +391,10 @@ class AsyncioProtocolConnection(base_connection.BaseConnection):
 
     """
 
-    def __init__(self, parameters, loop=None):
+    def __init__(self, parameters, loop=None, connection_lost_callback=None):
         self.ready = asyncio.Future()
         loop = loop or asyncio.get_event_loop()
+        self.connection_lost_callback = connection_lost_callback
         super().__init__(
             parameters=parameters,
             on_open_callback=self.connection_ready,
@@ -454,6 +455,10 @@ class AsyncioProtocolConnection(base_connection.BaseConnection):
         d, self.ready = self.ready, None
         if d:
             d.set_exception(reason)
+        else:
+            # Let client to handle disconnect
+            if self.connection_lost_callback:
+                self.connection_lost_callback(reason)
 
     def connection_made(self, transport):
         # Tell everyone we're connected
