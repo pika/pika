@@ -123,7 +123,8 @@ class BaseConnection(connection.Connection):
         # Get the addresses for the socket, supporting IPv4 & IPv6
         while True:
             try:
-                addresses = socket.getaddrinfo(self.params.host, self.params.port,
+                addresses = socket.getaddrinfo(self.params.host,
+                                               self.params.port,
                                                0, socket.SOCK_STREAM,
                                                socket.IPPROTO_TCP)
                 break
