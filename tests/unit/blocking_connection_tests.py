@@ -3,6 +3,10 @@
 Tests for pika.adapters.blocking_connection.BlockingConnection
 
 """
+
+# Suppress pylint warnings concering access to protected member
+# pylint: disable=W0212
+
 import socket
 
 from pika.exceptions import AMQPConnectionError
@@ -26,11 +30,11 @@ class BlockingConnectionMockTemplate(blocking_connection.BlockingConnection):
     pass
 
 class SelectConnectionTemplate(blocking_connection.SelectConnection):
-    is_closed = False
-    is_closing = False
-    is_open = True
-    outbound_buffer = []
-    _channels = dict()
+    is_closed = None
+    is_closing = None
+    is_open = None
+    outbound_buffer = None
+    _channels = None
 
 
 class BlockingConnectionTests(unittest.TestCase):
@@ -41,7 +45,7 @@ class BlockingConnectionTests(unittest.TestCase):
     def test_constructor(self, select_connection_class_mock):
         with mock.patch.object(blocking_connection.BlockingConnection,
                                '_process_io_for_connection_setup'):
-            connection = blocking_connection.BlockingConnection('params')
+            blocking_connection.BlockingConnection('params')
 
         select_connection_class_mock.assert_called_once_with(
             parameters='params',
@@ -153,9 +157,7 @@ class BlockingConnectionTests(unittest.TestCase):
         with self.assertRaises(pika.exceptions.ConnectionClosed) as cm:
             connection._flush_output(lambda: False, lambda: True)
 
-        self.assertSequenceEqual(
-            cm.exception.args,
-            ())
+        self.assertSequenceEqual(cm.exception.args, (200, 'ok'))
 
     @patch.object(blocking_connection, 'SelectConnection',
                   spec_set=SelectConnectionTemplate)
@@ -190,7 +192,7 @@ class BlockingConnectionTests(unittest.TestCase):
                 blocking_connection.BlockingConnection,
                 '_flush_output',
                 spec_set=blocking_connection.BlockingConnection._flush_output):
-            channel = connection.channel()
+            connection.channel()
 
     @patch.object(blocking_connection, 'SelectConnection',
                   spec_set=SelectConnectionTemplate)

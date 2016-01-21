@@ -29,7 +29,7 @@ class Channel(object):
     CLOSED = 0
     OPENING = 1
     OPEN = 2
-    CLOSING = 3
+    CLOSING = 3  # client-initiated close in progress
 
     _ON_CHANNEL_CLEANUP_CB_KEY = '_on_channel_cleanup'
 
@@ -615,7 +615,8 @@ class Channel(object):
 
     @property
     def is_closing(self):
-        """Returns True if the channel is closing.
+        """Returns True if client-initiated closing of the channel is in
+        progress.
 
         :rtype: bool
 

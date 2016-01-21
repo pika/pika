@@ -2,6 +2,16 @@
 Tests for pika.heartbeat
 
 """
+
+# Suppress pylint warnings concering access to protected member
+# pylint: disable=W0212
+
+# Suppress pylint messages concering missing docstring
+# pylint: disable=C0111
+
+# Suppress pylint messages concering invalid method name
+# pylint: disable=C0103
+
 try:
     import mock
 except ImportError:
@@ -58,7 +68,7 @@ class HeartbeatTests(unittest.TestCase):
 
     @mock.patch('pika.heartbeat.HeartbeatChecker._setup_timer')
     def test_constructor_called_setup_timer(self, timer):
-        obj = heartbeat.HeartbeatChecker(self.mock_conn, self.INTERVAL)
+        heartbeat.HeartbeatChecker(self.mock_conn, self.INTERVAL)
         timer.assert_called_once_with()
 
     def test_active_true(self):
@@ -135,9 +145,8 @@ class HeartbeatTests(unittest.TestCase):
                                                self.obj._interval)
         self.mock_conn.close.assert_called_once_with(
             self.obj._CONNECTION_FORCED, reason)
-        self.mock_conn._on_disconnect.assert_called_once_with(
+        self.mock_conn._on_terminate.assert_called_once_with(
             self.obj._CONNECTION_FORCED, reason)
-        self.mock_conn._adapter_disconnect.assert_called_once_with()
 
     def test_has_received_data_false(self):
         self.obj._bytes_received = 100

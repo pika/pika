@@ -75,10 +75,10 @@ class SelectConnection(BaseConnection):
 
         :param pika.connection.Parameters parameters: Connection parameters
         :param method on_open_callback: Method to call on connection open
-        :param on_open_error_callback: Method to call if the connection cant
-                                       be opened
-        :type on_open_error_callback: method
-        :param method on_close_callback: Method to call on connection close
+        :param method on_open_error_callback: Called if the connection can't
+            be established: on_open_error_callback(connection, str|exception)
+        :param method on_close_callback: Called when the connection is closed:
+            on_close_callback(connection, reason_code, reason_text)
         :param bool stop_ioloop_on_close: Call ioloop.stop() if disconnected
         :param custom_ioloop: Override using the global IOLoop in Tornado
         :raises: RuntimeError

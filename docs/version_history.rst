@@ -10,6 +10,8 @@ Next Release
  - In BaseConnection.close, call _handle_ioloop_stop only if the connection is
    already closed to allow the asynchronous close operation to complete
    gracefully.
+ - Pass error information from failed socket connection to user callbacks
+   on_open_error_callback and on_close_callback with result_code=-1.
 
 0.10.0 2015-09-02
 -----------------

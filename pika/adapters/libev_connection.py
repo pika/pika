@@ -84,9 +84,10 @@ class LibevConnection(BaseConnection):
         :param pika.connection.Parameters parameters: Connection parameters
         :param on_open_callback: The method to call when the connection is open
         :type on_open_callback: method
-        :param on_open_error_callback: Method to call if the connection cannot
-                                       be opened
-        :type on_open_error_callback: method
+        :param method on_open_error_callback: Called if the connection can't
+            be established: on_open_error_callback(connection, str|exception)
+        :param method on_close_callback: Called when the connection is closed:
+            on_close_callback(connection, reason_code, reason_text)
         :param bool stop_ioloop_on_close: Call ioloop.stop() if disconnected
         :param custom_ioloop: Override using the default IOLoop in libev
         :param on_signal_callback: Method to call if SIGINT or SIGTERM occur
