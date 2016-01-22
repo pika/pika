@@ -12,7 +12,7 @@ import socket
 from pika.exceptions import AMQPConnectionError
 
 try:
-    from unittest import mock
+    from unittest import mock  # pylint: disable=E0611
     patch = mock.patch
 except ImportError:
     import mock
@@ -182,8 +182,8 @@ class BlockingConnectionTests(unittest.TestCase):
                   spec_set=SelectConnectionTemplate)
     @patch.object(blocking_connection, 'BlockingChannel',
                   spec_set=blocking_connection.BlockingChannel)
-    def test_channel(self, blocking_channel_class_mock,
-                     select_connection_class_mock):
+    def test_channel(self, blocking_channel_class_mock,  # pylint: disable=W0613
+                     select_connection_class_mock):  # pylint: disable=W0613
         with mock.patch.object(blocking_connection.BlockingConnection,
                                '_process_io_for_connection_setup'):
             connection = blocking_connection.BlockingConnection('params')
@@ -196,7 +196,7 @@ class BlockingConnectionTests(unittest.TestCase):
 
     @patch.object(blocking_connection, 'SelectConnection',
                   spec_set=SelectConnectionTemplate)
-    def test_sleep(self, select_connection_class_mock):
+    def test_sleep(self, select_connection_class_mock):  # pylint: disable=W0613
         with mock.patch.object(blocking_connection.BlockingConnection,
                                '_process_io_for_connection_setup'):
             connection = blocking_connection.BlockingConnection('params')
@@ -211,15 +211,28 @@ class BlockingConnectionTests(unittest.TestCase):
         # for whatever conn_attempt we try:
         for conn_attempt in (1, 2, 5):
             # retry_delay of 0 to not wait uselessly during the retry process.
-            params = pika.ConnectionParameters(connection_attempts=conn_attempt, retry_delay=0)
+            params = pika.ConnectionParameters(connection_attempts=conn_attempt,
+                                               retry_delay=0)
             with self.assertRaises(AMQPConnectionError) as ctx:
                 with mock.patch('socket.socket.connect',
                                 side_effect=socket.timeout) as connect_mock:
-                    pika.BlockingConnection(parameters=params)
+                    with mock.patch('socket.getaddrinfo',
+                                    return_value=[(socket.AF_INET,
+                                                   socket.SOCK_STREAM,
+                                                   mock.Mock(name="proto"),
+                                                   mock.Mock(name="canonname"),
+                                                   ('127.0.0.1', 5672))]):
+                        pika.BlockingConnection(parameters=params)
+
             # as any attempt will timeout (directly),
-            # at the end there must be exactly that count of socket.connect() method calls:
+            # at the end there must be exactly that count of socket.connect()
+            # method calls:
             self.assertEqual(conn_attempt, connect_mock.call_count)
+
             # and each must be with the following arguments (always the same):
-            connect_mock.assert_has_calls(conn_attempt * [mock.call(('127.0.0.1', 5672))])
+            connect_mock.assert_has_calls(conn_attempt *
+                                          [mock.call(('127.0.0.1', 5672))])
+
             # and the raised error must then looks like:
-            self.assertEqual('Connection to 127.0.0.1:5672 failed: timeout', str(ctx.exception))
+            self.assertEqual('Connection to 127.0.0.1:5672 failed: timeout',
+                             str(ctx.exception))
