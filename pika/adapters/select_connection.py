@@ -238,8 +238,8 @@ class IOLoop(object):
     def poll(self):
         """[Extension] Wait for events of interest on registered file
         descriptors until an event of interest occurs or next timer deadline or
-        _MAX_POLL_TIMEOUT, whichever is sooner, and dispatch the corresponding
-        event handlers.
+        `_PollerBase._MAX_POLL_TIMEOUT`, whichever is sooner, and dispatch the
+        corresponding event handlers.
 
         """
         self._poller.poll()
@@ -262,8 +262,9 @@ else:
 class _PollerBase(_AbstractBase):  # pylint: disable=R0902
     """Base class for select-based IOLoop implementations"""
 
-    # Drop out of the poll loop every POLL_TIMEOUT secs as a worst case, this
-    # is only a backstop value. We will run timeouts when they are scheduled.
+    # Drop out of the poll loop every _MAX_POLL_TIMEOUT secs as a worst case;
+    # this is only a backstop value; we will run timeouts when they are
+    # scheduled.
     _MAX_POLL_TIMEOUT = 5
 
     # if the poller uses MS override with 1000
