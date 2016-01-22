@@ -17,6 +17,12 @@ _TARGET = platform.python_implementation()
 
 import uuid
 
+try:
+    from unittest import mock
+except ImportError:
+    import mock
+
+
 import pika
 from pika import adapters
 from pika.adapters import select_connection
@@ -92,7 +98,8 @@ class AsyncTestCase(unittest.TestCase):
 
     def on_timeout(self):
         """called when stuck waiting for connection to close"""
-        self.logger.info('on_timeout called at %s', datetime.utcnow())
+        self.logger.error('%s timed out; on_timeout called at %s', 
+            self, datetime.utcnow())
         # Initiate cleanup
         self.timeout = None  # the dispatcher should have removed it
         self.stop()
@@ -144,43 +151,48 @@ class AsyncAdapters(object):
         raise NotImplementedError
 
     def select_default_test(self):
-        "SelectConnection:DefaultPoller"
-        select_connection.POLLER_TYPE = None
-        self.start(adapters.SelectConnection)
+        """SelectConnection:DefaultPoller"""
+
+        with mock.patch.multiple(select_connection, SELECT_TYPE=None):
+            self.start(adapters.SelectConnection)
 
     def select_select_test(self):
-        "SelectConnection:select"
-        select_connection.POLLER_TYPE = 'select'
-        self.start(adapters.SelectConnection)
+        """SelectConnection:select"""
+
+        with mock.patch.multiple(select_connection, SELECT_TYPE='select'):
+            self.start(adapters.SelectConnection)
 
     @unittest.skipIf(
         not hasattr(select, 'poll') or
         not hasattr(select.poll(), 'modify'), "poll not supported")  # pylint: disable=E1101
     def select_poll_test(self):
-        "SelectConnection:poll"
-        select_connection.POLLER_TYPE = 'poll'
-        self.start(adapters.SelectConnection)
+        """SelectConnection:poll"""
+
+        with mock.patch.multiple(select_connection, SELECT_TYPE='poll'):
+            self.start(adapters.SelectConnection)
 
     @unittest.skipIf(not hasattr(select, 'epoll'), "epoll not supported")
     def select_epoll_test(self):
-        "SelectConnection:epoll"
-        select_connection.POLLER_TYPE = 'epoll'
-        self.start(adapters.SelectConnection)
+        """SelectConnection:epoll"""
+
+        with mock.patch.multiple(select_connection, SELECT_TYPE='epoll'):
+            self.start(adapters.SelectConnection)
 
     @unittest.skipIf(not hasattr(select, 'kqueue'), "kqueue not supported")
     def select_kqueue_test(self):
-        "SelectConnection:kqueue"
-        select_connection.POLLER_TYPE = 'kqueue'
-        self.start(adapters.SelectConnection)
+        """SelectConnection:kqueue"""
+
+        with mock.patch.multiple(select_connection, SELECT_TYPE='kqueue'):
+            self.start(adapters.SelectConnection)
 
     def tornado_test(self):
-        "TornadoConnection"
+        """TornadoConnection"""
         self.start(adapters.TornadoConnection)
 
     @unittest.skipIf(_TARGET == 'PyPy', 'PyPy is not supported')
     @unittest.skipIf(adapters.LibevConnection is None, 'pyev is not installed')
     def libev_test(self):
-        "LibevConnection"
+        """LibevConnection"""
         self.start(adapters.LibevConnection)
 
 
