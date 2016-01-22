@@ -37,6 +37,7 @@ class AsyncTestCase(unittest.TestCase):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.parameters = pika.URLParameters(
             'amqp://guest:guest@localhost:5672/%2F')
+        self._timed_out = False
         super(AsyncTestCase, self).setUp()
 
     def tearDown(self):
@@ -62,6 +63,7 @@ class AsyncTestCase(unittest.TestCase):
         self.timeout = self.connection.add_timeout(self.TIMEOUT,
                                                    self.on_timeout)
         self.connection.ioloop.start()
+        self.assertFalse(self._timed_out)
 
     def stop(self):
         """close the connection and stop the ioloop"""
@@ -98,10 +100,11 @@ class AsyncTestCase(unittest.TestCase):
 
     def on_timeout(self):
         """called when stuck waiting for connection to close"""
-        self.logger.error('%s timed out; on_timeout called at %s', 
+        self.logger.error('%s timed out; on_timeout called at %s',
             self, datetime.utcnow())
-        # Initiate cleanup
         self.timeout = None  # the dispatcher should have removed it
+        self._timed_out = True
+        # initiate cleanup
         self.stop()
 
 
