@@ -361,7 +361,7 @@ class ConnectionParameters(Parameters):
         :param int channel_max: Maximum number of channels to allow
         :param int frame_max: The maximum byte size for an AMQP frame
         :param int heartbeat_interval: How often to send heartbeats.
-                                  Min between this value and server's proposal
+                                  Max between this value and server's proposal
                                   will be used. Use 0 to deactivate heartbeats
                                   and None to accept server's proposal.
         :param bool ssl: Enable SSL
@@ -1332,8 +1332,8 @@ class Connection(object):
         if self.params.heartbeat is None:
             self.params.heartbeat = method_frame.method.heartbeat
         elif self.params.heartbeat != 0:
-            self.params.heartbeat = self._combine(self.params.heartbeat,
-                                                  method_frame.method.heartbeat)
+            self.params.heartbeat = max(self.params.heartbeat,
+                                        method_frame.method.heartbeat)
 
         # Calculate the maximum pieces for body frames
         self._body_max_length = self._get_body_frame_max_length()
