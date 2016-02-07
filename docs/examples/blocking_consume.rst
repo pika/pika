@@ -9,21 +9,21 @@ When pika calls your method, it will pass in the channel, a :py:class:`pika.spec
 
 Example of consuming messages and acknowledging them::
 
-        import pika
+    import pika
 
 
-        def on_message(channel, method_frame, header_frame, body):
-            print(method_frame.delivery_tag)
-	    print(body)
-	    print()
-	    channel.basic_ack(delivery_tag=method_frame.delivery_tag)
+    def on_message(channel, method_frame, header_frame, body):
+        print(method_frame.delivery_tag)
+        print(body)
+        print()
+        channel.basic_ack(delivery_tag=method_frame.delivery_tag)
 
 
-        connection = pika.BlockingConnection()
-        channel = connection.channel()
-        channel.basic_consume(on_message, 'test')
-        try:
-            channel.start_consuming()
-        except KeyboardInterrupt:
-            channel.stop_consuming()
-        connection.close()
+    connection = pika.BlockingConnection()
+    channel = connection.channel()
+    channel.basic_consume(on_message, 'test')
+    try:
+        channel.start_consuming()
+    except KeyboardInterrupt:
+        channel.stop_consuming()
+    connection.close()

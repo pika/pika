@@ -18,7 +18,6 @@ Tests for pika.adapters.blocking_connection.BlockingConnection
 
 import socket
 
-from pika.exceptions import AMQPConnectionError
 
 try:
     from unittest import mock  # pylint: disable=E0611
@@ -33,6 +32,8 @@ except ImportError:
 
 import pika
 from pika.adapters import blocking_connection
+import pika.channel
+from pika.exceptions import AMQPConnectionError, ChannelClosed
 
 
 class BlockingConnectionMockTemplate(blocking_connection.BlockingConnection):
@@ -198,7 +199,8 @@ class BlockingConnectionTests(unittest.TestCase):
                                '_process_io_for_connection_setup'):
             connection = blocking_connection.BlockingConnection('params')
 
-        connection._impl._channels = {1: mock.Mock()}
+        impl_channel_mock = mock.Mock()
+        connection._impl._channels = {1: impl_channel_mock}
 
         with mock.patch.object(
                 blocking_connection.BlockingConnection,
@@ -207,6 +209,53 @@ class BlockingConnectionTests(unittest.TestCase):
             connection._closed_result.signal_once()
             connection.close(200, 'text')
 
+        impl_channel_mock._get_cookie.return_value.close.assert_called_once_with(
+            200, 'text')
+        select_connection_class_mock.return_value.close.assert_called_once_with(
+            200, 'text')
+
+    @patch.object(blocking_connection, 'SelectConnection',
+                  spec_set=SelectConnectionTemplate)
+    def test_close_with_channel_closed_exception(self,
+                                                 select_connection_class_mock):
+        select_connection_class_mock.return_value.is_closed = False
+
+        with mock.patch.object(blocking_connection.BlockingConnection,
+                               '_process_io_for_connection_setup'):
+            connection = blocking_connection.BlockingConnection('params')
+
+        channel1_mock = mock.Mock(
+            is_open=True,
+            close=mock.Mock(side_effect=ChannelClosed,
+                            spec_set=pika.channel.Channel.close),
+            spec_set=blocking_connection.BlockingChannel)
+
+        channel2_mock = mock.Mock(
+            is_open=True,
+            spec_set=blocking_connection.BlockingChannel)
+
+        connection._impl._channels = {
+            1: mock.Mock(
+                _get_cookie=mock.Mock(
+                    return_value=channel1_mock,
+                    spec_set=pika.channel.Channel._get_cookie),
+                spec_set=pika.channel.Channel),
+            2: mock.Mock(
+                _get_cookie=mock.Mock(
+                    return_value=channel2_mock,
+                    spec_set=pika.channel.Channel._get_cookie),
+                spec_set=pika.channel.Channel)
+        }
+
+        with mock.patch.object(
+                blocking_connection.BlockingConnection,
+                '_flush_output',
+                spec_set=blocking_connection.BlockingConnection._flush_output):
+            connection._closed_result.signal_once()
+            connection.close(200, 'text')
+
+            channel1_mock.close.assert_called_once_with(200, 'text')
+            channel2_mock.close.assert_called_once_with(200, 'text')
         select_connection_class_mock.return_value.close.assert_called_once_with(
             200, 'text')
 

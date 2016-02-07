@@ -42,14 +42,15 @@ def callback_method():
 
 class ConnectionTests(unittest.TestCase):
 
-    @mock.patch('pika.connection.Connection.connect')
-    def setUp(self, connect):
-        self.connection = connection.Connection()
+    def setUp(self):
+        with mock.patch('pika.connection.Connection.connect'):
+            self.connection = connection.Connection()
+            self.connection._set_connection_state(
+                connection.Connection.CONNECTION_OPEN)
+
         self.channel = mock.Mock(spec=channel.Channel)
         self.channel.is_open = True
         self.connection._channels[1] = self.channel
-        self.connection._set_connection_state(
-            connection.Connection.CONNECTION_OPEN)
 
     def tearDown(self):
         del self.connection
@@ -335,7 +336,8 @@ class ConnectionTests(unittest.TestCase):
             'ssl': True,
             'connection_attempts': 2,
             'locale': 'en',
-            'ssl_options': {'ssl': 'options'}
+            'ssl_options': {'ssl': 'options'},
+            'blocked_connection_timeout': 10.5
         }
         conn = connection.ConnectionParameters(**kwargs)
         #check values
@@ -356,9 +358,10 @@ class ConnectionTests(unittest.TestCase):
             'frame_max': 40000,
             'heartbeat_interval': 7,
             'backpressure_detection': False,
-            'ssl': True
+            'ssl': True,
+            'blocked_connection_timeout': 10.5
         }
-        #Test Type Errors
+        # Test Type Errors
         for bad_field, bad_value in (
                 ('host', 15672), ('port', '5672'), ('virtual_host', True),
                 ('channel_max', '4'), ('frame_max', '5'),
@@ -366,9 +369,13 @@ class ConnectionTests(unittest.TestCase):
                 ('heartbeat_interval', '6'), ('socket_timeout', '42'),
                 ('retry_delay', 'two'), ('backpressure_detection', 'true'),
                 ('ssl', {'ssl': 'dict'}), ('ssl_options', True),
-                ('connection_attempts', 'hello')):
+                ('connection_attempts', 'hello'),
+                ('blocked_connection_timeout', set())):
+
             bkwargs = copy.deepcopy(kwargs)
+
             bkwargs[bad_field] = bad_value
+
             self.assertRaises(TypeError, connection.ConnectionParameters,
                               **bkwargs)
 
@@ -590,3 +597,205 @@ class ConnectionTests(unittest.TestCase):
             self.assertEqual(1, self.connection.frames_received)
             if frame_type == frame.Heartbeat:
                 self.assertTrue(self.connection.heartbeat.received.called)
+
+    @mock.patch.object(connection.Connection, 'connect',
+                       spec_set=connection.Connection.connect)
+    @mock.patch.object(connection.Connection,
+                       'add_on_connection_blocked_callback')
+    @mock.patch.object(connection.Connection,
+                       'add_on_connection_unblocked_callback')
+    def test_create_with_blocked_connection_timeout_config(
+            self,
+            add_on_unblocked_callback_mock,
+            add_on_blocked_callback_mock,
+            connect_mock):
+
+        conn = connection.Connection(
+            parameters=connection.ConnectionParameters(
+                blocked_connection_timeout=60))
+
+        # Check
+        conn.add_on_connection_blocked_callback.assert_called_once_with(
+            conn._on_connection_blocked)
+
+        conn.add_on_connection_unblocked_callback.assert_called_once_with(
+            conn._on_connection_unblocked)
+
+    @mock.patch.object(connection.Connection, 'add_timeout')
+    @mock.patch.object(connection.Connection, 'connect',
+                       spec_set=connection.Connection.connect)
+    def test_connection_blocked_sets_timer(
+            self,
+            connect_mock,
+            add_timeout_mock):
+
+        conn = connection.Connection(
+            parameters=connection.ConnectionParameters(
+                blocked_connection_timeout=60))
+
+        conn._on_connection_blocked(
+            mock.Mock(name='frame.Method(Connection.Blocked)'))
+
+        # Check
+        conn.add_timeout.assert_called_once_with(
+            60,
+            conn._on_blocked_connection_timeout)
+
+        self.assertIsNotNone(conn._blocked_conn_timer)
+
+    @mock.patch.object(connection.Connection, 'add_timeout')
+    @mock.patch.object(connection.Connection, 'connect',
+                       spec_set=connection.Connection.connect)
+    def test_multi_connection_blocked_in_a_row_sets_timer_once(
+            self,
+            connect_mock,
+            add_timeout_mock):
+
+        conn = connection.Connection(
+            parameters=connection.ConnectionParameters(
+                blocked_connection_timeout=60))
+
+        # Simulate Connection.Blocked trigger
+        conn._on_connection_blocked(
+            mock.Mock(name='frame.Method(Connection.Blocked)'))
+
+        # Check
+        conn.add_timeout.assert_called_once_with(
+            60,
+            conn._on_blocked_connection_timeout)
+
+        self.assertIsNotNone(conn._blocked_conn_timer)
+
+        timer = conn._blocked_conn_timer
+
+        # Simulate Connection.Blocked trigger again
+        conn._on_connection_blocked(
+            mock.Mock(name='frame.Method(Connection.Blocked)'))
+
+        self.assertEqual(conn.add_timeout.call_count, 1)
+        self.assertIs(conn._blocked_conn_timer, timer)
+
+    @mock.patch.object(connection.Connection, '_on_terminate')
+    @mock.patch.object(connection.Connection, 'add_timeout',
+                       spec_set=connection.Connection.add_timeout)
+    @mock.patch.object(connection.Connection, 'connect',
+                       spec_set=connection.Connection.connect)
+    def test_blocked_connection_timeout_teminates_connection(
+            self,
+            connect_mock,
+            add_timeout_mock,
+            on_terminate_mock):
+
+        conn = connection.Connection(
+            parameters=connection.ConnectionParameters(
+                blocked_connection_timeout=60))
+
+        conn._on_connection_blocked(
+            mock.Mock(name='frame.Method(Connection.Blocked)'))
+
+        conn._on_blocked_connection_timeout()
+
+        # Check
+        conn._on_terminate.assert_called_once_with(
+            connection.InternalCloseReasons.BLOCKED_CONNECTION_TIMEOUT,
+            'Blocked connection timeout expired')
+
+        self.assertIsNone(conn._blocked_conn_timer)
+
+    @mock.patch.object(connection.Connection, 'remove_timeout')
+    @mock.patch.object(connection.Connection, 'add_timeout',
+                       spec_set=connection.Connection.add_timeout)
+    @mock.patch.object(connection.Connection, 'connect',
+                       spec_set=connection.Connection.connect)
+    def test_connection_unblocked_removes_timer(
+            self,
+            connect_mock,
+            add_timeout_mock,
+            remove_timeout_mock):
+
+        conn = connection.Connection(
+            parameters=connection.ConnectionParameters(
+                blocked_connection_timeout=60))
+
+        conn._on_connection_blocked(
+            mock.Mock(name='frame.Method(Connection.Blocked)'))
+
+        self.assertIsNotNone(conn._blocked_conn_timer)
+
+        timer = conn._blocked_conn_timer
+
+        conn._on_connection_unblocked(
+            mock.Mock(name='frame.Method(Connection.Unblocked)'))
+
+        # Check
+        conn.remove_timeout.assert_called_once_with(timer)
+        self.assertIsNone(conn._blocked_conn_timer)
+
+    @mock.patch.object(connection.Connection, 'remove_timeout')
+    @mock.patch.object(connection.Connection, 'add_timeout',
+                       spec_set=connection.Connection.add_timeout)
+    @mock.patch.object(connection.Connection, 'connect',
+                       spec_set=connection.Connection.connect)
+    def test_multi_connection_unblocked_in_a_row_removes_timer_once(
+            self,
+            connect_mock,
+            add_timeout_mock,
+            remove_timeout_mock):
+
+        conn = connection.Connection(
+            parameters=connection.ConnectionParameters(
+                blocked_connection_timeout=60))
+
+        # Simulate Connection.Blocked
+        conn._on_connection_blocked(
+            mock.Mock(name='frame.Method(Connection.Blocked)'))
+
+        self.assertIsNotNone(conn._blocked_conn_timer)
+
+        timer = conn._blocked_conn_timer
+
+        # Simulate Connection.Unblocked
+        conn._on_connection_unblocked(
+            mock.Mock(name='frame.Method(Connection.Unblocked)'))
+
+        # Check
+        conn.remove_timeout.assert_called_once_with(timer)
+        self.assertIsNone(conn._blocked_conn_timer)
+
+        # Simulate Connection.Unblocked again
+        conn._on_connection_unblocked(
+            mock.Mock(name='frame.Method(Connection.Unblocked)'))
+
+        self.assertEqual(conn.remove_timeout.call_count, 1)
+        self.assertIsNone(conn._blocked_conn_timer)
+
+    @mock.patch.object(connection.Connection, 'remove_timeout')
+    @mock.patch.object(connection.Connection, 'add_timeout',
+                       spec_set=connection.Connection.add_timeout)
+    @mock.patch.object(connection.Connection, 'connect',
+                       spec_set=connection.Connection.connect)
+    @mock.patch.object(connection.Connection, '_adapter_disconnect',
+                       spec_set=connection.Connection._adapter_disconnect)
+    def test_on_terminate_removes_timer(
+            self,
+            adapter_disconnect_mock,
+            connect_mock,
+            add_timeout_mock,
+            remove_timeout_mock):
+
+        conn = connection.Connection(
+            parameters=connection.ConnectionParameters(
+                blocked_connection_timeout=60))
+
+        conn._on_connection_blocked(
+            mock.Mock(name='frame.Method(Connection.Blocked)'))
+
+        self.assertIsNotNone(conn._blocked_conn_timer)
+
+        timer = conn._blocked_conn_timer
+
+        conn._on_terminate(0, 'test_on_terminate_removes_timer')
+
+        # Check
+        conn.remove_timeout.assert_called_once_with(timer)
+        self.assertIsNone(conn._blocked_conn_timer)

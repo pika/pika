@@ -16,6 +16,7 @@ import functools
 from twisted.internet import defer, error, reactor
 from twisted.python import log
 
+from pika import connection
 from pika import exceptions
 from pika.adapters import base_connection
 
@@ -338,7 +339,8 @@ class TwistedConnection(base_connection.BaseConnection):
         if not reason.check(error.ConnectionDone):
             log.err(reason)
 
-        self._on_terminate(-1, str(reason))
+        self._on_terminate(connection.InternalCloseReasons.SOCKET_ERROR,
+                           str(reason))
 
     def doRead(self):
         self._handle_read()

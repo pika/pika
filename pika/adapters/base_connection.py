@@ -78,6 +78,29 @@ class BaseConnection(connection.Connection):
                                              on_open_error_callback,
                                              on_close_callback)
 
+    def __repr__(self):
+        def get_socket_repr(sock):
+            if sock is None:
+                return None
+
+            sockname = sock.getsockname()
+
+            peername = None
+            try:
+                peername = sock.getpeername()
+            except socket.error:
+                # not connected?
+                pass
+
+            return '%s->%s' % (sockname, peername)
+
+        return (
+            '<%s state=%s socket=%s params=%s>' %
+            (self.__class__.__name__,
+             self.connection_state,
+             get_socket_repr(self.socket),
+             self.params))
+
     def add_timeout(self, deadline, callback_method):
         """Add the callback_method to the IOLoop timer to fire after deadline
         seconds. Returns a handle to the timeout
@@ -315,7 +338,8 @@ class BaseConnection(connection.Connection):
             LOGGER.error("Socket Error: %s", error_code)
 
         # Disconnect from our IOLoop and let Connection know what's up
-        self._on_terminate(-1, repr(error_value))
+        self._on_terminate(connection.InternalCloseReasons.SOCKET_ERROR,
+                           repr(error_value))
 
     def _handle_timeout(self):
         """Handle a socket timeout in read or write.
@@ -349,7 +373,8 @@ class BaseConnection(connection.Connection):
             error_msg = ('BAD libc:  Write-Only but Read+Error. '
                          'Assume socket disconnected.')
             LOGGER.error(error_msg)
-            self._on_terminate(-1, error_msg)
+            self._on_terminate(connection.InternalCloseReasons.SOCKET_ERROR,
+                               error_msg)
 
         if self.socket and (events & self.ERROR):
             LOGGER.error('Error event %r, %r', events, error)
@@ -391,7 +416,9 @@ class BaseConnection(connection.Connection):
         # Empty data, should disconnect
         if not data or data == 0:
             LOGGER.error('Read empty data, calling disconnect')
-            return self._on_terminate(-1, "EOF")
+            return self._on_terminate(
+                connection.InternalCloseReasons.SOCKET_ERROR,
+                "EOF")
 
         # Pass the data into our top level frame dispatching method
         self._on_data_available(data)
@@ -400,13 +427,13 @@ class BaseConnection(connection.Connection):
     def _handle_write(self):
         """Try and write as much as we can, if we get blocked requeue
         what's left"""
-        bytes_written = 0
+        total_bytes_sent = 0
         try:
             while self.outbound_buffer:
                 frame = self.outbound_buffer.popleft()
                 while True:
                     try:
-                        bw = self.socket.send(frame)
+                        num_bytes_sent = self.socket.send(frame)
                         break
                     except _SOCKET_ERROR as error:
                         if error.errno == errno.EINTR:
@@ -414,10 +441,10 @@ class BaseConnection(connection.Connection):
                         else:
                             raise
 
-                bytes_written += bw
-                if bw < len(frame):
+                total_bytes_sent += num_bytes_sent
+                if num_bytes_sent < len(frame):
                     LOGGER.debug("Partial write, requeing remaining data")
-                    self.outbound_buffer.appendleft(frame[bw:])
+                    self.outbound_buffer.appendleft(frame[num_bytes_sent:])
                     break
 
         except socket.timeout:
@@ -433,7 +460,7 @@ class BaseConnection(connection.Connection):
             else:
                 return self._handle_error(error)
 
-        return bytes_written
+        return total_bytes_sent
 
 
     def _init_connection_state(self):

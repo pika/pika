@@ -75,6 +75,11 @@ class Channel(object):
         """
         return self.channel_number
 
+    def __repr__(self):
+        return '<%s number=%s conn=%r>' % (self.__class__.__name__,
+                                           self.channel_number,
+                                           self.connection)
+
     def add_callback(self, callback, replies, one_shot=True):
         """Pass in a callback handler and a list replies from the
         RabbitMQ broker which you'd like the callback notified of. Callbacks
@@ -943,9 +948,10 @@ class Channel(object):
 
         """
         LOGGER.info('%s', method_frame)
-        LOGGER.warning('Received remote Channel.Close (%s): %s',
+        LOGGER.warning('Received remote Channel.Close (%s): %r on channel %s',
                        method_frame.method.reply_code,
-                       method_frame.method.reply_text)
+                       method_frame.method.reply_text,
+                       self)
         if self.connection.is_open:
             self._send_method(spec.Channel.CloseOk())
         self._set_state(self.CLOSED)
