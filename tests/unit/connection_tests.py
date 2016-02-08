@@ -354,7 +354,7 @@ class ConnectionTests(unittest.TestCase):
         method_frame.method = mock.Mock()
         method_frame.method.channel_max = 40
         method_frame.method.frame_max = 10
-        method_frame.method.heartbeat = 0
+        method_frame.method.heartbeat = 10
         self.connection.params.channel_max = 20
         self.connection.params.frame_max = 20
         self.connection.params.heartbeat = 20
@@ -370,6 +370,54 @@ class ConnectionTests(unittest.TestCase):
         heartbeat_checker.assert_called_once_with(self.connection, 20)
         self.assertEqual(['ab'], list(self.connection.outbound_buffer))
         self.assertEqual('hearbeat obj', self.connection.heartbeat)
+
+        # Repeat with smaller user heartbeat than broker
+        method_frame.method.heartbeat = 60
+        self.connection.params.heartbeat = 20
+        #Test
+        self.connection._on_connection_tune(method_frame)
+        #verfy
+        self.assertEqual(60, self.connection.params.heartbeat)
+
+        # Repeat with user deferring to server's heartbeat timeout
+        method_frame.method.heartbeat = 500
+        self.connection.params.heartbeat = None
+        #Test
+        self.connection._on_connection_tune(method_frame)
+        #verfy
+        self.assertEqual(500, self.connection.params.heartbeat)
+
+        # Repeat with user deferring to server's disabled heartbeat value
+        method_frame.method.heartbeat = 0
+        self.connection.params.heartbeat = None
+        #Test
+        self.connection._on_connection_tune(method_frame)
+        #verfy
+        self.assertEqual(0, self.connection.params.heartbeat)
+
+        # Repeat with user-disabled heartbeat
+        method_frame.method.heartbeat = 60
+        self.connection.params.heartbeat = 0
+        #Test
+        self.connection._on_connection_tune(method_frame)
+        #verfy
+        self.assertEqual(0, self.connection.params.heartbeat)
+
+        # Repeat with server-disabled heartbeat
+        method_frame.method.heartbeat = 0
+        self.connection.params.heartbeat = 60
+        #Test
+        self.connection._on_connection_tune(method_frame)
+        #verfy
+        self.assertEqual(0, self.connection.params.heartbeat)
+
+        # Repeat with both user/server disabled heartbeats
+        method_frame.method.heartbeat = 0
+        self.connection.params.heartbeat = 0
+        #Test
+        self.connection._on_connection_tune(method_frame)
+        #verfy
+        self.assertEqual(0, self.connection.params.heartbeat)
 
     def test_on_connection_closed(self):
         """make sure connection close sends correct frames"""
