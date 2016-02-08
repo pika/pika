@@ -146,7 +146,7 @@ class Channel(object):
         confirm mode. The acknowledgement can be for a single message or a
         set of messages up to and including a specific message.
 
-        :param int delivery_tag: The server-assigned delivery tag
+        :param integer delivery_tag: int/long The server-assigned delivery tag
         :param bool multiple: If set to True, the delivery tag is treated as
                               "up to and including", so that multiple messages
                               can be acknowledged with a single method. If set
@@ -286,7 +286,7 @@ class Channel(object):
         It can be used to interrupt and cancel large incoming messages, or
         return untreatable messages to their original queue.
 
-        :param int delivery-tag: The server-assigned delivery tag
+        :param integer delivery-tag: int/long The server-assigned delivery tag
         :param bool multiple: If set to True, the delivery tag is treated as
                               "up to and including", so that multiple messages
                               can be acknowledged with a single method. If set
@@ -381,7 +381,7 @@ class Channel(object):
         message. It can be used to interrupt and cancel large incoming messages,
         or return untreatable messages to their original queue.
 
-        :param int delivery-tag: The server-assigned delivery tag
+        :param integer delivery-tag: int/long The server-assigned delivery tag
         :param bool requeue: If requeue is true, the server will attempt to
                              requeue the message. If requeue is false or the
                              requeue attempt fails the messages are discarded or
