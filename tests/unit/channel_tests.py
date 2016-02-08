@@ -14,6 +14,8 @@ try:
 except ImportError:
     from unittest import mock
 
+import sys
+
 try:
     import unittest2 as unittest
 except ImportError:
@@ -405,10 +407,41 @@ class ChannelTests(unittest.TestCase):
 
     @mock.patch('pika.spec.Basic.Reject')
     @mock.patch('pika.channel.Channel._send_method')
-    def test_basic_reject_send_method_request(self, send_method, unused):
+    def test_basic_reject_send_method_request_with_int_tag(self,
+                                                           send_method,
+                                                           unused):
         self.obj._set_state(self.obj.OPEN)
         self.obj.basic_reject(1, True)
         send_method.assert_called_once_with(spec.Basic.Reject(1, True))
+
+    def test_basic_reject_spec_with_int_tag(self):
+        decoded = spec.Basic.Reject()
+        decoded.decode(b''.join(spec.Basic.Reject(1, True).encode()))
+
+        self.assertEqual(decoded.delivery_tag, 1)
+        self.assertIs(decoded.requeue, True)
+
+    @mock.patch('pika.spec.Basic.Reject')
+    @mock.patch('pika.channel.Channel._send_method')
+    def test_basic_reject_send_method_request_with_long_tag(self,
+                                                           send_method,
+                                                           unused):
+        self.obj._set_state(self.obj.OPEN)
+
+        # NOTE: we use `sys.maxsize` for compatibility with python 3, which
+        # doesn't have `sys.maxint`
+        self.obj.basic_reject(sys.maxsize, True)
+        send_method.assert_called_once_with(spec.Basic.Reject(sys.maxsize,
+                                                              True))
+
+    def test_basic_reject_spec_with_long_tag(self):
+        # NOTE: we use `sys.maxsize` for compatibility with python 3, which
+        # doesn't have `sys.maxint`
+        decoded = spec.Basic.Reject()
+        decoded.decode(b''.join(spec.Basic.Reject(sys.maxsize, True).encode()))
+
+        self.assertEqual(decoded.delivery_tag, sys.maxsize)
+        self.assertIs(decoded.requeue, True)
 
     def test_basic_recover_raises_channel_closed(self):
         self.assertRaises(exceptions.ChannelClosed, self.obj.basic_qos, 0,
