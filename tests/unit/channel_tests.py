@@ -416,7 +416,7 @@ class ChannelTests(unittest.TestCase):
 
     def test_basic_reject_spec_with_int_tag(self):
         decoded = spec.Basic.Reject()
-        decoded.decode(''.join(spec.Basic.Reject(1, True).encode()))
+        decoded.decode(b''.join(spec.Basic.Reject(1, True).encode()))
 
         self.assertEqual(decoded.delivery_tag, 1)
         self.assertIs(decoded.requeue, True)
@@ -438,7 +438,7 @@ class ChannelTests(unittest.TestCase):
         # NOTE: we use `sys.maxsize` for compatibility with python 3, which
         # doesn't have `sys.maxint`
         decoded = spec.Basic.Reject()
-        decoded.decode(''.join(spec.Basic.Reject(sys.maxsize, True).encode()))
+        decoded.decode(b''.join(spec.Basic.Reject(sys.maxsize, True).encode()))
 
         self.assertEqual(decoded.delivery_tag, sys.maxsize)
         self.assertIs(decoded.requeue, True)
