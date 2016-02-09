@@ -27,6 +27,7 @@ import pika.spec
 # NOTE: import SelectConnection after others to avoid circular depenency
 from pika.adapters.select_connection import SelectConnection
 
+
 LOGGER = logging.getLogger(__name__)
 
 
@@ -280,7 +281,7 @@ class BlockingConnection(object):  # pylint: disable=R0902
 
     # Connection-establishment error callback args
     _OnOpenErrorArgs = namedtuple('BlockingConnection__OnOpenErrorArgs',
-                                  'connection error_text')
+                                  'connection error')
 
     # Connection-closing callback args
     _OnClosedArgs = namedtuple('BlockingConnection__OnClosedArgs',
@@ -336,10 +337,13 @@ class BlockingConnection(object):  # pylint: disable=R0902
             on_close_callback=self._closed_result.set_value_once,
             stop_ioloop_on_close=False)
 
+        self._impl.ioloop.activate_poller()
+
         self._process_io_for_connection_setup()
 
     def _cleanup(self):
         """Clean up members that might inhibit garbage collection"""
+        self._impl.ioloop.deactivate_poller()
         self._ready_events.clear()
         self._opened_result.reset()
         self._open_error_result.reset()
@@ -370,12 +374,18 @@ class BlockingConnection(object):  # pylint: disable=R0902
 
         :raises AMQPConnectionError: on connection open error
         """
-        self._flush_output(self._opened_result.is_ready,
-                           self._open_error_result.is_ready)
+        if not self._open_error_result.ready:
+            self._flush_output(self._opened_result.is_ready,
+                               self._open_error_result.is_ready)
 
         if self._open_error_result.ready:
-            raise exceptions.AMQPConnectionError(
-                self._open_error_result.value.error_text)
+            try:
+                exception_or_message = self._open_error_result.value.error
+                if isinstance(exception_or_message, Exception):
+                    raise exception_or_message
+                raise exceptions.AMQPConnectionError(exception_or_message)
+            finally:
+                self._cleanup()
 
         assert self._opened_result.ready
         assert self._opened_result.value.connection is self._impl
@@ -391,7 +401,7 @@ class BlockingConnection(object):  # pylint: disable=R0902
                         returning true when it's time to stop processing.
                         Their results are OR'ed together.
         """
-        if self._impl.is_closed:
+        if self.is_closed:
             raise exceptions.ConnectionClosed()
 
         # Conditions for terminating the processing loop:
@@ -401,31 +411,35 @@ class BlockingConnection(object):  # pylint: disable=R0902
         #         OR
         #   empty outbound buffer and any waiter is ready
         is_done = (lambda:
-            self._closed_result.ready or
-            (not self._impl.outbound_buffer and
-             (not waiters or any(ready() for ready in  waiters))))
+                   self._closed_result.ready or
+                   (not self._impl.outbound_buffer and
+                    (not waiters or any(ready() for ready in  waiters))))
 
         # Process I/O until our completion condition is satisified
         while not is_done():
             self._impl.ioloop.poll()
             self._impl.ioloop.process_timeouts()
 
-        if self._closed_result.ready:
+        if self._open_error_result.ready or self._closed_result.ready:
             try:
-                result = self._closed_result.value
-                if result.reason_code not in [0, 200]:
-                    LOGGER.critical('Connection close detected; result=%r',
-                                    result)
-                    raise exceptions.ConnectionClosed(result.reason_code,
-                                                      result.reason_text)
-                elif not self._user_initiated_close:
-                    # NOTE: unfortunately, upon socket error, on_close_callback
-                    # presently passes reason_code=0, so we don't detect that as
-                    # an error
-                    LOGGER.critical('Connection close detected')
-                    raise exceptions.ConnectionClosed()
+                if not self._user_initiated_close:
+                    if self._open_error_result.ready:
+                        maybe_exception = self._open_error_result.value.error
+                        LOGGER.error('Connection open failed - %r',
+                                     maybe_exception)
+                        if isinstance(maybe_exception, Exception):
+                            raise maybe_exception
+                        else:
+                            raise exceptions.ConnectionClosed(maybe_exception)
+                    else:
+                        result = self._closed_result.value
+                        LOGGER.error('Connection close detected; result=%r',
+                                     result)
+                        raise exceptions.ConnectionClosed(result.reason_code,
+                                                          result.reason_text)
                 else:
-                    LOGGER.info('Connection closed; result=%r', result)
+                    LOGGER.info('Connection closed; result=%r',
+                                self._closed_result.value)
             finally:
                 self._cleanup()
 
@@ -613,6 +627,11 @@ class BlockingConnection(object):  # pylint: disable=R0902
         :param str reply_text: The text reason for the close
 
         """
+        if self.is_closed:
+            LOGGER.debug('Close called on closed connection (%s): %s',
+                         reply_code, reply_text)
+            return
+
         LOGGER.info('Closing connection (%s): %s', reply_code, reply_text)
 
         self._user_initiated_close = True
@@ -722,7 +741,8 @@ class BlockingConnection(object):  # pylint: disable=R0902
     @property
     def is_closing(self):
         """
-        Returns a boolean reporting the current connection state.
+        Returns True if connection is in the process of closing due to
+        client-initiated `close` request, but closing is not yet complete.
         """
         return self._impl.is_closing
 
@@ -1133,7 +1153,8 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
 
     @property
     def is_closing(self):
-        """Returns True if the channel is closing.
+        """Returns True if client-initiated closing of the channel is in
+        progress.
 
         :rtype: bool
 
@@ -1163,7 +1184,7 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
                         returning true when it's time to stop processing.
                         Their results are OR'ed together.
         """
-        if self._impl.is_closed:
+        if self.is_closed:
             raise exceptions.ChannelClosed()
 
         if not waiters:

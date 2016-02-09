@@ -5,8 +5,12 @@ Tests for SelectConnection IOLoops
 """
 # Disable warnings about initialization of members outside of __init__
 # pylint: disable=W0201
+
 # Disable warnings about too many public methods as they are in base classes
 # pylint: disable=R0904
+
+# Disable pylint warnings concerning access to protected members
+# pylint: disable=W0212
 
 try:
     #pylint: disable=F0401
@@ -17,10 +21,10 @@ except ImportError:
 
 try:
     #pylint: disable=F0401,E0611
-    from unittest.mock import patch as PATCH_
+    from unittest import mock
 except ImportError:
     #pylint: disable=W0404
-    from mock import patch as PATCH_
+    import mock
 
 import errno
 import os
@@ -41,11 +45,31 @@ class IOLoopBaseTest(unittest.TestCase):
     TIMEOUT = 1.0
 
     def setUp(self):
-        select_connection.SELECT_TYPE = self.SELECT_POLLER
-        self.ioloop = select_connection.IOLoop()
+        select_type_patch = mock.patch.multiple(select_connection,
+                                                SELECT_TYPE=self.SELECT_POLLER)
+        select_type_patch.start()
+        self.addCleanup(select_type_patch.stop)
 
-    def tearDown(self):
-        self.ioloop = None
+        self.ioloop = select_connection.IOLoop()
+        self.addCleanup(setattr, self, 'ioloop', None)
+
+        activate_poller_patch = mock.patch.object(
+            self.ioloop._poller,
+            'activate_poller',
+            wraps=self.ioloop._poller.activate_poller)
+        activate_poller_patch.start()
+        self.addCleanup(activate_poller_patch.stop)
+
+        deactivate_poller_patch = mock.patch.object(
+            self.ioloop._poller,
+            'deactivate_poller',
+            wraps=self.ioloop._poller.deactivate_poller)
+        deactivate_poller_patch.start()
+        self.addCleanup(deactivate_poller_patch.stop)
+
+    def shortDescription(self):
+        method_desc = super(IOLoopBaseTest, self).shortDescription()
+        return "%s (%s)" % (method_desc, self.SELECT_POLLER)
 
     def start(self):
         ''' Setup timeout handler for detecting 'no-activity'
@@ -53,6 +77,9 @@ class IOLoopBaseTest(unittest.TestCase):
         fail_timer = self.ioloop.add_timeout(self.TIMEOUT, self.on_timeout)
         self.addCleanup(self.ioloop.remove_timeout, fail_timer)
         self.ioloop.start()
+
+        self.ioloop._poller.activate_poller.assert_called_once_with()
+        self.ioloop._poller.deactivate_poller.assert_called_once_with()
 
     def on_timeout(self):
         """called when stuck waiting for connection to close"""
@@ -72,13 +99,16 @@ class IOLoopThreadStopTestSelect(IOLoopBaseTest):
         timer.start()
         self.start()
 
+
 class IOLoopThreadStopTestPoll(IOLoopThreadStopTestSelect):
     ''' Same as IOLoopThreadStopTestSelect but uses 'poll' syscall. '''
     SELECT_POLLER = 'poll'
 
+
 class IOLoopThreadStopTestEPoll(IOLoopThreadStopTestSelect):
     ''' Same as IOLoopThreadStopTestSelect but uses 'epoll' syscall. '''
     SELECT_POLLER = 'epoll'
+
 
 class IOLoopThreadStopTestKqueue(IOLoopThreadStopTestSelect):
     ''' Same as IOLoopThreadStopTestSelect but uses 'kqueue' syscall. '''
@@ -167,8 +197,7 @@ class IOLoopTimerTestSelect(IOLoopBaseTest):
             or not calling of previously set handlers."""
             self.concluded = True
             self.assertTrue(self.deleted_another_timer)
-            self.assertNotIn(target_timer,
-                             getattr(self.ioloop, '_timeouts'))
+            self.assertNotIn(target_timer, self.ioloop._poller._timeouts)
             self.ioloop.stop()
 
         self.ioloop.add_timeout(0.01, _on_timer_conclude)
@@ -182,9 +211,11 @@ class IOLoopTimerTestPoll(IOLoopTimerTestSelect):
     ''' Same as IOLoopTimerTestSelect but uses 'poll' syscall '''
     SELECT_POLLER = 'poll'
 
+
 class IOLoopTimerTestEPoll(IOLoopTimerTestSelect):
     ''' Same as IOLoopTimerTestSelect but uses 'epoll' syscall '''
     SELECT_POLLER = 'epoll'
+
 
 class IOLoopTimerTestKqueue(IOLoopTimerTestSelect):
     ''' Same as IOLoopTimerTestSelect but uses 'kqueue' syscall '''
@@ -206,13 +237,16 @@ class IOLoopSleepTimerTestPoll(IOLoopSleepTimerTestSelect):
     ''' Same as IOLoopSleepTimerTestSelect but uses 'poll' syscall '''
     SELECT_POLLER = 'poll'
 
+
 class IOLoopSleepTimerTestEPoll(IOLoopSleepTimerTestSelect):
     ''' Same as IOLoopSleepTimerTestSelect but uses 'epoll' syscall '''
     SELECT_POLLER = 'epoll'
 
+
 class IOLoopSleepTimerTestKqueue(IOLoopSleepTimerTestSelect):
     ''' Same as IOLoopSleepTimerTestSelect but uses 'kqueue' syscall '''
     SELECT_POLLER = 'kqueue'
+
 
 class IOLoopSocketBaseSelect(IOLoopBaseTest):
     ''' A base class for setting up a communicating pair of sockets. '''
@@ -257,7 +291,7 @@ class IOLoopSocketBaseSelect(IOLoopBaseTest):
         self.ioloop.add_handler(fd_, on_connected, WRITE)
         return write_sock
 
-    def do_accept(self, fd_, events, write_only): # pylint: disable=W0613
+    def do_accept(self, fd_, events): # pylint: disable=W0613
         ''' Create socket from the given fd_ and setup 'read' handler '''
         self.assertEqual(events, READ)
         listen_sock = self.sock_map[fd_]
@@ -265,12 +299,12 @@ class IOLoopSocketBaseSelect(IOLoopBaseTest):
         fd_ = self.save_sock(read_sock)
         self.ioloop.add_handler(fd_, self.do_read, READ)
 
-    def connected(self, _fd, _events, write_only): # pylint: disable=W0613,R0201
+    def connected(self, _fd, _events): # pylint: disable=W0613,R0201
         ''' Create socket from given _fd and respond to 'connected'.
             Implemenation is subclass's responsibility. '''
         self.fail("IOLoopSocketBase.connected not extended")
 
-    def do_read(self, fd_, events, write_only): # pylint: disable=W0613
+    def do_read(self, fd_, events): # pylint: disable=W0613
         ''' read from fd and check the received content '''
         self.assertEqual(events, READ)
         self.verify_message(os.read(fd_, self.READ_SIZE))
@@ -286,13 +320,16 @@ class IOLoopSocketBaseSelect(IOLoopBaseTest):
         self.ioloop.stop()
         self.fail('Test timed out')
 
+
 class IOLoopSocketBasePoll(IOLoopSocketBaseSelect):
     ''' Same as IOLoopSocketBaseSelect but uses 'poll' syscall '''
     SELECT_POLLER = 'poll'
 
+
 class IOLoopSocketBaseEPoll(IOLoopSocketBaseSelect):
     ''' Same as IOLoopSocketBaseSelect but uses 'epoll' syscall '''
     SELECT_POLLER = 'epoll'
+
 
 class IOLoopSocketBaseKqueue(IOLoopSocketBaseSelect):
     ''' Same as IOLoopSocketBaseSelect but uses 'kqueue' syscall '''
@@ -307,7 +344,7 @@ class IOLoopSimpleMessageTestCaseSelect(IOLoopSocketBaseSelect):
         self.create_write_socket(self.connected)
         super(IOLoopSimpleMessageTestCaseSelect, self).start()
 
-    def connected(self, fd, events, write_only):
+    def connected(self, fd, events):
         ''' Respond to 'connected' event by writing to the write-side. '''
         self.assertEqual(events, WRITE)
         os.write(fd, b'X')
@@ -322,13 +359,16 @@ class IOLoopSimpleMessageTestCaseSelect(IOLoopSocketBaseSelect):
         ''' Simple message Test'''
         self.start()
 
+
 class IOLoopSimpleMessageTestCasetPoll(IOLoopSimpleMessageTestCaseSelect):
     ''' Same as IOLoopSimpleMessageTestCaseSelect but uses 'poll' syscall '''
     SELECT_POLLER = 'poll'
 
+
 class IOLoopSimpleMessageTestCasetEPoll(IOLoopSimpleMessageTestCaseSelect):
     ''' Same as IOLoopSimpleMessageTestCaseSelect but uses 'epoll' syscall '''
     SELECT_POLLER = 'epoll'
+
 
 class IOLoopSimpleMessageTestCasetKqueue(IOLoopSimpleMessageTestCaseSelect):
     ''' Same as IOLoopSimpleMessageTestCaseSelect but uses 'kqueue' syscall '''
@@ -346,9 +386,8 @@ class IOLoopEintrTestCaseSelect(IOLoopBaseTest):
            os.kill(signal.SIGUSR1).'''
         pass
 
-    def _eintr_read_handler(self, fileno, events, write_only):
+    def _eintr_read_handler(self, fileno, events):
         '''Read from within poll loop that gets receives eintr error.'''
-        self.assertFalse(write_only)
         self.assertEqual(events, READ)
         sock = socket.fromfd(fileno, socket.AF_INET, socket.SOCK_STREAM)
         mesg = sock.recv(256)
@@ -364,16 +403,15 @@ class IOLoopEintrTestCaseSelect(IOLoopBaseTest):
 
     @unittest.skipUnless(pika.compat.HAVE_SIGNAL,
                          "This platform doesn't support posix signals")
-    @PATCH_('pika.adapters.select_connection._is_resumable')
+    @mock.patch('pika.adapters.select_connection._is_resumable')
     def test_eintr(self, is_resumable_mock, is_resumable_raw=pika.adapters
-                   .select_connection._is_resumable #pylint: disable=W0212
-                   ):
+                   .select_connection._is_resumable): #pylint: disable=W0212
         '''Test that poll() is properly restarted after receiving EINTR error.
            Class of an exception raised to signal the error differs in one
            implementation of polling mechanism and another.'''
         is_resumable_mock.side_effect = is_resumable_raw
         self.poller = self.ioloop._get_poller() #pylint: disable=W0212
-        sockpair = self.poller.get_interrupt_pair()
+        sockpair = self.poller._get_interrupt_pair()
         self._eintr_read_handler_is_called = False
         self.poller.add_handler(sockpair[0].fileno(), self._eintr_read_handler,
                                 READ)
@@ -402,9 +440,11 @@ class IOLoopEintrTestCasePoll(IOLoopEintrTestCaseSelect):
     ''' Same as IOLoopEintrTestCaseSelect but uses poll syscall '''
     SELECT_POLLER = 'poll'
 
+
 class IOLoopEintrTestCaseEPoll(IOLoopEintrTestCaseSelect):
     ''' Same as IOLoopEINTRrTestCaseSelect but uses epoll syscall '''
     SELECT_POLLER = 'epoll'
+
 
 class IOLoopEintrTestCaseKqueue(IOLoopEintrTestCaseSelect):
     ''' Same as IOLoopEINTRTestCaseSelect but uses kqueue syscall '''

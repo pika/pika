@@ -26,7 +26,8 @@ class AMQPConnectionError(AMQPError):
 class IncompatibleProtocolError(AMQPConnectionError):
 
     def __repr__(self):
-        return 'The protocol returned by the server is not supported'
+        return ('The protocol returned by the server is not supported: %s' %
+                (self.args,))
 
 
 class AuthenticationError(AMQPConnectionError):
@@ -40,14 +41,15 @@ class ProbableAuthenticationError(AMQPConnectionError):
 
     def __repr__(self):
         return ('Client was disconnected at a connection stage indicating a '
-                'probable authentication error')
+                'probable authentication error: %s' % (self.args,))
 
 
 class ProbableAccessDeniedError(AMQPConnectionError):
 
     def __repr__(self):
         return ('Client was disconnected at a connection stage indicating a '
-                'probable denial of access to the specified virtual host')
+                'probable denial of access to the specified virtual host: %s' %
+                (self.args,))
 
 
 class NoFreeChannels(AMQPConnectionError):

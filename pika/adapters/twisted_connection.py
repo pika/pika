@@ -105,6 +105,9 @@ class TwistedChannel(object):
 
         try:
             consumer_tag = self.__channel.basic_consume(*args, **kwargs)
+        # TODO this except without types would suppress system-exiting
+        # exceptions, such as SystemExit and KeyboardInterrupt. It should be at
+        # least `except Exception` and preferably more specific.
         except:
             return defer.fail()
 
@@ -163,6 +166,9 @@ class TwistedChannel(object):
 
             try:
                 method(*args, **kwargs)
+            # TODO this except without types would suppress system-exiting
+            # exceptions, such as SystemExit and KeyboardInterrupt. It should be
+            # at least `except Exception` and preferably more specific.
             except:
                 return defer.fail()
             return d
@@ -300,13 +306,6 @@ class TwistedConnection(base_connection.BaseConnection):
         self.ioloop.remove_handler(None)
         self._cleanup_socket()
 
-    def _handle_disconnect(self):
-        """Do not stop the reactor, this would cause the entire process to exit,
-        just fire the disconnect callbacks
-
-        """
-        self._on_connection_closed(None, True)
-
     def _on_connected(self):
         """Call superclass and then update the event state to flush the outgoing
         frame out. Commit 50d842526d9f12d32ad9f3c4910ef60b8c301f59 removed a
@@ -339,7 +338,7 @@ class TwistedConnection(base_connection.BaseConnection):
         if not reason.check(error.ConnectionDone):
             log.err(reason)
 
-        self._handle_disconnect()
+        self._on_terminate(-1, str(reason))
 
     def doRead(self):
         self._handle_read()

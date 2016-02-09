@@ -10,7 +10,6 @@ import ssl
 
 import pika.compat
 from pika import connection
-from pika import exceptions
 
 try:
     SOL_TCP = socket.SOL_TCP
@@ -52,10 +51,10 @@ class BaseConnection(connection.Connection):
 
         :param pika.connection.Parameters parameters: Connection parameters
         :param method on_open_callback: Method to call on connection open
-        :param on_open_error_callback: Method to call if the connection cant
-                                       be opened
-        :type on_open_error_callback: method
-        :param method on_close_callback: Method to call on connection close
+        :param method on_open_error_callback: Called if the connection can't
+            be established: on_open_error_callback(connection, str|exception)
+        :param method on_close_callback: Called when the connection is closed:
+            on_close_callback(connection, reason_code, reason_text)
         :param object ioloop: IOLoop object to use
         :param bool stop_ioloop_on_close: Call ioloop.stop() if disconnected
         :raises: RuntimeError
@@ -100,8 +99,11 @@ class BaseConnection(connection.Connection):
         :param str reply_text: The text reason for the close
 
         """
-        super(BaseConnection, self).close(reply_code, reply_text)
-        self._handle_ioloop_stop()
+        try:
+            super(BaseConnection, self).close(reply_code, reply_text)
+        finally:
+            if self.is_closed:
+                self._handle_ioloop_stop()
 
     def remove_timeout(self, timeout_id):
         """Remove the timeout from the IOLoop by the ID returned from
@@ -121,7 +123,8 @@ class BaseConnection(connection.Connection):
         # Get the addresses for the socket, supporting IPv4 & IPv6
         while True:
             try:
-                addresses = socket.getaddrinfo(self.params.host, self.params.port,
+                addresses = socket.getaddrinfo(self.params.host,
+                                               self.params.port,
                                                0, socket.SOCK_STREAM,
                                                socket.IPPROTO_TCP)
                 break
@@ -149,38 +152,9 @@ class BaseConnection(connection.Connection):
     def _adapter_disconnect(self):
         """Invoked if the connection is being told to disconnect"""
         try:
-            self._remove_heartbeat()
             self._cleanup_socket()
-            self._check_state_on_disconnect()
         finally:
-            # Ensure proper cleanup since _check_state_on_disconnect may raise
-            # an exception
             self._handle_ioloop_stop()
-            self._init_connection_state()
-
-    def _check_state_on_disconnect(self):
-        """Checks to see if we were in opening a connection with RabbitMQ when
-        we were disconnected and raises exceptions for the anticipated
-        exception types.
-
-        """
-        if self.connection_state == self.CONNECTION_PROTOCOL:
-            LOGGER.error('Incompatible Protocol Versions')
-            raise exceptions.IncompatibleProtocolError
-        elif self.connection_state == self.CONNECTION_START:
-            LOGGER.error("Socket closed while authenticating indicating a "
-                         "probable authentication error")
-            raise exceptions.ProbableAuthenticationError
-        elif self.connection_state == self.CONNECTION_TUNE:
-            LOGGER.error("Socket closed while tuning the connection indicating "
-                         "a probable permission error when accessing a virtual "
-                         "host")
-            raise exceptions.ProbableAccessDeniedError
-        elif self.is_open:
-            LOGGER.warning("Socket closed when connection was open")
-        elif not self.is_closed and not self.is_closing:
-            LOGGER.warning('Unknown state on disconnect: %i',
-                           self.connection_state)
 
     def _cleanup_socket(self):
         """Close the socket cleanly"""
@@ -269,24 +243,27 @@ class BaseConnection(connection.Connection):
         """
         if not error_value:
             return None
+
         if hasattr(error_value, 'errno'):  # Python >= 2.6
             return error_value.errno
-        elif error_value is not None:
+        else:
+            # TODO: this doesn't look right; error_value.args[0] ??? Could
+            # probably remove this code path since pika doesn't test against
+            # Python 2.5
             return error_value[0]  # Python <= 2.5
-        return None
 
     def _flush_outbound(self):
-        """write early, if the socket will take the data why not get it out
-        there asap.
+        """Have the state manager schedule the necessary I/O.
         """
-        self._handle_write()
+        # NOTE: We don't call _handle_write() from this context, because pika
+        # code was not designed to be writing to (or reading from) the socket
+        # from any methods, except from ioloop handler callbacks. Many methods
+        # in pika core and adapters do not deal gracefully with connection
+        # errors occurring in their context; e.g., Connection.channel (pika
+        # issue #659), Connection._on_connection_tune (if connection loss is
+        # detected in _send_connection_tune_ok, before _send_connection_open is
+        # called), etc., etc., etc.
         self._manage_event_state()
-
-    def _handle_disconnect(self):
-        """Called internally when the socket is disconnected already
-        """
-        self._adapter_disconnect()
-        self._on_connection_closed(None, True)
 
     def _handle_ioloop_stop(self):
         """Invoked when the connection is closed to determine if the IOLoop
@@ -305,9 +282,10 @@ class BaseConnection(connection.Connection):
         :param int|object error_value: The inbound error
 
         """
-        if 'timed out' in str(error_value):
-            raise socket.timeout
+        # TODO: doesn't seem right: docstring defines error_value as int|object,
+        # but _get_error_code expects a falsie or an exception-like object
         error_code = self._get_error_code(error_value)
+
         if not error_code:
             LOGGER.critical("Tried to handle an error where no error existed")
             return
@@ -324,6 +302,8 @@ class BaseConnection(connection.Connection):
         elif self.params.ssl and isinstance(error_value, ssl.SSLError):
 
             if error_value.args[0] == ssl.SSL_ERROR_WANT_READ:
+                # TODO: doesn't seem right: this logic updates event state, but
+                # the logic at the bottom unconditionaly disconnects anyway.
                 self.event_state = self.READ
             elif error_value.args[0] == ssl.SSL_ERROR_WANT_WRITE:
                 self.event_state = self.WRITE
@@ -335,20 +315,21 @@ class BaseConnection(connection.Connection):
             LOGGER.error("Socket Error: %s", error_code)
 
         # Disconnect from our IOLoop and let Connection know what's up
-        self._handle_disconnect()
+        self._on_terminate(-1, repr(error_value))
 
     def _handle_timeout(self):
         """Handle a socket timeout in read or write.
         We don't do anything in the non-blocking handlers because we
         only have the socket in a blocking state during connect."""
-        pass
+        LOGGER.warning("Unexpected socket timeout")
 
     def _handle_events(self, fd, events, error=None, write_only=False):
         """Handle IO/Event loop events, processing them.
 
         :param int fd: The file descriptor for the events
         :param int events: Events from the IO/Event loop
-        :param int error: Was an error specified
+        :param int error: Was an error specified; TODO none of the current
+          adapters appear to be able to pass the `error` arg - is it needed?
         :param bool write_only: Only handle write events
 
         """
@@ -364,10 +345,11 @@ class BaseConnection(connection.Connection):
             self._handle_read()
 
         if (self.socket and write_only and (events & self.READ) and
-            (events & self.ERROR)):
-            LOGGER.error('BAD libc:  Write-Only but Read+Error. '
+                (events & self.ERROR)):
+            error_msg = ('BAD libc:  Write-Only but Read+Error. '
                          'Assume socket disconnected.')
-            self._handle_disconnect()
+            LOGGER.error(error_msg)
+            self._on_terminate(-1, error_msg)
 
         if self.socket and (events & self.ERROR):
             LOGGER.error('Error event %r, %r', events, error)
@@ -409,7 +391,7 @@ class BaseConnection(connection.Connection):
         # Empty data, should disconnect
         if not data or data == 0:
             LOGGER.error('Read empty data, calling disconnect')
-            return self._handle_disconnect()
+            return self._on_terminate(-1, "EOF")
 
         # Pass the data into our top level frame dispatching method
         self._on_data_available(data)
