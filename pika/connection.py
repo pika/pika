@@ -361,7 +361,7 @@ class ConnectionParameters(Parameters):
         :param int channel_max: Maximum number of channels to allow
         :param int frame_max: The maximum byte size for an AMQP frame
         :param int heartbeat_interval: How often to send heartbeats.
-                                  Min between this value and server's proposal
+                                  Max between this value and server's proposal
                                   will be used. Use 0 to deactivate heartbeats
                                   and None to accept server's proposal.
         :param bool ssl: Enable SSL
@@ -1313,6 +1313,52 @@ class Connection(object):
         self._add_connection_tune_callback()
         self._send_connection_start_ok(*self._get_credentials(method_frame))
 
+
+    @staticmethod
+    def _tune_heartbeat_timeout(client_value, server_value):
+        """ Determine heartbeat timeout per AMQP 0-9-1 rules
+
+        Per https://www.rabbitmq.com/resources/specs/amqp0-9-1.pdf,
+
+        > Both peers negotiate the limits to the lowest agreed value as follows:
+        > - The server MUST tell the client what limits it proposes.
+        > - The client responds and **MAY reduce those limits** for its
+            connection
+
+        When negotiating heartbeat timeout, the reasoning needs to be reversed.
+        The way I think it makes sense to interpret this rule for heartbeats is
+        that the consumable resource is the frequency of heartbeats, which is
+        the inverse of the timeout. The more frequent heartbeats consume more
+        resources than less frequent heartbeats. So, when both heartbeat
+        timeouts are non-zero, we should pick the max heartbeat timeout rather
+        than the min. The heartbeat timeout value 0 (zero) has a special
+        meaning - it's supposed to disable the timeout. This makes zero a
+        setting for the least frequent heartbeats (i.e., never); therefore, if
+        any (or both) of the two is zero, then the above rules would suggest
+        that negotiation should yield 0 value for heartbeat, effectively turning
+        it off.
+
+        :param client_value: None to accept server_value; otherwise, an integral
+            number in seconds; 0 (zero) to disable heartbeat.
+        :param server_value: integral value of the heartbeat timeout proposed by
+            broker; 0 (zero) to disable heartbeat.
+
+        :returns: the value of the heartbeat timeout to use and return to broker
+        """
+        if client_value is None:
+            # Accept server's limit
+            timeout = server_value
+        elif client_value == 0 or server_value == 0:
+            # 0 has a special meaning "disable heartbeats", which makes it the
+            # least frequent heartbeat value there is
+            timeout = 0
+        else:
+            # Pick the one with the bigger heartbeat timeout (i.e., the less
+            # frequent one)
+            timeout = max(client_value, server_value)
+
+        return timeout
+
     def _on_connection_tune(self, method_frame):
         """Once the Broker sends back a Connection.Tune, we will set our tuning
         variables that have been returned to us and kick off the Heartbeat
@@ -1329,11 +1375,11 @@ class Connection(object):
                                                 method_frame.method.channel_max)
         self.params.frame_max = self._combine(self.params.frame_max,
                                               method_frame.method.frame_max)
-        if self.params.heartbeat is None:
-            self.params.heartbeat = method_frame.method.heartbeat
-        elif self.params.heartbeat != 0:
-            self.params.heartbeat = self._combine(self.params.heartbeat,
-                                                  method_frame.method.heartbeat)
+
+        # Negotiate heatbeat timeout
+        self.params.heartbeat = self._tune_heartbeat_timeout(
+            client_value=self.params.heartbeat,
+            server_value=method_frame.method.heartbeat)
 
         # Calculate the maximum pieces for body frames
         self._body_max_length = self._get_body_frame_max_length()
