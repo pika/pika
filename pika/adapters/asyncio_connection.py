@@ -374,7 +374,7 @@ class IOLoopAdapter:
             self.loop.add_writer(self.connection.fileno(), self._handle_write)
 
 
-class AsyncioProtocolConnection(base_connection.BaseConnection):
+class AsyncioProtocolConnection(base_connection.BaseConnection, asyncio.Protocol):
     """A hybrid between a Pika Connection and a acyncio Protocol. Allows using
     asyncio's non-blocking loop.create_connection method for connecting to the
     server.
