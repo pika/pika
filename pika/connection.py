@@ -2255,37 +2255,27 @@ class Connection(object):
         else:
             self._send_frame(frame.Method(channel_number, method))
 
-    def _send_message(self, channel_number, method, content=None):
-        """Send the message directly, bypassing the single _send_frame
-        invocation by directly appending to the output buffer and flushing
-        within a lock.
+    def _send_message(self, channel_number, method_frame, content):
+        """Publish a message.
 
         :param int channel_number: The channel number for the frame
-        :param pika.amqp_object.Method method: The method frame to send
-        :param tuple content: If set, is a content frame, is tuple of
-                              properties and body.
+        :param pika.object.Method method_frame: The method frame to send
+        :param tuple content: A content frame, which is tuple of properties and
+                              body.
 
         """
         length = len(content[1])
-        write_buffer = [frame.Method(channel_number, method).marshal(),
-                        frame.Header(channel_number, length,
-                                     content[0]).marshal()]
+        self._send_frame(frame.Method(channel_number, method_frame))
+        self._send_frame(frame.Header(channel_number, length, content[0]))
+
         if content[1]:
             chunks = int(math.ceil(float(length) / self._body_max_length))
             for chunk in xrange(0, chunks):
-                start = chunk * self._body_max_length
-                end = start + self._body_max_length
-                if end > length:
-                    end = length
-                write_buffer.append(frame.Body(channel_number,
-                                               content[1][start:end]).marshal())
-
-        self.outbound_buffer += write_buffer
-        self.frames_sent += len(write_buffer)
-        self.bytes_sent += sum(len(frame) for frame in write_buffer)
-        self._flush_outbound()
-        if self.params.backpressure_detection:
-            self._detect_backpressure()
+                s = chunk * self._body_max_length
+                e = s + self._body_max_length
+                if e > length:
+                    e = length
+                self._send_frame(frame.Body(channel_number, content[1][s:e]))
 
     def _set_connection_state(self, connection_state):
         """Set the connection state.
