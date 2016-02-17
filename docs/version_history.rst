@@ -16,6 +16,8 @@ Next Release
    (nowait) Channel operation. It's an application error to pass a non-None
    completion callback with an asynchronous request, because this callback can
    never be serviced in the asynchronous scenario.
+ - `Channel.basic_reject` fixed to allow `delivery_tag` to be of type `long`
+   as well as `int`. (by quantum5)
 
 0.10.0 2015-09-02
 -----------------
