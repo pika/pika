@@ -73,6 +73,8 @@ if not PY2:
 
         return str(value)
 
+    def is_integer(value):
+        return isinstance(value, int)
 else:
     from urllib import unquote as url_unquote, urlencode
 
@@ -97,6 +99,8 @@ else:
         except UnicodeEncodeError:
             return str(value.encode('utf-8'))
 
+    def is_integer(value):
+        return isinstance(value, (int, long))
 
 def as_bytes(value):
     if not isinstance(value, bytes):
