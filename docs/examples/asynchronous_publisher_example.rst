@@ -162,7 +162,7 @@ publisher.py::
             different parameters. In this case, we'll close the connection
             to shutdown the object.
 
-            :param pika.channel.Channel: The closed channel
+            :param pika.channel.Channel channel: The closed channel
             :param int reply_code: The numeric reason the channel was closed
             :param str reply_text: The text reason the channel was closed
 
