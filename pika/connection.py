@@ -334,6 +334,7 @@ class ConnectionParameters(Parameters):
     :param int|float socket_timeout: Use for high latency networks
     :param str locale: Set the locale value
     :param bool backpressure_detection: Toggle backpressure detection
+    :param json object client_props: setup your client properties (and overrides the default ones)
 
     """
 
@@ -351,7 +352,8 @@ class ConnectionParameters(Parameters):
                  retry_delay=None,
                  socket_timeout=None,
                  locale=None,
-                 backpressure_detection=None):
+                 backpressure_detection=None,
+                 client_props=None):
         """Create a new ConnectionParameters instance.
 
         :param str host: Hostname or IP Address to connect to
@@ -371,6 +373,7 @@ class ConnectionParameters(Parameters):
         :param int|float socket_timeout: Use for high latency networks
         :param str locale: Set the locale value
         :param bool backpressure_detection: Toggle backpressure detection
+        :param json object client_props: setup your client properties (and overrides the default ones)
 
         """
         super(ConnectionParameters, self).__init__()
@@ -413,6 +416,7 @@ class ConnectionParameters(Parameters):
         if (backpressure_detection is not None and
                 self._validate_backpressure(backpressure_detection)):
             self.backpressure_detection = backpressure_detection
+        self.client_props = client_props
 
 
 class URLParameters(Parameters):
@@ -952,7 +956,7 @@ class Connection(object):
         :rtype: dict
 
         """
-        return {
+        client_properties = {
             'product': PRODUCT,
             'platform': 'Python %s' % platform.python_version(),
             'capabilities': {
@@ -965,6 +969,12 @@ class Connection(object):
             'information': 'See http://pika.rtfd.org',
             'version': __version__
         }
+
+        if hasattr(self.params, 'client_props') and self.params.client_props is not None:
+            for key in self.params.client_props:
+                client_properties[key] = self.params.client_props[key]
+
+        return client_properties
 
     def _close_channels(self, reply_code, reply_text):
         """Close the open channels with the specified reply_code and reply_text.
