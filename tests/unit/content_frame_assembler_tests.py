@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 """
-Tests for pika.channel.ContentFrameDispatcher
+Tests for pika.channel.ContentFrameAssembler
 
 """
 import marshal
@@ -16,10 +16,10 @@ from pika import frame
 from pika import spec
 
 
-class ContentFrameDispatcherTests(unittest.TestCase):
+class ContentFrameAssemblerTests(unittest.TestCase):
 
     def setUp(self):
-        self.obj = channel.ContentFrameDispatcher()
+        self.obj = channel.ContentFrameAssembler()
 
     def test_init_method_frame(self):
         self.assertEqual(self.obj._method_frame, None)
@@ -135,7 +135,7 @@ class ContentFrameDispatcherTests(unittest.TestCase):
 
     def test_ascii_body_value(self):
         expectation = b'foo-bar-baz'
-        self.obj = channel.ContentFrameDispatcher()
+        self.obj = channel.ContentFrameAssembler()
         method_frame = frame.Method(1, spec.Basic.Deliver())
         self.obj.process(method_frame)
         header_frame = frame.Header(1, 11, spec.BasicProperties)
@@ -147,7 +147,7 @@ class ContentFrameDispatcherTests(unittest.TestCase):
 
     def test_binary_non_unicode_value(self):
         expectation = ('a', 0.8)
-        self.obj = channel.ContentFrameDispatcher()
+        self.obj = channel.ContentFrameAssembler()
         method_frame = frame.Method(1, spec.Basic.Deliver())
         self.obj.process(method_frame)
         marshalled_body = marshal.dumps(expectation)

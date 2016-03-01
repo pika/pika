@@ -7,17 +7,16 @@ import logging
 import math
 import numbers
 import platform
-import threading
 import warnings
 
 if sys.version_info > (3,):
-    import urllib.parse as urlparse
+    import urllib.parse as urlparse  # pylint: disable=E0611,F0401
 else:
     import urlparse
 
 from pika import __version__
 from pika import callback
-from pika import channel
+import pika.channel
 from pika import credentials as pika_credentials
 from pika import exceptions
 from pika import frame
@@ -26,8 +25,9 @@ from pika import utils
 
 from pika import spec
 
-from pika.compat import xrange, basestring, url_unquote, dictkeys
-from pika.compat import dict_iteritems
+from pika.compat import (xrange, basestring, # pylint: disable=W0622
+                         url_unquote, dictkeys, dict_itervalues,
+                         dict_iteritems)
 
 
 BACKPRESSURE_WARNING = ("Pika: Write buffer exceeded warning threshold at "
@@ -41,7 +41,7 @@ class InternalCloseReasons(object):
     """Internal reason codes passed to the user's on_close_callback when the
     connection is terminated abruptly, without reply code/text from the broker.
 
-    AMQP 0.9.1 specification sites IETF RFC 821 for reply codes. To avoid
+    AMQP 0.9.1 specification cites IETF RFC 821 for reply codes. To avoid
     conflict, the `InternalCloseReasons` namespace uses negative integers. These
     are invalid for sending to the broker.
     """
@@ -525,7 +525,7 @@ class ConnectionParameters(Parameters):
     class _DEFAULT(object):
         pass
 
-    def __init__(self,
+    def __init__(self,  # pylint: disable=R0913
                  host=_DEFAULT,
                  port=_DEFAULT,
                  virtual_host=_DEFAULT,
@@ -560,7 +560,9 @@ class ConnectionParameters(Parameters):
         :param int|float retry_delay: Time to wait in seconds, before the next
         :param int|float socket_timeout: Use for high latency networks
         :param str locale: Set the locale value
-        :param bool backpressure_detection: Toggle backpressure detection
+        :param bool backpressure_detection: DEPRECATED in favor of
+            `Connection.Blocked` and `Connection.Unblocked`. See
+            `Connection.add_on_connection_blocked_callback`.
         :param blocked_connection_timeout: If not None,
             the value is a non-negative timeout, in seconds, for the
             connection to remain blocked (triggered by Connection.Blocked from
@@ -652,7 +654,9 @@ class URLParameters(Parameters):
     Valid query string values are:
 
         - backpressure_detection:
-            Toggle backpressure detection, possible values are `t` or `f`
+            DEPRECATED in favor of
+            `Connection.Blocked` and `Connection.Unblocked`. See
+            `Connection.add_on_connection_blocked_callback`.
         - channel_max:
             Override the default maximum channel count value
         - connection_attempts:
@@ -856,6 +860,10 @@ class Connection(object):
     :param method on_close_callback: Called when the connection is closed
 
     """
+
+    # Disable pylint messages concerning "method could be a funciton"
+    # pylint: disable=R0201
+
     ON_CONNECTION_BACKPRESSURE = '_on_connection_backpressure'
     ON_CONNECTION_BLOCKED = '_on_connection_blocked'
     ON_CONNECTION_CLOSED = '_on_connection_closed'
@@ -869,6 +877,16 @@ class Connection(object):
     CONNECTION_TUNE = 4
     CONNECTION_OPEN = 5
     CONNECTION_CLOSING = 6  # client-initiated close in progress
+
+    _STATE_NAMES = {
+        CONNECTION_CLOSED: 'CLOSED',
+        CONNECTION_INIT: 'INIT',
+        CONNECTION_PROTOCOL: 'PROTOCOL',
+        CONNECTION_START: 'START',
+        CONNECTION_TUNE: 'TUNE',
+        CONNECTION_OPEN: 'OPEN',
+        CONNECTION_CLOSING: 'CLOSING'
+    }
 
     def __init__(self,
                  parameters=None,
@@ -893,8 +911,6 @@ class Connection(object):
           internal causes, such as socket errors.
 
         """
-        self._write_lock = threading.Lock()
-
         self.connection_state = self.CONNECTION_CLOSED
 
         # Used to hold timer if configured for Connection.Blocked timeout
@@ -909,8 +925,20 @@ class Connection(object):
         # Define our callback dictionary
         self.callbacks = callback.CallbackManager()
 
+        # Attributes that will be properly initialized by _init_connection_state
+        # and/or during connection handshake.
+        self.server_capabilities = None
+        self.server_properties = None
+        self._body_max_length = None
+        self.known_hosts = None
+        self.closing = None
+        self._frame_buffer = None
+        self._channels = None
+        self._backpressure_multiplier = None
+
         # Initialize the connection state and connect
         self._init_connection_state()
+
 
         # Add the on connection error callback
         self.callbacks.add(0, self.ON_CONNECTION_ERROR,
@@ -1023,6 +1051,10 @@ class Connection(object):
         :rtype: pika.channel.Channel
 
         """
+        if not self.is_open:
+            raise exceptions.ConnectionClosed(
+                'Channel allocation requires an open connection: %s' % self)
+
         if not channel_number:
             channel_number = self._next_channel_number()
         self._channels[channel_number] = self._create_channel(channel_number,
@@ -1042,20 +1074,27 @@ class Connection(object):
 
         """
         if self.is_closing or self.is_closed:
+            LOGGER.warning('Suppressing close request on %s', self)
             return
 
-        if self._has_open_channels:
-            self._close_channels(reply_code, reply_text)
+        # Initiate graceful closing of channels that are OPEN or OPENING
+        self._close_channels(reply_code, reply_text)
 
         # Set our connection state
         self._set_connection_state(self.CONNECTION_CLOSING)
         LOGGER.info("Closing connection (%s): %s", reply_code, reply_text)
         self.closing = reply_code, reply_text
 
-        if not self._has_open_channels:
-            # if there are open channels then _on_close_ready will finally be
-            # called in _on_channel_cleanup once all channels have been closed
+        # If there are channels that haven't finished closing yet, then
+        # _on_close_ready will finally be called from _on_channel_cleanup once
+        # all channels have been closed
+        if not self._channels:
+            # We can initiate graceful closing of the connection right away,
+            # since no more channels remain
             self._on_close_ready()
+        else:
+            LOGGER.info('Connection.close is waiting for '
+                        '%d channels to close: %s', len(self._channels), self)
 
     def connect(self):
         """Invoke if trying to reconnect to a RabbitMQ server. Constructing the
@@ -1063,6 +1102,7 @@ class Connection(object):
 
         """
         self._set_connection_state(self.CONNECTION_INIT)
+
         error = self._adapter_connect()
         if not error:
             return self._on_connected()
@@ -1071,9 +1111,21 @@ class Connection(object):
                        self.remaining_connection_attempts)
         if self.remaining_connection_attempts > 0:
             LOGGER.info('Retrying in %i seconds', self.params.retry_delay)
-            # TODO: remove timeout if connection is closed before timer fires
+            # TODO remove timeout if connection is closed before timer fires
             self.add_timeout(self.params.retry_delay, self.connect)
         else:
+            # TODO connect must not call failure callback from constructor. The
+            # current behavior is error-prone, because the user code may get a
+            # callback upon socket connection failure before user's other state
+            # may be sufficiently initialized. Constructors must either succeed
+            # or raise an exception. To be forward-compatible with failure
+            # reporting from fully non-blocking connection establishment,
+            # connect() should set INIT state and schedule a 0-second timer to
+            # continue the rest of the logic in a private method. The private
+            # method should use itself instead of connect() as the callback for
+            # scheduling retries.
+
+            # TODO This should use _on_terminate for consistent behavior
             self.callbacks.process(0, self.ON_CONNECTION_ERROR, self, self,
                                    error)
             self.remaining_connection_attempts = self.params.connection_attempts
@@ -1095,7 +1147,7 @@ class Connection(object):
         :param int value: The multiplier value to set
 
         """
-        self._backpressure = value
+        self._backpressure_multiplier = value
 
     #
     # Connections state properties
@@ -1192,6 +1244,8 @@ class Connection(object):
         :param int channel_number: The channel number for the callbacks
 
         """
+        # pylint: disable=W0212
+
         # This permits us to garbage-collect our reference to the channel
         # regardless of whether it was closed by client or broker, and do so
         # after all channel-close callbacks.
@@ -1237,6 +1291,8 @@ class Connection(object):
         """
         if (value.method.version_major,
                 value.method.version_minor) != spec.PROTOCOL_VERSION[0:2]:
+            # TODO This should call _on_terminate for proper callbacks and
+            # cleanup
             raise exceptions.ProtocolVersionMismatch(frame.ProtocolHeader(),
                                                      value)
 
@@ -1262,35 +1318,30 @@ class Connection(object):
         }
 
     def _close_channels(self, reply_code, reply_text):
-        """Close the open channels with the specified reply_code and reply_text.
+        """Initiate graceful closing of channels that are in OPEN or OPENING
+        states, passing reply_code and reply_text.
 
         :param int reply_code: The code for why the channels are being closed
         :param str reply_text: The text reason for why the channels are closing
 
         """
-        if self.is_open:
-            for channel_number in dictkeys(self._channels):
-                if self._channels[channel_number].is_open:
-                    self._channels[channel_number].close(reply_code, reply_text)
-                else:
-                    del self._channels[channel_number]
-                    # Force any lingering callbacks to be removed
-                    # moved inside else block since channel's _cleanup removes
-                    # callbacks
-                    self.callbacks.cleanup(channel_number)
-        else:
-            self._channels = dict()
+        assert self.is_open, str(self)
 
-    def _combine(self, a, b):
+        for channel_number in dictkeys(self._channels):
+            chan = self._channels[channel_number]
+            if not (chan.is_closing or chan.is_closed):
+                chan.close(reply_code, reply_text)
+
+    def _combine(self, val1, val2):
         """Pass in two values, if a is 0, return b otherwise if b is 0,
         return a. If neither case matches return the smallest value.
 
-        :param int a: The first value
-        :param int b: The second value
+        :param int val1: The first value
+        :param int val2: The second value
         :rtype: int
 
         """
-        return min(a, b) or (a or b)
+        return min(val1, val2) or (val1 or val2)
 
     def _connect(self):
         """Attempt to connect to RabbitMQ
@@ -1310,7 +1361,7 @@ class Connection(object):
 
         """
         LOGGER.debug('Creating channel %s', channel_number)
-        return channel.Channel(self, channel_number, on_open_callback)
+        return pika.channel.Channel(self, channel_number, on_open_callback)
 
     def _create_heartbeat_checker(self):
         """Create a heartbeat checker instance if there is a heartbeat interval
@@ -1339,14 +1390,15 @@ class Connection(object):
 
         """
         if not value.channel_number in self._channels:
-            if self._is_basic_deliver_frame(value):
-                self._reject_out_of_band_delivery(value.channel_number,
-                                                  value.method.delivery_tag)
-            else:
-                LOGGER.warning("Received %r for non-existing channel %i", value,
-                               value.channel_number)
+            # This should never happen and would constitute breach of the
+            # protocol
+            LOGGER.critical(
+                'Received %s frame for unregistered channel %i on %s',
+                value.NAME, value.channel_number, self)
             return
-        return self._channels[value.channel_number]._handle_content_frame(value)
+
+        # pylint: disable=W0212
+        self._channels[value.channel_number]._handle_content_frame(value)
 
     def _detect_backpressure(self):
         """Attempt to calculate if TCP backpressure is being applied due to
@@ -1355,8 +1407,8 @@ class Connection(object):
 
         """
         avg_frame_size = self.bytes_sent / self.frames_sent
-        buffer_size = sum([len(frame) for frame in self.outbound_buffer])
-        if buffer_size > (avg_frame_size * self._backpressure):
+        buffer_size = sum([len(f) for f in self.outbound_buffer])
+        if buffer_size > (avg_frame_size * self._backpressure_multiplier):
             LOGGER.warning(BACKPRESSURE_WARNING, buffer_size,
                            int(buffer_size / avg_frame_size))
             self.callbacks.process(0, self.ON_CONNECTION_BACKPRESSURE, self)
@@ -1395,19 +1447,11 @@ class Connection(object):
         (auth_type,
          response) = self.params.credentials.response_for(method_frame.method)
         if not auth_type:
+            # TODO this should call _on_terminate for proper callbacks and
+            # cleanup instead
             raise exceptions.AuthenticationError(self.params.credentials.TYPE)
         self.params.credentials.erase_credentials()
         return auth_type, response
-
-    @property
-    def _has_open_channels(self):
-        """Returns true if channels are open.
-
-        :rtype: bool
-
-        """
-        return any([self._channels[num].is_open
-                    for num in dictkeys(self._channels)])
 
     def _has_pending_callbacks(self, value):
         """Return true if there are any callbacks pending for the specified
@@ -1451,7 +1495,7 @@ class Connection(object):
         self.heartbeat = None
 
         # Default back-pressure multiplier value
-        self._backpressure = 10
+        self._backpressure_multiplier = 10
 
         # When closing, hold reason why
         self.closing = 0, 'Not specified'
@@ -1478,15 +1522,6 @@ class Connection(object):
             self.add_on_connection_unblocked_callback(
                 self._on_connection_unblocked)
 
-    def _is_basic_deliver_frame(self, frame_value):
-        """Returns true if the frame is a Basic.Deliver
-
-        :param pika.frame.Method frame_value: The frame to check
-        :rtype: bool
-
-        """
-        return isinstance(frame_value, spec.Basic.Deliver)
-
     def _is_method_frame(self, value):
         """Returns true if the frame is a method frame.
 
@@ -1510,13 +1545,13 @@ class Connection(object):
         :rtype: int
 
         """
-        limit = self.params.channel_max or channel.MAX_CHANNELS
+        limit = self.params.channel_max or pika.channel.MAX_CHANNELS
         if len(self._channels) >= limit:
             raise exceptions.NoFreeChannels()
 
-        for n in xrange(1, len(self._channels) + 1):
-            if n not in self._channels:
-                return n
+        for num in xrange(1, len(self._channels) + 1):
+            if num not in self._channels:
+                return num
         return len(self._channels) + 1
 
     def _on_channel_cleanup(self, channel):
@@ -1533,8 +1568,21 @@ class Connection(object):
         except KeyError:
             LOGGER.error('Channel %r not in channels',
                          channel.channel_number)
-        if self.is_closing and not self._has_open_channels:
-            self._on_close_ready()
+        if self.is_closing:
+            if not self._channels:
+                # Initiate graceful closing of the connection
+                self._on_close_ready()
+            else:
+                # Once Connection enters CLOSING state, all remaining channels
+                # should also be in CLOSING state. Deviation from this would
+                # prevent Connection from completing its closing procedure.
+                channels_not_in_closing_state = [
+                    chan for chan in dict_itervalues(self._channels)
+                    if not chan.is_closing]
+                if channels_not_in_closing_state:
+                    LOGGER.critical(
+                        'Connection in CLOSING state has non-CLOSING '
+                        'channels: %r', channels_not_in_closing_state)
 
     def _on_close_ready(self):
         """Called when the Connection is in a state that it can close after
@@ -1543,8 +1591,9 @@ class Connection(object):
 
         """
         if self.is_closed:
-            LOGGER.warning('Invoked while already closed')
+            LOGGER.warning('_on_close_ready invoked when already closed')
             return
+
         self._send_connection_close(self.closing[0], self.closing[1])
 
     def _on_connected(self):
@@ -1626,7 +1675,7 @@ class Connection(object):
 
         self._on_terminate(self.closing[0], self.closing[1])
 
-    def _on_connection_error(self, connection_unused, error_message=None):
+    def _on_connection_error(self, _connection_unused, error_message=None):
         """Default behavior when the connecting connection can not connect.
 
         :raises: exceptions.AMQPConnectionError
@@ -1641,6 +1690,10 @@ class Connection(object):
         called the Connection.Open on the server and it has replied with
         Connection.Ok.
         """
+        # TODO _on_connection_open - what if user started closing it already?
+        # It shouldn't transition to OPEN if in closing state. Just log and skip
+        # the rest.
+
         self.known_hosts = method_frame.method.known_hosts
 
         # We're now connected at the AMQP level
@@ -1782,7 +1835,7 @@ class Connection(object):
         self._remove_heartbeat()
 
         # Remove connection management callbacks
-        # TODO: This call was moved here verbatim from legacy code and the
+        # TODO This call was moved here verbatim from legacy code and the
         # following doesn't seem to be right: `Connection.Open` here is
         # unexpected, we don't appear to ever register it, and the broker
         # shouldn't be sending `Connection.Open` to us, anyway.
@@ -1830,10 +1883,8 @@ class Connection(object):
         for channel in dictkeys(self._channels):
             if channel not in self._channels:
                 continue
-            method_frame = frame.Method(channel, spec.Channel.Close(
-                reason_code,
-                reason_text))
-            self._channels[channel]._on_close(method_frame)
+            # pylint: disable=W0212
+            self._channels[channel]._on_close_meta(reason_code, reason_text)
 
         # Inform interested parties
         if connection_error is not None:
@@ -1904,40 +1955,30 @@ class Connection(object):
         """
         return frame.decode_frame(self._frame_buffer)
 
-    def _reject_out_of_band_delivery(self, channel_number, delivery_tag):
-        """Reject a delivery on the specified channel number and delivery tag
-        because said channel no longer exists.
-
-        :param int channel_number: The channel number
-        :param int delivery_tag: The delivery tag
-
-        """
-        LOGGER.warning('Rejected out-of-band delivery on channel %i (%s)',
-                       channel_number, delivery_tag)
-        self._send_method(channel_number, spec.Basic.Reject(delivery_tag))
-
-    def _remove_callback(self, channel_number, method_frame):
+    def _remove_callback(self, channel_number, method_class):
         """Remove the specified method_frame callback if it is set for the
         specified channel number.
 
         :param int channel_number: The channel number to remove the callback on
-        :param pika.object.Method: The method frame for the callback
+        :param pika.amqp_object.Method method_class: The method class for the
+            callback
 
         """
-        self.callbacks.remove(str(channel_number), method_frame)
+        self.callbacks.remove(str(channel_number), method_class)
 
-    def _remove_callbacks(self, channel_number, method_frames):
+    def _remove_callbacks(self, channel_number, method_classes):
         """Remove the callbacks for the specified channel number and list of
         method frames.
 
         :param int channel_number: The channel number to remove the callback on
-        :param list method_frames: The method frames for the callback
+        :param sequence method_classes: The method classes (derived from
+            `pika.amqp_object.Method`) for the callbacks
 
         """
-        for method_frame in method_frames:
+        for method_frame in method_classes:
             self._remove_callback(channel_number, method_frame)
 
-    def _rpc(self, channel_number, method_frame,
+    def _rpc(self, channel_number, method,
              callback_method=None,
              acceptable_replies=None):
         """Make an RPC call for the given callback, channel number and method.
@@ -1945,7 +1986,7 @@ class Connection(object):
         server with the specified callback.
 
         :param int channel_number: The channel number for the RPC call
-        :param pika.object.Method method_frame: The method frame to call
+        :param pika.amqp_object.Method method: The method frame to call
         :param method callback_method: The callback for the RPC response
         :param list acceptable_replies: The replies this RPC call expects
 
@@ -1963,7 +2004,7 @@ class Connection(object):
                 self.callbacks.add(channel_number, reply, callback_method)
 
         # Send the rpc call to RabbitMQ
-        self._send_method(channel_number, method_frame)
+        self._send_method(channel_number, method)
 
     def _send_connection_close(self, reply_code, reply_text):
         """Send a Connection.Close method frame.
@@ -2009,7 +2050,7 @@ class Connection(object):
 
         """
         if self.is_closed:
-            LOGGER.critical('Attempted to send frame when closed')
+            LOGGER.error('Attempted to send frame when closed')
             raise exceptions.ConnectionClosed
 
         marshaled_frame = frame_value.marshal()
@@ -2020,52 +2061,50 @@ class Connection(object):
         if self.params.backpressure_detection:
             self._detect_backpressure()
 
-    def _send_method(self, channel_number, method_frame, content=None):
+    def _send_method(self, channel_number, method, content=None):
         """Constructs a RPC method frame and then sends it to the broker.
 
         :param int channel_number: The channel number for the frame
-        :param pika.object.Method method_frame: The method frame to send
+        :param pika.amqp_object.Method method: The method to send
         :param tuple content: If set, is a content frame, is tuple of
                               properties and body.
 
         """
-        if not content:
-            with self._write_lock:
-                self._send_frame(frame.Method(channel_number, method_frame))
-                return
-        self._send_message(channel_number, method_frame, content)
+        if content:
+            self._send_message(channel_number, method, content)
+        else:
+            self._send_frame(frame.Method(channel_number, method))
 
-    def _send_message(self, channel_number, method_frame, content=None):
+    def _send_message(self, channel_number, method, content=None):
         """Send the message directly, bypassing the single _send_frame
         invocation by directly appending to the output buffer and flushing
         within a lock.
 
         :param int channel_number: The channel number for the frame
-        :param pika.object.Method method_frame: The method frame to send
+        :param pika.amqp_object.Method method: The method frame to send
         :param tuple content: If set, is a content frame, is tuple of
                               properties and body.
 
         """
         length = len(content[1])
-        write_buffer = [frame.Method(channel_number, method_frame).marshal(),
+        write_buffer = [frame.Method(channel_number, method).marshal(),
                         frame.Header(channel_number, length,
                                      content[0]).marshal()]
         if content[1]:
             chunks = int(math.ceil(float(length) / self._body_max_length))
-            for chunk in range(0, chunks):
-                s = chunk * self._body_max_length
-                e = s + self._body_max_length
-                if e > length:
-                    e = length
+            for chunk in xrange(0, chunks):
+                start = chunk * self._body_max_length
+                end = start + self._body_max_length
+                if end > length:
+                    end = length
                 write_buffer.append(frame.Body(channel_number,
-                                               content[1][s:e]).marshal())
+                                               content[1][start:end]).marshal())
 
-        with self._write_lock:
-            self.outbound_buffer += write_buffer
-            self.frames_sent += len(write_buffer)
-            self._flush_outbound()
-            if self.params.backpressure_detection:
-                self._detect_backpressure()
+        self.outbound_buffer += write_buffer
+        self.frames_sent += len(write_buffer)
+        self._flush_outbound()
+        if self.params.backpressure_detection:
+            self._detect_backpressure()
 
     def _set_connection_state(self, connection_state):
         """Set the connection state.

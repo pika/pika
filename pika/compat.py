@@ -58,6 +58,13 @@ if not PY2:
         """
         return dct.items()
 
+    def dict_itervalues(dct):
+        """
+        :param dict dct:
+        :returns: an iterator of the values of a dictionary
+        """
+        return dct.values()
+
     def byte(*args):
         """
         This is the same as Python 2 `chr(n)` for bytes in Python 3
@@ -97,6 +104,7 @@ else:
     dictkeys = dict.keys
     dictvalues = dict.values
     dict_iteritems = dict.iteritems
+    dict_itervalues = dict.itervalues
     byte = chr
     long = long
 

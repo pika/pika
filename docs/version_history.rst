@@ -34,7 +34,22 @@ Next Release
  - `InvalidMinimumFrameSize` and `InvalidMaximumFrameSize` exceptions are
    deprecated. pika.connection.Parameters.frame_max property setter now raises
    the standard `ValueError` exception when the value is out of bounds.
-
+ - Removed deprecated parameter `type` in `Channel.exchange_declare` and
+   `BlockingChannel.exchnage_declare` in favor of the `exchange_type` arg that
+   doesn't overshadow the builtin `type` keyword.
+ - Channel.close() on OPENING channel transitions it to CLOSING instead of
+   raising ChannelClosed.
+ - Channel.close() on CLOSING channel raises `ChannelAlreadyClosing`; used to
+   raise `ChannelClosed`.
+ - Connection.channel() raises `ConnectionClosed` if connection is not in OPEN
+   state.
+ - When performing graceful close on a channel and `Channel.Close` from broker
+   arrives while waiting for CloseOk, don't release the channel number until
+   CloseOk arrives to avoid race condition that may lead to a new channel
+   receiving the CloseOk that was destined for the closing channel.
+ - The `backpressure_detection` option of `ConnectionParameters` and
+   `URLParameters` property is DEPRECATED in favor of `Connection.Blocked` and
+   `Connection.Unblocked`. See `Connection.add_on_connection_blocked_callback`.
 
 0.10.0 2015-09-02
 -----------------

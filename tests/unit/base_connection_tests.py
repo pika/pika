@@ -18,6 +18,16 @@ from pika.adapters import base_connection
 
 class BaseConnectionTests(unittest.TestCase):
 
+    def setUp(self):
+        with mock.patch('pika.connection.Connection.connect'):
+            self.connection = base_connection.BaseConnection()
+            self.connection._set_connection_state(
+                base_connection.BaseConnection.CONNECTION_OPEN)
+
+    def test_repr(self):
+        text = repr(self.connection)
+        self.assertTrue(text.startswith('<BaseConnection'), text)
+
     def test_should_raise_value_exception_with_no_params_func_instead(self):
 
         def foo():
