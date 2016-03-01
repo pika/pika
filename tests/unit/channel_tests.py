@@ -1287,6 +1287,8 @@ class ChannelTests(unittest.TestCase):
         method_frame = frame.Method(self.obj.channel_number,
                                     spec.Channel.Close(999, 'Test_Value'))
         self.obj._on_close(method_frame)
-        warning.assert_called_with('Received remote Channel.Close (%s): %s',
-                                   method_frame.method.reply_code,
-                                   method_frame.method.reply_text)
+        warning.assert_called_with(
+            'Received remote Channel.Close (%s): %r on channel %s',
+            method_frame.method.reply_code,
+            method_frame.method.reply_text,
+            self.obj)

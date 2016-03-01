@@ -167,7 +167,7 @@ class IOLoop(object):
         return self._poller.add_timeout(deadline, callback_method)
 
     def remove_timeout(self, timeout_id):
-        """[API] Remove a timeout if it's still in the timeout stack
+        """[API] Remove a timeout
 
         :param str timeout_id: The timeout id to remove
 

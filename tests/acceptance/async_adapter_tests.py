@@ -15,6 +15,9 @@ import uuid
 
 from pika import spec
 from pika.compat import as_bytes
+import pika.connection
+import pika.frame
+import pika.spec
 
 from async_test_base import (AsyncTestCase, BoundQueueTestCase, AsyncAdapters)
 
@@ -390,3 +393,68 @@ class TestZ_AccessDenied(AsyncTestCase, AsyncAdapters):  # pylint: disable=C0103
     def on_open(self, connection):
         super(TestZ_AccessDenied, self).on_open(connection)
         self.stop()
+
+
+class TestBlockedConnectionTimesOut(AsyncTestCase, AsyncAdapters):  # pylint: disable=C0103
+    DESCRIPTION = "Verify that blocked connection terminates on timeout"
+
+    def start(self, *args, **kwargs):
+        self.parameters.blocked_connection_timeout = 0.001
+        self.on_closed_pair = None
+        super(TestBlockedConnectionTimesOut, self).start(*args, **kwargs)
+        self.assertEqual(
+            self.on_closed_pair,
+            (pika.connection.InternalCloseReasons.BLOCKED_CONNECTION_TIMEOUT,
+             'Blocked connection timeout expired'))
+
+    def begin(self, channel):
+
+        # Simulate Connection.Blocked
+        channel.connection._on_connection_blocked(pika.frame.Method(
+            0,
+            pika.spec.Connection.Blocked('Testing blocked connection timeout')))
+
+    def on_closed(self, connection, reply_code, reply_text):
+        """called when the connection has finished closing"""
+        self.on_closed_pair = (reply_code, reply_text)
+        super(TestBlockedConnectionTimesOut, self).on_closed(connection,
+                                                             reply_code,
+                                                             reply_text)
+
+
+class TestBlockedConnectionUnblocks(AsyncTestCase, AsyncAdapters):  # pylint: disable=C0103
+    DESCRIPTION = "Verify that blocked-unblocked connection closes normally"
+
+    def start(self, *args, **kwargs):
+        self.parameters.blocked_connection_timeout = 0.001
+        self.on_closed_pair = None
+        super(TestBlockedConnectionUnblocks, self).start(*args, **kwargs)
+        self.assertEqual(
+            self.on_closed_pair,
+            (200, 'Normal shutdown'))
+
+    def begin(self, channel):
+
+        # Simulate Connection.Blocked
+        channel.connection._on_connection_blocked(pika.frame.Method(
+            0,
+            pika.spec.Connection.Blocked(
+                'Testing blocked connection unblocks')))
+
+        # Simulate Connection.Unblocked
+        channel.connection._on_connection_unblocked(pika.frame.Method(
+            0,
+            pika.spec.Connection.Unblocked()))
+
+        # Schedule shutdown after blocked connection timeout would expire
+        channel.connection.add_timeout(0.005, self.on_cleanup_timer)
+
+    def on_cleanup_timer(self):
+        self.stop()
+
+    def on_closed(self, connection, reply_code, reply_text):
+        """called when the connection has finished closing"""
+        self.on_closed_pair = (reply_code, reply_text)
+        super(TestBlockedConnectionUnblocks, self).on_closed(connection,
+                                                             reply_code,
+                                                             reply_text)

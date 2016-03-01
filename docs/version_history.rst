@@ -18,6 +18,10 @@ Next Release
    never be serviced in the asynchronous scenario.
  - `Channel.basic_reject` fixed to allow `delivery_tag` to be of type `long`
    as well as `int`. (by quantum5)
+ - Implemented support for blocked connection timeouts in
+   `pika.connection.Connection`. This feature is available to all pika adapters.
+   See `pika.connection.ConnectionParameters` docstring to learn more about
+   `blocked_connection_timeout` configuration.
 
 0.10.0 2015-09-02
 -----------------

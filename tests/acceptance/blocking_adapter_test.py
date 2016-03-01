@@ -376,7 +376,7 @@ class TestProcessDataEvents(BlockingTestCaseBase):
         self.assertLess(elapsed, 0.25)
 
 
-class TestConnectionBlockAndUnblock(BlockingTestCaseBase):
+class TestConnectionRegisterForBlockAndUnblock(BlockingTestCaseBase):
 
     def test(self):
         """BlockingConnection register for Connection.Blocked/Unblocked"""
@@ -405,6 +405,35 @@ class TestConnectionBlockAndUnblock(BlockingTestCaseBase):
         repr(evt)
         evt.dispatch()
         self.assertEqual(unblocked_buffer, ["unblocked"])
+
+
+class TestBlockedConnectionTimeout(BlockingTestCaseBase):
+
+    def test(self):
+        """BlockingConnection Connection.Blocked timeout """
+        url = DEFAULT_URL + '&blocked_connection_timeout=0.001'
+        conn = self._connect(url=url)
+
+        # NOTE: I haven't figured out yet how to coerce RabbitMQ to emit
+        # Connection.Block and Connection.Unblock from the test, so we'll
+        # simulate it for now
+
+        # Simulate Connection.Blocked
+        conn._impl._on_connection_blocked(pika.frame.Method(
+            0,
+            pika.spec.Connection.Blocked('TestBlockedConnectionTimeout')))
+
+        # Wait for connection teardown
+        with self.assertRaises(pika.exceptions.ConnectionClosed) as excCtx:
+            while True:
+                conn.process_data_events(time_limit=1)
+
+        self.assertEqual(
+            excCtx.exception.args,
+            (pika.connection.InternalCloseReasons.BLOCKED_CONNECTION_TIMEOUT,
+             'Blocked connection timeout expired'))
+
+
 
 
 class TestAddTimeoutRemoveTimeout(BlockingTestCaseBase):
