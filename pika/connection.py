@@ -28,6 +28,7 @@ from pika import spec
 from pika.compat import xrange, basestring, url_unquote, dictkeys
 
 
+
 BACKPRESSURE_WARNING = ("Pika: Write buffer exceeded warning threshold at "
                         "%i bytes and an estimated %i frames behind")
 PRODUCT = "Pika Python Client Library"
