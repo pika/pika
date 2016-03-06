@@ -22,6 +22,16 @@ Next Release
    `pika.connection.Connection`. This feature is available to all pika adapters.
    See `pika.connection.ConnectionParameters` docstring to learn more about
    `blocked_connection_timeout` configuration.
+ - Deprecated the `heartbeat_interval` arg in `pika.ConnectionParameters` in
+   favor of the `heartbeat` arg for consistency with the other connection
+   parameters classes `pika.connection.Parameters` and `pika.URLParameters`.
+ - When the `port` arg is not set explicitly in `ConnectionParameters`
+   constructor, but the `ssl` arg is set explicitly, then set the port value to
+   to the default AMQP SSL port if SSL is enabled, otherwise to the default
+   AMQP plaintext port.
+ - `URLParameters` will raise ValueError if a non-empty URL scheme other than
+   {amqp | amqps | http | https} is specified.
+
 
 0.10.0 2015-09-02
 -----------------
