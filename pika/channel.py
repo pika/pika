@@ -15,7 +15,8 @@ from pika.compat import unicode_type, dictkeys, as_bytes, is_integer
 
 
 LOGGER = logging.getLogger(__name__)
-MAX_CHANNELS = 32768
+
+MAX_CHANNELS = 65535  # per AMQP 0.9.1 spec.
 
 
 class Channel(object):
