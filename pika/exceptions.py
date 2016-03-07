@@ -212,12 +212,18 @@ class ChannelError(Exception):
 
 
 class InvalidMinimumFrameSize(ProtocolSyntaxError):
+    """ DEPRECATED; pika.connection.Parameters.frame_max property setter now
+    raises the standard `ValueError` exception when the value is out of bounds.
+    """
 
     def __repr__(self):
         return 'AMQP Minimum Frame Size is 4096 Bytes'
 
 
 class InvalidMaximumFrameSize(ProtocolSyntaxError):
+    """ DEPRECATED; pika.connection.Parameters.frame_max property setter now
+    raises the standard `ValueError` exception when the value is out of bounds.
+    """
 
     def __repr__(self):
         return 'AMQP Maximum Frame Size is 131072 Bytes'

@@ -31,6 +31,9 @@ Next Release
    AMQP plaintext port.
  - `URLParameters` will raise ValueError if a non-empty URL scheme other than
    {amqp | amqps | http | https} is specified.
+ - `InvalidMinimumFrameSize` and `InvalidMaximumFrameSize` exceptions are
+   deprecated. pika.connection.Parameters.frame_max property setter now raises
+   the standard `ValueError` exception when the value is out of bounds.
 
 
 0.10.0 2015-09-02
