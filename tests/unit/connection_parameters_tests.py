@@ -49,6 +49,7 @@ class _ParametersTestsBase(unittest.TestCase):
             'blocked_connection_timeout':
                 kls.DEFAULT_BLOCKED_CONNECTION_TIMEOUT,
             'channel_max': kls.DEFAULT_CHANNEL_MAX,
+            'client_properties': kls.DEFAULT_CLIENT_PROPERTIES,
             'connection_attempts': kls.DEFAULT_CONNECTION_ATTEMPTS,
             'credentials': credentials.PlainCredentials(kls.DEFAULT_USERNAME,
                                                         kls.DEFAULT_PASSWORD),
@@ -395,6 +396,7 @@ class ConnectionParametersTests(_ParametersTestsBase):
             'backpressure_detection': False,
             'blocked_connection_timeout': 10.5,
             'channel_max': 3,
+            'client_properties': {'good': 'day'},
             'connection_attempts': 2,
             'credentials': credentials.PlainCredentials('very', 'secure'),
             'frame_max': 40000,

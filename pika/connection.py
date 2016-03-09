@@ -77,6 +77,7 @@ class Parameters(object):
         '_backpressure_detection',
         '_blocked_connection_timeout',
         '_channel_max',
+        '_client_properties',
         '_connection_attempts',
         '_credentials',
         '_frame_max',
@@ -91,13 +92,13 @@ class Parameters(object):
         '_virtual_host'
     )
 
-
     DEFAULT_USERNAME = 'guest'
     DEFAULT_PASSWORD = 'guest'
 
     DEFAULT_BACKPRESSURE_DETECTION = False
     DEFAULT_BLOCKED_CONNECTION_TIMEOUT = None
     DEFAULT_CHANNEL_MAX = channel.MAX_CHANNELS
+    DEFAULT_CLIENT_PROPERTIES = None
     DEFAULT_CREDENTIALS = pika_credentials.PlainCredentials(DEFAULT_USERNAME,
                                                             DEFAULT_PASSWORD)
     DEFAULT_CONNECTION_ATTEMPTS = 1
@@ -129,6 +130,9 @@ class Parameters(object):
 
         self._channel_max = None
         self.channel_max = self.DEFAULT_CHANNEL_MAX
+
+        self._client_properties = None
+        self.client_properties = self.DEFAULT_CLIENT_PROPERTIES
 
         self._connection_attempts = None
         self.connection_attempts = self.DEFAULT_CONNECTION_ATTEMPTS
@@ -245,8 +249,32 @@ class Parameters(object):
             raise TypeError('channel_max must be an int, but got %r' % (value,))
         if value < 1 or value > channel.MAX_CHANNELS:
             raise ValueError('channel_max must be <= %i and > 0, but got %r' %
-                             (channel.MAX_CHANNELS, value))
+                             (channel.MAX_CHANNELS, value,))
         self._channel_max = value
+
+    @property
+    def client_properties(self):
+        """
+        :returns: None or dict of client properties used to override the fields
+            in the default client poperties reported  to RabbitMQ via
+            `Connection.StartOk` method. Defaults to
+            `DEFAULT_CLIENT_PROPERTIES`.
+
+        """
+        return self._client_properties
+
+    @client_properties.setter
+    def client_properties(self, value):
+        """
+        :param value: None or dict of client properties used to override the
+            fields in the default client poperties reported to RabbitMQ via
+            `Connection.StartOk` method.
+        """
+        if not isinstance(value, (dict, type(None),)):
+            raise TypeError('client_properties must be dict or None, '
+                            'but got %r' % (value,))
+        # Copy the mutable object to avoid accidental side-effects
+        self._client_properties = copy.deepcopy(value)
 
     @property
     def connection_attempts(self):
@@ -540,8 +568,10 @@ class ConnectionParameters(Parameters):
                  locale=_DEFAULT,
                  backpressure_detection=_DEFAULT,
                  blocked_connection_timeout=_DEFAULT,
+                 client_properties=_DEFAULT,
                  **kwargs):
-        """Create a new ConnectionParameters instance.
+        """Create a new ConnectionParameters instance. See `Parameters` for
+        default values.
 
         :param str host: Hostname or IP Address to connect to
         :param int port: TCP port to connect to
@@ -568,6 +598,9 @@ class ConnectionParameters(Parameters):
             e.g., on_close_callback or ConnectionClosed exception) with
             `reason_code` of `InternalCloseReasons.BLOCKED_CONNECTION_TIMEOUT`.
         :type blocked_connection_timeout: None, int, float
+        :param client_properties: None or dict of client properties used to
+            override the fields in the default client poperties reported to
+            RabbitMQ via `Connection.StartOk` method.
         :param heartbeat_interval: DEPRECATED; use `heartbeat` instead, and
             don't pass both
 
@@ -582,6 +615,9 @@ class ConnectionParameters(Parameters):
 
         if channel_max is not self._DEFAULT:
             self.channel_max = channel_max
+
+        if client_properties is not self._DEFAULT:
+            self.client_properties = client_properties
 
         if connection_attempts is not self._DEFAULT:
             self.connection_attempts = connection_attempts
@@ -647,12 +683,18 @@ class URLParameters(Parameters):
     Ensure that the virtual host is URI encoded when specified. For example if
     you are using the default "/" virtual host, the value should be `%2f`.
 
+    See `Parameters` for default values.
+
     Valid query string values are:
 
         - backpressure_detection:
             Toggle backpressure detection, possible values are `t` or `f`
         - channel_max:
             Override the default maximum channel count value
+        - client_properties:
+            dict of client properties used to override the fields in the default
+            client poperties reported to RabbitMQ via `Connection.StartOk`
+            method
         - connection_attempts:
             Specify how many times pika should try and reconnect before it gives up
         - frame_max:
@@ -778,6 +820,9 @@ class URLParameters(Parameters):
         except ValueError as exc:
             raise ValueError('Invalid channel_max value %r: %r' % (value, exc,))
         self.channel_max = channel_max
+
+    def _set_url_client_properties(self, value):
+        self.client_properties = ast.literal_eval(value)
 
     def _set_url_connection_attempts(self, value):
         try:
@@ -1245,7 +1290,7 @@ class Connection(object):
         :rtype: dict
 
         """
-        return {
+        properties = {
             'product': PRODUCT,
             'platform': 'Python %s' % platform.python_version(),
             'capabilities': {
@@ -1258,6 +1303,11 @@ class Connection(object):
             'information': 'See http://pika.rtfd.org',
             'version': __version__
         }
+
+        if self.params.client_properties:
+            properties.update(self.params.client_properties)
+
+        return properties
 
     def _close_channels(self, reply_code, reply_text):
         """Close the open channels with the specified reply_code and reply_text.
