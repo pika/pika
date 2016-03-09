@@ -20,19 +20,20 @@ except ImportError:
     from unittest import mock
 
 import random
-import copy
+import platform
 try:
     import unittest2 as unittest
 except ImportError:
     import unittest
 
+import pika
 from pika import connection
 from pika import channel
 from pika import credentials
 from pika import exceptions
 from pika import frame
 from pika import spec
-from pika.compat import xrange, urlencode
+from pika.compat import xrange
 
 
 def callback_method():
@@ -293,92 +294,6 @@ class ConnectionTests(unittest.TestCase):
         self.connection._add_channel_callbacks.assert_called_once_with(42)
         test_channel.open.assert_called_once_with()
 
-    def test_process_url(self):
-        """test for the different query stings checked by process url"""
-        url_params = {
-            'backpressure_detection': None,
-            'channel_max': 1,
-            'connection_attempts': 2,
-            'frame_max': 30000,
-            'heartbeat': 4,
-            'locale': 'en',
-            'retry_delay': 5,
-            'socket_timeout': 6,
-            'ssl_options': {'ssl': 'dict'}
-        }
-        for backpressure in ('t', 'f'):
-            test_params = copy.deepcopy(url_params)
-            test_params['backpressure_detection'] = backpressure
-            query_string = urlencode(test_params)
-            test_url = 'https://www.test.com?%s' % query_string
-            params = connection.URLParameters(test_url)
-            #check each value
-            for t_param in ('channel_max', 'connection_attempts', 'frame_max',
-                            'locale', 'retry_delay', 'socket_timeout',
-                            'ssl_options'):
-                self.assertEqual(test_params[t_param], getattr(params, t_param),
-                                 t_param)
-            self.assertEqual(params.backpressure_detection, backpressure == 't')
-            self.assertEqual(test_params['heartbeat'], params.heartbeat)
-
-    def test_good_connection_parameters(self):
-        """make sure connection kwargs get set correctly"""
-        kwargs = {
-            'host': 'https://www.test.com',
-            'port': 5678,
-            'virtual_host': u'vvhost',
-            'channel_max': 3,
-            'frame_max': 40000,
-            'credentials': credentials.PlainCredentials('very', 'secure'),
-            'heartbeat_interval': 7,
-            'backpressure_detection': False,
-            'retry_delay': 3,
-            'ssl': True,
-            'connection_attempts': 2,
-            'locale': 'en',
-            'ssl_options': {'ssl': 'options'},
-            'blocked_connection_timeout': 10.5
-        }
-        conn = connection.ConnectionParameters(**kwargs)
-        #check values
-        for t_param in ('host', 'port', 'virtual_host', 'channel_max',
-                        'frame_max', 'backpressure_detection', 'ssl',
-                        'credentials', 'retry_delay', 'connection_attempts',
-                        'locale'):
-            self.assertEqual(kwargs[t_param], getattr(conn, t_param), t_param)
-        self.assertEqual(kwargs['heartbeat_interval'], conn.heartbeat)
-
-    def test_bad_type_connection_parameters(self):
-        """test connection kwargs type checks throw errors for bad input"""
-        kwargs = {
-            'host': 'https://www.test.com',
-            'port': 5678,
-            'virtual_host': 'vvhost',
-            'channel_max': 3,
-            'frame_max': 40000,
-            'heartbeat_interval': 7,
-            'backpressure_detection': False,
-            'ssl': True,
-            'blocked_connection_timeout': 10.5
-        }
-        # Test Type Errors
-        for bad_field, bad_value in (
-                ('host', 15672), ('port', '5672'), ('virtual_host', True),
-                ('channel_max', '4'), ('frame_max', '5'),
-                ('credentials', 'bad'), ('locale', 1),
-                ('heartbeat_interval', '6'), ('socket_timeout', '42'),
-                ('retry_delay', 'two'), ('backpressure_detection', 'true'),
-                ('ssl', {'ssl': 'dict'}), ('ssl_options', True),
-                ('connection_attempts', 'hello'),
-                ('blocked_connection_timeout', set())):
-
-            bkwargs = copy.deepcopy(kwargs)
-
-            bkwargs[bad_field] = bad_value
-
-            self.assertRaises(TypeError, connection.ConnectionParameters,
-                              **bkwargs)
-
     @mock.patch('pika.frame.ProtocolHeader')
     def test_connect(self, frame_protocol_header):
         """make sure the connect method sets the state and sends a frame"""
@@ -426,6 +341,44 @@ class ConnectionTests(unittest.TestCase):
                              'information', 'version'):
             self.assertTrue(required_key in client_props,
                             '%s missing' % required_key)
+
+    def test_client_properties_default(self):
+        expectation = {
+            'product': connection.PRODUCT,
+            'platform': 'Python %s' % platform.python_version(),
+            'capabilities': {
+                'authentication_failure_close': True,
+                'basic.nack': True,
+                'connection.blocked': True,
+                'consumer_cancel_notify': True,
+                'publisher_confirms': True
+            },
+            'information': 'See http://pika.rtfd.org',
+            'version': pika.__version__
+        }
+        self.assertDictEqual(self.connection._client_properties, expectation)
+
+    def test_client_properties_override(self):
+        expectation = {
+            'capabilities': {
+                'authentication_failure_close': True,
+                'basic.nack': True,
+                'connection.blocked': True,
+                'consumer_cancel_notify': True,
+                'publisher_confirms': True
+            }
+        }
+        override = {'product': 'My Product',
+                    'platform': 'Your platform',
+                    'version': '0.1',
+                    'information': 'this is my app'}
+        expectation.update(override)
+
+        params = connection.ConnectionParameters(client_properties=override)
+
+        with mock.patch('pika.connection.Connection.connect'):
+            conn = connection.Connection(params)
+            self.assertDictEqual(conn._client_properties, expectation)
 
     def test_set_backpressure_multiplier(self):
         """test setting the backpressure multiplier"""
@@ -484,23 +437,27 @@ class ConnectionTests(unittest.TestCase):
         method.return_value = mock.Mock(marshal=marshal)
         #may be good to test this here, but i don't want to test too much
         self.connection._rpc = mock.Mock()
+
         method_frame = mock.Mock()
         method_frame.method = mock.Mock()
         method_frame.method.channel_max = 40
-        method_frame.method.frame_max = 10
+        method_frame.method.frame_max = 10000
         method_frame.method.heartbeat = 10
+
         self.connection.params.channel_max = 20
-        self.connection.params.frame_max = 20
+        self.connection.params.frame_max = 20000
         self.connection.params.heartbeat = 20
+
         #Test
         self.connection._on_connection_tune(method_frame)
+
         #verfy
         self.assertEqual(self.connection.CONNECTION_TUNE,
                          self.connection.connection_state)
         self.assertEqual(20, self.connection.params.channel_max)
-        self.assertEqual(10, self.connection.params.frame_max)
+        self.assertEqual(10000, self.connection.params.frame_max)
         self.assertEqual(20, self.connection.params.heartbeat)
-        self.assertEqual(2, self.connection._body_max_length)
+        self.assertEqual(9992, self.connection._body_max_length)
         heartbeat_checker.assert_called_once_with(self.connection, 20)
         self.assertEqual(['ab'], list(self.connection.outbound_buffer))
         self.assertEqual('hearbeat obj', self.connection.heartbeat)

@@ -2,6 +2,7 @@
 import ast
 import sys
 import collections
+import copy
 import logging
 import math
 import numbers
@@ -26,6 +27,7 @@ from pika import utils
 from pika import spec
 
 from pika.compat import xrange, basestring, url_unquote, dictkeys
+from pika.compat import dict_iteritems
 
 
 BACKPRESSURE_WARNING = ("Pika: Write buffer exceeded warning threshold at "
@@ -36,10 +38,12 @@ LOGGER = logging.getLogger(__name__)
 
 
 class InternalCloseReasons(object):
-    """Internal reason codes passed to the user's on_close_callback.
+    """Internal reason codes passed to the user's on_close_callback when the
+    connection is terminated abruptly, without reply code/text from the broker.
 
     AMQP 0.9.1 specification sites IETF RFC 821 for reply codes. To avoid
-    conflict, the `InternalCloseReasons` namespace uses negative integers.
+    conflict, the `InternalCloseReasons` namespace uses negative integers. These
+    are invalid for sending to the broker.
     """
     SOCKET_ERROR = -1
     BLOCKED_CONNECTION_TIMEOUT = -2
@@ -48,66 +52,123 @@ class InternalCloseReasons(object):
 class Parameters(object):
     """Base connection parameters class definition
 
-    :param str DEFAULT_HOST: 'localhost'
-    :param int DEFAULT_PORT: 5672
-    :param str DEFAULT_VIRTUAL_HOST: '/'
-    :param str DEFAULT_USERNAME: 'guest'
-    :param str DEFAULT_PASSWORD: 'guest'
-    :param int DEFAULT_HEARTBEAT_INTERVAL: None
-    :param int DEFAULT_CHANNEL_MAX: 0
-    :param int DEFAULT_FRAME_MAX: pika.spec.FRAME_MAX_SIZE
-    :param str DEFAULT_LOCALE: 'en_US'
-    :param int DEFAULT_CONNECTION_ATTEMPTS: 1
-    :param int|float DEFAULT_RETRY_DELAY: 2.0
-    :param int|float DEFAULT_SOCKET_TIMEOUT: 0.25
-    :param bool DEFAULT_SSL: False
-    :param dict DEFAULT_SSL_OPTIONS: {}
-    :param int DEFAULT_SSL_PORT: 5671
-    :param bool DEFAULT_BACKPRESSURE_DETECTION: False
-    :param number DEFAULT_BLOCKED_CONNECTION_TIMEOUT: None
+    :param bool backpressure_detection: `DEFAULT_BACKPRESSURE_DETECTION`
+    :param float|None blocked_connection_timeout:
+        `DEFAULT_BLOCKED_CONNECTION_TIMEOUT`
+    :param int channel_max: `DEFAULT_CHANNEL_MAX`
+    :param int connection_attempts: `DEFAULT_CONNECTION_ATTEMPTS`
+    :param  credentials: `DEFAULT_CREDENTIALS`
+    :param int frame_max: `DEFAULT_FRAME_MAX`
+    :param int heartbeat: `DEFAULT_HEARTBEAT_TIMEOUT`
+    :param str host: `DEFAULT_HOST`
+    :param str locale: `DEFAULT_LOCALE`
+    :param int port: `DEFAULT_PORT`
+    :param float retry_delay: `DEFAULT_RETRY_DELAY`
+    :param float socket_timeout: `DEFAULT_SOCKET_TIMEOUT`
+    :param bool ssl: `DEFAULT_SSL`
+    :param dict ssl_options: `DEFAULT_SSL_OPTIONS`
+    :param str virtual_host: `DEFAULT_VIRTUAL_HOST`
 
     """
+
+    # Declare slots to protect against accidental assignment of an invalid
+    # attribute
+    __slots__ = (
+        '_backpressure_detection',
+        '_blocked_connection_timeout',
+        '_channel_max',
+        '_client_properties',
+        '_connection_attempts',
+        '_credentials',
+        '_frame_max',
+        '_heartbeat',
+        '_host',
+        '_locale',
+        '_port',
+        '_retry_delay',
+        '_socket_timeout',
+        '_ssl',
+        '_ssl_options',
+        '_virtual_host'
+    )
+
+    DEFAULT_USERNAME = 'guest'
+    DEFAULT_PASSWORD = 'guest'
+
     DEFAULT_BACKPRESSURE_DETECTION = False
+    DEFAULT_BLOCKED_CONNECTION_TIMEOUT = None
+    DEFAULT_CHANNEL_MAX = channel.MAX_CHANNELS
+    DEFAULT_CLIENT_PROPERTIES = None
+    DEFAULT_CREDENTIALS = pika_credentials.PlainCredentials(DEFAULT_USERNAME,
+                                                            DEFAULT_PASSWORD)
     DEFAULT_CONNECTION_ATTEMPTS = 1
-    DEFAULT_CHANNEL_MAX = 0
     DEFAULT_FRAME_MAX = spec.FRAME_MAX_SIZE
-    DEFAULT_HEARTBEAT_INTERVAL = None          # accept server's proposal
+    DEFAULT_HEARTBEAT_TIMEOUT  = None          # None accepts server's proposal
     DEFAULT_HOST = 'localhost'
     DEFAULT_LOCALE = 'en_US'
-    DEFAULT_PASSWORD = 'guest'
     DEFAULT_PORT = 5672
     DEFAULT_RETRY_DELAY = 2.0
     DEFAULT_SOCKET_TIMEOUT = 0.25
     DEFAULT_SSL = False
     DEFAULT_SSL_OPTIONS = {}
     DEFAULT_SSL_PORT = 5671
-    DEFAULT_USERNAME = 'guest'
     DEFAULT_VIRTUAL_HOST = '/'
-    DEFAULT_BLOCKED_CONNECTION_TIMEOUT = None
+
+    DEFAULT_HEARTBEAT_INTERVAL = DEFAULT_HEARTBEAT_TIMEOUT # DEPRECATED
 
     def __init__(self):
-        self.virtual_host = self.DEFAULT_VIRTUAL_HOST
+        self._backpressure_detection = None
         self.backpressure_detection = self.DEFAULT_BACKPRESSURE_DETECTION
-        self.channel_max = self.DEFAULT_CHANNEL_MAX
-        self.connection_attempts = self.DEFAULT_CONNECTION_ATTEMPTS
-        self.credentials = self._credentials(self.DEFAULT_USERNAME,
-                                             self.DEFAULT_PASSWORD)
-        self.frame_max = self.DEFAULT_FRAME_MAX
-        self.heartbeat = self.DEFAULT_HEARTBEAT_INTERVAL
-        self.host = self.DEFAULT_HOST
-        self.locale = self.DEFAULT_LOCALE
-        self.port = self.DEFAULT_PORT
-        self.retry_delay = self.DEFAULT_RETRY_DELAY
-        self.ssl = self.DEFAULT_SSL
-        self.ssl_options = self.DEFAULT_SSL_OPTIONS
-        self.socket_timeout = self.DEFAULT_SOCKET_TIMEOUT
 
         # If not None, blocked_connection_timeout is the timeout, in seconds,
         # for the connection to remain blocked; if the timeout expires, the
         # connection will be torn down, triggering the connection's
         # on_close_callback
+        self._blocked_connection_timeout = None
         self.blocked_connection_timeout = (
             self.DEFAULT_BLOCKED_CONNECTION_TIMEOUT)
+
+        self._channel_max = None
+        self.channel_max = self.DEFAULT_CHANNEL_MAX
+
+        self._client_properties = None
+        self.client_properties = self.DEFAULT_CLIENT_PROPERTIES
+
+        self._connection_attempts = None
+        self.connection_attempts = self.DEFAULT_CONNECTION_ATTEMPTS
+
+        self._credentials = None
+        self.credentials = self.DEFAULT_CREDENTIALS
+
+        self._frame_max = None
+        self.frame_max = self.DEFAULT_FRAME_MAX
+
+        self._heartbeat = None
+        self.heartbeat = self.DEFAULT_HEARTBEAT_TIMEOUT
+
+        self._host = None
+        self.host = self.DEFAULT_HOST
+
+        self._locale = None
+        self.locale = self.DEFAULT_LOCALE
+
+        self._port = None
+        self.port = self.DEFAULT_PORT
+
+        self._retry_delay = None
+        self.retry_delay = self.DEFAULT_RETRY_DELAY
+
+        self._socket_timeout = None
+        self.socket_timeout = self.DEFAULT_SOCKET_TIMEOUT
+
+        self._ssl = None
+        self.ssl = self.DEFAULT_SSL
+
+        self._ssl_options = None
+        self.ssl_options = self.DEFAULT_SSL_OPTIONS
+
+        self._virtual_host = None
+        self.virtual_host = self.DEFAULT_VIRTUAL_HOST
 
     def __repr__(self):
         """Represent the info about the instance.
@@ -119,237 +180,363 @@ class Parameters(object):
                 (self.__class__.__name__, self.host, self.port,
                  self.virtual_host, self.ssl))
 
-    @staticmethod
-    def _credentials(username, password):
-        """Return a plain credentials object for the specified username and
-        password.
-
-        :param str username: The username to use
-        :param str password: The password to use
-        :rtype: pika_credentials.PlainCredentials
+    @property
+    def backpressure_detection(self):
+        """
+        :returns: boolean indicatating whether backpressure detection is
+            enabled. Defaults to `DEFAULT_BACKPRESSURE_DETECTION`.
 
         """
-        return pika_credentials.PlainCredentials(username, password)
+        return self._backpressure_detection
 
-    @staticmethod
-    def _validate_backpressure(backpressure_detection):
-        """Validate that the backpressure detection option is a bool.
-
-        :param bool backpressure_detection: The backpressure detection value
-        :rtype: bool
-        :raises: TypeError
+    @backpressure_detection.setter
+    def backpressure_detection(self, value):
+        """
+        :param bool value: boolean indicatating whether to enable backpressure
+            detection
 
         """
-        if not isinstance(backpressure_detection, bool):
-            raise TypeError('backpressure detection must be a bool')
-        return True
+        if not isinstance(value, bool):
+            raise TypeError('backpressure_detection must be a bool, '
+                            'but got %r' % (value,))
+        self._backpressure_detection = value
 
-    @staticmethod
-    def _validate_channel_max(channel_max):
-        """Validate that the channel_max value is an int
-
-        :param int channel_max: The value to validate
-        :rtype: bool
-        :raises: TypeError
-        :raises: ValueError
+    @property
+    def blocked_connection_timeout(self):
+        """
+        :returns: None or float blocked connection timeout. Defaults to
+            `DEFAULT_BLOCKED_CONNECTION_TIMEOUT`.
 
         """
-        if not isinstance(channel_max, int):
-            raise TypeError('channel_max must be an int')
-        if channel_max < 1 or channel_max > 65535:
-            raise ValueError('channel_max must be <= 65535 and > 0')
-        return True
+        return self._blocked_connection_timeout
 
-    @staticmethod
-    def _validate_connection_attempts(connection_attempts):
-        """Validate that the connection_attempts value is an int
-
-        :param int connection_attempts: The value to validate
-        :rtype: bool
-        :raises: TypeError
-        :raises: ValueError
+    @blocked_connection_timeout.setter
+    def blocked_connection_timeout(self, value):
+        """
+        :param value: If not None, blocked_connection_timeout is the timeout, in
+            seconds, for the connection to remain blocked; if the timeout
+            expires, the connection will be torn down, triggering the
+            connection's on_close_callback
 
         """
-        if not isinstance(connection_attempts, int):
+        if value is not None:
+            if not isinstance(value, numbers.Real):
+                raise TypeError('blocked_connection_timeout must be a Real '
+                                'number, but got %r' % (value,))
+            if value < 0:
+                raise ValueError('blocked_connection_timeout must be >= 0, but '
+                                 'got %r' % (value,))
+        self._blocked_connection_timeout = value
+
+    @property
+    def channel_max(self):
+        """
+        :returns: max preferred number of channels. Defaults to
+            `DEFAULT_CHANNEL_MAX`.
+        :rtype: int
+
+        """
+        return self._channel_max
+
+    @channel_max.setter
+    def channel_max(self, value):
+        """
+        :param int value: max preferred number of channels, between 1 and
+           `channel.MAX_CHANNELS`, inclusive
+
+        """
+        if not isinstance(value, numbers.Integral):
+            raise TypeError('channel_max must be an int, but got %r' % (value,))
+        if value < 1 or value > channel.MAX_CHANNELS:
+            raise ValueError('channel_max must be <= %i and > 0, but got %r' %
+                             (channel.MAX_CHANNELS, value,))
+        self._channel_max = value
+
+    @property
+    def client_properties(self):
+        """
+        :returns: None or dict of client properties used to override the fields
+            in the default client poperties reported  to RabbitMQ via
+            `Connection.StartOk` method. Defaults to
+            `DEFAULT_CLIENT_PROPERTIES`.
+
+        """
+        return self._client_properties
+
+    @client_properties.setter
+    def client_properties(self, value):
+        """
+        :param value: None or dict of client properties used to override the
+            fields in the default client poperties reported to RabbitMQ via
+            `Connection.StartOk` method.
+        """
+        if not isinstance(value, (dict, type(None),)):
+            raise TypeError('client_properties must be dict or None, '
+                            'but got %r' % (value,))
+        # Copy the mutable object to avoid accidental side-effects
+        self._client_properties = copy.deepcopy(value)
+
+    @property
+    def connection_attempts(self):
+        """
+        :returns: number of socket connection attempts. Defaults to
+            `DEFAULT_CONNECTION_ATTEMPTS`.
+
+        """
+        return self._connection_attempts
+
+    @connection_attempts.setter
+    def connection_attempts(self, value):
+        """
+        :param int value: number of socket connection attempts of at least 1
+
+        """
+        if not isinstance(value, numbers.Integral):
             raise TypeError('connection_attempts must be an int')
-        if connection_attempts < 1:
-            raise ValueError('connection_attempts must be None or > 0')
-        return True
+        if value < 1:
+            raise ValueError('connection_attempts must be > 0, but got %r' %
+                             (value,))
+        self._connection_attempts = value
 
-    @staticmethod
-    def _validate_credentials(credentials):
-        """Validate the credentials passed in are using a valid object type.
-
-        :param pika.credentials.Credentials credentials: Credentials to validate
-        :rtype: bool
-        :raises: TypeError
+    @property
+    def credentials(self):
+        """
+        :rtype: one of the classes from `pika.credentials.VALID_TYPES`. Defaults
+            to `DEFAULT_CREDENTIALS`.
 
         """
-        for credential_type in pika_credentials.VALID_TYPES:
-            if isinstance(credentials, credential_type):
-                return True
-        raise TypeError('Credentials must be an object of type: %r' %
-                        pika_credentials.VALID_TYPES)
+        return self._credentials
 
-    @staticmethod
-    def _validate_frame_max(frame_max):
-        """Validate that the frame_max value is an int and does not exceed
-         the maximum frame size and is not less than the frame min size.
-
-        :param int frame_max: The value to validate
-        :rtype: bool
-        :raises: TypeError
-        :raises: InvalidMinimumFrameSize
+    @credentials.setter
+    def credentials(self, value):
+        """
+        :param value: authentication credential object of one of the classes
+            from  `pika.credentials.VALID_TYPES`
 
         """
-        if not isinstance(frame_max, int):
-            raise TypeError('frame_max must be an int')
-        if frame_max < spec.FRAME_MIN_SIZE:
-            raise exceptions.InvalidMinimumFrameSize
-        elif frame_max > spec.FRAME_MAX_SIZE:
-            raise exceptions.InvalidMaximumFrameSize
-        return True
+        if not isinstance(value, tuple(pika_credentials.VALID_TYPES)):
+            raise TypeError('Credentials must be an object of type: %r, but '
+                            'got %r' % (pika_credentials.VALID_TYPES, value))
+        # Copy the mutable object to avoid accidental side-effects
+        self._credentials = copy.deepcopy(value)
 
-    @staticmethod
-    def _validate_heartbeat_interval(heartbeat_interval):
-        """Validate that the heartbeat_interval value is an int
-
-        :param int heartbeat_interval: The value to validate
-        :rtype: bool
-        :raises: TypeError
-        :raises: ValueError
+    @property
+    def frame_max(self):
+        """
+        :returns: desired maximum AMQP frame size to use. Defaults to
+            `DEFAULT_FRAME_MAX`.
 
         """
-        if not isinstance(heartbeat_interval, int):
-            raise TypeError('heartbeat_interval must be an int')
-        if heartbeat_interval < 0:
-            raise ValueError('heartbeat_interval must >= 0')
-        return True
+        return self._frame_max
 
-    @staticmethod
-    def _validate_host(host):
-        """Validate that the host value is an str
-
-        :param str|unicode host: The value to validate
-        :rtype: bool
-        :raises: TypeError
+    @frame_max.setter
+    def frame_max(self, value):
+        """
+        :param int value: desired maximum AMQP frame size to use between
+            `spec.FRAME_MIN_SIZE` and `spec.FRAME_MAX_SIZE`, inclusive
 
         """
-        if not isinstance(host, basestring):
-            raise TypeError('host must be a str or unicode str')
-        return True
+        if not isinstance(value, numbers.Integral):
+            raise TypeError('frame_max must be an int, but got %r' % (value,))
+        if value < spec.FRAME_MIN_SIZE:
+            raise ValueError('Min AMQP 0.9.1 Frame Size is %i, but got %r',
+                             (spec.FRAME_MIN_SIZE, value,))
+        elif value > spec.FRAME_MAX_SIZE:
+            raise ValueError('Max AMQP 0.9.1 Frame Size is %i, but got %r',
+                             (spec.FRAME_MAX_SIZE, value,))
+        self._frame_max = value
 
-    @staticmethod
-    def _validate_locale(locale):
-        """Validate that the locale value is an str
-
-        :param str locale: The value to validate
-        :rtype: bool
-        :raises: TypeError
+    @property
+    def heartbeat(self):
+        """
+        :returns: desired connection heartbeat timeout for negotiation or
+            None to accept broker's value. 0 turns heartbeat off. Defaults to
+            `DEFAULT_HEARTBEAT_TIMEOUT`.
+        :rtype: integer, float, or None
 
         """
-        if not isinstance(locale, basestring):
-            raise TypeError('locale must be a str')
-        return True
+        return self._heartbeat
 
-    @staticmethod
-    def _validate_port(port):
-        """Validate that the port value is an int
-
-        :param int port: The value to validate
-        :rtype: bool
-        :raises: TypeError
+    @heartbeat.setter
+    def heartbeat(self, value):
+        """
+        :param value: desired connection heartbeat timeout for negotiation or
+            None to accept broker's value. 0 turns heartbeat off.
 
         """
-        if not isinstance(port, int):
-            raise TypeError('port must be an int')
-        return True
+        if value is not None:
+            if not isinstance(value, numbers.Integral):
+                raise TypeError('heartbeat must be an int, but got %r' %
+                                (value,))
+            if value < 0:
+                raise ValueError('heartbeat must >= 0, but got %r' % (value,))
+        self._heartbeat = value
 
-    @staticmethod
-    def _validate_retry_delay(retry_delay):
-        """Validate that the retry_delay value is an int or float
-
-        :param int|float retry_delay: The value to validate
-        :rtype: bool
-        :raises: TypeError
+    @property
+    def host(self):
+        """
+        :returns: hostname or ip address of broker. Defaults to `DEFAULT_HOST`.
+        :rtype: str
 
         """
-        if not any([isinstance(retry_delay, int),
-                    isinstance(retry_delay, float)]):
-            raise TypeError('retry_delay must be a float or int')
-        return True
+        return self._host
 
-    @staticmethod
-    def _validate_socket_timeout(socket_timeout):
-        """Validate that the socket_timeout value is an int or float
-
-        :param int|float socket_timeout: The value to validate
-        :rtype: bool
-        :raises: TypeError
+    @host.setter
+    def host(self, value):
+        """
+        :param str value: hostname or ip address of broker
 
         """
-        if not any([isinstance(socket_timeout, int),
-                    isinstance(socket_timeout, float)]):
-            raise TypeError('socket_timeout must be a float or int')
-        if not socket_timeout > 0:
-            raise ValueError('socket_timeout must be > 0')
-        return True
+        if not isinstance(value, basestring):
+            raise TypeError('host must be a str or unicode str, but got %r' %
+                            (value,))
+        self._host = value
 
-    @staticmethod
-    def _validate_blocked_connection_timeout(blocked_connection_timeout):
-        """Validate that the blocked_connection_timeout value is None or a
-        number
-
-        :param real blocked_connection_timeout: The value to validate
-        :rtype: bool
-        :raises: TypeError
+    @property
+    def locale(self):
+        """
+        :returns: locale value to pass to broker; e.g., 'en_US'. Defaults to
+            `DEFAULT_LOCALE`.
+        :rtype: str
 
         """
-        if blocked_connection_timeout is not None:
-            if not isinstance(blocked_connection_timeout, (int, float)):
-                raise TypeError('blocked_connection_timeout must be a Real number')
-            if blocked_connection_timeout < 0:
-                raise ValueError('blocked_connection_timeout must be >= 0')
-        return True
+        return self._locale
 
-    @staticmethod
-    def _validate_ssl(ssl):
-        """Validate the SSL toggle is a bool
-
-        :param bool ssl: The SSL enabled/disabled value
-        :rtype: bool
-        :raises: TypeError
+    @locale.setter
+    def locale(self, value):
+        """
+        :param str value: locale value to pass to broker; e.g., "en_US"
 
         """
-        if not isinstance(ssl, bool):
-            raise TypeError('ssl must be a bool')
-        return True
+        if not isinstance(value, basestring):
+            raise TypeError('locale must be a str, but got %r' % (value,))
+        self._locale = value
 
-    @staticmethod
-    def _validate_ssl_options(ssl_options):
-        """Validate the SSL options value is a dictionary.
-
-        :param dict|None ssl_options: SSL Options to validate
-        :rtype: bool
-        :raises: TypeError
+    @property
+    def port(self):
+        """
+        :returns: port number of broker's listening socket. Defaults to
+            `DEFAULT_PORT`.
+        :rtype: int
 
         """
-        if not isinstance(ssl_options, dict) and ssl_options is not None:
-            raise TypeError('ssl_options must be either None or dict')
-        return True
+        return self._port
 
-    @staticmethod
-    def _validate_virtual_host(virtual_host):
-        """Validate that the virtual_host value is an str
-
-        :param str virtual_host: The value to validate
-        :rtype: bool
-        :raises: TypeError
+    @port.setter
+    def port(self, value):
+        """
+        :param int value: port number of broker's listening socket
 
         """
-        if not isinstance(virtual_host, basestring):
-            raise TypeError('virtual_host must be a str')
-        return True
+        if not isinstance(value, numbers.Integral):
+            raise TypeError('port must be an int, but got %r' % (value,))
+        self._port = value
+
+    @property
+    def retry_delay(self):
+        """
+        :returns: interval between socket connection attempts; see also
+            `connection_attempts`. Defaults to `DEFAULT_RETRY_DELAY`.
+        :rtype: float
+
+        """
+        return self._retry_delay
+
+    @retry_delay.setter
+    def retry_delay(self, value):
+        """
+        :param float value: interval between socket connection attempts; see
+            also `connection_attempts`.
+
+        """
+        if not isinstance(value, numbers.Real):
+            raise TypeError('retry_delay must be a float or int, but got %r' %
+                            (value,))
+        self._retry_delay = value
+
+    @property
+    def socket_timeout(self):
+        """
+        :returns: socket timeout value. Defaults to `DEFAULT_SOCKET_TIMEOUT`.
+        :rtype: float
+
+        """
+        return self._socket_timeout
+
+    @socket_timeout.setter
+    def socket_timeout(self, value):
+        """
+        :param float value: socket timeout value; NOTE: this is mostly unused
+           now, owing to switchover to to non-blocking socket setting after
+           initial socket conection establishment.
+
+        """
+        if value is not None:
+            if not isinstance(value, numbers.Real):
+                raise TypeError('socket_timeout must be a float or int, '
+                                'but got %r' % (value,))
+            if not value > 0:
+                raise ValueError('socket_timeout must be > 0, but got %r' %
+                                 (value,))
+        self._socket_timeout = value
+
+    @property
+    def ssl(self):
+        """
+        :returns: boolean indicating whether to connect via SSL. Defaults to
+            `DEFAULT_SSL`.
+
+        """
+        return self._ssl
+
+    @ssl.setter
+    def ssl(self, value):
+        """
+        :param bool value: boolean indicating whether to connect via SSL
+
+        """
+        if not isinstance(value, bool):
+            raise TypeError('ssl must be a bool, but got %r' % (value,))
+        self._ssl = value
+
+    @property
+    def ssl_options(self):
+        """
+        :returns: None or a dict of options to pass to SSL socket. Defaults to
+            `DEFAULT_SSL_OPTIONS`.
+
+        """
+        return self._ssl_options
+
+    @ssl_options.setter
+    def ssl_options(self, value):
+        """
+        :param value: A dict of options to pass to SSL socket
+
+        """
+        if not isinstance(value, dict):
+            raise TypeError('ssl_options must be a dict, but got %r' % (value,))
+        # Copy the mutable object to avoid accidental side-effects
+        self._ssl_options = copy.deepcopy(value)
+
+    @property
+    def virtual_host(self):
+        """
+        :returns: rabbitmq virtual host name. Defaults to
+            `DEFAULT_VIRTUAL_HOST`.
+
+        """
+        return self._virtual_host
+
+    @virtual_host.setter
+    def virtual_host(self, value):
+        """
+        :param str value: rabbitmq virtual host name
+
+        """
+        if not isinstance(value, basestring):
+            raise TypeError('virtual_host must be a str, but got %r' % (value,))
+        self._virtual_host = value
 
 
 class ConnectionParameters(Parameters):
@@ -358,23 +545,33 @@ class ConnectionParameters(Parameters):
 
     """
 
+    # Protect against accidental assignment of an invalid attribute
+    __slots__ = ()
+
+    # Designates default parameter value; internal use
+    class _DEFAULT(object):
+        pass
+
     def __init__(self,
-                 host=None,
-                 port=None,
-                 virtual_host=None,
-                 credentials=None,
-                 channel_max=None,
-                 frame_max=None,
-                 heartbeat_interval=None,
-                 ssl=None,
-                 ssl_options=None,
-                 connection_attempts=None,
-                 retry_delay=None,
-                 socket_timeout=None,
-                 locale=None,
-                 backpressure_detection=None,
-                 blocked_connection_timeout=None):
-        """Create a new ConnectionParameters instance.
+                 host=_DEFAULT,
+                 port=_DEFAULT,
+                 virtual_host=_DEFAULT,
+                 credentials=_DEFAULT,
+                 channel_max=_DEFAULT,
+                 frame_max=_DEFAULT,
+                 heartbeat=_DEFAULT,
+                 ssl=_DEFAULT,
+                 ssl_options=_DEFAULT,
+                 connection_attempts=_DEFAULT,
+                 retry_delay=_DEFAULT,
+                 socket_timeout=_DEFAULT,
+                 locale=_DEFAULT,
+                 backpressure_detection=_DEFAULT,
+                 blocked_connection_timeout=_DEFAULT,
+                 client_properties=_DEFAULT,
+                 **kwargs):
+        """Create a new ConnectionParameters instance. See `Parameters` for
+        default values.
 
         :param str host: Hostname or IP Address to connect to
         :param int port: TCP port to connect to
@@ -382,10 +579,9 @@ class ConnectionParameters(Parameters):
         :param pika.credentials.Credentials credentials: auth credentials
         :param int channel_max: Maximum number of channels to allow
         :param int frame_max: The maximum byte size for an AMQP frame
-        :param int heartbeat_interval: How often to send heartbeats.
-                                  Max between this value and server's proposal
-                                  will be used. Use 0 to deactivate heartbeats
-                                  and None to accept server's proposal.
+        :param int heartbeat: Heartbeat timeout. Max between this value
+            and server's proposal will be used as the heartbeat timeout. Use 0
+            to deactivate heartbeats and None to accept server's proposal.
         :param bool ssl: Enable SSL
         :param dict ssl_options: Arguments passed to ssl.wrap_socket
         :param int connection_attempts: Maximum number of retry attempts
@@ -402,51 +598,81 @@ class ConnectionParameters(Parameters):
             e.g., on_close_callback or ConnectionClosed exception) with
             `reason_code` of `InternalCloseReasons.BLOCKED_CONNECTION_TIMEOUT`.
         :type blocked_connection_timeout: None, int, float
+        :param client_properties: None or dict of client properties used to
+            override the fields in the default client poperties reported to
+            RabbitMQ via `Connection.StartOk` method.
+        :param heartbeat_interval: DEPRECATED; use `heartbeat` instead, and
+            don't pass both
 
         """
         super(ConnectionParameters, self).__init__()
 
-        # Create the default credentials object
-        if not credentials:
-            credentials = self._credentials(self.DEFAULT_USERNAME,
-                                            self.DEFAULT_PASSWORD)
-
-        # Assign the values
-        if host and self._validate_host(host):
-            self.host = host
-        if port is not None and self._validate_port(port):
-            self.port = port
-        if virtual_host and self._validate_virtual_host(virtual_host):
-            self.virtual_host = virtual_host
-        if credentials and self._validate_credentials(credentials):
-            self.credentials = credentials
-        if channel_max is not None and self._validate_channel_max(channel_max):
-            self.channel_max = channel_max
-        if frame_max is not None and self._validate_frame_max(frame_max):
-            self.frame_max = frame_max
-        if locale and self._validate_locale(locale):
-            self.locale = locale
-        if (heartbeat_interval is not None and
-                self._validate_heartbeat_interval(heartbeat_interval)):
-            self.heartbeat = heartbeat_interval
-        if ssl is not None and self._validate_ssl(ssl):
-            self.ssl = ssl
-        if ssl_options and self._validate_ssl_options(ssl_options):
-            self.ssl_options = ssl_options or dict()
-        if (connection_attempts is not None and
-                self._validate_connection_attempts(connection_attempts)):
-            self.connection_attempts = connection_attempts
-        if retry_delay is not None and self._validate_retry_delay(retry_delay):
-            self.retry_delay = retry_delay
-        if (socket_timeout is not None and
-                self._validate_socket_timeout(socket_timeout)):
-            self.socket_timeout = socket_timeout
-        if (backpressure_detection is not None and
-                self._validate_backpressure(backpressure_detection)):
+        if backpressure_detection is not self._DEFAULT:
             self.backpressure_detection = backpressure_detection
-        if self._validate_blocked_connection_timeout(
-                blocked_connection_timeout):
+
+        if blocked_connection_timeout is not self._DEFAULT:
             self.blocked_connection_timeout = blocked_connection_timeout
+
+        if channel_max is not self._DEFAULT:
+            self.channel_max = channel_max
+
+        if client_properties is not self._DEFAULT:
+            self.client_properties = client_properties
+
+        if connection_attempts is not self._DEFAULT:
+            self.connection_attempts = connection_attempts
+
+        if credentials is not self._DEFAULT:
+            self.credentials = credentials
+
+        if frame_max is not self._DEFAULT:
+            self.frame_max = frame_max
+
+        if heartbeat is not self._DEFAULT:
+            self.heartbeat = heartbeat
+
+        try:
+            heartbeat_interval = kwargs.pop('heartbeat_interval')
+        except KeyError:
+            # Good, this one is deprecated
+            pass
+        else:
+            warnings.warn('heartbeat_interval is deprecated, use heartbeat',
+                          DeprecationWarning, stacklevel=2)
+            if heartbeat is not self._DEFAULT:
+                raise TypeError('heartbeat and deprecated heartbeat_interval '
+                                'are mutually-exclusive')
+            self.heartbeat = heartbeat_interval
+
+        if host is not self._DEFAULT:
+            self.host = host
+
+        if locale is not self._DEFAULT:
+            self.locale = locale
+
+        if retry_delay is not self._DEFAULT:
+            self.retry_delay = retry_delay
+
+        if socket_timeout is not self._DEFAULT:
+            self.socket_timeout = socket_timeout
+
+        if ssl is not self._DEFAULT:
+            self.ssl = ssl
+
+        if ssl_options is not self._DEFAULT:
+            self.ssl_options = ssl_options
+
+        # Set port after SSL status is known
+        if port is not self._DEFAULT:
+            self.port = port
+        elif ssl is not self._DEFAULT:
+            self.port = self.DEFAULT_SSL_PORT if self.ssl else self.DEFAULT_PORT
+
+        if virtual_host is not self._DEFAULT:
+            self.virtual_host = virtual_host
+
+        if kwargs:
+            raise TypeError('Unexpected kwargs: %r' % (kwargs,))
 
 
 class URLParameters(Parameters):
@@ -457,12 +683,18 @@ class URLParameters(Parameters):
     Ensure that the virtual host is URI encoded when specified. For example if
     you are using the default "/" virtual host, the value should be `%2f`.
 
+    See `Parameters` for default values.
+
     Valid query string values are:
 
         - backpressure_detection:
             Toggle backpressure detection, possible values are `t` or `f`
         - channel_max:
             Override the default maximum channel count value
+        - client_properties:
+            dict of client properties used to override the fields in the default
+            client poperties reported to RabbitMQ via `Connection.StartOk`
+            method
         - connection_attempts:
             Specify how many times pika should try and reconnect before it gives up
         - frame_max:
@@ -491,6 +723,14 @@ class URLParameters(Parameters):
 
     """
 
+    # Protect against accidental assignment of an invalid attribute
+    __slots__ = ('_all_url_query_values',)
+
+
+    # The name of the private function for parsing and setting a given URL query
+    # arg is constructed by catenating the query arg's name to this prefix
+    _SETTER_PREFIX = '_set_url_'
+
     def __init__(self, url):
         """Create a new URLParameters instance.
 
@@ -498,114 +738,153 @@ class URLParameters(Parameters):
 
         """
         super(URLParameters, self).__init__()
-        self._process_url(url)
 
-    def _process_url(self, url):
-        """Take an AMQP URL and break it up into the various parameters.
+        self._all_url_query_values = None
 
-        :param str url: The URL to parse
-
-        """
-        if url[0:4] == 'amqp':
+        # Handle the Protocol scheme
+        #
+        # Fix up scheme amqp(s) to http(s) so urlparse won't barf on python
+        # prior to 2.7. On Python 2.6.9,
+        # `urlparse('amqp://127.0.0.1/%2f?socket_timeout=1')` produces an
+        # incorect path='/%2f?socket_timeout=1'
+        if url[0:4].lower() == 'amqp':
             url = 'http' + url[4:]
+
+        # TODO Is support for the alternative http(s) schemes intentional?
 
         parts = urlparse.urlparse(url)
 
-        # Handle the Protocol scheme, changing to HTTPS so urlparse doesnt barf
         if parts.scheme == 'https':
             self.ssl = True
+        elif parts.scheme == 'http':
+            self.ssl = False
+        elif parts.scheme:
+            raise ValueError('Unexpected URL scheme %r; supported scheme '
+                             'values: amqp, amqps' % (parts.scheme,))
 
-        if self._validate_host(parts.hostname):
+        if parts.hostname is not None:
             self.host = parts.hostname
-        if not parts.port:
-            if self.ssl:
-                self.port = self.DEFAULT_SSL_PORT if \
-                    self.ssl else self.DEFAULT_PORT
-        elif self._validate_port(parts.port):
+
+        # Take care of port after SSL status is known
+        if parts.port is not None:
             self.port = parts.port
+        else:
+            self.port = self.DEFAULT_SSL_PORT if self.ssl else self.DEFAULT_PORT
 
         if parts.username is not None:
             self.credentials = pika_credentials.PlainCredentials(parts.username,
                                                                  parts.password)
 
         # Get the Virtual Host
-        if len(parts.path) <= 1:
-            self.virtual_host = self.DEFAULT_VIRTUAL_HOST
-        else:
-            path_parts = parts.path.split('/')
-            virtual_host = url_unquote(path_parts[1])
-            if self._validate_virtual_host(virtual_host):
-                self.virtual_host = virtual_host
+        if len(parts.path) > 1:
+            self.virtual_host = url_unquote(parts.path.split('/')[1])
 
         # Handle query string values, validating and assigning them
-        values = urlparse.parse_qs(parts.query)
 
-        # Cast the various numeric values to the appropriate values
-        for key in dictkeys(values):
-            # Always reassign the first list item in query values
-            values[key] = values[key].pop(0)
-            if values[key].isdigit():
-                values[key] = int(values[key])
-            else:
-                try:
-                    values[key] = float(values[key])
-                except ValueError:
-                    pass
+        self._all_url_query_values = urlparse.parse_qs(parts.query)
 
-        if 'backpressure_detection' in values:
-            if values['backpressure_detection'] == 't':
-                self.backpressure_detection = True
-            elif values['backpressure_detection'] == 'f':
-                self.backpressure_detection = False
-            else:
-                raise ValueError('Invalid backpressure_detection value: %s' %
-                                 values['backpressure_detection'])
+        for name, value in dict_iteritems(self._all_url_query_values):
+            try:
+                set_value = getattr(self, self._SETTER_PREFIX + name)
+            except AttributeError:
+                raise ValueError('Unknown URL parameter: %r' % (name,))
 
-        if ('channel_max' in values and
-                self._validate_channel_max(values['channel_max'])):
-            self.channel_max = values['channel_max']
+            try:
+                (value,) = value
+            except ValueError:
+                raise ValueError('Expected exactly one value for URL parameter '
+                                 '%s, but got %i values: %s' % (
+                                     name, len(value), value))
 
-        if ('connection_attempts' in values and
-                self._validate_connection_attempts(
-                    values['connection_attempts'])):
-            self.connection_attempts = values['connection_attempts']
+            set_value(value)
 
-        if ('frame_max' in values and
-                self._validate_frame_max(values['frame_max'])):
-            self.frame_max = values['frame_max']
+    def _set_url_backpressure_detection(self, value):
+        try:
+            backpressure_detection = {'t': True, 'f': False}[value]
+        except KeyError:
+            raise ValueError('Invalid backpressure_detection value: %r' %
+                             (value,))
+        self.backpressure_detection = backpressure_detection
 
-        if ('heartbeat' in values and
-                self._validate_heartbeat_interval(values['heartbeat'])):
-            self.heartbeat = values['heartbeat']
+    def _set_url_blocked_connection_timeout(self, value):
+        try:
+            blocked_connection_timeout = float(value)
+        except ValueError as exc:
+            raise ValueError('Invalid blocked_connection_timeout value %r: %r' %
+                             (value, exc,))
+        self.blocked_connection_timeout = blocked_connection_timeout
 
-        elif ('heartbeat_interval' in values and
-              self._validate_heartbeat_interval(
-                  values['heartbeat_interval'])):
-            warnings.warn('heartbeat_interval is deprecated, use heartbeat',
-                          DeprecationWarning, stacklevel=2)
-            self.heartbeat = values['heartbeat_interval']
+    def _set_url_channel_max(self, value):
+        try:
+            channel_max = int(value)
+        except ValueError as exc:
+            raise ValueError('Invalid channel_max value %r: %r' % (value, exc,))
+        self.channel_max = channel_max
 
-        if 'locale' in values and self._validate_locale(values['locale']):
-            self.locale = values['locale']
+    def _set_url_client_properties(self, value):
+        self.client_properties = ast.literal_eval(value)
 
-        if ('retry_delay' in values and
-                self._validate_retry_delay(values['retry_delay'])):
-            self.retry_delay = values['retry_delay']
+    def _set_url_connection_attempts(self, value):
+        try:
+            connection_attempts = int(value)
+        except ValueError as exc:
+            raise ValueError('Invalid connection_attempts value %r: %r' %
+                             (value, exc,))
+        self.connection_attempts = connection_attempts
 
-        if ('socket_timeout' in values and
-                self._validate_socket_timeout(values['socket_timeout'])):
-            self.socket_timeout = values['socket_timeout']
+    def _set_url_frame_max(self, value):
+        try:
+            frame_max = int(value)
+        except ValueError as exc:
+            raise ValueError('Invalid frame_max value %r: %r' % (value, exc,))
+        self.frame_max = frame_max
 
-        if ('blocked_connection_timeout' in values and
-                self._validate_blocked_connection_timeout(
-                    values['blocked_connection_timeout'])):
-            self.blocked_connection_timeout = values[
-                'blocked_connection_timeout']
+    def _set_url_heartbeat(self, value):
+        if 'heartbeat_interval' in self._all_url_query_values:
+            raise ValueError('Deprecated URL parameter heartbeat_interval must '
+                             'not be specified together with heartbeat')
 
-        if 'ssl_options' in values:
-            options = ast.literal_eval(values['ssl_options'])
-            if self._validate_ssl_options(options):
-                self.ssl_options = options
+        try:
+            heartbeat_timeout = int(value)
+        except ValueError as exc:
+            raise ValueError('Invalid heartbeat value %r: %r' % (value, exc,))
+        self.heartbeat = heartbeat_timeout
+
+    def _set_url_heartbeat_interval(self, value):
+        warnings.warn('heartbeat_interval is deprecated, use heartbeat',
+                      DeprecationWarning, stacklevel=2)
+
+        if 'heartbeat' in self._all_url_query_values:
+            raise ValueError('Deprecated URL parameter heartbeat_interval must '
+                             'not be specified together with heartbeat')
+
+        try:
+            heartbeat_timeout = int(value)
+        except ValueError as exc:
+            raise ValueError('Invalid heartbeat_interval value %r: %r' %
+                             (value, exc,))
+        self.heartbeat = heartbeat_timeout
+
+    def _set_url_locale(self, value):
+        self.locale = value
+
+    def _set_url_retry_delay(self, value):
+        try:
+            retry_delay = float(value)
+        except ValueError as exc:
+            raise ValueError('Invalid retry_delay value %r: %r' % (value, exc,))
+        self.retry_delay = retry_delay
+
+    def _set_url_socket_timeout(self, value):
+        try:
+            socket_timeout = float(value)
+        except ValueError as exc:
+            raise ValueError('Invalid socket_timeout value %r: %r' %
+                             (value, exc,))
+        self.socket_timeout = socket_timeout
+
+    def _set_url_ssl_options(self, value):
+        self.ssl_options = ast.literal_eval(value)
 
 
 class Connection(object):
@@ -667,7 +946,8 @@ class Connection(object):
         self.heartbeat = None
 
         # Set our configuration options
-        self.params = parameters or ConnectionParameters()
+        self.params = (copy.deepcopy(parameters) if parameters is not None else
+                       ConnectionParameters())
 
         # Define our callback dictionary
         self.callbacks = callback.CallbackManager()
@@ -1010,7 +1290,7 @@ class Connection(object):
         :rtype: dict
 
         """
-        return {
+        properties = {
             'product': PRODUCT,
             'platform': 'Python %s' % platform.python_version(),
             'capabilities': {
@@ -1023,6 +1303,11 @@ class Connection(object):
             'information': 'See http://pika.rtfd.org',
             'version': __version__
         }
+
+        if self.params.client_properties:
+            properties.update(self.params.client_properties)
+
+        return properties
 
     def _close_channels(self, reply_code, reply_text):
         """Close the open channels with the specified reply_code and reply_text.

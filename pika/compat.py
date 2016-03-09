@@ -7,7 +7,8 @@ PY3 = not PY2
 
 if not PY2:
     # these were moved around for Python 3
-    from urllib.parse import unquote as url_unquote, urlencode
+    from urllib.parse import (quote as url_quote, unquote as url_unquote,
+                              urlencode)
 
     # Python 3 does not have basestring anymore; we include
     # *only* the str here as this is used for textual data.
@@ -46,6 +47,17 @@ if not PY2:
         """
         return list(dct.values())
 
+    def dict_iteritems(dct):
+        """
+        Returns an iterator of items (key/value pairs) of a dictionary
+
+        dict.items returns a view that works like .items in Python 2
+        *except* any modifications in the dictionary will be visible
+        (and will cause errors if the view is being iterated over while
+        it is modified).
+        """
+        return dct.items()
+
     def byte(*args):
         """
         This is the same as Python 2 `chr(n)` for bytes in Python 3
@@ -76,7 +88,7 @@ if not PY2:
     def is_integer(value):
         return isinstance(value, int)
 else:
-    from urllib import unquote as url_unquote, urlencode
+    from urllib import quote as url_quote, unquote as url_unquote, urlencode
 
     basestring = basestring
     str_or_bytes = basestring
@@ -84,6 +96,7 @@ else:
     unicode_type = unicode
     dictkeys = dict.keys
     dictvalues = dict.values
+    dict_iteritems = dict.iteritems
     byte = chr
     long = long
 
