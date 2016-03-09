@@ -93,6 +93,13 @@ class ExternalCredentials(object):
         """Create a new instance of ExternalCredentials"""
         self.erase_on_connect = False
 
+    def __eq__(self, other):
+        return (isinstance(other, ExternalCredentials) and
+                other.erase_on_connect == self.erase_on_connect)
+
+    def __ne__(self, other):
+        return not self == other
+
     def response_for(self, start):
         """Validate that this type of authentication is supported
 
