@@ -52,23 +52,22 @@ class InternalCloseReasons(object):
 class Parameters(object):
     """Base connection parameters class definition
 
-    :param str DEFAULT_HOST: 'localhost'
-    :param int DEFAULT_PORT: 5672
-    :param str DEFAULT_VIRTUAL_HOST: '/'
-    :param str DEFAULT_USERNAME: 'guest'
-    :param str DEFAULT_PASSWORD: 'guest'
-    :param int DEFAULT_HEARTBEAT_TIMEOUT: None
-    :param int DEFAULT_CHANNEL_MAX: 0
-    :param int DEFAULT_FRAME_MAX: pika.spec.FRAME_MAX_SIZE
-    :param str DEFAULT_LOCALE: 'en_US'
-    :param int DEFAULT_CONNECTION_ATTEMPTS: 1
-    :param int|float DEFAULT_RETRY_DELAY: 2.0
-    :param int|float DEFAULT_SOCKET_TIMEOUT: 0.25
-    :param bool DEFAULT_SSL: False
-    :param dict DEFAULT_SSL_OPTIONS: {}
-    :param int DEFAULT_SSL_PORT: 5671
-    :param bool DEFAULT_BACKPRESSURE_DETECTION: False
-    :param number DEFAULT_BLOCKED_CONNECTION_TIMEOUT: None
+    :param bool backpressure_detection: `DEFAULT_BACKPRESSURE_DETECTION`
+    :param float|None blocked_connection_timeout:
+        `DEFAULT_BLOCKED_CONNECTION_TIMEOUT`
+    :param int channel_max: `DEFAULT_CHANNEL_MAX`
+    :param int connection_attempts: `DEFAULT_CONNECTION_ATTEMPTS`
+    :param  credentials: `DEFAULT_CREDENTIALS`
+    :param int frame_max: `DEFAULT_FRAME_MAX`
+    :param int heartbeat: `DEFAULT_HEARTBEAT_TIMEOUT`
+    :param str host: `DEFAULT_HOST`
+    :param str locale: `DEFAULT_LOCALE`
+    :param int port: `DEFAULT_PORT`
+    :param float retry_delay: `DEFAULT_RETRY_DELAY`
+    :param float socket_timeout: `DEFAULT_SOCKET_TIMEOUT`
+    :param bool ssl: `DEFAULT_SSL`
+    :param dict ssl_options: `DEFAULT_SSL_OPTIONS`
+    :param str virtual_host: `DEFAULT_VIRTUAL_HOST`
 
     """
 
@@ -93,12 +92,14 @@ class Parameters(object):
     )
 
 
-    DEFAULT_PASSWORD = 'guest'
     DEFAULT_USERNAME = 'guest'
+    DEFAULT_PASSWORD = 'guest'
 
     DEFAULT_BACKPRESSURE_DETECTION = False
     DEFAULT_BLOCKED_CONNECTION_TIMEOUT = None
     DEFAULT_CHANNEL_MAX = channel.MAX_CHANNELS
+    DEFAULT_CREDENTIALS = pika_credentials.PlainCredentials(DEFAULT_USERNAME,
+                                                            DEFAULT_PASSWORD)
     DEFAULT_CONNECTION_ATTEMPTS = 1
     DEFAULT_FRAME_MAX = spec.FRAME_MAX_SIZE
     DEFAULT_HEARTBEAT_TIMEOUT  = None          # None accepts server's proposal
@@ -133,9 +134,7 @@ class Parameters(object):
         self.connection_attempts = self.DEFAULT_CONNECTION_ATTEMPTS
 
         self._credentials = None
-        self.credentials = pika_credentials.PlainCredentials(
-            self.DEFAULT_USERNAME,
-            self.DEFAULT_PASSWORD)
+        self.credentials = self.DEFAULT_CREDENTIALS
 
         self._frame_max = None
         self.frame_max = self.DEFAULT_FRAME_MAX
@@ -180,7 +179,8 @@ class Parameters(object):
     @property
     def backpressure_detection(self):
         """
-        :returns: boolean indicatating whether backpressure detection is enabled
+        :returns: boolean indicatating whether backpressure detection is
+            enabled. Defaults to `DEFAULT_BACKPRESSURE_DETECTION`.
 
         """
         return self._backpressure_detection
@@ -200,7 +200,8 @@ class Parameters(object):
     @property
     def blocked_connection_timeout(self):
         """
-        :returns: None or float blocked connection timeout
+        :returns: None or float blocked connection timeout. Defaults to
+            `DEFAULT_BLOCKED_CONNECTION_TIMEOUT`.
 
         """
         return self._blocked_connection_timeout
@@ -226,7 +227,8 @@ class Parameters(object):
     @property
     def channel_max(self):
         """
-        :returns: max preferred number of channels
+        :returns: max preferred number of channels. Defaults to
+            `DEFAULT_CHANNEL_MAX`.
         :rtype: int
 
         """
@@ -249,7 +251,8 @@ class Parameters(object):
     @property
     def connection_attempts(self):
         """
-        :returns: number of socket connection attempts
+        :returns: number of socket connection attempts. Defaults to
+            `DEFAULT_CONNECTION_ATTEMPTS`.
 
         """
         return self._connection_attempts
@@ -270,7 +273,8 @@ class Parameters(object):
     @property
     def credentials(self):
         """
-        :rtype: one of the classes from `pika.credentials.VALID_TYPES`
+        :rtype: one of the classes from `pika.credentials.VALID_TYPES`. Defaults
+            to `DEFAULT_CREDENTIALS`.
 
         """
         return self._credentials
@@ -285,12 +289,14 @@ class Parameters(object):
         if not isinstance(value, tuple(pika_credentials.VALID_TYPES)):
             raise TypeError('Credentials must be an object of type: %r, but '
                             'got %r' % (pika_credentials.VALID_TYPES, value))
-        self._credentials = value
+        # Copy the mutable object to avoid accidental side-effects
+        self._credentials = copy.deepcopy(value)
 
     @property
     def frame_max(self):
         """
-        :returns: desired maximum AMQP frame size to use
+        :returns: desired maximum AMQP frame size to use. Defaults to
+            `DEFAULT_FRAME_MAX`.
 
         """
         return self._frame_max
@@ -316,7 +322,8 @@ class Parameters(object):
     def heartbeat(self):
         """
         :returns: desired connection heartbeat timeout for negotiation or
-            None to accept broker's value. 0 turns heartbeat off.
+            None to accept broker's value. 0 turns heartbeat off. Defaults to
+            `DEFAULT_HEARTBEAT_TIMEOUT`.
         :rtype: integer, float, or None
 
         """
@@ -340,7 +347,7 @@ class Parameters(object):
     @property
     def host(self):
         """
-        :returns: hostname or ip address of broker
+        :returns: hostname or ip address of broker. Defaults to `DEFAULT_HOST`.
         :rtype: str
 
         """
@@ -360,7 +367,8 @@ class Parameters(object):
     @property
     def locale(self):
         """
-        :returns: locale value to pass to broker; e.g., "en_US"
+        :returns: locale value to pass to broker; e.g., 'en_US'. Defaults to
+            `DEFAULT_LOCALE`.
         :rtype: str
 
         """
@@ -379,7 +387,8 @@ class Parameters(object):
     @property
     def port(self):
         """
-        :returns: port number of broker's listening socket
+        :returns: port number of broker's listening socket. Defaults to
+            `DEFAULT_PORT`.
         :rtype: int
 
         """
@@ -399,7 +408,7 @@ class Parameters(object):
     def retry_delay(self):
         """
         :returns: interval between socket connection attempts; see also
-            `connection_attempts`.
+            `connection_attempts`. Defaults to `DEFAULT_RETRY_DELAY`.
         :rtype: float
 
         """
@@ -420,7 +429,7 @@ class Parameters(object):
     @property
     def socket_timeout(self):
         """
-        :returns: socket timeout value
+        :returns: socket timeout value. Defaults to `DEFAULT_SOCKET_TIMEOUT`.
         :rtype: float
 
         """
@@ -446,7 +455,8 @@ class Parameters(object):
     @property
     def ssl(self):
         """
-        :returns: boolean indicating whether to connect via SSL
+        :returns: boolean indicating whether to connect via SSL. Defaults to
+            `DEFAULT_SSL`.
 
         """
         return self._ssl
@@ -464,7 +474,8 @@ class Parameters(object):
     @property
     def ssl_options(self):
         """
-        :returns: None or a dict of options to pass to SSL socket
+        :returns: None or a dict of options to pass to SSL socket. Defaults to
+            `DEFAULT_SSL_OPTIONS`.
 
         """
         return self._ssl_options
@@ -477,14 +488,14 @@ class Parameters(object):
         """
         if not isinstance(value, dict):
             raise TypeError('ssl_options must be a dict, but got %r' % (value,))
-        # NOTE: we make a copy of the mutable object to avoid accidental
-        # side-effects
+        # Copy the mutable object to avoid accidental side-effects
         self._ssl_options = copy.deepcopy(value)
 
     @property
     def virtual_host(self):
         """
-        :returns: rabbitmq virtual host name
+        :returns: rabbitmq virtual host name. Defaults to
+            `DEFAULT_VIRTUAL_HOST`.
 
         """
         return self._virtual_host
