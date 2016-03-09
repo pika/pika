@@ -50,7 +50,8 @@ class _ParametersTestsBase(unittest.TestCase):
                 kls.DEFAULT_BLOCKED_CONNECTION_TIMEOUT,
             'channel_max': kls.DEFAULT_CHANNEL_MAX,
             'connection_attempts': kls.DEFAULT_CONNECTION_ATTEMPTS,
-            'credentials': kls.DEFAULT_CREDENTIALS,
+            'credentials': credentials.PlainCredentials(kls.DEFAULT_USERNAME,
+                                                        kls.DEFAULT_PASSWORD),
             'frame_max': kls.DEFAULT_FRAME_MAX,
             'heartbeat': kls.DEFAULT_HEARTBEAT_TIMEOUT,
             'host': kls.DEFAULT_HOST,
@@ -334,15 +335,15 @@ class ParametersTests(_ParametersTestsBase):
     def test_ssl_options(self):
         params = connection.Parameters()
 
-        params.ssl_options = None
-        self.assertIsNone(params.ssl_options)
-
         opt = dict(key='value', key2=2, key3=dict(a=1))
         params.ssl_options = copy.deepcopy(opt)
         self.assertEqual(params.ssl_options, opt)
 
         with self.assertRaises(TypeError):
             params.ssl_options = str(opt)
+
+        with self.assertRaises(TypeError):
+            params.ssl_options = None
 
     def test_virtual_host(self):
         params = connection.Parameters()

@@ -2,6 +2,7 @@
 import ast
 import sys
 import collections
+import copy
 import logging
 import math
 import numbers
@@ -99,8 +100,6 @@ class Parameters(object):
     DEFAULT_BLOCKED_CONNECTION_TIMEOUT = None
     DEFAULT_CHANNEL_MAX = channel.MAX_CHANNELS
     DEFAULT_CONNECTION_ATTEMPTS = 1
-    DEFAULT_CREDENTIALS = pika_credentials.PlainCredentials(DEFAULT_USERNAME,
-                                                            DEFAULT_PASSWORD)
     DEFAULT_FRAME_MAX = spec.FRAME_MAX_SIZE
     DEFAULT_HEARTBEAT_TIMEOUT  = None          # None accepts server's proposal
     DEFAULT_HOST = 'localhost'
@@ -134,7 +133,9 @@ class Parameters(object):
         self.connection_attempts = self.DEFAULT_CONNECTION_ATTEMPTS
 
         self._credentials = None
-        self.credentials = self.DEFAULT_CREDENTIALS
+        self.credentials = pika_credentials.PlainCredentials(
+            self.DEFAULT_USERNAME,
+            self.DEFAULT_PASSWORD)
 
         self._frame_max = None
         self.frame_max = self.DEFAULT_FRAME_MAX
@@ -471,13 +472,14 @@ class Parameters(object):
     @ssl_options.setter
     def ssl_options(self, value):
         """
-        :param value: None or a dict of options to pass to SSL socket
+        :param value: A dict of options to pass to SSL socket
 
         """
-        if not isinstance(value, (dict, type(None))):
-            raise TypeError('ssl_options must be either None or dict, but got '
-                            '%r' % (value,))
-        self._ssl_options = value
+        if not isinstance(value, dict):
+            raise TypeError('ssl_options must be a dict, but got %r' % (value,))
+        # NOTE: we make a copy of the mutable object to avoid accidental
+        # side-effects
+        self._ssl_options = copy.deepcopy(value)
 
     @property
     def virtual_host(self):
@@ -888,7 +890,8 @@ class Connection(object):
         self.heartbeat = None
 
         # Set our configuration options
-        self.params = parameters or ConnectionParameters()
+        self.params = (copy.deepcopy(parameters) if parameters is not None else
+                       ConnectionParameters())
 
         # Define our callback dictionary
         self.callbacks = callback.CallbackManager()
