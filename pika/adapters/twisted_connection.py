@@ -398,7 +398,9 @@ class TwistedProtocolConnection(base_connection.BaseConnection):
         Twisted handles that for us.
         """
         while self.outbound_buffer:
-            self.transport.write(self.outbound_buffer.popleft())
+            frame_buffer = self.outbound_buffer.popleft()
+            self.transport.write(frame_buffer.data)
+            frame_buffer.on_frame_sent()
 
     def channel(self, channel_number=None):
         """Create a new channel with the next available channel number or pass

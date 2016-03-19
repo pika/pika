@@ -168,7 +168,8 @@ class ChannelTests(unittest.TestCase):
     def test_basic_send_method_calls_rpc(self, send_method, unused):
         self.obj._set_state(self.obj.OPEN)
         self.obj.basic_ack(1, False)
-        send_method.assert_called_once_with(spec.Basic.Ack(1, False))
+        send_method.assert_called_once_with(spec.Basic.Ack(1, False),
+                                            on_method_sent=None)
 
     @mock.patch('pika.channel.Channel._rpc')
     def test_basic_cancel_no_consumer_tag(self, rpc):
@@ -347,7 +348,8 @@ class ChannelTests(unittest.TestCase):
     def test_basic_nack_send_method_request(self, send_method, unused):
         self.obj._set_state(self.obj.OPEN)
         self.obj.basic_nack(1, False, True)
-        send_method.assert_called_once_with(spec.Basic.Nack(1, False, True))
+        send_method.assert_called_once_with(spec.Basic.Nack(1, False, True),
+                                            on_method_sent=None)
 
     def test_basic_publish_raises_channel_closed(self):
         self.assertRaises(exceptions.ChannelClosed, self.obj.basic_publish,
@@ -385,7 +387,8 @@ class ChannelTests(unittest.TestCase):
             spec.Basic.Publish(exchange=exchange,
                                routing_key=routing_key,
                                mandatory=mandatory,
-                               immediate=immediate), (properties, body))
+                               immediate=immediate), (properties, body),
+                               on_method_sent=None)
 
     def test_basic_qos_raises_channel_closed(self):
         self.assertRaises(exceptions.ChannelClosed, self.obj.basic_qos, 0,
@@ -412,7 +415,8 @@ class ChannelTests(unittest.TestCase):
                                                            unused):
         self.obj._set_state(self.obj.OPEN)
         self.obj.basic_reject(1, True)
-        send_method.assert_called_once_with(spec.Basic.Reject(1, True))
+        send_method.assert_called_once_with(spec.Basic.Reject(1, True),
+                                            on_method_sent=None)
 
     def test_basic_reject_spec_with_int_tag(self):
         decoded = spec.Basic.Reject()
@@ -432,7 +436,8 @@ class ChannelTests(unittest.TestCase):
         # doesn't have `sys.maxint`
         self.obj.basic_reject(sys.maxsize, True)
         send_method.assert_called_once_with(spec.Basic.Reject(sys.maxsize,
-                                                              True))
+                                                              True),
+                                            on_method_sent=None)
 
     def test_basic_reject_spec_with_long_tag(self):
         # NOTE: we use `sys.maxsize` for compatibility with python 3, which
@@ -1260,7 +1265,7 @@ class ChannelTests(unittest.TestCase):
                                                   arguments=None)
 
     def test_send_method(self):
-        expectation = [2, 3]
+        expectation = [2, 3, 4]
         with mock.patch.object(self.obj.connection,
                                '_send_method') as send_method:
             self.obj._send_method(*expectation)

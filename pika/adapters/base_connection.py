@@ -430,10 +430,10 @@ class BaseConnection(connection.Connection):
         total_bytes_sent = 0
         try:
             while self.outbound_buffer:
-                frame = self.outbound_buffer.popleft()
+                frame_buffer = self.outbound_buffer.popleft()
                 while True:
                     try:
-                        num_bytes_sent = self.socket.send(frame)
+                        num_bytes_sent = self.socket.send(frame_buffer.data)
                         break
                     except _SOCKET_ERROR as error:
                         if error.errno == errno.EINTR:
@@ -442,21 +442,23 @@ class BaseConnection(connection.Connection):
                             raise
 
                 total_bytes_sent += num_bytes_sent
-                if num_bytes_sent < len(frame):
+                if num_bytes_sent < len(frame_buffer.data):
                     LOGGER.debug("Partial write, requeing remaining data")
-                    self.outbound_buffer.appendleft(frame[num_bytes_sent:])
+                    frame_buffer.data = frame_buffer.data[num_bytes_sent:]
+                    self.outbound_buffer.appendleft(frame_buffer)
                     break
-
+                else:
+                    frame_buffer.on_frame_sent()
         except socket.timeout:
             # Will only come here if the socket is blocking
             LOGGER.debug("socket timeout, requeuing frame")
-            self.outbound_buffer.appendleft(frame)
+            self.outbound_buffer.appendleft(frame_buffer)
             self._handle_timeout()
 
         except _SOCKET_ERROR as error:
             if error.errno in (errno.EAGAIN, errno.EWOULDBLOCK):
                 LOGGER.debug("Would block, requeuing frame")
-                self.outbound_buffer.appendleft(frame)
+                self.outbound_buffer.appendleft(frame_buffer)
             else:
                 return self._handle_error(error)
 

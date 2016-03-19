@@ -1762,12 +1762,15 @@ class Connection(object):
                                                     self.params.frame_max,
                                                     self.params.heartbeat))
 
-    def _send_frame(self, frame_value):
+    def _send_frame(self, frame_value, on_frame_sent=None):
         """This appends the fully generated frame to send to the broker to the
         output buffer which will be then sent via the connection adapter.
 
         :param frame_value: The frame to write
         :type frame_value:  pika.frame.Frame|pika.frame.ProtocolHeader
+        :param on_frame_sent: callback which is executed when frame is sent to
+                              the socket
+        :type on_frame_sent: callable
         :raises: exceptions.ConnectionClosed
 
         """
@@ -1778,27 +1781,33 @@ class Connection(object):
         marshaled_frame = frame_value.marshal()
         self.bytes_sent += len(marshaled_frame)
         self.frames_sent += 1
-        self.outbound_buffer.append(marshaled_frame)
+        self.outbound_buffer.append(
+            frame.FrameBuffer(marshaled_frame, on_frame_sent))
         self._flush_outbound()
         if self.params.backpressure_detection:
             self._detect_backpressure()
 
-    def _send_method(self, channel_number, method_frame, content=None):
+    def _send_method(self, channel_number, method_frame, content=None,
+                     on_method_sent=None):
         """Constructs a RPC method frame and then sends it to the broker.
 
         :param int channel_number: The channel number for the frame
         :param pika.object.Method method_frame: The method frame to send
         :param tuple content: If set, is a content frame, is tuple of
                               properties and body.
+        :param callable on_method_sent: callback which is executed when method
+                                        is sent to the socket
 
         """
         if not content:
             with self._write_lock:
-                self._send_frame(frame.Method(channel_number, method_frame))
+                self._send_frame(frame.Method(channel_number, method_frame),
+                                 on_method_sent)
                 return
-        self._send_message(channel_number, method_frame, content)
+        self._send_message(channel_number, method_frame, content, on_method_sent)
 
-    def _send_message(self, channel_number, method_frame, content=None):
+    def _send_message(self, channel_number, method_frame, content=None,
+                      on_message_sent=None):
         """Send the message directly, bypassing the single _send_frame
         invocation by directly appending to the output buffer and flushing
         within a lock.
@@ -1807,12 +1816,17 @@ class Connection(object):
         :param pika.object.Method method_frame: The method frame to send
         :param tuple content: If set, is a content frame, is tuple of
                               properties and body.
+        :param callable on_message_sent: callback which is executed when method
+                                         is sent to the socket
 
         """
         length = len(content[1])
-        write_buffer = [frame.Method(channel_number, method_frame).marshal(),
-                        frame.Header(channel_number, length,
-                                     content[0]).marshal()]
+        write_buffer = [
+            frame.FrameBuffer(
+                frame.Method(channel_number, method_frame).marshal()),
+            frame.FrameBuffer(
+                frame.Header(channel_number, length, content[0]).marshal())
+        ]
         if content[1]:
             chunks = int(math.ceil(float(length) / self._body_max_length))
             for chunk in range(0, chunks):
@@ -1820,9 +1834,9 @@ class Connection(object):
                 e = s + self._body_max_length
                 if e > length:
                     e = length
-                write_buffer.append(frame.Body(channel_number,
-                                               content[1][s:e]).marshal())
-
+                write_buffer.append(frame.FrameBuffer(
+                    frame.Body(channel_number, content[1][s:e]).marshal()))
+        write_buffer[-1].set_on_frame_sent_callback(on_message_sent)
         with self._write_lock:
             self.outbound_buffer += write_buffer
             self.frames_sent += len(write_buffer)

@@ -143,7 +143,7 @@ class Channel(object):
         """
         self.callbacks.add(self.channel_number, '_on_return', callback, False)
 
-    def basic_ack(self, delivery_tag=0, multiple=False):
+    def basic_ack(self, delivery_tag=0, multiple=False, callback=None):
         """Acknowledge one or more messages. When sent by the client, this
         method acknowledges one or more messages delivered via the Deliver or
         Get-Ok methods. When sent by server, this method acknowledges one or
@@ -159,10 +159,12 @@ class Channel(object):
                               message. If the multiple field is 1, and the
                               delivery tag is zero, this indicates
                               acknowledgement of all outstanding messages.
+        :param method callback: Method to call when Basic.Ack is sent to socket
         """
         if not self.is_open:
             raise exceptions.ChannelClosed()
-        return self._send_method(spec.Basic.Ack(delivery_tag, multiple))
+        return self._send_method(spec.Basic.Ack(delivery_tag, multiple),
+                                 on_method_sent=callback)
 
     def basic_cancel(self, callback=None, consumer_tag='', nowait=False):
         """This method cancels a consumer. This does not affect already
@@ -286,7 +288,8 @@ class Channel(object):
         self._on_getok_callback = callback
         self._send_method(spec.Basic.Get(queue=queue, no_ack=no_ack))
 
-    def basic_nack(self, delivery_tag=None, multiple=False, requeue=True):
+    def basic_nack(self, delivery_tag=None, multiple=False, requeue=True,
+                   callback=None):
         """This method allows a client to reject one or more incoming messages.
         It can be used to interrupt and cancel large incoming messages, or
         return untreatable messages to their original queue.
@@ -303,17 +306,21 @@ class Channel(object):
                              requeue the message. If requeue is false or the
                              requeue attempt fails the messages are discarded or
                              dead-lettered.
+        :param method callback: Method to call when Basic.Nack is sent to the
+                                socket
 
         """
         if not self.is_open:
             raise exceptions.ChannelClosed()
         return self._send_method(spec.Basic.Nack(delivery_tag, multiple,
-                                                 requeue))
+                                                 requeue),
+                                 on_method_sent=callback)
 
     def basic_publish(self, exchange, routing_key, body,
                       properties=None,
                       mandatory=False,
-                      immediate=False):
+                      immediate=False,
+                      callback=None):
         """Publish to the channel with the given exchange, routing key and body.
         For more information on basic_publish and what the parameters do, see:
 
@@ -328,6 +335,9 @@ class Channel(object):
         :param pika.spec.BasicProperties properties: Basic.properties
         :param bool mandatory: The mandatory flag
         :param bool immediate: The immediate flag
+        :param method callback: Method to call when messages is sent to the
+                                socket
+
 
         """
         if not self.is_open:
@@ -341,7 +351,7 @@ class Channel(object):
                                              routing_key=routing_key,
                                              mandatory=mandatory,
                                              immediate=immediate),
-                          (properties, body))
+                          (properties, body), on_method_sent=callback)
 
     def basic_qos(self,
                   callback=None,
@@ -381,7 +391,7 @@ class Channel(object):
                                         all_channels), callback,
                          [spec.Basic.QosOk])
 
-    def basic_reject(self, delivery_tag, requeue=True):
+    def basic_reject(self, delivery_tag, requeue=True, callback=None):
         """Reject an incoming message. This method allows a client to reject a
         message. It can be used to interrupt and cancel large incoming messages,
         or return untreatable messages to their original queue.
@@ -391,6 +401,8 @@ class Channel(object):
                              requeue the message. If requeue is false or the
                              requeue attempt fails the messages are discarded or
                              dead-lettered.
+        :param method callback: Method to call when Basic.Reject is sent to the
+                                socket
         :raises: TypeError
 
         """
@@ -398,7 +410,8 @@ class Channel(object):
             raise exceptions.ChannelClosed()
         if not is_integer(delivery_tag):
             raise TypeError('delivery_tag must be an integer')
-        return self._send_method(spec.Basic.Reject(delivery_tag, requeue))
+        return self._send_method(spec.Basic.Reject(delivery_tag, requeue),
+                                 on_method_sent=callback)
 
     def basic_recover(self, callback=None, requeue=False):
         """This method asks the server to redeliver all unacknowledged messages
@@ -1172,16 +1185,19 @@ class Channel(object):
 
         self._send_method(method_frame)
 
-    def _send_method(self, method_frame, content=None):
+    def _send_method(self, method_frame, content=None, on_method_sent=None):
         """Shortcut wrapper to send a method through our connection, passing in
         the channel number
 
         :param pika.object.Method method_frame: The method frame to send
         :param tuple content: If set, is a content frame, is tuple of
                               properties and body.
+        :param callable on_method_sent: callback which is executed when method
+                                        is sent to the socket
 
         """
-        self.connection._send_method(self.channel_number, method_frame, content)
+        self.connection._send_method(self.channel_number, method_frame, content,
+                                     on_method_sent)
 
     def _set_cookie(self, cookie):
         """Used by wrapper layer (e.g., `BlockingConnection`) to link the
