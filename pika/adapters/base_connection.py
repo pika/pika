@@ -495,6 +495,7 @@ class BaseConnection(connection.Connection):
         :rtype: ssl.SSLSocket
 
         """
+        ssl_options = self.params.ssl_options or {}
         return ssl.wrap_socket(sock,
                                do_handshake_on_connect=self.DO_HANDSHAKE,
-                               **self.params.ssl_options)
+                               **ssl_options)
