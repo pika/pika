@@ -336,8 +336,9 @@ class Channel(object):
         """Get a single message from the AMQP broker. If you want to
         be notified of Basic.GetEmpty, use the Channel.add_callback method
         adding your Basic.GetEmpty callback which should expect only one
-        parameter, frame. For more information on basic_get and its
-        parameters, see:
+        parameter, frame. Due to implementation details, this cannot be called
+        a second time until the callback is executed.  For more information on
+        basic_get and its parameters, see:
 
         http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.get
 
@@ -354,6 +355,8 @@ class Channel(object):
         """
         self._validate_channel_and_callback(callback)
         # TODO Is basic_get meaningful when callback is None?
+        if self._on_getok_callback is not None:
+            raise exceptions.DuplicateGetOkCallback()
         self._on_getok_callback = callback
         # TODO Strangely, not using _rpc for the synchronous Basic.Get. Would
         # need to extend _rpc to handle Basic.GetOk method, header, and body
@@ -1156,6 +1159,8 @@ class Channel(object):
 
         """
         LOGGER.debug('Received Basic.GetEmpty: %r', method_frame)
+        if self._on_getok_callback is not None:
+            self._on_getok_callback = None
 
     def _on_getok(self, method_frame, header_frame, body):
         """Called in reply to a Basic.Get when there is a message.
