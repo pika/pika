@@ -97,7 +97,7 @@ class Parameters(object):
 
     DEFAULT_BACKPRESSURE_DETECTION = False
     DEFAULT_BLOCKED_CONNECTION_TIMEOUT = None
-    DEFAULT_CHANNEL_MAX = channel.MAX_CHANNELS
+    DEFAULT_CHANNEL_MAX = pika.channel.MAX_CHANNELS
     DEFAULT_CREDENTIALS = pika_credentials.PlainCredentials(DEFAULT_USERNAME,
                                                             DEFAULT_PASSWORD)
     DEFAULT_CONNECTION_ATTEMPTS = 1
@@ -243,9 +243,9 @@ class Parameters(object):
         """
         if not isinstance(value, numbers.Integral):
             raise TypeError('channel_max must be an int, but got %r' % (value,))
-        if value < 1 or value > channel.MAX_CHANNELS:
+        if value < 1 or value > pika.channel.MAX_CHANNELS:
             raise ValueError('channel_max must be <= %i and > 0, but got %r' %
-                             (channel.MAX_CHANNELS, value))
+                             (pika.channel.MAX_CHANNELS, value))
         self._channel_max = value
 
     @property
