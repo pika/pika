@@ -20,11 +20,13 @@ except ImportError:
     from unittest import mock  # pylint: disable=E0611
 
 import random
+import platform
 try:
     import unittest2 as unittest
 except ImportError:
     import unittest
 
+import pika
 from pika import connection
 from pika import channel
 from pika import credentials
@@ -421,6 +423,44 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
                              'information', 'version'):
             self.assertTrue(required_key in client_props,
                             '%s missing' % required_key)
+
+    def test_client_properties_default(self):
+        expectation = {
+            'product': connection.PRODUCT,
+            'platform': 'Python %s' % platform.python_version(),
+            'capabilities': {
+                'authentication_failure_close': True,
+                'basic.nack': True,
+                'connection.blocked': True,
+                'consumer_cancel_notify': True,
+                'publisher_confirms': True
+            },
+            'information': 'See http://pika.rtfd.org',
+            'version': pika.__version__
+        }
+        self.assertDictEqual(self.connection._client_properties, expectation)
+
+    def test_client_properties_override(self):
+        expectation = {
+            'capabilities': {
+                'authentication_failure_close': True,
+                'basic.nack': True,
+                'connection.blocked': True,
+                'consumer_cancel_notify': True,
+                'publisher_confirms': True
+            }
+        }
+        override = {'product': 'My Product',
+                    'platform': 'Your platform',
+                    'version': '0.1',
+                    'information': 'this is my app'}
+        expectation.update(override)
+
+        params = connection.ConnectionParameters(client_properties=override)
+
+        with mock.patch('pika.connection.Connection.connect'):
+            conn = connection.Connection(params)
+            self.assertDictEqual(conn._client_properties, expectation)
 
     def test_set_backpressure_multiplier(self):
         """test setting the backpressure multiplier"""

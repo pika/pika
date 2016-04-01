@@ -49,7 +49,7 @@ class InternalCloseReasons(object):
     BLOCKED_CONNECTION_TIMEOUT = -2
 
 
-class Parameters(object):
+class Parameters(object):  # pylint: disable=R0902
     """Base connection parameters class definition
 
     :param bool backpressure_detection: `DEFAULT_BACKPRESSURE_DETECTION`
@@ -77,6 +77,7 @@ class Parameters(object):
         '_backpressure_detection',
         '_blocked_connection_timeout',
         '_channel_max',
+        '_client_properties',
         '_connection_attempts',
         '_credentials',
         '_frame_max',
@@ -91,18 +92,18 @@ class Parameters(object):
         '_virtual_host'
     )
 
-
     DEFAULT_USERNAME = 'guest'
     DEFAULT_PASSWORD = 'guest'
 
     DEFAULT_BACKPRESSURE_DETECTION = False
     DEFAULT_BLOCKED_CONNECTION_TIMEOUT = None
     DEFAULT_CHANNEL_MAX = pika.channel.MAX_CHANNELS
+    DEFAULT_CLIENT_PROPERTIES = None
     DEFAULT_CREDENTIALS = pika_credentials.PlainCredentials(DEFAULT_USERNAME,
                                                             DEFAULT_PASSWORD)
     DEFAULT_CONNECTION_ATTEMPTS = 1
     DEFAULT_FRAME_MAX = spec.FRAME_MAX_SIZE
-    DEFAULT_HEARTBEAT_TIMEOUT  = None          # None accepts server's proposal
+    DEFAULT_HEARTBEAT_TIMEOUT = None          # None accepts server's proposal
     DEFAULT_HOST = 'localhost'
     DEFAULT_LOCALE = 'en_US'
     DEFAULT_PORT = 5672
@@ -129,6 +130,9 @@ class Parameters(object):
 
         self._channel_max = None
         self.channel_max = self.DEFAULT_CHANNEL_MAX
+
+        self._client_properties = None
+        self.client_properties = self.DEFAULT_CLIENT_PROPERTIES
 
         self._connection_attempts = None
         self.connection_attempts = self.DEFAULT_CONNECTION_ATTEMPTS
@@ -247,6 +251,30 @@ class Parameters(object):
             raise ValueError('channel_max must be <= %i and > 0, but got %r' %
                              (pika.channel.MAX_CHANNELS, value))
         self._channel_max = value
+
+    @property
+    def client_properties(self):
+        """
+        :returns: None or dict of client properties used to override the fields
+            in the default client poperties reported  to RabbitMQ via
+            `Connection.StartOk` method. Defaults to
+            `DEFAULT_CLIENT_PROPERTIES`.
+
+        """
+        return self._client_properties
+
+    @client_properties.setter
+    def client_properties(self, value):
+        """
+        :param value: None or dict of client properties used to override the
+            fields in the default client poperties reported to RabbitMQ via
+            `Connection.StartOk` method.
+        """
+        if not isinstance(value, (dict, type(None),)):
+            raise TypeError('client_properties must be dict or None, '
+                            'but got %r' % (value,))
+        # Copy the mutable object to avoid accidental side-effects
+        self._client_properties = copy.deepcopy(value)
 
     @property
     def connection_attempts(self):
@@ -521,11 +549,11 @@ class ConnectionParameters(Parameters):
     # Protect against accidental assignment of an invalid attribute
     __slots__ = ()
 
-    # Designates default parameter value; internal use
     class _DEFAULT(object):
+        """Designates default parameter value; internal use"""
         pass
 
-    def __init__(self,  # pylint: disable=R0913
+    def __init__(self,  # pylint: disable=R0913,R0914,R0912
                  host=_DEFAULT,
                  port=_DEFAULT,
                  virtual_host=_DEFAULT,
@@ -541,8 +569,10 @@ class ConnectionParameters(Parameters):
                  locale=_DEFAULT,
                  backpressure_detection=_DEFAULT,
                  blocked_connection_timeout=_DEFAULT,
+                 client_properties=_DEFAULT,
                  **kwargs):
-        """Create a new ConnectionParameters instance.
+        """Create a new ConnectionParameters instance. See `Parameters` for
+        default values.
 
         :param str host: Hostname or IP Address to connect to
         :param int port: TCP port to connect to
@@ -572,6 +602,9 @@ class ConnectionParameters(Parameters):
             e.g., on_close_callback or ConnectionClosed exception) with
             `reason_code` of `InternalCloseReasons.BLOCKED_CONNECTION_TIMEOUT`.
         :type blocked_connection_timeout: None, int, float
+        :param client_properties: None or dict of client properties used to
+            override the fields in the default client poperties reported to
+            RabbitMQ via `Connection.StartOk` method.
         :param heartbeat_interval: DEPRECATED; use `heartbeat` instead, and
             don't pass both
 
@@ -586,6 +619,9 @@ class ConnectionParameters(Parameters):
 
         if channel_max is not self._DEFAULT:
             self.channel_max = channel_max
+
+        if client_properties is not self._DEFAULT:
+            self.client_properties = client_properties
 
         if connection_attempts is not self._DEFAULT:
             self.connection_attempts = connection_attempts
@@ -651,6 +687,8 @@ class URLParameters(Parameters):
     Ensure that the virtual host is URI encoded when specified. For example if
     you are using the default "/" virtual host, the value should be `%2f`.
 
+    See `Parameters` for default values.
+
     Valid query string values are:
 
         - backpressure_detection:
@@ -659,6 +697,10 @@ class URLParameters(Parameters):
             `Connection.add_on_connection_blocked_callback`.
         - channel_max:
             Override the default maximum channel count value
+        - client_properties:
+            dict of client properties used to override the fields in the default
+            client poperties reported to RabbitMQ via `Connection.StartOk`
+            method
         - connection_attempts:
             Specify how many times pika should try and reconnect before it gives up
         - frame_max:
@@ -763,6 +805,7 @@ class URLParameters(Parameters):
             set_value(value)
 
     def _set_url_backpressure_detection(self, value):
+        """Deserialize and apply the corresponding query string arg"""
         try:
             backpressure_detection = {'t': True, 'f': False}[value]
         except KeyError:
@@ -771,6 +814,7 @@ class URLParameters(Parameters):
         self.backpressure_detection = backpressure_detection
 
     def _set_url_blocked_connection_timeout(self, value):
+        """Deserialize and apply the corresponding query string arg"""
         try:
             blocked_connection_timeout = float(value)
         except ValueError as exc:
@@ -779,13 +823,19 @@ class URLParameters(Parameters):
         self.blocked_connection_timeout = blocked_connection_timeout
 
     def _set_url_channel_max(self, value):
+        """Deserialize and apply the corresponding query string arg"""
         try:
             channel_max = int(value)
         except ValueError as exc:
             raise ValueError('Invalid channel_max value %r: %r' % (value, exc,))
         self.channel_max = channel_max
 
+    def _set_url_client_properties(self, value):
+        """Deserialize and apply the corresponding query string arg"""
+        self.client_properties = ast.literal_eval(value)
+
     def _set_url_connection_attempts(self, value):
+        """Deserialize and apply the corresponding query string arg"""
         try:
             connection_attempts = int(value)
         except ValueError as exc:
@@ -794,6 +844,7 @@ class URLParameters(Parameters):
         self.connection_attempts = connection_attempts
 
     def _set_url_frame_max(self, value):
+        """Deserialize and apply the corresponding query string arg"""
         try:
             frame_max = int(value)
         except ValueError as exc:
@@ -801,6 +852,7 @@ class URLParameters(Parameters):
         self.frame_max = frame_max
 
     def _set_url_heartbeat(self, value):
+        """Deserialize and apply the corresponding query string arg"""
         if 'heartbeat_interval' in self._all_url_query_values:
             raise ValueError('Deprecated URL parameter heartbeat_interval must '
                              'not be specified together with heartbeat')
@@ -812,6 +864,7 @@ class URLParameters(Parameters):
         self.heartbeat = heartbeat_timeout
 
     def _set_url_heartbeat_interval(self, value):
+        """Deserialize and apply the corresponding query string arg"""
         warnings.warn('heartbeat_interval is deprecated, use heartbeat',
                       DeprecationWarning, stacklevel=2)
 
@@ -827,9 +880,11 @@ class URLParameters(Parameters):
         self.heartbeat = heartbeat_timeout
 
     def _set_url_locale(self, value):
+        """Deserialize and apply the corresponding query string arg"""
         self.locale = value
 
     def _set_url_retry_delay(self, value):
+        """Deserialize and apply the corresponding query string arg"""
         try:
             retry_delay = float(value)
         except ValueError as exc:
@@ -837,6 +892,7 @@ class URLParameters(Parameters):
         self.retry_delay = retry_delay
 
     def _set_url_socket_timeout(self, value):
+        """Deserialize and apply the corresponding query string arg"""
         try:
             socket_timeout = float(value)
         except ValueError as exc:
@@ -845,6 +901,7 @@ class URLParameters(Parameters):
         self.socket_timeout = socket_timeout
 
     def _set_url_ssl_options(self, value):
+        """Deserialize and apply the corresponding query string arg"""
         self.ssl_options = ast.literal_eval(value)
 
 
@@ -936,7 +993,6 @@ class Connection(object):
         self._channels = None
         self._backpressure_multiplier = None
 
-        # Initialize the connection state and connect
         self._init_connection_state()
 
 
@@ -952,6 +1008,7 @@ class Connection(object):
         # On connection callback
         if on_close_callback:
             self.add_on_close_callback(on_close_callback)
+
         self.connect()
 
     def add_backpressure_callback(self, callback_method):
@@ -1052,6 +1109,7 @@ class Connection(object):
 
         """
         if not self.is_open:
+            # TODO if state is OPENING, then ConnectionClosed might be wrong
             raise exceptions.ConnectionClosed(
                 'Channel allocation requires an open connection: %s' % self)
 
@@ -1303,7 +1361,7 @@ class Connection(object):
         :rtype: dict
 
         """
-        return {
+        properties = {
             'product': PRODUCT,
             'platform': 'Python %s' % platform.python_version(),
             'capabilities': {
@@ -1316,6 +1374,11 @@ class Connection(object):
             'information': 'See http://pika.rtfd.org',
             'version': __version__
         }
+
+        if self.params.client_properties:
+            properties.update(self.params.client_properties)
+
+        return properties
 
     def _close_channels(self, reply_code, reply_text):
         """Initiate graceful closing of channels that are in OPEN or OPENING
