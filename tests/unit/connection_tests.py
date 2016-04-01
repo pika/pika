@@ -419,7 +419,8 @@ class ConnectionTests(unittest.TestCase):
         self.assertEqual(20, self.connection.params.heartbeat)
         self.assertEqual(9992, self.connection._body_max_length)
         heartbeat_checker.assert_called_once_with(self.connection, 20)
-        self.assertEqual(['ab'], list(self.connection.outbound_buffer))
+        self.assertEqual(['ab'], [frame_buffer.data for frame_buffer in
+                                  self.connection.outbound_buffer])
         self.assertEqual('hearbeat obj', self.connection.heartbeat)
 
         # Repeat with smaller user heartbeat than broker

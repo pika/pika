@@ -263,3 +263,33 @@ def decode_frame(data_in):
         return frame_end, Heartbeat()
 
     raise exceptions.InvalidFrameError("Unknown frame type: %i" % frame_type)
+
+
+class FrameBuffer(object):
+    """Wraps raw frame data prepared for sending with callback method for
+    informing caller about frame sending process and state
+    """
+    def __init__(self, data, on_frame_sent=None):
+        """Initialize frame buffer with data and callback
+
+        :param data: raw frame data
+        :param on_frame_sent: callback method for calling after frame
+                              successful sending via socket
+        """
+        self.data = data
+        self._on_frame_sent = on_frame_sent
+
+    def set_on_frame_sent_callback(self, on_frame_sent):
+        """Overrides on_frame_sent specified in __init__ method
+
+        :param on_frame_sent: callback method for calling after frame
+                              successful sending via socket
+        """
+        self._on_frame_sent = on_frame_sent
+
+    def on_frame_sent(self):
+        """Method should be executed by logic which is sent frame to socket and
+        want to inform the caller about it
+        """
+        if self._on_frame_sent:
+            self._on_frame_sent()

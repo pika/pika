@@ -449,8 +449,7 @@ class BlockingConnection(object):  # pylint: disable=R0902
         #   empty outbound buffer and any waiter is ready
         is_done = (lambda:
                    self._closed_result.ready or
-                   (not self._impl.outbound_buffer and
-                    (not waiters or any(ready() for ready in  waiters))))
+                   any(ready() for ready in waiters))
 
         # Process I/O until our completion condition is satisified
         while not is_done():
@@ -1220,8 +1219,6 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
         """
         return self._impl.is_open
 
-    _ALWAYS_READY_WAITERS = ((lambda: True), )
-
     def _flush_output(self, *waiters):
         """ Flush output and process input while waiting for any of the given
         callbacks to return true. The wait is aborted upon channel-close or
@@ -1238,7 +1235,7 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
             raise exceptions.ChannelClosed()
 
         if not waiters:
-            waiters = self._ALWAYS_READY_WAITERS
+            raise RuntimeError("At least one waiter required.")
 
         self._connection._flush_output(
             self._channel_closed_by_broker_result.is_ready,
@@ -1956,8 +1953,10 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
                               delivery tag is zero, this indicates
                               acknowledgement of all outstanding messages.
         """
-        self._impl.basic_ack(delivery_tag=delivery_tag, multiple=multiple)
-        self._flush_output()
+        with _CallbackResult() as ack_sent_result:
+            self._impl.basic_ack(delivery_tag=delivery_tag, multiple=multiple,
+                                 callback=ack_sent_result.signal_once)
+            self._flush_output(ack_sent_result.is_ready)
 
     def basic_nack(self, delivery_tag=None, multiple=False, requeue=True):
         """This method allows a client to reject one or more incoming messages.
@@ -1978,9 +1977,11 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
                              dead-lettered.
 
         """
-        self._impl.basic_nack(delivery_tag=delivery_tag, multiple=multiple,
-                              requeue=requeue)
-        self._flush_output()
+        with _CallbackResult() as nack_sent_result:
+            self._impl.basic_nack(delivery_tag=delivery_tag, multiple=multiple,
+                                  requeue=requeue,
+                                  callback=nack_sent_result.signal_once)
+            self._flush_output(nack_sent_result.is_ready)
 
     def basic_get(self, queue=None, no_ack=False):
         """Get a single message from the AMQP broker. Returns a sequence with
@@ -2127,13 +2128,15 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
                         raise exceptions.UnroutableError(messages)
         else:
             # In non-publisher-acknowledgments mode
-            self._impl.basic_publish(exchange=exchange,
-                                     routing_key=routing_key,
-                                     body=body,
-                                     properties=properties,
-                                     mandatory=mandatory,
-                                     immediate=immediate)
-            self._flush_output()
+            with _CallbackResult() as msg_sent_result:
+                self._impl.basic_publish(exchange=exchange,
+                                         routing_key=routing_key,
+                                         body=body,
+                                         properties=properties,
+                                         mandatory=mandatory,
+                                         immediate=immediate,
+                                         callback=msg_sent_result.signal_once)
+                self._flush_output(msg_sent_result.is_ready)
 
     def basic_qos(self, prefetch_size=0, prefetch_count=0, all_channels=False):
         """Specify quality of service. This method requests a specific quality
@@ -2198,8 +2201,10 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
                              dead-lettered.
 
         """
-        self._impl.basic_reject(delivery_tag=delivery_tag, requeue=requeue)
-        self._flush_output()
+        with _CallbackResult() as reject_sent_result:
+            self._impl.basic_reject(delivery_tag=delivery_tag, requeue=requeue,
+                                    callback=reject_sent_result.signal_once)
+            self._flush_output(reject_sent_result.is_ready)
 
     def confirm_delivery(self):
         """Turn on RabbitMQ-proprietary Confirm mode in the channel.
