@@ -84,6 +84,11 @@ class ChannelClosed(AMQPChannelError):
             return 'The channel was closed: %s' % (self.args,)
 
 
+class ChannelAlreadyClosing(AMQPChannelError):
+    """Raised when `Channel.close` is called while channel is already closing"""
+    pass
+
+
 class DuplicateConsumerTag(AMQPChannelError):
 
     def __repr__(self):

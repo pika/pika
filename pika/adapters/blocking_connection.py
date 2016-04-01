@@ -86,7 +86,7 @@ class _CallbackResult(object):
         """True if the object is in a signaled state"""
         return self._ready
 
-    def signal_once(self, *_args, **_kwargs): # pylint: disable=W0613
+    def signal_once(self, *_args, **_kwargs):
         """ Set as ready
 
         :raises AssertionError: if result was already signalled
@@ -162,7 +162,7 @@ class _CallbackResult(object):
         return self._values
 
 
-class _IoloopTimerContext(object):  # pylint: disable=R0903
+class _IoloopTimerContext(object):
     """Context manager for registering and safely unregistering a
     SelectConnection ioloop-based timer
     """
@@ -197,7 +197,7 @@ class _IoloopTimerContext(object):  # pylint: disable=R0903
         return self._callback_result.is_ready()
 
 
-class _TimerEvt(object):  # pylint: disable=R0903
+class _TimerEvt(object):
     """Represents a timer created via `BlockingConnection.add_timeout`"""
     __slots__ = ('timer_id', '_callback')
 
@@ -220,7 +220,7 @@ class _TimerEvt(object):  # pylint: disable=R0903
         self._callback()
 
 
-class _ConnectionBlockedUnblockedEvtBase(object):  # pylint: disable=R0903
+class _ConnectionBlockedUnblockedEvtBase(object):
     """Base class for `_ConnectionBlockedEvt` and `_ConnectionUnblockedEvt`"""
     __slots__ = ('_callback', '_method_frame')
 
@@ -245,19 +245,17 @@ class _ConnectionBlockedUnblockedEvtBase(object):  # pylint: disable=R0903
         self._callback(self._method_frame)
 
 
-class _ConnectionBlockedEvt(  # pylint: disable=R0903
-        _ConnectionBlockedUnblockedEvtBase):
+class _ConnectionBlockedEvt(_ConnectionBlockedUnblockedEvtBase):
     """Represents a Connection.Blocked notification from RabbitMQ broker`"""
     pass
 
 
-class _ConnectionUnblockedEvt(  # pylint: disable=R0903
-        _ConnectionBlockedUnblockedEvtBase):
+class _ConnectionUnblockedEvt(_ConnectionBlockedUnblockedEvtBase):
     """Represents a Connection.Unblocked notification from RabbitMQ broker`"""
     pass
 
 
-class BlockingConnection(object):  # pylint: disable=R0902
+class BlockingConnection(object):
     """The BlockingConnection creates a layer on top of Pika's asynchronous core
     providing methods that will block until their expected response has
     returned. Due to the asynchronous nature of the `Basic.Deliver` and
@@ -404,7 +402,7 @@ class BlockingConnection(object):  # pylint: disable=R0902
             # __exit__ part
             self._event_dispatch_suspend_depth -= 1
 
-    def _process_io_for_connection_setup(self):  # pylint: disable=C0103
+    def _process_io_for_connection_setup(self):
         """ Perform follow-up processing for connection setup request: flush
         connection output and process input while waiting for connection-open
         or connection-error.
@@ -570,8 +568,7 @@ class BlockingConnection(object):  # pylint: disable=R0902
 
                 evt.dispatch()
 
-    def add_on_connection_blocked_callback(self,  # pylint: disable=C0103
-                                           callback_method):
+    def add_on_connection_blocked_callback(self, callback_method):
         """Add a callback to be notified when RabbitMQ has sent a
         `Connection.Blocked` frame indicating that RabbitMQ is low on
         resources. Publishers can use this to voluntarily suspend publishing,
@@ -589,8 +586,7 @@ class BlockingConnection(object):  # pylint: disable=R0902
         self._impl.add_on_connection_blocked_callback(
             functools.partial(self._on_connection_blocked, callback_method))
 
-    def add_on_connection_unblocked_callback(self,  # pylint: disable=C0103
-                                             callback_method):
+    def add_on_connection_unblocked_callback(self, callback_method):
         """Add a callback to be notified when RabbitMQ has sent a
         `Connection.Unblocked` frame letting publishers know it's ok
         to start publishing again. The callback will be passed the
@@ -767,7 +763,7 @@ class BlockingConnection(object):  # pylint: disable=R0902
         # Prepare `with` context
         return self
 
-    def __exit__(self, tp, value, traceback):
+    def __exit__(self, exc_type, value, traceback):
         # Close connection after `with` context
         self.close()
 
@@ -811,7 +807,7 @@ class BlockingConnection(object):  # pylint: disable=R0902
         return self._impl.basic_nack
 
     @property
-    def consumer_cancel_notify_supported(self):  # pylint: disable=C0103
+    def consumer_cancel_notify_supported(self):
         """Specifies if the server supports consumer cancel notification on the
         active connection.
 
@@ -821,7 +817,7 @@ class BlockingConnection(object):  # pylint: disable=R0902
         return self._impl.consumer_cancel_notify
 
     @property
-    def exchange_exchange_bindings_supported(self):  # pylint: disable=C0103
+    def exchange_exchange_bindings_supported(self):
         """Specifies if the active connection supports exchange to exchange
         bindings.
 
@@ -846,12 +842,12 @@ class BlockingConnection(object):  # pylint: disable=R0902
     publisher_confirms = publisher_confirms_supported
 
 
-class _ChannelPendingEvt(object):  # pylint: disable=R0903
+class _ChannelPendingEvt(object):
     """Base class for BlockingChannel pending events"""
     pass
 
 
-class _ConsumerDeliveryEvt(_ChannelPendingEvt):  # pylint: disable=R0903
+class _ConsumerDeliveryEvt(_ChannelPendingEvt):
     """This event represents consumer message delivery `Basic.Deliver`; it
     contains method, properties, and body of the delivered message.
     """
@@ -871,7 +867,7 @@ class _ConsumerDeliveryEvt(_ChannelPendingEvt):  # pylint: disable=R0903
         self.body = body
 
 
-class _ConsumerCancellationEvt(_ChannelPendingEvt):  # pylint: disable=R0903
+class _ConsumerCancellationEvt(_ChannelPendingEvt):
     """This event represents server-initiated consumer cancellation delivered to
     client via Basic.Cancel. After receiving Basic.Cancel, there will be no
     further deliveries for the consumer identified by `consumer_tag` in
@@ -897,12 +893,12 @@ class _ConsumerCancellationEvt(_ChannelPendingEvt):  # pylint: disable=R0903
         return self.method_frame.method
 
 
-class _ReturnedMessageEvt(_ChannelPendingEvt):  # pylint: disable=R0903
+class _ReturnedMessageEvt(_ChannelPendingEvt):
     """This event represents a message returned by broker via `Basic.Return`"""
 
     __slots__ = ('callback', 'channel', 'method', 'properties', 'body')
 
-    def __init__(self, callback, channel, method, properties, body):  # pylint: disable=R0913
+    def __init__(self, callback, channel, method, properties, body):
         """
         :param callable callback: user's callback, having the signature
             callback(channel, method, properties, body), where
@@ -933,7 +929,7 @@ class _ReturnedMessageEvt(_ChannelPendingEvt):  # pylint: disable=R0903
         self.callback(self.channel, self.method, self.properties, self.body)
 
 
-class ReturnedMessage(object):  # pylint: disable=R0903
+class ReturnedMessage(object):
     """Represents a message returned via Basic.Return in publish-acknowledgments
     mode
     """
@@ -1014,7 +1010,7 @@ class _ConsumerInfo(object):
         return self.state == self.CANCELLED_BY_BROKER
 
 
-class _QueueConsumerGeneratorInfo(object):  # pylint: disable=R0903
+class _QueueConsumerGeneratorInfo(object):
     """Container for information about the active queue consumer generator """
     __slots__ = ('params', 'consumer_tag', 'pending_events')
 
@@ -1037,7 +1033,7 @@ class _QueueConsumerGeneratorInfo(object):  # pylint: disable=R0903
             self.__class__.__name__, self.params, self.consumer_tag)
 
 
-class BlockingChannel(object):  # pylint: disable=R0904,R0902
+class BlockingChannel(object):
     """The BlockingChannel implements blocking semantics for most things that
     one would use callback-passing-style for with the
     :py:class:`~pika.channel.Channel` class. In addition,
@@ -1076,7 +1072,7 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
 
     # Broker's basic-ack/basic-nack args when delivery confirmation is enabled;
     # may concern a single or multiple messages
-    _OnMessageConfirmationReportArgs = namedtuple(  # pylint: disable=C0103
+    _OnMessageConfirmationReportArgs = namedtuple(
         'BlockingChannel__OnMessageConfirmationReportArgs',
         'method_frame')
 
@@ -1135,7 +1131,7 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
         self._basic_consume_ok_result = _CallbackResult()
 
         # Receives the broker-inititated Channel.Close parameters
-        self._channel_closed_by_broker_result = _CallbackResult(  # pylint: disable=C0103
+        self._channel_closed_by_broker_result = _CallbackResult(
             self._OnChannelClosedByBrokerArgs)
 
         # Receives args from Basic.GetEmpty response
@@ -1291,8 +1287,7 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
         self.connection._request_channel_dispatch(self.channel_number)
 
 
-    def _on_consumer_cancelled_by_broker(self,  # pylint: disable=C0103
-                                         method_frame):
+    def _on_consumer_cancelled_by_broker(self, method_frame):
         """Called by impl when broker cancels consumer via Basic.Cancel.
 
         This is a RabbitMQ-specific feature. The circumstances include deletion
@@ -1316,8 +1311,7 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
         else:
             self._add_pending_event(evt)
 
-    def _on_consumer_message_delivery(self, channel,  # pylint: disable=W0613
-                                      method, properties, body):
+    def _on_consumer_message_delivery(self, _channel, method, properties, body):
         """Called by impl when a message is delivered for a consumer
 
         :param Channel channel: The implementation channel object
@@ -1474,7 +1468,7 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
                     _ReturnedMessageEvt(
                         callback, self, method, properties, body))))
 
-    def basic_consume(self,  # pylint: disable=R0913
+    def basic_consume(self,
                       consumer_callback,
                       queue,
                       no_ack=False,
@@ -1529,7 +1523,7 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
             arguments=arguments,
             consumer_callback=consumer_callback)
 
-    def _basic_consume_impl(self,  # pylint: disable=R0913
+    def _basic_consume_impl(self,
                             queue,
                             no_ack,
                             exclusive,
@@ -1645,7 +1639,7 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
                 consumer_info.state)
 
             # Assertion failure here signals disconnect between consumer state
-            # in BlockingConnection and Connection
+            # in BlockingChannel and Channel
             assert (consumer_info.cancelled_by_broker or
                     consumer_tag in self._impl._consumers), consumer_tag
 
@@ -1764,7 +1758,7 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
         else:
             self._cancel_all_consumers()
 
-    def consume(self, queue, no_ack=False,  # pylint: disable=R0913
+    def consume(self, queue, no_ack=False,
                 exclusive=False, arguments=None,
                 inactivity_timeout=None):
         """Blocking consumption of a queue instead of via a callback. This
@@ -2012,7 +2006,7 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
                         "wait completed without GetOk and GetEmpty")
                     return None, None, None
 
-    def basic_publish(self, exchange, routing_key, body,   # pylint: disable=R0913
+    def basic_publish(self, exchange, routing_key, body,
                       properties=None, mandatory=False, immediate=False):
         """Publish to the channel with the given exchange, routing key and body.
         Returns a boolean value indicating the success of the operation.
@@ -2052,7 +2046,7 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
         else:
             return True
 
-    def publish(self, exchange, routing_key, body,  # pylint: disable=R0913
+    def publish(self, exchange, routing_key, body,
                 properties=None, mandatory=False, immediate=False):
         """Publish to the channel with the given exchange, routing key, and
         body. Unlike the legacy `BlockingChannel.basic_publish`, this method
@@ -2229,10 +2223,10 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
         # of publisher acknowledgments
         self._impl.add_on_return_callback(self._on_puback_message_returned)
 
-    def exchange_declare(self, exchange=None,  # pylint: disable=R0913
+    def exchange_declare(self, exchange=None,
                          exchange_type='direct', passive=False, durable=False,
                          auto_delete=False, internal=False,
-                         arguments=None, **kwargs):
+                         arguments=None):
         """This method creates an exchange if it does not already exist, and if
         the exchange exists, verifies that it is of the correct and expected
         class.
@@ -2252,15 +2246,12 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
         :param bool auto_delete: Remove when no more queues are bound to it
         :param bool internal: Can only be published to by other exchanges
         :param dict arguments: Custom key/value pair arguments for the exchange
-        :param str type: via kwargs: the deprecated exchange type parameter
 
         :returns: Method frame from the Exchange.Declare-ok response
         :rtype: `pika.frame.Method` having `method` attribute of type
           `spec.Exchange.DeclareOk`
 
         """
-        assert len(kwargs) <= 1, kwargs
-
         with _CallbackResult(
             self._MethodFrameCallbackResultArgs) as declare_ok_result:
             self._impl.exchange_declare(
@@ -2272,8 +2263,7 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
                 auto_delete=auto_delete,
                 internal=internal,
                 nowait=False,
-                arguments=arguments,
-                type=kwargs["type"] if kwargs else None)
+                arguments=arguments)
 
             self._flush_output(declare_ok_result.is_ready)
             return declare_ok_result.value.method_frame
@@ -2318,8 +2308,8 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
           `spec.Exchange.BindOk`
 
         """
-        with _CallbackResult(
-                self._MethodFrameCallbackResultArgs) as bind_ok_result:
+        with _CallbackResult(self._MethodFrameCallbackResultArgs) as \
+                bind_ok_result:
             self._impl.exchange_bind(
                 callback=bind_ok_result.set_value_once,
                 destination=destination,
@@ -2361,7 +2351,7 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
             self._flush_output(unbind_ok_result.is_ready)
             return unbind_ok_result.value.method_frame
 
-    def queue_declare(self, queue='', passive=False, durable=False,  # pylint: disable=R0913
+    def queue_declare(self, queue='', passive=False, durable=False,
                       exclusive=False, auto_delete=False,
                       arguments=None):
         """Declare queue, create if needed. This method creates or checks a
@@ -2385,8 +2375,8 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
           `spec.Queue.DeclareOk`
 
         """
-        with _CallbackResult(
-                self._MethodFrameCallbackResultArgs) as declare_ok_result:
+        with _CallbackResult(self._MethodFrameCallbackResultArgs) as \
+                declare_ok_result:
             self._impl.queue_declare(
                 callback=declare_ok_result.set_value_once,
                 queue=queue,
@@ -2413,8 +2403,8 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
           `spec.Queue.DeleteOk`
 
         """
-        with _CallbackResult(
-                self._MethodFrameCallbackResultArgs) as delete_ok_result:
+        with _CallbackResult(self._MethodFrameCallbackResultArgs) as \
+                delete_ok_result:
             self._impl.queue_delete(callback=delete_ok_result.set_value_once,
                                     queue=queue,
                                     if_unused=if_unused,
@@ -2435,8 +2425,8 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
           `spec.Queue.PurgeOk`
 
         """
-        with _CallbackResult(
-                self._MethodFrameCallbackResultArgs) as purge_ok_result:
+        with _CallbackResult(self._MethodFrameCallbackResultArgs) as \
+                purge_ok_result:
             self._impl.queue_purge(callback=purge_ok_result.set_value_once,
                                    queue=queue,
                                    nowait=False)
@@ -2490,8 +2480,8 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
           `spec.Queue.UnbindOk`
 
         """
-        with _CallbackResult(
-                self._MethodFrameCallbackResultArgs) as unbind_ok_result:
+        with _CallbackResult(self._MethodFrameCallbackResultArgs) as \
+                unbind_ok_result:
             self._impl.queue_unbind(callback=unbind_ok_result.set_value_once,
                                     queue=queue,
                                     exchange=exchange,
@@ -2510,8 +2500,8 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
           `spec.Tx.SelectOk`
 
         """
-        with _CallbackResult(
-                self._MethodFrameCallbackResultArgs) as select_ok_result:
+        with _CallbackResult(self._MethodFrameCallbackResultArgs) as \
+                select_ok_result:
             self._impl.tx_select(select_ok_result.set_value_once)
 
             self._flush_output(select_ok_result.is_ready)
@@ -2525,8 +2515,8 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
           `spec.Tx.CommitOk`
 
         """
-        with _CallbackResult(
-                self._MethodFrameCallbackResultArgs) as commit_ok_result:
+        with _CallbackResult(self._MethodFrameCallbackResultArgs) as \
+                commit_ok_result:
             self._impl.tx_commit(commit_ok_result.set_value_once)
 
             self._flush_output(commit_ok_result.is_ready)
@@ -2540,8 +2530,8 @@ class BlockingChannel(object):  # pylint: disable=R0904,R0902
           `spec.Tx.CommitOk`
 
         """
-        with _CallbackResult(
-                self._MethodFrameCallbackResultArgs) as rollback_ok_result:
+        with _CallbackResult(self._MethodFrameCallbackResultArgs) as \
+                rollback_ok_result:
             self._impl.tx_rollback(rollback_ok_result.set_value_once)
 
             self._flush_output(rollback_ok_result.is_ready)

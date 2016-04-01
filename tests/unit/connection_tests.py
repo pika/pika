@@ -17,7 +17,7 @@ Tests for pika.connection.Connection
 try:
     import mock
 except ImportError:
-    from unittest import mock
+    from unittest import mock  # pylint: disable=E0611
 
 import random
 try:
@@ -39,68 +39,121 @@ def callback_method():
     pass
 
 
-class ConnectionTests(unittest.TestCase):
+class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
 
     def setUp(self):
+        class ChannelTemplate(channel.Channel):
+            channel_number = None
+
         with mock.patch('pika.connection.Connection.connect'):
             self.connection = connection.Connection()
             self.connection._set_connection_state(
                 connection.Connection.CONNECTION_OPEN)
 
-        self.channel = mock.Mock(spec=channel.Channel)
+        self.channel = mock.Mock(spec=ChannelTemplate)
+        self.channel.channel_number = 1
         self.channel.is_open = True
-        self.connection._channels[1] = self.channel
+        self.channel.is_closing = False
+        self.channel.is_closed = False
+        self.connection._channels[self.channel.channel_number] = self.channel
 
     def tearDown(self):
         del self.connection
         del self.channel
 
-    @mock.patch('pika.connection.Connection._send_connection_close')
-    def test_close_closes_open_channels(self, send_connection_close):
+    @mock.patch('pika.connection.Connection._on_close_ready')
+    def test_close_calls_on_close_ready_when_no_channels(
+        self,
+        on_close_ready_mock):
+        self.connection._channels = dict()
+        self.connection.close()
+        self.assertTrue(on_close_ready_mock.called,
+                        'on_close_ready_mock should have been called')
+
+    @mock.patch('pika.connection.Connection._on_close_ready')
+    def test_close_closes_open_channels(self, on_close_ready):
         self.connection.close()
         self.channel.close.assert_called_once_with(200, 'Normal shutdown')
+        self.assertFalse(on_close_ready.called)
 
-    @mock.patch('pika.connection.Connection._send_connection_close')
-    def test_close_ignores_closed_channels(self, send_connection_close):
+    @mock.patch('pika.connection.Connection._on_close_ready')
+    def test_close_closes_opening_channels(self, on_close_ready):
+        self.channel.is_open = False
+        self.channel.is_closing = False
+        self.channel.is_closed = False
+        self.connection.close()
+        self.channel.close.assert_called_once_with(200, 'Normal shutdown')
+        self.assertFalse(on_close_ready.called)
+
+    @mock.patch('pika.connection.Connection._on_close_ready')
+    def test_close_does_not_close_closing_channels(self, on_close_ready):
+        self.channel.is_open = False
+        self.channel.is_closing = True
+        self.channel.is_closed = False
+        self.connection.close()
+        self.assertFalse(self.channel.close.called)
+        self.assertFalse(on_close_ready.called)
+
+    @mock.patch('pika.connection.Connection._close_channels')
+    def test_close_bails_out_if_already_closed_or_closing(
+            self, close_channels):
         for closed_state in (self.connection.CONNECTION_CLOSED,
                              self.connection.CONNECTION_CLOSING):
             self.connection.connection_state = closed_state
             self.connection.close()
             self.assertFalse(self.channel.close.called)
+            self.assertEqual(self.connection.connection_state, closed_state)
+
+    @mock.patch('logging.Logger.critical')
+    def test_deliver_frame_to_channel_with_frame_for_unknown_channel(
+            self,
+            critical_mock):
+        unknown_channel_num = 99
+        self.assertNotIn(unknown_channel_num, self.connection._channels)
+
+        unexpected_frame = frame.Method(unknown_channel_num, mock.Mock())
+        self.connection._deliver_frame_to_channel(unexpected_frame)
+
+        critical_mock.assert_called_once_with(
+            'Received %s frame for unregistered channel %i on %s',
+            unexpected_frame.NAME, unknown_channel_num, self.connection)
 
     @mock.patch('pika.connection.Connection._on_close_ready')
-    def test_on_close_ready_open_channels(self, on_close_ready):
-        """if open channels _on_close_ready shouldn't be called"""
+    def test_on_channel_cleanup_with_closing_channels(self, on_close_ready):
+        """if connection is closing but closing channels remain, do not call \
+        _on_close_ready
+
+        """
+        self.channel.is_open = False
+        self.channel.is_closing = True
+        self.channel.is_closed = False
+
         self.connection.close()
         self.assertFalse(on_close_ready.called,
                          '_on_close_ready should not have been called')
 
     @mock.patch('pika.connection.Connection._on_close_ready')
-    def test_on_close_ready_no_open_channels(self, on_close_ready):
-        self.connection._channels = dict()
-        self.connection.close()
-        self.assertTrue(on_close_ready.called,
-                        '_on_close_ready should have been called')
+    def test_on_channel_cleanup_closing_state_last_channel_calls_on_close_ready(
+            self,
+            on_close_ready_mock):
+        self.connection.connection_state = self.connection.CONNECTION_CLOSING
+
+        self.connection._on_channel_cleanup(self.channel)
+
+        self.assertTrue(on_close_ready_mock.called,
+                         '_on_close_ready should have been called')
 
     @mock.patch('pika.connection.Connection._on_close_ready')
-    def test_on_channel_cleanup_no_open_channels(self, on_close_ready):
-        """Should call _on_close_ready if connection is closing and there are
-        no open channels
+    def test_on_channel_cleanup_closing_state_more_channels_no_on_close_ready(
+            self,
+            on_close_ready_mock):
+        self.connection.connection_state = self.connection.CONNECTION_CLOSING
+        channel_mock = mock.Mock(channel_number=99, is_closing=True)
+        self.connection._channels[99] = channel_mock
 
-        """
-        self.connection._channels = dict()
-        self.connection.close()
-        self.assertTrue(on_close_ready.called,
-                        '_on_close_ready should been called')
+        self.connection._on_channel_cleanup(self.channel)
 
-    @mock.patch('pika.connection.Connection._on_close_ready')
-    def test_on_channel_cleanup_open_channels(self, on_close_ready):
-        """if connection is closing but channels remain open do not call
-        _on_close_ready
-
-        """
-        self.connection.close()
-        self.assertFalse(on_close_ready.called,
+        self.assertFalse(on_close_ready_mock.called,
                          '_on_close_ready should not have been called')
 
     @mock.patch('pika.connection.Connection._on_close_ready')
@@ -116,16 +169,12 @@ class ConnectionTests(unittest.TestCase):
         self.connection.heartbeat = heartbeat
         self.connection._adapter_disconnect = mock.Mock()
 
-        self.connection._on_terminate(0, 'Undefined')
+        self.connection._on_terminate(-1, 'Undefined')
 
         heartbeat.stop.assert_called_once_with()
         self.connection._adapter_disconnect.assert_called_once_with()
 
-        self.assertTrue(self.channel._on_close.called,
-                        'channel._on_close should have been called')
-        method_frame = self.channel._on_close.call_args[0][0]
-        self.assertEqual(method_frame.method.reply_code, 0)
-        self.assertEqual(method_frame.method.reply_text, 'Undefined')
+        self.channel._on_close_meta.assert_called_once_with(-1, 'Undefined')
 
         self.assertTrue(self.connection.is_closed)
 
@@ -150,7 +199,8 @@ class ConnectionTests(unittest.TestCase):
                 mock.ANY)
 
     def test_on_terminate_invokes_protocol_on_connection_error_and_closed(self):
-        """_on_terminate invokes `ON_CONNECTION_ERROR` with `IncompatibleProtocolError` and `ON_CONNECTION_CLOSED` callbacks"""
+        """_on_terminate invokes `ON_CONNECTION_ERROR` with \
+        `IncompatibleProtocolError` and `ON_CONNECTION_CLOSED` callbacks"""
         with mock.patch.object(self.connection.callbacks, 'process'):
 
             self.connection._adapter_disconnect = mock.Mock()
@@ -177,7 +227,8 @@ class ConnectionTests(unittest.TestCase):
                 1, 'error text')
 
     def test_on_terminate_invokes_auth_on_connection_error_and_closed(self):
-        """_on_terminate invokes `ON_CONNECTION_ERROR` with `ProbableAuthenticationError` and `ON_CONNECTION_CLOSED` callbacks"""
+        """_on_terminate invokes `ON_CONNECTION_ERROR` with \
+        `ProbableAuthenticationError` and `ON_CONNECTION_CLOSED` callbacks"""
         with mock.patch.object(self.connection.callbacks, 'process'):
 
             self.connection._adapter_disconnect = mock.Mock()
@@ -206,7 +257,8 @@ class ConnectionTests(unittest.TestCase):
 
     def test_on_terminate_invokes_access_denied_on_connection_error_and_closed(
             self):
-        """_on_terminate invokes `ON_CONNECTION_ERROR` with `ProbableAccessDeniedError` and `ON_CONNECTION_CLOSED` callbacks"""
+        """_on_terminate invokes `ON_CONNECTION_ERROR` with \
+        `ProbableAccessDeniedError` and `ON_CONNECTION_CLOSED` callbacks"""
         with mock.patch.object(self.connection.callbacks, 'process'):
 
             self.connection._adapter_disconnect = mock.Mock()
@@ -292,6 +344,36 @@ class ConnectionTests(unittest.TestCase):
         self.connection._add_channel_callbacks.assert_called_once_with(42)
         test_channel.open.assert_called_once_with()
 
+    def test_channel_on_closed_connection_raises_connection_closed(self):
+        self.connection.connection_state = self.connection.CONNECTION_CLOSED
+        with self.assertRaises(exceptions.ConnectionClosed):
+            self.connection.channel(lambda *args: None)
+
+    def test_channel_on_closing_connection_raises_connection_closed(self):
+        self.connection.connection_state = self.connection.CONNECTION_CLOSING
+        with self.assertRaises(exceptions.ConnectionClosed):
+            self.connection.channel(lambda *args: None)
+
+    def test_channel_on_init_connection_raises_connection_closed(self):
+        self.connection.connection_state = self.connection.CONNECTION_INIT
+        with self.assertRaises(exceptions.ConnectionClosed):
+            self.connection.channel(lambda *args: None)
+
+    def test_channel_on_start_connection_raises_connection_closed(self):
+        self.connection.connection_state = self.connection.CONNECTION_START
+        with self.assertRaises(exceptions.ConnectionClosed):
+            self.connection.channel(lambda *args: None)
+
+    def test_channel_on_protocol_connection_raises_connection_closed(self):
+        self.connection.connection_state = self.connection.CONNECTION_PROTOCOL
+        with self.assertRaises(exceptions.ConnectionClosed):
+            self.connection.channel(lambda *args: None)
+
+    def test_channel_on_tune_connection_raises_connection_closed(self):
+        self.connection.connection_state = self.connection.CONNECTION_TUNE
+        with self.assertRaises(exceptions.ConnectionClosed):
+            self.connection.channel(lambda *args: None)
+
     @mock.patch('pika.frame.ProtocolHeader')
     def test_connect(self, frame_protocol_header):
         """make sure the connect method sets the state and sends a frame"""
@@ -342,26 +424,45 @@ class ConnectionTests(unittest.TestCase):
 
     def test_set_backpressure_multiplier(self):
         """test setting the backpressure multiplier"""
-        self.connection._backpressure = None
+        self.connection._backpressure_multiplier = None
         self.connection.set_backpressure_multiplier(value=5)
-        self.assertEqual(5, self.connection._backpressure)
+        self.assertEqual(5, self.connection._backpressure_multiplier)
 
     def test_close_channels(self):
         """test closing all channels"""
         self.connection.connection_state = self.connection.CONNECTION_OPEN
         self.connection.callbacks = mock.Mock(spec=self.connection.callbacks)
-        open_channel = mock.Mock(is_open=True)
-        closed_channel = mock.Mock(is_open=False)
-        self.connection._channels = {'oc': open_channel, 'cc': closed_channel}
-        self.connection._close_channels('reply code', 'reply text')
-        open_channel.close.assert_called_once_with('reply code', 'reply text')
-        self.assertTrue('oc' in self.connection._channels)
-        self.assertTrue('cc' not in self.connection._channels)
-        self.connection.callbacks.cleanup.assert_called_once_with('cc')
-        #Test on closed channel
+
+        opening_channel = mock.Mock(is_open=False,
+                                    is_closed=False,
+                                    is_closing=False)
+        open_channel = mock.Mock(is_open=True,
+                                 is_closed=False,
+                                 is_closing=False)
+        closing_channel = mock.Mock(is_open=False,
+                                    is_closed=False,
+                                    is_closing=True)
+        self.connection._channels = {
+            'openingc': opening_channel,
+            'openc': open_channel,
+            'closingc': closing_channel}
+
+        self.connection._close_channels(400, 'reply text')
+
+        opening_channel.close.assert_called_once_with(400, 'reply text')
+        open_channel.close.assert_called_once_with(400, 'reply text')
+        self.assertFalse(closing_channel.close.called)
+
+        self.assertTrue('openingc' in self.connection._channels)
+        self.assertTrue('openc' in self.connection._channels)
+        self.assertTrue('closingc' in self.connection._channels)
+
+        self.assertFalse(self.connection.callbacks.cleanup.called)
+
+        # Test on closed connection
         self.connection.connection_state = self.connection.CONNECTION_CLOSED
-        self.connection._close_channels('reply code', 'reply text')
-        self.assertEqual({}, self.connection._channels)
+        with self.assertRaises(AssertionError):
+            self.connection._close_channels(200, 'reply text')
 
     def test_on_connection_start(self):
         """make sure starting a connection sets the correct class vars"""

@@ -35,7 +35,8 @@ class BaseConnection(connection.Connection):
     WRITE = 0x0004
     ERROR = 0x0008
 
-    ERRORS_TO_ABORT = [errno.EBADF, errno.ECONNABORTED, errno.EPIPE]
+    ERRORS_TO_ABORT = [errno.EBADF, errno.ECONNABORTED, errno.EPIPE,
+                       errno.ETIMEDOUT]
     ERRORS_TO_IGNORE = [errno.EWOULDBLOCK, errno.EAGAIN, errno.EINTR]
     DO_HANDSHAKE = True
     WARN_ABOUT_IOLOOP = False
@@ -80,24 +81,30 @@ class BaseConnection(connection.Connection):
 
     def __repr__(self):
         def get_socket_repr(sock):
+            """Return socket info suitable for use in repr"""
             if sock is None:
                 return None
 
-            sockname = sock.getsockname()
-
+            sockname = None
             peername = None
             try:
-                peername = sock.getpeername()
+                sockname = sock.getsockname()
             except socket.error:
-                # not connected?
+                # closed?
                 pass
+            else:
+                try:
+                    peername = sock.getpeername()
+                except socket.error:
+                    # not connected?
+                    pass
 
             return '%s->%s' % (sockname, peername)
 
         return (
-            '<%s state=%s socket=%s params=%s>' %
+            '<%s %s socket=%s params=%s>' %
             (self.__class__.__name__,
-             self.connection_state,
+             self._STATE_NAMES[self.connection_state],
              get_socket_repr(self.socket),
              self.params))
 
@@ -247,7 +254,10 @@ class BaseConnection(connection.Connection):
             try:
                 self.socket.do_handshake()
                 break
+            # TODO should be using SSLWantReadError, etc. directly
             except ssl.SSLError as err:
+                # TODO these exc are for non-blocking sockets, but ours isn't
+                # at this stage, so it's not clear why we have this.
                 if err.args[0] == ssl.SSL_ERROR_WANT_READ:
                     self.event_state = self.READ
                 elif err.args[0] == ssl.SSL_ERROR_WANT_WRITE:
@@ -270,7 +280,7 @@ class BaseConnection(connection.Connection):
         if hasattr(error_value, 'errno'):  # Python >= 2.6
             return error_value.errno
         else:
-            # TODO: this doesn't look right; error_value.args[0] ??? Could
+            # TODO this doesn't look right; error_value.args[0] ??? Could
             # probably remove this code path since pika doesn't test against
             # Python 2.5
             return error_value[0]  # Python <= 2.5
@@ -305,7 +315,7 @@ class BaseConnection(connection.Connection):
         :param int|object error_value: The inbound error
 
         """
-        # TODO: doesn't seem right: docstring defines error_value as int|object,
+        # TODO doesn't seem right: docstring defines error_value as int|object,
         # but _get_error_code expects a falsie or an exception-like object
         error_code = self._get_error_code(error_value)
 
@@ -325,7 +335,7 @@ class BaseConnection(connection.Connection):
         elif self.params.ssl and isinstance(error_value, ssl.SSLError):
 
             if error_value.args[0] == ssl.SSL_ERROR_WANT_READ:
-                # TODO: doesn't seem right: this logic updates event state, but
+                # TODO doesn't seem right: this logic updates event state, but
                 # the logic at the bottom unconditionaly disconnects anyway.
                 self.event_state = self.READ
             elif error_value.args[0] == ssl.SSL_ERROR_WANT_WRITE:
