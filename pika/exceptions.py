@@ -248,3 +248,10 @@ class ShortStringTooLong(AMQPError):
     def __repr__(self):
         return ('AMQP Short String can contain up to 255 bytes: '
                 '%.300s' % self.args[0])
+
+
+class DuplicateGetOkCallback(ChannelError):
+
+    def __repr__(self):
+        return ('basic_get can only be called again after the callback for the'
+                'previous basic_get is executed')
