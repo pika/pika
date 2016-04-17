@@ -291,28 +291,37 @@ class BlockingConnectionTests(unittest.TestCase):
     def test_connection_attempts_with_timeout(self):
         # for whatever conn_attempt we try:
         for conn_attempt in (1, 2, 5):
-            # retry_delay of 0 to not wait uselessly during the retry process.
+            mock_sock_obj = mock.Mock(
+                spec_set=socket.socket,
+                connect=mock.Mock(side_effect=socket.timeout))
+
+            # NOTE Use short retry_delay to not wait uselessly during the retry
+            # process, but not too low to avoid timer_id collision on systems
+            # with poor timer resolution (e.g., Windows)
             params = pika.ConnectionParameters(connection_attempts=conn_attempt,
-                                               retry_delay=0)
+                                               retry_delay=0.01)
             with self.assertRaises(AMQPConnectionError) as ctx:
-                with mock.patch('socket.socket.connect',
-                                side_effect=socket.timeout) as connect_mock:
-                    with mock.patch('socket.getaddrinfo',
+                with mock.patch(
+                      'pika.SelectConnection._create_tcp_connection_socket',
+                      return_value=mock_sock_obj) as create_sock_mock:
+                    with mock.patch('pika.SelectConnection._getaddrinfo',
                                     return_value=[(socket.AF_INET,
                                                    socket.SOCK_STREAM,
-                                                   mock.Mock(name="proto"),
-                                                   mock.Mock(name="canonname"),
+                                                   socket.IPPROTO_TCP,
+                                                   '',
                                                    ('127.0.0.1', 5672))]):
                         pika.BlockingConnection(parameters=params)
 
             # as any attempt will timeout (directly),
             # at the end there must be exactly that count of socket.connect()
             # method calls:
-            self.assertEqual(conn_attempt, connect_mock.call_count)
+            self.assertEqual(conn_attempt,
+                             create_sock_mock.return_value.connect.call_count)
 
             # and each must be with the following arguments (always the same):
-            connect_mock.assert_has_calls(conn_attempt *
-                                          [mock.call(('127.0.0.1', 5672))])
+            create_sock_mock.return_value.connect.assert_has_calls(
+                conn_attempt *
+                [mock.call(('127.0.0.1', 5672))])
 
             # and the raised error must then looks like:
             self.assertEqual('Connection to 127.0.0.1:5672 failed: timeout',

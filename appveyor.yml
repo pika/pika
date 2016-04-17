@@ -1,0 +1,86 @@
+# Windows build and test of Pika
+
+environment:
+  erlang_download_url: "http://erlang.org/download/otp_win64_18.3.exe"
+  erlang_exe_path: "C:\\Users\\appveyor\\erlang.exe"
+  erlang_home_dir: "C:\\Users\\appveyor\\erlang"
+
+  rabbitmq_installer_download_url: "https://www.rabbitmq.com/releases/rabbitmq-server/v3.6.1/rabbitmq-server-3.6.1.exe"
+  rabbitmq_installer_path: "C:\\Users\\appveyor\\rabbitmq-server-3.6.1.exe"
+
+  matrix:
+    - PYTHON_ARCH: "32"
+      PYTHONHOME: "C:\\Python27"
+
+
+cache:
+  # RabbitMQ is a pretty big package, so caching it in hopes of expediting the
+  # runtime
+  - "%erlang_exe_path%"
+  - "%rabbitmq_installer_path%"
+
+
+install:
+  - SET PYTHONPATH=%PYTHONHOME%
+  - SET PATH=%PYTHONHOME%\Scripts;%PYTHONHOME%;%PATH%
+
+  # For diagnostics
+  - ECHO %PYTHONPATH%
+  - ECHO %PATH%
+  - python --version
+
+  - ECHO Upgrading pip...
+  - python -m pip install --upgrade pip setuptools
+  - pip --version
+
+  - ECHO Installing wheel...
+  - pip install wheel
+
+
+build_script:
+
+  - ECHO Building distributions...
+  - python setup.py sdist bdist bdist_wheel
+  - DIR /s *.whl
+
+
+artifacts:
+  - path: 'dist\*.whl'
+    name: pika wheel
+
+
+before_test:
+  # Install test requirements
+
+  - ECHO Installing pika...
+  - python setup.py install
+
+  - ECHO Installing pika test requirements...
+  - pip install -r test-requirements.txt
+
+  # List conents of C:\ to help debug caching of rabbitmq artifacts
+  - DIR C:\
+
+  - ps: $webclient=New-Object System.Net.WebClient
+
+  - ECHO Downloading Erlang...
+  - ps: if (-Not (Test-Path "$env:erlang_exe_path")) { $webclient.DownloadFile("$env:erlang_download_url", "$env:erlang_exe_path") } else { Write-Host "Found" $env:erlang_exe_path "in cache." }
+
+  - ECHO Starting Erlang...
+  - start /B /WAIT %erlang_exe_path% /S /D=%erlang_home_dir%
+  - set ERLANG_HOME=%erlang_home_dir%
+
+  - ECHO Downloading RabbitMQ...
+  - ps: if (-Not (Test-Path "$env:rabbitmq_installer_path")) { $webclient.DownloadFile("$env:rabbitmq_installer_download_url", "$env:rabbitmq_installer_path") } else { Write-Host "Found" $env:rabbitmq_installer_path "in cache." }
+
+  - ECHO Installing and starting RabbitMQ with default config...
+  - start /B /WAIT %rabbitmq_installer_path% /S
+  - ps: (Get-Service -Name RabbitMQ).Status
+
+
+test_script:
+  - nosetests
+
+
+# Not deploying Windows builds yet TODO
+deploy: false

@@ -12,6 +12,8 @@ Tests for SelectConnection IOLoops
 # Disable pylint warnings concerning access to protected members
 # pylint: disable=W0212
 
+import select
+
 try:
     #pylint: disable=F0401
     import unittest2 as unittest
@@ -100,16 +102,21 @@ class IOLoopThreadStopTestSelect(IOLoopBaseTest):
         self.start()
 
 
+@unittest.skipIf(
+    not hasattr(select, 'poll') or
+    not hasattr(select.poll(), 'modify'), "poll not supported")  # pylint: disable=E1101
 class IOLoopThreadStopTestPoll(IOLoopThreadStopTestSelect):
     ''' Same as IOLoopThreadStopTestSelect but uses 'poll' syscall. '''
     SELECT_POLLER = 'poll'
 
 
+@unittest.skipIf(not hasattr(select, 'epoll'), "epoll not supported")
 class IOLoopThreadStopTestEPoll(IOLoopThreadStopTestSelect):
     ''' Same as IOLoopThreadStopTestSelect but uses 'epoll' syscall. '''
     SELECT_POLLER = 'epoll'
 
 
+@unittest.skipIf(not hasattr(select, 'kqueue'), "kqueue not supported")
 class IOLoopThreadStopTestKqueue(IOLoopThreadStopTestSelect):
     ''' Same as IOLoopThreadStopTestSelect but uses 'kqueue' syscall. '''
     SELECT_POLLER = 'kqueue'
@@ -207,16 +214,21 @@ class IOLoopTimerTestSelect(IOLoopBaseTest):
         self.fail('deleted timer callback was called.')
 
 
+@unittest.skipIf(
+    not hasattr(select, 'poll') or
+    not hasattr(select.poll(), 'modify'), "poll not supported")  # pylint: disable=E1101
 class IOLoopTimerTestPoll(IOLoopTimerTestSelect):
     ''' Same as IOLoopTimerTestSelect but uses 'poll' syscall '''
     SELECT_POLLER = 'poll'
 
 
+@unittest.skipIf(not hasattr(select, 'epoll'), "epoll not supported")
 class IOLoopTimerTestEPoll(IOLoopTimerTestSelect):
     ''' Same as IOLoopTimerTestSelect but uses 'epoll' syscall '''
     SELECT_POLLER = 'epoll'
 
 
+@unittest.skipIf(not hasattr(select, 'kqueue'), "kqueue not supported")
 class IOLoopTimerTestKqueue(IOLoopTimerTestSelect):
     ''' Same as IOLoopTimerTestSelect but uses 'kqueue' syscall '''
     SELECT_POLLER = 'kqueue'
@@ -233,16 +245,21 @@ class IOLoopSleepTimerTestSelect(IOLoopTimerTestSelect):
         self.start()
 
 
+@unittest.skipIf(
+    not hasattr(select, 'poll') or
+    not hasattr(select.poll(), 'modify'), "poll not supported")  # pylint: disable=E1101
 class IOLoopSleepTimerTestPoll(IOLoopSleepTimerTestSelect):
     ''' Same as IOLoopSleepTimerTestSelect but uses 'poll' syscall '''
     SELECT_POLLER = 'poll'
 
 
+@unittest.skipIf(not hasattr(select, 'epoll'), "epoll not supported")
 class IOLoopSleepTimerTestEPoll(IOLoopSleepTimerTestSelect):
     ''' Same as IOLoopSleepTimerTestSelect but uses 'epoll' syscall '''
     SELECT_POLLER = 'epoll'
 
 
+@unittest.skipIf(not hasattr(select, 'kqueue'), "kqueue not supported")
 class IOLoopSleepTimerTestKqueue(IOLoopSleepTimerTestSelect):
     ''' Same as IOLoopSleepTimerTestSelect but uses 'kqueue' syscall '''
     SELECT_POLLER = 'kqueue'
@@ -286,7 +303,8 @@ class IOLoopSocketBaseSelect(IOLoopBaseTest):
         write_sock = socket.socket()
         write_sock.setblocking(0)
         err = write_sock.connect_ex(self.listen_addr)
-        self.assertEqual(err, errno.EINPROGRESS)
+        # NOTE we get errno.EWOULDBLOCK 10035 on Windows
+        self.assertIn(err, (errno.EINPROGRESS, errno.EWOULDBLOCK))
         fd_ = self.save_sock(write_sock)
         self.ioloop.add_handler(fd_, on_connected, WRITE)
         return write_sock
@@ -307,7 +325,8 @@ class IOLoopSocketBaseSelect(IOLoopBaseTest):
     def do_read(self, fd_, events): # pylint: disable=W0613
         ''' read from fd and check the received content '''
         self.assertEqual(events, READ)
-        self.verify_message(os.read(fd_, self.READ_SIZE))
+        # NOTE Use socket.recv instead of os.read for Windows compatibility
+        self.verify_message(self.sock_map[fd_].recv(self.READ_SIZE))
 
     def verify_message(self, _msg): # pylint: disable=W0613,R0201
         ''' See if 'msg' matches what is expected. This is a stub.
@@ -321,16 +340,21 @@ class IOLoopSocketBaseSelect(IOLoopBaseTest):
         self.fail('Test timed out')
 
 
+@unittest.skipIf(
+    not hasattr(select, 'poll') or
+    not hasattr(select.poll(), 'modify'), "poll not supported")  # pylint: disable=E1101
 class IOLoopSocketBasePoll(IOLoopSocketBaseSelect):
     ''' Same as IOLoopSocketBaseSelect but uses 'poll' syscall '''
     SELECT_POLLER = 'poll'
 
 
+@unittest.skipIf(not hasattr(select, 'epoll'), "epoll not supported")
 class IOLoopSocketBaseEPoll(IOLoopSocketBaseSelect):
     ''' Same as IOLoopSocketBaseSelect but uses 'epoll' syscall '''
     SELECT_POLLER = 'epoll'
 
 
+@unittest.skipIf(not hasattr(select, 'kqueue'), "kqueue not supported")
 class IOLoopSocketBaseKqueue(IOLoopSocketBaseSelect):
     ''' Same as IOLoopSocketBaseSelect but uses 'kqueue' syscall '''
     SELECT_POLLER = 'kqueue'
@@ -347,7 +371,8 @@ class IOLoopSimpleMessageTestCaseSelect(IOLoopSocketBaseSelect):
     def connected(self, fd, events):
         ''' Respond to 'connected' event by writing to the write-side. '''
         self.assertEqual(events, WRITE)
-        os.write(fd, b'X')
+        # NOTE Use socket.send instead of os.write for Windows compatibility
+        self.sock_map[fd].send(b'X')
         self.ioloop.update_handler(fd, 0)
 
     def verify_message(self, msg):
@@ -360,16 +385,21 @@ class IOLoopSimpleMessageTestCaseSelect(IOLoopSocketBaseSelect):
         self.start()
 
 
+@unittest.skipIf(
+    not hasattr(select, 'poll') or
+    not hasattr(select.poll(), 'modify'), "poll not supported")  # pylint: disable=E1101
 class IOLoopSimpleMessageTestCasetPoll(IOLoopSimpleMessageTestCaseSelect):
     ''' Same as IOLoopSimpleMessageTestCaseSelect but uses 'poll' syscall '''
     SELECT_POLLER = 'poll'
 
 
+@unittest.skipIf(not hasattr(select, 'epoll'), "epoll not supported")
 class IOLoopSimpleMessageTestCasetEPoll(IOLoopSimpleMessageTestCaseSelect):
     ''' Same as IOLoopSimpleMessageTestCaseSelect but uses 'epoll' syscall '''
     SELECT_POLLER = 'epoll'
 
 
+@unittest.skipIf(not hasattr(select, 'kqueue'), "kqueue not supported")
 class IOLoopSimpleMessageTestCasetKqueue(IOLoopSimpleMessageTestCaseSelect):
     ''' Same as IOLoopSimpleMessageTestCaseSelect but uses 'kqueue' syscall '''
     SELECT_POLLER = 'kqueue'
@@ -436,16 +466,47 @@ class IOLoopEintrTestCaseSelect(IOLoopBaseTest):
             self.assertEqual(is_resumable_mock.call_count, 0)
 
 
+@unittest.skipIf(
+    not hasattr(select, 'poll') or
+    not hasattr(select.poll(), 'modify'), "poll not supported")  # pylint: disable=E1101
 class IOLoopEintrTestCasePoll(IOLoopEintrTestCaseSelect):
     ''' Same as IOLoopEintrTestCaseSelect but uses poll syscall '''
     SELECT_POLLER = 'poll'
 
 
+@unittest.skipIf(not hasattr(select, 'epoll'), "epoll not supported")
 class IOLoopEintrTestCaseEPoll(IOLoopEintrTestCaseSelect):
     ''' Same as IOLoopEINTRrTestCaseSelect but uses epoll syscall '''
     SELECT_POLLER = 'epoll'
 
 
+@unittest.skipIf(not hasattr(select, 'kqueue'), "kqueue not supported")
 class IOLoopEintrTestCaseKqueue(IOLoopEintrTestCaseSelect):
     ''' Same as IOLoopEINTRTestCaseSelect but uses kqueue syscall '''
     SELECT_POLLER = 'kqueue'
+
+
+class SelectPollerTestPollWithoutSockets(unittest.TestCase):
+
+    def start_test(self):
+        poller = select_connection.SelectPoller()
+
+        timer_call_container = []
+        timer = poller.add_timeout(0.00001,
+                                   lambda: timer_call_container.append(1))
+        poller.poll()
+
+        deadline = poller._next_timeout
+
+        while True:
+            poller.process_timeouts()
+
+            if time.time() < deadline:
+                self.assertEqual(timer_call_container, [])
+            else:
+                # One last time in case deadline reached after previous
+                # processing cycle
+                poller.process_timeouts()
+                break
+
+        self.assertEqual(timer_call_container, [1])

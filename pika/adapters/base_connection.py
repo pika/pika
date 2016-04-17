@@ -153,10 +153,10 @@ class BaseConnection(connection.Connection):
         # Get the addresses for the socket, supporting IPv4 & IPv6
         while True:
             try:
-                addresses = socket.getaddrinfo(self.params.host,
-                                               self.params.port,
-                                               0, socket.SOCK_STREAM,
-                                               socket.IPPROTO_TCP)
+                addresses = self._getaddrinfo(self.params.host,
+                                              self.params.port,
+                                              0, socket.SOCK_STREAM,
+                                              socket.IPPROTO_TCP)
                 break
             except _SOCKET_ERROR as error:
                 if error.errno == errno.EINTR:
@@ -201,7 +201,7 @@ class BaseConnection(connection.Connection):
 
         :returns: error string on failure; None on success
         """
-        self.socket = socket.socket(sock_addr_tuple[0], socket.SOCK_STREAM, 0)
+        self.socket = self._create_tcp_connection_socket(sock_addr_tuple[0])
         self.socket.setsockopt(SOL_TCP, socket.TCP_NODELAY, 1)
         self.socket.settimeout(self.params.socket_timeout)
 
@@ -244,6 +244,14 @@ class BaseConnection(connection.Connection):
         # Made it this far
         return None
 
+    @staticmethod
+    def _create_tcp_connection_socket(sock_family):
+        """ Create TCP/IP stream socket for AMQP connection
+
+        NOTE We break this out to make it easier to patch in mock tests
+        """
+        return socket.socket(sock_family, socket.SOCK_STREAM, 0)
+
     def _do_ssl_handshake(self):
         """Perform SSL handshaking, copied from python stdlib test_ssl.py.
 
@@ -265,6 +273,12 @@ class BaseConnection(connection.Connection):
                 else:
                     raise
                 self._manage_event_state()
+
+    @staticmethod
+    def _getaddrinfo(host, port, family, socktype, proto):
+        """Wrap `socket.getaddrinfo` to make it easier to patch for unit tests
+        """
+        return socket.getaddrinfo(host, port, family, socktype, proto)
 
     @staticmethod
     def _get_error_code(error_value):
