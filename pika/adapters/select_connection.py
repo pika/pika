@@ -310,6 +310,8 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
         """
         timeout_at = time.time() + deadline
         value = {'deadline': timeout_at, 'callback': callback_method}
+        # TODO when timer resolution is low (e.g., windows), we get id collision
+        # when retrying failing connection with tiny (e.g., 0) retry interval
         timeout_id = hash(frozenset(value.items()))
         self._timeouts[timeout_id] = value
 
@@ -341,7 +343,7 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
 
         """
         if self._next_timeout:
-            timeout = max((self._next_timeout - time.time(), 0))
+            timeout = max(self._next_timeout - time.time(), 0)
 
         elif self._timeouts:
             deadlines = [t['deadline'] for t in self._timeouts.values()]
@@ -351,7 +353,7 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
         else:
             timeout = self._MAX_POLL_TIMEOUT
 
-        timeout = min((timeout, self._MAX_POLL_TIMEOUT))
+        timeout = min(timeout, self._MAX_POLL_TIMEOUT)
         return timeout * self.POLL_TIMEOUT_MULT
 
     def process_timeouts(self):
@@ -537,9 +539,9 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
                 return
 
             try:
-                # Send byte to interrupt the poll loop, use write() for
-                # consitency.
-                os.write(self._w_interrupt.fileno(), b'X')
+                # Send byte to interrupt the poll loop, use send() instead of
+                # os.write for Windows compatibility
+                self._w_interrupt.send(b'X')
             except OSError as err:
                 if err.errno != errno.EWOULDBLOCK:
                     raise
@@ -654,8 +656,7 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
         write_sock.setblocking(0)
         return read_sock, write_sock
 
-    @staticmethod
-    def _read_interrupt(interrupt_fd, events):  # pylint: disable=W0613
+    def _read_interrupt(self, interrupt_fd, events):  # pylint: disable=W0613
         """ Read the interrupt byte(s). We ignore the event mask as we can ony
         get here if there's data to be read on our fd.
 
@@ -663,7 +664,11 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
         :param int events: (unused) The events generated for this fd
         """
         try:
-            os.read(interrupt_fd, 512)
+            # NOTE Use recv instead of os.read for windows compatibility
+            # TODO _r_interrupt is a DGRAM sock, so attempted reading of 512
+            # bytes will not have the desired effect in case stop was called
+            # multiple times
+            self._r_interrupt.recv(512)
         except OSError as err:
             if err.errno != errno.EAGAIN:
                 raise
@@ -693,10 +698,20 @@ class SelectPoller(_PollerBase):
         """
         while True:
             try:
-                read, write, error = select.select(self._fd_events[READ],
-                                                   self._fd_events[WRITE],
-                                                   self._fd_events[ERROR],
-                                                   self._get_next_deadline())
+                if (self._fd_events[READ] or self._fd_events[WRITE] or
+                      self._fd_events[ERROR]):
+                    read, write, error = select.select(
+                        self._fd_events[READ],
+                        self._fd_events[WRITE],
+                        self._fd_events[ERROR],
+                        self._get_next_deadline())
+                else:
+                    # NOTE When called without any FDs, select fails on
+                    # Windows with error 10022, 'An invalid argument was
+                    # supplied'.
+                    time.sleep(self._get_next_deadline())
+                    read, write, error = [], [], []
+
                 break
             except _SELECT_ERRORS as error:
                 if _is_resumable(error):

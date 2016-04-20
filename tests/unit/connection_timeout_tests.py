@@ -3,11 +3,12 @@
 Tests for connection parameters.
 
 """
+import errno
 import socket
 try:
-    from mock import patch
+    import mock
 except ImportError:
-    from unittest.mock import patch
+    from unittest import mock
 
 try:
     import unittest2 as unittest
@@ -35,7 +36,7 @@ from pika import exceptions
 
 
 def mock_timeout(*args, **kwargs):
-    raise socket.timeout
+    raise socket.timeout(errno.ETIMEDOUT, 'timed out')
 
 
 class ConnectionTests(unittest.TestCase):
@@ -48,8 +49,8 @@ class ConnectionTests(unittest.TestCase):
         self.assertEqual(params.retry_delay, 0.1)
         self.assertEqual(params.connection_attempts, 3)
 
-    @patch.object(socket.socket, 'settimeout')
-    @patch.object(socket.socket, 'connect')
+    @mock.patch.object(socket.socket, 'settimeout')
+    @mock.patch.object(socket.socket, 'connect')
     def test_connection_timeout(self, connect, settimeout):
         connect.side_effect = mock_timeout
         with self.assertRaises(exceptions.AMQPConnectionError):
@@ -57,8 +58,8 @@ class ConnectionTests(unittest.TestCase):
             base_connection.BaseConnection(params)
         settimeout.assert_called_with(2.0)
 
-    @patch.object(socket.socket, 'settimeout')
-    @patch.object(socket.socket, 'connect')
+    @mock.patch.object(socket.socket, 'settimeout')
+    @mock.patch.object(socket.socket, 'connect')
     def test_blocking_connection_timeout(self, connect, settimeout):
         connect.side_effect = mock_timeout
         with self.assertRaises(exceptions.AMQPConnectionError):
@@ -66,8 +67,8 @@ class ConnectionTests(unittest.TestCase):
             blocking_connection.BlockingConnection(params)
         settimeout.assert_called_with(2.0)
 
-    @patch.object(socket.socket, 'settimeout')
-    @patch.object(socket.socket, 'connect')
+    @mock.patch.object(socket.socket, 'settimeout')
+    @mock.patch.object(socket.socket, 'connect')
     def test_select_connection_timeout(self, connect, settimeout):
         connect.side_effect = mock_timeout
         with self.assertRaises(exceptions.AMQPConnectionError):
@@ -77,19 +78,22 @@ class ConnectionTests(unittest.TestCase):
 
     @unittest.skipUnless(tornado_connection is not None,
                          'tornado is not installed')
-    @patch.object(socket.socket, 'settimeout')
-    @patch.object(socket.socket, 'connect')
-    def test_tornado_connection_timeout(self, connect, settimeout):
-        connect.side_effect = mock_timeout
+    def test_tornado_connection_timeout(self):
         with self.assertRaises(exceptions.AMQPConnectionError):
-            params = pika.ConnectionParameters(socket_timeout=2.0)
-            tornado_connection.TornadoConnection(params)
-        settimeout.assert_called_with(2.0)
+            with mock.patch(
+                  'pika.TornadoConnection._create_tcp_connection_socket',
+                  return_value=mock.Mock(
+                      spec_set=socket.socket,
+                      connect=mock.Mock(
+                          side_effect=mock_timeout))) as create_sock_mock:
+                params = pika.ConnectionParameters(socket_timeout=2.0)
+                tornado_connection.TornadoConnection(params)
+        create_sock_mock.return_value.settimeout.assert_called_with(2.0)
 
     @unittest.skipUnless(twisted_connection is not None,
                          'twisted is not installed')
-    @patch.object(socket.socket, 'settimeout')
-    @patch.object(socket.socket, 'connect')
+    @mock.patch.object(socket.socket, 'settimeout')
+    @mock.patch.object(socket.socket, 'connect')
     def test_twisted_connection_timeout(self, connect, settimeout):
         connect.side_effect = mock_timeout
         with self.assertRaises(exceptions.AMQPConnectionError):
@@ -98,8 +102,8 @@ class ConnectionTests(unittest.TestCase):
         settimeout.assert_called_with(2.0)
 
     @unittest.skipUnless(libev_connection is not None, 'pyev is not installed')
-    @patch.object(socket.socket, 'settimeout')
-    @patch.object(socket.socket, 'connect')
+    @mock.patch.object(socket.socket, 'settimeout')
+    @mock.patch.object(socket.socket, 'connect')
     def test_libev_connection_timeout(self, connect, settimeout):
         connect.side_effect = mock_timeout
         with self.assertRaises(exceptions.AMQPConnectionError):
