@@ -19,6 +19,7 @@ except ImportError:
 from pika.adapters import blocking_connection
 from pika import callback
 from pika import channel
+from pika import exceptions
 from pika import frame
 from pika import spec
 
@@ -66,3 +67,24 @@ class BlockingChannelTests(unittest.TestCase):
 
             self.assertEqual(self.obj._consumer_infos['ctag0'].state,
                              blocking_connection._ConsumerInfo.ACTIVE)
+
+    def test_context_manager(self):
+        with self.obj as channel:
+            self.assertFalse(channel._impl.close.called)
+        channel._impl.close.assert_called_once_with(reply_code=0, reply_text='Normal Shutdown')
+
+    def test_context_manager_does_not_suppress_exception(self):
+        class TestException(Exception):
+            pass
+
+        with self.assertRaises(TestException):
+            with self.obj as channel:
+                self.assertFalse(channel._impl.close.called)
+                raise TestException()
+        channel._impl.close.assert_called_once_with(reply_code=0, reply_text='Normal Shutdown')
+
+    def test_context_manager_exit_with_closed_channel(self):
+      with self.obj as channel:
+          self.assertFalse(channel._impl.close.called)
+          channel.close()
+      channel._impl.close.assert_called_with(reply_code=0, reply_text='Normal Shutdown')

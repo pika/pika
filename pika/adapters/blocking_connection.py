@@ -1172,6 +1172,15 @@ class BlockingChannel(object):
     def __repr__(self):
         return '<%s impl=%r>' % (self.__class__.__name__, self._impl)
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, value, traceback):
+        try:
+            self.close()
+        except exceptions.ChannelClosed:
+            pass
+
     def _cleanup(self):
         """Clean up members that might inhibit garbage collection"""
         self._message_confirmation_result.reset()
