@@ -419,7 +419,10 @@ class IOLoopEintrTestCaseSelect(IOLoopBaseTest):
     def _eintr_read_handler(self, fileno, events):
         '''Read from within poll loop that gets receives eintr error.'''
         self.assertEqual(events, READ)
-        sock = socket.fromfd(fileno, socket.AF_INET, socket.SOCK_STREAM)
+
+        sock = socket.fromfd(os.dup(fileno), socket.AF_INET, socket.SOCK_STREAM)
+        self.addCleanup(sock.close)
+
         mesg = sock.recv(256)
         self.assertEqual(mesg, self.MSG_CONTENT)
         self.poller.stop()
@@ -440,12 +443,19 @@ class IOLoopEintrTestCaseSelect(IOLoopBaseTest):
            Class of an exception raised to signal the error differs in one
            implementation of polling mechanism and another.'''
         is_resumable_mock.side_effect = is_resumable_raw
+
         self.poller = self.ioloop._get_poller() #pylint: disable=W0212
+
         sockpair = self.poller._get_interrupt_pair()
+        self.addCleanup(sockpair[0].close)
+        self.addCleanup(sockpair[1].close)
+
         self._eintr_read_handler_is_called = False
         self.poller.add_handler(sockpair[0].fileno(), self._eintr_read_handler,
                                 READ)
+
         self.poller.add_timeout(self.TIMEOUT, self._eintr_test_fail)
+
         original_signal_handler = \
             signal.signal(signal.SIGUSR1, self.signal_handler)
         self.addCleanup(signal.signal, signal.SIGUSR1, original_signal_handler)
