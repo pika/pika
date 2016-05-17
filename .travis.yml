@@ -24,6 +24,8 @@ before_install:
   # Workaround for Tavis's current lack of official support for Python on OS X
   # Reference https://github.com/travis-ci/travis-ci/issues/2312
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
+      set -o errexit;
+
       echo "TRAVIS_PYTHON_VERSION=$TRAVIS_PYTHON_VERSION";
 
       echo Updating Homebrew...;
@@ -52,21 +54,33 @@ before_install:
       pip install --upgrade pip;
     fi
 
-  # Install RabbitMQ on OS X
+  # Install RabbitMQ on OS X and start it
   # Workaround for Travis's failure to install and start RabbitMQ on osx builds
   # Reference https://github.com/travis-ci/travis-ci/issues/5941
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
+      export PATH="${PATH}:/usr/local/sbin" && (
+      set -o errexit;
+
       echo Installing RabbitMQ...;
-      echo "find / -name rabbitmq-server" `find / -name rabbitmq-server 2>/dev/null`;
       brew install rabbitmq;
 
+      echo Enabling RabbitMQ plugins...;
+      rabbitmq-plugins enable rabbitmq_management --offline;
+      rabbitmq-plugins enable rabbitmq_stomp --offline;
+
       echo Starting RabbitMQ...;
-      export PATH="${PATH}:/usr/local/sbin";
-      sudo rabbitmq-server -detached;
+      _RABBITMQ_PID_FILE_PATH="${HOME}/rabbitmq.pid";
+      (sudo RABBITMQ_PID_FILE="${_RABBITMQ_PID_FILE_PATH}" rabbitmq-server &);
+      echo "Waiting for RabbitMQ to start with pid file ${_RABBITMQ_PID_FILE_PATH}...";
+      sudo rabbitmqctl wait "${_RABBITMQ_PID_FILE_PATH}";
+      echo "RabbitMQ started with pid file ${_RABBITMQ_PID_FILE_PATH}...";
+      )
     fi
 
   # Install libev
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
+      set -o errexit;
+
       echo Installing libev on Linux...;
       sudo add-apt-repository "deb http://us.archive.ubuntu.com/ubuntu/ trusty main restricted universe multiverse";
       sudo add-apt-repository "deb http://us.archive.ubuntu.com/ubuntu/ trusty-updates main restricted universe multiverse";
@@ -75,9 +89,15 @@ before_install:
     fi
 
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
+      set -o errexit;
+
       echo Installing libev on OS X...;
       brew install libev;
     fi
+
+  # Configure RabbitMQ to support SSL connections, optionally with mutual
+  # authentication
+  - bash ci/travis/configure_rabbitmq_for_ssl.sh
 
 install:
   #- if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then sudo chmod 775 /Library/Python/2.7/site-packages; fi
