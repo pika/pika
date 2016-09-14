@@ -1,3 +1,4 @@
+"""Use pika with the Asyncio EventLoop"""
 import asyncio
 from functools import partial
 
@@ -7,7 +8,14 @@ from pika.adapters import base_connection
 class IOLoopAdapter:
     __slots__ = 'loop',
 
-    def __init__(self, loop: asyncio.AbstractEventLoop):
+    def __init__(self, loop):
+        """
+        Basic adapter for asyncio event loop
+
+        :type loop: asyncio.AbstractEventLoop
+        :param loop: Asyncio Loop
+
+        """
         self.loop = loop
 
     def add_timeout(self, deadline, callback_method):
