@@ -5,9 +5,6 @@ from functools import partial
 from pika.adapters import base_connection
 
 
-LOGGER = logging.getLogger(__name__)
-
-
 class IOLoopAdapter:
     __slots__ = 'loop',
 
@@ -72,24 +69,30 @@ class AsyncioConnection(base_connection.BaseConnection):
         self.loop = loop or asyncio.get_event_loop()
         self.ioloop = IOLoopAdapter(self.loop)
 
-        super().__init__(parameters, on_open_callback,
-                         on_open_error_callback,
-                         on_close_callback, self.ioloop,
-                         stop_ioloop_on_close=False)
+        super().__init__(
+            parameters, on_open_callback,
+            on_open_error_callback,
+            on_close_callback, self.ioloop,
+            stop_ioloop_on_close=False
+        )
 
     def _adapter_connect(self):
         error = super()._adapter_connect()
 
         if not error:
             self.ioloop.add_handler(
-                self.socket.fileno(), self._handle_events, self.event_state
+                self.socket.fileno(),
+                self._handle_events,
+                self.event_state,
             )
 
         return error
 
     def _adapter_disconnect(self):
         if self.socket:
-            self.ioloop.remove_handler(self.socket.fileno())
+            self.ioloop.remove_handler(
+                self.socket.fileno()
+            )
 
         super()._adapter_disconnect()
 
