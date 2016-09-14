@@ -97,8 +97,10 @@ class AsyncioConnection(base_connection.BaseConnection):
         super()._adapter_disconnect()
 
     def _handle_disconnect(self):
+        # No other way to handle exceptions.ProbableAuthenticationError
         try:
             super()._handle_disconnect()
             super()._handle_write()
         except Exception as e:
+            # FIXME: Pass None or other constant instead "-1"
             self._on_disconnect(-1, e)
