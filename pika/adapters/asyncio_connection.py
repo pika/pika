@@ -114,11 +114,10 @@ except KeyboardInterrupt:
 import functools
 import asyncio
 import socket
-from logging import getLogger
 
 from pika import exceptions
 from pika.adapters import base_connection
-
+from pika.exceptions import ConnectionClosed
 
 
 def _fail(failure=None):
@@ -454,6 +453,11 @@ class AsyncioProtocolConnection(base_connection.BaseConnection, asyncio.Protocol
         # Let the caller know there's been an error
         d, self.ready = self.ready, None
         if d:
+            # reason == None means that connection closed by this side or EOF is received
+            # anyway, it is closed, and we should report it to caller,
+            # because future.result() does not raise after future.set_exception(None)
+            if reason is None:
+                reason = ConnectionClosed()
             d.set_exception(reason)
         else:
             # Let client to handle disconnect
