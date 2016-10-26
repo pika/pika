@@ -201,7 +201,8 @@ class BaseConnection(connection.Connection):
 
         :returns: error string on failure; None on success
         """
-        self.socket = self._create_tcp_connection_socket(sock_addr_tuple[0])
+        self.socket = self._create_tcp_connection_socket(
+            sock_addr_tuple[0], sock_addr_tuple[1], sock_addr_tuple[2])
         self.socket.setsockopt(SOL_TCP, socket.TCP_NODELAY, 1)
         self.socket.settimeout(self.params.socket_timeout)
 
@@ -245,12 +246,12 @@ class BaseConnection(connection.Connection):
         return None
 
     @staticmethod
-    def _create_tcp_connection_socket(sock_family):
+    def _create_tcp_connection_socket(sock_family, sock_type=socket.SOCK_STREAM, sock_proto=0):
         """ Create TCP/IP stream socket for AMQP connection
 
         NOTE We break this out to make it easier to patch in mock tests
         """
-        return socket.socket(sock_family, socket.SOCK_STREAM, 0)
+        return socket.socket(sock_family, sock_type, sock_proto)
 
     def _do_ssl_handshake(self):
         """Perform SSL handshaking, copied from python stdlib test_ssl.py.
