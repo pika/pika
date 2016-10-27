@@ -246,7 +246,7 @@ class BaseConnection(connection.Connection):
         return None
 
     @staticmethod
-    def _create_tcp_connection_socket(sock_family, sock_type=socket.SOCK_STREAM, sock_proto=0):
+    def _create_tcp_connection_socket(sock_family, sock_type, sock_proto):
         """ Create TCP/IP stream socket for AMQP connection
 
         NOTE We break this out to make it easier to patch in mock tests
