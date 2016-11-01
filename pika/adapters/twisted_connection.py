@@ -367,7 +367,7 @@ class TwistedProtocolConnection(base_connection.BaseConnection):
 
     """
 
-    def __init__(self, parameters):
+    def __init__(self, parameters=None):
         self.ready = defer.Deferred()
         super(TwistedProtocolConnection, self).__init__(
             parameters=parameters,
