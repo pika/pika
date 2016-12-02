@@ -512,11 +512,13 @@ class BaseConnection(connection.Connection):
         if self.outbound_buffer:
             if not self.event_state & self.WRITE:
                 self.event_state |= self.WRITE
-                self.ioloop.update_handler(self.socket.fileno(),
-                                           self.event_state)
+                if self.socket!=None :
+                    self.ioloop.update_handler(self.socket.fileno(),
+                                                  self.event_state)
         elif self.event_state & self.WRITE:
             self.event_state = self.base_events
-            self.ioloop.update_handler(self.socket.fileno(), self.event_state)
+            if self.socket!=None :
+                self.ioloop.update_handler(self.socket.fileno(), self.event_state)
 
     def _wrap_socket(self, sock):
         """Wrap the socket for connecting over SSL.
