@@ -1731,7 +1731,7 @@ class BlockingChannel(object):
 
         return unprocessed_messages
 
-    def start_consuming(self):
+    def start_consuming(self, time_limit=None):
         """Processes I/O events and dispatches timers and `basic_consume`
         callbacks until all consumers are cancelled.
 
@@ -1739,6 +1739,7 @@ class BlockingChannel(object):
         pika callback, because dispatching `basic_consume` callbacks from this
         context would constitute recursion.
 
+        :param float time_limit: look at BlockingConnection.process_data_events
         :raises pika.exceptions.RecursionError: if called from the scope of a
             `BlockingConnection` or `BlockingChannel` callback
 
@@ -1752,7 +1753,7 @@ class BlockingChannel(object):
 
         # Process events as long as consumers exist on this channel
         while self._consumer_infos:
-            self.connection.process_data_events(time_limit=None)
+            self.connection.process_data_events(time_limit=time_limit)
 
     def stop_consuming(self, consumer_tag=None):
         """ Cancels all consumers, signalling the `start_consuming` loop to
