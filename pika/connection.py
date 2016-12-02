@@ -30,6 +30,7 @@ from pika.compat import (xrange, basestring, # pylint: disable=W0622
                          dict_iteritems)
 
 
+
 BACKPRESSURE_WARNING = ("Pika: Write buffer exceeded warning threshold at "
                         "%i bytes and an estimated %i frames behind")
 PRODUCT = "Pika Python Client Library"
