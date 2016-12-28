@@ -4,3 +4,6 @@ mock
 nose
 tornado
 twisted<15.4.0
+unittest2 ; python_version == '2.6'
+ordereddict ; python_version == '2.6'
+pyev ; python_version >= '2.7' and os_name != 'nt'
