@@ -2071,6 +2071,9 @@ class BasicProperties(amqp_object.Properties):
     FLAG_APP_ID = (1 << 3)
     FLAG_CLUSTER_ID = (1 << 2)
 
+    DELIVERY_MODE_NON_PERSISTENT = 1
+    DELIVERY_MODE_PERSISTENT = 2
+
     def __init__(self, content_type=None, content_encoding=None, headers=None, delivery_mode=None, priority=None, correlation_id=None, reply_to=None, expiration=None, message_id=None, timestamp=None, type=None, user_id=None, app_id=None, cluster_id=None):
         self.content_type = content_type
         self.content_encoding = content_encoding
