@@ -6,8 +6,6 @@ from pika.adapters import base_connection
 
 
 class IOLoopAdapter:
-    __slots__ = 'loop',
-
     def __init__(self, loop):
         """
         Basic adapter for asyncio event loop
@@ -17,6 +15,10 @@ class IOLoopAdapter:
 
         """
         self.loop = loop
+
+        self.handlers = {}
+        self.readers = set()
+        self.writers = set()
 
     def add_timeout(self, deadline, callback_method):
         """Add the callback_method to the EventLoop timer to fire after deadline
@@ -50,6 +52,10 @@ class IOLoopAdapter:
 
         """
 
+        if fd in self.handlers:
+            raise ValueError("fd {} added twice".format(fd))
+        self.handlers[fd] = cb
+
         if event_state & base_connection.BaseConnection.READ:
             self.loop.add_reader(
                 fd,
@@ -59,6 +65,7 @@ class IOLoopAdapter:
                     events=base_connection.BaseConnection.READ
                 )
             )
+            self.readers.add(fd)
 
         if event_state & base_connection.BaseConnection.WRITE:
             self.loop.add_writer(
@@ -69,15 +76,57 @@ class IOLoopAdapter:
                     events=base_connection.BaseConnection.WRITE
                 )
             )
+            self.writers.add(fd)
 
     def remove_handler(self, fd):
         """ Stop listening for events on ``fd``. """
 
-        self.loop.remove_reader(fd)
-        self.loop.remove_writer(fd)
+        if fd not in self.handlers:
+            return
+
+        if fd in self.readers:
+            self.loop.remove_reader(fd)
+            self.readers.remove(fd)
+
+        if fd in self.writers:
+            self.loop.remove_writer(fd)
+            self.writers.remove(fd)
+
+        del self.handlers[fd]
 
     def update_handler(self, fd, event_state):
-        raise NotImplementedError()
+        if event_state & base_connection.BaseConnection.READ:
+            if fd not in self.readers:
+                self.loop.add_reader(
+                    fd,
+                    partial(
+                        self.handlers[fd],
+                        fd=fd,
+                        events=base_connection.BaseConnection.READ
+                    )
+                )
+                self.readers.add(fd)
+        else:
+            if fd in self.readers:
+                self.loop.remove_reader(fd)
+                self.readers.remove(fd)
+
+        if event_state & base_connection.BaseConnection.WRITE:
+            if fd not in self.writers:
+                self.loop.add_writer(
+                    fd,
+                    partial(
+                        self.handlers[fd],
+                        fd=fd,
+                        events=base_connection.BaseConnection.WRITE
+                    )
+                )
+                self.writers.add(fd)
+        else:
+            if fd in self.writers:
+                self.loop.remove_writer(fd)
+                self.writers.remove(fd)
+
 
     def start(self):
         """ Start Event Loop """
