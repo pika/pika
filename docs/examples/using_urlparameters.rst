@@ -39,9 +39,9 @@ If you're looking to tweak other parameters, such as enabling heartbeats, simply
 Options that are available as query string values:
 
 - backpressure_detection: Pass in a value of *t* to enable backpressure detection, it is disabled by default.
-- channel_max: Alter the default channel maximum by passing in a 32-bit integer value here
-- connection_attempts: Alter the default of 1 connection attempt by passing in an integer value here [#f1]_.
-- frame_max: Alter the default frame maximum size value by passing in a long integer value [#f2]_.
+- channel_max: Alter the default channel maximum by passing in a 32-bit integer value here.
+- connection_attempts: Alter the default of 1 connection attempt by passing in an integer value here.
+- frame_max: Alter the default frame maximum size value by passing in a long integer value [#f1]_.
 - heartbeat: Pass a value greater than zero to enable heartbeats between the server and your application. The integer value you pass here will be the number of seconds between heartbeats.
 - locale: Set the locale of the client using underscore delimited posix Locale code in ll_CC format (en_US, pt_BR, de_DE).
 - retry_delay: The number of seconds to wait before attempting to reconnect on a failed connection, if connection_attempts is > 0.
@@ -65,5 +65,4 @@ The following example demonstrates how to generate the ssl_options string with `
 
 .. rubric:: Footnotes
 
-.. [#f1] The :py:class:`pika.adapters.blocking_connection.BlockingConnection` adapter does not respect the *connection_attempts* parameter.
-.. [#f2] The AMQP specification states that a server can reject a request for a frame size larger than the value it passes during content negotiation.
+.. [#f1] The AMQP specification states that a server can reject a request for a frame size larger than the value it passes during content negotiation.
