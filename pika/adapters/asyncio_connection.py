@@ -1,12 +1,15 @@
-"""Use pika with the Asyncio EventLoop"""
 import asyncio
+import logging
 from functools import partial
 
 from pika.adapters import base_connection
 
 
+LOGGER = logging.getLogger(__name__)
+
+
 class IOLoopAdapter:
-    __slots__ = 'loop',
+    __slots__ = 'loop', 'handlers', 'readers', 'writers'
 
     def __init__(self, loop):
         """
@@ -17,6 +20,9 @@ class IOLoopAdapter:
 
         """
         self.loop = loop
+        self.handlers = {}
+        self.readers = set()
+        self.writers = set()
 
     def add_timeout(self, deadline, callback_method):
         """Add the callback_method to the EventLoop timer to fire after deadline
@@ -49,6 +55,9 @@ class IOLoopAdapter:
         and ``base_connection.BaseConnection.ERROR``.
 
         """
+        if fd in self.handlers:
+            raise ValueError("fd {} added twice".format(fd))
+        self.handlers[fd] = cb
 
         if event_state & base_connection.BaseConnection.READ:
             self.loop.add_reader(
@@ -59,6 +68,7 @@ class IOLoopAdapter:
                     events=base_connection.BaseConnection.READ
                 )
             )
+            self.readers.add(fd)
 
         if event_state & base_connection.BaseConnection.WRITE:
             self.loop.add_writer(
@@ -69,15 +79,55 @@ class IOLoopAdapter:
                     events=base_connection.BaseConnection.WRITE
                 )
             )
+            self.writers.add(fd)
 
     def remove_handler(self, fd):
         """ Stop listening for events on ``fd``. """
+        if fd not in self.handlers:
+            return
 
-        self.loop.remove_reader(fd)
-        self.loop.remove_writer(fd)
+        if fd in self.readers:
+            self.loop.remove_reader(fd)
+            self.readers.remove(fd)
+
+        if fd in self.writers:
+            self.loop.remove_writer(fd)
+            self.writers.remove(fd)
+
+        del self.handlers[fd]
 
     def update_handler(self, fd, event_state):
-        raise NotImplementedError()
+        if event_state & base_connection.BaseConnection.READ:
+            if fd not in self.readers:
+                self.loop.add_reader(
+                    fd,
+                    partial(
+                        self.handlers[fd],
+                        fd=fd,
+                        events=base_connection.BaseConnection.READ
+                    )
+                )
+                self.readers.add(fd)
+        else:
+            if fd in self.readers:
+                self.loop.remove_reader(fd)
+                self.readers.remove(fd)
+
+        if event_state & base_connection.BaseConnection.WRITE:
+            if fd not in self.writers:
+                self.loop.add_writer(
+                    fd,
+                    partial(
+                        self.handlers[fd],
+                        fd=fd,
+                        events=base_connection.BaseConnection.WRITE
+                    )
+                )
+                self.writers.add(fd)
+        else:
+            if fd in self.writers:
+                self.loop.remove_writer(fd)
+                self.writers.remove(fd)
 
     def start(self):
         """ Start Event Loop """
@@ -111,7 +161,7 @@ class AsyncioConnection(base_connection.BaseConnection):
                  on_open_error_callback=None,
                  on_close_callback=None,
                  stop_ioloop_on_close=False,
-                 custom_ioloop=None):
+                 loop=None):
         """ Create a new instance of the AsyncioConnection class, connecting
         to RabbitMQ automatically
 
@@ -124,7 +174,7 @@ class AsyncioConnection(base_connection.BaseConnection):
 
         """
         self.sleep_counter = 0
-        self.loop = custom_ioloop or asyncio.get_event_loop()
+        self.loop = loop or asyncio.get_event_loop()
         self.ioloop = IOLoopAdapter(self.loop)
 
         super().__init__(
