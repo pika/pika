@@ -28,6 +28,17 @@ which on Python 3 might look like this
     pip3 install -r test-requirements.txt
 
 
+## Running Tests
+
+To run all test suites, use
+
+    nosetests
+
+Note that some tests are OS-specific (e.g. epoll on Linux
+or kqueue on MacOS and BSD). Those will be skipped
+automatically.
+
+
 ## Code Formatting
 
 Please format your code using [yapf](http://pypi.python.org/pypi/yapf)
