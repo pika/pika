@@ -367,13 +367,13 @@ class TwistedProtocolConnection(base_connection.BaseConnection):
 
     """
 
-    def __init__(self, parameters):
+    def __init__(self, parameters, on_close_callback=on_close_call_back):
         self.ready = defer.Deferred()
         super(TwistedProtocolConnection, self).__init__(
             parameters=parameters,
             on_open_callback=self.connectionReady,
             on_open_error_callback=self.connectionFailed,
-            on_close_callback=None,
+            on_close_callback=on_close_callback,
             ioloop=IOLoopReactorAdapter(self, reactor),
             stop_ioloop_on_close=False)
 
