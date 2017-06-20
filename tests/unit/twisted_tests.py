@@ -23,10 +23,12 @@ except ImportError:
 
 
 class TwistedProtocolConnectionTests(unittest.TestCase):
+
     @unittest.skipIf(ioloop is None, 'requires Twisted')
     @mock.patch('pika.connection.Connection.add_on_close_callback')
     def test_twisted_protocol_connection_call_parent(self, mock_add):
-        obj = twisted_connection.TwistedProtocolConnection(None, on_close_callback=self._on_close)
+        obj = twisted_connection.TwistedProtocolConnection(
+            None, on_close_callback=self._on_close)
         mock_add.assert_called_once_with(self._on_close)
 
     @staticmethod
