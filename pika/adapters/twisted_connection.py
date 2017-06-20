@@ -367,7 +367,7 @@ class TwistedProtocolConnection(base_connection.BaseConnection):
 
     """
 
-    def __init__(self, parameters, on_close_callback=on_close_callback):
+    def __init__(self, parameters, on_close_callback=None):
         self.ready = defer.Deferred()
         super(TwistedProtocolConnection, self).__init__(
             parameters=parameters,
