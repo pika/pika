@@ -704,7 +704,7 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
     @mock.patch.object(connection.Connection, 'add_timeout')
     @mock.patch.object(connection.Connection, 'connect',
                        spec_set=connection.Connection.connect)
-    def test_multi_connection_blocked_in_a_row_sets_timer_once(
+    def test_blocked_connection_multiple_blocked_in_a_row_sets_timer_once(
             self,
             connect_mock,
             add_timeout_mock):
@@ -765,7 +765,7 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
                        spec_set=connection.Connection.add_timeout)
     @mock.patch.object(connection.Connection, 'connect',
                        spec_set=connection.Connection.connect)
-    def test_connection_unblocked_removes_timer(
+    def test_blocked_connection_unblocked_removes_timer(
             self,
             connect_mock,
             add_timeout_mock,
@@ -794,7 +794,7 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
                        spec_set=connection.Connection.add_timeout)
     @mock.patch.object(connection.Connection, 'connect',
                        spec_set=connection.Connection.connect)
-    def test_multi_connection_unblocked_in_a_row_removes_timer_once(
+    def test_blocked_connection_multiple_unblocked_in_a_row_removes_timer_once(
             self,
             connect_mock,
             add_timeout_mock,
@@ -834,7 +834,7 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
                        spec_set=connection.Connection.connect)
     @mock.patch.object(connection.Connection, '_adapter_disconnect',
                        spec_set=connection.Connection._adapter_disconnect)
-    def test_on_terminate_removes_timer(
+    def test_blocked_connection_on_terminate_removes_timer(
             self,
             adapter_disconnect_mock,
             connect_mock,
@@ -857,3 +857,28 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
         # Check
         conn.remove_timeout.assert_called_once_with(timer)
         self.assertIsNone(conn._blocked_conn_timer)
+
+
+    def test_send_message_updates_frames_sent_and_bytes_sent(self):
+        self.connection._flush_outbound = mock.Mock()
+        self.connection._body_max_length = 10000
+        method = spec.Basic.Publish(exchange='my-exchange',
+                                    routing_key='my-route')
+
+        props = spec.BasicProperties()
+        body = b'b' * 1000000
+
+        self.connection._send_message(channel_number=1,
+                                      method=method,
+                                      content=(props, body))
+
+
+        frames_sent = len(self.connection.outbound_buffer)
+        bytes_sent = sum(len(frame)
+                         for frame in self.connection.outbound_buffer)
+
+        self.assertEqual(self.connection.frames_sent, frames_sent)
+        self.assertEqual(self.connection.bytes_sent, bytes_sent)
+
+        # Make sure _detect_backpressure doesn't throw
+        self.connection._detect_backpressure()

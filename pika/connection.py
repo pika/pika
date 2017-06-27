@@ -2165,6 +2165,7 @@ class Connection(object):
 
         self.outbound_buffer += write_buffer
         self.frames_sent += len(write_buffer)
+        self.bytes_sent += sum(len(frame) for frame in write_buffer)
         self._flush_outbound()
         if self.params.backpressure_detection:
             self._detect_backpressure()
