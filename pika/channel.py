@@ -294,7 +294,7 @@ class Channel(object):
         :param bool exclusive: Don't allow other consumers on the queue
         :param consumer_tag: Specify your own consumer tag
         :type consumer_tag: str or unicode
-        :param dict arguments: Custom key/value pair arguments for the consume
+        :param dict arguments: Custom key/value pair arguments for the consumer
         :rtype: str
 
         """
