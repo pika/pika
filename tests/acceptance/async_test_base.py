@@ -6,7 +6,9 @@
 
 from datetime import datetime
 import select
+import sys
 import logging
+
 try:
     import unittest2 as unittest
 except ImportError:
@@ -191,6 +193,11 @@ class AsyncAdapters(object):
     def tornado_test(self):
         """TornadoConnection"""
         self.start(adapters.TornadoConnection)
+
+    @unittest.skipIf(sys.version_info < (3, 4), "Asyncio available for Python 3.4+")
+    def asyncio_test(self):
+        """AsyncioConnection"""
+        self.start(adapters.AsyncioConnection)
 
     @unittest.skipIf(_TARGET == 'PyPy', 'PyPy is not supported')
     @unittest.skipIf(adapters.LibevConnection is None, 'pyev is not installed')

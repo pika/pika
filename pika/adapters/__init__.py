@@ -39,3 +39,8 @@ try:
     from pika.adapters.libev_connection import LibevConnection
 except ImportError:
     LibevConnection = None
+
+try:
+    from pika.adapters.asyncio_connection import AsyncioConnection
+except ImportError:
+    AsyncioConnection = None
