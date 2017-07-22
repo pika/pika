@@ -526,7 +526,7 @@ class Channel(object):
 
         for consumer_tag in dictkeys(self._consumers):
             if consumer_tag not in self._cancelled:
-                self.basic_cancel(consumer_tag=consumer_tag)
+                self.basic_cancel(consumer_tag=consumer_tag, nowait=True)
 
         # Change state after cancelling consumers to avoid ChannelClosed
         # exception from basic_cancel
