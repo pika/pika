@@ -309,6 +309,8 @@ str = bytes
     spec.constants.append(('FRAME_MAX_SIZE', 131072, ''))
     spec.constants.append(('FRAME_HEADER_SIZE', 7, ''))
     spec.constants.append(('FRAME_END_SIZE', 1, ''))
+    spec.constants.append(('DELIVERY_NONPERSISTENT', 1, ''))
+    spec.constants.append(('DELIVERY_PERSISTENT', 2, ''))
 
     constants = {}
     for c, v, cls in spec.constants:
