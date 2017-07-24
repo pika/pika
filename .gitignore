@@ -4,6 +4,7 @@
 .coverage
 .tox
 .DS_Store
+.python-version
 pika.iml
 codegen
 pika.egg-info
@@ -14,3 +15,4 @@ build
 dist
 docs/_build
 *.conf.in
+venvs/
