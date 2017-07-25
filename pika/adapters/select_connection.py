@@ -245,18 +245,7 @@ class IOLoop(object):
         self._poller.poll()
 
 
-# Define a base class for deriving abstract base classes for compatibility
-# between python 2 and 3 (metaclass syntax changed in Python 3). Ideally, would
-# use `@six.add_metaclass` or `six.with_metaclass`, but pika traditionally has
-# resisted external dependencies in its core code.
-if pika.compat.PY2:
-    class _AbstractBase(object):  # pylint: disable=R0903
-        """PY2 Abstract base for _PollerBase class"""
-        __metaclass__ = abc.ABCMeta
-else:
-    # NOTE: Wrapping in exec, because
-    # `class _AbstractBase(metaclass=abc.ABCMeta)` fails to load on python 2.
-    exec('class _AbstractBase(metaclass=abc.ABCMeta): pass')  # pylint: disable=W0122
+_AbstractBase = abc.ABCMeta('_AbstractBase', (object,), {})
 
 
 class _PollerBase(_AbstractBase):  # pylint: disable=R0902
