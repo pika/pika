@@ -112,7 +112,7 @@ class SelectConnection(BaseConnection):
 
 
 class IOLoop(object):
-    """Singlton wrapper that decides which type of poller to use, creates an
+    """Singleton wrapper that decides which type of poller to use, creates an
     instance of it in start_poller and keeps the invoking application in a
     blocking state by calling the pollers start method. Poller should keep
     looping until IOLoop.instance().stop() is called or there is a socket
