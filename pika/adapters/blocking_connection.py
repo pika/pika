@@ -703,12 +703,11 @@ class BlockingConnection(object):
             # Check if we can actually process pending events
             common_terminator = lambda: bool(dispatch_acquired and
                 (self._channels_pending_dispatch or self._ready_events))
-
-        if time_limit is None:
-            self._flush_output(common_terminator)
-        else:
-            with _IoloopTimerContext(time_limit, self._impl) as timer:
-                self._flush_output(timer.is_ready, common_terminator)
+            if time_limit is None:
+                self._flush_output(common_terminator)
+            else:
+                with _IoloopTimerContext(time_limit, self._impl) as timer:
+                    self._flush_output(timer.is_ready, common_terminator)
 
         if self._ready_events:
             self._dispatch_connection_events()
