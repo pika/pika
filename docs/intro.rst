@@ -3,9 +3,9 @@ Introduction to Pika
 
 IO and Event Looping
 --------------------
-As AMQP is a two-way RPC protocol where the client can send requests to the server and the server can send requests to a client, Pika implements or extends IO loops in each of its asynchronous connection adapters. These IO loops are blocking methods which loop and listen for events. Each asynchronous adapters follows the same standard for invoking the IO loop. The IO loop is created when the connection adapter is created. To start an IO loop for any given adapter, call the ``connection.ioloop.start()`` method.
+As AMQP is a two-way RPC protocol where the client can send requests to the server and the server can send requests to a client, Pika implements or extends IO loops in each of its asynchronous connection adapters. These IO loops are blocking methods which loop and listen for events. Each asynchronous adapter follows the same standard for invoking the IO loop. The IO loop is created when the connection adapter is created. To start an IO loop for any given adapter, call the ``connection.ioloop.start()`` method.
 
-If you are using an external IO loop such as Tornado's :class:`~tornado.ioloop.IOLoop`, you invoke it as you normally would and then add the adapter to it.
+If you are using an external IO loop such as Tornado's :class:`~tornado.ioloop.IOLoop` you invoke it normally and then add a pika adapter to it.
 
 Example::
 
@@ -32,7 +32,7 @@ Example::
 Continuation-Passing Style
 --------------------------
 
-Interfacing with Pika asynchronously is done by passing in callback methods you would like to have invoked when a certain event has completed. For example, if you are going to declare a queue, you pass in a method that will be called when the RabbitMQ server returns a `Queue.DeclareOk <http://www.rabbitmq.com/amqp-0-9-1-quickref.html#queue.declare>`_ response.
+Interfacing with Pika asynchronously is done by passing in callback methods you would like to have invoked when a certain event is completed. For example, if you are going to declare a queue, you pass in a method that will be called when the RabbitMQ server returns a `Queue.DeclareOk <http://www.rabbitmq.com/amqp-0-9-1-quickref.html#queue.declare>`_ response.
 
 In our example below we use the following four easy steps:
 
@@ -40,7 +40,7 @@ In our example below we use the following four easy steps:
 #. When we are connected, the *on_connected* method is called. In that method we create a channel.
 #. When the channel is created, the *on_channel_open* method is called. In that method we declare a queue.
 #. When the queue is declared successfully, *on_queue_declared* is called. In that method we call :py:meth:`channel.basic_consume <channel.Channel.basic_consume>` telling it to call the handle_delivery for each message RabbitMQ delivers to us.
-#. When RabbitMQ has a message to send us, it call the handle_delivery method passing the AMQP Method frame, Header frame and Body.
+#. When RabbitMQ has a message to send us, it calls the handle_delivery method passing the AMQP Method frame, Header frame, and Body.
 
 .. NOTE::
     Step #1 is on line #28 and Step #2 is on line #6. This is so that Python knows about the functions we'll call in Steps #2 through #5.
