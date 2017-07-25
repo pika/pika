@@ -778,8 +778,8 @@ class URLParameters(Parameters):
             self.port = self.DEFAULT_SSL_PORT if self.ssl else self.DEFAULT_PORT
 
         if parts.username is not None:
-            self.credentials = pika_credentials.PlainCredentials(parts.username,
-                                                                 parts.password)
+            self.credentials = pika_credentials.PlainCredentials(url_unquote(parts.username),
+                                                                 url_unquote(parts.password))
 
         # Get the Virtual Host
         if len(parts.path) > 1:
