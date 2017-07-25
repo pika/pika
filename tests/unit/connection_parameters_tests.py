@@ -633,3 +633,10 @@ class URLParametersTests(_ParametersTestsBase):
         self.assertEqual(parameters.credentials.username, '')
         self.assertEqual(parameters.credentials.password, '')
 
+    def test_url_decodes_username_and_password(self):
+        username = '@@@@'
+        password = '////'
+        parameters = pika.URLParameters('amqp://%40%40%40%40:%2F%2F%2F%2F@myserver.mycompany.com')
+        self.assertEqual(parameters.credentials.username, username)
+        self.assertEqual(parameters.credentials.password, password)
+

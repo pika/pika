@@ -522,7 +522,7 @@ class ChannelTests(unittest.TestCase):
         self.obj._consumers['abc'] = None
         with mock.patch.object(self.obj, 'basic_cancel') as basic_cancel:
             self.obj.close()
-            basic_cancel.assert_called_once_with(consumer_tag='abc')
+            basic_cancel.assert_called_once_with(consumer_tag='abc', nowait=True)
 
     def test_confirm_delivery_raises_channel_closed(self):
         self.assertRaises(exceptions.ChannelClosed, self.obj.confirm_delivery)
