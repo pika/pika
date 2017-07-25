@@ -15,6 +15,8 @@ Pika has various methods of use, between the synchronous BlockingConnection adap
    examples/comparing_publishing_sync_async
    examples/blocking_delivery_confirmations
    examples/blocking_publish_mandatory
+   examples/direct_reply_to
+   examples/heartbeat_and_blocked_timeouts
    examples/asynchronous_consumer_example
    examples/asynchronous_publisher_example
    examples/twisted_example
