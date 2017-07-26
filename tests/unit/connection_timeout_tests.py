@@ -3,6 +3,14 @@
 Tests for connection parameters.
 
 """
+
+# Suppress "Access to a protected member" warnings
+# pylint: disable=W0212
+
+# Suppress "Missing docstring" messages
+# pylint: disable=C0111
+
+
 import errno
 import socket
 try:
@@ -35,7 +43,7 @@ except ImportError:
 from pika import exceptions
 
 
-def mock_timeout(*args, **kwargs):
+def mock_timeout(*_args, **_kwargs):
     raise socket.timeout(errno.ETIMEDOUT, 'timed out')
 
 
@@ -49,64 +57,93 @@ class ConnectionTests(unittest.TestCase):
         self.assertEqual(params.retry_delay, 0.1)
         self.assertEqual(params.connection_attempts, 3)
 
-    @mock.patch.object(socket.socket, 'settimeout')
-    @mock.patch.object(socket.socket, 'connect')
-    def test_connection_timeout(self, connect, settimeout):
-        connect.side_effect = mock_timeout
-        with self.assertRaises(exceptions.AMQPConnectionError):
-            params = pika.ConnectionParameters(socket_timeout=2.0)
-            base_connection.BaseConnection(params)
-        settimeout.assert_called_with(2.0)
+    def test_base_connection_timeout(self):
+        with self.assertRaises(exceptions.AMQPConnectionError) as err_ctx:
+            with mock.patch('pika.adapters.base_connection.BaseConnection'
+                            '.add_timeout',
+                            return_value='timer'):
+                with mock.patch('pika.adapters.base_connection.BaseConnection'
+                                '._create_tcp_connection_socket',
+                                return_value=mock.Mock(
+                                    spec_set=socket.socket,
+                                    connect=mock.Mock(
+                                        side_effect=mock_timeout))) as create_sock_mock:
+                    params = pika.ConnectionParameters(socket_timeout=2.0)
+                    conn = base_connection.BaseConnection(params)
+                    conn._on_connect_timer()
+        create_sock_mock.return_value.settimeout.assert_called_with(2.0)
+        self.assertIn('timeout', str(err_ctx.exception))
 
-    @mock.patch.object(socket.socket, 'settimeout')
-    @mock.patch.object(socket.socket, 'connect')
-    def test_blocking_connection_timeout(self, connect, settimeout):
-        connect.side_effect = mock_timeout
-        with self.assertRaises(exceptions.AMQPConnectionError):
-            params = pika.ConnectionParameters(socket_timeout=2.0)
-            blocking_connection.BlockingConnection(params)
-        settimeout.assert_called_with(2.0)
+    def test_blocking_connection_timeout(self):
+        with self.assertRaises(exceptions.AMQPConnectionError) as err_ctx:
+            # NOTE BlockingConnection uses SelectConnection as its "impl"
+            with mock.patch('pika.SelectConnection'
+                            '._create_tcp_connection_socket',
+                            return_value=mock.Mock(
+                                spec_set=socket.socket,
+                                connect=mock.Mock(
+                                    side_effect=mock_timeout))) as create_sock_mock:
+                params = pika.ConnectionParameters(socket_timeout=2.0)
+                blocking_connection.BlockingConnection(params)
+        create_sock_mock.return_value.settimeout.assert_called_with(2.0)
+        self.assertIn('timeout', str(err_ctx.exception))
 
-    @mock.patch.object(socket.socket, 'settimeout')
-    @mock.patch.object(socket.socket, 'connect')
-    def test_select_connection_timeout(self, connect, settimeout):
-        connect.side_effect = mock_timeout
-        with self.assertRaises(exceptions.AMQPConnectionError):
-            params = pika.ConnectionParameters(socket_timeout=2.0)
-            select_connection.SelectConnection(params)
-        settimeout.assert_called_with(2.0)
+    def test_select_connection_timeout(self):
+        with self.assertRaises(exceptions.AMQPConnectionError) as err_ctx:
+            with mock.patch('pika.SelectConnection'
+                            '._create_tcp_connection_socket',
+                            return_value=mock.Mock(
+                                spec_set=socket.socket,
+                                connect=mock.Mock(
+                                    side_effect=mock_timeout))) as create_sock_mock:
+                params = pika.ConnectionParameters(socket_timeout=2.0)
+                conn = select_connection.SelectConnection(params)
+                conn._on_connect_timer()
+        create_sock_mock.return_value.settimeout.assert_called_with(2.0)
+        self.assertIn('timeout', str(err_ctx.exception))
 
     @unittest.skipUnless(tornado_connection is not None,
                          'tornado is not installed')
     def test_tornado_connection_timeout(self):
-        with self.assertRaises(exceptions.AMQPConnectionError):
-            with mock.patch(
-                  'pika.TornadoConnection._create_tcp_connection_socket',
-                  return_value=mock.Mock(
-                      spec_set=socket.socket,
-                      connect=mock.Mock(
-                          side_effect=mock_timeout))) as create_sock_mock:
+        with self.assertRaises(exceptions.AMQPConnectionError) as err_ctx:
+            with mock.patch('pika.TornadoConnection'
+                            '._create_tcp_connection_socket',
+                            return_value=mock.Mock(
+                                spec_set=socket.socket,
+                                connect=mock.Mock(
+                                    side_effect=mock_timeout))) as create_sock_mock:
                 params = pika.ConnectionParameters(socket_timeout=2.0)
-                tornado_connection.TornadoConnection(params)
+                conn = tornado_connection.TornadoConnection(params)
+                conn._on_connect_timer()
         create_sock_mock.return_value.settimeout.assert_called_with(2.0)
+        self.assertIn('timeout', str(err_ctx.exception))
 
     @unittest.skipUnless(twisted_connection is not None,
                          'twisted is not installed')
-    @mock.patch.object(socket.socket, 'settimeout')
-    @mock.patch.object(socket.socket, 'connect')
-    def test_twisted_connection_timeout(self, connect, settimeout):
-        connect.side_effect = mock_timeout
-        with self.assertRaises(exceptions.AMQPConnectionError):
-            params = pika.ConnectionParameters(socket_timeout=2.0)
-            twisted_connection.TwistedConnection(params)
-        settimeout.assert_called_with(2.0)
+    def test_twisted_connection_timeout(self):
+        with self.assertRaises(exceptions.AMQPConnectionError) as err_ctx:
+            with mock.patch('pika.TwistedConnection._create_tcp_connection_socket',
+                            return_value=mock.Mock(
+                                spec_set=socket.socket,
+                                connect=mock.Mock(
+                                    side_effect=mock_timeout))) as create_sock_mock:
+                params = pika.ConnectionParameters(socket_timeout=2.0)
+                conn = twisted_connection.TwistedConnection(params)
+                conn._on_connect_timer()
+        create_sock_mock.return_value.settimeout.assert_called_with(2.0)
+        self.assertIn('timeout', str(err_ctx.exception))
 
     @unittest.skipUnless(libev_connection is not None, 'pyev is not installed')
-    @mock.patch.object(socket.socket, 'settimeout')
-    @mock.patch.object(socket.socket, 'connect')
-    def test_libev_connection_timeout(self, connect, settimeout):
-        connect.side_effect = mock_timeout
-        with self.assertRaises(exceptions.AMQPConnectionError):
-            params = pika.ConnectionParameters(socket_timeout=2.0)
-            libev_connection.LibevConnection(params)
-        settimeout.assert_called_with(2.0)
+    def test_libev_connection_timeout(self):
+        with self.assertRaises(exceptions.AMQPConnectionError) as err_ctx:
+            with mock.patch('pika.LibevConnection'
+                            '._create_tcp_connection_socket',
+                            return_value=mock.Mock(
+                                spec_set=socket.socket,
+                                connect=mock.Mock(
+                                    side_effect=mock_timeout))) as create_sock_mock:
+                params = pika.ConnectionParameters(socket_timeout=2.0)
+                conn = libev_connection.LibevConnection(params)
+                conn._on_connect_timer()
+        create_sock_mock.return_value.settimeout.assert_called_with(2.0)
+        self.assertIn('timeout', str(err_ctx.exception))

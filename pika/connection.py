@@ -970,6 +970,9 @@ class Connection(object):
         """
         self.connection_state = self.CONNECTION_CLOSED
 
+        # Holds timer when the initial connect or reconnect is scheduled
+        self._connection_attempt_timer = None
+
         # Used to hold timer if configured for Connection.Blocked timeout
         self._blocked_conn_timer = None
 
@@ -992,6 +995,7 @@ class Connection(object):
         self._frame_buffer = None
         self._channels = None
         self._backpressure_multiplier = None
+        self.remaining_connection_attempts = None
 
         self._init_connection_state()
 
@@ -1159,35 +1163,22 @@ class Connection(object):
         Connection object should connect on its own.
 
         """
+        assert self._connection_attempt_timer is None, (
+            'connect timer was already scheduled')
+
+        assert self.is_closed, (
+            'connect expected CLOSED state, but got: {}'.format(
+                self._STATE_NAMES[self.connection_state]))
+
         self._set_connection_state(self.CONNECTION_INIT)
 
-        error = self._adapter_connect()
-        if not error:
-            return self._on_connected()
-        self.remaining_connection_attempts -= 1
-        LOGGER.warning('Could not connect, %i attempts left',
-                       self.remaining_connection_attempts)
-        if self.remaining_connection_attempts > 0:
-            LOGGER.info('Retrying in %i seconds', self.params.retry_delay)
-            # TODO remove timeout if connection is closed before timer fires
-            self.add_timeout(self.params.retry_delay, self.connect)
-        else:
-            # TODO connect must not call failure callback from constructor. The
-            # current behavior is error-prone, because the user code may get a
-            # callback upon socket connection failure before user's other state
-            # may be sufficiently initialized. Constructors must either succeed
-            # or raise an exception. To be forward-compatible with failure
-            # reporting from fully non-blocking connection establishment,
-            # connect() should set INIT state and schedule a 0-second timer to
-            # continue the rest of the logic in a private method. The private
-            # method should use itself instead of connect() as the callback for
-            # scheduling retries.
+        # Schedule a timer callback to start the actual connection logic from
+        # event loop's context, thus avoiding error callbacks in the context of
+        # the caller, which could be the constructor.
+        self._connection_attempt_timer = self.add_timeout(
+            0,
+            self._on_connect_timer)
 
-            # TODO This should use _on_terminate for consistent behavior
-            self.callbacks.process(0, self.ON_CONNECTION_ERROR, self, self,
-                                   error)
-            self.remaining_connection_attempts = self.params.connection_attempts
-            self._set_connection_state(self.CONNECTION_CLOSED)
 
     def remove_timeout(self, timeout_id):
         """Adapters should override: Remove a timeout
@@ -1573,6 +1564,11 @@ class Connection(object):
         # simply closed the TCP/IP stream.
         self.callbacks.add(0, spec.Connection.Close, self._on_connection_close)
 
+        if self._connection_attempt_timer is not None:
+            # Connection attempt timer was active when teardown was initiated
+            self.remove_timeout(self._connection_attempt_timer)
+            self._connection_attempt_timer = None
+
         if self.params.blocked_connection_timeout is not None:
             if self._blocked_conn_timer is not None:
                 # Blocked connection timer was active when teardown was
@@ -1781,6 +1777,41 @@ class Connection(object):
         self._add_connection_tune_callback()
         self._send_connection_start_ok(*self._get_credentials(method_frame))
 
+    def _on_connect_timer(self):
+        """Callback for self._connection_attempt_timer: initiate connection
+        attempt in the context of the event loop
+
+        """
+        self._connection_attempt_timer = None
+
+        error = self._adapter_connect()
+        if not error:
+            return self._on_connected()
+        self.remaining_connection_attempts -= 1
+        LOGGER.warning('Could not connect, %i attempts left',
+                       self.remaining_connection_attempts)
+        if self.remaining_connection_attempts > 0:
+            LOGGER.info('Retrying in %i seconds', self.params.retry_delay)
+            self._connection_attempt_timer = self.add_timeout(
+                self.params.retry_delay,
+                self._on_connect_timer)
+        else:
+            # TODO connect must not call failure callback from constructor. The
+            # current behavior is error-prone, because the user code may get a
+            # callback upon socket connection failure before user's other state
+            # may be sufficiently initialized. Constructors must either succeed
+            # or raise an exception. To be forward-compatible with failure
+            # reporting from fully non-blocking connection establishment,
+            # connect() should set INIT state and schedule a 0-second timer to
+            # continue the rest of the logic in a private method. The private
+            # method should use itself instead of connect() as the callback for
+            # scheduling retries.
+
+            # TODO This should use _on_terminate for consistent behavior/cleanup
+            self.callbacks.process(0, self.ON_CONNECTION_ERROR, self, self,
+                                   error)
+            self.remaining_connection_attempts = self.params.connection_attempts
+            self._set_connection_state(self.CONNECTION_CLOSED)
 
     @staticmethod
     def _tune_heartbeat_timeout(client_value, server_value):
