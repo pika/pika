@@ -9,83 +9,40 @@ python:
   - 3.3
   - 3.4
   - 3.5
+  - 3.6
 
 matrix:
   include:
-    # Cursory validation on osx, but only with python 3.5 (to avoid builds taking too long)
     - os: osx
+      # Cursory validation on osx, but only with python 3 (to avoid builds taking too long)
       # Workaround for Tavis's current lack of official support for Python on OS X
       # Reference https://github.com/travis-ci/travis-ci/issues/2312
       language: generic
-
-before_install:
-
-  # Install python 3.5.0 on OS X
-  # Workaround for Tavis's current lack of official support for Python on OS X
-  # Reference https://github.com/travis-ci/travis-ci/issues/2312
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
-      echo "TRAVIS_PYTHON_VERSION=$TRAVIS_PYTHON_VERSION";
-
-      echo Updating Homebrew...;
-      brew update;
-
-      echo Installing pyenv...;
-      brew unlink pyenv;
-      brew install pyenv;
-
-      echo Installing pyenv shims...;
-      eval "$(pyenv init -)";
-
-      new_python_version="3.5.0";
-
-      echo "Installing Python${new_python_version}...";
-      pyenv install ${new_python_version};
-      pyenv versions;
-
-      echo "Making Python${new_python_version} the global python...";
-      pyenv global ${new_python_version};
-
-      echo "python --version" `python --version`;
-      echo "pip --version" `pip --version`;
-
-      echo Upgrading pip...;
-      pip install --upgrade pip;
-    fi
-
-  # Install RabbitMQ on OS X
-  # Workaround for Travis's failure to install and start RabbitMQ on osx builds
-  # Reference https://github.com/travis-ci/travis-ci/issues/5941
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
-      echo Installing RabbitMQ...;
-      echo "find / -name rabbitmq-server" `find / -name rabbitmq-server 2>/dev/null`;
-      brew install rabbitmq;
-
-      echo Starting RabbitMQ...;
-      export PATH="${PATH}:/usr/local/sbin";
-      sudo rabbitmq-server -detached;
-    fi
-
-  # Install libev
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
-      echo Installing libev on Linux...;
-      sudo add-apt-repository "deb http://us.archive.ubuntu.com/ubuntu/ trusty main restricted universe multiverse";
-      sudo add-apt-repository "deb http://us.archive.ubuntu.com/ubuntu/ trusty-updates main restricted universe multiverse";
-      sudo apt-get update -qq;
-      sudo apt-get install libev-dev/trusty;
-    fi
-
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
-      echo Installing libev on OS X...;
-      brew install libev;
-    fi
+      before_install:
+        - brew update
+        - brew install libev
+        - brew install python3
+        - virtualenv env -p python3
+        - source env/bin/activate
+        - echo Installing RabbitMQ...
+        - echo "find / -name rabbitmq-server" $(find / -name rabbitmq-server 2> /dev/null)
+        - brew install rabbitmq
+        - echo Starting RabbitMQ...
+        - export PATH="${PATH}:/usr/local/sbin"
+        - sudo rabbitmq-server -detached
+    - os: linux
+      before_install:
+        - echo Installing libev on Linux...
+        - sudo add-apt-repository "deb http://us.archive.ubuntu.com/ubuntu/ trusty main restricted universe multiverse"
+        - sudo add-apt-repository "deb http://us.archive.ubuntu.com/ubuntu/ trusty-updates main restricted universe multiverse"
+        - sudo apt-get update -qq
+        - sudo apt-get install libev-dev/trusty
 
 install:
-  #- if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then sudo chmod 775 /Library/Python/2.7/site-packages; fi
-  - echo "WHICH python" `which python`;
-  - echo "python --version" `python --version`;
-  - echo "WHICH pip" `which pip`;
-  - echo "pip --version" `pip --version`;
-
+  - echo "WHICH python" $(which python)
+  - echo "python --version" $(python --version)
+  - echo "WHICH pip" $(which pip)
+  - echo "pip --version" $(pip --version)
   - if [[ $TRAVIS_PYTHON_VERSION == '2.6' ]]; then pip install unittest2 ordereddict; fi
   - if [[ $TRAVIS_PYTHON_VERSION != '2.6' ]]; then pip install pyev; fi
   - pip install -r test-requirements.txt
