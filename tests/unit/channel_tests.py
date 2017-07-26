@@ -524,7 +524,7 @@ class ChannelTests(unittest.TestCase):
             self.obj.close()
             # this is actually not necessary but Pika currently cancels
             # every consumer before closing the channel
-            basic_cancel.assert_called_once_with(consumer_tag='abc', nowait = True)
+            basic_cancel.assert_called_once_with(consumer_tag='abc', nowait=True)
 
     def test_confirm_delivery_raises_channel_closed(self):
         self.assertRaises(exceptions.ChannelClosed, self.obj.confirm_delivery)
