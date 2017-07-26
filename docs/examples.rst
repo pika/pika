@@ -19,3 +19,5 @@ Pika has various methods of use, between the synchronous BlockingConnection adap
    examples/asynchronous_publisher_example
    examples/twisted_example
    examples/tornado_consumer
+   examples/tls_mutual_authentication
+   examples/tls_server_authentication

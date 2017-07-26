@@ -23,7 +23,7 @@ extensions.
 
 Documentation
 -------------
-Pika's documentation can be found at `https://pika.readthedocs.org <https://pika.readthedocs.org>`_
+Pika's documentation can be found at `https://pika.readthedocs.io <https://pika.readthedocs.io>`_
 
 Example
 -------
@@ -94,8 +94,8 @@ with ``google`` style prior to issuing your pull request.
    :target: https://pypi.python.org/pypi/pika
 
 .. |License| image:: https://img.shields.io/pypi/l/pika.svg?
-   :target: https://pika.readthedocs.org
+   :target: https://pika.readthedocs.io
 
 .. |Docs| image:: https://readthedocs.org/projects/pika/badge/?version=stable
-   :target: https://pika.readthedocs.org
+   :target: https://pika.readthedocs.io
    :alt: Documentation Status
