@@ -30,13 +30,13 @@ matrix:
         - echo Starting RabbitMQ...
         - export PATH="${PATH}:/usr/local/sbin"
         - sudo rabbitmq-server -detached
-    - os: linux
-      before_install:
-        - echo Installing libev on Linux...
-        - sudo add-apt-repository "deb http://us.archive.ubuntu.com/ubuntu/ trusty main restricted universe multiverse"
-        - sudo add-apt-repository "deb http://us.archive.ubuntu.com/ubuntu/ trusty-updates main restricted universe multiverse"
-        - sudo apt-get update -qq
-        - sudo apt-get install libev-dev/trusty
+
+before_install:
+  - echo Installing libev on Linux...
+  - sudo add-apt-repository "deb http://us.archive.ubuntu.com/ubuntu/ trusty main restricted universe multiverse"
+  - sudo add-apt-repository "deb http://us.archive.ubuntu.com/ubuntu/ trusty-updates main restricted universe multiverse"
+  - sudo apt-get update -qq
+  - sudo apt-get install libev-dev/trusty
 
 install:
   - echo "WHICH python" $(which python)
