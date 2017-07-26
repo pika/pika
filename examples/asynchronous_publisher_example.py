@@ -272,13 +272,14 @@ class ExamplePublisher(object):
         if self._channel is None or not self._channel.is_open:
             return
 
-        message = {u'مفتاح': u' قيمة',
-                   u'键': u'值',
-                   u'キー': u'値'}
+        hdrs = {u'مفتاح': u' قيمة',
+                u'键': u'值',
+                u'キー': u'値'}
         properties = pika.BasicProperties(app_id='example-publisher',
                                           content_type='application/json',
-                                          headers=message)
+                                          headers=hdrs)
 
+        message = u'مفتاح قيمة 键 值 キー 値'
         self._channel.basic_publish(self.EXCHANGE, self.ROUTING_KEY,
                                     json.dumps(message, ensure_ascii=False),
                                     properties)
