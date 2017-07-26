@@ -5,7 +5,7 @@ IO and Event Looping
 --------------------
 As AMQP is a two-way RPC protocol where the client can send requests to the server and the server can send requests to a client, Pika implements or extends IO loops in each of its asynchronous connection adapters. These IO loops are blocking methods which loop and listen for events. Each asynchronous adapter follows the same standard for invoking the IO loop. The IO loop is created when the connection adapter is created. To start an IO loop for any given adapter, call the ``connection.ioloop.start()`` method.
 
-If you are using an external IO loop such as Tornado's :class:`~tornado.ioloop.IOLoop` you invoke it normally and then add a pika adapter to it.
+If you are using an external IO loop such as Tornado's :class:`~tornado.ioloop.IOLoop` you invoke it normally and then add the Pika Tornado adapter to it.
 
 Example::
 
@@ -32,7 +32,7 @@ Example::
 Continuation-Passing Style
 --------------------------
 
-Interfacing with Pika asynchronously is done by passing in callback methods you would like to have invoked when a certain event is completed. For example, if you are going to declare a queue, you pass in a method that will be called when the RabbitMQ server returns a `Queue.DeclareOk <http://www.rabbitmq.com/amqp-0-9-1-quickref.html#queue.declare>`_ response.
+Interfacing with Pika asynchronously is done by passing in callback methods you would like to have invoked when a certain event completes. For example, if you are going to declare a queue, you pass in a method that will be called when the RabbitMQ server returns a `Queue.DeclareOk <http://www.rabbitmq.com/amqp-0-9-1-quickref.html#queue.declare>`_ response.
 
 In our example below we use the following four easy steps:
 
