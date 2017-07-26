@@ -1,4 +1,4 @@
-gi"""
+"""
 Tests for pika.channel.Channel
 
 """
