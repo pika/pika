@@ -71,7 +71,7 @@ class BlockingChannelTests(unittest.TestCase):
     def test_context_manager(self):
         with self.obj as channel:
             self.assertFalse(channel._impl.close.called)
-        channel._impl.close.assert_called_once_with(reply_code=0, reply_text='Normal Shutdown')
+        channel._impl.close.assert_called_once_with(reply_code=0, reply_text='Normal shutdown')
 
     def test_context_manager_does_not_suppress_exception(self):
         class TestException(Exception):
@@ -81,10 +81,10 @@ class BlockingChannelTests(unittest.TestCase):
             with self.obj as channel:
                 self.assertFalse(channel._impl.close.called)
                 raise TestException()
-        channel._impl.close.assert_called_once_with(reply_code=0, reply_text='Normal Shutdown')
+        channel._impl.close.assert_called_once_with(reply_code=0, reply_text='Normal shutdown')
 
     def test_context_manager_exit_with_closed_channel(self):
       with self.obj as channel:
           self.assertFalse(channel._impl.close.called)
           channel.close()
-      channel._impl.close.assert_called_with(reply_code=0, reply_text='Normal Shutdown')
+      channel._impl.close.assert_called_with(reply_code=0, reply_text='Normal shutdown')
