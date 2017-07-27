@@ -25,7 +25,6 @@ matrix:
         - virtualenv env -p python3
         - source env/bin/activate
         - echo Installing RabbitMQ...
-        - echo "find / -name rabbitmq-server" $(find / -name rabbitmq-server 2> /dev/null)
         - brew install rabbitmq
         - echo Starting RabbitMQ...
         - export PATH="${PATH}:/usr/local/sbin"
@@ -39,10 +38,10 @@ before_install:
   - sudo apt-get install libev-dev/trusty
 
 install:
-  - echo "WHICH python" $(which python)
-  - echo "python --version" $(python --version)
-  - echo "WHICH pip" $(which pip)
-  - echo "pip --version" $(pip --version)
+  - which -a python
+  - python --version
+  - which pip
+  - pip --version
   - if [[ $TRAVIS_PYTHON_VERSION == '2.6' ]]; then pip install unittest2 ordereddict; fi
   - if [[ $TRAVIS_PYTHON_VERSION != '2.6' ]]; then pip install pyev; fi
   - pip install -r test-requirements.txt
