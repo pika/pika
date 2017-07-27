@@ -1395,14 +1395,14 @@ class BlockingChannel(object):
                 evt.dispatch()
 
 
-    def close(self, reply_code=0, reply_text="Normal Shutdown"):
+    def close(self, reply_code=0, reply_text="Normal shutdown"):
         """Will invoke a clean shutdown of the channel with the AMQP Broker.
 
         :param int reply_code: The reply code to close the channel with
         :param str reply_text: The reply text to close the channel with
 
         """
-        LOGGER.info('Channel.close(%s, %s)', reply_code, reply_text)
+        LOGGER.debug('Channel.close(%s, %s)', reply_code, reply_text)
 
         # Cancel remaining consumers
         self._cancel_all_consumers()

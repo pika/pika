@@ -494,7 +494,7 @@ class Channel(object):
         return self._rpc(spec.Basic.Recover(requeue), callback,
                          [spec.Basic.RecoverOk])
 
-    def close(self, reply_code=0, reply_text="Normal Shutdown"):
+    def close(self, reply_code=0, reply_text="Normal shutdown"):
         """Invoke a graceful shutdown of the channel with the AMQP Broker.
 
         If channel is OPENING, transition to CLOSING and suppress the incoming
