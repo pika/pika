@@ -90,12 +90,9 @@ with ``google`` style prior to issuing your pull request.
 .. |Coverage| image:: https://img.shields.io/codecov/c/github/pika/pika.svg?
    :target: https://codecov.io/github/pika/pika?branch=master
 
-.. |Downloads| image:: https://img.shields.io/pypi/dm/pika.svg?
-   :target: https://pypi.python.org/pypi/pika
-
 .. |License| image:: https://img.shields.io/pypi/l/pika.svg?
    :target: https://pika.readthedocs.io
 
-.. |Docs| image:: https://readthedocs.org/projects/pika/badge/?version=stable
+.. |Docs| image:: https://readthedocs.io/projects/pika/badge/?version=stable
    :target: https://pika.readthedocs.io
    :alt: Documentation Status
