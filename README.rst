@@ -65,6 +65,7 @@ And an example of writing a blocking consumer:
 Pika provides the following adapters
 ------------------------------------
 
+- AsyncioConnection  - adapter for the Python3 AsyncIO event loop
 - BlockingConnection - enables blocking, synchronous operation on top of library for simple uses
 - LibevConnection    - adapter for use with the libev event loop http://libev.schmorp.de
 - SelectConnection   - fast asynchronous adapter
