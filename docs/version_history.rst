@@ -4,6 +4,15 @@ Version History
 Next Release
 ------------
 
+0.11.0 2017-07-29
+-----------------
+
+`0.11.0 <https://github.com/pika/pika/compare/0.10.0...0.11.0>`_
+
+`GitHub milestone <https://github.com/pika/pika/milestone/9>`_
+
+ - Simplify Travis CI configuration for OS X.
+ - Add `asyncio` connection adapter for Python 3.4 and newer.
  - Connection failures that occur after the socket is opened and before the
    AMQP connection is ready to go are now reported by calling the connection
    error callback.  Previously these were not consistently reported.
@@ -53,6 +62,8 @@ Next Release
 
 0.10.0 2015-09-02
 -----------------
+
+`0.10.0 <https://github.com/pika/pika/compare/0.9.14...0.10.0>`_
 
  - LibevConnection: Fixed dict chgd size during iteration (Michael Laing)
  - SelectConnection: Fixed KeyError exceptions in IOLoop timeout executions (Shinji Suzuki)
@@ -238,7 +249,7 @@ changes:
  - d235989 - Be more specific when calling getaddrinfo (Gavin M. Roy)
  - b5d1b31 - Reflect the method name change in pika.callback (Gavin M. Roy)
  - df7d3b7 - Cleanup BlockingConnection in a few places (Gavin M. Roy)
- - cd99e1c - Rename method due to use in BlockingConnection (Gavin M. Roy)
+ - cd98e1c - Rename method due to use in BlockingConnection (Gavin M. Roy)
  - 7e0d1b3 - Use google style with yapf instead of pep8 (Gavin M. Roy)
  - 7dc9bab - Refactor socket writing to not use sendall #481 (Gavin M. Roy)
  - 4838789 - Dont log the fd #521 (Gavin M. Roy)
@@ -282,6 +293,8 @@ changes:
 
 0.9.14 - 2014-07-11
 -------------------
+
+`0.9.14 <https://github.com/pika/pika/compare/0.9.13...0.9.14>`_
 
  - 57fe43e - fix test to generate a correct range of random ints (ml)
  - 0d68dee - fix async watcher for libev_connection (ml)
@@ -422,6 +435,9 @@ changes:
 
 0.9.13 - 2013-05-15
 -------------------
+
+`0.9.13 <https://github.com/pika/pika/compare/0.9.12...0.9.13>`_
+
 **Major Changes**
 
 - IPv6 Support with thanks to Alessandro Tagliapietra for initial prototype
@@ -461,12 +477,16 @@ changes:
 0.9.12 - 2013-03-18
 -------------------
 
+`0.9.12 <https://github.com/pika/pika/compare/0.9.11...0.9.12>`_
+
 **Bugfixes**
 
 - New timeout id hashing was not unique
 
 0.9.11 - 2013-03-17
 -------------------
+
+`0.9.11 <https://github.com/pika/pika/compare/0.9.10...0.9.11>`_
 
 **Bugfixes**
 
@@ -478,6 +498,8 @@ changes:
 
 0.9.10 - 2013-03-16
 -------------------
+
+`0.9.10 <https://github.com/pika/pika/compare/0.9.9...0.9.10>`_
 
 **Bugfixes**
 
@@ -513,6 +535,8 @@ changes:
 0.9.9 - 2013-01-29
 ------------------
 
+`0.9.9 <https://github.com/pika/pika/compare/0.9.8...0.9.9>`_
+
 **Bugfixes**
 
 - Only remove the tornado_connection.TornadoConnection file descriptor from the IOLoop if it's still open (Issue #221)
@@ -536,6 +560,8 @@ changes:
 0.9.8 - 2012-11-18
 ------------------
 
+`0.9.8 <https://github.com/pika/pika/compare/0.9.7...0.9.8>`_
+
 **Bugfixes**
 
 - Channel.queue_declare/BlockingChannel.queue_declare not setting up callbacks property for empty queue name (Issue #218)
@@ -545,6 +571,8 @@ changes:
 
 0.9.7 - 2012-11-11
 ------------------
+
+`0.9.7 <https://github.com/pika/pika/compare/0.9.6...0.9.7>`_
 
 **New features**
 
@@ -568,6 +596,8 @@ changes:
 
 0.9.6 - 2012-10-29
 ------------------
+
+`0.9.6 <https://github.com/pika/pika/compare/0.9.5...0.9.6>`_
 
 **New features**
 
@@ -593,6 +623,8 @@ changes:
 
 0.9.5 - 2011-03-29
 ------------------
+
+`0.9.5 <https://github.com/pika/pika/compare/0.9.4...0.9.5>`_
 
 **Changelog**
 
