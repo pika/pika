@@ -1,8 +1,5 @@
 language: python
 
-os:
-  - linux
-
 python:
   - 2.6
   - 2.7
@@ -11,27 +8,7 @@ python:
   - 3.5
   - 3.6
 
-matrix:
-  include:
-    - os: osx
-      # Cursory validation on osx, but only with python 3 (to avoid builds taking too long)
-      # Workaround for Tavis's current lack of official support for Python on OS X
-      # Reference https://github.com/travis-ci/travis-ci/issues/2312
-      language: generic
-      before_install:
-        - brew update
-        - brew install libev
-        - brew install python3
-        - virtualenv env -p python3
-        - source env/bin/activate
-        - echo Installing RabbitMQ...
-        - brew install rabbitmq
-        - echo Starting RabbitMQ...
-        - export PATH="${PATH}:/usr/local/sbin"
-        - sudo rabbitmq-server -detached
-
 before_install:
-  - echo Installing libev on Linux...
   - sudo add-apt-repository "deb http://us.archive.ubuntu.com/ubuntu/ trusty main restricted universe multiverse"
   - sudo add-apt-repository "deb http://us.archive.ubuntu.com/ubuntu/ trusty-updates main restricted universe multiverse"
   - sudo apt-get update -qq
@@ -50,8 +27,10 @@ install:
 services:
   - rabbitmq
 
-script:
+before_script:
   - sudo rabbitmqctl status
+
+script:
   - nosetests
 
 after_success:
