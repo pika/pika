@@ -2,7 +2,7 @@ Pika
 ====
 Pika is a RabbitMQ (AMQP-0-9-1) client library for Python.
 
-|Version| |Downloads| |Status| |Coverage| |License| |Docs|
+|Version| |Status| |Coverage| |License| |Docs|
 
 Introduction
 -------------
