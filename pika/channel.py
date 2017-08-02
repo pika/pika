@@ -272,13 +272,16 @@ class Channel(object):
                       exclusive=False,
                       consumer_tag=None,
                       arguments=None):
-        """Sends the AMQP command Basic.Consume to the broker and binds messages
+        """Sends the AMQP 0-9-1 command Basic.Consume to the broker and binds messages
         for the consumer_tag to the consumer callback. If you do not pass in
         a consumer_tag, one will be automatically generated for you. Returns
         the consumer tag.
 
         For more information on basic_consume, see:
+        Tutorial 2 at http://www.rabbitmq.com/getstarted.html
+        http://www.rabbitmq.com/confirms.html
         http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.consume
+
 
         :param callable consumer_callback: The function to call when consuming
             with the signature consumer_callback(channel, method, properties,
@@ -290,7 +293,8 @@ class Channel(object):
 
         :param queue: The queue to consume from
         :type queue: str or unicode
-        :param bool no_ack: Tell the broker to not expect a response
+        :param bool no_ack: if set to True, automatic acknowledgement mode will be used
+                            (see http://www.rabbitmq.com/confirms.html)
         :param bool exclusive: Don't allow other consumers on the queue
         :param consumer_tag: Specify your own consumer tag
         :type consumer_tag: str or unicode
