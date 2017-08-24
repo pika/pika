@@ -1,9 +1,9 @@
 import os
 import sys as _sys
+import platform
 
 PY2 = _sys.version_info < (3,)
 PY3 = not PY2
-
 
 if not PY2:
     # these were moved around for Python 3
@@ -22,7 +22,6 @@ if not PY2:
 
     # the unicode type is str
     unicode_type = str
-
 
     def dictkeys(dct):
         """
@@ -123,12 +122,22 @@ else:
     def is_integer(value):
         return isinstance(value, (int, long))
 
+
 def as_bytes(value):
     if not isinstance(value, bytes):
         return value.encode('UTF-8')
     return value
 
 
+def get_linux_version(release_str):
+    ver_str = release_str.split('-')[0]
+    return tuple(map(int, ver_str.split('.')[:3]))
+
+
 HAVE_SIGNAL = os.name == 'posix'
 
-EINTR_IS_EXPOSED = _sys.version_info[:2] <= (3,4)
+EINTR_IS_EXPOSED = _sys.version_info[:2] <= (3, 4)
+
+LINUX_VERSION = None
+if platform.system() == 'Linux':
+    LINUX_VERSION = get_linux_version(platform.release())

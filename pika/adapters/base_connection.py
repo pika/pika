@@ -9,13 +9,8 @@ import socket
 import ssl
 
 import pika.compat
+import pika.tcp_socket_opts
 from pika import connection
-
-try:
-    SOL_TCP = socket.SOL_TCP
-except AttributeError:
-    SOL_TCP = 6
-
 
 if pika.compat.PY2:
     _SOCKET_ERROR = socket.error
@@ -23,6 +18,10 @@ else:
     # socket.error was deprecated and replaced by OSError in python 3.3
     _SOCKET_ERROR = OSError
 
+try:
+    SOL_TCP = socket.SOL_TCP
+except AttributeError:
+    SOL_TCP = socket.IPPROTO_TCP
 
 LOGGER = logging.getLogger(__name__)
 
@@ -35,8 +34,9 @@ class BaseConnection(connection.Connection):
     WRITE = 0x0004
     ERROR = 0x0008
 
-    ERRORS_TO_ABORT = [errno.EBADF, errno.ECONNABORTED, errno.EPIPE,
-                       errno.ETIMEDOUT]
+    ERRORS_TO_ABORT = [
+        errno.EBADF, errno.ECONNABORTED, errno.EPIPE, errno.ETIMEDOUT
+    ]
     ERRORS_TO_IGNORE = [errno.EWOULDBLOCK, errno.EAGAIN, errno.EINTR]
     DO_HANDSHAKE = True
     WARN_ABOUT_IOLOOP = False
@@ -63,8 +63,8 @@ class BaseConnection(connection.Connection):
 
         """
         if parameters and not isinstance(parameters, connection.Parameters):
-            raise ValueError('Expected instance of Parameters, not %r' %
-                             parameters)
+            raise ValueError(
+                'Expected instance of Parameters, not %r' % parameters)
 
         # Let the developer know we could not import SSL
         if parameters and parameters.ssl and not ssl:
@@ -75,11 +75,12 @@ class BaseConnection(connection.Connection):
         self.socket = None
         self.stop_ioloop_on_close = stop_ioloop_on_close
         self.write_buffer = None
-        super(BaseConnection, self).__init__(parameters, on_open_callback,
-                                             on_open_error_callback,
-                                             on_close_callback)
+        super(BaseConnection,
+              self).__init__(parameters, on_open_callback,
+                             on_open_error_callback, on_close_callback)
 
     def __repr__(self):
+
         def get_socket_repr(sock):
             """Return socket info suitable for use in repr"""
             if sock is None:
@@ -101,12 +102,10 @@ class BaseConnection(connection.Connection):
 
             return '%s->%s' % (sockname, peername)
 
-        return (
-            '<%s %s socket=%s params=%s>' %
-            (self.__class__.__name__,
-             self._STATE_NAMES[self.connection_state],
-             get_socket_repr(self.socket),
-             self.params))
+        return ('<%s %s socket=%s params=%s>' %
+                (self.__class__.__name__,
+                 self._STATE_NAMES[self.connection_state],
+                 get_socket_repr(self.socket), self.params))
 
     def add_timeout(self, deadline, callback_method):
         """Add the callback_method to the IOLoop timer to fire after deadline
@@ -153,17 +152,16 @@ class BaseConnection(connection.Connection):
         # Get the addresses for the socket, supporting IPv4 & IPv6
         while True:
             try:
-                addresses = self._getaddrinfo(self.params.host,
-                                              self.params.port,
-                                              0, socket.SOCK_STREAM,
-                                              socket.IPPROTO_TCP)
+                addresses = self._getaddrinfo(
+                    self.params.host, self.params.port, 0, socket.SOCK_STREAM,
+                    socket.IPPROTO_TCP)
                 break
             except _SOCKET_ERROR as error:
                 if error.errno == errno.EINTR:
                     continue
 
-                LOGGER.critical('Could not get addresses to use: %s (%s)', error,
-                                self.params.host)
+                LOGGER.critical('Could not get addresses to use: %s (%s)',
+                                error, self.params.host)
                 return error
 
         # If the socket is created and connected, continue on
@@ -205,6 +203,7 @@ class BaseConnection(connection.Connection):
             sock_addr_tuple[0], sock_addr_tuple[1], sock_addr_tuple[2])
         self.socket.setsockopt(SOL_TCP, socket.TCP_NODELAY, 1)
         self.socket.settimeout(self.params.socket_timeout)
+        pika.tcp_socket_opts.set_sock_opts(self.params.tcp_options, self.socket)
 
         # Wrap socket if using SSL
         if self.params.ssl:
@@ -221,8 +220,7 @@ class BaseConnection(connection.Connection):
             self.socket.connect(sock_addr_tuple[4])
         except socket.timeout:
             error = 'Connection to %s:%s failed: timeout' % (
-                sock_addr_tuple[4][0], sock_addr_tuple[4][1]
-            )
+                sock_addr_tuple[4][0], sock_addr_tuple[4][1])
             LOGGER.error(error)
             return error
         except _SOCKET_ERROR as error:
@@ -238,8 +236,7 @@ class BaseConnection(connection.Connection):
                 self._do_ssl_handshake()
             except ssl.SSLError as error:
                 error = 'SSL connection to %s:%s failed: %s' % (
-                    sock_addr_tuple[4][0], sock_addr_tuple[4][1], error
-                )
+                    sock_addr_tuple[4][0], sock_addr_tuple[4][1], error)
                 LOGGER.error(error)
                 return error
         # Made it this far
@@ -398,7 +395,7 @@ class BaseConnection(connection.Connection):
             self._handle_read()
 
         if (self.socket and write_only and (events & self.READ) and
-                (events & self.ERROR)):
+            (events & self.ERROR)):
             error_msg = ('BAD libc:  Write-Only but Read+Error. '
                          'Assume socket disconnected.')
             LOGGER.error(error_msg)
@@ -446,8 +443,7 @@ class BaseConnection(connection.Connection):
         if not data or data == 0:
             LOGGER.error('Read empty data, calling disconnect')
             return self._on_terminate(
-                connection.InternalCloseReasons.SOCKET_ERROR,
-                "EOF")
+                connection.InternalCloseReasons.SOCKET_ERROR, "EOF")
 
         # Pass the data into our top level frame dispatching method
         self._on_data_available(data)
@@ -491,7 +487,6 @@ class BaseConnection(connection.Connection):
 
         return total_bytes_sent
 
-
     def _init_connection_state(self):
         """Initialize or reset all of our internal state variables for a given
         connection. If we disconnect and reconnect, all of our state needs to
@@ -525,6 +520,5 @@ class BaseConnection(connection.Connection):
 
         """
         ssl_options = self.params.ssl_options or {}
-        return ssl.wrap_socket(sock,
-                               do_handshake_on_connect=self.DO_HANDSHAKE,
-                               **ssl_options)
+        return ssl.wrap_socket(
+            sock, do_handshake_on_connect=self.DO_HANDSHAKE, **ssl_options)
