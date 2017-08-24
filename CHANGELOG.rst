@@ -97,7 +97,7 @@ parameters channel, method, properties, and body instead of a tuple of those
 values for congruence with other similar callbacks.
 
 `BlockingConnection`: This adapter underwent a makeover under the hood and
-gained significant performance improvements as well as ehnanced timer
+gained significant performance improvements as well as enhanced timer
 resolution. It is now implemented as a client of the `SelectConnection` adapter.
 
 Below is an overview of the `BlockingConnection` and `BlockingChannel` API
