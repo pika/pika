@@ -2045,7 +2045,7 @@ class BlockingChannel(object):
 
         :returns: True if delivery confirmation is not enabled (NEW in pika
             0.10.0); otherwise returns False if the message could not be
-            deliveved (Basic.nack and/or Basic.Return) and True if the message
+            delivered (Basic.nack and/or Basic.Return) and True if the message
             was delivered (Basic.ack and no Basic.Return)
         """
         try:
