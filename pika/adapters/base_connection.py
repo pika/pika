@@ -16,6 +16,29 @@ try:
 except AttributeError:
     SOL_TCP = 6
 
+try:
+    SOL_SOCKET = socket.SOL_SOCKET
+except:
+    SOL_SOCKET = 65535
+
+try:
+    SO_KEEPALIVE = socket.SO_KEEPALIVE
+except AttributeError:
+    SO_KEEPALIVE = 8
+
+try:
+    TCP_USER_TIMEOUT = socket.TCP_USER_TIMEOUT
+except AttributeError:
+    TCP_USER_TIMEOUT = 18
+
+try:
+    TCP_KEEPIDLE = socket.TCP_KEEPIDLE
+    TCP_KEEPINTVL = socket.TCP_KEEPINTVL
+    TCP_KEEPCNT = socket.TCP_KEEPCNT
+except AttributeError:
+    TCP_KEEPIDLE = 4
+    TCP_KEEPINTVL = 5
+    TCP_KEEPCNT = 6
 
 if pika.compat.PY2:
     _SOCKET_ERROR = socket.error
@@ -34,6 +57,13 @@ class BaseConnection(connection.Connection):
     READ = 0x0001
     WRITE = 0x0004
     ERROR = 0x0008
+
+    _SUPPORTED_TCP_OPTIONS = {
+        'TCP_KEEPIDLE': TCP_KEEPIDLE,
+        'TCP_KEEPCNT': TCP_KEEPCNT,
+        'TCP_KEEPINTVL': TCP_KEEPINTVL,
+        'TCP_USER_TIMEOUT': TCP_USER_TIMEOUT
+    }
 
     ERRORS_TO_ABORT = [errno.EBADF, errno.ECONNABORTED, errno.EPIPE,
                        errno.ETIMEDOUT]
@@ -196,6 +226,20 @@ class BaseConnection(connection.Connection):
             self.socket.close()
             self.socket = None
 
+    def _set_tcp_opts(self, sock):
+        """Set socket TCP options"""
+        sock.setsockopt(SOL_SOCKET, SO_KEEPALIVE, 1)
+
+        if not self.params.tcp_options:
+            return
+
+        for key, value in self.params.tcp_options.items():
+            option = self._SUPPORTED_TCP_OPTIONS.get(key)
+            if option:
+                sock.setsockopt(SOL_TCP, option, value)
+            else:
+                LOGGER.error('Unsupported TCP option %s:%s', key, value)
+
     def _create_and_connect_to_socket(self, sock_addr_tuple):
         """Create socket and connect to it, using SSL if enabled.
 
@@ -205,6 +249,7 @@ class BaseConnection(connection.Connection):
             sock_addr_tuple[0], sock_addr_tuple[1], sock_addr_tuple[2])
         self.socket.setsockopt(SOL_TCP, socket.TCP_NODELAY, 1)
         self.socket.settimeout(self.params.socket_timeout)
+        self._set_tcp_opts(self.socket)
 
         # Wrap socket if using SSL
         if self.params.ssl:
