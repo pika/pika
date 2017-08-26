@@ -16,6 +16,12 @@ import socket
 import pika
 from pika.adapters import base_connection
 
+# If this is missing, set it manually. We need it to test tcp opt setting.
+try:
+    socket.TCP_KEEPIDLE
+except AttributeError:
+    socket.TCP_KEEPIDLE = 4
+
 
 class BaseConnectionTests(unittest.TestCase):
 
@@ -43,15 +49,18 @@ class BaseConnectionTests(unittest.TestCase):
         self.assertEqual(params.tcp_options, tcp_options)
 
         with mock.patch('pika.connection.Connection.connect'):
-            conn = base_connection.BaseConnection(parameters=params)
-            sock_mock = mock.Mock()
-            conn._set_tcp_opts(sock_mock)
+            with mock.patch.dict(
+                    'pika.adapters.base_connection.SUPPORTED_TCP_OPTIONS',
+                    {'TCP_KEEPIDLE': socket.TCP_KEEPIDLE}):
+                conn = base_connection.BaseConnection(parameters=params)
+                sock_mock = mock.Mock()
+                conn._set_tcp_opts(sock_mock)
 
-            expected = [
-                mock.call.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1),
-                mock.call.setsockopt(socket.SOL_TCP, socket.TCP_KEEPIDLE, 60)
-            ]
-            self.assertEquals(sock_mock.method_calls, expected)
+                expected = [
+                    mock.call.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1),
+                    mock.call.setsockopt(socket.SOL_TCP, socket.TCP_KEEPIDLE, 60)
+                ]
+                self.assertEquals(sock_mock.method_calls, expected)
 
     def test_tcp_options_with_invalid_tcp_options(self):
 
