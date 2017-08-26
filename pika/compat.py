@@ -1,5 +1,6 @@
 import os
 import sys as _sys
+import platform
 
 PY2 = _sys.version_info < (3,)
 PY3 = not PY2
@@ -129,6 +130,16 @@ def as_bytes(value):
     return value
 
 
+def get_linux_version():
+    if platform.system() != 'Linux':
+        return None
+
+    ver_str = platform.release().split('-')[0]
+    return tuple(map(int, ver_str.split('.')[:3]))
+
+
 HAVE_SIGNAL = os.name == 'posix'
 
 EINTR_IS_EXPOSED = _sys.version_info[:2] <= (3,4)
+
+LINUX_VERSION = get_linux_version()

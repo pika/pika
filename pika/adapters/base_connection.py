@@ -11,34 +11,25 @@ import ssl
 import pika.compat
 from pika import connection
 
+SUPPORTED_TCP_OPTIONS = {}
+
 try:
     SOL_TCP = socket.SOL_TCP
 except AttributeError:
     SOL_TCP = 6
 
 try:
-    SOL_SOCKET = socket.SOL_SOCKET
-except:
-    SOL_SOCKET = 65535
+    SUPPORTED_TCP_OPTIONS['TCP_USER_TIMEOUT'] = socket.TCP_USER_TIMEOUT
+except AttributeError:
+    if pika.compat.LINUX_VERSION and pika.compat.LINUX_VERSION >= (2,6,37):
+        SUPPORTED_TCP_OPTIONS['TCP_USER_TIMEOUT'] = 18
 
 try:
-    SO_KEEPALIVE = socket.SO_KEEPALIVE
+    SUPPORTED_TCP_OPTIONS['TCP_KEEPIDLE'] = socket.TCP_KEEPIDLE
+    SUPPORTED_TCP_OPTIONS['TCP_KEEPCNT'] = socket.TCP_KEEPCNT
+    SUPPORTED_TCP_OPTIONS['TCP_KEEPINTVL'] = socket.TCP_KEEPINTVL
 except AttributeError:
-    SO_KEEPALIVE = 8
-
-try:
-    TCP_USER_TIMEOUT = socket.TCP_USER_TIMEOUT
-except AttributeError:
-    TCP_USER_TIMEOUT = 18
-
-try:
-    TCP_KEEPIDLE = socket.TCP_KEEPIDLE
-    TCP_KEEPINTVL = socket.TCP_KEEPINTVL
-    TCP_KEEPCNT = socket.TCP_KEEPCNT
-except AttributeError:
-    TCP_KEEPIDLE = 4
-    TCP_KEEPINTVL = 5
-    TCP_KEEPCNT = 6
+    pass
 
 if pika.compat.PY2:
     _SOCKET_ERROR = socket.error
@@ -57,13 +48,6 @@ class BaseConnection(connection.Connection):
     READ = 0x0001
     WRITE = 0x0004
     ERROR = 0x0008
-
-    _SUPPORTED_TCP_OPTIONS = {
-        'TCP_KEEPIDLE': TCP_KEEPIDLE,
-        'TCP_KEEPCNT': TCP_KEEPCNT,
-        'TCP_KEEPINTVL': TCP_KEEPINTVL,
-        'TCP_USER_TIMEOUT': TCP_USER_TIMEOUT
-    }
 
     ERRORS_TO_ABORT = [errno.EBADF, errno.ECONNABORTED, errno.EPIPE,
                        errno.ETIMEDOUT]
@@ -228,17 +212,17 @@ class BaseConnection(connection.Connection):
 
     def _set_tcp_opts(self, sock):
         """Set socket TCP options"""
-        sock.setsockopt(SOL_SOCKET, SO_KEEPALIVE, 1)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
 
         if not self.params.tcp_options:
             return
 
         for key, value in self.params.tcp_options.items():
-            option = self._SUPPORTED_TCP_OPTIONS.get(key)
+            option = SUPPORTED_TCP_OPTIONS.get(key)
             if option:
                 sock.setsockopt(SOL_TCP, option, value)
             else:
-                LOGGER.error('Unsupported TCP option %s:%s', key, value)
+                LOGGER.warning('Unsupported TCP option %s:%s', key, value)
 
     def _create_and_connect_to_socket(self, sock_addr_tuple):
         """Create socket and connect to it, using SSL if enabled.

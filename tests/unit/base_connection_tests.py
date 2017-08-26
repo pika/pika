@@ -12,6 +12,7 @@ try:
 except ImportError:
     import unittest
 
+import socket
 import pika
 from pika.adapters import base_connection
 
@@ -37,7 +38,7 @@ class BaseConnectionTests(unittest.TestCase):
 
     def test_tcp_options_with_dict_tcp_options(self):
 
-        tcp_options = dict(TCP_USER_TIMEOUT=1000)
+        tcp_options = dict(TCP_KEEPIDLE=60)
         params = pika.ConnectionParameters(tcp_options=tcp_options)
         self.assertEqual(params.tcp_options, tcp_options)
 
@@ -47,8 +48,8 @@ class BaseConnectionTests(unittest.TestCase):
             conn._set_tcp_opts(sock_mock)
 
             expected = [
-                mock.call.setsockopt(65535, 8, 1),  # TCP_SOCKET, SO_KEEPALIVE, 1
-                mock.call.setsockopt(6, 18, 1000)   # SOL_TCP, TCP_USER_TIMEOUT, 1000
+                mock.call.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1),
+                mock.call.setsockopt(socket.SOL_TCP, socket.TCP_KEEPIDLE, 60)
             ]
             self.assertEquals(sock_mock.method_calls, expected)
 
@@ -64,7 +65,7 @@ class BaseConnectionTests(unittest.TestCase):
             conn._set_tcp_opts(sock_mock)
 
             expected = [
-                mock.call.setsockopt(65535, 8, 1),  # TCP_SOCKET, SO_KEEPALIVE, 1
+                mock.call.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1),
             ]
             self.assertEquals(sock_mock.method_calls, expected)
 
@@ -79,7 +80,7 @@ class BaseConnectionTests(unittest.TestCase):
             conn._set_tcp_opts(sock_mock)
 
             expected = [
-                mock.call.setsockopt(65535, 8, 1)  # TCP_SOCKET, SO_KEEPALIVE, 1
+                mock.call.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1),
             ]
             self.assertEquals(sock_mock.method_calls, expected)
 
