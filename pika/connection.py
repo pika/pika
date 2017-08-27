@@ -183,7 +183,7 @@ class Parameters(object):  # pylint: disable=R0902
     @property
     def backpressure_detection(self):
         """
-        :returns: boolean indicatating whether backpressure detection is
+        :returns: boolean indicating whether backpressure detection is
             enabled. Defaults to `DEFAULT_BACKPRESSURE_DETECTION`.
 
         """
@@ -192,7 +192,7 @@ class Parameters(object):  # pylint: disable=R0902
     @backpressure_detection.setter
     def backpressure_detection(self, value):
         """
-        :param bool value: boolean indicatating whether to enable backpressure
+        :param bool value: boolean indicating whether to enable backpressure
             detection
 
         """
@@ -468,7 +468,7 @@ class Parameters(object):  # pylint: disable=R0902
         """
         :param float value: socket timeout value; NOTE: this is mostly unused
            now, owing to switchover to to non-blocking socket setting after
-           initial socket conection establishment.
+           initial socket connection establishment.
 
         """
         if value is not None:
@@ -603,7 +603,7 @@ class ConnectionParameters(Parameters):
             `reason_code` of `InternalCloseReasons.BLOCKED_CONNECTION_TIMEOUT`.
         :type blocked_connection_timeout: None, int, float
         :param client_properties: None or dict of client properties used to
-            override the fields in the default client poperties reported to
+            override the fields in the default client properties reported to
             RabbitMQ via `Connection.StartOk` method.
         :param heartbeat_interval: DEPRECATED; use `heartbeat` instead, and
             don't pass both
@@ -699,7 +699,7 @@ class URLParameters(Parameters):
             Override the default maximum channel count value
         - client_properties:
             dict of client properties used to override the fields in the default
-            client poperties reported to RabbitMQ via `Connection.StartOk`
+            client properties reported to RabbitMQ via `Connection.StartOk`
             method
         - connection_attempts:
             Specify how many times pika should try and reconnect before it gives up
@@ -752,7 +752,7 @@ class URLParameters(Parameters):
         # Fix up scheme amqp(s) to http(s) so urlparse won't barf on python
         # prior to 2.7. On Python 2.6.9,
         # `urlparse('amqp://127.0.0.1/%2f?socket_timeout=1')` produces an
-        # incorect path='/%2f?socket_timeout=1'
+        # incorrect path='/%2f?socket_timeout=1'
         if url[0:4].lower() == 'amqp':
             url = 'http' + url[4:]
 

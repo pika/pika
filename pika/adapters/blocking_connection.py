@@ -95,7 +95,7 @@ class _CallbackResult(object):
         self._ready = True
 
     def set_value_once(self, *args, **kwargs):
-        """ Set as ready with value; the value may be retrived via the `value`
+        """ Set as ready with value; the value may be retrieved via the `value`
         property getter
 
         :raises AssertionError: if result was already set
@@ -696,7 +696,7 @@ class BlockingConnection(object):
             seconds. The actual blocking time depends on the granularity of the
             underlying ioloop. Zero means return as soon as possible. None means
             there is no limit on processing time and the function will block
-            until I/O produces actionalable events. Defaults to 0 for backward
+            until I/O produces actionable events. Defaults to 0 for backward
             compatibility. This parameter is NEW in pika 0.10.0.
         """
         with self._acquire_event_dispatch() as dispatch_acquired:
@@ -1077,7 +1077,7 @@ class BlockingChannel(object):
         'BlockingChannel__OnMessageConfirmationReportArgs',
         'method_frame')
 
-    # Parameters for broker-inititated Channel.Close request: reply_code
+    # Parameters for broker-initiated Channel.Close request: reply_code
     # holds the broker's non-zero error code and reply_text holds the
     # corresponding error message text.
     _OnChannelClosedByBrokerArgs = namedtuple(
