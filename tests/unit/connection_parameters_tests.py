@@ -276,11 +276,17 @@ class ParametersTests(_ParametersTestsBase):
         params.port = 5672
         self.assertEqual(params.port, 5672)
 
-        with self.assertRaises(TypeError):
-            params.port = 1.5
+        params.port = '5672'
+        self.assertEqual(params.port, 5672)
+
+        params.port = 1.5
+        self.assertEqual(params.port, 1)
 
         with self.assertRaises(TypeError):
-            params.port = '5672'
+            params.port = '50a'
+
+        with self.assertRaises(TypeError):
+            params.port = []
 
     def test_retry_delay(self):
         params = connection.Parameters()
@@ -453,7 +459,7 @@ class ConnectionParametersTests(_ParametersTestsBase):
         }
         # Test Type Errors
         for bad_field, bad_value in (
-                ('host', 15672), ('port', '5672'), ('virtual_host', True),
+                ('host', 15672), ('port', '5672a'), ('virtual_host', True),
                 ('channel_max', '4'), ('frame_max', '5'),
                 ('credentials', 'bad'), ('locale', 1),
                 ('heartbeat', '6'), ('socket_timeout', '42'),

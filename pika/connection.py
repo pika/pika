@@ -428,9 +428,10 @@ class Parameters(object):  # pylint: disable=R0902
         :param int value: port number of broker's listening socket
 
         """
-        if not isinstance(value, numbers.Integral):
+        try:
+            self._port = int(value)
+        except (TypeError, ValueError):
             raise TypeError('port must be an int, but got %r' % (value,))
-        self._port = value
 
     @property
     def retry_delay(self):
