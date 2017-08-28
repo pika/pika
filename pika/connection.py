@@ -546,13 +546,17 @@ class Parameters(object):  # pylint: disable=R0902
 
     @property
     def tcp_options(self):
+        """
+        :returns: None or a dict of options to pass to the underlying socket
+        """
         return self._tcp_options
 
     @tcp_options.setter
     def tcp_options(self, value):
         """
-        :param bool value: None or a dict of options to pass to
-            socket as tcp options
+        :param bool value: None or a dict of options to pass to the underlying
+            socket. Currently supported are TCP_KEEPIDLE, TCP_KEEPINTVL, TCP_KEEPCNT
+            and TCP_USER_TIMEOUT. Availability of these may depend on your platform.
         """
         if not isinstance(value, (dict, type(None))):
             raise TypeError('tcp_options must be a dict or None, but got %r' %
@@ -749,7 +753,7 @@ class URLParameters(Parameters):
             expires before connection becomes unblocked, the connection will be
             torn down, triggering the connection's on_close_callback
         - tcp_options:
-            Set the tcp options for the socket.
+            Set the tcp options for the underlying socket.
 
     :param str url: The AMQP URL to connect to
 
