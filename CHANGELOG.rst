@@ -36,7 +36,7 @@
    deprecated. pika.connection.Parameters.frame_max property setter now raises
    the standard `ValueError` exception when the value is out of bounds.
  - Removed deprecated parameter `type` in `Channel.exchange_declare` and
-   `BlockingChannel.exchnage_declare` in favor of the `exchange_type` arg that
+   `BlockingChannel.exchange_declare` in favor of the `exchange_type` arg that
    doesn't overshadow the builtin `type` keyword.
  - Channel.close() on OPENING channel transitions it to CLOSING instead of
    raising ChannelClosed.
