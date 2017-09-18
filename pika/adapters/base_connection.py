@@ -11,11 +11,25 @@ import ssl
 import pika.compat
 from pika import connection
 
+SUPPORTED_TCP_OPTIONS = {}
+
 try:
     SOL_TCP = socket.SOL_TCP
 except AttributeError:
     SOL_TCP = 6
 
+try:
+    SUPPORTED_TCP_OPTIONS['TCP_USER_TIMEOUT'] = socket.TCP_USER_TIMEOUT
+except AttributeError:
+    if pika.compat.LINUX_VERSION and pika.compat.LINUX_VERSION >= (2,6,37):
+        SUPPORTED_TCP_OPTIONS['TCP_USER_TIMEOUT'] = 18
+
+try:
+    SUPPORTED_TCP_OPTIONS['TCP_KEEPIDLE'] = socket.TCP_KEEPIDLE
+    SUPPORTED_TCP_OPTIONS['TCP_KEEPCNT'] = socket.TCP_KEEPCNT
+    SUPPORTED_TCP_OPTIONS['TCP_KEEPINTVL'] = socket.TCP_KEEPINTVL
+except AttributeError:
+    pass
 
 if pika.compat.PY2:
     _SOCKET_ERROR = socket.error
@@ -196,6 +210,20 @@ class BaseConnection(connection.Connection):
             self.socket.close()
             self.socket = None
 
+    def _set_tcp_opts(self, sock):
+        """Set socket TCP options"""
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+
+        if not self.params.tcp_options:
+            return
+
+        for key, value in self.params.tcp_options.items():
+            option = SUPPORTED_TCP_OPTIONS.get(key)
+            if option:
+                sock.setsockopt(SOL_TCP, option, value)
+            else:
+                LOGGER.warning('Unsupported TCP option %s:%s', key, value)
+
     def _create_and_connect_to_socket(self, sock_addr_tuple):
         """Create socket and connect to it, using SSL if enabled.
 
@@ -205,6 +233,7 @@ class BaseConnection(connection.Connection):
             sock_addr_tuple[0], sock_addr_tuple[1], sock_addr_tuple[2])
         self.socket.setsockopt(SOL_TCP, socket.TCP_NODELAY, 1)
         self.socket.settimeout(self.params.socket_timeout)
+        self._set_tcp_opts(self.socket)
 
         # Wrap socket if using SSL
         if self.params.ssl:

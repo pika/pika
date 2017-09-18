@@ -12,8 +12,15 @@ try:
 except ImportError:
     import unittest
 
+import socket
 import pika
 from pika.adapters import base_connection
+
+# If this is missing, set it manually. We need it to test tcp opt setting.
+try:
+    socket.TCP_KEEPIDLE
+except AttributeError:
+    socket.TCP_KEEPIDLE = 4
 
 
 class BaseConnectionTests(unittest.TestCase):
@@ -34,6 +41,57 @@ class BaseConnectionTests(unittest.TestCase):
             return True
 
         self.assertRaises(ValueError, base_connection.BaseConnection, foo)
+
+    def test_tcp_options_with_dict_tcp_options(self):
+
+        tcp_options = dict(TCP_KEEPIDLE=60)
+        params = pika.ConnectionParameters(tcp_options=tcp_options)
+        self.assertEqual(params.tcp_options, tcp_options)
+
+        with mock.patch('pika.connection.Connection.connect'):
+            with mock.patch.dict(
+                    'pika.adapters.base_connection.SUPPORTED_TCP_OPTIONS',
+                    {'TCP_KEEPIDLE': socket.TCP_KEEPIDLE}):
+                conn = base_connection.BaseConnection(parameters=params)
+                sock_mock = mock.Mock()
+                conn._set_tcp_opts(sock_mock)
+
+                expected = [
+                    mock.call.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1),
+                    mock.call.setsockopt(socket.SOL_TCP, socket.TCP_KEEPIDLE, 60)
+                ]
+                self.assertEquals(sock_mock.method_calls, expected)
+
+    def test_tcp_options_with_invalid_tcp_options(self):
+
+        tcp_options = dict(TCP_EVIL_OPTION=1234)
+        params = pika.ConnectionParameters(tcp_options=tcp_options)
+        self.assertEqual(params.tcp_options, tcp_options)
+
+        with mock.patch('pika.connection.Connection.connect'):
+            conn = base_connection.BaseConnection(parameters=params)
+            sock_mock = mock.Mock()
+            conn._set_tcp_opts(sock_mock)
+
+            expected = [
+                mock.call.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1),
+            ]
+            self.assertEquals(sock_mock.method_calls, expected)
+
+    def test_tcp_options_with_none_tcp_options(self):
+
+        params = pika.ConnectionParameters(tcp_options=None)
+        self.assertIsNone(params.tcp_options)
+
+        with mock.patch('pika.connection.Connection.connect'):
+            conn = base_connection.BaseConnection(parameters=params)
+            sock_mock = mock.Mock()
+            conn._set_tcp_opts(sock_mock)
+
+            expected = [
+                mock.call.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1),
+            ]
+            self.assertEquals(sock_mock.method_calls, expected)
 
     def test_ssl_wrap_socket_with_none_ssl_options(self):
 

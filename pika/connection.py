@@ -68,7 +68,7 @@ class Parameters(object):  # pylint: disable=R0902
     :param bool ssl: `DEFAULT_SSL`
     :param dict ssl_options: `DEFAULT_SSL_OPTIONS`
     :param str virtual_host: `DEFAULT_VIRTUAL_HOST`
-
+    :param int tcp_options: `DEFAULT_TCP_OPTIONS`
     """
 
     # Declare slots to protect against accidental assignment of an invalid
@@ -89,7 +89,8 @@ class Parameters(object):  # pylint: disable=R0902
         '_socket_timeout',
         '_ssl',
         '_ssl_options',
-        '_virtual_host'
+        '_virtual_host',
+        '_tcp_options'
     )
 
     DEFAULT_USERNAME = 'guest'
@@ -113,6 +114,7 @@ class Parameters(object):  # pylint: disable=R0902
     DEFAULT_SSL_OPTIONS = None
     DEFAULT_SSL_PORT = 5671
     DEFAULT_VIRTUAL_HOST = '/'
+    DEFAULT_TCP_OPTIONS = None
 
     DEFAULT_HEARTBEAT_INTERVAL = DEFAULT_HEARTBEAT_TIMEOUT # DEPRECATED
 
@@ -169,6 +171,9 @@ class Parameters(object):  # pylint: disable=R0902
 
         self._virtual_host = None
         self.virtual_host = self.DEFAULT_VIRTUAL_HOST
+
+        self._tcp_options = None
+        self.tcp_options = self.DEFAULT_TCP_OPTIONS
 
     def __repr__(self):
         """Represent the info about the instance.
@@ -540,6 +545,25 @@ class Parameters(object):  # pylint: disable=R0902
             raise TypeError('virtual_host must be a str, but got %r' % (value,))
         self._virtual_host = value
 
+    @property
+    def tcp_options(self):
+        """
+        :returns: None or a dict of options to pass to the underlying socket
+        """
+        return self._tcp_options
+
+    @tcp_options.setter
+    def tcp_options(self, value):
+        """
+        :param bool value: None or a dict of options to pass to the underlying
+            socket. Currently supported are TCP_KEEPIDLE, TCP_KEEPINTVL, TCP_KEEPCNT
+            and TCP_USER_TIMEOUT. Availability of these may depend on your platform.
+        """
+        if not isinstance(value, (dict, type(None))):
+            raise TypeError('tcp_options must be a dict or None, but got %r' %
+                            (value,))
+        self._tcp_options = value
+
 
 class ConnectionParameters(Parameters):
     """Connection parameters object that is passed into the connection adapter
@@ -571,6 +595,7 @@ class ConnectionParameters(Parameters):
                  backpressure_detection=_DEFAULT,
                  blocked_connection_timeout=_DEFAULT,
                  client_properties=_DEFAULT,
+                 tcp_options=_DEFAULT,
                  **kwargs):
         """Create a new ConnectionParameters instance. See `Parameters` for
         default values.
@@ -608,7 +633,7 @@ class ConnectionParameters(Parameters):
             RabbitMQ via `Connection.StartOk` method.
         :param heartbeat_interval: DEPRECATED; use `heartbeat` instead, and
             don't pass both
-
+        :param tcp_options: None or a dict of TCP options to set for socket
         """
         super(ConnectionParameters, self).__init__()
 
@@ -676,6 +701,9 @@ class ConnectionParameters(Parameters):
         if virtual_host is not self._DEFAULT:
             self.virtual_host = virtual_host
 
+        if tcp_options is not self._DEFAULT:
+            self.tcp_options = tcp_options
+
         if kwargs:
             raise TypeError('Unexpected kwargs: %r' % (kwargs,))
 
@@ -725,6 +753,8 @@ class URLParameters(Parameters):
             (triggered by Connection.Blocked from broker); if the timeout
             expires before connection becomes unblocked, the connection will be
             torn down, triggering the connection's on_close_callback
+        - tcp_options:
+            Set the tcp options for the underlying socket.
 
     :param str url: The AMQP URL to connect to
 
@@ -904,6 +934,10 @@ class URLParameters(Parameters):
     def _set_url_ssl_options(self, value):
         """Deserialize and apply the corresponding query string arg"""
         self.ssl_options = ast.literal_eval(value)
+
+    def _set_url_tcp_options(self, value):
+        """Deserialize and apply the corresponding query string arg"""
+        self.tcp_options = ast.literal_eval(value)
 
 
 class Connection(object):
