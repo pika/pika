@@ -1859,19 +1859,6 @@ class Connection(object):
         > - The client responds and **MAY reduce those limits** for its
             connection
 
-        When negotiating heartbeat timeout, the reasoning needs to be reversed.
-        The way I think it makes sense to interpret this rule for heartbeats is
-        that the consumable resource is the frequency of heartbeats, which is
-        the inverse of the timeout. The more frequent heartbeats consume more
-        resources than less frequent heartbeats. So, when both heartbeat
-        timeouts are non-zero, we should pick the max heartbeat timeout rather
-        than the min. The heartbeat timeout value 0 (zero) has a special
-        meaning - it's supposed to disable the timeout. This makes zero a
-        setting for the least frequent heartbeats (i.e., never); therefore, if
-        any (or both) of the two is zero, then the above rules would suggest
-        that negotiation should yield 0 value for heartbeat, effectively turning
-        it off.
-
         :param client_value: None to accept server_value; otherwise, an integral
             number in seconds; 0 (zero) to disable heartbeat.
         :param server_value: integral value of the heartbeat timeout proposed by
@@ -1887,9 +1874,7 @@ class Connection(object):
             # least frequent heartbeat value there is
             timeout = 0
         else:
-            # Pick the one with the bigger heartbeat timeout (i.e., the less
-            # frequent one)
-            timeout = max(client_value, server_value)
+            timeout = client_value
 
         return timeout
 

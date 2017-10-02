@@ -589,7 +589,7 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
         #Test
         self.connection._on_connection_tune(method_frame)
         #verfy
-        self.assertEqual(60, self.connection.params.heartbeat)
+        self.assertEqual(20, self.connection.params.heartbeat)
 
         # Repeat with user deferring to server's heartbeat timeout
         method_frame.method.heartbeat = 500
