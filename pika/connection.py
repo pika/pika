@@ -1421,17 +1421,6 @@ class Connection(object):
             if not (chan.is_closing or chan.is_closed):
                 chan.close(reply_code, reply_text)
 
-    def _combine(self, val1, val2):
-        """Pass in two values, if a is 0, return b otherwise if b is 0,
-        return a. If neither case matches return the smallest value.
-
-        :param int val1: The first value
-        :param int val2: The second value
-        :rtype: int
-
-        """
-        return min(val1, val2) or (val1 or val2)
-
     def _connect(self):
         """Attempt to connect to RabbitMQ
 
@@ -1849,6 +1838,31 @@ class Connection(object):
             self._set_connection_state(self.CONNECTION_CLOSED)
 
     @staticmethod
+    def _negotiate_integer_value(client_value, server_value):
+        """Negotiates two values. If either of them is 0 or None,
+        returns the other one. If both are positive integers, returns the
+        smallest one.
+
+        :param int client_value: The client value
+        :param int server_value: The server value
+        :rtype: int
+
+        """
+        if client_value == None:
+            client_value = 0
+        if server_value == None:
+            server_value = 0
+
+        # this is consistent with how Java client and Bunny
+        # perform negotiation, see pika/pika#874
+        if client_value == 0 or server_value == 0:
+            val = max(client_value, server_value)
+        else:
+            val = min(client_value, server_value)
+
+        return val
+
+    @staticmethod
     def _tune_heartbeat_timeout(client_value, server_value):
         """ Determine heartbeat timeout per AMQP 0-9-1 rules
 
@@ -1869,12 +1883,8 @@ class Connection(object):
         if client_value is None:
             # Accept server's limit
             timeout = server_value
-        elif client_value == 0 or server_value == 0:
-            # 0 has a special meaning "disable heartbeats", which makes it the
-            # least frequent heartbeat value there is
-            timeout = 0
         else:
-            timeout = client_value
+            timeout = Connection._negotiate_integer_value(client_value, server_value)
 
         return timeout
 
@@ -1890,10 +1900,10 @@ class Connection(object):
         self._set_connection_state(self.CONNECTION_TUNE)
 
         # Get our max channels, frames and heartbeat interval
-        self.params.channel_max = self._combine(self.params.channel_max,
-                                                method_frame.method.channel_max)
-        self.params.frame_max = self._combine(self.params.frame_max,
-                                              method_frame.method.frame_max)
+        self.params.channel_max = Connection._negotiate_integer_value(self.params.channel_max,
+                                                                      method_frame.method.channel_max)
+        self.params.frame_max = Connection._negotiate_integer_value(self.params.frame_max,
+                                                                    method_frame.method.frame_max)
 
         # Negotiate heatbeat timeout
         self.params.heartbeat = self._tune_heartbeat_timeout(

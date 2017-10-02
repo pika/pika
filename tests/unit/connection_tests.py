@@ -577,13 +577,17 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
                          self.connection.connection_state)
         self.assertEqual(20, self.connection.params.channel_max)
         self.assertEqual(10000, self.connection.params.frame_max)
-        self.assertEqual(20, self.connection.params.heartbeat)
+        self.assertEqual(10, self.connection.params.heartbeat)
         self.assertEqual(9992, self.connection._body_max_length)
-        heartbeat_checker.assert_called_once_with(self.connection, 20)
+        heartbeat_checker.assert_called_once_with(self.connection, 10)
         self.assertEqual(['ab'], list(self.connection.outbound_buffer))
         self.assertEqual('hearbeat obj', self.connection.heartbeat)
 
-        # Repeat with smaller user heartbeat than broker
+        # The negotiation tests below are based on the behavior RabbitMQ
+        # Java and Ruby (Bunny) clients have had for a while.
+        # See pika/pika#874.
+
+        # Both client and server values are non-0, pick whichever is smaller
         method_frame.method.heartbeat = 60
         self.connection.params.heartbeat = 20
         #Test
@@ -591,7 +595,7 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
         #verfy
         self.assertEqual(20, self.connection.params.heartbeat)
 
-        # Repeat with user deferring to server's heartbeat timeout
+        # Client value is None, use the server's
         method_frame.method.heartbeat = 500
         self.connection.params.heartbeat = None
         #Test
@@ -599,7 +603,15 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
         #verfy
         self.assertEqual(500, self.connection.params.heartbeat)
 
-        # Repeat with user deferring to server's disabled heartbeat value
+        # Client value is 0, use the server's
+        method_frame.method.heartbeat = 60
+        self.connection.params.heartbeat = 0
+        #Test
+        self.connection._on_connection_tune(method_frame)
+        #verfy
+        self.assertEqual(60, self.connection.params.heartbeat)
+
+        # Server value is 0, client value is None
         method_frame.method.heartbeat = 0
         self.connection.params.heartbeat = None
         #Test
@@ -607,29 +619,21 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
         #verfy
         self.assertEqual(0, self.connection.params.heartbeat)
 
-        # Repeat with user-disabled heartbeat
-        method_frame.method.heartbeat = 60
+        # Both client and server values are 0
+        method_frame.method.heartbeat = 0
         self.connection.params.heartbeat = 0
         #Test
         self.connection._on_connection_tune(method_frame)
         #verfy
         self.assertEqual(0, self.connection.params.heartbeat)
 
-        # Repeat with server-disabled heartbeat
+        # Server value is 0, use the client's
         method_frame.method.heartbeat = 0
         self.connection.params.heartbeat = 60
         #Test
         self.connection._on_connection_tune(method_frame)
         #verfy
-        self.assertEqual(0, self.connection.params.heartbeat)
-
-        # Repeat with both user/server disabled heartbeats
-        method_frame.method.heartbeat = 0
-        self.connection.params.heartbeat = 0
-        #Test
-        self.connection._on_connection_tune(method_frame)
-        #verfy
-        self.assertEqual(0, self.connection.params.heartbeat)
+        self.assertEqual(60, self.connection.params.heartbeat)
 
     def test_on_connection_closed(self):
         """make sure connection close sends correct frames"""
