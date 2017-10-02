@@ -62,7 +62,8 @@ class _ParametersTestsBase(unittest.TestCase):
             'socket_timeout': kls.DEFAULT_SOCKET_TIMEOUT,
             'ssl': kls.DEFAULT_SSL,
             'ssl_options': kls.DEFAULT_SSL_OPTIONS,
-            'virtual_host': kls.DEFAULT_VIRTUAL_HOST
+            'virtual_host': kls.DEFAULT_VIRTUAL_HOST,
+            'tcp_options': kls.DEFAULT_TCP_OPTIONS
         }
 
         # Make sure we didn't miss anything
@@ -367,6 +368,19 @@ class ParametersTests(_ParametersTestsBase):
         with self.assertRaises(TypeError):
             params.virtual_host = 99
 
+    def test_tcp_options(self):
+        params = connection.Parameters()
+
+        opt = dict(TCP_KEEPIDLE=60, TCP_KEEPINTVL=2, TCP_KEEPCNT=1, TCP_USER_TIMEOUT=1000)
+        params.tcp_options = copy.deepcopy(opt)
+        self.assertEqual(params.tcp_options, opt)
+
+        params.tcp_options = None
+        self.assertIsNone(params.tcp_options)
+
+        with self.assertRaises(TypeError):
+            params.tcp_options = str(opt)
+
 
 class ConnectionParametersTests(_ParametersTestsBase):
     def test_default_property_values(self):
@@ -415,6 +429,7 @@ class ConnectionParametersTests(_ParametersTestsBase):
             'ssl': True,
             'ssl_options': {'ssl': 'options'},
             'virtual_host': u'vvhost',
+            'tcp_options': {'TCP_USER_TIMEOUT': 1000}
         }
         params = connection.ConnectionParameters(**kwargs)
 
@@ -543,7 +558,8 @@ class URLParametersTests(_ParametersTestsBase):
             'locale': 'en_UK',
             'retry_delay': 3,
             'socket_timeout': 100.5,
-            'ssl_options': {'ssl': 'options'}
+            'ssl_options': {'ssl': 'options'},
+            'tcp_options': {'TCP_USER_TIMEOUT': 1000, 'TCP_KEEPIDLE': 60}
         }
 
         for backpressure in ('t', 'f'):
