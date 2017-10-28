@@ -448,7 +448,7 @@ class BlockingConnection(object):
         is_done = (lambda:
                    self._closed_result.ready or
                    (not self._impl.outbound_buffer and
-                    (not waiters or any(ready() for ready in  waiters))))
+                    (not waiters or any(ready() for ready in waiters))))
 
         # Process I/O until our completion condition is satisified
         while not is_done():
@@ -756,7 +756,6 @@ class BlockingConnection(object):
 
             # Drive I/O until Channel.Open-ok
             channel._flush_output(opened_args.is_ready)
-
 
         return channel
 
@@ -1148,7 +1147,7 @@ class BlockingChannel(object):
             one_shot=False)
 
         self._impl.add_callback(
-            self._channel_closed_by_broker_result.set_value_once,
+            self._on_channel_closed,
             replies=[pika.spec.Channel.Close],
             one_shot=True)
 
@@ -1296,6 +1295,25 @@ class BlockingChannel(object):
         self._pending_events.append(evt)
         self.connection._request_channel_dispatch(self.channel_number)
 
+
+    def _on_channel_closed(self, method_frame):
+        """Called by impl when a channel is closed by the broker
+        via Channel.Close
+
+        :param pika.Channel channel: channel closed by the
+            `spec.Channel.Close` method
+        :param int reply_code: The reply code sent via Channel.Close
+        :param str reply_text: The reply text sent via Channel.Close
+
+        """
+        LOGGER.debug('_on_channel_closed_by_broker %s', method_frame)
+        self._channel_closed_by_broker_result.set_value_once(method_frame)
+        channel_number = method_frame.channel_number
+        self.connection._request_channel_dispatch(-channel_number)
+        self._cleanup()
+        method = method_frame.method
+        raise exceptions.ChannelClosed(method.reply_code,
+                 method.reply_text)
 
     def _on_consumer_cancelled_by_broker(self, method_frame):
         """Called by impl when broker cancels consumer via Basic.Cancel.
@@ -1452,7 +1470,6 @@ class BlockingChannel(object):
             notification with the call signature: callback(method_frame)
             where method_frame is of type `pika.frame.Method` with method of
             type `spec.Basic.Cancel`
-
 
         """
         self._impl.callbacks.add(self.channel_number,

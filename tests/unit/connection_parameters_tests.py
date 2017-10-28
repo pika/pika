@@ -313,6 +313,9 @@ class ParametersTests(_ParametersTestsBase):
         params.socket_timeout = 60.5
         self.assertEqual(params.socket_timeout, 60.5)
 
+        params.socket_timeout = None
+        self.assertEqual(params.socket_timeout, None)
+
         with self.assertRaises(TypeError):
             params.socket_timeout = '60.5'
 

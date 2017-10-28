@@ -129,7 +129,7 @@ class Channel(object):
     def add_on_close_callback(self, callback):
         """Pass a callback function that will be called when the channel is
         closed. The callback function will receive the channel, the
-        reply_code (int) and the reply_text (int) describing why the channel was
+        reply_code (int) and the reply_text (string) describing why the channel was
         closed.
 
         If the channel is closed by broker via Channel.Close, the callback will
