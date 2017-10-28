@@ -8,6 +8,7 @@
 pika.iml
 codegen
 pika.egg-info
+debug/
 examples/pika
 examples/blocking/pika
 atlassian*xml
