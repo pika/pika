@@ -1616,6 +1616,9 @@ class BlockingChannel(object):
             # If channel was closed, self._consumer_infos will be empty
             if consumer_tag in self._consumer_infos:
                 del self._consumer_infos[consumer_tag]
+                # Schedule termination of connection.process_data_events using a
+                # negative channel number
+                self.connection._request_channel_dispatch(-self.channel_number)
             raise
 
         # NOTE: Consumer could get cancelled by broker immediately after opening
@@ -1719,6 +1722,9 @@ class BlockingChannel(object):
             # NOTE: The entry could be purged if channel or connection closes
             if consumer_tag in self._consumer_infos:
                 del self._consumer_infos[consumer_tag]
+                # Schedule termination of connection.process_data_events using a
+                # negative channel number
+                self.connection._request_channel_dispatch(-self.channel_number)
 
     def _remove_pending_deliveries(self, consumer_tag):
         """Extract _ConsumerDeliveryEvt objects destined for the given consumer
