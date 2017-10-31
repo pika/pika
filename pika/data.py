@@ -119,8 +119,12 @@ def encode_value(pieces, value):
         pieces.append(struct.pack('>cq', b'l', value))
         return 9
     elif isinstance(value, int):
-        pieces.append(struct.pack('>ci', b'I', value))
-        return 5
+        try:
+            pieces.append(struct.pack('>ci', b'I', value))
+            return 5
+        except struct.error:
+            pieces.append(struct.pack('>cq', b'l', long(value)))
+            return 9
     elif isinstance(value, decimal.Decimal):
         value = value.normalize()
         if value.as_tuple().exponent < 0:
