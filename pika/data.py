@@ -5,7 +5,8 @@ import calendar
 from datetime import datetime
 
 from pika import exceptions
-from pika.compat import unicode_type, PY2, long, as_bytes
+from pika.compat import PY2, PY3
+from pika.compat import unicode_type, long, as_bytes
 
 
 def encode_short_string(pieces, value):
@@ -62,7 +63,11 @@ else:
         """
         length = struct.unpack_from('B', encoded, offset)[0]
         offset += 1
-        value = encoded[offset:offset + length].decode('utf8')
+        value = encoded[offset:offset + length]
+        try:
+            value = value.decode('utf8')
+        except UnicodeDecodeError:
+            pass
         offset += length
         return value, offset
 
@@ -259,7 +264,11 @@ def decode_value(encoded, offset):
     elif kind == b'S':
         length = struct.unpack_from('>I', encoded, offset)[0]
         offset += 4
-        value = encoded[offset:offset + length].decode('utf8')
+        value = encoded[offset:offset + length]
+        try:
+            value = value.decode('utf8')
+        except UnicodeDecodeError:
+            pass
         offset += length
 
     # Field Array
