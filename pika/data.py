@@ -2,6 +2,8 @@
 import struct
 import decimal
 import calendar
+import warnings
+
 from datetime import datetime
 
 from pika import exceptions
@@ -124,8 +126,16 @@ def encode_value(pieces, value):
         pieces.append(struct.pack('>cq', b'l', value))
         return 9
     elif isinstance(value, int):
-        pieces.append(struct.pack('>ci', b'I', value))
-        return 5
+        with warnings.catch_warnings():
+            warnings.filterwarnings('error')
+            try:
+                p = struct.pack('>ci', b'I', value)
+                pieces.append(p)
+                return 5
+            except (struct.error, DeprecationWarning):
+                p = struct.pack('>cq', b'l', long(value))
+                pieces.append(p)
+                return 9
     elif isinstance(value, decimal.Decimal):
         value = value.normalize()
         if value.as_tuple().exponent < 0:
