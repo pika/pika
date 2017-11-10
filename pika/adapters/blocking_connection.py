@@ -1659,8 +1659,9 @@ class BlockingChannel(object):
         try:
             consumer_info = self._consumer_infos[consumer_tag]
         except KeyError:
-            LOGGER.warning("User is attempting to cancel an unknown consumer=%s; "
-                        "already cancelled by user or broker?", consumer_tag)
+            LOGGER.warning(
+                "User is attempting to cancel an unknown consumer=%s; "
+                "already cancelled by user or broker?", consumer_tag)
             return []
 
         try:
