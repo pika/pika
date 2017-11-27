@@ -1275,7 +1275,7 @@ class BlockingChannel(object):
         assert isinstance(properties, pika.spec.BasicProperties), (
             properties)
 
-        LOGGER.warn(
+        LOGGER.warning(
             "Published message was returned: _delivery_confirmation=%s; "
             "channel=%s; method=%r; properties=%r; body_size=%d; "
             "body_prefix=%.255r", self._delivery_confirmation,
@@ -1659,8 +1659,9 @@ class BlockingChannel(object):
         try:
             consumer_info = self._consumer_infos[consumer_tag]
         except KeyError:
-            LOGGER.warn("User is attempting to cancel an unknown consumer=%s; "
-                        "already cancelled by user or broker?", consumer_tag)
+            LOGGER.warning(
+                "User is attempting to cancel an unknown consumer=%s; "
+                "already cancelled by user or broker?", consumer_tag)
             return []
 
         try:
@@ -2131,7 +2132,7 @@ class BlockingChannel(object):
                 if isinstance(conf_method, pika.spec.Basic.Nack):
                     # Broker was unable to process the message due to internal
                     # error
-                    LOGGER.warn(
+                    LOGGER.warning(
                         "Message was Nack'ed by broker: nack=%r; channel=%s; "
                         "exchange=%s; routing_key=%s; mandatory=%r; "
                         "immediate=%r", conf_method, self.channel_number,
