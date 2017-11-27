@@ -1,8 +1,16 @@
 Version History
 ===============
 
-Next Release
-------------
+0.11.1 2017-11-27
+-----------------
+
+`GitHub milestone <https://github.com/pika/pika/milestone/10>`_
+
+- Fix `BlockingConnection` to ensure event loop exits (`PR <https://github.com/pika/pika/pull/887>`_)
+- Heartbeat timeouts will use the client value if specified (`PR <https://github.com/pika/pika/pull/874>`_)
+- Allow setting some common TCP options (`PR <https://github.com/pika/pika/pull/880>`_)
+- Errors when decoding Unicode are ignored (`PR <https://github.com/pika/pika/pull/890>`_)
+- Fix large number encoding (`PR <https://github.com/pika/pika/pull/888>`_)
 
 0.11.0 2017-07-29
 -----------------
