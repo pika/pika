@@ -13,3 +13,6 @@ class UtilsTests(unittest.TestCase):
 
     def test_get_linux_version_short(self):
         self.assertEqual(compat.get_linux_version("4.11.0"), (4, 11, 0))
+
+    def test_get_linux_version_gcp(self):
+        self.assertEqual(compat.get_linux_version("4.4.64+"), (4, 4, 64))
