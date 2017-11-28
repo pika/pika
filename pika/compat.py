@@ -131,6 +131,7 @@ def as_bytes(value):
 
 def get_linux_version(release_str):
     ver_str = release_str.split('-')[0]
+    ver_str = ver_str[:-1] if ver_str[-1] == '+' else ver_str
     return tuple(map(int, ver_str.split('.')[:3]))
 
 
