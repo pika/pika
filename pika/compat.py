@@ -1,9 +1,12 @@
 import os
 import sys as _sys
 import platform
+import re
 
 PY2 = _sys.version_info < (3,)
 PY3 = not PY2
+RE_NUM = re.compile(r'(\d+).+')
+
 
 if not PY2:
     # these were moved around for Python 3
@@ -129,10 +132,16 @@ def as_bytes(value):
     return value
 
 
+def to_digit(value):
+    if value.isdigit():
+        return int(value)
+    match = RE_NUM.match(value)
+    return int(match.groups()[0]) if match else 0
+
+
 def get_linux_version(release_str):
     ver_str = release_str.split('-')[0]
-    ver_str = ver_str[:-1] if ver_str[-1] == '+' else ver_str
-    return tuple(map(int, ver_str.split('.')[:3]))
+    return tuple(map(to_digit, ver_str.split('.')[:3]))
 
 
 HAVE_SIGNAL = os.name == 'posix'
