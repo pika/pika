@@ -1,10 +1,21 @@
 Version History
 ===============
 
+0.11.2 2017-11-30
+-----------------
+
+`GitHub milestone <https://github.com/pika/pika/milestone/11>`_
+
+`0.11.2 <https://github.com/pika/pika/compare/0.11.1...0.11.2>`_
+
+- Remove `+` character from platform releases string (`PR <https://github.com/pika/pika/pull/895>`_)
+
 0.11.1 2017-11-27
 -----------------
 
 `GitHub milestone <https://github.com/pika/pika/milestone/10>`_
+
+`0.11.1 <https://github.com/pika/pika/compare/0.11.0...0.11.1>`_
 
 - Fix `BlockingConnection` to ensure event loop exits (`PR <https://github.com/pika/pika/pull/887>`_)
 - Heartbeat timeouts will use the client value if specified (`PR <https://github.com/pika/pika/pull/874>`_)
@@ -15,9 +26,9 @@ Version History
 0.11.0 2017-07-29
 -----------------
 
-`0.11.0 <https://github.com/pika/pika/compare/0.10.0...0.11.0>`_
-
 `GitHub milestone <https://github.com/pika/pika/milestone/9>`_
+
+`0.11.0 <https://github.com/pika/pika/compare/0.10.0...0.11.0>`_
 
  - Simplify Travis CI configuration for OS X.
  - Add `asyncio` connection adapter for Python 3.4 and newer.
@@ -52,7 +63,7 @@ Version History
    deprecated. pika.connection.Parameters.frame_max property setter now raises
    the standard `ValueError` exception when the value is out of bounds.
  - Removed deprecated parameter `type` in `Channel.exchange_declare` and
-   `BlockingChannel.exchnage_declare` in favor of the `exchange_type` arg that
+   `BlockingChannel.exchange_declare` in favor of the `exchange_type` arg that
    doesn't overshadow the builtin `type` keyword.
  - Channel.close() on OPENING channel transitions it to CLOSING instead of
    raising ChannelClosed.
@@ -73,9 +84,9 @@ Version History
 
 `0.10.0 <https://github.com/pika/pika/compare/0.9.14...0.10.0>`_
 
- - LibevConnection: Fixed dict chgd size during iteration (Michael Laing)
- - SelectConnection: Fixed KeyError exceptions in IOLoop timeout executions (Shinji Suzuki)
- - BlockingConnection: Add support to make BlockingConnection a Context Manager (@reddec)
+ - a9bf96d - LibevConnection: Fixed dict chgd size during iteration (Michael Laing)
+ - 388c55d - SelectConnection: Fixed KeyError exceptions in IOLoop timeout executions (Shinji Suzuki)
+ - 4780de3 - BlockingConnection: Add support to make BlockingConnection a Context Manager (@reddec)
 
 0.10.0b2 2015-07-15
 -------------------
@@ -113,7 +124,7 @@ parameters channel, method, properties, and body instead of a tuple of those
 values for congruence with other similar callbacks.
 
 `BlockingConnection`: This adapter underwent a makeover under the hood and
-gained significant performance improvements as well as ehnanced timer
+gained significant performance improvements as well as enhanced timer
 resolution. It is now implemented as a client of the `SelectConnection` adapter.
 
 Below is an overview of the `BlockingConnection` and `BlockingChannel` API
@@ -257,7 +268,7 @@ changes:
  - d235989 - Be more specific when calling getaddrinfo (Gavin M. Roy)
  - b5d1b31 - Reflect the method name change in pika.callback (Gavin M. Roy)
  - df7d3b7 - Cleanup BlockingConnection in a few places (Gavin M. Roy)
- - cd98e1c - Rename method due to use in BlockingConnection (Gavin M. Roy)
+ - cd99e1c - Rename method due to use in BlockingConnection (Gavin M. Roy)
  - 7e0d1b3 - Use google style with yapf instead of pep8 (Gavin M. Roy)
  - 7dc9bab - Refactor socket writing to not use sendall #481 (Gavin M. Roy)
  - 4838789 - Dont log the fd #521 (Gavin M. Roy)
@@ -297,7 +308,6 @@ changes:
  - 765139e - Lower default TIMEOUT to 0.01 (bra-fsn)
  - 6cc22a5 - Fix confirmation on reconnects (bra-fsn)
  - f4faf0a - asynchronous publisher and subscriber examples refactored to follow the StepDown rule (Riccardo Cirimelli)
-
 
 0.9.14 - 2014-07-11
 -------------------

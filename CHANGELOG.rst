@@ -1,7 +1,21 @@
+Version History
+===============
+
+0.11.2 2017-11-30
+-----------------
+
+`GitHub milestone <https://github.com/pika/pika/milestone/11>`_
+
+`0.11.2 <https://github.com/pika/pika/compare/0.11.1...0.11.2>`_
+
+- Remove `+` character from platform releases string (`PR <https://github.com/pika/pika/pull/895>`_)
+
 0.11.1 2017-11-27
 -----------------
 
 `GitHub milestone <https://github.com/pika/pika/milestone/10>`_
+
+`0.11.1 <https://github.com/pika/pika/compare/0.11.0...0.11.1>`_
 
 - Fix `BlockingConnection` to ensure event loop exits (`PR <https://github.com/pika/pika/pull/887>`_)
 - Heartbeat timeouts will use the client value if specified (`PR <https://github.com/pika/pika/pull/874>`_)
@@ -13,6 +27,8 @@
 -----------------
 
 `GitHub milestone <https://github.com/pika/pika/milestone/9>`_
+
+`0.11.0 <https://github.com/pika/pika/compare/0.10.0...0.11.0>`_
 
  - Simplify Travis CI configuration for OS X.
  - Add `asyncio` connection adapter for Python 3.4 and newer.
@@ -169,6 +185,9 @@ changes:
   - `BlockingChannel.open`: removed in favor of having a single mechanism for
     creating a channel (`BlockingConnection.channel`); this reduces maintenance
     burden, while improving reliability of the adapter.
+  - `BlockingChannel.confirm_delivery`: raises UnroutableError when unroutable
+    messages that were sent prior to this call are returned before we receive
+    Confirm.Select-ok.
   - `BlockingChannel.basic_publish: always returns True when delivery
     confirmation is not enabled (publisher-acks = off); the legacy implementation
     returned a bool in this case if `mandatory=True` to indicate whether the
