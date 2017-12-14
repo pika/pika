@@ -43,7 +43,7 @@ class GeventConnection(BaseConnection):
             on_open_callback,
             on_open_error_callback,
             on_close_callback,
-            ioloop=GeventFakeIOLoop(),
+            GeventFakeIOLoop(),
         )
 
     def add_timeout(self, deadline, callback_method):
@@ -68,6 +68,9 @@ class GeventConnection(BaseConnection):
         """
         timer = timeout_id
         timer.stop()
+
+    def _on_connect_timer(self):
+        gevent.spawn(super(GeventConnection, self)._on_connect_timer)
 
     def _adapter_connect(self):
         """Connect and read data in a Greenlet object
@@ -94,6 +97,13 @@ class GeventConnection(BaseConnection):
                 self._handle_read()
             except:
                 raise Exception("socke read error")
+
+    def _flush_outbound(self):
+        """Override BaseConnection._flush_outbound to send all bufferred data
+        the Twisted way, by writing to the transport. No need for buffering,
+        Twisted handles that for us.
+        """
+        self._handle_write()
 
     def _manage_event_state(self):
         """No need manage event state, connection works like in a block mode.
