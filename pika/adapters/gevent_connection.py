@@ -6,13 +6,13 @@ from pika.adapters import BaseConnection
 from pika.heartbeat import HeartbeatChecker
 
 
-class PikaGeventHeartbeatChecker(HeartbeatChecker):
+class _GeventHeartbeatChecker(HeartbeatChecker):
     def send_and_check(self):
         """Send and check heartbeat in a Greenlet object"""
-        gevent.spawn(super(PikaGeventHeartbeatChecker, self).send_and_check)
+        gevent.spawn(super(_GeventHeartbeatChecker, self).send_and_check)
 
 
-class PikaGeventConnection(BaseConnection):
+class GeventConnection(BaseConnection):
     """ A standard Pika connection adapter for gevent.
 
         :param pika.connection.Parameters parameters: Connection parameters
@@ -27,12 +27,13 @@ class PikaGeventConnection(BaseConnection):
                  on_open_error_callback=None,
                  on_close_callback=None):
         self.connected = False
-        super(PikaGeventConnection, self).__init__(
+        super(GeventConnection, self).__init__(
             parameters,
             on_open_callback,
             on_open_error_callback,
             on_close_callback
         )
+
 
     def add_timeout(self, deadline, callback_method):
         """Add the callback_method to gevent hub to fire after deadline
@@ -61,7 +62,7 @@ class PikaGeventConnection(BaseConnection):
         """Connect and read data in a Greenlet object
 
         """
-        error = super(PikaGeventConnection, self)._adapter_connect()
+        error = super(GeventConnection, self)._adapter_connect()
         if not error:
             self.socket.setblocking(1)
             self.connected = True
@@ -73,7 +74,7 @@ class PikaGeventConnection(BaseConnection):
 
         """
         self.connected = False
-        super(PikaGeventConnection, self)._adapter_disconnect()
+        super(GeventConnection, self)._adapter_disconnect()
 
     def _read_loop(self):
         """A read loop run in a Greenlet object if the connection is connected
@@ -92,8 +93,8 @@ class PikaGeventConnection(BaseConnection):
         """Create a heartbeat checker instance if there is a heartbeat interval
         set.
 
-        :rtype: PikaGeventHeartbeatChecker
+        :rtype: _GeventHeartbeatChecker
 
         """
         if self.params.heartbeat is not None and self.params.heartbeat > 0:
-            return PikaGeventHeartbeatChecker(self, self.params.heartbeat)
+            return _GeventHeartbeatChecker(self, self.params.heartbeat)

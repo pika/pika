@@ -8,6 +8,11 @@ Tests for pika.adapters.tornado_connection
 """
 
 try:
+    from gevent import monkey
+except ImportError:
+    monkey = None
+
+try:
     import mock
 except ImportError:
     from unittest import mock
@@ -24,10 +29,11 @@ except ImportError:
 
 
 class GeventConnectionTests(unittest.TestCase):
-
+    @unittest.skipIf(monkey is None, 'requires gevent')
     @mock.patch('pika.adapters.base_connection.BaseConnection.__init__')
     def test_gevent_connection_call_parent(self, mock_init):
-        obj = gevent_connection.PikaGeventConnection()
+        monkey.patch_all()
+        obj = gevent_connection.GeventConnection()
         mock_init.assert_called_once_with(
             None, None, None, None,
             False)

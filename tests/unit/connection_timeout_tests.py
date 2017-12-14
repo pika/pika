@@ -39,6 +39,10 @@ try:
     from pika.adapters import libev_connection
 except ImportError:
     libev_connection = None
+try:
+    from pika.adapters import gevent_connection
+except ImportError:
+    gevent_connection = None
 
 from pika import exceptions
 
@@ -144,6 +148,21 @@ class ConnectionTests(unittest.TestCase):
                                     side_effect=mock_timeout))) as create_sock_mock:
                 params = pika.ConnectionParameters(socket_timeout=2.0)
                 conn = libev_connection.LibevConnection(params)
+                conn._on_connect_timer()
+        create_sock_mock.return_value.settimeout.assert_called_with(2.0)
+        self.assertIn('timeout', str(err_ctx.exception))
+
+    @unittest.skipUnless(gevent_connection is not None,
+                         'gevent is not installed')
+    def test_gevent_connection_timeout(self):
+        with self.assertRaises(exceptions.AMQPConnectionError) as err_ctx:
+            with mock.patch('pika.GeventConnection._create_tcp_connection_socket',
+                            return_value=mock.Mock(
+                                spec_set=socket.socket,
+                                connect=mock.Mock(
+                                    side_effect=mock_timeout))) as create_sock_mock:
+                params = pika.ConnectionParameters(socket_timeout=2.0)
+                conn = gevent_connection.GeventConnection(params)
                 conn._on_connect_timer()
         create_sock_mock.return_value.settimeout.assert_called_with(2.0)
         self.assertIn('timeout', str(err_ctx.exception))
