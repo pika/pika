@@ -12,7 +12,7 @@ class _GeventHeartbeatChecker(HeartbeatChecker):
         gevent.spawn(super(_GeventHeartbeatChecker, self).send_and_check)
 
 
-class GeventFakeIOLoop(object):
+class _GeventFakeIOLoop(object):
     """Fake IOLoop for gevent"""
 
     def start(self):
@@ -20,6 +20,14 @@ class GeventFakeIOLoop(object):
 
     def stop(self):
         pass
+
+
+class _GeventFakeTimer(object):
+    pass
+
+
+fakeIOLoop = _GeventFakeIOLoop()
+_fakeTimer = _GeventFakeTimer()
 
 
 class GeventConnection(BaseConnection):
@@ -37,13 +45,12 @@ class GeventConnection(BaseConnection):
                  on_open_callback=None,
                  on_open_error_callback=None,
                  on_close_callback=None):
-        self.connected = False
         super(GeventConnection, self).__init__(
             parameters,
             on_open_callback,
             on_open_error_callback,
             on_close_callback,
-            GeventFakeIOLoop(),
+            fakeIOLoop,
         )
 
     def add_timeout(self, deadline, callback_method):
@@ -55,9 +62,14 @@ class GeventConnection(BaseConnection):
         :rtype: timer instance
 
         """
-        timer = gevent.get_hub().loop.timer(deadline)
-        timer.start(callback_method)
-        return timer
+
+        if deadline:
+            timer = gevent.get_hub().loop.timer(deadline)
+            timer.start(callback_method)
+            return timer
+        else:
+            gevent.spawn(callback_method)
+            return _fakeTimer
 
     def remove_timeout(self, timeout_id):
         """Remove the timer from gevent hub using the instance returned from
@@ -67,7 +79,8 @@ class GeventConnection(BaseConnection):
 
         """
         timer = timeout_id
-        timer.stop()
+        if timer != _fakeTimer:
+            timer.stop()
 
     def _on_connect_timer(self):
         gevent.spawn(super(GeventConnection, self)._on_connect_timer)
@@ -88,15 +101,16 @@ class GeventConnection(BaseConnection):
         """
         super(GeventConnection, self)._adapter_disconnect()
 
+    def _handle_error(self, error_value):
+        if self.socket:
+            super(GeventConnection, self)._handle_error(error_value)
+
     def _read_loop(self):
         """A read loop run in a Greenlet object if the connection is connected
 
         """
         while self.socket:
-            try:
-                self._handle_read()
-            except:
-                raise Exception("socke read error")
+            self._handle_read()
 
     def _flush_outbound(self):
         """Override BaseConnection._flush_outbound to send all bufferred data

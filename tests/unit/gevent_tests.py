@@ -37,4 +37,4 @@ class GeventConnectionTests(unittest.TestCase):
         obj = gevent_connection.GeventConnection()
         mock_init.assert_called_once_with(
             None, None, None, None,
-            gevent_connection.GeventFakeIOLoop())
+            gevent_connection.fakeIOLoop)
