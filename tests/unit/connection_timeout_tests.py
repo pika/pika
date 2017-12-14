@@ -162,6 +162,8 @@ class ConnectionTests(unittest.TestCase):
                                 connect=mock.Mock(
                                     side_effect=mock_timeout))) as create_sock_mock:
                 params = pika.ConnectionParameters(socket_timeout=2.0)
+                from gevent import monkey
+                monkey.patch_all()
                 conn = gevent_connection.GeventConnection(params)
                 conn._on_connect_timer()
         create_sock_mock.return_value.settimeout.assert_called_with(2.0)
