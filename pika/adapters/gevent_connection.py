@@ -42,9 +42,9 @@ class GeventConnection(BaseConnection):
             parameters,
             on_open_callback,
             on_open_error_callback,
-            on_close_callback
+            on_close_callback,
+            ioloop=_GeventFakeIOLoop(),
         )
-        self.ioloop
 
     def add_timeout(self, deadline, callback_method):
         """Add the callback_method to gevent hub to fire after deadline
