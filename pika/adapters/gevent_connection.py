@@ -12,6 +12,16 @@ class _GeventHeartbeatChecker(HeartbeatChecker):
         gevent.spawn(super(_GeventHeartbeatChecker, self).send_and_check)
 
 
+class _GeventFakeIOLoop(object):
+    """Fake IOLoop for gevent"""
+
+    def start(self):
+        pass
+
+    def stop(self):
+        pass
+
+
 class GeventConnection(BaseConnection):
     """ A standard Pika connection adapter for gevent.
 
@@ -21,6 +31,7 @@ class GeventConnection(BaseConnection):
         :param on_open_error_callback: Method to call if the connection cant be opened
         :type on_open_error_callback: method
     """
+
     def __init__(self,
                  parameters=None,
                  on_open_callback=None,
@@ -33,6 +44,7 @@ class GeventConnection(BaseConnection):
             on_open_error_callback,
             on_close_callback
         )
+        self.ioloop
 
     def add_timeout(self, deadline, callback_method):
         """Add the callback_method to gevent hub to fire after deadline
