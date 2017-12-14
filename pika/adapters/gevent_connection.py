@@ -12,7 +12,7 @@ class _GeventHeartbeatChecker(HeartbeatChecker):
         gevent.spawn(super(_GeventHeartbeatChecker, self).send_and_check)
 
 
-class _GeventFakeIOLoop(object):
+class GeventFakeIOLoop(object):
     """Fake IOLoop for gevent"""
 
     def start(self):
@@ -43,7 +43,7 @@ class GeventConnection(BaseConnection):
             on_open_callback,
             on_open_error_callback,
             on_close_callback,
-            ioloop=_GeventFakeIOLoop(),
+            ioloop=GeventFakeIOLoop(),
         )
 
     def add_timeout(self, deadline, callback_method):
@@ -76,7 +76,6 @@ class GeventConnection(BaseConnection):
         error = super(GeventConnection, self)._adapter_connect()
         if not error:
             self.socket.setblocking(1)
-            self.connected = True
             gevent.spawn(self._read_loop)
         return error
 
@@ -84,15 +83,17 @@ class GeventConnection(BaseConnection):
         """Disconnect the connection
 
         """
-        self.connected = False
         super(GeventConnection, self)._adapter_disconnect()
 
     def _read_loop(self):
         """A read loop run in a Greenlet object if the connection is connected
 
         """
-        while self.connected:
-            self._handle_read()
+        while self.socket:
+            try:
+                self._handle_read()
+            except:
+                raise Exception("socke read error")
 
     def _manage_event_state(self):
         """No need manage event state, connection works like in a block mode.

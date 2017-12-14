@@ -36,4 +36,5 @@ class GeventConnectionTests(unittest.TestCase):
         monkey.patch_all()
         obj = gevent_connection.GeventConnection()
         mock_init.assert_called_once_with(
-            None, None, None, None)
+            None, None, None, None,
+            gevent_connection.GeventFakeIOLoop())
