@@ -97,3 +97,7 @@ class GeventConnection(BaseConnection):
         """
         if self.params.heartbeat is not None and self.params.heartbeat > 0:
             return _GeventHeartbeatChecker(self, self.params.heartbeat)
+
+    def _handle_ioloop_stop(self):
+        """DO NOTHING"""
+        pass
