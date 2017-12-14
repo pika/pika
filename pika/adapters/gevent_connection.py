@@ -2,7 +2,7 @@
 
 import gevent
 
-from pika.adapters import BaseConnection
+from pika.adapters.base_connection import BaseConnection
 from pika.heartbeat import HeartbeatChecker
 
 
@@ -33,7 +33,6 @@ class GeventConnection(BaseConnection):
             on_open_error_callback,
             on_close_callback
         )
-
 
     def add_timeout(self, deadline, callback_method):
         """Add the callback_method to gevent hub to fire after deadline
