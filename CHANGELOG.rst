@@ -1,6 +1,13 @@
 Version History
 ===============
 
+0.12.0
+-----------------
+
+`GitHub milestone <https://github.com/pika/pika/milestone/8>`_
+
+- `BlockingConnection.consume` now returns `(None, None, None)` when inactivity timeout is reached (`PR <https://github.com/pika/pika/pull/899>`_)
+
 0.11.2 2017-11-30
 -----------------
 

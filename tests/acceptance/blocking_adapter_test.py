@@ -2432,6 +2432,33 @@ class TestNoAckMessageNotRestoredToQueueOnChannelClose(BlockingTestCaseBase):
         self.assertEqual(frame.method.message_count, 0)
 
 
+class TestConsumeInactivityTimeout(BlockingTestCaseBase):
+
+    def test(self):
+        """BlockingChannel consume returns 3-tuple on inactivity timeout """
+        connection = self._connect()
+
+        ch = connection.channel()
+
+        q_name = ('TestConsumeInactivityTimeout_q' +
+                  uuid.uuid1().hex)
+
+        # Declare a new queue
+        ch.queue_declare(q_name, auto_delete=True)
+
+        # Consume, but don't ack
+        for msg in ch.consume(q_name, inactivity_timeout=0.1):
+            a, b, c = msg
+            self.assertIsNone(a)
+            self.assertIsNone(b)
+            self.assertIsNone(c)
+            break
+        else:
+            self.fail('expected (None, None, None), but got %s' % msg)
+
+        ch.close()
+
+
 class TestChannelFlow(BlockingTestCaseBase):
 
     def test(self):
