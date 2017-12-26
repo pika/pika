@@ -1820,8 +1820,8 @@ class BlockingChannel(object):
         :param bool exclusive: Don't allow other consumers on the queue
         :param dict arguments: Custom key/value pair arguments for the consumer
         :param float inactivity_timeout: if a number is given (in
-            seconds), will cause the method to yield None after the given period
-            of inactivity; this permits for pseudo-regular maintenance
+            seconds), will cause the method to yield (None, None, None) after the
+            given period of inactivity; this permits for pseudo-regular maintenance
             activities to be carried out by the user while waiting for messages
             to arrive. If None is given (default), then the method blocks until
             the next event arrives. NOTE that timing granularity is limited by
@@ -1907,7 +1907,7 @@ class BlockingChannel(object):
                 delta = wait_deadline - time.time()
                 if delta <= 0.0:
                     # Signal inactivity timeout
-                    yield None
+                    yield (None, None, None)
                     break
 
     def get_waiting_message_count(self):
