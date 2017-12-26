@@ -9,12 +9,14 @@ import socket
 import select
 import errno
 import time
-from collections import defaultdict
 import threading
 
-import pika.compat
-from pika.compat import dictkeys
+from collections import defaultdict
 
+import pika.compat
+
+from pika.compat import dictkeys
+from pika.compat import SOCKET_ERROR
 from pika.adapters.base_connection import BaseConnection
 
 LOGGER = logging.getLogger(__name__)
@@ -531,7 +533,7 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
                 # Send byte to interrupt the poll loop, use send() instead of
                 # os.write for Windows compatibility
                 self._w_interrupt.send(b'X')
-            except socket.error as err:
+            except SOCKET_ERROR as err:
                 if err.errno != errno.EWOULDBLOCK:
                     raise
             except Exception as err:
@@ -658,7 +660,7 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
             # bytes will not have the desired effect in case stop was called
             # multiple times
             self._r_interrupt.recv(512)
-        except socket.error as err:
+        except SOCKET_ERROR as err:
             if err.errno != errno.EAGAIN:
                 raise
 
