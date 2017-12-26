@@ -2,7 +2,6 @@ import logging
 import socket
 import pika.compat
 
-
 LOGGER = logging.getLogger(__name__)
 
 _SUPPORTED_TCP_OPTIONS = {}

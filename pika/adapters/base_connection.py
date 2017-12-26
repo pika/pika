@@ -15,7 +15,6 @@ from pika import connection
 from pika.compat import SOCKET_ERROR
 from pika.compat import SOL_TCP
 
-
 LOGGER = logging.getLogger(__name__)
 
 

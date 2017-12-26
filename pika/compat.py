@@ -4,11 +4,9 @@ import platform
 import re
 import socket
 
-
 PY2 = _sys.version_info < (3,)
 PY3 = not PY2
 RE_NUM = re.compile(r'(\d+).+')
-
 
 if _sys.version_info[:2] < (3, 3):
     SOCKET_ERROR = socket.error
@@ -16,12 +14,10 @@ else:
     # socket.error was deprecated and replaced by OSError in python 3.3
     SOCKET_ERROR = OSError
 
-
 try:
     SOL_TCP = socket.SOL_TCP
 except AttributeError:
     SOL_TCP = socket.IPPROTO_TCP
-
 
 if not PY2:
     # these were moved around for Python 3
