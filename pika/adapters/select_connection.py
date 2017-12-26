@@ -531,7 +531,7 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
                 # Send byte to interrupt the poll loop, use send() instead of
                 # os.write for Windows compatibility
                 self._w_interrupt.send(b'X')
-            except OSError as err:
+            except socket.error as err:
                 if err.errno != errno.EWOULDBLOCK:
                     raise
             except Exception as err:
@@ -658,7 +658,7 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
             # bytes will not have the desired effect in case stop was called
             # multiple times
             self._r_interrupt.recv(512)
-        except OSError as err:
+        except socket.error as err:
             if err.errno != errno.EAGAIN:
                 raise
 
