@@ -632,22 +632,10 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
     def _get_interrupt_pair():
         """ Use a socketpair to be able to interrupt the ioloop if called
         from another thread. Socketpair() is not supported on some OS (Win)
-        so use a pair of simple UDP sockets instead. The sockets will be
+        so use a pair of simple TCP sockets instead. The sockets will be
         closed and garbage collected by python when the ioloop itself is.
         """
-        try:
-            read_sock, write_sock = socket.socketpair()
-
-        except AttributeError:
-            LOGGER.debug("Using custom socketpair for interrupt")
-            read_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            read_sock.bind(('localhost', 0))
-            write_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            write_sock.connect(read_sock.getsockname())
-
-        read_sock.setblocking(0)
-        write_sock.setblocking(0)
-        return read_sock, write_sock
+        return socket.socketpair()
 
     def _read_interrupt(self, interrupt_fd, events):  # pylint: disable=W0613
         """ Read the interrupt byte(s). We ignore the event mask as we can ony
@@ -658,9 +646,6 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
         """
         try:
             # NOTE Use recv instead of os.read for windows compatibility
-            # TODO _r_interrupt is a DGRAM sock, so attempted reading of 512
-            # bytes will not have the desired effect in case stop was called
-            # multiple times
             self._r_interrupt.recv(512)
         except SOCKET_ERROR as err:
             if err.errno != errno.EAGAIN:
