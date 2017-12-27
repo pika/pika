@@ -4,3 +4,4 @@ mock
 nose
 tornado
 twisted<15.4.0
+gevent
