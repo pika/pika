@@ -9,12 +9,14 @@ import socket
 import select
 import errno
 import time
-from collections import defaultdict
 import threading
 
-import pika.compat
-from pika.compat import dictkeys
+from collections import defaultdict
 
+import pika.compat
+
+from pika.compat import dictkeys
+from pika.compat import SOCKET_ERROR
 from pika.adapters.base_connection import BaseConnection
 
 LOGGER = logging.getLogger(__name__)
@@ -26,7 +28,6 @@ SELECT_TYPE = None
 READ = 0x0001
 WRITE = 0x0004
 ERROR = 0x0008
-
 
 # Reason for this unconventional dict initialization is the fact that on some
 # platforms select.error is an aliases for OSError. We don't want the lambda
@@ -40,7 +41,6 @@ _SELECT_ERROR_CHECKERS[select.error] = lambda e: e.args[0] == errno.EINTR
 _SELECT_ERROR_CHECKERS[IOError] = lambda e: e.errno == errno.EINTR
 _SELECT_ERROR_CHECKERS[OSError] = lambda e: e.errno == errno.EINTR
 
-
 # We can reduce the number of elements in the list by looking at super-sub
 # class relationship because only the most generic ones needs to be caught.
 # For now the optimization is left out.
@@ -49,6 +49,7 @@ _SELECT_ERROR_CHECKERS[OSError] = lambda e: e.errno == errno.EINTR
 #                              _SELECT_ERROR_CHECKERS.keys())
 #                       + [OSError])
 _SELECT_ERRORS = tuple(_SELECT_ERROR_CHECKERS.keys())
+
 
 def _is_resumable(exc):
     ''' Check if caught exception represents EINTR error.
@@ -59,19 +60,21 @@ def _is_resumable(exc):
     else:
         return False
 
+
 class SelectConnection(BaseConnection):
     """An asynchronous connection adapter that attempts to use the fastest
     event loop adapter for the given platform.
 
     """
 
-    def __init__(self,  # pylint: disable=R0913
-                 parameters=None,
-                 on_open_callback=None,
-                 on_open_error_callback=None,
-                 on_close_callback=None,
-                 stop_ioloop_on_close=True,
-                 custom_ioloop=None):
+    def __init__(
+            self,  # pylint: disable=R0913
+            parameters=None,
+            on_open_callback=None,
+            on_open_error_callback=None,
+            on_close_callback=None,
+            stop_ioloop_on_close=True,
+            custom_ioloop=None):
         """Create a new instance of the Connection object.
 
         :param pika.connection.Parameters parameters: Connection parameters
@@ -86,10 +89,9 @@ class SelectConnection(BaseConnection):
 
         """
         ioloop = custom_ioloop or IOLoop()
-        super(SelectConnection, self).__init__(parameters, on_open_callback,
-                                               on_open_error_callback,
-                                               on_close_callback, ioloop,
-                                               stop_ioloop_on_close)
+        super(SelectConnection, self).__init__(
+            parameters, on_open_callback, on_open_error_callback,
+            on_close_callback, ioloop, stop_ioloop_on_close)
 
     def _adapter_connect(self):
         """Connect to the RabbitMQ broker, returning True on success, False
@@ -259,7 +261,6 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
     # if the poller uses MS override with 1000
     POLL_TIMEOUT_MULT = 1
 
-
     def __init__(self):
         # fd-to-handler function mappings
         self._fd_handlers = dict()
@@ -354,9 +355,11 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
         # Run the timeouts in order of deadlines. Although this shouldn't
         # be strictly necessary it preserves old behaviour when timeouts
         # were only run periodically.
-        to_run = sorted([(k, timer) for (k, timer) in self._timeouts.items()
-                         if timer['deadline'] <= now],
-                        key=lambda item: item[1]['deadline'])
+        to_run = sorted(
+            [(k, timer)
+             for (k, timer) in self._timeouts.items()
+             if timer['deadline'] <= now],
+            key=lambda item: item[1]['deadline'])
 
         for k, timer in to_run:
             if k not in self._timeouts:
@@ -395,10 +398,11 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
         events_cleared, events_set = self._set_handler_events(fileno, events)
 
         # Inform the derived class
-        self._modify_fd_events(fileno,
-                               events=events,
-                               events_to_clear=events_cleared,
-                               events_to_set=events_set)
+        self._modify_fd_events(
+            fileno,
+            events=events,
+            events_to_clear=events_cleared,
+            events_to_set=events_set)
 
     def remove_handler(self, fileno):
         """Remove a file descriptor from the set
@@ -480,10 +484,10 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
             # sockets would get reported as leaks
             with self._mutex:
                 assert self._r_interrupt is None
-                self._r_interrupt, self._w_interrupt = self._get_interrupt_pair()
+                self._r_interrupt, self._w_interrupt = self._get_interrupt_pair(
+                )
                 self.add_handler(self._r_interrupt.fileno(),
-                                 self._read_interrupt,
-                                 READ)
+                                 self._read_interrupt, READ)
 
         else:
             LOGGER.debug('Reentering IOLoop at nesting level=%s',
@@ -531,7 +535,7 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
                 # Send byte to interrupt the poll loop, use send() instead of
                 # os.write for Windows compatibility
                 self._w_interrupt.send(b'X')
-            except OSError as err:
+            except SOCKET_ERROR as err:
                 if err.errno != errno.EWOULDBLOCK:
                     raise
             except Exception as err:
@@ -658,7 +662,7 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
             # bytes will not have the desired effect in case stop was called
             # multiple times
             self._r_interrupt.recv(512)
-        except OSError as err:
+        except SOCKET_ERROR as err:
             if err.errno != errno.EAGAIN:
                 raise
 
@@ -678,7 +682,6 @@ class SelectPoller(_PollerBase):
         """
         super(SelectPoller, self).__init__()
 
-
     def poll(self):
         """Wait for events of interest on registered file descriptors until an
         event of interest occurs or next timer deadline or _MAX_POLL_TIMEOUT,
@@ -688,12 +691,10 @@ class SelectPoller(_PollerBase):
         while True:
             try:
                 if (self._fd_events[READ] or self._fd_events[WRITE] or
-                      self._fd_events[ERROR]):
+                        self._fd_events[ERROR]):
                     read, write, error = select.select(
-                        self._fd_events[READ],
-                        self._fd_events[WRITE],
-                        self._fd_events[ERROR],
-                        self._get_next_deadline())
+                        self._fd_events[READ], self._fd_events[WRITE],
+                        self._fd_events[ERROR], self._get_next_deadline())
                 else:
                     # NOTE When called without any FDs, select fails on
                     # Windows with error 10022, 'An invalid argument was
@@ -834,10 +835,8 @@ class KQueuePoller(_PollerBase):
         :param int fileno: The file descriptor
         :param int events: The event mask using READ, WRITE, ERROR
         """
-        self._modify_fd_events(fileno,
-                               events=events,
-                               events_to_clear=0,
-                               events_to_set=events)
+        self._modify_fd_events(
+            fileno, events=events, events_to_clear=0, events_to_set=events)
 
     def _modify_fd_events(self, fileno, events, events_to_clear, events_to_set):
         """The base class invoikes this method to notify the implementation to
@@ -855,21 +854,29 @@ class KQueuePoller(_PollerBase):
         kevents = list()
 
         if events_to_clear & READ:
-            kevents.append(select.kevent(fileno,
-                                         filter=select.KQ_FILTER_READ,
-                                         flags=select.KQ_EV_DELETE))
+            kevents.append(
+                select.kevent(
+                    fileno,
+                    filter=select.KQ_FILTER_READ,
+                    flags=select.KQ_EV_DELETE))
         if events_to_set & READ:
-            kevents.append(select.kevent(fileno,
-                                         filter=select.KQ_FILTER_READ,
-                                         flags=select.KQ_EV_ADD))
+            kevents.append(
+                select.kevent(
+                    fileno,
+                    filter=select.KQ_FILTER_READ,
+                    flags=select.KQ_EV_ADD))
         if events_to_clear & WRITE:
-            kevents.append(select.kevent(fileno,
-                                         filter=select.KQ_FILTER_WRITE,
-                                         flags=select.KQ_EV_DELETE))
+            kevents.append(
+                select.kevent(
+                    fileno,
+                    filter=select.KQ_FILTER_WRITE,
+                    flags=select.KQ_EV_DELETE))
         if events_to_set & WRITE:
-            kevents.append(select.kevent(fileno,
-                                         filter=select.KQ_FILTER_WRITE,
-                                         flags=select.KQ_EV_ADD))
+            kevents.append(
+                select.kevent(
+                    fileno,
+                    filter=select.KQ_FILTER_WRITE,
+                    flags=select.KQ_EV_ADD))
 
         self._kqueue.control(kevents, 0)
 
@@ -881,10 +888,8 @@ class KQueuePoller(_PollerBase):
         :param int fileno: The file descriptor
         :param int events_to_clear: The events to clear (READ, WRITE, ERROR)
         """
-        self._modify_fd_events(fileno,
-                               events=0,
-                               events_to_clear=events_to_clear,
-                               events_to_set=0)
+        self._modify_fd_events(
+            fileno, events=0, events_to_clear=events_to_clear, events_to_set=0)
 
 
 class PollPoller(_PollerBase):

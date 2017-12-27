@@ -10,18 +10,10 @@ import ssl
 
 import pika.compat
 import pika.tcp_socket_opts
+
 from pika import connection
-
-if pika.compat.PY2:
-    _SOCKET_ERROR = socket.error
-else:
-    # socket.error was deprecated and replaced by OSError in python 3.3
-    _SOCKET_ERROR = OSError
-
-try:
-    SOL_TCP = socket.SOL_TCP
-except AttributeError:
-    SOL_TCP = socket.IPPROTO_TCP
+from pika.compat import SOCKET_ERROR
+from pika.compat import SOL_TCP
 
 LOGGER = logging.getLogger(__name__)
 
@@ -90,13 +82,13 @@ class BaseConnection(connection.Connection):
             peername = None
             try:
                 sockname = sock.getsockname()
-            except socket.error:
+            except SOCKET_ERROR:
                 # closed?
                 pass
             else:
                 try:
                     peername = sock.getpeername()
-                except socket.error:
+                except SOCKET_ERROR:
                     # not connected?
                     pass
 
@@ -156,7 +148,7 @@ class BaseConnection(connection.Connection):
                     self.params.host, self.params.port, 0, socket.SOCK_STREAM,
                     socket.IPPROTO_TCP)
                 break
-            except _SOCKET_ERROR as error:
+            except SOCKET_ERROR as error:
                 if error.errno == errno.EINTR:
                     continue
 
@@ -189,7 +181,7 @@ class BaseConnection(connection.Connection):
         if self.socket:
             try:
                 self.socket.shutdown(socket.SHUT_RDWR)
-            except _SOCKET_ERROR:
+            except SOCKET_ERROR:
                 pass
             self.socket.close()
             self.socket = None
@@ -223,7 +215,7 @@ class BaseConnection(connection.Connection):
                 sock_addr_tuple[4][0], sock_addr_tuple[4][1])
             LOGGER.error(error)
             return error
-        except _SOCKET_ERROR as error:
+        except SOCKET_ERROR as error:
             error = 'Connection to %s:%s failed: %s' % (sock_addr_tuple[4][0],
                                                         sock_addr_tuple[4][1],
                                                         error)
@@ -325,7 +317,7 @@ class BaseConnection(connection.Connection):
             LOGGER.warning('Connection is closed but not stopping IOLoop')
 
     def _handle_error(self, error_value):
-        """Internal error handling method. Here we expect a socket.error
+        """Internal error handling method. Here we expect a socket error
         coming in and will handle different socket errors differently.
 
         :param int|object error_value: The inbound error
@@ -417,7 +409,7 @@ class BaseConnection(connection.Connection):
                         data = self.socket.recv(self._buffer_size)
 
                     break
-                except _SOCKET_ERROR as error:
+                except SOCKET_ERROR as error:
                     if error.errno == errno.EINTR:
                         continue
                     else:
@@ -434,7 +426,7 @@ class BaseConnection(connection.Connection):
                 return 0
             return self._handle_error(error)
 
-        except _SOCKET_ERROR as error:
+        except SOCKET_ERROR as error:
             if error.errno in (errno.EAGAIN, errno.EWOULDBLOCK):
                 return 0
             return self._handle_error(error)
@@ -460,7 +452,7 @@ class BaseConnection(connection.Connection):
                     try:
                         num_bytes_sent = self.socket.send(frame)
                         break
-                    except _SOCKET_ERROR as error:
+                    except SOCKET_ERROR as error:
                         if error.errno == errno.EINTR:
                             continue
                         else:
@@ -478,7 +470,7 @@ class BaseConnection(connection.Connection):
             self.outbound_buffer.appendleft(frame)
             self._handle_timeout()
 
-        except _SOCKET_ERROR as error:
+        except SOCKET_ERROR as error:
             if error.errno in (errno.EAGAIN, errno.EWOULDBLOCK):
                 LOGGER.debug("Would block, requeuing frame")
                 self.outbound_buffer.appendleft(frame)
