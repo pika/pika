@@ -202,7 +202,7 @@ if not hasattr(socket, 'socketpair'):
                 else:
                     try:
                         csock.connect((addr, port))
-                    except socket.error as e:
+                    except SOCKET_ERROR as e:
                         if e.errno != errno.EWOULDBLOCK:
                             raise
                 csock.setblocking(True)
