@@ -34,7 +34,7 @@ Continuation-Passing Style
 
 Interfacing with Pika asynchronously is done by passing in callback methods you would like to have invoked when a certain event completes. For example, if you are going to declare a queue, you pass in a method that will be called when the RabbitMQ server returns a `Queue.DeclareOk <http://www.rabbitmq.com/amqp-0-9-1-quickref.html#queue.declare>`_ response.
 
-In our example below we use the following four easy steps:
+In our example below we use the following five easy steps:
 
 #. We start by creating our connection object, then starting our event loop.
 #. When we are connected, the *on_connected* method is called. In that method we create a channel.
