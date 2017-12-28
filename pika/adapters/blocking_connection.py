@@ -19,6 +19,7 @@ import contextlib
 import functools
 import logging
 import time
+import threading
 
 import pika.channel
 from pika import compat
@@ -360,6 +361,7 @@ class BlockingConnection(object):
         # NOTE: this is a workaround to detect socket error because
         # on_close_callback passes reason_code=0 when called due to socket error
         self._user_initiated_close = False
+        self.lock = threading.RLock()
 
         impl_class = _impl_class or SelectConnection
         self._impl = impl_class(
@@ -436,47 +438,48 @@ class BlockingConnection(object):
                         returning true when it's time to stop processing.
                         Their results are OR'ed together.
         """
-        if self.is_closed:
-            raise exceptions.ConnectionClosed()
+        with self.lock:
+            if self.is_closed:
+                raise exceptions.ConnectionClosed()
 
-        # Conditions for terminating the processing loop:
-        #   connection closed
-        #         OR
-        #   empty outbound buffer and no waiters
-        #         OR
-        #   empty outbound buffer and any waiter is ready
-        is_done = (lambda:
-                   self._closed_result.ready or
-                   (not self._impl.outbound_buffer and
-                    (not waiters or any(ready() for ready in waiters))))
+            # Conditions for terminating the processing loop:
+            #   connection closed
+            #         OR
+            #   empty outbound buffer and no waiters
+            #         OR
+            #   empty outbound buffer and any waiter is ready
+            is_done = (lambda:
+                       self._closed_result.ready or
+                       (not self._impl.outbound_buffer and
+                        (not waiters or any(ready() for ready in waiters))))
 
-        # Process I/O until our completion condition is satisified
-        while not is_done():
-            self._impl.ioloop.poll()
-            self._impl.ioloop.process_timeouts()
+            # Process I/O until our completion condition is satisified
+            while not is_done():
+                self._impl.ioloop.poll()
+                self._impl.ioloop.process_timeouts()
 
-        if self._open_error_result.ready or self._closed_result.ready:
-            try:
-                if not self._user_initiated_close:
-                    if self._open_error_result.ready:
-                        maybe_exception = self._open_error_result.value.error
-                        LOGGER.error('Connection open failed - %r',
-                                     maybe_exception)
-                        if isinstance(maybe_exception, Exception):
-                            raise maybe_exception
+            if self._open_error_result.ready or self._closed_result.ready:
+                try:
+                    if not self._user_initiated_close:
+                        if self._open_error_result.ready:
+                            maybe_exception = self._open_error_result.value.error
+                            LOGGER.error('Connection open failed - %r',
+                                         maybe_exception)
+                            if isinstance(maybe_exception, Exception):
+                                raise maybe_exception
+                            else:
+                                raise exceptions.ConnectionClosed(maybe_exception)
                         else:
-                            raise exceptions.ConnectionClosed(maybe_exception)
+                            result = self._closed_result.value
+                            LOGGER.error('Connection close detected; result=%r',
+                                         result)
+                            raise exceptions.ConnectionClosed(result.reason_code,
+                                                              result.reason_text)
                     else:
-                        result = self._closed_result.value
-                        LOGGER.error('Connection close detected; result=%r',
-                                     result)
-                        raise exceptions.ConnectionClosed(result.reason_code,
-                                                          result.reason_text)
-                else:
-                    LOGGER.info('Connection closed; result=%r',
-                                self._closed_result.value)
-            finally:
-                self._cleanup()
+                        LOGGER.info('Connection closed; result=%r',
+                                    self._closed_result.value)
+                finally:
+                    self._cleanup()
 
     def _request_channel_dispatch(self, channel_number):
         """Called by BlockingChannel instances to request a call to their
