@@ -15,10 +15,9 @@ import sys
 import threading
 import traceback
 
-from pika.compat import PY3
-from pika.compat import SOCKET_ERROR
+import pika.compat
 
-if PY3:
+if pika.compat.PY3:
 
     def buffer(object, offset, size):  # pylint: disable=W0622
         """array etc. have the buffer protocol"""
@@ -376,7 +375,7 @@ class _TCPHandler(SocketServer.StreamRequestHandler, object):
                    remote_dest_sock.getpeername())
         else:
             # Echo set-up
-            remote_dest_sock, remote_src_sock = socket.socketpair()
+            remote_dest_sock, remote_src_sock = pika.compat.socketpair()
 
         try:
             local_forwarder = threading.Thread(
@@ -421,7 +420,7 @@ class _TCPHandler(SocketServer.StreamRequestHandler, object):
             while True:
                 try:
                     nbytes = src_sock.recv_into(rx_buf)
-                except SOCKET_ERROR as exc:
+                except pika.compat.SOCKET_ERROR as exc:
                     if exc.errno == errno.EINTR:
                         continue
                     elif exc.errno == errno.ECONNRESET:
@@ -442,7 +441,7 @@ class _TCPHandler(SocketServer.StreamRequestHandler, object):
 
                 try:
                     dest_sock.sendall(buffer(rx_buf, 0, nbytes))
-                except SOCKET_ERROR as exc:
+                except pika.compat.SOCKET_ERROR as exc:
                     if exc.errno == errno.EPIPE:
                         # Destination peer closed its end of the connection
                         _trace("%s Destination peer %s closed its end of "
@@ -499,7 +498,7 @@ def echo(port=0):
         while True:
             try:
                 data = sock.recv(4 * 1024)  # pylint: disable=E1101
-            except SOCKET_ERROR as exc:
+            except pika.compat.SOCKET_ERROR as exc:
                 if exc.errno == errno.EINTR:
                     continue
                 else:
@@ -521,6 +520,6 @@ def _safe_shutdown_socket(sock, how=socket.SHUT_RDWR):
     """
     try:
         sock.shutdown(how)
-    except SOCKET_ERROR as exc:
+    except pika.compat.SOCKET_ERROR as exc:
         if exc.errno != errno.ENOTCONN:
             raise
