@@ -15,8 +15,6 @@ from collections import defaultdict
 
 import pika.compat
 
-from pika.compat import dictkeys
-from pika.compat import SOCKET_ERROR
 from pika.adapters.base_connection import BaseConnection
 
 LOGGER = logging.getLogger(__name__)
@@ -535,7 +533,7 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
                 # Send byte to interrupt the poll loop, use send() instead of
                 # os.write for Windows compatibility
                 self._w_interrupt.send(b'X')
-            except SOCKET_ERROR as err:
+            except pika.compat.SOCKET_ERROR as err:
                 if err.errno != errno.EWOULDBLOCK:
                     raise
             except Exception as err:
@@ -614,7 +612,7 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
 
         self._processing_fd_event_map = fd_event_map
 
-        for fileno in dictkeys(fd_event_map):
+        for fileno in pika.compat.dictkeys(fd_event_map):
             if fileno not in fd_event_map:
                 # the fileno has been removed from the map under our feet.
                 continue
@@ -635,7 +633,7 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
         so use a pair of simple TCP sockets instead. The sockets will be
         closed and garbage collected by python when the ioloop itself is.
         """
-        return socket.socketpair()
+        return pika.compat._nonblocking_socketpair()
 
     def _read_interrupt(self, interrupt_fd, events):  # pylint: disable=W0613
         """ Read the interrupt byte(s). We ignore the event mask as we can ony
@@ -647,7 +645,7 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
         try:
             # NOTE Use recv instead of os.read for windows compatibility
             self._r_interrupt.recv(512)
-        except SOCKET_ERROR as err:
+        except pika.compat.SOCKET_ERROR as err:
             if err.errno != errno.EAGAIN:
                 raise
 
