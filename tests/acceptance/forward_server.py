@@ -375,7 +375,8 @@ class _TCPHandler(SocketServer.StreamRequestHandler, object):
                    remote_dest_sock.getpeername())
         else:
             # Echo set-up
-            remote_dest_sock, remote_src_sock = pika.compat.socketpair()
+            remote_dest_sock, remote_src_sock =
+                pika.compat._nonblocking_socketpair()
 
         try:
             local_forwarder = threading.Thread(

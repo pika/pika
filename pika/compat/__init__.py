@@ -167,7 +167,12 @@ if platform.system() == 'Linux':
 _LOCALHOST = '127.0.0.1'
 _LOCALHOST_V6 = '::1'
 
-def socketpair(family=socket.AF_INET, type=socket.SOCK_STREAM, proto=0):
+def _nonblocking_socketpair(family=socket.AF_INET, type=socket.SOCK_STREAM, proto=0):
+    """
+    Returns a pair of sockets in the manner of socketpair with the additional
+    feature that they will be non-blocking. Prior to Python 3.5, socketpair
+    did not exist on Windows at all.
+    """
     if family == socket.AF_INET:
         host = _LOCALHOST
     elif family == socket.AF_INET6:
@@ -196,6 +201,10 @@ def socketpair(family=socket.AF_INET, type=socket.SOCK_STREAM, proto=0):
             raise
     finally:
         lsock.close()
+
+    # Make sockets non-blocking to prevent deadlocks
+    # See https://github.com/pika/pika/issues/917
     csock.setblocking(False)
     ssock.setblocking(False)
+
     return (ssock, csock)

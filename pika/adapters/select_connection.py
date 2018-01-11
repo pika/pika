@@ -633,7 +633,7 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
         so use a pair of simple TCP sockets instead. The sockets will be
         closed and garbage collected by python when the ioloop itself is.
         """
-        return pika.compat.socketpair()
+        return pika.compat._nonblocking_socketpair()
 
     def _read_interrupt(self, interrupt_fd, events):  # pylint: disable=W0613
         """ Read the interrupt byte(s). We ignore the event mask as we can ony
