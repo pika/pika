@@ -15,7 +15,7 @@ Example of writing a consumer using the :py:class:`Twisted connection adapter <p
 
         channel = yield connection.channel()
 
-        exchange = yield channel.exchange_declare(exchange='topic_link',type='topic')
+        exchange = yield channel.exchange_declare(exchange='topic_link', exchange_type='topic')
 
         queue = yield channel.queue_declare(queue='hello', auto_delete=False, exclusive=False)
 
