@@ -102,7 +102,7 @@ class LibevConnection(BaseConnection):
                 self.ioloop = pyev.default_loop()
                 self.ioloop.update()
 
-        self.async_watcher = None
+        self._async_watcher = None
         self._on_signal_callback = on_signal_callback
         self._io_watcher = None
         self._active_timers = {}
@@ -143,8 +143,8 @@ class LibevConnection(BaseConnection):
 
             # NOTE: if someone knows why this async is needed here, please add
             # a comment in the code that explains it.
-            self.async_watcher = pyev.Async(self.ioloop, self._noop_callable)
-            self.async_watcher.start()
+            self._async_watcher = pyev.Async(self.ioloop, self._noop_callable)
+            self._async_watcher.start()
 
             if self._on_signal_callback:
                 global_sigterm_watcher.start()
