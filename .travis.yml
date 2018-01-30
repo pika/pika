@@ -28,7 +28,7 @@ before_install:
 
 install:
 - pip install -r test-requirements.txt
-- pip install aws
+- pip install awscli
 
 before_script:
 - pip freeze
