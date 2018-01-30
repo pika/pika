@@ -5,16 +5,8 @@ pika.data tests
 """
 import datetime
 import decimal
-import platform
-try:
-    import unittest2 as unittest
-except ImportError:
-    import unittest
-
-try:
-    from collections import OrderedDict
-except ImportError:
-    from ordereddict import OrderedDict
+import unittest
+from collections import OrderedDict
 
 from pika import data
 from pika import exceptions

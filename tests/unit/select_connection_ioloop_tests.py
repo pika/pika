@@ -15,13 +15,6 @@ Tests for SelectConnection IOLoops
 import select
 
 try:
-    #pylint: disable=F0401
-    import unittest2 as unittest
-except ImportError:
-    #pylint: disable=W0404
-    import unittest
-
-try:
     #pylint: disable=F0401,E0611
     from unittest import mock
 except ImportError:
@@ -34,6 +27,7 @@ import signal
 import socket
 import time
 import threading
+import unittest
 
 import pika
 from pika.adapters import select_connection

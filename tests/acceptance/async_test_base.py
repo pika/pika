@@ -8,11 +8,7 @@ from datetime import datetime
 import select
 import sys
 import logging
-
-try:
-    import unittest2 as unittest
-except ImportError:
-    import unittest
+import unittest
 
 import platform
 _TARGET = platform.python_implementation()

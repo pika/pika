@@ -2,10 +2,7 @@
 Tests for pika.frame
 
 """
-try:
-    import unittest2 as unittest
-except ImportError:
-    import unittest
+import unittest
 
 from pika import exceptions
 from pika import frame

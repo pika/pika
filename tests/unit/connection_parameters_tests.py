@@ -7,19 +7,14 @@ Test `pika.connection.Parameters`, `pika.connection.ConnectionParameters`, and
 # pylint: disable=C0111,C0103
 
 import copy
+import unittest
 import warnings
-
-try:
-    import unittest2 as unittest
-except ImportError:
-    import unittest
 
 import pika
 from pika.compat import urlencode, url_quote, dict_iteritems
 from pika import channel
 from pika import connection
 from pika import credentials
-from pika import exceptions
 from pika import spec
 
 

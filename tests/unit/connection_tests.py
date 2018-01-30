@@ -21,10 +21,7 @@ except ImportError:
 
 import random
 import platform
-try:
-    import unittest2 as unittest
-except ImportError:
-    import unittest
+import unittest
 
 import pika
 from pika import connection

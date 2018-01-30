@@ -25,10 +25,8 @@ try:
 except ImportError:
     import mock
     from mock import patch
-try:
-    import unittest2 as unittest
-except ImportError:
-    import unittest
+
+import unittest
 
 import pika
 from pika.adapters import blocking_connection

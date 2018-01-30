@@ -285,13 +285,7 @@ class BaseConnection(connection.Connection):
         if not error_value:
             return None
 
-        if hasattr(error_value, 'errno'):  # Python >= 2.6
-            return error_value.errno
-        else:
-            # TODO this doesn't look right; error_value.args[0] ??? Could
-            # probably remove this code path since pika doesn't test against
-            # Python 2.5
-            return error_value[0]  # Python <= 2.5
+        return error_value.errno
 
     def _flush_outbound(self):
         """Have the state manager schedule the necessary I/O.

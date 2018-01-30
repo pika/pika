@@ -4,15 +4,11 @@ Tests for pika.base_connection.BaseConnection
 """
 try:
     import mock
-except:
+except ImportError:
     from unittest import mock
 
-try:
-    import unittest2 as unittest
-except ImportError:
-    import unittest
-
 import socket
+import unittest
 import pika
 import pika.tcp_socket_opts
 from pika.adapters import base_connection
