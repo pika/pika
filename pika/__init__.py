@@ -24,4 +24,3 @@ from pika.adapters import BlockingConnection
 from pika.adapters import SelectConnection
 from pika.adapters import TornadoConnection
 from pika.adapters import TwistedConnection
-from pika.adapters import LibevConnection

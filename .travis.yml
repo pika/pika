@@ -1,3 +1,5 @@
+sudo: true
+
 language: python
 
 env:
@@ -15,12 +17,6 @@ stages:
 
 services:
 - rabbitmq
-
-before_install:
-- sudo add-apt-repository "deb http://us.archive.ubuntu.com/ubuntu/ trusty main restricted universe multiverse"
-- sudo add-apt-repository "deb http://us.archive.ubuntu.com/ubuntu/ trusty-updates main restricted universe multiverse"
-- sudo apt-get update -qq
-- sudo apt-get install libev-dev/trusty
 
 install:
 - pip install -r test-requirements.txt
@@ -46,7 +42,6 @@ jobs:
    - stage: coverage
      python: 3.6
      services: []
-     before_install: []
      install:
      - pip install awscli coverage codecov
      before_script: []
@@ -62,7 +57,6 @@ jobs:
    - stage: deploy
      python: 3.6
      services: []
-     before_install: []
      install: true
      before_script: []
      script: true
