@@ -44,3 +44,8 @@ try:
     from pika.adapters.asyncio_connection import AsyncioConnection
 except ImportError:
     AsyncioConnection = None
+
+try:
+    from pika.adapters.gevent_connection import GeventConnection
+except ImportError:
+    GeventConnection = None

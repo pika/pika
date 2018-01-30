@@ -205,4 +205,11 @@ class AsyncAdapters(object):
         """LibevConnection"""
         self.start(adapters.LibevConnection)
 
+    @unittest.skipIf(adapters.GeventConnection is None, 'gevent is not installed')
+    def libev_test(self):
+        """GeventConnection"""
+        from gevent import monkey
+        monkey.patch_all()
+        self.start(adapters.GeventConnection)
+
 
