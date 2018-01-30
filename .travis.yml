@@ -31,24 +31,26 @@ stages:
    if: tag IS present
 
 services: []
-install: []
-before_script: []
-script: []
-after_success: []
+before_install: true
+install: true
+before_script: true
+script: true
+after_success: true
 
 jobs:
   include:
    - stage: test
      services:
        - rabbitmq
-     install:
-       - if [[ $TRAVIS_PYTHON_VERSION == '2.6' ]]; then pip install unittest2 ordereddict; fi
-       - pip install -r test-requirements.txt
-     before_script:
+     before_install:
        - which -a python
        - python --version
        - which pip
        - pip --version
+     install:
+       - if [[ $TRAVIS_PYTHON_VERSION == '2.6' ]]; then pip install unittest2 ordereddict; fi
+       - pip install -r test-requirements.txt
+     before_script:
        - pip freeze
        - sudo rabbitmqctl status
      script: nosetests
