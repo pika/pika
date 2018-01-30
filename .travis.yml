@@ -7,6 +7,8 @@ python:
   - 3.4
   - 3.5
   - 3.6
+  - pypy
+  - pypy3
 
 before_install:
   - sudo add-apt-repository "deb http://us.archive.ubuntu.com/ubuntu/ trusty main restricted universe multiverse"
@@ -14,35 +16,69 @@ before_install:
   - sudo apt-get update -qq
   - sudo apt-get install libev-dev/trusty
 
+env:
+  global:
+   - PATH=$HOME/.local/bin:$PATH
+   - AWS_DEFAULT_REGION=us-east-1
+   - secure: "Eghft2UgJmWuCgnqz6O+KV5F9AERzUbKIeXkcw7vsFAVdkB9z01XgqVLhQ6N+n6i8mkiRDkc0Jes6htVtO4Hi6lTTFeDhu661YCXXTFdRdsx+D9v5bgw8Q2bP41xFy0iao7otYqkzFKIo32Q2cUYzMUqXlS661Yai5DXldr3mjM="
+   - secure: "LjieH/Yh0ng5gwT6+Pl3rL7RMxxb/wOlogoLG7cS99XKdX6N4WRVFvWbHWwCxoVr0be2AcyQynu4VOn+0jC8iGfQjkJZ7UrJjZCDGWbNjAWrNcY0F9VdretFDy8Vn2sHfBXq8fINqszJkgTnmbQk8dZWUtj0m/RNVnOBeBcsIOU="
+
+install:
+ - pip install awscli
+ - pip install -r requires/testing.txt
+ - python setup.py develop
+
+stages:
+ - test
+ - name: upload_coverage
+   if: branch = master
+ - name: deploy
+   if: tag IS present
+
 install:
   - which -a python
   - python --version
   - which pip
   - pip --version
   - if [[ $TRAVIS_PYTHON_VERSION == '2.6' ]]; then pip install unittest2 ordereddict; fi
-  - if [[ $TRAVIS_PYTHON_VERSION != '2.6' ]]; then pip install pyev; fi
   - pip install -r test-requirements.txt
   - pip freeze
 
-services:
-  - rabbitmq
-
-before_script:
-  - sudo rabbitmqctl status
-
-script:
-  - nosetests
+script: nosetests
 
 after_success:
-  - codecov
+ - aws s3 cp .coverage "s3://com-gavinroy-travis/pika/$TRAVIS_BUILD_NUMBER/.coverage.${TRAVIS_PYTHON_VERSION}"
 
-deploy:
-  distributions: sdist bdist_wheel
-  provider: pypi
-  user: crad
-  on:
-    python: 2.7
-    tags: true
-    all_branches: true
-  password:
-    secure: "V/JTU/X9C6uUUVGEAWmWWbmKW7NzVVlC/JWYpo05Ha9c0YV0vX4jOfov2EUAphM0WwkD/MRhz4dq3kCU5+cjHxR3aTSb+sbiElsCpaciaPkyrns+0wT5MCMO29Lpnq2qBLc1ePR1ey5aTWC/VibgFJOL7H/3wyvukL6ZaCnktYk="
+jobs:
+  include:
+   - stage: test
+     services:
+     - rabbitmq
+     before_script:
+     - sudo rabbitmqctl status
+     script: nosetests
+   - stage: upload coverage
+     python: 3.6
+     install:
+     - pip install awscli coverage codecov
+     script:
+     - mkdir coverage
+     - aws s3 cp --recursive s3://com-gavinroy-travis/pika/$TRAVIS_BUILD_NUMBER/
+       coverage
+     - cd coverage
+     - coverage combine
+     - cd ..
+     - mv coverage/.coverage .
+     - coverage report
+     after_success: codecov
+   - stage: deploy
+     python: 3.6
+     deploy:
+       distributions: sdist bdist_wheel
+       provider: pypi
+       user: crad
+       on:
+         tags: true
+         all_branches: true
+       password:
+         secure: "V/JTU/X9C6uUUVGEAWmWWbmKW7NzVVlC/JWYpo05Ha9c0YV0vX4jOfov2EUAphM0WwkD/MRhz4dq3kCU5+cjHxR3aTSb+sbiElsCpaciaPkyrns+0wT5MCMO29Lpnq2qBLc1ePR1ey5aTWC/VibgFJOL7H/3wyvukL6ZaCnktYk="
