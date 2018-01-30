@@ -21,10 +21,6 @@ before_install:
 - sudo add-apt-repository "deb http://us.archive.ubuntu.com/ubuntu/ trusty-updates main restricted universe multiverse"
 - sudo apt-get update -qq
 - sudo apt-get install libev-dev/trusty
-- which -a python
-- python --version
-- which pip
-- pip --version
 
 install:
 - pip install -r test-requirements.txt
