@@ -46,10 +46,10 @@ jobs:
    - stage: coverage
      python: 3.6
      services: []
-     before_install: true
+     before_install: []
      install:
      - pip install awscli coverage codecov
-     brefore_script: true
+     before_script: []
      script:
      - mkdir coverage
      - aws s3 cp --recursive s3://com-gavinroy-travis/pika/$TRAVIS_BUILD_NUMBER/ coverage
@@ -62,11 +62,11 @@ jobs:
    - stage: deploy
      python: 3.6
      services: []
-     before_install: true
+     before_install: []
      install: true
-     before_script: true
+     before_script: []
      script: true
-     after_success: true
+     after_success: []
      deploy:
        distributions: sdist bdist_wheel
        provider: pypi
