@@ -5,7 +5,7 @@ import pika
 import json
 import random
 
-print(('pika version: %s') % pika.__version__)
+print('pika version: %s' % pika.__version__)
 
 connection   = pika.BlockingConnection(pika.ConnectionParameters(host='localhost'))
 main_channel = connection.channel()  

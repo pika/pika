@@ -874,7 +874,7 @@ class _ConsumerCancellationEvt(_ChannelPendingEvt):
     `Basic.Cancel`
     """
 
-    __slots__ = ('method_frame')
+    __slots__ = 'method_frame'
 
     def __init__(self, method_frame):
         """
@@ -2034,7 +2034,7 @@ class BlockingChannel(object):
                                    self._basic_getempty_result.is_ready)
                 if get_ok_result:
                     evt = get_ok_result.value
-                    return (evt.method, evt.properties, evt.body)
+                    return evt.method, evt.properties, evt.body
                 else:
                     assert self._basic_getempty_result, (
                         "wait completed without GetOk and GetEmpty")
