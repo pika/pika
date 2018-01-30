@@ -67,7 +67,6 @@ Pika provides the following adapters
 
 - AsyncioConnection  - adapter for the Python3 AsyncIO event loop
 - BlockingConnection - enables blocking, synchronous operation on top of library for simple uses
-- LibevConnection    - adapter for use with the libev event loop http://libev.schmorp.de
 - SelectConnection   - fast asynchronous adapter
 - TornadoConnection  - adapter for use with the Tornado IO Loop http://tornadoweb.org
 - TwistedConnection  - adapter for use with the Twisted asynchronous package http://twistedmatrix.com/
