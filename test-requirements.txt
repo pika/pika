@@ -1,5 +1,4 @@
 coverage
-codecov
 mock
 nose
 tornado
