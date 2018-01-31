@@ -880,7 +880,7 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
         props = spec.BasicProperties()
         body = b'b' * 1000000
 
-        self.connection._send_message(
+        self.connection._send_method(
             channel_number=1, method=method, content=(props, body))
 
         frames_sent = len(self.connection.outbound_buffer)
