@@ -2,13 +2,12 @@
 Tests for pika.base_connection.BaseConnection
 
 """
-try:
-    import mock
-except ImportError:
-    from unittest import mock
 
 import socket
 import unittest
+
+import mock
+
 import pika
 import pika.tcp_socket_opts
 from pika.adapters import base_connection
@@ -21,7 +20,6 @@ except AttributeError:
 
 
 class BaseConnectionTests(unittest.TestCase):
-
     def setUp(self):
         with mock.patch('pika.connection.Connection.connect'):
             self.connection = base_connection.BaseConnection()
@@ -33,7 +31,6 @@ class BaseConnectionTests(unittest.TestCase):
         self.assertTrue(text.startswith('<BaseConnection'), text)
 
     def test_should_raise_value_exception_with_no_params_func_instead(self):
-
         def foo():
             return True
 
@@ -45,13 +42,15 @@ class BaseConnectionTests(unittest.TestCase):
         params = pika.ConnectionParameters(tcp_options=tcp_options)
         self.assertEqual(params.tcp_options, tcp_options)
 
-        with mock.patch.dict('pika.tcp_socket_opts._SUPPORTED_TCP_OPTIONS',
-                             {'TCP_KEEPIDLE': socket.TCP_KEEPIDLE}):
+        with mock.patch.dict('pika.tcp_socket_opts._SUPPORTED_TCP_OPTIONS', {
+                'TCP_KEEPIDLE': socket.TCP_KEEPIDLE
+        }):
             sock_mock = mock.Mock()
             pika.tcp_socket_opts.set_sock_opts(params.tcp_options, sock_mock)
 
             expected = [
-                mock.call.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1),
+                mock.call.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE,
+                                     1),
                 mock.call.setsockopt(socket.SOL_TCP, socket.TCP_KEEPIDLE, 60)
             ]
             self.assertEquals(sock_mock.method_calls, expected)
