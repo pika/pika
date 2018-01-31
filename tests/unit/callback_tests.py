@@ -4,17 +4,12 @@ Tests for pika.callback
 
 """
 import logging
+import unittest
 try:
     import mock
 except ImportError:
     from unittest import mock
 
-try:
-    import unittest2 as unittest
-except ImportError:
-    import unittest
-
-from pika import amqp_object
 from pika import callback
 from pika import frame
 from pika import spec

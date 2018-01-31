@@ -12,6 +12,7 @@ Tests for pika.channel.Channel
 import collections
 import logging
 import sys
+import unittest
 import warnings
 
 try:
@@ -19,11 +20,6 @@ try:
 except ImportError:
     from unittest import mock  # pylint: disable=E0611
 
-
-try:
-    import unittest2 as unittest
-except ImportError:
-    import unittest
 
 from pika import channel
 from pika import connection

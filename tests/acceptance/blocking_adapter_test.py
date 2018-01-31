@@ -3,11 +3,7 @@ from datetime import datetime
 import logging
 import socket
 import time
-try:
-    import unittest2 as unittest
-except ImportError:
-    import unittest
-
+import unittest
 import uuid
 
 from forward_server import ForwardServer

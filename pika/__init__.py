@@ -1,15 +1,7 @@
 __version__ = '0.12.0b1'
 
 import logging
-try:
-    # not available in python 2.6
-    from logging import NullHandler
-except ImportError:
-
-    class NullHandler(logging.Handler):
-
-        def emit(self, record):
-            pass
+from logging import NullHandler
 
 # Add NullHandler to prevent logging warnings
 logging.getLogger(__name__).addHandler(NullHandler())

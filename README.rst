@@ -2,14 +2,14 @@ Pika
 ====
 Pika is a RabbitMQ (AMQP-0-9-1) client library for Python.
 
-|Version| |Status| |Coverage| |License| |Docs|
+|Version| |Python versions| |Status| |Coverage| |License| |Docs|
 
 Introduction
 -------------
 Pika is a pure-Python implementation of the AMQP 0-9-1 protocol including RabbitMQ's
 extensions.
 
-- Python 2.6+ and 3.3+ are supported.
+- Python 2.7 and 3.4+ are supported.
 
 - Since threads aren't appropriate to every situation, it doesn't
   require threads. It takes care not to forbid them, either. The same
@@ -83,6 +83,9 @@ with ``google`` style prior to issuing your pull request.
 
 .. |Version| image:: https://img.shields.io/pypi/v/pika.svg?
    :target: http://badge.fury.io/py/pika
+
+.. |Python versions| image:: https://img.shields.io/pypi/pyversions/pika.svg
+    :target: https://pypi.python.org/pypi/pika
 
 .. |Status| image:: https://img.shields.io/travis/pika/pika.svg?
    :target: https://travis-ci.org/pika/pika

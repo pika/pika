@@ -12,10 +12,7 @@ try:
 except ImportError:
     from unittest import mock
 
-try:
-    import unittest2 as unittest
-except ImportError:
-    import unittest
+import unittest
 
 try:
     from pika.adapters import tornado_connection

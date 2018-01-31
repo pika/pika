@@ -4,24 +4,15 @@ Tests for pika.adapters.blocking_connection.BlockingChannel
 
 """
 from collections import deque
-import logging
+import unittest
 
 try:
     import mock
 except ImportError:
     from unittest import mock
 
-try:
-    import unittest2 as unittest
-except ImportError:
-    import unittest
-
 from pika.adapters import blocking_connection
-from pika import callback
 from pika import channel
-from pika import exceptions
-from pika import frame
-from pika import spec
 
 BLOCKING_CHANNEL = 'pika.adapters.blocking_connection.BlockingChannel'
 BLOCKING_CONNECTION = 'pika.adapters.blocking_connection.BlockingConnection'

@@ -4,11 +4,7 @@ Tests for pika.channel.ContentFrameAssembler
 
 """
 import marshal
-
-try:
-    import unittest2 as unittest
-except ImportError:
-    import unittest
+import unittest
 
 from pika import channel
 from pika import exceptions
