@@ -5,6 +5,7 @@ codegen.py generates pika/spec.py
 from __future__ import nested_scopes
 
 import os
+import re
 import sys
 
 RABBITMQ_PUBLIC_UMBRELLA = '../../rabbitmq-public-umbrella'
@@ -17,7 +18,6 @@ print('codegen-path: %s' % CODEGEN_PATH)
 sys.path.append(CODEGEN_PATH)
 
 import amqp_codegen
-import re
 
 DRIVER_METHODS = {
     "Exchange.Bind": ["Exchange.BindOk"],
