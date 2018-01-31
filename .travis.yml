@@ -21,7 +21,7 @@ services:
 
 install:
 - pip install -r test-requirements.txt
-- pip install awscli
+- pip install awscli==1.11.18
 
 before_script:
 - pip freeze
@@ -38,6 +38,7 @@ jobs:
    - python: 3.4
    - python: 3.5
    - python: 3.6
+   - python: 3.7-dev
    - python: pypy
    - python: pypy3
    - stage: coverage
