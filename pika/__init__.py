@@ -8,6 +8,7 @@ logging.getLogger(__name__).addHandler(NullHandler())
 
 from pika.connection import ConnectionParameters
 from pika.connection import URLParameters
+from pika.connection import SSLOptions
 from pika.credentials import PlainCredentials
 from pika.spec import BasicProperties
 

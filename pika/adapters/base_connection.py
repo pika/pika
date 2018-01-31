@@ -500,11 +500,44 @@ class BaseConnection(connection.Connection):
             self.ioloop.update_handler(self.socket.fileno(), self.event_state)
 
     def _wrap_socket(self, sock):
-        """Wrap the socket for connecting over SSL.
+        """Wrap the socket for connecting over SSL. This allows the user to use
+        a dict for the usual SSL options or an SSLOptions object for more
+        advanced control.
 
         :rtype: ssl.SSLSocket
 
         """
         ssl_options = self.params.ssl_options or {}
-        return ssl.wrap_socket(
-            sock, do_handshake_on_connect=self.DO_HANDSHAKE, **ssl_options)
+        # our wrapped return sock
+        ssl_sock = None
+
+        if isinstance(ssl_options, connection.SSLOptions):
+            context = ssl.SSLContext(ssl_options.ssl_version)
+            context.verify_mode = ssl_options.verify_mode
+            if ssl_options.certfile is not None:
+                context.load_cert_chain(
+                    certfile=ssl_options.certfile,
+                    keyfile=ssl_options.keyfile,
+                    password=ssl_options.key_password)
+
+            # only one of either cafile or capath have to defined
+            if ssl_options.cafile is not None or ssl_options.capath is not None:
+                context.load_verify_locations(
+                    cafile=ssl_options.cafile,
+                    capath=ssl_options.capath,
+                    cadata=ssl_options.cadata)
+
+            if ssl_options.ciphers is not None:
+                context.set_ciphers(ssl_options.ciphers)
+
+            ssl_sock = context.wrap_socket(
+                sock,
+                server_side=ssl_options.server_side,
+                do_handshake_on_connect=ssl_options.do_handshake_on_connect,
+                suppress_ragged_eofs=ssl_options.suppress_ragged_eofs,
+                server_hostname=ssl_options.server_hostname)
+        else:
+            ssl_sock = ssl.wrap_socket(
+                sock, do_handshake_on_connect=self.DO_HANDSHAKE, **ssl_options)
+
+        return ssl_sock

@@ -8,6 +8,7 @@ import math
 import numbers
 import platform
 import warnings
+import ssl
 
 if sys.version_info > (3,):
     import urllib.parse as urlparse  # pylint: disable=E0611,F0401
@@ -517,14 +518,17 @@ class Parameters(object):  # pylint: disable=R0902
     @ssl_options.setter
     def ssl_options(self, value):
         """
-        :param value: None or a dict of options to pass to `ssl.wrap_socket`.
+        :param value: None, a dict of options to pass to `ssl.wrap_socket` or
+            a SSLOptions object for advanced setup.
 
         """
-        if not isinstance(value, (dict, type(None))):
-            raise TypeError('ssl_options must be a dict or None, but got %r' %
-                            (value,))
+        if not isinstance(value, (dict, SSLOptions, type(None))):
+            raise TypeError(
+                'ssl_options must be a dict, None or an SSLOptions but got %r'
+                % (value, ))
         # Copy the mutable object to avoid accidental side-effects
         self._ssl_options = copy.deepcopy(value)
+
 
     @property
     def virtual_host(self):
@@ -939,6 +943,58 @@ class URLParameters(Parameters):
         """Deserialize and apply the corresponding query string arg"""
         self.tcp_options = ast.literal_eval(value)
 
+class SSLOptions(object):
+    """Class used to provide parameters for optional fine grained control of SSL
+    socket wrapping.
+
+    :param string keyfile: The key file to pass to SSLContext.load_cert_chain
+    :param string key_password: The key password to passed to
+                                                    SSLContext.load_cert_chain
+    :param string certfile: The certificate file to passed to
+                                                    SSLContext.load_cert_chain
+    :param bool server_side: Passed to SSLContext.wrap_socket
+    :param verify_mode: Passed to SSLContext.wrap_socket
+    :param ssl_version: Passed to SSLContext init, defines the ssl
+                                                                version to use
+    :param string cafile: The CA file passed to
+                                            SSLContext.load_verify_locations
+    :param string capath: The CA path passed to
+                                            SSLContext.load_verify_locations
+    :param string cadata: The CA data passed to
+                                            SSLContext.load_verify_locations
+    :param do_handshake_on_connect: Passed to SSLContext.wrap_socket
+    :param suppress_ragged_eofs: Passed to SSLContext.wrap_socket
+    :param ciphers: Passed to SSLContext.set_ciphers
+    :param server_hostname: SSLContext.wrap_socket, used to enable SNI
+    """
+
+    def __init__(self,
+                 keyfile=None,
+                 key_password=None,
+                 certfile=None,
+                 server_side=False,
+                 verify_mode=ssl.CERT_NONE,
+                 ssl_version=ssl.PROTOCOL_SSLv23,
+                 cafile=None,
+                 capath=None,
+                 cadata=None,
+                 do_handshake_on_connect=True,
+                 suppress_ragged_eofs=True,
+                 ciphers=None,
+                 server_hostname=None):
+        self.keyfile = keyfile
+        self.key_password = key_password
+        self.certfile = certfile
+        self.server_side = server_side
+        self.verify_mode = verify_mode
+        self.ssl_version = ssl_version
+        self.cafile = cafile
+        self.capath = capath
+        self.cadata = cadata
+        self.do_handshake_on_connect = do_handshake_on_connect
+        self.suppress_ragged_eofs = suppress_ragged_eofs
+        self.ciphers = ciphers
+        self.server_hostname = server_hostname
 
 class Connection(object):
     """This is the core class that implements communication with RabbitMQ. This
