@@ -464,6 +464,16 @@ class BaseConnection(connection.Connection):
             self.outbound_buffer.appendleft(frame)
             self._handle_timeout()
 
+        except ssl.SSLError as error:
+            if error.args[0] == ssl.SSL_ERROR_WANT_WRITE:
+                # In Python 3.5+, SSLSocket.send raises this if the socket is
+                # not currently able to write. Handle this just like an
+                # EWOULDBLOCK socket error.
+                LOGGER.debug("Would block, requeuing frame")
+                self.outbound_buffer.appendleft(frame)
+            else:
+                return self._handle_error(error)
+
         except SOCKET_ERROR as error:
             if error.errno in (errno.EAGAIN, errno.EWOULDBLOCK):
                 LOGGER.debug("Would block, requeuing frame")
