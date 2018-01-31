@@ -974,7 +974,7 @@ class SSLOptions(object):
                  certfile=None,
                  server_side=False,
                  verify_mode=ssl.CERT_NONE,
-                 ssl_version=ssl.PROTOCOL_SSLv3,
+                 ssl_version=ssl.PROTOCOL_SSLv23,
                  cafile=None,
                  capath=None,
                  cadata=None,
