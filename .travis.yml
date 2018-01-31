@@ -11,7 +11,8 @@ env:
 
 stages:
 - test
-- coverage
+- name: coverage
+  if: repo IS pika/pika
 - name: deploy
   if: tag IS present
 
@@ -55,6 +56,7 @@ jobs:
      - coverage report
      after_success: codecov
    - stage: deploy
+     if: repo IS pika/pika
      python: 3.6
      services: []
      install: true
