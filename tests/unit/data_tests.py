@@ -62,7 +62,7 @@ class DataTests(unittest.TestCase):
 
     def test_encode_raises(self):
         self.assertRaises(exceptions.UnsupportedAMQPFieldException,
-                          data.encode_table, [], {'foo': set([1, 2, 3])})
+                          data.encode_table, [], {'foo': {1, 2, 3}})
 
     def test_decode_raises(self):
         self.assertRaises(exceptions.InvalidFieldTypeException,

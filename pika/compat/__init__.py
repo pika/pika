@@ -207,4 +207,4 @@ def _nonblocking_socketpair(family=socket.AF_INET, type=socket.SOCK_STREAM, prot
     csock.setblocking(False)
     ssock.setblocking(False)
 
-    return (ssock, csock)
+    return ssock, csock
