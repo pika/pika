@@ -190,8 +190,9 @@ class TestCreateAndCloseConnectionWithChannelAndConsumer(BlockingTestCaseBase):
         ch.publish(exchange='', routing_key=q_name, body=body1)
 
         # Create a non-ackable consumer
-        ch.basic_consume(lambda *x: None, q_name, no_ack=True,
-                         exclusive=False, arguments=None)
+        ch.basic_consume(q_name, no_ack=True,
+                         exclusive=False, arguments=None,
+                         callback=lambda *x: None)
 
         connection.close()
         self.assertTrue(connection.is_closed)
@@ -1194,7 +1195,7 @@ class TestBasicConsumeFromUnknownQueueRaisesChannelClosed(BlockingTestCaseBase):
                   uuid.uuid1().hex)
 
         with self.assertRaises(pika.exceptions.ChannelClosed) as ex_cm:
-            ch.basic_consume(lambda *args: None, q_name)
+            ch.basic_consume(q_name, callback=lambda *args: None)
 
         self.assertEqual(ex_cm.exception.args[0], 404)
 
@@ -1546,11 +1547,11 @@ class TestPublishAndConsumeWithPubacksAndQosOfOne(BlockingTestCaseBase):
         # Create a consumer
         rx_messages = []
         consumer_tag = ch.basic_consume(
-            lambda *args: rx_messages.append(args),
             q_name,
             no_ack=False,
             exclusive=False,
-            arguments=None)
+            arguments=None,
+            callback=lambda *args: rx_messages.append(args))
 
         # Wait for first message to arrive
         while not rx_messages:
@@ -1674,19 +1675,19 @@ class TestTwoBasicConsumersOnSameChannel(BlockingTestCaseBase):
         # Create the consumers
         q1_rx_messages = []
         q1_consumer_tag = ch.basic_consume(
-            lambda *args: q1_rx_messages.append(args),
             q1_name,
             no_ack=False,
             exclusive=False,
-            arguments=None)
+            arguments=None,
+            callback=lambda *args: q1_rx_messages.append(args))
 
         q2_rx_messages = []
         q2_consumer_tag = ch.basic_consume(
-            lambda *args: q2_rx_messages.append(args),
             q2_name,
             no_ack=False,
             exclusive=False,
-            arguments=None)
+            arguments=None,
+            callback=lambda *args: q2_rx_messages.append(args))
 
         # Wait for all messages to be delivered
         while (len(q1_rx_messages) < len(q1_tx_message_bodies) or
@@ -1750,11 +1751,11 @@ class TestBasicCancelPurgesPendingConsumerCancellationEvt(BlockingTestCaseBase):
         # Create a consumer
         rx_messages = []
         consumer_tag = ch.basic_consume(
-            lambda *args: rx_messages.append(args),
             q_name,
             no_ack=False,
             exclusive=False,
-            arguments=None)
+            arguments=None,
+            callback=lambda *args: rx_messages.append(args))
 
         # Wait for the published message to arrive, but don't consume it
         while not ch._pending_events:
@@ -1830,11 +1831,11 @@ class TestBasicPublishWithoutPubacks(BlockingTestCaseBase):
         # Create a consumer
         rx_messages = []
         consumer_tag = ch.basic_consume(
-            lambda *args: rx_messages.append(args),
             q_name,
             no_ack=False,
             exclusive=False,
-            arguments=None)
+            arguments=None,
+            callback=lambda *args: rx_messages.append(args))
 
         # Wait for first message to arrive
         while not rx_messages:
@@ -1937,11 +1938,11 @@ class TestPublishFromBasicConsumeCallback(BlockingTestCaseBase):
                 properties=props, mandatory=True)
             channel.basic_ack(method.delivery_tag)
 
-        ch.basic_consume(on_consume,
-                         src_q_name,
+        ch.basic_consume(src_q_name,
                          no_ack=False,
                          exclusive=False,
-                         arguments=None)
+                         arguments=None,
+                         callback=on_consume)
 
         # Consume from destination queue
         for _, _, rx_body in ch.consume(dest_q_name, no_ack=True):
@@ -1987,11 +1988,11 @@ class TestStopConsumingFromBasicConsumeCallback(BlockingTestCaseBase):
             channel.stop_consuming()
             channel.basic_ack(method.delivery_tag)
 
-        ch.basic_consume(on_consume,
-                         q_name,
+        ch.basic_consume(q_name,
                          no_ack=False,
                          exclusive=False,
-                         arguments=None)
+                         arguments=None,
+                         callback=on_consume)
 
         ch.start_consuming()
 
@@ -2042,11 +2043,11 @@ class TestCloseChannelFromBasicConsumeCallback(BlockingTestCaseBase):
         def on_consume(channel, method, props, body):  # pylint: disable=W0613
             channel.close()
 
-        ch.basic_consume(on_consume,
-                         q_name,
+        ch.basic_consume(q_name,
                          no_ack=False,
                          exclusive=False,
-                         arguments=None)
+                         arguments=None,
+                         callback=on_consume)
 
         ch.start_consuming()
 
@@ -2096,11 +2097,11 @@ class TestCloseConnectionFromBasicConsumeCallback(BlockingTestCaseBase):
         def on_consume(channel, method, props, body):  # pylint: disable=W0613
             connection.close()
 
-        ch.basic_consume(on_consume,
-                         q_name,
+        ch.basic_consume(q_name,
                          no_ack=False,
                          exclusive=False,
-                         arguments=None)
+                         arguments=None,
+                         callback=on_consume)
 
         ch.start_consuming()
 
@@ -2250,8 +2251,9 @@ class TestBasicCancelWithNonAckableConsumer(BlockingTestCaseBase):
                                                       expected_count=2)
 
         # Create a non-ackable consumer
-        consumer_tag = ch.basic_consume(lambda *x: None, q_name, no_ack=True,
-                                        exclusive=False, arguments=None)
+        consumer_tag = ch.basic_consume(q_name, no_ack=True,
+                                        exclusive=False, arguments=None,
+                                        callback=lambda *x: None)
 
         # Wait for all messages to be sent by broker to client
         self._assert_exact_message_count_with_retries(channel=ch,
@@ -2307,8 +2309,9 @@ class TestBasicCancelWithAckableConsumer(BlockingTestCaseBase):
                                                       expected_count=2)
 
         # Create an ackable consumer
-        consumer_tag = ch.basic_consume(lambda *x: None, q_name, no_ack=False,
-                                        exclusive=False, arguments=None)
+        consumer_tag = ch.basic_consume(q_name, no_ack=False,
+                                        exclusive=False, arguments=None,
+                                        callback=lambda *x: None)
 
         # Wait for all messages to be sent by broker to client
         self._assert_exact_message_count_with_retries(channel=ch,
@@ -2355,11 +2358,9 @@ class TestUnackedMessageAutoRestoredToQueueOnChannelClose(BlockingTestCaseBase):
 
         # Consume the events, but don't ack
         rx_messages = []
-        ch.basic_consume(lambda *args: rx_messages.append(args),
-                         q_name,
-                         no_ack=False,
-                         exclusive=False,
-                         arguments=None)
+        ch.basic_consume(q_name, no_ack=False,
+                         exclusive=False, arguments=None,
+                         callback=lambda *args: rx_messages.append(args))
         while len(rx_messages) != 2:
             connection.process_data_events(time_limit=None)
 
@@ -2474,7 +2475,7 @@ class TestChannelFlow(BlockingTestCaseBase):
         self.assertEqual(frame.method.consumer_count, 0)
 
         # Create consumer
-        ch.basic_consume(lambda *args: None, q_name)
+        ch.basic_consume(q_name, callback=lambda *args: None)
 
         # Verify one active consumer on the queue now
         frame = ch.queue_declare(q_name, passive=True)

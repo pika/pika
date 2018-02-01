@@ -101,7 +101,7 @@ class TwistedChannel(object):
 
         queue = ClosableDeferredQueue()
         queue_name = kwargs['queue']
-        kwargs['consumer_callback'] = lambda *args: queue.put(args)
+        kwargs['callback'] = lambda *args: queue.put(args)
         self.__consumers.setdefault(queue_name, set()).add(queue)
 
         try:
