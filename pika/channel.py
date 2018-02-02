@@ -296,7 +296,7 @@ class Channel(object):
         :raises ValueError:
 
         """
-        if callback is None:
+        if not is_callable(callback):
             raise ValueError('basic_consume requires a callback')
         self._validate_channel_and_callback(callback)
 
@@ -358,7 +358,6 @@ class Channel(object):
 
         """
         self._validate_channel_and_callback(callback)
-        # TODO Is basic_get meaningful when callback is None?
         if self._on_getok_callback is not None:
             raise exceptions.DuplicateGetOkCallback()
         self._on_getok_callback = callback
@@ -556,32 +555,33 @@ class Channel(object):
             http://www.rabbitmq.com/extensions.html#confirms
 
         :param bool nowait: Do not send a reply frame (Confirm.SelectOk)
-        :param callable callback: The callback for delivery
+        :param callable callback: Required callback for delivery
             confirmations that has the following signature:
             callback(pika.frame.Method), where method_frame contains
             either method `spec.Basic.Ack` or `spec.Basic.Nack`.
         :raises ValueError:
 
         """
-        self._validate_channel_and_callback(self._on_selectok)
+        if not is_callable(callback):
+            # NB: confirm_deliver requires a callback; it's meaningless
+            # without a user callback to receieve Basic.Ack/Basic.Nack notifications
+            raise ValueError('confirm_delivery requires a callback')
 
-        # TODO confirm_deliver should require a callback; it's meaningless
-        # without a user callback to receieve Basic.Ack/Basic.Nack notifications
+        self._validate_channel_and_callback(self._on_selectok)
 
         if not (self.connection.publisher_confirms and
                 self.connection.basic_nack):
             raise exceptions.MethodNotImplemented('Not Supported on Server')
 
         # Add the ack and nack callback
-        if callback is not None:
-            self.callbacks.add(self.channel_number,
-                               spec.Basic.Ack,
-                               callback,
-                               False)
-            self.callbacks.add(self.channel_number,
-                               spec.Basic.Nack,
-                               callback,
-                               False)
+        self.callbacks.add(self.channel_number,
+                            spec.Basic.Ack,
+                            callback,
+                            False)
+        self.callbacks.add(self.channel_number,
+                            spec.Basic.Nack,
+                            callback,
+                            False)
 
         # Send the RPC command
         method = spec.Confirm.Select(nowait)
@@ -1415,7 +1415,7 @@ class Channel(object):
                 raise ValueError(
                     'Completion callback must be None when nowait=True')
         else:
-            if callback is None:
+            if callback is None or not is_callable(callback):
                 raise ValueError(
                     'Must have completion callback with nowait=False')
 

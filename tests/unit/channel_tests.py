@@ -516,22 +516,27 @@ class ChannelTests(unittest.TestCase):
             basic_cancel.assert_called_once_with(
                 consumer_tag='abc', nowait=True)
 
+    def test_confirm_delivery_without_callback_raises_value_error(self):
+        self.assertRaises(ValueError, self.obj.confirm_delivery)
+
     def test_confirm_delivery_raises_channel_closed(self):
-        self.assertRaises(exceptions.ChannelClosed, self.obj.confirm_delivery)
+        cb = mock.Mock()
+        self.assertRaises(exceptions.ChannelClosed,
+            self.obj.confirm_delivery, False, cb)
 
     def test_confirm_delivery_raises_method_not_implemented_for_confirms(self):
         self.obj._set_state(self.obj.OPEN)
         # Since connection is a mock.Mock, overwrite the method def with False
         self.obj.connection.publisher_confirms = False
         self.assertRaises(exceptions.MethodNotImplemented,
-                          self.obj.confirm_delivery, logging.debug)
+                          self.obj.confirm_delivery, False, logging.debug)
 
     def test_confirm_delivery_raises_method_not_implemented_for_nack(self):
         self.obj._set_state(self.obj.OPEN)
         # Since connection is a mock.Mock, overwrite the method def with False
         self.obj.connection.basic_nack = False
         self.assertRaises(exceptions.MethodNotImplemented,
-                          self.obj.confirm_delivery, logging.debug)
+                          self.obj.confirm_delivery, False, logging.debug)
 
     def test_confirm_delivery_async(self):
         self.obj._set_state(self.obj.OPEN)
@@ -605,19 +610,21 @@ class ChannelTests(unittest.TestCase):
         ]
         self.assertEqual(self.obj.callbacks.add.call_args_list, expectation)
 
-    def test_confirm_delivery_no_callback_no_basic_ack_callback(self):
+    def test_confirm_delivery_callback_yes_basic_ack_callback(self):
         self.obj._set_state(self.obj.OPEN)
-        expectation = [self.obj.channel_number, spec.Basic.Ack, None, False]
-        self.obj.confirm_delivery()
-        self.assertNotIn(
-            mock.call(*expectation), self.obj.callbacks.add.call_args_list)
+        user_callback = mock.Mock()
+        expectation = [self.obj.channel_number, spec.Basic.Ack, user_callback, False]
+        expectation_item = mock.call(*expectation)
+        self.obj.confirm_delivery(callback=user_callback)
+        self.assertIn(expectation_item, self.obj.callbacks.add.call_args_list)
 
-    def test_confirm_delivery_no_callback_no_basic_nack_callback(self):
+    def test_confirm_delivery_callback_yes_basic_nack_callback(self):
         self.obj._set_state(self.obj.OPEN)
-        expectation = [self.obj.channel_number, spec.Basic.Nack, None, False]
-        self.obj.confirm_delivery()
-        self.assertNotIn(
-            mock.call(*expectation), self.obj.callbacks.add.call_args_list)
+        user_callback = mock.Mock()
+        expectation = [self.obj.channel_number, spec.Basic.Nack, user_callback, False]
+        expectation_item = mock.call(*expectation)
+        self.obj.confirm_delivery(callback=user_callback)
+        self.assertIn(expectation_item, self.obj.callbacks.add.call_args_list)
 
     def test_consumer_tags(self):
         self.assertListEqual(self.obj.consumer_tags,
@@ -625,12 +632,12 @@ class ChannelTests(unittest.TestCase):
 
     def test_exchange_bind_raises_channel_closed(self):
         self.assertRaises(exceptions.ChannelClosed, self.obj.exchange_bind,
-                          None, 'foo', 'bar', 'baz')
+                          'foo', 'bar', 'baz', None, False, None)
 
     def test_exchange_bind_raises_value_error_on_invalid_callback(self):
         self.obj._set_state(self.obj.OPEN)
-        self.assertRaises(ValueError, self.obj.exchange_bind, 'callback',
-                          'foo', 'bar', 'baz')
+        self.assertRaises(ValueError, self.obj.exchange_bind,
+                          'foo', 'bar', 'baz', None, False, 'callback')
 
     @mock.patch('pika.spec.Exchange.Bind')
     @mock.patch('pika.channel.Channel._rpc')
@@ -659,8 +666,8 @@ class ChannelTests(unittest.TestCase):
 
     def test_exchange_declare_raises_value_error_on_invalid_callback(self):
         self.obj._set_state(self.obj.OPEN)
-        self.assertRaises(ValueError, self.obj.exchange_declare, 'callback',
-                          'foo')
+        self.assertRaises(ValueError, self.obj.exchange_declare,
+                          'foo', callback='callback')
 
     @mock.patch('pika.spec.Exchange.Declare')
     @mock.patch('pika.channel.Channel._rpc')
@@ -687,8 +694,8 @@ class ChannelTests(unittest.TestCase):
 
     def test_exchange_delete_raises_value_error_on_invalid_callback(self):
         self.obj._set_state(self.obj.OPEN)
-        self.assertRaises(ValueError, self.obj.exchange_delete, 'callback',
-                          'foo')
+        self.assertRaises(ValueError, self.obj.exchange_delete,
+                          'foo', callback='callback')
 
     @mock.patch('pika.spec.Exchange.Delete')
     @mock.patch('pika.channel.Channel._rpc')
@@ -715,8 +722,8 @@ class ChannelTests(unittest.TestCase):
 
     def test_exchange_unbind_raises_value_error_on_invalid_callback(self):
         self.obj._set_state(self.obj.OPEN)
-        self.assertRaises(ValueError, self.obj.exchange_unbind, 'callback',
-                          'foo', 'bar', 'baz')
+        self.assertRaises(ValueError, self.obj.exchange_unbind,
+                          'foo', 'bar', 'baz', callback='callback')
 
     @mock.patch('pika.spec.Exchange.Unbind')
     @mock.patch('pika.channel.Channel._rpc')
@@ -800,8 +807,8 @@ class ChannelTests(unittest.TestCase):
 
     def test_queue_bind_raises_value_error_on_invalid_callback(self):
         self.obj._set_state(self.obj.OPEN)
-        self.assertRaises(ValueError, self.obj.queue_bind, 'callback', 'foo',
-                          'bar', 'baz')
+        self.assertRaises(ValueError, self.obj.queue_bind,
+                          'foo', 'bar', 'baz', callback='callback')
 
     @mock.patch('pika.spec.Queue.Bind')
     @mock.patch('pika.channel.Channel._rpc')
@@ -831,8 +838,8 @@ class ChannelTests(unittest.TestCase):
 
     def test_queue_declare_raises_value_error_on_invalid_callback(self):
         self.obj._set_state(self.obj.OPEN)
-        self.assertRaises(ValueError, self.obj.queue_declare, 'callback',
-                          'foo')
+        self.assertRaises(ValueError, self.obj.queue_declare,
+                          'foo', callback='callback')
 
     @mock.patch('pika.spec.Queue.Declare')
     @mock.patch('pika.channel.Channel._rpc')
@@ -861,7 +868,8 @@ class ChannelTests(unittest.TestCase):
 
     def test_queue_delete_raises_value_error_on_invalid_callback(self):
         self.obj._set_state(self.obj.OPEN)
-        self.assertRaises(ValueError, self.obj.queue_delete, 'callback', 'foo')
+        self.assertRaises(ValueError, self.obj.queue_delete,
+                          'foo', callback='callback')
 
     @mock.patch('pika.spec.Queue.Delete')
     @mock.patch('pika.channel.Channel._rpc')
@@ -887,7 +895,8 @@ class ChannelTests(unittest.TestCase):
 
     def test_queue_purge_raises_value_error_on_invalid_callback(self):
         self.obj._set_state(self.obj.OPEN)
-        self.assertRaises(ValueError, self.obj.queue_purge, 'foo', callback='callback')
+        self.assertRaises(ValueError, self.obj.queue_purge,
+                          'foo', callback='callback')
 
     @mock.patch('pika.spec.Queue.Purge')
     @mock.patch('pika.channel.Channel._rpc')

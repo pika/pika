@@ -34,7 +34,10 @@ class TestConfirmSelect(AsyncTestCase, AsyncAdapters):
 
     def begin(self, channel):
         channel._on_selectok = self.on_complete
-        channel.confirm_delivery()
+        channel.confirm_delivery(callback=self.ack_nack_callback)
+
+    def ack_nack_callback(frame):
+        pass
 
     def on_complete(self, frame):
         self.assertIsInstance(frame.method, spec.Confirm.SelectOk)
