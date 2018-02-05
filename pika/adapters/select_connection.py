@@ -260,9 +260,6 @@ class _Timer(object):
 
         self.callback = callback
 
-        LOGGER.debug('%r created timer %r with deadline %s and callback %r',
-                     self._timer_mgr, self, self.deadline, self.callback)
-
     def is_active(self):
         return self._timer_mgr is not None
 
@@ -304,7 +301,8 @@ class _TimerManager(object):
         :rtype: _Timer
 
         """
-        deadline = time.time() + period
+        now = time.time()
+        deadline = now + period
 
         timer = _Timer(timer_mgr=self, deadline=deadline, callback=callback)
 
@@ -313,8 +311,8 @@ class _TimerManager(object):
         if self._next_timeout is None or deadline < self._next_timeout:
             self._next_timeout = deadline
 
-        LOGGER.debug('add_timeout: added timer %r; period=%s at %s',
-                     timer, period, deadline)
+        LOGGER.debug('add_timeout: added timer %r; now=%s; delay=%s at %s; callback %r',
+                     timer, now, period, deadline, callback)
 
         return timer
 
