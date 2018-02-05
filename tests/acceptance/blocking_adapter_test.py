@@ -475,10 +475,13 @@ class TestViabilityOfMultipleTimeoutsWithSameDeadlineAndCallback(BlockingTestCas
 
         rx_callback = []
 
-        callback = (lambda: rx_callback.append(1))
+        def callback():
+            rx_callback.append(1)
 
         timer1 = connection.add_timeout(0, callback)
         timer2 = connection.add_timeout(0, callback)
+
+        self.assertNotEqual(timer1, timer2)
 
         connection.remove_timeout(timer1)
 
