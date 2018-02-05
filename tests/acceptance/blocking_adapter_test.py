@@ -149,6 +149,25 @@ class TestConnectionContextManagerClosesConnectionAndPassesSystemException(Block
         self.assertTrue(connection.is_closed)
 
 
+class TestLostConnectionResultsInIsClosedConnectionAndChannel(BlockingTestCaseBase):
+    def test(self):
+        connection = self._connect()
+        channel = connection.channel()
+
+        # Simulate the server dropping the socket connection
+        connection._impl.socket.shutdown(socket.SHUT_RDWR)
+
+        with self.assertRaises(pika.exceptions.ConnectionClosed):
+            # Changing QoS should result in ConnectionClosed
+            channel.basic_qos()
+
+        # Now check is_open/is_closed on channel and connection
+        self.assertFalse(channel.is_open)
+        self.assertTrue(channel.is_closed)
+        self.assertFalse(connection.is_open)
+        self.assertTrue(connection.is_closed)
+
+
 class TestInvalidExchangeTypeRaisesConnectionClosed(BlockingTestCaseBase):
     def test(self):
         """BlockingConnection: ConnectionClosed raised when creating exchange with invalid type"""  # pylint: disable=C0301
