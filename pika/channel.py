@@ -442,16 +442,16 @@ class Channel(object):
                                    falls into other prefetch limits). May be set
                                    to zero, meaning "no specific limit",
                                    although other prefetch limits may still
-                                   apply. The prefetch-size is ignored if the
-                                   no-ack option is set.
+                                   apply. The prefetch-size is ignored by
+                                   consumers who have enabled the no-ack option.
         :param int prefetch_count: Specifies a prefetch window in terms of whole
                                    messages. This field may be used in
                                    combination with the prefetch-size field; a
                                    message will only be sent in advance if both
                                    prefetch windows (and those at the channel
                                    and connection level) allow it. The
-                                   prefetch-count is ignored if the no-ack
-                                   option is set.
+                                   prefetch-count is ignored by consumers who
+                                   have enabled the no-ack option.
         :param bool all_channels: Should the QoS apply to all channels
         :param callable callback: The callback to call for Basic.QosOk response
         :raises ValueError:
@@ -459,6 +459,8 @@ class Channel(object):
         """
         self._validate_channel()
         self._validate_rpc_completion_callback(callback)
+        self._validate_zero_or_greater('prefetch_size', prefetch_size)
+        self._validate_zero_or_greater('prefetch_count', prefetch_count)
         return self._rpc(spec.Basic.Qos(prefetch_size, prefetch_count,
                                         all_channels),
                          callback, [spec.Basic.QosOk])
@@ -1410,6 +1412,11 @@ class Channel(object):
         else:
             raise TypeError(
                 'Completion callback must be callable if not None')
+
+    def _validate_zero_or_greater(self, name, value):
+        if int(value) < 0:
+            errmsg = '{} must be >= 0, but got {}'.format(name, value)
+            raise ValueError(errmsg)
 
 
 class ContentFrameAssembler(object):
