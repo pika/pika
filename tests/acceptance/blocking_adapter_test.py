@@ -430,8 +430,6 @@ class TestBlockedConnectionTimeout(BlockingTestCaseBase):
              'Blocked connection timeout expired'))
 
 
-
-
 class TestAddTimeoutRemoveTimeout(BlockingTestCaseBase):
 
     def test(self):
@@ -467,6 +465,29 @@ class TestAddTimeoutRemoveTimeout(BlockingTestCaseBase):
         # Make sure _TimerEvt repr doesn't crash
         evt = blocking_connection._TimerEvt(lambda: None)
         repr(evt)
+
+
+class TestViabilityOfMultipleTimeoutsWithSameDeadlineAndCallback(BlockingTestCaseBase):
+
+    def test(self):
+        """BlockingConnection viability of multiple timeouts with same deadline and callback"""
+        connection = self._connect()
+
+        rx_callback = []
+
+        callback = (lambda: rx_callback.append(1))
+
+        timer1 = connection.add_timeout(0, callback)
+        timer2 = connection.add_timeout(0, callback)
+
+        connection.remove_timeout(timer1)
+
+        # Wait for second timer to fire
+        start_wait_time = time.time()
+        while not rx_callback and time.time() - start_wait_time < 0.25:
+            connection.process_data_events(time_limit=0.001)
+
+        self.assertListEqual(rx_callback, [1])
 
 
 class TestRemoveTimeoutFromTimeoutCallback(BlockingTestCaseBase):
