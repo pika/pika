@@ -58,7 +58,7 @@ Example::
     def on_connected(connection):
         """Called when we are fully connected to RabbitMQ"""
         # Open a channel
-        connection.channel(callback=on_channel_open)
+        connection.channel(on_channel_open)
 
     # Step #3
     def on_channel_open(new_channel):

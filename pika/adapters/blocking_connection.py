@@ -1406,7 +1406,8 @@ class BlockingChannel(object):
                                        evt.properties, evt.body)
 
             elif type(evt) is _ConsumerCancellationEvt:
-                del self._consumer_infos[evt.method_frame.method.consumer_tag]
+                consumer_tag = evt.method_frame.method.consumer_tag
+                del self._consumer_infos[consumer_tag]
 
                 self._impl.callbacks.process(self.channel_number,
                                              self._CONSUMER_CANCELLED_CB_KEY,
@@ -1499,8 +1500,8 @@ class BlockingChannel(object):
                         callback, self, method, properties, body))))
 
     def basic_consume(self,
-                      queue,
                       callback,
+                      queue='',
                       no_ack=False,
                       exclusive=False,
                       consumer_tag=None,
@@ -1518,8 +1519,6 @@ class BlockingChannel(object):
         For more information about Basic.Consume, see:
         http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.consume
 
-        :param queue: The queue to consume from
-        :type queue: str or unicode
         :param callable callback: Required function for dispatching messages
             to user, having the signature:
             callback(channel, method, properties, body)
@@ -1527,6 +1526,8 @@ class BlockingChannel(object):
                 method: spec.Basic.Deliver
                 properties: spec.BasicProperties
                 body: str or unicode
+        :param queue: The queue to consume from
+        :type queue: str or unicode
         :param bool no_ack: Tell the broker to not expect a response (i.e.,
           no ack/nack)
         :param bool exclusive: Don't allow other consumers on the queue
@@ -1605,12 +1606,12 @@ class BlockingChannel(object):
         try:
             with self._basic_consume_ok_result as ok_result:
                 tag = self._impl.basic_consume(
+                    callback=self._on_consumer_message_delivery,
                     queue=queue,
                     no_ack=no_ack,
                     exclusive=exclusive,
                     consumer_tag=consumer_tag,
-                    arguments=arguments,
-                    callback=self._on_consumer_message_delivery)
+                    arguments=arguments)
 
                 assert tag == consumer_tag, (tag, consumer_tag)
 
@@ -2012,7 +2013,7 @@ class BlockingChannel(object):
                               requeue=requeue)
         self._flush_output()
 
-    def basic_get(self, queue=None, no_ack=False):
+    def basic_get(self, queue='', no_ack=False):
         """Get a single message from the AMQP broker. Returns a sequence with
         the method frame, message properties, and body.
 

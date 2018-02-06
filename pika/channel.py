@@ -899,7 +899,7 @@ class Channel(object):
 
         """
         self._validate_channel()
-        nowait = self._validate_callback(callback)
+        self._validate_callback(callback)
         if routing_key is None:
             routing_key = queue
         return self._rpc(spec.Queue.Unbind(0, queue, exchange, routing_key,

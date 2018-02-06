@@ -60,19 +60,19 @@ class TestBlockingNonBlockingBlockingRPCWontStall(AsyncTestCase, AsyncAdapters):
 
         for queue, nowait in self._expected_queue_params:
             cb = self._queue_declare_ok_cb if not nowait else None
-            channel.queue_declare(callback=cb,
-                                  queue=queue,
+            channel.queue_declare(queue=queue,
                                   auto_delete=True,
-                                  arguments={'x-expires': self.TIMEOUT * 1000})
+                                  arguments={'x-expires': self.TIMEOUT * 1000},
+                                  callback=cb)
 
     def _queue_declare_ok_cb(self, declare_ok_frame):
         self._declared_queue_names.append(declare_ok_frame.method.queue)
 
         if len(self._declared_queue_names) == 2:
             # Initiate check for creation of queue declared with nowait=True
-            self.channel.queue_declare(callback=self._queue_declare_ok_cb,
-                                       queue=self._expected_queue_params[1][0],
-                                       passive=True)
+            self.channel.queue_declare(queue=self._expected_queue_params[1][0],
+                                       passive=True,
+                                       callback=self._queue_declare_ok_cb)
         elif len(self._declared_queue_names) == 3:
             self.assertSequenceEqual(
                 sorted(self._declared_queue_names),
@@ -85,7 +85,7 @@ class TestConsumeCancel(AsyncTestCase, AsyncAdapters):
 
     def begin(self, channel):
         self.queue_name = self.__class__.__name__ + ':' + uuid.uuid1().hex
-        channel.queue_declare(callback=self.on_queue_declared, queue=self.queue_name)
+        channel.queue_declare(self.queue_name, callback=self.on_queue_declared)
 
     def on_queue_declared(self, frame):
         for i in range(0, 100):
