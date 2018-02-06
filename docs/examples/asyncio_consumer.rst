@@ -313,7 +313,7 @@ consumer.py::
 
             """
             LOGGER.info('Creating a new channel')
-            self._connection.channel(on_open_callback=self.on_channel_open)
+            self._connection.channel(callback=self.on_channel_open)
 
         def run(self):
             """Run the example consumer by connecting to RabbitMQ and then

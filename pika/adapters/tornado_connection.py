@@ -73,18 +73,18 @@ class TornadoConnection(base_connection.BaseConnection):
             self.ioloop.remove_handler(self.socket.fileno())
         super(TornadoConnection, self)._adapter_disconnect()
 
-    def add_timeout(self, deadline, callback_method):
-        """Add the callback_method to the IOLoop timer to fire after deadline
+    def add_timeout(self, deadline, callback):
+        """Add the callback to the IOLoop timer to fire after deadline
         seconds. Returns a handle to the timeout. Do not confuse with
         Tornado's timeout where you pass in the time you want to have your
         callback called. Only pass in the seconds until it's to be called.
 
         :param int deadline: The number of seconds to wait to call callback
-        :param method callback_method: The callback method
+        :param method callback: The callback method
         :rtype: str
 
         """
-        return self.ioloop.add_timeout(time.time() + deadline, callback_method)
+        return self.ioloop.add_timeout(time.time() + deadline, callback)
 
     def remove_timeout(self, timeout_id):
         """Remove the timeout from the IOLoop by the ID returned from

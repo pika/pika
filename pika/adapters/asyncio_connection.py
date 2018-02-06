@@ -20,16 +20,16 @@ class IOLoopAdapter:
         self.readers = set()
         self.writers = set()
 
-    def add_timeout(self, deadline, callback_method):
-        """Add the callback_method to the EventLoop timer to fire after deadline
+    def add_timeout(self, deadline, callback):
+        """Add the callback to the EventLoop timer to fire after deadline
         seconds. Returns a Handle to the timeout.
 
         :param int deadline: The number of seconds to wait to call callback
-        :param method callback_method: The callback method
+        :param method callback: The callback method
         :rtype: asyncio.Handle
 
         """
-        return self.loop.call_later(deadline, callback_method)
+        return self.loop.call_later(deadline, callback)
 
     @staticmethod
     def remove_timeout(handle):

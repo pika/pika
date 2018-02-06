@@ -55,6 +55,11 @@ class Channel(object):
         """
         if not isinstance(channel_number, int):
             raise exceptions.InvalidChannelNumber
+
+        if on_open_callback is not None:
+            if not is_callable(on_open_callback):
+                raise ValueError('on_open_callback must be None or callable')
+
         self.channel_number = channel_number
         self.callbacks = connection.callbacks
         self.connection = connection

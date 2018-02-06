@@ -29,7 +29,7 @@ In contrast, using :py:meth:`pika.adapters.select_connection.SelectConnection` a
     # Step #3
     def on_open(connection):
 
-        connection.channel(on_channel_open)
+        connection.channel(callback=on_channel_open)
 
     # Step #4
     def on_channel_open(channel):

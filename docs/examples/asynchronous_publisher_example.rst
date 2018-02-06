@@ -105,7 +105,7 @@ publisher.py::
 
             """
             LOGGER.info('Creating a new channel')
-            self._connection.channel(on_open_callback=self.on_channel_open)
+            self._connection.channel(callback=self.on_channel_open)
 
         def on_channel_open(self, channel):
             """This method is invoked by pika when the channel has been opened.

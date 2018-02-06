@@ -11,12 +11,12 @@ errors = 0
 published = 0
 
 def on_open(connection):
-    connection.channel(on_channel_open)
+    connection.channel(callback=on_channel_open)
 
 
 def on_channel_open(channel):
     global published
-    channel.confirm_delivery(on_delivery_confirmation)
+    channel.confirm_delivery(callback=on_delivery_confirmation)
     for iteration in xrange(0, ITERATIONS):
         channel.basic_publish('test', 'test.confirm',
                               'message body value',

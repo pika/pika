@@ -89,7 +89,7 @@ class AsyncTestCase(unittest.TestCase):
 
     def on_open(self, connection):
         self.logger.debug('on_open: %r', connection)
-        self.channel = connection.channel(self.begin)
+        self.channel = connection.channel(callback=self.begin)
 
     def on_open_error(self, connection, error):
         self.logger.error('on_open_error: %r %r', connection, error)

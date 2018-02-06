@@ -203,7 +203,7 @@ class _TimerEvt(object):
 
     def __init__(self, callback):
         """
-        :param callback: see callback_method in `BlockingConnection.add_timeout`
+        :param callback: see callback in `BlockingConnection.add_timeout`
         """
         self._callback = callback
 
@@ -226,7 +226,7 @@ class _ConnectionBlockedUnblockedEvtBase(object):
 
     def __init__(self, callback, method_frame):
         """
-        :param callback: see callback_method parameter in
+        :param callback: see callback parameter in
           `BlockingConnection.add_on_connection_blocked_callback` and
           `BlockingConnection.add_on_connection_unblocked_callback`
         :param pika.frame.Method method_frame: with method_frame.method of type
@@ -528,7 +528,7 @@ class BlockingConnection(object):
     def _on_connection_blocked(self, user_callback, method_frame):
         """Handle Connection.Blocked notification from RabbitMQ broker
 
-        :param callable user_callback: callback_method passed to
+        :param callable user_callback: callback passed to
            `add_on_connection_blocked_callback`
         :param pika.frame.Method method_frame: method frame having `method`
             member of type `pika.spec.Connection.Blocked`
@@ -539,7 +539,7 @@ class BlockingConnection(object):
     def _on_connection_unblocked(self, user_callback, method_frame):
         """Handle Connection.Unblocked notification from RabbitMQ broker
 
-        :param callable user_callback: callback_method passed to
+        :param callable user_callback: callback passed to
            `add_on_connection_unblocked_callback`
         :param pika.frame.Method method_frame: method frame having `method`
             member of type `pika.spec.Connection.Blocked`
@@ -568,7 +568,7 @@ class BlockingConnection(object):
 
                 evt.dispatch()
 
-    def add_on_connection_blocked_callback(self, callback_method):
+    def add_on_connection_blocked_callback(self, callback):
         """Add a callback to be notified when RabbitMQ has sent a
         `Connection.Blocked` frame indicating that RabbitMQ is low on
         resources. Publishers can use this to voluntarily suspend publishing,
@@ -577,31 +577,31 @@ class BlockingConnection(object):
 
         See also `ConnectionParameters.blocked_connection_timeout`.
 
-        :param method callback_method: Callback to call on `Connection.Blocked`,
-            having the signature `callback_method(pika.frame.Method)`, where the
+        :param method callback: Callback to call on `Connection.Blocked`,
+            having the signature `callback(pika.frame.Method)`, where the
             method frame's `method` member is of type
             `pika.spec.Connection.Blocked`
 
         """
         self._impl.add_on_connection_blocked_callback(
-            functools.partial(self._on_connection_blocked, callback_method))
+            functools.partial(self._on_connection_blocked, callback))
 
-    def add_on_connection_unblocked_callback(self, callback_method):
+    def add_on_connection_unblocked_callback(self, callback):
         """Add a callback to be notified when RabbitMQ has sent a
         `Connection.Unblocked` frame letting publishers know it's ok
         to start publishing again. The callback will be passed the
         `Connection.Unblocked` method frame.
 
-        :param method callback_method: Callback to call on
+        :param method callback: Callback to call on
             `Connection.Unblocked`, having the signature
-            `callback_method(pika.frame.Method)`, where the method frame's
+            `callback(pika.frame.Method)`, where the method frame's
             `method` member is of type `pika.spec.Connection.Unblocked`
 
         """
         self._impl.add_on_connection_unblocked_callback(
-            functools.partial(self._on_connection_unblocked, callback_method))
+            functools.partial(self._on_connection_unblocked, callback))
 
-    def add_timeout(self, deadline, callback_method):
+    def add_timeout(self, deadline, callback):
         """Create a single-shot timer to fire after deadline seconds. Do not
         confuse with Tornado's timeout where you pass in the time you want to
         have your callback called. Only pass in the seconds until it's to be
@@ -613,18 +613,18 @@ class BlockingConnection(object):
         `BlockingChannel.start_consuming`.
 
         :param float deadline: The number of seconds to wait to call callback
-        :param callable callback_method: The callback method with the signature
-            callback_method()
+        :param callable callback: The callback method with the signature
+            callback()
 
         :returns: opaque timer id
 
         """
-        if not callable(callback_method):
+        if not callable(callback):
             raise ValueError(
-                'callback_method parameter must be callable, but got %r'
-                % (callback_method,))
+                'callback parameter must be callable, but got %r'
+                % (callback,))
 
-        evt = _TimerEvt(callback=callback_method)
+        evt = _TimerEvt(callback=callback)
         timer_id = self._impl.add_timeout(
             deadline,
             functools.partial(self._on_timer_ready, evt))
@@ -745,8 +745,8 @@ class BlockingConnection(object):
         """
         with _CallbackResult(self._OnChannelOpenedArgs) as opened_args:
             impl_channel = self._impl.channel(
-                on_open_callback=opened_args.set_value_once,
-                channel_number=channel_number)
+                channel_number=channel_number,
+                callback=opened_args.set_value_once)
 
             # Create our proxy channel
             channel = BlockingChannel(impl_channel, self)
