@@ -259,12 +259,9 @@ class Channel(object):
 
         self._cancelled.add(consumer_tag)
 
-        self._rpc(
-            spec.Basic.Cancel(consumer_tag=consumer_tag, nowait=nowait),
-            self._on_cancelok if not nowait else None, [(spec.Basic.CancelOk, {
-                'consumer_tag':
-                consumer_tag
-            })] if nowait is False else [])
+        self._rpc(spec.Basic.Cancel(consumer_tag=consumer_tag, nowait=nowait),
+            self._on_cancelok if not nowait else None,
+            [(spec.Basic.CancelOk, { 'consumer_tag': consumer_tag })] if nowait is False else [])
 
     def basic_consume(self,
                       queue='',
@@ -588,11 +585,9 @@ class Channel(object):
                             callback,
                             False)
 
-        # Send the RPC command
-        method = spec.Confirm.Select(nowait)
-        callback = self._on_selectok if not nowait else None
-        acceptable_replies = [spec.Confirm.SelectOk] if not nowait else []
-        self._rpc(method, callback, acceptable_replies)
+        self._rpc(spec.Confirm.Select(nowait),
+            self._on_selectok if not nowait else None,
+            [spec.Confirm.SelectOk] if not nowait else [])
 
     @property
     def consumer_tags(self):
