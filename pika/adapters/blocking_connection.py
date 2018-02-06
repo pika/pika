@@ -24,7 +24,6 @@ import pika.channel
 
 from pika import compat
 from pika import exceptions
-from pika.utils import is_callable
 
 import pika.spec
 
@@ -623,7 +622,7 @@ class BlockingConnection(object):
         :returns: opaque timer id
 
         """
-        if not is_callable(callback):
+        if not callable(callback):
             raise ValueError(
                 'callback parameter must be callable, but got %r'
                 % (callback,))
@@ -1542,7 +1541,7 @@ class BlockingChannel(object):
             consumer_tag is already present.
 
         """
-        if not is_callable(callback):
+        if not callable(callback):
             raise ValueError('callback callback must be callable; got %r'
                              % callback)
 
@@ -1702,7 +1701,6 @@ class BlockingChannel(object):
                 # consumer
                 self._impl.basic_cancel(
                     consumer_tag=consumer_tag,
-                    nowait=False,
                     callback=cancel_ok_result.signal_once)
 
                 # Flush output and wait for Basic.Cancel-ok or
@@ -2245,13 +2243,9 @@ class BlockingChannel(object):
             return
 
         with _CallbackResult() as select_ok_result:
-            self._impl.add_callback(callback=select_ok_result.signal_once,
-                                    replies=[pika.spec.Confirm.SelectOk],
-                                    one_shot=True)
-
             self._impl.confirm_delivery(
-                nowait=False,
-                callback=self._message_confirmation_result.set_value_once)
+                ack_nack_callback=self._message_confirmation_result.set_value_once,
+                callback=select_ok_result.signal_once)
 
             self._flush_output(select_ok_result.is_ready)
 
@@ -2300,7 +2294,6 @@ class BlockingChannel(object):
                 auto_delete=auto_delete,
                 internal=internal,
                 arguments=arguments,
-                nowait=False,
                 callback=declare_ok_result.set_value_once)
 
             self._flush_output(declare_ok_result.is_ready)
@@ -2323,7 +2316,6 @@ class BlockingChannel(object):
             self._impl.exchange_delete(
                 exchange=exchange,
                 if_unused=if_unused,
-                nowait=False,
                 callback=delete_ok_result.set_value_once)
 
             self._flush_output(delete_ok_result.is_ready)
@@ -2353,7 +2345,6 @@ class BlockingChannel(object):
                 source=source,
                 routing_key=routing_key,
                 arguments=arguments,
-                nowait=False,
                 callback=bind_ok_result.set_value_once)
 
             self._flush_output(bind_ok_result.is_ready)
@@ -2383,7 +2374,6 @@ class BlockingChannel(object):
                 source=source,
                 routing_key=routing_key,
                 arguments=arguments,
-                nowait=False,
                 callback=unbind_ok_result.set_value_once)
 
             self._flush_output(unbind_ok_result.is_ready)
@@ -2422,7 +2412,6 @@ class BlockingChannel(object):
                 exclusive=exclusive,
                 auto_delete=auto_delete,
                 arguments=arguments,
-                nowait=False,
                 callback=declare_ok_result.set_value_once)
 
             self._flush_output(declare_ok_result.is_ready)
@@ -2446,7 +2435,6 @@ class BlockingChannel(object):
             self._impl.queue_delete(queue=queue,
                                     if_unused=if_unused,
                                     if_empty=if_empty,
-                                    nowait=False,
                                     callback=delete_ok_result.set_value_once)
 
             self._flush_output(delete_ok_result.is_ready)
@@ -2466,7 +2454,6 @@ class BlockingChannel(object):
         with _CallbackResult(self._MethodFrameCallbackResultArgs) as \
                 purge_ok_result:
             self._impl.queue_purge(queue=queue,
-                                   nowait=False,
                                    callback=purge_ok_result.set_value_once)
             self._flush_output(purge_ok_result.is_ready)
             return purge_ok_result.value.method_frame
@@ -2494,7 +2481,6 @@ class BlockingChannel(object):
                                   exchange=exchange,
                                   routing_key=routing_key,
                                   arguments=arguments,
-                                  nowait=False,
                                   callback=bind_ok_result.set_value_once)
             self._flush_output(bind_ok_result.is_ready)
             return bind_ok_result.value.method_frame

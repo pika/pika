@@ -22,7 +22,6 @@ from pika import credentials as pika_credentials
 from pika import exceptions
 from pika import frame
 from pika import heartbeat
-from pika import utils
 
 from pika import spec
 
@@ -1113,7 +1112,7 @@ class Connection(object):
         :param method callback: The method to call
 
         """
-        if not utils.is_callable(callback):
+        if not callable(callback):
             raise TypeError('callback should be a function or method.')
         self.callbacks.add(0, self.ON_CONNECTION_BACKPRESSURE, callback,
                            False)
@@ -1126,7 +1125,7 @@ class Connection(object):
         :param method callback: Callback to call on close
 
         """
-        if not utils.is_callable(callback):
+        if not callable(callback):
             raise TypeError('callback should be a function or method.')
         self.callbacks.add(0, self.ON_CONNECTION_CLOSED, callback, False)
 
@@ -1145,7 +1144,7 @@ class Connection(object):
             `pika.spec.Connection.Blocked`
 
         """
-        if not utils.is_callable(callback):
+        if not callable(callback):
             raise TypeError('callback should be a function or method.')
         self.callbacks.add(0, spec.Connection.Blocked, callback, False)
 
@@ -1161,7 +1160,7 @@ class Connection(object):
             `method` member is of type `pika.spec.Connection.Unblocked`
 
         """
-        if not utils.is_callable(callback):
+        if not callable(callback):
             raise TypeError('callback should be a function or method.')
         self.callbacks.add(0, spec.Connection.Unblocked, callback, False)
 
@@ -1171,7 +1170,7 @@ class Connection(object):
         :param method callback: Callback to call when open
 
         """
-        if not utils.is_callable(callback):
+        if not callable(callback):
             raise TypeError('callback should be a function or method.')
         self.callbacks.add(0, self.ON_CONNECTION_OPEN, callback, False)
 
@@ -1185,7 +1184,7 @@ class Connection(object):
         :param bool remove_default: Remove default exception raising callback
 
         """
-        if not utils.is_callable(callback):
+        if not callable(callback):
             raise TypeError('callback should be a function or method.')
         if remove_default:
             self.callbacks.remove(0, self.ON_CONNECTION_ERROR,
@@ -2189,7 +2188,7 @@ class Connection(object):
 
         # Validate the callback is callable
         if callback:
-            if not utils.is_callable(callback):
+            if not callable(callback):
                 raise TypeError('callback should be None, function or method.')
 
             for reply in acceptable_replies:

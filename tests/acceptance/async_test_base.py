@@ -130,7 +130,6 @@ class BoundQueueTestCase(AsyncTestCase):
                                    exclusive=True,
                                    auto_delete=True,
                                    arguments={'x-expires': self.TIMEOUT * 1000},
-                                   nowait=False,
                                    callback=self.on_queue_declared)
 
     def on_queue_declared(self, frame):  # pylint: disable=W0613

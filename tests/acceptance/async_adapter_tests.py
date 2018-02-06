@@ -33,8 +33,8 @@ class TestConfirmSelect(AsyncTestCase, AsyncAdapters):
     DESCRIPTION = "Receive confirmation of Confirm.Select"
 
     def begin(self, channel):
-        channel._on_selectok = self.on_complete
-        channel.confirm_delivery(callback=self.ack_nack_callback)
+        channel.confirm_delivery(ack_nack_callback=self.ack_nack_callback,
+                                 callback=self.on_complete)
 
     def ack_nack_callback(frame):
         pass
@@ -59,11 +59,10 @@ class TestBlockingNonBlockingBlockingRPCWontStall(AsyncTestCase, AsyncAdapters):
         self._declared_queue_names = []
 
         for queue, nowait in self._expected_queue_params:
-            channel.queue_declare(callback=self._queue_declare_ok_cb
-                                  if not nowait else None,
+            cb = self._queue_declare_ok_cb if not nowait else None
+            channel.queue_declare(callback=cb,
                                   queue=queue,
                                   auto_delete=True,
-                                  nowait=nowait,
                                   arguments={'x-expires': self.TIMEOUT * 1000})
 
     def _queue_declare_ok_cb(self, declare_ok_frame):
@@ -73,8 +72,7 @@ class TestBlockingNonBlockingBlockingRPCWontStall(AsyncTestCase, AsyncAdapters):
             # Initiate check for creation of queue declared with nowait=True
             self.channel.queue_declare(callback=self._queue_declare_ok_cb,
                                        queue=self._expected_queue_params[1][0],
-                                       passive=True,
-                                       nowait=False)
+                                       passive=True)
         elif len(self._declared_queue_names) == 3:
             self.assertSequenceEqual(
                 sorted(self._declared_queue_names),
@@ -94,8 +92,8 @@ class TestConsumeCancel(AsyncTestCase, AsyncAdapters):
             msg_body = '{}:{}:{}'.format(self.__class__.__name__, i,
                                          time.time())
             self.channel.basic_publish('', self.queue_name, msg_body)
-        self.ctag = self.channel.basic_consume(callback=self.on_message,
-                                               queue=self.queue_name,
+        self.ctag = self.channel.basic_consume(self.on_message,
+                                               self.queue_name,
                                                no_ack=True)
 
     def on_message(self, _channel, _frame, _header, body):
@@ -148,7 +146,7 @@ class TestExchangeRedeclareWithDifferentValues(AsyncTestCase, AsyncAdapters):
                                  callback=self.on_exchange_declared)
 
     def on_cleanup_channel(self, channel):
-        channel.exchange_delete(self.name, nowait=True, callback=None)
+        channel.exchange_delete(self.name)
         self.stop()
 
     def on_channel_closed(self, channel, reply_code, reply_text):
@@ -163,7 +161,7 @@ class TestExchangeRedeclareWithDifferentValues(AsyncTestCase, AsyncAdapters):
                                       callback=self.on_bad_result)
 
     def on_bad_result(self, frame):
-        self.channel.exchange_delete(self.name, nowait=True, callback=None)
+        self.channel.exchange_delete(self.name)
         raise AssertionError("Should not have received a Queue.DeclareOk")
 
 
@@ -176,7 +174,6 @@ class TestQueueDeclareAndDelete(AsyncTestCase, AsyncAdapters):
                               exclusive=True,
                               auto_delete=False,
                               arguments={'x-expires': self.TIMEOUT * 1000},
-                              nowait=False,
                               callback=self.on_queue_declared)
 
     def on_queue_declared(self, frame):
@@ -200,7 +197,6 @@ class TestQueueNameDeclareAndDelete(AsyncTestCase, AsyncAdapters):
                               exclusive=True,
                               auto_delete=True,
                               arguments={'x-expires': self.TIMEOUT * 1000},
-                              nowait=False,
                               callback=self.on_queue_declared)
 
     def on_queue_declared(self, frame):
@@ -227,7 +223,6 @@ class TestQueueRedeclareWithDifferentValues(AsyncTestCase, AsyncAdapters):
                               exclusive=True,
                               auto_delete=True,
                               arguments={'x-expires': self.TIMEOUT * 1000},
-                              nowait=False,
                               callback=self.on_queue_declared)
 
     def on_channel_closed(self, channel, reply_code, reply_text):
@@ -240,11 +235,10 @@ class TestQueueRedeclareWithDifferentValues(AsyncTestCase, AsyncAdapters):
                                    exclusive=False,
                                    auto_delete=True,
                                    arguments={'x-expires': self.TIMEOUT * 1000},
-                                   nowait=False,
                                    callback=self.on_bad_result)
 
     def on_bad_result(self, frame):
-        self.channel.queue_delete(self._q_name, nowait=True, callback=None)
+        self.channel.queue_delete(self._q_name)
         raise AssertionError("Should not have received a Queue.DeclareOk")
 
 
@@ -329,7 +323,7 @@ class TestZ_PublishAndConsume(BoundQueueTestCase, AsyncAdapters):  # pylint: dis
     DESCRIPTION = "Publish a message and consume it"
 
     def on_ready(self, frame):
-        self.ctag = self.channel.basic_consume(self.queue, callback=self.on_message)
+        self.ctag = self.channel.basic_consume(self.on_message, self.queue)
         self.msg_body = "%s: %i" % (self.__class__.__name__, time.time())
         self.channel.basic_publish(self.exchange, self.routing_key,
                                    self.msg_body)
@@ -354,7 +348,7 @@ class TestZ_PublishAndConsumeBig(BoundQueueTestCase, AsyncAdapters):  # pylint: 
         return '\n'.join(["%s" % i for i in range(0, 2097152)])
 
     def on_ready(self, frame):
-        self.ctag = self.channel.basic_consume(self.queue, callback=self.on_message)
+        self.ctag = self.channel.basic_consume(self.on_message, self.queue)
         self.msg_body = self._get_msg_body()
         self.channel.basic_publish(self.exchange, self.routing_key,
                                    self.msg_body)
@@ -377,7 +371,7 @@ class TestZ_PublishAndGet(BoundQueueTestCase, AsyncAdapters):  # pylint: disable
         self.msg_body = "%s: %i" % (self.__class__.__name__, time.time())
         self.channel.basic_publish(self.exchange, self.routing_key,
                                    self.msg_body)
-        self.channel.basic_get(self.queue, callback=self.on_get)
+        self.channel.basic_get(self.on_get, self.queue)
 
     def on_get(self, channel, method, header, body):
         self.assertIsInstance(method, spec.Basic.GetOk)
