@@ -170,7 +170,7 @@ class ChannelTests(unittest.TestCase):
             nowait=True,
             callback=callback_mock)
 
-    @mock.patch('pika.channel.Channel._validate_channel_and_callback')
+    @mock.patch('pika.channel.Channel._validate_channel')
     def test_basic_cancel_calls_validate(self, validate):
         self.obj._set_state(self.obj.OPEN)
         consumer_tag = 'ctag0'
@@ -179,7 +179,7 @@ class ChannelTests(unittest.TestCase):
 
         self.obj.basic_cancel(consumer_tag, callback=callback_mock)
 
-        validate.assert_called_once_with(callback_mock)
+        validate.assert_called_once()
 
     def test_basic_cancel_synch(self):
         self.obj._set_state(self.obj.OPEN)
@@ -247,12 +247,12 @@ class ChannelTests(unittest.TestCase):
         self.assertRaises(exceptions.ChannelClosed, self.obj.basic_consume,
                           'test-queue', callback=mock_callback)
 
-    @mock.patch('pika.channel.Channel._validate_channel_and_callback')
+    @mock.patch('pika.channel.Channel._validate_channel')
     def test_basic_consume_calls_validate(self, validate):
         self.obj._set_state(self.obj.OPEN)
         mock_callback = mock.Mock()
         self.obj.basic_consume('test-queue', callback=mock_callback)
-        validate.assert_called_once_with(mock_callback)
+        validate.assert_called_once()
 
     def test_basic_consume_consumer_tag(self):
         self.obj._set_state(self.obj.OPEN)

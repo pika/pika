@@ -225,7 +225,7 @@ class Channel(object):
         :raises ValueError:
 
         """
-        self._validate_channel_and_callback(callback)
+        self._validate_channel()
         self._validate_callback_and_nowait(callback, nowait)
 
         if consumer_tag in self._cancelled:
@@ -303,7 +303,7 @@ class Channel(object):
         """
         if not is_callable(callback):
             raise ValueError('basic_consume requires a callback')
-        self._validate_channel_and_callback(callback)
+        self._validate_channel()
 
         # If a consumer tag was not passed, create one
         if not consumer_tag:
@@ -625,7 +625,7 @@ class Channel(object):
         :raises ValueError:
 
         """
-        self._validate_channel_and_callback(callback)
+        self._validate_channel()
         self._validate_callback_and_nowait(callback, nowait)
         return self._rpc(spec.Exchange.Bind(0, destination, source, routing_key,
                                             nowait, arguments or dict()),
@@ -668,7 +668,7 @@ class Channel(object):
         :raises ValueError:
 
         """
-        self._validate_channel_and_callback(callback)
+        self._validate_channel()
         self._validate_callback_and_nowait(callback, nowait)
         return self._rpc(spec.Exchange.Declare(0, exchange, exchange_type,
                                                passive, durable, auto_delete,
@@ -693,7 +693,7 @@ class Channel(object):
         :raises ValueError:
 
         """
-        self._validate_channel_and_callback(callback)
+        self._validate_channel()
         self._validate_callback_and_nowait(callback, nowait)
         return self._rpc(
             spec.Exchange.Delete(0, exchange, if_unused, nowait), callback,
@@ -721,7 +721,7 @@ class Channel(object):
         :raises ValueError:
 
         """
-        self._validate_channel_and_callback(callback)
+        self._validate_channel()
         self._validate_callback_and_nowait(callback, nowait)
         return self._rpc(spec.Exchange.Unbind(0, destination, source,
                                               routing_key, nowait, arguments),
@@ -802,7 +802,7 @@ class Channel(object):
         :raises ValueError:
 
         """
-        self._validate_channel_and_callback(callback)
+        self._validate_channel()
         self._validate_callback_and_nowait(callback, nowait)
         replies = [spec.Queue.BindOk] if nowait is False else []
         if routing_key is None:
@@ -840,7 +840,7 @@ class Channel(object):
         :raises ValueError:
 
         """
-        self._validate_channel_and_callback(callback)
+        self._validate_channel()
         self._validate_callback_and_nowait(callback, nowait)
 
         if queue:
@@ -849,7 +849,7 @@ class Channel(object):
         else:
             condition = spec.Queue.DeclareOk  # pylint: disable=R0204
         replies = [condition] if nowait is False else []
-        self._validate_channel_and_callback(callback)
+
         return self._rpc(spec.Queue.Declare(0, queue, passive, durable,
                                             exclusive, auto_delete, nowait,
                                             arguments or dict()),
@@ -873,7 +873,7 @@ class Channel(object):
         :raises ValueError:
 
         """
-        self._validate_channel_and_callback(callback)
+        self._validate_channel()
         self._validate_callback_and_nowait(callback, nowait)
         replies = [spec.Queue.DeleteOk] if nowait is False else []
         return self._rpc(spec.Queue.Delete(0, queue, if_unused, if_empty,
@@ -891,7 +891,7 @@ class Channel(object):
         :raises ValueError:
 
         """
-        self._validate_channel_and_callback(callback)
+        self._validate_channel()
         self._validate_callback_and_nowait(callback, nowait)
         replies = [spec.Queue.PurgeOk] if nowait is False else []
         return self._rpc(spec.Queue.Purge(0, queue, nowait), callback, replies)
@@ -918,7 +918,7 @@ class Channel(object):
         :raises ValueError:
 
         """
-        self._validate_channel_and_callback(callback)
+        self._validate_channel()
         self._validate_callback_and_nowait(callback, nowait)
         if routing_key is None:
             routing_key = queue
@@ -1402,6 +1402,15 @@ class Channel(object):
         """
         LOGGER.error('Unexpected frame: %r', frame_value)
 
+    def _validate_channel(self):
+        """Verify that channel is open
+
+        :raises ChannelClosed: if channel is closed
+
+        """
+        if not self.is_open:
+            raise exceptions.ChannelClosed()
+
     def _validate_channel_and_callback(self, callback):
         """Verify that channel is open and callback is callable if not None
 
@@ -1409,12 +1418,20 @@ class Channel(object):
         :raises ValueError: if callback is not None and is not callable
 
         """
-        if not self.is_open:
-            raise exceptions.ChannelClosed()
+        self._validate_channel()
+
         if callback is not None and not is_callable(callback):
             raise ValueError('callback must be a function or method')
 
     def _validate_callback_and_nowait(self, callback, nowait):
+        """Verify callback is callable if not None and that nowait is
+        consistent
+
+        :raises ValueError: if nowait is True and callback is not None,
+                            or if nowait is False and callback is not None
+                            and is not callable
+
+        """
         if nowait:
             if callback is not None:
                 raise ValueError(
