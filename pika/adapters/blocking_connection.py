@@ -21,9 +21,13 @@ import logging
 import time
 
 import pika.channel
+
 from pika import compat
 from pika import exceptions
+from pika.utils import is_callable
+
 import pika.spec
+
 # NOTE: import SelectConnection after others to avoid circular depenency
 from pika.adapters.select_connection import SelectConnection
 
@@ -619,7 +623,7 @@ class BlockingConnection(object):
         :returns: opaque timer id
 
         """
-        if not callable(callback):
+        if not is_callable(callback):
             raise ValueError(
                 'callback parameter must be callable, but got %r'
                 % (callback,))
@@ -951,7 +955,7 @@ class ReturnedMessage(object):
 class _ConsumerInfo(object):
     """Information about an active consumer"""
 
-    __slots__ = ('consumer_tag', 'no_ack', 'consumer_cb',
+    __slots__ = ('consumer_tag', 'no_ack', 'callback',
                  'alternate_event_sink', 'state')
 
     # Consumer states
@@ -960,16 +964,16 @@ class _ConsumerInfo(object):
     TEARING_DOWN = 3
     CANCELLED_BY_BROKER = 4
 
-    def __init__(self, consumer_tag, no_ack, consumer_cb=None,
+    def __init__(self, consumer_tag, no_ack, callback=None,
                  alternate_event_sink=None):
         """
-        NOTE: exactly one of consumer_cb/alternate_event_sink musts be non-None.
+        NOTE: exactly one of callback/alternate_event_sink musts be non-None.
 
         :param str consumer_tag:
         :param bool no_ack: the no-ack value for the consumer
-        :param callable consumer_cb: The function for dispatching messages to
+        :param callable callback: The function for dispatching messages to
             user, having the signature:
-            consumer_cb(channel, method, properties, body)
+            callback(channel, method, properties, body)
                 channel: BlockingChannel
                 method: spec.Basic.Deliver
                 properties: spec.BasicProperties
@@ -980,12 +984,12 @@ class _ConsumerInfo(object):
             `_pending_events` container. Signature:
             alternate_event_sink(evt)
         """
-        assert (consumer_cb is None) != (alternate_event_sink is None), (
-            'exactly one of consumer_cb/alternate_event_sink must be non-None',
-            consumer_cb, alternate_event_sink)
+        assert (callback is None) != (alternate_event_sink is None), (
+            'exactly one of callback/alternate_event_sink must be non-None',
+            callback, alternate_event_sink)
         self.consumer_tag = consumer_tag
         self.no_ack = no_ack
-        self.consumer_cb = consumer_cb
+        self.callback = callback
         self.alternate_event_sink = alternate_event_sink
         self.state = self.SETTING_UP
 
@@ -1139,20 +1143,20 @@ class BlockingChannel(object):
         self._basic_getempty_result = _CallbackResult(
             self._MethodFrameCallbackResultArgs)
 
-        self._impl.add_on_cancel_callback(self._on_consumer_cancelled_by_broker)
+        self._impl.add_on_cancel_callback(callback=self._on_consumer_cancelled_by_broker)
 
         self._impl.add_callback(
-            self._basic_consume_ok_result.signal_once,
+            callback=self._basic_consume_ok_result.signal_once,
             replies=[pika.spec.Basic.ConsumeOk],
             one_shot=False)
 
         self._impl.add_callback(
-            self._on_channel_closed,
+            callback=self._on_channel_closed,
             replies=[pika.spec.Channel.Close],
             one_shot=True)
 
         self._impl.add_callback(
-            self._basic_getempty_result.set_value_once,
+            callback=self._basic_getempty_result.set_value_once,
             replies=[pika.spec.Basic.GetEmpty],
             one_shot=False)
 
@@ -1399,8 +1403,8 @@ class BlockingChannel(object):
 
             if type(evt) is _ConsumerDeliveryEvt:
                 consumer_info = self._consumer_infos[evt.method.consumer_tag]
-                consumer_info.consumer_cb(self, evt.method, evt.properties,
-                                          evt.body)
+                consumer_info.callback(self, evt.method,
+                                       evt.properties, evt.body)
 
             elif type(evt) is _ConsumerCancellationEvt:
                 del self._consumer_infos[evt.method_frame.method.consumer_tag]
@@ -1456,8 +1460,8 @@ class BlockingChannel(object):
 
         """
         with _CallbackResult(self._FlowOkCallbackResultArgs) as flow_ok_result:
-            self._impl.flow(callback=flow_ok_result.set_value_once,
-                            active=active)
+            self._impl.flow(active=active,
+                            callback=flow_ok_result.set_value_once)
             self._flush_output(flow_ok_result.is_ready)
             return flow_ok_result.value.active
 
@@ -1497,11 +1501,11 @@ class BlockingChannel(object):
 
     def basic_consume(self,
                       queue,
+                      callback,
                       no_ack=False,
                       exclusive=False,
                       consumer_tag=None,
-                      arguments=None,
-                      callback=None):
+                      arguments=None):
         """Sends the AMQP command Basic.Consume to the broker and binds messages
         for the consumer_tag to the consumer callback. If you do not pass in
         a consumer_tag, one will be automatically generated for you. Returns
@@ -1517,6 +1521,13 @@ class BlockingChannel(object):
 
         :param queue: The queue to consume from
         :type queue: str or unicode
+        :param callable callback: Required function for dispatching messages
+            to user, having the signature:
+            callback(channel, method, properties, body)
+                channel: BlockingChannel
+                method: spec.Basic.Deliver
+                properties: spec.BasicProperties
+                body: str or unicode
         :param bool no_ack: Tell the broker to not expect a response (i.e.,
           no ack/nack)
         :param bool exclusive: Don't allow other consumers on the queue
@@ -1524,13 +1535,6 @@ class BlockingChannel(object):
           empty, a consumer tag will be generated automatically
         :type consumer_tag: str or unicode
         :param dict arguments: Custom key/value pair arguments for the consumer
-        :param callable callback: REQUIRED function for dispatching messages
-            to user, having the signature:
-            callback(channel, method, properties, body)
-                channel: BlockingChannel
-                method: spec.Basic.Deliver
-                properties: spec.BasicProperties
-                body: str or unicode
         :returns: consumer tag
         :rtype: str
 
@@ -1538,7 +1542,7 @@ class BlockingChannel(object):
             consumer_tag is already present.
 
         """
-        if not callable(callback):
+        if not is_callable(callback):
             raise ValueError('callback callback must be callable; got %r'
                              % callback)
 
@@ -1548,7 +1552,7 @@ class BlockingChannel(object):
             exclusive=exclusive,
             consumer_tag=consumer_tag,
             arguments=arguments,
-            consumer_cb=callback)
+            callback=callback)
 
     def _basic_consume_impl(self,
                             queue,
@@ -1556,12 +1560,12 @@ class BlockingChannel(object):
                             exclusive,
                             consumer_tag,
                             arguments=None,
-                            consumer_cb=None,
+                            callback=None,
                             alternate_event_sink=None):
         """The low-level implementation used by `basic_consume` and `consume`.
         See `basic_consume` docstring for more info.
 
-        NOTE: exactly one of consumer_cb/alternate_event_sink musts be
+        NOTE: exactly one of callback/alternate_event_sink musts be
         non-None.
 
         This method has one additional parameter alternate_event_sink over the
@@ -1577,10 +1581,10 @@ class BlockingChannel(object):
             consumer_tag is already present.
 
         """
-        if (consumer_cb is None) == (alternate_event_sink is None):
+        if (callback is None) == (alternate_event_sink is None):
             raise ValueError(
-                ('exactly one of consumer_cb/alternate_event_sink must '
-                 'be non-None', consumer_cb, alternate_event_sink))
+                ('exactly one of callback/alternate_event_sink must '
+                 'be non-None', callback, alternate_event_sink))
 
         if not consumer_tag:
             # Need a consumer tag to register consumer info before sending
@@ -1596,7 +1600,7 @@ class BlockingChannel(object):
         self._consumer_infos[consumer_tag] = _ConsumerInfo(
             consumer_tag,
             no_ack=no_ack,
-            consumer_cb=consumer_cb,
+            callback=callback,
             alternate_event_sink=alternate_event_sink)
 
         try:
@@ -2027,9 +2031,9 @@ class BlockingChannel(object):
         # NOTE: nested with for python 2.6 compatibility
         with _CallbackResult(self._RxMessageArgs) as get_ok_result:
             with self._basic_getempty_result:
-                self._impl.basic_get(callback=get_ok_result.set_value_once,
-                                     queue=queue,
-                                     no_ack=no_ack)
+                self._impl.basic_get(queue=queue,
+                                     no_ack=no_ack,
+                                     callback=get_ok_result.set_value_once)
                 self._flush_output(get_ok_result.is_ready,
                                    self._basic_getempty_result.is_ready)
                 if get_ok_result:
@@ -2210,8 +2214,8 @@ class BlockingChannel(object):
 
         """
         with _CallbackResult() as recover_ok_result:
-            self._impl.basic_recover(callback=recover_ok_result.signal_once,
-                                     requeue=requeue)
+            self._impl.basic_recover(requeue=requeue,
+                                     callback=recover_ok_result.signal_once)
             self._flush_output(recover_ok_result.is_ready)
 
     def basic_reject(self, delivery_tag=None, requeue=True):
@@ -2514,11 +2518,11 @@ class BlockingChannel(object):
         """
         with _CallbackResult(self._MethodFrameCallbackResultArgs) as \
                 unbind_ok_result:
-            self._impl.queue_unbind(callback=unbind_ok_result.set_value_once,
-                                    queue=queue,
+            self._impl.queue_unbind(queue=queue,
                                     exchange=exchange,
                                     routing_key=routing_key,
-                                    arguments=arguments)
+                                    arguments=arguments,
+                                    callback=unbind_ok_result.set_value_once)
             self._flush_output(unbind_ok_result.is_ready)
             return unbind_ok_result.value.method_frame
 
