@@ -164,7 +164,7 @@ class ChannelTests(unittest.TestCase):
         callback_mock = mock.Mock()
         self.obj._consumers[consumer_tag] = callback_mock
         self.assertRaises(
-            ValueError,
+            TypeError,
             self.obj.basic_cancel,
             consumer_tag,
             callback='bad-callback')
@@ -214,7 +214,7 @@ class ChannelTests(unittest.TestCase):
         self.obj._set_state(self.obj.OPEN)
         self.obj._consumers['ctag0'] = mock.Mock()
 
-        with self.assertRaises(ValueError):
+        with self.assertRaises(TypeError):
             self.obj.basic_cancel(consumer_tag='ctag0', callback='bad-callback')
 
         # Verify arg error detected raised without making state changes
@@ -636,7 +636,7 @@ class ChannelTests(unittest.TestCase):
 
     def test_exchange_bind_raises_value_error_on_invalid_callback(self):
         self.obj._set_state(self.obj.OPEN)
-        self.assertRaises(ValueError, self.obj.exchange_bind,
+        self.assertRaises(TypeError, self.obj.exchange_bind,
                           'foo', 'bar', 'baz', None, 'callback')
 
     @mock.patch('pika.spec.Exchange.Bind')
@@ -666,7 +666,7 @@ class ChannelTests(unittest.TestCase):
 
     def test_exchange_declare_raises_value_error_on_invalid_callback(self):
         self.obj._set_state(self.obj.OPEN)
-        self.assertRaises(ValueError, self.obj.exchange_declare,
+        self.assertRaises(TypeError, self.obj.exchange_declare,
                           'foo', callback='callback')
 
     @mock.patch('pika.spec.Exchange.Declare')
@@ -694,7 +694,7 @@ class ChannelTests(unittest.TestCase):
 
     def test_exchange_delete_raises_value_error_on_invalid_callback(self):
         self.obj._set_state(self.obj.OPEN)
-        self.assertRaises(ValueError, self.obj.exchange_delete,
+        self.assertRaises(TypeError, self.obj.exchange_delete,
                           'foo', callback='callback')
 
     @mock.patch('pika.spec.Exchange.Delete')
@@ -722,7 +722,7 @@ class ChannelTests(unittest.TestCase):
 
     def test_exchange_unbind_raises_value_error_on_invalid_callback(self):
         self.obj._set_state(self.obj.OPEN)
-        self.assertRaises(ValueError, self.obj.exchange_unbind,
+        self.assertRaises(TypeError, self.obj.exchange_unbind,
                           'foo', 'bar', 'baz', callback='callback')
 
     @mock.patch('pika.spec.Exchange.Unbind')
@@ -746,11 +746,11 @@ class ChannelTests(unittest.TestCase):
             spec.Exchange.Unbind(0, 'foo', 'bar', 'baz'), None, [])
 
     def test_flow_raises_channel_closed(self):
-        self.assertRaises(exceptions.ChannelClosed, self.obj.flow, 'foo', True)
+        self.assertRaises(exceptions.ChannelClosed, self.obj.flow, True, 'foo')
 
     def test_flow_raises_invalid_callback(self):
         self.obj._set_state(self.obj.OPEN)
-        self.assertRaises(ValueError, self.obj.flow, 'foo', True)
+        self.assertRaises(TypeError, self.obj.flow, True, 'foo')
 
     @mock.patch('pika.spec.Channel.Flow')
     @mock.patch('pika.channel.Channel._rpc')
@@ -807,7 +807,7 @@ class ChannelTests(unittest.TestCase):
 
     def test_queue_bind_raises_value_error_on_invalid_callback(self):
         self.obj._set_state(self.obj.OPEN)
-        self.assertRaises(ValueError, self.obj.queue_bind,
+        self.assertRaises(TypeError, self.obj.queue_bind,
                           'foo', 'bar', 'baz', callback='callback')
 
     @mock.patch('pika.spec.Queue.Bind')
@@ -838,7 +838,7 @@ class ChannelTests(unittest.TestCase):
 
     def test_queue_declare_raises_value_error_on_invalid_callback(self):
         self.obj._set_state(self.obj.OPEN)
-        self.assertRaises(ValueError, self.obj.queue_declare,
+        self.assertRaises(TypeError, self.obj.queue_declare,
                           'foo', callback='callback')
 
     @mock.patch('pika.spec.Queue.Declare')
@@ -868,7 +868,7 @@ class ChannelTests(unittest.TestCase):
 
     def test_queue_delete_raises_value_error_on_invalid_callback(self):
         self.obj._set_state(self.obj.OPEN)
-        self.assertRaises(ValueError, self.obj.queue_delete,
+        self.assertRaises(TypeError, self.obj.queue_delete,
                           'foo', callback='callback')
 
     @mock.patch('pika.spec.Queue.Delete')
@@ -895,7 +895,7 @@ class ChannelTests(unittest.TestCase):
 
     def test_queue_purge_raises_value_error_on_invalid_callback(self):
         self.obj._set_state(self.obj.OPEN)
-        self.assertRaises(ValueError, self.obj.queue_purge,
+        self.assertRaises(TypeError, self.obj.queue_purge,
                           'foo', callback='callback')
 
     @mock.patch('pika.spec.Queue.Purge')
@@ -918,11 +918,11 @@ class ChannelTests(unittest.TestCase):
 
     def test_queue_unbind_raises_channel_closed(self):
         self.assertRaises(exceptions.ChannelClosed, self.obj.queue_unbind,
-                          None, 'foo', 'bar', 'baz')
+                          'foo', 'bar', 'baz', callback=None)
 
     def test_queue_unbind_raises_value_error_on_invalid_callback(self):
         self.obj._set_state(self.obj.OPEN)
-        self.assertRaises(ValueError, self.obj.queue_unbind, 'foo',
+        self.assertRaises(TypeError, self.obj.queue_unbind, 'foo',
                           'bar', 'baz', callback='callback')
 
     @mock.patch('pika.spec.Queue.Unbind')
@@ -1460,4 +1460,5 @@ class ChannelTests(unittest.TestCase):
     def test_validate_callback_raises_value_error_not_callable(
             self):
         self.obj._set_state(self.obj.OPEN)
-        self.assertRaises(ValueError, self.obj._validate_callback, 'foo')
+        self.assertRaises(TypeError,
+                self.obj._validate_rpc_completion_callback, 'foo')

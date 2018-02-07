@@ -54,9 +54,7 @@ class Channel(object):
         if not isinstance(channel_number, int):
             raise exceptions.InvalidChannelNumber
 
-        if on_open_callback is not None:
-            if not callable(on_open_callback):
-                raise ValueError('on_open_callback must be None or callable')
+        self._validate_rpc_completion_callback(on_open_callback)
 
         self.channel_number = channel_number
         self.callbacks = connection.callbacks
@@ -223,7 +221,7 @@ class Channel(object):
 
         """
         self._validate_channel()
-        nowait = self._validate_callback(callback)
+        nowait = self._validate_rpc_completion_callback(callback)
 
         if consumer_tag in self._cancelled:
             # We check for cancelled first, because basic_cancel removes
@@ -238,8 +236,8 @@ class Channel(object):
                            consumer_tag)
             return
 
-        LOGGER.debug('Cancelling consumer: %s (nowait=%s)', consumer_tag,
-                     nowait)
+        LOGGER.debug('Cancelling consumer: %s (nowait=%s)',
+                     consumer_tag, nowait)
 
         if nowait:
             # This is our last opportunity while the channel is open to remove
@@ -255,8 +253,9 @@ class Channel(object):
         self._cancelled.add(consumer_tag)
 
         self._rpc(spec.Basic.Cancel(consumer_tag=consumer_tag, nowait=nowait),
-            self._on_cancelok if not nowait else None,
-            [(spec.Basic.CancelOk, { 'consumer_tag': consumer_tag })] if nowait is False else [])
+                  self._on_cancelok if not nowait else None,
+                  [(spec.Basic.CancelOk, { 'consumer_tag': consumer_tag })] if
+                  not nowait else [])
 
     def basic_consume(self,
                       callback,
@@ -308,16 +307,13 @@ class Channel(object):
             self._consumers_with_noack.add(consumer_tag)
 
         self._consumers[consumer_tag] = callback
-        self._rpc(
-            spec.Basic.Consume(
-                queue=queue,
-                consumer_tag=consumer_tag,
-                no_ack=no_ack,
-                exclusive=exclusive,
-                arguments=arguments or dict()), self._on_eventok,
-            [(spec.Basic.ConsumeOk, {
-                'consumer_tag': consumer_tag
-            })])
+        self._rpc(spec.Basic.Consume(queue=queue,
+                                     consumer_tag=consumer_tag,
+                                     no_ack=no_ack,
+                                     exclusive=exclusive,
+                                     arguments=arguments or dict()),
+                  self._on_eventok, [(spec.Basic.ConsumeOk,
+                                      {'consumer_tag': consumer_tag})])
 
         return consumer_tag
 
@@ -330,7 +326,8 @@ class Channel(object):
         :rtype: str
 
         """
-        return 'ctag%i.%s' % (self.channel_number, uuid.uuid4().hex)
+        return 'ctag%i.%s' % (self.channel_number,
+                              uuid.uuid4().hex)
 
     def basic_get(self, callback, queue='', no_ack=False):
         """Get a single message from the AMQP broker. If you want to
@@ -390,10 +387,7 @@ class Channel(object):
         return self._send_method(spec.Basic.Nack(delivery_tag, multiple,
                                                  requeue))
 
-    def basic_publish(self,
-                      exchange,
-                      routing_key,
-                      body,
+    def basic_publish(self, exchange, routing_key, body,
                       properties=None,
                       mandatory=False,
                       immediate=False):
@@ -420,12 +414,11 @@ class Channel(object):
         if isinstance(body, unicode_type):
             body = body.encode('utf-8')
         properties = properties or spec.BasicProperties()
-        self._send_method(
-            spec.Basic.Publish(
-                exchange=exchange,
-                routing_key=routing_key,
-                mandatory=mandatory,
-                immediate=immediate), (properties, body))
+        self._send_method(spec.Basic.Publish(exchange=exchange,
+                                             routing_key=routing_key,
+                                             mandatory=mandatory,
+                                             immediate=immediate),
+                          (properties, body))
 
     def basic_qos(self,
                   prefetch_size=0,
@@ -462,10 +455,10 @@ class Channel(object):
 
         """
         self._validate_channel()
-        self._validate_callback(callback)
-        return self._rpc(
-            spec.Basic.Qos(prefetch_size, prefetch_count, all_channels),
-            callback, [spec.Basic.QosOk])
+        self._validate_rpc_completion_callback(callback)
+        return self._rpc(spec.Basic.Qos(prefetch_size, prefetch_count,
+                                        all_channels),
+                         callback, [spec.Basic.QosOk])
 
     def basic_reject(self, delivery_tag, requeue=True):
         """Reject an incoming message. This method allows a client to reject a
@@ -501,9 +494,9 @@ class Channel(object):
 
         """
         self._validate_channel()
-        self._validate_callback(callback)
-        return self._rpc(
-            spec.Basic.Recover(requeue), callback, [spec.Basic.RecoverOk])
+        self._validate_rpc_completion_callback(callback)
+        return self._rpc(spec.Basic.Recover(requeue), callback,
+                         [spec.Basic.RecoverOk])
 
     def close(self, reply_code=0, reply_text="Normal shutdown"):
         """Invoke a graceful shutdown of the channel with the AMQP Broker.
@@ -533,8 +526,8 @@ class Channel(object):
         # causing the _on_openok method to suppress the OPEN state transition
         # and the on-channel-open-callback
 
-        LOGGER.info('Closing channel (%s): %r on %s', reply_code, reply_text,
-                    self)
+        LOGGER.info('Closing channel (%s): %r on %s',
+                    reply_code, reply_text, self)
 
         for consumer_tag in dictkeys(self._consumers):
             if consumer_tag not in self._cancelled:
@@ -544,9 +537,8 @@ class Channel(object):
         # exception from basic_cancel
         self._set_state(self.CLOSING)
 
-        self._rpc(
-            spec.Channel.Close(reply_code, reply_text, 0, 0), self._on_closeok,
-            [spec.Channel.CloseOk])
+        self._rpc(spec.Channel.Close(reply_code, reply_text, 0, 0),
+                  self._on_closeok, [spec.Channel.CloseOk])
 
     def confirm_delivery(self, ack_nack_callback, callback=None):
         """Turn on Confirm mode in the channel. Pass in a callback to be
@@ -572,25 +564,21 @@ class Channel(object):
                              'to receieve Basic.Ack/Basic.Nack notifications')
 
         self._validate_channel()
-        nowait = self._validate_callback(callback)
+        nowait = self._validate_rpc_completion_callback(callback)
 
         if not (self.connection.publisher_confirms and
                 self.connection.basic_nack):
             raise exceptions.MethodNotImplemented('Not Supported on Server')
 
         # Add the ack and nack callback
-        self.callbacks.add(self.channel_number,
-                           spec.Basic.Ack,
-                           ack_nack_callback,
+        self.callbacks.add(self.channel_number, spec.Basic.Ack, ack_nack_callback,
                            False)
-        self.callbacks.add(self.channel_number,
-                           spec.Basic.Nack,
-                           ack_nack_callback,
+        self.callbacks.add(self.channel_number, spec.Basic.Nack, ack_nack_callback,
                            False)
 
         self._rpc(spec.Confirm.Select(nowait),
-            callback if not nowait else None,
-            [spec.Confirm.SelectOk] if not nowait else [])
+                  callback if not nowait else None,
+                  [spec.Confirm.SelectOk] if not nowait else [])
 
     @property
     def consumer_tags(self):
@@ -621,10 +609,10 @@ class Channel(object):
 
         """
         self._validate_channel()
-        nowait = self._validate_callback(callback)
+        nowait = self._validate_rpc_completion_callback(callback)
         return self._rpc(spec.Exchange.Bind(0, destination, source, routing_key,
                                             nowait, arguments or dict()),
-                         callback, [spec.Exchange.BindOk] if nowait is False
+                         callback, [spec.Exchange.BindOk] if not nowait
                          else [])
 
     def exchange_declare(self,
@@ -661,13 +649,13 @@ class Channel(object):
 
         """
         self._validate_channel()
-        nowait = self._validate_callback(callback)
+        nowait = self._validate_rpc_completion_callback(callback)
         return self._rpc(spec.Exchange.Declare(0, exchange, exchange_type,
                                                passive, durable, auto_delete,
                                                internal, nowait,
                                                arguments or dict()),
                          callback,
-                         [spec.Exchange.DeclareOk] if nowait is False else [])
+                         [spec.Exchange.DeclareOk] if not nowait else [])
 
     def exchange_delete(self,
                         exchange=None,
@@ -678,16 +666,15 @@ class Channel(object):
         :param exchange: The exchange name
         :type exchange: str or unicode
         :param bool if_unused: only delete if the exchange is unused
-        :param bool nowait: Do not wait for an Exchange.DeleteOk
         :param callable callback: The function to call on Exchange.DeleteOk
         :raises ValueError:
 
         """
         self._validate_channel()
-        nowait = self._validate_callback(callback)
-        return self._rpc(
-            spec.Exchange.Delete(0, exchange, if_unused, nowait), callback,
-            [spec.Exchange.DeleteOk] if nowait is False else [])
+        nowait = self._validate_rpc_completion_callback(callback)
+        return self._rpc(spec.Exchange.Delete(0, exchange, if_unused, nowait),
+                         callback, [spec.Exchange.DeleteOk] if not nowait
+                         else [])
 
     def exchange_unbind(self,
                         destination=None,
@@ -709,11 +696,11 @@ class Channel(object):
 
         """
         self._validate_channel()
-        nowait = self._validate_callback(callback)
+        nowait = self._validate_rpc_completion_callback(callback)
         return self._rpc(spec.Exchange.Unbind(0, destination, source,
                                               routing_key, nowait, arguments),
                          callback,
-                         [spec.Exchange.UnbindOk] if nowait is False else [])
+                         [spec.Exchange.UnbindOk] if not nowait else [])
 
     def flow(self, active, callback=None):
         """Turn Channel flow control off and on. Pass a callback to be notified
@@ -724,12 +711,13 @@ class Channel(object):
         http://www.rabbitmq.com/amqp-0-9-1-reference.html#channel.flow
 
         :param bool active: Turn flow on or off
-        :param callable callback: The callback to call upon completion
+        :param callable callback: The optional callback to call upon
+                                  completion
         :raises ValueError:
 
         """
         self._validate_channel()
-        self._validate_callback(callback)
+        self._validate_rpc_completion_callback(callback)
         self._on_flowok_callback = callback
         self._rpc(spec.Channel.Flow(active), self._on_flowok,
                   [spec.Channel.FlowOk])
@@ -788,14 +776,13 @@ class Channel(object):
 
         """
         self._validate_channel()
-        nowait = self._validate_callback(callback)
+        nowait = self._validate_rpc_completion_callback(callback)
         if routing_key is None:
             routing_key = queue
-        return self._rpc(
-            spec.Queue.Bind(0, queue, exchange, routing_key,
-                            nowait, arguments or dict()),
-            callback,
-            [spec.Queue.BindOk] if nowait is False else [])
+        return self._rpc(spec.Queue.Bind(0, queue, exchange, routing_key,
+                                         nowait, arguments or dict()),
+                         callback,
+                         [spec.Queue.BindOk] if not nowait else [])
 
     def queue_declare(self,
                       queue='',
@@ -819,26 +806,24 @@ class Channel(object):
         :param bool exclusive: Only allow access by the current connection
         :param bool auto_delete: Delete after consumer cancels or disconnects
         :param dict arguments: Custom key/value arguments for the queue
-        :param bool nowait: Do not wait for a Queue.DeclareOk
         :param callable callback: callback(pika.frame.Method) for method
-          Queue.DeclareOk; MUST be None when nowait=True.
+          Queue.DeclareOk
         :raises ValueError:
 
         """
         self._validate_channel()
-        nowait = self._validate_callback(callback)
+        nowait = self._validate_rpc_completion_callback(callback)
 
         if queue:
             condition = (spec.Queue.DeclareOk, {'queue': queue})
         else:
             condition = spec.Queue.DeclareOk
-        replies = [condition] if nowait is False else []
+        replies = [condition] if not nowait else []
 
-        return self._rpc(
-            spec.Queue.Declare(0, queue, passive, durable,
-                               exclusive, auto_delete, nowait,
-                               arguments or dict()),
-            callback, replies)
+        return self._rpc(spec.Queue.Declare(0, queue, passive, durable,
+                                            exclusive, auto_delete, nowait,
+                                            arguments or dict()),
+                         callback, replies)
 
     def queue_delete(self,
                      queue='',
@@ -851,31 +836,29 @@ class Channel(object):
         :type queue: str or unicode
         :param bool if_unused: only delete if it's unused
         :param bool if_empty: only delete if the queue is empty
-        :param bool nowait: Do not wait for a Queue.DeleteOk
         :param callable callback: The callback to call on Queue.DeleteOk
         :raises ValueError:
 
         """
         self._validate_channel()
-        nowait = self._validate_callback(callback)
-        replies = [spec.Queue.DeleteOk] if nowait is False else []
-        return self._rpc(
-            spec.Queue.Delete(0, queue, if_unused, if_empty, nowait),
-            callback, replies)
+        nowait = self._validate_rpc_completion_callback(callback)
+        replies = [spec.Queue.DeleteOk] if not nowait else []
+        return self._rpc(spec.Queue.Delete(0, queue, if_unused, if_empty,
+                                           nowait),
+                         callback, replies)
 
     def queue_purge(self, queue='', callback=None):
         """Purge all of the messages from the specified queue
 
         :param queue: The queue to purge
         :type queue: str or unicode
-        :param bool nowait: Do not expect a Queue.PurgeOk response
         :param callable callback: The callback to call on Queue.PurgeOk
         :raises ValueError:
 
         """
         self._validate_channel()
-        nowait = self._validate_callback(callback)
-        replies = [spec.Queue.PurgeOk] if nowait is False else []
+        nowait = self._validate_rpc_completion_callback(callback)
+        replies = [spec.Queue.PurgeOk] if not nowait else []
         return self._rpc(spec.Queue.Purge(0, queue, nowait), callback, replies)
 
     def queue_unbind(self,
@@ -893,13 +876,12 @@ class Channel(object):
         :param routing_key: The routing key to unbind
         :type routing_key: str or unicode
         :param dict arguments: Custom key/value pair arguments for the binding
-        :param bool nowait: Do not expect a Queue.PurgeOk response
         :param callable callback: The callback to call on Queue.UnbindOk
         :raises ValueError:
 
         """
         self._validate_channel()
-        self._validate_callback(callback)
+        self._validate_rpc_completion_callback(callback)
         if routing_key is None:
             routing_key = queue
         return self._rpc(spec.Queue.Unbind(0, queue, exchange, routing_key,
@@ -914,7 +896,7 @@ class Channel(object):
 
         """
         self._validate_channel()
-        self._validate_callback(callback)
+        self._validate_rpc_completion_callback(callback)
         return self._rpc(spec.Tx.Commit(), callback, [spec.Tx.CommitOk])
 
     def tx_rollback(self, callback=None):
@@ -925,7 +907,7 @@ class Channel(object):
 
         """
         self._validate_channel()
-        self._validate_callback(callback)
+        self._validate_rpc_completion_callback(callback)
         return self._rpc(spec.Tx.Rollback(), callback, [spec.Tx.RollbackOk])
 
     def tx_select(self, callback=None):
@@ -938,7 +920,7 @@ class Channel(object):
 
         """
         self._validate_channel()
-        self._validate_callback(callback)
+        self._validate_rpc_completion_callback(callback)
         return self._rpc(spec.Tx.Select(), callback, [spec.Tx.SelectOk])
 
     # Internal methods
@@ -1397,21 +1379,18 @@ class Channel(object):
     def _require_callback(self, callback):
         """Require that callback is callable and is not None
 
-        :raises: ValueError
+        :raises: TypeError
 
         """
-        if callback is None:
-            raise ValueError(
-                'Callback must not be None')
-
         if not callable(callback):
-            raise ValueError(
-                'Callback must be callable')
+            raise TypeError(
+                'Callback must be callable, but got %r', (callback,))
 
-    def _validate_callback(self, callback):
+    def _validate_rpc_completion_callback(self, callback):
         """Verify callback is callable if not None
 
         :returns: boolean indicating nowait
+        :raises: TypeError
 
         """
         if callback is None:
@@ -1423,7 +1402,7 @@ class Channel(object):
             # nowait=False
             return False
         else:
-            raise ValueError(
+            raise TypeError(
                 'Completion callback must be callable if not None')
 
 

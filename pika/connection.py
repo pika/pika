@@ -2187,7 +2187,7 @@ class Connection(object):
             raise TypeError('acceptable_replies should be list or None')
 
         # Validate the callback is callable
-        if callback:
+        if callback is not None:
             if not callable(callback):
                 raise TypeError('callback should be None, function or method.')
 
