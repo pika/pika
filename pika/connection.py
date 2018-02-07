@@ -1,4 +1,7 @@
 """Core connection objects"""
+# NB: disable too-many-lines
+# pylint: disable=C0302
+
 import ast
 import sys
 import collections
@@ -16,12 +19,12 @@ else:
     import urlparse
 
 from pika import __version__
-from pika import callback
+from pika import callback as pika_callback
 import pika.channel
 from pika import credentials as pika_credentials
 from pika import exceptions
 from pika import frame
-from pika import heartbeat
+from pika import heartbeat as pika_heartbeat
 
 from pika import spec
 
@@ -1073,7 +1076,7 @@ class Connection(object):
                        ConnectionParameters())
 
         # Define our callback dictionary
-        self.callbacks = callback.CallbackManager()
+        self.callbacks = pika_callback.CallbackManager()
 
         # Attributes that will be properly initialized by _init_connection_state
         # and/or during connection handshake.
@@ -1518,7 +1521,7 @@ class Connection(object):
         if self.params.heartbeat is not None and self.params.heartbeat > 0:
             LOGGER.debug('Creating a HeartbeatChecker: %r',
                          self.params.heartbeat)
-            return heartbeat.HeartbeatChecker(self, self.params.heartbeat)
+            return pika_heartbeat.HeartbeatChecker(self, self.params.heartbeat)
 
     def _remove_heartbeat(self):
         """Stop the heartbeat checker if it exists
@@ -1915,9 +1918,9 @@ class Connection(object):
         :rtype: int
 
         """
-        if client_value == None:
+        if client_value is None:
             client_value = 0
-        if server_value == None:
+        if server_value is None:
             server_value = 0
 
         # this is consistent with how Java client and Bunny
@@ -2282,11 +2285,11 @@ class Connection(object):
         if content[1]:
             chunks = int(math.ceil(float(length) / self._body_max_length))
             for chunk in xrange(0, chunks):
-                s = chunk * self._body_max_length
-                e = s + self._body_max_length
-                if e > length:
-                    e = length
-                self._send_frame(frame.Body(channel_number, content[1][s:e]))
+                start = chunk * self._body_max_length
+                end = start + self._body_max_length
+                if end > length:
+                    end = length
+                self._send_frame(frame.Body(channel_number, content[1][start:end]))
 
     def _set_connection_state(self, connection_state):
         """Set the connection state.

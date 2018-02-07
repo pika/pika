@@ -254,7 +254,7 @@ class Channel(object):
 
         self._rpc(spec.Basic.Cancel(consumer_tag=consumer_tag, nowait=nowait),
                   self._on_cancelok if not nowait else None,
-                  [(spec.Basic.CancelOk, { 'consumer_tag': consumer_tag })] if
+                  [(spec.Basic.CancelOk, {'consumer_tag': consumer_tag})] if
                   not nowait else [])
 
     def basic_consume(self,
