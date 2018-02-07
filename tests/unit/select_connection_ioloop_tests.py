@@ -199,7 +199,7 @@ class IOLoopTimerTestSelect(IOLoopBaseTest):
             """
             self.concluded = True
             self.assertTrue(self.deleted_another_timer)
-            self.assertFalse(target_timer.is_active())
+            self.assertIsNone(target_timer.callback)
             self.ioloop.stop()
 
         self.ioloop.add_timeout(0.01, _on_timer_conclude)
@@ -493,8 +493,9 @@ class SelectPollerTestPollWithoutSockets(unittest.TestCase):
         poller.add_timeout(0.00001, lambda: timer_call_container.append(1))
         poller.poll()
 
-        deadline = poller._timer_mgr._next_timeout
-        self.assertIsNotNone(deadline)
+        delay = poller._timer.get_remaining_interval()
+        self.assertIsNotNone(delay)
+        deadline = time.time() + delay
 
         while True:
             poller.process_timeouts()

@@ -3,11 +3,12 @@ platform pika is running on.
 
 """
 import abc
-import os
-import logging
-import socket
-import select
 import errno
+import functools
+import heapq
+import logging
+import select
+
 import time
 import threading
 
@@ -245,106 +246,114 @@ class IOLoop(object):
         self._poller.poll()
 
 
-class _Timer(object):
-    """Represents a timer created via `_TimerManager`"""
+@functools.total_ordering
+class _Timeout(object):
+    """Represents a timeout"""
 
-    def __init__(self, timer_mgr, deadline, callback):
+    __slots__ = ('deadline', 'callback',)
+
+    def __init__(self, deadline, callback):
         """
-        :param _TimerManager timer_mgr:
-        :param float deadline: timer expiration as epoch timestamp
+        :param float deadline: timer expiration as non-negative epoch number
+        :param callable callback: callback to call when timeout expires
+        :raises ValueError, TypeError:
         """
 
-        self._timer_mgr = timer_mgr
+        if deadline < 0:
+            raise ValueError(
+                'deadline must be non-negative epoch number, but got %r' %
+                (deadline,))
+
+        if not callable(callback):
+            raise TypeError(
+                'callback must be a callable, but got %r' % (callback,))
 
         self.deadline = deadline
-
         self.callback = callback
 
-    def is_active(self):
-        return self._timer_mgr is not None
+    def __eq__(self, other):
+        """NOTE: not supporting sort stability"""
+        return self.deadline == other.deadline
 
-    def cancel(self):
-        """Deactivate the timer; it's an error to cancel a triggered or
-        deactivated timer """
+    def __lt__(self, other):
+        """NOTE: not supporting sort stability"""
+        return self.deadline < other.deadline
 
-        # Suppress warnings concerning "Access to a protected member"
-        # pylint: disable=W0212
-
-        if self.is_active():
-            self._timer_mgr._cancel_timer(self)
-            self._timer_mgr = None
-            self.callback = None
-        else:
-            LOGGER.error('Attempted to cancel deactivated timer %r', self)
+    def __le__(self, other):
+        """NOTE: not supporting sort stability"""
+        return self.deadline <= other.deadline
 
 
-class _TimerManager(object):
+class _Timer(object):
     """Manage timers for use in ioloop"""
 
     # Suppress warnings concerning "Access to a protected member"
     # pylint: disable=W0212
 
     def __init__(self):
-        self._timers = set()
-        self._next_timeout = None
+        self._timeout_heap = []
 
-    def add_timeout(self, period, callback):
+        # For scheduling garbage collection of canceled timeouts
+        self._num_cancellations = 0
+        #self._next_timeout = None
+
+    def add_timeout(self, delay, callback):
         """Schedule a one-shot timer.
 
         NOTE: you may cancel the timer before dispatch of the callback. Timer
             Manager cancels the timer upon dispatch of the callback.
 
-        :param float period: The number of seconds from now until expiration
+        :param float delay: The number of seconds from now until expiration
         :param method callback: The callback method, having the signature
             `callback()`
 
-        :rtype: _Timer
+        :rtype: _Timeout
+        :raises ValueError, TypeError
 
         """
         now = time.time()
-        deadline = now + period
+        deadline = now + delay
 
-        timer = _Timer(timer_mgr=self, deadline=deadline, callback=callback)
+        timeout = _Timeout(deadline=deadline, callback=callback)
 
-        self._timers.add(timer)
+        heapq.heappush(self._timeout_heap, timeout)
 
-        if self._next_timeout is None or deadline < self._next_timeout:
-            self._next_timeout = deadline
+        LOGGER.debug('add_timeout: added timeout %r with deadline=%r and '
+                     'callback=%r; now=%s; delay=%s', timeout, timeout.deadline,
+                     timeout.callback, now, delay)
 
-        LOGGER.debug('add_timeout: added timer %r; now=%s; delay=%s at %s; callback %r',
-                     timer, now, period, deadline, callback)
+        return timeout
 
-        return timer
+    def remove_timeout(self, timeout):
+        """Cancel the timeout
 
-    def _cancel_timer(self, timer):
-        """Cancel the timer
-
-        :param _Timer timer: The timer to cancel
+        :param _Timeout timeout: The timer to cancel
 
         """
-        self._timers.remove(timer)
-
-        if timer.deadline == self._next_timeout:
-            self._next_timeout = None
-
-        LOGGER.debug('_cancel_timer: removed %r', timer)
+        # NOTE removing from the heap is difficult, so we just deactivate the
+        # timeout and garbage-collect it at a later time; see discussion
+        # in http://docs.python.org/library/heapq.html
+        if timeout.callback is None:
+            LOGGER.warning(
+                'remove_timeout: timeout was already removed or called %r',
+                timeout)
+        else:
+            LOGGER.debug('remove_timeout: removing timeout %r with deadline=%r '
+                         'and callback=%r', timeout, timeout.deadline,
+                         timeout.callback)
+            timeout.callback = None
+            self._num_cancellations += 1
 
     def get_remaining_interval(self):
-        """Get the interval to the next timer expiration
+        """Get the interval to the next timeout expiration
 
-        :returns: number of seconds until next timer expiration; None if there
-            are no timers
+        :returns: non-negative number of seconds until next timer expiration;
+            None if there are no timers
         :rtype: float
 
         """
-        if self._next_timeout is not None:
-            # Compensate in case time was adjusted
-            interval = max(self._next_timeout - time.time(), 0)
-
-        elif self._timers:
-            self._next_timeout = min(t.deadline for t in self._timers)
-            interval = max(self._next_timeout - time.time(), 0)
-
+        if self._timeout_heap:
+            interval = max(0, self._timeout_heap[0].deadline - time.time())
         else:
             interval = None
 
@@ -355,22 +364,34 @@ class _TimerManager(object):
         come
 
         """
-        now = time.time()
 
-        to_run = sorted((timer for timer in self._timers
-                         if timer.deadline <= now),
-                        key=lambda item: item.deadline)
+        if self._timeout_heap:
+            now = time.time()
 
-        for timer in to_run:
-            if not timer.is_active():
-                # Previous invocation must have deleted this timer.
-                continue
+            # Remove ready timeouts from the heap now to prevent IO starvation
+            # from timeouts added during callback processing
+            ready_timeouts = []
 
-            callback = timer.callback
+            while self._timeout_heap and self._timeout_heap[0].deadline <= now:
+                timeout = heapq.heappop(self._timeout_heap)
+                if timeout.callback is not None:
+                    ready_timeouts.append(timeout)
 
-            timer.cancel()
+            # Invoke ready timeout callbacks
+            for timeout in ready_timeouts:
+                if timeout.callback is None:
+                    # Must have been canceled from a prior callback
+                    continue
 
-            callback()
+                timeout.callback()
+
+            # Garbage-collect canceled timeouts if they exceed threshold
+            if (self._num_cancellations > 1024 and
+                    self._num_cancellations > (len(self._timeout_heap) >> 1)):
+                self._num_cancellations = 0
+                self._timeout_heap = [t for t in self._timeout_heap
+                                      if t.callback is not None]
+                heapq.heapify(self._timeout_heap)
 
 
 _AbstractBase = abc.ABCMeta('_AbstractBase', (object,), {})
@@ -399,7 +420,7 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
         # Reentrancy tracker of the `start` method
         self._start_nesting_levels = 0
 
-        self._timer_mgr = _TimerManager()
+        self._timer = _Timer()
 
         self._stopping = False
 
@@ -420,37 +441,40 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
 
         :param int deadline: The number of seconds to wait to call callback
         :param method callback_method: The callback method
-        :rtype: str
+        :rtype: opaque
 
         """
-        return self._timer_mgr.add_timeout(deadline, callback_method)
+        return self._timer.add_timeout(deadline, callback_method)
 
-    def remove_timeout(self, timeout_id):
+    def remove_timeout(self, timeout):
         """Remove a timeout if it's still in the timeout stack
 
-        :param str timeout_id: The timeout id to remove
+        :param _Timeout timeout: The timeout to remove
 
         """
-        timeout_id.cancel()
+        self._timer.remove_timeout(timeout)
 
-    def _get_next_deadline(self):
+    def _get_max_wait(self):
         """Get the interval to the next timeout event, or a default interval
 
-        """
-        timeout = self._timer_mgr.get_remaining_interval()
-        if timeout is None:
-            timeout = self._MAX_POLL_TIMEOUT
-        else:
-            timeout = min(timeout, self._MAX_POLL_TIMEOUT)
+        :returns: maximum number of self.POLL_TIMEOUT_MULT-adjusted time units
+            to wait for IO events
 
-        return timeout * self.POLL_TIMEOUT_MULT
+        """
+        delay = self._timer.get_remaining_interval()
+        if delay is None:
+            delay = self._MAX_POLL_TIMEOUT
+        else:
+            delay = min(delay, self._MAX_POLL_TIMEOUT)
+
+        return delay * self.POLL_TIMEOUT_MULT
 
     def process_timeouts(self):
         """Process pending timeouts, invoking callbacks for those whose time has
         come
 
         """
-        self._timer_mgr.process_timeouts()
+        self._timer.process_timeouts()
 
     def add_handler(self, fileno, handler, events):
         """Add a new fileno to the set to be monitored
@@ -714,7 +738,7 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
         so use a pair of simple TCP sockets instead. The sockets will be
         closed and garbage collected by python when the ioloop itself is.
         """
-        return pika.compat._nonblocking_socketpair()
+        return pika.compat._nonblocking_socketpair() # pylint: disable=W0212
 
     def _read_interrupt(self, interrupt_fd, events):  # pylint: disable=W0613
         """ Read the interrupt byte(s). We ignore the event mask as we can ony
@@ -725,7 +749,7 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
         """
         try:
             # NOTE Use recv instead of os.read for windows compatibility
-            self._r_interrupt.recv(512)
+            self._r_interrupt.recv(512) # pylint: disable=E1101
         except pika.compat.SOCKET_ERROR as err:
             if err.errno != errno.EAGAIN:
                 raise
@@ -740,7 +764,7 @@ class SelectPoller(_PollerBase):
     # if the poller uses MS specify 1000
     POLL_TIMEOUT_MULT = 1
 
-    def __init__(self):
+    def __init__(self): # pylint: disable=W0235
         """Create an instance of the SelectPoller
 
         """
@@ -758,12 +782,12 @@ class SelectPoller(_PollerBase):
                         self._fd_events[ERROR]):
                     read, write, error = select.select(
                         self._fd_events[READ], self._fd_events[WRITE],
-                        self._fd_events[ERROR], self._get_next_deadline())
+                        self._fd_events[ERROR], self._get_max_wait())
                 else:
                     # NOTE When called without any FDs, select fails on
                     # Windows with error 10022, 'An invalid argument was
                     # supplied'.
-                    time.sleep(self._get_next_deadline())
+                    time.sleep(self._get_max_wait())
                     read, write, error = [], [], []
 
                 break
@@ -857,6 +881,9 @@ class KQueuePoller(_PollerBase):
         elif kevent.flags & select.KQ_EV_ERROR:
             return ERROR
 
+        # Should never happen
+        return None
+
     def poll(self):
         """Wait for events of interest on registered file descriptors until an
         event of interest occurs or next timer deadline or _MAX_POLL_TIMEOUT,
@@ -866,7 +893,7 @@ class KQueuePoller(_PollerBase):
         while True:
             try:
                 kevents = self._kqueue.control(None, 1000,
-                                               self._get_next_deadline())
+                                               self._get_max_wait())
                 break
             except _SELECT_ERRORS as error:
                 if _is_resumable(error):
@@ -989,7 +1016,7 @@ class PollPoller(_PollerBase):
         """
         while True:
             try:
-                events = self._poll.poll(self._get_next_deadline())
+                events = self._poll.poll(self._get_max_wait())
                 break
             except _SELECT_ERRORS as error:
                 if _is_resumable(error):

@@ -513,7 +513,7 @@ class TestRemoveTimeoutFromTimeoutCallback(BlockingTestCaseBase):
         while not rx_timer2:
             connection.process_data_events(time_limit=None)
 
-        self.assertFalse(timer_id1.is_active())
+        self.assertIsNone(timer_id1.callback)
         self.assertFalse(connection._ready_events)
 
 
