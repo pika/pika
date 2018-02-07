@@ -1500,8 +1500,8 @@ class BlockingChannel(object):
                         callback, self, method, properties, body))))
 
     def basic_consume(self,
+                      queue,
                       callback,
-                      queue='',
                       no_ack=False,
                       exclusive=False,
                       consumer_tag=None,
@@ -1519,6 +1519,8 @@ class BlockingChannel(object):
         For more information about Basic.Consume, see:
         http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.consume
 
+        :param queue: The queue from which to consume
+        :type queue: str or unicode
         :param callable callback: Required function for dispatching messages
             to user, having the signature:
             callback(channel, method, properties, body)
@@ -1526,8 +1528,6 @@ class BlockingChannel(object):
                 method: spec.Basic.Deliver
                 properties: spec.BasicProperties
                 body: str or unicode
-        :param queue: The queue to consume from
-        :type queue: str or unicode
         :param bool no_ack: Tell the broker to not expect a response (i.e.,
           no ack/nack)
         :param bool exclusive: Don't allow other consumers on the queue
@@ -2013,11 +2013,11 @@ class BlockingChannel(object):
                               requeue=requeue)
         self._flush_output()
 
-    def basic_get(self, queue='', no_ack=False):
+    def basic_get(self, queue, no_ack=False):
         """Get a single message from the AMQP broker. Returns a sequence with
         the method frame, message properties, and body.
 
-        :param queue: Name of queue to get a message from
+        :param queue: Name of queue from which to get a message
         :type queue: str or unicode
         :param bool no_ack: Tell the broker to not expect a reply
         :returns: a three-tuple; (None, None, None) if the queue was empty;
@@ -2380,7 +2380,7 @@ class BlockingChannel(object):
             self._flush_output(unbind_ok_result.is_ready)
             return unbind_ok_result.value.method_frame
 
-    def queue_declare(self, queue='', passive=False, durable=False,
+    def queue_declare(self, queue, passive=False, durable=False,
                       exclusive=False, auto_delete=False,
                       arguments=None):
         """Declare queue, create if needed. This method creates or checks a
@@ -2388,9 +2388,10 @@ class BlockingChannel(object):
         properties that control the durability of the queue and its contents,
         and the level of sharing for the queue.
 
-        Leave the queue name empty for a auto-named queue in RabbitMQ
+        Use an empty string as the queue name for the broker to auto-generate
+        one
 
-        :param queue: The queue name
+        :param queue: The queue name.
         :type queue: str or unicode; if empty string, the broker will create a
           unique queue name;
         :param bool passive: Only check to see if the queue exists
@@ -2418,7 +2419,7 @@ class BlockingChannel(object):
             self._flush_output(declare_ok_result.is_ready)
             return declare_ok_result.value.method_frame
 
-    def queue_delete(self, queue='', if_unused=False, if_empty=False):
+    def queue_delete(self, queue, if_unused=False, if_empty=False):
         """Delete a queue from the broker.
 
         :param queue: The queue to delete
@@ -2441,7 +2442,7 @@ class BlockingChannel(object):
             self._flush_output(delete_ok_result.is_ready)
             return delete_ok_result.value.method_frame
 
-    def queue_purge(self, queue=''):
+    def queue_purge(self, queue):
         """Purge all of the messages from the specified queue
 
         :param queue: The queue to purge
@@ -2486,7 +2487,7 @@ class BlockingChannel(object):
             self._flush_output(bind_ok_result.is_ready)
             return bind_ok_result.value.method_frame
 
-    def queue_unbind(self, queue='', exchange=None, routing_key=None,
+    def queue_unbind(self, queue, exchange=None, routing_key=None,
                      arguments=None):
         """Unbind a queue from an exchange.
 

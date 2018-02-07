@@ -244,13 +244,13 @@ class ChannelTests(unittest.TestCase):
     def test_basic_consume_channel_closed(self):
         mock_callback = mock.Mock()
         self.assertRaises(exceptions.ChannelClosed, self.obj.basic_consume,
-                          mock_callback, queue='test-queue')
+                          'test-queue', mock_callback)
 
     @mock.patch('pika.channel.Channel._validate_channel')
     def test_basic_consume_calls_validate(self, validate):
         self.obj._set_state(self.obj.OPEN)
         mock_callback = mock.Mock()
-        self.obj.basic_consume(mock_callback, queue='test-queue')
+        self.obj.basic_consume('test-queue', mock_callback)
         validate.assert_called_once()
 
     def test_basic_consume_consumer_tag(self):
@@ -258,7 +258,7 @@ class ChannelTests(unittest.TestCase):
         expectation = 'ctag1.'
         mock_callback = mock.Mock()
         self.assertEqual(
-            self.obj.basic_consume(mock_callback, queue='test-queue')[:6],
+            self.obj.basic_consume('test-queue', mock_callback)[:6],
             expectation)
 
     def test_basic_consume_consumer_tag_cancelled_full(self):
@@ -268,7 +268,7 @@ class ChannelTests(unittest.TestCase):
         for ctag in ['ctag1.%i' % ii for ii in range(11)]:
             self.obj._cancelled.add(ctag)
         self.assertEqual(
-            self.obj.basic_consume(mock_callback, queue='test-queue')[:6],
+            self.obj.basic_consume('test-queue', mock_callback)[:6],
             expectation)
 
     def test_basic_consume_consumer_tag_in_consumers(self):
@@ -276,7 +276,7 @@ class ChannelTests(unittest.TestCase):
         consumer_tag = 'ctag1.0'
         mock_callback = mock.Mock()
         self.obj.basic_consume(
-            mock_callback, queue='test-queue', consumer_tag=consumer_tag)
+            'test-queue', mock_callback, consumer_tag=consumer_tag)
         self.assertIn(consumer_tag, self.obj._consumers)
 
     def test_basic_consume_duplicate_consumer_tag_raises(self):
@@ -285,15 +285,15 @@ class ChannelTests(unittest.TestCase):
         mock_callback = mock.Mock()
         self.obj._consumers[consumer_tag] = logging.debug
         self.assertRaises(exceptions.DuplicateConsumerTag,
-                          self.obj.basic_consume, mock_callback,
-                          'test-queue', False, False, consumer_tag)
+                          self.obj.basic_consume, 'test-queue',
+                          mock_callback, False, False, consumer_tag)
 
     def test_basic_consume_consumers_callback_value(self):
         self.obj._set_state(self.obj.OPEN)
         consumer_tag = 'ctag1.0'
         mock_callback = mock.Mock()
         self.obj.basic_consume(
-            mock_callback, 'test-queue', consumer_tag=consumer_tag)
+            'test-queue', mock_callback, consumer_tag=consumer_tag)
         self.assertEqual(self.obj._consumers[consumer_tag], mock_callback)
 
     @mock.patch('pika.spec.Basic.Consume')
@@ -303,7 +303,7 @@ class ChannelTests(unittest.TestCase):
         consumer_tag = 'ctag1.0'
         mock_callback = mock.Mock()
         self.obj.basic_consume(
-            mock_callback, 'test-queue', consumer_tag=consumer_tag)
+            'test-queue', mock_callback, consumer_tag=consumer_tag)
         expectation = spec.Basic.Consume(
             queue='test-queue',
             consumer_tag=consumer_tag,
@@ -318,14 +318,14 @@ class ChannelTests(unittest.TestCase):
     def test_basic_get_calls_require_callback(self, require):
         self.obj._set_state(self.obj.OPEN)
         mock_callback = mock.Mock()
-        self.obj.basic_get(mock_callback, 'test-queue')
+        self.obj.basic_get('test-queue', mock_callback)
         require.assert_called_once_with(mock_callback)
 
     @mock.patch('pika.channel.Channel._send_method')
     def test_basic_get_callback(self, _unused):
         self.obj._set_state(self.obj.OPEN)
         mock_callback = mock.Mock()
-        self.obj.basic_get(mock_callback, 'test-queue')
+        self.obj.basic_get('test-queue', mock_callback)
         self.assertEqual(self.obj._on_getok_callback, mock_callback)
 
     @mock.patch('pika.spec.Basic.Get')
@@ -333,7 +333,7 @@ class ChannelTests(unittest.TestCase):
     def test_basic_get_send_method_called(self, send_method, _unused):
         self.obj._set_state(self.obj.OPEN)
         mock_callback = mock.Mock()
-        self.obj.basic_get(mock_callback, 'test-queue')
+        self.obj.basic_get('test-queue', mock_callback)
         send_method.assert_called_once_with(
             spec.Basic.Get(queue='test-queue', no_ack=False))
 

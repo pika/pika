@@ -92,8 +92,8 @@ class TestConsumeCancel(AsyncTestCase, AsyncAdapters):
             msg_body = '{}:{}:{}'.format(self.__class__.__name__, i,
                                          time.time())
             self.channel.basic_publish('', self.queue_name, msg_body)
-        self.ctag = self.channel.basic_consume(self.on_message,
-                                               self.queue_name,
+        self.ctag = self.channel.basic_consume(self.queue_name,
+                                               self.on_message,
                                                no_ack=True)
 
     def on_message(self, _channel, _frame, _header, body):
@@ -169,7 +169,8 @@ class TestQueueDeclareAndDelete(AsyncTestCase, AsyncAdapters):
     DESCRIPTION = "Create and delete a queue"
 
     def begin(self, channel):
-        channel.queue_declare(passive=False,
+        channel.queue_declare(queue='',
+                              passive=False,
                               durable=False,
                               exclusive=True,
                               auto_delete=False,
@@ -323,7 +324,7 @@ class TestZ_PublishAndConsume(BoundQueueTestCase, AsyncAdapters):  # pylint: dis
     DESCRIPTION = "Publish a message and consume it"
 
     def on_ready(self, frame):
-        self.ctag = self.channel.basic_consume(self.on_message, self.queue)
+        self.ctag = self.channel.basic_consume(self.queue, self.on_message)
         self.msg_body = "%s: %i" % (self.__class__.__name__, time.time())
         self.channel.basic_publish(self.exchange, self.routing_key,
                                    self.msg_body)
@@ -348,7 +349,7 @@ class TestZ_PublishAndConsumeBig(BoundQueueTestCase, AsyncAdapters):  # pylint: 
         return '\n'.join(["%s" % i for i in range(0, 2097152)])
 
     def on_ready(self, frame):
-        self.ctag = self.channel.basic_consume(self.on_message, self.queue)
+        self.ctag = self.channel.basic_consume(self.queue, self.on_message)
         self.msg_body = self._get_msg_body()
         self.channel.basic_publish(self.exchange, self.routing_key,
                                    self.msg_body)
@@ -371,7 +372,7 @@ class TestZ_PublishAndGet(BoundQueueTestCase, AsyncAdapters):  # pylint: disable
         self.msg_body = "%s: %i" % (self.__class__.__name__, time.time())
         self.channel.basic_publish(self.exchange, self.routing_key,
                                    self.msg_body)
-        self.channel.basic_get(self.on_get, self.queue)
+        self.channel.basic_get(self.queue, self.on_get)
 
     def on_get(self, channel, method, header, body):
         self.assertIsInstance(method, spec.Basic.GetOk)

@@ -258,8 +258,8 @@ class Channel(object):
                   not nowait else [])
 
     def basic_consume(self,
+                      queue,
                       callback,
-                      queue='',
                       no_ack=False,
                       exclusive=False,
                       consumer_tag=None,
@@ -274,15 +274,15 @@ class Channel(object):
         http://www.rabbitmq.com/confirms.html
         http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.consume
 
+        :param queue: The queue to consume from. Use the empty string to specify the
+                      most recent server-named queue for this channel.
+        :type queue: str or unicode
         :param callable callback: The function to call when consuming
             with the signature callback(channel, method, properties, body), where
                                 channel: pika.Channel
                                 method: pika.spec.Basic.Deliver
                                 properties: pika.spec.BasicProperties
                                 body: str, unicode, or bytes (python 3.x)
-        :param queue: The queue to consume from. Use the empty string to specify the
-                      most recent server-named queue for this channel.
-        :type queue: str or unicode
         :param bool no_ack: if set to True, automatic acknowledgement mode will be used
                             (see http://www.rabbitmq.com/confirms.html)
         :param bool exclusive: Don't allow other consumers on the queue
@@ -329,7 +329,7 @@ class Channel(object):
         return 'ctag%i.%s' % (self.channel_number,
                               uuid.uuid4().hex)
 
-    def basic_get(self, callback, queue='', no_ack=False):
+    def basic_get(self, queue, callback, no_ack=False):
         """Get a single message from the AMQP broker. If you want to
         be notified of Basic.GetEmpty, use the Channel.add_callback method
         adding your Basic.GetEmpty callback which should expect only one
@@ -339,16 +339,16 @@ class Channel(object):
 
         http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.get
 
+        :param queue: The queue from which to get a message. Use the empty
+                      string to specify the most recent server-named queue
+                      for this channel.
+        :type queue: str or unicode
         :param callable callback: The callback to call with a message that has
             the signature callback(channel, method, properties, body), where:
             channel: pika.Channel
             method: pika.spec.Basic.GetOk
             properties: pika.spec.BasicProperties
             body: str, unicode, or bytes (python 3.x)
-        :param queue: The queue from which to get a message. Use the empty
-                      string to specify the most recent server-named queue
-                      for this channel.
-        :type queue: str or unicode
         :param bool no_ack: Tell the broker to not expect a reply
         :raises ValueError:
 
@@ -785,7 +785,7 @@ class Channel(object):
                          [spec.Queue.BindOk] if not nowait else [])
 
     def queue_declare(self,
-                      queue='',
+                      queue,
                       passive=False,
                       durable=False,
                       exclusive=False,
@@ -797,10 +797,12 @@ class Channel(object):
         properties that control the durability of the queue and its contents,
         and the level of sharing for the queue.
 
-        Use an empty string for the queue name to be auto-named by RabbitMQ
+        Use an empty string as the queue name for the broker to auto-generate
+        one
 
         :param queue: The queue name
-        :type queue: str or unicode
+        :type queue: str or unicode; if empty string, the broker will create a
+          unique queue name;
         :param bool passive: Only check to see if the queue exists
         :param bool durable: Survive reboots of the broker
         :param bool exclusive: Only allow access by the current connection
@@ -826,7 +828,7 @@ class Channel(object):
                          callback, replies)
 
     def queue_delete(self,
-                     queue='',
+                     queue,
                      if_unused=False,
                      if_empty=False,
                      callback=None):
@@ -847,7 +849,7 @@ class Channel(object):
                                            nowait),
                          callback, replies)
 
-    def queue_purge(self, queue='', callback=None):
+    def queue_purge(self, queue, callback=None):
         """Purge all of the messages from the specified queue
 
         :param queue: The queue to purge
@@ -862,7 +864,7 @@ class Channel(object):
         return self._rpc(spec.Queue.Purge(0, queue, nowait), callback, replies)
 
     def queue_unbind(self,
-                     queue='',
+                     queue,
                      exchange=None,
                      routing_key=None,
                      arguments=None,
