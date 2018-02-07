@@ -246,7 +246,7 @@ class Channel(object):
             # will persist until the channel is closed.
             del self._consumers[consumer_tag]
 
-        if callback:
+        if callback is not None:
             self.callbacks.add(self.channel_number, spec.Basic.CancelOk,
                                callback)
 
@@ -1384,7 +1384,7 @@ class Channel(object):
         """
         if not callable(callback):
             raise TypeError(
-                'Callback must be callable, but got %r', (callback,))
+                'Callback must be callable, but got %r' % (callback,))
 
     def _validate_rpc_completion_callback(self, callback):
         """Verify callback is callable if not None

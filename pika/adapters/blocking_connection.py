@@ -749,7 +749,7 @@ class BlockingConnection(object):
         with _CallbackResult(self._OnChannelOpenedArgs) as opened_args:
             impl_channel = self._impl.channel(
                 channel_number=channel_number,
-                callback=opened_args.set_value_once)
+                on_open_callback=opened_args.set_value_once)
 
             # Create our proxy channel
             channel = BlockingChannel(impl_channel, self)

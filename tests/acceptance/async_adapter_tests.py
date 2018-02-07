@@ -150,7 +150,7 @@ class TestExchangeRedeclareWithDifferentValues(AsyncTestCase, AsyncAdapters):
         self.stop()
 
     def on_channel_closed(self, channel, reply_code, reply_text):
-        self.connection.channel(callback=self.on_cleanup_channel)
+        self.connection.channel(on_open_callback=self.on_cleanup_channel)
 
     def on_exchange_declared(self, frame):
         self.channel.exchange_declare(self.name,

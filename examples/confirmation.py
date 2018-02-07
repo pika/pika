@@ -11,7 +11,7 @@ errors = 0
 published = 0
 
 def on_open(connection):
-    connection.channel(on_channel_open)
+    connection.channel(on_open_callback=on_channel_open)
 
 
 def on_channel_open(channel):

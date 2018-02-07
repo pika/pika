@@ -1202,7 +1202,7 @@ class Connection(object):
         """
         raise NotImplementedError
 
-    def channel(self, channel_number=None, callback=None):
+    def channel(self, channel_number=None, on_open_callback=None):
         """Create a new channel with the next available channel number or pass
         in a channel number to use. Must be non-zero if you would like to
         specify but it is recommended that you let Pika manage the channel
@@ -1210,7 +1210,7 @@ class Connection(object):
 
         :param int channel_number: The channel number to use, defaults to the
                                    next available.
-        :param method callback: The callback when the channel is opened
+        :param method on_open_callback: The callback when the channel is opened
         :rtype: pika.channel.Channel
 
         """
@@ -1222,7 +1222,7 @@ class Connection(object):
         if not channel_number:
             channel_number = self._next_channel_number()
         self._channels[channel_number] = self._create_channel(channel_number,
-                                                              callback)
+                                                              on_open_callback)
         self._add_channel_callbacks(channel_number)
         self._channels[channel_number].open()
         return self._channels[channel_number]
