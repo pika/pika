@@ -16,7 +16,7 @@ channel.queue_bind(queue='standard', exchange='test_exchange', routing_key='stan
 channel.basic_qos(prefetch_count=1)
 
 on_message_callback = functools.partial(on_message, userdata='on_message_userdata')
-channel.basic_consume(on_message_callback, 'standard')
+channel.basic_consume('standard', on_message_callback)
 
 try:
     channel.start_consuming()

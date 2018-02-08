@@ -23,7 +23,7 @@ Example of writing a consumer using the :py:class:`Twisted connection adapter <p
 
         yield channel.basic_qos(prefetch_count=1)
 
-        queue_object, consumer_tag = yield channel.basic_consume(queue='hello',no_ack=False)
+        queue_object, consumer_tag = yield channel.basic_consume('hello', no_ack=False)
 
         l = task.LoopingCall(read, queue_object)
 

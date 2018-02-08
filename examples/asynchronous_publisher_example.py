@@ -236,7 +236,7 @@ class ExamplePublisher(object):
 
         """
         LOGGER.info('Issuing Confirm.Select RPC command')
-        self._channel.confirm_delivery(callback=self.on_delivery_confirmation)
+        self._channel.confirm_delivery(ack_nack_callback=self.on_delivery_confirmation)
 
     def on_delivery_confirmation(self, method_frame):
         """Invoked by pika when RabbitMQ responds to a Basic.Publish RPC
