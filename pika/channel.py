@@ -2,7 +2,7 @@
 implementing the methods and behaviors for an AMQP Channel.
 
 """
-# NB: disable too-many-lines
+# disable too-many-lines
 # pylint: disable=C0302
 
 import collections
@@ -28,6 +28,9 @@ class Channel(object):
     method.
 
     """
+
+    # Disable pylint messages concerning "method could be a function"
+    # pylint: disable=R0201
 
     CLOSED = 0
     OPENING = 1
@@ -558,7 +561,7 @@ class Channel(object):
 
         """
         if not callable(ack_nack_callback):
-            # NB: confirm_deliver requires a callback; it's meaningless
+            # confirm_deliver requires a callback; it's meaningless
             # without a user callback to receieve Basic.Ack/Basic.Nack notifications
             raise ValueError('confirm_delivery requires a callback '
                              'to receieve Basic.Ack/Basic.Nack notifications')
@@ -576,8 +579,7 @@ class Channel(object):
         self.callbacks.add(self.channel_number, spec.Basic.Nack, ack_nack_callback,
                            False)
 
-        self._rpc(spec.Confirm.Select(nowait),
-                  callback if not nowait else None,
+        self._rpc(spec.Confirm.Select(nowait), callback,
                   [spec.Confirm.SelectOk] if not nowait else [])
 
     @property
@@ -1378,7 +1380,8 @@ class Channel(object):
         if not self.is_open:
             raise exceptions.ChannelClosed()
 
-    def _require_callback(self, callback):
+    @staticmethod
+    def _require_callback(callback):
         """Require that callback is callable and is not None
 
         :raises: TypeError
@@ -1388,7 +1391,8 @@ class Channel(object):
             raise TypeError(
                 'Callback must be callable, but got %r' % (callback,))
 
-    def _validate_rpc_completion_callback(self, callback):
+    @staticmethod
+    def _validate_rpc_completion_callback(callback):
         """Verify callback is callable if not None
 
         :returns: boolean indicating nowait

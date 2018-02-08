@@ -1,5 +1,5 @@
 """Core connection objects"""
-# NB: disable too-many-lines
+# disable too-many-lines
 # pylint: disable=C0302
 
 import ast

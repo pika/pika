@@ -1142,20 +1142,20 @@ class BlockingChannel(object):
         self._basic_getempty_result = _CallbackResult(
             self._MethodFrameCallbackResultArgs)
 
-        self._impl.add_on_cancel_callback(callback=self._on_consumer_cancelled_by_broker)
+        self._impl.add_on_cancel_callback(self._on_consumer_cancelled_by_broker)
 
         self._impl.add_callback(
-            callback=self._basic_consume_ok_result.signal_once,
+            self._basic_consume_ok_result.signal_once,
             replies=[pika.spec.Basic.ConsumeOk],
             one_shot=False)
 
         self._impl.add_callback(
-            callback=self._on_channel_closed,
+            self._on_channel_closed,
             replies=[pika.spec.Channel.Close],
             one_shot=True)
 
         self._impl.add_callback(
-            callback=self._basic_getempty_result.set_value_once,
+            self._basic_getempty_result.set_value_once,
             replies=[pika.spec.Basic.GetEmpty],
             one_shot=False)
 
@@ -1406,8 +1406,7 @@ class BlockingChannel(object):
                                        evt.properties, evt.body)
 
             elif type(evt) is _ConsumerCancellationEvt:
-                consumer_tag = evt.method_frame.method.consumer_tag
-                del self._consumer_infos[consumer_tag]
+                del self._consumer_infos[evt.method_frame.method.consumer_tag]
 
                 self._impl.callbacks.process(self.channel_number,
                                              self._CONSUMER_CANCELLED_CB_KEY,
@@ -2389,9 +2388,10 @@ class BlockingChannel(object):
         and the level of sharing for the queue.
 
         Use an empty string as the queue name for the broker to auto-generate
-        one
+        one. Retrieve this auto-generated queue name from the returned
+        `spec.Queue.DeclareOk` method frame.
 
-        :param queue: The queue name.
+        :param queue: The queue name
         :type queue: str or unicode; if empty string, the broker will create a
           unique queue name;
         :param bool passive: Only check to see if the queue exists
