@@ -876,6 +876,7 @@ class KQueuePoller(_PollerBase):
             return ERROR
 
         # Should never happen
+        LOGGER.warning('KQueuePoller._map_event: unexpected kevent=%r', kevent)
         return None
 
     def poll(self):
