@@ -70,7 +70,7 @@ Example::
     # Step #4
     def on_queue_declared(frame):
         """Called when RabbitMQ has told us our Queue has been declared, frame is the response from RabbitMQ"""
-        channel.basic_consume(handle_delivery, queue='test')
+        channel.basic_consume('test', handle_delivery)
 
     # Step #5
     def handle_delivery(channel, method, header, body):

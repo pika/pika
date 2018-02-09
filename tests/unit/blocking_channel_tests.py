@@ -52,7 +52,7 @@ class BlockingChannelTests(unittest.TestCase):
             self.obj._impl._generate_consumer_tag.return_value = 'ctag0'
             self.obj._impl.basic_consume.return_value = 'ctag0'
 
-            self.obj.basic_consume(mock.Mock(), "queue")
+            self.obj.basic_consume('queue', mock.Mock())
 
             self.assertEqual(self.obj._consumer_infos['ctag0'].state,
                              blocking_connection._ConsumerInfo.ACTIVE)

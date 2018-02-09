@@ -149,6 +149,25 @@ class TestConnectionContextManagerClosesConnectionAndPassesSystemException(Block
         self.assertTrue(connection.is_closed)
 
 
+class TestLostConnectionResultsInIsClosedConnectionAndChannel(BlockingTestCaseBase):
+    def test(self):
+        connection = self._connect()
+        channel = connection.channel()
+
+        # Simulate the server dropping the socket connection
+        connection._impl.socket.shutdown(socket.SHUT_RDWR)
+
+        with self.assertRaises(pika.exceptions.ConnectionClosed):
+            # Changing QoS should result in ConnectionClosed
+            channel.basic_qos()
+
+        # Now check is_open/is_closed on channel and connection
+        self.assertFalse(channel.is_open)
+        self.assertTrue(channel.is_closed)
+        self.assertFalse(connection.is_open)
+        self.assertTrue(connection.is_closed)
+
+
 class TestInvalidExchangeTypeRaisesConnectionClosed(BlockingTestCaseBase):
     def test(self):
         """BlockingConnection: ConnectionClosed raised when creating exchange with invalid type"""  # pylint: disable=C0301
@@ -190,7 +209,7 @@ class TestCreateAndCloseConnectionWithChannelAndConsumer(BlockingTestCaseBase):
         ch.publish(exchange='', routing_key=q_name, body=body1)
 
         # Create a non-ackable consumer
-        ch.basic_consume(lambda *x: None, q_name, no_ack=True,
+        ch.basic_consume(q_name, lambda *x: None, no_ack=True,
                          exclusive=False, arguments=None)
 
         connection.close()
@@ -1218,7 +1237,7 @@ class TestBasicConsumeFromUnknownQueueRaisesChannelClosed(BlockingTestCaseBase):
                   uuid.uuid1().hex)
 
         with self.assertRaises(pika.exceptions.ChannelClosed) as ex_cm:
-            ch.basic_consume(lambda *args: None, q_name)
+            ch.basic_consume(q_name, lambda *args: None)
 
         self.assertEqual(ex_cm.exception.args[0], 404)
 
@@ -1570,8 +1589,8 @@ class TestPublishAndConsumeWithPubacksAndQosOfOne(BlockingTestCaseBase):
         # Create a consumer
         rx_messages = []
         consumer_tag = ch.basic_consume(
-            lambda *args: rx_messages.append(args),
             q_name,
+            lambda *args: rx_messages.append(args),
             no_ack=False,
             exclusive=False,
             arguments=None)
@@ -1698,16 +1717,16 @@ class TestTwoBasicConsumersOnSameChannel(BlockingTestCaseBase):
         # Create the consumers
         q1_rx_messages = []
         q1_consumer_tag = ch.basic_consume(
-            lambda *args: q1_rx_messages.append(args),
             q1_name,
+            lambda *args: q1_rx_messages.append(args),
             no_ack=False,
             exclusive=False,
             arguments=None)
 
         q2_rx_messages = []
         q2_consumer_tag = ch.basic_consume(
-            lambda *args: q2_rx_messages.append(args),
             q2_name,
+            lambda *args: q2_rx_messages.append(args),
             no_ack=False,
             exclusive=False,
             arguments=None)
@@ -1767,15 +1786,17 @@ class TestBasicCancelPurgesPendingConsumerCancellationEvt(BlockingTestCaseBase):
                   uuid.uuid1().hex)
 
         ch.queue_declare(q_name)
-        self.addCleanup(self._connect().channel().queue_delete, q_name)
+
+        cleanup_channel = self._connect().channel()
+        self.addCleanup(cleanup_channel.queue_delete, q_name)
 
         ch.publish('', routing_key=q_name, body='via-publish', mandatory=True)
 
         # Create a consumer
         rx_messages = []
         consumer_tag = ch.basic_consume(
-            lambda *args: rx_messages.append(args),
             q_name,
+            lambda *args: rx_messages.append(args),
             no_ack=False,
             exclusive=False,
             arguments=None)
@@ -1854,8 +1875,8 @@ class TestBasicPublishWithoutPubacks(BlockingTestCaseBase):
         # Create a consumer
         rx_messages = []
         consumer_tag = ch.basic_consume(
-            lambda *args: rx_messages.append(args),
             q_name,
+            lambda *args: rx_messages.append(args),
             no_ack=False,
             exclusive=False,
             arguments=None)
@@ -1961,8 +1982,8 @@ class TestPublishFromBasicConsumeCallback(BlockingTestCaseBase):
                 properties=props, mandatory=True)
             channel.basic_ack(method.delivery_tag)
 
-        ch.basic_consume(on_consume,
-                         src_q_name,
+        ch.basic_consume(src_q_name,
+                         on_consume,
                          no_ack=False,
                          exclusive=False,
                          arguments=None)
@@ -2011,8 +2032,8 @@ class TestStopConsumingFromBasicConsumeCallback(BlockingTestCaseBase):
             channel.stop_consuming()
             channel.basic_ack(method.delivery_tag)
 
-        ch.basic_consume(on_consume,
-                         q_name,
+        ch.basic_consume(q_name,
+                         on_consume,
                          no_ack=False,
                          exclusive=False,
                          arguments=None)
@@ -2066,8 +2087,8 @@ class TestCloseChannelFromBasicConsumeCallback(BlockingTestCaseBase):
         def on_consume(channel, method, props, body):  # pylint: disable=W0613
             channel.close()
 
-        ch.basic_consume(on_consume,
-                         q_name,
+        ch.basic_consume(q_name,
+                         on_consume,
                          no_ack=False,
                          exclusive=False,
                          arguments=None)
@@ -2120,8 +2141,8 @@ class TestCloseConnectionFromBasicConsumeCallback(BlockingTestCaseBase):
         def on_consume(channel, method, props, body):  # pylint: disable=W0613
             connection.close()
 
-        ch.basic_consume(on_consume,
-                         q_name,
+        ch.basic_consume(q_name,
+                         on_consume,
                          no_ack=False,
                          exclusive=False,
                          arguments=None)
@@ -2274,7 +2295,7 @@ class TestBasicCancelWithNonAckableConsumer(BlockingTestCaseBase):
                                                       expected_count=2)
 
         # Create a non-ackable consumer
-        consumer_tag = ch.basic_consume(lambda *x: None, q_name, no_ack=True,
+        consumer_tag = ch.basic_consume(q_name, lambda *x: None, no_ack=True,
                                         exclusive=False, arguments=None)
 
         # Wait for all messages to be sent by broker to client
@@ -2331,7 +2352,7 @@ class TestBasicCancelWithAckableConsumer(BlockingTestCaseBase):
                                                       expected_count=2)
 
         # Create an ackable consumer
-        consumer_tag = ch.basic_consume(lambda *x: None, q_name, no_ack=False,
+        consumer_tag = ch.basic_consume(q_name, lambda *x: None, no_ack=False,
                                         exclusive=False, arguments=None)
 
         # Wait for all messages to be sent by broker to client
@@ -2379,11 +2400,8 @@ class TestUnackedMessageAutoRestoredToQueueOnChannelClose(BlockingTestCaseBase):
 
         # Consume the events, but don't ack
         rx_messages = []
-        ch.basic_consume(lambda *args: rx_messages.append(args),
-                         q_name,
-                         no_ack=False,
-                         exclusive=False,
-                         arguments=None)
+        ch.basic_consume(q_name, lambda *args: rx_messages.append(args),
+                         no_ack=False, exclusive=False, arguments=None)
         while len(rx_messages) != 2:
             connection.process_data_events(time_limit=None)
 
@@ -2498,7 +2516,7 @@ class TestChannelFlow(BlockingTestCaseBase):
         self.assertEqual(frame.method.consumer_count, 0)
 
         # Create consumer
-        ch.basic_consume(lambda *args: None, q_name)
+        ch.basic_consume(q_name, lambda *args: None)
 
         # Verify one active consumer on the queue now
         frame = ch.queue_declare(q_name, passive=True)
@@ -2511,26 +2529,6 @@ class TestChannelFlow(BlockingTestCaseBase):
         # Verify still one active consumer on the queue now
         frame = ch.queue_declare(q_name, passive=True)
         self.assertEqual(frame.method.consumer_count, 1)
-
-        # active=False is not supported by RabbitMQ per
-        # https://www.rabbitmq.com/specification.html:
-        #   "active=false is not supported by the server. Limiting prefetch with
-        #   basic.qos provides much better control"
-##        # Deactivate flow
-##        active = ch.flow(False)
-##        self.assertEqual(active, False)
-##
-##        # Verify zero active consumers on the queue now
-##        frame = ch.queue_declare(q_name, passive=True)
-##        self.assertEqual(frame.method.consumer_count, 0)
-##
-##        # Re-activate flow
-##        active = ch.flow(True)
-##        self.assertEqual(active, True)
-##
-##        # Verify one active consumers on the queue once again
-##        frame = ch.queue_declare(q_name, passive=True)
-##        self.assertEqual(frame.method.consumer_count, 1)
 
 
 if __name__ == '__main__':

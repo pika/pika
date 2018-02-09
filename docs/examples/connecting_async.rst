@@ -22,7 +22,7 @@ In the example, there are three steps that take place:
 
     # Step #3
     def on_open(connection):
-        connection.channel(on_channel_open)
+        connection.channel(on_open_callback=on_channel_open)
 
     # Step #4
     def on_channel_open(channel):

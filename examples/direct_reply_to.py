@@ -29,7 +29,7 @@ def main():
         channel.queue_declare(queue=SERVER_QUEUE,
                               exclusive=True,
                               auto_delete=True)
-        channel.basic_consume(on_server_rx_rpc_request, queue=SERVER_QUEUE)
+        channel.basic_consume(SERVER_QUEUE, on_server_rx_rpc_request)
 
 
         # Set up client
@@ -44,8 +44,8 @@ def main():
         # Client must create its consumer with no_ack=True, because the reply-to
         # queue isn't real.
 
-        channel.basic_consume(on_client_rx_reply_from_server,
-                              queue='amq.rabbitmq.reply-to',
+        channel.basic_consume('amq.rabbitmq.reply-to',
+                              on_client_rx_reply_from_server,
                               no_ack=True)
         channel.basic_publish(
             exchange='',

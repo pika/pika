@@ -89,7 +89,7 @@ class AsyncTestCase(unittest.TestCase):
 
     def on_open(self, connection):
         self.logger.debug('on_open: %r', connection)
-        self.channel = connection.channel(self.begin)
+        self.channel = connection.channel(on_open_callback=self.begin)
 
     def on_open_error(self, connection, error):
         self.logger.error('on_open_error: %r %r', connection, error)
@@ -116,24 +116,26 @@ class BoundQueueTestCase(AsyncTestCase):
         super(BoundQueueTestCase, self).start(adapter)
 
     def begin(self, channel):
-        self.channel.exchange_declare(self.on_exchange_declared, self.exchange,
+        self.channel.exchange_declare(self.exchange,
                                       exchange_type='direct',
                                       passive=False,
                                       durable=False,
-                                      auto_delete=True)
+                                      auto_delete=True,
+                                      callback=self.on_exchange_declared)
 
     def on_exchange_declared(self, frame):  # pylint: disable=W0613
-        self.channel.queue_declare(self.on_queue_declared, self.queue,
+        self.channel.queue_declare(self.queue,
                                    passive=False,
                                    durable=False,
                                    exclusive=True,
                                    auto_delete=True,
-                                   nowait=False,
-                                   arguments={'x-expires': self.TIMEOUT * 1000})
+                                   arguments={'x-expires': self.TIMEOUT * 1000},
+                                   callback=self.on_queue_declared)
 
     def on_queue_declared(self, frame):  # pylint: disable=W0613
-        self.channel.queue_bind(self.on_ready, self.queue, self.exchange,
-                                self.routing_key)
+        self.channel.queue_bind(self.queue, self.exchange,
+                                self.routing_key,
+                                callback=self.on_ready)
 
     def on_ready(self, frame):
         raise NotImplementedError

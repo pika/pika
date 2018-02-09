@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import functools
 import logging
 import pika
 import json
@@ -59,6 +60,7 @@ class ExamplePublisher(object):
         LOGGER.info('Connecting to %s', self._url)
         return pika.SelectConnection(pika.URLParameters(self._url),
                                      on_open_callback=self.on_connection_open,
+                                     on_open_error_callback=self.on_connection_open_error,
                                      on_close_callback=self.on_connection_closed,
                                      stop_ioloop_on_close=False)
 
@@ -72,6 +74,16 @@ class ExamplePublisher(object):
         """
         LOGGER.info('Connection opened')
         self.open_channel()
+
+    def on_connection_open_error(self, unused_connection, err):
+        """This method is called by pika if the connection to RabbitMQ
+        can't be established.
+
+        :type unused_connection: pika.SelectConnection
+        :type err: str
+
+        """
+        LOGGER.error('Connection open failed: %s', err)
 
     def on_connection_closed(self, connection, reply_code, reply_text):
         """This method is invoked by pika when the connection to RabbitMQ is
@@ -149,18 +161,22 @@ class ExamplePublisher(object):
 
         """
         LOGGER.info('Declaring exchange %s', exchange_name)
-        self._channel.exchange_declare(self.on_exchange_declareok,
-                                       exchange_name,
-                                       self.EXCHANGE_TYPE)
+        # Note: using functools.partial is not required, it is demonstrating
+        # how arbitrary data can be passed to the callback when it is called
+        cb = functools.partial(self.on_exchange_declareok, userdata=exchange_name)
+        self._channel.exchange_declare(exchange=exchange_name,
+                                       exchange_type=self.EXCHANGE_TYPE,
+                                       callback=cb)
 
-    def on_exchange_declareok(self, unused_frame):
+    def on_exchange_declareok(self, unused_frame, userdata):
         """Invoked by pika when RabbitMQ has finished the Exchange.Declare RPC
         command.
 
         :param pika.Frame.Method unused_frame: Exchange.DeclareOk response frame
+        :param str|unicode userdata: Extra user data (exchange name)
 
         """
-        LOGGER.info('Exchange declared')
+        LOGGER.info('Exchange declared: %s', userdata)
         self.setup_queue(self.QUEUE)
 
     def setup_queue(self, queue_name):
@@ -172,7 +188,8 @@ class ExamplePublisher(object):
 
         """
         LOGGER.info('Declaring queue %s', queue_name)
-        self._channel.queue_declare(self.on_queue_declareok, queue_name)
+        self._channel.queue_declare(queue=queue_name,
+                                    callback=self.on_queue_declareok)
 
     def on_queue_declareok(self, method_frame):
         """Method invoked by pika when the Queue.Declare RPC call made in
@@ -186,8 +203,10 @@ class ExamplePublisher(object):
         """
         LOGGER.info('Binding %s to %s with %s',
                     self.EXCHANGE, self.QUEUE, self.ROUTING_KEY)
-        self._channel.queue_bind(self.on_bindok, self.QUEUE,
-                                 self.EXCHANGE, self.ROUTING_KEY)
+        self._channel.queue_bind(self.QUEUE,
+                                 self.EXCHANGE,
+                                 self.ROUTING_KEY,
+                                 callback=self.on_bindok)
 
     def on_bindok(self, unused_frame):
         """This method is invoked by pika when it receives the Queue.BindOk
@@ -217,7 +236,7 @@ class ExamplePublisher(object):
 
         """
         LOGGER.info('Issuing Confirm.Select RPC command')
-        self._channel.confirm_delivery(self.on_delivery_confirmation)
+        self._channel.confirm_delivery(ack_nack_callback=self.on_delivery_confirmation)
 
     def on_delivery_confirmation(self, method_frame):
         """Invoked by pika when RabbitMQ responds to a Basic.Publish RPC

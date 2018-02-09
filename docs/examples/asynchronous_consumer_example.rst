@@ -191,7 +191,7 @@ consumer.py::
 
             """
             LOGGER.info('Declaring queue %s', queue_name)
-            self._channel.queue_declare(self.on_queue_declareok, queue_name)
+            self._channel.queue_declare(queue_name, self.on_queue_declareok)
 
         def on_queue_declareok(self, method_frame):
             """Method invoked by pika when the Queue.Declare RPC call made in
@@ -231,8 +231,8 @@ consumer.py::
             """
             LOGGER.info('Issuing consumer related RPC commands')
             self.add_on_cancel_callback()
-            self._consumer_tag = self._channel.basic_consume(self.on_message,
-                                                             self.QUEUE)
+            self._consumer_tag = self._channel.basic_consume(self.QUEUE,
+                                                             self.on_message)
 
         def add_on_cancel_callback(self):
             """Add a callback that will be invoked if RabbitMQ cancels the consumer
