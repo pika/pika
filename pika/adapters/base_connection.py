@@ -219,7 +219,7 @@ class BaseConnection(connection.Connection):
             error = 'Connection to %s:%s failed: %s' % (sock_addr_tuple[4][0],
                                                         sock_addr_tuple[4][1],
                                                         error)
-            LOGGER.warning(error)
+            LOGGER.error(error)
             return error
 
         # Handle SSL Connection Negotiation
