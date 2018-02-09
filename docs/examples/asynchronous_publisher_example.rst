@@ -178,7 +178,7 @@ publisher.py::
 
             """
             LOGGER.info('Declaring queue %s', queue_name)
-            self._channel.queue_declare(self.on_queue_declareok, queue_name)
+            self._channel.queue_declare(queue_name, self.on_queue_declareok)
 
         def on_queue_declareok(self, method_frame):
             """Method invoked by pika when the Queue.Declare RPC call made in

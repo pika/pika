@@ -153,18 +153,18 @@ class IOLoop(object):
 
         return poller
 
-    def add_timeout(self, deadline, callback_method):
-        """[API] Add the callback_method to the IOLoop timer to fire after
+    def add_timeout(self, deadline, callback):
+        """[API] Add the callback to the IOLoop timer to fire after
         deadline seconds. Returns a handle to the timeout. Do not confuse with
         Tornado's timeout where you pass in the time you want to have your
         callback called. Only pass in the seconds until it's to be called.
 
         :param int deadline: The number of seconds to wait to call callback
-        :param method callback_method: The callback method
+        :param method callback: The callback method
         :rtype: str
 
         """
-        return self._poller.add_timeout(deadline, callback_method)
+        return self._poller.add_timeout(deadline, callback)
 
     def remove_timeout(self, timeout_id):
         """[API] Remove a timeout
@@ -285,19 +285,19 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
         self._r_interrupt = None
         self._w_interrupt = None
 
-    def add_timeout(self, deadline, callback_method):
-        """Add the callback_method to the IOLoop timer to fire after deadline
+    def add_timeout(self, deadline, callback):
+        """Add the callback to the IOLoop timer to fire after deadline
         seconds. Returns a handle to the timeout. Do not confuse with
         Tornado's timeout where you pass in the time you want to have your
         callback called. Only pass in the seconds until it's to be called.
 
         :param int deadline: The number of seconds to wait to call callback
-        :param method callback_method: The callback method
+        :param method callback: The callback method
         :rtype: str
 
         """
         timeout_at = time.time() + deadline
-        value = {'deadline': timeout_at, 'callback': callback_method}
+        value = {'deadline': timeout_at, 'callback': callback}
         # TODO when timer resolution is low (e.g., windows), we get id collision
         # when retrying failing connection with tiny (e.g., 0) retry interval
         timeout_id = hash(frozenset(value.items()))

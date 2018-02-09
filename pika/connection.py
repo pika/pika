@@ -1,4 +1,7 @@
 """Core connection objects"""
+# disable too-many-lines
+# pylint: disable=C0302
+
 import ast
 import sys
 import collections
@@ -16,13 +19,12 @@ else:
     import urlparse
 
 from pika import __version__
-from pika import callback
+from pika import callback as pika_callback
 import pika.channel
 from pika import credentials as pika_credentials
 from pika import exceptions
 from pika import frame
-from pika import heartbeat
-from pika import utils
+from pika import heartbeat as pika_heartbeat
 
 from pika import spec
 
@@ -1074,7 +1076,7 @@ class Connection(object):
                        ConnectionParameters())
 
         # Define our callback dictionary
-        self.callbacks = callback.CallbackManager()
+        self.callbacks = pika_callback.CallbackManager()
 
         # Attributes that will be properly initialized by _init_connection_state
         # and/or during connection handshake.
@@ -1106,27 +1108,31 @@ class Connection(object):
 
         self.connect()
 
-    def add_backpressure_callback(self, callback_method):
+    def add_backpressure_callback(self, callback):
         """Call method "callback" when pika believes backpressure is being
         applied.
 
-        :param method callback_method: The method to call
+        :param method callback: The method to call
 
         """
-        self.callbacks.add(0, self.ON_CONNECTION_BACKPRESSURE, callback_method,
+        if not callable(callback):
+            raise TypeError('callback should be a function or method.')
+        self.callbacks.add(0, self.ON_CONNECTION_BACKPRESSURE, callback,
                            False)
 
-    def add_on_close_callback(self, callback_method):
+    def add_on_close_callback(self, callback):
         """Add a callback notification when the connection has closed. The
         callback will be passed the connection, the reply_code (int) and the
         reply_text (str), if sent by the remote server.
 
-        :param method callback_method: Callback to call on close
+        :param method callback: Callback to call on close
 
         """
-        self.callbacks.add(0, self.ON_CONNECTION_CLOSED, callback_method, False)
+        if not callable(callback):
+            raise TypeError('callback should be a function or method.')
+        self.callbacks.add(0, self.ON_CONNECTION_CLOSED, callback, False)
 
-    def add_on_connection_blocked_callback(self, callback_method):
+    def add_on_connection_blocked_callback(self, callback):
         """Add a callback to be notified when RabbitMQ has sent a
         ``Connection.Blocked`` frame indicating that RabbitMQ is low on
         resources. Publishers can use this to voluntarily suspend publishing,
@@ -1135,71 +1141,79 @@ class Connection(object):
 
         See also `ConnectionParameters.blocked_connection_timeout`.
 
-        :param method callback_method: Callback to call on `Connection.Blocked`,
-            having the signature `callback_method(pika.frame.Method)`, where the
+        :param method callback: Callback to call on `Connection.Blocked`,
+            having the signature `callback(pika.frame.Method)`, where the
             method frame's `method` member is of type
             `pika.spec.Connection.Blocked`
 
         """
-        self.callbacks.add(0, spec.Connection.Blocked, callback_method, False)
+        if not callable(callback):
+            raise TypeError('callback should be a function or method.')
+        self.callbacks.add(0, spec.Connection.Blocked, callback, False)
 
-    def add_on_connection_unblocked_callback(self, callback_method):
+    def add_on_connection_unblocked_callback(self, callback):
         """Add a callback to be notified when RabbitMQ has sent a
         ``Connection.Unblocked`` frame letting publishers know it's ok
         to start publishing again. The callback will be passed the
         ``Connection.Unblocked`` method frame.
 
-        :param method callback_method: Callback to call on
+        :param method callback: Callback to call on
             `Connection.Unblocked`, having the signature
-            `callback_method(pika.frame.Method)`, where the method frame's
+            `callback(pika.frame.Method)`, where the method frame's
             `method` member is of type `pika.spec.Connection.Unblocked`
 
         """
-        self.callbacks.add(0, spec.Connection.Unblocked, callback_method, False)
+        if not callable(callback):
+            raise TypeError('callback should be a function or method.')
+        self.callbacks.add(0, spec.Connection.Unblocked, callback, False)
 
-    def add_on_open_callback(self, callback_method):
+    def add_on_open_callback(self, callback):
         """Add a callback notification when the connection has opened.
 
-        :param method callback_method: Callback to call when open
+        :param method callback: Callback to call when open
 
         """
-        self.callbacks.add(0, self.ON_CONNECTION_OPEN, callback_method, False)
+        if not callable(callback):
+            raise TypeError('callback should be a function or method.')
+        self.callbacks.add(0, self.ON_CONNECTION_OPEN, callback, False)
 
-    def add_on_open_error_callback(self, callback_method, remove_default=True):
+    def add_on_open_error_callback(self, callback, remove_default=True):
         """Add a callback notification when the connection can not be opened.
 
         The callback method should accept the connection object that could not
         connect, and an optional error message.
 
-        :param method callback_method: Callback to call when can't connect
+        :param method callback: Callback to call when can't connect
         :param bool remove_default: Remove default exception raising callback
 
         """
+        if not callable(callback):
+            raise TypeError('callback should be a function or method.')
         if remove_default:
             self.callbacks.remove(0, self.ON_CONNECTION_ERROR,
                                   self._on_connection_error)
-        self.callbacks.add(0, self.ON_CONNECTION_ERROR, callback_method, False)
+        self.callbacks.add(0, self.ON_CONNECTION_ERROR, callback, False)
 
-    def add_timeout(self, deadline, callback_method):
+    def add_timeout(self, deadline, callback):
         """Adapters should override to call the callback after the
         specified number of seconds have elapsed, using a timer, or a
         thread, or similar.
 
         :param int deadline: The number of seconds to wait to call callback
-        :param method callback_method: The callback method
+        :param method callback: The callback method
 
         """
         raise NotImplementedError
 
-    def channel(self, on_open_callback, channel_number=None):
+    def channel(self, channel_number=None, on_open_callback=None):
         """Create a new channel with the next available channel number or pass
         in a channel number to use. Must be non-zero if you would like to
         specify but it is recommended that you let Pika manage the channel
         numbers.
 
-        :param method on_open_callback: The callback when the channel is opened
         :param int channel_number: The channel number to use, defaults to the
                                    next available.
+        :param method on_open_callback: The callback when the channel is opened
         :rtype: pika.channel.Channel
 
         """
@@ -1507,7 +1521,7 @@ class Connection(object):
         if self.params.heartbeat is not None and self.params.heartbeat > 0:
             LOGGER.debug('Creating a HeartbeatChecker: %r',
                          self.params.heartbeat)
-            return heartbeat.HeartbeatChecker(self, self.params.heartbeat)
+            return pika_heartbeat.HeartbeatChecker(self, self.params.heartbeat)
 
     def _remove_heartbeat(self):
         """Stop the heartbeat checker if it exists
@@ -1904,9 +1918,9 @@ class Connection(object):
         :rtype: int
 
         """
-        if client_value == None:
+        if client_value is None:
             client_value = 0
-        if server_value == None:
+        if server_value is None:
             server_value = 0
 
         # this is consistent with how Java client and Bunny
@@ -2159,7 +2173,7 @@ class Connection(object):
             self._remove_callback(channel_number, method_frame)
 
     def _rpc(self, channel_number, method,
-             callback_method=None,
+             callback=None,
              acceptable_replies=None):
         """Make an RPC call for the given callback, channel number and method.
         acceptable_replies lists out what responses we'll process from the
@@ -2167,7 +2181,7 @@ class Connection(object):
 
         :param int channel_number: The channel number for the RPC call
         :param pika.amqp_object.Method method: The method frame to call
-        :param method callback_method: The callback for the RPC response
+        :param method callback: The callback for the RPC response
         :param list acceptable_replies: The replies this RPC call expects
 
         """
@@ -2176,12 +2190,12 @@ class Connection(object):
             raise TypeError('acceptable_replies should be list or None')
 
         # Validate the callback is callable
-        if callback_method:
-            if not utils.is_callable(callback_method):
+        if callback is not None:
+            if not callable(callback):
                 raise TypeError('callback should be None, function or method.')
 
             for reply in acceptable_replies:
-                self.callbacks.add(channel_number, reply, callback_method)
+                self.callbacks.add(channel_number, reply, callback)
 
         # Send the rpc call to RabbitMQ
         self._send_method(channel_number, method)
@@ -2271,11 +2285,11 @@ class Connection(object):
         if content[1]:
             chunks = int(math.ceil(float(length) / self._body_max_length))
             for chunk in xrange(0, chunks):
-                s = chunk * self._body_max_length
-                e = s + self._body_max_length
-                if e > length:
-                    e = length
-                self._send_frame(frame.Body(channel_number, content[1][s:e]))
+                start = chunk * self._body_max_length
+                end = start + self._body_max_length
+                if end > length:
+                    end = length
+                self._send_frame(frame.Body(channel_number, content[1][start:end]))
 
     def _set_connection_state(self, connection_state):
         """Set the connection state.

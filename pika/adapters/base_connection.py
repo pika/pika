@@ -99,16 +99,16 @@ class BaseConnection(connection.Connection):
                  self._STATE_NAMES[self.connection_state],
                  get_socket_repr(self.socket), self.params))
 
-    def add_timeout(self, deadline, callback_method):
-        """Add the callback_method to the IOLoop timer to fire after deadline
+    def add_timeout(self, deadline, callback):
+        """Add the callback to the IOLoop timer to fire after deadline
         seconds. Returns a handle to the timeout
 
         :param int deadline: The number of seconds to wait to call callback
-        :param method callback_method: The callback method
+        :param method callback: The callback method
         :rtype: str
 
         """
-        return self.ioloop.add_timeout(deadline, callback_method)
+        return self.ioloop.add_timeout(deadline, callback)
 
     def close(self, reply_code=200, reply_text='Normal shutdown'):
         """Disconnect from RabbitMQ. If there are any open channels, it will

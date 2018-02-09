@@ -28,7 +28,7 @@ import pika
 from pika.compat import xrange
 
 
-def callback_method():
+def callback():
     """Callback method to use in tests"""
     pass
 
@@ -294,27 +294,27 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
             (self.connection.add_on_close_callback,
              self.connection.ON_CONNECTION_CLOSED)):
             self.connection.callbacks.reset_mock()
-            test_method(callback_method)
+            test_method(callback)
             self.connection.callbacks.add.assert_called_once_with(
-                0, expected_key, callback_method, False)
+                0, expected_key, callback, False)
 
     def test_add_on_close_callback(self):
         """make sure the add on close callback is added"""
         self.connection.callbacks = mock.Mock(spec=self.connection.callbacks)
-        self.connection.add_on_open_callback(callback_method)
+        self.connection.add_on_open_callback(callback)
         self.connection.callbacks.add.assert_called_once_with(
-            0, self.connection.ON_CONNECTION_OPEN, callback_method, False)
+            0, self.connection.ON_CONNECTION_OPEN, callback, False)
 
     def test_add_on_open_error_callback(self):
         """make sure the add on open error callback is added"""
         self.connection.callbacks = mock.Mock(spec=self.connection.callbacks)
         #Test with remove default first (also checks default is True)
-        self.connection.add_on_open_error_callback(callback_method)
+        self.connection.add_on_open_error_callback(callback)
         self.connection.callbacks.remove.assert_called_once_with(
             0, self.connection.ON_CONNECTION_ERROR,
             self.connection._on_connection_error)
         self.connection.callbacks.add.assert_called_once_with(
-            0, self.connection.ON_CONNECTION_ERROR, callback_method, False)
+            0, self.connection.ON_CONNECTION_ERROR, callback, False)
 
     def test_channel(self):
         """test the channel method"""
@@ -322,42 +322,42 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
         test_channel = mock.Mock(spec=channel.Channel)
         self.connection._create_channel = mock.Mock(return_value=test_channel)
         self.connection._add_channel_callbacks = mock.Mock()
-        ret_channel = self.connection.channel(callback_method)
+        ret_channel = self.connection.channel(on_open_callback=callback)
         self.assertEqual(test_channel, ret_channel)
         self.connection._create_channel.assert_called_once_with(
-            42, callback_method)
+            42, callback)
         self.connection._add_channel_callbacks.assert_called_once_with(42)
         test_channel.open.assert_called_once_with()
 
     def test_channel_on_closed_connection_raises_connection_closed(self):
         self.connection.connection_state = self.connection.CONNECTION_CLOSED
         with self.assertRaises(exceptions.ConnectionClosed):
-            self.connection.channel(lambda *args: None)
+            self.connection.channel(on_open_callback=lambda *args: None)
 
     def test_channel_on_closing_connection_raises_connection_closed(self):
         self.connection.connection_state = self.connection.CONNECTION_CLOSING
         with self.assertRaises(exceptions.ConnectionClosed):
-            self.connection.channel(lambda *args: None)
+            self.connection.channel(on_open_callback=lambda *args: None)
 
     def test_channel_on_init_connection_raises_connection_closed(self):
         self.connection.connection_state = self.connection.CONNECTION_INIT
         with self.assertRaises(exceptions.ConnectionClosed):
-            self.connection.channel(lambda *args: None)
+            self.connection.channel(on_open_callback=lambda *args: None)
 
     def test_channel_on_start_connection_raises_connection_closed(self):
         self.connection.connection_state = self.connection.CONNECTION_START
         with self.assertRaises(exceptions.ConnectionClosed):
-            self.connection.channel(lambda *args: None)
+            self.connection.channel(on_open_callback=lambda *args: None)
 
     def test_channel_on_protocol_connection_raises_connection_closed(self):
         self.connection.connection_state = self.connection.CONNECTION_PROTOCOL
         with self.assertRaises(exceptions.ConnectionClosed):
-            self.connection.channel(lambda *args: None)
+            self.connection.channel(on_open_callback=lambda *args: None)
 
     def test_channel_on_tune_connection_raises_connection_closed(self):
         self.connection.connection_state = self.connection.CONNECTION_TUNE
         with self.assertRaises(exceptions.ConnectionClosed):
-            self.connection.channel(lambda *args: None)
+            self.connection.channel(on_open_callback=lambda *args: None)
 
     def test_connect_no_adapter_connect_from_constructor(self):
         """check that adapter connection with AMQP is not happening in constructor """

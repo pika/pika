@@ -21,7 +21,7 @@ Example of consuming messages and acknowledging them::
 
     connection = pika.BlockingConnection()
     channel = connection.channel()
-    channel.basic_consume(on_message, 'test')
+    channel.basic_consume('test', on_message)
     try:
         channel.start_consuming()
     except KeyboardInterrupt:

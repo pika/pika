@@ -21,9 +21,12 @@ import logging
 import time
 
 import pika.channel
+
 from pika import compat
 from pika import exceptions
+
 import pika.spec
+
 # NOTE: import SelectConnection after others to avoid circular depenency
 from pika.adapters.select_connection import SelectConnection
 
@@ -203,7 +206,7 @@ class _TimerEvt(object):
 
     def __init__(self, callback):
         """
-        :param callback: see callback_method in `BlockingConnection.add_timeout`
+        :param callback: see callback in `BlockingConnection.add_timeout`
         """
         self._callback = callback
 
@@ -226,7 +229,7 @@ class _ConnectionBlockedUnblockedEvtBase(object):
 
     def __init__(self, callback, method_frame):
         """
-        :param callback: see callback_method parameter in
+        :param callback: see callback parameter in
           `BlockingConnection.add_on_connection_blocked_callback` and
           `BlockingConnection.add_on_connection_unblocked_callback`
         :param pika.frame.Method method_frame: with method_frame.method of type
@@ -528,7 +531,7 @@ class BlockingConnection(object):
     def _on_connection_blocked(self, user_callback, method_frame):
         """Handle Connection.Blocked notification from RabbitMQ broker
 
-        :param callable user_callback: callback_method passed to
+        :param callable user_callback: callback passed to
            `add_on_connection_blocked_callback`
         :param pika.frame.Method method_frame: method frame having `method`
             member of type `pika.spec.Connection.Blocked`
@@ -539,7 +542,7 @@ class BlockingConnection(object):
     def _on_connection_unblocked(self, user_callback, method_frame):
         """Handle Connection.Unblocked notification from RabbitMQ broker
 
-        :param callable user_callback: callback_method passed to
+        :param callable user_callback: callback passed to
            `add_on_connection_unblocked_callback`
         :param pika.frame.Method method_frame: method frame having `method`
             member of type `pika.spec.Connection.Blocked`
@@ -568,7 +571,7 @@ class BlockingConnection(object):
 
                 evt.dispatch()
 
-    def add_on_connection_blocked_callback(self, callback_method):
+    def add_on_connection_blocked_callback(self, callback):
         """Add a callback to be notified when RabbitMQ has sent a
         `Connection.Blocked` frame indicating that RabbitMQ is low on
         resources. Publishers can use this to voluntarily suspend publishing,
@@ -577,31 +580,31 @@ class BlockingConnection(object):
 
         See also `ConnectionParameters.blocked_connection_timeout`.
 
-        :param method callback_method: Callback to call on `Connection.Blocked`,
-            having the signature `callback_method(pika.frame.Method)`, where the
+        :param method callback: Callback to call on `Connection.Blocked`,
+            having the signature `callback(pika.frame.Method)`, where the
             method frame's `method` member is of type
             `pika.spec.Connection.Blocked`
 
         """
         self._impl.add_on_connection_blocked_callback(
-            functools.partial(self._on_connection_blocked, callback_method))
+            functools.partial(self._on_connection_blocked, callback))
 
-    def add_on_connection_unblocked_callback(self, callback_method):
+    def add_on_connection_unblocked_callback(self, callback):
         """Add a callback to be notified when RabbitMQ has sent a
         `Connection.Unblocked` frame letting publishers know it's ok
         to start publishing again. The callback will be passed the
         `Connection.Unblocked` method frame.
 
-        :param method callback_method: Callback to call on
+        :param method callback: Callback to call on
             `Connection.Unblocked`, having the signature
-            `callback_method(pika.frame.Method)`, where the method frame's
+            `callback(pika.frame.Method)`, where the method frame's
             `method` member is of type `pika.spec.Connection.Unblocked`
 
         """
         self._impl.add_on_connection_unblocked_callback(
-            functools.partial(self._on_connection_unblocked, callback_method))
+            functools.partial(self._on_connection_unblocked, callback))
 
-    def add_timeout(self, deadline, callback_method):
+    def add_timeout(self, deadline, callback):
         """Create a single-shot timer to fire after deadline seconds. Do not
         confuse with Tornado's timeout where you pass in the time you want to
         have your callback called. Only pass in the seconds until it's to be
@@ -613,18 +616,18 @@ class BlockingConnection(object):
         `BlockingChannel.start_consuming`.
 
         :param float deadline: The number of seconds to wait to call callback
-        :param callable callback_method: The callback method with the signature
-            callback_method()
+        :param callable callback: The callback method with the signature
+            callback()
 
         :returns: opaque timer id
 
         """
-        if not callable(callback_method):
+        if not callable(callback):
             raise ValueError(
-                'callback_method parameter must be callable, but got %r'
-                % (callback_method,))
+                'callback parameter must be callable, but got %r'
+                % (callback,))
 
-        evt = _TimerEvt(callback=callback_method)
+        evt = _TimerEvt(callback=callback)
         timer_id = self._impl.add_timeout(
             deadline,
             functools.partial(self._on_timer_ready, evt))
@@ -745,8 +748,8 @@ class BlockingConnection(object):
         """
         with _CallbackResult(self._OnChannelOpenedArgs) as opened_args:
             impl_channel = self._impl.channel(
-                on_open_callback=opened_args.set_value_once,
-                channel_number=channel_number)
+                channel_number=channel_number,
+                on_open_callback=opened_args.set_value_once)
 
             # Create our proxy channel
             channel = BlockingChannel(impl_channel, self)
@@ -951,7 +954,7 @@ class ReturnedMessage(object):
 class _ConsumerInfo(object):
     """Information about an active consumer"""
 
-    __slots__ = ('consumer_tag', 'no_ack', 'consumer_cb',
+    __slots__ = ('consumer_tag', 'no_ack', 'callback',
                  'alternate_event_sink', 'state')
 
     # Consumer states
@@ -960,16 +963,16 @@ class _ConsumerInfo(object):
     TEARING_DOWN = 3
     CANCELLED_BY_BROKER = 4
 
-    def __init__(self, consumer_tag, no_ack, consumer_cb=None,
+    def __init__(self, consumer_tag, no_ack, callback=None,
                  alternate_event_sink=None):
         """
-        NOTE: exactly one of consumer_cb/alternate_event_sink musts be non-None.
+        NOTE: exactly one of callback/alternate_event_sink musts be non-None.
 
         :param str consumer_tag:
         :param bool no_ack: the no-ack value for the consumer
-        :param callable consumer_cb: The function for dispatching messages to
+        :param callable callback: The function for dispatching messages to
             user, having the signature:
-            consumer_callback(channel, method, properties, body)
+            callback(channel, method, properties, body)
                 channel: BlockingChannel
                 method: spec.Basic.Deliver
                 properties: spec.BasicProperties
@@ -980,12 +983,12 @@ class _ConsumerInfo(object):
             `_pending_events` container. Signature:
             alternate_event_sink(evt)
         """
-        assert (consumer_cb is None) != (alternate_event_sink is None), (
-            'exactly one of consumer_cb/alternate_event_sink must be non-None',
-            consumer_cb, alternate_event_sink)
+        assert (callback is None) != (alternate_event_sink is None), (
+            'exactly one of callback/alternate_event_sink must be non-None',
+            callback, alternate_event_sink)
         self.consumer_tag = consumer_tag
         self.no_ack = no_ack
-        self.consumer_cb = consumer_cb
+        self.callback = callback
         self.alternate_event_sink = alternate_event_sink
         self.state = self.SETTING_UP
 
@@ -1399,8 +1402,8 @@ class BlockingChannel(object):
 
             if type(evt) is _ConsumerDeliveryEvt:
                 consumer_info = self._consumer_infos[evt.method.consumer_tag]
-                consumer_info.consumer_cb(self, evt.method, evt.properties,
-                                          evt.body)
+                consumer_info.callback(self, evt.method,
+                                       evt.properties, evt.body)
 
             elif type(evt) is _ConsumerCancellationEvt:
                 del self._consumer_infos[evt.method_frame.method.consumer_tag]
@@ -1456,8 +1459,8 @@ class BlockingChannel(object):
 
         """
         with _CallbackResult(self._FlowOkCallbackResultArgs) as flow_ok_result:
-            self._impl.flow(callback=flow_ok_result.set_value_once,
-                            active=active)
+            self._impl.flow(active=active,
+                            callback=flow_ok_result.set_value_once)
             self._flush_output(flow_ok_result.is_ready)
             return flow_ok_result.value.active
 
@@ -1496,8 +1499,8 @@ class BlockingChannel(object):
                         callback, self, method, properties, body))))
 
     def basic_consume(self,
-                      consumer_callback,
                       queue,
+                      callback,
                       no_ack=False,
                       exclusive=False,
                       consumer_tag=None,
@@ -1515,15 +1518,15 @@ class BlockingChannel(object):
         For more information about Basic.Consume, see:
         http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.consume
 
-        :param callable consumer_callback: The function for dispatching messages
+        :param queue: The queue from which to consume
+        :type queue: str or unicode
+        :param callable callback: Required function for dispatching messages
             to user, having the signature:
-            consumer_callback(channel, method, properties, body)
+            callback(channel, method, properties, body)
                 channel: BlockingChannel
                 method: spec.Basic.Deliver
                 properties: spec.BasicProperties
                 body: str or unicode
-        :param queue: The queue to consume from
-        :type queue: str or unicode
         :param bool no_ack: Tell the broker to not expect a response (i.e.,
           no ack/nack)
         :param bool exclusive: Don't allow other consumers on the queue
@@ -1538,9 +1541,9 @@ class BlockingChannel(object):
             consumer_tag is already present.
 
         """
-        if not callable(consumer_callback):
-            raise ValueError('consumer callback must be callable; got %r'
-                             % consumer_callback)
+        if not callable(callback):
+            raise ValueError('callback callback must be callable; got %r'
+                             % callback)
 
         return self._basic_consume_impl(
             queue=queue,
@@ -1548,7 +1551,7 @@ class BlockingChannel(object):
             exclusive=exclusive,
             consumer_tag=consumer_tag,
             arguments=arguments,
-            consumer_callback=consumer_callback)
+            callback=callback)
 
     def _basic_consume_impl(self,
                             queue,
@@ -1556,12 +1559,12 @@ class BlockingChannel(object):
                             exclusive,
                             consumer_tag,
                             arguments=None,
-                            consumer_callback=None,
+                            callback=None,
                             alternate_event_sink=None):
         """The low-level implementation used by `basic_consume` and `consume`.
         See `basic_consume` docstring for more info.
 
-        NOTE: exactly one of consumer_callback/alternate_event_sink musts be
+        NOTE: exactly one of callback/alternate_event_sink musts be
         non-None.
 
         This method has one additional parameter alternate_event_sink over the
@@ -1577,10 +1580,10 @@ class BlockingChannel(object):
             consumer_tag is already present.
 
         """
-        if (consumer_callback is None) == (alternate_event_sink is None):
+        if (callback is None) == (alternate_event_sink is None):
             raise ValueError(
-                ('exactly one of consumer_callback/alternate_event_sink must '
-                 'be non-None', consumer_callback, alternate_event_sink))
+                ('exactly one of callback/alternate_event_sink must '
+                 'be non-None', callback, alternate_event_sink))
 
         if not consumer_tag:
             # Need a consumer tag to register consumer info before sending
@@ -1596,13 +1599,13 @@ class BlockingChannel(object):
         self._consumer_infos[consumer_tag] = _ConsumerInfo(
             consumer_tag,
             no_ack=no_ack,
-            consumer_cb=consumer_callback,
+            callback=callback,
             alternate_event_sink=alternate_event_sink)
 
         try:
             with self._basic_consume_ok_result as ok_result:
                 tag = self._impl.basic_consume(
-                    consumer_callback=self._on_consumer_message_delivery,
+                    callback=self._on_consumer_message_delivery,
                     queue=queue,
                     no_ack=no_ack,
                     exclusive=exclusive,
@@ -1697,9 +1700,8 @@ class BlockingChannel(object):
                 # additional deliveries that arrive for a no_ack=False
                 # consumer
                 self._impl.basic_cancel(
-                    callback=cancel_ok_result.signal_once,
                     consumer_tag=consumer_tag,
-                    nowait=False)
+                    callback=cancel_ok_result.signal_once)
 
                 # Flush output and wait for Basic.Cancel-ok or
                 # broker-initiated Basic.Cancel
@@ -2010,11 +2012,11 @@ class BlockingChannel(object):
                               requeue=requeue)
         self._flush_output()
 
-    def basic_get(self, queue=None, no_ack=False):
+    def basic_get(self, queue, no_ack=False):
         """Get a single message from the AMQP broker. Returns a sequence with
         the method frame, message properties, and body.
 
-        :param queue: Name of queue to get a message from
+        :param queue: Name of queue from which to get a message
         :type queue: str or unicode
         :param bool no_ack: Tell the broker to not expect a reply
         :returns: a three-tuple; (None, None, None) if the queue was empty;
@@ -2027,9 +2029,9 @@ class BlockingChannel(object):
         # NOTE: nested with for python 2.6 compatibility
         with _CallbackResult(self._RxMessageArgs) as get_ok_result:
             with self._basic_getempty_result:
-                self._impl.basic_get(callback=get_ok_result.set_value_once,
-                                     queue=queue,
-                                     no_ack=no_ack)
+                self._impl.basic_get(queue=queue,
+                                     no_ack=no_ack,
+                                     callback=get_ok_result.set_value_once)
                 self._flush_output(get_ok_result.is_ready,
                                    self._basic_getempty_result.is_ready)
                 if get_ok_result:
@@ -2210,8 +2212,8 @@ class BlockingChannel(object):
 
         """
         with _CallbackResult() as recover_ok_result:
-            self._impl.basic_recover(callback=recover_ok_result.signal_once,
-                                     requeue=requeue)
+            self._impl.basic_recover(requeue=requeue,
+                                     callback=recover_ok_result.signal_once)
             self._flush_output(recover_ok_result.is_ready)
 
     def basic_reject(self, delivery_tag=None, requeue=True):
@@ -2241,13 +2243,9 @@ class BlockingChannel(object):
             return
 
         with _CallbackResult() as select_ok_result:
-            self._impl.add_callback(callback=select_ok_result.signal_once,
-                                    replies=[pika.spec.Confirm.SelectOk],
-                                    one_shot=True)
-
             self._impl.confirm_delivery(
-                callback=self._message_confirmation_result.set_value_once,
-                nowait=False)
+                ack_nack_callback=self._message_confirmation_result.set_value_once,
+                callback=select_ok_result.signal_once)
 
             self._flush_output(select_ok_result.is_ready)
 
@@ -2289,15 +2287,14 @@ class BlockingChannel(object):
         with _CallbackResult(
             self._MethodFrameCallbackResultArgs) as declare_ok_result:
             self._impl.exchange_declare(
-                callback=declare_ok_result.set_value_once,
                 exchange=exchange,
                 exchange_type=exchange_type,
                 passive=passive,
                 durable=durable,
                 auto_delete=auto_delete,
                 internal=internal,
-                nowait=False,
-                arguments=arguments)
+                arguments=arguments,
+                callback=declare_ok_result.set_value_once)
 
             self._flush_output(declare_ok_result.is_ready)
             return declare_ok_result.value.method_frame
@@ -2317,10 +2314,9 @@ class BlockingChannel(object):
         with _CallbackResult(
             self._MethodFrameCallbackResultArgs) as delete_ok_result:
             self._impl.exchange_delete(
-                callback=delete_ok_result.set_value_once,
                 exchange=exchange,
                 if_unused=if_unused,
-                nowait=False)
+                callback=delete_ok_result.set_value_once)
 
             self._flush_output(delete_ok_result.is_ready)
             return delete_ok_result.value.method_frame
@@ -2345,12 +2341,11 @@ class BlockingChannel(object):
         with _CallbackResult(self._MethodFrameCallbackResultArgs) as \
                 bind_ok_result:
             self._impl.exchange_bind(
-                callback=bind_ok_result.set_value_once,
                 destination=destination,
                 source=source,
                 routing_key=routing_key,
-                nowait=False,
-                arguments=arguments)
+                arguments=arguments,
+                callback=bind_ok_result.set_value_once)
 
             self._flush_output(bind_ok_result.is_ready)
             return bind_ok_result.value.method_frame
@@ -2375,17 +2370,16 @@ class BlockingChannel(object):
         with _CallbackResult(
             self._MethodFrameCallbackResultArgs) as unbind_ok_result:
             self._impl.exchange_unbind(
-                callback=unbind_ok_result.set_value_once,
                 destination=destination,
                 source=source,
                 routing_key=routing_key,
-                nowait=False,
-                arguments=arguments)
+                arguments=arguments,
+                callback=unbind_ok_result.set_value_once)
 
             self._flush_output(unbind_ok_result.is_ready)
             return unbind_ok_result.value.method_frame
 
-    def queue_declare(self, queue='', passive=False, durable=False,
+    def queue_declare(self, queue, passive=False, durable=False,
                       exclusive=False, auto_delete=False,
                       arguments=None):
         """Declare queue, create if needed. This method creates or checks a
@@ -2393,7 +2387,9 @@ class BlockingChannel(object):
         properties that control the durability of the queue and its contents,
         and the level of sharing for the queue.
 
-        Leave the queue name empty for a auto-named queue in RabbitMQ
+        Use an empty string as the queue name for the broker to auto-generate
+        one. Retrieve this auto-generated queue name from the returned
+        `spec.Queue.DeclareOk` method frame.
 
         :param queue: The queue name
         :type queue: str or unicode; if empty string, the broker will create a
@@ -2412,19 +2408,18 @@ class BlockingChannel(object):
         with _CallbackResult(self._MethodFrameCallbackResultArgs) as \
                 declare_ok_result:
             self._impl.queue_declare(
-                callback=declare_ok_result.set_value_once,
                 queue=queue,
                 passive=passive,
                 durable=durable,
                 exclusive=exclusive,
                 auto_delete=auto_delete,
-                nowait=False,
-                arguments=arguments)
+                arguments=arguments,
+                callback=declare_ok_result.set_value_once)
 
             self._flush_output(declare_ok_result.is_ready)
             return declare_ok_result.value.method_frame
 
-    def queue_delete(self, queue='', if_unused=False, if_empty=False):
+    def queue_delete(self, queue, if_unused=False, if_empty=False):
         """Delete a queue from the broker.
 
         :param queue: The queue to delete
@@ -2439,16 +2434,15 @@ class BlockingChannel(object):
         """
         with _CallbackResult(self._MethodFrameCallbackResultArgs) as \
                 delete_ok_result:
-            self._impl.queue_delete(callback=delete_ok_result.set_value_once,
-                                    queue=queue,
+            self._impl.queue_delete(queue=queue,
                                     if_unused=if_unused,
                                     if_empty=if_empty,
-                                    nowait=False)
+                                    callback=delete_ok_result.set_value_once)
 
             self._flush_output(delete_ok_result.is_ready)
             return delete_ok_result.value.method_frame
 
-    def queue_purge(self, queue=''):
+    def queue_purge(self, queue):
         """Purge all of the messages from the specified queue
 
         :param queue: The queue to purge
@@ -2461,10 +2455,8 @@ class BlockingChannel(object):
         """
         with _CallbackResult(self._MethodFrameCallbackResultArgs) as \
                 purge_ok_result:
-            self._impl.queue_purge(callback=purge_ok_result.set_value_once,
-                                   queue=queue,
-                                   nowait=False)
-
+            self._impl.queue_purge(queue=queue,
+                                   callback=purge_ok_result.set_value_once)
             self._flush_output(purge_ok_result.is_ready)
             return purge_ok_result.value.method_frame
 
@@ -2487,17 +2479,15 @@ class BlockingChannel(object):
         """
         with _CallbackResult(
             self._MethodFrameCallbackResultArgs) as bind_ok_result:
-            self._impl.queue_bind(callback=bind_ok_result.set_value_once,
-                                  queue=queue,
+            self._impl.queue_bind(queue=queue,
                                   exchange=exchange,
                                   routing_key=routing_key,
-                                  nowait=False,
-                                  arguments=arguments)
-
+                                  arguments=arguments,
+                                  callback=bind_ok_result.set_value_once)
             self._flush_output(bind_ok_result.is_ready)
             return bind_ok_result.value.method_frame
 
-    def queue_unbind(self, queue='', exchange=None, routing_key=None,
+    def queue_unbind(self, queue, exchange=None, routing_key=None,
                      arguments=None):
         """Unbind a queue from an exchange.
 
@@ -2516,11 +2506,11 @@ class BlockingChannel(object):
         """
         with _CallbackResult(self._MethodFrameCallbackResultArgs) as \
                 unbind_ok_result:
-            self._impl.queue_unbind(callback=unbind_ok_result.set_value_once,
-                                    queue=queue,
+            self._impl.queue_unbind(queue=queue,
                                     exchange=exchange,
                                     routing_key=routing_key,
-                                    arguments=arguments)
+                                    arguments=arguments,
+                                    callback=unbind_ok_result.set_value_once)
             self._flush_output(unbind_ok_result.is_ready)
             return unbind_ok_result.value.method_frame
 
