@@ -444,7 +444,7 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
         :rtype: str
 
         """
-        return self._timer.add_timeout(deadline, callback_method)
+        return self._timer.add_timeout(deadline, callback)
 
     def remove_timeout(self, timeout):
         """Remove a timeout if it's still in the timeout stack
