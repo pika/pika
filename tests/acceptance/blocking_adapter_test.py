@@ -1564,12 +1564,14 @@ class TestPublishAndConsumeWithPubacksAndQosOfOne(BlockingTestCaseBase):
 
         # Create a consumer
         rx_messages = []
-        consumer_tag = ch.basic_consume(
+        consumer_tag = None
+        self.assertIsNone(ch.basic_consume(
             q_name,
             lambda *args: rx_messages.append(args),
             no_ack=False,
             exclusive=False,
-            arguments=None)
+            arguments=None,
+            callback=lambda method_frame: consumer_tag = method_frame.method.consumer_tag))
 
         # Wait for first message to arrive
         while not rx_messages:
@@ -1692,20 +1694,24 @@ class TestTwoBasicConsumersOnSameChannel(BlockingTestCaseBase):
 
         # Create the consumers
         q1_rx_messages = []
-        q1_consumer_tag = ch.basic_consume(
+        q1_consumer_tag = None
+        self.assertIsNone(ch.basic_consume(
             q1_name,
             lambda *args: q1_rx_messages.append(args),
             no_ack=False,
             exclusive=False,
-            arguments=None)
+            arguments=None,
+            callback=lambda method_frame: q1_consumer_tag = method_frame.method.consumer_tag))
 
         q2_rx_messages = []
-        q2_consumer_tag = ch.basic_consume(
+        q2_consumer_tag = None
+        self.assertIsNone(ch.basic_consume(
             q2_name,
             lambda *args: q2_rx_messages.append(args),
             no_ack=False,
             exclusive=False,
-            arguments=None)
+            arguments=None,
+            callback=lambda method_frame: q2_consumer_tag = method_frame.method.consumer_tag))
 
         # Wait for all messages to be delivered
         while (len(q1_rx_messages) < len(q1_tx_message_bodies) or
@@ -1768,7 +1774,8 @@ class TestBasicCancelPurgesPendingConsumerCancellationEvt(BlockingTestCaseBase):
 
         ch.publish('', routing_key=q_name, body='via-publish', mandatory=True)
 
-        # Create a consumer
+        # Create a consumer. Not passing a 'callback' to test client-generated
+        # consumer tags
         rx_messages = []
         consumer_tag = ch.basic_consume(
             q_name,
@@ -1848,7 +1855,8 @@ class TestBasicPublishWithoutPubacks(BlockingTestCaseBase):
                                                       queue=q_name,
                                                       expected_count=2)
 
-        # Create a consumer
+        # Create a consumer. Not passing a 'callback' to test client-generated
+        # consumer tags
         rx_messages = []
         consumer_tag = ch.basic_consume(
             q_name,
@@ -1951,18 +1959,24 @@ class TestPublishFromBasicConsumeCallback(BlockingTestCaseBase):
                    body='via-publish',
                    mandatory=True)
 
-        # Create a consumer
         def on_consume(channel, method, props, body):
             channel.publish(
                 '', routing_key=dest_q_name, body=body,
                 properties=props, mandatory=True)
             channel.basic_ack(method.delivery_tag)
 
-        ch.basic_consume(src_q_name,
-                         on_consume,
-                         no_ack=False,
-                         exclusive=False,
-                         arguments=None)
+        def on_consume_ok(method_frame):
+            consumer_tag = method_frame.method.consumer_tag
+            # TODO PIKA-953 assertion
+            LOGGER.debug('TestPublishFromBasicConsumeCallback consumer_tag: %s', consumer_tag)
+
+        # Create a consumer
+        self.assertIsNone(ch.basic_consume(src_q_name,
+                                           on_consume,
+                                           no_ack=False,
+                                           exclusive=False,
+                                           arguments=None,
+                                           callback=on_consume_ok))
 
         # Consume from destination queue
         for _, _, rx_body in ch.consume(dest_q_name, no_ack=True):
@@ -2003,16 +2017,22 @@ class TestStopConsumingFromBasicConsumeCallback(BlockingTestCaseBase):
                    body='via-publish2',
                    mandatory=True)
 
-        # Create a consumer
         def on_consume(channel, method, props, body):  # pylint: disable=W0613
             channel.stop_consuming()
             channel.basic_ack(method.delivery_tag)
 
-        ch.basic_consume(q_name,
-                         on_consume,
-                         no_ack=False,
-                         exclusive=False,
-                         arguments=None)
+        def on_consume_ok(method_frame):
+            consumer_tag = method_frame.method.consumer_tag
+            # TODO PIKA-953 assertion
+            LOGGER.debug('TestStopConsumingFromBasicConsumeCallback consumer_tag: %s', consumer_tag)
+
+        # Create a consumer
+        self.assertIsNone(ch.basic_consume(q_name,
+                                           on_consume,
+                                           no_ack=False,
+                                           exclusive=False,
+                                           arguments=None,
+                                           callback=on_consume_ok))
 
         ch.start_consuming()
 
@@ -2059,15 +2079,21 @@ class TestCloseChannelFromBasicConsumeCallback(BlockingTestCaseBase):
                    body='via-publish2',
                    mandatory=True)
 
-        # Create a consumer
         def on_consume(channel, method, props, body):  # pylint: disable=W0613
             channel.close()
 
-        ch.basic_consume(q_name,
-                         on_consume,
-                         no_ack=False,
-                         exclusive=False,
-                         arguments=None)
+        def on_consume_ok(method_frame):
+            consumer_tag = method_frame.method.consumer_tag
+            # TODO PIKA-953 assertion
+            LOGGER.debug('TestCloseChannelFromBasicConsumeCallback consumer_tag: %s', consumer_tag)
+
+        # Create a consumer
+        self.assertIsNone(ch.basic_consume(q_name,
+                                           on_consume,
+                                           no_ack=False,
+                                           exclusive=False,
+                                           arguments=None,
+                                           callback=on_consume_ok))
 
         ch.start_consuming()
 
@@ -2113,15 +2139,21 @@ class TestCloseConnectionFromBasicConsumeCallback(BlockingTestCaseBase):
                    body='via-publish2',
                    mandatory=True)
 
-        # Create a consumer
         def on_consume(channel, method, props, body):  # pylint: disable=W0613
             connection.close()
 
-        ch.basic_consume(q_name,
-                         on_consume,
-                         no_ack=False,
-                         exclusive=False,
-                         arguments=None)
+        def on_consume_ok(method_frame):
+            consumer_tag = method_frame.method.consumer_tag
+            # TODO PIKA-953 assertion
+            LOGGER.debug('TestCloseConnectionFromBasicConsumeCallback consumer_tag: %s', consumer_tag)
+
+        # Create a consumer
+        self.assertIsNone(ch.basic_consume(q_name,
+                                           on_consume,
+                                           no_ack=False,
+                                           exclusive=False,
+                                           arguments=None,
+                                           callback=on_consume_ok))
 
         ch.start_consuming()
 

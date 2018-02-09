@@ -243,67 +243,86 @@ class ChannelTests(unittest.TestCase):
 
     def test_basic_consume_channel_closed(self):
         mock_callback = mock.Mock()
+        mock_on_msg_callback = mock.Mock()
         self.assertRaises(exceptions.ChannelClosed, self.obj.basic_consume,
-                          'test-queue', mock_callback)
+                          'test-queue', mock_on_msg_callback,
+                          callback=mock_callback)
 
+    @mock.patch('pika.channel.Channel._require_callback')
     @mock.patch('pika.channel.Channel._validate_channel')
-    def test_basic_consume_calls_validate(self, validate):
+    def test_basic_consume_calls_validate(self, require, validate):
         self.obj._set_state(self.obj.OPEN)
         mock_callback = mock.Mock()
-        self.obj.basic_consume('test-queue', mock_callback)
+        mock_on_msg_callback = mock.Mock()
+        self.obj.basic_consume('test-queue', mock_on_msg_callback,
+                callback=mock_callback)
+        require.assert_called_once_with(on_msg_callback)
         validate.assert_called_once()
 
-    def test_basic_consume_consumer_tag(self):
+    def test_basic_consume_consumer_tag_no_completion_callback(self):
         self.obj._set_state(self.obj.OPEN)
-        expectation = 'ctag1.'
+        expectation = 'pika-ctag1.'
+        mock_on_msg_callback = mock.Mock()
+        consumer_tag = self.obj.basic_consume('test-queue',
+                mock_on_msg_callback)[:11]
+        self.assertEqual(consumer_tag, expectation)
+
+    def test_basic_consume_consumer_tag_with_completion_callback(self):
+        self.obj._set_state(self.obj.OPEN)
         mock_callback = mock.Mock()
-        self.assertEqual(
-            self.obj.basic_consume('test-queue', mock_callback)[:6],
-            expectation)
+        mock_on_msg_callback = mock.Mock()
+        self.assertIsNone(self.obj.basic_consume('test-queue',
+            mock_on_msg_callback, callback=mock_callback))
 
     def test_basic_consume_consumer_tag_cancelled_full(self):
         self.obj._set_state(self.obj.OPEN)
-        expectation = 'ctag1.'
-        mock_callback = mock.Mock()
-        for ctag in ['ctag1.%i' % ii for ii in range(11)]:
+        expectation = 'pika-ctag1.'
+        mock_on_msg_callback = mock.Mock()
+        for ctag in ['pika-ctag1.%i' % ii for ii in range(11)]:
             self.obj._cancelled.add(ctag)
         self.assertEqual(
-            self.obj.basic_consume('test-queue', mock_callback)[:6],
+            self.obj.basic_consume('test-queue', mock_on_msg_callback)[:11],
             expectation)
 
     def test_basic_consume_consumer_tag_in_consumers(self):
         self.obj._set_state(self.obj.OPEN)
         consumer_tag = 'ctag1.0'
+        mock_on_msg_callback = mock.Mock()
         mock_callback = mock.Mock()
         self.obj.basic_consume(
-            'test-queue', mock_callback, consumer_tag=consumer_tag)
+            'test-queue', mock_on_msg_callback,
+            consumer_tag=consumer_tag, callback=mock_callback)
         self.assertIn(consumer_tag, self.obj._consumers)
 
     def test_basic_consume_duplicate_consumer_tag_raises(self):
         self.obj._set_state(self.obj.OPEN)
         consumer_tag = 'ctag1.0'
+        mock_on_msg_callback = mock.Mock()
         mock_callback = mock.Mock()
         self.obj._consumers[consumer_tag] = logging.debug
         self.assertRaises(exceptions.DuplicateConsumerTag,
                           self.obj.basic_consume, 'test-queue',
-                          mock_callback, False, False, consumer_tag)
+                          mock_on_msg_callback, False, False,
+                          consumer_tag, None, mock_callback)
 
     def test_basic_consume_consumers_callback_value(self):
         self.obj._set_state(self.obj.OPEN)
         consumer_tag = 'ctag1.0'
-        mock_callback = mock.Mock()
+        mock_on_msg_callback = mock.Mock()
         self.obj.basic_consume(
-            'test-queue', mock_callback, consumer_tag=consumer_tag)
-        self.assertEqual(self.obj._consumers[consumer_tag], mock_callback)
+            'test-queue', mock_on_msgcallback, consumer_tag=consumer_tag)
+        self.assertEqual(self.obj._consumers[consumer_tag], mock_on_msg_callback)
 
     @mock.patch('pika.spec.Basic.Consume')
     @mock.patch('pika.channel.Channel._rpc')
     def test_basic_consume_consumers_rpc_called(self, rpc, _unused):
         self.obj._set_state(self.obj.OPEN)
         consumer_tag = 'ctag1.0'
+        mock_on_msg_callback = mock.Mock()
         mock_callback = mock.Mock()
         self.obj.basic_consume(
-            'test-queue', mock_callback, consumer_tag=consumer_tag)
+            'test-queue', mock_on_msg_callback,
+            consumer_tag=consumer_tag, callback=mock_callback)
         expectation = spec.Basic.Consume(
             queue='test-queue',
             consumer_tag=consumer_tag,

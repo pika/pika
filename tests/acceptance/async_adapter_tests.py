@@ -340,7 +340,6 @@ class TestZ_PublishAndConsume(BoundQueueTestCase, AsyncAdapters):  # pylint: dis
         self.channel.basic_cancel(self.ctag, callback=self.on_cancelled)
 
 
-
 class TestZ_PublishAndConsumeBig(BoundQueueTestCase, AsyncAdapters):  # pylint: disable=C0103
     DESCRIPTION = "Publish a big message and consume it"
 
