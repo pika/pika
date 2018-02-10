@@ -293,8 +293,8 @@ class IOLoop(object):
 
         poller = None
 
-        kwargs = {get_wait_seconds: get_wait_seconds,
-                  process_timeouts: process_timeouts}
+        kwargs = dict(get_wait_seconds=get_wait_seconds,
+                      process_timeouts=process_timeouts}
 
         if hasattr(select, 'epoll'):
             if not SELECT_TYPE or SELECT_TYPE == 'epoll':
