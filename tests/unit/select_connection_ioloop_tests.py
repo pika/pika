@@ -161,7 +161,7 @@ class IOLoopTimerTestSelect(IOLoopBaseTest):
         """A timeout handler that tries to remove itself."""
         self.assertEqual(self.handle, handle_holder.pop())
         # This removal here should not raise exception by itself nor
-        # in the caller SelectPoller.process_timeouts().
+        # in the caller SelectPoller._process_timeouts().
         self.timer_got_called = True
         self.ioloop.remove_timeout(self.handle)
         self.ioloop.stop()
@@ -445,7 +445,7 @@ class IOLoopEintrTestCaseSelect(IOLoopBaseTest):
         self.poller.add_handler(sockpair[0].fileno(), self._eintr_read_handler,
                                 select_connection.READ)
 
-        self.poller.add_timeout(self.TIMEOUT, self._eintr_test_fail)
+        self.ioloop.add_timeout(self.TIMEOUT, self._eintr_test_fail)
 
         original_signal_handler = \
             signal.signal(signal.SIGUSR1, self.signal_handler)
@@ -487,25 +487,28 @@ class IOLoopEintrTestCaseKqueue(IOLoopEintrTestCaseSelect):
 
 class SelectPollerTestPollWithoutSockets(unittest.TestCase):
     def start_test(self):
-        poller = select_connection.SelectPoller()
+        timer = select_connection._Timer()
+        poller = select_connection.SelectPoller(
+            get_wait_seconds=timer.get_wait_seconds,
+            process_timeouts=timer.process_timeouts)
 
         timer_call_container = []
-        poller.add_timeout(0.00001, lambda: timer_call_container.append(1))
+        timer.call_later(0.00001, lambda: timer_call_container.append(1))
         poller.poll()
 
-        delay = poller._timer.get_remaining_interval()
+        delay = self._get_wait_seconds()
         self.assertIsNotNone(delay)
         deadline = time.time() + delay
 
         while True:
-            poller.process_timeouts()
+            poller._process_timeouts()
 
             if time.time() < deadline:
                 self.assertEqual(timer_call_container, [])
             else:
                 # One last time in case deadline reached after previous
                 # processing cycle
-                poller.process_timeouts()
+                poller._process_timeouts()
                 break
 
         self.assertEqual(timer_call_container, [1])

@@ -112,140 +112,6 @@ class SelectConnection(BaseConnection):
         super(SelectConnection, self)._adapter_disconnect()
 
 
-class IOLoop(object):
-    """Singleton wrapper that decides which type of poller to use, creates an
-    instance of it in start_poller and keeps the invoking application in a
-    blocking state by calling the pollers start method. Poller should keep
-    looping until IOLoop.instance().stop() is called or there is a socket
-    error.
-
-    Passes through all operations to the loaded poller object.
-
-    """
-
-    def __init__(self):
-        self._poller = self._get_poller()
-
-    @staticmethod
-    def _get_poller():
-        """Determine the best poller to use for this enviroment."""
-
-        poller = None
-
-        if hasattr(select, 'epoll'):
-            if not SELECT_TYPE or SELECT_TYPE == 'epoll':
-                LOGGER.debug('Using EPollPoller')
-                poller = EPollPoller()
-
-        if not poller and hasattr(select, 'kqueue'):
-            if not SELECT_TYPE or SELECT_TYPE == 'kqueue':
-                LOGGER.debug('Using KQueuePoller')
-                poller = KQueuePoller()
-
-        if (not poller and hasattr(select, 'poll') and
-                hasattr(select.poll(), 'modify')):  # pylint: disable=E1101
-            if not SELECT_TYPE or SELECT_TYPE == 'poll':
-                LOGGER.debug('Using PollPoller')
-                poller = PollPoller()
-
-        if not poller:
-            LOGGER.debug('Using SelectPoller')
-            poller = SelectPoller()
-
-        return poller
-
-    def add_timeout(self, deadline, callback):
-        """[API] Add the callback to the IOLoop timer to fire after
-        deadline seconds. Returns a handle to the timeout. Do not confuse with
-        Tornado's timeout where you pass in the time you want to have your
-        callback called. Only pass in the seconds until it's to be called.
-
-        :param int deadline: The number of seconds to wait to call callback
-        :param method callback: The callback method
-        :rtype: str
-
-        """
-        return self._poller.add_timeout(deadline, callback)
-
-    def remove_timeout(self, timeout_id):
-        """[API] Remove a timeout
-
-        :param str timeout_id: The timeout id to remove
-
-        """
-        self._poller.remove_timeout(timeout_id)
-
-    def add_handler(self, fileno, handler, events):
-        """[API] Add a new fileno to the set to be monitored
-
-        :param int fileno: The file descriptor
-        :param method handler: What is called when an event happens
-        :param int events: The event mask using READ, WRITE, ERROR
-
-        """
-        self._poller.add_handler(fileno, handler, events)
-
-    def update_handler(self, fileno, events):
-        """[API] Set the events to the current events
-
-        :param int fileno: The file descriptor
-        :param int events: The event mask using READ, WRITE, ERROR
-
-        """
-        self._poller.update_handler(fileno, events)
-
-    def remove_handler(self, fileno):
-        """[API] Remove a file descriptor from the set
-
-        :param int fileno: The file descriptor
-
-        """
-        self._poller.remove_handler(fileno)
-
-    def start(self):
-        """[API] Start the main poller loop. It will loop until requested to
-        exit. See `IOLoop.stop`.
-
-        """
-        self._poller.start()
-
-    def stop(self):
-        """[API] Request exit from the ioloop. The loop is NOT guaranteed to
-        stop before this method returns. This is the only method that may be
-        called from another thread.
-
-        """
-        self._poller.stop()
-
-    def process_timeouts(self):
-        """[Extension] Process pending timeouts, invoking callbacks for those
-        whose time has come
-
-        """
-        self._poller.process_timeouts()
-
-    def activate_poller(self):
-        """[Extension] Activate the poller
-
-        """
-        self._poller.activate_poller()
-
-    def deactivate_poller(self):
-        """[Extension] Deactivate the poller
-
-        """
-        self._poller.deactivate_poller()
-
-    def poll(self):
-        """[Extension] Wait for events of interest on registered file
-        descriptors until an event of interest occurs or next timer deadline or
-        `_PollerBase._MAX_POLL_TIMEOUT`, whichever is sooner, and dispatch the
-        corresponding event handlers.
-
-        """
-        self._poller.poll()
-
-
 @functools.total_ordering
 class _Timeout(object):
     """Represents a timeout"""
@@ -297,8 +163,8 @@ class _Timer(object):
         self._num_cancellations = 0
         #self._next_timeout = None
 
-    def add_timeout(self, delay, callback):
-        """Schedule a one-shot timer.
+    def call_later(self, delay, callback):
+        """Schedule a one-shot timeout given delay seconds.
 
         NOTE: you may cancel the timer before dispatch of the callback. Timer
             Manager cancels the timer upon dispatch of the callback.
@@ -318,7 +184,7 @@ class _Timer(object):
 
         heapq.heappush(self._timeout_heap, timeout)
 
-        LOGGER.debug('add_timeout: added timeout %r with deadline=%r and '
+        LOGGER.debug('call_later: added timeout %r with deadline=%r and '
                      'callback=%r; now=%s; delay=%s', timeout, timeout.deadline,
                      timeout.callback, now, delay)
 
@@ -394,6 +260,157 @@ class _Timer(object):
                 heapq.heapify(self._timeout_heap)
 
 
+class IOLoop(object):
+    """Singleton wrapper that decides which type of poller to use, creates an
+    instance of it in start_poller and keeps the invoking application in a
+    blocking state by calling the pollers start method. Poller should keep
+    looping until IOLoop.instance().stop() is called or there is a socket
+    error.
+
+    Passes through all operations to the loaded poller object.
+
+    """
+
+    def __init__(self):
+        self._timer = _Timer()
+
+        self._poller = self._get_poller(
+            get_wait_seconds=self._timer.get_remaining_interval,
+            process_timeouts=self.process_timeouts)
+
+    @staticmethod
+    def _get_poller(get_wait_seconds, process_timeouts):
+        """Determine the best poller to use for this environment and instantiate
+        it.
+
+        :param get_wait_seconds: Function for getting the maximum number of
+                                 seconds to wait for IO for use by the poller
+        :param process_timeouts: Function for processing timeouts for use by the
+                                 poller
+
+        :returns: the instantiated poller instance supporting `_PollerBase` API
+        """
+
+        poller = None
+
+        kwargs = {get_wait_seconds: get_wait_seconds,
+                  process_timeouts: process_timeouts}
+
+        if hasattr(select, 'epoll'):
+            if not SELECT_TYPE or SELECT_TYPE == 'epoll':
+                LOGGER.debug('Using EPollPoller')
+                poller = EPollPoller(**kwargs)
+
+        if not poller and hasattr(select, 'kqueue'):
+            if not SELECT_TYPE or SELECT_TYPE == 'kqueue':
+                LOGGER.debug('Using KQueuePoller')
+                poller = KQueuePoller(**kwargs)
+
+        if (not poller and hasattr(select, 'poll') and
+                hasattr(select.poll(), 'modify')):  # pylint: disable=E1101
+            if not SELECT_TYPE or SELECT_TYPE == 'poll':
+                LOGGER.debug('Using PollPoller')
+                poller = PollPoller(**kwargs)
+
+        if not poller:
+            LOGGER.debug('Using SelectPoller')
+            poller = SelectPoller(**kwargs)
+
+        return poller
+
+    def add_timeout(self, deadline, callback):
+        """[API] Add the callback to the IOLoop timer to fire after
+        deadline seconds. Returns a handle to the timeout. Do not confuse with
+        Tornado's timeout where you pass in the time you want to have your
+        callback called. Only pass in the seconds until it's to be called.
+
+        :param int deadline: The number of seconds to wait to call callback
+        :param method callback: The callback method
+        :rtype: str
+
+        """
+        return self._timer.call_later(deadline, callback)
+
+    def remove_timeout(self, timeout_id):
+        """[API] Remove a timeout
+
+        :param str timeout_id: The timeout id to remove
+
+        """
+        self._timer.remove_timeout(timeout_id)
+
+    def process_timeouts(self):
+        """[Extension] Process pending timeouts, invoking callbacks for those
+        whose time has come. Internal use only.
+
+        """
+        self._timer.process_timeouts()
+
+    def add_handler(self, fileno, handler, events):
+        """[API] Add a new fileno to the set to be monitored
+
+        :param int fileno: The file descriptor
+        :param method handler: What is called when an event happens
+        :param int events: The event mask using READ, WRITE, ERROR
+
+        """
+        self._poller.add_handler(fileno, handler, events)
+
+    def update_handler(self, fileno, events):
+        """[API] Set the events to the current events
+
+        :param int fileno: The file descriptor
+        :param int events: The event mask using READ, WRITE, ERROR
+
+        """
+        self._poller.update_handler(fileno, events)
+
+    def remove_handler(self, fileno):
+        """[API] Remove a file descriptor from the set
+
+        :param int fileno: The file descriptor
+
+        """
+        self._poller.remove_handler(fileno)
+
+    def start(self):
+        """[API] Start the main poller loop. It will loop until requested to
+        exit. See `IOLoop.stop`.
+
+        """
+        self._poller.start()
+
+    def stop(self):
+        """[API] Request exit from the ioloop. The loop is NOT guaranteed to
+        stop before this method returns. This is the only method that may be
+        called from another thread.
+
+        """
+        self._poller.stop()
+
+    def activate_poller(self):
+        """[Extension] Activate the poller
+
+        """
+        self._poller.activate_poller()
+
+    def deactivate_poller(self):
+        """[Extension] Deactivate the poller
+
+        """
+        self._poller.deactivate_poller()
+
+    def poll(self):
+        """[Extension] Wait for events of interest on registered file
+        descriptors until an event of interest occurs or next timer deadline or
+        `_PollerBase._MAX_POLL_TIMEOUT`, whichever is sooner, and dispatch the
+        corresponding event handlers.
+
+        """
+        self._poller.poll()
+
+
+
 _AbstractBase = abc.ABCMeta('_AbstractBase', (object,), {})
 
 
@@ -408,7 +425,17 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
     # if the poller uses MS override with 1000
     POLL_TIMEOUT_MULT = 1
 
-    def __init__(self):
+    def __init__(self, get_wait_seconds, process_timeouts):
+        """
+        :param get_wait_seconds: Function for getting the maximum number of
+                                 seconds to wait for IO for use by the poller
+        :param process_timeouts: Function for processing timeouts for use by the
+                                 poller
+
+        """
+        self._get_wait_seconds = get_wait_seconds
+        self._process_timeouts = process_timeouts
+
         # fd-to-handler function mappings
         self._fd_handlers = dict()
 
@@ -419,8 +446,6 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
 
         # Reentrancy tracker of the `start` method
         self._start_nesting_levels = 0
-
-        self._timer = _Timer()
 
         self._stopping = False
 
@@ -433,27 +458,6 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
         self._r_interrupt = None
         self._w_interrupt = None
 
-    def add_timeout(self, deadline, callback):
-        """Add the callback to the IOLoop timer to fire after deadline
-        seconds. Returns a handle to the timeout. Do not confuse with
-        Tornado's timeout where you pass in the time you want to have your
-        callback called. Only pass in the seconds until it's to be called.
-
-        :param int deadline: The number of seconds to wait to call callback
-        :param method callback: The callback method
-        :rtype: str
-
-        """
-        return self._timer.add_timeout(deadline, callback)
-
-    def remove_timeout(self, timeout):
-        """Remove a timeout if it's still in the timeout stack
-
-        :param _Timeout timeout: The timeout to remove
-
-        """
-        self._timer.remove_timeout(timeout)
-
     def _get_max_wait(self):
         """Get the interval to the next timeout event, or a default interval
 
@@ -461,20 +465,13 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
             to wait for IO events
 
         """
-        delay = self._timer.get_remaining_interval()
+        delay = self._get_wait_seconds()
         if delay is None:
             delay = self._MAX_POLL_TIMEOUT
         else:
             delay = min(delay, self._MAX_POLL_TIMEOUT)
 
         return delay * self.POLL_TIMEOUT_MULT
-
-    def process_timeouts(self):
-        """Process pending timeouts, invoking callbacks for those whose time has
-        come
-
-        """
-        self._timer.process_timeouts()
 
     def add_handler(self, fileno, handler, events):
         """Add a new fileno to the set to be monitored
@@ -600,7 +597,7 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
             # Run event loop
             while not self._stopping:
                 self.poll()
-                self.process_timeouts()
+                self._process_timeouts()
 
         finally:
             self._start_nesting_levels -= 1
@@ -849,7 +846,7 @@ class SelectPoller(_PollerBase):
 class KQueuePoller(_PollerBase):
     """KQueuePoller works on BSD based systems and is faster than select"""
 
-    def __init__(self):
+    def __init__(self, get_wait_seconds, process_timeouts):
         """Create an instance of the KQueuePoller
 
         :param int fileno: The file descriptor to check events for
@@ -857,7 +854,10 @@ class KQueuePoller(_PollerBase):
         :param int events: The events to look for
 
         """
-        super(KQueuePoller, self).__init__()
+        super(KQueuePoller, self).__init__(
+            get_wait_seconds=get_wait_seconds,
+            process_timeouts=process_timeouts
+        )
 
         self._kqueue = None
 
@@ -993,7 +993,10 @@ class PollPoller(_PollerBase):
 
         """
         self._poll = None
-        super(PollPoller, self).__init__()
+        super(PollPoller, self).__init__(
+            get_wait_seconds=get_wait_seconds,
+            process_timeouts=process_timeouts
+        )
 
     @staticmethod
     def _create_poller():
