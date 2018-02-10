@@ -8,9 +8,9 @@ import functools
 import heapq
 import logging
 import select
-
 import time
 import threading
+import weakref
 
 from collections import defaultdict
 
@@ -254,6 +254,7 @@ class _Timer(object):
                     continue
 
                 timeout.callback()
+                timeout.callback = None
 
             # Garbage-collect canceled timeouts if they exceed threshold
             if (self._num_cancellations >= self._GC_CANCELLATION_THRESHOLD and
@@ -435,8 +436,9 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
                                  poller
 
         """
-        self._get_wait_seconds = get_wait_seconds
-        self._process_timeouts = process_timeouts
+        # Use weakref to break cyclical reference that prevents GC
+        self._get_wait_seconds = weakref.proxy(get_wait_seconds)
+        self._process_timeouts = weakref.proxy(process_timeouts)
 
         # fd-to-handler function mappings
         self._fd_handlers = dict()
