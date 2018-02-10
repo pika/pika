@@ -435,7 +435,9 @@ class IOLoopEintrTestCaseSelect(IOLoopBaseTest):
            implementation of polling mechanism and another."""
         is_resumable_mock.side_effect = is_resumable_raw
 
-        self.poller = self.ioloop._get_poller()
+        timer = select_connection._Timer()
+        self.poller = self.ioloop._get_poller(timer.get_remaining_interval,
+                                              timer.process_timeouts)
 
         sockpair = self.poller._get_interrupt_pair()
         self.addCleanup(sockpair[0].close)
