@@ -489,14 +489,14 @@ class SelectPollerTestPollWithoutSockets(unittest.TestCase):
     def start_test(self):
         timer = select_connection._Timer()
         poller = select_connection.SelectPoller(
-            get_wait_seconds=timer.get_wait_seconds,
+            get_wait_seconds=timer.get_remaining_interval,
             process_timeouts=timer.process_timeouts)
 
         timer_call_container = []
         timer.call_later(0.00001, lambda: timer_call_container.append(1))
         poller.poll()
 
-        delay = self._get_wait_seconds()
+        delay = poller._get_wait_seconds()
         self.assertIsNotNone(delay)
         deadline = time.time() + delay
 
