@@ -4,12 +4,22 @@ Tests for SelectConnection _Timer and _Timeout classes
 
 """
 
-import mock
 import time
 import unittest
 
+import mock
+
 from pika.adapters import select_connection
 
+
+# Suppress protected-access
+# pylint: disable=W0212
+
+# Suppress missing-docstring
+# pylint: disable=C0111
+
+# Suppress invalid-name
+# pylint: disable=C0103
 
 class TimeoutClassTests(unittest.TestCase):
     """Test select_connection._Timeout class"""
@@ -170,7 +180,7 @@ class TimerClassTests(unittest.TestCase):
         timer = select_connection._Timer()
 
         with mock.patch('time.time', return_value=now):
-            t3 = timer.call_later(10, lambda: bucket.append(3))
+            timer.call_later(10, lambda: bucket.append(3)) # t3
             t2 = timer.call_later(6, lambda: bucket.append(2))
             t1 = timer.call_later(5, lambda: bucket.append(1))
 
@@ -234,6 +244,7 @@ class TimerClassTests(unittest.TestCase):
                 timer.process_timeouts()
                 self.assertEqual(bucket, [])
                 self.assertEqual(len(timer._timeout_heap), 1)
+                self.assertIs(t2, timer._timeout_heap[0])
                 self.assertEqual(timer.get_remaining_interval(), 6)
                 self.assertEqual(timer._num_cancellations, 0)
 
