@@ -848,16 +848,8 @@ class KQueuePoller(_PollerBase):
 
     def __init__(self, get_wait_seconds, process_timeouts):
         """Create an instance of the KQueuePoller
-
-        :param int fileno: The file descriptor to check events for
-        :param method handler: What is called when an event happens
-        :param int events: The events to look for
-
         """
-        super(KQueuePoller, self).__init__(
-            get_wait_seconds=get_wait_seconds,
-            process_timeouts=process_timeouts
-        )
+        super(KQueuePoller, self).__init__(get_wait_seconds, process_timeouts)
 
         self._kqueue = None
 
@@ -984,19 +976,12 @@ class PollPoller(_PollerBase):
     """
     POLL_TIMEOUT_MULT = 1000
 
-    def __init__(self):
+    def __init__(self, get_wait_seconds, process_timeouts):
         """Create an instance of the KQueuePoller
-
-        :param int fileno: The file descriptor to check events for
-        :param method handler: What is called when an event happens
-        :param int events: The events to look for
 
         """
         self._poll = None
-        super(PollPoller, self).__init__(
-            get_wait_seconds=get_wait_seconds,
-            process_timeouts=process_timeouts
-        )
+        super(PollPoller, self).__init__(get_wait_seconds, process_timeouts)
 
     @staticmethod
     def _create_poller():
