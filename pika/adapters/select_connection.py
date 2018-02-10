@@ -153,15 +153,15 @@ class _Timeout(object):
 class _Timer(object):
     """Manage timers for use in ioloop"""
 
-    # Suppress warnings concerning "Access to a protected member"
-    # pylint: disable=W0212
+    # Cancellation count threshold for triggering garbage collection of
+    # cancelled timers
+    _GC_CANCELLATION_THRESHOLD = 1024
 
     def __init__(self):
         self._timeout_heap = []
 
         # For scheduling garbage collection of canceled timeouts
         self._num_cancellations = 0
-        #self._next_timeout = None
 
     def call_later(self, delay, callback):
         """Schedule a one-shot timeout given delay seconds.
@@ -169,7 +169,8 @@ class _Timer(object):
         NOTE: you may cancel the timer before dispatch of the callback. Timer
             Manager cancels the timer upon dispatch of the callback.
 
-        :param float delay: The number of seconds from now until expiration
+        :param float delay: Non-negative number of seconds from now until
+                            expiration
         :param method callback: The callback method, having the signature
             `callback()`
 
@@ -177,10 +178,14 @@ class _Timer(object):
         :raises ValueError, TypeError
 
         """
-        now = time.time()
-        deadline = now + delay
+        if delay < 0:
+            raise ValueError(
+                'call_later: delay must be non-negative, but got %r'
+                % (delay,))
 
-        timeout = _Timeout(deadline=deadline, callback=callback)
+        now = time.time()
+
+        timeout = _Timeout(now + delay, callback)
 
         heapq.heappush(self._timeout_heap, timeout)
 
@@ -252,7 +257,7 @@ class _Timer(object):
                 timeout.callback()
 
             # Garbage-collect canceled timeouts if they exceed threshold
-            if (self._num_cancellations > 1024 and
+            if (self._num_cancellations >= self._GC_CANCELLATION_THRESHOLD and
                     self._num_cancellations > (len(self._timeout_heap) >> 1)):
                 self._num_cancellations = 0
                 self._timeout_heap = [t for t in self._timeout_heap
@@ -274,9 +279,8 @@ class IOLoop(object):
     def __init__(self):
         self._timer = _Timer()
 
-        self._poller = self._get_poller(
-            get_wait_seconds=self._timer.get_remaining_interval,
-            process_timeouts=self.process_timeouts)
+        self._poller = self._get_poller(self._timer.get_remaining_interval,
+                                        self.process_timeouts)
 
     @staticmethod
     def _get_poller(get_wait_seconds, process_timeouts):
