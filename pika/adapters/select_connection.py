@@ -172,7 +172,7 @@ class _Timer(object):
         :param float delay: Non-negative number of seconds from now until
                             expiration
         :param method callback: The callback method, having the signature
-            `callback()`
+                                `callback()`
 
         :rtype: _Timeout
         :raises ValueError, TypeError
@@ -219,7 +219,7 @@ class _Timer(object):
         """Get the interval to the next timeout expiration
 
         :returns: non-negative number of seconds until next timer expiration;
-            None if there are no timers
+                  None if there are no timers
         :rtype: float
 
         """
@@ -235,7 +235,6 @@ class _Timer(object):
         come
 
         """
-
         if self._timeout_heap:
             now = time.time()
 
@@ -414,7 +413,6 @@ class IOLoop(object):
         self._poller.poll()
 
 
-
 _AbstractBase = abc.ABCMeta('_AbstractBase', (object,), {})
 
 
@@ -465,8 +463,8 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
     def _get_max_wait(self):
         """Get the interval to the next timeout event, or a default interval
 
-        :returns: maximum number of self.POLL_TIMEOUT_MULT-adjusted time units
-            to wait for IO events
+        :returns: maximum number of self.POLL_TIMEOUT_MULT-scaled time units
+                  to wait for IO events
 
         """
         delay = self._get_wait_seconds()
