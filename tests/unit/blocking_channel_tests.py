@@ -49,12 +49,12 @@ class BlockingChannelTests(unittest.TestCase):
 
     def test_basic_consume(self):
         with mock.patch.object(self.obj._impl, '_generate_consumer_tag'):
-            self.obj._impl._generate_consumer_tag.return_value = 'pika-ctag0'
-            self.obj._impl.basic_consume.return_value = 'pika-ctag0'
+            self.obj._impl._generate_consumer_tag.return_value = 'ctag0'
+            self.obj._impl.basic_consume.return_value = 'ctag0'
 
             self.obj.basic_consume('queue', mock.Mock())
 
-            self.assertEqual(self.obj._consumer_infos['pika-ctag0'].state,
+            self.assertEqual(self.obj._consumer_infos['ctag0'].state,
                              blocking_connection._ConsumerInfo.ACTIVE)
 
     def test_context_manager(self):

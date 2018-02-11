@@ -338,8 +338,8 @@ class Channel(object):
         :rtype: str
 
         """
-        return 'pika-ctag%i.%s' % (self.channel_number,
-                                   uuid.uuid4().hex)
+        return 'ctag%i.%s' % (self.channel_number,
+                              uuid.uuid4().hex)
 
     def basic_get(self, queue, callback, no_ack=False):
         """Get a single message from the AMQP broker. If you want to

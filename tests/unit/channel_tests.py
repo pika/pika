@@ -261,10 +261,10 @@ class ChannelTests(unittest.TestCase):
 
     def test_basic_consume_consumer_tag_no_completion_callback(self):
         self.obj._set_state(self.obj.OPEN)
-        expectation = 'pika-ctag1.'
+        expectation = 'ctag1.'
         mock_on_msg_callback = mock.Mock()
         consumer_tag = self.obj.basic_consume('test-queue',
-                mock_on_msg_callback)[:11]
+                mock_on_msg_callback)[:6]
         self.assertEqual(consumer_tag, expectation)
 
     def test_basic_consume_consumer_tag_with_completion_callback(self):
@@ -276,12 +276,12 @@ class ChannelTests(unittest.TestCase):
 
     def test_basic_consume_consumer_tag_cancelled_full(self):
         self.obj._set_state(self.obj.OPEN)
-        expectation = 'pika-ctag1.'
+        expectation = 'ctag1.'
         mock_on_msg_callback = mock.Mock()
-        for ctag in ['pika-ctag1.%i' % ii for ii in range(11)]:
+        for ctag in ['ctag1.%i' % ii for ii in range(11)]:
             self.obj._cancelled.add(ctag)
         self.assertEqual(
-            self.obj.basic_consume('test-queue', mock_on_msg_callback)[:11],
+            self.obj.basic_consume('test-queue', mock_on_msg_callback)[:6],
             expectation)
 
     def test_basic_consume_consumer_tag_in_consumers(self):
