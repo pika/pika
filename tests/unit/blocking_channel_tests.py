@@ -54,7 +54,7 @@ class BlockingChannelTests(unittest.TestCase):
 
             self.obj.basic_consume('queue', mock.Mock())
 
-            self.assertEqual(self.obj._consumer_infos['ctag0'].state,
+            self.assertEqual(self.obj._consumer_infos['pika-ctag0'].state,
                              blocking_connection._ConsumerInfo.ACTIVE)
 
     def test_context_manager(self):

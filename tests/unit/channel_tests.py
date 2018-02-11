@@ -248,15 +248,15 @@ class ChannelTests(unittest.TestCase):
                           'test-queue', mock_on_msg_callback,
                           callback=mock_callback)
 
-    @mock.patch('pika.channel.Channel._require_callback')
     @mock.patch('pika.channel.Channel._validate_channel')
+    @mock.patch('pika.channel.Channel._require_callback')
     def test_basic_consume_calls_validate(self, require, validate):
         self.obj._set_state(self.obj.OPEN)
         mock_callback = mock.Mock()
         mock_on_msg_callback = mock.Mock()
         self.obj.basic_consume('test-queue', mock_on_msg_callback,
                 callback=mock_callback)
-        require.assert_called_once_with(on_msg_callback)
+        require.assert_called_once_with(mock_on_msg_callback)
         validate.assert_called_once()
 
     def test_basic_consume_consumer_tag_no_completion_callback(self):
@@ -271,8 +271,8 @@ class ChannelTests(unittest.TestCase):
         self.obj._set_state(self.obj.OPEN)
         mock_callback = mock.Mock()
         mock_on_msg_callback = mock.Mock()
-        self.assertIsNone(self.obj.basic_consume('test-queue',
-            mock_on_msg_callback, callback=mock_callback))
+        self.obj.basic_consume('test-queue',
+            mock_on_msg_callback, callback=mock_callback)
 
     def test_basic_consume_consumer_tag_cancelled_full(self):
         self.obj._set_state(self.obj.OPEN)
@@ -310,7 +310,7 @@ class ChannelTests(unittest.TestCase):
         consumer_tag = 'ctag1.0'
         mock_on_msg_callback = mock.Mock()
         self.obj.basic_consume(
-            'test-queue', mock_on_msgcallback, consumer_tag=consumer_tag)
+            'test-queue', mock_on_msg_callback, consumer_tag=consumer_tag)
         self.assertEqual(self.obj._consumers[consumer_tag], mock_on_msg_callback)
 
     @mock.patch('pika.spec.Basic.Consume')
@@ -328,7 +328,7 @@ class ChannelTests(unittest.TestCase):
             consumer_tag=consumer_tag,
             no_ack=False,
             exclusive=False)
-        rpc.assert_called_once_with(expectation, self.obj._on_eventok,
+        rpc.assert_called_once_with(expectation, mock_callback,
                                     [(spec.Basic.ConsumeOk, {
                                         'consumer_tag': consumer_tag
                                     })])
