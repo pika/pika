@@ -1547,10 +1547,10 @@ class BlockingChannel(object):
 
         return self._basic_consume_impl(
             queue=queue,
-            on_message_callback=on_message_callback,
             no_ack=no_ack,
             exclusive=exclusive,
             consumer_tag=consumer_tag,
+            on_message_callback=on_message_callback,
             arguments=arguments)
 
     def _basic_consume_impl(self,
