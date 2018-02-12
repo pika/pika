@@ -317,7 +317,26 @@ class ChannelTests(unittest.TestCase):
 
     @mock.patch('pika.spec.Basic.Consume')
     @mock.patch('pika.channel.Channel._rpc')
-    def test_basic_consume_consumers_rpc_called(self, rpc, _unused):
+    def test_basic_consume_consumers_rpc_with_no_completion_callback(self, rpc, _unused):
+        self.obj._set_state(self.obj.OPEN)
+        consumer_tag = 'ctag1.0'
+        mock_on_msg_callback = mock.Mock()
+        self.obj.basic_consume(
+            'test-queue', mock_on_msg_callback,
+            consumer_tag=consumer_tag)
+        expectation = spec.Basic.Consume(
+            queue='test-queue',
+            consumer_tag=consumer_tag,
+            no_ack=False,
+            exclusive=False)
+        rpc.assert_called_once_with(expectation, self.obj._on_eventok,
+                                    [(spec.Basic.ConsumeOk, {
+                                        'consumer_tag': consumer_tag
+                                    })])
+
+    @mock.patch('pika.spec.Basic.Consume')
+    @mock.patch('pika.channel.Channel._rpc')
+    def test_basic_consume_consumers_rpc_with_completion_callback(self, rpc, _unused):
         self.obj._set_state(self.obj.OPEN)
         consumer_tag = 'ctag1.0'
         mock_on_msg_callback = mock.Mock()
