@@ -269,10 +269,12 @@ class ChannelTests(unittest.TestCase):
 
     def test_basic_consume_consumer_tag_with_completion_callback(self):
         self.obj._set_state(self.obj.OPEN)
+        expectation = 'ctag1.'
         mock_callback = mock.Mock()
         mock_on_msg_callback = mock.Mock()
-        self.obj.basic_consume('test-queue',
-            mock_on_msg_callback, callback=mock_callback)
+        consumer_tag = self.obj.basic_consume('test-queue',
+                mock_on_msg_callback, callback=mock_callback)[:6]
+        self.assertEqual(consumer_tag, expectation)
 
     def test_basic_consume_consumer_tag_cancelled_full(self):
         self.obj._set_state(self.obj.OPEN)
