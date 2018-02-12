@@ -392,7 +392,7 @@ class ChannelTests(unittest.TestCase):
         self.assertRaises(exceptions.ChannelClosed, self.obj.basic_qos, 0,
                           False, True)
 
-    def test_basic_qos_raises_prefetch_size_raises_error(self):
+    def test_basic_qos_invalid_prefetch_size_raises_error(self):
         self.obj._set_state(self.obj.OPEN)
         with self.assertRaises(ValueError) as ex:
             self.obj.basic_qos('foo', 123)
@@ -402,7 +402,7 @@ class ChannelTests(unittest.TestCase):
             self.obj.basic_qos(-1, 123)
         self.assertIn('prefetch_size', ex.exception.args[0])
 
-    def test_basic_qos_raises_prefetch_count_raises_error(self):
+    def test_basic_qos_invalid_prefetch_count_raises_error(self):
         self.obj._set_state(self.obj.OPEN)
         with self.assertRaises(ValueError) as ex:
             self.obj.basic_qos(123, 'foo')
