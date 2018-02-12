@@ -705,7 +705,8 @@ class BlockingConnection(object):
         with self._acquire_event_dispatch() as dispatch_acquired:
             # Check if we can actually process pending events
             common_terminator = lambda: bool(dispatch_acquired and
-                (self._channels_pending_dispatch or self._ready_events))
+                                             (self._channels_pending_dispatch or
+                                              self._ready_events))
             if time_limit is None:
                 self._flush_output(common_terminator)
             else:
@@ -1316,7 +1317,7 @@ class BlockingChannel(object):
         self._cleanup()
         method = method_frame.method
         raise exceptions.ChannelClosed(method.reply_code,
-                 method.reply_text)
+                                       method.reply_text)
 
     def _on_consumer_cancelled_by_broker(self, method_frame):
         """Called by impl when broker cancels consumer via Basic.Cancel.
@@ -1543,7 +1544,7 @@ class BlockingChannel(object):
         """
         if not callable(on_message_callback):
             raise ValueError('callback on_message_callback must be callable; got %r'
-                             % callback)
+                             % on_message_callback)
 
         return self._basic_consume_impl(
             queue=queue,
