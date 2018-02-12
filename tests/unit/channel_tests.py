@@ -435,6 +435,26 @@ class ChannelTests(unittest.TestCase):
         self.assertRaises(exceptions.ChannelClosed, self.obj.basic_qos, 0,
                           False, True)
 
+    def test_basic_qos_invalid_prefetch_size_raises_error(self):
+        self.obj._set_state(self.obj.OPEN)
+        with self.assertRaises(ValueError) as ex:
+            self.obj.basic_qos('foo', 123)
+        self.assertEqual("invalid literal for int() with base 10: 'foo'",
+                         ex.exception.args[0])
+        with self.assertRaises(ValueError) as ex:
+            self.obj.basic_qos(-1, 123)
+        self.assertIn('prefetch_size', ex.exception.args[0])
+
+    def test_basic_qos_invalid_prefetch_count_raises_error(self):
+        self.obj._set_state(self.obj.OPEN)
+        with self.assertRaises(ValueError) as ex:
+            self.obj.basic_qos(123, 'foo')
+        self.assertEqual("invalid literal for int() with base 10: 'foo'",
+                         ex.exception.args[0])
+        with self.assertRaises(ValueError) as ex:
+            self.obj.basic_qos(123, -1)
+        self.assertIn('prefetch_count', ex.exception.args[0])
+
     @mock.patch('pika.spec.Basic.Qos')
     @mock.patch('pika.channel.Channel._rpc')
     def test_basic_qos_rpc_request(self, rpc, _unused):
