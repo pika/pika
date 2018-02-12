@@ -1950,18 +1950,18 @@ class TestPublishFromBasicConsumeCallback(BlockingTestCaseBase):
                    body='via-publish',
                    mandatory=True)
 
+        # Create a consumer
         def on_consume(channel, method, props, body):
             channel.publish(
                 '', routing_key=dest_q_name, body=body,
                 properties=props, mandatory=True)
             channel.basic_ack(method.delivery_tag)
 
-        # Create a consumer
-        consumer_tag = ch.basic_consume(src_q_name,
-                                        on_consume,
-                                        no_ack=False,
-                                        exclusive=False,
-                                        arguments=None)
+        ch.basic_consume(src_q_name,
+                         on_consume,
+                         no_ack=False,
+                         exclusive=False,
+                         arguments=None)
 
         # Consume from destination queue
         for _, _, rx_body in ch.consume(dest_q_name, no_ack=True):
@@ -2002,16 +2002,16 @@ class TestStopConsumingFromBasicConsumeCallback(BlockingTestCaseBase):
                    body='via-publish2',
                    mandatory=True)
 
+        # Create a consumer
         def on_consume(channel, method, props, body):  # pylint: disable=W0613
             channel.stop_consuming()
             channel.basic_ack(method.delivery_tag)
 
-        # Create a consumer
-        consumer_tag = ch.basic_consume(q_name,
-                                        on_consume,
-                                        no_ack=False,
-                                        exclusive=False,
-                                        arguments=None)
+        ch.basic_consume(q_name,
+                         on_consume,
+                         no_ack=False,
+                         exclusive=False,
+                         arguments=None)
 
         ch.start_consuming()
 
@@ -2058,15 +2058,15 @@ class TestCloseChannelFromBasicConsumeCallback(BlockingTestCaseBase):
                    body='via-publish2',
                    mandatory=True)
 
+        # Create a consumer
         def on_consume(channel, method, props, body):  # pylint: disable=W0613
             channel.close()
 
-        # Create a consumer
-        consumer_tag = ch.basic_consume(q_name,
-                                        on_consume,
-                                        no_ack=False,
-                                        exclusive=False,
-                                        arguments=None)
+        ch.basic_consume(q_name,
+                         on_consume,
+                         no_ack=False,
+                         exclusive=False,
+                         arguments=None)
 
         ch.start_consuming()
 
@@ -2112,15 +2112,15 @@ class TestCloseConnectionFromBasicConsumeCallback(BlockingTestCaseBase):
                    body='via-publish2',
                    mandatory=True)
 
+        # Create a consumer
         def on_consume(channel, method, props, body):  # pylint: disable=W0613
             connection.close()
 
-        # Create a consumer
-        consumer_tag = ch.basic_consume(q_name,
-                                        on_consume,
-                                        no_ack=False,
-                                        exclusive=False,
-                                        arguments=None)
+        ch.basic_consume(q_name,
+                         on_consume,
+                         no_ack=False,
+                         exclusive=False,
+                         arguments=None)
 
         ch.start_consuming()
 

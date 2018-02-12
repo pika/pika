@@ -282,7 +282,7 @@ class Channel(object):
                       most recent server-named queue for this channel.
         :type queue: str or unicode
         :param callable on_message_callback: The function to call when consuming
-            with the signature callback(channel, method, properties, body), where
+            with the signature on_message_callback(channel, method, properties, body), where
                                 channel: pika.Channel
                                 method: pika.spec.Basic.Deliver
                                 properties: pika.spec.BasicProperties
@@ -315,9 +315,7 @@ class Channel(object):
 
         self._consumers[consumer_tag] = on_message_callback
 
-        rpc_callback = callback
-        if callback is None:
-            rpc_callback = self._on_eventok
+        rpc_callback = self._on_eventok if callback is None else callback
 
         self._rpc(spec.Basic.Consume(queue=queue,
                                      consumer_tag=consumer_tag,
