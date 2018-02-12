@@ -10,7 +10,6 @@ import logging
 import select
 import time
 import threading
-import weakref
 
 from collections import defaultdict
 
@@ -436,9 +435,8 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
                                  poller
 
         """
-        # Use weakref to break cyclical reference that prevents GC
-        self._get_wait_seconds = weakref.proxy(get_wait_seconds)
-        self._process_timeouts = weakref.proxy(process_timeouts)
+        self._get_wait_seconds = get_wait_seconds
+        self._process_timeouts = process_timeouts
 
         # fd-to-handler function mappings
         self._fd_handlers = dict()
