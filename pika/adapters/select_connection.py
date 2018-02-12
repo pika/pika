@@ -159,7 +159,8 @@ class _Timer(object):
     def __init__(self):
         self._timeout_heap = []
 
-        # For scheduling garbage collection of canceled timeouts
+        # Number of canceled timeouts on heap; for scheduling garbage
+        # collection of canceled timeouts
         self._num_cancellations = 0
 
     def call_later(self, delay, callback):
@@ -245,11 +246,14 @@ class _Timer(object):
                 timeout = heapq.heappop(self._timeout_heap)
                 if timeout.callback is not None:
                     ready_timeouts.append(timeout)
+                else:
+                    self._num_cancellations -= 1
 
             # Invoke ready timeout callbacks
             for timeout in ready_timeouts:
                 if timeout.callback is None:
                     # Must have been canceled from a prior callback
+                    self._num_cancellations -= 1
                     continue
 
                 timeout.callback()

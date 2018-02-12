@@ -193,11 +193,14 @@ class TimerClassTests(unittest.TestCase):
             # Cancel t1 and t2 that haven't expired yet
             timer.remove_timeout(t1)
             self.assertIsNone(t1.callback)
+            self.assertEqual(timer._num_cancellations, 1)
             timer.remove_timeout(t2)
             self.assertIsNone(t2.callback)
+            self.assertEqual(timer._num_cancellations, 2)
             self.assertEqual(timer.get_remaining_interval(), 5)
             timer.process_timeouts()
             self.assertEqual(bucket, [])
+            self.assertEqual(timer._num_cancellations, 2)
             self.assertEqual(timer.get_remaining_interval(), 5)
             self.assertEqual(len(timer._timeout_heap), 3)
 
@@ -207,6 +210,7 @@ class TimerClassTests(unittest.TestCase):
             self.assertEqual(timer.get_remaining_interval(), 0)
             timer.process_timeouts()
             self.assertEqual(bucket, [])
+            self.assertEqual(timer._num_cancellations, 0)
             self.assertEqual(len(timer._timeout_heap), 1)
             self.assertEqual(timer.get_remaining_interval(), 4)
 
@@ -233,7 +237,9 @@ class TimerClassTests(unittest.TestCase):
                 # Cancel t1 and check that it doesn't trigger GC because it's
                 # not greater than half the timeouts
                 timer.remove_timeout(t1)
+                self.assertEqual(timer._num_cancellations, 1)
                 timer.process_timeouts()
+                self.assertEqual(timer._num_cancellations, 1)
                 self.assertEqual(bucket, [])
                 self.assertEqual(len(timer._timeout_heap), 3)
                 self.assertEqual(timer.get_remaining_interval(), 5)
@@ -241,6 +247,7 @@ class TimerClassTests(unittest.TestCase):
                 # Cancel t3 and verify GC since it's now greater than half of
                 # total timeouts
                 timer.remove_timeout(t3)
+                self.assertEqual(timer._num_cancellations, 2)
                 timer.process_timeouts()
                 self.assertEqual(bucket, [])
                 self.assertEqual(len(timer._timeout_heap), 1)
@@ -295,6 +302,7 @@ class TimerClassTests(unittest.TestCase):
             self.assertIsNone(t2.callback)
             self.assertEqual(timer.get_remaining_interval(), 4)
             self.assertIs(t2, timer._timeout_heap[0])
+            self.assertEqual(timer._num_cancellations, 1)
 
         # Advance time by 10 seconds and verify that t2 is removed without
         # firing
@@ -303,6 +311,8 @@ class TimerClassTests(unittest.TestCase):
             self.assertEqual(bucket, [])
             self.assertIsNone(timer.get_remaining_interval())
             self.assertEqual(len(timer._timeout_heap), 0)
+            self.assertEqual(timer._num_cancellations, 0)
+
 
     def test_cancel_expired_timeout_from_another_timeout(self):
         now = time.time()
@@ -311,7 +321,10 @@ class TimerClassTests(unittest.TestCase):
 
         with mock.patch('time.time', return_value=now):
             t2 = timer.call_later(10, lambda: bucket.append(2))
-            t1 = timer.call_later(5, lambda: timer.remove_timeout(t2))
+            t1 = timer.call_later(
+                5,
+                lambda: (self.assertEqual(timer._num_cancellations, 0),
+                         timer.remove_timeout(t2)))
 
             self.assertIs(t1, timer._timeout_heap[0])
 
@@ -323,3 +336,4 @@ class TimerClassTests(unittest.TestCase):
             self.assertIsNone(t2.callback)
             self.assertIsNone(timer.get_remaining_interval())
             self.assertEqual(len(timer._timeout_heap), 0)
+            self.assertEqual(timer._num_cancellations, 0)
