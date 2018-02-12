@@ -209,7 +209,8 @@ class TestCreateAndCloseConnectionWithChannelAndConsumer(BlockingTestCaseBase):
         ch.publish(exchange='', routing_key=q_name, body=body1)
 
         # Create a non-ackable consumer
-        ch.basic_consume(q_name, lambda *x: None, no_ack=True)
+        ch.basic_consume(q_name, lambda *x: None, no_ack=True,
+                         exclusive=False, arguments=None)
 
         connection.close()
         self.assertTrue(connection.is_closed)
@@ -1563,8 +1564,12 @@ class TestPublishAndConsumeWithPubacksAndQosOfOne(BlockingTestCaseBase):
 
         # Create a consumer
         rx_messages = []
-        consumer_tag = ch.basic_consume(q_name,
-            lambda *args: rx_messages.append(args))
+        consumer_tag = ch.basic_consume(
+            q_name,
+            lambda *args: rx_messages.append(args),
+            no_ack=False,
+            exclusive=False,
+            arguments=None)
 
         # Wait for first message to arrive
         while not rx_messages:
@@ -1689,12 +1694,18 @@ class TestTwoBasicConsumersOnSameChannel(BlockingTestCaseBase):
         q1_rx_messages = []
         q1_consumer_tag = ch.basic_consume(
             q1_name,
-            lambda *args: q1_rx_messages.append(args))
+            lambda *args: q1_rx_messages.append(args),
+            no_ack=False,
+            exclusive=False,
+            arguments=None)
 
         q2_rx_messages = []
         q2_consumer_tag = ch.basic_consume(
             q2_name,
-            lambda *args: q2_rx_messages.append(args))
+            lambda *args: q2_rx_messages.append(args),
+            no_ack=False,
+            exclusive=False,
+            arguments=None)
 
         # Wait for all messages to be delivered
         while (len(q1_rx_messages) < len(q1_tx_message_bodies) or
@@ -1757,7 +1768,8 @@ class TestBasicCancelPurgesPendingConsumerCancellationEvt(BlockingTestCaseBase):
 
         ch.publish('', routing_key=q_name, body='via-publish', mandatory=True)
 
-        # Create a consumer
+        # Create a consumer. Not passing a 'callback' to test client-generated
+        # consumer tags
         rx_messages = []
         consumer_tag = ch.basic_consume(
             q_name,
@@ -1834,11 +1846,15 @@ class TestBasicPublishWithoutPubacks(BlockingTestCaseBase):
                                                       queue=q_name,
                                                       expected_count=2)
 
-        # Create a consumer
+        # Create a consumer. Not passing a 'callback' to test client-generated
+        # consumer tags
         rx_messages = []
         consumer_tag = ch.basic_consume(
             q_name,
-            lambda *args: rx_messages.append(args))
+            lambda *args: rx_messages.append(args),
+            no_ack=False,
+            exclusive=False,
+            arguments=None)
 
         # Wait for first message to arrive
         while not rx_messages:
@@ -1941,7 +1957,11 @@ class TestPublishFromBasicConsumeCallback(BlockingTestCaseBase):
             channel.basic_ack(method.delivery_tag)
 
         # Create a consumer
-        consumer_tag = ch.basic_consume(src_q_name, on_consume)
+        consumer_tag = ch.basic_consume(src_q_name,
+                                        on_consume,
+                                        no_ack=False,
+                                        exclusive=False,
+                                        arguments=None)
 
         # Consume from destination queue
         for _, _, rx_body in ch.consume(dest_q_name, no_ack=True):
@@ -1987,7 +2007,11 @@ class TestStopConsumingFromBasicConsumeCallback(BlockingTestCaseBase):
             channel.basic_ack(method.delivery_tag)
 
         # Create a consumer
-        consumer_tag = ch.basic_consume(q_name, on_consume)
+        consumer_tag = ch.basic_consume(q_name,
+                                        on_consume,
+                                        no_ack=False,
+                                        exclusive=False,
+                                        arguments=None)
 
         ch.start_consuming()
 
@@ -2038,11 +2062,16 @@ class TestCloseChannelFromBasicConsumeCallback(BlockingTestCaseBase):
             channel.close()
 
         # Create a consumer
-        consumer_tag = ch.basic_consume(q_name, on_consume)
+        consumer_tag = ch.basic_consume(q_name,
+                                        on_consume,
+                                        no_ack=False,
+                                        exclusive=False,
+                                        arguments=None)
 
         ch.start_consuming()
 
         self.assertTrue(ch.is_closed)
+
 
         # Verify that both messages are present in the queue
         ch = connection.channel()
@@ -2087,7 +2116,11 @@ class TestCloseConnectionFromBasicConsumeCallback(BlockingTestCaseBase):
             connection.close()
 
         # Create a consumer
-        consumer_tag = ch.basic_consume(q_name, on_consume)
+        consumer_tag = ch.basic_consume(q_name,
+                                        on_consume,
+                                        no_ack=False,
+                                        exclusive=False,
+                                        arguments=None)
 
         ch.start_consuming()
 
@@ -2237,9 +2270,8 @@ class TestBasicCancelWithNonAckableConsumer(BlockingTestCaseBase):
                                                       expected_count=2)
 
         # Create a non-ackable consumer
-        consumer_tag = ch.basic_consume(q_name,
-                                        lambda *x: None,
-                                        no_ack=True)
+        consumer_tag = ch.basic_consume(q_name, lambda *x: None, no_ack=True,
+                                        exclusive=False, arguments=None)
 
         # Wait for all messages to be sent by broker to client
         self._assert_exact_message_count_with_retries(channel=ch,
@@ -2295,7 +2327,8 @@ class TestBasicCancelWithAckableConsumer(BlockingTestCaseBase):
                                                       expected_count=2)
 
         # Create an ackable consumer
-        consumer_tag = ch.basic_consume(q_name, lambda *x: None)
+        consumer_tag = ch.basic_consume(q_name, lambda *x: None, no_ack=False,
+                                        exclusive=False, arguments=None)
 
         # Wait for all messages to be sent by broker to client
         self._assert_exact_message_count_with_retries(channel=ch,
@@ -2342,8 +2375,8 @@ class TestUnackedMessageAutoRestoredToQueueOnChannelClose(BlockingTestCaseBase):
 
         # Consume the events, but don't ack
         rx_messages = []
-        ch.basic_consume(q_name, lambda *args: rx_messages.append(args))
-
+        ch.basic_consume(q_name, lambda *args: rx_messages.append(args),
+                         no_ack=False, exclusive=False, arguments=None)
         while len(rx_messages) != 2:
             connection.process_data_events(time_limit=None)
 
