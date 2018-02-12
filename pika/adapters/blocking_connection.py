@@ -705,7 +705,8 @@ class BlockingConnection(object):
         with self._acquire_event_dispatch() as dispatch_acquired:
             # Check if we can actually process pending events
             common_terminator = lambda: bool(dispatch_acquired and
-                (self._channels_pending_dispatch or self._ready_events))
+                                             (self._channels_pending_dispatch or
+                                              self._ready_events))
             if time_limit is None:
                 self._flush_output(common_terminator)
             else:
@@ -954,7 +955,7 @@ class ReturnedMessage(object):
 class _ConsumerInfo(object):
     """Information about an active consumer"""
 
-    __slots__ = ('consumer_tag', 'no_ack', 'callback',
+    __slots__ = ('consumer_tag', 'no_ack', 'on_message_callback',
                  'alternate_event_sink', 'state')
 
     # Consumer states
@@ -963,16 +964,16 @@ class _ConsumerInfo(object):
     TEARING_DOWN = 3
     CANCELLED_BY_BROKER = 4
 
-    def __init__(self, consumer_tag, no_ack, callback=None,
+    def __init__(self, consumer_tag, no_ack, on_message_callback=None,
                  alternate_event_sink=None):
         """
         NOTE: exactly one of callback/alternate_event_sink musts be non-None.
 
         :param str consumer_tag:
         :param bool no_ack: the no-ack value for the consumer
-        :param callable callback: The function for dispatching messages to
+        :param callable on_message_callback: The function for dispatching messages to
             user, having the signature:
-            callback(channel, method, properties, body)
+            on_message_callback(channel, method, properties, body)
                 channel: BlockingChannel
                 method: spec.Basic.Deliver
                 properties: spec.BasicProperties
@@ -983,12 +984,12 @@ class _ConsumerInfo(object):
             `_pending_events` container. Signature:
             alternate_event_sink(evt)
         """
-        assert (callback is None) != (alternate_event_sink is None), (
-            'exactly one of callback/alternate_event_sink must be non-None',
-            callback, alternate_event_sink)
+        assert (on_message_callback is None) != (alternate_event_sink is None), (
+            'exactly one of on_message_callback/alternate_event_sink must be non-None',
+            on_message_callback, alternate_event_sink)
         self.consumer_tag = consumer_tag
         self.no_ack = no_ack
-        self.callback = callback
+        self.on_message_callback = on_message_callback
         self.alternate_event_sink = alternate_event_sink
         self.state = self.SETTING_UP
 
@@ -1316,7 +1317,7 @@ class BlockingChannel(object):
         self._cleanup()
         method = method_frame.method
         raise exceptions.ChannelClosed(method.reply_code,
-                 method.reply_text)
+                                       method.reply_text)
 
     def _on_consumer_cancelled_by_broker(self, method_frame):
         """Called by impl when broker cancels consumer via Basic.Cancel.
@@ -1402,8 +1403,8 @@ class BlockingChannel(object):
 
             if type(evt) is _ConsumerDeliveryEvt:
                 consumer_info = self._consumer_infos[evt.method.consumer_tag]
-                consumer_info.callback(self, evt.method,
-                                       evt.properties, evt.body)
+                consumer_info.on_message_callback(self, evt.method,
+                                                  evt.properties, evt.body)
 
             elif type(evt) is _ConsumerCancellationEvt:
                 del self._consumer_infos[evt.method_frame.method.consumer_tag]
@@ -1500,7 +1501,7 @@ class BlockingChannel(object):
 
     def basic_consume(self,
                       queue,
-                      callback,
+                      on_message_callback,
                       no_ack=False,
                       exclusive=False,
                       consumer_tag=None,
@@ -1520,9 +1521,9 @@ class BlockingChannel(object):
 
         :param queue: The queue from which to consume
         :type queue: str or unicode
-        :param callable callback: Required function for dispatching messages
+        :param callable on_message_callback: Required function for dispatching messages
             to user, having the signature:
-            callback(channel, method, properties, body)
+            on_message_callback(channel, method, properties, body)
                 channel: BlockingChannel
                 method: spec.Basic.Deliver
                 properties: spec.BasicProperties
@@ -1541,17 +1542,17 @@ class BlockingChannel(object):
             consumer_tag is already present.
 
         """
-        if not callable(callback):
-            raise ValueError('callback callback must be callable; got %r'
-                             % callback)
+        if not callable(on_message_callback):
+            raise ValueError('callback on_message_callback must be callable; got %r'
+                             % on_message_callback)
 
         return self._basic_consume_impl(
             queue=queue,
+            on_message_callback=on_message_callback,
             no_ack=no_ack,
             exclusive=exclusive,
             consumer_tag=consumer_tag,
-            arguments=arguments,
-            callback=callback)
+            arguments=arguments)
 
     def _basic_consume_impl(self,
                             queue,
@@ -1559,12 +1560,12 @@ class BlockingChannel(object):
                             exclusive,
                             consumer_tag,
                             arguments=None,
-                            callback=None,
+                            on_message_callback=None,
                             alternate_event_sink=None):
         """The low-level implementation used by `basic_consume` and `consume`.
         See `basic_consume` docstring for more info.
 
-        NOTE: exactly one of callback/alternate_event_sink musts be
+        NOTE: exactly one of on_message_callback/alternate_event_sink musts be
         non-None.
 
         This method has one additional parameter alternate_event_sink over the
@@ -1580,10 +1581,10 @@ class BlockingChannel(object):
             consumer_tag is already present.
 
         """
-        if (callback is None) == (alternate_event_sink is None):
+        if (on_message_callback is None) == (alternate_event_sink is None):
             raise ValueError(
-                ('exactly one of callback/alternate_event_sink must '
-                 'be non-None', callback, alternate_event_sink))
+                ('exactly one of on_message_callback/alternate_event_sink must '
+                 'be non-None', on_message_callback, alternate_event_sink))
 
         if not consumer_tag:
             # Need a consumer tag to register consumer info before sending
@@ -1599,13 +1600,13 @@ class BlockingChannel(object):
         self._consumer_infos[consumer_tag] = _ConsumerInfo(
             consumer_tag,
             no_ack=no_ack,
-            callback=callback,
+            on_message_callback=on_message_callback,
             alternate_event_sink=alternate_event_sink)
 
         try:
             with self._basic_consume_ok_result as ok_result:
                 tag = self._impl.basic_consume(
-                    callback=self._on_consumer_message_delivery,
+                    on_message_callback=self._on_consumer_message_delivery,
                     queue=queue,
                     no_ack=no_ack,
                     exclusive=exclusive,
