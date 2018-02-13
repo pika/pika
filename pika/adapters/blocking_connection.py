@@ -1543,19 +1543,17 @@ class BlockingChannel(object):
             consumer_tag is already present.
 
         """
+        if 'no_ack' in kwargs:
+            auto_ack = bool(kwargs.get('no_ack'))
+
         if not callable(on_message_callback):
             raise ValueError('callback on_message_callback must be callable; got %r'
                              % on_message_callback)
 
-        no_ack = kwargs.get("no_ack")
-        use_auto_ack = auto_ack
-        if not(no_ack is None):
-            use_auto_ack = kwargs.get("no_ack")
-
         return self._basic_consume_impl(
             queue=queue,
             on_message_callback=on_message_callback,
-            auto_ack=use_auto_ack,
+            auto_ack=auto_ack,
             exclusive=exclusive,
             consumer_tag=consumer_tag,
             arguments=arguments)
@@ -1844,12 +1842,10 @@ class BlockingChannel(object):
             of the existing queue consumer generator, if any.
             NEW in pika 0.10.0
         """
-        no_ack = kwargs.get("no_ack")
-        use_auto_ack = auto_ack
-        if not(no_ack is None):
-            use_auto_ack = kwargs.get("no_ack")
+        if 'no_ack' in kwargs:
+            auto_ack = bool(kwargs.get('no_ack'))
 
-        params = (queue, use_auto_ack, exclusive)
+        params = (queue, auto_ack, exclusive)
 
         if self._queue_consumer_generator is not None:
             if params != self._queue_consumer_generator.params:
@@ -1858,7 +1854,7 @@ class BlockingChannel(object):
                     'queue consumer generator; previous params: %r; '
                     'new params: %r'
                     % (self._queue_consumer_generator.params,
-                       (queue, use_auto_ack, exclusive)))
+                       (queue, auto_ack, exclusive)))
         else:
             LOGGER.debug('Creating new queue consumer generator; params: %r',
                          params)
@@ -1874,7 +1870,7 @@ class BlockingChannel(object):
             try:
                 self._basic_consume_impl(
                     queue=queue,
-                    auto_ack=use_auto_ack,
+                    auto_ack=auto_ack,
                     exclusive=exclusive,
                     consumer_tag=consumer_tag,
                     arguments=arguments,
@@ -2038,16 +2034,16 @@ class BlockingChannel(object):
                                     spec.BasicProperties,
                                     str or unicode or None)
         """
+        if 'no_ack' in kwargs:
+            auto_ack = bool(kwargs.get('no_ack'))
+
         assert not self._basic_getempty_result
-        no_ack = kwargs.get("no_ack")
-        use_auto_ack = auto_ack
-        if not(no_ack is None):
-            use_auto_ack = kwargs.get("no_ack")
+
         # NOTE: nested with for python 2.6 compatibility
         with _CallbackResult(self._RxMessageArgs) as get_ok_result:
             with self._basic_getempty_result:
                 self._impl.basic_get(queue=queue,
-                                     auto_ack=use_auto_ack,
+                                     auto_ack=auto_ack,
                                      callback=get_ok_result.set_value_once)
                 self._flush_output(get_ok_result.is_ready,
                                    self._basic_getempty_result.is_ready)

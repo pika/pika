@@ -380,6 +380,15 @@ class ChannelTests(unittest.TestCase):
         send_method.assert_called_once_with(
             spec.Basic.Get(queue='test-queue', no_ack=False))
 
+    @mock.patch('pika.spec.Basic.Get')
+    @mock.patch('pika.channel.Channel._send_method')
+    def test_basic_get_send_method_called_auto_ack(self, send_method, _unused):
+        self.obj._set_state(self.obj.OPEN)
+        mock_callback = mock.Mock()
+        self.obj.basic_get('test-queue', mock_callback, auto_ack=True)
+        send_method.assert_called_once_with(
+            spec.Basic.Get(queue='test-queue', no_ack=True))
+
     def test_basic_nack_raises_channel_closed(self):
         self.assertRaises(exceptions.ChannelClosed, self.obj.basic_nack, 0,
                           False, True)
