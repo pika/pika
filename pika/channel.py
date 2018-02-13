@@ -327,7 +327,7 @@ class Channel(object):
                                      exclusive=exclusive,
                                      arguments=arguments or dict()),
                   rpc_callback, [(spec.Basic.ConsumeOk,
-                                 {'consumer_tag': consumer_tag})])
+                                  {'consumer_tag': consumer_tag})])
 
         return consumer_tag
 
@@ -1429,6 +1429,12 @@ class Channel(object):
                 'Completion callback must be callable if not None')
 
     def _validate_zero_or_greater(self, name, value):
+        """Verify that value is zero or greater. If not, 'name'
+        will be used in error message
+
+        :raises: ValueError
+
+        """
         if int(value) < 0:
             errmsg = '{} must be >= 0, but got {}'.format(name, value)
             raise ValueError(errmsg)
