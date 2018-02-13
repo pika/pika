@@ -263,11 +263,12 @@ class Channel(object):
     def basic_consume(self,
                       queue,
                       on_message_callback,
-                      no_ack=False,
+                      auto_ack=False,
                       exclusive=False,
                       consumer_tag=None,
                       arguments=None,
-                      callback=None):
+                      callback=None,
+                      **kwargs):
         """Sends the AMQP 0-9-1 command Basic.Consume to the broker and binds messages
         for the consumer_tag to the consumer callback. If you do not pass in
         a consumer_tag, one will be automatically generated for you. Returns
@@ -287,7 +288,7 @@ class Channel(object):
                                 method: pika.spec.Basic.Deliver
                                 properties: pika.spec.BasicProperties
                                 body: str, unicode, or bytes (python 3.x)
-        :param bool no_ack: if set to True, automatic acknowledgement mode will be used
+        :param bool auto_ack: if set to True, automatic acknowledgement mode will be used
                             (see http://www.rabbitmq.com/confirms.html)
         :param bool exclusive: Don't allow other consumers on the queue
         :param consumer_tag: Specify your own consumer tag
@@ -310,7 +311,12 @@ class Channel(object):
         if consumer_tag in self._consumers or consumer_tag in self._cancelled:
             raise exceptions.DuplicateConsumerTag(consumer_tag)
 
-        if no_ack:
+        no_ack = kwargs.get("no_ack")
+        use_auto_ack = auto_ack
+        if not(no_ack is None):
+            use_auto_ack = kwargs.get("no_ack")
+
+        if use_auto_ack:
             self._consumers_with_noack.add(consumer_tag)
 
         self._consumers[consumer_tag] = on_message_callback
@@ -319,7 +325,7 @@ class Channel(object):
 
         self._rpc(spec.Basic.Consume(queue=queue,
                                      consumer_tag=consumer_tag,
-                                     no_ack=no_ack,
+                                     no_ack=use_auto_ack,
                                      exclusive=exclusive,
                                      arguments=arguments or dict()),
                   rpc_callback, [(spec.Basic.ConsumeOk,
@@ -339,7 +345,7 @@ class Channel(object):
         return 'ctag%i.%s' % (self.channel_number,
                               uuid.uuid4().hex)
 
-    def basic_get(self, queue, callback, no_ack=False):
+    def basic_get(self, queue, callback, auto_ack=False, **kwargs):
         """Get a single message from the AMQP broker. If you want to
         be notified of Basic.GetEmpty, use the Channel.add_callback method
         adding your Basic.GetEmpty callback which should expect only one
@@ -359,7 +365,7 @@ class Channel(object):
             method: pika.spec.Basic.GetOk
             properties: pika.spec.BasicProperties
             body: str, unicode, or bytes (python 3.x)
-        :param bool no_ack: Tell the broker to not expect a reply
+        :param bool auto_ack: Tell the broker to not expect a reply
         :raises ValueError:
 
         """
@@ -367,11 +373,15 @@ class Channel(object):
         if self._on_getok_callback is not None:
             raise exceptions.DuplicateGetOkCallback()
         self._on_getok_callback = callback
+        no_ack = kwargs.get("no_ack")
+        use_auto_ack = auto_ack
+        if not(no_ack is None):
+            use_auto_ack = kwargs.get("no_ack")
         # pylint: disable=W0511
         # TODO Strangely, not using _rpc for the synchronous Basic.Get. Would
         # need to extend _rpc to handle Basic.GetOk method, header, and body
         # frames (or similar)
-        self._send_method(spec.Basic.Get(queue=queue, no_ack=no_ack))
+        self._send_method(spec.Basic.Get(queue=queue, no_ack=use_auto_ack))
 
     def basic_nack(self, delivery_tag=None, multiple=False, requeue=True):
         """This method allows a client to reject one or more incoming messages.
