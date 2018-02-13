@@ -1792,14 +1792,12 @@ class TestBasicCancelPurgesPendingConsumerCancellationEvt(BlockingTestCaseBase):
 
         ch.publish('', routing_key=q_name, body='via-publish', mandatory=True)
 
-        # Create a consumer
+        # Create a consumer. Not passing a 'callback' to test client-generated
+        # consumer tags
         rx_messages = []
         consumer_tag = ch.basic_consume(
             q_name,
-            lambda *args: rx_messages.append(args),
-            no_ack=False,
-            exclusive=False,
-            arguments=None)
+            lambda *args: rx_messages.append(args))
 
         # Wait for the published message to arrive, but don't consume it
         while not ch._pending_events:
@@ -1872,7 +1870,8 @@ class TestBasicPublishWithoutPubacks(BlockingTestCaseBase):
                                                       queue=q_name,
                                                       expected_count=2)
 
-        # Create a consumer
+        # Create a consumer. Not passing a 'callback' to test client-generated
+        # consumer tags
         rx_messages = []
         consumer_tag = ch.basic_consume(
             q_name,

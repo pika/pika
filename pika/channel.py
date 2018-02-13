@@ -262,11 +262,12 @@ class Channel(object):
 
     def basic_consume(self,
                       queue,
-                      callback,
+                      on_message_callback,
                       no_ack=False,
                       exclusive=False,
                       consumer_tag=None,
-                      arguments=None):
+                      arguments=None,
+                      callback=None):
         """Sends the AMQP 0-9-1 command Basic.Consume to the broker and binds messages
         for the consumer_tag to the consumer callback. If you do not pass in
         a consumer_tag, one will be automatically generated for you. Returns
@@ -280,8 +281,8 @@ class Channel(object):
         :param queue: The queue to consume from. Use the empty string to specify the
                       most recent server-named queue for this channel.
         :type queue: str or unicode
-        :param callable callback: The function to call when consuming
-            with the signature callback(channel, method, properties, body), where
+        :param callable on_message_callback: The function to call when consuming
+            with the signature on_message_callback(channel, method, properties, body), where
                                 channel: pika.Channel
                                 method: pika.spec.Basic.Deliver
                                 properties: pika.spec.BasicProperties
@@ -292,12 +293,15 @@ class Channel(object):
         :param consumer_tag: Specify your own consumer tag
         :type consumer_tag: str or unicode
         :param dict arguments: Custom key/value pair arguments for the consumer
+        :param callable callback: callback(pika.frame.Method) for method
+          Basic.ConsumeOk.
         :rtype: str
         :raises ValueError:
 
         """
-        self._require_callback(callback)
+        self._require_callback(on_message_callback)
         self._validate_channel()
+        self._validate_rpc_completion_callback(callback)
 
         # If a consumer tag was not passed, create one
         if not consumer_tag:
@@ -309,14 +313,17 @@ class Channel(object):
         if no_ack:
             self._consumers_with_noack.add(consumer_tag)
 
-        self._consumers[consumer_tag] = callback
+        self._consumers[consumer_tag] = on_message_callback
+
+        rpc_callback = self._on_eventok if callback is None else callback
+
         self._rpc(spec.Basic.Consume(queue=queue,
                                      consumer_tag=consumer_tag,
                                      no_ack=no_ack,
                                      exclusive=exclusive,
                                      arguments=arguments or dict()),
-                  self._on_eventok, [(spec.Basic.ConsumeOk,
-                                      {'consumer_tag': consumer_tag})])
+                  rpc_callback, [(spec.Basic.ConsumeOk,
+                                 {'consumer_tag': consumer_tag})])
 
         return consumer_tag
 
@@ -442,16 +449,16 @@ class Channel(object):
                                    falls into other prefetch limits). May be set
                                    to zero, meaning "no specific limit",
                                    although other prefetch limits may still
-                                   apply. The prefetch-size is ignored if the
-                                   no-ack option is set.
+                                   apply. The prefetch-size is ignored by
+                                   consumers who have enabled the no-ack option.
         :param int prefetch_count: Specifies a prefetch window in terms of whole
                                    messages. This field may be used in
                                    combination with the prefetch-size field; a
                                    message will only be sent in advance if both
                                    prefetch windows (and those at the channel
                                    and connection level) allow it. The
-                                   prefetch-count is ignored if the no-ack
-                                   option is set.
+                                   prefetch-count is ignored by consumers who
+                                   have enabled the no-ack option.
         :param bool all_channels: Should the QoS apply to all channels
         :param callable callback: The callback to call for Basic.QosOk response
         :raises ValueError:
@@ -459,6 +466,8 @@ class Channel(object):
         """
         self._validate_channel()
         self._validate_rpc_completion_callback(callback)
+        self._validate_zero_or_greater('prefetch_size', prefetch_size)
+        self._validate_zero_or_greater('prefetch_count', prefetch_count)
         return self._rpc(spec.Basic.Qos(prefetch_size, prefetch_count,
                                         all_channels),
                          callback, [spec.Basic.QosOk])
@@ -1410,6 +1419,11 @@ class Channel(object):
         else:
             raise TypeError(
                 'Completion callback must be callable if not None')
+
+    def _validate_zero_or_greater(self, name, value):
+        if int(value) < 0:
+            errmsg = '{} must be >= 0, but got {}'.format(name, value)
+            raise ValueError(errmsg)
 
 
 class ContentFrameAssembler(object):
