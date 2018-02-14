@@ -225,7 +225,7 @@ class TestCreateAndCloseConnectionWithChannelAndConsumer(BlockingTestCaseBase):
 class TestCreateAndCloseConnectionWithChannelAndConsumerUsingLegacyAcknowledgementModeKeyword(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingConnection: Create and close connection with channel and consumer using no_ack for acknowledgement mode"""  # pylint: disable=C0301
+        """BlockingConnection: Create and close connection with channel and consumer using auto_ack for acknowledgement mode"""  # pylint: disable=C0301
         connection = self._connect()
 
         ch = connection.channel()
@@ -244,7 +244,7 @@ class TestCreateAndCloseConnectionWithChannelAndConsumerUsingLegacyAcknowledgeme
         ch.publish(exchange='', routing_key=q_name, body=body1)
 
         # Create a consumer that uses automatic ack mode
-        ch.basic_consume(q_name, lambda *x: None, no_ack=True,
+        ch.basic_consume(q_name, lambda *x: None, auto_ack=True,
                          exclusive=False, arguments=None)
 
         connection.close()
@@ -839,7 +839,7 @@ class TestBasicGet(BlockingTestCaseBase):
         LOGGER.info('%s DECLARED QUEUE (%s)', datetime.utcnow(), self)
 
         # Verify result of getting a message from an empty queue
-        msg = ch.basic_get(q_name, no_ack=False)
+        msg = ch.basic_get(q_name, auto_ack=False)
         self.assertTupleEqual(msg, (None, None, None))
         LOGGER.info('%s GOT FROM EMPTY QUEUE (%s)', datetime.utcnow(), self)
 
@@ -851,7 +851,7 @@ class TestBasicGet(BlockingTestCaseBase):
         LOGGER.info('%s PUBLISHED (%s)', datetime.utcnow(), self)
 
         # Get the message
-        (method, properties, body) = ch.basic_get(q_name, no_ack=False)
+        (method, properties, body) = ch.basic_get(q_name, auto_ack=False)
         LOGGER.info('%s GOT FROM NON-EMPTY QUEUE (%s)', datetime.utcnow(), self)
         self.assertIsInstance(method, pika.spec.Basic.GetOk)
         self.assertEqual(method.delivery_tag, 1)
@@ -902,10 +902,10 @@ class TestBasicReject(BlockingTestCaseBase):
                    mandatory=True)
 
         # Get the messages
-        (rx_method, _, rx_body) = ch.basic_get(q_name, no_ack=False)
+        (rx_method, _, rx_body) = ch.basic_get(q_name, auto_ack=False)
         self.assertEqual(rx_body, as_bytes('TestBasicReject1'))
 
-        (rx_method, _, rx_body) = ch.basic_get(q_name, no_ack=False)
+        (rx_method, _, rx_body) = ch.basic_get(q_name, auto_ack=False)
         self.assertEqual(rx_body, as_bytes('TestBasicReject2'))
 
         # Nack the second message
@@ -916,7 +916,7 @@ class TestBasicReject(BlockingTestCaseBase):
         self._assert_exact_message_count_with_retries(channel=ch,
                                                       queue=q_name,
                                                       expected_count=1)
-        (rx_method, _, rx_body) = ch.basic_get(q_name, no_ack=False)
+        (rx_method, _, rx_body) = ch.basic_get(q_name, auto_ack=False)
         self.assertEqual(rx_body, as_bytes('TestBasicReject2'))
 
 
@@ -948,11 +948,11 @@ class TestBasicRejectNoRequeue(BlockingTestCaseBase):
                    mandatory=True)
 
         # Get the messages
-        (rx_method, _, rx_body) = ch.basic_get(q_name, no_ack=False)
+        (rx_method, _, rx_body) = ch.basic_get(q_name, auto_ack=False)
         self.assertEqual(rx_body,
                          as_bytes('TestBasicRejectNoRequeue1'))
 
-        (rx_method, _, rx_body) = ch.basic_get(q_name, no_ack=False)
+        (rx_method, _, rx_body) = ch.basic_get(q_name, auto_ack=False)
         self.assertEqual(rx_body,
                          as_bytes('TestBasicRejectNoRequeue2'))
 
@@ -993,10 +993,10 @@ class TestBasicNack(BlockingTestCaseBase):
                    mandatory=True)
 
         # Get the messages
-        (rx_method, _, rx_body) = ch.basic_get(q_name, no_ack=False)
+        (rx_method, _, rx_body) = ch.basic_get(q_name, auto_ack=False)
         self.assertEqual(rx_body, as_bytes('TestBasicNack1'))
 
-        (rx_method, _, rx_body) = ch.basic_get(q_name, no_ack=False)
+        (rx_method, _, rx_body) = ch.basic_get(q_name, auto_ack=False)
         self.assertEqual(rx_body, as_bytes('TestBasicNack2'))
 
         # Nack the second message
@@ -1007,7 +1007,7 @@ class TestBasicNack(BlockingTestCaseBase):
         self._assert_exact_message_count_with_retries(channel=ch,
                                                       queue=q_name,
                                                       expected_count=1)
-        (rx_method, _, rx_body) = ch.basic_get(q_name, no_ack=False)
+        (rx_method, _, rx_body) = ch.basic_get(q_name, auto_ack=False)
         self.assertEqual(rx_body, as_bytes('TestBasicNack2'))
 
 
@@ -1039,11 +1039,11 @@ class TestBasicNackNoRequeue(BlockingTestCaseBase):
                    mandatory=True)
 
         # Get the messages
-        (rx_method, _, rx_body) = ch.basic_get(q_name, no_ack=False)
+        (rx_method, _, rx_body) = ch.basic_get(q_name, auto_ack=False)
         self.assertEqual(rx_body,
                          as_bytes('TestBasicNackNoRequeue1'))
 
-        (rx_method, _, rx_body) = ch.basic_get(q_name, no_ack=False)
+        (rx_method, _, rx_body) = ch.basic_get(q_name, auto_ack=False)
         self.assertEqual(rx_body,
                          as_bytes('TestBasicNackNoRequeue2'))
 
@@ -1084,11 +1084,11 @@ class TestBasicNackMultiple(BlockingTestCaseBase):
                    mandatory=True)
 
         # Get the messages
-        (rx_method, _, rx_body) = ch.basic_get(q_name, no_ack=False)
+        (rx_method, _, rx_body) = ch.basic_get(q_name, auto_ack=False)
         self.assertEqual(rx_body,
                          as_bytes('TestBasicNackMultiple1'))
 
-        (rx_method, _, rx_body) = ch.basic_get(q_name, no_ack=False)
+        (rx_method, _, rx_body) = ch.basic_get(q_name, auto_ack=False)
         self.assertEqual(rx_body,
                          as_bytes('TestBasicNackMultiple2'))
 
@@ -1099,10 +1099,10 @@ class TestBasicNackMultiple(BlockingTestCaseBase):
         self._assert_exact_message_count_with_retries(channel=ch,
                                                       queue=q_name,
                                                       expected_count=2)
-        (rx_method, _, rx_body) = ch.basic_get(q_name, no_ack=False)
+        (rx_method, _, rx_body) = ch.basic_get(q_name, auto_ack=False)
         self.assertEqual(rx_body,
                          as_bytes('TestBasicNackMultiple1'))
-        (rx_method, _, rx_body) = ch.basic_get(q_name, no_ack=False)
+        (rx_method, _, rx_body) = ch.basic_get(q_name, auto_ack=False)
         self.assertEqual(rx_body,
                          as_bytes('TestBasicNackMultiple2'))
 
@@ -1141,7 +1141,7 @@ class TestBasicRecoverWithRequeue(BlockingTestCaseBase):
 
         rx_messages = []
         num_messages = 0
-        for msg in ch.consume(q_name, no_ack=False):
+        for msg in ch.consume(q_name, auto_ack=False):
             num_messages += 1
 
             if num_messages == 2:
@@ -1199,7 +1199,7 @@ class TestTxCommit(BlockingTestCaseBase):
         frame = ch.queue_declare(q_name, passive=True)
         self.assertEqual(frame.method.message_count, 1)
 
-        (_, _, rx_body) = ch.basic_get(q_name, no_ack=False)
+        (_, _, rx_body) = ch.basic_get(q_name, auto_ack=False)
         self.assertEqual(rx_body, as_bytes('TestTxCommit1'))
 
 
@@ -1602,7 +1602,7 @@ class TestPublishAndConsumeWithPubacksAndQosOfOne(BlockingTestCaseBase):
         consumer_tag = ch.basic_consume(
             q_name,
             lambda *args: rx_messages.append(args),
-            no_ack=False,
+            auto_ack=False,
             exclusive=False,
             arguments=None)
 
@@ -1730,7 +1730,7 @@ class TestTwoBasicConsumersOnSameChannel(BlockingTestCaseBase):
         q1_consumer_tag = ch.basic_consume(
             q1_name,
             lambda *args: q1_rx_messages.append(args),
-            no_ack=False,
+            auto_ack=False,
             exclusive=False,
             arguments=None)
 
@@ -1738,7 +1738,7 @@ class TestTwoBasicConsumersOnSameChannel(BlockingTestCaseBase):
         q2_consumer_tag = ch.basic_consume(
             q2_name,
             lambda *args: q2_rx_messages.append(args),
-            no_ack=False,
+            auto_ack=False,
             exclusive=False,
             arguments=None)
 
@@ -1887,7 +1887,7 @@ class TestBasicPublishWithoutPubacks(BlockingTestCaseBase):
         consumer_tag = ch.basic_consume(
             q_name,
             lambda *args: rx_messages.append(args),
-            no_ack=False,
+            auto_ack=False,
             exclusive=False,
             arguments=None)
 
@@ -1994,12 +1994,12 @@ class TestPublishFromBasicConsumeCallback(BlockingTestCaseBase):
 
         ch.basic_consume(src_q_name,
                          on_consume,
-                         no_ack=False,
+                         auto_ack=False,
                          exclusive=False,
                          arguments=None)
 
         # Consume from destination queue
-        for _, _, rx_body in ch.consume(dest_q_name, no_ack=True):
+        for _, _, rx_body in ch.consume(dest_q_name, auto_ack=True):
             self.assertEqual(rx_body, as_bytes('via-publish'))
             break
         else:
@@ -2044,7 +2044,7 @@ class TestStopConsumingFromBasicConsumeCallback(BlockingTestCaseBase):
 
         ch.basic_consume(q_name,
                          on_consume,
-                         no_ack=False,
+                         auto_ack=False,
                          exclusive=False,
                          arguments=None)
 
@@ -2099,7 +2099,7 @@ class TestCloseChannelFromBasicConsumeCallback(BlockingTestCaseBase):
 
         ch.basic_consume(q_name,
                          on_consume,
-                         no_ack=False,
+                         auto_ack=False,
                          exclusive=False,
                          arguments=None)
 
@@ -2153,7 +2153,7 @@ class TestCloseConnectionFromBasicConsumeCallback(BlockingTestCaseBase):
 
         ch.basic_consume(q_name,
                          on_consume,
-                         no_ack=False,
+                         auto_ack=False,
                          exclusive=False,
                          arguments=None)
 
@@ -2191,7 +2191,7 @@ class TestNonPubAckPublishAndConsumeHugeMessage(BlockingTestCaseBase):
         LOGGER.info('Published message body size=%s', len(body))
 
         # Consume the message
-        for rx_method, rx_props, rx_body in ch.consume(q_name, no_ack=False,
+        for rx_method, rx_props, rx_body in ch.consume(q_name, auto_ack=False,
                                                        exclusive=False,
                                                        arguments=None):
             self.assertIsInstance(rx_method, pika.spec.Basic.Deliver)
@@ -2244,7 +2244,7 @@ class TestNonPubackPublishAndConsumeManyMessages(BlockingTestCaseBase):
         # Consume the messages
         num_consumed = 0
         for rx_method, rx_props, rx_body in ch.consume(q_name,
-                                                       no_ack=False,
+                                                       auto_ack=False,
                                                        exclusive=False,
                                                        arguments=None):
             num_consumed += 1
@@ -2305,7 +2305,7 @@ class TestBasicCancelWithNonAckableConsumer(BlockingTestCaseBase):
                                                       expected_count=2)
 
         # Create a consumer that uses automatic ack mode
-        consumer_tag = ch.basic_consume(q_name, lambda *x: None, no_ack=True,
+        consumer_tag = ch.basic_consume(q_name, lambda *x: None, auto_ack=True,
                                         exclusive=False, arguments=None)
 
         # Wait for all messages to be sent by broker to client
@@ -2362,7 +2362,7 @@ class TestBasicCancelWithAckableConsumer(BlockingTestCaseBase):
                                                       expected_count=2)
 
         # Create an ackable consumer
-        consumer_tag = ch.basic_consume(q_name, lambda *x: None, no_ack=False,
+        consumer_tag = ch.basic_consume(q_name, lambda *x: None, auto_ack=False,
                                         exclusive=False, arguments=None)
 
         # Wait for all messages to be sent by broker to client
@@ -2411,7 +2411,7 @@ class TestUnackedMessageAutoRestoredToQueueOnChannelClose(BlockingTestCaseBase):
         # Consume the events, but don't ack
         rx_messages = []
         ch.basic_consume(q_name, lambda *args: rx_messages.append(args),
-                         no_ack=False, exclusive=False, arguments=None)
+                         auto_ack=False, exclusive=False, arguments=None)
         while len(rx_messages) != 2:
             connection.process_data_events(time_limit=None)
 
@@ -2457,7 +2457,7 @@ class TestNoAckMessageNotRestoredToQueueOnChannelClose(BlockingTestCaseBase):
 
         # Consume, but don't ack
         num_messages = 0
-        for rx_method, _, _ in ch.consume(q_name, no_ack=True, exclusive=False):
+        for rx_method, _, _ in ch.consume(q_name, auto_ack=True, exclusive=False):
             num_messages += 1
 
             self.assertEqual(rx_method.delivery_tag, num_messages)
