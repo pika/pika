@@ -1505,8 +1505,7 @@ class BlockingChannel(object):
                       auto_ack=False,
                       exclusive=False,
                       consumer_tag=None,
-                      arguments=None,
-                      **kwargs):
+                      arguments=None):
         """Sends the AMQP command Basic.Consume to the broker and binds messages
         for the consumer_tag to the consumer callback. If you do not pass in
         a consumer_tag, one will be automatically generated for you. Returns
@@ -1543,9 +1542,6 @@ class BlockingChannel(object):
             consumer_tag is already present.
 
         """
-        if 'no_ack' in kwargs:
-            auto_ack = bool(kwargs.get('no_ack'))
-
         if not callable(on_message_callback):
             raise ValueError('callback on_message_callback must be callable; got %r'
                              % on_message_callback)
@@ -1801,8 +1797,7 @@ class BlockingChannel(object):
 
     def consume(self, queue, auto_ack=False,
                 exclusive=False, arguments=None,
-                inactivity_timeout=None,
-                **kwargs):
+                inactivity_timeout=None):
         """Blocking consumption of a queue instead of via a callback. This
         method is a generator that yields each message as a tuple of method,
         properties, and body. The active generator iterator terminates when the
@@ -1842,9 +1837,6 @@ class BlockingChannel(object):
             of the existing queue consumer generator, if any.
             NEW in pika 0.10.0
         """
-        if 'no_ack' in kwargs:
-            auto_ack = bool(kwargs.get('no_ack'))
-
         params = (queue, auto_ack, exclusive)
 
         if self._queue_consumer_generator is not None:
@@ -2021,7 +2013,7 @@ class BlockingChannel(object):
                               requeue=requeue)
         self._flush_output()
 
-    def basic_get(self, queue, auto_ack=False, **kwargs):
+    def basic_get(self, queue, auto_ack=False):
         """Get a single message from the AMQP broker. Returns a sequence with
         the method frame, message properties, and body.
 
@@ -2034,9 +2026,6 @@ class BlockingChannel(object):
                                     spec.BasicProperties,
                                     str or unicode or None)
         """
-        if 'no_ack' in kwargs:
-            auto_ack = bool(kwargs.get('no_ack'))
-
         assert not self._basic_getempty_result
 
         # NOTE: nested with for python 2.6 compatibility

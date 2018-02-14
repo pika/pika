@@ -267,8 +267,7 @@ class Channel(object):
                       exclusive=False,
                       consumer_tag=None,
                       arguments=None,
-                      callback=None,
-                      **kwargs):
+                      callback=None):
         """Sends the AMQP 0-9-1 command Basic.Consume to the broker and binds messages
         for the consumer_tag to the consumer callback. If you do not pass in
         a consumer_tag, one will be automatically generated for you. Returns
@@ -300,9 +299,6 @@ class Channel(object):
         :raises ValueError:
 
         """
-        if 'no_ack' in kwargs:
-            auto_ack = bool(kwargs.get('no_ack'))
-
         self._require_callback(on_message_callback)
         self._validate_channel()
         self._validate_rpc_completion_callback(callback)
@@ -343,7 +339,7 @@ class Channel(object):
         return 'ctag%i.%s' % (self.channel_number,
                               uuid.uuid4().hex)
 
-    def basic_get(self, queue, callback, auto_ack=False, **kwargs):
+    def basic_get(self, queue, callback, auto_ack=False):
         """Get a single message from the AMQP broker. If you want to
         be notified of Basic.GetEmpty, use the Channel.add_callback method
         adding your Basic.GetEmpty callback which should expect only one
@@ -367,9 +363,6 @@ class Channel(object):
         :raises ValueError:
 
         """
-        if 'no_ack' in kwargs:
-            auto_ack = bool(kwargs.get('no_ack'))
-
         self._require_callback(callback)
         if self._on_getok_callback is not None:
             raise exceptions.DuplicateGetOkCallback()
