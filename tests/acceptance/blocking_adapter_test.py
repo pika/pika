@@ -209,6 +209,41 @@ class TestCreateAndCloseConnectionWithChannelAndConsumer(BlockingTestCaseBase):
         ch.publish(exchange='', routing_key=q_name, body=body1)
 
         # Create a non-ackable consumer
+        ch.basic_consume(q_name, lambda *x: None, auto_ack=True,
+                         exclusive=False, arguments=None)
+
+        connection.close()
+        self.assertTrue(connection.is_closed)
+        self.assertFalse(connection.is_open)
+        self.assertFalse(connection.is_closing)
+
+        self.assertFalse(connection._impl._channels)
+
+        self.assertFalse(ch._consumer_infos)
+        self.assertFalse(ch._impl._consumers)
+
+class TestCreateAndCloseConnectionWithChannelAndConsumerUsingLegacyAcknowledgementModeKeyword(BlockingTestCaseBase):
+
+    def test(self):
+        """BlockingConnection: Create and close connection with channel and consumer using no_ack for acknowledgement mode"""  # pylint: disable=C0301
+        connection = self._connect()
+
+        ch = connection.channel()
+
+        q_name = (
+            'TestCreateAndCloseConnectionWithChannelAndConsumerUsingLegacyAcknowledgementModeKeyword_q' +
+            uuid.uuid1().hex)
+
+        body1 = 'a' * 1024
+
+        # Declare a new queue
+        ch.queue_declare(q_name, auto_delete=True)
+        self.addCleanup(self._connect().channel().queue_delete, q_name)
+
+        # Publish the message to the queue by way of default exchange
+        ch.publish(exchange='', routing_key=q_name, body=body1)
+
+        # Create a non-ackable consumer
         ch.basic_consume(q_name, lambda *x: None, no_ack=True,
                          exclusive=False, arguments=None)
 
