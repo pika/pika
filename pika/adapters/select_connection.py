@@ -150,7 +150,7 @@ class _Timeout(object):
 
 
 class _Timer(object):
-    """Manage timers for use in ioloop"""
+    """Manage timeouts for use in ioloop"""
 
     # Cancellation count threshold for triggering garbage collection of
     # cancelled timers
