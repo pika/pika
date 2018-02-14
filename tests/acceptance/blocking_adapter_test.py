@@ -208,7 +208,7 @@ class TestCreateAndCloseConnectionWithChannelAndConsumer(BlockingTestCaseBase):
         # Publish the message to the queue by way of default exchange
         ch.publish(exchange='', routing_key=q_name, body=body1)
 
-        # Create a non-ackable consumer
+        # Create a consumer that uses automatic ack mode
         ch.basic_consume(q_name, lambda *x: None, auto_ack=True,
                          exclusive=False, arguments=None)
 
@@ -243,7 +243,7 @@ class TestCreateAndCloseConnectionWithChannelAndConsumerUsingLegacyAcknowledgeme
         # Publish the message to the queue by way of default exchange
         ch.publish(exchange='', routing_key=q_name, body=body1)
 
-        # Create a non-ackable consumer
+        # Create a consumer that uses automatic ack mode
         ch.basic_consume(q_name, lambda *x: None, no_ack=True,
                          exclusive=False, arguments=None)
 
@@ -2304,7 +2304,7 @@ class TestBasicCancelWithNonAckableConsumer(BlockingTestCaseBase):
                                                       queue=q_name,
                                                       expected_count=2)
 
-        # Create a non-ackable consumer
+        # Create a consumer that uses automatic ack mode
         consumer_tag = ch.basic_consume(q_name, lambda *x: None, no_ack=True,
                                         exclusive=False, arguments=None)
 
