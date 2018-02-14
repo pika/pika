@@ -1269,6 +1269,9 @@ class Channel(object):
         """
         LOGGER.debug('%i blocked frames', len(self._blocked))
         self._blocking = None
+        # self._blocking must be checked here as a callback could
+        # potentially change the state of that variable during an
+        # iteration of the while loop
         while self._blocked and self._blocking is None:
             self._rpc(*self._blocked.popleft())
 
@@ -1280,9 +1283,12 @@ class Channel(object):
         """
         LOGGER.debug('Draining %i blocked frames due to remote Channel.Close', len(self._blocked))
         self._blocking = None
+        # self._blocking must be checked here as a callback could
+        # potentially change the state of that variable during an
+        # iteration of the while loop
         while self._blocked and self._blocking is None:
             method = self._blocked.popleft()[0]
-            if method.NAME == spec.Channel.Close.NAME:
+            if isinstance(method, spec.Channel.Close):
                 # in this case, the Channel.Close method has not yet been
                 # sent to the broker. At this point, the channel has been
                 # closed by the broker, so we do not want to send this method,
