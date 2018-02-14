@@ -323,7 +323,7 @@ class Channel(object):
                                      exclusive=exclusive,
                                      arguments=arguments or dict()),
                   rpc_callback, [(spec.Basic.ConsumeOk,
-                                 {'consumer_tag': consumer_tag})])
+                                  {'consumer_tag': consumer_tag})])
 
         return consumer_tag
 
@@ -1066,13 +1066,14 @@ class Channel(object):
         self._send_method(spec.Channel.CloseOk())
 
         if self.is_closing:
-            # Since we already sent Channel.Close, we need to wait for CloseOk
+            # Since we may have already sent Channel.Close, we need to wait for CloseOk
             # before cleaning up to avoid a race condition whereby our channel
             # number might get reused before our CloseOk arrives
 
             # Save the details to provide to user callback when CloseOk arrives
             self._closing_code_and_text = (method_frame.method.reply_code,
                                            method_frame.method.reply_text)
+            self._drain_blocked_methods_on_remote_close()
         else:
             self._set_state(self.CLOSED)
             try:
@@ -1084,10 +1085,11 @@ class Channel(object):
                 self._cleanup()
 
     def _on_close_meta(self, reply_code, reply_text):
-        """Handle meta-close request from Connection's cleanup logic after
-        sudden connection loss. We use this opportunity to transition to
-        CLOSED state, clean up the channel, and dispatch the on-channel-closed
-        callbacks.
+        """Handle meta-close request from either a remote Channel.Close from
+        the broker (when a pending Channel.Close method is queued for
+        execution) or a Connection's cleanup logic after sudden connection
+        loss. We use this opportunity to transition to CLOSED state, clean up
+        the channel, and dispatch the on-channel-closed callbacks.
 
         :param int reply_code: The reply code to pass to on-close callback
         :param str reply_text: The reply text to pass to on-close callback
@@ -1269,6 +1271,27 @@ class Channel(object):
         self._blocking = None
         while self._blocked and self._blocking is None:
             self._rpc(*self._blocked.popleft())
+
+    def _drain_blocked_methods_on_remote_close(self):
+        """This is called when the broker sends a Channel.Close. It checks the
+        blocked method queue for pending client-initiated Channel.Close methods
+        and ensures their callbacks are processed
+
+        """
+        LOGGER.debug('Draining %i blocked frames due to remote Channel.Close', len(self._blocked))
+        self._blocking = None
+        while self._blocked and self._blocking is None:
+            method = self._blocked.popleft()[0]
+            if method.NAME == spec.Channel.Close.NAME:
+                # in this case, the Channel.Close method has not yet been
+                # sent to the broker. At this point, the channel has been
+                # closed by the broker, so we do not want to send this method,
+                # but process it as though it had been sent
+                reply_code = self._closing_code_and_text[0]
+                reply_text = self._closing_code_and_text[1]
+                self._on_close_meta(reply_code, reply_text)
+            else:
+                LOGGER.debug('Ignoring drained blocked method: %s', method)
 
     def _rpc(self, method, callback=None, acceptable_replies=None):
         """Make a syncronous channel RPC call for a synchronous method frame. If
