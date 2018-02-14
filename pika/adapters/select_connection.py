@@ -3,6 +3,7 @@ platform pika is running on.
 
 """
 import abc
+import collections
 import errno
 import functools
 import heapq
@@ -10,8 +11,6 @@ import logging
 import select
 import time
 import threading
-
-from collections import defaultdict
 
 import pika.compat
 
@@ -282,7 +281,14 @@ class IOLoop(object):
     def __init__(self):
         self._timer = _Timer()
 
-        self._poller = self._get_poller(self._timer.get_remaining_interval,
+        # Callbacks requested via `add_callback`
+        self._callbacks = collections.deque()
+
+        # Identity of this IOLoop's thread
+        self._thread_id = None
+
+
+        self._poller = self._get_poller(self._get_remaining_interval,
                                         self.process_timeouts)
 
     @staticmethod
@@ -346,12 +352,54 @@ class IOLoop(object):
         """
         self._timer.remove_timeout(timeout_id)
 
-    def process_timeouts(self):
-        """[Extension] Process pending timeouts, invoking callbacks for those
-        whose time has come. Internal use only.
+    def add_callback_threadsafe(self, callback):
+        """Calls the given function on the next iteration of the IOLoop in the
+        context of the IOLoop's thread.
+
+        NOTE: This is the only thread-safe method in IOLoop. All other
+        manipulations of IOLoop must be performed from the IOLoop's thread.
+
+        For example, a thread may request a call to the `stop` method of an
+        ioloop that is running in a different thread via
+        `ioloop.add_callback_threadsafe(ioloop.stop)`
+
+        :param method callback: The callback method
 
         """
+        if not callable(callback):
+            raise TypeError(
+                'callback must be a callable, but got %r' % (callback,))
+
+        # NOTE: `deque.append` is atomic
+        self._callbacks.append(callback)
+        if threading.current_thread().ident != self._thread_id:
+            # Wake up the IOLoop running in another thread
+            self._poller.wake_threadsafe()
+
+    def process_timeouts(self):
+        """[Extension] Process pending callbacks and timeouts, invoking those
+         whose time has come. Internal use only.
+
+        """
+        # Avoid I/O starvation by postponing new callbacks to the next iteration
+        for _ in pika.compat.xrange(len(self._callbacks)):
+            self._callbacks.popleft()()
+
         self._timer.process_timeouts()
+
+    def _get_remaining_interval(self):
+        """Get the remaining interval to the next callback or timeout
+        expiration.
+
+        :returns: non-negative number of seconds until next callback or timer
+                  expiration; None if there are no callbacks and timers
+        :rtype: float
+
+        """
+        if self._callbacks:
+            return 0
+
+        return self._timer.get_remaining_interval()
 
     def add_handler(self, fileno, handler, events):
         """[API] Add a new fileno to the set to be monitored
@@ -385,6 +433,7 @@ class IOLoop(object):
         exit. See `IOLoop.stop`.
 
         """
+        self._thread_id = threading.current_thread().ident
         self._poller.start()
 
     def stop(self):
@@ -392,6 +441,9 @@ class IOLoop(object):
         stop before this method returns. This is the only method that may be
         called from another thread.
 
+        TODO This shouldn't have been made thread-safe. Instead, `add_callback`
+        TODO should be used to safely call `stop` from the IOLoop's own thread.
+        TODO Update documentation/implementation
         """
         self._poller.stop()
 
@@ -399,6 +451,7 @@ class IOLoop(object):
         """[Extension] Activate the poller
 
         """
+        self._thread_id = threading.current_thread().ident
         self._poller.activate_poller()
 
     def deactivate_poller(self):
@@ -442,6 +495,10 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
         self._get_wait_seconds = get_wait_seconds
         self._process_timeouts = process_timeouts
 
+        # We guard access to the waking file descriptors to avoid races from
+        # closing them while another thread is calling our `wake()` method.
+        self._waking_mutex = threading.Lock()
+
         # fd-to-handler function mappings
         self._fd_handlers = dict()
 
@@ -455,14 +512,42 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
 
         self._stopping = False
 
-        # Mutex for controlling critical sections where ioloop-interrupt sockets
-        # are created, used, and destroyed. Needed in case `stop()` is called
-        # from a thread.
-        self._mutex = threading.Lock()
+        # Create ioloop-interrupt socket pair and register read handler.
+        self._r_interrupt, self._w_interrupt = self._get_interrupt_pair()
+        self.add_handler(self._r_interrupt.fileno(), self._read_interrupt, READ)
 
-        # ioloop-interrupt socket pair; initialized in start()
-        self._r_interrupt = None
-        self._w_interrupt = None
+    def close(self):
+        """TODO figure out where to call it
+        """
+        # Unregister and close ioloop-interrupt socket pair
+        with self._waking_mutex:
+            self.remove_handler(self._r_interrupt.fileno()) # pylint: disable=E1101
+            self._r_interrupt.close()
+            self._r_interrupt = None
+            self._w_interrupt.close()
+            self._w_interrupt = None
+
+    def wake_threadsafe(self):
+        """Wake up the poller as soon as possible. As the name indicates, this
+        method is thread-safe.
+        """
+        with self._waking_mutex:
+            if self._w_interrupt is None:
+                return
+
+            try:
+                # Send byte to interrupt the poll loop, use send() instead of
+                # os.write for Windows compatibility
+                self._w_interrupt.send(b'X')
+            except pika.compat.SOCKET_ERROR as err:
+                if err.errno != errno.EWOULDBLOCK:
+                    raise
+            except Exception as err:
+                # There's nothing sensible to do here, we'll exit the interrupt
+                # loop after POLL_TIMEOUT secs in worst case anyway.
+                LOGGER.warning("Failed to send interrupt to poller: %s", err)
+                raise
+
 
     def _get_max_wait(self):
         """Get the interval to the next timeout event, or a default interval
@@ -557,7 +642,7 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
         """
         # Activate the underlying poller and register current events
         self._init_poller()
-        fd_to_events = defaultdict(int)
+        fd_to_events = collections.defaultdict(int)
         for event, file_descriptors in self._fd_events.items():
             for fileno in file_descriptors:
                 fd_to_events[fileno] |= event
@@ -584,17 +669,6 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
             # Activate the underlying poller and register current events
             self.activate_poller()
 
-            # Create ioloop-interrupt socket pair and register read handler.
-            # NOTE: we defer their creation because some users (e.g.,
-            # BlockingConnection adapter) don't use the event loop and these
-            # sockets would get reported as leaks
-            with self._mutex:
-                assert self._r_interrupt is None
-                self._r_interrupt, self._w_interrupt = self._get_interrupt_pair(
-                )
-                self.add_handler(self._r_interrupt.fileno(),
-                                 self._read_interrupt, READ)
-
         else:
             LOGGER.debug('Reentering IOLoop at nesting level=%s',
                          self._start_nesting_levels)
@@ -609,14 +683,7 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
             self._start_nesting_levels -= 1
 
             if self._start_nesting_levels == 0:
-                LOGGER.debug('Cleaning up IOLoop')
-                # Unregister and close ioloop-interrupt socket pair
-                with self._mutex:
-                    self.remove_handler(self._r_interrupt.fileno())
-                    self._r_interrupt.close()
-                    self._r_interrupt = None
-                    self._w_interrupt.close()
-                    self._w_interrupt = None
+                LOGGER.debug('Deactivating poller')
 
                 # Deactivate the underlying poller
                 self.deactivate_poller()
@@ -633,22 +700,7 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
         LOGGER.debug('Stopping IOLoop')
         self._stopping = True
 
-        with self._mutex:
-            if self._w_interrupt is None:
-                return
-
-            try:
-                # Send byte to interrupt the poll loop, use send() instead of
-                # os.write for Windows compatibility
-                self._w_interrupt.send(b'X')
-            except pika.compat.SOCKET_ERROR as err:
-                if err.errno != errno.EWOULDBLOCK:
-                    raise
-            except Exception as err:
-                # There's nothing sensible to do here, we'll exit the interrupt
-                # loop after POLL_TIMEOUT secs in worst case anyway.
-                LOGGER.warning("Failed to send ioloop interrupt: %s", err)
-                raise
+        self.wake_threadsafe()
 
     @abc.abstractmethod
     def poll(self):
@@ -796,7 +848,7 @@ class SelectPoller(_PollerBase):
 
         # Build an event bit mask for each fileno we've received an event for
 
-        fd_event_map = defaultdict(int)
+        fd_event_map = collections.defaultdict(int)
         for fd_set, evt in zip((read, write, error), (READ, WRITE, ERROR)):
             for fileno in fd_set:
                 fd_event_map[fileno] |= evt
@@ -893,7 +945,7 @@ class KQueuePoller(_PollerBase):
                 else:
                     raise
 
-        fd_event_map = defaultdict(int)
+        fd_event_map = collections.defaultdict(int)
         for event in kevents:
             fd_event_map[event.ident] |= self._map_event(event)
 
@@ -1012,7 +1064,7 @@ class PollPoller(_PollerBase):
                 else:
                     raise
 
-        fd_event_map = defaultdict(int)
+        fd_event_map = collections.defaultdict(int)
         for fileno, event in events:
             fd_event_map[fileno] |= event
 
