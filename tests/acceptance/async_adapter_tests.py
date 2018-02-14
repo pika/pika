@@ -10,6 +10,7 @@
 # Suppress pylint warning about unused argument
 # pylint: disable=W0613
 
+import functools
 import time
 import uuid
 
@@ -162,7 +163,30 @@ class TestExchangeRedeclareWithDifferentValues(AsyncTestCase, AsyncAdapters):
 
     def on_bad_result(self, frame):
         self.channel.exchange_delete(self.name)
-        raise AssertionError("Should not have received a Queue.DeclareOk")
+        raise AssertionError("Should not have received an Exchange.DeclareOk")
+
+
+class TestPassiveExchangeDeclareWithConcurrentClose(AsyncTestCase, AsyncAdapters):
+    DESCRIPTION = "should close channel: declare passive exchange with close"
+
+    def begin(self, channel):
+        self.name = self.__class__.__name__ + ':' + uuid.uuid1().hex
+        self.channel.add_on_close_callback(self.on_channel_closed)
+        for i in range(0, 99):
+            exch_name = self.name + ':' + str(i)
+            cb = functools.partial(self.on_bad_result, exch_name)
+            channel.exchange_declare(exch_name,
+                                     exchange_type='direct',
+                                     passive=True,
+                                     callback=cb)
+        channel.close()
+
+    def on_channel_closed(self, channel, reply_code, reply_text):
+        self.stop()
+
+    def on_bad_result(self, exch_name, frame):
+        self.channel.exchange_delete(exch_name)
+        raise AssertionError("Should not have received an Exchange.DeclareOk")
 
 
 class TestQueueDeclareAndDelete(AsyncTestCase, AsyncAdapters):
@@ -302,7 +326,6 @@ class TestTX3_Rollback(AsyncTestCase, AsyncAdapters):  # pylint: disable=C0103
     def on_rollbackok(self, frame):
         self.assertIsInstance(frame.method, spec.Tx.RollbackOk)
         self.stop()
-
 
 
 class TestTX3_RollbackFailure(AsyncTestCase, AsyncAdapters):  # pylint: disable=C0103
