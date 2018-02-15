@@ -169,6 +169,13 @@ class TestExchangeRedeclareWithDifferentValues(AsyncTestCase, AsyncAdapters):
 class TestPassiveExchangeDeclareWithConcurrentClose(AsyncTestCase, AsyncAdapters):
     DESCRIPTION = "should close channel: declare passive exchange with close"
 
+    # To observe the behavior that this is testing, comment out this line
+    # in pika/channel.py - _on_close:
+    #
+    # self._drain_blocked_methods_on_remote_close()
+    #
+    # With the above line commented out, this test will hang
+
     def begin(self, channel):
         self.name = self.__class__.__name__ + ':' + uuid.uuid1().hex
         self.channel.add_on_close_callback(self.on_channel_closed)

@@ -1278,21 +1278,25 @@ class Channel(object):
     def _drain_blocked_methods_on_remote_close(self):
         """This is called when the broker sends a Channel.Close. It checks the
         blocked method queue for pending client-initiated Channel.Close methods
-        and ensures their callbacks are processed
+        and ensures their callbacks are processed, but does *not* execute the
+        blocked method
 
         """
         LOGGER.debug('Draining %i blocked frames due to remote Channel.Close', len(self._blocked))
         self._blocking = None
         # self._blocking must be checked here as a callback could
         # potentially change the state of that variable during an
-        # iteration of the while loop
+        # iteration of the while loop. Technically, we can only enter
+        # this method once due to the self.is_closing check, but we
+        # will iterate over all blocked methods for debug logging purposes
         while self._blocked and self._blocking is None:
             method = self._blocked.popleft()[0]
             if isinstance(method, spec.Channel.Close):
                 # in this case, the Channel.Close method has not yet been
-                # sent to the broker. At this point, the channel has been
-                # closed by the broker, so we do not want to send this method,
-                # but process it as though it had been sent
+                # sent to the broker but the channel has been
+                # closed by the broker by a remote Channel.Close. We do not
+                # want to send this method, but process it as though it had
+                # been sent
                 reply_code = self._closing_code_and_text[0]
                 reply_text = self._closing_code_and_text[1]
                 self._on_close_meta(reply_code, reply_text)
