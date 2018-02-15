@@ -1538,7 +1538,7 @@ class TestBasicPublishDeliveredWhenPendingUnroutable(BlockingTestCaseBase):
                                mandatory=True)
         self.assertEqual(res, True)
 
-        # Flush channel to force Basic.Return
+        # Flush connection to force Basic.Return
         connection.channel().close()
 
         # Deposit a routable message in the queue
@@ -1697,7 +1697,7 @@ class TestPublishAndConsumeWithPubacksAndQosOfOne(BlockingTestCaseBase):
                                                       queue=q_name,
                                                       expected_count=0)
 
-        # Attempt to cosume again with a short timeout
+        # Attempt to consume again with a short timeout
         connection.process_data_events(time_limit=0.005)
         self.assertEqual(len(rx_messages), 2)
 
@@ -1710,6 +1710,89 @@ class TestPublishAndConsumeWithPubacksAndQosOfOne(BlockingTestCaseBase):
         self.assertEqual(len(rx_cancellations), 1)
         frame, = rx_cancellations
         self.assertEqual(frame.method.consumer_tag, consumer_tag)
+
+
+class TestBasicConsumeWithAckFromAnotherThread(BlockingTestCaseBase):
+
+    def test(self):  # pylint: disable=R0914,R0915
+        """BlockingChannel.basic_consume with ack from another thread and \
+        requesting basic_ack via add_callback_threadsafe
+        """
+        # This test simulates processing of a message on another thread and
+        # then requesting an ACK to be dispatched on the connection's thread
+        # via BlockingConnection.add_callback_threadsafe
+
+        connection = self._connect()
+
+        ch = connection.channel()
+
+        q_name = 'TestBasicConsumeWithAckFromAnotherThread_q' + uuid.uuid1().hex
+        exg_name = ('TestBasicConsumeWithAckFromAnotherThread_exg' +
+                    uuid.uuid1().hex)
+        routing_key = 'TestBasicConsumeWithAckFromAnotherThread'
+
+        # Place channel in publisher-acknowledgments mode so that publishing
+        # with mandatory=True will be synchronous (for convenience)
+        res = ch.confirm_delivery()
+        self.assertIsNone(res)
+
+        # Declare a new exchange
+        ch.exchange_declare(exg_name, exchange_type='direct')
+        self.addCleanup(connection.channel().exchange_delete, exg_name)
+
+        # Declare a new queue
+        ch.queue_declare(q_name, auto_delete=True)
+        self.addCleanup(self._connect().channel().queue_delete, q_name)
+
+        # Bind the queue to the exchange using routing key
+        ch.queue_bind(q_name, exchange=exg_name, routing_key=routing_key)
+
+        # Publish 2 messages with mandatory=True for synchronous processing
+        ch.publish(exg_name, routing_key, body='msg1', mandatory=True)
+        ch.publish(exg_name, routing_key, body='last-msg', mandatory=True)
+
+        # Configure QoS for one message so that the 2nd message will be
+        # delivered only after the 1st one is ACKed
+        ch.basic_qos(prefetch_size=0, prefetch_count=1, all_channels=False)
+
+        # Create a consumer
+        consumer_tag_container = [] # so can access consumer tag from callback
+
+        def ackAndEnqueueMessageFromAnotherThread(rx_ch,
+                                                  rx_method,
+                                                  rx_properties, # pylint: disable=W0613
+                                                  rx_body):
+            if rx_body == 'last-msg':
+                # Stop the `start_consuming` call
+                rx_ch.basic_cancel(consumer_tag_container[0])
+
+            # Request ACK dispatch via add_callback_threadsafe from other thread
+            threading.Timer(
+                0,
+                lambda: connection.add_callback_threadsafe(
+                    lambda: (ch.basic_ack(delivery_tag=rx_method.delivery_tag,
+                                          multiple=False),
+                             rx_messages.append(rx_body))))
+
+        rx_messages = []
+        consumer_tag = ch.basic_consume(
+            q_name,
+            ackAndEnqueueMessageFromAnotherThread,
+            auto_ack=False,
+            exclusive=False,
+            arguments=None)
+        consumer_tag_container.append(consumer_tag)
+
+        # Wait for both messages
+        ch.start_consuming()
+
+        # Wait for callbacks to finish processing
+        while len(rx_messages) < 2:
+            time.sleep(0.001)
+
+        self.assertEqual(len(rx_messages), 2)
+        self.assertEqual(rx_messages[0], 'msg1')
+        self.assertEqual(rx_messages[1], 'last-msg')
 
 
 class TestTwoBasicConsumersOnSameChannel(BlockingTestCaseBase):
@@ -1982,7 +2065,7 @@ class TestBasicPublishWithoutPubacks(BlockingTestCaseBase):
                                                       queue=q_name,
                                                       expected_count=0)
 
-        # Attempt to cosume again with a short timeout
+        # Attempt to consume again with a short timeout
         connection.process_data_events(time_limit=0.005)
         self.assertEqual(len(rx_messages), 2)
 
