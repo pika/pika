@@ -1880,7 +1880,7 @@ class TestConsumeGeneratorWithAckFromAnotherThread(BlockingTestCaseBase):
                                  rx_method.consumer_tag)
                     # NOTE Need to use cancel() for the consumer generator
                     # instead of basic_cancel()
-                    rx_ch.cancel(rx_method.consumer_tag)
+                    rx_ch.cancel()
 
             # Spawn a thread to initiate ACKing
             timer = threading.Timer(0,
