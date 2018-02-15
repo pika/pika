@@ -1784,9 +1784,10 @@ class TestBasicConsumeWithAckFromAnotherThread(BlockingTestCaseBase):
                     rx_ch.basic_cancel(rx_method.consumer_tag)
 
             # Spawn a thread to initiate ACKing
-            threading.Timer(0,
-                            lambda: connection.add_callback_threadsafe(
-                                processOnConnectionThread))
+            timer = threading.Timer(0,
+                                    lambda: connection.add_callback_threadsafe(
+                                        processOnConnectionThread))
+            timer.start()
 
         rx_messages = []
         consumer_tag = ch.basic_consume(
