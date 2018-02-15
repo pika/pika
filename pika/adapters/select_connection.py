@@ -299,6 +299,9 @@ class IOLoop(object):
     def close(self):
         """Release IOLoop's resources.
 
+        TODO Need to call this from IOLoop and SelectConnection tests as well as
+        TODO from BlockingConnection to avoid socket resource leak messages
+
         `IOLoop.close` is intended to be called by the application or test code
         only after `IOLoop.start()` returns. After calling `close()`, no other
         interaction with the closed instance of `IOLoop` should be performed.
@@ -553,6 +556,8 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
             self._r_interrupt = None
             self._w_interrupt.close()
             self._w_interrupt = None
+
+        self.deactivate_poller()
 
         self._fd_handlers = None
         self._fd_events = None
@@ -991,8 +996,9 @@ class KQueuePoller(_PollerBase):
 
     def _uninit_poller(self):
         """Notify the implementation to release the poller resource"""
-        self._kqueue.close()
-        self._kqueue = None
+        if self._kqueue is not None:
+            self._kqueue.close()
+            self._kqueue = None
 
     def _register_fd(self, fileno, events):
         """The base class invokes this method to notify the implementation to
@@ -1110,10 +1116,11 @@ class PollPoller(_PollerBase):
 
     def _uninit_poller(self):
         """Notify the implementation to release the poller resource"""
-        if hasattr(self._poll, "close"):
-            self._poll.close()
+        if self._poll is not None:
+            if hasattr(self._poll, "close"):
+                self._poll.close()
 
-        self._poll = None
+            self._poll = None
 
     def _register_fd(self, fileno, events):
         """The base class invokes this method to notify the implementation to
