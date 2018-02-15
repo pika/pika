@@ -396,6 +396,8 @@ class IOLoop(object):
             # Wake up the IOLoop running in another thread
             self._poller.wake_threadsafe()
 
+        LOGGER.debug('add_callback_threadsafe: added callback=%r', callback)
+
     def process_timeouts(self):
         """[Extension] Process pending callbacks and timeouts, invoking those
          whose time has come. Internal use only.

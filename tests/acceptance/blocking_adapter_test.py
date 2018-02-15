@@ -1756,23 +1756,37 @@ class TestBasicConsumeWithAckFromAnotherThread(BlockingTestCaseBase):
         ch.basic_qos(prefetch_size=0, prefetch_count=1, all_channels=False)
 
         # Create a consumer
-        consumer_tag_container = [] # so can access consumer tag from callback
-
         def ackAndEnqueueMessageFromAnotherThread(rx_ch,
                                                   rx_method,
                                                   rx_properties, # pylint: disable=W0613
                                                   rx_body):
-            if rx_body == 'last-msg':
-                # Stop the `start_consuming` call
-                rx_ch.basic_cancel(consumer_tag_container[0])
+            LOGGER.debug(
+                '%s: Got message body=%r; delivery-tag=%r',
+                datetime.now(), rx_body, rx_method.delivery_tag)
 
-            # Request ACK dispatch via add_callback_threadsafe from other thread
-            threading.Timer(
-                0,
-                lambda: connection.add_callback_threadsafe(
-                    lambda: (ch.basic_ack(delivery_tag=rx_method.delivery_tag,
-                                          multiple=False),
-                             rx_messages.append(rx_body))))
+            # Request ACK dispatch via add_callback_threadsafe from other
+            # thread; if last message, cancel consumer so that start_consuming
+            # can return
+
+            def processOnConnectionThread():
+                LOGGER.debug('%s: ACKing message body=%r; delivery-tag=%r',
+                             datetime.now(),
+                             rx_body,
+                             rx_method.delivery_tag)
+                ch.basic_ack(delivery_tag=rx_method.delivery_tag,
+                             multiple=False)
+                rx_messages.append(rx_body)
+
+                if rx_body == 'last-msg':
+                    LOGGER.debug('%s: Canceling consumer consumer-tag=%r',
+                                 datetime.now(),
+                                 rx_method.consumer_tag)
+                    rx_ch.basic_cancel(rx_method.consumer_tag)
+
+            # Spawn a thread to initiate ACKing
+            threading.Timer(0,
+                            lambda: connection.add_callback_threadsafe(
+                                processOnConnectionThread))
 
         rx_messages = []
         consumer_tag = ch.basic_consume(
@@ -1781,14 +1795,15 @@ class TestBasicConsumeWithAckFromAnotherThread(BlockingTestCaseBase):
             auto_ack=False,
             exclusive=False,
             arguments=None)
-        consumer_tag_container.append(consumer_tag)
 
         # Wait for both messages
+        LOGGER.debug('%s: calling start_consuming(); consumer tag=%r',
+                     datetime.now(),
+                     consumer_tag)
         ch.start_consuming()
-
-        # Wait for callbacks to finish processing
-        while len(rx_messages) < 2:
-            time.sleep(0.001)
+        LOGGER.debug('%s: Returned from start_consuming(); consumer tag=%r',
+                     datetime.now(),
+                     consumer_tag)
 
         self.assertEqual(len(rx_messages), 2)
         self.assertEqual(rx_messages[0], 'msg1')
