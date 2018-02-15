@@ -41,12 +41,12 @@ def main():
         # Also, client must create the consumer *before* starting to publish the
         # RPC requests.
         #
-        # Client must create its consumer with no_ack=True, because the reply-to
+        # Client must create its consumer with auto_ack=True, because the reply-to
         # queue isn't real.
 
         channel.basic_consume('amq.rabbitmq.reply-to',
                               on_client_rx_reply_from_server,
-                              no_ack=True)
+                              auto_ack=True)
         channel.basic_publish(
             exchange='',
             routing_key=SERVER_QUEUE,
