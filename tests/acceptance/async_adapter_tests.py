@@ -94,7 +94,7 @@ class TestConsumeCancel(AsyncTestCase, AsyncAdapters):
             self.channel.basic_publish('', self.queue_name, msg_body)
         self.ctag = self.channel.basic_consume(self.queue_name,
                                                self.on_message,
-                                               no_ack=True)
+                                               auto_ack=True)
 
     def on_message(self, _channel, _frame, _header, body):
         self.channel.basic_cancel(self.ctag, callback=self.on_cancel)

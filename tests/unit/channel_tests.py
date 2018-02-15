@@ -330,7 +330,7 @@ class ChannelTests(unittest.TestCase):
         expectation = spec.Basic.Consume(
             queue='test-queue',
             consumer_tag=consumer_tag,
-            no_ack=False,
+            auto_ack=False,
             exclusive=False)
         rpc.assert_called_once_with(expectation, self.obj._on_eventok,
                                     [(spec.Basic.ConsumeOk, {
@@ -350,7 +350,7 @@ class ChannelTests(unittest.TestCase):
         expectation = spec.Basic.Consume(
             queue='test-queue',
             consumer_tag=consumer_tag,
-            no_ack=False,
+            auto_ack=False,
             exclusive=False)
         rpc.assert_called_once_with(expectation, mock_callback,
                                     [(spec.Basic.ConsumeOk, {
@@ -378,7 +378,16 @@ class ChannelTests(unittest.TestCase):
         mock_callback = mock.Mock()
         self.obj.basic_get('test-queue', mock_callback)
         send_method.assert_called_once_with(
-            spec.Basic.Get(queue='test-queue', no_ack=False))
+            spec.Basic.Get(queue='test-queue', auto_ack=False))
+
+    @mock.patch('pika.spec.Basic.Get')
+    @mock.patch('pika.channel.Channel._send_method')
+    def test_basic_get_send_method_called_auto_ack(self, send_method, _unused):
+        self.obj._set_state(self.obj.OPEN)
+        mock_callback = mock.Mock()
+        self.obj.basic_get('test-queue', mock_callback, auto_ack=True)
+        send_method.assert_called_once_with(
+            spec.Basic.Get(queue='test-queue', auto_ack=True))
 
     def test_basic_nack_raises_channel_closed(self):
         self.assertRaises(exceptions.ChannelClosed, self.obj.basic_nack, 0,

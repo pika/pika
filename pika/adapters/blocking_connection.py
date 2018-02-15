@@ -955,7 +955,7 @@ class ReturnedMessage(object):
 class _ConsumerInfo(object):
     """Information about an active consumer"""
 
-    __slots__ = ('consumer_tag', 'no_ack', 'on_message_callback',
+    __slots__ = ('consumer_tag', 'auto_ack', 'on_message_callback',
                  'alternate_event_sink', 'state')
 
     # Consumer states
@@ -964,13 +964,13 @@ class _ConsumerInfo(object):
     TEARING_DOWN = 3
     CANCELLED_BY_BROKER = 4
 
-    def __init__(self, consumer_tag, no_ack, on_message_callback=None,
+    def __init__(self, consumer_tag, auto_ack, on_message_callback=None,
                  alternate_event_sink=None):
         """
         NOTE: exactly one of callback/alternate_event_sink musts be non-None.
 
         :param str consumer_tag:
-        :param bool no_ack: the no-ack value for the consumer
+        :param bool auto_ack: the no-ack value for the consumer
         :param callable on_message_callback: The function for dispatching messages to
             user, having the signature:
             on_message_callback(channel, method, properties, body)
@@ -988,7 +988,7 @@ class _ConsumerInfo(object):
             'exactly one of on_message_callback/alternate_event_sink must be non-None',
             on_message_callback, alternate_event_sink)
         self.consumer_tag = consumer_tag
-        self.no_ack = no_ack
+        self.auto_ack = auto_ack
         self.on_message_callback = on_message_callback
         self.alternate_event_sink = alternate_event_sink
         self.state = self.SETTING_UP
@@ -1020,7 +1020,7 @@ class _QueueConsumerGeneratorInfo(object):
 
     def __init__(self, params, consumer_tag):
         """
-        :params tuple params: a three-tuple (queue, no_ack, exclusive) that were
+        :params tuple params: a three-tuple (queue, auto_ack, exclusive) that were
            used to create the queue consumer
         :param str consumer_tag: consumer tag
         """
@@ -1502,7 +1502,7 @@ class BlockingChannel(object):
     def basic_consume(self,
                       queue,
                       on_message_callback,
-                      no_ack=False,
+                      auto_ack=False,
                       exclusive=False,
                       consumer_tag=None,
                       arguments=None):
@@ -1528,8 +1528,10 @@ class BlockingChannel(object):
                 method: spec.Basic.Deliver
                 properties: spec.BasicProperties
                 body: str or unicode
-        :param bool no_ack: Tell the broker to not expect a response (i.e.,
-          no ack/nack)
+        :param bool auto_ack: if set to True, automatic acknowledgement mode will be used
+                              (see http://www.rabbitmq.com/confirms.html). This corresponds
+                              with the 'no_ack' parameter in the basic.consume AMQP 0.9.1
+                              method
         :param bool exclusive: Don't allow other consumers on the queue
         :param consumer_tag: You may specify your own consumer tag; if left
           empty, a consumer tag will be generated automatically
@@ -1549,14 +1551,14 @@ class BlockingChannel(object):
         return self._basic_consume_impl(
             queue=queue,
             on_message_callback=on_message_callback,
-            no_ack=no_ack,
+            auto_ack=auto_ack,
             exclusive=exclusive,
             consumer_tag=consumer_tag,
             arguments=arguments)
 
     def _basic_consume_impl(self,
                             queue,
-                            no_ack,
+                            auto_ack,
                             exclusive,
                             consumer_tag,
                             arguments=None,
@@ -1599,7 +1601,7 @@ class BlockingChannel(object):
         # Create new consumer
         self._consumer_infos[consumer_tag] = _ConsumerInfo(
             consumer_tag,
-            no_ack=no_ack,
+            auto_ack=auto_ack,
             on_message_callback=on_message_callback,
             alternate_event_sink=alternate_event_sink)
 
@@ -1608,7 +1610,7 @@ class BlockingChannel(object):
                 tag = self._impl.basic_consume(
                     on_message_callback=self._on_consumer_message_delivery,
                     queue=queue,
-                    no_ack=no_ack,
+                    auto_ack=auto_ack,
                     exclusive=exclusive,
                     consumer_tag=consumer_tag,
                     arguments=arguments)
@@ -1639,18 +1641,18 @@ class BlockingChannel(object):
         of messages in between sending the cancel method and receiving the
         cancel-ok reply.
 
-        NOTE: When cancelling a no_ack=False consumer, this implementation
+        NOTE: When cancelling an auto_ack=False consumer, this implementation
         automatically Nacks and suppresses any incoming messages that have not
         yet been dispatched to the consumer's callback. However, when cancelling
-        a no_ack=True consumer, this method will return any pending messages
+        a auto_ack=True consumer, this method will return any pending messages
         that arrived before broker confirmed the cancellation.
 
         :param str consumer_tag: Identifier for the consumer; the result of
             passing a consumer_tag that was created on another channel is
             undefined (bad things will happen)
 
-        :returns: (NEW IN pika 0.10.0) empty sequence for a no_ack=False
-            consumer; for a no_ack=True consumer, returns a (possibly empty)
+        :returns: (NEW IN pika 0.10.0) empty sequence for a auto_ack=False
+            consumer; for a auto_ack=True consumer, returns a (possibly empty)
             sequence of pending messages that arrived before broker confirmed
             the cancellation (this is done instead of via consumer's callback in
             order to prevent reentrancy/recursion. Each message is four-tuple:
@@ -1678,13 +1680,13 @@ class BlockingChannel(object):
             assert (consumer_info.cancelled_by_broker or
                     consumer_tag in self._impl._consumers), consumer_tag
 
-            no_ack = consumer_info.no_ack
+            auto_ack = consumer_info.auto_ack
 
             consumer_info.state = _ConsumerInfo.TEARING_DOWN
 
             with _CallbackResult() as cancel_ok_result:
-                # Nack pending messages for no_ack=False consumer
-                if not no_ack:
+                # Nack pending messages for auto_ack=False consumer
+                if not auto_ack:
                     pending_messages = self._remove_pending_deliveries(
                         consumer_tag)
                     if pending_messages:
@@ -1698,7 +1700,7 @@ class BlockingChannel(object):
                                                     requeue=True)
 
                 # Cancel the consumer; impl takes care of rejecting any
-                # additional deliveries that arrive for a no_ack=False
+                # additional deliveries that arrive for a auto_ack=False
                 # consumer
                 self._impl.basic_cancel(
                     consumer_tag=consumer_tag,
@@ -1710,8 +1712,8 @@ class BlockingChannel(object):
                     cancel_ok_result.is_ready,
                     lambda: consumer_tag not in self._impl._consumers)
 
-            if no_ack:
-                # Return pending messages for no_ack=True consumer
+            if auto_ack:
+                # Return pending messages for auto_ack=True consumer
                 return [
                     (evt.method, evt.properties, evt.body)
                     for evt in self._remove_pending_deliveries(consumer_tag)]
@@ -1795,7 +1797,7 @@ class BlockingChannel(object):
         else:
             self._cancel_all_consumers()
 
-    def consume(self, queue, no_ack=False,
+    def consume(self, queue, auto_ack=False,
                 exclusive=False, arguments=None,
                 inactivity_timeout=None):
         """Blocking consumption of a queue instead of via a callback. This
@@ -1813,13 +1815,13 @@ class BlockingChannel(object):
         generator loop.
 
         If you don't cancel this consumer, then next call on the same channel
-        to `consume()` with the exact same (queue, no_ack, exclusive) parameters
+        to `consume()` with the exact same (queue, auto_ack, exclusive) parameters
         will resume the existing consumer generator; however, calling with
         different parameters will result in an exception.
 
         :param queue: The queue name to consume
         :type queue: str or unicode
-        :param bool no_ack: Tell the broker to not expect a ack/nack response
+        :param bool auto_ack: Tell the broker to not expect a ack/nack response
         :param bool exclusive: Don't allow other consumers on the queue
         :param dict arguments: Custom key/value pair arguments for the consumer
         :param float inactivity_timeout: if a number is given (in
@@ -1837,7 +1839,7 @@ class BlockingChannel(object):
             of the existing queue consumer generator, if any.
             NEW in pika 0.10.0
         """
-        params = (queue, no_ack, exclusive)
+        params = (queue, auto_ack, exclusive)
 
         if self._queue_consumer_generator is not None:
             if params != self._queue_consumer_generator.params:
@@ -1846,7 +1848,7 @@ class BlockingChannel(object):
                     'queue consumer generator; previous params: %r; '
                     'new params: %r'
                     % (self._queue_consumer_generator.params,
-                       (queue, no_ack, exclusive)))
+                       (queue, auto_ack, exclusive)))
         else:
             LOGGER.debug('Creating new queue consumer generator; params: %r',
                          params)
@@ -1862,7 +1864,7 @@ class BlockingChannel(object):
             try:
                 self._basic_consume_impl(
                     queue=queue,
-                    no_ack=no_ack,
+                    auto_ack=auto_ack,
                     exclusive=exclusive,
                     consumer_tag=consumer_tag,
                     arguments=arguments,
@@ -1948,8 +1950,8 @@ class BlockingChannel(object):
             return 0
 
         try:
-            _, no_ack, _ = self._queue_consumer_generator.params
-            if not no_ack:
+            _, auto_ack, _ = self._queue_consumer_generator.params
+            if not auto_ack:
                 # Reject messages held by queue consumer generator; NOTE: we
                 # can't use basic_nack with the multiple option to avoid nacking
                 # messages already held by our client.
@@ -1965,7 +1967,7 @@ class BlockingChannel(object):
 
         # Return 0 for compatibility with legacy implementation; the number of
         # nacked messages is not meaningful since only messages consumed with
-        # no_ack=False may be nacked, and those arriving after calling
+        # auto_ack=False may be nacked, and those arriving after calling
         # basic_cancel will be rejected automatically by impl channel, so we'll
         # never know how many of those were nacked.
         return 0
@@ -2013,13 +2015,13 @@ class BlockingChannel(object):
                               requeue=requeue)
         self._flush_output()
 
-    def basic_get(self, queue, no_ack=False):
+    def basic_get(self, queue, auto_ack=False):
         """Get a single message from the AMQP broker. Returns a sequence with
         the method frame, message properties, and body.
 
         :param queue: Name of queue from which to get a message
         :type queue: str or unicode
-        :param bool no_ack: Tell the broker to not expect a reply
+        :param bool auto_ack: Tell the broker to not expect a reply
         :returns: a three-tuple; (None, None, None) if the queue was empty;
             otherwise (method, properties, body); NOTE: body may be None
         :rtype: (None, None, None)|(spec.Basic.GetOk,
@@ -2027,11 +2029,12 @@ class BlockingChannel(object):
                                     str or unicode or None)
         """
         assert not self._basic_getempty_result
+
         # NOTE: nested with for python 2.6 compatibility
         with _CallbackResult(self._RxMessageArgs) as get_ok_result:
             with self._basic_getempty_result:
                 self._impl.basic_get(queue=queue,
-                                     no_ack=no_ack,
+                                     auto_ack=auto_ack,
                                      callback=get_ok_result.set_value_once)
                 self._flush_output(get_ok_result.is_ready,
                                    self._basic_getempty_result.is_ready)

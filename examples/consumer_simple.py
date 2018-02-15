@@ -44,7 +44,7 @@ def callback(ch, method, properties, body):
 import logging
 logging.basicConfig(level=logging.INFO)
 
-consumer_channel.basic_consume(queue, callback, no_ack=True)
+consumer_channel.basic_consume(queue, callback, auto_ack=True)
 
 try:
     consumer_channel.start_consuming()
