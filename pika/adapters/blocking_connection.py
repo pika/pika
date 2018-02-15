@@ -1528,8 +1528,10 @@ class BlockingChannel(object):
                 method: spec.Basic.Deliver
                 properties: spec.BasicProperties
                 body: str or unicode
-        :param bool auto_ack: Tell the broker to not expect a response (i.e.,
-          no ack/nack)
+        :param bool auto_ack: if set to True, automatic acknowledgement mode will be used
+                              (see http://www.rabbitmq.com/confirms.html). This corresponds
+                              with the 'no_ack' parameter in the basic.consume AMQP 0.9.1
+                              method
         :param bool exclusive: Don't allow other consumers on the queue
         :param consumer_tag: You may specify your own consumer tag; if left
           empty, a consumer tag will be generated automatically

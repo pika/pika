@@ -288,7 +288,9 @@ class Channel(object):
                                 properties: pika.spec.BasicProperties
                                 body: str, unicode, or bytes (python 3.x)
         :param bool auto_ack: if set to True, automatic acknowledgement mode will be used
-                            (see http://www.rabbitmq.com/confirms.html)
+                              (see http://www.rabbitmq.com/confirms.html). This corresponds
+                              with the 'no_ack' parameter in the basic.consume AMQP 0.9.1
+                              method
         :param bool exclusive: Don't allow other consumers on the queue
         :param consumer_tag: Specify your own consumer tag
         :type consumer_tag: str or unicode
