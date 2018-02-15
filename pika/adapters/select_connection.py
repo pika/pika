@@ -162,6 +162,12 @@ class _Timer(object):
         # collection of canceled timeouts
         self._num_cancellations = 0
 
+    def close(self):
+        """Release resources. Don't use the `_Timer` instance after closing
+        it
+        """
+        self._timeout_heap = None
+
     def call_later(self, delay, callback):
         """Schedule a one-shot timeout given delay seconds.
 
@@ -287,9 +293,20 @@ class IOLoop(object):
         # Identity of this IOLoop's thread
         self._thread_id = None
 
-
         self._poller = self._get_poller(self._get_remaining_interval,
                                         self.process_timeouts)
+
+    def close(self):
+        """Release IOLoop's resources.
+
+        `IOLoop.close` is intended to be called by the application or test code
+        only after `IOLoop.start()` returns. After calling `close()`, no other
+        interaction with the closed instance of `IOLoop` should be performed.
+
+        """
+        self._poller.close()
+        self._timer.close()
+        self._callbacks = None
 
     @staticmethod
     def _get_poller(get_wait_seconds, process_timeouts):
@@ -517,9 +534,19 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
         self.add_handler(self._r_interrupt.fileno(), self._read_interrupt, READ)
 
     def close(self):
-        """TODO figure out where to call it
+        """Release poller's resources.
+
+        TODO Need to call this from Poller tests to avoid socket resource
+        TODO leak messages
+
+        `close()` is intended to be called after the poller's `start()` method
+        returns. After calling `close()`, no other interaction with the closed
+        poller instance should be performed.
+
         """
-        # Unregister and close ioloop-interrupt socket pair
+        # Unregister and close ioloop-interrupt socket pair; mutual exclusion is
+        # necessary to avoid race condition with `wake_threadsafe` running in
+        # another thread's context
         with self._waking_mutex:
             self.remove_handler(self._r_interrupt.fileno()) # pylint: disable=E1101
             self._r_interrupt.close()
@@ -527,9 +554,14 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
             self._w_interrupt.close()
             self._w_interrupt = None
 
+        self._fd_handlers = None
+        self._fd_events = None
+        self._processing_fd_event_map = None
+
     def wake_threadsafe(self):
         """Wake up the poller as soon as possible. As the name indicates, this
         method is thread-safe.
+
         """
         with self._waking_mutex:
             if self._w_interrupt is None:
