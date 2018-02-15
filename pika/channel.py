@@ -1279,17 +1279,17 @@ class Channel(object):
         """This is called when the broker sends a Channel.Close while the
         client is in CLOSING state. This method checks the blocked method
         queue for a pending client-initiated Channel.Close method and
-        ensures its callbacks are processed, but does send the method to
-        the broker.
+        ensures its callbacks are processed, but does not send the method
+        to the broker.
 
         The broker may close the channel before responding to outstanding
-        (blocked) synchronous methods, or even before these methods have
-        been sent to the broker. AMQP 0.9.1 obliges the server to drop all
-        methods arriving on a closed channel other than Channel.CloseOk and
-        Channel.Close. Since the response to the blocked synchronous
-        method never arrives, the channel never becomes unblocked, and the
-        Channel.Close, if any, in the blocked queue has no opportunity to
-        be sent, and thus its completion callback would never be called.
+        in-transit synchronous methods, or even before these methods have been
+        sent to the broker. AMQP 0.9.1 obliges the server to drop all methods
+        arriving on a closed channel other than Channel.CloseOk and
+        Channel.Close. Since the response to a synchronous method that blocked
+        the channel never arrives, the channel never becomes unblocked, and the
+        Channel.Close, if any, in the blocked queue has no opportunity to be
+        sent, and thus its completion callback would never be called.
 
         """
         LOGGER.debug('Draining %i blocked frames due to remote Channel.Close',
