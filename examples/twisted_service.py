@@ -94,7 +94,7 @@ class PikaProtocol(twisted_connection.TwistedProtocolConnection):
 
         self.channel.queue_declare(queue=routing_key, durable=True)
 
-        (queue, consumer_tag,) = yield self.channel.basic_consume(queue=routing_key, no_ack=False)
+        (queue, consumer_tag,) = yield self.channel.basic_consume(queue=routing_key, auto_ack=False)
         d = queue.get()
         d.addCallback(self._read_item, queue, callback)
         d.addErrback(self._read_item_err)

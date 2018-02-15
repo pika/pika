@@ -16,5 +16,5 @@ build
 dist
 docs/_build
 *.conf.in
-venvs/
+venv*/
 env/
