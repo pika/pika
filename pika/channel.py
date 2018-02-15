@@ -1276,27 +1276,27 @@ class Channel(object):
             self._rpc(*self._blocked.popleft())
 
     def _drain_blocked_methods_on_remote_close(self):
-        """This is called when the broker sends a Channel.Close. It checks the
-        blocked method queue for pending client-initiated Channel.Close methods
-        and ensures their callbacks are processed, but does *not* execute the
-        blocked method
+        """This is called when the broker sends a Channel.Close while the
+        client is in CLOSING state. This method checks the blocked method
+        queue for a pending client-initiated Channel.Close method and
+        ensures its callbacks are processed, but does send the method to
+        the broker.
+
+        The broker may close the channel before responding to outstanding
+        (blocked) synchronous methods, or even before these methods have
+        been sent to the broker. AMQP 0.9.1 obliges the server to drop all
+        methods arriving on a closed channel other than Channel.CloseOk and
+        Channel.Close. Since the response to the blocked synchronous
+        method never arrives, the channel never becomes unblocked, and the
+        Channel.Close, if any, in the blocked queue has no opportunity to
+        be sent, and thus its completion callback would never be called.
 
         """
-        LOGGER.debug('Draining %i blocked frames due to remote Channel.Close', len(self._blocked))
-        self._blocking = None
-        # self._blocking must be checked here as a callback could
-        # potentially change the state of that variable during an
-        # iteration of the while loop. Technically, we can only enter
-        # this method once due to the self.is_closing check, but we
-        # will iterate over all blocked methods for debug logging purposes
-        while self._blocked and self._blocking is None:
+        LOGGER.debug('Draining %i blocked frames due to remote Channel.Close',
+                     len(self._blocked))
+        while self._blocked:
             method = self._blocked.popleft()[0]
             if isinstance(method, spec.Channel.Close):
-                # in this case, the Channel.Close method has not yet been
-                # sent to the broker but the channel has been
-                # closed by the broker by a remote Channel.Close. We do not
-                # want to send this method, but process it as though it had
-                # been sent
                 reply_code = self._closing_code_and_text[0]
                 reply_text = self._closing_code_and_text[1]
                 self._on_close_meta(reply_code, reply_text)
