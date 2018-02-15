@@ -1756,10 +1756,11 @@ class TestBasicConsumeWithAckFromAnotherThread(BlockingTestCaseBase):
         ch.basic_qos(prefetch_size=0, prefetch_count=1, all_channels=False)
 
         # Create a consumer
-        def ackAndEnqueueMessageFromAnotherThread(rx_ch,
-                                                  rx_method,
-                                                  rx_properties, # pylint: disable=W0613
-                                                  rx_body):
+        rx_messages = []
+        def ackAndEnqueueMessageViaAnotherThread(rx_ch,
+                                                 rx_method,
+                                                 rx_properties, # pylint: disable=W0613
+                                                 rx_body):
             LOGGER.debug(
                 '%s: Got message body=%r; delivery-tag=%r',
                 datetime.now(), rx_body, rx_method.delivery_tag)
@@ -1789,10 +1790,9 @@ class TestBasicConsumeWithAckFromAnotherThread(BlockingTestCaseBase):
                                         processOnConnectionThread))
             timer.start()
 
-        rx_messages = []
         consumer_tag = ch.basic_consume(
             q_name,
-            ackAndEnqueueMessageFromAnotherThread,
+            ackAndEnqueueMessageViaAnotherThread,
             auto_ack=False,
             exclusive=False,
             arguments=None)
@@ -1805,6 +1805,92 @@ class TestBasicConsumeWithAckFromAnotherThread(BlockingTestCaseBase):
         LOGGER.debug('%s: Returned from start_consuming(); consumer tag=%r',
                      datetime.now(),
                      consumer_tag)
+
+        self.assertEqual(len(rx_messages), 2)
+        self.assertEqual(rx_messages[0], 'msg1')
+        self.assertEqual(rx_messages[1], 'last-msg')
+
+
+class TestConsumeGeneratorWithAckFromAnotherThread(BlockingTestCaseBase):
+
+    def test(self):  # pylint: disable=R0914,R0915
+        """BlockingChannel.consume and requesting basic_ack from another \
+        thread via add_callback_threadsafe
+        """
+        connection = self._connect()
+
+        ch = connection.channel()
+
+        q_name = ('TestConsumeGeneratorWithAckFromAnotherThread_q' +
+                  uuid.uuid1().hex)
+        exg_name = ('TestConsumeGeneratorWithAckFromAnotherThread_exg' +
+                    uuid.uuid1().hex)
+        routing_key = 'TestConsumeGeneratorWithAckFromAnotherThread'
+
+        # Place channel in publisher-acknowledgments mode so that publishing
+        # with mandatory=True will be synchronous (for convenience)
+        res = ch.confirm_delivery()
+        self.assertIsNone(res)
+
+        # Declare a new exchange
+        ch.exchange_declare(exg_name, exchange_type='direct')
+        self.addCleanup(connection.channel().exchange_delete, exg_name)
+
+        # Declare a new queue
+        ch.queue_declare(q_name, auto_delete=True)
+        self.addCleanup(self._connect().channel().queue_delete, q_name)
+
+        # Bind the queue to the exchange using routing key
+        ch.queue_bind(q_name, exchange=exg_name, routing_key=routing_key)
+
+        # Publish 2 messages with mandatory=True for synchronous processing
+        ch.publish(exg_name, routing_key, body='msg1', mandatory=True)
+        ch.publish(exg_name, routing_key, body='last-msg', mandatory=True)
+
+        # Configure QoS for one message so that the 2nd message will be
+        # delivered only after the 1st one is ACKed
+        ch.basic_qos(prefetch_size=0, prefetch_count=1, all_channels=False)
+
+        # Create a consumer
+        rx_messages = []
+        def ackAndEnqueueMessageViaAnotherThread(rx_ch,
+                                                 rx_method,
+                                                 rx_properties, # pylint: disable=W0613
+                                                 rx_body):
+            LOGGER.debug(
+                '%s: Got message body=%r; delivery-tag=%r',
+                datetime.now(), rx_body, rx_method.delivery_tag)
+
+            # Request ACK dispatch via add_callback_threadsafe from other
+            # thread; if last message, cancel consumer so that consumer
+            # generator completes
+
+            def processOnConnectionThread():
+                LOGGER.debug('%s: ACKing message body=%r; delivery-tag=%r',
+                             datetime.now(),
+                             rx_body,
+                             rx_method.delivery_tag)
+                ch.basic_ack(delivery_tag=rx_method.delivery_tag,
+                             multiple=False)
+                rx_messages.append(rx_body)
+
+                if rx_body == 'last-msg':
+                    LOGGER.debug('%s: Canceling consumer consumer-tag=%r',
+                                 datetime.now(),
+                                 rx_method.consumer_tag)
+                    rx_ch.basic_cancel(rx_method.consumer_tag)
+
+            # Spawn a thread to initiate ACKing
+            timer = threading.Timer(0,
+                                    lambda: connection.add_callback_threadsafe(
+                                        processOnConnectionThread))
+            timer.start()
+
+        for method, properties, body in ch.consume(q_name, auto_ack=False):
+            ackAndEnqueueMessageViaAnotherThread(rx_ch=ch,
+                                                 rx_method=method,
+                                                 rx_properties=properties,
+                                                 rx_body=body)
 
         self.assertEqual(len(rx_messages), 2)
         self.assertEqual(rx_messages[0], 'msg1')
