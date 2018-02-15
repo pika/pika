@@ -1,7 +1,9 @@
 """blocking adapter test"""
 from datetime import datetime
+import functools
 import logging
 import socket
+import threading
 import time
 import unittest
 import uuid
@@ -447,6 +449,47 @@ class TestBlockedConnectionTimeout(BlockingTestCaseBase):
             excCtx.exception.args,
             (pika.connection.InternalCloseReasons.BLOCKED_CONNECTION_TIMEOUT,
              'Blocked connection timeout expired'))
+
+
+class TestAddCallbackThreadsafeFromSameThread(BlockingTestCaseBase):
+
+    def test(self):
+        """BlockingConnection.add_callback_threadsafe from same thread"""
+        connection = self._connect()
+
+        # Test timer completion
+        start_time = time.time()
+        rx_callback = []
+        connection.add_callback_threadsafe(
+            lambda: rx_callback.append(time.time()))
+        while not rx_callback:
+            connection.process_data_events(time_limit=None)
+
+        self.assertEqual(len(rx_callback), 1)
+        elapsed = time.time() - start_time
+        self.assertLess(elapsed, 0.25)
+
+
+class TestAddCallbackThreadsafeFromAnotherThread(BlockingTestCaseBase):
+
+    def test(self):
+        """BlockingConnection.add_callback_threadsafe from another thread"""
+        connection = self._connect()
+
+        # Test timer completion
+        start_time = time.time()
+        rx_callback = []
+        timer = threading.Timer(
+            0,
+            functools.partial(connection.add_callback_threadsafe,
+                              lambda: rx_callback.append(time.time())))
+        timer.start()
+        while not rx_callback:
+            connection.process_data_events(time_limit=None)
+
+        self.assertEqual(len(rx_callback), 1)
+        elapsed = time.time() - start_time
+        self.assertLess(elapsed, 0.25)
 
 
 class TestAddTimeoutRemoveTimeout(BlockingTestCaseBase):
