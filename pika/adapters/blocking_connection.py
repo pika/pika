@@ -1844,7 +1844,8 @@ class BlockingChannel(object):
         """Blocking consumption of a queue instead of via a callback. This
         method is a generator that yields each message as a tuple of method,
         properties, and body. The active generator iterator terminates when the
-        consumer is cancelled by client or broker.
+        consumer is cancelled by client via `BlockingChannel.cancel()` or by
+        broker.
 
         Example:
 
