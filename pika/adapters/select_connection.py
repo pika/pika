@@ -944,9 +944,8 @@ class KQueuePoller(_PollerBase):
     def __init__(self, get_wait_seconds, process_timeouts):
         """Create an instance of the KQueuePoller
         """
-        super(KQueuePoller, self).__init__(get_wait_seconds, process_timeouts)
-
         self._kqueue = None
+        super(KQueuePoller, self).__init__(get_wait_seconds, process_timeouts)
 
     @staticmethod
     def _map_event(kevent):
