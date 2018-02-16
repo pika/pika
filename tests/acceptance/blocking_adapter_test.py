@@ -1808,8 +1808,8 @@ class TestBasicConsumeWithAckFromAnotherThread(BlockingTestCaseBase):
                      consumer_tag)
 
         self.assertEqual(len(rx_messages), 2)
-        self.assertEqual(rx_messages[0], 'msg1')
-        self.assertEqual(rx_messages[1], 'last-msg')
+        self.assertEqual(rx_messages[0], b'msg1')
+        self.assertEqual(rx_messages[1], b'last-msg')
 
 
 class TestConsumeGeneratorWithAckFromAnotherThread(BlockingTestCaseBase):
@@ -1897,8 +1897,8 @@ class TestConsumeGeneratorWithAckFromAnotherThread(BlockingTestCaseBase):
                                                  rx_body=body)
 
         self.assertEqual(len(rx_messages), 2)
-        self.assertEqual(rx_messages[0], 'msg1')
-        self.assertEqual(rx_messages[1], 'last-msg')
+        self.assertEqual(rx_messages[0], b'msg1')
+        self.assertEqual(rx_messages[1], b'last-msg')
 
 
 class TestTwoBasicConsumersOnSameChannel(BlockingTestCaseBase):
