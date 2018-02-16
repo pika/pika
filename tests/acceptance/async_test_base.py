@@ -156,6 +156,18 @@ class BoundQueueTestCase(AsyncTestCase):
 class AsyncAdapters(object):
 
     def start(self, adapter_class, ioloop_factory):
+        """
+
+        :param adapter_class: pika connection adapter class to test.
+        :param ioloop_factory: to be called without args to instantiate a
+           non-shared ioloop to be passed as the `custom_ioloop` arg to the
+           `adapter_class` constructor. This is needed because some of the
+           adapters default to using a singleton ioloop, which results in
+           tests errors after prior tests close the ioloop to release resources,
+           in order to eliminate ResourceWarning warnings concerning unclosed
+           sockets from our adapters.
+        :return:
+        """
         raise NotImplementedError
 
     def select_default_test(self):

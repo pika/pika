@@ -36,6 +36,7 @@ class IOLoopBaseTest(unittest.TestCase):
 
         self.ioloop = select_connection.IOLoop()
         self.addCleanup(setattr, self, 'ioloop', None)
+        self.addCleanup(self.ioloop.close)
 
         activate_poller_patch = mock.patch.object(
             self.ioloop._poller,
