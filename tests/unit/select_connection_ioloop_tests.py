@@ -439,6 +439,7 @@ class IOLoopEintrTestCaseSelect(IOLoopBaseTest):
         timer = select_connection._Timer()
         self.poller = self.ioloop._get_poller(timer.get_remaining_interval,
                                               timer.process_timeouts)
+        self.addCleanup(self.poller.close)
 
         sockpair = self.poller._get_interrupt_pair()
         self.addCleanup(sockpair[0].close)
@@ -494,6 +495,7 @@ class SelectPollerTestPollWithoutSockets(unittest.TestCase):
         poller = select_connection.SelectPoller(
             get_wait_seconds=timer.get_remaining_interval,
             process_timeouts=timer.process_timeouts)
+        self.addCleanup(poller.close)
 
         timer_call_container = []
         timer.call_later(0.00001, lambda: timer_call_container.append(1))
