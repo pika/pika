@@ -31,7 +31,6 @@ class BaseConnection(connection.Connection):
     ]
     ERRORS_TO_IGNORE = [errno.EWOULDBLOCK, errno.EAGAIN, errno.EINTR]
     DO_HANDSHAKE = True
-    WARN_ABOUT_IOLOOP = False
 
     def __init__(self,
                  parameters=None,
@@ -333,8 +332,6 @@ class BaseConnection(connection.Connection):
         """
         if self.stop_ioloop_on_close and self.ioloop:
             self.ioloop.stop()
-        elif self.WARN_ABOUT_IOLOOP:
-            LOGGER.warning('Connection is closed but not stopping IOLoop')
 
     def _handle_error(self, error_value):
         """Internal error handling method. Here we expect a socket error

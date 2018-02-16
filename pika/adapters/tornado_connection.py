@@ -24,7 +24,6 @@ class TornadoConnection(base_connection.BaseConnection):
     :param custom_ioloop: Override using the global IOLoop in Tornado
 
     """
-    WARN_ABOUT_IOLOOP = True
 
     def __init__(self,
                  parameters=None,
