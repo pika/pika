@@ -58,10 +58,15 @@ class AsyncTestCase(unittest.TestCase):
 
         self.connection = self.adapter(self.parameters, self.on_open,
                                        self.on_open_error, self.on_closed)
-        self.timeout = self.connection.add_timeout(self.TIMEOUT,
-                                                   self.on_timeout)
-        self.connection.ioloop.start()
-        self.assertFalse(self._timed_out)
+        try:
+            self.timeout = self.connection.add_timeout(self.TIMEOUT,
+                                                       self.on_timeout)
+            self.connection.ioloop.start()
+            self.assertFalse(self._timed_out)
+        finally:
+            self.connection.ioloop.close()
+            self.connection = None
+
 
     def stop(self):
         """close the connection and stop the ioloop"""
@@ -79,8 +84,6 @@ class AsyncTestCase(unittest.TestCase):
         if hasattr(self, 'connection') and self.connection is not None:
             self.logger.info("Stopping ioloop")
             self.connection.ioloop.stop()
-            self.connection.ioloop.close()
-            self.connection = None
 
     def on_closed(self, connection, reply_code, reply_text):
         """called when the connection has finished closing"""
