@@ -303,9 +303,6 @@ class IOLoop(object):
     def close(self):
         """Release IOLoop's resources.
 
-        TODO Need to call this from IOLoop and SelectConnection tests as well as
-        TODO from BlockingConnection to avoid socket resource leak messages
-
         `IOLoop.close` is intended to be called by the application or test code
         only after `IOLoop.start()` returns. After calling `close()`, no other
         interaction with the closed instance of `IOLoop` should be performed.
@@ -405,7 +402,7 @@ class IOLoop(object):
 
     def process_timeouts(self):
         """[Extension] Process pending callbacks and timeouts, invoking those
-         whose time has come. Internal use only.
+        whose time has come. Internal use only.
 
         """
         # Avoid I/O starvation by postponing new callbacks to the next iteration
@@ -465,12 +462,8 @@ class IOLoop(object):
 
     def stop(self):
         """[API] Request exit from the ioloop. The loop is NOT guaranteed to
-        stop before this method returns. This is the only method that may be
-        called from another thread.
+        stop before this method returns.
 
-        TODO This shouldn't have been made thread-safe. Instead, `add_callback`
-        TODO should be used to safely call `stop` from the IOLoop's own thread.
-        TODO Update documentation/implementation
         """
         self._poller.stop()
 
@@ -545,9 +538,6 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
 
     def close(self):
         """Release poller's resources.
-
-        TODO Need to call this from Poller tests to avoid socket resource
-        TODO leak messages
 
         `close()` is intended to be called after the poller's `start()` method
         returns. After calling `close()`, no other interaction with the closed
@@ -738,8 +728,7 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
 
     def stop(self):
         """Request exit from the ioloop. The loop is NOT guaranteed to stop
-        before this method returns. This is the only method that may be called
-        from another thread.
+        before this method returns.
 
         """
         LOGGER.debug('Stopping IOLoop')
