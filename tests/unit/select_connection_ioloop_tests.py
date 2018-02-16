@@ -74,6 +74,23 @@ class IOLoopBaseTest(unittest.TestCase):
         self.fail('Test timed out')
 
 
+class IOLoopCloseTestSelect(IOLoopBaseTest):
+    """ Test ioloop being stopped by another Thread. """
+    SELECT_POLLER = 'select'
+
+    def start_test(self):
+        with mock.patch.multiple(self.ioloop,
+                                 _timer=mock.DEFAULT,
+                                 _poller=mock.DEFAULT,
+                                 _callbacks=mock.DEFAULT) as mocks:
+            self.ioloop.close()
+            mocks['_timer'].close.assert_called_once()
+            mocks['_poller'].close.assert_called_once()
+            self.assertIsNone(self.ioloop._callbacks)
+
+        self.ioloop.stop()
+
+
 class IOLoopThreadStopTestSelect(IOLoopBaseTest):
     """ Test ioloop being stopped by another Thread. """
     SELECT_POLLER = 'select'
@@ -517,3 +534,46 @@ class SelectPollerTestPollWithoutSockets(unittest.TestCase):
                 break
 
         self.assertEqual(timer_call_container, [1])
+
+
+class PollerTestCaseSelect(unittest.TestCase):
+    SELECT_POLLER = 'select'
+
+    def setUp(self):
+        select_type_patch = mock.patch.multiple(
+            select_connection, SELECT_TYPE=self.SELECT_POLLER)
+        select_type_patch.start()
+        self.addCleanup(select_type_patch.stop)
+
+        timer = select_connection._Timer()
+        self.addCleanup(timer.close)
+        self.poller = select_connection.IOLoop._get_poller(
+            timer.get_remaining_interval,
+            timer.process_timeouts)
+        self.addCleanup(self.poller.close)
+
+    def test_poller_close(self):
+        self.poller.close()
+        self.assertIsNone(self.poller._r_interrupt)
+        self.assertIsNone(self.poller._w_interrupt)
+        self.assertIsNone(self.poller._fd_handlers)
+        self.assertIsNone(self.poller._fd_events)
+        self.assertIsNone(self.poller._processing_fd_event_map)
+
+
+@unittest.skipIf(not POLL_SUPPORTED, 'poll not supported')
+class PollerTestCasePoll(PollerTestCaseSelect):
+    """Same as PollerTestCaseSelect but uses poll syscall"""
+    SELECT_POLLER = 'poll'
+
+
+@unittest.skipIf(not EPOLL_SUPPORTED, 'epoll not supported')
+class PollerTestCaseEPoll(PollerTestCaseSelect):
+    """Same as PollerTestCaseSelect but uses epoll syscall"""
+    SELECT_POLLER = 'epoll'
+
+
+@unittest.skipIf(not KQUEUE_SUPPORTED, 'kqueue not supported')
+class PollerTestCaseKqueue(PollerTestCaseSelect):
+    """Same as PollerTestCaseSelect but uses kqueue syscall"""
+    SELECT_POLLER = 'kqueue'

@@ -166,7 +166,11 @@ class _Timer(object):
         """Release resources. Don't use the `_Timer` instance after closing
         it
         """
-        self._timeout_heap = None
+        # Eliminate potential reference cycles to aid garbage-collection
+        if self._timeout_heap is not None:
+            for timeout in self._timeout_heap:
+                timeout.callback = None
+            self._timeout_heap = None
 
     def call_later(self, delay, callback):
         """Schedule a one-shot timeout given delay seconds.
@@ -307,9 +311,10 @@ class IOLoop(object):
         interaction with the closed instance of `IOLoop` should be performed.
 
         """
-        self._poller.close()
-        self._timer.close()
-        self._callbacks = None
+        if self._callbacks is not None:
+            self._poller.close()
+            self._timer.close()
+            self._callbacks = None
 
     @staticmethod
     def _get_poller(get_wait_seconds, process_timeouts):
@@ -553,11 +558,12 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
         # necessary to avoid race condition with `wake_threadsafe` running in
         # another thread's context
         with self._waking_mutex:
-            self.remove_handler(self._r_interrupt.fileno()) # pylint: disable=E1101
-            self._r_interrupt.close()
-            self._r_interrupt = None
-            self._w_interrupt.close()
-            self._w_interrupt = None
+            if self._w_interrupt is not None:
+                self.remove_handler(self._r_interrupt.fileno()) # pylint: disable=E1101
+                self._r_interrupt.close()
+                self._r_interrupt = None
+                self._w_interrupt.close()
+                self._w_interrupt = None
 
         self.deactivate_poller()
 
