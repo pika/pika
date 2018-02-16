@@ -63,6 +63,9 @@ class AsyncTestCase(unittest.TestCase):
         self.connection.ioloop.start()
         self.assertFalse(self._timed_out)
 
+        # Release ioloop resources
+        self.connection.ioloop.close()
+
     def stop(self):
         """close the connection and stop the ioloop"""
         self.logger.info("Stopping test")
