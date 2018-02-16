@@ -63,9 +63,6 @@ class AsyncTestCase(unittest.TestCase):
         self.connection.ioloop.start()
         self.assertFalse(self._timed_out)
 
-        # Release ioloop resources
-        self.connection.ioloop.close()
-
     def stop(self):
         """close the connection and stop the ioloop"""
         self.logger.info("Stopping test")
@@ -79,9 +76,10 @@ class AsyncTestCase(unittest.TestCase):
             self.logger.info("Removing timeout")
             self.connection.remove_timeout(self.timeout)
             self.timeout = None
-        if hasattr(self, 'connection') and self.connection:
+        if hasattr(self, 'connection') and self.connection is not None:
             self.logger.info("Stopping ioloop")
             self.connection.ioloop.stop()
+            self.connection.ioloop.close()
             self.connection = None
 
     def on_closed(self, connection, reply_code, reply_text):
