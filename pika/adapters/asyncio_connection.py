@@ -20,6 +20,9 @@ class IOLoopAdapter:
         self.readers = set()
         self.writers = set()
 
+    def close(self):
+        self.loop.close()
+
     def add_timeout(self, deadline, callback):
         """Add the callback to the EventLoop timer to fire after deadline
         seconds. Returns a Handle to the timeout.
