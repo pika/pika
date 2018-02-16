@@ -10,6 +10,7 @@
 # Suppress pylint warning about unused argument
 # pylint: disable=W0613
 
+import threading
 import time
 import uuid
 
@@ -36,6 +37,7 @@ class TestConfirmSelect(AsyncTestCase, AsyncAdapters):
         channel.confirm_delivery(ack_nack_callback=self.ack_nack_callback,
                                  callback=self.on_complete)
 
+    @staticmethod
     def ack_nack_callback(frame):
         pass
 
@@ -461,6 +463,56 @@ class TestBlockedConnectionUnblocks(AsyncTestCase, AsyncAdapters):  # pylint: di
         super(TestBlockedConnectionUnblocks, self).on_closed(connection,
                                                              reply_code,
                                                              reply_text)
+
+
+class TestAddCallbackThreadsafeFromIOLoopThread(AsyncTestCase, AsyncAdapters):
+    DESCRIPTION = "Test add_callback_threadsafe request from same thread."
+
+    def start(self, *args, **kwargs):
+        self.loop_thread_ident = threading.current_thread().ident
+        self.my_start_time = None
+        self.got_callback = False
+        super(TestAddCallbackThreadsafeFromIOLoopThread, self).start(*args, **kwargs)
+        self.assertTrue(self.got_callback)
+
+    def begin(self, channel):
+        self.my_start_time = time.time()
+        # Request a callback from our current (ioloop's) thread
+        channel.connection.add_callback_threadsafe(self.on_requested_callback)
+
+    def on_requested_callback(self):
+        self.assertEqual(threading.current_thread().ident,
+                         self.loop_thread_ident)
+        self.assertLess(time.time() - self.my_start_time, 0.25)
+        self.got_callback = True
+        self.stop()
+
+
+class TestAddCallbackThreadsafeFromAnotherThread(AsyncTestCase, AsyncAdapters):
+    DESCRIPTION = "Test add_callback_threadsafe request from another thread."
+
+    def start(self, *args, **kwargs):
+        self.loop_thread_ident = threading.current_thread().ident
+        self.my_start_time = None
+        self.got_callback = False
+        super(TestAddCallbackThreadsafeFromAnotherThread, self).start(*args, **kwargs)
+        self.assertTrue(self.got_callback)
+
+    def begin(self, channel):
+        self.my_start_time = time.time()
+        # Request a callback from ioloop while executing in another thread
+        timer = threading.Timer(
+            0,
+            lambda: channel.connection.add_callback_threadsafe(
+                self.on_requested_callback))
+        timer.start()
+
+    def on_requested_callback(self):
+        self.assertEqual(threading.current_thread().ident,
+                         self.loop_thread_ident)
+        self.assertLess(time.time() - self.my_start_time, 0.25)
+        self.got_callback = True
+        self.stop()
 
 
 class TestViabilityOfMultipleTimeoutsWithSameDeadlineAndCallback(AsyncTestCase, AsyncAdapters):  # pylint: disable=C0103

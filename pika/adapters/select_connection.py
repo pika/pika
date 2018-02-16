@@ -373,8 +373,8 @@ class IOLoop(object):
         self._timer.remove_timeout(timeout_id)
 
     def add_callback_threadsafe(self, callback):
-        """Calls the given function on the next iteration of the IOLoop in the
-        context of the IOLoop's thread.
+        """Requests a call to the given function as soon as possible in the
+        context of this IOLoop's thread.
 
         NOTE: This is the only thread-safe method in IOLoop. All other
         manipulations of IOLoop must be performed from the IOLoop's thread.

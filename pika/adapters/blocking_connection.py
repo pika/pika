@@ -650,8 +650,8 @@ class BlockingConnection(object):
         return timer_id
 
     def add_callback_threadsafe(self, callback):
-        """Calls the given function on the next iteration of the connection's
-        IOLoop in the context of the IOLoop's thread.
+        """Requests a call to the given function as soon as possible in the
+        context of this connection's thread.
 
         NOTE: This is the only thread-safe method in `BlockingConnection`. All
          other manipulations of `BlockingConnection` must be performed from the
@@ -666,14 +666,10 @@ class BlockingConnection(object):
             functools.partial(channel.basic_ack, delivery_tag=...))
         ```
 
-        :param method callback: The callback method
+        :param method callback: The callback method; must be callable
 
         """
-        if not callable(callback):
-            raise TypeError(
-                'callback must be a callable, but got %r' % (callback,))
-
-        self._impl.ioloop.add_callback_threadsafe(
+        self._impl.add_callback_threadsafe(
             functools.partial(self._on_threadsafe_callback, callback))
 
     def remove_timeout(self, timeout_id):
@@ -2440,7 +2436,8 @@ class BlockingChannel(object):
         :param queue: The queue name
         :type queue: str or unicode; if empty string, the broker will create a
           unique queue name;
-        :param bool passive: Only check to see if the queue exists
+        :param bool passive: Only check to see if the queue exists and raise
+          `ChannelClosed` if it doesn't;
         :param bool durable: Survive reboots of the broker
         :param bool exclusive: Only allow access by the current connection
         :param bool auto_delete: Delete after consumer cancels or disconnects
