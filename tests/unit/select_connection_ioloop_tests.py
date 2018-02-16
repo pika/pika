@@ -19,6 +19,11 @@ import pika
 from pika import compat
 from pika.adapters import select_connection
 
+# protected-access
+# pylint: disable=W0212
+# missing-docstring
+# pylint: disable=C0111
+
 
 EPOLL_SUPPORTED = hasattr(select, 'epoll')
 POLL_SUPPORTED = hasattr(select, 'poll') and hasattr(select.poll(), 'modify')

@@ -535,6 +535,7 @@ class TestAddCallbackThreadsafeFromAnotherThread(AsyncTestCase, AsyncAdapters):
             0,
             lambda: channel.connection.add_callback_threadsafe(
                 self.on_requested_callback))
+        self.addCleanup(timer.cancel)
         timer.start()
 
     def on_requested_callback(self):

@@ -483,6 +483,7 @@ class TestAddCallbackThreadsafeFromAnotherThread(BlockingTestCaseBase):
             0,
             functools.partial(connection.add_callback_threadsafe,
                               lambda: rx_callback.append(time.time())))
+        self.addCleanup(timer.cancel)
         timer.start()
         while not rx_callback:
             connection.process_data_events(time_limit=None)
@@ -1789,6 +1790,7 @@ class TestBasicConsumeWithAckFromAnotherThread(BlockingTestCaseBase):
             timer = threading.Timer(0,
                                     lambda: connection.add_callback_threadsafe(
                                         processOnConnectionThread))
+            self.addCleanup(timer.cancel)
             timer.start()
 
         consumer_tag = ch.basic_consume(
@@ -1888,6 +1890,7 @@ class TestConsumeGeneratorWithAckFromAnotherThread(BlockingTestCaseBase):
             timer = threading.Timer(0,
                                     lambda: connection.add_callback_threadsafe(
                                         processOnConnectionThread))
+            self.addCleanup(timer.cancel)
             timer.start()
 
         for method, properties, body in ch.consume(q_name, auto_ack=False):
