@@ -1778,7 +1778,8 @@ class TestBasicConsumeWithAckFromAnotherThread(BlockingTestCaseBase):
                              multiple=False)
                 rx_messages.append(rx_body)
 
-                if rx_body == 'last-msg':
+                # NOTE on python3, `b'last-msg' != 'last-msg'`
+                if rx_body == b'last-msg':
                     LOGGER.debug('%s: Canceling consumer consumer-tag=%r',
                                  datetime.now(),
                                  rx_method.consumer_tag)
@@ -1874,7 +1875,8 @@ class TestConsumeGeneratorWithAckFromAnotherThread(BlockingTestCaseBase):
                              multiple=False)
                 rx_messages.append(rx_body)
 
-                if rx_body == 'last-msg':
+                # NOTE on python3, `b'last-msg' != 'last-msg'`
+                if rx_body == b'last-msg':
                     LOGGER.debug('%s: Canceling consumer consumer-tag=%r',
                                  datetime.now(),
                                  rx_method.consumer_tag)
