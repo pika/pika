@@ -52,12 +52,13 @@ class AsyncTestCase(unittest.TestCase):
         """Extend to start the actual tests on the channel"""
         self.fail("AsyncTestCase.begin_test not extended")
 
-    def start(self, adapter=None):
+    def start(self, adapter, ioloop_factory):
         self.logger.info('start at %s', datetime.utcnow())
         self.adapter = adapter or self.ADAPTER
 
         self.connection = self.adapter(self.parameters, self.on_open,
-                                       self.on_open_error, self.on_closed)
+                                       self.on_open_error, self.on_closed,
+                                       custom_ioloop=ioloop_factory())
         try:
             self.timeout = self.connection.add_timeout(self.TIMEOUT,
                                                        self.on_timeout)
@@ -112,12 +113,12 @@ class AsyncTestCase(unittest.TestCase):
 
 class BoundQueueTestCase(AsyncTestCase):
 
-    def start(self, adapter=None):
+    def start(self, adapter, ioloop_factory):
         # PY3 compat encoding
         self.exchange = 'e-' + self.__class__.__name__ + ':' + uuid.uuid1().hex
         self.queue = 'q-' + self.__class__.__name__ + ':' + uuid.uuid1().hex
         self.routing_key = self.__class__.__name__
-        super(BoundQueueTestCase, self).start(adapter)
+        super(BoundQueueTestCase, self).start(adapter, ioloop_factory)
 
     def begin(self, channel):
         self.channel.exchange_declare(self.exchange,
@@ -154,20 +155,19 @@ class BoundQueueTestCase(AsyncTestCase):
 
 class AsyncAdapters(object):
 
-    def start(self, adapter_class):
+    def start(self, adapter_class, ioloop_factory):
         raise NotImplementedError
 
     def select_default_test(self):
         """SelectConnection:DefaultPoller"""
-
         with mock.patch.multiple(select_connection, SELECT_TYPE=None):
-            self.start(adapters.SelectConnection)
+            self.start(adapters.SelectConnection, select_connection.IOLoop)
 
     def select_select_test(self):
         """SelectConnection:select"""
 
         with mock.patch.multiple(select_connection, SELECT_TYPE='select'):
-            self.start(adapters.SelectConnection)
+            self.start(adapters.SelectConnection, select_connection.IOLoop)
 
     @unittest.skipIf(
         not hasattr(select, 'poll') or
@@ -176,27 +176,36 @@ class AsyncAdapters(object):
         """SelectConnection:poll"""
 
         with mock.patch.multiple(select_connection, SELECT_TYPE='poll'):
-            self.start(adapters.SelectConnection)
+            self.start(adapters.SelectConnection, select_connection.IOLoop)
 
     @unittest.skipIf(not hasattr(select, 'epoll'), "epoll not supported")
     def select_epoll_test(self):
         """SelectConnection:epoll"""
 
         with mock.patch.multiple(select_connection, SELECT_TYPE='epoll'):
-            self.start(adapters.SelectConnection)
+            self.start(adapters.SelectConnection, select_connection.IOLoop)
 
     @unittest.skipIf(not hasattr(select, 'kqueue'), "kqueue not supported")
     def select_kqueue_test(self):
         """SelectConnection:kqueue"""
 
         with mock.patch.multiple(select_connection, SELECT_TYPE='kqueue'):
-            self.start(adapters.SelectConnection)
+            self.start(adapters.SelectConnection, select_connection.IOLoop)
 
     def tornado_test(self):
         """TornadoConnection"""
-        self.start(adapters.TornadoConnection)
+        ioloop_factory = None
+        if adapters.TornadoConnection is not None:
+            import tornado.ioloop
+            ioloop_factory = tornado.ioloop.IOLoop
+        self.start(adapters.TornadoConnection, ioloop_factory)
 
     @unittest.skipIf(sys.version_info < (3, 4), "Asyncio available for Python 3.4+")
     def asyncio_test(self):
         """AsyncioConnection"""
-        self.start(adapters.AsyncioConnection)
+        ioloop_factory = None
+        if adapters.AsyncioConnection is not None:
+            import asyncio
+            ioloop_factory = asyncio.new_event_loop
+
+        self.start(adapters.AsyncioConnection, ioloop_factory)
