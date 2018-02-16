@@ -1069,13 +1069,14 @@ class Channel(object):
         self._send_method(spec.Channel.CloseOk())
 
         if self.is_closing:
-            # Since we already sent Channel.Close, we need to wait for CloseOk
+            # Since we may have already sent Channel.Close, we need to wait for CloseOk
             # before cleaning up to avoid a race condition whereby our channel
             # number might get reused before our CloseOk arrives
 
             # Save the details to provide to user callback when CloseOk arrives
             self._closing_code_and_text = (method_frame.method.reply_code,
                                            method_frame.method.reply_text)
+            self._drain_blocked_methods_on_remote_close()
         else:
             self._set_state(self.CLOSED)
             try:
@@ -1087,10 +1088,11 @@ class Channel(object):
                 self._cleanup()
 
     def _on_close_meta(self, reply_code, reply_text):
-        """Handle meta-close request from Connection's cleanup logic after
-        sudden connection loss. We use this opportunity to transition to
-        CLOSED state, clean up the channel, and dispatch the on-channel-closed
-        callbacks.
+        """Handle meta-close request from either a remote Channel.Close from
+        the broker (when a pending Channel.Close method is queued for
+        execution) or a Connection's cleanup logic after sudden connection
+        loss. We use this opportunity to transition to CLOSED state, clean up
+        the channel, and dispatch the on-channel-closed callbacks.
 
         :param int reply_code: The reply code to pass to on-close callback
         :param str reply_text: The reply text to pass to on-close callback
@@ -1270,8 +1272,39 @@ class Channel(object):
         """
         LOGGER.debug('%i blocked frames', len(self._blocked))
         self._blocking = None
+        # self._blocking must be checked here as a callback could
+        # potentially change the state of that variable during an
+        # iteration of the while loop
         while self._blocked and self._blocking is None:
             self._rpc(*self._blocked.popleft())
+
+    def _drain_blocked_methods_on_remote_close(self):
+        """This is called when the broker sends a Channel.Close while the
+        client is in CLOSING state. This method checks the blocked method
+        queue for a pending client-initiated Channel.Close method and
+        ensures its callbacks are processed, but does not send the method
+        to the broker.
+
+        The broker may close the channel before responding to outstanding
+        in-transit synchronous methods, or even before these methods have been
+        sent to the broker. AMQP 0.9.1 obliges the server to drop all methods
+        arriving on a closed channel other than Channel.CloseOk and
+        Channel.Close. Since the response to a synchronous method that blocked
+        the channel never arrives, the channel never becomes unblocked, and the
+        Channel.Close, if any, in the blocked queue has no opportunity to be
+        sent, and thus its completion callback would never be called.
+
+        """
+        LOGGER.debug('Draining %i blocked frames due to remote Channel.Close',
+                     len(self._blocked))
+        while self._blocked:
+            method = self._blocked.popleft()[0]
+            if isinstance(method, spec.Channel.Close):
+                reply_code = self._closing_code_and_text[0]
+                reply_text = self._closing_code_and_text[1]
+                self._on_close_meta(reply_code, reply_text)
+            else:
+                LOGGER.debug('Ignoring drained blocked method: %s', method)
 
     def _rpc(self, method, callback=None, acceptable_replies=None):
         """Make a syncronous channel RPC call for a synchronous method frame. If
