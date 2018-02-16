@@ -19,6 +19,7 @@ import pika
 from pika import compat
 from pika.adapters import select_connection
 
+
 EPOLL_SUPPORTED = hasattr(select, 'epoll')
 POLL_SUPPORTED = hasattr(select, 'poll') and hasattr(select.poll(), 'modify')
 KQUEUE_SUPPORTED = hasattr(select, 'kqueue')
@@ -97,7 +98,9 @@ class IOLoopThreadStopTestSelect(IOLoopBaseTest):
 
     def start_test(self):
         """Starts a thread that stops ioloop after a while and start polling"""
-        timer = threading.Timer(0.1, self.ioloop.stop)
+        timer = threading.Timer(
+            0.1,
+            lambda: self.ioloop.add_callback_threadsafe(self.ioloop.stop))
         self.addCleanup(timer.cancel)
         timer.start()
         self.start()

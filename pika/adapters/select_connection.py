@@ -464,7 +464,17 @@ class IOLoop(object):
         """[API] Request exit from the ioloop. The loop is NOT guaranteed to
         stop before this method returns.
 
+        To invoke `stop()` safely from a thread other than this IOLoop's thread,
+        call it via `add_callback_threadsafe`; e.g.,
+
+            `ioloop.add_callback_threadsafe(ioloop.stop)`
+
         """
+        if (self._thread_id is not None and
+                threading.current_thread().ident != self._thread_id):
+            LOGGER.warning('Use add_callback_threadsafe to request '
+                           'ioloop.stop() from another thread')
+
         self._poller.stop()
 
     def activate_poller(self):
