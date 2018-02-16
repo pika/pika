@@ -491,3 +491,20 @@ class TestBlockedConnectionUnblocks(AsyncTestCase, AsyncAdapters):  # pylint: di
         super(TestBlockedConnectionUnblocks, self).on_closed(connection,
                                                              reply_code,
                                                              reply_text)
+
+
+class TestViabilityOfMultipleTimeoutsWithSameDeadlineAndCallback(AsyncTestCase, AsyncAdapters):  # pylint: disable=C0103
+    DESCRIPTION = "Test viability of multiple timeouts with same deadline and callback"
+
+    def begin(self, channel):
+        timer1 = channel.connection.add_timeout(0, self.on_my_timer)
+        timer2 = channel.connection.add_timeout(0, self.on_my_timer)
+
+        self.assertNotEqual(timer1, timer2)
+
+        channel.connection.remove_timeout(timer1)
+
+        # Wait for timer2 to fire
+
+    def on_my_timer(self):
+        self.stop()
