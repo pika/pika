@@ -1956,6 +1956,8 @@ class BlockingChannel(object):
                 # can't use basic_nack with the multiple option to avoid nacking
                 # messages already held by our client.
                 pending_events = self._queue_consumer_generator.pending_events
+                # NOTE `get_waiting_message_count` adjusts for `Basic.Cancel`
+                #      from the server at the end (if any)
                 for _ in compat.xrange(self.get_waiting_message_count()):
                     evt = pending_events.popleft()
                     self._impl.basic_reject(evt.method.delivery_tag,

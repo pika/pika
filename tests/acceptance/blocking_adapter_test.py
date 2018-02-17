@@ -2494,6 +2494,32 @@ class TestConsumeInactivityTimeout(BlockingTestCaseBase):
             self.fail('expected (None, None, None), but got %s' % msg)
 
 
+class TestConsumeGeneratorInterruptedByCancelFromBroker(BlockingTestCaseBase):
+
+    def test(self):
+        """BlockingChannel consume generator is interrupted broker's Cancel """
+        connection = self._connect()
+
+        self.assertTrue(connection.consumer_cancel_notify_supported)
+
+        ch = connection.channel()
+
+        q_name = ('TestConsumeGeneratorInterruptedByCancelFromBroker_q' +
+                  uuid.uuid1().hex)
+
+        # Declare a new queue
+        ch.queue_declare(q_name, auto_delete=True)
+
+        queue_deleted = False
+        for _ in ch.consume(q_name, auto_ack=False, inactivity_timeout=0.001):
+            if not queue_deleted:
+                # Delete the queue to force Basic.Cancel from the broker
+                ch.queue_delete(q_name)
+                queue_deleted = True
+
+        self.assertIsNone(ch._queue_consumer_generator)
+
+
 class TestConsumeGeneratorCancelEncountersCancelFromBroker(BlockingTestCaseBase):
 
     def test(self):
@@ -2510,27 +2536,22 @@ class TestConsumeGeneratorCancelEncountersCancelFromBroker(BlockingTestCaseBase)
         # Declare a new queue
         ch.queue_declare(q_name, auto_delete=True)
 
-        # Consume, but don't ack
         for _ in ch.consume(q_name, auto_ack=False, inactivity_timeout=0.001):
             # Delete the queue to force Basic.Cancel from the broker
             ch.queue_delete(q_name)
 
-            # Create a new queue  to flush the channel and hopefully get
-            # the server's Basic.Cancel deposited in the consumer generator's
-            # queue
-            ch.queue_declare(q_name + '-2', auto_delete=True)
+            # Wait for server's Basic.Cancel
+            while not ch._queue_consumer_generator.pending_events:
+                connection.process_data_events()
 
-            # TODO debugging by experimenting with wait because server's Cancel
-            # TODO doesn't seem to be arriving
-            connection.process_data_events(time_limit=5)
-
-            # It should be non-empty now (fingers crossed)
-            self.assertTrue(ch._queue_consumer_generator.pending_events)
+            # Confirm it's Basic.Cancel
             self.assertIsInstance(ch._queue_consumer_generator.pending_events[0],
                                   blocking_connection._ConsumerCancellationEvt)
 
             # Now attempt to cancel the consumer generator
             ch.cancel()
+
+            self.assertIsNone(ch._queue_consumer_generator)
 
 
 class TestChannelFlow(BlockingTestCaseBase):
