@@ -37,8 +37,7 @@ class BaseConnection(connection.Connection):
                  on_open_callback=None,
                  on_open_error_callback=None,
                  on_close_callback=None,
-                 ioloop=None,
-                 stop_ioloop_on_close=True):
+                 ioloop=None):
         """Create a new instance of the Connection object.
 
         :param pika.connection.Parameters parameters: Connection parameters
@@ -48,7 +47,6 @@ class BaseConnection(connection.Connection):
         :param method on_close_callback: Called when the connection is closed:
             on_close_callback(connection, reason_code, reason_text)
         :param object ioloop: IOLoop object to use
-        :param bool stop_ioloop_on_close: Call ioloop.stop() if disconnected
         :raises: RuntimeError
         :raises: ValueError
 
@@ -64,7 +62,6 @@ class BaseConnection(connection.Connection):
         self.event_state = self.base_events
         self.ioloop = ioloop
         self.socket = None
-        self.stop_ioloop_on_close = stop_ioloop_on_close
         self.write_buffer = None
         super(BaseConnection,
               self).__init__(parameters, on_open_callback,
@@ -119,11 +116,7 @@ class BaseConnection(connection.Connection):
         :param str reply_text: The text reason for the close
 
         """
-        try:
-            super(BaseConnection, self).close(reply_code, reply_text)
-        finally:
-            if self.is_closed:
-                self._handle_ioloop_stop()
+        super(BaseConnection, self).close(reply_code, reply_text)
 
     def remove_timeout(self, timeout_id):
         """Remove the timeout from the IOLoop by the ID returned from
@@ -170,10 +163,7 @@ class BaseConnection(connection.Connection):
 
     def _adapter_disconnect(self):
         """Invoked if the connection is being told to disconnect"""
-        try:
-            self._cleanup_socket()
-        finally:
-            self._handle_ioloop_stop()
+        self._cleanup_socket()
 
     def _cleanup_socket(self):
         """Close the socket cleanly"""
@@ -298,14 +288,6 @@ class BaseConnection(connection.Connection):
         # detected in _send_connection_tune_ok, before _send_connection_open is
         # called), etc., etc., etc.
         self._manage_event_state()
-
-    def _handle_ioloop_stop(self):
-        """Invoked when the connection is closed to determine if the IOLoop
-        should be stopped or not.
-
-        """
-        if self.stop_ioloop_on_close and self.ioloop:
-            self.ioloop.stop()
 
     def _handle_error(self, error_value):
         """Internal error handling method. Here we expect a socket error

@@ -44,8 +44,7 @@ class BlockingConnectionTests(unittest.TestCase):
             parameters='params',
             on_open_callback=mock.ANY,
             on_open_error_callback=mock.ANY,
-            on_close_callback=mock.ANY,
-            stop_ioloop_on_close=mock.ANY)
+            on_close_callback=mock.ANY)
 
         self.assertEqual(connection._impl.ioloop.activate_poller.call_count, 1)
 

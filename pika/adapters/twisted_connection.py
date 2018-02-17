@@ -282,15 +282,13 @@ class TwistedConnection(base_connection.BaseConnection):
                  parameters=None,
                  on_open_callback=None,
                  on_open_error_callback=None,
-                 on_close_callback=None,
-                 stop_ioloop_on_close=False):
+                 on_close_callback=None):
         super(TwistedConnection, self).__init__(
             parameters=parameters,
             on_open_callback=on_open_callback,
             on_open_error_callback=on_open_error_callback,
             on_close_callback=on_close_callback,
-            ioloop=IOLoopReactorAdapter(self, reactor),
-            stop_ioloop_on_close=stop_ioloop_on_close)
+            ioloop=IOLoopReactorAdapter(self, reactor))
 
     def _adapter_connect(self):
         """Connect to the RabbitMQ broker"""
@@ -374,8 +372,7 @@ class TwistedProtocolConnection(base_connection.BaseConnection):
             on_open_callback=self.connectionReady,
             on_open_error_callback=self.connectionFailed,
             on_close_callback=on_close_callback,
-            ioloop=IOLoopReactorAdapter(self, reactor),
-            stop_ioloop_on_close=False)
+            ioloop=IOLoopReactorAdapter(self, reactor))
 
     def connect(self):
         # The connection is open asynchronously by Twisted, so skip the whole

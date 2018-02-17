@@ -55,9 +55,7 @@ publisher.py::
         def connect(self):
             """This method connects to RabbitMQ, returning the connection handle.
             When the connection is established, the on_connection_open method
-            will be invoked by pika. If you want the reconnection to work, make
-            sure you set stop_ioloop_on_close to False, which is not the default
-            behavior of this adapter.
+            will be invoked by pika.
 
             :rtype: pika.SelectConnection
 
@@ -65,8 +63,7 @@ publisher.py::
             LOGGER.info('Connecting to %s', self._url)
             return pika.SelectConnection(pika.URLParameters(self._url),
                                          on_open_callback=self.on_connection_open,
-                                         on_close_callback=self.on_connection_closed,
-                                         stop_ioloop_on_close=False)
+                                         on_close_callback=self.on_connection_closed)
 
         def on_connection_open(self, unused_connection):
             """This method is called by pika once the connection to RabbitMQ has
