@@ -15,4 +15,4 @@ class TornadoConnectionTests(unittest.TestCase):
         obj = tornado_connection.TornadoConnection()
         mock_init.assert_called_once_with(
             None, None, None, None,
-            tornado_connection.ioloop.IOLoop.instance(), False)
+            tornado_connection.ioloop.IOLoop.instance())
