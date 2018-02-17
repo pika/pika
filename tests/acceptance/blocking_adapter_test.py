@@ -2472,7 +2472,7 @@ class TestNoAckMessageNotRestoredToQueueOnChannelClose(BlockingTestCaseBase):
 class TestConsumeInactivityTimeout(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingChannel consume returns 3-tuple on inactivity timeout """
+        """BlockingChannel consume returns 3-tuple of None values on inactivity timeout """
         connection = self._connect()
 
         ch = connection.channel()
@@ -2493,7 +2493,33 @@ class TestConsumeInactivityTimeout(BlockingTestCaseBase):
         else:
             self.fail('expected (None, None, None), but got %s' % msg)
 
-        ch.close()
+
+class TestConsumeGeneratorCancelEncountersCancelFromBroker(BlockingTestCaseBase):
+
+    def test(self):
+        """BlockingChannel consume generator cancel called when broker's Cancel is enqueued """
+        connection = self._connect()
+
+        ch = connection.channel()
+
+        q_name = ('TestConsumeGeneratorCancelEncountersCancelFromBroker_q' +
+                  uuid.uuid1().hex)
+
+        # Declare a new queue
+        ch.queue_declare(q_name, auto_delete=True)
+
+        # Consume, but don't ack
+        for msg in ch.consume(q_name, inactivity_timeout=0.001):
+            # Delete the queue to force Basic.Cancel from the broker
+            ch.queue_delete(q_name)
+
+            # Create the queue again to flush the channel and hopefully get
+            # the server's Basic.Cancel deposited in the consumer generator's
+            # queue
+            ch.queue_declare(q_name, auto_delete=True)
+
+            # Now attempt to cancel the consumer generator
+            ch.cancel()
 
 
 class TestChannelFlow(BlockingTestCaseBase):
