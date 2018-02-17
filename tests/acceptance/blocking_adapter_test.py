@@ -2500,6 +2500,8 @@ class TestConsumeGeneratorCancelEncountersCancelFromBroker(BlockingTestCaseBase)
         """BlockingChannel consume generator cancel called when broker's Cancel is enqueued """
         connection = self._connect()
 
+        self.assertTrue(connection.consumer_cancel_notify_supported)
+
         ch = connection.channel()
 
         q_name = ('TestConsumeGeneratorCancelEncountersCancelFromBroker_q' +
@@ -2509,14 +2511,23 @@ class TestConsumeGeneratorCancelEncountersCancelFromBroker(BlockingTestCaseBase)
         ch.queue_declare(q_name, auto_delete=True)
 
         # Consume, but don't ack
-        for msg in ch.consume(q_name, inactivity_timeout=0.001):
+        for _ in ch.consume(q_name, auto_ack=False, inactivity_timeout=0.001):
             # Delete the queue to force Basic.Cancel from the broker
             ch.queue_delete(q_name)
 
-            # Create the queue again to flush the channel and hopefully get
+            # Create a new queue  to flush the channel and hopefully get
             # the server's Basic.Cancel deposited in the consumer generator's
             # queue
-            ch.queue_declare(q_name, auto_delete=True)
+            ch.queue_declare(q_name + '-2', auto_delete=True)
+
+            # TODO debugging by experimenting with wait because server's Cancel
+            # TODO doesn't seem to be arriving
+            connection.process_data_events(time_limit=5)
+
+            # It should be non-empty now (fingers crossed)
+            self.assertTrue(ch._queue_consumer_generator.pending_events)
+            self.assertIsInstance(ch._queue_consumer_generator.pending_events[0],
+                                  blocking_connection._ConsumerCancellationEvt)
 
             # Now attempt to cancel the consumer generator
             ch.cancel()
