@@ -1953,6 +1953,8 @@ class Connection(object):
         if client_value is None:
             # Accept server's limit
             timeout = server_value
+        elif client_value == 0:
+            timeout = 0
         else:
             timeout = Connection._negotiate_integer_value(client_value, server_value)
 
