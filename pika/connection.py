@@ -1944,9 +1944,9 @@ class Connection(object):
             connection
 
         :param client_value: None to accept server_value; otherwise, an integral
-            number in seconds; 0 (zero) to disable heartbeat.
+            number in seconds
         :param server_value: integral value of the heartbeat timeout proposed by
-            broker; 0 (zero) to disable heartbeat.
+            broker
 
         :returns: the value of the heartbeat timeout to use and return to broker
         """
