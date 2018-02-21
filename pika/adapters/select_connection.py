@@ -70,7 +70,6 @@ class SelectConnection(BaseConnection):
             on_open_callback=None,
             on_open_error_callback=None,
             on_close_callback=None,
-            stop_ioloop_on_close=True,
             custom_ioloop=None):
         """Create a new instance of the Connection object.
 
@@ -80,15 +79,17 @@ class SelectConnection(BaseConnection):
             be established: on_open_error_callback(connection, str|exception)
         :param method on_close_callback: Called when the connection is closed:
             on_close_callback(connection, reason_code, reason_text)
-        :param bool stop_ioloop_on_close: Call ioloop.stop() if disconnected
         :param custom_ioloop: Override using the global IOLoop in Tornado
         :raises: RuntimeError
 
         """
         ioloop = custom_ioloop or IOLoop()
         super(SelectConnection, self).__init__(
-            parameters, on_open_callback, on_open_error_callback,
-            on_close_callback, ioloop, stop_ioloop_on_close)
+            parameters,
+            on_open_callback,
+            on_open_error_callback,
+            on_close_callback,
+            ioloop)
 
     def _adapter_connect(self):
         """Connect to the RabbitMQ broker, returning True on success, False
