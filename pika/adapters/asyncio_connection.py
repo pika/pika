@@ -159,7 +159,6 @@ class AsyncioConnection(base_connection.BaseConnection):
                  on_open_callback=None,
                  on_open_error_callback=None,
                  on_close_callback=None,
-                 stop_ioloop_on_close=False,
                  custom_ioloop=None):
         """ Create a new instance of the AsyncioConnection class, connecting
         to RabbitMQ automatically
@@ -169,7 +168,7 @@ class AsyncioConnection(base_connection.BaseConnection):
         :type on_open_callback: method
         :param on_open_error_callback: Method to call if the connection cant be opened
         :type on_open_error_callback: method
-        :param asyncio.AbstractEventLoop loop: By default asyncio.get_event_loop()
+        :param asyncio.AbstractEventLoop custom_ioloop: By default asyncio.get_event_loop()
 
         """
         self.sleep_counter = 0
@@ -177,10 +176,11 @@ class AsyncioConnection(base_connection.BaseConnection):
         self.ioloop = IOLoopAdapter(self.loop)
 
         super().__init__(
-            parameters, on_open_callback,
+            parameters,
+            on_open_callback,
             on_open_error_callback,
-            on_close_callback, self.ioloop,
-            stop_ioloop_on_close=stop_ioloop_on_close,
+            on_close_callback,
+            self.ioloop
         )
 
     def _adapter_connect(self):

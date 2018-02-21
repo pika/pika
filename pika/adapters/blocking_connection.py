@@ -369,8 +369,7 @@ class BlockingConnection(object):
             parameters=parameters,
             on_open_callback=self._opened_result.set_value_once,
             on_open_error_callback=self._open_error_result.set_value_once,
-            on_close_callback=self._closed_result.set_value_once,
-            stop_ioloop_on_close=False)
+            on_close_callback=self._closed_result.set_value_once)
 
         self._impl.ioloop.activate_poller()
 
