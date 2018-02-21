@@ -52,8 +52,7 @@ class ExampleConsumer(object):
         return pika.SelectConnection(parameters=pika.URLParameters(self._url),
                                      on_open_callback=self.on_connection_open,
                                      on_open_error_callback=self.on_connection_open_error,
-                                     on_close_callback=self.on_connection_closed,
-                                     stop_ioloop_on_close=False)
+                                     on_close_callback=self.on_connection_closed)
 
     def on_connection_open(self, unused_connection):
         """This method is called by pika once the connection to RabbitMQ has
