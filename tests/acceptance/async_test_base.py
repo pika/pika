@@ -52,13 +52,20 @@ class AsyncTestCase(unittest.TestCase):
         """Extend to start the actual tests on the channel"""
         self.fail("AsyncTestCase.begin_test not extended")
 
+    def _instantiate_connection(self, adapter_class, ioloop_factory):
+        """Some tests need to subclass this in order to bootstrap their test
+         logic before we start the ioloop
+        """
+        return adapter_class(self.parameters, self.on_open,
+                             self.on_open_error, self.on_closed,
+                             custom_ioloop=ioloop_factory())
+
     def start(self, adapter, ioloop_factory):
         self.logger.info('start at %s', datetime.utcnow())
         self.adapter = adapter or self.ADAPTER
 
-        self.connection = self.adapter(self.parameters, self.on_open,
-                                       self.on_open_error, self.on_closed,
-                                       custom_ioloop=ioloop_factory())
+        self.connection = self._instantiate_connection(self.adapter,
+                                                       ioloop_factory)
         try:
             self.timeout = self.connection.add_timeout(self.TIMEOUT,
                                                        self.on_timeout)
@@ -68,14 +75,13 @@ class AsyncTestCase(unittest.TestCase):
             self.connection.ioloop.close()
             self.connection = None
 
-
     def stop(self):
         """close the connection and stop the ioloop"""
         self.logger.info("Stopping test")
         if self.timeout is not None:
             self.connection.remove_timeout(self.timeout)
             self.timeout = None
-        self.connection.close()
+        self.connection.close() # NOTE: on_closed() will stop the ioloop
 
     def _stop(self):
         if hasattr(self, 'timeout') and self.timeout is not None:
@@ -104,7 +110,7 @@ class AsyncTestCase(unittest.TestCase):
     def on_timeout(self):
         """called when stuck waiting for connection to close"""
         self.logger.error('%s timed out; on_timeout called at %s',
-            self, datetime.utcnow())
+                          self, datetime.utcnow())
         self.timeout = None  # the dispatcher should have removed it
         self._timed_out = True
         # initiate cleanup

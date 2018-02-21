@@ -80,8 +80,8 @@ class IOLoopBaseTest(unittest.TestCase):
         self.fail('Test timed out')
 
 
-class IOLoopCloseTestSelect(IOLoopBaseTest):
-    """ Test ioloop being stopped by another Thread. """
+class IOLoopCloseClosesSubordinateObjectsTestSelect(IOLoopBaseTest):
+    """ Test ioloop being closed """
     SELECT_POLLER = 'select'
 
     def start_test(self):
@@ -94,7 +94,37 @@ class IOLoopCloseTestSelect(IOLoopBaseTest):
             mocks['_poller'].close.assert_called_once()
             self.assertIsNone(self.ioloop._callbacks)
 
-        self.ioloop.stop()
+
+class IOLoopCloseAfterStartReturnsTestSelect(IOLoopBaseTest):
+    """ Test IOLoop.close() after normal return from start(). """
+    SELECT_POLLER = 'select'
+
+    def start_test(self):
+        self.ioloop.stop() # so start will terminate quickly
+        self.start()
+        self.ioloop.close()
+        self.assertIsNone(self.ioloop._callbacks)
+
+
+class IOLoopCloseBeforeStartReturnsTestSelect(IOLoopBaseTest):
+    """ Test calling IOLoop.close() before return from start() raises exception. """
+    SELECT_POLLER = 'select'
+
+    def start_test(self):
+        callback_completed = []
+
+        def call_close_from_callback():
+            with self.assertRaises(AssertionError) as cm:
+                self.ioloop.close()
+
+            self.assertEqual(cm.exception.args[0],
+                             'Cannot call close() before start() unwinds.')
+            self.ioloop.stop()
+            callback_completed.append(1)
+
+        self.ioloop.add_callback_threadsafe(call_close_from_callback)
+        self.start()
+        self.assertEqual(callback_completed, [1])
 
 
 class IOLoopThreadStopTestSelect(IOLoopBaseTest):
@@ -108,7 +138,21 @@ class IOLoopThreadStopTestSelect(IOLoopBaseTest):
             lambda: self.ioloop.add_callback_threadsafe(self.ioloop.stop))
         self.addCleanup(timer.cancel)
         timer.start()
-        self.start()
+        self.start() # NOTE: Normal return from `start()` constitutes success
+
+
+class IOLoopThreadStopTestSelect(IOLoopBaseTest):
+    """ Test ioloop being stopped by another Thread. """
+    SELECT_POLLER = 'select'
+
+    def start_test(self):
+        """Starts a thread that stops ioloop after a while and start polling"""
+        timer = threading.Timer(
+            0.1,
+            lambda: self.ioloop.add_callback_threadsafe(self.ioloop.stop))
+        self.addCleanup(timer.cancel)
+        timer.start()
+        self.start() # NOTE: Normal return from `start()` constitutes success
 
 
 @unittest.skipIf(not POLL_SUPPORTED, 'poll not supported')

@@ -555,8 +555,11 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
 
         """
         # Unregister and close ioloop-interrupt socket pair; mutual exclusion is
-        # necessary to avoid race condition with `wake_threadsafe` running in
+        # necessary to avoid race condition with `wake_threadsafe` executing in
         # another thread's context
+        assert self._start_nesting_levels == 0, \
+            'Cannot call close() before start() unwinds.'
+
         with self._waking_mutex:
             if self._w_interrupt is not None:
                 self.remove_handler(self._r_interrupt.fileno()) # pylint: disable=E1101
@@ -709,7 +712,6 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
 
         if self._start_nesting_levels == 1:
             LOGGER.debug('Entering IOLoop')
-            self._stopping = False
 
             # Activate the underlying poller and register current events
             self.activate_poller()
@@ -728,10 +730,13 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
             self._start_nesting_levels -= 1
 
             if self._start_nesting_levels == 0:
-                LOGGER.debug('Deactivating poller')
+                try:
+                    LOGGER.debug('Deactivating poller')
 
-                # Deactivate the underlying poller
-                self.deactivate_poller()
+                    # Deactivate the underlying poller
+                    self.deactivate_poller()
+                finally:
+                    self._stopping = False
             else:
                 LOGGER.debug('Leaving IOLoop with %s nesting levels remaining',
                              self._start_nesting_levels)

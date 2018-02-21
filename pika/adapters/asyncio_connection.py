@@ -21,6 +21,14 @@ class IOLoopAdapter:
         self.writers = set()
 
     def close(self):
+        """Release ioloop's resources.
+
+        This method is intended to be called by the application or test code
+        only after the ioloop's outermost `start()` call returns. After calling
+        `close()`, no other interaction with the closed instance of ioloop
+        should be performed.
+
+        """
         self.loop.close()
 
     def add_timeout(self, deadline, callback):

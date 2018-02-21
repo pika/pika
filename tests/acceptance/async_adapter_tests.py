@@ -495,6 +495,41 @@ class TestBlockedConnectionUnblocks(AsyncTestCase, AsyncAdapters):  # pylint: di
                                                              reply_text)
 
 
+class TestAddCallbackThreadsafeRequestBeforeIOLoopStarts(AsyncTestCase, AsyncAdapters):
+    DESCRIPTION = "Test add_callback_threadsafe request before ioloop starts."
+
+    def _instantiate_connection(self, *args, **kwargs):  # pylint: disable=W0221
+        """We intercept this method from AsyncTestCase in order to call
+        add_callback_threadsafe before AsyncTestCase starts the ioloop.
+        """
+        connection = super(
+            TestAddCallbackThreadsafeRequestBeforeIOLoopStarts, self).start(
+                *args, **kwargs)
+
+        self.my_start_time = time.time()
+        # Request a callback from our current (ioloop's) thread
+        connection.add_callback_threadsafe(self.on_requested_callback)
+
+        return connection
+
+    def start(self, *args, **kwargs):  # pylint: disable=W0221
+        self.loop_thread_ident = threading.current_thread().ident
+        self.my_start_time = None
+        self.got_callback = False
+        super(TestAddCallbackThreadsafeRequestBeforeIOLoopStarts, self).start(*args, **kwargs)
+        self.assertTrue(self.got_callback)
+
+    def begin(self, channel):
+        pass
+
+    def on_requested_callback(self):
+        self.assertEqual(threading.current_thread().ident,
+                         self.loop_thread_ident)
+        self.assertLess(time.time() - self.my_start_time, 0.25)
+        self.got_callback = True
+        self.stop()
+
+
 class TestAddCallbackThreadsafeFromIOLoopThread(AsyncTestCase, AsyncAdapters):
     DESCRIPTION = "Test add_callback_threadsafe request from same thread."
 
@@ -544,6 +579,33 @@ class TestAddCallbackThreadsafeFromAnotherThread(AsyncTestCase, AsyncAdapters):
         self.assertLess(time.time() - self.my_start_time, 0.25)
         self.got_callback = True
         self.stop()
+
+
+class TestIOLoopStopBeforeIOLoopStarts(AsyncTestCase, AsyncAdapters):
+    DESCRIPTION = "Test ioloop.stop() before ioloop starts causes ioloop to exit quickly."
+
+    def _instantiate_connection(self, *args, **kwargs):  # pylint: disable=W0221
+        """We intercept this method from AsyncTestCase in order to call
+        ioloop.stop() before AsyncTestCase starts the ioloop.
+        """
+        connection = super(
+            TestIOLoopStopBeforeIOLoopStarts, self).start(
+                *args, **kwargs)
+
+        # Request ioloop to stop before it starts
+        self.my_start_time = time.time()
+        connection.ioloop.stop()
+
+        return connection
+
+    def start(self, *args, **kwargs):  # pylint: disable=W0221
+        self.loop_thread_ident = threading.current_thread().ident
+        self.my_start_time = None
+        super(TestIOLoopStopBeforeIOLoopStarts, self).start(*args, **kwargs)
+        self.assertLess(time.time() - self.my_start_time, 0.25)
+
+    def begin(self, channel):
+        pass
 
 
 class TestViabilityOfMultipleTimeoutsWithSameDeadlineAndCallback(AsyncTestCase, AsyncAdapters):  # pylint: disable=C0103
