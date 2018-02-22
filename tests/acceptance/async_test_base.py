@@ -52,42 +52,52 @@ class AsyncTestCase(unittest.TestCase):
         """Extend to start the actual tests on the channel"""
         self.fail("AsyncTestCase.begin_test not extended")
 
-    def _instantiate_connection(self, adapter_class, ioloop_factory):
-        """Some tests need to subclass this in order to bootstrap their test
-         logic before we start the ioloop
-        """
-        return adapter_class(self.parameters, self.on_open,
-                             self.on_open_error, self.on_closed,
-                             custom_ioloop=ioloop_factory())
-
     def start(self, adapter, ioloop_factory):
         self.logger.info('start at %s', datetime.utcnow())
         self.adapter = adapter or self.ADAPTER
 
-        self.connection = self._instantiate_connection(self.adapter,
-                                                       ioloop_factory)
+        self.connection = self.adapter(self.parameters,
+                                       self.on_open,
+                                       self.on_open_error,
+                                       self.on_closed,
+                                       custom_ioloop=ioloop_factory())
         try:
             self.timeout = self.connection.add_timeout(self.TIMEOUT,
                                                        self.on_timeout)
-            self.connection.ioloop.start()
+            self._run_ioloop()
             self.assertFalse(self._timed_out)
         finally:
             self.connection.ioloop.close()
             self.connection = None
 
+    def stop_ioloop_only(self):
+        """Request stopping of the connection's ioloop to end the test without
+        closing the connection
+        """
+        self._safe_remove_test_timeout()
+        self.connection.ioloop.stop()
+
     def stop(self):
         """close the connection and stop the ioloop"""
         self.logger.info("Stopping test")
-        if self.timeout is not None:
-            self.connection.remove_timeout(self.timeout)
-            self.timeout = None
+        self._safe_remove_test_timeout()
         self.connection.close() # NOTE: on_closed() will stop the ioloop
 
-    def _stop(self):
+    def _run_ioloop(self):
+        """Some tests need to subclass this in order to bootstrap their test
+        logic after we instantiate the connection and assign it to
+        `self.connection`, but before we run the ioloop
+        """
+        self.connection.ioloop.start()
+
+    def _safe_remove_test_timeout(self):
         if hasattr(self, 'timeout') and self.timeout is not None:
             self.logger.info("Removing timeout")
             self.connection.remove_timeout(self.timeout)
             self.timeout = None
+
+    def _stop(self):
+        self._safe_remove_test_timeout()
         if hasattr(self, 'connection') and self.connection is not None:
             self.logger.info("Stopping ioloop")
             self.connection.ioloop.stop()

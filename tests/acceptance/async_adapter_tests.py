@@ -498,19 +498,18 @@ class TestBlockedConnectionUnblocks(AsyncTestCase, AsyncAdapters):  # pylint: di
 class TestAddCallbackThreadsafeRequestBeforeIOLoopStarts(AsyncTestCase, AsyncAdapters):
     DESCRIPTION = "Test add_callback_threadsafe request before ioloop starts."
 
-    def _instantiate_connection(self, *args, **kwargs):  # pylint: disable=W0221
+    def _run_ioloop(self, *args, **kwargs):  # pylint: disable=W0221
         """We intercept this method from AsyncTestCase in order to call
         add_callback_threadsafe before AsyncTestCase starts the ioloop.
-        """
-        connection = super(
-            TestAddCallbackThreadsafeRequestBeforeIOLoopStarts, self)._instantiate_connection(
-                *args, **kwargs)
 
+        """
         self.my_start_time = time.time()
         # Request a callback from our current (ioloop's) thread
-        connection.add_callback_threadsafe(self.on_requested_callback)
+        self.connection.add_callback_threadsafe(self.on_requested_callback)
 
-        return connection
+        return super(
+            TestAddCallbackThreadsafeRequestBeforeIOLoopStarts, self)._run_ioloop(
+                *args, **kwargs)
 
     def start(self, *args, **kwargs):  # pylint: disable=W0221
         self.loop_thread_ident = threading.current_thread().ident
@@ -583,19 +582,16 @@ class TestAddCallbackThreadsafeFromAnotherThread(AsyncTestCase, AsyncAdapters):
 class TestIOLoopStopBeforeIOLoopStarts(AsyncTestCase, AsyncAdapters):
     DESCRIPTION = "Test ioloop.stop() before ioloop starts causes ioloop to exit quickly."
 
-    def _instantiate_connection(self, *args, **kwargs):  # pylint: disable=W0221
+    def _run_ioloop(self, *args, **kwargs):  # pylint: disable=W0221
         """We intercept this method from AsyncTestCase in order to call
         ioloop.stop() before AsyncTestCase starts the ioloop.
         """
-        connection = super(
-            TestIOLoopStopBeforeIOLoopStarts, self)._instantiate_connection(
-                *args, **kwargs)
-
         # Request ioloop to stop before it starts
         self.my_start_time = time.time()
-        connection.ioloop.stop()
+        self.stop_ioloop_only()
 
-        return connection
+        return super(
+            TestIOLoopStopBeforeIOLoopStarts, self)._run_ioloop(*args, **kwargs)
 
     def start(self, *args, **kwargs):  # pylint: disable=W0221
         self.loop_thread_ident = threading.current_thread().ident
