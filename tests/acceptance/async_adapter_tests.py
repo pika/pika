@@ -503,7 +503,7 @@ class TestAddCallbackThreadsafeRequestBeforeIOLoopStarts(AsyncTestCase, AsyncAda
         add_callback_threadsafe before AsyncTestCase starts the ioloop.
         """
         connection = super(
-            TestAddCallbackThreadsafeRequestBeforeIOLoopStarts, self).start(
+            TestAddCallbackThreadsafeRequestBeforeIOLoopStarts, self)._instantiate_connection(
                 *args, **kwargs)
 
         self.my_start_time = time.time()
@@ -589,7 +589,7 @@ class TestIOLoopStopBeforeIOLoopStarts(AsyncTestCase, AsyncAdapters):
         ioloop.stop() before AsyncTestCase starts the ioloop.
         """
         connection = super(
-            TestIOLoopStopBeforeIOLoopStarts, self).start(
+            TestIOLoopStopBeforeIOLoopStarts, self)._instantiate_connection(
                 *args, **kwargs)
 
         # Request ioloop to stop before it starts
