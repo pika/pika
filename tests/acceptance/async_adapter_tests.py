@@ -520,14 +520,13 @@ class TestAddCallbackThreadsafeRequestBeforeIOLoopStarts(AsyncTestCase, AsyncAda
         self.assertTrue(self.got_callback)
 
     def begin(self, channel):
-        pass
+        self.stop()
 
     def on_requested_callback(self):
         self.assertEqual(threading.current_thread().ident,
                          self.loop_thread_ident)
         self.assertLess(time.time() - self.my_start_time, 0.25)
         self.got_callback = True
-        self.stop()
 
 
 class TestAddCallbackThreadsafeFromIOLoopThread(AsyncTestCase, AsyncAdapters):
