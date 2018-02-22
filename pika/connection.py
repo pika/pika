@@ -370,6 +370,8 @@ class Parameters(object):  # pylint: disable=R0902
         """
         :param value: desired connection heartbeat timeout for negotiation or
             None to accept broker's value. 0 turns heartbeat off.
+            Can be a callable that accepts server value and returns a new value
+            to be negotiated.
 
         """
         if value is not None:
@@ -612,9 +614,12 @@ class ConnectionParameters(Parameters):
         :param pika.credentials.Credentials credentials: auth credentials
         :param int channel_max: Maximum number of channels to allow
         :param int frame_max: The maximum byte size for an AMQP frame
-        :param int heartbeat: Heartbeat timeout. Max between this value
-            and server's proposal will be used as the heartbeat timeout. Use 0
-            to deactivate heartbeats and None to accept server's proposal.
+        :param int|callable heartbeat: Heartbeat timeout. If set and is
+            an integer value, it will be used during connection tuning.
+            If set and is a callable, it will be invoked during connection 
+            tuning and passed the server's proposal. Its return value will 
+            then be negotiated. Use 0 to deactivate heartbeats and 
+            None to accept server's proposal.
         :param bool ssl: Enable SSL
         :param dict ssl_options: None or a dict of arguments to be passed to
             ssl.wrap_socket
@@ -741,8 +746,10 @@ class URLParameters(Parameters):
         - frame_max:
             Override the default maximum frame size for communication
         - heartbeat:
-            Specify the number of seconds between heartbeat frames to ensure that
-            the link between RabbitMQ and your application is up
+            Either: Specify the number of seconds between heartbeat frames to ensure that
+            the link between RabbitMQ and your application is up (0 To disable heartbeats) 
+            Or: a callable to be invoked during connection tuning with server heartbeat 
+            as an argument and whose return value is then negotiated with server.
         - locale:
             Override the default `en_US` locale value
         - ssl:
