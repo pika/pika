@@ -373,10 +373,10 @@ class Parameters(object):  # pylint: disable=R0902
 
         """
         if value is not None:
-            if not isinstance(value, numbers.Integral):
-                raise TypeError('heartbeat must be an int, but got %r' %
+            if not isinstance(value, numbers.Integral) and not callable(value):
+                raise TypeError('heartbeat must be an int or a callable function, but got %r' %
                                 (value,))
-            if value < 0:
+            if not callable(value) and value < 0:
                 raise ValueError('heartbeat must >= 0, but got %r' % (value,))
         self._heartbeat = value
 
@@ -1943,6 +1943,8 @@ class Connection(object):
         > - The client responds and **MAY reduce those limits** for its
             connection
 
+        If the client specifies a value, it always takes precedence.
+
         :param client_value: None to accept server_value; otherwise, an integral
             number in seconds; 0 (zero) to disable heartbeat.
         :param server_value: integral value of the heartbeat timeout proposed by
@@ -1953,10 +1955,8 @@ class Connection(object):
         if client_value is None:
             # Accept server's limit
             timeout = server_value
-        elif client_value == 0:
-            timeout = 0
         else:
-            timeout = Connection._negotiate_integer_value(client_value, server_value)
+            timeout = client_value
 
         return timeout
 
@@ -1976,6 +1976,15 @@ class Connection(object):
                                                                       method_frame.method.channel_max)
         self.params.frame_max = Connection._negotiate_integer_value(self.params.frame_max,
                                                                     method_frame.method.frame_max)
+
+        if callable(self.params.heartbeat):
+            ret_heartbeat = self.params.heartbeat(method_frame.method.heartbeat)
+            if not isinstance(ret_heartbeat, numbers.Integral):
+                raise TypeError('heartbeat must be an int, but got %r' %
+                                (ret_heartbeat,))
+            if ret_heartbeat < 0:
+                raise ValueError('heartbeat must >= 0, but got %r' % (ret_heartbeat,))
+            self.params.heartbeat = ret_heartbeat
 
         # Negotiate heatbeat timeout
         self.params.heartbeat = self._tune_heartbeat_timeout(
