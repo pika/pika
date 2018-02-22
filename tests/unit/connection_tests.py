@@ -564,7 +564,7 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
         self.assertEqual(10000, self.connection.params.frame_max)
         self.assertEqual(20, self.connection.params.heartbeat)
         self.assertEqual(9992, self.connection._body_max_length)
-        heartbeat_checker.assert_called_once_with(self.connection, 10)
+        heartbeat_checker.assert_called_once_with(self.connection, 20)
         self.assertEqual(['ab'], list(self.connection.outbound_buffer))
         self.assertEqual('hearbeat obj', self.connection.heartbeat)
 
