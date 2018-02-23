@@ -618,11 +618,12 @@ class ConnectionParameters(Parameters):
         :param int frame_max: The maximum byte size for an AMQP frame
         :param int|callable heartbeat: Heartbeat timeout. If set and is
             an integer value, it will be used during connection tuning.
+            An integer value always overrides the broker's heartbeat proposal.
             Use 0 to deactivate heartbeats and None to always accept the 
-            server's proposal.
+            broker's proposal.
             If set and is a callable, it will be invoked during connection 
-            tuning and will have the server's proposed heartbeat as its single 
-            argument. Its return value will be used to override the server's 
+            tuning and will have the broker's proposed heartbeat as its single 
+            argument. Its return value will be used to override the broker's 
             proposal. 
         :param bool ssl: Enable SSL
         :param dict ssl_options: None or a dict of arguments to be passed to
