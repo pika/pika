@@ -623,8 +623,8 @@ class ConnectionParameters(Parameters):
             broker's proposal.
             If set and is a callable, it will be invoked during connection 
             tuning and will have the broker's proposed heartbeat as its single 
-            argument. Its return value will be used to override the broker's 
-            proposal. 
+            argument. Its return value should be a non-negative integer
+            that will be used to override the broker's proposal. 
         :param bool ssl: Enable SSL
         :param dict ssl_options: None or a dict of arguments to be passed to
             ssl.wrap_socket
