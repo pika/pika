@@ -49,8 +49,13 @@ class ConnectionTests(unittest.TestCase):
                             connect=mock.Mock(side_effect=mock_timeout))
                 ) as create_sock_mock:
                     params = pika.ConnectionParameters(socket_timeout=2.0)
-                    conn = asyncio_connection.AsyncioConnection(params)
+                    ioloop = asyncio_connection.asyncio.new_event_loop()
+                    self.addCleanup(ioloop.close)
+                    conn = asyncio_connection.AsyncioConnection(
+                        params,
+                        custom_ioloop=ioloop)
                     conn._on_connect_timer()
+
         create_sock_mock.return_value.settimeout.assert_called_with(2.0)
         self.assertIn('timeout', str(err_ctx.exception))
 
@@ -99,6 +104,7 @@ class ConnectionTests(unittest.TestCase):
                             side_effect=mock_timeout))) as create_sock_mock:
                 params = pika.ConnectionParameters(socket_timeout=2.0)
                 conn = select_connection.SelectConnection(params)
+                self.addCleanup(conn.ioloop.close)
                 conn._on_connect_timer()
         create_sock_mock.return_value.settimeout.assert_called_with(2.0)
         self.assertIn('timeout', str(err_ctx.exception))
@@ -113,7 +119,11 @@ class ConnectionTests(unittest.TestCase):
                         connect=mock.Mock(
                             side_effect=mock_timeout))) as create_sock_mock:
                 params = pika.ConnectionParameters(socket_timeout=2.0)
-                conn = tornado_connection.TornadoConnection(params)
+                ioloop = tornado_connection.ioloop.IOLoop()
+                self.addCleanup(ioloop.close)
+                conn = tornado_connection.TornadoConnection(
+                    params,
+                    custom_ioloop=ioloop)
                 conn._on_connect_timer()
         create_sock_mock.return_value.settimeout.assert_called_with(2.0)
         self.assertIn('timeout', str(err_ctx.exception))

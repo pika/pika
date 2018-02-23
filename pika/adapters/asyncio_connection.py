@@ -20,6 +20,17 @@ class IOLoopAdapter:
         self.readers = set()
         self.writers = set()
 
+    def close(self):
+        """Release ioloop's resources.
+
+        This method is intended to be called by the application or test code
+        only after the ioloop's outermost `start()` call returns. After calling
+        `close()`, no other interaction with the closed instance of ioloop
+        should be performed.
+
+        """
+        self.loop.close()
+
     def add_timeout(self, deadline, callback_method):
         """Add the callback_method to the EventLoop timer to fire after deadline
         seconds. Returns a Handle to the timeout.
@@ -40,6 +51,28 @@ class IOLoopAdapter:
         :rtype: bool
         """
         return handle.cancel()
+
+    def add_callback_threadsafe(self, callback):
+        """Requests a call to the given function as soon as possible in the
+        context of this IOLoop's thread.
+
+        NOTE: This is the only thread-safe method offered by the IOLoop adapter.
+         All other manipulations of the IOLoop adapter and its parent connection
+         must be performed from the connection's thread.
+
+        For example, a thread may request a call to the
+        `channel.basic_ack` method of a connection that is running in a
+        different thread via
+
+        ```
+        connection.add_callback_threadsafe(
+            functools.partial(channel.basic_ack, delivery_tag=...))
+        ```
+
+        :param method callback: The callback method; must be callable.
+
+        """
+        self.loop.call_soon_threadsafe(callback)
 
     def add_handler(self, fd, cb, event_state):
         """ Registers the given handler to receive the given events for ``fd``.

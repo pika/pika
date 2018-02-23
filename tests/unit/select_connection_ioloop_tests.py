@@ -20,6 +20,12 @@ import pika
 from pika import compat
 from pika.adapters import select_connection
 
+# protected-access
+# pylint: disable=W0212
+# missing-docstring
+# pylint: disable=C0111
+
+
 EPOLL_SUPPORTED = hasattr(select, 'epoll')
 POLL_SUPPORTED = hasattr(select, 'poll') and hasattr(select.poll(), 'modify')
 KQUEUE_SUPPORTED = hasattr(select, 'kqueue')
@@ -37,6 +43,7 @@ class IOLoopBaseTest(unittest.TestCase):
 
         self.ioloop = select_connection.IOLoop()
         self.addCleanup(setattr, self, 'ioloop', None)
+        self.addCleanup(self.ioloop.close)
 
         activate_poller_patch = mock.patch.object(
             self.ioloop._poller,
@@ -74,13 +81,76 @@ class IOLoopBaseTest(unittest.TestCase):
         self.fail('Test timed out')
 
 
+class IOLoopCloseClosesSubordinateObjectsTestSelect(IOLoopBaseTest):
+    """ Test ioloop being closed """
+    SELECT_POLLER = 'select'
+
+    def start_test(self):
+        with mock.patch.multiple(self.ioloop,
+                                 _timer=mock.DEFAULT,
+                                 _poller=mock.DEFAULT,
+                                 _callbacks=mock.DEFAULT) as mocks:
+            self.ioloop.close()
+            mocks['_timer'].close.assert_called_once()
+            mocks['_poller'].close.assert_called_once()
+            self.assertIsNone(self.ioloop._callbacks)
+
+
+class IOLoopCloseAfterStartReturnsTestSelect(IOLoopBaseTest):
+    """ Test IOLoop.close() after normal return from start(). """
+    SELECT_POLLER = 'select'
+
+    def start_test(self):
+        self.ioloop.stop() # so start will terminate quickly
+        self.start()
+        self.ioloop.close()
+        self.assertIsNone(self.ioloop._callbacks)
+
+
+class IOLoopCloseBeforeStartReturnsTestSelect(IOLoopBaseTest):
+    """ Test calling IOLoop.close() before return from start() raises exception. """
+    SELECT_POLLER = 'select'
+
+    def start_test(self):
+        callback_completed = []
+
+        def call_close_from_callback():
+            with self.assertRaises(AssertionError) as cm:
+                self.ioloop.close()
+
+            self.assertEqual(cm.exception.args[0],
+                             'Cannot call close() before start() unwinds.')
+            self.ioloop.stop()
+            callback_completed.append(1)
+
+        self.ioloop.add_callback_threadsafe(call_close_from_callback)
+        self.start()
+        self.assertEqual(callback_completed, [1])
+
+
 class IOLoopThreadStopTestSelect(IOLoopBaseTest):
     """ Test ioloop being stopped by another Thread. """
     SELECT_POLLER = 'select'
 
     def start_test(self):
         """Starts a thread that stops ioloop after a while and start polling"""
-        timer = threading.Timer(0.1, self.ioloop.stop)
+        timer = threading.Timer(
+            0.1,
+            lambda: self.ioloop.add_callback_threadsafe(self.ioloop.stop))
+        self.addCleanup(timer.cancel)
+        timer.start()
+        self.start() # NOTE: Normal return from `start()` constitutes success
+
+
+class IOLoopThreadStopTestSelect(IOLoopBaseTest):
+    """ Test ioloop being stopped by another Thread. """
+    SELECT_POLLER = 'select'
+
+    def start_test(self):
+        """Starts a thread that stops ioloop after a while and start polling"""
+        timer = threading.Timer(
+            0.1,
+            lambda: self.ioloop.add_callback_threadsafe(self.ioloop.stop))
         self.addCleanup(timer.cancel)
         timer.start()
         self.start() # NOTE: Normal return from `start()` constitutes success
@@ -441,6 +511,7 @@ class IOLoopEintrTestCaseSelect(IOLoopBaseTest):
         timer = select_connection._Timer()
         self.poller = self.ioloop._get_poller(timer.get_remaining_interval,
                                               timer.process_timeouts)
+        self.addCleanup(self.poller.close)
 
         sockpair = self.poller._get_interrupt_pair()
         self.addCleanup(sockpair[0].close)
@@ -496,6 +567,7 @@ class SelectPollerTestPollWithoutSockets(unittest.TestCase):
         poller = select_connection.SelectPoller(
             get_wait_seconds=timer.get_remaining_interval,
             process_timeouts=timer.process_timeouts)
+        self.addCleanup(poller.close)
 
         timer_call_container = []
         timer.call_later(0.00001, lambda: timer_call_container.append(1))
@@ -517,3 +589,46 @@ class SelectPollerTestPollWithoutSockets(unittest.TestCase):
                 break
 
         self.assertEqual(timer_call_container, [1])
+
+
+class PollerTestCaseSelect(unittest.TestCase):
+    SELECT_POLLER = 'select'
+
+    def setUp(self):
+        select_type_patch = mock.patch.multiple(
+            select_connection, SELECT_TYPE=self.SELECT_POLLER)
+        select_type_patch.start()
+        self.addCleanup(select_type_patch.stop)
+
+        timer = select_connection._Timer()
+        self.addCleanup(timer.close)
+        self.poller = select_connection.IOLoop._get_poller(
+            timer.get_remaining_interval,
+            timer.process_timeouts)
+        self.addCleanup(self.poller.close)
+
+    def test_poller_close(self):
+        self.poller.close()
+        self.assertIsNone(self.poller._r_interrupt)
+        self.assertIsNone(self.poller._w_interrupt)
+        self.assertIsNone(self.poller._fd_handlers)
+        self.assertIsNone(self.poller._fd_events)
+        self.assertIsNone(self.poller._processing_fd_event_map)
+
+
+@unittest.skipIf(not POLL_SUPPORTED, 'poll not supported')
+class PollerTestCasePoll(PollerTestCaseSelect):
+    """Same as PollerTestCaseSelect but uses poll syscall"""
+    SELECT_POLLER = 'poll'
+
+
+@unittest.skipIf(not EPOLL_SUPPORTED, 'epoll not supported')
+class PollerTestCaseEPoll(PollerTestCaseSelect):
+    """Same as PollerTestCaseSelect but uses epoll syscall"""
+    SELECT_POLLER = 'epoll'
+
+
+@unittest.skipIf(not KQUEUE_SUPPORTED, 'kqueue not supported')
+class PollerTestCaseKqueue(PollerTestCaseSelect):
+    """Same as PollerTestCaseSelect but uses kqueue syscall"""
+    SELECT_POLLER = 'kqueue'
