@@ -368,10 +368,12 @@ class Parameters(object):  # pylint: disable=R0902
     @heartbeat.setter
     def heartbeat(self, value):
         """
-        :param value: desired connection heartbeat timeout for negotiation or
-            None to accept broker's value. 0 turns heartbeat off.
-            Can be a callable that accepts server value and returns a new value
-            to be negotiated.
+        :param value: desired connection heartbeat timeout for negotiation
+            or None to accept broker's value. 0 turns heartbeat off.
+            A callable can be given instead of an integer value. In this case
+            the callable will be invoked during connection tuning phase and is
+            given broker's value as an argument. The callable should return 
+            the integer value to be proposed as connection heartbeat timeout.
 
         """
         if value is not None:
@@ -616,10 +618,12 @@ class ConnectionParameters(Parameters):
         :param int frame_max: The maximum byte size for an AMQP frame
         :param int|callable heartbeat: Heartbeat timeout. If set and is
             an integer value, it will be used during connection tuning.
+            Use 0 to deactivate heartbeats and None to always accept the 
+            server's proposal.
             If set and is a callable, it will be invoked during connection 
-            tuning and passed the server's proposal. Its return value will 
-            then be negotiated. Use 0 to deactivate heartbeats and 
-            None to accept server's proposal.
+            tuning and will have the server's proposed heartbeat as its single 
+            argument. Its return value will be used to override the server's 
+            proposal. 
         :param bool ssl: Enable SSL
         :param dict ssl_options: None or a dict of arguments to be passed to
             ssl.wrap_socket
@@ -746,10 +750,8 @@ class URLParameters(Parameters):
         - frame_max:
             Override the default maximum frame size for communication
         - heartbeat:
-            Either: Specify the number of seconds between heartbeat frames to ensure that
-            the link between RabbitMQ and your application is up (0 To disable heartbeats) 
-            Or: a callable to be invoked during connection tuning with server heartbeat 
-            as an argument and whose return value is then negotiated with server.
+            Desired connection heartbeat timeout for negotiation. If not present
+            the broker's value is accepted. 0 turns heartbeat off.
         - locale:
             Override the default `en_US` locale value
         - ssl:
