@@ -241,6 +241,11 @@ class ParametersTests(_ParametersTestsBase):
         with self.assertRaises(ValueError):
             params.heartbeat = -1
 
+        def hearbeat_callback(val):
+            return 1
+        params.heartbeat = heartbeat_callback
+        self.assertEqual(callable(params.heartbeat), True)
+
     def test_host(self):
         params = connection.Parameters()
 
