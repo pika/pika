@@ -91,6 +91,20 @@ class TimeoutClassTests(unittest.TestCase):
 class TimerClassTests(unittest.TestCase):
     """Test select_connection._Timer class"""
 
+    def test_close_empty(self):
+        timer = select_connection._Timer()
+        timer.close()
+        self.assertIsNone(timer._timeout_heap)
+
+    def test_close_non_empty(self):
+        timer = select_connection._Timer()
+        t1 = timer.call_later(10, lambda: 10)
+        t2 = timer.call_later(20, lambda: 20)
+        timer.close()
+        self.assertIsNone(timer._timeout_heap)
+        self.assertIsNone(t1.callback)
+        self.assertIsNone(t2.callback)
+
     def test_no_timeouts_remaining_interval_is_none(self):
         timer = select_connection._Timer()
         self.assertIsNone(timer.get_remaining_interval())

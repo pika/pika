@@ -125,8 +125,7 @@ class BlockingConnectionTests(unittest.TestCase):
         connection._flush_output(lambda: False, lambda: True)
 
         self.assertEqual(connection._impl.ioloop.activate_poller.call_count, 1)
-        self.assertEqual(connection._impl.ioloop.deactivate_poller.call_count,
-                         1)
+        self.assertEqual(connection._impl.ioloop.close.call_count, 1)
 
     @patch.object(
         blocking_connection,
@@ -151,8 +150,7 @@ class BlockingConnectionTests(unittest.TestCase):
         self.assertSequenceEqual(cm.exception.args, (404, 'not found'))
 
         self.assertEqual(connection._impl.ioloop.activate_poller.call_count, 1)
-        self.assertEqual(connection._impl.ioloop.deactivate_poller.call_count,
-                         1)
+        self.assertEqual(connection._impl.ioloop.close.call_count, 1)
 
     @patch.object(
         blocking_connection,
@@ -177,8 +175,7 @@ class BlockingConnectionTests(unittest.TestCase):
         self.assertSequenceEqual(cm.exception.args, (200, 'ok'))
 
         self.assertEqual(connection._impl.ioloop.activate_poller.call_count, 1)
-        self.assertEqual(connection._impl.ioloop.deactivate_poller.call_count,
-                         1)
+        self.assertEqual(connection._impl.ioloop.close.call_count, 1)
 
     @patch.object(
         blocking_connection,

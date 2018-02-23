@@ -1244,8 +1244,11 @@ class Connection(object):
             LOGGER.warning('Suppressing close request on %s', self)
             return
 
+        # NOTE The connection is either in opening or open state
+
         # Initiate graceful closing of channels that are OPEN or OPENING
-        self._close_channels(reply_code, reply_text)
+        if self._channels:
+            self._close_channels(reply_code, reply_text)
 
         # Set our connection state
         self._set_connection_state(self.CONNECTION_CLOSING)

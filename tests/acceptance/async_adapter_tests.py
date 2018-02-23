@@ -11,6 +11,7 @@
 # pylint: disable=W0613
 
 import functools
+import threading
 import time
 import uuid
 
@@ -37,6 +38,7 @@ class TestConfirmSelect(AsyncTestCase, AsyncAdapters):
         channel.confirm_delivery(ack_nack_callback=self.ack_nack_callback,
                                  callback=self.on_complete)
 
+    @staticmethod
     def ack_nack_callback(frame):
         pass
 
@@ -491,6 +493,114 @@ class TestBlockedConnectionUnblocks(AsyncTestCase, AsyncAdapters):  # pylint: di
         super(TestBlockedConnectionUnblocks, self).on_closed(connection,
                                                              reply_code,
                                                              reply_text)
+
+
+class TestAddCallbackThreadsafeRequestBeforeIOLoopStarts(AsyncTestCase, AsyncAdapters):
+    DESCRIPTION = "Test add_callback_threadsafe request before ioloop starts."
+
+    def _run_ioloop(self, *args, **kwargs):  # pylint: disable=W0221
+        """We intercept this method from AsyncTestCase in order to call
+        add_callback_threadsafe before AsyncTestCase starts the ioloop.
+
+        """
+        self.my_start_time = time.time()
+        # Request a callback from our current (ioloop's) thread
+        self.connection.add_callback_threadsafe(self.on_requested_callback)
+
+        return super(
+            TestAddCallbackThreadsafeRequestBeforeIOLoopStarts, self)._run_ioloop(
+                *args, **kwargs)
+
+    def start(self, *args, **kwargs):  # pylint: disable=W0221
+        self.loop_thread_ident = threading.current_thread().ident
+        self.my_start_time = None
+        self.got_callback = False
+        super(TestAddCallbackThreadsafeRequestBeforeIOLoopStarts, self).start(*args, **kwargs)
+        self.assertTrue(self.got_callback)
+
+    def begin(self, channel):
+        self.stop()
+
+    def on_requested_callback(self):
+        self.assertEqual(threading.current_thread().ident,
+                         self.loop_thread_ident)
+        self.assertLess(time.time() - self.my_start_time, 0.25)
+        self.got_callback = True
+
+
+class TestAddCallbackThreadsafeFromIOLoopThread(AsyncTestCase, AsyncAdapters):
+    DESCRIPTION = "Test add_callback_threadsafe request from same thread."
+
+    def start(self, *args, **kwargs):
+        self.loop_thread_ident = threading.current_thread().ident
+        self.my_start_time = None
+        self.got_callback = False
+        super(TestAddCallbackThreadsafeFromIOLoopThread, self).start(*args, **kwargs)
+        self.assertTrue(self.got_callback)
+
+    def begin(self, channel):
+        self.my_start_time = time.time()
+        # Request a callback from our current (ioloop's) thread
+        channel.connection.add_callback_threadsafe(self.on_requested_callback)
+
+    def on_requested_callback(self):
+        self.assertEqual(threading.current_thread().ident,
+                         self.loop_thread_ident)
+        self.assertLess(time.time() - self.my_start_time, 0.25)
+        self.got_callback = True
+        self.stop()
+
+
+class TestAddCallbackThreadsafeFromAnotherThread(AsyncTestCase, AsyncAdapters):
+    DESCRIPTION = "Test add_callback_threadsafe request from another thread."
+
+    def start(self, *args, **kwargs):
+        self.loop_thread_ident = threading.current_thread().ident
+        self.my_start_time = None
+        self.got_callback = False
+        super(TestAddCallbackThreadsafeFromAnotherThread, self).start(*args, **kwargs)
+        self.assertTrue(self.got_callback)
+
+    def begin(self, channel):
+        self.my_start_time = time.time()
+        # Request a callback from ioloop while executing in another thread
+        timer = threading.Timer(
+            0,
+            lambda: channel.connection.add_callback_threadsafe(
+                self.on_requested_callback))
+        self.addCleanup(timer.cancel)
+        timer.start()
+
+    def on_requested_callback(self):
+        self.assertEqual(threading.current_thread().ident,
+                         self.loop_thread_ident)
+        self.assertLess(time.time() - self.my_start_time, 0.25)
+        self.got_callback = True
+        self.stop()
+
+
+class TestIOLoopStopBeforeIOLoopStarts(AsyncTestCase, AsyncAdapters):
+    DESCRIPTION = "Test ioloop.stop() before ioloop starts causes ioloop to exit quickly."
+
+    def _run_ioloop(self, *args, **kwargs):  # pylint: disable=W0221
+        """We intercept this method from AsyncTestCase in order to call
+        ioloop.stop() before AsyncTestCase starts the ioloop.
+        """
+        # Request ioloop to stop before it starts
+        self.my_start_time = time.time()
+        self.stop_ioloop_only()
+
+        return super(
+            TestIOLoopStopBeforeIOLoopStarts, self)._run_ioloop(*args, **kwargs)
+
+    def start(self, *args, **kwargs):  # pylint: disable=W0221
+        self.loop_thread_ident = threading.current_thread().ident
+        self.my_start_time = None
+        super(TestIOLoopStopBeforeIOLoopStarts, self).start(*args, **kwargs)
+        self.assertLess(time.time() - self.my_start_time, 0.25)
+
+    def begin(self, channel):
+        pass
 
 
 class TestViabilityOfMultipleTimeoutsWithSameDeadlineAndCallback(AsyncTestCase, AsyncAdapters):  # pylint: disable=C0103
