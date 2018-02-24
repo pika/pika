@@ -5,6 +5,7 @@ isolate socket and low level communication.
 """
 import errno
 import logging
+import numbers
 import socket
 import ssl
 
@@ -26,10 +27,12 @@ class BaseConnection(connection.Connection):
     WRITE = 0x0004
     ERROR = 0x0008
 
+    ERRORS_TO_IGNORE = [errno.EWOULDBLOCK, errno.EAGAIN, errno.EINTR]
+
     ERRORS_TO_ABORT = [
         errno.EBADF, errno.ECONNABORTED, errno.EPIPE, errno.ETIMEDOUT
     ]
-    ERRORS_TO_IGNORE = [errno.EWOULDBLOCK, errno.EAGAIN, errno.EINTR]
+
     DO_HANDSHAKE = True
 
     def __init__(self,
@@ -275,9 +278,9 @@ class BaseConnection(connection.Connection):
             except ssl.SSLError as err:
                 # TODO these exc are for non-blocking sockets, but ours isn't
                 # at this stage, so it's not clear why we have this.
-                if err.args[0] == ssl.SSL_ERROR_WANT_READ:
+                if err.errno == ssl.SSL_ERROR_WANT_READ:
                     self.event_state = self.READ
-                elif err.args[0] == ssl.SSL_ERROR_WANT_WRITE:
+                elif err.errno == ssl.SSL_ERROR_WANT_WRITE:
                     self.event_state = self.WRITE
                 else:
                     raise
@@ -288,19 +291,6 @@ class BaseConnection(connection.Connection):
         """Wrap `socket.getaddrinfo` to make it easier to patch for unit tests
         """
         return socket.getaddrinfo(host, port, family, socktype, proto)
-
-    @staticmethod
-    def _get_error_code(error_value):
-        """Get the error code from the error_value accounting for Python
-        version differences.
-
-        :rtype: int
-
-        """
-        if not error_value:
-            return None
-
-        return error_value.errno
 
     def _flush_outbound(self):
         """Have the state manager schedule the necessary I/O.
@@ -315,44 +305,45 @@ class BaseConnection(connection.Connection):
         # called), etc., etc., etc.
         self._manage_event_state()
 
-    def _handle_error(self, error_value):
+    def _handle_connection_sock_error(self, error_value):
         """Internal error handling method. Here we expect a socket error
         coming in and will handle different socket errors differently.
 
-        :param int|object error_value: The inbound error
+        :param int|object error_value: The inbound error. Either numeric error
+            code or an exception object with `errno` attribute.
 
         """
-        # TODO doesn't seem right: docstring defines error_value as int|object,
-        # but _get_error_code expects a falsie or an exception-like object
-        error_code = self._get_error_code(error_value)
+        if isinstance(error_value, numbers.Integral):
+            error_code = error_value
+        else:
+            error_code = error_value.errno
 
-        if not error_code:
-            LOGGER.critical("Tried to handle an error where no error existed")
-            return
-
-        # Ok errors, just continue what we were doing before
-        if error_code in self.ERRORS_TO_IGNORE:
-            LOGGER.debug("Ignoring %s", error_code)
-            return
+        # Assertion failure here would indicate internal logic error
+        assert error_code, "No error existed: %r" % (error_value,)
+        assert error_code not in self.ERRORS_TO_IGNORE, \
+            "Soft error not handled by I/O logic: %r" % (error_value,)
 
         # Socket is no longer connected, abort
-        elif error_code in self.ERRORS_TO_ABORT:
+        if error_code in self.ERRORS_TO_ABORT:
             LOGGER.error("Fatal Socket Error: %r", error_value)
 
         elif self.params.ssl and isinstance(error_value, ssl.SSLError):
 
-            if error_value.args[0] == ssl.SSL_ERROR_WANT_READ:
+            if error_value.errno == ssl.SSL_ERROR_WANT_READ:
                 # TODO doesn't seem right: this logic updates event state, but
                 # the logic at the bottom unconditionaly disconnects anyway.
+                # Clearly, we're not prepared to handle re-handshaking. It
+                # should have been handled gracefully without ending up in this
+                # error handler; ditto for SSL_ERROR_WANT_WRITE below.
                 self.event_state = self.READ
-            elif error_value.args[0] == ssl.SSL_ERROR_WANT_WRITE:
+            elif error_value.errno == ssl.SSL_ERROR_WANT_WRITE:
                 self.event_state = self.WRITE
             else:
                 LOGGER.error("SSL Socket error: %r", error_value)
 
         else:
             # Haven't run into this one yet, log it.
-            LOGGER.error("Socket Error: %s", error_code)
+            LOGGER.error("Unexpected socket Error: %s", error_code)
 
         # Disconnect from our IOLoop and let Connection know what's up
         self._on_terminate(connection.InternalCloseReasons.SOCKET_ERROR,
@@ -379,13 +370,16 @@ class BaseConnection(connection.Connection):
             self._handle_write()
             self._manage_event_state()
 
+        num_read = 0
         if self.socket and (events & self.READ):
-            self._handle_read()
+            num_read = self._handle_read()
 
+        
         if self.socket and (events & self.ERROR):
             error = self.socket.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
-            LOGGER.error('Error event %r, %r', events, error)
-            self._handle_error(error)
+            LOGGER.error('Error events %r; error code %r; num_read %r',
+                         events, error, num_read)
+            self._handle_connection_sock_error(error)
 
     def _handle_read(self):
         """Read from the socket and call our on_data_available with the data."""
@@ -409,19 +403,19 @@ class BaseConnection(connection.Connection):
             return 0
 
         except ssl.SSLError as error:
-            if error.args[0] == ssl.SSL_ERROR_WANT_READ:
+            if error.errno == ssl.SSL_ERROR_WANT_READ:
                 # ssl wants more data but there is nothing currently
                 # available in the socket, wait for it to become readable.
                 return 0
-            return self._handle_error(error)
+            return self._handle_connection_sock_error(error)
 
         except SOCKET_ERROR as error:
             if error.errno in (errno.EAGAIN, errno.EWOULDBLOCK):
                 return 0
-            return self._handle_error(error)
+            return self._handle_connection_sock_error(error)
 
-        # Empty data, should disconnect
-        if not data or data == 0:
+        if not data:
+            # Remote peer closed or shut down our input stream - disconnect
             LOGGER.error('Read empty data, calling disconnect')
             return self._on_terminate(
                 connection.InternalCloseReasons.SOCKET_ERROR, "EOF")
@@ -460,21 +454,21 @@ class BaseConnection(connection.Connection):
             self._handle_timeout()
 
         except ssl.SSLError as error:
-            if error.args[0] == ssl.SSL_ERROR_WANT_WRITE:
+            if error.errno == ssl.SSL_ERROR_WANT_WRITE:
                 # In Python 3.5+, SSLSocket.send raises this if the socket is
                 # not currently able to write. Handle this just like an
                 # EWOULDBLOCK socket error.
                 LOGGER.debug("Would block, requeuing frame")
                 self.outbound_buffer.appendleft(frame)
             else:
-                return self._handle_error(error)
+                return self._handle_connection_sock_error(error)
 
         except SOCKET_ERROR as error:
             if error.errno in (errno.EAGAIN, errno.EWOULDBLOCK):
                 LOGGER.debug("Would block, requeuing frame")
                 self.outbound_buffer.appendleft(frame)
             else:
-                return self._handle_error(error)
+                return self._handle_connection_sock_error(error)
 
         return total_bytes_sent
 
