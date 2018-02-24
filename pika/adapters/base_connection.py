@@ -364,15 +364,13 @@ class BaseConnection(connection.Connection):
         only have the socket in a blocking state during connect."""
         LOGGER.warning("Unexpected socket timeout")
 
-    def _handle_connection_sock_events(self, fd, events, error=None,
-                                       write_only=False):
+    def _handle_connection_sock_events(self, fd, events, error=None):
         """Handle IO/Event loop events, processing them.
 
         :param int fd: The file descriptor for the events
         :param int events: Events from the IO/Event loop
         :param int error: Was an error specified; TODO none of the current
           adapters appear to be able to pass the `error` arg - is it needed?
-        :param bool write_only: Only handle write events
 
         """
         if not self.socket:
@@ -383,16 +381,8 @@ class BaseConnection(connection.Connection):
             self._handle_write()
             self._manage_event_state()
 
-        if self.socket and not write_only and (events & self.READ):
+        if self.socket and (events & self.READ):
             self._handle_read()
-
-        if (self.socket and write_only and (events & self.READ) and
-            (events & self.ERROR)):
-            error_msg = ('BAD libc:  Write-Only but Read+Error. '
-                         'Assume socket disconnected.')
-            LOGGER.error(error_msg)
-            self._on_terminate(connection.InternalCloseReasons.SOCKET_ERROR,
-                               error_msg)
 
         if self.socket and (events & self.ERROR):
             LOGGER.error('Error event %r, %r', events, error)
