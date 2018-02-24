@@ -48,7 +48,8 @@ class TornadoConnection(base_connection.BaseConnection):
         """
         error = super(TornadoConnection, self)._adapter_connect()
         if not error:
-            self.ioloop.add_handler(self.socket.fileno(), self._handle_events,
+            self.ioloop.add_handler(self.socket.fileno(),
+                                    self._handle_connection_sock_events,
                                     self.event_state)
         return error
 

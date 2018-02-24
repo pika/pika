@@ -364,7 +364,8 @@ class BaseConnection(connection.Connection):
         only have the socket in a blocking state during connect."""
         LOGGER.warning("Unexpected socket timeout")
 
-    def _handle_events(self, fd, events, error=None, write_only=False):
+    def _handle_connection_sock_events(self, fd, events, error=None,
+                                       write_only=False):
         """Handle IO/Event loop events, processing them.
 
         :param int fd: The file descriptor for the events
