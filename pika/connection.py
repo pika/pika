@@ -1989,11 +1989,11 @@ class Connection(object):
 
         if callable(self.params.heartbeat):
             ret_heartbeat = self.params.heartbeat(method_frame.method.heartbeat)
-            if not isinstance(ret_heartbeat, numbers.Integral):
-                raise TypeError('heartbeat must be an int, but got %r' %
-                                (ret_heartbeat,))
-            if ret_heartbeat < 0:
-                raise ValueError('heartbeat must >= 0, but got %r' % (ret_heartbeat,))
+            if ret_heartbeat is None or callable(ret_heartbeat):
+                # Enforce callback-specific restrictions on callback's return value
+                raise TypeError('heartbeat callback must must not return None or callable, but got %r' % (ret_heartbeat,))
+            
+            # Let hearbeat setter deal with the rest of the validation, so as not to duplicate the additional validation logic
             self.params.heartbeat = ret_heartbeat
 
         # Negotiate heatbeat timeout
