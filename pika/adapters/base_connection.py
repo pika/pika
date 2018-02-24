@@ -364,13 +364,11 @@ class BaseConnection(connection.Connection):
         only have the socket in a blocking state during connect."""
         LOGGER.warning("Unexpected socket timeout")
 
-    def _handle_connection_sock_events(self, fd, events, error=None):
+    def _handle_connection_sock_events(self, fd, events):
         """Handle IO/Event loop events, processing them.
 
         :param int fd: The file descriptor for the events
         :param int events: Events from the IO/Event loop
-        :param int error: Was an error specified; TODO none of the current
-          adapters appear to be able to pass the `error` arg - is it needed?
 
         """
         if not self.socket:
@@ -385,6 +383,7 @@ class BaseConnection(connection.Connection):
             self._handle_read()
 
         if self.socket and (events & self.ERROR):
+            error = self.socket.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
             LOGGER.error('Error event %r, %r', events, error)
             self._handle_error(error)
 
