@@ -357,10 +357,11 @@ class Parameters(object):  # pylint: disable=R0902
     @property
     def heartbeat(self):
         """
-        :returns: desired connection heartbeat timeout for negotiation or
+        :returns: AMQP connection heartbeat timeout value for negotiation during
+            connection tuning or callable which is invoked during connection tuning. 
             None to accept broker's value. 0 turns heartbeat off. Defaults to
             `DEFAULT_HEARTBEAT_TIMEOUT`.
-        :rtype: integer, float, or None
+        :rtype: integer, None or callable
 
         """
         return self._heartbeat
@@ -368,13 +369,13 @@ class Parameters(object):  # pylint: disable=R0902
     @heartbeat.setter
     def heartbeat(self, value):
         """
-        :param value: desired connection heartbeat timeout for negotiation
-            or None to accept broker's value. 0 turns heartbeat off.
-            A callable can be given instead of an integer value. In this case
-            the callable will be invoked during connection tuning phase and is
-            given broker's value as an argument. The callable should return 
-            the integer value to be proposed as connection heartbeat timeout.
-
+        :param int|None|callable value: Controls AMQP heartbeat timeout negotiation
+            during connection tuning. An integer value always overrides the value
+            proposed by broker. Use 0 to deactivate heartbeats and None to always
+            accept the broker's proposal. If a callable is given, it will be called
+            with the connection instance and the heartbeat timeout proposed by broker
+            as its arguments. The callback should return a non-negative integer that
+            will be used to override the broker's proposal.
         """
         if value is not None:
             if not isinstance(value, numbers.Integral) and not callable(value):
@@ -616,15 +617,13 @@ class ConnectionParameters(Parameters):
         :param pika.credentials.Credentials credentials: auth credentials
         :param int channel_max: Maximum number of channels to allow
         :param int frame_max: The maximum byte size for an AMQP frame
-        :param int|callable heartbeat: Heartbeat timeout. If set and is
-            an integer value, it will be used during connection tuning.
-            An integer value always overrides the broker's heartbeat proposal.
-            Use 0 to deactivate heartbeats and None to always accept the 
-            broker's proposal.
-            If set and is a callable, it will be invoked during connection 
-            tuning and will have the broker's proposed heartbeat as its single 
-            argument. Its return value should be a non-negative integer
-            that will be used to override the broker's proposal. 
+        :param int|None|callable value: Controls AMQP heartbeat timeout negotiation
+            during connection tuning. An integer value always overrides the value
+            proposed by broker. Use 0 to deactivate heartbeats and None to always
+            accept the broker's proposal. If a callable is given, it will be called
+            with the connection instance and the heartbeat timeout proposed by broker
+            as its arguments. The callback should return a non-negative integer that
+            will be used to override the broker's proposal.
         :param bool ssl: Enable SSL
         :param dict ssl_options: None or a dict of arguments to be passed to
             ssl.wrap_socket
@@ -1988,7 +1987,7 @@ class Connection(object):
                                                                     method_frame.method.frame_max)
 
         if callable(self.params.heartbeat):
-            ret_heartbeat = self.params.heartbeat(method_frame.method.heartbeat)
+            ret_heartbeat = self.params.heartbeat(self, method_frame.method.heartbeat)
             if ret_heartbeat is None or callable(ret_heartbeat):
                 # Enforce callback-specific restrictions on callback's return value
                 raise TypeError('heartbeat callback must must not return None or callable, but got %r' % (ret_heartbeat,))
