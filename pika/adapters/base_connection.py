@@ -18,13 +18,17 @@ from pika.compat import SOL_TCP
 LOGGER = logging.getLogger(__name__)
 
 
-class BaseConnection(connection.Connection):
-    """BaseConnection class that should be extended by connection adapters"""
+class PollEvents(object):
+    """Event flags for I/O"""
 
     # Use epoll's constants to keep life easy
-    READ = 0x0001
-    WRITE = 0x0004
-    ERROR = 0x0008
+    READ = 0x0001  # available for read
+    WRITE = 0x0004  # available for write
+    ERROR = 0x0008  # error on associated fd
+
+
+class BaseConnection(connection.Connection):
+    """BaseConnection class that should be extended by connection adapters"""
 
     ERRORS_TO_ABORT = [
         errno.EBADF, errno.ECONNABORTED, errno.EPIPE, errno.ETIMEDOUT
@@ -58,7 +62,7 @@ class BaseConnection(connection.Connection):
         # Let the developer know we could not import SSL
         if parameters and parameters.ssl and not ssl:
             raise RuntimeError("SSL specified but it is not available")
-        self.base_events = self.READ | self.ERROR
+        self.base_events = PollEvents.READ | PollEvents.ERROR
         self.event_state = self.base_events
         self.ioloop = ioloop
         self.socket = None
@@ -276,9 +280,9 @@ class BaseConnection(connection.Connection):
                 # TODO these exc are for non-blocking sockets, but ours isn't
                 # at this stage, so it's not clear why we have this.
                 if err.args[0] == ssl.SSL_ERROR_WANT_READ:
-                    self.event_state = self.READ
+                    self.event_state = PollEvents.READ
                 elif err.args[0] == ssl.SSL_ERROR_WANT_WRITE:
-                    self.event_state = self.WRITE
+                    self.event_state = PollEvents.WRITE
                 else:
                     raise
                 self._manage_event_state()
@@ -344,9 +348,9 @@ class BaseConnection(connection.Connection):
             if error_value.args[0] == ssl.SSL_ERROR_WANT_READ:
                 # TODO doesn't seem right: this logic updates event state, but
                 # the logic at the bottom unconditionaly disconnects anyway.
-                self.event_state = self.READ
+                self.event_state = PollEvents.READ
             elif error_value.args[0] == ssl.SSL_ERROR_WANT_WRITE:
-                self.event_state = self.WRITE
+                self.event_state = PollEvents.WRITE
             else:
                 LOGGER.error("SSL Socket error: %r", error_value)
 
@@ -358,7 +362,7 @@ class BaseConnection(connection.Connection):
         self._on_terminate(connection.InternalCloseReasons.SOCKET_ERROR,
                            repr(error_value))
 
-    def _handle_timeout(self):
+    def _handle_timeout(self):  # pylint: disable=R0201
         """Handle a socket timeout in read or write.
         We don't do anything in the non-blocking handlers because we
         only have the socket in a blocking state during connect."""
@@ -368,7 +372,7 @@ class BaseConnection(connection.Connection):
         """Handle IO/Event loop events, processing them.
 
         :param int fd: The file descriptor for the events
-        :param int events: Events from the IO/Event loop
+        :param int events: Events from the IO/Event loop using epoll event flags
         :param int error: Was an error specified; TODO none of the current
           adapters appear to be able to pass the `error` arg - is it needed?
         :param bool write_only: Only handle write events
@@ -378,22 +382,22 @@ class BaseConnection(connection.Connection):
             LOGGER.error('Received events on closed socket: %r', fd)
             return
 
-        if self.socket and (events & self.WRITE):
+        if self.socket and (events & PollEvents.WRITE):
             self._handle_write()
             self._manage_event_state()
 
-        if self.socket and not write_only and (events & self.READ):
+        if self.socket and not write_only and (events & PollEvents.READ):
             self._handle_read()
 
-        if (self.socket and write_only and (events & self.READ) and
-            (events & self.ERROR)):
+        if (self.socket and write_only and (events & PollEvents.READ) and
+                (events & PollEvents.ERROR)):
             error_msg = ('BAD libc:  Write-Only but Read+Error. '
                          'Assume socket disconnected.')
             LOGGER.error(error_msg)
             self._on_terminate(connection.InternalCloseReasons.SOCKET_ERROR,
                                error_msg)
 
-        if self.socket and (events & self.ERROR):
+        if self.socket and (events & PollEvents.ERROR):
             LOGGER.error('Error event %r, %r', events, error)
             self._handle_error(error)
 
@@ -495,7 +499,7 @@ class BaseConnection(connection.Connection):
 
         """
         super(BaseConnection, self)._init_connection_state()
-        self.base_events = self.READ | self.ERROR
+        self.base_events = PollEvents.READ | PollEvents.ERROR
         self.event_state = self.base_events
         self.socket = None
 
@@ -506,11 +510,11 @@ class BaseConnection(connection.Connection):
 
         """
         if self.outbound_buffer:
-            if not self.event_state & self.WRITE:
-                self.event_state |= self.WRITE
+            if not self.event_state & PollEvents.WRITE:
+                self.event_state |= PollEvents.WRITE
                 self.ioloop.update_handler(self.socket.fileno(),
                                            self.event_state)
-        elif self.event_state & self.WRITE:
+        elif self.event_state & PollEvents.WRITE:
             self.event_state = self.base_events
             self.ioloop.update_handler(self.socket.fileno(), self.event_state)
 

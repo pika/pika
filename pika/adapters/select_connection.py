@@ -14,17 +14,12 @@ import threading
 
 import pika.compat
 
-from pika.adapters.base_connection import BaseConnection
+from pika.adapters.base_connection import BaseConnection, PollEvents
 
 LOGGER = logging.getLogger(__name__)
 
 # One of select, epoll, kqueue or poll
 SELECT_TYPE = None
-
-# Use epoll's constants to keep life easy
-READ = 0x0001
-WRITE = 0x0004
-ERROR = 0x0008
 
 # Reason for this unconventional dict initialization is the fact that on some
 # platforms select.error is an aliases for OSError. We don't want the lambda
@@ -430,8 +425,10 @@ class IOLoop(object):
         """[API] Add a new fileno to the set to be monitored
 
         :param int fileno: The file descriptor
-        :param method handler: What is called when an event happens
-        :param int events: The event mask using READ, WRITE, ERROR
+        :param method handler: Function to call on events, having the signature
+             handler(fileno, epoll_events).
+        :param int events: The epoll event mask using
+            base_connection.PollEvents
 
         """
         self._poller.add_handler(fileno, handler, events)
@@ -440,7 +437,7 @@ class IOLoop(object):
         """[API] Set the events to the current events
 
         :param int fileno: The file descriptor
-        :param int events: The event mask using READ, WRITE, ERROR
+        :param int events: The event mask using base_connection.PollEvents
 
         """
         self._poller.update_handler(fileno, events)
@@ -534,7 +531,10 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
         self._fd_handlers = dict()
 
         # event-to-fdset mappings
-        self._fd_events = {READ: set(), WRITE: set(), ERROR: set()}
+        self._fd_events = {
+            PollEvents.READ: set(),
+            PollEvents.WRITE: set(),
+            PollEvents.ERROR: set()}
 
         self._processing_fd_event_map = {}
 
@@ -545,7 +545,9 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
 
         # Create ioloop-interrupt socket pair and register read handler.
         self._r_interrupt, self._w_interrupt = self._get_interrupt_pair()
-        self.add_handler(self._r_interrupt.fileno(), self._read_interrupt, READ)
+        self.add_handler(self._r_interrupt.fileno(),
+                         self._read_interrupt,
+                         PollEvents.READ)
 
     def close(self):
         """Release poller's resources.
@@ -617,8 +619,9 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
         """Add a new fileno to the set to be monitored
 
         :param int fileno: The file descriptor
-        :param method handler: What is called when an event happens
-        :param int events: The event mask using READ, WRITE, ERROR
+        :param method handler: Function to call on events, having the signature
+             handler(fileno, epoll_events).
+        :param int events: The epoll event mask using base_connection.PollEvents
 
         """
         self._fd_handlers[fileno] = handler
@@ -631,7 +634,7 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
         """Set the events to the current events
 
         :param int fileno: The file descriptor
-        :param int events: The event mask using READ, WRITE, ERROR
+        :param int events: The event mask using base_connection.PollEvents
 
         """
         # Record the change
@@ -666,14 +669,14 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
         `_PollerBase`.
 
         :param int fileno: The file descriptor
-        :param int events: The event mask (READ, WRITE, ERROR)
+        :param int events: The event mask of base_connection.PollEvents
 
         :returns: a 2-tuple (events_cleared, events_set)
         """
         events_cleared = 0
         events_set = 0
 
-        for evt in (READ, WRITE, ERROR):
+        for evt in (PollEvents.READ, PollEvents.WRITE, PollEvents.ERROR):
             if events & evt:
                 if fileno not in self._fd_events[evt]:
                     self._fd_events[evt].add(fileno)
@@ -775,20 +778,22 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
         be ignored if the poller is not activated.
 
         :param int fileno: The file descriptor
-        :param int events: The event mask (READ, WRITE, ERROR)
+        :param int events: The event mask of base_connection.PollEvents
         """
         raise NotImplementedError
 
     @abc.abstractmethod
     def _modify_fd_events(self, fileno, events, events_to_clear, events_to_set):
-        """The base class invoikes this method to notify the implementation to
+        """The base class invokes this method to notify the implementation to
         modify an already registered file descriptor. The request must be
         ignored if the poller is not activated.
 
         :param int fileno: The file descriptor
-        :param int events: absolute events (READ, WRITE, ERROR)
-        :param int events_to_clear: The events to clear (READ, WRITE, ERROR)
-        :param int events_to_set: The events to set (READ, WRITE, ERROR)
+        :param int events: absolute eventmask of base_connection.PollEvents
+        :param int events_to_clear: The eventmask to clear -
+            base_connection.PollEvents
+        :param int events_to_set: The eventmask to set -
+            base_connection.PollEvents
         """
         raise NotImplementedError
 
@@ -799,7 +804,8 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
         request must be ignored if the poller is not activated.
 
         :param int fileno: The file descriptor
-        :param int events_to_clear: The events to clear (READ, WRITE, ERROR)
+        :param int events_to_clear: The eventmask to clear -
+            base_connection.PollEvents
         """
         raise NotImplementedError
 
@@ -828,7 +834,7 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
                 continue
 
             events = fd_event_map[fileno]
-            for evt in [READ, WRITE, ERROR]:
+            for evt in [PollEvents.READ, PollEvents.WRITE, PollEvents.ERROR]:
                 if fileno not in self._fd_events[evt]:
                     events &= ~evt
 
@@ -877,11 +883,14 @@ class SelectPoller(_PollerBase):
         """
         while True:
             try:
-                if (self._fd_events[READ] or self._fd_events[WRITE] or
-                        self._fd_events[ERROR]):
+                if (self._fd_events[PollEvents.READ] or
+                        self._fd_events[PollEvents.WRITE] or
+                        self._fd_events[PollEvents.ERROR]):
                     read, write, error = select.select(
-                        self._fd_events[READ], self._fd_events[WRITE],
-                        self._fd_events[ERROR], self._get_max_wait())
+                        self._fd_events[PollEvents.READ],
+                        self._fd_events[PollEvents.WRITE],
+                        self._fd_events[PollEvents.ERROR],
+                        self._get_max_wait())
                 else:
                     # NOTE When called without any FDs, select fails on
                     # Windows with error 10022, 'An invalid argument was
@@ -899,7 +908,10 @@ class SelectPoller(_PollerBase):
         # Build an event bit mask for each fileno we've received an event for
 
         fd_event_map = collections.defaultdict(int)
-        for fd_set, evt in zip((read, write, error), (READ, WRITE, ERROR)):
+        for fd_set, evt in zip((read, write, error),
+                               (PollEvents.READ,
+                                PollEvents.WRITE,
+                                PollEvents.ERROR)):
             for fileno in fd_set:
                 fd_event_map[fileno] |= evt
 
@@ -921,20 +933,22 @@ class SelectPoller(_PollerBase):
         be ignored if the poller is not activated.
 
         :param int fileno: The file descriptor
-        :param int events: The event mask using READ, WRITE, ERROR
+        :param int events: The event mask using base_connection.PollEvents
         """
         # It's a no op in SelectPoller
         pass
 
     def _modify_fd_events(self, fileno, events, events_to_clear, events_to_set):
-        """The base class invoikes this method to notify the implementation to
+        """The base class invokes this method to notify the implementation to
         modify an already registered file descriptor. The request must be
         ignored if the poller is not activated.
 
         :param int fileno: The file descriptor
-        :param int events: absolute events (READ, WRITE, ERROR)
-        :param int events_to_clear: The events to clear (READ, WRITE, ERROR)
-        :param int events_to_set: The events to set (READ, WRITE, ERROR)
+        :param int events: absolute eventmask of base_connection.PollEvents
+        :param int events_to_clear: The eventmask to clear -
+            base_connection.PollEvents
+        :param int events_to_set: The eventmask to set -
+            base_connection.PollEvents
         """
         # It's a no op in SelectPoller
         pass
@@ -945,7 +959,8 @@ class SelectPoller(_PollerBase):
         request must be ignored if the poller is not activated.
 
         :param int fileno: The file descriptor
-        :param int events_to_clear: The events to clear (READ, WRITE, ERROR)
+        :param int events_to_clear: The eventmask to clear -
+            base_connection.PollEvents
         """
         # It's a no op in SelectPoller
         pass
@@ -968,11 +983,11 @@ class KQueuePoller(_PollerBase):
 
         """
         if kevent.filter == select.KQ_FILTER_READ:
-            return READ
+            return PollEvents.READ
         elif kevent.filter == select.KQ_FILTER_WRITE:
-            return WRITE
+            return PollEvents.WRITE
         elif kevent.flags & select.KQ_EV_ERROR:
-            return ERROR
+            return PollEvents.ERROR
 
         # Should never happen
         return None
@@ -1018,45 +1033,47 @@ class KQueuePoller(_PollerBase):
         be ignored if the poller is not activated.
 
         :param int fileno: The file descriptor
-        :param int events: The event mask using READ, WRITE, ERROR
+        :param int events: The eventmask from base_connection.PollEvents
         """
         self._modify_fd_events(
             fileno, events=events, events_to_clear=0, events_to_set=events)
 
     def _modify_fd_events(self, fileno, events, events_to_clear, events_to_set):
-        """The base class invoikes this method to notify the implementation to
+        """The base class invokes this method to notify the implementation to
         modify an already registered file descriptor. The request must be
         ignored if the poller is not activated.
 
         :param int fileno: The file descriptor
-        :param int events: absolute events (READ, WRITE, ERROR)
-        :param int events_to_clear: The events to clear (READ, WRITE, ERROR)
-        :param int events_to_set: The events to set (READ, WRITE, ERROR)
+        :param int events: absolute eventmask from base_connection.PollEvents
+        :param int events_to_clear: The eventmask to clear; from
+            base_connection.PollEvents
+        :param int events_to_set: The eventmask to set; from
+            base_connection.PollEvents
         """
         if self._kqueue is None:
             return
 
         kevents = list()
 
-        if events_to_clear & READ:
+        if events_to_clear & PollEvents.READ:
             kevents.append(
                 select.kevent(
                     fileno,
                     filter=select.KQ_FILTER_READ,
                     flags=select.KQ_EV_DELETE))
-        if events_to_set & READ:
+        if events_to_set & PollEvents.READ:
             kevents.append(
                 select.kevent(
                     fileno,
                     filter=select.KQ_FILTER_READ,
                     flags=select.KQ_EV_ADD))
-        if events_to_clear & WRITE:
+        if events_to_clear & PollEvents.WRITE:
             kevents.append(
                 select.kevent(
                     fileno,
                     filter=select.KQ_FILTER_WRITE,
                     flags=select.KQ_EV_DELETE))
-        if events_to_set & WRITE:
+        if events_to_set & PollEvents.WRITE:
             kevents.append(
                 select.kevent(
                     fileno,
@@ -1071,7 +1088,8 @@ class KQueuePoller(_PollerBase):
         request must be ignored if the poller is not activated.
 
         :param int fileno: The file descriptor
-        :param int events_to_clear: The events to clear (READ, WRITE, ERROR)
+        :param int events_to_clear: The eventmask to clear; from
+            base_connection.PollEvents
         """
         self._modify_fd_events(
             fileno, events=0, events_to_clear=events_to_clear, events_to_set=0)
@@ -1140,20 +1158,22 @@ class PollPoller(_PollerBase):
         be ignored if the poller is not activated.
 
         :param int fileno: The file descriptor
-        :param int events: The event mask using READ, WRITE, ERROR
+        :param int events: The event mask using base_connection.PollEvents
         """
         if self._poll is not None:
             self._poll.register(fileno, events)
 
     def _modify_fd_events(self, fileno, events, events_to_clear, events_to_set):
-        """The base class invoikes this method to notify the implementation to
+        """The base class invokes this method to notify the implementation to
         modify an already registered file descriptor. The request must be
         ignored if the poller is not activated.
 
         :param int fileno: The file descriptor
-        :param int events: absolute events (READ, WRITE, ERROR)
-        :param int events_to_clear: The events to clear (READ, WRITE, ERROR)
-        :param int events_to_set: The events to set (READ, WRITE, ERROR)
+        :param int events: absolute eventmask base_connection.PollEvents
+        :param int events_to_clear: The eventmask to clear -
+            base_connection.PollEvents
+        :param int events_to_set: The eventmask to set -
+            base_connection.PollEvents
         """
         if self._poll is not None:
             self._poll.modify(fileno, events)
@@ -1164,7 +1184,8 @@ class PollPoller(_PollerBase):
         request must be ignored if the poller is not activated.
 
         :param int fileno: The file descriptor
-        :param int events_to_clear: The events to clear (READ, WRITE, ERROR)
+        :param int events_to_clear: The eventmask to clear -
+            base_connection.PollEvents
         """
         if self._poll is not None:
             self._poll.unregister(fileno)
