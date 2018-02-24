@@ -226,6 +226,9 @@ class ParametersTests(_ParametersTestsBase):
     def test_heartbeat(self):
         params = connection.Parameters()
 
+        params.heartbeat = None
+        self.assertIsNone(params.heartbeat)
+
         params.heartbeat = 0
         self.assertEqual(params.heartbeat, 0)
 
@@ -244,7 +247,7 @@ class ParametersTests(_ParametersTestsBase):
         def heartbeat_callback(val):
             return 1
         params.heartbeat = heartbeat_callback
-        self.assertEqual(callable(params.heartbeat), True)
+        self.assertTrue(callable(params.heartbeat))
 
     def test_host(self):
         params = connection.Parameters()
