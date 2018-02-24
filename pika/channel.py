@@ -51,7 +51,9 @@ class Channel(object):
 
         :param pika.connection.Connection connection: The connection
         :param int channel_number: The channel number for this instance
-        :param callable on_open_callback: The callback to call on channel open
+        :param callable on_open_callback: The callback to call on channel open.
+            The callback will be invoked with the `Channel` instance as its only
+            argument.
 
         """
         if not isinstance(channel_number, int):
