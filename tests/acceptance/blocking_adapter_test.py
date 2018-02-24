@@ -2707,7 +2707,7 @@ class TestNoAckMessageNotRestoredToQueueOnChannelClose(BlockingTestCaseBase):
 class TestConsumeInactivityTimeout(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingChannel consume returns 3-tuple on inactivity timeout """
+        """BlockingChannel consume returns 3-tuple of None values on inactivity timeout """
         connection = self._connect()
 
         ch = connection.channel()
@@ -2728,7 +2728,65 @@ class TestConsumeInactivityTimeout(BlockingTestCaseBase):
         else:
             self.fail('expected (None, None, None), but got %s' % msg)
 
-        ch.close()
+
+class TestConsumeGeneratorInterruptedByCancelFromBroker(BlockingTestCaseBase):
+
+    def test(self):
+        """BlockingChannel consume generator is interrupted broker's Cancel """
+        connection = self._connect()
+
+        self.assertTrue(connection.consumer_cancel_notify_supported)
+
+        ch = connection.channel()
+
+        q_name = ('TestConsumeGeneratorInterruptedByCancelFromBroker_q' +
+                  uuid.uuid1().hex)
+
+        # Declare a new queue
+        ch.queue_declare(q_name, auto_delete=True)
+
+        queue_deleted = False
+        for _ in ch.consume(q_name, auto_ack=False, inactivity_timeout=0.001):
+            if not queue_deleted:
+                # Delete the queue to force Basic.Cancel from the broker
+                ch.queue_delete(q_name)
+                queue_deleted = True
+
+        self.assertIsNone(ch._queue_consumer_generator)
+
+
+class TestConsumeGeneratorCancelEncountersCancelFromBroker(BlockingTestCaseBase):
+
+    def test(self):
+        """BlockingChannel consume generator cancel called when broker's Cancel is enqueued """
+        connection = self._connect()
+
+        self.assertTrue(connection.consumer_cancel_notify_supported)
+
+        ch = connection.channel()
+
+        q_name = ('TestConsumeGeneratorCancelEncountersCancelFromBroker_q' +
+                  uuid.uuid1().hex)
+
+        # Declare a new queue
+        ch.queue_declare(q_name, auto_delete=True)
+
+        for _ in ch.consume(q_name, auto_ack=False, inactivity_timeout=0.001):
+            # Delete the queue to force Basic.Cancel from the broker
+            ch.queue_delete(q_name)
+
+            # Wait for server's Basic.Cancel
+            while not ch._queue_consumer_generator.pending_events:
+                connection.process_data_events()
+
+            # Confirm it's Basic.Cancel
+            self.assertIsInstance(ch._queue_consumer_generator.pending_events[0],
+                                  blocking_connection._ConsumerCancellationEvt)
+
+            # Now attempt to cancel the consumer generator
+            ch.cancel()
+
+            self.assertIsNone(ch._queue_consumer_generator)
 
 
 class TestChannelFlow(BlockingTestCaseBase):
