@@ -485,7 +485,7 @@ class ConnectionParametersTests(_ParametersTestsBase):
             self.assertEqual(len(warnings_list), 1)
             self.assertIs(warnings_list[0].category, DeprecationWarning)
 
-    def test_callable_heartbeat:
+    def test_callable_heartbeat(self):
         def heartbeat_callback(connection, broker_val):
             return 1
         parameters = pika.ConnectionParameters(heartbeat=heartbeat_callback)
