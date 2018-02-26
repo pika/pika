@@ -15,6 +15,19 @@ import pika.channel
 from pika.exceptions import AMQPConnectionError, ChannelClosed
 
 
+# Disable protected-access
+# pylint: disable=W0212
+
+# Disable missing-docstring
+# pylint: disable=C0111
+
+# Disable invalid-name
+# pylint: disable=C0103
+
+# Disable no-self-use
+# pylint: disable=R0201
+
+
 class BlockingConnectionMockTemplate(blocking_connection.BlockingConnection):
     pass
 
@@ -325,3 +338,25 @@ class BlockingConnectionTests(unittest.TestCase):
             # and the raised error must then looks like:
             self.assertEqual('Connection to 127.0.0.1:5672 failed: timeout',
                              str(ctx.exception))
+
+    def test_connection_blocked_evt(self):
+        blocked_buffer = []
+        frame = pika.frame.Method(0, pika.spec.Connection.Blocked('reason'))
+        evt = blocking_connection._ConnectionBlockedEvt(
+            blocked_buffer.append,
+            frame)
+        repr(evt)
+        evt.dispatch()
+        self.assertEqual(len(blocked_buffer), 1)
+        self.assertIs(blocked_buffer[0], frame)
+
+    def test_connection_unblocked_evt(self):
+        unblocked_buffer = []
+        frame = pika.frame.Method(0, pika.spec.Connection.Unblocked())
+        evt = blocking_connection._ConnectionUnblockedEvt(
+            unblocked_buffer.append,
+            frame)
+        repr(evt)
+        evt.dispatch()
+        self.assertEqual(len(unblocked_buffer), 1)
+        self.assertIs(unblocked_buffer[0], frame)

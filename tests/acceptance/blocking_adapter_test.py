@@ -401,27 +401,32 @@ class TestConnectionRegisterForBlockAndUnblock(BlockingTestCaseBase):
 
         # NOTE: I haven't figured out yet how to coerce RabbitMQ to emit
         # Connection.Block and Connection.Unblock from the test, so we'll
-        # just call the registration functions for now, to make sure that
-        # registration doesn't crash
-
-        connection.add_on_connection_blocked_callback(lambda frame: None)
+        # just call the registration functions for now and simulate incoming
+        # blocked/unblocked frames
 
         blocked_buffer = []
-        evt = blocking_connection._ConnectionBlockedEvt(
-            lambda f: blocked_buffer.append("blocked"),
-            pika.frame.Method(1, pika.spec.Connection.Blocked('reason')))
-        repr(evt)
-        evt.dispatch()
-        self.assertEqual(blocked_buffer, ["blocked"])
+        connection.add_on_connection_blocked_callback(
+            lambda conn, frame: blocked_buffer.append((conn, frame)))
+        # Simulate dispatch of blocked connection
+        blocked_frame = pika.frame.Method(
+            0,
+            pika.spec.Connection.Blocked('reason'))
+        connection._impl._process_frame(blocked_frame)
+        self.assertEqual(len(blocked_buffer), 1)
+        conn, frame = blocked_buffer[0]
+        self.assertIs(conn, connection)
+        self.assertIs(frame, blocked_frame)
 
         unblocked_buffer = []
-        connection.add_on_connection_unblocked_callback(lambda frame: None)
-        evt = blocking_connection._ConnectionUnblockedEvt(
-            lambda f: unblocked_buffer.append("unblocked"),
-            pika.frame.Method(1, pika.spec.Connection.Unblocked()))
-        repr(evt)
-        evt.dispatch()
-        self.assertEqual(unblocked_buffer, ["unblocked"])
+        connection.add_on_connection_unblocked_callback(
+            lambda conn, frame: unblocked_buffer.append((conn, frame)))
+        # Simulate dispatch of unblocked connection
+        unblocked_frame = pika.frame.Method(0, pika.spec.Connection.Unblocked())
+        connection._impl._process_frame(unblocked_frame)
+        self.assertEqual(len(unblocked_buffer), 1)
+        conn, frame = unblocked_buffer[0]
+        self.assertIs(conn, connection)
+        self.assertIs(frame, unblocked_frame)
 
 
 class TestBlockedConnectionTimeout(BlockingTestCaseBase):
@@ -436,9 +441,11 @@ class TestBlockedConnectionTimeout(BlockingTestCaseBase):
         # simulate it for now
 
         # Simulate Connection.Blocked
-        conn._impl._on_connection_blocked(pika.frame.Method(
-            0,
-            pika.spec.Connection.Blocked('TestBlockedConnectionTimeout')))
+        conn._impl._on_connection_blocked(
+            conn._impl,
+            pika.frame.Method(
+                0,
+                pika.spec.Connection.Blocked('TestBlockedConnectionTimeout')))
 
         # Wait for connection teardown
         with self.assertRaises(pika.exceptions.ConnectionClosed) as excCtx:

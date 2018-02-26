@@ -445,9 +445,11 @@ class TestBlockedConnectionTimesOut(AsyncTestCase, AsyncAdapters):  # pylint: di
     def begin(self, channel):
 
         # Simulate Connection.Blocked
-        channel.connection._on_connection_blocked(pika.frame.Method(
-            0,
-            pika.spec.Connection.Blocked('Testing blocked connection timeout')))
+        channel.connection._on_connection_blocked(
+            channel.connection,
+            pika.frame.Method(0,
+                              pika.spec.Connection.Blocked(
+                                  'Testing blocked connection timeout')))
 
     def on_closed(self, connection, reply_code, reply_text):
         """called when the connection has finished closing"""
@@ -471,15 +473,16 @@ class TestBlockedConnectionUnblocks(AsyncTestCase, AsyncAdapters):  # pylint: di
     def begin(self, channel):
 
         # Simulate Connection.Blocked
-        channel.connection._on_connection_blocked(pika.frame.Method(
-            0,
-            pika.spec.Connection.Blocked(
-                'Testing blocked connection unblocks')))
+        channel.connection._on_connection_blocked(
+            channel.connection,
+            pika.frame.Method(0,
+                              pika.spec.Connection.Blocked(
+                                  'Testing blocked connection unblocks')))
 
         # Simulate Connection.Unblocked
-        channel.connection._on_connection_unblocked(pika.frame.Method(
-            0,
-            pika.spec.Connection.Unblocked()))
+        channel.connection._on_connection_unblocked(
+            channel.connection,
+            pika.frame.Method(0, pika.spec.Connection.Unblocked()))
 
         # Schedule shutdown after blocked connection timeout would expire
         channel.connection.add_timeout(0.005, self.on_cleanup_timer)

@@ -542,22 +542,24 @@ class BlockingConnection(object):
         self.add_timeout(0, user_callback)
 
 
-    def _on_connection_blocked(self, user_callback, method_frame):
+    def _on_connection_blocked(self, user_callback, _impl, method_frame):
         """Handle Connection.Blocked notification from RabbitMQ broker
 
         :param callable user_callback: callback passed to
            `add_on_connection_blocked_callback`
+        :param SelectConnection _impl:
         :param pika.frame.Method method_frame: method frame having `method`
             member of type `pika.spec.Connection.Blocked`
         """
         self._ready_events.append(
             _ConnectionBlockedEvt(user_callback, method_frame))
 
-    def _on_connection_unblocked(self, user_callback, method_frame):
+    def _on_connection_unblocked(self, user_callback, _impl, method_frame):
         """Handle Connection.Unblocked notification from RabbitMQ broker
 
         :param callable user_callback: callback passed to
            `add_on_connection_unblocked_callback`
+        :param SelectConnection _impl:
         :param pika.frame.Method method_frame: method frame having `method`
             member of type `pika.spec.Connection.Blocked`
         """
@@ -595,13 +597,14 @@ class BlockingConnection(object):
         See also `ConnectionParameters.blocked_connection_timeout`.
 
         :param method callback: Callback to call on `Connection.Blocked`,
-            having the signature `callback(pika.frame.Method)`, where the
-            method frame's `method` member is of type
-            `pika.spec.Connection.Blocked`
+            having the signature `callback(connection, pika.frame.Method)`,
+            where connection is the `BlockingConnection` instance and the method
+            frame's `method` member is of type `pika.spec.Connection.Blocked`
 
         """
         self._impl.add_on_connection_blocked_callback(
-            functools.partial(self._on_connection_blocked, callback))
+            functools.partial(self._on_connection_blocked,
+                              functools.partial(callback, self)))
 
     def add_on_connection_unblocked_callback(self, callback):
         """Add a callback to be notified when RabbitMQ has sent a
@@ -609,14 +612,15 @@ class BlockingConnection(object):
         to start publishing again. The callback will be passed the
         `Connection.Unblocked` method frame.
 
-        :param method callback: Callback to call on
-            `Connection.Unblocked`, having the signature
-            `callback(pika.frame.Method)`, where the method frame's
-            `method` member is of type `pika.spec.Connection.Unblocked`
+        :param method callback: Callback to call on Connection.Unblocked`,
+            having the signature `callback(connection, pika.frame.Method)`,
+            where connection is the `BlockingConnection` instance and the method
+             frame's `method` member is of type `pika.spec.Connection.Unblocked`
 
         """
         self._impl.add_on_connection_unblocked_callback(
-            functools.partial(self._on_connection_unblocked, callback))
+            functools.partial(self._on_connection_unblocked,
+                              functools.partial(callback, self)))
 
     def add_timeout(self, deadline, callback):
         """Create a single-shot timer to fire after deadline seconds. Do not
