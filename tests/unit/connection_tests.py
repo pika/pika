@@ -562,17 +562,16 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
                          self.connection.connection_state)
         self.assertEqual(20, self.connection.params.channel_max)
         self.assertEqual(10000, self.connection.params.frame_max)
-        self.assertEqual(10, self.connection.params.heartbeat)
+        self.assertEqual(20, self.connection.params.heartbeat)
         self.assertEqual(9992, self.connection._body_max_length)
-        heartbeat_checker.assert_called_once_with(self.connection, 10)
+        heartbeat_checker.assert_called_once_with(self.connection, 20)
         self.assertEqual(['ab'], list(self.connection.outbound_buffer))
         self.assertEqual('hearbeat obj', self.connection.heartbeat)
 
-        # The negotiation tests below are based on the behavior RabbitMQ
-        # Java and Ruby (Bunny) clients have had for a while.
-        # See pika/pika#874.
+        # Pika gives precendence to client heartbeat values if set
+        # See pika/pika#965.
 
-        # Both client and server values are non-0, pick whichever is smaller
+        # Both client and server values set. Pick client value
         method_frame.method.heartbeat = 60
         self.connection.params.heartbeat = 20
         #Test
@@ -588,13 +587,13 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
         #verfy
         self.assertEqual(500, self.connection.params.heartbeat)
 
-        # Client value is 0, use the server's
+        # Client value is 0, use it
         method_frame.method.heartbeat = 60
         self.connection.params.heartbeat = 0
         #Test
         self.connection._on_connection_tune(method_frame)
         #verfy
-        self.assertEqual(60, self.connection.params.heartbeat)
+        self.assertEqual(0, self.connection.params.heartbeat)
 
         # Server value is 0, client value is None
         method_frame.method.heartbeat = 0
@@ -615,6 +614,20 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
         # Server value is 0, use the client's
         method_frame.method.heartbeat = 0
         self.connection.params.heartbeat = 60
+        #Test
+        self.connection._on_connection_tune(method_frame)
+        #verfy
+        self.assertEqual(60, self.connection.params.heartbeat)
+
+        # Server value is 10, client passes a heartbeat function that 
+        # chooses max(servervalue,60). Pick 60
+        def choose_max(conn, val):
+            self.assertIs(conn, self.connection)
+            self.assertEqual(val, 10)
+            return max(val, 60)
+
+        method_frame.method.heartbeat = 10
+        self.connection.params.heartbeat = choose_max
         #Test
         self.connection._on_connection_tune(method_frame)
         #verfy
