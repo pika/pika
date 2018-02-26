@@ -385,6 +385,7 @@ class BaseConnection(connection.Connection):
             while True:
                 try:
                     if self.params.ssl:
+                        # TODO Why using read instead of recv on ssl socket?
                         data = self.socket.read(self._buffer_size)
                     else:
                         data = self.socket.recv(self._buffer_size)
