@@ -304,7 +304,7 @@ class BaseConnection(connection.Connection):
         # called), etc., etc., etc.
         self._manage_event_state()
 
-    def _handle_connection_sock_error(self, exception):
+    def _handle_connection_socket_error(self, exception):
         """Internal error handling method. Here we expect a socket error
         coming in and will handle different socket errors differently.
 
@@ -350,7 +350,7 @@ class BaseConnection(connection.Connection):
         only have the socket in a blocking state during connect."""
         LOGGER.warning("Unexpected socket timeout")
 
-    def _handle_connection_sock_events(self, fd, events):
+    def _handle_connection_socket_events(self, fd, events):
         """Handle IO/Event loop events, processing them.
 
         :param int fd: The file descriptor for the events
@@ -405,12 +405,12 @@ class BaseConnection(connection.Connection):
                 # ssl wants more data but there is nothing currently
                 # available in the socket, wait for it to become readable.
                 return 0
-            return self._handle_connection_sock_error(error)
+            return self._handle_connection_socket_error(error)
 
         except SOCKET_ERROR as error:
             if error.errno in (errno.EAGAIN, errno.EWOULDBLOCK):
                 return 0
-            return self._handle_connection_sock_error(error)
+            return self._handle_connection_socket_error(error)
 
         if not data:
             # Remote peer closed or shut down our input stream - disconnect
@@ -459,14 +459,14 @@ class BaseConnection(connection.Connection):
                 LOGGER.debug("Would block, requeuing frame")
                 self.outbound_buffer.appendleft(frame)
             else:
-                return self._handle_connection_sock_error(error)
+                return self._handle_connection_socket_error(error)
 
         except SOCKET_ERROR as error:
             if error.errno in (errno.EAGAIN, errno.EWOULDBLOCK):
                 LOGGER.debug("Would block, requeuing frame")
                 self.outbound_buffer.appendleft(frame)
             else:
-                return self._handle_connection_sock_error(error)
+                return self._handle_connection_socket_error(error)
 
         return total_bytes_sent
 
