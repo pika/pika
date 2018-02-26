@@ -412,6 +412,7 @@ class TestConnectionRegisterForBlockAndUnblock(BlockingTestCaseBase):
             0,
             pika.spec.Connection.Blocked('reason'))
         connection._impl._process_frame(blocked_frame)
+        connection.sleep(0) # facilitate dispatch of pending events
         self.assertEqual(len(blocked_buffer), 1)
         conn, frame = blocked_buffer[0]
         self.assertIs(conn, connection)
@@ -423,6 +424,7 @@ class TestConnectionRegisterForBlockAndUnblock(BlockingTestCaseBase):
         # Simulate dispatch of unblocked connection
         unblocked_frame = pika.frame.Method(0, pika.spec.Connection.Unblocked())
         connection._impl._process_frame(unblocked_frame)
+        connection.sleep(0) # facilitate dispatch of pending events
         self.assertEqual(len(unblocked_buffer), 1)
         conn, frame = unblocked_buffer[0]
         self.assertIs(conn, connection)
