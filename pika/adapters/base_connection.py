@@ -5,7 +5,6 @@ isolate socket and low level communication.
 """
 import errno
 import logging
-import numbers
 import socket
 import ssl
 
@@ -305,49 +304,45 @@ class BaseConnection(connection.Connection):
         # called), etc., etc., etc.
         self._manage_event_state()
 
-    def _handle_connection_sock_error(self, error_value):
+    def _handle_connection_sock_error(self, exception):
         """Internal error handling method. Here we expect a socket error
         coming in and will handle different socket errors differently.
 
-        :param int|object error_value: The inbound error. Either numeric error
-            code or an exception object with `errno` attribute.
+        :param exception: An exception object with `errno` attribute.
 
         """
-        if isinstance(error_value, numbers.Integral):
-            error_code = error_value
-        else:
-            error_code = error_value.errno
-
         # Assertion failure here would indicate internal logic error
-        assert error_code, "No error existed: %r" % (error_value,)
-        assert error_code not in self.ERRORS_TO_IGNORE, \
-            "Soft error not handled by I/O logic: %r" % (error_value,)
+        if not exception.errno:
+            raise ValueError("No socket error indicated: %r" % (exception,))
+        if exception.errno in self.ERRORS_TO_IGNORE:
+            raise ValueError("Soft error not handled by I/O logic: %r"
+                             % (exception,))
 
         # Socket is no longer connected, abort
-        if error_code in self.ERRORS_TO_ABORT:
-            LOGGER.error("Fatal Socket Error: %r", error_value)
+        if exception.errno in self.ERRORS_TO_ABORT:
+            LOGGER.error("Fatal Socket Error: %r", exception)
 
-        elif self.params.ssl and isinstance(error_value, ssl.SSLError):
+        elif self.params.ssl and isinstance(exception, ssl.SSLError):
 
-            if error_value.errno == ssl.SSL_ERROR_WANT_READ:
+            if exception.errno == ssl.SSL_ERROR_WANT_READ:
                 # TODO doesn't seem right: this logic updates event state, but
                 # the logic at the bottom unconditionaly disconnects anyway.
                 # Clearly, we're not prepared to handle re-handshaking. It
                 # should have been handled gracefully without ending up in this
                 # error handler; ditto for SSL_ERROR_WANT_WRITE below.
                 self.event_state = self.READ
-            elif error_value.errno == ssl.SSL_ERROR_WANT_WRITE:
+            elif exception.errno == ssl.SSL_ERROR_WANT_WRITE:
                 self.event_state = self.WRITE
             else:
-                LOGGER.error("SSL Socket error: %r", error_value)
+                LOGGER.error("SSL Socket error: %r", exception)
 
         else:
             # Haven't run into this one yet, log it.
-            LOGGER.error("Unexpected socket Error: %s", error_code)
+            LOGGER.error("Unexpected socket Error: %r", exception)
 
         # Disconnect from our IOLoop and let Connection know what's up
         self._on_terminate(connection.InternalCloseReasons.SOCKET_ERROR,
-                           repr(error_value))
+                           repr(exception))
 
     def _handle_timeout(self):
         """Handle a socket timeout in read or write.
@@ -370,16 +365,19 @@ class BaseConnection(connection.Connection):
             self._handle_write()
             self._manage_event_state()
 
-        num_read = 0
         if self.socket and (events & self.READ):
-            num_read = self._handle_read()
+            self._handle_read()
 
-        
+
         if self.socket and (events & self.ERROR):
+            # No need to handle the ERROR event separately from I/O. If there is
+            # a stream error, READ and/or WRITE will also be inidicated and the
+            # corresponding _handle_write/_handle_read will get tripped up with
+            # the approrpriate error and terminate the connection. So, we'll
+            # just debug-log the information in case it helps with diagnostics.
             error = self.socket.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
-            LOGGER.error('Error events %r; error code %r; num_read %r',
-                         events, error, num_read)
-            self._handle_connection_sock_error(error)
+            LOGGER.debug('Sock error events %r; sock error code %r', events,
+                         error)
 
     def _handle_read(self):
         """Read from the socket and call our on_data_available with the data."""
