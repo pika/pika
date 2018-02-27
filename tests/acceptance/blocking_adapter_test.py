@@ -544,7 +544,7 @@ class TestViabilityOfMultipleTimeoutsWithSameDeadlineAndCallback(BlockingTestCas
         timer1 = connection.add_timeout(0, callback)
         timer2 = connection.add_timeout(0, callback)
 
-        self.assertNotEqual(timer1, timer2)
+        self.assertIsNot(timer1, timer2)
 
         connection.remove_timeout(timer1)
 
