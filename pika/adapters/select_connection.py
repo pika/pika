@@ -100,7 +100,8 @@ class SelectConnection(BaseConnection):
         """
         error = super(SelectConnection, self)._adapter_connect()
         if not error:
-            self.ioloop.add_handler(self.socket.fileno(), self._handle_events,
+            self.ioloop.add_handler(self.socket.fileno(),
+                                    self._handle_connection_socket_events,
                                     self.event_state)
         return error
 

@@ -587,20 +587,22 @@ class TestIOLoopStopBeforeIOLoopStarts(AsyncTestCase, AsyncAdapters):
         ioloop.stop() before AsyncTestCase starts the ioloop.
         """
         # Request ioloop to stop before it starts
-        self.my_start_time = time.time()
+        my_start_time = time.time()
         self.stop_ioloop_only()
 
-        return super(
+        super(
             TestIOLoopStopBeforeIOLoopStarts, self)._run_ioloop(*args, **kwargs)
 
-    def start(self, *args, **kwargs):  # pylint: disable=W0221
-        self.loop_thread_ident = threading.current_thread().ident
-        self.my_start_time = None
-        super(TestIOLoopStopBeforeIOLoopStarts, self).start(*args, **kwargs)
-        self.assertLess(time.time() - self.my_start_time, 0.25)
+        self.assertLess(time.time() - my_start_time, 0.25)
+
+        # Resume I/O loop to facilitate normal course of events and closure
+        # of connection in order to prevent reporting of a socket resource leak
+        # from an unclosed connection.
+        super(
+            TestIOLoopStopBeforeIOLoopStarts, self)._run_ioloop(*args, **kwargs)
 
     def begin(self, channel):
-        pass
+        self.stop()
 
 
 class TestViabilityOfMultipleTimeoutsWithSameDeadlineAndCallback(AsyncTestCase, AsyncAdapters):  # pylint: disable=C0103
