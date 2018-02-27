@@ -66,7 +66,6 @@ class BaseConnection(connection.Connection):
         self.event_state = self.base_events
         self.ioloop = ioloop
         self.socket = None
-        self.write_buffer = None
         super(BaseConnection,
               self).__init__(parameters, on_open_callback,
                              on_open_error_callback, on_close_callback)
