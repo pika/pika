@@ -11,6 +11,14 @@ import pika
 from pika.compat import urlencode, url_quote, dict_iteritems
 from pika import channel, connection, credentials, spec
 
+
+# disable missing-docstring
+# pylint: disable=C0111
+
+# disable invalid-name
+# pylint: disable=C0103
+
+
 # Unordered sequence of connection.Parameters's property getters
 _ALL_PUBLIC_PARAMETERS_PROPERTIES = tuple(
     attr for attr in vars(connection.Parameters) if not attr.startswith('_')
@@ -226,6 +234,9 @@ class ParametersTests(_ParametersTestsBase):
     def test_heartbeat(self):
         params = connection.Parameters()
 
+        params.heartbeat = None
+        self.assertIsNone(params.heartbeat)
+
         params.heartbeat = 0
         self.assertEqual(params.heartbeat, 0)
 
@@ -240,6 +251,12 @@ class ParametersTests(_ParametersTestsBase):
 
         with self.assertRaises(ValueError):
             params.heartbeat = -1
+
+        def heartbeat_callback(_conn, _val):
+            return 1
+        params.heartbeat = heartbeat_callback
+        self.assertTrue(callable(params.heartbeat))
+        self.assertIs(params.heartbeat, heartbeat_callback)
 
     def test_host(self):
         params = connection.Parameters()
@@ -475,6 +492,12 @@ class ConnectionParametersTests(_ParametersTestsBase):
             # Check that a warning was generated
             self.assertEqual(len(warnings_list), 1)
             self.assertIs(warnings_list[0].category, DeprecationWarning)
+
+    def test_callable_heartbeat(self):
+        def heartbeat_callback(_connection, _broker_val):
+            return 1
+        parameters = pika.ConnectionParameters(heartbeat=heartbeat_callback)
+        self.assertIs(parameters.heartbeat, heartbeat_callback)
 
     def test_bad_type_connection_parameters(self):
         """test connection kwargs type checks throw errors for bad input"""
