@@ -8,14 +8,17 @@ import time
 import unittest
 import uuid
 
-from forward_server import ForwardServer
-from test_utils import retry_assertion
-
 import pika
 from pika.adapters import blocking_connection
 from pika.compat import as_bytes
 import pika.connection
 import pika.exceptions
+
+from ..forward_server import ForwardServer
+from .test_utils import retry_assertion
+
+# too-many-lines
+# pylint: disable=C0302
 
 # Disable warning about access to protected member
 # pylint: disable=W0212
@@ -57,6 +60,16 @@ class BlockingTestCaseBase(unittest.TestCase):
                  connection_class=pika.BlockingConnection,
                  impl_class=None):
         parameters = pika.URLParameters(url)
+
+        return self._connect_params(parameters,
+                                    connection_class,
+                                    impl_class)
+
+    def _connect_params(self,
+                        parameters,
+                        connection_class=pika.BlockingConnection,
+                        impl_class=None):
+
         connection = connection_class(parameters, _impl_class=impl_class)
         self.addCleanup(lambda: connection.close()
                         if connection.is_open else None)
@@ -142,10 +155,71 @@ class TestCreateAndCloseConnection(BlockingTestCaseBase):
         self.assertFalse(connection.is_closing)
 
 
-class TestMultiCloseConnection(BlockingTestCaseBase):
+class TestCreateConnectionWithNoneSocketAndStackTimeouts(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingConnection: Close connection twice"""
+        """ BlockingConnection: create a connection with socket and stack timeouts both None
+
+        """
+        params = pika.URLParameters(DEFAULT_URL)
+        params.socket_timeout = None
+        params.stack_timeout = None
+
+        with self._connect_params(params) as connection:
+            self.assertTrue(connection.is_open)
+
+
+class TestCreateConnectionFromTwoConfigsFirstUnreachable(BlockingTestCaseBase):
+
+    def test(self):
+        """ BlockingConnection: create a connection from two configs, first unreachable
+
+        """
+        # Reserve a port for use in connect
+        sock = socket.socket()
+        self.addCleanup(sock.close)
+
+        sock.bind(('127.0.0.1', 0))
+
+        port = sock.getsockname()[1]
+
+        sock.close()
+
+        bad_params = pika.URLParameters(PARAMS_URL_TEMPLATE % {"port": port})
+        good_params = pika.URLParameters(DEFAULT_URL)
+
+        with self._connect_params([bad_params, good_params]) as connection:
+            self.assertNotEqual(connection._impl.params.port, bad_params.port)
+            self.assertEqual(connection._impl.params.port, good_params.port)
+
+
+class TestCreateConnectionFromTwoUnreachableConfigs(BlockingTestCaseBase):
+
+    def test(self):
+        """ BlockingConnection: creating a connection from two unreachable \
+        configs raises AMQPConnectionError
+
+        """
+        # Reserve a port for use in connect
+        sock = socket.socket()
+        self.addCleanup(sock.close)
+
+        sock.bind(('127.0.0.1', 0))
+
+        port = sock.getsockname()[1]
+
+        sock.close()
+
+        bad_params = pika.URLParameters(PARAMS_URL_TEMPLATE % {"port": port})
+
+        with self.assertRaises(pika.exceptions.AMQPConnectionError):
+            self._connect_params([bad_params, bad_params])
+
+
+class TestMultiCloseConnectionRaisesWrongState(BlockingTestCaseBase):
+
+    def test(self):
+        """BlockingConnection: Close connection twice raises ConnectionWrongStateError"""
         connection = self._connect()
         self.assertIsInstance(connection, pika.BlockingConnection)
         self.assertTrue(connection.is_open)
@@ -157,8 +231,8 @@ class TestMultiCloseConnection(BlockingTestCaseBase):
         self.assertFalse(connection.is_open)
         self.assertFalse(connection.is_closing)
 
-        # Second close call shouldn't crash
-        connection.close()
+        with self.assertRaises(pika.exceptions.ConnectionWrongStateError):
+            connection.close()
 
 
 class TestConnectionContextManagerClosesConnection(BlockingTestCaseBase):
@@ -167,6 +241,16 @@ class TestConnectionContextManagerClosesConnection(BlockingTestCaseBase):
         with self._connect() as connection:
             self.assertIsInstance(connection, pika.BlockingConnection)
             self.assertTrue(connection.is_open)
+
+        self.assertTrue(connection.is_closed)
+
+
+class TestConnectionContextManagerExitSurvivesClosedConnection(BlockingTestCaseBase):
+    def test(self):
+        """BlockingConnection: connection context manager exit survives closed connection"""
+        with self._connect() as connection:
+            self.assertTrue(connection.is_open)
+            connection.close()
 
         self.assertTrue(connection.is_closed)
 
@@ -203,9 +287,9 @@ class TestLostConnectionResultsInIsClosedConnectionAndChannel(BlockingTestCaseBa
         channel = connection.channel()
 
         # Simulate the server dropping the socket connection
-        connection._impl.socket.shutdown(socket.SHUT_RDWR)
+        connection._impl._transport._sock.shutdown(socket.SHUT_RDWR)
 
-        with self.assertRaises(pika.exceptions.ConnectionClosed):
+        with self.assertRaises(pika.exceptions.StreamLostError):
             # Changing QoS should result in ConnectionClosed
             channel.basic_qos()
 
@@ -286,18 +370,18 @@ class TestSuddenBrokerDisconnectBeforeChannel(BlockingTestCaseBase):
         # Once outside the context, the connection is broken
 
         # BlockingConnection should raise ConnectionClosed
-        with self.assertRaises(pika.exceptions.ConnectionClosed):
+        with self.assertRaises(pika.exceptions.StreamLostError):
             self.connection.channel()
 
         self.assertTrue(self.connection.is_closed)
         self.assertFalse(self.connection.is_open)
-        self.assertIsNone(self.connection._impl.socket)
+        self.assertIsNone(self.connection._impl._transport)
 
 
 class TestNoAccessToFileDescriptorAfterConnectionClosed(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingConnection no access file descriptor after ConnectionClosed
+        """BlockingConnection no access file descriptor after StreamLostError
         """
         with ForwardServer(
             remote_addr=(DEFAULT_PARAMS.host, DEFAULT_PARAMS.port),
@@ -309,16 +393,15 @@ class TestNoAccessToFileDescriptorAfterConnectionClosed(BlockingTestCaseBase):
         # Once outside the context, the connection is broken
 
         # BlockingConnection should raise ConnectionClosed
-        with self.assertRaises(pika.exceptions.ConnectionClosed):
+        with self.assertRaises(pika.exceptions.StreamLostError):
             self.connection.channel()
 
         self.assertTrue(self.connection.is_closed)
         self.assertFalse(self.connection.is_open)
-        self.assertIsNone(self.connection._impl.socket)
+        self.assertIsNone(self.connection._impl._transport)
 
         # Attempt to operate on the connection once again after ConnectionClosed
-        self.assertIsNone(self.connection._impl.socket)
-        with self.assertRaises(pika.exceptions.ConnectionClosed):
+        with self.assertRaises(pika.exceptions.ConnectionWrongStateError):
             self.connection.channel()
 
 
@@ -332,7 +415,7 @@ class TestConnectWithDownedBroker(BlockingTestCaseBase):
         sock = socket.socket()
         self.addCleanup(sock.close)
 
-        sock.bind(("127.0.0.1", 0))
+        sock.bind(('127.0.0.1', 0))
 
         port = sock.getsockname()[1]
 
@@ -358,7 +441,7 @@ class TestDisconnectDuringConnectionStart(BlockingTestCaseBase):
         class MySelectConnection(pika.SelectConnection):
             assert hasattr(pika.SelectConnection, '_on_connection_start')
 
-            def _on_connection_start(self, *args, **kwargs):
+            def _on_connection_start(self, *args, **kwargs):  # pylint: disable=W0221
                 fwd.stop()
                 return super(MySelectConnection, self)._on_connection_start(
                     *args, **kwargs)
@@ -383,7 +466,7 @@ class TestDisconnectDuringConnectionTune(BlockingTestCaseBase):
         class MySelectConnection(pika.SelectConnection):
             assert hasattr(pika.SelectConnection, '_on_connection_tune')
 
-            def _on_connection_tune(self, *args, **kwargs):
+            def _on_connection_tune(self, *args, **kwargs):  # pylint: disable=W0221
                 fwd.stop()
                 return super(MySelectConnection, self)._on_connection_tune(
                     *args, **kwargs)
@@ -407,11 +490,11 @@ class TestDisconnectDuringConnectionProtocol(BlockingTestCaseBase):
         self.addCleanup(lambda: fwd.stop() if fwd.running else None)
 
         class MySelectConnection(pika.SelectConnection):
-            assert hasattr(pika.SelectConnection, '_on_connected')
+            assert hasattr(pika.SelectConnection, '_on_stream_connected')
 
-            def _on_connected(self, *args, **kwargs):
+            def _on_stream_connected(self, *args, **kwargs):  # pylint: disable=W0221
                 fwd.stop()
-                return super(MySelectConnection, self)._on_connected(
+                return super(MySelectConnection, self)._on_stream_connected(
                     *args, **kwargs)
 
         with self.assertRaises(pika.exceptions.IncompatibleProtocolError):
@@ -496,14 +579,9 @@ class TestBlockedConnectionTimeout(BlockingTestCaseBase):
                 pika.spec.Connection.Blocked('TestBlockedConnectionTimeout')))
 
         # Wait for connection teardown
-        with self.assertRaises(pika.exceptions.ConnectionClosed) as excCtx:
+        with self.assertRaises(pika.exceptions.ConnectionBlockedTimeout):
             while True:
                 conn.process_data_events(time_limit=1)
-
-        self.assertEqual(
-            excCtx.exception.args,
-            (pika.connection.InternalCloseReasons.BLOCKED_CONNECTION_TIMEOUT,
-             'Blocked connection timeout expired'))
 
 
 class TestAddCallbackThreadsafeFromSameThread(BlockingTestCaseBase):
@@ -631,7 +709,6 @@ class TestRemoveTimeoutFromTimeoutCallback(BlockingTestCaseBase):
         while not rx_timer2:
             connection.process_data_events(time_limit=None)
 
-        self.assertIsNone(timer_id1.callback)
         self.assertFalse(connection._ready_events)
 
 
@@ -1426,7 +1503,7 @@ class TestConfirmDeliveryAfterUnroutableMessage(BlockingTestCaseBase):
         self.assertEqual(len(ch._pending_events), 0)
 
         # Verify that unroutable message was dispatched
-        ((channel, method, properties, body,),) = returned_messages
+        ((channel, method, properties, body,),) = returned_messages  # pylint: disable=E0632
         self.assertIs(channel, ch)
         self.assertIsInstance(method, pika.spec.Basic.Return)
         self.assertEqual(method.reply_code, 312)
@@ -1764,7 +1841,7 @@ class TestPublishAndConsumeWithPubacksAndQosOfOne(BlockingTestCaseBase):
         ch.start_consuming()
 
         self.assertEqual(len(rx_cancellations), 1)
-        frame, = rx_cancellations
+        frame, = rx_cancellations  # pylint: disable=E0632
         self.assertEqual(frame.method.consumer_tag, consumer_tag)
 
 

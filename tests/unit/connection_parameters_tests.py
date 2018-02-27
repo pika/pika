@@ -66,6 +66,8 @@ class _ParametersTestsBase(unittest.TestCase):
             kls.DEFAULT_RETRY_DELAY,
             'socket_timeout':
             kls.DEFAULT_SOCKET_TIMEOUT,
+            'stack_timeout':
+            kls.DEFAULT_STACK_TIMEOUT,
             'ssl_options':
             kls.DEFAULT_SSL_OPTIONS,
             'virtual_host':
@@ -421,6 +423,14 @@ class ConnectionParametersTests(_ParametersTestsBase):
         self.assertIsNone(params.ssl_options)
         self.assertEqual(params.port, 100)
 
+    def test_exlicit_none_stack_timeout(self):
+        params = connection.ConnectionParameters(stack_timeout=None)
+        self.assertIsNone(params.stack_timeout)
+
+    def test_exlicit_none_socket_timeout(self):
+        params = connection.ConnectionParameters(socket_timeout=None)
+        self.assertIsNone(params.socket_timeout)
+
     def test_good_connection_parameters(self):
         """make sure connection kwargs get set correctly"""
         kwargs = {
@@ -439,6 +449,7 @@ class ConnectionParametersTests(_ParametersTestsBase):
             'port': 5678,
             'retry_delay': 3,
             'socket_timeout': 100.5,
+            'stack_timeout': 150,
             'ssl_options': None,
             'virtual_host': u'vvhost',
             'tcp_options': {
@@ -494,23 +505,23 @@ class ConnectionParametersTests(_ParametersTestsBase):
             'blocked_connection_timeout': 10.5
         }
         # Test Type Errors
-        for bad_field, bad_value in (('host', 15672), ('port', '5672a'),
-                                     ('virtual_host',
-                                      True), ('channel_max',
-                                              '4'), ('frame_max',
-                                                     '5'), ('credentials',
-                                                            'bad'), ('locale',
-                                                                     1),
-                                     ('heartbeat',
-                                      '6'), ('socket_timeout',
-                                             '42'), ('retry_delay', 'two'),
-                                     ('backpressure_detection',
-                                      'true'), ('ssl', {
-                                          'ssl': 'dict'
-                                      }), ('ssl_options', True),
-                                     ('connection_attempts',
-                                      'hello'), ('blocked_connection_timeout',
-                                                 set())):
+        for bad_field, bad_value in (
+                ('host', 15672),
+                ('port', '5672a'),
+                ('virtual_host', True),
+                ('channel_max', '4'),
+                ('frame_max', '5'),
+                ('credentials', 'bad'),
+                ('locale', 1),
+                ('heartbeat', '6'),
+                ('socket_timeout', '42'),
+                ('stack_timeout', '99'),
+                ('retry_delay', 'two'),
+                ('backpressure_detection', 'true'),
+                ('ssl', {'ssl': 'dict'}),
+                ('ssl_options', True),
+                ('connection_attempts', 'hello'),
+                ('blocked_connection_timeout', set())):
 
             bkwargs = copy.deepcopy(kwargs)
 

@@ -12,23 +12,34 @@ stored. Refer to the docstrings for TwistedConnection.channel() and the
 TwistedChannel class for details.
 
 """
-import functools
-from twisted.internet import defer, error, reactor
-from twisted.python import log
 
-from pika import connection
+import functools
+import logging
+import socket
+
+from zope.interface import implementer
+from twisted.internet.interfaces import (IReadWriteDescriptor,
+                                         IHalfCloseableDescriptor)
+from twisted.internet import (defer, error as twisted_error, reactor,
+                              threads as twisted_threads)
+import twisted.python.failure
+
 from pika import exceptions
 from pika.adapters import base_connection
+from pika.adapters.utils import nbio_interface, io_services_utils
+from pika.adapters.utils.io_services_utils import (check_callback_arg,
+                                                   check_fd_arg)
 
+# Twistisms
+# pylint: disable=C0111,C0103
 
-# Disable invalid-name because Twisted interfaces force their convention on
-# our implementation
-# pylint: disable=C0103
+LOGGER = logging.getLogger(__name__)
+
 
 class ClosableDeferredQueue(defer.DeferredQueue):
     """
     Like the normal Twisted DeferredQueue, but after close() is called with an
-    Exception instance all pending Deferreds are errbacked and further attempts
+    exception instance all pending Deferreds are errbacked and further attempts
     to call get() or put() return a Failure wrapping that exception.
     """
 
@@ -54,7 +65,7 @@ class ClosableDeferredQueue(defer.DeferredQueue):
 
 
 class TwistedChannel(object):
-    """A wrapper wround Pika's Channel.
+    """A wrapper around Pika's Channel.
 
     Channel methods that normally take a callback argument are wrapped to
     return a Deferred that fires with whatever would be passed to the callback.
@@ -79,7 +90,7 @@ class TwistedChannel(object):
 
         channel.add_on_close_callback(self.channel_closed)
 
-    def channel_closed(self, channel, reply_code, reply_text):
+    def channel_closed(self, _channel, reply_code, reply_text):
         # enter the closed state
         self.__closed = exceptions.ChannelClosed(reply_code, reply_text)
         # errback all pending calls
@@ -196,96 +207,6 @@ class TwistedChannel(object):
         return getattr(self.__channel, name)
 
 
-class IOLoopReactorAdapter(object):
-    """An adapter providing Pika's IOLoop interface using a Twisted reactor.
-
-    Accepts a TwistedConnection object and a Twisted reactor object.
-
-    """
-
-    def __init__(self, connection, reactor):
-        self.connection = connection
-        self.reactor = reactor
-        self.started = False
-
-    def add_timeout(self, deadline, callback):
-        """Add the callback to the IOLoop timer to fire after deadline
-        seconds. Returns a handle to the timeout. Do not confuse with
-        Tornado's timeout where you pass in the time you want to have your
-        callback called. Only pass in the seconds until it's to be called.
-
-        :param float deadline: The number of seconds to wait to call callback
-        :param method callback: The callback method
-        :rtype: twisted.internet.interfaces.IDelayedCall
-
-        """
-        return self.reactor.callLater(deadline, callback)
-
-    def remove_timeout(self, call):
-        """Remove a call
-
-        :param twisted.internet.interfaces.IDelayedCall call: The call to cancel
-
-        """
-        call.cancel()
-
-    def add_callback_threadsafe(self, callback):
-        """Requests a call to the given function as soon as possible in the
-        context of this IOLoop's thread.
-
-        NOTE: This is the only thread-safe method offered by the IOLoop adapter.
-         All other manipulations of the IOLoop adapter and its parent connection
-         must be performed from the connection's thread.
-
-        For example, a thread may request a call to the
-        `channel.basic_ack` method of a connection that is running in a
-        different thread via
-
-        ```
-        connection.add_callback_threadsafe(
-            functools.partial(channel.basic_ack, delivery_tag=...))
-        ```
-
-        :param method callback: The callback method; must be callable.
-
-        """
-        self.reactor.callFromThread(callback)
-
-    def stop(self):
-        # Guard against stopping the reactor multiple times
-        if not self.started:
-            return
-        self.started = False
-        self.reactor.stop()
-
-    def start(self):
-        # Guard against starting the reactor multiple times
-        if self.started:
-            return
-        self.started = True
-        self.reactor.run()
-
-    def remove_handler(self, _):
-        # The fileno is irrelevant, as it's the connection's job to provide it
-        # to the reactor when asked to do so. Removing the handler from the
-        # ioloop is removing it from the reactor in Twisted's parlance.
-        self.reactor.removeReader(self.connection)
-        self.reactor.removeWriter(self.connection)
-
-    def update_handler(self, _, event_state):
-        # Same as in remove_handler, the fileno is irrelevant. First remove the
-        # connection entirely from the reactor, then add it back depending on
-        # the event state.
-        self.reactor.removeReader(self.connection)
-        self.reactor.removeWriter(self.connection)
-
-        if event_state & self.connection.READ:
-            self.reactor.addReader(self.connection)
-
-        if event_state & self.connection.WRITE:
-            self.reactor.addWriter(self.connection)
-
-
 class TwistedConnection(base_connection.BaseConnection):
     """A standard Pika connection adapter. You instantiate the class passing the
     connection parameters and the connected callback and when it gets called
@@ -297,49 +218,65 @@ class TwistedConnection(base_connection.BaseConnection):
     freeze until the connection timeout passes. To work around that problem,
     use TwistedProtocolConnection, but read its docstring first.
 
-    Objects of this class get put in the Twisted reactor which will notify them
-    when the socket connection becomes readable or writable, so apart from
-    implementing the BaseConnection interface, they also provide Twisted's
-    IReadWriteDescriptor interface.
-
     """
 
     def __init__(self,
                  parameters=None,
                  on_open_callback=None,
                  on_open_error_callback=None,
-                 on_close_callback=None):
+                 on_close_callback=None,
+                 custom_ioloop=None,
+                 internal_connection_workflow=True):
+        """
+        :param parameters:
+        :param on_open_callback:
+        :param on_open_error_callback:
+        :param on_close_callback:
+        :param custom_ioloop:
+        :param internal_connection_workflow:
+
+        """
+        if isinstance(custom_ioloop, nbio_interface.AbstractIOServices):
+            nbio = custom_ioloop
+        else:
+            nbio = _TwistedIOServicesAdapter(custom_ioloop)
+
         super(TwistedConnection, self).__init__(
             parameters=parameters,
             on_open_callback=on_open_callback,
             on_open_error_callback=on_open_error_callback,
             on_close_callback=on_close_callback,
-            ioloop=IOLoopReactorAdapter(self, reactor))
+            nbio=nbio,
+            internal_connection_workflow=internal_connection_workflow)
 
-    def _adapter_connect(self):
-        """Connect to the RabbitMQ broker"""
-        # Connect (blockignly!) to the server
-        error = super(TwistedConnection, self)._adapter_connect()
-        if not error:
-            # Set the I/O events we're waiting for (see IOLoopReactorAdapter
-            # docstrings for why it's OK to pass None as the file descriptor)
-            self.ioloop.update_handler(None, self.event_state)
-        return error
-
-    def _adapter_disconnect(self):
-        """Called when the adapter should disconnect"""
-        self.ioloop.remove_handler(None)
-        self._cleanup_socket()
-
-    def _on_connected(self):
-        """Call superclass and then update the event state to flush the outgoing
-        frame out. Commit 50d842526d9f12d32ad9f3c4910ef60b8c301f59 removed a
-        self._flush_outbound call that was in _send_frame which previously
-        made this step unnecessary.
+    @classmethod
+    def create_connection(cls,
+                          connection_configs,
+                          on_done,
+                          custom_ioloop=None,
+                          workflow=None):
+        """Implement
+        :py:classmethod:`pika.adapters.BaseConnection.create_connection()`.
 
         """
-        super(TwistedConnection, self)._on_connected()
-        self._manage_event_state()
+        nbio = _TwistedIOServicesAdapter(custom_ioloop)
+
+        def connection_factory(params):
+            """Connection factory."""
+            if params is None:
+                raise ValueError('Expected pika.connection.Parameters '
+                                 'instance, but got None in params arg.')
+            return cls(
+                parameters=params,
+                custom_ioloop=nbio,
+                internal_connection_workflow=False)
+
+        return cls._start_connection_workflow(
+            connection_configs=connection_configs,
+            connection_factory=connection_factory,
+            nbio=nbio,
+            workflow=workflow,
+            on_done=on_done)
 
     def channel(self, channel_number=None):
         """Return a Deferred that fires with an instance of a wrapper around the
@@ -347,31 +284,8 @@ class TwistedConnection(base_connection.BaseConnection):
 
         """
         d = defer.Deferred()
-        base_connection.BaseConnection.channel(self, channel_number, d.callback)
+        super(TwistedConnection, self).channel(channel_number, d.callback)
         return d.addCallback(TwistedChannel)
-
-    # IReadWriteDescriptor methods
-
-    def fileno(self):
-        return self.socket.fileno()
-
-    def logPrefix(self):
-        return "twisted-pika"
-
-    def connectionLost(self, reason):
-        # If the connection was not closed cleanly, log the error
-        if not reason.check(error.ConnectionDone):
-            log.err(reason)
-
-        self._on_terminate(connection.InternalCloseReasons.SOCKET_ERROR,
-                           str(reason))
-
-    def doRead(self):
-        self._handle_read()
-
-    def doWrite(self):
-        self._handle_write()
-        self._manage_event_state()
 
 
 class TwistedProtocolConnection(base_connection.BaseConnection):
@@ -393,12 +307,18 @@ class TwistedProtocolConnection(base_connection.BaseConnection):
 
     def __init__(self, parameters=None, on_close_callback=None):
         self.ready = defer.Deferred()
+        self.transport = None
         super(TwistedProtocolConnection, self).__init__(
             parameters=parameters,
             on_open_callback=self.connectionReady,
             on_open_error_callback=self.connectionFailed,
             on_close_callback=on_close_callback,
-            ioloop=IOLoopReactorAdapter(self, reactor))
+            nbio=_TwistedIOServicesAdapter(reactor),
+            internal_connection_workflow=False)
+
+    @classmethod
+    def create_connection(cls, *args, **kwargs):
+        raise NotImplementedError
 
     def connect(self):
         # The connection is open asynchronously by Twisted, so skip the whole
@@ -415,13 +335,13 @@ class TwistedProtocolConnection(base_connection.BaseConnection):
         # Disconnect from the server
         self.transport.loseConnection()
 
-    def _flush_outbound(self):
-        """Override BaseConnection._flush_outbound to send all bufferred data
-        the Twisted way, by writing to the transport. No need for buffering,
-        Twisted handles that for us.
-        """
-        while self.outbound_buffer:
-            self.transport.write(self.outbound_buffer.popleft())
+    # def _flush_outbound(self):
+    #     """Override BaseConnection._flush_outbound to send all bufferred data
+    #     the Twisted way, by writing to the transport. No need for buffering,
+    #     Twisted handles that for us.
+    #     """
+    #     while self.outbound_buffer:
+    #         self.transport.write(self.outbound_buffer.popleft())
 
     def channel(self, channel_number=None):
         """Create a new channel with the next available channel number or pass
@@ -458,7 +378,7 @@ class TwistedProtocolConnection(base_connection.BaseConnection):
 
     def connectionMade(self):
         # Tell everyone we're connected
-        self._on_connected()
+        self._on_stream_connected()
 
     # Our own methods
 
@@ -467,9 +387,462 @@ class TwistedProtocolConnection(base_connection.BaseConnection):
         if d:
             d.callback(res)
 
-    def connectionFailed(self, connection_unused, error_message=None):
+    def connectionFailed(self, _connection, _error_message=None):
         d, self.ready = self.ready, None
         if d:
             attempts = self.params.connection_attempts
             exc = exceptions.AMQPConnectionError(attempts)
             d.errback(exc)
+
+
+class _TwistedIOServicesAdapter(
+        io_services_utils.SocketConnectionMixin,
+        io_services_utils.StreamingConnectionMixin,
+        nbio_interface.AbstractIOServices,
+        nbio_interface.AbstractFileDescriptorServices):
+    """Implements
+    :py:class:`.utils.nbio_interface.AbstractIOServices` interface
+    on top of :py:class:`twisted.internet.reactor`.
+
+    NOTE:
+    :py:class:`.utils.nbio_interface.AbstractFileDescriptorServices`
+    interface is only required by the mixins.
+
+    """
+
+    @implementer(IHalfCloseableDescriptor, IReadWriteDescriptor)
+    class _SocketReadWriteDescriptor(object):
+        """File descriptor wrapper for `add/remove-Writer/Reader`. A given
+        instance must represent both reader and writer, otherwise reactor
+        may invoke e.g., doRead on a descriptor registered for on_writable
+        callbacks, thus causing that event to be lost.
+
+        """
+
+        def __init__(self, fd, on_readable=None, on_writable=None):
+
+            assert on_readable is not None or on_writable is not None, (
+                'At least one of on_readable/on_writable must be non-None.')
+            assert callable(on_readable) or callable(on_writable), (
+                'One or both of on_readable/on_writable must be callable.')
+
+            self._fd = fd
+
+            self._on_readable = on_readable
+            self._on_writable = on_writable
+
+        def __repr__(self):
+            return '{}: fd={}, on_readable={!r}, on_writable={!r}'.format(
+                self.__class__.__name__,
+                self._fd,
+                self._on_readable,
+                self.on_writable)
+
+        @property
+        def on_readable(self):
+            return self._on_readable
+
+        @on_readable.setter
+        def on_readable(self, value):
+            assert callable(value) or value is None, (
+                'on_readable value must be callable or None.')
+            self._on_readable = value
+
+        @property
+        def on_writable(self):
+            return self._on_writable
+
+        @on_writable.setter
+        def on_writable(self, value):
+            assert callable(value) or value is None, (
+                'on_writable value must be callable or None.')
+            self._on_writable = value
+
+        def logPrefix(self):
+            return self.__class__.__name__
+
+        def fileno(self):
+            """
+            :raise: If the descriptor no longer has a valid file descriptor
+                number associated with it.
+
+            :return: The platform-specified representation of a file descriptor
+                number.  Or C{-1} if the descriptor no longer has a valid file
+                descriptor number associated with it.  As long as the descriptor
+                is valid, calls to this method on a particular instance must
+                return the same value.
+            """
+            return self._fd
+
+        def doRead(self):
+            """
+            Some data is available for reading on your descriptor.
+
+            @return: If an error is encountered which causes the descriptor to
+                no longer be valid, a L{Failure} should be returned.  Otherwise,
+                L{None}.
+            """
+            if self._on_readable is not None:
+                try:
+                    self._on_readable()
+                except Exception:  # pylint: disable=W0703
+                    LOGGER.exception('Exception from user\'s on_readable() '
+                                     'callback; fd=%s', self.fileno())
+                    return twisted.python.failure.Failure()
+            else:
+                LOGGER.warning('Reactor called %s.doRead() but on_readable is '
+                               'None; fd=%s.', self.logPrefix(), self.fileno())
+
+            return None
+
+        def doWrite(self):
+            """
+            Some data can be written to your descriptor.
+
+            @return: If an error is encountered which causes the descriptor to
+                no longer be valid, a L{Failure} should be returned.  Otherwise,
+                L{None}.
+            """
+            if self._on_writable is not None:
+                try:
+                    self._on_writable()
+                except Exception:  # pylint: disable=W0703
+                    LOGGER.exception('Exception from user\'s on_writable() '
+                                     'callback; fd=%s', self.fileno())
+                    return twisted.python.failure.Failure()
+            else:
+                LOGGER.warning('Reactor called %s.doWrite() but on_writable is '
+                               'None; fd=%s.', self.logPrefix(), self.fileno())
+
+            return None
+
+        def connectionLost(self, reason):
+            """
+            Called when the connection is shut down.
+
+            NOTE: even though we implement `IHalfCloseableDescriptor`, reactor
+            still calls  `connectionLost()` instead of `readConnectionLost()`
+            and `writeConnectionLost()`.
+
+            Clear any circular references here, and any external references
+            to this Protocol.  The connection has been closed. The C{reason}
+            Failure wraps a L{twisted.internet.error.ConnectionDone} or
+            L{twisted.internet.error.ConnectionLost} instance (or a subclass
+            of one of those).
+
+            @type reason: L{twisted.python.failure.Failure}
+            """
+            LOGGER.error('Reactor called %s.connectionLost(%r); fd=%s.',
+                         self.logPrefix(), reason, self.fileno())
+
+            if self._on_writable is not None:
+                # Convert this to a writable event for compatibility with pika's
+                # other I/O loops
+                LOGGER.debug('%s: Converting connectionLost() to doWrite() for '
+                             'compatibility with our other I/O loops; fd=%s',
+                             self.logPrefix(), self.fileno())
+                self.doWrite()
+
+        def readConnectionLost(self, reason):
+            """
+            Indicates read connection was lost.
+            """
+            LOGGER.error('Reactor called %s.readConnectionLost(%r); fd=%s.',
+                         self.logPrefix(), reason, self.fileno())
+            return
+
+            # NOTE: This appears to be unnecessary according to our async
+            # services tests.
+            #
+            # # For compatibility with our own select/poll implementation's
+            # # handling of closed input, we treat it as a readable event
+            # if self._on_readable is not None:
+            #     self._on_readable()
+            # else:
+            #     LOGGER.debug('Suppressing reactor\'s call to '
+            #                  '%s.readConnectionLost(%r) on writable '
+            #                  'descriptor; fd=%s.',
+            #                  self.logPrefix(), reason, self.fileno())
+
+        def writeConnectionLost(self, reason):
+            """
+            Indicates write connection was lost.
+
+            :param reason: A failure instance indicating the reason why the
+                           connection was lost.  L{error.ConnectionLost} and
+                           L{error.ConnectionDone} are of special note, but the
+                           failure may be of other classes as well.
+
+            """
+            LOGGER.error('Reactor called %s.writeConnectionLost(%r); fd=%s.',
+                         self.logPrefix(), reason, self.fileno())
+            return
+
+            # NOTE: This appears to be unnecessary according to our async
+            # services tests.
+            #
+            # # For compatibility with our own select/poll implementation's
+            # # handling POLLERR and similar, we treat it as a writable event
+            # if self._on_writable is not None:
+            #     self._on_writable()
+            # else:
+            #     LOGGER.debug('Suppressing reactor\'s call to '
+            #                  '%s.writeConnectionLost(%r) on readable '
+            #                  'descriptor; fd=%s.',
+            #                  self.logPrefix(), reason, self.fileno())
+
+
+    def __init__(self, in_reactor):
+        """
+        :param None | twisted.internet.interfaces.IReactorFDSet reactor:
+
+        """
+        self._reactor = in_reactor or reactor
+
+        # Mapping of fd to _SocketReadWriteDescriptor
+        self._fd_watchers = dict()
+
+    def get_native_ioloop(self):
+        """Implement
+        :py:meth:`.utils.nbio_interface.AbstractIOServices.get_native_ioloop()`.
+
+        """
+        return self._reactor
+
+    def close(self):
+        """Implement
+        :py:meth:`.utils.nbio_interface.AbstractIOServices.close()`.
+
+        """
+        # NOTE Twisted reactor doesn't seem to have an equivalent of `close()`
+        # that other I/O loops have.
+        pass
+
+    def run(self):
+        """Implement :py:meth:`.utils.nbio_interface.AbstractIOServices.run()`.
+
+        """
+        # NOTE: pika doesn't need signal handlers and installing them causes
+        # exceptions in our tests that run the loop from a thread.
+        self._reactor.run(installSignalHandlers=False)
+
+    def stop(self):
+        """Implement :py:meth:`.utils.nbio_interface.AbstractIOServices.stop()`.
+
+        """
+        self._reactor.stop()
+
+    def add_callback_threadsafe(self, callback):
+        """Implement
+        :py:meth:`.utils.nbio_interface.AbstractIOServices.add_callback_threadsafe()`.
+
+        """
+        check_callback_arg(callback, 'callback')
+        self._reactor.callFromThread(callback)
+
+    def call_later(self, delay, callback):
+        """Implement
+        :py:meth:`.utils.nbio_interface.AbstractIOServices.call_later()`.
+
+        """
+        check_callback_arg(callback, 'callback')
+        return _TimerHandle(self._reactor.callLater(delay, callback))
+
+    def getaddrinfo(self, host, port, on_done, family=0, socktype=0, proto=0,
+                    flags=0):
+        """Implement
+        :py:meth:`.utils.nbio_interface.AbstractIOServices.getaddrinfo()`.
+
+        """
+        # Use thread pool to run getaddrinfo asynchronously
+        return _TwistedDeferredIOReference(
+            twisted_threads.deferToThreadPool(
+                self._reactor, self._reactor.getThreadPool(),
+                socket.getaddrinfo,
+                # NOTE: python 2.x getaddrinfo only takes positional args
+                host,
+                port,
+                family,
+                socktype,
+                proto,
+                flags),
+            on_done)
+
+    def set_reader(self, fd, on_readable):
+        """Implement
+        :py:meth:`.utils.nbio_interface.AbstractFileDescriptorServices.set_reader()`.
+
+        """
+        LOGGER.debug('%s.set_reader(%s, %s)',
+                     self.__class__.__name__, fd, on_readable)
+        check_fd_arg(fd)
+        check_callback_arg(on_readable, 'or_readable')
+        try:
+            descriptor = self._fd_watchers[fd]
+        except KeyError:
+            descriptor = self._SocketReadWriteDescriptor(
+                fd,
+                on_readable=on_readable)
+            self._fd_watchers[fd] = descriptor
+        else:
+            descriptor.on_readable = on_readable
+
+        self._reactor.addReader(descriptor)
+
+    def remove_reader(self, fd):
+        """Implement
+        :py:meth:`.utils.nbio_interface.AbstractFileDescriptorServices.remove_reader()`.
+
+        """
+        LOGGER.debug('%s.remove_reader(%s)', self.__class__.__name__, fd)
+        check_fd_arg(fd)
+        try:
+            descriptor = self._fd_watchers[fd]
+        except KeyError:
+            return False
+
+        if descriptor.on_readable is None:
+            assert descriptor.on_writable is not None, (
+                '_SocketReadWriteDescriptor was neither readable nor writable.')
+            return False
+
+        descriptor.on_readable = None
+
+        self._reactor.removeReader(descriptor)
+
+        if descriptor.on_writable is None:
+            self._fd_watchers.pop(fd)
+
+        return True
+
+    def set_writer(self, fd, on_writable):
+        """Implement
+        :py:meth:`.utils.nbio_interface.AbstractFileDescriptorServices.set_writer()`.
+
+        """
+        LOGGER.debug('%s.set_writer(%s, %s)',
+                     self.__class__.__name__, fd, on_writable)
+        check_fd_arg(fd)
+        check_callback_arg(on_writable, 'on_writable')
+        try:
+            descriptor = self._fd_watchers[fd]
+        except KeyError:
+            descriptor = self._SocketReadWriteDescriptor(
+                fd,
+                on_writable=on_writable)
+            self._fd_watchers[fd] = descriptor
+        else:
+            descriptor.on_writable = on_writable
+
+        self._reactor.addWriter(descriptor)
+
+    def remove_writer(self, fd):
+        """Implement
+        :py:meth:`.utils.nbio_interface.AbstractFileDescriptorServices.remove_writer()`.
+
+        """
+        LOGGER.debug('%s.remove_writer(%s)', self.__class__.__name__, fd)
+        check_fd_arg(fd)
+        try:
+            descriptor = self._fd_watchers[fd]
+        except KeyError:
+            return False
+
+        if descriptor.on_writable is None:
+            assert descriptor.on_readable is not None, (
+                '_SocketReadWriteDescriptor was neither writable nor readable.')
+            return False
+
+        descriptor.on_writable = None
+
+        self._reactor.removeWriter(descriptor)
+
+        if descriptor.on_readable is None:
+            self._fd_watchers.pop(fd)
+        return True
+
+
+class _TimerHandle(nbio_interface.AbstractTimerReference):
+    """This module's adaptation of `nbio_interface.AbstractTimerReference`.
+
+    """
+
+    def __init__(self, handle):
+        """
+
+        :param twisted.internet.base.DelayedCall handle:
+        """
+        self._handle = handle
+
+    def cancel(self):
+        if self._handle is not None:
+            try:
+                self._handle.cancel()
+            except (twisted_error.AlreadyCalled,
+                    twisted_error.AlreadyCancelled):
+                pass
+
+            self._handle = None
+
+
+class _TwistedDeferredIOReference(nbio_interface.AbstractIOReference):
+    """This module's adaptation of `nbio_interface.AbstractIOReference`
+    for twisted defer.Deferred.
+
+    On failure, extract the original exception from the Twisted Failure
+    exception to pass to user's callback.
+
+    """
+
+    def __init__(self, deferred, on_done):
+        """
+        :param defer.Deferred deferred:
+        :param callable on_done: user callback that takes the completion result
+            or exception (check for `BaseException`) as its only arg. It will
+            not be called if the operation was cancelled.
+
+        """
+        check_callback_arg(on_done, 'on_done')
+
+        self._deferred = deferred
+        self._cancelling = False
+
+        def on_done_adapter(result):
+            """Handle completion callback from the deferred instance. On
+            Failure, extract the original exception from the Twisted Failure
+            exception to pass to the user's callback.
+
+            """
+
+            # NOTE: Twisted makes callback for cancelled deferred, but pika
+            # doesn't want that
+            if not self._cancelling:
+                if isinstance(result, twisted.python.failure.Failure):
+                    LOGGER.debug(
+                        'Deferred operation completed with Failure: %r',
+                        result)
+                    # Extract the original exception
+                    result = result.value
+                on_done(result)
+
+        deferred.addBoth(on_done_adapter)
+
+    def cancel(self):
+        """Cancel pending operation
+
+        :returns: False if was already done or cancelled; True otherwise
+
+        """
+        already_processed = (
+            self._deferred.called and
+            not isinstance(self._deferred.result, defer.Deferred))
+
+        # So that our callback wrapper will know to suppress the mandatory
+        # errorback from Deferred.cancel()
+        self._cancelling = True
+
+        # Always call through to cancel() in case our Deferred was waiting for
+        # another one to complete, so the other one would get cancelled, too
+        self._deferred.cancel()
+
+        return not already_processed

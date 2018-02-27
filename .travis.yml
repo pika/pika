@@ -1,6 +1,9 @@
 language: python
 
-sudo: false
+# Turn on sudo mode to facilitate the IPv6 workaround per
+# github.com/travis-ci/travis-ci/issues/8711. See also related reference in
+# before_script section.
+sudo: true
 
 addons:
   apt:
@@ -41,6 +44,8 @@ install:
   - sed -e "s#PIKA_DIR#$TRAVIS_BUILD_DIR#g" "$TRAVIS_BUILD_DIR/testdata/rabbitmq.conf.in" > "$TRAVIS_BUILD_DIR/testdata/rabbitmq.conf"
 
 before_script:
+  # Enable IPv6 for our tests - see github.com/travis-ci/travis-ci/issues/8711
+  - echo 0 | sudo tee /proc/sys/net/ipv6/conf/all/disable_ipv6
   - pip freeze
   - /bin/sh -c "RABBITMQ_PID_FILE=$TRAVIS_BUILD_DIR/rabbitmq.pid RABBITMQ_CONFIG_FILE=$TRAVIS_BUILD_DIR/testdata/rabbitmq $TRAVIS_BUILD_DIR/rabbitmq_server-$RABBITMQ_VERSION/sbin/rabbitmq-server &"
   - /bin/sh "$TRAVIS_BUILD_DIR/rabbitmq_server-$RABBITMQ_VERSION/sbin/rabbitmqctl" wait "$TRAVIS_BUILD_DIR/rabbitmq.pid"

@@ -1,4 +1,4 @@
-import errno
+import abc
 import os
 import platform
 import re
@@ -8,6 +8,15 @@ import sys as _sys
 PY2 = _sys.version_info < (3,)
 PY3 = not PY2
 RE_NUM = re.compile(r'(\d+).+')
+
+
+ON_LINUX = platform.system() == 'Linux'
+ON_OSX = platform.system() == 'Darwin'
+ON_WINDOWS = platform.system() == 'Windows'
+
+# Portable Abstract Base Class
+AbstractBase = abc.ABCMeta('AbstractBase', (object,), {})
+
 
 if _sys.version_info[:2] < (3, 3):
     SOCKET_ERROR = socket.error
@@ -25,6 +34,7 @@ if not PY2:
     from urllib.parse import (quote as url_quote, unquote as url_unquote,
                               urlencode, parse_qs as url_parse_qs,
                               urlparse)
+    from io import StringIO
 
     # Python 3 does not have basestring anymore; we include
     # *only* the str here as this is used for textual data.
@@ -113,6 +123,8 @@ else:
     from urllib import quote as url_quote, unquote as url_unquote, urlencode
 
     from urlparse import parse_qs as url_parse_qs, urlparse
+
+    from StringIO import StringIO
 
     basestring = basestring
     str_or_bytes = basestring

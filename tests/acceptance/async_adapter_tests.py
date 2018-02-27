@@ -10,18 +10,25 @@
 # Suppress pylint warning about unused argument
 # pylint: disable=W0613
 
+# invalid-name
+# pylint: disable=C0103
+
+
 import functools
+import socket
 import threading
 import time
 import uuid
 
+import pika
+from pika.adapters.utils import connection_workflow
 from pika import spec
 from pika.compat import as_bytes
 import pika.connection
+import pika.exceptions
 import pika.frame
-import pika.spec
 
-from async_test_base import (AsyncTestCase, BoundQueueTestCase, AsyncAdapters)
+from .async_test_base import (AsyncTestCase, BoundQueueTestCase, AsyncAdapters)
 
 
 class TestA_Connect(AsyncTestCase, AsyncAdapters):  # pylint: disable=C0103
@@ -29,6 +36,189 @@ class TestA_Connect(AsyncTestCase, AsyncAdapters):  # pylint: disable=C0103
 
     def begin(self, channel):
         self.stop()
+
+
+class TestCreateConnectionViaDefaultConnectionWorkflow(AsyncTestCase,
+                                                       AsyncAdapters):
+    DESCRIPTION = "Connect via adapter's create_connection() method with single config."
+
+    def begin(self, channel):
+        configs = [self.parameters]
+        connection_class = self.connection.__class__  # type: pika.adapters.BaseConnection
+
+        def on_done(conn):
+            self.assertIsInstance(conn, connection_class)
+            self.stop()
+
+        workflow = connection_class.create_connection(configs,
+                                                      on_done,
+                                                      self.connection.ioloop)
+        self.assertIsInstance(
+            workflow,
+            connection_workflow.AbstractAMQPConnectionWorkflow)
+
+
+class TestCreateConnectionMultipleConfigsDefaultConnectionWorkflow(
+        AsyncTestCase,
+        AsyncAdapters):
+    DESCRIPTION = "Connect via adapter's create_connection() method with multiple configs."
+
+    def begin(self, channel):
+        good_params = self.parameters
+        connection_class = self.connection.__class__  # type: pika.adapters.BaseConnection
+
+        sock = socket.socket()
+        self.addCleanup(sock.close)
+        sock.bind(('127.0.0.1', 0))
+        bad_host, bad_port = sock.getsockname()
+        sock.close()  # so that attempt to connect will fail immediately
+
+        bad_params = pika.ConnectionParameters(host=bad_host, port=bad_port)
+
+        def on_done(conn):
+            self.assertIsInstance(conn, connection_class)
+            self.assertEqual(conn.params.host, good_params.host)
+            self.assertEqual(conn.params.port, good_params.port)
+            self.assertNotEqual((conn.params.host, conn.params.port),
+                                (bad_host, bad_port))
+            self.stop()
+
+        workflow = connection_class.create_connection([bad_params, good_params],
+                                                      on_done,
+                                                      self.connection.ioloop)
+        self.assertIsInstance(
+            workflow,
+            connection_workflow.AbstractAMQPConnectionWorkflow)
+
+
+class TestCreateConnectionRetriesWithDefaultConnectionWorkflow(
+        AsyncTestCase,
+        AsyncAdapters):
+    DESCRIPTION = "Connect via adapter's create_connection() method with multiple retries."
+
+    def begin(self, channel):
+        base_class = self.connection.__class__  # type: pika.adapters.BaseConnection
+
+        first_config = self.parameters
+
+        second_config = self.new_plaintext_connection_params()
+
+        # Configure retries (default connection workflow keys off the last
+        # config in the sequence)
+        second_config.retry_delay = 0.001
+        second_config.connection_attempts = 2
+
+        # MyConnectionClass will use connection_attempts to distinguish between
+        # first and second configs
+        self.assertNotEqual(first_config.connection_attempts,
+                            second_config.connection_attempts)
+
+        logger = self.logger
+
+        class MyConnectionClass(base_class):
+
+            got_second_config = False
+
+            def __init__(self, parameters, *args, **kwargs):
+                logger.info('Entered MyConnectionClass constructor: %s',
+                            parameters)
+
+                if (parameters.connection_attempts ==
+                        second_config.connection_attempts):
+                    MyConnectionClass.got_second_config = True
+                    logger.info('Got second config.')
+                    raise Exception('Reject second config.')
+                elif not MyConnectionClass.got_second_config:
+                    logger.info('Still on first attempt with first config.')
+                    raise Exception('Still on first attempt with first config.')
+                else:
+                    logger.info('Start of retry cycle detected.')
+
+                super(MyConnectionClass, self).__init__(parameters,
+                                                        *args,
+                                                        **kwargs)
+
+        def on_done(conn):
+            self.assertIsInstance(conn, MyConnectionClass)
+            self.assertEqual(conn.params.connection_attempts,
+                             first_config.connection_attempts)
+            self.stop()
+
+        MyConnectionClass.create_connection([first_config, second_config],
+                                            on_done,
+                                            self.connection.ioloop)
+
+
+class TestCreateConnectionConnectionWorkflowFailure(
+        AsyncTestCase,
+        AsyncAdapters):
+    DESCRIPTION = "Connect via adapter's create_connection() fails."
+
+    def begin(self, channel):
+        connection_class = self.connection.__class__  # type: pika.adapters.BaseConnection
+
+        sock = socket.socket()
+        self.addCleanup(sock.close)
+        sock.bind(('127.0.0.1', 0))
+        bad_host, bad_port = sock.getsockname()
+        sock.close()  # so that attempt to connect will fail immediately
+
+        bad_params = pika.ConnectionParameters(host=bad_host, port=bad_port)
+
+        def on_done(exc):
+            self.assertIsInstance(
+                exc,
+                connection_workflow.AMQPConnectionWorkflowFailed)
+            self.assertIsInstance(
+                exc.exceptions[-1],
+                connection_workflow.AMQPConnectorSocketConnectError)
+            self.stop()
+
+        connection_class.create_connection([bad_params,],
+                                           on_done,
+                                           self.connection.ioloop)
+
+
+class TestCreateConnectionImmediatelyAbortDefaultConnectionWorkflow(
+        AsyncTestCase,
+        AsyncAdapters):
+    DESCRIPTION = "Immediately abort workflow initiated via adapter's create_connection()."
+
+    def begin(self, channel):
+        configs = [self.parameters]
+        connection_class = self.connection.__class__  # type: pika.adapters.BaseConnection
+
+        def on_done(exc):
+            self.assertIsInstance(
+                exc,
+                connection_workflow.AMQPConnectionWorkflowAborted)
+            self.stop()
+
+        workflow = connection_class.create_connection(configs,
+                                                      on_done,
+                                                      self.connection.ioloop)
+        workflow.abort()
+
+
+class TestCreateConnectionAsynchronouslyAbortDefaultConnectionWorkflow(
+        AsyncTestCase,
+        AsyncAdapters):
+    DESCRIPTION = "Asyncrhonously abort workflow initiated via adapter's create_connection()."
+
+    def begin(self, channel):
+        configs = [self.parameters]
+        connection_class = self.connection.__class__  # type: pika.adapters.BaseConnection
+
+        def on_done(exc):
+            self.assertIsInstance(
+                exc,
+                connection_workflow.AMQPConnectionWorkflowAborted)
+            self.stop()
+
+        workflow = connection_class.create_connection(configs,
+                                                      on_done,
+                                                      self.connection.ioloop)
+        self.connection._nbio.add_callback_threadsafe(workflow.abort)
 
 
 class TestConfirmSelect(AsyncTestCase, AsyncAdapters):
@@ -413,16 +603,17 @@ class TestZ_PublishAndGet(BoundQueueTestCase, AsyncAdapters):  # pylint: disable
 
 
 class TestZ_AccessDenied(AsyncTestCase, AsyncAdapters):  # pylint: disable=C0103
-    DESCRIPTION = "Verify that access denied invokes on open error callback"
+    DESCRIPTION = "Unknown vhost results in ConnectionClosedByBroker."
 
-    def start(self, *args, **kwargs):
+    def start(self, *args, **kwargs):  # pylint: disable=W0221
         self.parameters.virtual_host = str(uuid.uuid4())
-        self.error_captured = False
+        self.error_captured = None
         super(TestZ_AccessDenied, self).start(*args, **kwargs)
-        self.assertTrue(self.error_captured)
+        self.assertIsInstance(self.error_captured,
+                              pika.exceptions.ConnectionClosedByBroker)
 
     def on_open_error(self, connection, error):
-        self.error_captured = True
+        self.error_captured = error
         self.stop()
 
     def on_open(self, connection):
@@ -433,14 +624,12 @@ class TestZ_AccessDenied(AsyncTestCase, AsyncAdapters):  # pylint: disable=C0103
 class TestBlockedConnectionTimesOut(AsyncTestCase, AsyncAdapters):  # pylint: disable=C0103
     DESCRIPTION = "Verify that blocked connection terminates on timeout"
 
-    def start(self, *args, **kwargs):
+    def start(self, *args, **kwargs):  # pylint: disable=W0221
         self.parameters.blocked_connection_timeout = 0.001
-        self.on_closed_pair = None
+        self.on_closed_error = None
         super(TestBlockedConnectionTimesOut, self).start(*args, **kwargs)
-        self.assertEqual(
-            self.on_closed_pair,
-            (pika.connection.InternalCloseReasons.BLOCKED_CONNECTION_TIMEOUT,
-             'Blocked connection timeout expired'))
+        self.assertIsInstance(self.on_closed_error,
+                              pika.exceptions.ConnectionBlockedTimeout)
 
     def begin(self, channel):
 
@@ -448,26 +637,27 @@ class TestBlockedConnectionTimesOut(AsyncTestCase, AsyncAdapters):  # pylint: di
         channel.connection._on_connection_blocked(
             channel.connection,
             pika.frame.Method(0,
-                              pika.spec.Connection.Blocked(
+                              spec.Connection.Blocked(
                                   'Testing blocked connection timeout')))
 
-    def on_closed(self, connection, reply_code, reply_text):
+    def on_closed(self, connection, error):
         """called when the connection has finished closing"""
-        self.on_closed_pair = (reply_code, reply_text)
-        super(TestBlockedConnectionTimesOut, self).on_closed(connection,
-                                                             reply_code,
-                                                             reply_text)
+        self.on_closed_error = error
+        self.stop()  # acknowledge that closed connection is expected
+        super(TestBlockedConnectionTimesOut, self).on_closed(connection, error)
 
 
 class TestBlockedConnectionUnblocks(AsyncTestCase, AsyncAdapters):  # pylint: disable=C0103
     DESCRIPTION = "Verify that blocked-unblocked connection closes normally"
 
-    def start(self, *args, **kwargs):
+    def start(self, *args, **kwargs):  # pylint: disable=W0221
         self.parameters.blocked_connection_timeout = 0.001
-        self.on_closed_pair = None
+        self.on_closed_error = None
         super(TestBlockedConnectionUnblocks, self).start(*args, **kwargs)
+        self.assertIsInstance(self.on_closed_error,
+                              pika.exceptions.ConnectionClosedByClient)
         self.assertEqual(
-            self.on_closed_pair,
+            (self.on_closed_error.reply_code, self.on_closed_error.reply_text),
             (200, 'Normal shutdown'))
 
     def begin(self, channel):
@@ -476,13 +666,13 @@ class TestBlockedConnectionUnblocks(AsyncTestCase, AsyncAdapters):  # pylint: di
         channel.connection._on_connection_blocked(
             channel.connection,
             pika.frame.Method(0,
-                              pika.spec.Connection.Blocked(
+                              spec.Connection.Blocked(
                                   'Testing blocked connection unblocks')))
 
         # Simulate Connection.Unblocked
         channel.connection._on_connection_unblocked(
             channel.connection,
-            pika.frame.Method(0, pika.spec.Connection.Unblocked()))
+            pika.frame.Method(0, spec.Connection.Unblocked()))
 
         # Schedule shutdown after blocked connection timeout would expire
         channel.connection.add_timeout(0.005, self.on_cleanup_timer)
@@ -490,12 +680,10 @@ class TestBlockedConnectionUnblocks(AsyncTestCase, AsyncAdapters):  # pylint: di
     def on_cleanup_timer(self):
         self.stop()
 
-    def on_closed(self, connection, reply_code, reply_text):
+    def on_closed(self, connection, error):
         """called when the connection has finished closing"""
-        self.on_closed_pair = (reply_code, reply_text)
-        super(TestBlockedConnectionUnblocks, self).on_closed(connection,
-                                                             reply_code,
-                                                             reply_text)
+        self.on_closed_error = error
+        super(TestBlockedConnectionUnblocks, self).on_closed(connection, error)
 
 
 class TestAddCallbackThreadsafeRequestBeforeIOLoopStarts(AsyncTestCase, AsyncAdapters):
@@ -534,7 +722,7 @@ class TestAddCallbackThreadsafeRequestBeforeIOLoopStarts(AsyncTestCase, AsyncAda
 class TestAddCallbackThreadsafeFromIOLoopThread(AsyncTestCase, AsyncAdapters):
     DESCRIPTION = "Test add_callback_threadsafe request from same thread."
 
-    def start(self, *args, **kwargs):
+    def start(self, *args, **kwargs):  # pylint: disable=W0221
         self.loop_thread_ident = threading.current_thread().ident
         self.my_start_time = None
         self.got_callback = False
@@ -557,7 +745,7 @@ class TestAddCallbackThreadsafeFromIOLoopThread(AsyncTestCase, AsyncAdapters):
 class TestAddCallbackThreadsafeFromAnotherThread(AsyncTestCase, AsyncAdapters):
     DESCRIPTION = "Test add_callback_threadsafe request from another thread."
 
-    def start(self, *args, **kwargs):
+    def start(self, *args, **kwargs):  # pylint: disable=W0221
         self.loop_thread_ident = threading.current_thread().ident
         self.my_start_time = None
         self.got_callback = False

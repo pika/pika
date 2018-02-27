@@ -29,8 +29,9 @@ class ClientChannelErrors(object):
     # Our codes will be -1001, -1002, -1003, etc. to avoid collision
     # with `Connection`-defined internal client error codes
     FIRST = -1000
-    OPEN_PENDING = -1001  # channel is not usable yet; wait until it opens
-    CLOSE_PENDING = -1002  # channel is closing
+    CONNECTION_CLOSED = -1001 # Connection closed suddenly
+    OPEN_PENDING = -1002  # channel is not usable yet; wait until it opens
+    CLOSE_PENDING = -1003  # channel is closing
 
 
 class Channel(object):
@@ -189,7 +190,7 @@ class Channel(object):
                            False)
 
     def add_on_return_callback(self, callback):
-        """Pass a callback function that will be called when basic_publish as
+        """Pass a callback function that will be called when basic_publish is
         sent a message that has been rejected and returned by the server.
 
         :param callable callback: The function to call, having the signature
@@ -317,6 +318,7 @@ class Channel(object):
         :param dict arguments: Custom key/value pair arguments for the consumer
         :param callable callback: callback(pika.frame.Method) for method
           Basic.ConsumeOk.
+        :return: Consumer tag which may be used to cancel the consumer.
         :rtype: str
         :raises ValueError:
 
@@ -604,7 +606,8 @@ class Channel(object):
 
         if not (self.connection.publisher_confirms and
                 self.connection.basic_nack):
-            raise exceptions.MethodNotImplemented('Not Supported on Server')
+            raise exceptions.MethodNotImplemented(
+                'Confirm.Select not Supported by Server')
 
         # Add the ack and nack callback
         self.callbacks.add(self.channel_number, spec.Basic.Ack, ack_nack_callback,
@@ -1423,7 +1426,7 @@ class Channel(object):
                                    self._on_synchronous_complete,
                                    arguments=arguments)
                 if callback is not None:
-                    LOGGER.debug('Adding passed-in callback')
+                    LOGGER.debug('Adding passed-in RPC response callback')
                     self.callbacks.add(self.channel_number, reply, callback,
                                        arguments=arguments)
 
