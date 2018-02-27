@@ -1,4 +1,4 @@
-import errno
+import abc
 import os
 import platform
 import re
@@ -8,6 +8,11 @@ import sys as _sys
 PY2 = _sys.version_info < (3,)
 PY3 = not PY2
 RE_NUM = re.compile(r'(\d+).+')
+
+
+# Portable Abstract Base Class
+AbstractBase = abc.ABCMeta('AbstractBase', (object,), {})
+
 
 if _sys.version_info[:2] < (3, 3):
     SOCKET_ERROR = socket.error

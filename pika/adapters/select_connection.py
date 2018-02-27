@@ -502,10 +502,7 @@ class IOLoop(object):
         self._poller.poll()
 
 
-_AbstractBase = abc.ABCMeta('_AbstractBase', (object,), {})
-
-
-class _PollerBase(_AbstractBase):  # pylint: disable=R0902
+class _PollerBase(pika.compat.AbstractBase):  # pylint: disable=R0902
     """Base class for select-based IOLoop implementations"""
 
     # Drop out of the poll loop every _MAX_POLL_TIMEOUT secs as a worst case;
