@@ -9,20 +9,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 class TornadoConnection(base_connection.BaseConnection):
-    """The TornadoConnection runs on the Tornado IOLoop. If you're running the
-    connection in a web app, make sure you set stop_ioloop_on_close to False,
-    which is the default behavior for this adapter, otherwise the web app
-    will stop taking requests.
-
-    :param pika.connection.Parameters parameters: Connection parameters
-    :param on_open_callback: The method to call when the connection is open
-    :type on_open_callback: method
-    :param on_open_error_callback: Method to call if the connection cant
-                                   be opened
-    :type on_open_error_callback: method
-    :param bool stop_ioloop_on_close: Call ioloop.stop() if disconnected
-    :param custom_ioloop: Override using the global IOLoop in Tornado
-
+    """The TornadoConnection runs on the Tornado IOLoop.
     """
 
     def __init__(self,
@@ -30,7 +17,6 @@ class TornadoConnection(base_connection.BaseConnection):
                  on_open_callback=None,
                  on_open_error_callback=None,
                  on_close_callback=None,
-                 stop_ioloop_on_close=False,
                  custom_ioloop=None):
         """Create a new instance of the TornadoConnection class, connecting
         to RabbitMQ automatically
@@ -42,16 +28,16 @@ class TornadoConnection(base_connection.BaseConnection):
             be established: on_open_error_callback(connection, str|exception)
         :param method on_close_callback: Called when the connection is closed:
             on_close_callback(connection, reason_code, reason_text)
-        :param bool stop_ioloop_on_close: Call ioloop.stop() if disconnected
         :param custom_ioloop: Override using the global IOLoop in Tornado
 
         """
         self.sleep_counter = 0
         self.ioloop = custom_ioloop or ioloop.IOLoop.instance()
-        super(TornadoConnection, self).__init__(parameters, on_open_callback,
+        super(TornadoConnection, self).__init__(parameters,
+                                                on_open_callback,
                                                 on_open_error_callback,
-                                                on_close_callback, self.ioloop,
-                                                stop_ioloop_on_close)
+                                                on_close_callback,
+                                                self.ioloop)
 
     def _adapter_connect(self):
         """Connect to the remote socket, adding the socket to the IOLoop if
@@ -93,3 +79,29 @@ class TornadoConnection(base_connection.BaseConnection):
 
         """
         return self.ioloop.remove_timeout(timeout_id)
+
+    def add_callback_threadsafe(self, callback):
+        """Requests a call to the given function as soon as possible in the
+        context of this connection's IOLoop thread.
+
+        NOTE: This is the only thread-safe method offered by the connection. All
+         other manipulations of the connection must be performed from the
+         connection's thread.
+
+        For example, a thread may request a call to the
+        `channel.basic_ack` method of a connection that is running in a
+        different thread via
+
+        ```
+        connection.add_callback_threadsafe(
+            functools.partial(channel.basic_ack, delivery_tag=...))
+        ```
+
+        :param method callback: The callback method; must be callable.
+
+        """
+        if not callable(callback):
+            raise TypeError(
+                'callback must be a callable, but got %r' % (callback,))
+
+        self.ioloop.add_callback(callback)

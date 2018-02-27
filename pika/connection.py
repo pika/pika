@@ -347,10 +347,10 @@ class Parameters(object):  # pylint: disable=R0902
         if not isinstance(value, numbers.Integral):
             raise TypeError('frame_max must be an int, but got %r' % (value,))
         if value < spec.FRAME_MIN_SIZE:
-            raise ValueError('Min AMQP 0.9.1 Frame Size is %i, but got %r',
+            raise ValueError('Min AMQP 0.9.1 Frame Size is %i, but got %r' %
                              (spec.FRAME_MIN_SIZE, value,))
         elif value > spec.FRAME_MAX_SIZE:
-            raise ValueError('Max AMQP 0.9.1 Frame Size is %i, but got %r',
+            raise ValueError('Max AMQP 0.9.1 Frame Size is %i, but got %r' %
                              (spec.FRAME_MAX_SIZE, value,))
         self._frame_max = value
 
@@ -358,7 +358,7 @@ class Parameters(object):  # pylint: disable=R0902
     def heartbeat(self):
         """
         :returns: AMQP connection heartbeat timeout value for negotiation during
-            connection tuning or callable which is invoked during connection tuning. 
+            connection tuning or callable which is invoked during connection tuning.
             None to accept broker's value. 0 turns heartbeat off. Defaults to
             `DEFAULT_HEARTBEAT_TIMEOUT`.
         :rtype: integer, None or callable
@@ -1012,12 +1012,6 @@ class Connection(object):
     class should not be invoked directly but rather through the use of an
     adapter such as SelectConnection or BlockingConnection.
 
-    :param pika.connection.Parameters parameters: Connection parameters
-    :param method on_open_callback: Called when the connection is opened
-    :param method on_open_error_callback: Called if the connection cant
-                                   be opened
-    :param method on_close_callback: Called when the connection is closed
-
     """
 
     # Disable pylint messages concerning "method could be a funciton"
@@ -1060,14 +1054,15 @@ class Connection(object):
         URLParameters class.
 
         :param pika.connection.Parameters parameters: Connection parameters
-        :param method on_open_callback: Called when the connection is opened
+        :param method on_open_callback: Called when the connection is opened:
+            on_open_callback(connection)
         :param method on_open_error_callback: Called if the connection can't
             be established: on_open_error_callback(connection, str|exception)
         :param method on_close_callback: Called when the connection is closed:
             `on_close_callback(connection, reason_code, reason_text)`, where
             `reason_code` is either an IETF RFC 821 reply code for AMQP-level
-          closures or a value from `pika.connection.InternalCloseReasons` for
-          internal causes, such as socket errors.
+             closures or a value from `pika.connection.InternalCloseReasons` for
+             internal causes, such as socket errors.
 
         """
         self.connection_state = self.CONNECTION_CLOSED
@@ -1131,8 +1126,11 @@ class Connection(object):
 
     def add_on_close_callback(self, callback):
         """Add a callback notification when the connection has closed. The
-        callback will be passed the connection, the reply_code (int) and the
-        reply_text (str), if sent by the remote server.
+        callback will be passed the connection, the reason_code (int) and the
+        reply_text (str), where reason_code is either an IETF RFC 821 reply code
+        for AMQP-level closures or a value from
+        `pika.connection.InternalCloseReasons` for internal causes, such as
+        socket errors.
 
         :param method callback: Callback to call on close
 
@@ -1147,6 +1145,8 @@ class Connection(object):
         resources. Publishers can use this to voluntarily suspend publishing,
         instead of relying on back pressure throttling. The callback
         will be passed the ``Connection.Blocked`` method frame.
+
+        TODO Also pass the connection as the callback's first arg
 
         See also `ConnectionParameters.blocked_connection_timeout`.
 
@@ -1166,6 +1166,8 @@ class Connection(object):
         to start publishing again. The callback will be passed the
         ``Connection.Unblocked`` method frame.
 
+        TODO Also pass the connection as the callback's first arg
+
         :param method callback: Callback to call on
             `Connection.Unblocked`, having the signature
             `callback(pika.frame.Method)`, where the method frame's
@@ -1177,7 +1179,8 @@ class Connection(object):
         self.callbacks.add(0, spec.Connection.Unblocked, callback, False)
 
     def add_on_open_callback(self, callback):
-        """Add a callback notification when the connection has opened.
+        """Add a callback notification when the connection has opened. The
+        callback will be passed the connection instance as its only arg.
 
         :param method callback: Callback to call when open
 
@@ -1189,8 +1192,8 @@ class Connection(object):
     def add_on_open_error_callback(self, callback, remove_default=True):
         """Add a callback notification when the connection can not be opened.
 
-        The callback method should accept the connection object that could not
-        connect, and an optional error message.
+        The callback method should accept the connection instance that could not
+        connect, and either a string or an exception as its second arg.
 
         :param method callback: Callback to call when can't connect
         :param bool remove_default: Remove default exception raising callback
@@ -1209,7 +1212,7 @@ class Connection(object):
         thread, or similar.
 
         :param int deadline: The number of seconds to wait to call callback
-        :param method callback: The callback method
+        :param method callback: The callback will be called without args.
 
         """
         raise NotImplementedError
@@ -1222,7 +1225,9 @@ class Connection(object):
 
         :param int channel_number: The channel number to use, defaults to the
                                    next available.
-        :param method on_open_callback: The callback when the channel is opened
+        :param method on_open_callback: The callback when the channel is opened.
+            The callback will be invoked with the `Channel` instance as its only
+            argument.
         :rtype: pika.channel.Channel
 
         """
@@ -1253,8 +1258,11 @@ class Connection(object):
             LOGGER.warning('Suppressing close request on %s', self)
             return
 
+        # NOTE The connection is either in opening or open state
+
         # Initiate graceful closing of channels that are OPEN or OPENING
-        self._close_channels(reply_code, reply_text)
+        if self._channels:
+            self._close_channels(reply_code, reply_text)
 
         # Set our connection state
         self._set_connection_state(self.CONNECTION_CLOSING)
@@ -1514,7 +1522,9 @@ class Connection(object):
         back the method specified by on_open_callback
 
         :param int channel_number: The channel number to use
-        :param method on_open_callback: The callback when the channel is opened
+        :param method on_open_callback: The callback when the channel is opened.
+            The callback will be invoked with the `Channel` instance as its only
+            argument.
 
         """
         LOGGER.debug('Creating channel %s', channel_number)
@@ -1524,13 +1534,15 @@ class Connection(object):
         """Create a heartbeat checker instance if there is a heartbeat interval
         set.
 
-        :rtype: pika.heartbeat.Heartbeat
+        :rtype: pika.heartbeat.Heartbeat|None
 
         """
         if self.params.heartbeat is not None and self.params.heartbeat > 0:
             LOGGER.debug('Creating a HeartbeatChecker: %r',
                          self.params.heartbeat)
             return pika_heartbeat.HeartbeatChecker(self, self.params.heartbeat)
+
+        return None
 
     def _remove_heartbeat(self):
         """Stop the heartbeat checker if it exists
@@ -1889,7 +1901,9 @@ class Connection(object):
 
         error = self._adapter_connect()
         if not error:
-            return self._on_connected()
+            self._on_connected()
+            return
+
         self.remaining_connection_attempts -= 1
         LOGGER.warning('Could not connect, %i attempts left',
                        self.remaining_connection_attempts)
@@ -1981,18 +1995,21 @@ class Connection(object):
         self._set_connection_state(self.CONNECTION_TUNE)
 
         # Get our max channels, frames and heartbeat interval
-        self.params.channel_max = Connection._negotiate_integer_value(self.params.channel_max,
-                                                                      method_frame.method.channel_max)
-        self.params.frame_max = Connection._negotiate_integer_value(self.params.frame_max,
-                                                                    method_frame.method.frame_max)
+        self.params.channel_max = Connection._negotiate_integer_value(
+            self.params.channel_max,
+            method_frame.method.channel_max)
+        self.params.frame_max = Connection._negotiate_integer_value(
+            self.params.frame_max,
+            method_frame.method.frame_max)
 
         if callable(self.params.heartbeat):
             ret_heartbeat = self.params.heartbeat(self, method_frame.method.heartbeat)
             if ret_heartbeat is None or callable(ret_heartbeat):
                 # Enforce callback-specific restrictions on callback's return value
-                raise TypeError('heartbeat callback must must not return None or callable, but got %r' % (ret_heartbeat,))
-            
-            # Let hearbeat setter deal with the rest of the validation, so as not to duplicate the additional validation logic
+                raise TypeError('heartbeat callback must not return None '
+                                'or callable, but got %r' % (ret_heartbeat,))
+
+            # Leave it to hearbeat setter deal with the rest of the validation
             self.params.heartbeat = ret_heartbeat
 
         # Negotiate heatbeat timeout
@@ -2169,17 +2186,6 @@ class Connection(object):
         """
         return frame.decode_frame(self._frame_buffer)
 
-    def _remove_callback(self, channel_number, method_class):
-        """Remove the specified method_frame callback if it is set for the
-        specified channel number.
-
-        :param int channel_number: The channel number to remove the callback on
-        :param pika.amqp_object.Method method_class: The method class for the
-            callback
-
-        """
-        self.callbacks.remove(str(channel_number), method_class)
-
     def _remove_callbacks(self, channel_number, method_classes):
         """Remove the callbacks for the specified channel number and list of
         method frames.
@@ -2189,8 +2195,8 @@ class Connection(object):
             `pika.amqp_object.Method`) for the callbacks
 
         """
-        for method_frame in method_classes:
-            self._remove_callback(channel_number, method_frame)
+        for method_cls in method_classes:
+            self.callbacks.remove(str(channel_number), method_cls)
 
     def _rpc(self, channel_number, method,
              callback=None,

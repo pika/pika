@@ -37,8 +37,7 @@ class BaseConnection(connection.Connection):
                  on_open_callback=None,
                  on_open_error_callback=None,
                  on_close_callback=None,
-                 ioloop=None,
-                 stop_ioloop_on_close=True):
+                 ioloop=None):
         """Create a new instance of the Connection object.
 
         :param pika.connection.Parameters parameters: Connection parameters
@@ -48,7 +47,6 @@ class BaseConnection(connection.Connection):
         :param method on_close_callback: Called when the connection is closed:
             on_close_callback(connection, reason_code, reason_text)
         :param object ioloop: IOLoop object to use
-        :param bool stop_ioloop_on_close: Call ioloop.stop() if disconnected
         :raises: RuntimeError
         :raises: ValueError
 
@@ -64,7 +62,6 @@ class BaseConnection(connection.Connection):
         self.event_state = self.base_events
         self.ioloop = ioloop
         self.socket = None
-        self.stop_ioloop_on_close = stop_ioloop_on_close
         self.write_buffer = None
         super(BaseConnection,
               self).__init__(parameters, on_open_callback,
@@ -119,11 +116,7 @@ class BaseConnection(connection.Connection):
         :param str reply_text: The text reason for the close
 
         """
-        try:
-            super(BaseConnection, self).close(reply_code, reply_text)
-        finally:
-            if self.is_closed:
-                self._handle_ioloop_stop()
+        super(BaseConnection, self).close(reply_code, reply_text)
 
     def remove_timeout(self, timeout_id):
         """Remove the timeout from the IOLoop by the ID returned from
@@ -133,6 +126,32 @@ class BaseConnection(connection.Connection):
 
         """
         self.ioloop.remove_timeout(timeout_id)
+
+    def add_callback_threadsafe(self, callback):
+        """Requests a call to the given function as soon as possible in the
+        context of this connection's IOLoop thread.
+
+        NOTE: This is the only thread-safe method offered by the connection. All
+         other manipulations of the connection must be performed from the
+         connection's thread.
+
+        For example, a thread may request a call to the
+        `channel.basic_ack` method of a connection that is running in a
+        different thread via
+
+        ```
+        connection.add_callback_threadsafe(
+            functools.partial(channel.basic_ack, delivery_tag=...))
+        ```
+
+        :param method callback: The callback method; must be callable.
+
+        """
+        if not callable(callback):
+            raise TypeError(
+                'callback must be a callable, but got %r' % (callback,))
+
+        self.ioloop.add_callback_threadsafe(callback)
 
     def _adapter_connect(self):
         """Connect to the RabbitMQ broker, returning True if connected.
@@ -170,10 +189,7 @@ class BaseConnection(connection.Connection):
 
     def _adapter_disconnect(self):
         """Invoked if the connection is being told to disconnect"""
-        try:
-            self._cleanup_socket()
-        finally:
-            self._handle_ioloop_stop()
+        self._cleanup_socket()
 
     def _cleanup_socket(self):
         """Close the socket cleanly"""
@@ -298,14 +314,6 @@ class BaseConnection(connection.Connection):
         # detected in _send_connection_tune_ok, before _send_connection_open is
         # called), etc., etc., etc.
         self._manage_event_state()
-
-    def _handle_ioloop_stop(self):
-        """Invoked when the connection is closed to determine if the IOLoop
-        should be stopped or not.
-
-        """
-        if self.stop_ioloop_on_close and self.ioloop:
-            self.ioloop.stop()
 
     def _handle_error(self, error_value):
         """Internal error handling method. Here we expect a socket error

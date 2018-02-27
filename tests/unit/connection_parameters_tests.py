@@ -11,6 +11,14 @@ import pika
 from pika.compat import urlencode, url_quote, dict_iteritems
 from pika import channel, connection, credentials, spec
 
+
+# disable missing-docstring
+# pylint: disable=C0111
+
+# disable invalid-name
+# pylint: disable=C0103
+
+
 # Unordered sequence of connection.Parameters's property getters
 _ALL_PUBLIC_PARAMETERS_PROPERTIES = tuple(
     attr for attr in vars(connection.Parameters) if not attr.startswith('_')
@@ -244,7 +252,7 @@ class ParametersTests(_ParametersTestsBase):
         with self.assertRaises(ValueError):
             params.heartbeat = -1
 
-        def heartbeat_callback(conn, val):
+        def heartbeat_callback(_conn, _val):
             return 1
         params.heartbeat = heartbeat_callback
         self.assertTrue(callable(params.heartbeat))
@@ -486,7 +494,7 @@ class ConnectionParametersTests(_ParametersTestsBase):
             self.assertIs(warnings_list[0].category, DeprecationWarning)
 
     def test_callable_heartbeat(self):
-        def heartbeat_callback(connection, broker_val):
+        def heartbeat_callback(_connection, _broker_val):
             return 1
         parameters = pika.ConnectionParameters(heartbeat=heartbeat_callback)
         self.assertIs(parameters.heartbeat, heartbeat_callback)

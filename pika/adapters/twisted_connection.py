@@ -225,6 +225,28 @@ class IOLoopReactorAdapter(object):
         """
         call.cancel()
 
+    def add_callback_threadsafe(self, callback):
+        """Requests a call to the given function as soon as possible in the
+        context of this IOLoop's thread.
+
+        NOTE: This is the only thread-safe method offered by the IOLoop adapter.
+         All other manipulations of the IOLoop adapter and its parent connection
+         must be performed from the connection's thread.
+
+        For example, a thread may request a call to the
+        `channel.basic_ack` method of a connection that is running in a
+        different thread via
+
+        ```
+        connection.add_callback_threadsafe(
+            functools.partial(channel.basic_ack, delivery_tag=...))
+        ```
+
+        :param method callback: The callback method; must be callable.
+
+        """
+        self.reactor.callFromThread(callback)
+
     def stop(self):
         # Guard against stopping the reactor multiple times
         if not self.started:
@@ -282,15 +304,13 @@ class TwistedConnection(base_connection.BaseConnection):
                  parameters=None,
                  on_open_callback=None,
                  on_open_error_callback=None,
-                 on_close_callback=None,
-                 stop_ioloop_on_close=False):
+                 on_close_callback=None):
         super(TwistedConnection, self).__init__(
             parameters=parameters,
             on_open_callback=on_open_callback,
             on_open_error_callback=on_open_error_callback,
             on_close_callback=on_close_callback,
-            ioloop=IOLoopReactorAdapter(self, reactor),
-            stop_ioloop_on_close=stop_ioloop_on_close)
+            ioloop=IOLoopReactorAdapter(self, reactor))
 
     def _adapter_connect(self):
         """Connect to the RabbitMQ broker"""
@@ -374,8 +394,7 @@ class TwistedProtocolConnection(base_connection.BaseConnection):
             on_open_callback=self.connectionReady,
             on_open_error_callback=self.connectionFailed,
             on_close_callback=on_close_callback,
-            ioloop=IOLoopReactorAdapter(self, reactor),
-            stop_ioloop_on_close=False)
+            ioloop=IOLoopReactorAdapter(self, reactor))
 
     def connect(self):
         # The connection is open asynchronously by Twisted, so skip the whole
