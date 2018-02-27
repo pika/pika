@@ -228,7 +228,7 @@ class AsyncioConnection(base_connection.BaseConnection):
         if not error:
             self.ioloop.add_handler(
                 self.socket.fileno(),
-                self._handle_events,
+                self._handle_connection_socket_events,
                 self.event_state,
             )
 
