@@ -358,7 +358,7 @@ class Parameters(object):  # pylint: disable=R0902
     def heartbeat(self):
         """
         :returns: AMQP connection heartbeat timeout value for negotiation during
-            connection tuning or callable which is invoked during connection tuning. 
+            connection tuning or callable which is invoked during connection tuning.
             None to accept broker's value. 0 turns heartbeat off. Defaults to
             `DEFAULT_HEARTBEAT_TIMEOUT`.
         :rtype: integer, None or callable
@@ -1534,13 +1534,15 @@ class Connection(object):
         """Create a heartbeat checker instance if there is a heartbeat interval
         set.
 
-        :rtype: pika.heartbeat.Heartbeat
+        :rtype: pika.heartbeat.Heartbeat|None
 
         """
         if self.params.heartbeat is not None and self.params.heartbeat > 0:
             LOGGER.debug('Creating a HeartbeatChecker: %r',
                          self.params.heartbeat)
             return pika_heartbeat.HeartbeatChecker(self, self.params.heartbeat)
+
+        return None
 
     def _remove_heartbeat(self):
         """Stop the heartbeat checker if it exists
@@ -1899,7 +1901,9 @@ class Connection(object):
 
         error = self._adapter_connect()
         if not error:
-            return self._on_connected()
+            self._on_connected()
+            return
+
         self.remaining_connection_attempts -= 1
         LOGGER.warning('Could not connect, %i attempts left',
                        self.remaining_connection_attempts)
@@ -2002,9 +2006,10 @@ class Connection(object):
             ret_heartbeat = self.params.heartbeat(self, method_frame.method.heartbeat)
             if ret_heartbeat is None or callable(ret_heartbeat):
                 # Enforce callback-specific restrictions on callback's return value
-                raise TypeError('heartbeat callback must must not return None or callable, but got %r' % (ret_heartbeat,))
-            
-            # Let hearbeat setter deal with the rest of the validation, so as not to duplicate the additional validation logic
+                raise TypeError('heartbeat callback must not return None '
+                                'or callable, but got %r' % (ret_heartbeat,))
+
+            # Leave it to hearbeat setter deal with the rest of the validation
             self.params.heartbeat = ret_heartbeat
 
         # Negotiate heatbeat timeout

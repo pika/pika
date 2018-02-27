@@ -619,7 +619,7 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
         #verfy
         self.assertEqual(60, self.connection.params.heartbeat)
 
-        # Server value is 10, client passes a heartbeat function that 
+        # Server value is 10, client passes a heartbeat function that
         # chooses max(servervalue,60). Pick 60
         def choose_max(conn, val):
             self.assertIs(conn, self.connection)
