@@ -355,10 +355,11 @@ class Parameters(object):  # pylint: disable=R0902
     @property
     def heartbeat(self):
         """
-        :returns: desired connection heartbeat timeout for negotiation or
+        :returns: AMQP connection heartbeat timeout value for negotiation during
+            connection tuning or callable which is invoked during connection tuning.
             None to accept broker's value. 0 turns heartbeat off. Defaults to
             `DEFAULT_HEARTBEAT_TIMEOUT`.
-        :rtype: integer, float, or None
+        :rtype: integer, None or callable
 
         """
         return self._heartbeat
@@ -366,15 +367,19 @@ class Parameters(object):  # pylint: disable=R0902
     @heartbeat.setter
     def heartbeat(self, value):
         """
-        :param value: desired connection heartbeat timeout for negotiation or
-            None to accept broker's value. 0 turns heartbeat off.
-
+        :param int|None|callable value: Controls AMQP heartbeat timeout negotiation
+            during connection tuning. An integer value always overrides the value
+            proposed by broker. Use 0 to deactivate heartbeats and None to always
+            accept the broker's proposal. If a callable is given, it will be called
+            with the connection instance and the heartbeat timeout proposed by broker
+            as its arguments. The callback should return a non-negative integer that
+            will be used to override the broker's proposal.
         """
         if value is not None:
-            if not isinstance(value, numbers.Integral):
-                raise TypeError('heartbeat must be an int, but got %r' %
+            if not isinstance(value, numbers.Integral) and not callable(value):
+                raise TypeError('heartbeat must be an int or a callable function, but got %r' %
                                 (value,))
-            if value < 0:
+            if not callable(value) and value < 0:
                 raise ValueError('heartbeat must >= 0, but got %r' % (value,))
         self._heartbeat = value
 
@@ -610,9 +615,13 @@ class ConnectionParameters(Parameters):
         :param pika.credentials.Credentials credentials: auth credentials
         :param int channel_max: Maximum number of channels to allow
         :param int frame_max: The maximum byte size for an AMQP frame
-        :param int heartbeat: Heartbeat timeout. Max between this value
-            and server's proposal will be used as the heartbeat timeout. Use 0
-            to deactivate heartbeats and None to accept server's proposal.
+        :param int|None|callable value: Controls AMQP heartbeat timeout negotiation
+            during connection tuning. An integer value always overrides the value
+            proposed by broker. Use 0 to deactivate heartbeats and None to always
+            accept the broker's proposal. If a callable is given, it will be called
+            with the connection instance and the heartbeat timeout proposed by broker
+            as its arguments. The callback should return a non-negative integer that
+            will be used to override the broker's proposal.
         :param bool ssl: Enable SSL
         :param dict ssl_options: None or a dict of arguments to be passed to
             ssl.wrap_socket
@@ -739,8 +748,8 @@ class URLParameters(Parameters):
         - frame_max:
             Override the default maximum frame size for communication
         - heartbeat:
-            Specify the number of seconds between heartbeat frames to ensure that
-            the link between RabbitMQ and your application is up
+            Desired connection heartbeat timeout for negotiation. If not present
+            the broker's value is accepted. 0 turns heartbeat off.
         - locale:
             Override the default `en_US` locale value
         - ssl:
@@ -1501,13 +1510,15 @@ class Connection(object):
         """Create a heartbeat checker instance if there is a heartbeat interval
         set.
 
-        :rtype: pika.heartbeat.Heartbeat
+        :rtype: pika.heartbeat.Heartbeat|None
 
         """
         if self.params.heartbeat is not None and self.params.heartbeat > 0:
             LOGGER.debug('Creating a HeartbeatChecker: %r',
                          self.params.heartbeat)
             return heartbeat.HeartbeatChecker(self, self.params.heartbeat)
+
+        return None
 
     def _remove_heartbeat(self):
         """Stop the heartbeat checker if it exists
@@ -1866,7 +1877,9 @@ class Connection(object):
 
         error = self._adapter_connect()
         if not error:
-            return self._on_connected()
+            self._on_connected()
+            return
+
         self.remaining_connection_attempts -= 1
         LOGGER.warning('Could not connect, %i attempts left',
                        self.remaining_connection_attempts)
@@ -1929,6 +1942,8 @@ class Connection(object):
         > - The client responds and **MAY reduce those limits** for its
             connection
 
+        If the client specifies a value, it always takes precedence.
+
         :param client_value: None to accept server_value; otherwise, an integral
             number in seconds; 0 (zero) to disable heartbeat.
         :param server_value: integral value of the heartbeat timeout proposed by
@@ -1940,7 +1955,7 @@ class Connection(object):
             # Accept server's limit
             timeout = server_value
         else:
-            timeout = Connection._negotiate_integer_value(client_value, server_value)
+            timeout = client_value
 
         return timeout
 
@@ -1960,6 +1975,16 @@ class Connection(object):
                                                                       method_frame.method.channel_max)
         self.params.frame_max = Connection._negotiate_integer_value(self.params.frame_max,
                                                                     method_frame.method.frame_max)
+
+        if callable(self.params.heartbeat):
+            ret_heartbeat = self.params.heartbeat(self, method_frame.method.heartbeat)
+            if ret_heartbeat is None or callable(ret_heartbeat):
+                # Enforce callback-specific restrictions on callback's return value
+                raise TypeError('heartbeat callback must not return None '
+                                'or callable, but got %r' % (ret_heartbeat,))
+
+            # Leave it to hearbeat setter deal with the rest of the validation
+            self.params.heartbeat = ret_heartbeat
 
         # Negotiate heatbeat timeout
         self.params.heartbeat = self._tune_heartbeat_timeout(
