@@ -1,13 +1,23 @@
-sudo: true
-
 language: python
+
+sudo: false
+
+addons:
+  apt:
+    sources:
+      - sourceline: deb https://packages.erlang-solutions.com/ubuntu trusty contrib
+        key_url: https://packages.erlang-solutions.com/ubuntu/erlang_solutions.asc
+    packages:
+      - erlang
+      - elixir
 
 env:
   global:
-   - PATH=$HOME/.local/bin:$PATH
-   - AWS_DEFAULT_REGION=us-east-1
-   - secure: "Eghft2UgJmWuCgnqz6O+KV5F9AERzUbKIeXkcw7vsFAVdkB9z01XgqVLhQ6N+n6i8mkiRDkc0Jes6htVtO4Hi6lTTFeDhu661YCXXTFdRdsx+D9v5bgw8Q2bP41xFy0iao7otYqkzFKIo32Q2cUYzMUqXlS661Yai5DXldr3mjM="
-   - secure: "LjieH/Yh0ng5gwT6+Pl3rL7RMxxb/wOlogoLG7cS99XKdX6N4WRVFvWbHWwCxoVr0be2AcyQynu4VOn+0jC8iGfQjkJZ7UrJjZCDGWbNjAWrNcY0F9VdretFDy8Vn2sHfBXq8fINqszJkgTnmbQk8dZWUtj0m/RNVnOBeBcsIOU="
+    - RABBITMQ_DOWNLOAD_URL=https://github.com/rabbitmq/rabbitmq-server/releases/download/v3.7.3/rabbitmq-server-generic-unix-3.7.3.tar.xz
+    - PATH=$HOME/.local/bin:$PATH
+    - AWS_DEFAULT_REGION=us-east-1
+    - secure: "Eghft2UgJmWuCgnqz6O+KV5F9AERzUbKIeXkcw7vsFAVdkB9z01XgqVLhQ6N+n6i8mkiRDkc0Jes6htVtO4Hi6lTTFeDhu661YCXXTFdRdsx+D9v5bgw8Q2bP41xFy0iao7otYqkzFKIo32Q2cUYzMUqXlS661Yai5DXldr3mjM="
+    - secure: "LjieH/Yh0ng5gwT6+Pl3rL7RMxxb/wOlogoLG7cS99XKdX6N4WRVFvWbHWwCxoVr0be2AcyQynu4VOn+0jC8iGfQjkJZ7UrJjZCDGWbNjAWrNcY0F9VdretFDy8Vn2sHfBXq8fINqszJkgTnmbQk8dZWUtj0m/RNVnOBeBcsIOU="
 
 stages:
 - test
@@ -16,60 +26,71 @@ stages:
 - name: deploy
   if: tag IS present
 
-services:
-- rabbitmq
+cache:
+  apt: true
 
 install:
-- pip install -r test-requirements.txt
-- pip install awscli==1.11.18
+  - pip install -r test-requirements.txt
+  - pip install awscli==1.11.18
+  - wget -O "$TRAVIS_BUILD_DIR/rabbitmq.tar.xz" "$RABBITMQ_DOWNLOAD_URL"
+  - tar -C "$TRAVIS_BUILD_DIR" -xvf "$TRAVIS_BUILD_DIR/rabbitmq.tar.xz"
+  - sed -e "s#PIKA_DIR#$TRAVIS_BUILD_DIR#g" "$TRAVIS_BUILD_DIR/testdata/rabbitmq.conf.in" > "$TRAVIS_BUILD_DIR/testdata/rabbitmq.conf"
 
 before_script:
-- pip freeze
-- sudo rabbitmqctl status
+  - pip freeze
+  - elixir --version
+  - /bin/sh -c "RABBITMQ_PID_FILE=$TRAVIS_BUILD_DIR/rabbitmq.pid RABBITMQ_CONFIG_FILE=$TRAVIS_BUILD_DIR/testdata/rabbitmq $TRAVIS_BUILD_DIR/rabbitmq_server-3.7.3/sbin/rabbitmq-server &"
+  - /bin/sh "$TRAVIS_BUILD_DIR/rabbitmq_server-3.7.3/sbin/rabbitmqctl" wait "$TRAVIS_BUILD_DIR/rabbitmq.pid"
+  - /bin/sh "$TRAVIS_BUILD_DIR/rabbitmq_server-3.7.3/sbin/rabbitmqctl" status
 
-script: nosetests
+script:
+  - nosetests
+  - PIKA_TEST_TLS=true nosetests
+
+after_script:
+  - /bin/sh "$TRAVIS_BUILD_DIR/rabbitmq_server-3.7.3/sbin/rabbitmqctl" shutdown
 
 after_success:
-- aws s3 cp .coverage "s3://com-gavinroy-travis/pika/$TRAVIS_BUILD_NUMBER/.coverage.${TRAVIS_PYTHON_VERSION}"
+  - aws s3 cp .coverage "s3://com-gavinroy-travis/pika/$TRAVIS_BUILD_NUMBER/.coverage.${TRAVIS_PYTHON_VERSION}"
 
 jobs:
   include:
-   - python: 2.7
-   - python: 3.4
-   - python: 3.5
-   - python: 3.6
-   - python: 3.7-dev
-   - python: pypy
-   - python: pypy3
-   - stage: coverage
-     python: 3.6
-     services: []
-     install:
-     - pip install awscli coverage codecov
-     before_script: []
-     script:
-     - mkdir coverage
-     - aws s3 cp --recursive s3://com-gavinroy-travis/pika/$TRAVIS_BUILD_NUMBER/ coverage
-     - cd coverage
-     - coverage combine
-     - cd ..
-     - mv coverage/.coverage .
-     - coverage report
-     after_success: codecov
-   - stage: deploy
-     if: repo IS pika/pika
-     python: 3.6
-     services: []
-     install: true
-     before_script: []
-     script: true
-     after_success: []
-     deploy:
-       distributions: sdist bdist_wheel
-       provider: pypi
-       user: crad
-       on:
-         tags: true
-         all_branches: true
-       password:
-         secure: "V/JTU/X9C6uUUVGEAWmWWbmKW7NzVVlC/JWYpo05Ha9c0YV0vX4jOfov2EUAphM0WwkD/MRhz4dq3kCU5+cjHxR3aTSb+sbiElsCpaciaPkyrns+0wT5MCMO29Lpnq2qBLc1ePR1ey5aTWC/VibgFJOL7H/3wyvukL6ZaCnktYk="
+    - python: 2.7
+    - python: 3.4
+    - python: 3.5
+    - python: 3.6
+    - python: 3.7-dev
+    - python: pypy
+    - python: pypy3
+    - stage: coverage
+      python: 3.6
+      services: []
+      install:
+        - pip install awscli coverage codecov
+      before_script: []
+      script:
+        - mkdir coverage
+        - aws s3 cp --recursive s3://com-gavinroy-travis/pika/$TRAVIS_BUILD_NUMBER/ coverage
+        - cd coverage
+        - coverage combine
+        - cd ..
+        - mv coverage/.coverage .
+        - coverage report
+      after_success: codecov
+    - stage: deploy
+      if: repo IS pika/pika
+      python: 3.6
+      services: []
+      install: true
+      before_script: []
+      script: true
+      after_success: []
+      deploy:
+        distributions: sdist bdist_wheel
+        provider: pypi
+        user: crad
+        on:
+          tags: true
+          all_branches: true
+        password:
+          secure: "V/JTU/X9C6uUUVGEAWmWWbmKW7NzVVlC/JWYpo05Ha9c0YV0vX4jOfov2EUAphM0WwkD/MRhz4dq3kCU5+cjHxR3aTSb+sbiElsCpaciaPkyrns+0wT5MCMO29Lpnq2qBLc1ePR1ey5aTWC/VibgFJOL7H/3wyvukL6ZaCnktYk="
