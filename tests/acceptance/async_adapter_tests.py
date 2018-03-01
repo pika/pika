@@ -612,7 +612,7 @@ class TestViabilityOfMultipleTimeoutsWithSameDeadlineAndCallback(AsyncTestCase, 
         timer1 = channel.connection.add_timeout(0, self.on_my_timer)
         timer2 = channel.connection.add_timeout(0, self.on_my_timer)
 
-        self.assertNotEqual(timer1, timer2)
+        self.assertIsNot(timer1, timer2)
 
         channel.connection.remove_timeout(timer1)
 
