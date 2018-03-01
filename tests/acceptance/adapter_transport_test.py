@@ -1,6 +1,8 @@
 """Adapter transport test
 
 """
+from __future__ import print_function
+
 import collections
 from datetime import datetime
 import errno
@@ -8,6 +10,7 @@ import functools
 import logging
 import os
 import socket
+import sys
 import unittest
 
 from forward_server import ForwardServer
@@ -47,6 +50,30 @@ def setUpModule():
     logging.basicConfig(level=logging.DEBUG)
 
 
+def _trace_stderr(fmt, *args):
+    """Format and output the text to stderr"""
+    print((fmt % args) + "\n", end="", file=sys.stderr)
+
+
+def _fd_events_to_str(events):
+    str_events = '{}: '.format(events)
+
+    if events & PollEvents.READ:
+        str_events += "RD."
+    if events & PollEvents.WRITE:
+        str_events += "WR."
+    if events & PollEvents.ERROR:
+        str_events += "ERR."
+
+    remainig_events = events & ~(PollEvents.READ |
+                                 PollEvents.WRITE |
+                                 PollEvents.ERROR)
+    if remainig_events:
+        str_events += '+{}'.format(bin(remainig_events))
+
+    return str_events
+
+
 class TransportTestCaseBase(unittest.TestCase):
     """Base class for Transport test cases
 
@@ -71,7 +98,7 @@ class TransportTestCaseBase(unittest.TestCase):
         return ioloop
 
 
-    def create_non_blocking_tcp_socket(self):
+    def create_nonblocking_tcp_socket(self):
         """Create a TCP stream socket and schedule cleanup to close it
 
         """
@@ -80,11 +107,35 @@ class TransportTestCaseBase(unittest.TestCase):
         self.addCleanup(sock.close)
         return sock
 
+    def create_nonblocking_socketpair(self):
+        """Creates a non-blocking socket pair and schedules cleanup to close
+        them
+
+        :returns: two-tuple of connected non-blocking sockets
+
+        """
+        pair = pika.compat._nonblocking_socketpair()
+        self.addCleanup(pair[0].close)
+        self.addCleanup(pair[1].close)
+        return pair
+
+    def create_blocking_socketpair(self):
+        """Creates a blocking socket pair and schedules cleanup to close
+        them
+
+        :returns: two-tuple of connected non-blocking sockets
+
+        """
+        pair = self.create_nonblocking_socketpair()
+        pair[0].setblocking(True)  # pylint: disable=E1101
+        pair[1].setblocking(True)
+        return pair
+
     @staticmethod
     def safe_connect_nonblocking_socket(sock, addr_pair):
         """Initiate socket connection, suppressing EINPROGRESS/EWOULDBLOCK
         :param socket.socket sock
-
+        :param addr_pair: two tuple of address string and port integer
         """
         try:
             sock.connect(addr_pair)
@@ -96,8 +147,7 @@ class TransportTestCaseBase(unittest.TestCase):
     def get_dead_socket_address(self):
         """
 
-        :return: socket address pair (ip-addr, port) that is guaranteed to
-            refuse connection
+        :return: socket address pair (ip-addr, port) that will refuse connection
 
         """
         s1, s2 = pika.compat._nonblocking_socketpair()
@@ -109,19 +159,19 @@ class TransportTestCaseBase(unittest.TestCase):
 class PlainTransportTestCase(TransportTestCaseBase):
 
     def test_constructor_without_on_connected_callback(self):
-        sock = self.create_non_blocking_tcp_socket()
+        sock = self.create_nonblocking_tcp_socket()
         transport = adapter_transport.PlainTransport(sock)
         self.assertEqual(transport.poll_which_events(), 0)
 
     def test_constructor_with_on_connected_callback(self):
-        sock = self.create_non_blocking_tcp_socket()
+        sock = self.create_nonblocking_tcp_socket()
         transport = adapter_transport.PlainTransport(sock, lambda t: None)
         self.assertEqual(transport.poll_which_events(), PollEvents.WRITE)
 
     def test_connection_reported_via_on_connected_callback(self):
         ioloop = self.create_ioloop_with_timeout()
 
-        sock = self.create_non_blocking_tcp_socket()
+        sock = self.create_nonblocking_tcp_socket()
 
         # Run echo server
         with ForwardServer(remote_addr=None) as echo:
@@ -156,11 +206,12 @@ class PlainTransportTestCase(TransportTestCaseBase):
             self.assertIs(on_connected_called[0], transport)
             self.assertEqual(transport.poll_which_events(), 0)
 
+    @unittest.skip('Debugging lack of socket writable indication on Windows')
     def test_connection_establishment_failed_while_waiting_for_connection(self):
 
         ioloop = self.create_ioloop_with_timeout()
 
-        sock = self.create_non_blocking_tcp_socket()
+        sock = self.create_nonblocking_tcp_socket()
 
         self.safe_connect_nonblocking_socket(sock,
                                              self.get_dead_socket_address())
@@ -205,7 +256,7 @@ class PlainTransportTestCase(TransportTestCaseBase):
 
         ioloop = self.create_ioloop_with_timeout()
 
-        sock = self.create_non_blocking_tcp_socket()
+        sock = self.create_nonblocking_tcp_socket()
 
         # Run echo server
         with ForwardServer(remote_addr=None) as echo:
@@ -267,7 +318,7 @@ class PlainTransportTestCase(TransportTestCaseBase):
 
         ioloop = self.create_ioloop_with_timeout()
 
-        sock = self.create_non_blocking_tcp_socket()
+        sock = self.create_nonblocking_tcp_socket()
 
         # Run echo server
         with ForwardServer(remote_addr=None) as echo:
@@ -309,3 +360,232 @@ class PlainTransportTestCase(TransportTestCaseBase):
                              original_data_length)
             self.assertEqual(b''.join(rx_buffers), b''.join(original_data))
             self.assertEqual(transport.poll_which_events(), PollEvents.READ)
+
+
+class PlainSocketDiagnostics(TransportTestCaseBase):
+    """This test suite outputs diagnostic information usful for debugging the
+    IOLoop poller's fd watcher
+
+    """
+
+    def _which_events_are_set_with_varying_eventmasks(self,
+                                                      sock,
+                                                      requested_eventmasks,
+                                                      msg_prefix):
+        """Common logic for which_events_are_set_* tests. Runs the event loop
+        while varying eventmasks at each socket event callback
+
+        :param ioloop:
+        :param sock:
+        :param requested_eventmasks: a mutable list of eventmasks to apply after
+                                     each socket event callback
+        :param msg_prefix: Message prefix to apply when printing watched vs.
+                           indicated events.
+        """
+        ioloop = self.create_ioloop_with_timeout()
+
+        def handle_socket_events(_fd, in_events):
+            _trace_stderr('%s: watching=%s; indicated=%s',
+                          msg_prefix,
+                          _fd_events_to_str(requested_eventmasks[0]),
+                          _fd_events_to_str(in_events))
+
+            self.assertTrue(in_events & requested_eventmasks[0],
+                            'watching={}; indicated={}'.format(
+                                _fd_events_to_str(requested_eventmasks[0]),
+                                _fd_events_to_str(in_events)))
+
+            requested_eventmasks.pop(0)
+
+            if requested_eventmasks:
+                ioloop.update_handler(sock.fileno(), requested_eventmasks[0])
+            else:
+                ioloop.stop()
+
+        ioloop.add_handler(sock.fileno(),
+                           handle_socket_events,
+                           requested_eventmasks[0])
+        ioloop.start()
+
+
+    def test_which_events_are_set_when_failed_to_connect(self):
+        # TODO This test is just for debugging lack of socket writable indication on
+        # Windows for failed connection establishment; it will be removed
+
+        sock = self.create_nonblocking_tcp_socket()
+
+        self.safe_connect_nonblocking_socket(sock,
+                                             self.get_dead_socket_address())
+        requested_eventmasks = [
+            (PollEvents.READ | PollEvents.WRITE | PollEvents.ERROR),
+            PollEvents.ERROR
+        ]
+
+        self._which_events_are_set_with_varying_eventmasks(
+            sock=sock,
+            requested_eventmasks=requested_eventmasks,
+            msg_prefix='ZZZ Failed to connect')
+
+    def test_which_events_are_set_after_remote_end_closes(self):
+        # TODO This test is just for debugging lack of socket writable indication on
+        # Windows for failed connection; it will be removed
+
+        s1, s2 = self.create_blocking_socketpair()
+
+        s2.close()
+
+        requested_eventmasks = [
+            (PollEvents.READ | PollEvents.WRITE | PollEvents.ERROR),
+            PollEvents.ERROR
+        ]
+
+        self._which_events_are_set_with_varying_eventmasks(
+            sock=s1,
+            requested_eventmasks=requested_eventmasks,
+            msg_prefix='ZZZ Remote closed')
+
+    def test_which_events_are_set_after_remote_end_closes_with_pending_data(self):
+        # TODO This test is just for debugging lack of socket writable indication on
+        # Windows for failed connection; it will be removed
+
+        s1, s2 = self.create_blocking_socketpair()
+
+        s2.send('abc')
+        s2.close()
+
+        requested_eventmasks = [
+            (PollEvents.READ | PollEvents.WRITE | PollEvents.ERROR),
+            PollEvents.ERROR
+        ]
+
+        self._which_events_are_set_with_varying_eventmasks(
+            sock=s1,
+            requested_eventmasks=requested_eventmasks,
+            msg_prefix='ZZZ Remote closed with pending data')
+
+    def test_which_events_are_set_after_remote_shuts_rd(self):
+        # TODO This test is just for debugging lack of socket writable indication on
+        # Windows for failed connection; it will be removed
+
+        s1, s2 = self.create_blocking_socketpair()
+
+        s2.shutdown(socket.SHUT_RD)
+
+        requested_eventmasks = [
+            (PollEvents.READ | PollEvents.WRITE | PollEvents.ERROR),
+            PollEvents.ERROR
+        ]
+
+        self._which_events_are_set_with_varying_eventmasks(
+            sock=s1,
+            requested_eventmasks=requested_eventmasks,
+            msg_prefix='ZZZ Remote shut RD')
+
+    def test_which_events_are_set_after_remote_shuts_wr(self):
+        # TODO This test is just for debugging lack of socket writable indication on
+        # Windows for failed connection; it will be removed
+
+        s1, s2 = self.create_blocking_socketpair()
+
+        s2.shutdown(socket.SHUT_WR)
+
+        requested_eventmasks = [
+            (PollEvents.READ | PollEvents.WRITE | PollEvents.ERROR),
+            PollEvents.ERROR
+        ]
+
+        self._which_events_are_set_with_varying_eventmasks(
+            sock=s1,
+            requested_eventmasks=requested_eventmasks,
+            msg_prefix='ZZZ Remote shut WR')
+
+    def test_which_events_are_set_after_remote_shuts_wr_with_pending_data(self):
+        # TODO This test is just for debugging lack of socket writable indication on
+        # Windows for failed connection; it will be removed
+
+        s1, s2 = self.create_blocking_socketpair()
+
+        s2.send('abc')
+        s2.shutdown(socket.SHUT_WR)
+
+        requested_eventmasks = [
+            (PollEvents.READ | PollEvents.WRITE | PollEvents.ERROR),
+            PollEvents.ERROR
+        ]
+
+        self._which_events_are_set_with_varying_eventmasks(
+            sock=s1,
+            requested_eventmasks=requested_eventmasks,
+            msg_prefix='ZZZ Remote shut WR with pending data')
+
+    def test_which_events_are_set_after_remote_shuts_rdwr(self):
+        # TODO This test is just for debugging lack of socket writable indication on
+        # Windows for failed connection; it will be removed
+
+        s1, s2 = self.create_blocking_socketpair()
+
+        s2.shutdown(socket.SHUT_RDWR)
+
+        requested_eventmasks = [
+            (PollEvents.READ | PollEvents.WRITE | PollEvents.ERROR),
+            PollEvents.ERROR
+        ]
+
+        self._which_events_are_set_with_varying_eventmasks(
+            sock=s1,
+            requested_eventmasks=requested_eventmasks,
+            msg_prefix='ZZZ Remote shut RDWR')
+
+    def test_which_events_are_set_after_local_shuts_rd(self):
+        # TODO This test is just for debugging lack of socket writable indication on
+        # Windows for failed connection; it will be removed
+
+        s1, _s2 = self.create_blocking_socketpair()
+
+        s1.shutdown(socket.SHUT_RD)  # pylint: disable=E1101
+
+        requested_eventmasks = [
+            (PollEvents.READ | PollEvents.WRITE | PollEvents.ERROR),
+            PollEvents.ERROR
+        ]
+
+        self._which_events_are_set_with_varying_eventmasks(
+            sock=s1,
+            requested_eventmasks=requested_eventmasks,
+            msg_prefix='ZZZ Local shut RD')
+
+    def test_which_events_are_set_after_local_shuts_wr(self):
+        # TODO This test is just for debugging lack of socket writable indication on
+        # Windows for failed connection; it will be removed
+
+        s1, _s2 = self.create_blocking_socketpair()
+
+        s1.shutdown(socket.SHUT_WR)  # pylint: disable=E1101
+
+        requested_eventmasks = [
+            (PollEvents.READ | PollEvents.WRITE | PollEvents.ERROR),
+            PollEvents.ERROR
+        ]
+
+        self._which_events_are_set_with_varying_eventmasks(
+            sock=s1,
+            requested_eventmasks=requested_eventmasks,
+            msg_prefix='ZZZ Local shut WR')
+
+    def test_which_events_are_set_after_local_shuts_rdwr(self):
+        # TODO This test is just for debugging lack of socket writable indication on
+        # Windows for failed connection; it will be removed
+
+        s1, _s2 = self.create_blocking_socketpair()
+
+        s1.shutdown(socket.SHUT_RDWR)  # pylint: disable=E1101
+
+        requested_eventmasks = [
+            (PollEvents.READ | PollEvents.WRITE | PollEvents.ERROR),
+            PollEvents.ERROR
+        ]
+
+        self._which_events_are_set_with_varying_eventmasks(
+            sock=s1,
+            requested_eventmasks=requested_eventmasks,
+            msg_prefix='ZZZ Local shut RDWR')
