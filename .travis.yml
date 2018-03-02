@@ -52,9 +52,6 @@ script:
   - nosetests
   - PIKA_TEST_TLS=true nosetests
 
-after_script:
-  - /bin/sh "$TRAVIS_BUILD_DIR/rabbitmq_server-$RABBITMQ_VERSION/sbin/rabbitmqctl" shutdown
-
 after_success:
   - aws s3 cp .coverage "s3://com-gavinroy-travis/pika/$TRAVIS_BUILD_NUMBER/.coverage.${TRAVIS_PYTHON_VERSION}"
 

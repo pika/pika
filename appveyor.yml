@@ -4,7 +4,9 @@ environment:
   erlang_download_url: "http://erlang.org/download/otp_win64_19.3.exe"
   erlang_exe_path: "C:\\Users\\appveyor\\erlang_19.3.exe"
   erlang_home_dir: "C:\\Users\\appveyor\\erlang"
+  erlang_erts_version: "erts-8.3"
 
+  rabbitmq_version: 3.7.3
   rabbitmq_installer_download_url: "https://github.com/rabbitmq/rabbitmq-server/releases/download/v3.7.3/rabbitmq-server-3.7.3.exe"
   rabbitmq_installer_path: "C:\\Users\\appveyor\\rabbitmq-server-3.7.3.exe"
 
@@ -27,9 +29,6 @@ cache:
 install:
   - SET PYTHONPATH=%PYTHONHOME%
   - SET PATH=%PYTHONHOME%\Scripts;%PYTHONHOME%;%PATH%
-
-  - ECHO Turning off firewall...
-  - ps: Set-NetFirewallProfile -Profile Domain,Public,Private -Enabled False
 
   # For diagnostics
   - ECHO %PYTHONPATH%
@@ -98,11 +97,11 @@ before_test:
   - ps: 'C:\projects\pika\testdata\wait-rabbitmq.ps1'
 
   - ECHO Getting RabbitMQ status...
-  - cmd /c "C:\Program Files\RabbitMQ Server\rabbitmq_server-3.7.3\sbin\rabbitmqctl.bat" status
+  - cmd /c "C:\Program Files\RabbitMQ Server\rabbitmq_server-%rabbitmq_version%\sbin\rabbitmqctl.bat" status
 
 
 test_script:
   - nosetests
 
-# Not deploying Windows builds yet TODO
+# Since Pika is source-only there's no need to deploy from Windows
 deploy: false

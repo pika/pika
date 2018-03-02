@@ -3,7 +3,7 @@
 Do {
     $proc_id = (Get-Process -Name erl).Id
     if (-Not ($proc_id -is [array])) {
-        & 'C:\Program Files\RabbitMQ Server\rabbitmq_server-3.7.3\sbin\rabbitmqctl.bat' wait -t 300000 -P $proc_id
+        & "C:\Program Files\RabbitMQ Server\rabbitmq_server-$env:rabbitmq_version\sbin\rabbitmqctl.bat" wait -t 300000 -P $proc_id
         if ($LASTEXITCODE -ne 0) {
             throw "[ERROR] rabbitmqctl wait returned error: $LASTEXITCODE"
         }

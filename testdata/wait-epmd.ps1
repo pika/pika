@@ -1,11 +1,7 @@
 $running = $false
 [int]$count = 1
 
-if ($env:ERLANG_HOME) {
-    $epmd = Join-Path -Path $env:ERLANG_HOME 'erts-8.3\bin\epmd.exe'
-} else {
-    $epmd = 'C:\Users\appveyor\erlang\erts-8.3\bin\epmd.exe'
-}
+$epmd = [System.IO.Path]::Combine($env:ERLANG_HOME, $env:erlang_erts_version, "bin", "epmd.exe")
 
 Do {
     $running = & $epmd -names | Select-String -CaseSensitive -SimpleMatch -Quiet -Pattern 'name rabbit at port 25672'
