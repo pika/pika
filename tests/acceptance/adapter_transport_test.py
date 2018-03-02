@@ -390,10 +390,13 @@ class PlainSocketDiagnostics(TransportTestCaseBase):
                           _fd_events_to_str(requested_eventmasks[0]),
                           _fd_events_to_str(in_events))
 
-            self.assertTrue(in_events & requested_eventmasks[0],
-                            'watching={}; indicated={}'.format(
-                                _fd_events_to_str(requested_eventmasks[0]),
-                                _fd_events_to_str(in_events)))
+            # NOTE PollEvents.ERROR may be added automatically by some pollers
+            #      without being requested.
+            self.assertTrue(
+                in_events & (requested_eventmasks[0] | PollEvents.ERROR),
+                'watching={}; indicated={}'.format(
+                    _fd_events_to_str(requested_eventmasks[0]),
+                    _fd_events_to_str(in_events)))
 
             requested_eventmasks.pop(0)
 
@@ -417,8 +420,10 @@ class PlainSocketDiagnostics(TransportTestCaseBase):
         self.safe_connect_nonblocking_socket(sock,
                                              self.get_dead_socket_address())
         requested_eventmasks = [
-            (PollEvents.READ | PollEvents.WRITE | PollEvents.ERROR),
-            PollEvents.ERROR
+            PollEvents.READ | PollEvents.WRITE | PollEvents.ERROR,
+            PollEvents.READ | PollEvents.WRITE,
+            PollEvents.READ,
+            PollEvents.WRITE
         ]
 
         self._which_events_are_set_with_varying_eventmasks(
@@ -435,8 +440,10 @@ class PlainSocketDiagnostics(TransportTestCaseBase):
         s2.close()
 
         requested_eventmasks = [
-            (PollEvents.READ | PollEvents.WRITE | PollEvents.ERROR),
-            PollEvents.ERROR
+            PollEvents.READ | PollEvents.WRITE | PollEvents.ERROR,
+            PollEvents.READ | PollEvents.WRITE,
+            PollEvents.READ,
+            PollEvents.WRITE
         ]
 
         self._which_events_are_set_with_varying_eventmasks(
@@ -454,8 +461,10 @@ class PlainSocketDiagnostics(TransportTestCaseBase):
         s2.close()
 
         requested_eventmasks = [
-            (PollEvents.READ | PollEvents.WRITE | PollEvents.ERROR),
-            PollEvents.ERROR
+            PollEvents.READ | PollEvents.WRITE | PollEvents.ERROR,
+            PollEvents.READ | PollEvents.WRITE,
+            PollEvents.READ,
+            PollEvents.WRITE
         ]
 
         self._which_events_are_set_with_varying_eventmasks(
@@ -472,8 +481,8 @@ class PlainSocketDiagnostics(TransportTestCaseBase):
         s2.shutdown(socket.SHUT_RD)
 
         requested_eventmasks = [
-            (PollEvents.READ | PollEvents.WRITE | PollEvents.ERROR),
-            PollEvents.ERROR
+            PollEvents.READ | PollEvents.WRITE | PollEvents.ERROR,
+            PollEvents.WRITE
         ]
 
         self._which_events_are_set_with_varying_eventmasks(
@@ -491,7 +500,9 @@ class PlainSocketDiagnostics(TransportTestCaseBase):
 
         requested_eventmasks = [
             (PollEvents.READ | PollEvents.WRITE | PollEvents.ERROR),
-            PollEvents.ERROR
+            PollEvents.READ | PollEvents.WRITE,
+            PollEvents.READ,
+            PollEvents.WRITE
         ]
 
         self._which_events_are_set_with_varying_eventmasks(
@@ -509,8 +520,10 @@ class PlainSocketDiagnostics(TransportTestCaseBase):
         s2.shutdown(socket.SHUT_WR)
 
         requested_eventmasks = [
-            (PollEvents.READ | PollEvents.WRITE | PollEvents.ERROR),
-            PollEvents.ERROR
+            PollEvents.READ | PollEvents.WRITE | PollEvents.ERROR,
+            PollEvents.READ | PollEvents.WRITE,
+            PollEvents.READ,
+            PollEvents.WRITE
         ]
 
         self._which_events_are_set_with_varying_eventmasks(
@@ -527,8 +540,10 @@ class PlainSocketDiagnostics(TransportTestCaseBase):
         s2.shutdown(socket.SHUT_RDWR)
 
         requested_eventmasks = [
-            (PollEvents.READ | PollEvents.WRITE | PollEvents.ERROR),
-            PollEvents.ERROR
+            PollEvents.READ | PollEvents.WRITE | PollEvents.ERROR,
+            PollEvents.READ | PollEvents.WRITE,
+            PollEvents.READ,
+            PollEvents.WRITE
         ]
 
         self._which_events_are_set_with_varying_eventmasks(
@@ -545,8 +560,10 @@ class PlainSocketDiagnostics(TransportTestCaseBase):
         s1.shutdown(socket.SHUT_RD)  # pylint: disable=E1101
 
         requested_eventmasks = [
-            (PollEvents.READ | PollEvents.WRITE | PollEvents.ERROR),
-            PollEvents.ERROR
+            PollEvents.READ | PollEvents.WRITE | PollEvents.ERROR,
+            PollEvents.READ | PollEvents.WRITE,
+            PollEvents.READ,
+            PollEvents.WRITE
         ]
 
         self._which_events_are_set_with_varying_eventmasks(
@@ -563,8 +580,8 @@ class PlainSocketDiagnostics(TransportTestCaseBase):
         s1.shutdown(socket.SHUT_WR)  # pylint: disable=E1101
 
         requested_eventmasks = [
-            (PollEvents.READ | PollEvents.WRITE | PollEvents.ERROR),
-            PollEvents.ERROR
+            PollEvents.READ | PollEvents.WRITE | PollEvents.ERROR,
+            PollEvents.WRITE
         ]
 
         self._which_events_are_set_with_varying_eventmasks(
@@ -581,8 +598,10 @@ class PlainSocketDiagnostics(TransportTestCaseBase):
         s1.shutdown(socket.SHUT_RDWR)  # pylint: disable=E1101
 
         requested_eventmasks = [
-            (PollEvents.READ | PollEvents.WRITE | PollEvents.ERROR),
-            PollEvents.ERROR
+            PollEvents.READ | PollEvents.WRITE | PollEvents.ERROR,
+            PollEvents.READ | PollEvents.WRITE,
+            PollEvents.READ,
+            PollEvents.WRITE
         ]
 
         self._which_events_are_set_with_varying_eventmasks(

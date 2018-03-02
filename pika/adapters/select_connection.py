@@ -965,15 +965,20 @@ class KQueuePoller(_PollerBase):
         :param kevent kevent: a kevent object as returned by kqueue.control()
 
         """
+        mask = 0
         if kevent.filter == select.KQ_FILTER_READ:
-            return READ
+            mask = READ
         elif kevent.filter == select.KQ_FILTER_WRITE:
-            return WRITE
+            mask = WRITE
         elif kevent.flags & select.KQ_EV_ERROR:
-            return ERROR
+            mask = ERROR
+        else:
+            LOGGER.critical('Unexpected kevent: %s', kevent)
 
-        # Should never happen
-        return None
+        if kevent.flags & select.KQ_EV_EOF:
+            mask |= ERROR
+
+        return mask
 
     def poll(self):
         """Wait for events of interest on registered file descriptors until an
