@@ -2,9 +2,11 @@
 
 """
 import abc
+import collections
 import errno
 import functools
 import logging
+import numbers
 import os
 import socket
 import ssl
@@ -135,6 +137,23 @@ class _TransportABC(pika.compat.AbstractBase):
         :param int max_rx_bytes: byte limit for `sock.recv()` calls
 
         """
+        if not isinstance(tx_buffers, collections.deque):
+            raise TypeError(
+                'Expected tx_buffers of deque class, but got {!r}'.format(
+                    tx_buffers))
+        if not callable(rx_sink):
+            raise TypeError(
+                'Expected callable rx_sink, but got {!r}'.format(rx_sink))
+
+        if not isinstance(max_rx_bytes, numbers.Integral):
+            raise TypeError(
+                'Expected integer max_rx_bytes, but got {!r}'.format(
+                    max_rx_bytes))
+
+        if max_rx_bytes <= 0:
+            raise ValueError(
+                'Expected max_rx_bytes > 0, but got {!r}'.format(max_rx_bytes))
+
         self.on_connected_callback = None
         self.tx_buffers = tx_buffers
         self.sink = rx_sink

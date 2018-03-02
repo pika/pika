@@ -9,6 +9,7 @@ import errno
 import functools
 import logging
 import os
+import platform
 import socket
 import sys
 import unittest
@@ -159,6 +160,9 @@ class TransportTestCaseBase(unittest.TestCase):
 
 
 class PlainTransportTestCase(TransportTestCaseBase):
+    """PlainTransport tests
+
+    """
 
     def test_constructor_without_on_connected_callback(self):
         sock = self.create_nonblocking_tcp_socket()
@@ -209,7 +213,6 @@ class PlainTransportTestCase(TransportTestCaseBase):
             self.assertIs(on_connected_called[0], transport)
             self.assertEqual(transport.poll_which_events(), 0)
 
-    #@unittest.skip('Debugging lack of socket writable indication on Windows')
     def test_connection_establishment_failed_while_waiting_for_connection(self):
 
         ioloop = self.create_ioloop_with_timeout()
@@ -228,7 +231,13 @@ class PlainTransportTestCase(TransportTestCaseBase):
 
         handle_socket_events_called = []
         def handle_socket_events(_fd, in_events):
-            expected_events = PollEvents.WRITE
+            # NOTE: Unlike POSIX, Windows select doesn't indicate as
+            # readable/writable a socket that failed to connect - it reflects the
+            # failure only via exceptfds.
+            if platform.system() == 'Windows':
+                expected_events = PollEvents.ERROR
+            else:
+                expected_events = PollEvents.WRITE
             self.assertEqual(in_events & expected_events, expected_events)
             with self.assertRaises(pika.compat.SOCKET_ERROR) as cm:
                 transport.handle_events(in_events)
@@ -369,6 +378,23 @@ class PlainTransportTestCase(TransportTestCaseBase):
                              PollEvents.READ | PollEvents.ERROR)
 
 
+class SSLTransportTestCase(TransportTestCaseBase):
+    """SSLTransport tests
+
+    """
+
+    def test_constructor_without_on_connected_callback(self):
+        sock = self.create_nonblocking_tcp_socket()
+        transport = adapter_transport.SSLTransport(sock)
+        self.assertEqual(transport.poll_which_events(), 0)
+
+    def test_constructor_with_on_connected_callback(self):
+        sock = self.create_nonblocking_tcp_socket()
+        transport = adapter_transport.SSLTransport(sock, lambda t: None)
+        self.assertEqual(transport.poll_which_events(),
+                         PollEvents.WRITE | PollEvents.ERROR)
+
+
 class PlainSocketDiagnostics(TransportTestCaseBase):
     """This test suite outputs diagnostic information usful for debugging the
     IOLoop poller's fd watcher
@@ -427,6 +453,8 @@ class PlainSocketDiagnostics(TransportTestCaseBase):
 
     def test_which_events_are_set_when_failed_to_connect(self):
 
+        msg_prefix = 'ZZZ Failed to connect'
+
         sock = self.create_nonblocking_tcp_socket()
 
         self.safe_connect_nonblocking_socket(sock,
@@ -438,10 +466,21 @@ class PlainSocketDiagnostics(TransportTestCaseBase):
             PollEvents.WRITE
         ]
 
+        # NOTE: Unlike POSIX, Windows select doesn't indicate as
+        # readable/writable a socket that failed to connect - it reflects the
+        # failure only via exceptfds.
+        if platform.system() == 'Windows':
+            _trace_stderr(
+                '%s: setting `PollEvents.ERROR` to all event filters on '
+                'Windows, because its `select()` does not indicate a socket '
+                'that failed to connect as readable or writable.', msg_prefix)
+            for i in pika.compat.xrange(len(requested_eventmasks)):
+                requested_eventmasks[i] |= PollEvents.ERROR
+
         self._which_events_are_set_with_varying_eventmasks(
             sock=sock,
             requested_eventmasks=requested_eventmasks,
-            msg_prefix='ZZZ Failed to connect')
+            msg_prefix=msg_prefix)
 
     def test_which_events_are_set_after_remote_end_closes(self):
 
@@ -553,6 +592,8 @@ class PlainSocketDiagnostics(TransportTestCaseBase):
 
     def test_which_events_are_set_after_local_shuts_rd(self):
 
+        msg_prefix = 'ZZZ Local shut RD'
+
         s1, _s2 = self.create_blocking_socketpair()
 
         s1.shutdown(socket.SHUT_RD)  # pylint: disable=E1101
@@ -564,10 +605,19 @@ class PlainSocketDiagnostics(TransportTestCaseBase):
             PollEvents.WRITE
         ]
 
+        # NOTE: Unlike POSIX, Windows select doesn't indicate as readable socket
+        #  that was shut down locally with SHUT_RD.
+        if platform.system() == 'Windows':
+            _trace_stderr(
+                '%s: removing check for solo PollEvents.READ on Windows, '
+                'because its `select()` does not indicate a socket shut '
+                'locally with SHUT_RD as readable.', msg_prefix)
+            requested_eventmasks.remove(PollEvents.READ)
+
         self._which_events_are_set_with_varying_eventmasks(
             sock=s1,
             requested_eventmasks=requested_eventmasks,
-            msg_prefix='ZZZ Local shut RD')
+            msg_prefix=msg_prefix)
 
     def test_which_events_are_set_after_local_shuts_wr(self):
 
@@ -587,6 +637,8 @@ class PlainSocketDiagnostics(TransportTestCaseBase):
 
     def test_which_events_are_set_after_local_shuts_rdwr(self):
 
+        msg_prefix = 'ZZZ Local shut RDWR'
+
         s1, _s2 = self.create_blocking_socketpair()
 
         s1.shutdown(socket.SHUT_RDWR)  # pylint: disable=E1101
@@ -598,10 +650,20 @@ class PlainSocketDiagnostics(TransportTestCaseBase):
             PollEvents.WRITE
         ]
 
+        # NOTE: Unlike POSIX, Windows select doesn't indicate as readable socket
+        #  that was shut down locally with SHUT_RDWR.
+        if platform.system() == 'Windows':
+            _trace_stderr(
+                '%s: removing check for solo PollEvents.READ on Windows, '
+                'because its `select()` does not indicate a socket shut '
+                'locally with SHUT_RDWR as readable.', msg_prefix)
+            requested_eventmasks.remove(PollEvents.READ)
+
         self._which_events_are_set_with_varying_eventmasks(
             sock=s1,
             requested_eventmasks=requested_eventmasks,
-            msg_prefix='ZZZ Local shut RDWR')
+            msg_prefix=msg_prefix)
+
 
 @mock.patch.multiple(select_connection, SELECT_TYPE='select')
 class SelectPollerPlainSocketDiagnostics(PlainSocketDiagnostics):
