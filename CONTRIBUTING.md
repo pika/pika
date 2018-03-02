@@ -38,6 +38,27 @@ Note that some tests are OS-specific (e.g. epoll on Linux
 or kqueue on MacOS and BSD). Those will be skipped
 automatically.
 
+If you would like to run TLS/SSL tests, use the following procedure:
+
+* Create a `rabbitmq.conf` file:
+
+    ```
+    sed -e "s#PIKA_DIR#$PWD#g" ./testdata/rabbitmq.conf.in > ./testdata/rabbitmq.conf
+    ```
+
+* Start RabbitMQ and use the configuration file you just created. An example command
+  that works with the `generic-unix` package is as follows:
+
+    ```
+    $ RABBITMQ_CONFIG_FILE=/path/to/pika/testdata/rabbitmq.conf ./sbin/rabbitmq-server
+    ```
+
+* Run the tests indicating that TLS/SSL connections should be used:
+
+    ```
+    PIKA_TEST_TLS=true nosetests
+    ```
+
 
 ## Code Formatting
 
