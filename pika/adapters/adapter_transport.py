@@ -41,6 +41,20 @@ class _TransportABC(pika.compat.AbstractBase):
 
     TRY_AGAIN_SOCK_ERROR_CODES = (errno.EAGAIN, errno.EWOULDBLOCK,)
 
+    # NOTE: We need `PollEvents.ERROR` because Windows `select()` signals failed
+    # connection establishment only via `exceptfds` (doesn't signal failure to
+    # connect via `writefds`). So, we add `PollEvents.ERROR` to all filter
+    # bitmasks to support sockets in any state of connectivity.
+
+    _CONNECTING_EVENTS_FILTER = PollEvents.WRITE | PollEvents.ERROR
+
+    _READ_ONLY_EVENTS_FILTER = PollEvents.READ | PollEvents.ERROR
+
+    _WRITE_ONLY_EVENTS_FILTER = PollEvents.WRITE | PollEvents.ERROR
+
+    _READ_WRITE_EVENTS_FILTER = (_READ_ONLY_EVENTS_FILTER |
+                                 _WRITE_ONLY_EVENTS_FILTER)
+
     class EndOfInput(EnvironmentError):
         """Exception to raise when `socket.recv()` returns empty data
 
@@ -73,7 +87,7 @@ class _TransportABC(pika.compat.AbstractBase):
 
     @abc.abstractmethod
     def poll_which_events(self):
-        """Return socket events of interest for the next IOLoop poll.
+        """Return socket events of interest for the next I/O poll.
 
         :return: a bitmask of PollEvents
 
@@ -81,8 +95,8 @@ class _TransportABC(pika.compat.AbstractBase):
         pass
 
     def handle_events(self, events):
-        """Handle the indicated IOLoop events on the socket by invoking the
-        corresponding `_on_writable` and `_on_readable` pure virtual methods.
+        """Handle the indicated I/O events on the socket by invoking the
+        corresponding `_on_writable()`, `_on_readable()`, `_on_error()`.
 
         :param int events: Indicated bitmask of socket events from PollEvents
         :raises: whatever the corresponding `sock.recv()` raises except the
@@ -92,11 +106,24 @@ class _TransportABC(pika.compat.AbstractBase):
                  socket error with errno.EINTR and the "try again" exceptions
 
         """
+        LOGGER.debug('handle_events: fd=%s; events=%s',
+                     self.sock.fileno(),
+                     events)
+
         if events & PollEvents.WRITE:
             self._on_writable()
 
         if events & PollEvents.READ:
             self._on_readable()
+
+        if (events & PollEvents.ERROR and
+                not events & (PollEvents.WRITE | PollEvents.READ)):
+            # Error indicacation without corresponding READ and/or WRITE. This
+            # happens with select on Windows: when non-blocking connection
+            # attempt fails, Windows reports the failure through `exceptfds`,
+            # but not via `writefds`. This could also happen with EPOLL if only
+            # watching for the error event.
+            self._on_error()
 
     def begin_transporting(self, tx_buffers, rx_sink, max_rx_bytes):
         """Begin transporting data; if called before connection establishment
@@ -112,6 +139,34 @@ class _TransportABC(pika.compat.AbstractBase):
         self.tx_buffers = tx_buffers
         self.sink = rx_sink
         self.max_rx_bytes = max_rx_bytes
+
+
+    def _on_error(self):
+        """Called by `handle_events()` when ERROR is indicated without READ or
+         WRITE.
+
+        This happens with select on Windows: when non-blocking connection
+        attempt fails, Windows reports the failure through `exceptfds`,
+        but not via `writefds`. This could also happen with EPOLL if only
+        watching for the error event.
+
+        :raises pika.compat.SOCKET_ERROR: if error is set on the socket
+
+        """
+        error_code = self.sock.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
+        if error_code:
+            self.on_connected_callback = None
+            error_msg = os.strerror(error_code)
+            LOGGER.warning(
+                '%s connection failed: fd=%s errno=%s (%s)',
+                self.__class__.__name__, self.sock.fileno(), error_code,
+                error_msg)
+            raise pika.compat.SOCKET_ERROR(error_code, error_msg)
+
+        else:
+            LOGGER.error(
+                '%s._on_error() called, but there is no error on socket; fd=%s',
+                self.__class__.__name__, self.sock.fileno())
 
     @abc.abstractmethod
     def _on_readable(self):
@@ -205,18 +260,18 @@ class PlainTransport(_TransportABC):
     """Implementation of plaintext transport"""
 
     def poll_which_events(self):
-        """Return socket events of interest for the next IOLoop poll.
+        """Return socket events of interest for the next I/O poll.
 
         :return: a bitmask of PollEvents
 
         """
         if self.on_connected_callback is not None:
-            events = PollEvents.WRITE
+            events = self._CONNECTING_EVENTS_FILTER
         elif self.tx_buffers is not None:
             if self.tx_buffers:
-                events = PollEvents.READ | PollEvents.WRITE
+                events = self._READ_WRITE_EVENTS_FILTER
             else:
-                events = PollEvents.READ
+                events = self._READ_ONLY_EVENTS_FILTER
         else:
             events = 0
 
@@ -236,7 +291,7 @@ class PlainTransport(_TransportABC):
             self._ingest()
         except pika.compat.SOCKET_ERROR as error:
             if error.errno in self.TRY_AGAIN_SOCK_ERROR_CODES:
-                LOGGER.debug('Recv would block.')
+                LOGGER.debug('Recv would block on fd=%s', self.sock.fileno())
                 return
             else:
                 raise
@@ -259,7 +314,8 @@ class PlainTransport(_TransportABC):
                 self._emit()
             except pika.compat.SOCKET_ERROR as error:
                 if error.errno in self.TRY_AGAIN_SOCK_ERROR_CODES:
-                    LOGGER.debug('Send would block.')
+                    LOGGER.debug('Send would block on fd=%s.',
+                                 self.sock.fileno())
                 else:
                     raise
 
@@ -272,15 +328,16 @@ class PlainTransport(_TransportABC):
         """
         error_code = self.sock.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
         if not error_code:
-            LOGGER.debug(
-                'Plaintext socket connection established; fileno=%r',
-                self.sock.fileno())
+            LOGGER.info(
+                '%s socket connection established; fd=%s',
+                self.__class__.__name__, self.sock.fileno())
             self.on_connected_callback(self)
         else:
             error_msg = os.strerror(error_code)
-            LOGGER.error(
-                'Plaintext socket connection failed: errno=%r; msg=%r; '
-                'fileno=%r', error_code, error_msg, self.sock.fileno())
+            LOGGER.warning(
+                '%s connection failed: fd=%s errno=%s (%s)',
+                self.__class__.__name__, self.sock.fileno(), error_code,
+                error_msg)
             raise pika.compat.SOCKET_ERROR(error_code, error_msg)
 
 
@@ -330,19 +387,20 @@ class SSLTransport(_TransportABC):
             self._ingest()
 
     def poll_which_events(self):
-        """Return socket events of interest for the next IOLoop poll.
+        """Return socket events of interest for the next I/O poll.
 
         :return: a bitmask of PollEvents
 
         """
         events = 0
         if self._readable_action is not None:
-            events |= PollEvents.READ
+            events |= self._READ_ONLY_EVENTS_FILTER
         if self._writable_action is not None:
-            events |= PollEvents.WRITE
+            events |= self._WRITE_ONLY_EVENTS_FILTER
 
         # The transport would stall without events
-        assert events or self.tx_buffers is None
+        assert events or (self.on_connected_callback is None and
+                          self.tx_buffers is None)
 
         return events
 
@@ -386,21 +444,21 @@ class SSLTransport(_TransportABC):
             self.sock.do_handshake()
         except ssl.SSLError as error:
             if error.errno == ssl.SSL_ERROR_WANT_READ:
-                LOGGER.debug('SSL handshake wants read; fileno=%r.',
+                LOGGER.debug('SSL handshake wants read; fd=%s.',
                              self.sock.fileno())
                 self._readable_action = self._do_handshake
                 self._writable_action = None
             elif error.errno == ssl.SSL_ERROR_WANT_WRITE:
-                LOGGER.debug('SSL handshake wants write. fileno=%r',
+                LOGGER.debug('SSL handshake wants write. fd=%s',
                              self.sock.fileno())
                 self._readable_action = None
                 self._writable_action = self._do_handshake
             else:
-                LOGGER.error('SSL handshake failed. fileno=%r',
+                LOGGER.error('SSL handshake failed. fd=%s',
                              self.sock.fileno())
                 raise
         else:
-            LOGGER.info('SSL handshake completed successfully. fileno=%r',
+            LOGGER.info('SSL handshake completed successfully. fd=%s',
                         self.sock.fileno())
             if self.on_connected_callback is None:
                 # Bootstrap ingester in case some incoming data ended up in SSL

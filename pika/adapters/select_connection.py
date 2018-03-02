@@ -970,13 +970,12 @@ class KQueuePoller(_PollerBase):
             mask = READ
         elif kevent.filter == select.KQ_FILTER_WRITE:
             mask = WRITE
+            if kevent.flags & select.KQ_EV_EOF:
+                mask |= ERROR
         elif kevent.flags & select.KQ_EV_ERROR:
             mask = ERROR
         else:
             LOGGER.critical('Unexpected kevent: %s', kevent)
-
-        if kevent.flags & select.KQ_EV_EOF:
-            mask |= ERROR
 
         return mask
 

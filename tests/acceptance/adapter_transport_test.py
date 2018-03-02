@@ -13,6 +13,8 @@ import socket
 import sys
 import unittest
 
+import mock
+
 from forward_server import ForwardServer
 
 from pika.adapters import adapter_transport
@@ -166,7 +168,8 @@ class PlainTransportTestCase(TransportTestCaseBase):
     def test_constructor_with_on_connected_callback(self):
         sock = self.create_nonblocking_tcp_socket()
         transport = adapter_transport.PlainTransport(sock, lambda t: None)
-        self.assertEqual(transport.poll_which_events(), PollEvents.WRITE)
+        self.assertEqual(transport.poll_which_events(),
+                         PollEvents.WRITE | PollEvents.ERROR)
 
     def test_connection_reported_via_on_connected_callback(self):
         ioloop = self.create_ioloop_with_timeout()
@@ -195,7 +198,7 @@ class PlainTransportTestCase(TransportTestCaseBase):
 
             # Add IO event watcher for our socket
             events = transport.poll_which_events()
-            self.assertEqual(events, PollEvents.WRITE)
+            self.assertEqual(events, PollEvents.WRITE | PollEvents.ERROR)
             ioloop.add_handler(sock.fileno(), handle_socket_events, events)
 
             # Start event loop; it should get stopped by on_connected
@@ -206,7 +209,7 @@ class PlainTransportTestCase(TransportTestCaseBase):
             self.assertIs(on_connected_called[0], transport)
             self.assertEqual(transport.poll_which_events(), 0)
 
-    @unittest.skip('Debugging lack of socket writable indication on Windows')
+    #@unittest.skip('Debugging lack of socket writable indication on Windows')
     def test_connection_establishment_failed_while_waiting_for_connection(self):
 
         ioloop = self.create_ioloop_with_timeout()
@@ -237,7 +240,7 @@ class PlainTransportTestCase(TransportTestCaseBase):
 
         # Add IO event watcher for our socket
         events = transport.poll_which_events()
-        self.assertEqual(events, PollEvents.WRITE)
+        self.assertEqual(events, PollEvents.WRITE | PollEvents.ERROR)
         ioloop.add_handler(sock.fileno(), handle_socket_events, events)
 
         # Start event loop; it should get stopped by handle_socket_events
@@ -277,7 +280,8 @@ class PlainTransportTestCase(TransportTestCaseBase):
                                              rx_sink=rx_sink,
                                              max_rx_bytes=4096)
                 self.assertEqual(transport.poll_which_events(),
-                                 PollEvents.READ | PollEvents.WRITE)
+                                 PollEvents.READ | PollEvents.WRITE |
+                                 PollEvents.ERROR)
 
                 ioloop.update_handler(sock.fileno(),
                                       transport.poll_which_events())
@@ -296,7 +300,7 @@ class PlainTransportTestCase(TransportTestCaseBase):
 
             # Add IO event watcher for our socket
             events = transport.poll_which_events()
-            self.assertEqual(events, PollEvents.WRITE)
+            self.assertEqual(events, PollEvents.WRITE | PollEvents.ERROR)
             ioloop.add_handler(sock.fileno(), handle_socket_events, events)
 
             # Start event loop; it should get stopped by rx_sink
@@ -307,7 +311,8 @@ class PlainTransportTestCase(TransportTestCaseBase):
             self.assertEqual(sum(len(s) for s in rx_buffers),
                              original_data_length)
             self.assertEqual(b''.join(rx_buffers), b''.join(original_data))
-            self.assertEqual(transport.poll_which_events(), PollEvents.READ)
+            self.assertEqual(transport.poll_which_events(),
+                             PollEvents.READ | PollEvents.ERROR)
 
     def test_data_exchange_sans_on_connected_callback(self):
         original_data = tuple(
@@ -339,7 +344,8 @@ class PlainTransportTestCase(TransportTestCaseBase):
                                          rx_sink=rx_sink,
                                          max_rx_bytes=4096)
             self.assertEqual(transport.poll_which_events(),
-                             PollEvents.READ | PollEvents.WRITE)
+                             PollEvents.READ | PollEvents.WRITE |
+                             PollEvents.ERROR)
 
             # Add IO event watcher for our socket
             def handle_socket_events(_fd, in_events):
@@ -359,7 +365,8 @@ class PlainTransportTestCase(TransportTestCaseBase):
             self.assertEqual(sum(len(s) for s in rx_buffers),
                              original_data_length)
             self.assertEqual(b''.join(rx_buffers), b''.join(original_data))
-            self.assertEqual(transport.poll_which_events(), PollEvents.READ)
+            self.assertEqual(transport.poll_which_events(),
+                             PollEvents.READ | PollEvents.ERROR)
 
 
 class PlainSocketDiagnostics(TransportTestCaseBase):
@@ -385,10 +392,17 @@ class PlainSocketDiagnostics(TransportTestCaseBase):
         ioloop = self.create_ioloop_with_timeout()
 
         def handle_socket_events(_fd, in_events):
-            _trace_stderr('%s: watching=%s; indicated=%s',
+            socket_error = sock.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
+            socket_error = 0 if socket_error == 0 else '{} ({})'.format(
+                socket_error,
+                os.strerror(socket_error))
+
+            _trace_stderr('[%s] %s: watching=%s; indicated=%s; sockerr=%s',
+                          ioloop._poller.__class__.__name__,
                           msg_prefix,
                           _fd_events_to_str(requested_eventmasks[0]),
-                          _fd_events_to_str(in_events))
+                          _fd_events_to_str(in_events),
+                          socket_error)
 
             # NOTE PollEvents.ERROR may be added automatically by some pollers
             #      without being requested.
@@ -412,8 +426,6 @@ class PlainSocketDiagnostics(TransportTestCaseBase):
 
 
     def test_which_events_are_set_when_failed_to_connect(self):
-        # TODO This test is just for debugging lack of socket writable indication on
-        # Windows for failed connection establishment; it will be removed
 
         sock = self.create_nonblocking_tcp_socket()
 
@@ -432,8 +444,6 @@ class PlainSocketDiagnostics(TransportTestCaseBase):
             msg_prefix='ZZZ Failed to connect')
 
     def test_which_events_are_set_after_remote_end_closes(self):
-        # TODO This test is just for debugging lack of socket writable indication on
-        # Windows for failed connection; it will be removed
 
         s1, s2 = self.create_blocking_socketpair()
 
@@ -452,12 +462,10 @@ class PlainSocketDiagnostics(TransportTestCaseBase):
             msg_prefix='ZZZ Remote closed')
 
     def test_which_events_are_set_after_remote_end_closes_with_pending_data(self):
-        # TODO This test is just for debugging lack of socket writable indication on
-        # Windows for failed connection; it will be removed
 
         s1, s2 = self.create_blocking_socketpair()
 
-        s2.send('abc')
+        s2.send(b'abc')
         s2.close()
 
         requested_eventmasks = [
@@ -473,8 +481,6 @@ class PlainSocketDiagnostics(TransportTestCaseBase):
             msg_prefix='ZZZ Remote closed with pending data')
 
     def test_which_events_are_set_after_remote_shuts_rd(self):
-        # TODO This test is just for debugging lack of socket writable indication on
-        # Windows for failed connection; it will be removed
 
         s1, s2 = self.create_blocking_socketpair()
 
@@ -491,8 +497,6 @@ class PlainSocketDiagnostics(TransportTestCaseBase):
             msg_prefix='ZZZ Remote shut RD')
 
     def test_which_events_are_set_after_remote_shuts_wr(self):
-        # TODO This test is just for debugging lack of socket writable indication on
-        # Windows for failed connection; it will be removed
 
         s1, s2 = self.create_blocking_socketpair()
 
@@ -511,12 +515,10 @@ class PlainSocketDiagnostics(TransportTestCaseBase):
             msg_prefix='ZZZ Remote shut WR')
 
     def test_which_events_are_set_after_remote_shuts_wr_with_pending_data(self):
-        # TODO This test is just for debugging lack of socket writable indication on
-        # Windows for failed connection; it will be removed
 
         s1, s2 = self.create_blocking_socketpair()
 
-        s2.send('abc')
+        s2.send(b'abc')
         s2.shutdown(socket.SHUT_WR)
 
         requested_eventmasks = [
@@ -532,8 +534,6 @@ class PlainSocketDiagnostics(TransportTestCaseBase):
             msg_prefix='ZZZ Remote shut WR with pending data')
 
     def test_which_events_are_set_after_remote_shuts_rdwr(self):
-        # TODO This test is just for debugging lack of socket writable indication on
-        # Windows for failed connection; it will be removed
 
         s1, s2 = self.create_blocking_socketpair()
 
@@ -552,8 +552,6 @@ class PlainSocketDiagnostics(TransportTestCaseBase):
             msg_prefix='ZZZ Remote shut RDWR')
 
     def test_which_events_are_set_after_local_shuts_rd(self):
-        # TODO This test is just for debugging lack of socket writable indication on
-        # Windows for failed connection; it will be removed
 
         s1, _s2 = self.create_blocking_socketpair()
 
@@ -572,8 +570,6 @@ class PlainSocketDiagnostics(TransportTestCaseBase):
             msg_prefix='ZZZ Local shut RD')
 
     def test_which_events_are_set_after_local_shuts_wr(self):
-        # TODO This test is just for debugging lack of socket writable indication on
-        # Windows for failed connection; it will be removed
 
         s1, _s2 = self.create_blocking_socketpair()
 
@@ -590,8 +586,6 @@ class PlainSocketDiagnostics(TransportTestCaseBase):
             msg_prefix='ZZZ Local shut WR')
 
     def test_which_events_are_set_after_local_shuts_rdwr(self):
-        # TODO This test is just for debugging lack of socket writable indication on
-        # Windows for failed connection; it will be removed
 
         s1, _s2 = self.create_blocking_socketpair()
 
@@ -608,3 +602,8 @@ class PlainSocketDiagnostics(TransportTestCaseBase):
             sock=s1,
             requested_eventmasks=requested_eventmasks,
             msg_prefix='ZZZ Local shut RDWR')
+
+@mock.patch.multiple(select_connection, SELECT_TYPE='select')
+class SelectPollerPlainSocketDiagnostics(PlainSocketDiagnostics):
+    """Runs `PlainSocketDiagnostics` tests with forced use of SelectPoller"""
+    pass
