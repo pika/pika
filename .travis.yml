@@ -13,7 +13,9 @@ addons:
 
 env:
   global:
-    - RABBITMQ_DOWNLOAD_URL=https://github.com/rabbitmq/rabbitmq-server/releases/download/v3.7.3/rabbitmq-server-generic-unix-3.7.3.tar.xz
+    - RABBITMQ_VERSION=3.7.3
+    - RABBITMQ_DOWNLOAD_URL="https://github.com/rabbitmq/rabbitmq-server/releases/download/v$RABBITMQ_VERSION/rabbitmq-server-generic-unix-$RABBITMQ_VERSION.tar.xz"
+    - RABBITMQ_TAR="rabbitmq-$RABBITMQ_VERSION.tar.xz"
     - PATH=$HOME/.local/bin:$PATH
     - AWS_DEFAULT_REGION=us-east-1
     - secure: "Eghft2UgJmWuCgnqz6O+KV5F9AERzUbKIeXkcw7vsFAVdkB9z01XgqVLhQ6N+n6i8mkiRDkc0Jes6htVtO4Hi6lTTFeDhu661YCXXTFdRdsx+D9v5bgw8Q2bP41xFy0iao7otYqkzFKIo32Q2cUYzMUqXlS661Yai5DXldr3mjM="
@@ -28,27 +30,30 @@ stages:
 
 cache:
   apt: true
+  directories:
+    - $HOME/.cache
 
 install:
   - pip install -r test-requirements.txt
   - pip install awscli==1.11.18
-  - wget -O "$TRAVIS_BUILD_DIR/rabbitmq.tar.xz" "$RABBITMQ_DOWNLOAD_URL"
-  - tar -C "$TRAVIS_BUILD_DIR" -xvf "$TRAVIS_BUILD_DIR/rabbitmq.tar.xz"
+  - if [ ! -d "$HOME/.cache" ]; then mkdir "$HOME/.cache"; fi
+  - if [ -s "$HOME/.cache/$RABBITMQ_TAR" ]; then echo "[INFO] found cached $RABBITMQ_TAR file"; else wget -O "$HOME/.cache/$RABBITMQ_TAR" "$RABBITMQ_DOWNLOAD_URL"; fi
+  - tar -C "$TRAVIS_BUILD_DIR" -xvf "$HOME/.cache/$RABBITMQ_TAR"
   - sed -e "s#PIKA_DIR#$TRAVIS_BUILD_DIR#g" "$TRAVIS_BUILD_DIR/testdata/rabbitmq.conf.in" > "$TRAVIS_BUILD_DIR/testdata/rabbitmq.conf"
 
 before_script:
   - pip freeze
   - elixir --version
-  - /bin/sh -c "RABBITMQ_PID_FILE=$TRAVIS_BUILD_DIR/rabbitmq.pid RABBITMQ_CONFIG_FILE=$TRAVIS_BUILD_DIR/testdata/rabbitmq $TRAVIS_BUILD_DIR/rabbitmq_server-3.7.3/sbin/rabbitmq-server &"
-  - /bin/sh "$TRAVIS_BUILD_DIR/rabbitmq_server-3.7.3/sbin/rabbitmqctl" wait "$TRAVIS_BUILD_DIR/rabbitmq.pid"
-  - /bin/sh "$TRAVIS_BUILD_DIR/rabbitmq_server-3.7.3/sbin/rabbitmqctl" status
+  - /bin/sh -c "RABBITMQ_PID_FILE=$TRAVIS_BUILD_DIR/rabbitmq.pid RABBITMQ_CONFIG_FILE=$TRAVIS_BUILD_DIR/testdata/rabbitmq $TRAVIS_BUILD_DIR/rabbitmq_server-$RABBITMQ_VERSION/sbin/rabbitmq-server &"
+  - /bin/sh "$TRAVIS_BUILD_DIR/rabbitmq_server-$RABBITMQ_VERSION/sbin/rabbitmqctl" wait "$TRAVIS_BUILD_DIR/rabbitmq.pid"
+  - /bin/sh "$TRAVIS_BUILD_DIR/rabbitmq_server-$RABBITMQ_VERSION/sbin/rabbitmqctl" status
 
 script:
   - nosetests
   - PIKA_TEST_TLS=true nosetests
 
 after_script:
-  - /bin/sh "$TRAVIS_BUILD_DIR/rabbitmq_server-3.7.3/sbin/rabbitmqctl" shutdown
+  - /bin/sh "$TRAVIS_BUILD_DIR/rabbitmq_server-$RABBITMQ_VERSION/sbin/rabbitmqctl" shutdown
 
 after_success:
   - aws s3 cp .coverage "s3://com-gavinroy-travis/pika/$TRAVIS_BUILD_NUMBER/.coverage.${TRAVIS_PYTHON_VERSION}"
