@@ -6,6 +6,7 @@ Tests for SelectConnection IOLoops
 import errno
 import functools
 import os
+import platform
 import select
 import signal
 import socket
@@ -82,7 +83,7 @@ class IOLoopThreadStopTestSelect(IOLoopBaseTest):
         timer = threading.Timer(0.1, self.ioloop.stop)
         self.addCleanup(timer.cancel)
         timer.start()
-        self.start()
+        self.start() # NOTE: Normal return from `start()` constitutes success
 
 
 @unittest.skipIf(not POLL_SUPPORTED, 'poll not supported')
@@ -103,6 +104,8 @@ class IOLoopThreadStopTestKqueue(IOLoopThreadStopTestSelect):
     SELECT_POLLER = 'kqueue'
 
 
+# TODO FUTURE - fix this flaky test
+@unittest.skipIf(platform.python_implementation() == 'PyPy', 'test is flaky on PyPy')
 class IOLoopTimerTestSelect(IOLoopBaseTest):
     """Set a bunch of very short timers to fire in reverse order and check
     that they fire in order of time, not

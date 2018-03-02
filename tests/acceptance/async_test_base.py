@@ -4,15 +4,13 @@
 # Suppress pylint messages concerning missing docstrings
 # pylint: disable=C0111
 
-from datetime import datetime
+import datetime
+import os
 import select
+import ssl
 import sys
 import logging
 import unittest
-
-import platform
-_TARGET = platform.python_implementation()
-
 import uuid
 
 try:
@@ -33,10 +31,28 @@ class AsyncTestCase(unittest.TestCase):
 
     def setUp(self):
         self.logger = logging.getLogger(self.__class__.__name__)
-        self.parameters = pika.URLParameters(
-            'amqp://guest:guest@localhost:5672/%2F')
+        self.parameters = pika.ConnectionParameters(
+            host='localhost',
+            port=5672)
+        if self.should_test_tls():
+            self.logger.info('testing using TLS/SSL connection to port 5671')
+            self.parameters.port = 5671
+            self.parameters.ssl = True
+            self.parameters.ssl_options = dict(
+                ssl_version=ssl.PROTOCOL_TLSv1,
+                ca_certs="testdata/certs/ca_certificate.pem",
+                keyfile="testdata/certs/client_key.pem",
+                certfile="testdata/certs/client_certificate.pem",
+                cert_reqs=ssl.CERT_REQUIRED)
         self._timed_out = False
         super(AsyncTestCase, self).setUp()
+
+    @staticmethod
+    def should_test_tls():
+        if 'PIKA_TEST_TLS' in os.environ and \
+                os.environ['PIKA_TEST_TLS'].lower() == 'true':
+            return True
+        return False
 
     def tearDown(self):
         self._stop()
