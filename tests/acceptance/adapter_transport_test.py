@@ -241,6 +241,7 @@ class PlainTransportTestCase(TransportTestCaseBase):
             self.assertEqual(in_events & expected_events, expected_events)
             with self.assertRaises(pika.compat.SOCKET_ERROR) as cm:
                 transport.handle_events(in_events)
+
             self.assertEqual(cm.exception.errno, errno.ECONNREFUSED)
             self.assertIsNone(transport.on_connected_callback)
             self.assertEqual(transport.poll_which_events(), 0)

@@ -1,6 +1,10 @@
 """Pika specific exceptions"""
 
 
+class TransportError(Exception):
+    """Generic transport error"""
+    pass
+
 class AMQPError(Exception):
 
     def __repr__(self):

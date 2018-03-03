@@ -32,12 +32,12 @@ class TornadoConnection(base_connection.BaseConnection):
 
         """
         self.sleep_counter = 0
-        self.ioloop = custom_ioloop or ioloop.IOLoop.instance()
+        loop = custom_ioloop or ioloop.IOLoop.instance()
         super(TornadoConnection, self).__init__(parameters,
                                                 on_open_callback,
                                                 on_open_error_callback,
                                                 on_close_callback,
-                                                self.ioloop)
+                                                loop)
 
     def _adapter_connect(self):
         """Connect to the remote socket, adding the socket to the IOLoop if
@@ -70,7 +70,7 @@ class TornadoConnection(base_connection.BaseConnection):
         :rtype: str
 
         """
-        return self.ioloop.add_timeout(time.time() + deadline, callback)
+        return self.ioloop.call_later(deadline, callback)
 
     def remove_timeout(self, timeout_id):
         """Remove the timeout from the IOLoop by the ID returned from

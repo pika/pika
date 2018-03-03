@@ -2,6 +2,7 @@
 # disable too-many-lines
 # pylint: disable=C0302
 
+import abc
 import ast
 import collections
 import copy
@@ -956,7 +957,7 @@ class SSLOptions(object):
         self.server_hostname = server_hostname
 
 
-class Connection(object):
+class Connection(pika.compat.AbstractBase):
     """This is the core class that implements communication with RabbitMQ. This
     class should not be invoked directly but rather through the use of an
     adapter such as SelectConnection or BlockingConnection.
@@ -1167,6 +1168,7 @@ class Connection(object):
                                   self._on_connection_error)
         self.callbacks.add(0, self.ON_CONNECTION_ERROR, callback, False)
 
+    @abc.abstractmethod
     def add_timeout(self, deadline, callback):
         """Adapters should override to call the callback after the
         specified number of seconds have elapsed, using a timer, or a
@@ -1262,7 +1264,7 @@ class Connection(object):
             0,
             self._on_connect_timer)
 
-
+    @abc.abstractmethod
     def remove_timeout(self, timeout_id):
         """Adapters should override: Remove a timeout
 
@@ -1352,15 +1354,20 @@ class Connection(object):
     #
     # Internal methods for managing the communication process
     #
-
+    @abc.abstractmethod
     def _adapter_connect(self):
-        """Subclasses should override to set up the outbound socket connection.
+        """Subclasses should override to perform one round of connection
+        establishment asynchronously. Upon completion of the round, they must
+        invoke `Connection._adapter_connect_done(None|Exception)`, where the
+        arg value of None signals success, while an Exception-based instance
+        signals failure of the round.
 
         :raises: NotImplementedError
 
         """
         raise NotImplementedError
 
+    @abc.abstractmethod
     def _adapter_disconnect(self):
         """Subclasses should override this to cause the underlying transport
         (socket) to close.

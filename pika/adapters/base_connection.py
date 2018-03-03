@@ -9,6 +9,7 @@ import socket
 import ssl
 
 import pika.compat
+import pika.exceptions
 import pika.tcp_socket_opts
 
 from pika import connection
@@ -152,7 +153,11 @@ class BaseConnection(connection.Connection):
         self.ioloop.add_callback_threadsafe(callback)
 
     def _adapter_connect(self):
-        """Connect to the RabbitMQ broker, returning True if connected.
+        """Perform one round of connection establishment asynchronously. Upon
+        completion of the round will invoke
+        `Connection._adapter_connect_done(None|Exception)`, where the arg value
+        of None signals success, while an Exception-based instance signals
+         failure of the round.
 
         :returns: error string or exception instance on error; None on success
 
@@ -509,3 +514,217 @@ class BaseConnection(connection.Connection):
             do_handshake_on_connect=self.DO_HANDSHAKE,
             suppress_ragged_eofs=True,
             server_hostname=ssl_options.server_hostname)
+
+
+class _TransportConnector(object):
+    """Manages streaming transport setup
+
+    """
+
+    # TODO BaseConnection needs to implement
+    # ioloop_interface.AbstractStreamProtocol
+
+    def __init__(self, params, ioloop, stream_proto, on_done):
+        """
+
+        :param params:
+        :param ioloop:
+        :param stream_proto:
+        :param on_done: on_done(None|Exception)`, will be invoked upon
+            completion, where the arg value of None signals success, while an
+            Exception-based object signals failure of the round after exhausting
+            all remaining address records from DNS lookup.
+        """
+        self._params = params
+        self._ioloop = ioloop
+        self._stream_proto = stream_proto
+        self._on_done = on_done
+        self._sock = None
+        self._addrinfo_iter = None
+
+        # Initiate asynchronous getaddrinfo
+        self._async_ref = self._ioloop.getaddrinfo(
+            host=self._params.host,
+            port=self._params.port,
+            socktype=socket.SOCK_STREAM,
+            proto=socket.IPPROTO_TCP,
+            on_done=self._on_getaddrinfo_done)
+
+    def close(self):
+        """Abruptly close this instance
+
+        """
+        if self._async_ref is not None:
+            self._async_ref.cancel()
+
+        if self._sock is not None:
+            self._sock = None
+
+    def start_next(self):
+        """ Attempt to connect using the next address record, if any, from
+        the previously-performed DNS lookup
+
+        :raises StopIteration: if there aren't any more records to try
+
+        """
+        assert self._async_ref is None, \
+            'start_next() called while async operation is in progress'
+
+        self._attempt_connection(next(self._addrinfo_iter))
+
+    def _on_getaddrinfo_done(self, addrinfos_or_exc):
+        """Handles completion callback from asynchronous `getaddrinfo()`.
+
+        :param sequence|Exception addrinfos_or_exc: address records returned by
+            `getaddrinfo()` or an Exception from failure.
+        """
+        self._async_ref = None
+        if isinstance(addrinfos_or_exc, Exception):
+            exc = addrinfos_or_exc
+            LOGGER.error('%r failed: %r', self._ioloop.getaddrinfo, exc)
+            self._on_done(exc)
+        else:
+            addrinfos = addrinfos_or_exc
+            LOGGER.debug('%r returned %s records', self._ioloop.getaddrinfo,
+                         len(addrinfos_or_exc))
+            if not addrinfos:
+                LOGGER.debug('%r returned 0 records', self._ioloop.getaddrinfo)
+                self._on_done(pika.exceptions.TransportError(
+                    'getaddrinfo returned 0 records'))
+            else:
+                self._addrinfo_iter = iter(addrinfos)
+                self.start_next()
+
+    def _attempt_connection(self, addr_record):
+        """Kick start a connection attempt using the given address record.
+
+        :param sequence addr_record: a single `getaddrinfo()` address record
+
+        """
+        LOGGER.debug('Attempting to connect using address record %s',
+                     addr_record)
+        self._sock = socket.socket(addr_record[0],
+                                   addr_record[1],
+                                   addr_record[2])
+        self._sock.setsockopt(pika.compat.SOL_TCP, socket.TCP_NODELAY, 1)
+        # TODO Do we still need settimeout for non-blocking socket?
+        self._sock.settimeout(self._params.socket_timeout)
+        # TODO I would have expected sock to be the first arg below
+        pika.tcp_socket_opts.set_sock_opts(self._params.tcp_options,
+                                           self._sock)
+        self._sock.setblocking(False)
+
+        # Initiate asynchronous connection attempt
+        addr = addr_record[4]
+        LOGGER.error('Connected to server at %s', addr)
+        self._async_ref = self._ioloop.connect_socket(
+            self._sock,
+            addr,
+            on_done=self._on_socket_connection_done)
+
+    def _on_socket_connection_done(self, exc):
+        """Handle completion of asynchronous stream socket connection attempt.
+
+        On failure, attempt to connect to the next address, if any, from DNS
+        lookup.
+
+        :param None|Exception exc: None on success; Exception-based object on
+            failure
+
+        """
+        self._async_ref = None
+        if exc is not None:
+            LOGGER.error('%r connection attempt failed.', self._sock)
+            self._sock = None
+            try:
+                # Try connecting with next address record
+                self.start_next()
+            except StopIteration:
+                self._on_done(exc)
+        else:
+            # We succeeded in opening a TCP stream
+            LOGGER.debug('%r connected.', self._sock)
+
+            # Now attempt to set up a streaming transport
+            ssl_context = self._get_ssl_context()
+            server_hostname = None
+            if ssl_context is not None:
+                try:
+                    server_hostname = self._params.ssl_options.server_hostname
+                except AttributeError:
+                    pass
+
+            self._async_ref = self._ioloop.create_streaming_connection(
+                protocol_factory=lambda: self._stream_proto,
+                sock=self._sock,
+                ssl_context=ssl_context,
+                server_hostname=server_hostname,
+                on_done=self._on_create_streaming_connection_done)
+
+    def _on_create_streaming_connection_done(self, result):
+        """Handle asynchronous completion of
+        `AbstractAsyncServices.create_streaming_connection()`
+
+        :param sequence|Exception result: On success, a two-tuple
+            (transport, protocol); on failure, an Exception-based instance.
+
+        """
+        self._async_ref = None
+        self._sock = None
+        if isinstance(result, Exception):
+            exc = result
+            LOGGER.error('Attempt to create a streaming transport failed: %r',
+                         exc)
+            try:
+                # Try connecting with next address record
+                self.start_next()
+            except StopIteration:
+                self._on_done(exc)
+        else:
+            # We succeeded in setting up the streaming transport!
+            # result is a two-tuple (transport, protocol)
+            LOGGER.info('Transport connected: %r.', result)
+            self._on_done(None)
+
+
+    def _get_ssl_context(self):
+        """Construct SSL Context, if needed, from connection parameters.
+
+        :returns: None if SSL is not required; `ssl.SSLContext` instance
+            otherwise.
+        :rtype: ssl.SSLContext|None
+        """
+        # TODO All this will be unnecessary once pull request
+        # https://github.com/pika/pika/pull/987 is accepted
+
+        if not self._params.ssl:
+            return None
+
+        ssl_options = self._params.ssl_options or {}
+        # our wrapped return sock
+
+        if isinstance(ssl_options, connection.SSLOptions):
+            context = ssl.SSLContext(ssl_options.ssl_version)
+            context.verify_mode = ssl_options.verify_mode
+            if ssl_options.certfile is not None:
+                context.load_cert_chain(
+                    certfile=ssl_options.certfile,
+                    keyfile=ssl_options.keyfile,
+                    password=ssl_options.key_password)
+
+            # only one of either cafile or capath have to defined
+            if ssl_options.cafile is not None or ssl_options.capath is not None:
+                context.load_verify_locations(
+                    cafile=ssl_options.cafile,
+                    capath=ssl_options.capath,
+                    cadata=ssl_options.cadata)
+
+            if ssl_options.ciphers is not None:
+                context.set_ciphers(ssl_options.ciphers)
+        else:
+            # Use dummy wrap_socket call and extract ssl context
+            ssl_sock = ssl.wrap_socket(socket.socket(), **ssl_options)
+            context = ssl_sock.context
+            ssl_sock.close()
+
+        return context

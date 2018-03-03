@@ -38,7 +38,7 @@ def _retry_on_sigint(func):
     return retry_sigint_wrap
 
 
-class _TransportABC(pika.compat.AbstractBase):
+class AbstractTransport(pika.compat.AbstractBase):
     """Abstract Base Class for plain and SSL socket transports"""
 
     TRY_AGAIN_SOCK_ERROR_CODES = (errno.EAGAIN, errno.EWOULDBLOCK,)
@@ -62,7 +62,7 @@ class _TransportABC(pika.compat.AbstractBase):
 
         """
         def __init__(self):
-            super(_TransportABC.EndOfInput, self).__init__(
+            super(AbstractTransport.EndOfInput, self).__init__(
                 -1, 'End of input stream')
 
 
@@ -103,7 +103,7 @@ class _TransportABC(pika.compat.AbstractBase):
         :param int events: Indicated bitmask of socket events from PollEvents
         :raises: whatever the corresponding `sock.recv()` raises except the
                  socket error with errno.EINTR and the "try again" exceptions
-        :raises _TransportABC.EndOfInput: upon shutdown of input stream
+        :raises AbstractTransport.EndOfInput: upon shutdown of input stream
         :raises: whatever the corresponding `sock.send()` raises except the
                  socket error with errno.EINTR and the "try again" exceptions
 
@@ -193,7 +193,7 @@ class _TransportABC(pika.compat.AbstractBase):
 
         :raises: whatever the corresponding `sock.recv()` raises except the
                  socket error with errno.EINTR and the "try again" exceptions
-        :raises _TransportABC.EndOfInput: upon shutdown of input stream
+        :raises AbstractTransport.EndOfInput: upon shutdown of input stream
 
         """
         pass
@@ -214,7 +214,7 @@ class _TransportABC(pika.compat.AbstractBase):
 
         :raises: whatever the corresponding `sock.recv()` raises except the
                  socket error with errno.EINTR
-        :raises _TransportABC.EndOfInput: upon shutdown of input stream
+        :raises AbstractTransport.EndOfInput: upon shutdown of input stream
 
         """
         data = self._sigint_safe_recv(self.sock, self.max_rx_bytes)
@@ -275,7 +275,7 @@ class _TransportABC(pika.compat.AbstractBase):
         return sock.send(data)
 
 
-class PlainTransport(_TransportABC):
+class PlainTransport(AbstractTransport):
     """Implementation of plaintext transport"""
 
     def poll_which_events(self):
@@ -301,7 +301,7 @@ class PlainTransport(_TransportABC):
 
         :raises: whatever the corresponding `sock.recv()` raises except the
                  socket error with errno.EINTR and the "try again" exception
-        :raises _TransportABC.EndOfInput: upon shutdown of input stream
+        :raises AbstractTransport.EndOfInput: upon shutdown of input stream
 
         """
         assert self.on_connected_callback is None
@@ -360,7 +360,7 @@ class PlainTransport(_TransportABC):
             raise pika.compat.SOCKET_ERROR(error_code, error_msg)
 
 
-class SSLTransport(_TransportABC):
+class SSLTransport(AbstractTransport):
     """Implementation of SSL transport."""
 
     def __init__(self, sock, on_connected=None):
@@ -429,7 +429,7 @@ class SSLTransport(_TransportABC):
         :raises: whatever the corresponding `sock.recv()` raises except
                  the socket error with errno.EINTR and the ssl.SSLError
                  exception with SSL_ERROR_WANT_READ/WRITE
-        :raises _TransportABC.EndOfInput: upon shutdown of input stream
+        :raises AbstractTransport.EndOfInput: upon shutdown of input stream
 
         """
         if self._readable_action is not None:
@@ -498,7 +498,7 @@ class SSLTransport(_TransportABC):
         :raises: whatever the corresponding `sock.recv()` raises except the
                  socket error with errno.EINTR and the ssl.SSLError exception
                  with SSL_ERROR_WANT_READ/WRITE
-        :raises _TransportABC.EndOfInput: upon shutdown of input stream
+        :raises AbstractTransport.EndOfInput: upon shutdown of input stream
 
         """
         try:
