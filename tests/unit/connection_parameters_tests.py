@@ -4,6 +4,7 @@ Test `pika.connection.Parameters`, `pika.connection.ConnectionParameters`, and
 
 """
 import copy
+import ssl
 import unittest
 import warnings
 
@@ -65,8 +66,6 @@ class _ParametersTestsBase(unittest.TestCase):
             kls.DEFAULT_RETRY_DELAY,
             'socket_timeout':
             kls.DEFAULT_SOCKET_TIMEOUT,
-            'ssl':
-            kls.DEFAULT_SSL,
             'ssl_options':
             kls.DEFAULT_SSL_OPTIONS,
             'virtual_host':
@@ -345,36 +344,18 @@ class ParametersTests(_ParametersTestsBase):
         with self.assertRaises(ValueError):
             params.socket_timeout = 0
 
-    def test_ssl(self):
-        params = connection.Parameters()
-
-        params.ssl = False
-        self.assertEqual(params.ssl, False)
-
-        params.ssl = True
-        self.assertEqual(params.ssl, True)
-
-        with self.assertRaises(TypeError):
-            params.backpressure_detection = 1
-
-        with self.assertRaises(TypeError):
-            params.ssl = 'True'
-
-        with self.assertRaises(TypeError):
-            params.ssl = 'f'
-
     def test_ssl_options(self):
         params = connection.Parameters()
 
-        opt = dict(key='value', key2=2, key3=dict(a=1))
-        params.ssl_options = copy.deepcopy(opt)
-        self.assertEqual(params.ssl_options, opt)
+        ssl_options = connection.SSLOptions(ssl.create_default_context())
+        params.ssl_options = ssl_options
+        self.assertIs(params.ssl_options, ssl_options)
 
         params.ssl_options = None
         self.assertIsNone(params.ssl_options)
 
         with self.assertRaises(TypeError):
-            params.ssl_options = str(opt)
+            params.ssl_options = dict()
 
     def test_virtual_host(self):
         params = connection.Parameters()
@@ -414,27 +395,30 @@ class ConnectionParametersTests(_ParametersTestsBase):
         self.assert_default_parameter_values(connection.ConnectionParameters())
 
     def test_explicit_ssl_with_default_port(self):
-        params = connection.ConnectionParameters(ssl=True)
+        params = connection.ConnectionParameters(
+            ssl_options=connection.SSLOptions(ssl.create_default_context()))
 
-        self.assertEqual(params.ssl, True)
+        self.assertIsNotNone(params.ssl_options)
         self.assertEqual(params.port, params.DEFAULT_SSL_PORT)
 
     def test_explicit_ssl_with_explict_port(self):
-        params = connection.ConnectionParameters(ssl=True, port=99)
+        params = connection.ConnectionParameters(
+            ssl_options=connection.SSLOptions(ssl.create_default_context()),
+            port=99)
 
-        self.assertEqual(params.ssl, True)
+        self.assertIsNotNone(params.ssl_options)
         self.assertEqual(params.port, 99)
 
     def test_explicit_non_ssl_with_default_port(self):
-        params = connection.ConnectionParameters(ssl=False)
+        params = connection.ConnectionParameters(ssl_options=None)
 
-        self.assertEqual(params.ssl, False)
+        self.assertIsNone(params.ssl_options)
         self.assertEqual(params.port, params.DEFAULT_PORT)
 
     def test_explicit_non_ssl_with_explict_port(self):
-        params = connection.ConnectionParameters(ssl=False, port=100)
+        params = connection.ConnectionParameters(ssl_options=None, port=100)
 
-        self.assertEqual(params.ssl, False)
+        self.assertIsNone(params.ssl_options)
         self.assertEqual(params.port, 100)
 
     def test_good_connection_parameters(self):
@@ -455,10 +439,7 @@ class ConnectionParametersTests(_ParametersTestsBase):
             'port': 5678,
             'retry_delay': 3,
             'socket_timeout': 100.5,
-            'ssl': True,
-            'ssl_options': {
-                'ssl': 'options'
-            },
+            'ssl_options': None,
             'virtual_host': u'vvhost',
             'tcp_options': {
                 'TCP_USER_TIMEOUT': 1000
@@ -560,38 +541,38 @@ class URLParametersTests(_ParametersTestsBase):
         params = connection.URLParameters('')
         self.assert_default_parameter_values(params)
 
-        self.assertEqual(params.ssl, False)
+        self.assertIsNone(params.ssl_options)
         self.assertEqual(params.port, params.DEFAULT_PORT)
 
     def test_no_ssl(self):
         params = connection.URLParameters('http://')
-        self.assertEqual(params.ssl, False)
+        self.assertIsNone(params.ssl_options)
         self.assertEqual(params.port, params.DEFAULT_PORT)
         self.assert_default_parameter_values(params)
 
         params = connection.URLParameters('amqp://')
-        self.assertEqual(params.ssl, False)
+        self.assertIsNone(params.ssl_options)
         self.assertEqual(params.port, params.DEFAULT_PORT)
         self.assert_default_parameter_values(params)
 
     def test_ssl(self):
         params = connection.URLParameters('https://')
-        self.assertEqual(params.ssl, True)
+        self.assertIsNotNone(params.ssl_options)
         self.assertEqual(params.port, params.DEFAULT_SSL_PORT)
 
         params = connection.URLParameters('amqps://')
-        self.assertEqual(params.ssl, True)
+        self.assertIsNotNone(params.ssl_options)
         self.assertEqual(params.port, params.DEFAULT_SSL_PORT)
 
         # Make sure the other parameters unrelated to SSL have default values
         params = connection.URLParameters('amqps://')
-        params.ssl = False
+        params.ssl_options = None
         params.port = params.DEFAULT_PORT
         self.assert_default_parameter_values(params)
 
     def test_no_url_scheme_defaults_to_plaintext(self):
         params = connection.URLParameters('//')
-        self.assertEqual(params.ssl, False)
+        self.assertIsNone(params.ssl_options)
         self.assertEqual(params.port, params.DEFAULT_PORT)
 
     def test_good_parameters(self):
@@ -605,9 +586,7 @@ class URLParametersTests(_ParametersTestsBase):
             'locale': 'en_UK',
             'retry_delay': 3,
             'socket_timeout': 100.5,
-            'ssl_options': {
-                'ssl': 'options'
-            },
+            'ssl_options': {'cert_reqs': ssl.CERT_OPTIONAL},
             'tcp_options': {
                 'TCP_USER_TIMEOUT': 1000,
                 'TCP_KEEPIDLE': 60
@@ -615,7 +594,7 @@ class URLParametersTests(_ParametersTestsBase):
         }
 
         for backpressure in ('t', 'f'):
-            test_params = copy.deepcopy(query_args)
+            test_params = dict(query_args)
             test_params['backpressure_detection'] = backpressure
             virtual_host = '/'
             query_string = urlencode(test_params)
@@ -632,17 +611,21 @@ class URLParametersTests(_ParametersTestsBase):
                 expected_value = query_args[t_param]
                 actual_value = getattr(params, t_param)
 
-                self.assertEqual(
-                    actual_value,
-                    expected_value,
-                    msg='Expected %s=%r, but got %r' %
-                    (t_param, expected_value, actual_value))
+                if t_param == 'ssl_options':
+                    self.assertEqual(actual_value.context.verify_mode,
+                                     expected_value['cert_reqs'])
+                else:
+                    self.assertEqual(
+                        actual_value,
+                        expected_value,
+                        msg='Expected %s=%r, but got %r' %
+                        (t_param, expected_value, actual_value))
 
             self.assertEqual(params.backpressure_detection,
                              backpressure == 't')
 
             # check all values from base URL
-            self.assertEqual(params.ssl, True)
+            self.assertIsNotNone(params.ssl_options)
             self.assertEqual(params.credentials.username, 'myuser')
             self.assertEqual(params.credentials.password, 'mypass')
             self.assertEqual(params.host, 'www.test.com')

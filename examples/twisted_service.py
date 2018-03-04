@@ -52,14 +52,14 @@ class PikaService(service.MultiService):
 
     def connect(self):
         f = PikaFactory(self.parameters)
-        if self.parameters.ssl:
+        if self.parameters.ssl_options:
             s = ssl.ClientContextFactory()
             serv = internet.SSLClient(host=self.parameters.host, port=self.parameters.port, factory=f, contextFactory=s)
         else:
             serv = internet.TCPClient(host=self.parameters.host, port=self.parameters.port, factory=f)
         serv.factory = f
         f.service = serv
-        name = '%s%s:%d' % ('ssl:' if self.parameters.ssl else '', self.parameters.host, self.parameters.port)
+        name = '%s%s:%d' % ('ssl:' if self.parameters.ssl_options else '', self.parameters.host, self.parameters.port)
         serv.__repr__ = lambda : '<AMQP Connection to %s>' % name
         serv.setName(name)
         serv.parent = self

@@ -18,12 +18,11 @@ tls_example.py::
 
     logging.basicConfig(level=logging.INFO)
 
-    cp = pika.ConnectionParameters(
-        ssl=True,
-        ssl_options=dict(
-            ssl_version=ssl.PROTOCOL_TLSv1,
-            ca_certs="/Users/me/tls-gen/basic/testca/cacert.pem",
-            cert_reqs=ssl.CERT_REQUIRED))
+    context = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
+    context.verify_mode = ssl.CERT_REQUIRED
+    context.load_verify_locations('/Users/me/tls-gen/basic/testca/cacert.pem')
+
+    cp = pika.ConnectionParameters(ssl_options=pika.SSLOptions(context)
 
     conn = pika.BlockingConnection(cp)
     ch = conn.channel()
