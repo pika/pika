@@ -709,8 +709,10 @@ class URLParameters(Parameters):
         - locale:
             Override the default `en_US` locale value
         - ssl_options:
-            None for plaintext or dict of arguments passed to
-            :meth:`ssl.wrap_socket` as kwargs
+            None for plaintext; for SSL: dict of public ssl context-related
+            arguments that may be passed to :meth:`ssl.SSLSocket` as kwargs,
+            except `sock`, `server_side`,`do_handshake_on_connect`, `family`,
+            `type`, `proto`, `fileno`.
         - retry_delay:
             The number of seconds to sleep before attempting to connect on
             connection failure.
@@ -914,10 +916,10 @@ class URLParameters(Parameters):
                     'Specified ssl_options=None URL arg is inconsistent with '
                     'the specified https URL scheme.')
         else:
-            # Convert options to pika.SSLOptions via ssl.wrap_socket()
+            # Convert options to pika.SSLOptions via ssl.SSLSocket()
             sock = socket.socket()
             try:
-                ssl_sock = ssl.wrap_socket(sock, **options)
+                ssl_sock = ssl.SSLSocket(sock=sock, **options)
                 try:
                     self.ssl_options = pika.SSLOptions(
                         context=ssl_sock.context,

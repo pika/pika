@@ -586,7 +586,8 @@ class URLParametersTests(_ParametersTestsBase):
             'locale': 'en_UK',
             'retry_delay': 3,
             'socket_timeout': 100.5,
-            'ssl_options': {'cert_reqs': ssl.CERT_OPTIONAL},
+            'ssl_options': {'cert_reqs': ssl.CERT_OPTIONAL,
+                            'server_hostname': 'blah.blah.com'},
             'tcp_options': {
                 'TCP_USER_TIMEOUT': 1000,
                 'TCP_KEEPIDLE': 60
@@ -614,6 +615,8 @@ class URLParametersTests(_ParametersTestsBase):
                 if t_param == 'ssl_options':
                     self.assertEqual(actual_value.context.verify_mode,
                                      expected_value['cert_reqs'])
+                    self.assertEqual(actual_value.server_hostname,
+                                     expected_value['server_hostname'])
                 else:
                     self.assertEqual(
                         actual_value,
