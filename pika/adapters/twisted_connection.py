@@ -275,10 +275,10 @@ class IOLoopReactorAdapter(object):
         self.reactor.removeReader(self.connection)
         self.reactor.removeWriter(self.connection)
 
-        if event_state & self.connection.READ:
+        if event_state & base_connection.PollEvents.READ:
             self.reactor.addReader(self.connection)
 
-        if event_state & self.connection.WRITE:
+        if event_state & base_connection.PollEvents.WRITE:
             self.reactor.addWriter(self.connection)
 
 

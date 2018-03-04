@@ -18,6 +18,7 @@ import mock
 
 import pika
 from pika import compat
+from pika.adapters.select_connection import PollEvents
 from pika.adapters import select_connection
 
 # protected-access
@@ -345,7 +346,7 @@ class IOLoopSocketBaseSelect(IOLoopBaseTest):
         listen_sock.listen(1)
         fd_ = self.save_sock(listen_sock)
         self.listen_addr = listen_sock.getsockname()
-        self.ioloop.add_handler(fd_, self.do_accept, select_connection.READ)
+        self.ioloop.add_handler(fd_, self.do_accept, PollEvents.READ)
 
     def create_write_socket(self, on_connected):
         """ Create a pair of socket and setup 'connected' handler """
@@ -355,16 +356,16 @@ class IOLoopSocketBaseSelect(IOLoopBaseTest):
         # NOTE we get errno.EWOULDBLOCK 10035 on Windows
         self.assertIn(err, (errno.EINPROGRESS, errno.EWOULDBLOCK))
         fd_ = self.save_sock(write_sock)
-        self.ioloop.add_handler(fd_, on_connected, select_connection.WRITE)
+        self.ioloop.add_handler(fd_, on_connected, PollEvents.WRITE)
         return write_sock
 
     def do_accept(self, fd_, events):
         """ Create socket from the given fd_ and setup 'read' handler """
-        self.assertEqual(events, select_connection.READ)
+        self.assertEqual(events, PollEvents.READ)
         listen_sock = self.sock_map[fd_]
         read_sock, _ = listen_sock.accept()
         fd_ = self.save_sock(read_sock)
-        self.ioloop.add_handler(fd_, self.do_read, select_connection.READ)
+        self.ioloop.add_handler(fd_, self.do_read, PollEvents.READ)
 
     def connected(self, _fd, _events):
         """ Create socket from given _fd and respond to 'connected'.
@@ -373,7 +374,7 @@ class IOLoopSocketBaseSelect(IOLoopBaseTest):
 
     def do_read(self, fd_, events):
         """ read from fd and check the received content """
-        self.assertEqual(events, select_connection.READ)
+        self.assertEqual(events, PollEvents.READ)
         # NOTE Use socket.recv instead of os.read for Windows compatibility
         self.verify_message(self.sock_map[fd_].recv(self.READ_SIZE))
 
@@ -419,7 +420,7 @@ class IOLoopSimpleMessageTestCaseSelect(IOLoopSocketBaseSelect):
 
     def connected(self, fd, events):
         """Respond to 'connected' event by writing to the write-side."""
-        self.assertEqual(events, select_connection.WRITE)
+        self.assertEqual(events, PollEvents.WRITE)
         # NOTE Use socket.send instead of os.write for Windows compatibility
         self.sock_map[fd].send(b'X')
         self.ioloop.update_handler(fd, 0)
@@ -465,7 +466,7 @@ class IOLoopEintrTestCaseSelect(IOLoopBaseTest):
 
     def _eintr_read_handler(self, fileno, events):
         """Read from within poll loop that gets receives eintr error."""
-        self.assertEqual(events, select_connection.READ)
+        self.assertEqual(events, PollEvents.READ)
 
         sock = socket.fromfd(
             os.dup(fileno), socket.AF_INET, socket.SOCK_STREAM)
@@ -505,7 +506,7 @@ class IOLoopEintrTestCaseSelect(IOLoopBaseTest):
 
         self._eintr_read_handler_is_called = False
         self.poller.add_handler(sockpair[0].fileno(), self._eintr_read_handler,
-                                select_connection.READ)
+                                PollEvents.READ)
 
         self.ioloop.add_timeout(self.TIMEOUT, self._eintr_test_fail)
 

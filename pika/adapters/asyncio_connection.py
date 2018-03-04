@@ -80,8 +80,8 @@ class IOLoopAdapter:
         The ``fd`` argument is an integer file descriptor.
 
         The ``event_state`` argument is a bitwise or of the constants
-        ``base_connection.BaseConnection.READ``, ``base_connection.BaseConnection.WRITE``,
-        and ``base_connection.BaseConnection.ERROR``.
+        ``base_connection.PollEvents.READ``, ``base_connection.PollEvents.WRITE``,
+        and ``base_connection.PollEvents.ERROR``.
 
         """
 
@@ -89,24 +89,24 @@ class IOLoopAdapter:
             raise ValueError("fd {} added twice".format(fd))
         self.handlers[fd] = cb
 
-        if event_state & base_connection.BaseConnection.READ:
+        if event_state & base_connection.PollEvents.READ:
             self.loop.add_reader(
                 fd,
                 partial(
                     cb,
                     fd=fd,
-                    events=base_connection.BaseConnection.READ
+                    events=base_connection.PollEvents.READ
                 )
             )
             self.readers.add(fd)
 
-        if event_state & base_connection.BaseConnection.WRITE:
+        if event_state & base_connection.PollEvents.WRITE:
             self.loop.add_writer(
                 fd,
                 partial(
                     cb,
                     fd=fd,
-                    events=base_connection.BaseConnection.WRITE
+                    events=base_connection.PollEvents.WRITE
                 )
             )
             self.writers.add(fd)
@@ -128,14 +128,14 @@ class IOLoopAdapter:
         del self.handlers[fd]
 
     def update_handler(self, fd, event_state):
-        if event_state & base_connection.BaseConnection.READ:
+        if event_state & base_connection.PollEvents.READ:
             if fd not in self.readers:
                 self.loop.add_reader(
                     fd,
                     partial(
                         self.handlers[fd],
                         fd=fd,
-                        events=base_connection.BaseConnection.READ
+                        events=base_connection.PollEvents.READ
                     )
                 )
                 self.readers.add(fd)
@@ -144,14 +144,14 @@ class IOLoopAdapter:
                 self.loop.remove_reader(fd)
                 self.readers.remove(fd)
 
-        if event_state & base_connection.BaseConnection.WRITE:
+        if event_state & base_connection.PollEvents.WRITE:
             if fd not in self.writers:
                 self.loop.add_writer(
                     fd,
                     partial(
                         self.handlers[fd],
                         fd=fd,
-                        events=base_connection.BaseConnection.WRITE
+                        events=base_connection.PollEvents.WRITE
                     )
                 )
                 self.writers.add(fd)
