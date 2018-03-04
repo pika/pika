@@ -586,8 +586,20 @@ class URLParametersTests(_ParametersTestsBase):
             'locale': 'en_UK',
             'retry_delay': 3,
             'socket_timeout': 100.5,
-            'ssl_options': {'cert_reqs': ssl.CERT_OPTIONAL,
-                            'server_hostname': 'blah.blah.com'},
+            # NOTE: just straight ssl.CERT_OPTIONAL breaks on python 3.6 and 3.7
+            # during ast.literal_eval() of the urlencoded dict as invalid syntax
+            # on <VerifyMode.CERT_NONE: 1>:
+            # {'cert_reqs': <VerifyMode.CERT_NONE: 1>, 'server_hostname': 'blah.blah.com'}
+            'ssl_options': {
+                'keyfile': None,
+                'certfile': None,
+                'ssl_version': int(ssl.PROTOCOL_SSLv23),
+                'ca_certs': None,
+                'cert_reqs': int(ssl.CERT_NONE),
+                'npn_protocols': None,
+                'ciphers': None,
+                'server_hostname': 'blah.blah.com'
+            },
             'tcp_options': {
                 'TCP_USER_TIMEOUT': 1000,
                 'TCP_KEEPIDLE': 60
