@@ -23,7 +23,8 @@ except AttributeError:
 if not PY2:
     # these were moved around for Python 3
     from urllib.parse import (quote as url_quote, unquote as url_unquote,
-                              urlencode)
+                              urlencode, parse_qs as url_parse_qs,
+                              urlparse)
 
     # Python 3 does not have basestring anymore; we include
     # *only* the str here as this is used for textual data.
@@ -110,6 +111,8 @@ if not PY2:
         return isinstance(value, int)
 else:
     from urllib import quote as url_quote, unquote as url_unquote, urlencode
+
+    from urlparse import parse_qs as url_parse_qs, urlparse
 
     basestring = basestring
     str_or_bytes = basestring

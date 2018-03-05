@@ -3,7 +3,6 @@
 # pylint: disable=C0302
 
 import ast
-import sys
 import collections
 import copy
 import logging
@@ -13,11 +12,6 @@ import platform
 import socket
 import warnings
 import ssl
-
-if sys.version_info > (3,):
-    import urllib.parse as urlparse  # pylint: disable=E0611,F0401
-else:
-    import urlparse
 
 from pika import __version__
 from pika import callback as pika_callback
@@ -29,6 +23,7 @@ from pika import heartbeat as pika_heartbeat
 
 from pika import spec
 
+import pika.compat
 from pika.compat import (xrange, basestring, # pylint: disable=W0622
                          url_unquote, dictkeys, dict_itervalues,
                          dict_iteritems)
@@ -519,13 +514,14 @@ class Parameters(object):  # pylint: disable=R0902
     def tcp_options(self):
         """
         :returns: None or a dict of options to pass to the underlying socket
+        :rtype: dict|None
         """
         return self._tcp_options
 
     @tcp_options.setter
     def tcp_options(self, value):
         """
-        :param bool value: None or a dict of options to pass to the underlying
+        :param dict|None value: None or a dict of options to pass to the underlying
             socket. Currently supported are TCP_KEEPIDLE, TCP_KEEPINTVL, TCP_KEEPCNT
             and TCP_USER_TIMEOUT. Availability of these may depend on your platform.
         """
@@ -759,7 +755,7 @@ class URLParameters(Parameters):
 
         # TODO Is support for the alternative http(s) schemes intentional?
 
-        parts = urlparse.urlparse(url)
+        parts = pika.compat.urlparse(url)
 
         if parts.scheme == 'https':
             # Create default context which will get overridden by the
@@ -792,7 +788,7 @@ class URLParameters(Parameters):
 
         # Handle query string values, validating and assigning them
 
-        self._all_url_query_values = urlparse.parse_qs(parts.query)
+        self._all_url_query_values = pika.compat.url_parse_qs(parts.query)
 
         for name, value in dict_iteritems(self._all_url_query_values):
             try:
