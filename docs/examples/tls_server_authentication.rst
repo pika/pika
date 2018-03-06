@@ -22,7 +22,7 @@ tls_example.py::
     context.verify_mode = ssl.CERT_REQUIRED
     context.load_verify_locations('/Users/me/tls-gen/basic/testca/cacert.pem')
 
-    cp = pika.ConnectionParameters(ssl_options=pika.SSLOptions(context)
+    cp = pika.ConnectionParameters(ssl_options=pika.SSLOptions(context))
 
     conn = pika.BlockingConnection(cp)
     ch = conn.channel()

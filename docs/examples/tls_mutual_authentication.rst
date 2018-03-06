@@ -24,7 +24,7 @@ tls_example.py::
     context.load_cert_chain('/Users/me/tls-gen/basic/client/cert.pem',
                             '/Users/me/tls-gen/basic/client/key.pem')
 
-    cp = pika.ConnectionParameters(ssl_options=pika.SSLOptions(context)
+    cp = pika.ConnectionParameters(ssl_options=pika.SSLOptions(context))
 
     conn = pika.BlockingConnection(cp)
     ch = conn.channel()

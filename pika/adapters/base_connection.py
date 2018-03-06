@@ -57,9 +57,6 @@ class BaseConnection(connection.Connection):
             raise ValueError(
                 'Expected instance of Parameters, not %r' % parameters)
 
-        # Let the developer know we could not import SSL
-        if parameters and parameters.ssl_options is not None and not ssl:
-            raise RuntimeError("SSL specified but it is not available")
         self.base_events = self.READ | self.ERROR
         self.event_state = self.base_events
         self.ioloop = ioloop
