@@ -3,20 +3,15 @@
 # pylint: disable=C0302
 
 import ast
-import sys
 import collections
 import copy
 import logging
 import math
 import numbers
 import platform
+import socket
 import warnings
 import ssl
-
-if sys.version_info > (3,):
-    import urllib.parse as urlparse  # pylint: disable=E0611,F0401
-else:
-    import urlparse
 
 from pika import __version__
 from pika import callback as pika_callback
@@ -28,6 +23,7 @@ from pika import heartbeat as pika_heartbeat
 
 from pika import spec
 
+import pika.compat
 from pika.compat import (xrange, basestring, # pylint: disable=W0622
                          url_unquote, dictkeys, dict_itervalues,
                          dict_iteritems)
@@ -55,23 +51,6 @@ class InternalCloseReasons(object):
 class Parameters(object):  # pylint: disable=R0902
     """Base connection parameters class definition
 
-    :param bool backpressure_detection: `DEFAULT_BACKPRESSURE_DETECTION`
-    :param float|None blocked_connection_timeout:
-        `DEFAULT_BLOCKED_CONNECTION_TIMEOUT`
-    :param int channel_max: `DEFAULT_CHANNEL_MAX`
-    :param int connection_attempts: `DEFAULT_CONNECTION_ATTEMPTS`
-    :param  credentials: `DEFAULT_CREDENTIALS`
-    :param int frame_max: `DEFAULT_FRAME_MAX`
-    :param int heartbeat: `DEFAULT_HEARTBEAT_TIMEOUT`
-    :param str host: `DEFAULT_HOST`
-    :param str locale: `DEFAULT_LOCALE`
-    :param int port: `DEFAULT_PORT`
-    :param float retry_delay: `DEFAULT_RETRY_DELAY`
-    :param float socket_timeout: `DEFAULT_SOCKET_TIMEOUT`
-    :param bool ssl: `DEFAULT_SSL`
-    :param dict ssl_options: `DEFAULT_SSL_OPTIONS`
-    :param str virtual_host: `DEFAULT_VIRTUAL_HOST`
-    :param int tcp_options: `DEFAULT_TCP_OPTIONS`
     """
 
     # Declare slots to protect against accidental assignment of an invalid
@@ -90,7 +69,6 @@ class Parameters(object):  # pylint: disable=R0902
         '_port',
         '_retry_delay',
         '_socket_timeout',
-        '_ssl',
         '_ssl_options',
         '_virtual_host',
         '_tcp_options'
@@ -166,9 +144,6 @@ class Parameters(object):  # pylint: disable=R0902
         self._socket_timeout = None
         self.socket_timeout = self.DEFAULT_SOCKET_TIMEOUT
 
-        self._ssl = None
-        self.ssl = self.DEFAULT_SSL
-
         self._ssl_options = None
         self.ssl_options = self.DEFAULT_SSL_OPTIONS
 
@@ -186,7 +161,7 @@ class Parameters(object):  # pylint: disable=R0902
         """
         return ('<%s host=%s port=%s virtual_host=%s ssl=%s>' %
                 (self.__class__.__name__, self.host, self.port,
-                 self.virtual_host, self.ssl))
+                 self.virtual_host, bool(self.ssl_options)))
 
     @property
     def backpressure_detection(self):
@@ -495,46 +470,25 @@ class Parameters(object):  # pylint: disable=R0902
         self._socket_timeout = value
 
     @property
-    def ssl(self):
-        """
-        :returns: boolean indicating whether to connect via SSL. Defaults to
-            `DEFAULT_SSL`.
-
-        """
-        return self._ssl
-
-    @ssl.setter
-    def ssl(self, value):
-        """
-        :param bool value: boolean indicating whether to connect via SSL
-
-        """
-        if not isinstance(value, bool):
-            raise TypeError('ssl must be a bool, but got %r' % (value,))
-        self._ssl = value
-
-    @property
     def ssl_options(self):
         """
-        :returns: None or a dict of options to pass to `ssl.wrap_socket`.
-            Defaults to `DEFAULT_SSL_OPTIONS`.
-
+        :returns: None for plaintext or `pika.SSLOptions` instance for SSL/TLS.
+        :rtype: `pika.SSLOptions`|None
         """
         return self._ssl_options
 
     @ssl_options.setter
     def ssl_options(self, value):
         """
-        :param value: None, a dict of options to pass to `ssl.wrap_socket` or
-            a SSLOptions object for advanced setup.
+        :param `pika.SSLOptions`|None value: None for plaintext or
+            `pika.SSLOptions` instance for SSL/TLS. Defaults to None.
 
         """
-        if not isinstance(value, (dict, SSLOptions, type(None))):
+        if not isinstance(value, (SSLOptions, type(None))):
             raise TypeError(
-                'ssl_options must be a dict, None or an SSLOptions but got %r'
+                'ssl_options must be None or SSLOptions but got %r'
                 % (value, ))
-        # Copy the mutable object to avoid accidental side-effects
-        self._ssl_options = copy.deepcopy(value)
+        self._ssl_options = value
 
 
     @property
@@ -560,13 +514,14 @@ class Parameters(object):  # pylint: disable=R0902
     def tcp_options(self):
         """
         :returns: None or a dict of options to pass to the underlying socket
+        :rtype: dict|None
         """
         return self._tcp_options
 
     @tcp_options.setter
     def tcp_options(self, value):
         """
-        :param bool value: None or a dict of options to pass to the underlying
+        :param dict|None value: None or a dict of options to pass to the underlying
             socket. Currently supported are TCP_KEEPIDLE, TCP_KEEPINTVL, TCP_KEEPCNT
             and TCP_USER_TIMEOUT. Availability of these may depend on your platform.
         """
@@ -597,7 +552,6 @@ class ConnectionParameters(Parameters):
                  channel_max=_DEFAULT,
                  frame_max=_DEFAULT,
                  heartbeat=_DEFAULT,
-                 ssl=_DEFAULT,
                  ssl_options=_DEFAULT,
                  connection_attempts=_DEFAULT,
                  retry_delay=_DEFAULT,
@@ -624,9 +578,8 @@ class ConnectionParameters(Parameters):
             with the connection instance and the heartbeat timeout proposed by broker
             as its arguments. The callback should return a non-negative integer that
             will be used to override the broker's proposal.
-        :param bool ssl: Enable SSL
-        :param dict ssl_options: None or a dict of arguments to be passed to
-            ssl.wrap_socket
+        :param `pika.SSLOptions`|None ssl_options: None for plaintext or
+            `pika.SSLOptions` instance for SSL/TLS. Defaults to None.
         :param int connection_attempts: Maximum number of retry attempts
         :param int|float retry_delay: Time to wait in seconds, before the next
         :param int|float socket_timeout: Use for high latency networks
@@ -701,17 +654,14 @@ class ConnectionParameters(Parameters):
         if socket_timeout is not self._DEFAULT:
             self.socket_timeout = socket_timeout
 
-        if ssl is not self._DEFAULT:
-            self.ssl = ssl
-
         if ssl_options is not self._DEFAULT:
             self.ssl_options = ssl_options
 
         # Set port after SSL status is known
         if port is not self._DEFAULT:
             self.port = port
-        elif ssl is not self._DEFAULT:
-            self.port = self.DEFAULT_SSL_PORT if self.ssl else self.DEFAULT_PORT
+        else:
+            self.port = self.DEFAULT_SSL_PORT if self.ssl_options else self.DEFAULT_PORT
 
         if virtual_host is not self._DEFAULT:
             self.virtual_host = virtual_host
@@ -754,10 +704,11 @@ class URLParameters(Parameters):
             the broker's value is accepted. 0 turns heartbeat off.
         - locale:
             Override the default `en_US` locale value
-        - ssl:
-            Toggle SSL, possible values are `t`, `f`
         - ssl_options:
-            Arguments passed to :meth:`ssl.wrap_socket`
+            None for plaintext; for SSL: dict of public ssl context-related
+            arguments that may be passed to :meth:`ssl.SSLSocket` as kwargs,
+            except `sock`, `server_side`,`do_handshake_on_connect`, `family`,
+            `type`, `proto`, `fileno`.
         - retry_delay:
             The number of seconds to sleep before attempting to connect on
             connection failure.
@@ -804,12 +755,15 @@ class URLParameters(Parameters):
 
         # TODO Is support for the alternative http(s) schemes intentional?
 
-        parts = urlparse.urlparse(url)
+        parts = pika.compat.urlparse(url)
 
         if parts.scheme == 'https':
-            self.ssl = True
+            # Create default context which will get overridden by the
+            # ssl_options URL arg, if any
+            self.ssl_options = pika.SSLOptions(
+                context=ssl.create_default_context())
         elif parts.scheme == 'http':
-            self.ssl = False
+            self.ssl_options = None
         elif parts.scheme:
             raise ValueError('Unexpected URL scheme %r; supported scheme '
                              'values: amqp, amqps' % (parts.scheme,))
@@ -821,7 +775,8 @@ class URLParameters(Parameters):
         if parts.port is not None:
             self.port = parts.port
         else:
-            self.port = self.DEFAULT_SSL_PORT if self.ssl else self.DEFAULT_PORT
+            self.port = (self.DEFAULT_SSL_PORT if self.ssl_options
+                         else self.DEFAULT_PORT)
 
         if parts.username is not None:
             self.credentials = pika_credentials.PlainCredentials(url_unquote(parts.username),
@@ -833,7 +788,7 @@ class URLParameters(Parameters):
 
         # Handle query string values, validating and assigning them
 
-        self._all_url_query_values = urlparse.parse_qs(parts.query)
+        self._all_url_query_values = pika.compat.url_parse_qs(parts.query)
 
         for name, value in dict_iteritems(self._all_url_query_values):
             try:
@@ -947,65 +902,59 @@ class URLParameters(Parameters):
         self.socket_timeout = socket_timeout
 
     def _set_url_ssl_options(self, value):
-        """Deserialize and apply the corresponding query string arg"""
-        self.ssl_options = ast.literal_eval(value)
+        """Deserialize and apply the corresponding query string arg
+
+        """
+        options = ast.literal_eval(value)
+        if options is None:
+            if self.ssl_options is not None:
+                raise ValueError(
+                    'Specified ssl_options=None URL arg is inconsistent with '
+                    'the specified https URL scheme.')
+        else:
+            # Convert options to pika.SSLOptions via ssl.SSLSocket()
+            sock = socket.socket()
+            try:
+                ssl_sock = ssl.SSLSocket(sock=sock, **options)
+                try:
+                    self.ssl_options = pika.SSLOptions(
+                        context=ssl_sock.context,
+                        server_hostname=ssl_sock.server_hostname)
+                finally:
+                    ssl_sock.close()
+            finally:
+                sock.close()
+
+
 
     def _set_url_tcp_options(self, value):
         """Deserialize and apply the corresponding query string arg"""
         self.tcp_options = ast.literal_eval(value)
 
+
 class SSLOptions(object):
     """Class used to provide parameters for optional fine grained control of SSL
     socket wrapping.
 
-    :param string keyfile: The key file to pass to SSLContext.load_cert_chain
-    :param string key_password: The key password to passed to
-                                                    SSLContext.load_cert_chain
-    :param string certfile: The certificate file to passed to
-                                                    SSLContext.load_cert_chain
-    :param bool server_side: Passed to SSLContext.wrap_socket
-    :param verify_mode: Passed to SSLContext.wrap_socket
-    :param ssl_version: Passed to SSLContext init, defines the ssl
-                                                                version to use
-    :param string cafile: The CA file passed to
-                                            SSLContext.load_verify_locations
-    :param string capath: The CA path passed to
-                                            SSLContext.load_verify_locations
-    :param string cadata: The CA data passed to
-                                            SSLContext.load_verify_locations
-    :param do_handshake_on_connect: Passed to SSLContext.wrap_socket
-    :param suppress_ragged_eofs: Passed to SSLContext.wrap_socket
-    :param ciphers: Passed to SSLContext.set_ciphers
-    :param server_hostname: SSLContext.wrap_socket, used to enable SNI
     """
 
-    def __init__(self,
-                 keyfile=None,
-                 key_password=None,
-                 certfile=None,
-                 server_side=False,
-                 verify_mode=ssl.CERT_NONE,
-                 ssl_version=ssl.PROTOCOL_SSLv23,
-                 cafile=None,
-                 capath=None,
-                 cadata=None,
-                 do_handshake_on_connect=True,
-                 suppress_ragged_eofs=True,
-                 ciphers=None,
-                 server_hostname=None):
-        self.keyfile = keyfile
-        self.key_password = key_password
-        self.certfile = certfile
-        self.server_side = server_side
-        self.verify_mode = verify_mode
-        self.ssl_version = ssl_version
-        self.cafile = cafile
-        self.capath = capath
-        self.cadata = cadata
-        self.do_handshake_on_connect = do_handshake_on_connect
-        self.suppress_ragged_eofs = suppress_ragged_eofs
-        self.ciphers = ciphers
+    # Protect against accidental assignment of an invalid attribute
+    __slots__ = ('context', 'server_hostname')
+
+    def __init__(self, context, server_hostname=None):
+        """
+        :param ssl.SSLContext context: SSLContext instance
+        :param str|None server_hostname: SSLContext.wrap_socket, used to enable
+            SNI
+        """
+        if not isinstance(context, ssl.SSLContext):
+            raise TypeError(
+                'context must be of ssl.SSLContext type, but got {!r}'.format(
+                    context))
+
+        self.context = context
         self.server_hostname = server_hostname
+
 
 class Connection(object):
     """This is the core class that implements communication with RabbitMQ. This
@@ -1076,8 +1025,18 @@ class Connection(object):
         self.heartbeat = None
 
         # Set our configuration options
-        self.params = (copy.deepcopy(parameters) if parameters is not None else
-                       ConnectionParameters())
+        if parameters is not None:
+            # NOTE: Work around inability to copy ssl.SSLContext contained in
+            # our SSLOptions; ssl.SSLContext fails to implement __getnewargs__
+            saved_ssl_options = parameters.ssl_options
+            parameters.ssl_options = None
+            try:
+                self.params = copy.deepcopy(parameters)
+                self.params.ssl_options = saved_ssl_options
+            finally:
+                parameters.ssl_options = saved_ssl_options
+        else:
+            self.params = ConnectionParameters()
 
         # Define our callback dictionary
         self.callbacks = pika_callback.CallbackManager()

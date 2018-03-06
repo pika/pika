@@ -57,9 +57,6 @@ class BaseConnection(connection.Connection):
             raise ValueError(
                 'Expected instance of Parameters, not %r' % parameters)
 
-        # Let the developer know we could not import SSL
-        if parameters and parameters.ssl and not ssl:
-            raise RuntimeError("SSL specified but it is not available")
         self.base_events = self.READ | self.ERROR
         self.event_state = self.base_events
         self.ioloop = ioloop
@@ -215,7 +212,7 @@ class BaseConnection(connection.Connection):
         pika.tcp_socket_opts.set_sock_opts(self.params.tcp_options, self.socket)
 
         # Wrap socket if using SSL
-        if self.params.ssl:
+        if self.params.ssl_options is not None:
             self.socket = self._wrap_socket(self.socket)
             ssl_text = " with SSL"
         else:
@@ -240,7 +237,7 @@ class BaseConnection(connection.Connection):
             return error
 
         # Handle SSL Connection Negotiation
-        if self.params.ssl and self.DO_HANDSHAKE:
+        if self.params.ssl_options is not None and self.DO_HANDSHAKE:
             try:
                 self._do_ssl_handshake()
             except ssl.SSLError as error:
@@ -322,7 +319,7 @@ class BaseConnection(connection.Connection):
         if exception.errno in self.ERRORS_TO_ABORT:
             LOGGER.error("Fatal Socket Error: %r", exception)
 
-        elif self.params.ssl and isinstance(exception, ssl.SSLError):
+        elif isinstance(exception, ssl.SSLError):
 
             if exception.errno == ssl.SSL_ERROR_WANT_READ:
                 # TODO doesn't seem right: this logic updates event state, but
@@ -384,7 +381,7 @@ class BaseConnection(connection.Connection):
         try:
             while True:
                 try:
-                    if self.params.ssl:
+                    if self.params.ssl_options is not None:
                         # TODO Why using read instead of recv on ssl socket?
                         data = self.socket.read(self._buffer_size)
                     else:
@@ -505,37 +502,11 @@ class BaseConnection(connection.Connection):
         :rtype: ssl.SSLSocket
 
         """
-        ssl_options = self.params.ssl_options or {}
-        # our wrapped return sock
-        ssl_sock = None
+        ssl_options = self.params.ssl_options
 
-        if isinstance(ssl_options, connection.SSLOptions):
-            context = ssl.SSLContext(ssl_options.ssl_version)
-            context.verify_mode = ssl_options.verify_mode
-            if ssl_options.certfile is not None:
-                context.load_cert_chain(
-                    certfile=ssl_options.certfile,
-                    keyfile=ssl_options.keyfile,
-                    password=ssl_options.key_password)
-
-            # only one of either cafile or capath have to defined
-            if ssl_options.cafile is not None or ssl_options.capath is not None:
-                context.load_verify_locations(
-                    cafile=ssl_options.cafile,
-                    capath=ssl_options.capath,
-                    cadata=ssl_options.cadata)
-
-            if ssl_options.ciphers is not None:
-                context.set_ciphers(ssl_options.ciphers)
-
-            ssl_sock = context.wrap_socket(
-                sock,
-                server_side=ssl_options.server_side,
-                do_handshake_on_connect=ssl_options.do_handshake_on_connect,
-                suppress_ragged_eofs=ssl_options.suppress_ragged_eofs,
-                server_hostname=ssl_options.server_hostname)
-        else:
-            ssl_sock = ssl.wrap_socket(
-                sock, do_handshake_on_connect=self.DO_HANDSHAKE, **ssl_options)
-
-        return ssl_sock
+        return ssl_options.context.wrap_socket(
+            sock,
+            server_side=False,
+            do_handshake_on_connect=self.DO_HANDSHAKE,
+            suppress_ragged_eofs=True,
+            server_hostname=ssl_options.server_hostname)
