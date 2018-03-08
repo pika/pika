@@ -5,6 +5,7 @@
 import ast
 import collections
 import copy
+import functools
 import logging
 import math
 import numbers
@@ -967,11 +968,9 @@ class Connection(object):
     # pylint: disable=R0201
 
     ON_CONNECTION_BACKPRESSURE = '_on_connection_backpressure'
-    ON_CONNECTION_BLOCKED = '_on_connection_blocked'
     ON_CONNECTION_CLOSED = '_on_connection_closed'
     ON_CONNECTION_ERROR = '_on_connection_error'
     ON_CONNECTION_OPEN = '_on_connection_open'
-    ON_CONNECTION_UNBLOCKED = '_on_connection_unblocked'
     CONNECTION_CLOSED = 0
     CONNECTION_INIT = 1
     CONNECTION_PROTOCOL = 2
@@ -1105,19 +1104,21 @@ class Connection(object):
         instead of relying on back pressure throttling. The callback
         will be passed the ``Connection.Blocked`` method frame.
 
-        TODO Also pass the connection as the callback's first arg
-
         See also `ConnectionParameters.blocked_connection_timeout`.
 
         :param method callback: Callback to call on `Connection.Blocked`,
-            having the signature `callback(pika.frame.Method)`, where the
-            method frame's `method` member is of type
+            having the signature `callback(connection, pika.frame.Method)`,
+            where the method frame's `method` member is of type
             `pika.spec.Connection.Blocked`
 
         """
         if not callable(callback):
             raise TypeError('callback should be a function or method.')
-        self.callbacks.add(0, spec.Connection.Blocked, callback, False)
+
+        self.callbacks.add(0,
+                           spec.Connection.Blocked,
+                           functools.partial(callback, self),
+                           one_shot=False)
 
     def add_on_connection_unblocked_callback(self, callback):
         """Add a callback to be notified when RabbitMQ has sent a
@@ -1125,17 +1126,19 @@ class Connection(object):
         to start publishing again. The callback will be passed the
         ``Connection.Unblocked`` method frame.
 
-        TODO Also pass the connection as the callback's first arg
-
         :param method callback: Callback to call on
             `Connection.Unblocked`, having the signature
-            `callback(pika.frame.Method)`, where the method frame's
+            `callback(connection, pika.frame.Method)`, where the method frame's
             `method` member is of type `pika.spec.Connection.Unblocked`
 
         """
         if not callable(callback):
             raise TypeError('callback should be a function or method.')
-        self.callbacks.add(0, spec.Connection.Unblocked, callback, False)
+
+        self.callbacks.add(0,
+                           spec.Connection.Unblocked,
+                           functools.partial(callback, self),
+                           one_shot=False)
 
     def add_on_open_callback(self, callback):
         """Add a callback notification when the connection has opened. The
@@ -1748,7 +1751,7 @@ class Connection(object):
         self._on_terminate(InternalCloseReasons.BLOCKED_CONNECTION_TIMEOUT,
                            'Blocked connection timeout expired')
 
-    def _on_connection_blocked(self, method_frame):
+    def _on_connection_blocked(self, _connection, method_frame):
         """Handle Connection.Blocked notification from RabbitMQ broker
 
         :param pika.frame.Method method_frame: method frame having `method`
@@ -1767,7 +1770,7 @@ class Connection(object):
                 self.params.blocked_connection_timeout,
                 self._on_blocked_connection_timeout)
 
-    def _on_connection_unblocked(self, method_frame):
+    def _on_connection_unblocked(self, _connection, method_frame):
         """Handle Connection.Unblocked notification from RabbitMQ broker
 
         :param pika.frame.Method method_frame: method frame having `method`

@@ -678,6 +678,36 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
             if frame_type == frame.Heartbeat:
                 self.assertTrue(self.connection.heartbeat.received.called)
 
+    def test_add_on_connection_blocked_callback(self):
+        blocked_buffer = []
+        self.connection.add_on_connection_blocked_callback(
+            lambda conn, frame: blocked_buffer.append((conn, frame)))
+
+        # Simulate dispatch of blocked connection
+        blocked_frame = pika.frame.Method(
+            0,
+            pika.spec.Connection.Blocked('reason'))
+        self.connection._process_frame(blocked_frame)
+
+        self.assertEqual(len(blocked_buffer), 1)
+        conn, frame = blocked_buffer[0]
+        self.assertIs(conn, self.connection)
+        self.assertIs(frame, blocked_frame)
+
+    def test_add_on_connection_unblocked_callback(self):
+        unblocked_buffer = []
+        self.connection.add_on_connection_unblocked_callback(
+            lambda conn, frame: unblocked_buffer.append((conn, frame)))
+
+        # Simulate dispatch of unblocked connection
+        unblocked_frame = pika.frame.Method(0, pika.spec.Connection.Unblocked())
+        self.connection._process_frame(unblocked_frame)
+
+        self.assertEqual(len(unblocked_buffer), 1)
+        conn, frame = unblocked_buffer[0]
+        self.assertIs(conn, self.connection)
+        self.assertIs(frame, unblocked_frame)
+
     @mock.patch.object(
         connection.Connection,
         'connect',
@@ -714,6 +744,7 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
                 blocked_connection_timeout=60))
 
         conn._on_connection_blocked(
+            conn,
             mock.Mock(name='frame.Method(Connection.Blocked)'))
 
         # Check
@@ -736,6 +767,7 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
 
         # Simulate Connection.Blocked trigger
         conn._on_connection_blocked(
+            conn,
             mock.Mock(name='frame.Method(Connection.Blocked)'))
 
         # Check
@@ -748,6 +780,7 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
 
         # Simulate Connection.Blocked trigger again
         conn._on_connection_blocked(
+            conn,
             mock.Mock(name='frame.Method(Connection.Blocked)'))
 
         self.assertEqual(conn.add_timeout.call_count, 1)
@@ -770,6 +803,7 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
                 blocked_connection_timeout=60))
 
         conn._on_connection_blocked(
+            conn,
             mock.Mock(name='frame.Method(Connection.Blocked)'))
 
         conn._on_blocked_connection_timeout()
@@ -798,6 +832,7 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
                 blocked_connection_timeout=60))
 
         conn._on_connection_blocked(
+            conn,
             mock.Mock(name='frame.Method(Connection.Blocked)'))
 
         self.assertIsNotNone(conn._blocked_conn_timer)
@@ -805,6 +840,7 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
         timer = conn._blocked_conn_timer
 
         conn._on_connection_unblocked(
+            conn,
             mock.Mock(name='frame.Method(Connection.Unblocked)'))
 
         # Check
@@ -829,6 +865,7 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
 
         # Simulate Connection.Blocked
         conn._on_connection_blocked(
+            conn,
             mock.Mock(name='frame.Method(Connection.Blocked)'))
 
         self.assertIsNotNone(conn._blocked_conn_timer)
@@ -837,6 +874,7 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
 
         # Simulate Connection.Unblocked
         conn._on_connection_unblocked(
+            conn,
             mock.Mock(name='frame.Method(Connection.Unblocked)'))
 
         # Check
@@ -845,6 +883,7 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
 
         # Simulate Connection.Unblocked again
         conn._on_connection_unblocked(
+            conn,
             mock.Mock(name='frame.Method(Connection.Unblocked)'))
 
         self.assertEqual(conn.remove_timeout.call_count, 1)
@@ -872,6 +911,7 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
                 blocked_connection_timeout=60))
 
         conn._on_connection_blocked(
+            conn,
             mock.Mock(name='frame.Method(Connection.Blocked)'))
 
         self.assertIsNotNone(conn._blocked_conn_timer)
