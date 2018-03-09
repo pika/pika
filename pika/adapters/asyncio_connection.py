@@ -204,7 +204,6 @@ class AsyncioConnection(base_connection.BaseConnection):
         :param asyncio.AbstractEventLoop custom_ioloop: By default asyncio.get_event_loop()
 
         """
-        self.sleep_counter = 0
         self.loop = custom_ioloop or asyncio.get_event_loop()
         self.ioloop = IOLoopAdapter(self.loop)
 

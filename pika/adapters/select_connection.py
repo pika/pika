@@ -15,7 +15,9 @@ import threading
 import pika.compat
 
 from pika.adapters.base_connection import BaseConnection
-from pika.adapters import selector_ioloop_adapter
+from pika.adapters.selector_ioloop_adapter import (
+    SelectorAsyncServicesAdapter,
+    AbstractSelectorIOLoop)
 
 
 LOGGER = logging.getLogger(__name__)
@@ -88,7 +90,7 @@ class SelectConnection(BaseConnection):
             on_open_callback,
             on_open_error_callback,
             on_close_callback,
-            selector_ioloop_adapter.SelectorAsyncServicesAdapter(ioloop))
+            SelectorAsyncServicesAdapter(ioloop))
 
     def _adapter_connect(self):
         """Connect to the RabbitMQ broker, returning True on success, False
@@ -287,7 +289,7 @@ class PollEvents(object):
     ERROR = 0x0008  # error on associated fd
 
 
-class IOLoop(selector_ioloop_adapter.AbstractSelectorIOLoop):
+class IOLoop(AbstractSelectorIOLoop):
     """I/O loop implementation that picks a suitable poller (`select`,
      `poll`, `epoll`, `kqueue`) to use based on platform.
 
