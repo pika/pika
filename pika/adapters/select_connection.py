@@ -23,11 +23,6 @@ LOGGER = logging.getLogger(__name__)
 # One of select, epoll, kqueue or poll
 SELECT_TYPE = None
 
-# Use epoll's constants to keep life easy
-READ = 0x0001
-WRITE = 0x0004
-ERROR = 0x0008
-
 # Reason for this unconventional dict initialization is the fact that on some
 # platforms select.error is an aliases for OSError. We don't want the lambda
 # for select.error to win over one for OSError.
@@ -552,7 +547,9 @@ class _PollerBase(pika.compat.AbstractBase):  # pylint: disable=R0902
         self._fd_handlers = dict()
 
         # event-to-fdset mappings
-        self._fd_events = {READ: set(), WRITE: set(), ERROR: set()}
+        self._fd_events = {PollEvents.READ: set(),
+                           PollEvents.WRITE: set(),
+                           PollEvents.ERROR: set()}
 
         self._processing_fd_event_map = {}
 
@@ -563,7 +560,9 @@ class _PollerBase(pika.compat.AbstractBase):  # pylint: disable=R0902
 
         # Create ioloop-interrupt socket pair and register read handler.
         self._r_interrupt, self._w_interrupt = self._get_interrupt_pair()
-        self.add_handler(self._r_interrupt.fileno(), self._read_interrupt, READ)
+        self.add_handler(self._r_interrupt.fileno(),
+                         self._read_interrupt,
+                         PollEvents.READ)
 
     def close(self):
         """Release poller's resources.
@@ -691,7 +690,7 @@ class _PollerBase(pika.compat.AbstractBase):  # pylint: disable=R0902
         events_cleared = 0
         events_set = 0
 
-        for evt in (READ, WRITE, ERROR):
+        for evt in (PollEvents.READ, PollEvents.WRITE, PollEvents.ERROR):
             if events & evt:
                 if fileno not in self._fd_events[evt]:
                     self._fd_events[evt].add(fileno)
@@ -846,7 +845,7 @@ class _PollerBase(pika.compat.AbstractBase):  # pylint: disable=R0902
                 continue
 
             events = fd_event_map[fileno]
-            for evt in [READ, WRITE, ERROR]:
+            for evt in [PollEvents.READ, PollEvents.WRITE, PollEvents.ERROR]:
                 if fileno not in self._fd_events[evt]:
                     events &= ~evt
 
@@ -895,11 +894,14 @@ class SelectPoller(_PollerBase):
         """
         while True:
             try:
-                if (self._fd_events[READ] or self._fd_events[WRITE] or
-                        self._fd_events[ERROR]):
+                if (self._fd_events[PollEvents.READ] or
+                        self._fd_events[PollEvents.WRITE] or
+                        self._fd_events[PollEvents.ERROR]):
                     read, write, error = select.select(
-                        self._fd_events[READ], self._fd_events[WRITE],
-                        self._fd_events[ERROR], self._get_max_wait())
+                        self._fd_events[PollEvents.READ],
+                        self._fd_events[PollEvents.WRITE],
+                        self._fd_events[PollEvents.ERROR],
+                        self._get_max_wait())
                 else:
                     # NOTE When called without any FDs, select fails on
                     # Windows with error 10022, 'An invalid argument was
@@ -917,7 +919,9 @@ class SelectPoller(_PollerBase):
         # Build an event bit mask for each fileno we've received an event for
 
         fd_event_map = collections.defaultdict(int)
-        for fd_set, evt in zip((read, write, error), (READ, WRITE, ERROR)):
+        for fd_set, evt in zip(
+                (read, write, error),
+                (PollEvents.READ, PollEvents.WRITE, PollEvents.ERROR)):
             for fileno in fd_set:
                 fd_event_map[fileno] |= evt
 
@@ -987,13 +991,13 @@ class KQueuePoller(_PollerBase):
         """
         mask = 0
         if kevent.filter == select.KQ_FILTER_READ:
-            mask = READ
+            mask = PollEvents.READ
         elif kevent.filter == select.KQ_FILTER_WRITE:
-            mask = WRITE
+            mask = PollEvents.WRITE
             if kevent.flags & select.KQ_EV_EOF:
-                mask |= ERROR
+                mask |= PollEvents.ERROR
         elif kevent.flags & select.KQ_EV_ERROR:
-            mask = ERROR
+            mask = PollEvents.ERROR
         else:
             LOGGER.critical('Unexpected kevent: %s', kevent)
 
@@ -1060,25 +1064,25 @@ class KQueuePoller(_PollerBase):
 
         kevents = list()
 
-        if events_to_clear & READ:
+        if events_to_clear & PollEvents.READ:
             kevents.append(
                 select.kevent(
                     fileno,
                     filter=select.KQ_FILTER_READ,
                     flags=select.KQ_EV_DELETE))
-        if events_to_set & READ:
+        if events_to_set & PollEvents.READ:
             kevents.append(
                 select.kevent(
                     fileno,
                     filter=select.KQ_FILTER_READ,
                     flags=select.KQ_EV_ADD))
-        if events_to_clear & WRITE:
+        if events_to_clear & PollEvents.WRITE:
             kevents.append(
                 select.kevent(
                     fileno,
                     filter=select.KQ_FILTER_WRITE,
                     flags=select.KQ_EV_DELETE))
-        if events_to_set & WRITE:
+        if events_to_set & PollEvents.WRITE:
             kevents.append(
                 select.kevent(
                     fileno,
