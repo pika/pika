@@ -16,6 +16,7 @@ import pika.compat
 
 from pika.adapters.base_connection import BaseConnection
 
+
 LOGGER = logging.getLogger(__name__)
 
 # One of select, epoll, kqueue or poll
@@ -31,9 +32,10 @@ ERROR = 0x0008
 # for select.error to win over one for OSError.
 _SELECT_ERROR_CHECKERS = {}
 if pika.compat.PY3:
-    #InterruptedError is undefined in PY2
-    #pylint: disable=E0602
+    # InterruptedError is undefined in PY2
+    # pylint: disable=E0602
     _SELECT_ERROR_CHECKERS[InterruptedError] = lambda e: True
+
 _SELECT_ERROR_CHECKERS[select.error] = lambda e: e.args[0] == errno.EINTR
 _SELECT_ERROR_CHECKERS[IOError] = lambda e: e.errno == errno.EINTR
 _SELECT_ERROR_CHECKERS[OSError] = lambda e: e.errno == errno.EINTR
@@ -42,15 +44,17 @@ _SELECT_ERROR_CHECKERS[OSError] = lambda e: e.errno == errno.EINTR
 # class relationship because only the most generic ones needs to be caught.
 # For now the optimization is left out.
 # Following is better but still incomplete.
-#_SELECT_ERRORS = tuple(filter(lambda e: not isinstance(e, OSError),
+# _SELECT_ERRORS = tuple(filter(lambda e: not isinstance(e, OSError),
 #                              _SELECT_ERROR_CHECKERS.keys())
 #                       + [OSError])
 _SELECT_ERRORS = tuple(_SELECT_ERROR_CHECKERS.keys())
 
 
 def _is_resumable(exc):
-    ''' Check if caught exception represents EINTR error.
-    :param exc: exception; must be one of classes in _SELECT_ERRORS '''
+    """Check if caught exception represents EINTR error.
+    :param exc: exception; must be one of classes in _SELECT_ERRORS
+
+    """
     checker = _SELECT_ERROR_CHECKERS.get(exc.__class__, None)
     if checker is not None:
         return checker(exc)
@@ -63,7 +67,6 @@ class SelectConnection(BaseConnection):
     event loop adapter for the given platform.
 
     """
-
     def __init__(
             self,  # pylint: disable=R0913
             parameters=None,
@@ -371,7 +374,7 @@ class IOLoop(object):
     def remove_timeout(self, timeout_id):
         """[API] Remove a timeout
 
-        :param str timeout_id: The timeout id to remove
+        :param _Timeout timeout_id: The timeout id to remove
 
         """
         self._timer.remove_timeout(timeout_id)
@@ -561,7 +564,8 @@ class _PollerBase(pika.compat.AbstractBase):  # pylint: disable=R0902
 
         with self._waking_mutex:
             if self._w_interrupt is not None:
-                self.remove_handler(self._r_interrupt.fileno()) # pylint: disable=E1101
+                self.remove_handler(
+                    self._r_interrupt.fileno())  # pylint: disable=E1101
                 self._r_interrupt.close()
                 self._r_interrupt = None
                 self._w_interrupt.close()
@@ -594,7 +598,6 @@ class _PollerBase(pika.compat.AbstractBase):  # pylint: disable=R0902
                 # loop after POLL_TIMEOUT secs in worst case anyway.
                 LOGGER.warning("Failed to send interrupt to poller: %s", err)
                 raise
-
 
     def _get_max_wait(self):
         """Get the interval to the next timeout event, or a default interval
@@ -841,18 +844,18 @@ class _PollerBase(pika.compat.AbstractBase):  # pylint: disable=R0902
         so use a pair of simple TCP sockets instead. The sockets will be
         closed and garbage collected by python when the ioloop itself is.
         """
-        return pika.compat._nonblocking_socketpair() # pylint: disable=W0212
+        return pika.compat._nonblocking_socketpair()  # pylint: disable=W0212
 
-    def _read_interrupt(self, interrupt_fd, events):  # pylint: disable=W0613
+    def _read_interrupt(self, _interrupt_fd, _events):
         """ Read the interrupt byte(s). We ignore the event mask as we can ony
         get here if there's data to be read on our fd.
 
-        :param int interrupt_fd: The file descriptor to read from
-        :param int events: (unused) The events generated for this fd
+        :param int _interrupt_fd: (unused) The file descriptor to read from
+        :param int _events: (unused) The events generated for this fd
         """
         try:
             # NOTE Use recv instead of os.read for windows compatibility
-            self._r_interrupt.recv(512) # pylint: disable=E1101
+            self._r_interrupt.recv(512)  # pylint: disable=E1101
         except pika.compat.SOCKET_ERROR as err:
             if err.errno != errno.EAGAIN:
                 raise
