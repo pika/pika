@@ -15,6 +15,7 @@ import threading
 import pika.compat
 
 from pika.adapters.base_connection import BaseConnection
+from pika.adapters import selector_ioloop_adapter
 
 
 LOGGER = logging.getLogger(__name__)
@@ -92,7 +93,7 @@ class SelectConnection(BaseConnection):
             on_open_callback,
             on_open_error_callback,
             on_close_callback,
-            ioloop)
+            selector_ioloop_adapter.SelectorAsyncServicesAdapter(ioloop))
 
     def _adapter_connect(self):
         """Connect to the RabbitMQ broker, returning True on success, False
@@ -282,16 +283,27 @@ class _Timer(object):
                 heapq.heapify(self._timeout_heap)
 
 
-class IOLoop(object):
-    """Singleton wrapper that decides which type of poller to use, creates an
-    instance of it in start_poller and keeps the invoking application in a
-    blocking state by calling the pollers start method. Poller should keep
-    looping until IOLoop.instance().stop() is called or there is a socket
-    error.
+class PollEvents(object):
+    """Event flags for I/O"""
 
-    Passes through all operations to the loaded poller object.
+    # Use epoll's constants to keep life easy
+    READ = 0x0001  # available for read
+    WRITE = 0x0004  # available for write
+    ERROR = 0x0008  # error on associated fd
+
+
+class IOLoop(selector_ioloop_adapter.AbstractSelectorIOLoop):
+    """I/O loop implementation that picks a suitable poller (`select`,
+     `poll`, `epoll`, `kqueue`) to use based on platform.
+
+     Implements the
+     `pika.adapters.selector_ioloop_adapter.AbstractSelectorIOLoop` interface.
 
     """
+    # READ/WRITE/ERROR per `AbstractSelectorIOLoop` requirements
+    READ = PollEvents.READ
+    WRITE = PollEvents.WRITE
+    ERROR = PollEvents.ERROR
 
     def __init__(self):
         self._timer = _Timer()
@@ -358,26 +370,27 @@ class IOLoop(object):
 
         return poller
 
-    def add_timeout(self, deadline, callback):
-        """[API] Add the callback to the IOLoop timer to fire after
-        deadline seconds. Returns a handle to the timeout. Do not confuse with
-        Tornado's timeout where you pass in the time you want to have your
-        callback called. Only pass in the seconds until it's to be called.
+    def call_later(self, delay, callback):
+        """Add the callback to the IOLoop timer to be called after delay seconds
+        from the time of call on best-effort basis. Returns a handle to the
+        timeout.
 
-        :param int deadline: The number of seconds to wait to call callback
+        :param int delay: The number of seconds to wait to call callback
         :param method callback: The callback method
-        :rtype: str
+        :returns: handle to the created timeout that may be passed to
+            `remove_timeout()`
+        :rtype: opaque
 
         """
-        return self._timer.call_later(deadline, callback)
+        return self._timer.call_later(delay, callback)
 
-    def remove_timeout(self, timeout_id):
-        """[API] Remove a timeout
+    def remove_timeout(self, timeout_handle):
+        """Remove a timeout
 
-        :param _Timeout timeout_id: The timeout id to remove
+        :param timeout_handle: Handle of timeout to remove
 
         """
-        self._timer.remove_timeout(timeout_id)
+        self._timer.remove_timeout(timeout_handle)
 
     def add_callback_threadsafe(self, callback):
         """Requests a call to the given function as soon as possible in the
@@ -405,6 +418,9 @@ class IOLoop(object):
 
         LOGGER.debug('add_callback_threadsafe: added callback=%r', callback)
 
+    # To satisfy `AbstractSelectorIOLoop` requirement
+    add_callback = add_callback_threadsafe
+
     def process_timeouts(self):
         """[Extension] Process pending callbacks and timeouts, invoking those
         whose time has come. Internal use only.
@@ -430,32 +446,33 @@ class IOLoop(object):
 
         return self._timer.get_remaining_interval()
 
-    def add_handler(self, fileno, handler, events):
-        """[API] Add a new fileno to the set to be monitored
+    def add_handler(self, fd, handler, events):
+        """Start watching the given file descriptor for events
 
-        :param int fileno: The file descriptor
-        :param method handler: What is called when an event happens
+        :param int fd: The file descriptor
+        :param method handler: When requested event(s) occur,
+            `handler(fd, events)` will be called.
+        :param int events: The event mask using READ, WRITE, ERROR.
+
+        """
+        self._poller.add_handler(fd, handler, events)
+
+    def update_handler(self, fd, events):
+        """Changes the events we watch for
+
+        :param int fd: The file descriptor
         :param int events: The event mask using READ, WRITE, ERROR
 
         """
-        self._poller.add_handler(fileno, handler, events)
+        self._poller.update_handler(fd, events)
 
-    def update_handler(self, fileno, events):
-        """[API] Set the events to the current events
+    def remove_handler(self, fd):
+        """Stop watching the given file descriptor for events
 
-        :param int fileno: The file descriptor
-        :param int events: The event mask using READ, WRITE, ERROR
-
-        """
-        self._poller.update_handler(fileno, events)
-
-    def remove_handler(self, fileno):
-        """[API] Remove a file descriptor from the set
-
-        :param int fileno: The file descriptor
+        :param int fd: The file descriptor
 
         """
-        self._poller.remove_handler(fileno)
+        self._poller.remove_handler(fd)
 
     def start(self):
         """[API] Start the main poller loop. It will loop until requested to

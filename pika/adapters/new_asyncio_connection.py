@@ -33,15 +33,12 @@ class AsyncioConnection(base_connection.BaseConnection):
             asyncio.get_event_loop().
 
         """
-        ioloop = AsyncioAsyncServicesAdapter(custom_ioloop)
-
         super().__init__(
             parameters,
             on_open_callback,
             on_open_error_callback,
             on_close_callback,
-            ioloop
-        )
+            AsyncioAsyncServicesAdapter(custom_ioloop))
 
 
 class AsyncioAsyncServicesAdapter(ioloop_interface.AbstractAsyncServices):

@@ -98,8 +98,9 @@ class AbstractSelectorIOLoop(object):
 
         :param int delay: The number of seconds to wait to call callback
         :param method callback: The callback method
-        :rtype: handle to the created timeout that may be passed to
+        :returns: handle to the created timeout that may be passed to
             `remove_timeout()`
+        :rtype: opaque
 
         """
         pass
@@ -154,7 +155,7 @@ class AbstractSelectorIOLoop(object):
 
     @abc.abstractmethod
     def remove_handler(self, fd):
-        """[API] Stop watching the given file descriptor for events
+        """Stop watching the given file descriptor for events
 
         :param int fd: The file descriptor
 
