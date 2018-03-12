@@ -27,6 +27,14 @@ class AbstractAsyncServices(pika.compat.AbstractBase):
     """
 
     @abc.abstractmethod
+    def get_native_ioloop(self):
+        """Returns the native I/O loop instance, such as Twisted reactor,
+        asyncio's or tornado's event loop
+
+        """
+        pass
+
+    @abc.abstractmethod
     def close(self):
         """Release IOLoop's resources.
 
@@ -43,7 +51,7 @@ class AbstractAsyncServices(pika.compat.AbstractBase):
         pass
 
     @abc.abstractmethod
-    def start(self):
+    def run(self):
         """Run the I/O loop. It will loop until requested to exit. See `stop()`.
 
         NOTE: This method is provided for Pika's own test scripts that need to
@@ -70,14 +78,6 @@ class AbstractAsyncServices(pika.compat.AbstractBase):
         call it via `add_callback_threadsafe`; e.g.,
 
             `ioloop.add_callback_threadsafe(ioloop.stop)`
-
-        """
-        pass
-
-    @abc.abstractmethod
-    def get_native_ioloop(self):
-        """Returns the native I/O loop instance, such as Twisted reactor,
-        asyncio's or tornado's event loop
 
         """
         pass
@@ -145,6 +145,15 @@ class AbstractAsyncServices(pika.compat.AbstractBase):
         """Call the given callback whenever the file descriptor is writable.
         Replace prior writer callback, if any, for the given file descriptor.
 
+        IMPLEMENTATION NOTE: For portability, implementations of
+            `set_writable()` should also watch for indication of error on the
+            socket and treat it as equivalent to the writable indication (e.g.,
+            also adding the socket to the `exceptfds` arg of `socket.select()`
+            and calling the `on_writable` callback if `select.select()`
+            indicates that the socket is in error state). Specifically, Windows
+            (unlike POSIX) only indicates error on the socket (but not writable)
+            when connection establishment fails.
+
         :param fd: file descriptor
         :param callable on_writable: a callback taking no args to be notified
             when fd becomes writable.
@@ -172,8 +181,8 @@ class AbstractAsyncServices(pika.compat.AbstractBase):
 
         :param callable on_done: user callback that takes the return value of
             `socket.getaddrinfo()` upon successful completion or exception upon
-            failure as its only arg. It will not be called if the operation
-            was successfully cancelled.
+            failure (check for `BaseException`) as its only arg. It will not be
+            called if the operation was cancelled.
         :rtype: AbstractAsyncReference
         """
         pass
@@ -190,14 +199,14 @@ class AbstractAsyncServices(pika.compat.AbstractBase):
             verify the address.
 
         :param socket.socket sock: non-blocking socket that needs to be
-            connected as per `socket.socket.connect()`
+            connected via `socket.socket.connect()`
         :param tuple resolved_addr: resolved destination address/port two-tuple
             as per `socket.socket.connect()`, except that the first element must
             be an actual IP address that's consistent with the given socket's
             address family.
         :param callable on_done: user callback that takes None upon successful
-            completion or Exception-based exception upon error as its only arg.
-            It will not be called if the operation was successfully cancelled.
+            completion or exception (check for `BaseException`) upon error as
+            its only arg. It will not be called if the operation was cancelled.
 
         :rtype: AbstractAsyncReference
         :raises ValueError: if host portion of `resolved_addr` is not an IP
@@ -227,11 +236,11 @@ class AbstractAsyncServices(pika.compat.AbstractBase):
             `socket.SOCK_STREAM` socket to be used by the transport. We take
             ownership of this socket.
         :param callable on_done: User callback
-            `on_done(Exception | (transport, protocol))` to be notified when the
-            asynchronous operation completes. Exception-based arg indicates
-            failure; otherwise the two-tuple will contain the linked
-            transport/protocol pair, with the AbstractStreamTransport and
-            AbstractStreamProtocol respectively.
+            `on_done(BaseException | (transport, protocol))` to be notified when
+            the asynchronous operation completes. An exception arg indicates
+            failure (check for `BaseException`); otherwise the two-tuple will
+            contain the linked transport/protocol pair, with the
+            AbstractStreamTransport and AbstractStreamProtocol respectively.
         :param None | ssl.SSLContext ssl_context: if None, this will proceed as
             a plaintext connection; otherwise, if not None, SSL session
             establishment will be performed prior to linking the transport and
@@ -252,12 +261,17 @@ class AbstractAsyncReference(pika.compat.AbstractBase):
         """Cancel pending operation
 
         :returns: False if was already done or cancelled; True otherwise
+        :rtype: bool
         """
         pass
 
 
 class AbstractStreamProtocol(pika.compat.AbstractBase):
-    """Stream protocol interface."""
+    """Stream protocol interface. It's compatible with a subset of
+    `asyncio.protocols.Protocol` for compatibility with asyncio-based
+    `AbstractAsyncServices` implementation.
+
+    """
 
     @abc.abstractmethod
     def connection_made(self, transport):
@@ -274,10 +288,10 @@ class AbstractStreamProtocol(pika.compat.AbstractBase):
         NOTE: `connection_made()` and `connection_lost()` are each called just
         once and in that order. All other callbacks are called between them.
 
-        :param Exception | None exc: Exception-based exception indicates
-            connection failure. None indicates that connection was closed
-            on this side, such as when it's aborted or when
-            `AbstractStreamProtocol.eof_received()` returns a result that
+        :param BaseException | None exc: An exception (check for
+            `BaseException`) indicates connection failure. None indicates that
+            connection was closed on this side, such as when it's aborted or
+            when `AbstractStreamProtocol.eof_received()` returns a result that
             doesn't evaluate to True.
         """
         pass
@@ -302,7 +316,7 @@ class AbstractStreamProtocol(pika.compat.AbstractBase):
         """
         pass
 
-    # TODO Udecided whether we need write flow-control yet, although it seems
+    # TODO Undecided whether we need write flow-control yet, although it seems
     #      like a good idea.
     # @abc.abstractmethod
     # def pause_writing(self):
@@ -322,7 +336,11 @@ class AbstractStreamProtocol(pika.compat.AbstractBase):
 
 
 class AbstractStreamTransport(pika.compat.AbstractBase):
-    """Stream transport interface."""
+    """Stream transport interface. It's compatible with a subset of
+    `asyncio.transports.Transport` for compatibility with asyncio-based
+    `AbstractAsyncServices` implementation.
+
+    """
 
     @abc.abstractmethod
     def abort(self):

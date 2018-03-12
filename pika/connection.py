@@ -1359,8 +1359,8 @@ class Connection(pika.compat.AbstractBase):
         """Subclasses should override to perform one round of connection
         establishment asynchronously. Upon completion of the round, they must
         invoke `Connection._adapter_connect_done(None|Exception)`, where the
-        arg value of None signals success, while an Exception-based instance
-        signals failure of the round.
+        arg value of None signals success, while an exception instance
+        (check for `BaseException`) signals failure of the round.
 
         :raises: NotImplementedError
 

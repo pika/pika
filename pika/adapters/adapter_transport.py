@@ -12,7 +12,7 @@ import socket
 import ssl
 
 import pika.compat
-from pika.adapters.ioloop_interface import PollEvents
+from pika.adapters.select_connection import PollEvents
 
 
 LOGGER = logging.getLogger(__name__)
@@ -131,7 +131,7 @@ class AbstractTransport(pika.compat.AbstractBase):
         """Begin transporting data; if called before connection establishment
         completes, will facilitate connection establishment in due course
 
-        :param deque tx_buffers: container for ougoing frame buffers
+        :param deque tx_buffers: container for outgoing frame buffers
         :param callable rx_sink: a method that takes incoming data bytes as its
                                  only arg.
         :param int max_rx_bytes: byte limit for `sock.recv()` calls

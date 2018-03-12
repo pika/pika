@@ -7,14 +7,14 @@ select_connection's I/O loops.
 import abc
 import errno
 import logging
-import numbers
 import os
 import socket
 import ssl
 import threading
 
-from pika.adapters import ioloop_interface, adapter_transport
-import pika.compat
+from pika.adapters import ioloop_interface
+from pika.adapters import async_service_utils
+from pika.adapters.async_service_utils import check_callback_arg, check_fd_arg
 
 
 LOGGER = logging.getLogger(__name__)
@@ -29,8 +29,8 @@ class AbstractSelectorIOLoop(object):
      when wrapping tornado's IOLoop.
     """
 
-    @abc.abstractmethod
     @property
+    @abc.abstractmethod
     def READ(self):  # pylint: disable=C0103
         """The value of the I/O loop's READ flag; READ/WRITE/ERROR may be used
         with bitwise operators as expected.
@@ -41,8 +41,8 @@ class AbstractSelectorIOLoop(object):
         """
         pass
 
-    @abc.abstractmethod
     @property
+    @abc.abstractmethod
     def WRITE(self):  # pylint: disable=C0103
         """The value of the I/O loop's WRITE flag; READ/WRITE/ERROR may be used
         with bitwise operators as expected
@@ -50,8 +50,8 @@ class AbstractSelectorIOLoop(object):
         """
         pass
 
-    @abc.abstractmethod
     @property
+    @abc.abstractmethod
     def ERROR(self):  # pylint: disable=C0103
         """The value of the I/O loop's ERROR flag; READ/WRITE/ERROR may be used
         with bitwise operators as expected
@@ -163,7 +163,10 @@ class AbstractSelectorIOLoop(object):
         pass
 
 
-class SelectorAsyncServicesAdapter(ioloop_interface.AbstractAsyncServices):
+class SelectorAsyncServicesAdapter(
+        ioloop_interface.AbstractAsyncServices,
+        async_service_utils.AsyncSocketConnectionMixin,
+        async_service_utils.AsyncStreamingConnectionMixin):
     """Implementation of ioloop exposing the
     `ioloop_interface.AbstractAsyncServices` interface and making use of
     selector-style native loop having the `AbstractSelectorIOLoop` interface.
@@ -182,15 +185,14 @@ class SelectorAsyncServicesAdapter(ioloop_interface.AbstractAsyncServices):
         # Active watchers: maps file descriptors to `_FileDescriptorCallbacks`
         self._watchers = dict()
 
-    def close(self):
-        """Release IOLoop's resources.
-
-        the `close()` method is intended to be called by the application or test
-        code only after `start()` returns. After calling `close()`, no other
-        interaction with the closed instance of `IOLoop` should be performed.
-
-        """
-        self._loop.close()
+        # Native loop-specific event masks of interest
+        self._READABLE_MASK = self._loop.READ
+        # NOTE: tying ERROR to WRITE is particularly handy for Windows, whose
+        # `select.select()` differs from Posix by reporting
+        # connection-establishment failure only through exceptfds (ERROR event),
+        # while the typical application workflow is to wait for the socket to
+        # become writable when waiting for socket connection to be established.
+        self._WRITABLE_MASK = self._loop.WRITE | self._loop.ERROR
 
     def get_native_ioloop(self):
         """Returns the native I/O loop instance, such as Twisted reactor,
@@ -199,8 +201,29 @@ class SelectorAsyncServicesAdapter(ioloop_interface.AbstractAsyncServices):
         """
         return self._loop
 
-    def start(self):
+    def close(self):
+        """Release IOLoop's resources.
+
+        the `close()` method is intended to be called by Pika's own test
+        code only after `start()` returns. After calling `close()`, no other
+        interaction with the closed instance of `IOLoop` should be performed.
+
+        NOTE: This method is provided for Pika's own test scripts that need to
+        be able to run I/O loops generically to test multiple Connection Adapter
+        implementations. Pika users should use the native I/O loop's API
+        instead.
+
+        """
+        self._loop.close()
+
+    def run(self):
         """Run the I/O loop. It will loop until requested to exit. See `stop()`.
+
+        NOTE: This method is provided for Pika's own test scripts that need to
+        be able to run I/O loops generically to test multiple Connection Adapter
+        implementations (not all of the supported I/O Loop frameworks have
+        methods named start/stop). Pika users should use the native I/O loop's
+        API instead.
 
         """
         self._loop.start()
@@ -208,6 +231,12 @@ class SelectorAsyncServicesAdapter(ioloop_interface.AbstractAsyncServices):
     def stop(self):
         """Request exit from the ioloop. The loop is NOT guaranteed to
         stop before this method returns.
+
+        NOTE: This method is provided for Pika's own test scripts that need to
+        be able to run I/O loops generically to test multiple Connection Adapter
+        implementations (not all of the supported I/O Loop frameworks have
+        methods named start/stop). Pika users should use the native I/O loop's
+        API instead.
 
         To invoke `stop()` safely from a thread other than this IOLoop's thread,
         call it via `add_callback_threadsafe`; e.g.,
@@ -259,21 +288,22 @@ class SelectorAsyncServicesAdapter(ioloop_interface.AbstractAsyncServices):
             when fd becomes readable.
 
         """
-        _check_fd_arg(fd)
-        _check_callback_arg(on_readable, 'on_readable')
+        check_fd_arg(fd)
+        check_callback_arg(on_readable, 'on_readable')
 
         try:
             callbacks = self._watchers[fd]
         except KeyError:
             self._loop.add_handler(fd,
                                    self._on_reader_writer_fd_events,
-                                   self._loop.READ)
+                                   self._READABLE_MASK)
             self._watchers[fd] = _FileDescriptorCallbacks(reader=on_readable)
         else:
             if callbacks.reader is None:
                 assert callbacks.writer is not None
-                self._loop.update_handler(fd,
-                                          self._loop.READ | self._loop.WRITE)
+                self._loop.update_handler(
+                    fd,
+                    self._READABLE_MASK | self._WRITABLE_MASK)
 
             callbacks.reader = on_readable
 
@@ -284,7 +314,7 @@ class SelectorAsyncServicesAdapter(ioloop_interface.AbstractAsyncServices):
         :returns: True if reader was removed; False if none was registered.
 
         """
-        _check_fd_arg(fd)
+        check_fd_arg(fd)
 
         try:
             callbacks = self._watchers[fd]
@@ -300,7 +330,7 @@ class SelectorAsyncServicesAdapter(ioloop_interface.AbstractAsyncServices):
             del self._watchers[fd]
             self._loop.remove_handler(fd)
         else:
-            self._loop.update_handler(fd, self._loop.WRITE)
+            self._loop.update_handler(fd, self._WRITABLE_MASK)
 
         return True
 
@@ -313,21 +343,22 @@ class SelectorAsyncServicesAdapter(ioloop_interface.AbstractAsyncServices):
             when fd becomes writable.
 
         """
-        _check_fd_arg(fd)
-        _check_callback_arg(on_writable, 'on_writable')
+        check_fd_arg(fd)
+        check_callback_arg(on_writable, 'on_writable')
 
         try:
             callbacks = self._watchers[fd]
         except KeyError:
             self._loop.add_handler(fd,
                                    self._on_reader_writer_fd_events,
-                                   self._loop.WRITE)
+                                   self._WRITABLE_MASK)
             self._watchers[fd] = _FileDescriptorCallbacks(writer=on_writable)
         else:
             if callbacks.writer is None:
                 assert callbacks.reader is not None
-                self._loop.update_handler(fd,
-                                          self._loop.READ | self._loop.WRITE)
+                self._loop.update_handler(
+                    fd,
+                    self._READABLE_MASK | self._WRITABLE_MASK)
 
             callbacks.writer = on_writable
 
@@ -338,7 +369,7 @@ class SelectorAsyncServicesAdapter(ioloop_interface.AbstractAsyncServices):
         :returns: True if reader was removed; False if none was registered.
 
         """
-        _check_fd_arg(fd)
+        check_fd_arg(fd)
 
         try:
             callbacks = self._watchers[fd]
@@ -354,7 +385,7 @@ class SelectorAsyncServicesAdapter(ioloop_interface.AbstractAsyncServices):
             del self._watchers[fd]
             self._loop.remove_handler(fd)
         else:
-            self._loop.update_handler(fd, self._loop.READ)
+            self._loop.update_handler(fd, self._READABLE_MASK)
 
         return True
 
@@ -366,8 +397,8 @@ class SelectorAsyncServicesAdapter(ioloop_interface.AbstractAsyncServices):
 
         :param callable on_done: user callback that takes the return value of
             `socket.getaddrinfo()` upon successful completion or exception upon
-            failure as its only arg. It will not be called if the operation
-            was successfully cancelled.
+            failure (check for `BaseException`) as its only arg. It will not be
+            called if the operation was cancelled.
         :rtype: AbstractAsyncReference
         """
         return _AddressResolver(native_loop=self._loop,
@@ -378,87 +409,6 @@ class SelectorAsyncServicesAdapter(ioloop_interface.AbstractAsyncServices):
                                 proto=proto,
                                 flags=flags,
                                 on_done=on_done).start()
-
-
-    def connect_socket(self, sock, resolved_addr, on_done):
-        """Perform the equivalent of `socket.connect()` on a previously-resolved
-        address asynchronously.
-
-        IMPLEMENTATION NOTE: Pika's connection logic resolves the addresses
-            prior to making socket connections, so we don't need to burden the
-            implementations of this method with the extra logic of asynchronous
-            DNS resolution. Implementations can use `socket.inet_pton()` to
-            verify the address.
-
-        :param socket.socket sock: non-blocking socket that needs to be
-            connected as per `socket.socket.connect()`
-        :param tuple resolved_addr: resolved destination address/port two-tuple
-            as per `socket.socket.connect()`, except that the first element must
-            be an actual IP address that's consistent with the given socket's
-            address family.
-        :param callable on_done: user callback that takes None upon successful
-            completion or Exception-based exception upon error as its only arg.
-            It will not be called if the operation was successfully cancelled.
-
-        :rtype: AbstractAsyncReference
-        :raises ValueError: if host portion of `resolved_addr` is not an IP
-            address or is inconsistent with the socket's address family as
-            validated via `socket.inet_pton()`
-
-        """
-        return _SocketConnector(native_loop=self._loop,
-                                sock=sock,
-                                resolved_addr=resolved_addr,
-                                on_done=on_done).start()
-
-    def create_streaming_connection(self,
-                                    protocol_factory,
-                                    sock,
-                                    on_done,
-                                    ssl_context=None,
-                                    server_hostname=None):
-        """Perform SSL session establishment, if requested, on the already-
-        connected socket and link the streaming transport/protocol pair.
-
-        NOTE: This method takes ownership of the socket.
-
-        :param callable protocol_factory: returns an instance with the
-            `AbstractStreamProtocol` interface. The protocol's
-            `connection_made(transport)` method will be called to link it to
-            the transport after remaining connection activity (e.g., SSL session
-            establishment), if any, is completed successfully.
-        :param socket.socket sock: Already-connected, non-blocking
-            `socket.SOCK_STREAM` socket to be used by the transport. We take
-            ownership of this socket.
-        :param callable on_done: User callback
-            `on_done(Exception | (transport, protocol))` to be notified when the
-            asynchronous operation completes. Exception-based arg indicates
-            failure; otherwise the two-tuple will contain the linked
-            transport/protocol pair, with the AbstractStreamTransport and
-            AbstractStreamProtocol respectively.
-        :param None | ssl.SSLContext ssl_context: if None, this will proceed as
-            a plaintext connection; otherwise, if not None, SSL session
-            establishment will be performed prior to linking the transport and
-            protocol.
-        :param str | None server_hostname: For use during SSL session
-            establishment to match against the target server's certificate. The
-            value `None` disables this check (which is a huge security risk)
-        :rtype: AbstractAsyncReference
-        """
-        try:
-            return _StreamConnector(ioloop=self,
-                                    protocol_factory=protocol_factory,
-                                    sock=sock,
-                                    ssl_context=ssl_context,
-                                    server_hostname=server_hostname,
-                                    on_done=on_done).start()
-        except Exception as error:
-            LOGGER.error('create_streaming_connection(%s) failed: %r',
-                         sock, error)
-            # Close the socket since this function takes ownership
-            sock.close()
-
-            raise
 
     def _on_reader_writer_fd_events(self, fd, events):
         """Handle indicated file descriptor events requested via `set_reader()`
@@ -473,49 +423,30 @@ class SelectorAsyncServicesAdapter(ioloop_interface.AbstractAsyncServices):
         """
         callbacks = self._watchers[fd]
 
-        if events & self._loop.READ and callbacks.reader is None:
+        if events & self._READABLE_MASK and callbacks.reader is None:
+            # NOTE: we check for consistency here ahead of the writer callback
+            # because the writer callback, if any, can change the events being
+            # watched
             LOGGER.warning(
-                'READ indicated on fd=%s, but reader callback is None', fd)
+                'READ indicated on fd=%s, but reader callback is None; '
+                'events=%s', fd, bin(events))
 
 
-        if events & self._loop.WRITE:
+        if events & self._WRITABLE_MASK:
             if callbacks.writer is not None:
                 callbacks.writer()
             else:
                 LOGGER.warning(
-                    'WRITE indicated on fd=%s, but writer callback is None', fd)
+                    'WRITE indicated on fd=%s, but writer callback is None; '
+                    'events=%s', fd, bin(events))
 
-        if events & self._loop.READ:
+        if events & self._READABLE_MASK:
             if callbacks.reader is not None:
                 callbacks.reader()
             else:
                 # Reader callback might have been removed in the scope of writer
                 # callback.
                 pass
-
-
-def _check_callback_arg(callback, name):
-    """Raise TypeError if callback is not callable
-
-    :param callback: callback to check
-    :param name: Name to include in exception text
-    :raises TypeError:
-
-    """
-    if not callable(callback):
-        raise TypeError(
-            '{} must be callable, but got {!r}'.format(name, callback))
-
-def _check_fd_arg(fd):
-    """Raise TypeError if file descriptor is not an integer
-
-    :param fd: file descriptor
-    :raises TypeError:
-
-    """
-    if not isinstance(fd, numbers.Integral):
-        raise TypeError(
-            'Paramter must be a file descriptor, but got {!r}'.format(fd))
 
 
 class _FileDescriptorCallbacks(object):
@@ -530,9 +461,10 @@ class _FileDescriptorCallbacks(object):
 
 
 class _SelectorIOLoopAsyncHandle(ioloop_interface.AbstractAsyncReference):
-    """`ioloop_interface.AbstractAsyncReference`-based handle representing
-    the asynchronous resolution request.
+    """This module's adaptation of `ioloop_interface.AbstractAsyncReference`
+
     """
+
     def __init__(self, subject):
         """
         :param subject: subject of the reference containing a `cancel()` method
@@ -541,434 +473,12 @@ class _SelectorIOLoopAsyncHandle(ioloop_interface.AbstractAsyncReference):
         self._cancel = subject.cancel
 
     def cancel(self):
-        self._cancel()
+        """Cancel pending operation
 
-
-class _StreamConnector(object):
-    """Performs asynchronous SSL session establishment, if requested, on the
-    already-connected socket and links the streaming transport to protocol.
-
-    """
-    NOT_STARTED = 0
-    ACTIVE = 1
-    CANCELED = 2
-    COMPLETED = 3
-
-    def __init__(self, ioloop,
-                 protocol_factory,
-                 sock,
-                 ssl_context,
-                 server_hostname,
-                 on_done):
-        """
-        NOTE: We take ownership of the given socket
-
-        See `AbstractAsyncServices.create_streaming_connection()` for detailed
-        documentation of the corresponding args.
-
-        :param SelectorAsyncServicesAdapter ioloop:
-        :param callable protocol_factory:
-        :param socket.socket sock:
-        :param ssl.SSLContext | None ssl_context:
-        :param str | None server_hostname:
-        :param callable on_done:
+        :returns: False if was already done or cancelled; True otherwise
 
         """
-        _check_callback_arg(protocol_factory, 'protocol_factory')
-        _check_callback_arg(on_done, 'on_done')
-
-        if not isinstance(ssl_context, (type(None), ssl.SSLContext)):
-            raise ValueError('Expected ssl_context=None | ssl.SSLContext, but '
-                             'got {!r}'.format(ssl_context))
-
-        if server_hostname is not None and ssl_context is None:
-            raise ValueError('Non-None server_hostname must not be passed '
-                             'without ssl context')
-
-        # Check that the socket connection establishment had completed in order
-        # to avoid stalling while waiting for the socket to become readable
-        # and/or writable.
-        #
-        # Also on Windows, failed connection establishment is reflected by
-        # `select()` only through `exceptfds`, so a socket with pending
-        # connection that eventually fails will never indicate readable/writable
-        # in contrast with posix.
-        try:
-            self._sock.getpeername()
-        except Exception as error:
-            raise ValueError(
-                'Expected connected socket, but it wasn\'t connected: '
-                '{}; error={!r}'.format(self._sock, error))
-
-        self._ioloop = ioloop
-        self._protocol_factory = protocol_factory
-        self._sock = sock
-        self._ssl_context = ssl_context
-        self._server_hostname = server_hostname
-        self._on_done = on_done
-
-        self._state = self.NOT_STARTED
-
-    def _cleanup(self):
-        """Cancel pending async operations, if any
-
-        """
-        self._ioloop.remove_reader(self._sock.fileno())
-        self._ioloop.remove_writer(self._sock.fileno())
-
-    def start(self):
-        """Kick off the workflow
-
-        :rtype: ioloop_interface.AbstractAsyncReference
-        """
-        assert self._state == self.NOT_STARTED, self._state
-
-        self._state = self.ACTIVE
-
-        # Request callback from I/O loop to start processing so that we don't
-        # end up making callbacks from the caller's scope
-        self._ioloop.add_callback_threadsafe(self._start_safe)
-
-        return _SelectorIOLoopAsyncHandle(self)
-
-    def cancel(self):
-        """Cancel pending connection request without calling user's completion
-        callback.
-
-        """
-        if self._state == self.ACTIVE:
-            try:
-                self._state = self.CANCELED
-                LOGGER.debug('Canceling streaming linkup for %s', self._sock)
-                self._cleanup()
-            finally:
-                # Close the socket, since we took ownership
-                self._sock.close()
-        else:
-            LOGGER.debug('Ignoring _StreamConnector cancel requested when not '
-                         'ACTIVE; state=%s; %s', self._state, self._sock)
-
-    def _report_completion(self, result):
-        """Advance to COMPLETED state, cancel async operation(s), and invoke
-        user's completion callback.
-
-        :param Exception | tuple result: value to pass in user's callback
-
-        """
-        assert isinstance(result, (Exception, tuple)), result
-        assert self._state == self.ACTIVE, self._state
-
-        self._state = self.COMPLETED
-        self._cleanup()
-        if isinstance(result, Exception):
-            # Close the socket on error, since we took ownership of it
-            try:
-                self._sock.close()
-            except Exception as error:  # pylint: disable=W0703
-                LOGGER.error('_sock.close() failed: error=%r; %s',
-                             error, self._sock)
-
-        self._on_done(result)
-
-    def _start_safe(self):
-        """Called as callback from I/O loop to kick-start the workflow, so it's
-        safe to call user's completion callback from here, if needed
-
-        """
-        if self._state != self.ACTIVE:
-            LOGGER.debug('Abandoning streaming linkup due to inactive state '
-                         'transition; state=%s; %s; .',
-                         self._state, self._sock)
-            return
-
-        # Link up protocol and transport if this is a plaintext linkup;
-        # otherwise kick-off SSL workflow first
-        if self._ssl_context is None:
-            self._linkup()
-        else:
-            LOGGER.debug('Starting SSL handshake on %s', self._sock)
-
-            # Wrap our plain socket in ssl socket
-            try:
-                self._sock = self._ssl_context.wrap_socket(
-                    self._sock,
-                    server_side=False,
-                    do_handshake_on_connect=False,
-                    suppress_ragged_eofs=True,
-                    server_hostname=self._server_hostname)
-            except Exception as error:  # pylint: disable=W0703
-                LOGGER.error('SSL wrap_socket(%s) failed: %r', self._sock,
-                             error)
-                self._report_completion(error)
-                return
-
-            self._do_ssl_handshake()
-
-    def _linkup(self):
-        """Connection is ready: instantiate and link up transport and protocol,
-        and invoke user's completion callback.
-
-        """
-        transport = None
-
-        try:
-            # Create the protocol
-            try:
-                protocol = self._protocol_factory()
-            except Exception as error:
-                LOGGER.error('protocol_factory() failed: error=%r; %s',
-                             error, self._sock)
-                raise
-
-            if self._ssl_context is None:
-                # Create plaintext streaming transport
-                try:
-                    transport = adapter_transport.PlainTransport(self._sock,
-                                                                 protocol)
-                except Exception as error:
-                    LOGGER.error('PlainTransport() failed: error=%r; %s',
-                                 error, self._sock)
-                    raise
-            else:
-                # Create SSL streaming transport
-                try:
-                    transport = adapter_transport.SSLTransport(self._sock,
-                                                               protocol)
-                except Exception as error:
-                    LOGGER.error('SSLTransport() failed: error=%r; %s',
-                                 error, self._sock)
-                    raise
-
-            # Acquaint protocol with its transport
-            try:
-                protocol.connection_made(transport)
-            except Exception as error:
-                LOGGER.error('protocol.connection_made(%r) failed: error=%r; %s',
-                             transport, error, self._sock)
-                raise
-
-        except Exception as error:  # pylint: disable=W0703
-            result = error
-
-            if transport is not None:
-                try:
-                    transport.abort()
-                except Exception as error:  # pylint: disable=W0703
-                    # Report and suppress the exception, since we need to pass
-                    # the original error with user's completion callback
-                    LOGGER.error('transport.abort() failed: error=%r; %s',
-                                 error, self._sock)
-        else:
-            result = (transport, protocol)
-
-        self._report_completion(result)
-
-    def _do_ssl_handshake(self):
-        """Perform asynchronous SSL handshake on the already wrapped socket
-
-        """
-        if self._state != self.ACTIVE:
-            LOGGER.debug('Abandoning streaming linkup due to inactive state '
-                         'transition; state=%s; %s; .',
-                         self._state, self._sock)
-            return
-
-        try:
-            self._sock.do_handshake()
-        except ssl.SSLError as error:
-            if error.errno == ssl.SSL_ERROR_WANT_READ:
-                LOGGER.debug('SSL handshake wants read; %s.', self._sock)
-                self._ioloop.set_reader(self._sock.fileno(),
-                                        self._do_ssl_handshake())
-                self._ioloop.remove_writer(self._sock.fileno())
-            elif error.errno == ssl.SSL_ERROR_WANT_WRITE:
-                LOGGER.debug('SSL handshake wants write. %s', self._sock)
-                self._ioloop.set_writer(self._sock.fileno(),
-                                        self._do_ssl_handshake())
-                self._ioloop.remove_reader(self._sock.fileno())
-            else:
-                LOGGER.error('SSL do_handshake failed: error=%r; %s',
-                             error, self._sock)
-                self._report_completion(error)
-                return
-        except Exception as error:  # pylint: disable=W0703
-            LOGGER.error('SSL do_handshake failed: error=%r; %s',
-                         error, self._sock)
-            self._report_completion(error)
-            return
-
-        else:
-            LOGGER.info('SSL handshake completed successfully: %s', self._sock)
-
-            # Suspend I/O and link up transport with protocol
-            self._ioloop.remove_reader(self._sock.fileno())
-            self._ioloop.remove_writer(self._sock.fileno())
-
-            self._linkup()
-
-class _SocketConnector(object):
-    """Connects the given non-blocking socket asynchronously suing the given
-    I/O loop
-    """
-
-    NOT_STARTED = 0
-    ACTIVE = 1
-    CANCELED = 2
-    COMPLETED = 3
-
-    def __init__(self, native_loop, sock, resolved_addr, on_done):
-        """
-        :param AbstractSelectorIOLoop native_loop:
-        :param socket.socket sock: non-blocking socket that needs to be
-            connected as per `socket.socket.connect()`
-        :param tuple resolved_addr: resolved destination address/port two-tuple
-        :param callable on_done: user callback that takes None upon successful
-            completion or Exception-based exception upon error as its only arg.
-            It will not be called if the operation was successfully cancelled.
-        :raises ValueError: if host portion of `resolved_addr` is not an IP
-            address or is inconsistent with the socket's address family as
-            validated via `socket.inet_pton()`
-        """
-        _check_callback_arg(on_done, 'on_done')
-
-        try:
-            socket.inet_pton(sock.family, resolved_addr[0])
-        except Exception as error:
-            msg = ('Invalid or unresolved IP address '
-                   '{!r} for socket {}: {!r}').format(resolved_addr, sock, error)
-            LOGGER.error(msg)
-            raise ValueError(msg)
-
-        self._loop = native_loop
-        self._sock = sock
-        self._addr = resolved_addr
-        self._on_done = on_done
-        self._state = self.NOT_STARTED
-        self._watching_socket_events = False
-
-    def _cleanup(self):
-        """Remove socket watcher, if any
-
-        """
-        if self._watching_socket_events:
-            self._loop.remove_handler(self._sock.fileno())
-
-    def start(self):
-        """Start asynchronous connection establishment.
-
-        :rtype: ioloop_interface.AbstractAsyncReference
-        """
-        assert self._state == self.NOT_STARTED, self._state
-
-        self._state = self.ACTIVE
-
-        # Continue the rest of the operation on the I/O loop to avoid calling
-        # user's completion callback from the scope of user's call
-        self._loop.add_callback(self._start_safe)
-
-        return _SelectorIOLoopAsyncHandle(self)
-
-    def cancel(self):
-        """Cancel pending connection request without calling user's completion
-        callback.
-
-        """
-        if self._state == self.ACTIVE:
-            self._state = self.CANCELED
-            LOGGER.debug('Canceling connection request for %s to %s',
-                         self._sock, self._addr)
-            self._cleanup()
-        else:
-            LOGGER.debug('Ignoring _SocketConnector cancel requested when not '
-                         'ACTIVE; state=%s; %s', self._state, self._sock)
-
-    def _report_completion(self, result):
-        """Advance to COMPLETED state, remove socket watcher, and invoke user's
-        completion callback.
-
-        :param Exception | None result: value to pass in user's callback
-
-        """
-        assert isinstance(result, (Exception, type(None))), result
-        assert self._state == self.ACTIVE, self._state
-
-        self._state = self.COMPLETED
-        self._cleanup()
-
-        self._on_done(result)
-
-    def _start_safe(self):
-        """Called as callback from I/O loop to kick-start the workflow, so it's
-        safe to call user's completion callback from here, if needed
-
-        """
-        if self._state != self.ACTIVE:
-            LOGGER.debug('Abandoning sock=%s connection establishment to %s '
-                         'due to inactive state=%s',
-                         self._sock, self._addr, self._state)
-            return
-
-        try:
-            self._sock.connect(self._addr)
-        except pika.compat.SOCKET_ERROR as error:
-            # EINPROGRESS for posix and EWOULDBLOCK for Windows
-            if error.errno not in (errno.EINPROGRESS, errno.EWOULDBLOCK,):
-                LOGGER.error('%s.connect(%s) failed: %r',
-                             self._sock, self._addr, error)
-                self._report_completion(error)
-                return
-        except Exception as error:  # pylint: disable=W0703
-            LOGGER.error('%s.connect(%s) failed: %r',
-                         self._sock, self._addr, error)
-            self._report_completion(error)
-            return
-
-        # Start watching socket for WRITE and ERROR (on Windows,
-        # connection-establishment error is indicated only through ERROR, while
-        # WRITE is not indicated in that case)
-        try:
-            self._loop.add_handler(self._sock.fileno(),
-                                   self._handle_socket_events,
-                                   self._loop.WRITE | self._loop.ERROR)
-        except Exception as error:  # pylint: disable=W0703
-            LOGGER.error('loop.add_handler(%s, ..., WRITE + ERROR) failed: %r',
-                         self._sock, error)
-            self._report_completion(error)
-            return
-        else:
-            self._watching_socket_events = True
-            LOGGER.debug('Connection-establishment is in progress for %s.',
-                         self._sock)
-
-    def _handle_socket_events(self, _fd, events):
-        """Called when socket connects or fails to. Check for predicament and
-        invoke user's completion callback.
-
-        :param int fd: File descriptor of the socket we're watching.
-        :param int events: bitmask of indicated events (self._loop.WRITE/ERROR).
-
-        """
-        if self._state != self.ACTIVE:
-            LOGGER.warning(
-                'Socket connection-establishment event watcher '
-                'called in inactive state (ignoring): %s; events=%s; state=%s',
-                self._sock, bin(events), self._state)
-            return
-
-        error_code = self._sock.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
-        if not error_code:
-            assert not (events & self._loop.ERROR), bin(events)
-            LOGGER.info('Socket connected: %s', self._sock)
-            result = None
-
-        else:
-            error_msg = os.strerror(error_code)
-            LOGGER.error(
-                'Socket failed to connect: %s; error=%s (%s)',
-                self._sock, error_code, error_msg)
-            result = pika.compat.SOCKET_ERROR(error_code, error_msg)
-
-        self._report_completion(result)
+        return self._cancel()
 
 
 class _AddressResolver(object):
@@ -1002,12 +512,12 @@ class _AddressResolver(object):
         :param socktype: `see socket.getaddrinfo()`
         :param proto: `see socket.getaddrinfo()`
         :param flags: `see socket.getaddrinfo()`
-        :param on_done: on_done(records|Exception) callback for reporting result
-            from the given I/O loop. The single arg will be either an
-            `Exception`-based exception object in case of failure or the result
-            returned by `socket.getaddrinfo()`.
+        :param on_done: on_done(records|BaseException) callback for reporting
+            result from the given I/O loop. The single arg will be either an
+            exception object (check for `BaseException`) in case of failure or
+            the result returned by `socket.getaddrinfo()`.
         """
-        _check_callback_arg(on_done, 'on_done')
+        check_callback_arg(on_done, 'on_done')
 
         self._state = self.NOT_STARTED
         self._result = None
@@ -1048,6 +558,9 @@ class _AddressResolver(object):
     def cancel(self):
         """Cancel the pending resolver
 
+        :returns: False if was already done or cancelled; True otherwise
+        :rtype: bool
+
         """
         # Try to cancel, but no guarantees
         with self._mutex:
@@ -1060,10 +573,13 @@ class _AddressResolver(object):
                 self._threading_timer.cancel()
 
                 self._cleanup()
+
+                return True
             else:
                 LOGGER.debug(
                     'Ignoring _AddressResolver cancel request when not ACTIVE; '
                     '(%s:%s); state=%s', self._host, self._port, self._state)
+                return False
 
     def _resolve(self):
         """Call `socket.getaddrinfo()` and return result via user's callback

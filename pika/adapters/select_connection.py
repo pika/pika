@@ -65,6 +65,7 @@ class SelectConnection(BaseConnection):
     event loop adapter for the given platform.
 
     """
+
     def __init__(
             self,  # pylint: disable=R0913
             parameters=None,

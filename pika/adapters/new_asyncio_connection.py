@@ -38,11 +38,13 @@ class AsyncioConnection(base_connection.BaseConnection):
             on_open_callback,
             on_open_error_callback,
             on_close_callback,
-            AsyncioAsyncServicesAdapter(custom_ioloop))
+            _AsyncioAsyncServicesAdapter(custom_ioloop))
 
 
-class AsyncioAsyncServicesAdapter(ioloop_interface.AbstractAsyncServices):
-    """Implement ioloop_interface.AbstractAsyncServices on top of asyncio"""
+class _AsyncioAsyncServicesAdapter(ioloop_interface.AbstractAsyncServices):
+    """Implement ioloop_interface.AbstractAsyncServices on top of asyncio
+
+    """
 
     def __init__(self, loop=None):
         """
@@ -53,16 +55,6 @@ class AsyncioAsyncServicesAdapter(ioloop_interface.AbstractAsyncServices):
         """
         self._loop = loop or asyncio.get_event_loop()
 
-    def close(self):
-        """Release IOLoop's resources.
-
-        the `close()` method is intended to be called by the application or test
-        code only after `start()` returns. After calling `close()`, no other
-        interaction with the closed instance of `IOLoop` should be performed.
-
-        """
-        self._loop.close()
-
     def get_native_ioloop(self):
         """Returns the native I/O loop instance, such as Twisted reactor,
         asyncio's or tornado's event loop
@@ -70,8 +62,29 @@ class AsyncioAsyncServicesAdapter(ioloop_interface.AbstractAsyncServices):
         """
         return self._loop
 
-    def start(self):
+    def close(self):
+        """Release IOLoop's resources.
+
+        the `close()` method is intended to be called by Pika's own test
+        code only after `start()` returns. After calling `close()`, no other
+        interaction with the closed instance of `IOLoop` should be performed.
+
+        NOTE: This method is provided for Pika's own test scripts that need to
+        be able to run I/O loops generically to test multiple Connection Adapter
+        implementations. Pika users should use the native I/O loop's API
+        instead.
+
+        """
+        self._loop.close()
+
+    def run(self):
         """Run the I/O loop. It will loop until requested to exit. See `stop()`.
+
+        NOTE: This method is provided for Pika's own test scripts that need to
+        be able to run I/O loops generically to test multiple Connection Adapter
+        implementations (not all of the supported I/O Loop frameworks have
+        methods named start/stop). Pika users should use the native I/O loop's
+        API instead.
 
         """
         self._loop.run_forever()
@@ -79,6 +92,12 @@ class AsyncioAsyncServicesAdapter(ioloop_interface.AbstractAsyncServices):
     def stop(self):
         """Request exit from the ioloop. The loop is NOT guaranteed to
         stop before this method returns.
+
+        NOTE: This method is provided for Pika's own test scripts that need to
+        be able to run I/O loops generically to test multiple Connection Adapter
+        implementations (not all of the supported I/O Loop frameworks have
+        methods named start/stop). Pika users should use the native I/O loop's
+        API instead.
 
         To invoke `stop()` safely from a thread other than this IOLoop's thread,
         call it via `add_callback_threadsafe`; e.g.,
@@ -168,9 +187,9 @@ class AsyncioAsyncServicesAdapter(ioloop_interface.AbstractAsyncServices):
         See `socket.getaddrinfo()` for the standard args.
 
         :param callable on_done: user callback that takes the return value of
-            `socket.getaddrinfo()` upon successful completion or exception upon
-            failure as its only arg. It will not be called if the operation
-            was successfully cancelled.
+            `socket.getaddrinfo()` upon successful completion or exception
+            (check for `BaseException`) upon failure as its only arg. It will
+            not be called if the operation was cancelled.
         :rtype: AbstractAsyncReference
 
         """
@@ -194,14 +213,15 @@ class AsyncioAsyncServicesAdapter(ioloop_interface.AbstractAsyncServices):
             verify the address.
 
         :param socket.socket sock: non-blocking socket that needs to be
-            connected as per `socket.socket.connect()`
+            connected via `socket.socket.connect()`
         :param tuple resolved_addr: resolved destination address/port two-tuple
             as per `socket.socket.connect()`, except that the first element must
             be an actual IP address that's consistent with the given socket's
             address family.
         :param callable on_done: user callback that takes None upon successful
-            completion or Exception-based exception upon error as its only arg.
-            It will not be called if the operation was successfully cancelled.
+            completion or an exception (check for `BaseException`) upon error
+            as its only arg. It will not be called if the operation was
+            cancelled.
 
         :rtype: AbstractAsyncReference
         :raises ValueError: if host portion of `resolved_addr` is not an IP
@@ -240,11 +260,11 @@ class AsyncioAsyncServicesAdapter(ioloop_interface.AbstractAsyncServices):
             `socket.SOCK_STREAM` socket to be used by the transport. We take
             ownership of this socket.
         :param callable on_done: User callback
-            `on_done(Exception | (transport, protocol))` to be notified when the
-            asynchronous operation completes. Exception-based arg indicates
-            failure; otherwise the two-tuple will contain the linked
-            transport/protocol pair, with the AbstractStreamTransport and
-            AbstractStreamProtocol respectively.
+            `on_done(BaseException | (transport, protocol))` to be notified when
+            the asynchronous operation completes. An exception arg (check for
+            `BaseException`) indicates failure; otherwise the two-tuple will
+            contain the linked transport/protocol pair, with the
+            AbstractStreamTransport and AbstractStreamProtocol respectively.
         :param None | ssl.SSLContext ssl_context: if None, this will proceed as
             a plaintext connection; otherwise, if not None, SSL session
             establishment will be performed prior to linking the transport and
@@ -270,13 +290,13 @@ class AsyncioAsyncServicesAdapter(ioloop_interface.AbstractAsyncServices):
             on_done)
 
     def _schedule_and_wrap_in_async_ref(self, coro, on_done):
-        """Schedule the coroutine to run and return AsyncReferenceAdapter
+        """Schedule the coroutine to run and return _AsyncioAsyncReference
 
         :param coroutine-obj coro:
         :param callable on_done: user callback that takes the completion result
             or exception as its only arg. It will not be called if the operation
-            was successfully cancelled.
-        :rtype: AsyncReferenceAdapter which is derived from
+            was cancelled.
+        :rtype: _AsyncioAsyncReference which is derived from
             ioloop_interface.AbstractAsyncReference
 
         """
@@ -284,20 +304,22 @@ class AsyncioAsyncServicesAdapter(ioloop_interface.AbstractAsyncServices):
             raise TypeError(
                 'on_done arg must be callable, but got {!r}'.format(on_done))
 
-        return AsyncReferenceAdapter(
+        return _AsyncioAsyncReference(
             asyncio.ensure_future(coro, loop=self._loop),
             on_done)
 
 
-class AsyncReferenceAdapter(ioloop_interface.AbstractAsyncReference):
-    """This module's adaptation of `ioloop_interface.AbstractAsyncReference`"""
+class _AsyncioAsyncReference(ioloop_interface.AbstractAsyncReference):
+    """This module's adaptation of `ioloop_interface.AbstractAsyncReference`
+
+    """
 
     def __init__(self, future, on_done):
         """
         :param asyncio.Future future:
         :param callable on_done: user callback that takes the completion result
             or exception as its only arg. It will not be called if the operation
-            was successfully cancelled.
+            was cancelled.
 
         """
         if not callable(on_done):
@@ -319,7 +341,9 @@ class AsyncReferenceAdapter(ioloop_interface.AbstractAsyncReference):
     def cancel(self):
         """Cancel pending operation
 
+
         :returns: False if was already done or cancelled; True otherwise
+        :rtype: bool
 
         """
         return self._future.cancel()

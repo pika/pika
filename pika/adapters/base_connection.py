@@ -45,7 +45,7 @@ class BaseConnection(connection.Connection):
         :param pika.connection.Parameters parameters: Connection parameters
         :param method on_open_callback: Method to call on connection open
         :param method on_open_error_callback: Called if the connection can't
-            be established: on_open_error_callback(connection, str|exception)
+            be established: on_open_error_callback(connection, str|BaseException)
         :param method on_close_callback: Called when the connection is closed:
             on_close_callback(connection, reason_code, reason_text)
         :param object ioloop: IOLoop object to use
@@ -155,9 +155,9 @@ class BaseConnection(connection.Connection):
     def _adapter_connect(self):
         """Perform one round of connection establishment asynchronously. Upon
         completion of the round will invoke
-        `Connection._adapter_connect_done(None|Exception)`, where the arg value
-        of None signals success, while an Exception-based instance signals
-         failure of the round.
+        `Connection._adapter_connect_done(None|BaseException)`, where the arg
+        value of None signals success, while an instance signals failure of the
+        round.
 
         :returns: error string or exception instance on error; None on success
 
@@ -530,9 +530,9 @@ class _TransportConnector(object):
         :param params:
         :param ioloop:
         :param stream_proto:
-        :param on_done: on_done(None|Exception)`, will be invoked upon
+        :param on_done: on_done(None|BaseException)`, will be invoked upon
             completion, where the arg value of None signals success, while an
-            Exception-based object signals failure of the round after exhausting
+            exception object signals failure of the round after exhausting
             all remaining address records from DNS lookup.
         """
         self._params = params
@@ -575,11 +575,11 @@ class _TransportConnector(object):
     def _on_getaddrinfo_done(self, addrinfos_or_exc):
         """Handles completion callback from asynchronous `getaddrinfo()`.
 
-        :param sequence|Exception addrinfos_or_exc: address records returned by
-            `getaddrinfo()` or an Exception from failure.
+        :param sequence|BaseException addrinfos_or_exc: address records returned
+            by `getaddrinfo()` or an exception object from failure.
         """
         self._async_ref = None
-        if isinstance(addrinfos_or_exc, Exception):
+        if isinstance(addrinfos_or_exc, BaseException):
             exc = addrinfos_or_exc
             LOGGER.error('%r failed: %r', self._ioloop.getaddrinfo, exc)
             self._on_done(exc)
@@ -628,7 +628,7 @@ class _TransportConnector(object):
         On failure, attempt to connect to the next address, if any, from DNS
         lookup.
 
-        :param None|Exception exc: None on success; Exception-based object on
+        :param None|BaseException exc: None on success; exception object on
             failure
 
         """
@@ -665,13 +665,13 @@ class _TransportConnector(object):
         """Handle asynchronous completion of
         `AbstractAsyncServices.create_streaming_connection()`
 
-        :param sequence|Exception result: On success, a two-tuple
-            (transport, protocol); on failure, an Exception-based instance.
+        :param sequence|BaseException result: On success, a two-tuple
+            (transport, protocol); on failure, exception instance.
 
         """
         self._async_ref = None
         self._sock = None
-        if isinstance(result, Exception):
+        if isinstance(result, BaseException):
             exc = result
             LOGGER.error('Attempt to create a streaming transport failed: %r',
                          exc)
