@@ -8,12 +8,11 @@ addons:
       - sourceline: deb https://packages.erlang-solutions.com/ubuntu trusty contrib
         key_url: https://packages.erlang-solutions.com/ubuntu/erlang_solutions.asc
     packages:
-      - erlang
-      - elixir
+      - erlang-nox
 
 env:
   global:
-    - RABBITMQ_VERSION=3.7.3
+    - RABBITMQ_VERSION=3.7.4
     - RABBITMQ_DOWNLOAD_URL="https://github.com/rabbitmq/rabbitmq-server/releases/download/v$RABBITMQ_VERSION/rabbitmq-server-generic-unix-$RABBITMQ_VERSION.tar.xz"
     - RABBITMQ_TAR="rabbitmq-$RABBITMQ_VERSION.tar.xz"
     - PATH=$HOME/.local/bin:$PATH
@@ -43,7 +42,6 @@ install:
 
 before_script:
   - pip freeze
-  - elixir --version
   - /bin/sh -c "RABBITMQ_PID_FILE=$TRAVIS_BUILD_DIR/rabbitmq.pid RABBITMQ_CONFIG_FILE=$TRAVIS_BUILD_DIR/testdata/rabbitmq $TRAVIS_BUILD_DIR/rabbitmq_server-$RABBITMQ_VERSION/sbin/rabbitmq-server &"
   - /bin/sh "$TRAVIS_BUILD_DIR/rabbitmq_server-$RABBITMQ_VERSION/sbin/rabbitmqctl" wait "$TRAVIS_BUILD_DIR/rabbitmq.pid"
   - /bin/sh "$TRAVIS_BUILD_DIR/rabbitmq_server-$RABBITMQ_VERSION/sbin/rabbitmqctl" status
