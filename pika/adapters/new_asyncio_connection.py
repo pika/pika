@@ -5,7 +5,7 @@ import logging
 import socket
 import ssl
 
-from pika.adapters import base_connection, ioloop_interface
+from pika.adapters import async_service_utils, base_connection, ioloop_interface
 
 
 LOGGER = logging.getLogger(__name__)
@@ -41,16 +41,18 @@ class AsyncioConnection(base_connection.BaseConnection):
             _AsyncioAsyncServicesAdapter(custom_ioloop))
 
 
-class _AsyncioAsyncServicesAdapter(ioloop_interface.AbstractAsyncServices):
+class _AsyncioAsyncServicesAdapter(
+        ioloop_interface.AbstractAsyncServices,
+        async_service_utils.AsyncSocketConnectionMixin,
+        async_service_utils.AsyncStreamingConnectionMixin):
     """Implement ioloop_interface.AbstractAsyncServices on top of asyncio
 
     """
 
     def __init__(self, loop=None):
         """
-
-        :param asyncio.AbstractEventLoop|None loop: If None, gets default event
-            loop from asyncio.
+        :param asyncio.AbstractEventLoop | None loop: If None, gets default
+            event loop from asyncio.
 
         """
         self._loop = loop or asyncio.get_event_loop()
@@ -202,92 +204,96 @@ class _AsyncioAsyncServicesAdapter(ioloop_interface.AbstractAsyncServices):
                                    flags=flags),
             on_done)
 
-    def connect_socket(self, sock, resolved_addr, on_done):
-        """Perform the equivalent of `socket.connect()` on a previously-resolved
-        address asynchronously.
+    # Provided by async_service_utils.AsyncSocketConnectionMixin
+    # def connect_socket(self, sock, resolved_addr, on_done):
+    #     """Perform the equivalent of `socket.connect()` on a previously-resolved
+    #     address asynchronously.
+    #
+    #     IMPLEMENTATION NOTE: Pika's connection logic resolves the addresses
+    #         prior to making socket connections, so we don't need to burden the
+    #         implementations of this method with the extra logic of asynchronous
+    #         DNS resolution. Implementations can use `socket.inet_pton()` to
+    #         verify the address.
+    #
+    #     :param socket.socket sock: non-blocking socket that needs to be
+    #         connected via `socket.socket.connect()`
+    #     :param tuple resolved_addr: resolved destination address/port two-tuple
+    #         as per `socket.socket.connect()`, except that the first element must
+    #         be an actual IP address that's consistent with the given socket's
+    #         address family.
+    #     :param callable on_done: user callback that takes None upon successful
+    #         completion or an exception (check for `BaseException`) upon error
+    #         as its only arg. It will not be called if the operation was
+    #         cancelled.
+    #
+    #     :rtype: AbstractAsyncReference
+    #     :raises ValueError: if host portion of `resolved_addr` is not an IP
+    #         address or is inconsistent with the socket's address family as
+    #         validated via `socket.inet_pton()`
+    #     """
+    #     try:
+    #         socket.inet_pton(sock.family, resolved_addr[0])
+    #     except Exception as exc:
+    #         msg = ('connect_socket() called with invalid or unresolved IP '
+    #                'address {!r} for socket {}: {!r}').format(resolved_addr,
+    #                                                           sock, exc)
+    #         LOGGER.error(msg)
+    #         raise ValueError(msg)
+    #
+    #     return self._schedule_and_wrap_in_async_ref(
+    #         self._loop.sock_connect(sock, resolved_addr), on_done)
 
-        IMPLEMENTATION NOTE: Pika's connection logic resolves the addresses
-            prior to making socket connections, so we don't need to burden the
-            implementations of this method with the extra logic of asynchronous
-            DNS resolution. Implementations can use `socket.inet_pton()` to
-            verify the address.
-
-        :param socket.socket sock: non-blocking socket that needs to be
-            connected via `socket.socket.connect()`
-        :param tuple resolved_addr: resolved destination address/port two-tuple
-            as per `socket.socket.connect()`, except that the first element must
-            be an actual IP address that's consistent with the given socket's
-            address family.
-        :param callable on_done: user callback that takes None upon successful
-            completion or an exception (check for `BaseException`) upon error
-            as its only arg. It will not be called if the operation was
-            cancelled.
-
-        :rtype: AbstractAsyncReference
-        :raises ValueError: if host portion of `resolved_addr` is not an IP
-            address or is inconsistent with the socket's address family as
-            validated via `socket.inet_pton()`
-        """
-        try:
-            socket.inet_pton(sock.family, resolved_addr[0])
-        except Exception as exc:
-            msg = ('connect_socket() called with invalid or unresolved IP '
-                   'address {!r} for socket {}: {!r}').format(resolved_addr,
-                                                              sock, exc)
-            LOGGER.error(msg)
-            raise ValueError(msg)
-
-        return self._schedule_and_wrap_in_async_ref(
-            self._loop.sock_connect(sock, resolved_addr), on_done)
-
-    def create_streaming_connection(self,
-                                    protocol_factory,
-                                    sock,
-                                    on_done,
-                                    ssl_context=None,
-                                    server_hostname=None):
-        """Perform SSL session establishment, if requested, on the already-
-        connected socket and link the streaming transport/protocol pair.
-
-        NOTE: This method takes ownership of the socket.
-
-        :param callable protocol_factory: returns an instance with the
-            `AbstractStreamProtocol` interface. The protocol's
-            `connection_made(transport)` method will be called to link it to
-            the transport after remaining connection activity (e.g., SSL session
-            establishment), if any, is completed successfully.
-        :param socket.socket sock: Already-connected, non-blocking
-            `socket.SOCK_STREAM` socket to be used by the transport. We take
-            ownership of this socket.
-        :param callable on_done: User callback
-            `on_done(BaseException | (transport, protocol))` to be notified when
-            the asynchronous operation completes. An exception arg (check for
-            `BaseException`) indicates failure; otherwise the two-tuple will
-            contain the linked transport/protocol pair, with the
-            AbstractStreamTransport and AbstractStreamProtocol respectively.
-        :param None | ssl.SSLContext ssl_context: if None, this will proceed as
-            a plaintext connection; otherwise, if not None, SSL session
-            establishment will be performed prior to linking the transport and
-            protocol.
-        :param str | None server_hostname: For use during SSL session
-            establishment to match against the target server's certificate. The
-            value `None` disables this check (which is a huge security risk)
-        :rtype: AbstractAsyncReference
-        """
-        if not isinstance(ssl_context, (type(None), ssl.SSLContext)):
-            raise ValueError('Expected ssl_context=None | ssl.SSLContext, but '
-                             'got {!r}'.format(ssl_context))
-
-        if server_hostname is not None and ssl_context is None:
-            raise ValueError('Non-None server_hostname must not be passed '
-                             'without ssl context')
-
-        return self._schedule_and_wrap_in_async_ref(
-            self._loop.create_connection(protocol_factory,
-                                         sock=sock,
-                                         ssl=ssl_context,
-                                         server_hostname=server_hostname),
-            on_done)
+    # Provided by async_service_utils.AsyncStreamingConnectionMixin
+    # def create_streaming_connection(self,
+    #                                 protocol_factory,
+    #                                 sock,
+    #                                 on_done,
+    #                                 ssl_context=None,
+    #                                 server_hostname=None):
+    #     """Perform SSL session establishment, if requested, on the already-
+    #     connected socket and link the streaming transport/protocol pair.
+    #
+    #     NOTE: This method takes ownership of the socket.
+    #
+    #     :param callable protocol_factory: returns an instance with the
+    #         `AbstractStreamProtocol` interface. The protocol's
+    #         `connection_made(transport)` method will be called to link it to
+    #         the transport after remaining connection activity (e.g., SSL
+    #         session establishment), if any, is completed successfully.
+    #     :param socket.socket sock: Already-connected, non-blocking
+    #         `socket.SOCK_STREAM` socket to be used by the transport. We take
+    #         ownership of this socket.
+    #     :param callable on_done: User callback
+    #         `on_done(BaseException | (transport, protocol))` to be notified
+    #         when the asynchronous operation completes. An exception arg (check
+    #         for `BaseException`) indicates failure; otherwise the two-tuple
+    #         will contain the linked transport/protocol pair, with the
+    #         AbstractStreamTransport and AbstractStreamProtocol respectively.
+    #     :param None | ssl.SSLContext ssl_context: if None, this will proceed
+    #         as a plaintext connection; otherwise, if not None, SSL session
+    #         establishment will be performed prior to linking the transport and
+    #         protocol.
+    #     :param str | None server_hostname: For use during SSL session
+    #         establishment to match against the target server's certificate.
+    #         The value `None` disables this check (which is a huge security
+    #         risk)
+    #     :rtype: AbstractAsyncReference
+    #     """
+    #     if not isinstance(ssl_context, (type(None), ssl.SSLContext)):
+    #         raise ValueError(
+    #             'Expected ssl_context=None | ssl.SSLContext, but '
+    #             'got {!r}'.format(ssl_context))
+    #
+    #     if server_hostname is not None and ssl_context is None:
+    #         raise ValueError('Non-None server_hostname must not be passed '
+    #                          'without ssl context')
+    #
+    #     return self._schedule_and_wrap_in_async_ref(
+    #         self._loop.create_connection(protocol_factory,
+    #                                      sock=sock,
+    #                                      ssl=ssl_context,
+    #                                      server_hostname=server_hostname),
+    #         on_done)
 
     def _schedule_and_wrap_in_async_ref(self, coro, on_done):
         """Schedule the coroutine to run and return _AsyncioAsyncReference
