@@ -784,7 +784,7 @@ class URLParameters(Parameters):
                                                                  url_unquote(parts.password))
 
         # Get the Virtual Host
-        if len(parts.path) > 1:
+        if len(parts.path.split('/')) > 1:
             self.virtual_host = url_unquote(parts.path.split('/')[1])
 
         # Handle query string values, validating and assigning them
