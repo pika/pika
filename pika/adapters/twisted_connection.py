@@ -237,64 +237,14 @@ class TwistedConnection(base_connection.BaseConnection):
             on_close_callback=on_close_callback,
             async_services=_TwistedAsyncServicesAdapter(reactor))
 
-    def _adapter_connect(self):
-        """Connect to the RabbitMQ broker"""
-        # Connect (blockignly!) to the server
-        error = super(TwistedConnection, self)._adapter_connect()
-        if not error:
-            # TODO this needs to be redone for _TwistedAsyncServicesAdapter
-            # Set the I/O events we're waiting for (see
-            # _TwistedAsyncServicesAdapter docstrings for why it's OK to pass
-            # None as the file descriptor)
-            self.ioloop.update_handler(None, self.event_state)
-        return error
-
-    def _adapter_disconnect(self):
-        """Called when the adapter should disconnect"""
-        self.ioloop.remove_handler(None)
-        self._cleanup_socket()
-
-    def _on_connected(self):
-        """Call superclass and then update the event state to flush the outgoing
-        frame out. Commit 50d842526d9f12d32ad9f3c4910ef60b8c301f59 removed a
-        self._flush_outbound call that was in _send_frame which previously
-        made this step unnecessary.
-
-        """
-        super(TwistedConnection, self)._on_connected()
-        self._manage_event_state()
-
     def channel(self, channel_number=None):
         """Return a Deferred that fires with an instance of a wrapper around the
         Pika Channel class.
 
         """
         d = defer.Deferred()
-        base_connection.BaseConnection.channel(self, channel_number, d.callback)
+        super(TwistedConnection, self).channel(channel_number, d.callback)
         return d.addCallback(TwistedChannel)
-
-    # IReadWriteDescriptor methods
-
-    def fileno(self):
-        return self.socket.fileno()
-
-    def logPrefix(self):
-        return "twisted-pika"
-
-    def connectionLost(self, reason):
-        # If the connection was not closed cleanly, log the error
-        if not reason.check(error.ConnectionDone):
-            log.err(reason)
-
-        self._on_terminate(connection.InternalCloseReasons.SOCKET_ERROR,
-                           str(reason))
-
-    def doRead(self):
-        self._handle_read()
-
-    def doWrite(self):
-        self._handle_write()
-        self._manage_event_state()
 
 
 class TwistedProtocolConnection(base_connection.BaseConnection):
@@ -338,13 +288,13 @@ class TwistedProtocolConnection(base_connection.BaseConnection):
         # Disconnect from the server
         self.transport.loseConnection()
 
-    def _flush_outbound(self):
-        """Override BaseConnection._flush_outbound to send all bufferred data
-        the Twisted way, by writing to the transport. No need for buffering,
-        Twisted handles that for us.
-        """
-        while self.outbound_buffer:
-            self.transport.write(self.outbound_buffer.popleft())
+    # def _flush_outbound(self):
+    #     """Override BaseConnection._flush_outbound to send all bufferred data
+    #     the Twisted way, by writing to the transport. No need for buffering,
+    #     Twisted handles that for us.
+    #     """
+    #     while self.outbound_buffer:
+    #         self.transport.write(self.outbound_buffer.popleft())
 
     def channel(self, channel_number=None):
         """Create a new channel with the next available channel number or pass

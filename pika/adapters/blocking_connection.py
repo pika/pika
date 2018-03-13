@@ -452,7 +452,7 @@ class BlockingConnection(object):
         #   empty outbound buffer and any waiter is ready
         is_done = (lambda:
                    self._closed_result.ready or
-                   (not self._impl.outbound_buffer and
+                   (not self._impl._adapter_get_write_buffer_size() and
                     (not waiters or any(ready() for ready in waiters))))
 
         # Process I/O until our completion condition is satisified

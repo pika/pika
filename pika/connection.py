@@ -48,6 +48,11 @@ class InternalCloseReasons(object):
     """
     SOCKET_ERROR = -1
     BLOCKED_CONNECTION_TIMEOUT = -2
+    AMQP_VERSION_MISMATCH = -3
+    AUTH_MISMATCH = -4
+    UNEXPECTED_FRAME_TYPE = -5
+    UNEXPECTED_ERROR = -6  # Unanticipated error
+
 
 
 class Parameters(object):  # pylint: disable=R0902
@@ -1180,6 +1185,15 @@ class Connection(pika.compat.AbstractBase):
         """
         raise NotImplementedError
 
+    @abc.abstractmethod
+    def remove_timeout(self, timeout_id):
+        """Adapters should override: Remove a timeout
+
+        :param str timeout_id: The timeout id to remove
+
+        """
+        raise NotImplementedError
+
     def channel(self, channel_number=None, on_open_callback=None):
         """Create a new channel with the next available channel number or pass
         in a channel number to use. Must be non-zero if you would like to
@@ -1264,15 +1278,6 @@ class Connection(pika.compat.AbstractBase):
             0,
             self._on_connect_timer)
 
-    @abc.abstractmethod
-    def remove_timeout(self, timeout_id):
-        """Adapters should override: Remove a timeout
-
-        :param str timeout_id: The timeout id to remove
-
-        """
-        raise NotImplementedError
-
     def set_backpressure_multiplier(self, value=10):
         """Alter the backpressure multiplier value. We set this to 10 by default.
         This value is used to raise warnings and trigger the backpressure
@@ -1356,13 +1361,12 @@ class Connection(pika.compat.AbstractBase):
     #
     @abc.abstractmethod
     def _adapter_connect(self):
-        """Subclasses should override to perform one round of connection
-        establishment asynchronously. Upon completion of the round, they must
-        invoke `Connection._adapter_connect_done(None|Exception)`, where the
-        arg value of None signals success, while an exception instance
-        (check for `BaseException`) signals failure of the round.
-
-        :raises: NotImplementedError
+        """Subclasses should override to perform one round of stream connection
+        establishment (including SSL if requested by user) asynchronously. Upon
+        completion of the round, they must invoke
+        `Connection._on_stream_connection_done(None|BaseException)`, where the
+        arg value of None signals success, while an exception instance (check
+        for `BaseException`) signals failure of the round.
 
         """
         raise NotImplementedError
@@ -1373,6 +1377,29 @@ class Connection(pika.compat.AbstractBase):
         (socket) to close.
 
         :raises: NotImplementedError
+
+        """
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def _adapter_emit_data(self, data):
+        """Take ownership of data and send it to AMQP server as soon as
+        possible.
+
+        Subclasses must override this
+
+        :param bytes data:
+
+        """
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def _adapter_get_write_buffer_size(self):
+        """
+        Subclasses must override this
+
+        :return: Current size of output data buffered by the transport
+        :rtype: int
 
         """
         raise NotImplementedError
@@ -1428,10 +1455,8 @@ class Connection(pika.compat.AbstractBase):
         :raises: ProtocolVersionMismatch
 
         """
-        if (value.method.version_major,
-                value.method.version_minor) != spec.PROTOCOL_VERSION[0:2]:
-            # TODO This should call _on_terminate for proper callbacks and
-            # cleanup
+        if ((value.method.version_major, value.method.version_minor) !=
+                spec.PROTOCOL_VERSION[0:2]):
             raise exceptions.ProtocolVersionMismatch(frame.ProtocolHeader(),
                                                      value)
 
@@ -1544,7 +1569,7 @@ class Connection(pika.compat.AbstractBase):
 
         """
         avg_frame_size = self.bytes_sent / self.frames_sent
-        buffer_size = sum([len(f) for f in self.outbound_buffer])
+        buffer_size = self._adapter_get_write_buffer_size()
         if buffer_size > (avg_frame_size * self._backpressure_multiplier):
             LOGGER.warning(BACKPRESSURE_WARNING, buffer_size,
                            int(buffer_size / avg_frame_size))
@@ -1554,15 +1579,6 @@ class Connection(pika.compat.AbstractBase):
         """If the connection is not closed, close it."""
         if self.is_open:
             self.close()
-
-    def _flush_outbound(self):
-        """Adapters should override to flush the contents of outbound_buffer
-        out along the socket.
-
-        :raises: NotImplementedError
-
-        """
-        raise NotImplementedError
 
     def _get_body_frame_max_length(self):
         """Calculate the maximum amount of bytes that can be in a body frame.
@@ -1581,11 +1597,9 @@ class Connection(pika.compat.AbstractBase):
         :rtype: tuple(str, str)
 
         """
-        (auth_type,
-         response) = self.params.credentials.response_for(method_frame.method)
+        (auth_type, response) = self.params.credentials.response_for(
+            method_frame.method)
         if not auth_type:
-            # TODO this should call _on_terminate for proper callbacks and
-            # cleanup instead
             raise exceptions.AuthenticationError(self.params.credentials.TYPE)
         self.params.credentials.erase_credentials()
         return auth_type, response
@@ -1611,9 +1625,6 @@ class Connection(pika.compat.AbstractBase):
 
         # Negotiated server properties
         self.server_properties = None
-
-        # Outbound buffer for buffering writes until we're able to send them
-        self.outbound_buffer = collections.deque([])
 
         # Inbound buffer for decoding frames
         self._frame_buffer = bytes()
@@ -1853,12 +1864,50 @@ class Connection(pika.compat.AbstractBase):
 
         """
         self._set_connection_state(self.CONNECTION_START)
-        if self._is_protocol_header_frame(method_frame):
-            raise exceptions.UnexpectedFrameError
-        self._check_for_protocol_mismatch(method_frame)
-        self._set_server_information(method_frame)
-        self._add_connection_tune_callback()
-        self._send_connection_start_ok(*self._get_credentials(method_frame))
+
+        error_pair = None
+        try:
+            if self._is_protocol_header_frame(method_frame):
+                raise exceptions.UnexpectedFrameError(method_frame)
+            self._check_for_protocol_mismatch(method_frame)
+            self._set_server_information(method_frame)
+            self._add_connection_tune_callback()
+            self._send_connection_start_ok(*self._get_credentials(method_frame))
+        except exceptions.UnexpectedFrameError as error:
+            error_pair = (InternalCloseReasons.UNEXPECTED_FRAME_TYPE, error)
+        except exceptions.ProtocolVersionMismatch as error:
+            error_pair = (InternalCloseReasons.AMQP_VERSION_MISMATCH, error)
+        except exceptions.AuthenticationError as error:
+            error_pair = (InternalCloseReasons.AUTH_MISMATCH, error)
+        except Exception as error:
+            error_pair = (InternalCloseReasons.UNEXPECTED_ERROR, error)
+
+        if error_pair is not None:
+            self._on_terminate(error_pair[0], repr(error_pair[1]))
+
+    def _on_stream_connection_done(self, error):
+        """Called by the adapter layer when the stream connection attempt,
+        including SSL if requested, completes or fails to complete after
+        exhausting all resolved addresses.
+
+        :param None | BaseException error: None on success, exception on
+            failure
+        """
+        if error is None:
+            self._on_connected()
+        else:
+            self.remaining_connection_attempts -= 1
+            LOGGER.warning('Could not connect, %i attempts left',
+                           self.remaining_connection_attempts)
+            if self.remaining_connection_attempts > 0:
+                LOGGER.info('Retrying in %i seconds', self.params.retry_delay)
+                self._connection_attempt_timer = self.add_timeout(
+                    self.params.retry_delay,
+                    self._on_connect_timer)
+            else:
+                # No more connection attempts
+                self._on_terminate(InternalCloseReasons.SOCKET_ERROR,
+                                   repr(error))
 
     def _on_connect_timer(self):
         """Callback for self._connection_attempt_timer: initiate connection
@@ -1867,36 +1916,8 @@ class Connection(pika.compat.AbstractBase):
         """
         self._connection_attempt_timer = None
 
-        error = self._adapter_connect()
-        if not error:
-            self._on_connected()
-            return
-
-        self.remaining_connection_attempts -= 1
-        LOGGER.warning('Could not connect, %i attempts left',
-                       self.remaining_connection_attempts)
-        if self.remaining_connection_attempts > 0:
-            LOGGER.info('Retrying in %i seconds', self.params.retry_delay)
-            self._connection_attempt_timer = self.add_timeout(
-                self.params.retry_delay,
-                self._on_connect_timer)
-        else:
-            # TODO connect must not call failure callback from constructor. The
-            # current behavior is error-prone, because the user code may get a
-            # callback upon socket connection failure before user's other state
-            # may be sufficiently initialized. Constructors must either succeed
-            # or raise an exception. To be forward-compatible with failure
-            # reporting from fully non-blocking connection establishment,
-            # connect() should set INIT state and schedule a 0-second timer to
-            # continue the rest of the logic in a private method. The private
-            # method should use itself instead of connect() as the callback for
-            # scheduling retries.
-
-            # TODO This should use _on_terminate for consistent behavior/cleanup
-            self.callbacks.process(0, self.ON_CONNECTION_ERROR, self, self,
-                                   error)
-            self.remaining_connection_attempts = self.params.connection_attempts
-            self._set_connection_state(self.CONNECTION_CLOSED)
+        # Adapter will invoke `self._on_stream_connection_done` upon completion
+        self._adapter_connect()
 
     @staticmethod
     def _negotiate_integer_value(client_value, server_value):
@@ -2244,8 +2265,7 @@ class Connection(pika.compat.AbstractBase):
         marshaled_frame = frame_value.marshal()
         self.bytes_sent += len(marshaled_frame)
         self.frames_sent += 1
-        self.outbound_buffer.append(marshaled_frame)
-        self._flush_outbound()
+        self._adapter_emit_data(marshaled_frame)
         if self.params.backpressure_detection:
             self._detect_backpressure()
 

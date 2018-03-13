@@ -1,190 +1,18 @@
 """Use pika with the Asyncio EventLoop"""
+
 import asyncio
-from functools import partial
+import logging
+import socket
+import ssl
 
-from pika.adapters import base_connection
-
-
-class IOLoopAdapter:
-    def __init__(self, loop):
-        """
-        Basic adapter for asyncio event loop
-
-        :type loop: asyncio.AbstractEventLoop
-        :param loop: Asyncio Loop
-
-        """
-        self.loop = loop
-
-        self.handlers = {}
-        self.readers = set()
-        self.writers = set()
-
-    def close(self):
-        """Release ioloop's resources.
-
-        This method is intended to be called by the application or test code
-        only after the ioloop's outermost `start()` call returns. After calling
-        `close()`, no other interaction with the closed instance of ioloop
-        should be performed.
-
-        """
-        self.loop.close()
-
-    def add_timeout(self, deadline, callback):
-        """Add the callback to the EventLoop timer to fire after deadline
-        seconds. Returns a Handle to the timeout.
-
-        :param int deadline: The number of seconds to wait to call callback
-        :param method callback: The callback method
-        :rtype: asyncio.Handle
-
-        """
-        return self.loop.call_later(deadline, callback)
-
-    @staticmethod
-    def remove_timeout(handle):
-        """
-        Cancel asyncio.Handle
-
-        :type handle: asyncio.Handle
-        :rtype: bool
-        """
-        return handle.cancel()
-
-    def add_callback_threadsafe(self, callback):
-        """Requests a call to the given function as soon as possible in the
-        context of this IOLoop's thread.
-
-        NOTE: This is the only thread-safe method offered by the IOLoop adapter.
-         All other manipulations of the IOLoop adapter and its parent connection
-         must be performed from the connection's thread.
-
-        For example, a thread may request a call to the
-        `channel.basic_ack` method of a connection that is running in a
-        different thread via
-
-        ```
-        connection.add_callback_threadsafe(
-            functools.partial(channel.basic_ack, delivery_tag=...))
-        ```
-
-        :param method callback: The callback method; must be callable.
-
-        """
-        self.loop.call_soon_threadsafe(callback)
-
-    def add_handler(self, fd, cb, event_state):
-        """ Registers the given handler to receive the given events for ``fd``.
-
-        The ``fd`` argument is an integer file descriptor.
-
-        The ``event_state`` argument is a bitwise or of the constants
-        ``base_connection.BaseConnection.READ``, ``base_connection.BaseConnection.WRITE``,
-        and ``base_connection.BaseConnection.ERROR``.
-
-        """
-
-        if fd in self.handlers:
-            raise ValueError("fd {} added twice".format(fd))
-        self.handlers[fd] = cb
-
-        if event_state & base_connection.BaseConnection.READ:
-            self.loop.add_reader(
-                fd,
-                partial(
-                    cb,
-                    fd=fd,
-                    events=base_connection.BaseConnection.READ
-                )
-            )
-            self.readers.add(fd)
-
-        if event_state & base_connection.BaseConnection.WRITE:
-            self.loop.add_writer(
-                fd,
-                partial(
-                    cb,
-                    fd=fd,
-                    events=base_connection.BaseConnection.WRITE
-                )
-            )
-            self.writers.add(fd)
-
-    def remove_handler(self, fd):
-        """ Stop listening for events on ``fd``. """
-
-        if fd not in self.handlers:
-            return
-
-        if fd in self.readers:
-            self.loop.remove_reader(fd)
-            self.readers.remove(fd)
-
-        if fd in self.writers:
-            self.loop.remove_writer(fd)
-            self.writers.remove(fd)
-
-        del self.handlers[fd]
-
-    def update_handler(self, fd, event_state):
-        if event_state & base_connection.BaseConnection.READ:
-            if fd not in self.readers:
-                self.loop.add_reader(
-                    fd,
-                    partial(
-                        self.handlers[fd],
-                        fd=fd,
-                        events=base_connection.BaseConnection.READ
-                    )
-                )
-                self.readers.add(fd)
-        else:
-            if fd in self.readers:
-                self.loop.remove_reader(fd)
-                self.readers.remove(fd)
-
-        if event_state & base_connection.BaseConnection.WRITE:
-            if fd not in self.writers:
-                self.loop.add_writer(
-                    fd,
-                    partial(
-                        self.handlers[fd],
-                        fd=fd,
-                        events=base_connection.BaseConnection.WRITE
-                    )
-                )
-                self.writers.add(fd)
-        else:
-            if fd in self.writers:
-                self.loop.remove_writer(fd)
-                self.writers.remove(fd)
+from pika.adapters import async_service_utils, base_connection, ioloop_interface
 
 
-    def start(self):
-        """ Start Event Loop """
-        if self.loop.is_running():
-            return
-
-        self.loop.run_forever()
-
-    def stop(self):
-        """ Stop Event Loop """
-        if self.loop.is_closed():
-            return
-
-        self.loop.stop()
+LOGGER = logging.getLogger(__name__)
 
 
 class AsyncioConnection(base_connection.BaseConnection):
     """ The AsyncioConnection runs on the Asyncio EventLoop.
-
-    :param pika.connection.Parameters parameters: Connection parameters
-    :param on_open_callback: The method to call when the connection is open
-    :type on_open_callback: method
-    :param on_open_error_callback: Method to call if the connection cant be opened
-    :type on_open_error_callback: method
-    :param asyncio.AbstractEventLoop loop: By default asyncio.get_event_loop()
 
     """
     def __init__(self,
@@ -197,57 +25,331 @@ class AsyncioConnection(base_connection.BaseConnection):
         to RabbitMQ automatically
 
         :param pika.connection.Parameters parameters: Connection parameters
-        :param on_open_callback: The method to call when the connection is open
-        :type on_open_callback: method
-        :param on_open_error_callback: Method to call if the connection cant be opened
-        :type on_open_error_callback: method
-        :param asyncio.AbstractEventLoop custom_ioloop: By default asyncio.get_event_loop()
+        :param callable on_open_callback: The method to call when the connection
+            is open
+        :param callable on_open_error_callback: Method to call if the connection
+            can't be opened.
+        :param asyncio.AbstractEventLoop custom_ioloop: Defaults to
+            asyncio.get_event_loop().
 
         """
-        self.loop = custom_ioloop or asyncio.get_event_loop()
-        self.ioloop = IOLoopAdapter(self.loop)
-
         super().__init__(
             parameters,
             on_open_callback,
             on_open_error_callback,
             on_close_callback,
-            self.ioloop
-        )
+            _AsyncioAsyncServicesAdapter(custom_ioloop))
 
-    def _adapter_connect(self):
-        """Connect to the remote socket, adding the socket to the EventLoop if
-        connected.
 
+class _AsyncioAsyncServicesAdapter(
+        ioloop_interface.AbstractAsyncServices,
+        async_service_utils.AsyncSocketConnectionMixin,
+        async_service_utils.AsyncStreamingConnectionMixin):
+    """Implement ioloop_interface.AbstractAsyncServices on top of asyncio
+
+    """
+
+    def __init__(self, loop=None):
+        """
+        :param asyncio.AbstractEventLoop | None loop: If None, gets default
+            event loop from asyncio.
+
+        """
+        self._loop = loop or asyncio.get_event_loop()
+
+    def get_native_ioloop(self):
+        """Returns the native I/O loop instance, such as Twisted reactor,
+        asyncio's or tornado's event loop
+
+        """
+        return self._loop
+
+    def close(self):
+        """Release IOLoop's resources.
+
+        the `close()` method is intended to be called by Pika's own test
+        code only after `start()` returns. After calling `close()`, no other
+        interaction with the closed instance of `IOLoop` should be performed.
+
+        NOTE: This method is provided for Pika's own test scripts that need to
+        be able to run I/O loops generically to test multiple Connection Adapter
+        implementations. Pika users should use the native I/O loop's API
+        instead.
+
+        """
+        self._loop.close()
+
+    def run(self):
+        """Run the I/O loop. It will loop until requested to exit. See `stop()`.
+
+        NOTE: This method is provided for Pika's own test scripts that need to
+        be able to run I/O loops generically to test multiple Connection Adapter
+        implementations (not all of the supported I/O Loop frameworks have
+        methods named start/stop). Pika users should use the native I/O loop's
+        API instead.
+
+        """
+        self._loop.run_forever()
+
+    def stop(self):
+        """Request exit from the ioloop. The loop is NOT guaranteed to
+        stop before this method returns.
+
+        NOTE: This method is provided for Pika's own test scripts that need to
+        be able to run I/O loops generically to test multiple Connection Adapter
+        implementations (not all of the supported I/O Loop frameworks have
+        methods named start/stop). Pika users should use the native I/O loop's
+        API instead.
+
+        To invoke `stop()` safely from a thread other than this IOLoop's thread,
+        call it via `add_callback_threadsafe`; e.g.,
+
+            `ioloop.add_callback_threadsafe(ioloop.stop)`
+
+        """
+        self._loop.stop()
+
+    def add_callback_threadsafe(self, callback):
+        """Requests a call to the given function as soon as possible. It will be
+        called from this IOLoop's thread.
+
+        NOTE: This is the only thread-safe method offered by the IOLoop adapter.
+              All other manipulations of the IOLoop adapter and objects governed
+              by it must be performed from the IOLoop's thread.
+
+        :param method callback: The callback method; must be callable.
+        """
+        self._loop.call_soon_threadsafe(callback)
+
+    def call_later(self, delay, callback):
+        """Add the callback to the IOLoop timer to be called after delay seconds
+        from the time of call on best-effort basis. Returns a handle to the
+        timeout.
+
+        :param int delay: The number of seconds to wait to call callback
+        :param method callback: The callback method
+        :rtype: handle to the created timeout that may be passed to
+            `remove_timeout()`
+
+        """
+        self._loop.call_later(delay, callback)
+
+    def remove_timeout(self, timeout_handle):
+        """Remove a timeout
+
+        :param timeout_handle: Handle of timeout to remove
+
+        """
+        timeout_handle.cancel()
+
+    def set_reader(self, fd, on_readable):
+        """Call the given callback when the file descriptor is readable.
+        Replace prior reader, if any, for the given file descriptor.
+
+        :param fd: file descriptor
+        :param callable on_readable: a callback taking no args to be notified
+            when fd becomes readable.
+
+        """
+        self._loop.add_reader(fd, on_readable)
+
+    def remove_reader(self, fd):
+        """Stop watching the given file descriptor for readability
+
+        :param fd: file descriptor.
+        :returns: True if reader was removed; False if none was registered.
+
+        """
+        return self._loop.remove_reader(fd)
+
+    def set_writer(self, fd, on_writable):
+        """Call the given callback whenever the file descriptor is writable.
+        Replace prior writer callback, if any, for the given file descriptor.
+
+        :param fd: file descriptor
+        :param callable on_writable: a callback taking no args to be notified
+            when fd becomes writable.
+
+        """
+        self._loop.add_writer(fd, on_writable)
+
+    def remove_writer(self, fd):
+        """Stop watching the given file descriptor for writability
+
+        :param fd: file descriptor
+        :returns: True if writer was removed; False if none was registered.
+
+        """
+        return self._loop.remove_writer(fd)
+
+    def getaddrinfo(self, host, port, on_done, family=0, socktype=0, proto=0,
+                    flags=0):
+        """Perform the equivalent of `socket.getaddrinfo()` asynchronously.
+
+        See `socket.getaddrinfo()` for the standard args.
+
+        :param callable on_done: user callback that takes the return value of
+            `socket.getaddrinfo()` upon successful completion or exception
+            (check for `BaseException`) upon failure as its only arg. It will
+            not be called if the operation was cancelled.
+        :rtype: AbstractAsyncReference
+
+        """
+        return self._schedule_and_wrap_in_async_ref(
+            self._loop.getaddrinfo(host,
+                                   port,
+                                   family=family,
+                                   type=socktype,
+                                   proto=proto,
+                                   flags=flags),
+            on_done)
+
+    # Provided by async_service_utils.AsyncSocketConnectionMixin
+    # def connect_socket(self, sock, resolved_addr, on_done):
+    #     """Perform the equivalent of `socket.connect()` on a previously-resolved
+    #     address asynchronously.
+    #
+    #     IMPLEMENTATION NOTE: Pika's connection logic resolves the addresses
+    #         prior to making socket connections, so we don't need to burden the
+    #         implementations of this method with the extra logic of asynchronous
+    #         DNS resolution. Implementations can use `socket.inet_pton()` to
+    #         verify the address.
+    #
+    #     :param socket.socket sock: non-blocking socket that needs to be
+    #         connected via `socket.socket.connect()`
+    #     :param tuple resolved_addr: resolved destination address/port two-tuple
+    #         as per `socket.socket.connect()`, except that the first element must
+    #         be an actual IP address that's consistent with the given socket's
+    #         address family.
+    #     :param callable on_done: user callback that takes None upon successful
+    #         completion or an exception (check for `BaseException`) upon error
+    #         as its only arg. It will not be called if the operation was
+    #         cancelled.
+    #
+    #     :rtype: AbstractAsyncReference
+    #     :raises ValueError: if host portion of `resolved_addr` is not an IP
+    #         address or is inconsistent with the socket's address family as
+    #         validated via `socket.inet_pton()`
+    #     """
+    #     try:
+    #         socket.inet_pton(sock.family, resolved_addr[0])
+    #     except Exception as exc:
+    #         msg = ('connect_socket() called with invalid or unresolved IP '
+    #                'address {!r} for socket {}: {!r}').format(resolved_addr,
+    #                                                           sock, exc)
+    #         LOGGER.error(msg)
+    #         raise ValueError(msg)
+    #
+    #     return self._schedule_and_wrap_in_async_ref(
+    #         self._loop.sock_connect(sock, resolved_addr), on_done)
+
+    # Provided by async_service_utils.AsyncStreamingConnectionMixin
+    # def create_streaming_connection(self,
+    #                                 protocol_factory,
+    #                                 sock,
+    #                                 on_done,
+    #                                 ssl_context=None,
+    #                                 server_hostname=None):
+    #     """Perform SSL session establishment, if requested, on the already-
+    #     connected socket and link the streaming transport/protocol pair.
+    #
+    #     NOTE: This method takes ownership of the socket.
+    #
+    #     :param callable protocol_factory: returns an instance with the
+    #         `AbstractStreamProtocol` interface. The protocol's
+    #         `connection_made(transport)` method will be called to link it to
+    #         the transport after remaining connection activity (e.g., SSL
+    #         session establishment), if any, is completed successfully.
+    #     :param socket.socket sock: Already-connected, non-blocking
+    #         `socket.SOCK_STREAM` socket to be used by the transport. We take
+    #         ownership of this socket.
+    #     :param callable on_done: User callback
+    #         `on_done(BaseException | (transport, protocol))` to be notified
+    #         when the asynchronous operation completes. An exception arg (check
+    #         for `BaseException`) indicates failure; otherwise the two-tuple
+    #         will contain the linked transport/protocol pair, with the
+    #         AbstractStreamTransport and AbstractStreamProtocol respectively.
+    #     :param None | ssl.SSLContext ssl_context: if None, this will proceed
+    #         as a plaintext connection; otherwise, if not None, SSL session
+    #         establishment will be performed prior to linking the transport and
+    #         protocol.
+    #     :param str | None server_hostname: For use during SSL session
+    #         establishment to match against the target server's certificate.
+    #         The value `None` disables this check (which is a huge security
+    #         risk)
+    #     :rtype: AbstractAsyncReference
+    #     """
+    #     if not isinstance(ssl_context, (type(None), ssl.SSLContext)):
+    #         raise ValueError(
+    #             'Expected ssl_context=None | ssl.SSLContext, but '
+    #             'got {!r}'.format(ssl_context))
+    #
+    #     if server_hostname is not None and ssl_context is None:
+    #         raise ValueError('Non-None server_hostname must not be passed '
+    #                          'without ssl context')
+    #
+    #     return self._schedule_and_wrap_in_async_ref(
+    #         self._loop.create_connection(protocol_factory,
+    #                                      sock=sock,
+    #                                      ssl=ssl_context,
+    #                                      server_hostname=server_hostname),
+    #         on_done)
+
+    def _schedule_and_wrap_in_async_ref(self, coro, on_done):
+        """Schedule the coroutine to run and return _AsyncioAsyncReference
+
+        :param coroutine-obj coro:
+        :param callable on_done: user callback that takes the completion result
+            or exception as its only arg. It will not be called if the operation
+            was cancelled.
+        :rtype: _AsyncioAsyncReference which is derived from
+            ioloop_interface.AbstractAsyncReference
+
+        """
+        if not callable(on_done):
+            raise TypeError(
+                'on_done arg must be callable, but got {!r}'.format(on_done))
+
+        return _AsyncioAsyncReference(
+            asyncio.ensure_future(coro, loop=self._loop),
+            on_done)
+
+
+class _AsyncioAsyncReference(ioloop_interface.AbstractAsyncReference):
+    """This module's adaptation of `ioloop_interface.AbstractAsyncReference`
+
+    """
+
+    def __init__(self, future, on_done):
+        """
+        :param asyncio.Future future:
+        :param callable on_done: user callback that takes the completion result
+            or exception as its only arg. It will not be called if the operation
+            was cancelled.
+
+        """
+        if not callable(on_done):
+            raise TypeError(
+                'on_done arg must be callable, but got {!r}'.format(on_done))
+
+        self._future = future
+
+        def on_done_adapter(future):
+            """Handle completion callback from the future instance"""
+
+            # NOTE: Asyncio schedules callback for cancelled futures, but pika
+            # doesn't want that
+            if not future.cancelled():
+                on_done(future.exception() or future.result())
+
+        future.add_done_callback(on_done_adapter)
+
+    def cancel(self):
+        """Cancel pending operation
+
+
+        :returns: False if was already done or cancelled; True otherwise
         :rtype: bool
 
         """
-        error = super()._adapter_connect()
-
-        if not error:
-            self.ioloop.add_handler(
-                self.socket.fileno(),
-                self._handle_connection_socket_events,
-                self.event_state,
-            )
-
-        return error
-
-    def _adapter_disconnect(self):
-        """Disconnect from the RabbitMQ broker"""
-
-        if self.socket:
-            self.ioloop.remove_handler(
-                self.socket.fileno()
-            )
-
-        super()._adapter_disconnect()
-
-    def _handle_disconnect(self):
-        # No other way to handle exceptions.ProbableAuthenticationError
-        try:
-            super()._handle_disconnect()
-            super()._handle_write()
-        except Exception as e:
-            # FIXME: Pass None or other constant instead "-1"
-            self._on_disconnect(-1, e)
+        return self._future.cancel()

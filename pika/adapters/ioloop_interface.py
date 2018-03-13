@@ -283,13 +283,13 @@ class AbstractStreamProtocol(pika.compat.AbstractBase):
         pass
 
     @abc.abstractmethod
-    def connection_lost(self, exc):
+    def connection_lost(self, error):
         """Called upon loss or closing of connection.
 
         NOTE: `connection_made()` and `connection_lost()` are each called just
         once and in that order. All other callbacks are called between them.
 
-        :param BaseException | None exc: An exception (check for
+        :param BaseException | None error: An exception (check for
             `BaseException`) indicates connection failure. None indicates that
             connection was closed on this side, such as when it's aborted or
             when `AbstractStreamProtocol.eof_received()` returns a result that

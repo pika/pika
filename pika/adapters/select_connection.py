@@ -93,26 +93,6 @@ class SelectConnection(BaseConnection):
             on_close_callback,
             SelectorAsyncServicesAdapter(ioloop))
 
-    def _adapter_connect(self):
-        """Connect to the RabbitMQ broker, returning True on success, False
-        on failure.
-
-        :rtype: bool
-
-        """
-        error = super(SelectConnection, self)._adapter_connect()
-        if not error:
-            self.ioloop.add_handler(self.socket.fileno(),
-                                    self._handle_connection_socket_events,
-                                    self.event_state)
-        return error
-
-    def _adapter_disconnect(self):
-        """Disconnect from the RabbitMQ broker"""
-        if self.socket:
-            self.ioloop.remove_handler(self.socket.fileno())
-        super(SelectConnection, self)._adapter_disconnect()
-
 
 @functools.total_ordering
 class _Timeout(object):

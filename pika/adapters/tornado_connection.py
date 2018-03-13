@@ -41,23 +41,3 @@ class TornadoConnection(base_connection.BaseConnection):
             on_open_error_callback,
             on_close_callback,
             selector_ioloop_adapter.SelectorAsyncServicesAdapter(loop))
-
-    def _adapter_connect(self):
-        """Connect to the remote socket, adding the socket to the IOLoop if
-        connected.
-
-        :rtype: bool
-
-        """
-        error = super(TornadoConnection, self)._adapter_connect()
-        if not error:
-            self.ioloop.add_handler(self.socket.fileno(),
-                                    self._handle_connection_socket_events,
-                                    self.event_state)
-        return error
-
-    def _adapter_disconnect(self):
-        """Disconnect from the RabbitMQ broker"""
-        if self.socket:
-            self.ioloop.remove_handler(self.socket.fileno())
-        super(TornadoConnection, self)._adapter_disconnect()

@@ -887,7 +887,12 @@ class _AsyncTransportBase(ioloop_interface.AbstractStreamTransport):
                           error, self._sock)
             raise
         finally:
+            try:
+                self._sock.shutdown(socket.SHUT_RDWR)
+            except pika.compat.SOCKET_ERROR:
+                pass
             self._sock.close()
+            self._sock = None
             self._protocol = None
             self._async = None
 
