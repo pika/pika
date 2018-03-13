@@ -1,18 +1,15 @@
 """
-Implementation of `ioloop_interface.AbstractAsyncServices` on top of a
+Implementation of `async_interface.AbstractAsyncServices` on top of a
 selector-based I/O loop, such as tornado's and our home-grown
 select_connection's I/O loops.
 
 """
 import abc
-import errno
 import logging
-import os
 import socket
-import ssl
 import threading
 
-from pika.adapters import ioloop_interface
+from pika.adapters import async_interface
 from pika.adapters import async_service_utils
 from pika.adapters.async_service_utils import check_callback_arg, check_fd_arg
 
@@ -164,11 +161,11 @@ class AbstractSelectorIOLoop(object):
 
 
 class SelectorAsyncServicesAdapter(
-        ioloop_interface.AbstractAsyncServices,
+        async_interface.AbstractAsyncServices,
         async_service_utils.AsyncSocketConnectionMixin,
         async_service_utils.AsyncStreamingConnectionMixin):
     """Implementation of ioloop exposing the
-    `ioloop_interface.AbstractAsyncServices` interface and making use of
+    `async_interface.AbstractAsyncServices` interface and making use of
     selector-style native loop having the `AbstractSelectorIOLoop` interface.
 
     For use by `pika.adapters.BaseConnection` class.
@@ -186,13 +183,13 @@ class SelectorAsyncServicesAdapter(
         self._watchers = dict()
 
         # Native loop-specific event masks of interest
-        self._READABLE_MASK = self._loop.READ
+        self._readable_mask = self._loop.READ
         # NOTE: tying ERROR to WRITE is particularly handy for Windows, whose
         # `select.select()` differs from Posix by reporting
         # connection-establishment failure only through exceptfds (ERROR event),
         # while the typical application workflow is to wait for the socket to
         # become writable when waiting for socket connection to be established.
-        self._WRITABLE_MASK = self._loop.WRITE | self._loop.ERROR
+        self._writable_mask = self._loop.WRITE | self._loop.ERROR
 
     def get_native_ioloop(self):
         """Returns the native I/O loop instance, such as Twisted reactor,
@@ -296,14 +293,14 @@ class SelectorAsyncServicesAdapter(
         except KeyError:
             self._loop.add_handler(fd,
                                    self._on_reader_writer_fd_events,
-                                   self._READABLE_MASK)
+                                   self._readable_mask)
             self._watchers[fd] = _FileDescriptorCallbacks(reader=on_readable)
         else:
             if callbacks.reader is None:
                 assert callbacks.writer is not None
                 self._loop.update_handler(
                     fd,
-                    self._READABLE_MASK | self._WRITABLE_MASK)
+                    self._readable_mask | self._writable_mask)
 
             callbacks.reader = on_readable
 
@@ -330,7 +327,7 @@ class SelectorAsyncServicesAdapter(
             del self._watchers[fd]
             self._loop.remove_handler(fd)
         else:
-            self._loop.update_handler(fd, self._WRITABLE_MASK)
+            self._loop.update_handler(fd, self._writable_mask)
 
         return True
 
@@ -351,14 +348,14 @@ class SelectorAsyncServicesAdapter(
         except KeyError:
             self._loop.add_handler(fd,
                                    self._on_reader_writer_fd_events,
-                                   self._WRITABLE_MASK)
+                                   self._writable_mask)
             self._watchers[fd] = _FileDescriptorCallbacks(writer=on_writable)
         else:
             if callbacks.writer is None:
                 assert callbacks.reader is not None
                 self._loop.update_handler(
                     fd,
-                    self._READABLE_MASK | self._WRITABLE_MASK)
+                    self._readable_mask | self._writable_mask)
 
             callbacks.writer = on_writable
 
@@ -385,7 +382,7 @@ class SelectorAsyncServicesAdapter(
             del self._watchers[fd]
             self._loop.remove_handler(fd)
         else:
-            self._loop.update_handler(fd, self._READABLE_MASK)
+            self._loop.update_handler(fd, self._readable_mask)
 
         return True
 
@@ -423,7 +420,7 @@ class SelectorAsyncServicesAdapter(
         """
         callbacks = self._watchers[fd]
 
-        if events & self._READABLE_MASK and callbacks.reader is None:
+        if events & self._readable_mask and callbacks.reader is None:
             # NOTE: we check for consistency here ahead of the writer callback
             # because the writer callback, if any, can change the events being
             # watched
@@ -432,7 +429,7 @@ class SelectorAsyncServicesAdapter(
                 'events=%s', fd, bin(events))
 
 
-        if events & self._WRITABLE_MASK:
+        if events & self._writable_mask:
             if callbacks.writer is not None:
                 callbacks.writer()
             else:
@@ -440,7 +437,7 @@ class SelectorAsyncServicesAdapter(
                     'WRITE indicated on fd=%s, but writer callback is None; '
                     'events=%s', fd, bin(events))
 
-        if events & self._READABLE_MASK:
+        if events & self._readable_mask:
             if callbacks.reader is not None:
                 callbacks.reader()
             else:
@@ -460,8 +457,8 @@ class _FileDescriptorCallbacks(object):
         self.writer = writer
 
 
-class _SelectorIOLoopAsyncHandle(ioloop_interface.AbstractAsyncReference):
-    """This module's adaptation of `ioloop_interface.AbstractAsyncReference`
+class _SelectorIOLoopAsyncHandle(async_interface.AbstractAsyncReference):
+    """This module's adaptation of `async_interface.AbstractAsyncReference`
 
     """
 
@@ -544,7 +541,7 @@ class _AddressResolver(object):
     def start(self):
         """Start asynchronous DNS lookup.
 
-        :rtype: ioloop_interface.AbstractAsyncReference
+        :rtype: async_interface.AbstractAsyncReference
 
         """
         assert self._state == self.NOT_STARTED, self._state

@@ -1,4 +1,4 @@
-"""IO Loop interface for I/O loop adapters.
+"""Asynchronous I/O interface for pika connection adapters.
 
 loop interface expected by `BaseConnection`
 
@@ -17,7 +17,7 @@ import pika.compat
 
 
 class AbstractAsyncServices(pika.compat.AbstractBase):
-    """Interface of ioloop provided for the internal benefit of Pika
+    """Interface to ioloop provided for the internal benefit of Pika
     implementation, including `pika.adapters.BaseConnection.
 
     NOTE: This is not a public API. Pika users should rely on the native I/O

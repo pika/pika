@@ -2,10 +2,8 @@
 
 import asyncio
 import logging
-import socket
-import ssl
 
-from pika.adapters import async_service_utils, base_connection, ioloop_interface
+from pika.adapters import async_service_utils, base_connection, async_interface
 
 
 LOGGER = logging.getLogger(__name__)
@@ -42,10 +40,10 @@ class AsyncioConnection(base_connection.BaseConnection):
 
 
 class _AsyncioAsyncServicesAdapter(
-        ioloop_interface.AbstractAsyncServices,
         async_service_utils.AsyncSocketConnectionMixin,
-        async_service_utils.AsyncStreamingConnectionMixin):
-    """Implement ioloop_interface.AbstractAsyncServices on top of asyncio
+        async_service_utils.AsyncStreamingConnectionMixin,
+        async_interface.AbstractAsyncServices):
+    """Implement async_interface.AbstractAsyncServices on top of asyncio
 
     """
 
@@ -303,7 +301,7 @@ class _AsyncioAsyncServicesAdapter(
             or exception as its only arg. It will not be called if the operation
             was cancelled.
         :rtype: _AsyncioAsyncReference which is derived from
-            ioloop_interface.AbstractAsyncReference
+            async_interface.AbstractAsyncReference
 
         """
         if not callable(on_done):
@@ -315,8 +313,8 @@ class _AsyncioAsyncServicesAdapter(
             on_done)
 
 
-class _AsyncioAsyncReference(ioloop_interface.AbstractAsyncReference):
-    """This module's adaptation of `ioloop_interface.AbstractAsyncReference`
+class _AsyncioAsyncReference(async_interface.AbstractAsyncReference):
+    """This module's adaptation of `async_interface.AbstractAsyncReference`
 
     """
 

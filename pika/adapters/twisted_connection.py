@@ -13,25 +13,21 @@ TwistedChannel class for details.
 
 """
 
-import errno
 import functools
 import logging
-import os
 import socket
-import ssl
 
 from zope.interface import implementer
 from twisted.internet.interfaces import IReadDescriptor, IWriteDescriptor
-from twisted.internet import defer, error, reactor, threads as twisted_threads
-from twisted.python import log
+from twisted.internet import defer, reactor, threads as twisted_threads
 
-import pika.compat
-from pika import connection
 from pika import exceptions
-from pika.adapters import base_connection, ioloop_interface
+from pika.adapters import base_connection, async_interface
 from pika.adapters import async_service_utils
 from pika.adapters.async_service_utils import check_callback_arg, check_fd_arg
 
+# Twistisms
+# pylint: disable=C0111,C0103
 
 LOGGER = logging.getLogger(__name__)
 
@@ -90,7 +86,7 @@ class TwistedChannel(object):
 
         channel.add_on_close_callback(self.channel_closed)
 
-    def channel_closed(self, channel, reply_code, reply_text):
+    def channel_closed(self, _channel, reply_code, reply_text):
         # enter the closed state
         self.__closed = exceptions.ChannelClosed(reply_code, reply_text)
         # errback all pending calls
@@ -266,6 +262,7 @@ class TwistedProtocolConnection(base_connection.BaseConnection):
 
     def __init__(self, parameters=None, on_close_callback=None):
         self.ready = defer.Deferred()
+        self.transport = None
         super(TwistedProtocolConnection, self).__init__(
             parameters=parameters,
             on_open_callback=self.connectionReady,
@@ -340,7 +337,7 @@ class TwistedProtocolConnection(base_connection.BaseConnection):
         if d:
             d.callback(res)
 
-    def connectionFailed(self, connection_unused, error_message=None):
+    def connectionFailed(self, _connection, error_message=None):
         d, self.ready = self.ready, None
         if d:
             attempts = self.params.connection_attempts
@@ -349,10 +346,10 @@ class TwistedProtocolConnection(base_connection.BaseConnection):
 
 
 class _TwistedAsyncServicesAdapter(
-        ioloop_interface.AbstractAsyncServices,
+        async_interface.AbstractAsyncServices,
         async_service_utils.AsyncSocketConnectionMixin,
         async_service_utils.AsyncStreamingConnectionMixin):
-    """Implement ioloop_interface.AbstractAsyncServices on top of Twisted
+    """Implement async_interface.AbstractAsyncServices on top of Twisted
 
     """
 
@@ -393,12 +390,12 @@ class _TwistedAsyncServicesAdapter(
             self.on_writable()
 
 
-    def __init__(self, reactor):
+    def __init__(self, in_reactor):
         """
         :param twisted.internet.interfaces.IReactorFDSet reactor:
 
         """
-        self._reactor = reactor
+        self._reactor = in_reactor
         # Mapping of fd to _ReadDescriptor
         self._readers = dict()
 
@@ -414,7 +411,7 @@ class _TwistedAsyncServicesAdapter(
     def close(self):
         """Release IOLoop's resources.
 
-        See `ioloop_interface.AbstractAsyncServices` for more info.
+        See `async_interface.AbstractAsyncServices` for more info.
 
         """
         # NOTE Twisted reactor doesn't seem to have an equivalent of `close()`
@@ -424,19 +421,19 @@ class _TwistedAsyncServicesAdapter(
     def run(self):
         """Run the I/O loop. It will loop until requested to exit. See `stop()`.
 
-        See `ioloop_interface.AbstractAsyncServices` for more info.
+        See `async_interface.AbstractAsyncServices` for more info.
 
         """
-        self.reactor.run()
+        self._reactor.run()
 
     def stop(self):
         """Request exit from the ioloop. The loop is NOT guaranteed to
         stop before this method returns.
 
-        See `ioloop_interface.AbstractAsyncServices` for more info.
+        See `async_interface.AbstractAsyncServices` for more info.
 
         """
-        self.reactor.stop()
+        self._reactor.stop()
 
     def add_callback_threadsafe(self, callback):
         """Requests a call to the given function as soon as possible. It will be
@@ -449,7 +446,7 @@ class _TwistedAsyncServicesAdapter(
         :param method callback: The callback method; must be callable.
         """
         check_callback_arg(callback, 'callback')
-        self.reactor.callFromThread(callback)
+        self._reactor.callFromThread(callback)
 
     def call_later(self, delay, callback):
         """Add the callback to the IOLoop timer to be called after delay seconds
@@ -463,7 +460,7 @@ class _TwistedAsyncServicesAdapter(
 
         """
         check_callback_arg(callback, 'callback')
-        return self.reactor.callLater(delay, callback)
+        return self._reactor.callLater(delay, callback)
 
     def remove_timeout(self, timeout_handle):
         """Remove a timeout
@@ -572,8 +569,8 @@ class _TwistedAsyncServicesAdapter(
             on_done)
 
 
-class _TwistedDeferredAsyncReference(ioloop_interface.AbstractAsyncReference):
-    """This module's adaptation of `ioloop_interface.AbstractAsyncReference`
+class _TwistedDeferredAsyncReference(async_interface.AbstractAsyncReference):
+    """This module's adaptation of `async_interface.AbstractAsyncReference`
     for twisted defer.Deferred.
 
     """

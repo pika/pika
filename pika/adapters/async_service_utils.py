@@ -1,9 +1,8 @@
-"""Utilities for implementing `ioloop_interfaces.AbstractAsyncServices` for
+"""Utilities for implementing `async_interface.AbstractAsyncServices` for
 pika connection adapters.
 
 """
 
-import abc
 import collections
 import errno
 import functools
@@ -13,7 +12,7 @@ import os
 import socket
 import ssl
 
-from pika.adapters import ioloop_interface
+from pika.adapters import async_interface
 import pika.compat
 
 # EINPROGRESS for Posix and EWOULDBLOCK for Windows
@@ -68,8 +67,8 @@ def _retry_on_sigint(func):
 
 class AsyncSocketConnectionMixin(object):
     """Implements
-    `ioloop_interface.AbstractAsyncServices.connect_socket()` on top of the
-    basic `ioloop_interface.AbstractAsyncServices` services.
+    `async_interface.AbstractAsyncServices.connect_socket()` on top of the
+    basic `async_interface.AbstractAsyncServices` services.
 
     """
 
@@ -83,7 +82,7 @@ class AsyncSocketConnectionMixin(object):
             DNS resolution. Implementations can use `socket.inet_pton()` to
             verify the address.
 
-        :param ioloop_interface.AbstractAsyncServices self:
+        :param async_interface.AbstractAsyncServices self:
         :param socket.socket sock: non-blocking socket that needs to be
             connected via `socket.socket.connect()`
         :param tuple resolved_addr: resolved destination address/port two-tuple
@@ -108,8 +107,8 @@ class AsyncSocketConnectionMixin(object):
 
 class AsyncStreamingConnectionMixin(object):
     """Implements
-    `ioloop_interface.AbstractAsyncServices.create_streaming_connection()` on
-    top of the basic `ioloop_interface.AbstractAsyncServices` services.
+    `async_interface.AbstractAsyncServices.create_streaming_connection()` on
+    top of the basic `async_interface.AbstractAsyncServices` services.
 
     """
     def create_streaming_connection(self,
@@ -123,9 +122,9 @@ class AsyncStreamingConnectionMixin(object):
 
         NOTE: This method takes ownership of the socket.
 
-        :param ioloop_interface.AbstractAsyncServices self:
+        :param async_interface.AbstractAsyncServices self:
         :param callable protocol_factory: returns an instance with the
-            `ioloop_interface.AbstractStreamProtocol` interface. The protocol's
+            `async_interface.AbstractStreamProtocol` interface. The protocol's
             `connection_made(transport)` method will be called to link it to
             the transport after remaining connection activity (e.g., SSL session
             establishment), if any, is completed successfully.
@@ -137,8 +136,8 @@ class AsyncStreamingConnectionMixin(object):
             the asynchronous operation completes. An exception arg indicates
             failure; otherwise the two-tuple will contain the linked
             transport/protocol pair, with the
-            `ioloop_interface.AbstractStreamTransport` and
-            `ioloop_interface.AbstractStreamProtocol` respectively.
+            `async_interface.AbstractStreamTransport` and
+            `async_interface.AbstractStreamProtocol` respectively.
         :param None | ssl.SSLContext ssl_context: if None, this will proceed as
             a plaintext connection; otherwise, if not None, SSL session
             establishment will be performed prior to linking the transport and
@@ -171,8 +170,8 @@ class AsyncStreamingConnectionMixin(object):
             raise
 
 
-class _AsyncServiceAsyncHandle(ioloop_interface.AbstractAsyncReference):
-    """This module's adaptation of `ioloop_interface.AbstractAsyncReference`
+class _AsyncServiceAsyncHandle(async_interface.AbstractAsyncReference):
+    """This module's adaptation of `async_interface.AbstractAsyncReference`
 
     """
 
@@ -194,8 +193,8 @@ class _AsyncServiceAsyncHandle(ioloop_interface.AbstractAsyncReference):
 
 class _AsyncSocketConnector(object):
     """Connects the given non-blocking socket asynchronously using the given
-    `ioloop_interface.AbstractAsyncServices` instance. Used for implementing
-    `ioloop_interface.AbstractAsyncServices.connect_socket()`.
+    `async_interface.AbstractAsyncServices` instance. Used for implementing
+    `async_interface.AbstractAsyncServices.connect_socket()`.
     """
 
     _STATE_NOT_STARTED = 0  # start() not called yet
@@ -205,7 +204,7 @@ class _AsyncSocketConnector(object):
 
     def __init__(self, async_services, sock, resolved_addr, on_done):
         """
-        :param ioloop_interface.AbstractAsyncServices async_services:
+        :param async_interface.AbstractAsyncServices async_services:
         :param socket.socket sock: non-blocking socket that needs to be
             connected via `socket.socket.connect()`
         :param tuple resolved_addr: resolved destination address/port two-tuple
@@ -243,7 +242,7 @@ class _AsyncSocketConnector(object):
     def start(self):
         """Start asynchronous connection establishment.
 
-        :rtype: ioloop_interface.AbstractAsyncReference
+        :rtype: async_interface.AbstractAsyncReference
         """
         assert self._state == self._STATE_NOT_STARTED, self._state
 
@@ -303,7 +302,7 @@ class _AsyncSocketConnector(object):
 
         try:
             self._sock.connect(self._addr)
-        except Exception as error:
+        except (Exception, pika.compat.SOCKET_ERROR) as error:  # pylint: disable=W0703
             if (isinstance(error, pika.compat.SOCKET_ERROR) and
                     error.errno in _TRY_AGAIN_SOCK_ERROR_CODES):
                 # Connection establishment is pending
@@ -358,7 +357,7 @@ class _AsyncStreamConnector(object):
     """Performs asynchronous SSL session establishment, if requested, on the
     already-connected socket and links the streaming transport to protocol.
     Used for implementing
-    `ioloop_interface.AbstractAsyncServices.create_streaming_connection()`.
+    `async_interface.AbstractAsyncServices.create_streaming_connection()`.
 
     """
     _STATE_NOT_STARTED = 0  # start() not called yet
@@ -379,7 +378,7 @@ class _AsyncStreamConnector(object):
         See `AbstractAsyncServices.create_streaming_connection()` for detailed
         documentation of the corresponding args.
 
-        :param ioloop_interface.AbstractAsyncServices async_services:
+        :param async_interface.AbstractAsyncServices async_services:
         :param callable protocol_factory:
         :param socket.socket sock:
         :param ssl.SSLContext | None ssl_context:
@@ -446,7 +445,7 @@ class _AsyncStreamConnector(object):
     def start(self):
         """Kick off the workflow
 
-        :rtype: ioloop_interface.AbstractAsyncReference
+        :rtype: async_interface.AbstractAsyncReference
         """
         assert self._state == self._STATE_NOT_STARTED, self._state
 
@@ -468,8 +467,7 @@ class _AsyncStreamConnector(object):
         """
         if self._state == self._STATE_ACTIVE:
             self._state = self._STATE_CANCELED
-            _LOGGER.debug('User canceled streaming linkup for %s',
-                         self._sock)
+            _LOGGER.debug('User canceled streaming linkup for %s', self._sock)
             # Close the socket, since we took ownership
             self._cleanup(close=True)
             return True
@@ -641,7 +639,8 @@ class _AsyncStreamConnector(object):
             return
 
 
-class _AsyncTransportBase(ioloop_interface.AbstractStreamTransport):
+class _AsyncTransportBase(  # pylint: disable=W0223
+        async_interface.AbstractStreamTransport):
     """Base class for `_AsyncPlaintextTransport` and `_AsyncSSLTransport`.
 
     """
@@ -668,10 +667,10 @@ class _AsyncTransportBase(ioloop_interface.AbstractStreamTransport):
         """
 
         :param socket.socket | ssl.SSLSocket sock: connected socket
-        :param ioloop_interface.AbstractStreamProtocol protocol: corresponding
+        :param async_interface.AbstractStreamProtocol protocol: corresponding
             protocol in this transport/protocol pairing; the protocol already
             had its `connection_made()` method called.
-        :param ioloop_interface.AbstractAsyncServices async_services:
+        :param async_interface.AbstractAsyncServices async_services:
 
         """
         self._sock = sock
@@ -692,7 +691,7 @@ class _AsyncTransportBase(ioloop_interface.AbstractStreamTransport):
     def get_protocol(self):
         """Return the protocol linked to this transport.
 
-        :rtype: ioloop_interface.AbstractStreamProtocol
+        :rtype: async_interface.AbstractStreamProtocol
         """
         return self._protocol
 
@@ -711,7 +710,7 @@ class _AsyncTransportBase(ioloop_interface.AbstractStreamTransport):
         """
         if not data:
             _LOGGER.error('write() called with empty data: state=%s; %s',
-                            self._state, self._sock)
+                          self._state, self._sock)
             raise ValueError('write() called with empty data {!r}'.format(data))
 
         if self._state != self._STATE_ACTIVE:
@@ -770,14 +769,14 @@ class _AsyncTransportBase(ioloop_interface.AbstractStreamTransport):
 
         """
         while self._tx_buffers:
-            num_bytes_sent = self._sigint_safe_send(self.sock,
-                                                    self.tx_buffers[0])
+            num_bytes_sent = self._sigint_safe_send(self._sock,
+                                                    self._tx_buffers[0])
 
-            chunk = self.tx_buffers.popleft()
+            chunk = self._tx_buffers.popleft()
             if num_bytes_sent < len(chunk):
                 _LOGGER.debug('Partial send, requeing remaining data; %s of %s',
                               num_bytes_sent, len(chunk))
-                self.tx_buffers.appendleft(chunk[num_bytes_sent:])
+                self._tx_buffers.appendleft(chunk[num_bytes_sent:])
 
             self._tx_buffered_byte_count -= num_bytes_sent
             assert self._tx_buffered_byte_count >= 0, \
@@ -882,10 +881,9 @@ class _AsyncTransportBase(ioloop_interface.AbstractStreamTransport):
         # Inform protocol
         try:
             self._protocol.connection_lost(error)
-        except Exception as error:
-            _LOGGER.error('protocol.connection_lost(%r) failed: error=%r; %s',
-                          error, self._sock)
-            raise
+        except Exception as exc:  # pylint: disable=W0703
+            _LOGGER.error('protocol.connection_lost(%r) failed: exc=%r; %s',
+                          error, exc, self._sock)
         finally:
             try:
                 self._sock.shutdown(socket.SHUT_RDWR)
@@ -898,7 +896,7 @@ class _AsyncTransportBase(ioloop_interface.AbstractStreamTransport):
 
 
 class _AsyncPlaintextTransport(_AsyncTransportBase):
-    """Implementation of `ioloop_interface.AbstractStreamTransport` for a
+    """Implementation of `async_interface.AbstractStreamTransport` for a
     plaintext connection.
 
     """
@@ -907,10 +905,10 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
         """
 
         :param socket.socket sock: non-blocking connected socket
-        :param ioloop_interface.AbstractStreamProtocol protocol: corresponding
+        :param async_interface.AbstractStreamProtocol protocol: corresponding
             protocol in this transport/protocol pairing; the protocol already
             had its `connection_made()` method called.
-        :param ioloop_interface.AbstractAsyncServices async_services:
+        :param async_interface.AbstractAsyncServices async_services:
 
         """
         super(_AsyncPlaintextTransport, self).__init__(sock,
@@ -956,7 +954,7 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
         except self.RxEndOfFile:
             try:
                 keep_open = self._protocol.eof_received()
-            except Exception as error:
+            except Exception as error:  # pylint: disable=W0703
                 _LOGGER.error('protocol.eof_received() failed: error=%r; %s',
                               error, self._sock)
                 self._initiate_abort(error)
@@ -970,7 +968,7 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
                     _LOGGER.info('protocol.eof_received() elected to close: %s',
                                  self._sock)
                     self._initiate_abort(None)
-        except Exception as error:
+        except (Exception, pika.compat.SOCKET_ERROR) as error:  # pylint: disable=W0703
             if (isinstance(error, pika.compat.SOCKET_ERROR) and
                     error.errno in _TRY_AGAIN_SOCK_ERROR_CODES):
                 _LOGGER.debug('Recv would block on %s', self._sock)
@@ -1004,7 +1002,7 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
         try:
             # Transmit buffered data to remote socket
             self._produce()
-        except Exception as error:
+        except (Exception, pika.compat.SOCKET_ERROR) as error:  # pylint: disable=W0703
             if (isinstance(error, pika.compat.SOCKET_ERROR) and
                     error.errno in _TRY_AGAIN_SOCK_ERROR_CODES):
                 _LOGGER.debug('Send would block on %s', self._sock)
@@ -1019,7 +1017,7 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
 
 
 class _AsyncSSLTransport(_AsyncTransportBase):
-    """Implementation of `ioloop_interface.AbstractStreamTransport` for an SSL
+    """Implementation of `async_interface.AbstractStreamTransport` for an SSL
     connection.
 
     """
@@ -1028,10 +1026,10 @@ class _AsyncSSLTransport(_AsyncTransportBase):
         """
 
         :param ssl.SSLSocket sock: non-blocking connected socket
-        :param ioloop_interface.AbstractStreamProtocol protocol: corresponding
+        :param async_interface.AbstractStreamProtocol protocol: corresponding
             protocol in this transport/protocol pairing; the protocol already
             had its `connection_made()` method called.
-        :param ioloop_interface.AbstractAsyncServices async_services:
+        :param async_interface.AbstractAsyncServices async_services:
 
         """
         super(_AsyncSSLTransport, self).__init__(sock, protocol, async_services)
@@ -1078,7 +1076,7 @@ class _AsyncSSLTransport(_AsyncTransportBase):
         if self._ssl_readable_action:
             try:
                 self._ssl_readable_action()
-            except Exception as error:
+            except Exception as error:  # pylint: disable=W0703
                 self._initiate_abort(error)
         else:
             _LOGGER.debug('SSL readable action was suppressed: '
@@ -1097,7 +1095,7 @@ class _AsyncSSLTransport(_AsyncTransportBase):
         if self._ssl_writable_action:
             try:
                 self._ssl_writable_action()
-            except Exception as error:
+            except Exception as error:  # pylint: disable=W0703
                 self._initiate_abort(error)
         else:
             _LOGGER.debug('SSL writable action was suppressed: '
@@ -1167,7 +1165,7 @@ class _AsyncSSLTransport(_AsyncTransportBase):
                 self._ssl_readable_action = None
 
         # Update producer registration
-        if self.tx_buffers and not self._ssl_writable_action:
+        if self._tx_buffers and not self._ssl_writable_action:
             self._ssl_writable_action = self._produce
             self._async.set_writer(self._sock.fileno(),
                                    self._on_socket_writable)

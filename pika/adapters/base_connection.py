@@ -12,15 +12,13 @@ import pika.compat
 import pika.exceptions
 import pika.tcp_socket_opts
 
-from pika.adapters import ioloop_interface
 from pika import connection
 
 
 LOGGER = logging.getLogger(__name__)
 
 
-class BaseConnection(connection.Connection,
-                     ioloop_interface.AbstractStreamProtocol):
+class BaseConnection(connection.Connection):
     """BaseConnection class that should be extended by connection adapters"""
 
     def __init__(self,
@@ -37,7 +35,7 @@ class BaseConnection(connection.Connection,
             be established: on_open_error_callback(connection, str|BaseException)
         :param method on_close_callback: Called when the connection is closed:
             on_close_callback(connection, reason_code, reason_text)
-        :param ioloop_interface.AbstractAsyncServices async_services:
+        :param async_interface.AbstractAsyncServices async_services:
             asynchronous services
         :raises: RuntimeError
         :raises: ValueError
@@ -48,7 +46,7 @@ class BaseConnection(connection.Connection,
                 'Expected instance of Parameters, not %r' % parameters)
 
         self._async = async_services
-        self._transport = None  # type: ioloop_interface.AbstractStreamTransport
+        self._transport = None  # type: async_interface.AbstractStreamTransport
         self._transport_mgr = None  # type: _TransportManager
         super(BaseConnection,
               self).__init__(parameters, on_open_callback,
@@ -114,18 +112,6 @@ class BaseConnection(connection.Connection,
         """
         return self._async.call_later(deadline, callback)
 
-    def close(self, reply_code=200, reply_text='Normal shutdown'):
-        """Disconnect from RabbitMQ. If there are any open channels, it will
-        attempt to close them prior to fully disconnecting. Channels which
-        have active consumers will attempt to send a Basic.Cancel to RabbitMQ
-        to cleanly stop the delivery of messages prior to closing the channel.
-
-        :param int reply_code: The code number for the close
-        :param str reply_text: The text reason for the close
-
-        """
-        super(BaseConnection, self).close(reply_code, reply_text)
-
     def remove_timeout(self, timeout_id):
         """Remove the timeout from the IOLoop by the ID returned from
         add_timeout.
@@ -171,7 +157,7 @@ class BaseConnection(connection.Connection,
         """
         self._transport_mgr = _TransportManager(
             params=self.params,
-            stream_proto = self,
+            stream_proto=self,
             async_services=self._async,
             on_done=self._on_transport_manager_done)
 
@@ -222,9 +208,9 @@ class BaseConnection(connection.Connection,
     def connection_made(self, transport):
         """Introduces transport to protocol after transport is connected.
 
-        `ioloop_interface.AbstractStreamProtocol` interface method.
+        `async_interface.AbstractStreamProtocol` interface method.
 
-        :param ioloop_interface.AbstractStreamTransport transport:
+        :param async_interface.AbstractStreamTransport transport:
         :raises Exception: Exception-based exception on error
         """
         self._transport = transport
@@ -232,7 +218,7 @@ class BaseConnection(connection.Connection,
     def connection_lost(self, error):
         """Called upon loss or closing of connection.
 
-        `ioloop_interface.AbstractStreamProtocol` interface method.
+        `async_interface.AbstractStreamProtocol` interface method.
 
         NOTE: `connection_made()` and `connection_lost()` are each called just
         once and in that order. All other callbacks are called between them.
@@ -258,10 +244,10 @@ class BaseConnection(connection.Connection,
 
         self._on_terminate(error_code, repr(error))
 
-    def eof_received(self):
+    def eof_received(self):  # pylint: disable=R0201
         """Called after the remote peer shuts its write end of the connection.
 
-        `ioloop_interface.AbstractStreamProtocol` interface method.
+        `async_interface.AbstractStreamProtocol` interface method.
 
         :return: A falsy value (including None) will cause the transport to
             close itself, resulting in an eventual `connection_lost()` call
@@ -280,7 +266,7 @@ class BaseConnection(connection.Connection,
     def data_received(self, data):
         """Called to deliver incoming data from the server to the protocol.
 
-        `ioloop_interface.AbstractStreamProtocol` interface method.
+        `async_interface.AbstractStreamProtocol` interface method.
 
         :param data: Non-empty data bytes.
         :raises Exception: Exception-based exception on error
@@ -293,15 +279,12 @@ class _TransportManager(object):
 
     """
 
-    # TODO BaseConnection needs to implement
-    # ioloop_interface.AbstractStreamProtocol
-
     def __init__(self, params, stream_proto, async_services, on_done):
         """
 
         :param pika.connection.Params params:
-        :param ioloop_interface.AbstractStreamProtocol stream_proto:
-        :param ioloop_interface.AbstractAsyncServices async_services:
+        :param async_interface.AbstractStreamProtocol stream_proto:
+        :param async_interface.AbstractAsyncServices async_services:
         :param callable on_done: on_done(None|BaseException)`, will be invoked
             upon completion, where the arg value of None signals success, while
             an exception object signals failure of the workflow after exhausting
@@ -381,8 +364,6 @@ class _TransportManager(object):
                                    addr_record[1],
                                    addr_record[2])
         self._sock.setsockopt(pika.compat.SOL_TCP, socket.TCP_NODELAY, 1)
-        # TODO Do we still need settimeout for non-blocking socket?
-        #self._sock.settimeout(self._params.socket_timeout)
         # TODO I would have expected sock to be the first arg below
         pika.tcp_socket_opts.set_sock_opts(self._params.tcp_options,
                                            self._sock)
@@ -429,7 +410,7 @@ class _TransportManager(object):
                 if server_hostname is None:
                     server_hostname = self._params.host
 
-            self._async_ref = self._ioloop.create_streaming_connection(
+            self._async_ref = self._async.create_streaming_connection(
                 protocol_factory=lambda: self._stream_proto,
                 sock=self._sock,
                 ssl_context=ssl_context,
