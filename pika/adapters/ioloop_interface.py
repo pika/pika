@@ -278,6 +278,7 @@ class AbstractStreamProtocol(pika.compat.AbstractBase):
         """Introduces transport to protocol after transport is connected.
 
         :param AbstractStreamTransport transport:
+        :raises Exception: Exception-based exception on error
         """
         pass
 
@@ -293,6 +294,7 @@ class AbstractStreamProtocol(pika.compat.AbstractBase):
             connection was closed on this side, such as when it's aborted or
             when `AbstractStreamProtocol.eof_received()` returns a result that
             doesn't evaluate to True.
+        :raises Exception: Exception-based exception on error
         """
         pass
 
@@ -305,6 +307,7 @@ class AbstractStreamProtocol(pika.compat.AbstractBase):
             from the transport. If a truthy value is returned, it will be the
             protocol's responsibility to close/abort the transport.
         :rtype: falsy | truthy
+        :raises Exception: Exception-based exception on error
         """
         pass
 
@@ -313,6 +316,7 @@ class AbstractStreamProtocol(pika.compat.AbstractBase):
         """Called to deliver incoming data to the protocol.
 
         :param data: Non-empty data bytes.
+        :raises Exception: Exception-based exception on error
         """
         pass
 
@@ -347,6 +351,8 @@ class AbstractStreamTransport(pika.compat.AbstractBase):
         """Close connection abruptly without flushing pending data. The
         corresponding protocol will eventually have its `connection_lost()`
         method called with None
+
+        :raises Exception: Exception-based exception on error
         """
         pass
 
@@ -355,11 +361,16 @@ class AbstractStreamTransport(pika.compat.AbstractBase):
         """Return the protocol linked to this transport.
 
         :rtype: AbstractStreamProtocol
+        :raises Exception: Exception-based exception on error
         """
 
     @abc.abstractmethod
     def write(self, data):
         """Buffer the given data until it can be sent asynchronously.
+
+        :param bytes data:
+        :raises ValueError: if called with empty data
+        :raises Exception: Exception-based exception on error
         """
         pass
 

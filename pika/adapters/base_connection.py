@@ -516,7 +516,7 @@ class BaseConnection(connection.Connection):
             server_hostname=ssl_options.server_hostname)
 
 
-class _TransportConnector(object):
+class _TransportManager(object):
     """Manages streaming transport setup
 
     """
@@ -524,26 +524,27 @@ class _TransportConnector(object):
     # TODO BaseConnection needs to implement
     # ioloop_interface.AbstractStreamProtocol
 
-    def __init__(self, params, ioloop, stream_proto, on_done):
+    def __init__(self, params, stream_proto, async_services, on_done):
         """
 
-        :param params:
-        :param ioloop:
-        :param stream_proto:
-        :param on_done: on_done(None|BaseException)`, will be invoked upon
-            completion, where the arg value of None signals success, while an
-            exception object signals failure of the round after exhausting
+        :param pika.connection.Params params:
+        :param ioloop_interface.AbstractStreamProtocol stream_proto:
+        :param ioloop_interface.AbstractAsyncServices async_services:
+        :param callable on_done: on_done(None|BaseException)`, will be invoked
+            upon completion, where the arg value of None signals success, while
+            an exception object signals failure of the workflow after exhausting
             all remaining address records from DNS lookup.
         """
         self._params = params
-        self._ioloop = ioloop
         self._stream_proto = stream_proto
+        self._async = async_services
         self._on_done = on_done
+
         self._sock = None
         self._addrinfo_iter = None
 
         # Initiate asynchronous getaddrinfo
-        self._async_ref = self._ioloop.getaddrinfo(
+        self._async_ref = self._async.getaddrinfo(
             host=self._params.host,
             port=self._params.port,
             socktype=socket.SOCK_STREAM,

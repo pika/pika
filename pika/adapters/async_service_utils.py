@@ -125,7 +125,7 @@ class AsyncStreamingConnectionMixin(object):
 
         :param ioloop_interface.AbstractAsyncServices self:
         :param callable protocol_factory: returns an instance with the
-            `AbstractStreamProtocol` interface. The protocol's
+            `ioloop_interface.AbstractStreamProtocol` interface. The protocol's
             `connection_made(transport)` method will be called to link it to
             the transport after remaining connection activity (e.g., SSL session
             establishment), if any, is completed successfully.
@@ -136,8 +136,9 @@ class AsyncStreamingConnectionMixin(object):
             `on_done(BaseException | (transport, protocol))` to be notified when
             the asynchronous operation completes. An exception arg indicates
             failure; otherwise the two-tuple will contain the linked
-            transport/protocol pair, with the AbstractStreamTransport and
-            AbstractStreamProtocol respectively.
+            transport/protocol pair, with the
+            `ioloop_interface.AbstractStreamTransport` and
+            `ioloop_interface.AbstractStreamProtocol` respectively.
         :param None | ssl.SSLContext ssl_context: if None, this will proceed as
             a plaintext connection; otherwise, if not None, SSL session
             establishment will be performed prior to linking the transport and
@@ -705,12 +706,13 @@ class _AsyncTransportBase(ioloop_interface.AbstractStreamTransport):
         """Buffer the given data until it can be sent asynchronously.
 
         :param bytes data:
+        :raises ValueError: if called with empty data
 
         """
         if not data:
-            _LOGGER.warning('write() called with empty data: state=%s; %s',
+            _LOGGER.error('write() called with empty data: state=%s; %s',
                             self._state, self._sock)
-            return
+            raise ValueError('write() called with empty data {!r}'.format(data))
 
         if self._state != self._STATE_ACTIVE:
             _LOGGER.debug('Ignoring write() called during inactive state: '
@@ -722,12 +724,17 @@ class _AsyncTransportBase(ioloop_interface.AbstractStreamTransport):
 
     def _consume(self):
         """Utility method for use by subclasses to ingest data from socket and
-        dispatch it to protocol's `data_received()` method.
+        dispatch it to protocol's `data_received()` method socket-specific
+        "try again" exception, per-event data consumption limit is reached,
+        transport becomes inactive, or a fatal failure.
 
-        Consumes up to `self._MAX_CONSUME_BYTES` to prevent event starvation.
+        Consumes up to `self._MAX_CONSUME_BYTES` to prevent event starvation or
+        until state becomes inactive (e.g., `protocol.data_received()` callback
+        aborts the transport)
 
-        :raises: whatever the corresponding `sock.recv()` raises except the
+        :raises: Whatever the corresponding `sock.recv()` raises except the
                  socket error with errno.EINTR
+        :raises: Whatever the `protocol.data_received()` callback raises
         :raises _AsyncTransportBase.RxEndOfFile: upon shutdown of input stream
 
         """
@@ -749,7 +756,7 @@ class _AsyncTransportBase(ioloop_interface.AbstractStreamTransport):
             except Exception as error:
                 _LOGGER.error('protocol.data_received() failed: error=%r; %s',
                               error, self._sock)
-                self._initiate_abort(error)
+                raise
 
 
     def _produce(self):
@@ -762,7 +769,7 @@ class _AsyncTransportBase(ioloop_interface.AbstractStreamTransport):
                  socket error with errno.EINTR
 
         """
-        while self._state == self._STATE_ACTIVE and self._tx_buffers:
+        while self._tx_buffers:
             num_bytes_sent = self._sigint_safe_send(self.sock,
                                                     self.tx_buffers[0])
 
@@ -811,7 +818,7 @@ class _AsyncTransportBase(ioloop_interface.AbstractStreamTransport):
             otherwise the exception corresponding to the the failed connection.
         """
         _LOGGER.info(
-            'Initiating transport shutdown: state=%s; error=%r; %s',
+            'Initiating abrupt transport shutdown: state=%s; error=%r; %s',
             self._state, error, self._sock)
 
         assert self._state != self._STATE_COMPLETED, self._state
@@ -894,7 +901,7 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
     def __init__(self, sock, protocol, async_services):
         """
 
-        :param socket.socket sock: connected socket
+        :param socket.socket sock: non-blocking connected socket
         :param ioloop_interface.AbstractStreamProtocol protocol: corresponding
             protocol in this transport/protocol pairing; the protocol already
             had its `connection_made()` method called.
@@ -911,6 +918,10 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
 
     def write(self, data):
         """Buffer the given data until it can be sent asynchronously.
+
+        :param bytes data:
+        :raises ValueError: if called with empty data
+
         """
         if self._state != self._STATE_ACTIVE:
             _LOGGER.debug('Ignoring write() called during inactive state: '
@@ -925,7 +936,9 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
         self._buffer_tx_data(data)
 
     def _on_socket_readable(self):
-        """Handle readable socket indication
+        """Ingest data from socket and dispatch it to protocol until exception
+        occurs (typically EAGAIN or EWOULDBLOCK), per-event data consumption
+        limit is reached, transport becomes inactive, or failure.
 
         """
         if self._state != self._STATE_ACTIVE:
@@ -960,6 +973,16 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
                 _LOGGER.error('Consume failed, aborting connection: %r; %s',
                               error, self._sock)
                 self._initiate_abort(error)
+        else:
+            if self._state != self._STATE_ACTIVE:
+                # Most likely our protocol's `data_received()` aborted the
+                # transport
+                _LOGGER.debug('Leaving Plaintext consumer due to inactive '
+                              'state: state=%s; %s',
+                              self._state, self._sock)
+            else:
+                #
+                pass
 
     def _on_socket_writable(self):
         """Handle writable socket notification
@@ -990,7 +1013,6 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
                 _LOGGER.debug('Turned off writability watcher: %s', self._sock)
 
 
-
 class _AsyncSSLTransport(_AsyncTransportBase):
     """Implementation of `ioloop_interface.AbstractStreamTransport` for an SSL
     connection.
@@ -1000,7 +1022,7 @@ class _AsyncSSLTransport(_AsyncTransportBase):
     def __init__(self, sock, protocol, async_services):
         """
 
-        :param ssl.SSLSocket sock: connected socket
+        :param ssl.SSLSocket sock: non-blocking connected socket
         :param ioloop_interface.AbstractStreamProtocol protocol: corresponding
             protocol in this transport/protocol pairing; the protocol already
             had its `connection_made()` method called.
@@ -1009,9 +1031,211 @@ class _AsyncSSLTransport(_AsyncTransportBase):
         """
         super(_AsyncSSLTransport, self).__init__(sock, protocol, async_services)
 
-        self._readable_action = self._consume
-        self._writable_action = None
+        self._ssl_readable_action = self._consume
+        self._ssl_writable_action = None
 
-        # Bootstrap consumer
+        # Bootstrap consumer; we'll take care of producer once data is buffered
+        self._async.set_reader(self._sock.fileno(), self._on_socket_readable)
+        # Try reading asap just in case read-ahead caused some
         self._async.add_callback_threadsafe(self._on_socket_readable)
 
+    def write(self, data):
+        """Buffer the given data until it can be sent asynchronously.
+
+        :param bytes data:
+        :raises ValueError: if called with empty data
+
+        """
+        if self._state != self._STATE_ACTIVE:
+            _LOGGER.debug('Ignoring write() called during inactive state: '
+                          'state=%s; %s', self._state, self._sock)
+            return
+
+        tx_buffer_was_empty = self.get_write_buffer_size() == 0
+
+        self._buffer_tx_data(data)
+
+        if tx_buffer_was_empty and self._ssl_writable_action is None:
+            self._ssl_writable_action = self._produce
+            self._async.set_writer(self._sock.fileno(),
+                                   self._on_socket_writable)
+            _LOGGER.debug('Turned on writability watcher: %s', self._sock)
+
+    def _on_socket_readable(self):
+        """Handle readable socket indication
+
+        """
+        if self._state != self._STATE_ACTIVE:
+            _LOGGER.debug('Ignoring readability notification due to inactive '
+                          'state: state=%s; %s', self._state, self._sock)
+            return
+
+        if self._ssl_readable_action:
+            try:
+                self._ssl_readable_action()
+            except Exception as error:
+                self._initiate_abort(error)
+        else:
+            _LOGGER.debug('SSL readable action was suppressed: '
+                          'ssl_writable_action=%r; %s',
+                          self._ssl_writable_action, self._sock)
+
+    def _on_socket_writable(self):
+        """Handle writable socket notification
+
+        """
+        if self._state != self._STATE_ACTIVE:
+            _LOGGER.debug('Ignoring writability notification due to inactive '
+                          'state: state=%s; %s', self._state, self._sock)
+            return
+
+        if self._ssl_writable_action:
+            try:
+                self._ssl_writable_action()
+            except Exception as error:
+                self._initiate_abort(error)
+        else:
+            _LOGGER.debug('SSL writable action was suppressed: '
+                          'ssl_readable_action=%r; %s',
+                          self._ssl_readable_action, self._sock)
+
+    def _consume(self):
+        """[override] Ingest data from socket and dispatch it to protocol until
+        exception occurs (typically ssl.SSLError with
+        SSL_ERROR_WANT_READ/WRITE), per-event data consumption limit is reached,
+        transport becomes inactive, or failure.
+
+        Update consumer/producer registration.
+
+        :raises Exception: error that signals that connection needs to be
+            aborted
+        """
+        next_consume_on_readable = True
+
+        try:
+            super(_AsyncSSLTransport, self)._consume()
+        except ssl.SSLError as error:
+            if error.errno == ssl.SSL_ERROR_WANT_READ:
+                _LOGGER.debug('SSL ingester wants read: %s', self._sock)
+            elif error.errno == ssl.SSL_ERROR_WANT_WRITE:
+                # Looks like SSL re-negotiation
+                _LOGGER.debug('SSL ingester wants write: %s', self._sock)
+                next_consume_on_readable = False
+            else:
+                _LOGGER.error('SSL consumer failed: %r; %s', error, self._sock)
+                raise  # let outer catch block abort the transport
+        else:
+            if self._state != self._STATE_ACTIVE:
+                # Most likely our protocol's `data_received()` aborted the
+                # transport
+                _LOGGER.debug('Leaving SSL consumer due to inactive '
+                              'state: state=%s; %s',
+                              self._state, self._sock)
+                return
+
+            # Consumer exited without exception; there may still be more,
+            # possibly unprocessed, data records in SSL input buffers that
+            # can be read without waiting for socket to become readable.
+
+            # In case buffered input SSL data records still remain
+            self._async.add_callback_threadsafe(self._on_socket_readable)
+
+        # Update consumer registration
+        if next_consume_on_readable:
+            if not self._ssl_readable_action:
+                self._async.set_reader(self._sock.fileno(),
+                                       self._on_socket_readable)
+            self._ssl_readable_action = self._consume
+
+            if self._ssl_writable_action is self._consume:
+                self._async.remove_writer(self._sock.fileno())
+                self._ssl_writable_action = None
+        else:
+            # WANT_WRITE
+            if not self._ssl_writable_action:
+                self._async.set_writer(self._sock.fileno(),
+                                       self._on_socket_writable)
+            self._ssl_writable_action = self._consume
+
+            if self._ssl_readable_action:
+                self._async.remove_reader(self._sock.fileno())
+                self._ssl_readable_action = None
+
+        # Update producer registration
+        if self.tx_buffers and not self._ssl_writable_action:
+            self._ssl_writable_action = self._produce
+            self._async.set_writer(self._sock.fileno(),
+                                   self._on_socket_writable)
+
+    def _produce(self):
+        """[override] Emit data from tx_buffers all chunks are exhausted or
+        sending is interrupted by an exception (typically ssl.SSLError with
+        SSL_ERROR_WANT_READ/WRITE).
+
+        Update consumer/producer registration.
+
+        :raises Exception: error that signals that connection needs to be
+            aborted
+
+        """
+        next_produce_on_writable = None  # None means no need to produce
+
+        try:
+            super(_AsyncSSLTransport, self)._produce()
+        except ssl.SSLError as error:
+            if error.errno == ssl.SSL_ERROR_WANT_READ:
+                # Looks like SSL re-negotiation
+                _LOGGER.debug('SSL emitter wants read: %s', self._sock)
+                next_produce_on_writable = False
+            elif error.errno == ssl.SSL_ERROR_WANT_WRITE:
+                _LOGGER.debug('SSL emitter wants write: %s', self._sock)
+                next_produce_on_writable = True
+            else:
+                _LOGGER.error('SSL producer failed: %r; %s', error, self._sock)
+                raise  # let outer catch block abort the transport
+        else:
+            # No exception, so everything must have been written to the socket
+            assert not self._tx_buffers, len(self._tx_buffers)
+
+        # Update producer registration
+        if self._tx_buffers:
+            assert next_produce_on_writable is not None
+
+            if next_produce_on_writable:
+                if not self._ssl_writable_action:
+                    self._async.set_writer(self._sock.fileno(),
+                                           self._on_socket_writable)
+                self._ssl_writable_action = self._produce
+
+                if self._ssl_readable_action is self._produce:
+                    self._async.remove_reader(self._sock.fileno())
+                    self._ssl_readable_action = None
+            else:
+                # WANT_READ
+                if not self._ssl_readable_action:
+                    self._async.set_reader(self._sock.fileno(),
+                                           self._on_socket_readable)
+                self._ssl_readable_action = self._produce
+
+                if self._ssl_writable_action:
+                    self._async.remove_writer(self._sock.fileno())
+                    self._ssl_writable_action = None
+        else:
+            if self._ssl_readable_action is self._produce:
+                self._async.remove_reader(self._sock.fileno())
+                self._ssl_readable_action = None
+                assert self._ssl_writable_action is not self._produce
+            else:
+                assert self._ssl_writable_action is self._produce
+                self._ssl_writable_action = None
+                self._async.remove_writer(self._sock.fileno())
+
+        # Update consumer registration
+        if not self._ssl_readable_action:
+            self._ssl_readable_action = self._consume
+            self._async.set_reader(self._sock.fileno(),
+                                   self._on_socket_readable)
+            # In case input SSL data records have been buffered
+            self._async.add_callback_threadsafe(self._on_socket_readable)
+        elif self._sock.pending():
+            self._async.add_callback_threadsafe(self._on_socket_readable)
