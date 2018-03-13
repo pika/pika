@@ -830,7 +830,6 @@ class URLParameters(Parameters):
             self.virtual_host = url_unquote(parts.path.split('/')[1])
 
         # Handle query string values, validating and assigning them
-
         self._all_url_query_values = urlparse.parse_qs(parts.query)
 
         for name, value in dict_iteritems(self._all_url_query_values):

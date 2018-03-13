@@ -697,6 +697,34 @@ class URLParametersTests(_ParametersTestsBase):
         self.assertEqual(parameters.virtual_host,
                          pika.URLParameters.DEFAULT_VIRTUAL_HOST)
 
+    def test_uses_default_virtual_host_via_encoded_slash_upcase(self):
+        parameters = pika.URLParameters('amqp://myserver.mycompany.com/%2F')
+        self.assertEqual(parameters.virtual_host,
+                         pika.URLParameters.DEFAULT_VIRTUAL_HOST)
+
+    def test_uses_default_virtual_host_via_encoded_slash_downcase(self):
+        parameters = pika.URLParameters('amqp://myserver.mycompany.com/%2f')
+        self.assertEqual(parameters.virtual_host,
+                         pika.URLParameters.DEFAULT_VIRTUAL_HOST)
+
+    def test_uses_default_virtual_host_via_encoded_slash_upcase_ending_with_slash(self):
+        parameters = pika.URLParameters('amqp://myserver.mycompany.com/%2F/')
+        self.assertEqual(parameters.virtual_host,
+                         pika.URLParameters.DEFAULT_VIRTUAL_HOST)
+
+    def test_uses_default_virtual_host_via_encoded_slash_downcase_ending_with_slash(self):
+        parameters = pika.URLParameters('amqp://myserver.mycompany.com/%2f/')
+        self.assertEqual(parameters.virtual_host,
+                         pika.URLParameters.DEFAULT_VIRTUAL_HOST)
+
+    def test_uses_default_virtual_host_if_only_parameters_provided(self):
+        parameters = pika.URLParameters(
+            'amqp://myserver.mycompany.com?frame_max=8192&locale=utf8')
+        self.assertEqual(parameters.virtual_host,
+                         pika.URLParameters.DEFAULT_VIRTUAL_HOST)
+        self.assertEqual(parameters.frame_max, 8192)
+        self.assertEqual(parameters.locale, 'utf8')
+
     def test_uses_default_username_and_password_if_not_specified(self):
         parameters = pika.URLParameters('amqp://myserver.mycompany.com')
         self.assertEqual(parameters.credentials.username,

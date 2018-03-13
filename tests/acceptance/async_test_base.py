@@ -69,7 +69,7 @@ class AsyncTestCase(unittest.TestCase):
         self.fail("AsyncTestCase.begin_test not extended")
 
     def start(self, adapter=None):
-        self.logger.info('start at %s', datetime.utcnow())
+        self.logger.info('start at %s', datetime.datetime.utcnow())
         self.adapter = adapter or self.ADAPTER
 
         self.connection = self.adapter(self.parameters, self.on_open,
@@ -115,7 +115,7 @@ class AsyncTestCase(unittest.TestCase):
     def on_timeout(self):
         """called when stuck waiting for connection to close"""
         self.logger.error('%s timed out; on_timeout called at %s',
-            self, datetime.utcnow())
+            self, datetime.datetime.utcnow())
         self.timeout = None  # the dispatcher should have removed it
         self._timed_out = True
         # initiate cleanup
