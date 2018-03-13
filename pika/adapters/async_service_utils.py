@@ -681,12 +681,26 @@ class _AsyncTransportBase(  # pylint: disable=W0223
         self._tx_buffers = collections.deque()
         self._tx_buffered_byte_count = 0
 
-    def abort(self):
-        """Close connection abruptly without flushing pending data. The
-        corresponding protocol will eventually have its `connection_lost()`
-        method called with None
+    def drop(self):
+        """Close connection abruptly and synchronously without flushing pending
+        data and without invoking the corresponding protocol's
+        `connection_lost()` method.
+
+        NOTE: This differs from asyncio transport's `abort()` and `close()`
+        methods which close the stream asynchronously and eventually call the
+        protocol's `connection_lost()` method. The abrupt synchronous behavior
+        of the `drop()` method suits Pika's current connection-management logic
+        better.
+
+        :raises Exception: Exception-based exception on error
         """
-        self._initiate_abort(None)
+        _LOGGER.info('Dropping transport connection immediately: state=%s; %s',
+                     self._state, self._sock)
+
+        self._deactivate()
+        self._close_and_finalize()
+
+        self._state = self._STATE_COMPLETED
 
     def get_protocol(self):
         """Return the protocol linked to this transport.
@@ -810,26 +824,56 @@ class _AsyncTransportBase(  # pylint: disable=W0223
         """
         return sock.send(data)
 
-    def _initiate_abort(self, error):
-        """Initiate abort of the transport
+    def _deactivate(self):
+        """Unregister the transport from I/O events
 
-        :param BaseException | None error: None if being canceled by user;
+        """
+        if self._state == self._STATE_ACTIVE:
+            _LOGGER.info('Deactivating transport: state=%s; %s',
+                         self._state, self._sock)
+            self._async.remove_reader()
+            self._async.remove_writer()
+            self._tx_buffers.clear()
+
+    def _close_and_finalize(self):
+        """Close the transport's socket and unlink the transport it from
+        references to other assets (protocol, etc.)
+
+        """
+        if self._state != self._STATE_COMPLETED:
+            _LOGGER.info('Closing transport socket and unlinking: state=%s; %s',
+                         self._state, self._sock)
+            try:
+                self._sock.shutdown(socket.SHUT_RDWR)
+            except pika.compat.SOCKET_ERROR:
+                pass
+            self._sock.close()
+            self._sock = None
+            self._protocol = None
+            self._async = None
+            self._state = self._STATE_COMPLETED
+
+    def _initiate_abort(self, error):
+        """Initiate asynchronous abort of the transport that concludes with a
+        call to the protocol's `connection_lost()` method. No flushing of
+        output buffers will take place.
+
+        :param BaseException | None error: None if being canceled by user,
+            including via falsie return value from protocol.eof_received;
             otherwise the exception corresponding to the the failed connection.
         """
         _LOGGER.info(
-            'Initiating abrupt transport shutdown: state=%s; error=%r; %s',
-            self._state, error, self._sock)
+            'Initiating abrupt asynchronous transport shutdown: state=%s; '
+            'error=%r; %s', self._state, error, self._sock)
 
         assert self._state != self._STATE_COMPLETED, self._state
 
         if self._state == self._STATE_COMPLETED:
             return
 
-        if self._state == self._STATE_ACTIVE:
-            self._async.remove_reader()
-            self._async.remove_writer()
-            self._tx_buffers.clear()
+        self._deactivate()
 
+        # Update state
         if error is None:
             # Being aborted by user
 
@@ -876,8 +920,6 @@ class _AsyncTransportBase(  # pylint: disable=W0223
             assert self._state == self._STATE_ABORTED_BY_USER, self._state
             return
 
-        self._state = self._STATE_COMPLETED
-
         # Inform protocol
         try:
             self._protocol.connection_lost(error)
@@ -885,14 +927,7 @@ class _AsyncTransportBase(  # pylint: disable=W0223
             _LOGGER.error('protocol.connection_lost(%r) failed: exc=%r; %s',
                           error, exc, self._sock)
         finally:
-            try:
-                self._sock.shutdown(socket.SHUT_RDWR)
-            except pika.compat.SOCKET_ERROR:
-                pass
-            self._sock.close()
-            self._sock = None
-            self._protocol = None
-            self._async = None
+            self._close_and_finalize()
 
 
 class _AsyncPlaintextTransport(_AsyncTransportBase):

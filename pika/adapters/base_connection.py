@@ -182,8 +182,7 @@ class BaseConnection(connection.Connection):
             self._transport_mgr = None
 
         if self._transport is not None:
-            # TODO make transport.abort() synchronous, without callback
-            self._transport.abort()
+            self._transport.drop()
             self._transport = None
 
     def _adapter_emit_data(self, data):

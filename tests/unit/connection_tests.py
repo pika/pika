@@ -330,7 +330,7 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
         self.connection.add_on_open_error_callback(dummy_callback)
         self.connection.callbacks.remove.assert_called_once_with(
             0, self.connection.ON_CONNECTION_ERROR,
-            self.connection._on_connection_error)
+            self.connection._default_on_connection_error)
         self.connection.callbacks.add.assert_called_once_with(
             0, self.connection.ON_CONNECTION_ERROR, dummy_callback, False)
 

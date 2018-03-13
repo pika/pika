@@ -347,10 +347,16 @@ class AbstractStreamTransport(pika.compat.AbstractBase):
     """
 
     @abc.abstractmethod
-    def abort(self):
-        """Close connection abruptly without flushing pending data. The
-        corresponding protocol will eventually have its `connection_lost()`
-        method called with None
+    def drop(self):
+        """Close connection abruptly and synchronously without flushing pending
+        data and without invoking the corresponding protocol's
+        `connection_lost()` method.
+
+        NOTE: This differs from asyncio transport's `abort()` and `close()`
+        methods which close the stream asynchronously and eventually call the
+        protocol's `connection_lost()` method. The abrupt synchronous behavior
+        of the `drop()` method suits Pika's current connection-management logic
+        better.
 
         :raises Exception: Exception-based exception on error
         """

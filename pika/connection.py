@@ -4,7 +4,6 @@
 
 import abc
 import ast
-import collections
 import copy
 import functools
 import logging
@@ -1062,7 +1061,8 @@ class Connection(pika.compat.AbstractBase):
 
         # Add the on connection error callback
         self.callbacks.add(0, self.ON_CONNECTION_ERROR,
-                           on_open_error_callback or self._on_connection_error,
+                           on_open_error_callback or
+                           self._default_on_connection_error,
                            False)
 
         # On connection callback
@@ -1170,7 +1170,7 @@ class Connection(pika.compat.AbstractBase):
             raise TypeError('callback should be a function or method.')
         if remove_default:
             self.callbacks.remove(0, self.ON_CONNECTION_ERROR,
-                                  self._on_connection_error)
+                                  self._default_on_connection_error)
         self.callbacks.add(0, self.ON_CONNECTION_ERROR, callback, False)
 
     @abc.abstractmethod
@@ -1828,8 +1828,10 @@ class Connection(pika.compat.AbstractBase):
 
         self._on_terminate(self.closing[0], self.closing[1])
 
-    def _on_connection_error(self, _connection_unused, error_message=None):
-        """Default behavior when the connecting connection can not connect.
+    def _default_on_connection_error(self, _connection_unused,
+                                     error_message=None):
+        """Default behavior when the connecting connection cannot connect and
+        user didn't supply own `on_connection_error` callback.
 
         :raises: exceptions.AMQPConnectionError
 
@@ -1879,7 +1881,7 @@ class Connection(pika.compat.AbstractBase):
             error_pair = (InternalCloseReasons.AMQP_VERSION_MISMATCH, error)
         except exceptions.AuthenticationError as error:
             error_pair = (InternalCloseReasons.AUTH_MISMATCH, error)
-        except Exception as error:
+        except Exception as error:  # pylint: disable=W0703
             error_pair = (InternalCloseReasons.UNEXPECTED_ERROR, error)
 
         if error_pair is not None:
