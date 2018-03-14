@@ -2045,7 +2045,7 @@ class Connection(pika.compat.AbstractBase):
         :param str reason_text: human-readable text message describing the error
         """
         LOGGER.info(
-            'Disconnected from RabbitMQ at %s:%i (%s): %s',
+            'Disconnected from AMQP Broker at %s:%i (%s): %s',
             self.params.host, self.params.port, reason_code,
             reason_text)
 

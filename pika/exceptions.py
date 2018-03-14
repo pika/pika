@@ -82,10 +82,11 @@ class ChannelClosed(AMQPChannelError):
 
     def __repr__(self):
         if len(self.args) == 2:
-            return 'The channel was closed (%s) %s' % (self.args[0],
-                                                       self.args[1])
+            return '{}: ({}) {}'.format(self.__class__.__name__,
+                                        self.args[0],
+                                        self.args[1])
         else:
-            return 'The channel was closed: %s' % (self.args,)
+            return '{}: {}'.format(self.__class__.__name__, self.args)
 
 
 class ChannelAlreadyClosing(AMQPChannelError):

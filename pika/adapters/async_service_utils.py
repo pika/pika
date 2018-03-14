@@ -15,8 +15,17 @@ import ssl
 from pika.adapters import async_interface
 import pika.compat
 
-# EINPROGRESS for Posix and EWOULDBLOCK for Windows
-_TRY_AGAIN_SOCK_ERROR_CODES = (errno.EAGAIN, errno.EWOULDBLOCK,)
+
+# "Try again" error codes for non-blocking socket I/O - send()/recv().
+# NOTE: POSIX.1 allows either error to be returned for this case and doesn't require
+# them to have the same value.
+_TRY_IO_AGAIN_SOCK_ERROR_CODES = (errno.EAGAIN, errno.EWOULDBLOCK,)
+
+# "Connection establishment pending" error codes for non-blocking socket
+# connect() call.
+# NOTE: EINPROGRESS for Posix and EWOULDBLOCK for Windows
+_CONNECTION_IN_PROGRESS_SOCK_ERROR_CODES = (errno.EINPROGRESS,
+                                            errno.EWOULDBLOCK,)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -208,6 +217,7 @@ class _AsyncSocketConnector(object):
         :param socket.socket sock: non-blocking socket that needs to be
             connected via `socket.socket.connect()`
         :param tuple resolved_addr: resolved destination address/port two-tuple
+            which is compatible with the given's socket's address family
         :param callable on_done: user callback that takes None upon successful
             completion or exception upon error (check for `BaseException`) as
             its only arg. It will not be called if the operation was cancelled.
@@ -304,7 +314,7 @@ class _AsyncSocketConnector(object):
             self._sock.connect(self._addr)
         except (Exception, pika.compat.SOCKET_ERROR) as error:  # pylint: disable=W0703
             if (isinstance(error, pika.compat.SOCKET_ERROR) and
-                    error.errno in _TRY_AGAIN_SOCK_ERROR_CODES):
+                    error.errno in _CONNECTION_IN_PROGRESS_SOCK_ERROR_CODES):
                 # Connection establishment is pending
                 pass
             else:
@@ -401,11 +411,11 @@ class _AsyncStreamConnector(object):
         # to avoid stalling while waiting for the socket to become readable
         # and/or writable.
         try:
-            self._sock.getpeername()
+            sock.getpeername()
         except Exception as error:
             raise ValueError(
                 'Expected connected socket, but `getpeername()` failed: '
-                'error={!r}; {}; '.format(error, self._sock))
+                'error={!r}; {}; '.format(error, sock))
 
         self._async = async_services
         self._protocol_factory = protocol_factory
@@ -771,7 +781,6 @@ class _AsyncTransportBase(  # pylint: disable=W0223
                               error, self._sock)
                 raise
 
-
     def _produce(self):
         """Utility method for use by subclasses to emit data from tx_buffers.
         This method sends chunks from `tx_buffers` until all chunks are
@@ -831,8 +840,8 @@ class _AsyncTransportBase(  # pylint: disable=W0223
         if self._state == self._STATE_ACTIVE:
             _LOGGER.info('Deactivating transport: state=%s; %s',
                          self._state, self._sock)
-            self._async.remove_reader()
-            self._async.remove_writer()
+            self._async.remove_reader(self._sock.fileno())
+            self._async.remove_writer(self._sock.fileno())
             self._tx_buffers.clear()
 
     def _close_and_finalize(self):
@@ -1005,7 +1014,7 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
                     self._initiate_abort(None)
         except (Exception, pika.compat.SOCKET_ERROR) as error:  # pylint: disable=W0703
             if (isinstance(error, pika.compat.SOCKET_ERROR) and
-                    error.errno in _TRY_AGAIN_SOCK_ERROR_CODES):
+                    error.errno in _TRY_IO_AGAIN_SOCK_ERROR_CODES):
                 _LOGGER.debug('Recv would block on %s', self._sock)
             else:
                 _LOGGER.error('Consume failed, aborting connection: %r; %s',
@@ -1039,7 +1048,7 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
             self._produce()
         except (Exception, pika.compat.SOCKET_ERROR) as error:  # pylint: disable=W0703
             if (isinstance(error, pika.compat.SOCKET_ERROR) and
-                    error.errno in _TRY_AGAIN_SOCK_ERROR_CODES):
+                    error.errno in _TRY_IO_AGAIN_SOCK_ERROR_CODES):
                 _LOGGER.debug('Send would block on %s', self._sock)
             else:
                 _LOGGER.error('Consume failed, aborting connection: %r; %s',

@@ -245,7 +245,7 @@ class TestSuddenBrokerDisconnectBeforeChannel(BlockingTestCaseBase):
 
         self.assertTrue(self.connection.is_closed)
         self.assertFalse(self.connection.is_open)
-        self.assertIsNone(self.connection._impl.socket)
+        self.assertIsNone(self.connection._impl._transport)
 
 
 class TestNoAccessToFileDescriptorAfterConnectionClosed(BlockingTestCaseBase):
@@ -268,10 +268,9 @@ class TestNoAccessToFileDescriptorAfterConnectionClosed(BlockingTestCaseBase):
 
         self.assertTrue(self.connection.is_closed)
         self.assertFalse(self.connection.is_open)
-        self.assertIsNone(self.connection._impl.socket)
+        self.assertIsNone(self.connection._impl._transport)
 
         # Attempt to operate on the connection once again after ConnectionClosed
-        self.assertIsNone(self.connection._impl.socket)
         with self.assertRaises(pika.exceptions.ConnectionClosed):
             self.connection.channel()
 

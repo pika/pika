@@ -130,7 +130,7 @@ class _AsyncioAsyncServicesAdapter(
             `remove_timeout()`
 
         """
-        self._loop.call_later(delay, callback)
+        return self._loop.call_later(delay, callback)
 
     def remove_timeout(self, timeout_handle):
         """Remove a timeout

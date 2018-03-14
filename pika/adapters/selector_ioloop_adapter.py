@@ -161,9 +161,9 @@ class AbstractSelectorIOLoop(object):
 
 
 class SelectorAsyncServicesAdapter(
-        async_interface.AbstractAsyncServices,
         async_service_utils.AsyncSocketConnectionMixin,
-        async_service_utils.AsyncStreamingConnectionMixin):
+        async_service_utils.AsyncStreamingConnectionMixin,
+        async_interface.AbstractAsyncServices):
     """Implementation of ioloop exposing the
     `async_interface.AbstractAsyncServices` interface and making use of
     selector-style native loop having the `AbstractSelectorIOLoop` interface.
@@ -266,7 +266,7 @@ class SelectorAsyncServicesAdapter(
             `remove_timeout()`
 
         """
-        self._loop.call_later(delay, callback)
+        return self._loop.call_later(delay, callback)
 
     def remove_timeout(self, timeout_handle):
         """Remove a timeout
@@ -584,14 +584,15 @@ class _AddressResolver(object):
 
         """
         try:
-            result = socket.getaddrinfo(host=self._host,
-                                        port=self._port,
-                                        family=self._family,
-                                        type=self._socktype,
-                                        proto=self._proto,
-                                        flags=self._flags)
+            # NOTE: on python 2.x, can't pass keyword args to getaddrinfo()
+            result = socket.getaddrinfo(self._host,
+                                        self._port,
+                                        self._family,
+                                        self._socktype,
+                                        self._proto,
+                                        self._flags)
         except Exception as result:  # pylint: disable=W0703
-            LOGGER.error('Address resoultion failed: %r', result)
+            LOGGER.error('Address resolution failed: %r', result)
 
         self._result = result
 

@@ -345,8 +345,8 @@ class TwistedProtocolConnection(base_connection.BaseConnection):
             d.errback(exc)
 
 
+@implementer(async_interface.AbstractAsyncServices)
 class _TwistedAsyncServicesAdapter(
-        async_interface.AbstractAsyncServices,
         async_service_utils.AsyncSocketConnectionMixin,
         async_service_utils.AsyncStreamingConnectionMixin):
     """Implement async_interface.AbstractAsyncServices on top of Twisted
@@ -388,7 +388,6 @@ class _TwistedAsyncServicesAdapter(
 
         def doWrite(self):
             self.on_writable()
-
 
     def __init__(self, in_reactor):
         """
