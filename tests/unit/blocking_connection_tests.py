@@ -231,7 +231,7 @@ class BlockingConnectionTests(unittest.TestCase):
         channel1_mock = mock.Mock(
             is_open=True,
             close=mock.Mock(
-                side_effect=ChannelClosed,
+                side_effect=ChannelClosed(-1, 'Just because'),
                 spec_set=pika.channel.Channel.close),
             spec_set=blocking_connection.BlockingChannel)
 

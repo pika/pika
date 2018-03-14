@@ -71,17 +71,50 @@ class ConnectionClosed(AMQPConnectionError):
 class AMQPChannelError(AMQPError):
 
     def __repr__(self):
-        return 'An unspecified AMQP channel error has occurred'
+        return 'An unspecified AMQP channel error has occurred: {!r}'.format(
+            self.args)
 
 
 class ChannelClosed(AMQPChannelError):
+    """The channel is in a state other than OPEN (e.g., OPENING, CLOSING, or
+    CLOSED). You may introspect the channel's state properties (`is_closed`,
+    `is_closing`).
+
+    """
+    def __init__(self, reply_code, reply_text):
+        """
+
+        :param int reply_code: reply-code that was used in user's or broker's
+            `Channel.Close` method. One of the AMQP-defined Channel Errors or
+            negative error values from `Channel.ClientChannelErrors`;
+            NEW in v1.0.0
+        :param str reply_text: reply-text that was used in user's or broker's
+            `Channel.Close` method. Human-readable string corresponding to
+            `reply_code`;
+            NEW in v1.0.0
+        """
+        super(ChannelClosed, self).__init__(int(reply_code), str(reply_text))
 
     def __repr__(self):
-        if len(self.args) == 2:
-            return 'The channel was closed (%s) %s' % (self.args[0],
-                                                       self.args[1])
-        else:
-            return 'The channel was closed: %s' % (self.args,)
+        return '{}: ({}) {!r}'.format(self.__class__.__name__,
+                                      self.reply_code,
+                                      self.reply_text)
+
+    @property
+    def reply_code(self):
+        """ NEW in v1.0.0
+        :rtype: int
+
+        """
+        return self.args[0]
+
+    @property
+    def reply_text(self):
+        """ NEW in v1.0.0
+        :rtype: int
+
+        """
+        return self.args[1]
 
 
 class ChannelAlreadyClosing(AMQPChannelError):

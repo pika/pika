@@ -223,6 +223,7 @@ class _TimerEvt(object):
 
     def dispatch(self):
         """Dispatch the user's callback method"""
+        LOGGER.debug('_TimerEvt.dispatch: invoking callback=%r', self._callback)
         self._callback()
 
 
@@ -1120,13 +1121,6 @@ class BlockingChannel(object):
         'BlockingChannel__OnMessageConfirmationReportArgs',
         'method_frame')
 
-    # Parameters for broker-initiated Channel.Close request: reply_code
-    # holds the broker's non-zero error code and reply_text holds the
-    # corresponding error message text.
-    _OnChannelClosedByBrokerArgs = namedtuple(
-        'BlockingChannel__OnChannelClosedByBrokerArgs',
-        'method_frame')
-
     # For use as value_class with _CallbackResult expecting Channel.Flow
     # confirmation.
     _FlowOkCallbackResultArgs = namedtuple(
@@ -1139,8 +1133,8 @@ class BlockingChannel(object):
     def __init__(self, channel_impl, connection):
         """Create a new instance of the Channel
 
-        :param channel_impl: Channel implementation object as returned from
-                             SelectConnection.channel()
+        :param pika.channel.Channel channel_impl: Channel implementation object
+            as returned from SelectConnection.channel()
         :param BlockingConnection connection: The connection object
 
         """
@@ -1174,10 +1168,6 @@ class BlockingChannel(object):
         # Receives Basic.ConsumeOk reply from server
         self._basic_consume_ok_result = _CallbackResult()
 
-        # Receives the broker-inititated Channel.Close parameters
-        self._channel_closed_by_broker_result = _CallbackResult(
-            self._OnChannelClosedByBrokerArgs)
-
         # Receives args from Basic.GetEmpty response
         #  http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.get
         self._basic_getempty_result = _CallbackResult(
@@ -1190,10 +1180,7 @@ class BlockingChannel(object):
             replies=[pika.spec.Basic.ConsumeOk],
             one_shot=False)
 
-        self._impl.add_callback(
-            self._on_channel_closed,
-            replies=[pika.spec.Channel.Close],
-            one_shot=True)
+        self._impl.add_on_close_callback(self._on_channel_closed)
 
         self._impl.add_callback(
             self._basic_getempty_result.set_value_once,
@@ -1230,6 +1217,7 @@ class BlockingChannel(object):
         self._message_confirmation_result.reset()
         self._pending_events = deque()
         self._consumer_infos = dict()
+        self._queue_consumer_generator = None
 
     @property
     def channel_number(self):
@@ -1284,21 +1272,17 @@ class BlockingChannel(object):
                         Their results are OR'ed together.
         """
         if self.is_closed:
-            raise exceptions.ChannelClosed()
+            self._impl._raise_if_not_open()
 
         if not waiters:
             waiters = self._ALWAYS_READY_WAITERS
 
         self._connection._flush_output(
-            self._channel_closed_by_broker_result.is_ready,
+            lambda: self.is_closed,
             *waiters)
 
-        if self._channel_closed_by_broker_result:
-            # Channel was force-closed by broker
-            self._cleanup()
-            method = (
-                self._channel_closed_by_broker_result.value.method_frame.method)
-            raise exceptions.ChannelClosed(method.reply_code, method.reply_text)
+        if self.is_closed and self._impl.is_closed_by_broker:
+            self._impl._raise_if_not_open()
 
     def _on_puback_message_returned(self, channel, method, properties, body):
         """Called as the result of Basic.Return from broker in
@@ -1328,7 +1312,6 @@ class BlockingChannel(object):
 
         self._puback_return = ReturnedMessage(method, properties, body)
 
-
     def _add_pending_event(self, evt):
         """Append an event to the channel's list of events that are ready for
         dispatch to user and signal our connection that this channel is ready
@@ -1339,25 +1322,41 @@ class BlockingChannel(object):
         self._pending_events.append(evt)
         self.connection._request_channel_dispatch(self.channel_number)
 
+    def _on_channel_closed(self, _channel, reply_code, reply_text):
+        """Callback from impl notifying us that the channel has been closed.
+        This may be as the result of user-, broker-, or internal connection
+        clean-up initiated closing or meta-closing of the channel.
 
-    def _on_channel_closed(self, method_frame):
-        """Called by impl when a channel is closed by the broker
-        via Channel.Close
+        If it resulted from receiving `Channel.Close` from broker, we will
+        expedite waking up of the event subsystem so that it may respond by
+        raising `ChannelClosed` from user's context.
 
-        :param pika.Channel channel: channel closed by the
-            `spec.Channel.Close` method
-        :param int reply_code: The reply code sent via Channel.Close
-        :param str reply_text: The reply text sent via Channel.Close
+        NOTE: We can't raise exceptions in callbacks in order to protect
+        the integrity of the underlying implementation. BlockingConnection's
+        underlying asynchronous connection adapter (SelectConnection) uses
+        callbacks to communicate with us. If BlockingConnection leaks exceptions
+        back into the I/O loop or the asynchronous connection adapter, we
+        interrupt their normal workflow and introduce a high likelihood of state
+        inconsistency.
 
+        See `pika.Channel.add_on_close_callback()` for additional documentation.
+
+        :param pika.Channel _channel: (unused)
+        :param int reply_code:
+        :param str reply_text:
         """
-        LOGGER.debug('_on_channel_closed_by_broker %s', method_frame)
-        self._channel_closed_by_broker_result.set_value_once(method_frame)
-        channel_number = method_frame.channel_number
-        self.connection._request_channel_dispatch(-channel_number)
-        self._cleanup()
-        method = method_frame.method
-        raise exceptions.ChannelClosed(method.reply_code,
-                                       method.reply_text)
+        LOGGER.debug('_on_channel_closed: by_broker=%s; (%s) %s; %r',
+                     self._impl.is_closed_by_broker,
+                     reply_code,
+                     reply_text,
+                     self)
+
+        if self._impl.is_closed_by_broker:
+            self._cleanup()
+
+            # Request urgent termination of `process_data_events()`, in case
+            # it's executing or next time it will execute
+            self.connection._request_channel_dispatch(-self.channel_number)
 
     def _on_consumer_cancelled_by_broker(self, method_frame):
         """Called by impl when broker cancels consumer via Basic.Cancel.
@@ -1441,12 +1440,12 @@ class BlockingChannel(object):
         while self._pending_events:
             evt = self._pending_events.popleft()
 
-            if type(evt) is _ConsumerDeliveryEvt:
+            if type(evt) is _ConsumerDeliveryEvt:  # pylint: disable=C0123
                 consumer_info = self._consumer_infos[evt.method.consumer_tag]
                 consumer_info.on_message_callback(self, evt.method,
                                                   evt.properties, evt.body)
 
-            elif type(evt) is _ConsumerCancellationEvt:
+            elif type(evt) is _ConsumerCancellationEvt:  # pylint: disable=C0123
                 del self._consumer_infos[evt.method_frame.method.consumer_tag]
 
                 self._impl.callbacks.process(self.channel_number,
@@ -1455,7 +1454,6 @@ class BlockingChannel(object):
                                              evt.method_frame)
             else:
                 evt.dispatch()
-
 
     def close(self, reply_code=0, reply_text="Normal shutdown"):
         """Will invoke a clean shutdown of the channel with the AMQP Broker.
@@ -1466,18 +1464,15 @@ class BlockingChannel(object):
         """
         LOGGER.debug('Channel.close(%s, %s)', reply_code, reply_text)
 
-        # Cancel remaining consumers
-        self._cancel_all_consumers()
+        self._impl._raise_if_not_open()
 
-        # Close the channel
         try:
-            with _CallbackResult() as close_ok_result:
-                self._impl.add_callback(callback=close_ok_result.signal_once,
-                                        replies=[pika.spec.Channel.CloseOk],
-                                        one_shot=True)
+            # Cancel remaining consumers
+            self._cancel_all_consumers()
 
-                self._impl.close(reply_code=reply_code, reply_text=reply_text)
-                self._flush_output(close_ok_result.is_ready)
+            # Close the channel
+            self._impl.close(reply_code=reply_code, reply_text=reply_text)
+            self._flush_output(lambda: self.is_closed)
         finally:
             self._cleanup()
 
@@ -1785,11 +1780,11 @@ class BlockingChannel(object):
         unprocessed_messages = []
         while self._pending_events:
             evt = self._pending_events.popleft()
-            if type(evt) is _ConsumerDeliveryEvt:
+            if type(evt) is _ConsumerDeliveryEvt:  # pylint: disable=C0123
                 if evt.method.consumer_tag == consumer_tag:
                     unprocessed_messages.append(evt)
                     continue
-            if type(evt) is _ConsumerCancellationEvt:
+            if type(evt) is _ConsumerCancellationEvt:  # pylint: disable=C0123
                 if evt.method_frame.method.consumer_tag == consumer_tag:
                     # A broker-initiated Basic.Cancel must have arrived
                     # before our cancel request completed
@@ -1811,7 +1806,7 @@ class BlockingChannel(object):
 
         :raises pika.exceptions.RecursionError: if called from the scope of a
             `BlockingConnection` or `BlockingChannel` callback
-
+        :raises ChannelClosed: when this channel is closed by broker.
         """
         # Check if called from the scope of an event dispatch callback
         with self.connection._acquire_event_dispatch() as dispatch_allowed:
@@ -1820,9 +1815,12 @@ class BlockingChannel(object):
                     'start_consuming may not be called from the scope of '
                     'another BlockingConnection or BlockingChannel callback')
 
+        self._impl._raise_if_not_open()
+
         # Process events as long as consumers exist on this channel
         while self._consumer_infos:
-            self.connection.process_data_events(time_limit=None)
+            # This will raise ChannelClosed if channel is closed by broker
+            self._process_data_events(time_limit=None)
 
     def stop_consuming(self, consumer_tag=None):
         """ Cancels all consumers, signalling the `start_consuming` loop to
@@ -1879,7 +1877,11 @@ class BlockingChannel(object):
         :raises ValueError: if consumer-creation parameters don't match those
             of the existing queue consumer generator, if any.
             NEW in pika 0.10.0
+        :raises ChannelClosed: when this channel is closed by broker.
+
         """
+        self._impl._raise_if_not_open()
+
         params = (queue, auto_ack, exclusive)
 
         if self._queue_consumer_generator is not None:
@@ -1918,9 +1920,10 @@ class BlockingChannel(object):
                         self._queue_consumer_generator)
 
         while self._queue_consumer_generator is not None:
+            # Process pending events
             if self._queue_consumer_generator.pending_events:
                 evt = self._queue_consumer_generator.pending_events.popleft()
-                if type(evt) is _ConsumerCancellationEvt:
+                if type(evt) is _ConsumerCancellationEvt:  # pylint: disable=C0123
                     # Consumer was cancelled by broker
                     self._queue_consumer_generator = None
                     break
@@ -1928,9 +1931,11 @@ class BlockingChannel(object):
                     yield (evt.method, evt.properties, evt.body)
                     continue
 
-            # Wait for a message to arrive
             if inactivity_timeout is None:
-                self.connection.process_data_events(time_limit=None)
+                # Wait indefinitely for a message to arrive, while processing
+                # I/O events and triggering ChannelClosed exception when the
+                # channel fails
+                self._process_data_events(time_limit=None)
                 continue
 
             # Wait with inactivity timeout
@@ -1940,7 +1945,8 @@ class BlockingChannel(object):
 
             while (self._queue_consumer_generator is not None and
                    not self._queue_consumer_generator.pending_events):
-                self.connection.process_data_events(time_limit=delta)
+
+                self._process_data_events(time_limit=delta)
 
                 if not self._queue_consumer_generator:
                     # Consumer was cancelled by client
@@ -1956,6 +1962,33 @@ class BlockingChannel(object):
                     yield (None, None, None)
                     break
 
+    def _process_data_events(self, time_limit):
+        """Wrapper for `BlockingConnection.process_data_events()` with common
+        channel-specific logic that raises ChannelClosed if broker closed this
+        channel.
+
+        NOTE: We need to raise an exception in the context of user's call into
+        our API to protect the integrity of the underlying implementation.
+        BlockingConnection's underlying asynchronous connection adapter
+        (SelectConnection) uses callbacks to communicate with us. If
+        BlockingConnection leaks exceptions back into the I/O loop or the
+        asynchronous connection adapter, we interrupt their normal workflow and
+        introduce a high likelihood of state inconsistency.
+
+        See `BlockingConnection.process_data_events()` for documentation of args
+        and behavior.
+
+        :param float time_limit:
+        :return:
+
+        """
+        self.connection.process_data_events(time_limit=time_limit)
+        if self.is_closed and self._impl.is_closed_by_broker:
+            LOGGER.debug(
+                'Channel close by broker detected, raising ChannelClose...; %r',
+                self)
+            self._impl._raise_if_not_open()
+
     def get_waiting_message_count(self):
         """Returns the number of messages that may be retrieved from the current
         queue consumer generator via `BlockingChannel.consume` without blocking.
@@ -1966,7 +1999,7 @@ class BlockingChannel(object):
         if self._queue_consumer_generator is not None:
             pending_events = self._queue_consumer_generator.pending_events
             count = len(pending_events)
-            if count and type(pending_events[-1]) is _ConsumerCancellationEvt:
+            if count and type(pending_events[-1]) is _ConsumerCancellationEvt:  # pylint: disable=C0123
                 count -= 1
         else:
             count = 0
@@ -2111,7 +2144,7 @@ class BlockingChannel(object):
         :param routing_key: The routing key to bind on
         :type routing_key: str or unicode
         :param body: The message body; empty string if no body
-        :type body: str or unicode
+        :type body: bytes
         :param pika.spec.BasicProperties properties: message properties
         :param bool mandatory: The mandatory flag
         :param bool immediate: The immediate flag
@@ -2149,7 +2182,7 @@ class BlockingChannel(object):
         :param routing_key: The routing key to bind on
         :type routing_key: str or unicode
         :param body: The message body; empty string if no body
-        :type body: str or unicode
+        :type body: bytes
         :param pika.spec.BasicProperties properties: message properties
         :param bool mandatory: The mandatory flag
         :param bool immediate: The immediate flag
