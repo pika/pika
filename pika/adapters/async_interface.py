@@ -98,6 +98,7 @@ class AbstractAsyncServices(pika.compat.AbstractBase):
               by it must be performed from the IOLoop's thread.
 
         :param method callback: The callback method; must be callable.
+        :return: None
         """
         pass
 
@@ -107,19 +108,13 @@ class AbstractAsyncServices(pika.compat.AbstractBase):
         from the time of call on best-effort basis. Returns a handle to the
         timeout.
 
+        If two are scheduled for the same time, it's undefined which one will
+        be called first.
+
         :param float delay: The number of seconds to wait to call callback
         :param method callback: The callback method
-        :rtype: handle to the created timeout that may be passed to
-            `remove_timeout()`
-
-        """
-        pass
-
-    @abc.abstractmethod
-    def remove_timeout(self, timeout_handle):
-        """Remove a timeout
-
-        :param timeout_handle: Handle of timeout to remove
+        :returns: A handle that can be used to cancel the request.
+        :rtype: AbstractTimerReference
 
         """
         pass
@@ -255,6 +250,18 @@ class AbstractAsyncServices(pika.compat.AbstractBase):
             establishment to match against the target server's certificate. The
             value `None` disables this check (which is a huge security risk)
         :rtype: AbstractAsyncReference
+        """
+        pass
+
+
+class AbstractTimerReference(pika.compat.AbstractBase):
+    """Reference to asynchronous operation"""
+
+    @abc.abstractmethod
+    def cancel(self):
+        """Cancel callback. If already cancelled, has no affect.
+
+        :returns: None
         """
         pass
 

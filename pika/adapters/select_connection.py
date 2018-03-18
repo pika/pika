@@ -198,7 +198,7 @@ class _Timer(object):
         # timeout and garbage-collect it at a later time; see discussion
         # in http://docs.python.org/library/heapq.html
         if timeout.callback is None:
-            LOGGER.warning(
+            LOGGER.debug(
                 'remove_timeout: timeout was already removed or called %r',
                 timeout)
         else:

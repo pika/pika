@@ -1179,8 +1179,10 @@ class Connection(pika.compat.AbstractBase):
         specified number of seconds have elapsed, using a timer, or a
         thread, or similar.
 
-        :param int deadline: The number of seconds to wait to call callback
+        :param float deadline: The number of seconds to wait to call callback
         :param method callback: The callback will be called without args.
+        :return: Handle that can be passed to `remove_timeout()` to cancel the
+            callback.
 
         """
         raise NotImplementedError
@@ -1189,7 +1191,7 @@ class Connection(pika.compat.AbstractBase):
     def remove_timeout(self, timeout_id):
         """Adapters should override: Remove a timeout
 
-        :param str timeout_id: The timeout id to remove
+        :param opaque timeout_id: The timeout handle to remove
 
         """
         raise NotImplementedError

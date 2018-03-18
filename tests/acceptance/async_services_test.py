@@ -44,15 +44,14 @@ class TestRunWithStopFromThreadsafeCallback(AsyncServicesTestBase,
         loop.add_callback_threadsafe(callback)
         loop.run()
 
-        self.assertEqual(len(bucket), 1)
+        self.assertEqual(bucket, ['I was called'])
 
 
-class TestCallLater(AsyncServicesTestBase,
-                    AsyncServicesTestStubs):
+class TestCallLaterDoesNotCallAheadOfTime(AsyncServicesTestBase,
+                                          AsyncServicesTestStubs):
 
     def start(self):
         loop = self.create_async()
-
         bucket = []
 
         def callback():
@@ -63,4 +62,58 @@ class TestCallLater(AsyncServicesTestBase,
         loop.call_later(0.1, callback)
         loop.run()
         self.assertGreaterEqual(time.time() - start_time, 0.1)
-        self.assertEqual(len(bucket), 1)
+        self.assertEqual(bucket, ['I was here'])
+
+
+class TestCallLaterCancelReturnsNone(AsyncServicesTestBase,
+                                     AsyncServicesTestStubs):
+
+    def start(self):
+        loop = self.create_async()
+        self.assertIsNone(loop.call_later(0, lambda: None).cancel())
+
+
+class TestCallLaterCancelTwiceFromOwnCallback(AsyncServicesTestBase,
+                                              AsyncServicesTestStubs):
+
+    def start(self):
+        loop = self.create_async()
+        bucket = []
+
+        def callback():
+            timer.cancel()
+            timer.cancel()
+            loop.stop()
+            bucket.append('I was here')
+
+        timer = loop.call_later(0.1, callback)
+        loop.run()
+        self.assertEqual(bucket, ['I was here'])
+
+
+class TestCallLaterCallInOrder(AsyncServicesTestBase,
+                               AsyncServicesTestStubs):
+
+    def start(self):
+        loop = self.create_async()
+        bucket = []
+
+        loop.call_later(0.3, lambda: bucket.append(3) or loop.stop())
+        loop.call_later(0, lambda: bucket.append(1))
+        loop.call_later(0.15, lambda: bucket.append(2))
+        loop.run()
+        self.assertEqual(bucket, [1, 2, 3])
+
+
+class TestCallLaterCancelledDoesNotCallBack(AsyncServicesTestBase,
+                                            AsyncServicesTestStubs):
+
+    def start(self):
+        loop = self.create_async()
+        bucket = []
+
+        timer1 = loop.call_later(0, lambda: bucket.append(1))
+        timer1.cancel()
+        loop.call_later(0.15, lambda: bucket.append(2) or loop.stop())
+        loop.run()
+        self.assertEqual(bucket, [2])

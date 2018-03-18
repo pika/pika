@@ -157,7 +157,7 @@ class TestLostConnectionResultsInIsClosedConnectionAndChannel(BlockingTestCaseBa
         channel = connection.channel()
 
         # Simulate the server dropping the socket connection
-        connection._impl.socket.shutdown(socket.SHUT_RDWR)
+        connection._impl._transport._sock.shutdown(socket.SHUT_RDWR)
 
         with self.assertRaises(pika.exceptions.ConnectionClosed):
             # Changing QoS should result in ConnectionClosed
@@ -584,7 +584,6 @@ class TestRemoveTimeoutFromTimeoutCallback(BlockingTestCaseBase):
         while not rx_timer2:
             connection.process_data_events(time_limit=None)
 
-        self.assertIsNone(timer_id1.callback)
         self.assertFalse(connection._ready_events)
 
 

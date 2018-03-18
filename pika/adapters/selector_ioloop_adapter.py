@@ -262,19 +262,11 @@ class SelectorAsyncServicesAdapter(
 
         :param int delay: The number of seconds to wait to call callback
         :param method callback: The callback method
-        :rtype: handle to the created timeout that may be passed to
-            `remove_timeout()`
+        :returns: timer handle that may be used to cancel the callback.
+        :rtype: _TimerHandle
 
         """
-        return self._loop.call_later(delay, callback)
-
-    def remove_timeout(self, timeout_handle):
-        """Remove a timeout
-
-        :param timeout_handle: Handle of timeout to remove
-
-        """
-        self._loop.remove_timeout(timeout_handle)
+        return _TimerHandle(self._loop.call_later(delay, callback), self._loop)
 
     def set_reader(self, fd, on_readable):
         """Call the given callback whenever the file descriptor is readable.
@@ -455,6 +447,29 @@ class _FileDescriptorCallbacks(object):
 
         self.reader = reader
         self.writer = writer
+
+
+class _TimerHandle(async_interface.AbstractTimerReference):
+    """This module's adaptation of `async_interface.AbstractTimerReference`.
+
+    """
+
+    def __init__(self, handle, loop):
+        """
+
+        :param opaque handle: timer handle from the underlying loop
+            implementation that may be passed to its `remove_timeout()` method
+        :param AbstractSelectorIOLoop loop: the I/O loop instance that created
+            the timeout.
+        """
+        self._handle = handle
+        self._loop = loop
+
+    def cancel(self):
+        if self._loop is not None:
+            self._loop.remove_timeout(self._handle)
+            self._handle = None
+            self._loop = None
 
 
 class _SelectorIOLoopAsyncHandle(async_interface.AbstractAsyncReference):

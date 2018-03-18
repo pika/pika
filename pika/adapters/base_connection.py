@@ -103,11 +103,12 @@ class BaseConnection(connection.Connection):
 
     def add_timeout(self, deadline, callback):
         """Add the callback to the IOLoop timer to fire after deadline
-        seconds. Returns a handle to the timeout
+        seconds.
 
-        :param int deadline: The number of seconds to wait to call callback
+        :param float deadline: The number of seconds to wait to call callback
         :param method callback: The callback method
-        :rtype: str
+        :return: Handle that can be passed to `remove_timeout()` to cancel the
+            callback.
 
         """
         return self._async.call_later(deadline, callback)
@@ -116,10 +117,8 @@ class BaseConnection(connection.Connection):
         """Remove the timeout from the IOLoop by the ID returned from
         add_timeout.
 
-        :rtype: str
-
         """
-        self._async.remove_timeout(timeout_id)
+        timeout_id.cancel()
 
     def add_callback_threadsafe(self, callback):
         """Requests a call to the given function as soon as possible in the

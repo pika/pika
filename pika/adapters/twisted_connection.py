@@ -19,7 +19,8 @@ import socket
 
 from zope.interface import implementer
 from twisted.internet.interfaces import IReadDescriptor, IWriteDescriptor
-from twisted.internet import defer, reactor, threads as twisted_threads
+from twisted.internet import (defer, error as twisted_error, reactor,
+                              threads as twisted_threads)
 
 from pika import exceptions
 from pika.adapters import base_connection, async_interface
@@ -455,20 +456,12 @@ class _TwistedAsyncServicesAdapter(
 
         :param int delay: The number of seconds to wait to call callback
         :param method callback: The callback method
-        :rtype: handle to the created timeout that may be passed to
-            `remove_timeout()`
+        :return: Timer handle that may be used to cancel the callback.
+        :rtype: _TimerHandle
 
         """
         check_callback_arg(callback, 'callback')
-        return self._reactor.callLater(delay, callback)
-
-    def remove_timeout(self, timeout_handle):
-        """Remove a timeout
-
-        :param timeout_handle: Handle of timeout to remove
-
-        """
-        timeout_handle.cancel()
+        return _TimerHandle(self._reactor.callLater(delay, callback))
 
     def set_reader(self, fd, on_readable):
         """Call the given callback when the file descriptor is readable.
@@ -567,6 +560,29 @@ class _TwistedAsyncServicesAdapter(
                 proto=proto,
                 flags=flags),
             on_done)
+
+
+class _TimerHandle(async_interface.AbstractTimerReference):
+    """This module's adaptation of `async_interface.AbstractTimerReference`.
+
+    """
+
+    def __init__(self, handle):
+        """
+
+        :param twisted.internet.base.DelayedCall handle:
+        """
+        self._handle = handle
+
+    def cancel(self):
+        if self._handle is not None:
+            try:
+                self._handle.cancel()
+            except (twisted_error.AlreadyCalled,
+                    twisted_error.AlreadyCancelled):
+                pass
+
+            self._handle = None
 
 
 class _TwistedDeferredAsyncReference(async_interface.AbstractAsyncReference):
