@@ -16,7 +16,7 @@ import unittest
 
 import mock
 
-from forward_server import ForwardServer
+from .forward_server import ForwardServer
 
 from pika.adapters import adapter_transport
 from pika.adapters.ioloop_interface import PollEvents

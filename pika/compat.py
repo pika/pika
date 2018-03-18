@@ -30,6 +30,7 @@ if not PY2:
     from urllib.parse import (quote as url_quote, unquote as url_unquote,
                               urlencode, parse_qs as url_parse_qs,
                               urlparse)
+    from io import StringIO
 
     # Python 3 does not have basestring anymore; we include
     # *only* the str here as this is used for textual data.
@@ -118,6 +119,8 @@ else:
     from urllib import quote as url_quote, unquote as url_unquote, urlencode
 
     from urlparse import parse_qs as url_parse_qs, urlparse
+
+    from StringIO import StringIO
 
     basestring = basestring
     str_or_bytes = basestring

@@ -8,8 +8,8 @@ import time
 import unittest
 import uuid
 
-from forward_server import ForwardServer
-from test_utils import retry_assertion
+from .forward_server import ForwardServer
+from .test_utils import retry_assertion
 
 import pika
 from pika.adapters import blocking_connection

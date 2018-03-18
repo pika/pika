@@ -54,6 +54,9 @@ class AbstractAsyncServices(pika.compat.AbstractBase):
     def run(self):
         """Run the I/O loop. It will loop until requested to exit. See `stop()`.
 
+        NOTE: the outcome or restarting an instance that had been stopped is
+        UNDEFINED!
+
         NOTE: This method is provided for Pika's own test scripts that need to
         be able to run I/O loops generically to test multiple Connection Adapter
         implementations (not all of the supported I/O Loop frameworks have
@@ -67,6 +70,9 @@ class AbstractAsyncServices(pika.compat.AbstractBase):
     def stop(self):
         """Request exit from the ioloop. The loop is NOT guaranteed to
         stop before this method returns.
+
+        NOTE: The outcome of calling `stop()` on a non-running instance is
+        UNDEFINED!
 
         NOTE: This method is provided for Pika's own test scripts that need to
         be able to run I/O loops generically to test multiple Connection Adapter
@@ -101,7 +107,7 @@ class AbstractAsyncServices(pika.compat.AbstractBase):
         from the time of call on best-effort basis. Returns a handle to the
         timeout.
 
-        :param int delay: The number of seconds to wait to call callback
+        :param float delay: The number of seconds to wait to call callback
         :param method callback: The callback method
         :rtype: handle to the created timeout that may be passed to
             `remove_timeout()`

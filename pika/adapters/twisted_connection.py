@@ -345,10 +345,11 @@ class TwistedProtocolConnection(base_connection.BaseConnection):
             d.errback(exc)
 
 
-@implementer(async_interface.AbstractAsyncServices)
+#@implementer(async_interface.AbstractAsyncServices)
 class _TwistedAsyncServicesAdapter(
         async_service_utils.AsyncSocketConnectionMixin,
-        async_service_utils.AsyncStreamingConnectionMixin):
+        async_service_utils.AsyncStreamingConnectionMixin,
+        async_interface.AbstractAsyncServices):
     """Implement async_interface.AbstractAsyncServices on top of Twisted
 
     """
