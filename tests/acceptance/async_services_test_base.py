@@ -153,22 +153,33 @@ class AsyncServicesTestBaseSelfChecks(AsyncServicesTestBase):
 
         # Suppress error output by redirecting to stringio_stderr
         stringio_stderr = pika.compat.StringIO()
-        with mock.patch.object(self, '_stderr', stringio_stderr):
-            # Redirect start() call from thread to our own my_start()
-            with mock.patch.object(self, 'start', my_start):
-                with self.assertRaises(AssertionError) as exc_ctx:
-                    self._kick_off(None, None)
+        try:
+            with mock.patch.object(self, '_stderr', stringio_stderr):
+                # Redirect start() call from thread to our own my_start()
+                with mock.patch.object(self, 'start', my_start):
+                    with self.assertRaises(AssertionError) as exc_ctx:
+                        self._kick_off(None, None)
 
-        self.assertIn('raise SelfCheckExceptionHandling()',
-                      exc_ctx.exception.args[0])
-        expected_tail = '.SelfCheckExceptionHandling\n'
-        self.assertEqual(exc_ctx.exception.args[0][-len(expected_tail):],
-                         expected_tail)
+            self.assertIn('raise SelfCheckExceptionHandling()',
+                          exc_ctx.exception.args[0])
+            expected_tail = 'SelfCheckExceptionHandling\n'
+            self.assertEqual(exc_ctx.exception.args[0][-len(expected_tail):],
+                             expected_tail)
 
-        self.assertIn('raise SelfCheckExceptionHandling()',
-                      stringio_stderr.getvalue())
-        self.assertEqual(stringio_stderr.getvalue()[-len(expected_tail):],
-                         expected_tail)
+            self.assertIn('raise SelfCheckExceptionHandling()',
+                          stringio_stderr.getvalue())
+            self.assertEqual(stringio_stderr.getvalue()[-len(expected_tail):],
+                             expected_tail)
+        except Exception:
+            try:
+                print('This stderr was captured from our thread wrapper:\n',
+                      stringio_stderr.getvalue(),
+                      file=sys.stderr)
+            except Exception:
+                pass
+
+            raise
+
 
     def test_handling_of_test_execution_thread_timeout(self):
         # Suppress error output by redirecting to our stringio_stderr object
