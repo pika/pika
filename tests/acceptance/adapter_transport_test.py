@@ -18,8 +18,8 @@ import mock
 
 from .forward_server import ForwardServer
 
-from pika.adapters import adapter_transport
-from pika.adapters.ioloop_interface import PollEvents
+#from pika.adapters import adapter_transport
+#from pika.adapters.ioloop_interface import PollEvents
 from pika.adapters import select_connection
 import pika.compat
 
@@ -49,6 +49,8 @@ DEFAULT_PARAMS = pika.URLParameters(DEFAULT_URL)
 DEFAULT_TIMEOUT = 15
 
 
+@unittest.skip('Transports have changed; we will want to borrow from this to '
+               'test the new tranports and AbastractAsyncServices adapters')
 def setUpModule():
     logging.basicConfig(level=logging.DEBUG)
 

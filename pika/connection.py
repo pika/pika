@@ -1162,7 +1162,8 @@ class Connection(pika.compat.AbstractBase):
         The callback method should accept the connection instance that could not
         connect, and either a string or an exception as its second arg.
 
-        :param method callback: Callback to call when can't connect
+        :param method callback: Callback to call when can't connect, having
+            the signature _(Connection, str | BaseException)
         :param bool remove_default: Remove default exception raising callback
 
         """
@@ -2076,11 +2077,14 @@ class Connection(pika.compat.AbstractBase):
         # Determine whether this was an error during connection setup
         connection_error = None
 
-        if self.connection_state == self.CONNECTION_PROTOCOL:
+        if self.connection_state == self.CONNECTION_INIT:
+            LOGGER.error('Failed to connect to server')
+            connection_error = exceptions.AMQPConnectionError(reason_code,
+                                                              reason_text)
+        elif self.connection_state == self.CONNECTION_PROTOCOL:
             LOGGER.error('Incompatible Protocol Versions')
-            connection_error = exceptions.IncompatibleProtocolError(
-                reason_code,
-                reason_text)
+            connection_error = exceptions.IncompatibleProtocolError(reason_code,
+                                                                    reason_text)
         elif self.connection_state == self.CONNECTION_START:
             LOGGER.error('Connection closed while authenticating indicating a '
                          'probable authentication error')
@@ -2091,9 +2095,8 @@ class Connection(pika.compat.AbstractBase):
             LOGGER.error('Connection closed while tuning the connection '
                          'indicating a probable permission error when '
                          'accessing a virtual host')
-            connection_error = exceptions.ProbableAccessDeniedError(
-                reason_code,
-                reason_text)
+            connection_error = exceptions.ProbableAccessDeniedError(reason_code,
+                                                                    reason_text)
         elif self.connection_state not in [self.CONNECTION_OPEN,
                                            self.CONNECTION_CLOSED,
                                            self.CONNECTION_CLOSING]:

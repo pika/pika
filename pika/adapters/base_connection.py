@@ -29,11 +29,11 @@ class BaseConnection(connection.Connection):
                  async_services):
         """Create a new instance of the Connection object.
 
-        :param pika.connection.Parameters parameters: Connection parameters
-        :param method on_open_callback: Method to call on connection open
-        :param method on_open_error_callback: Called if the connection can't
+        :param None|pika.connection.Parameters parameters: Connection parameters
+        :param None|method on_open_callback: Method to call on connection open
+        :param None|method on_open_error_callback: Called if the connection can't
             be established: on_open_error_callback(connection, str|BaseException)
-        :param method on_close_callback: Called when the connection is closed:
+        :param None|method on_close_callback: Called when the connection is closed:
             on_close_callback(connection, reason_code, reason_text)
         :param async_interface.AbstractAsyncServices async_services:
             asynchronous services

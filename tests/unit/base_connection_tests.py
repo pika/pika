@@ -26,7 +26,8 @@ except AttributeError:
 class BaseConnectionTests(unittest.TestCase):
     def setUp(self):
         with mock.patch('pika.connection.Connection.connect'):
-            self.connection = base_connection.BaseConnection()
+            self.connection = base_connection.BaseConnection(
+                None, None, None, None, None)
             self.connection._set_connection_state(
                 base_connection.BaseConnection.CONNECTION_OPEN)
 
@@ -38,7 +39,8 @@ class BaseConnectionTests(unittest.TestCase):
         def foo():
             return True
 
-        self.assertRaises(ValueError, base_connection.BaseConnection, foo)
+        self.assertRaises(ValueError, base_connection.BaseConnection,
+                          foo, None, None, None, None)
 
     def test_tcp_options_with_dict_tcp_options(self):
 
@@ -82,46 +84,3 @@ class BaseConnectionTests(unittest.TestCase):
         keepalive_call = mock.call.setsockopt(socket.SOL_SOCKET,
                                               socket.SO_KEEPALIVE, 1)
         self.assertNotIn(keepalive_call, sock_mock.method_calls)
-
-    @mock.patch('ssl.SSLContext.wrap_socket')
-    @unittest.skipIf(sys.version_info < (2, 7, 0), 'Unavailable ssl features')
-    def test_ssl_wrap_socket_with_default_ssl_options_obj(self,
-                                                          wrap_socket_mock):
-        ssl_options = pika.SSLOptions(context=ssl.create_default_context())
-        params = pika.ConnectionParameters(ssl_options=ssl_options)
-        self.assertIs(params.ssl_options, ssl_options)
-
-        with mock.patch('pika.connection.Connection.connect'):
-            conn = base_connection.BaseConnection(parameters=params)
-
-            sock_mock = mock.Mock()
-            conn._wrap_socket(sock_mock)
-
-            wrap_socket_mock.assert_called_once_with(
-                sock_mock,
-                server_side=False,
-                do_handshake_on_connect=conn.DO_HANDSHAKE,
-                suppress_ragged_eofs=True,
-                server_hostname=None)
-
-    @mock.patch('ssl.SSLContext.wrap_socket')
-    @unittest.skipIf(sys.version_info < (2, 7, 0), 'Unavailable ssl features')
-    def test_ssl_wrap_socket_with_ssl_options_obj(self, wrap_socket_mock):
-        ssl_options = pika.SSLOptions(context=ssl.create_default_context(),
-                                      server_hostname='some.virtual.host')
-        params = pika.ConnectionParameters(ssl_options=ssl_options)
-        #self.assertEqual(params.ssl_options, ssl_options)
-
-
-        with mock.patch('pika.connection.Connection.connect'):
-            conn = base_connection.BaseConnection(parameters=params)
-
-            sock_mock = mock.Mock()
-            conn._wrap_socket(sock_mock)
-
-            wrap_socket_mock.assert_called_once_with(
-                sock_mock,
-                server_side=False,
-                do_handshake_on_connect=True,
-                suppress_ragged_eofs=True,
-                server_hostname='some.virtual.host')
