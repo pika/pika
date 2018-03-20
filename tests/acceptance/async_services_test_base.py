@@ -139,12 +139,12 @@ class AsyncServicesTestBase(unittest.TestCase):
             self.fail(self._exc_info_to_str(self._exc_info))
 
 
-
 class AsyncServicesTestStubs(object):
     """Provides a stub test method for each combination of parameters we wish to
     test
 
     """
+
     def _kick_off(self, *args, **kwargs):
         """We expect users to also include `AsyncServicesTestBase` as a base
         class that defines this method.
@@ -156,11 +156,14 @@ class AsyncServicesTestStubs(object):
                                   'test class to get the implementation of '
                                   'this method.')
 
-    def test_with_select_async_services(self):
-        """Test entry point for `select_connection.IOLoop`-based async services
-        implementation.
+    # Suppress missing-docstring to allow test method names to be printed by our
+    # test runner
+    # pylint: disable=C0111
 
-        """
+    def test_with_select_connection_async_services(self):
+        # Test entry point for `select_connection.IOLoop`-based async services
+        # implementation.
+        
         from pika.adapters.select_connection import IOLoop
         from pika.adapters.selector_ioloop_adapter import (
             SelectorAsyncServicesAdapter)
@@ -170,10 +173,9 @@ class AsyncServicesTestStubs(object):
             native_loop=native_loop)
 
     def test_with_tornado_async_services(self):
-        """Test entry point for `tornado.ioloop.IOLoop`-based async services
-        implementation.
+        # Test entry point for `tornado.ioloop.IOLoop`-based async services
+        # implementation.
 
-        """
         from tornado.ioloop import IOLoop
         from pika.adapters.selector_ioloop_adapter import (
             SelectorAsyncServicesAdapter)
@@ -184,10 +186,8 @@ class AsyncServicesTestStubs(object):
             native_loop=native_loop)
 
     def test_with_twisted_async_services(self):
-        """Test entry point for `twisted.reactor`-based async services
-        implementation.
-
-        """
+        # Test entry point for `twisted.reactor`-based async services
+        # implementation.
         # Twisted testing requires a test runner that isolates each test in an
         # individual process, such as `py.test` with the `--boxed` option provided
         # by the `pytest-xdist` module.
@@ -209,10 +209,9 @@ class AsyncServicesTestStubs(object):
 
     @unittest.skipIf(sys.version_info < (3, 4), "Asyncio available for Python 3.4+")
     def test_with_asyncio_async_services(self):
-        """Test entry point for `asyncio` event loop-based async services
-        implementation.
+        # Test entry point for `asyncio` event loop-based async services
+        # implementation.
 
-        """
         import asyncio
         from pika.adapters.asyncio_connection import (
             _AsyncioAsyncServicesAdapter)

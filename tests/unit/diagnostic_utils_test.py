@@ -13,7 +13,7 @@ from pika import diagnostic_utils
 # Suppress invalid-name, since our test names are descriptive and quite long
 # pylint: disable=C0103
 
-# Suppress missing-docstring to allow test method names to be printed by our the
+# Suppress missing-docstring to allow test method names to be printed by our
 # test runner
 # pylint: disable=C0111
 

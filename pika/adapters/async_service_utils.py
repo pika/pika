@@ -14,6 +14,7 @@ import ssl
 
 from pika.adapters import async_interface
 import pika.compat
+import pika.diagnostic_utils
 
 
 # "Try again" error codes for non-blocking socket I/O - send()/recv().
@@ -28,6 +29,9 @@ _CONNECTION_IN_PROGRESS_SOCK_ERROR_CODES = (errno.EINPROGRESS,
                                             errno.EWOULDBLOCK,)
 
 _LOGGER = logging.getLogger(__name__)
+
+# Decorator that logs exceptions escaping from the decorated function
+_log_exceptions = pika.diagnostic_utils.create_log_exception_decorator(_LOGGER)
 
 
 def check_callback_arg(callback, name):
@@ -428,6 +432,7 @@ class _AsyncStreamConnector(object):
         self._state = self._STATE_NOT_STARTED
         self._watching_socket = False
 
+    @_log_exceptions
     def _cleanup(self, close):
         """Cancel pending async operations, if any
 
@@ -492,6 +497,7 @@ class _AsyncStreamConnector(object):
                       'state=%s; %s', self._state, self._sock)
         return False
 
+    @_log_exceptions
     def _report_completion(self, result):
         """Advance to COMPLETED state, cancel async operation(s), and invoke
         user's completion callback.
@@ -518,6 +524,7 @@ class _AsyncStreamConnector(object):
             # NOTE: Close the socket on error, since we took ownership of it
             self._cleanup(close=isinstance(result, BaseException))
 
+    @_log_exceptions
     def _start_safe(self):
         """Called as callback from I/O loop to kick-start the workflow, so it's
         safe to call user's completion callback from here if needed
@@ -553,6 +560,7 @@ class _AsyncStreamConnector(object):
 
             self._do_ssl_handshake()
 
+    @_log_exceptions
     def _linkup(self):
         """Connection is ready: instantiate and link up transport and protocol,
         and invoke user's completion callback.
@@ -622,6 +630,7 @@ class _AsyncStreamConnector(object):
 
         self._report_completion(result)
 
+    @_log_exceptions
     def _do_ssl_handshake(self):
         """Perform asynchronous SSL handshake on the already wrapped socket
 

@@ -2,18 +2,17 @@
 Tests of async_interface.AbstractAsyncServices adaptations
 """
 
-import functools
 import time
-
-try:
-    from unittest import mock
-except ImportError:
-    import mock
 
 # NOTE: We import AsyncServicesTestBaseSelfChecks to make sure that self-checks
 # will run
 from .async_services_test_base import (AsyncServicesTestBase,
                                        AsyncServicesTestStubs)
+
+
+# Suppress missing-docstring to allow test method names to be printed by our the
+# test runner
+# pylint: disable=C0111
 
 
 class TestGetNativeIOLoop(AsyncServicesTestBase,
