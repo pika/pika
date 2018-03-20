@@ -277,6 +277,8 @@ class SelectorAsyncServicesAdapter(
             when fd becomes readable.
 
         """
+        LOGGER.debug('SelectorAsyncServicesAdapter.set_reader(%s, _)', fd)
+
         check_fd_arg(fd)
         check_callback_arg(on_readable, 'on_readable')
 
@@ -307,6 +309,8 @@ class SelectorAsyncServicesAdapter(
         :returns: True if reader was removed; False if none was registered.
 
         """
+        LOGGER.debug('SelectorAsyncServicesAdapter.remove_reader(%s)', fd)
+
         check_fd_arg(fd)
 
         try:
@@ -341,6 +345,8 @@ class SelectorAsyncServicesAdapter(
             when fd becomes writable.
 
         """
+        LOGGER.debug('SelectorAsyncServicesAdapter.set_writer(%s, _)', fd)
+
         check_fd_arg(fd)
         check_callback_arg(on_writable, 'on_writable')
 
@@ -371,6 +377,8 @@ class SelectorAsyncServicesAdapter(
         :returns: True if reader was removed; False if none was registered.
 
         """
+        LOGGER.debug('SelectorAsyncServicesAdapter.remove_writer(%s)', fd)
+
         check_fd_arg(fd)
 
         try:

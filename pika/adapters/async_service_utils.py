@@ -31,7 +31,7 @@ _CONNECTION_IN_PROGRESS_SOCK_ERROR_CODES = (errno.EINPROGRESS,
 _LOGGER = logging.getLogger(__name__)
 
 # Decorator that logs exceptions escaping from the decorated function
-_log_exceptions = pika.diagnostic_utils.create_log_exception_decorator(_LOGGER)
+_log_exceptions = pika.diagnostic_utils.create_log_exception_decorator(_LOGGER) # pylint: disable=C0103
 
 
 def check_callback_arg(callback, name):
@@ -295,6 +295,9 @@ class _AsyncSocketConnector(object):
         :param BaseException | None result: value to pass in user's callback
 
         """
+        _LOGGER.debug('_AsyncSocketConnector._report_completion(%r); %s',
+                      result, self._sock)
+
         assert isinstance(result, (BaseException, type(None))), result
         assert self._state == self._STATE_ACTIVE, self._state
 
@@ -441,14 +444,18 @@ class _AsyncStreamConnector(object):
         _LOGGER.debug('%r(%r)', self._cleanup, close)
 
         if self._watching_socket:
+            _LOGGER.debug(
+                '_AsyncStreamConnector._cleanup(%r): removing RdWr; %s',
+                close, self._sock)
             self._watching_socket = False
-            _LOGGER.debug('%r(%r): removing reader and writer',
-                          self._cleanup, close)
             self._async.remove_reader(self._sock.fileno())
             self._async.remove_writer(self._sock.fileno())
 
         try:
             if close:
+                _LOGGER.debug(
+                    '_AsyncStreamConnector._cleanup(%r): closing socket; %s',
+                    close, self._sock)
                 try:
                     self._sock.close()
                 except Exception as error:  # pylint: disable=W0703
@@ -468,6 +475,8 @@ class _AsyncStreamConnector(object):
 
         :rtype: async_interface.AbstractAsyncReference
         """
+        _LOGGER.debug('_AsyncStreamConnector.start(); %s', self._sock)
+
         assert self._state == self._STATE_NOT_STARTED, self._state
 
         self._state = self._STATE_ACTIVE
@@ -506,7 +515,8 @@ class _AsyncStreamConnector(object):
             `tuple(transport, protocol)` on success, exception on error
 
         """
-        _LOGGER.debug('_report_completion(%r)', result)
+        _LOGGER.debug('_AsyncStreamConnector._report_completion(%r); %s',
+                      result, self._sock)
 
         assert isinstance(result, (BaseException, tuple)), result
         assert self._state == self._STATE_ACTIVE, self._state
@@ -530,6 +540,8 @@ class _AsyncStreamConnector(object):
         safe to call user's completion callback from here if needed
 
         """
+        _LOGGER.debug('_AsyncStreamConnector._start_safe(); %s', self._sock)
+
         if self._state != self._STATE_ACTIVE:
             # Must have been canceled by user before we were called
             _LOGGER.debug('Abandoning streaming linkup due to inactive state '
@@ -635,9 +647,11 @@ class _AsyncStreamConnector(object):
         """Perform asynchronous SSL handshake on the already wrapped socket
 
         """
+        _LOGGER.debug('%r()', self._do_ssl_handshake)
+
         if self._state != self._STATE_ACTIVE:
-            _LOGGER.debug('Abandoning streaming linkup due to inactive state '
-                          'transition; state=%s; %s; .',
+            _LOGGER.debug('_do_ssl_handshake: Abandoning streaming linkup due '
+                          'to inactive state transition; state=%s; %s; .',
                           self._state, self._sock)
             return
 
@@ -650,14 +664,22 @@ class _AsyncStreamConnector(object):
                 if error.errno == ssl.SSL_ERROR_WANT_READ:
                     _LOGGER.debug('SSL handshake wants read; %s.', self._sock)
                     self._watching_socket = True
+                    _LOGGER.debug('_do_ssl_handshake: setting reader; %s',
+                                  self._sock)
                     self._async.set_reader(self._sock.fileno(),
                                            self._do_ssl_handshake())
+                    _LOGGER.debug('_do_ssl_handshake: removing writer; %s',
+                                  self._sock)
                     self._async.remove_writer(self._sock.fileno())
                 elif error.errno == ssl.SSL_ERROR_WANT_WRITE:
                     _LOGGER.debug('SSL handshake wants write. %s', self._sock)
                     self._watching_socket = True
+                    _LOGGER.debug('_do_ssl_handshake: setting writer; %s',
+                                  self._sock)
                     self._async.set_writer(self._sock.fileno(),
                                            self._do_ssl_handshake())
+                    _LOGGER.debug('_do_ssl_handshake: removing reader; %s',
+                                  self._sock)
                     self._async.remove_reader(self._sock.fileno())
                 else:
                     # Outer catch will report it
@@ -674,11 +696,17 @@ class _AsyncStreamConnector(object):
 
         if done:
             # Suspend I/O and link up transport with protocol
+            _LOGGER.debug(
+                '_do_ssl_handshake: removing watchers ahead of linkup: %s',
+                self._sock)
             self._async.remove_reader(self._sock.fileno())
             self._async.remove_writer(self._sock.fileno())
             # So that our `_cleanup()` won't interfere with the transport's
             # socket watcher configuration.
             self._watching_socket = False
+            _LOGGER.debug(
+                '_do_ssl_handshake: pre-linkup removal of watchers is done: %s',
+                self._sock)
 
             self._linkup()
 
@@ -717,6 +745,7 @@ class _AsyncTransportBase(  # pylint: disable=W0223
         :param async_interface.AbstractAsyncServices async_services:
 
         """
+        _LOGGER.debug('_AsyncTransportBase.__init__: %s', sock)
         self._sock = sock
         self._protocol = protocol
         self._async = async_services
