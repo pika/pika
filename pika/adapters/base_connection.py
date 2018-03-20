@@ -369,7 +369,7 @@ class _TransportManager(object):
 
         # Initiate asynchronous connection attempt
         addr = addr_record[4]
-        LOGGER.error('Connecting to server at %s', addr)
+        LOGGER.info('Connecting to server at %s', addr)
         self._async_ref = self._async.connect_socket(
             self._sock,
             addr,

@@ -432,7 +432,11 @@ class _AsyncStreamConnector(object):
 
         :param bool close: close the socket if true
         """
+        _LOGGER.debug('%r(%r)', self._cleanup, close)
+
         if self._watching_socket:
+            _LOGGER.debug('%r(%r): removing reader and writer',
+                          self._cleanup, close)
             self._async.remove_reader(self._sock.fileno())
             self._async.remove_writer(self._sock.fileno())
 
@@ -494,6 +498,8 @@ class _AsyncStreamConnector(object):
             `tuple(transport, protocol)` on success, exception on error
 
         """
+        _LOGGER.debug('_report_completion(%r)', result)
+
         assert isinstance(result, (BaseException, tuple)), result
         assert self._state == self._STATE_ACTIVE, self._state
 
@@ -502,6 +508,10 @@ class _AsyncStreamConnector(object):
         # Notify user
         try:
             self._on_done(result)
+        except Exception:
+            _LOGGER.error('%r: _on_done(%r) failed.',
+                          self._report_completion, result)
+            raise
         finally:
             # NOTE: Close the socket on error, since we took ownership of it
             self._cleanup(close=isinstance(result, BaseException))
@@ -546,6 +556,8 @@ class _AsyncStreamConnector(object):
         and invoke user's completion callback.
 
         """
+        _LOGGER.debug('%r()', self._linkup)
+
         transport = None
 
         try:
@@ -578,6 +590,8 @@ class _AsyncStreamConnector(object):
                                   error, self._sock)
                     raise
 
+            _LOGGER.debug('_linkup(): created transport %r', transport)
+
             # Acquaint protocol with its transport
             try:
                 protocol.connection_made(transport)
@@ -586,6 +600,10 @@ class _AsyncStreamConnector(object):
                     'protocol.connection_made(%r) failed: error=%r; %s',
                     transport, error, self._sock)
                 raise
+
+            _LOGGER.debug('_linkup(): introduced tranport to protocol %r; %r',
+                          transport, protocol)
+
         except Exception as error:  # pylint: disable=W0703
             result = error
 
@@ -612,6 +630,8 @@ class _AsyncStreamConnector(object):
                           self._state, self._sock)
             return
 
+        done = False
+
         try:
             try:
                 self._sock.do_handshake()
@@ -629,24 +649,27 @@ class _AsyncStreamConnector(object):
                                            self._do_ssl_handshake())
                     self._async.remove_reader(self._sock.fileno())
                 else:
+                    # Outer catch will report it
                     raise
             else:
+                done = True
                 _LOGGER.info('SSL handshake completed successfully: %s',
                              self._sock)
-
-                # Suspend I/O and link up transport with protocol
-                self._async.remove_reader(self._sock.fileno())
-                self._async.remove_writer(self._sock.fileno())
-                # So that our `_cleanup()` won't interfere with the transport's
-                # socket watcher configuration.
-                self._watching_socket = False
-
-                self._linkup()
         except Exception as error:  # pylint: disable=W0703
             _LOGGER.error('SSL do_handshake failed: error=%r; %s',
                           error, self._sock)
             self._report_completion(error)
             return
+
+        if done:
+            # Suspend I/O and link up transport with protocol
+            self._async.remove_reader(self._sock.fileno())
+            self._async.remove_writer(self._sock.fileno())
+            # So that our `_cleanup()` won't interfere with the transport's
+            # socket watcher configuration.
+            self._watching_socket = False
+            
+            self._linkup()
 
 
 class _AsyncTransportBase(  # pylint: disable=W0223
@@ -974,6 +997,8 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
             _LOGGER.debug('Ignoring write() called during inactive state: '
                           'state=%s; %s', self._state, self._sock)
             return
+
+        assert data
 
         if not self.get_write_buffer_size():
             self._async.set_writer(self._sock.fileno(),

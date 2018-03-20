@@ -141,6 +141,7 @@ class _AsyncioAsyncServicesAdapter(
 
         """
         self._loop.add_reader(fd, on_readable)
+        LOGGER.debug('set_reader(%s, %s)', fd, on_readable)
 
     def remove_reader(self, fd):
         """Stop watching the given file descriptor for readability
@@ -149,6 +150,7 @@ class _AsyncioAsyncServicesAdapter(
         :returns: True if reader was removed; False if none was registered.
 
         """
+        LOGGER.debug('remove_reader(%s)', fd)
         return self._loop.remove_reader(fd)
 
     def set_writer(self, fd, on_writable):
@@ -161,6 +163,7 @@ class _AsyncioAsyncServicesAdapter(
 
         """
         self._loop.add_writer(fd, on_writable)
+        LOGGER.debug('set_writer(%s, %s)', fd, on_writable)
 
     def remove_writer(self, fd):
         """Stop watching the given file descriptor for writability
@@ -169,6 +172,7 @@ class _AsyncioAsyncServicesAdapter(
         :returns: True if writer was removed; False if none was registered.
 
         """
+        LOGGER.debug('remove_writer(%s)', fd)
         return self._loop.remove_writer(fd)
 
     def getaddrinfo(self, host, port, on_done, family=0, socktype=0, proto=0,

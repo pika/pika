@@ -287,12 +287,18 @@ class SelectorAsyncServicesAdapter(
                                    self._on_reader_writer_fd_events,
                                    self._readable_mask)
             self._watchers[fd] = _FileDescriptorCallbacks(reader=on_readable)
+            LOGGER.debug('set_reader(%s, %s) added handler Rd', fd, on_readable)
         else:
             if callbacks.reader is None:
                 assert callbacks.writer is not None
                 self._loop.update_handler(
                     fd,
                     self._readable_mask | self._writable_mask)
+                LOGGER.debug('set_reader(%s, %s) updated handler RdWr', fd,
+                             on_readable)
+            else:
+                LOGGER.debug('set_reader(%s, %s) replacing on_readable', fd,
+                             on_readable)
 
             callbacks.reader = on_readable
 
@@ -308,9 +314,11 @@ class SelectorAsyncServicesAdapter(
         try:
             callbacks = self._watchers[fd]
         except KeyError:
+            LOGGER.debug('remove_reader(%s) neither was set', fd)
             return False
 
         if callbacks.reader is None:
+            LOGGER.debug('remove_reader(%s) reader wasn\'t set', fd)
             return False
 
         callbacks.reader = None
@@ -318,8 +326,10 @@ class SelectorAsyncServicesAdapter(
         if callbacks.writer is None:
             del self._watchers[fd]
             self._loop.remove_handler(fd)
+            LOGGER.debug('remove_reader(%s) removed handler Wr', fd)
         else:
             self._loop.update_handler(fd, self._writable_mask)
+            LOGGER.debug('remove_reader(%s) updated handler Wr', fd)
 
         return True
 
@@ -342,12 +352,18 @@ class SelectorAsyncServicesAdapter(
                                    self._on_reader_writer_fd_events,
                                    self._writable_mask)
             self._watchers[fd] = _FileDescriptorCallbacks(writer=on_writable)
+            LOGGER.debug('set_writer(%s, %s) added handler', fd, on_writable)
         else:
             if callbacks.writer is None:
                 assert callbacks.reader is not None
                 self._loop.update_handler(
                     fd,
                     self._readable_mask | self._writable_mask)
+                LOGGER.debug('set_writer(%s, %s) updated handler RdWr', fd,
+                             on_writable)
+            else:
+                LOGGER.debug('set_writer(%s, %s) replacing on_writable', fd,
+                             on_writable)
 
             callbacks.writer = on_writable
 
@@ -363,9 +379,11 @@ class SelectorAsyncServicesAdapter(
         try:
             callbacks = self._watchers[fd]
         except KeyError:
+            LOGGER.debug('remove_writer(%s) neither was set.', fd)
             return False
 
         if callbacks.writer is None:
+            LOGGER.debug('remove_writer(%s) writer wasn\'t set', fd)
             return False
 
         callbacks.writer = None
@@ -373,8 +391,10 @@ class SelectorAsyncServicesAdapter(
         if callbacks.reader is None:
             del self._watchers[fd]
             self._loop.remove_handler(fd)
+            LOGGER.debug('remove_writer(%s) removed handler', fd)
         else:
             self._loop.update_handler(fd, self._readable_mask)
+            LOGGER.debug('remove_writer(%s) updated handler Rd', fd)
 
         return True
 
