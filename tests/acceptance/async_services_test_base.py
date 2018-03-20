@@ -16,8 +16,7 @@ Example:
 
 ```
 from .async_services_test_base import (AsyncServicesTestBase,
-                                       AsyncServicesTestStubs,
-                                       AsyncServicesTestBaseSelfChecks)
+                                       AsyncServicesTestStubs)
 
 class TestGetNativeIOLoop(AsyncServicesTestBase,
                           AsyncServicesTestStubs):
@@ -36,20 +35,14 @@ import logging
 import os
 import sys
 import threading
-import time
 import traceback
 import unittest
 
-try:
-    from unittest import mock
-except ImportError:
-    import mock
-
-import pika.compat
-
+# invalid-name
 # pylint: disable=C0103
 
 g_module_pid = os.getpid()
+
 
 class AsyncServicesTestBase(unittest.TestCase):
     """ Base test case class that contains test workflow logic.
@@ -91,9 +84,15 @@ class AsyncServicesTestBase(unittest.TestCase):
         return async_svc
 
     def _thread_entry(self):
+        """Our test-execution thread entry point that calls the test's `start()`
+        method.
+
+        Here, we catch all exceptions from `start()`, save the `exc_info` for
+        processing by `_kick_off()`, and print the stack trace to `sys.stderr`.
+        """
         try:
             self.start()
-        except:
+        except:  # pylint: disable=W0702
             self._exc_info = sys.exc_info()
             print(
                 'ERROR start() of test {} failed:\n{}'.format(
@@ -104,11 +103,14 @@ class AsyncServicesTestBase(unittest.TestCase):
 
     @staticmethod
     def _exc_info_to_str(exc_info):
-        return ''.join(
-            traceback.format_exception(
-                exc_info[0],
-                exc_info[1],
-                exc_info[2]))
+        """Convenience method for converting the value returned by
+        `sys.exc_info()` to a string.
+
+        :param tuple exc_info: Value returned by `sys.exc_info()`.
+        :return: A string representation of the given `exc_info`.
+        :rtype: str
+        """
+        return ''.join(traceback.format_exception(*exc_info))
 
     def _kick_off(self, async_factory, native_loop, use_ssl=False):
         """ Kick off the current test in a thread using `self.start()` as its
@@ -137,72 +139,6 @@ class AsyncServicesTestBase(unittest.TestCase):
             self.fail(self._exc_info_to_str(self._exc_info))
 
 
-class AsyncServicesTestBaseSelfChecks(AsyncServicesTestBase):
-    """ Base class for tests that contains stub test methods for each
-    `AbstractAsyncServices` adaptation.
-
-    TODO: add a test for handling of test timeout
-    """
-
-    def test_propagation_of_failure_from_test_execution_thread(self):
-        class SelfCheckExceptionHandling(Exception):
-            pass
-
-        def my_start(*args, **kwargs):
-            raise SelfCheckExceptionHandling()
-
-        # Suppress error output by redirecting to stringio_stderr
-        stringio_stderr = pika.compat.StringIO()
-        try:
-            with mock.patch.object(self, '_stderr', stringio_stderr):
-                # Redirect start() call from thread to our own my_start()
-                with mock.patch.object(self, 'start', my_start):
-                    with self.assertRaises(AssertionError) as exc_ctx:
-                        self._kick_off(None, None)
-
-            self.assertIn('raise SelfCheckExceptionHandling()',
-                          exc_ctx.exception.args[0])
-            expected_tail = 'SelfCheckExceptionHandling\n'
-            self.assertEqual(exc_ctx.exception.args[0][-len(expected_tail):],
-                             expected_tail)
-
-            self.assertIn('raise SelfCheckExceptionHandling()',
-                          stringio_stderr.getvalue())
-            self.assertEqual(stringio_stderr.getvalue()[-len(expected_tail):],
-                             expected_tail)
-        except Exception:
-            try:
-                print('This stderr was captured from our thread wrapper:\n',
-                      stringio_stderr.getvalue(),
-                      file=sys.stderr)
-            except Exception:
-                pass
-
-            raise
-
-
-    def test_handling_of_test_execution_thread_timeout(self):
-        # Suppress error output by redirecting to our stringio_stderr object
-        stringio_stderr = pika.compat.StringIO()
-        stderr_patch = mock.patch.object(self, '_stderr', stringio_stderr)
-        # NOTE: We don't unpatch it because this test expects the thread to
-        # linger slightly longer than the test and this patch only affects
-        # this test method's instance anyway
-        stderr_patch.start()
-
-        def my_start(*args, **kwargs):
-            time.sleep(1.1)
-
-        # Patch TEST_TIMEOUT to much smaller value than sleep in my_start()
-        with mock.patch.object(self, 'TEST_TIMEOUT', 0.01):
-            # Redirect start() call from thread to our own my_start()
-            with mock.patch.object(self, 'start', my_start):
-                with self.assertRaises(AssertionError) as exc_ctx:
-                    self._kick_off(None, None)
-
-        self.assertEqual(len(stringio_stderr.getvalue()), 0)
-        self.assertIn('The test timed out.', exc_ctx.exception.args[0])
-
 
 class AsyncServicesTestStubs(object):
     """Provides a stub test method for each combination of parameters we wish to
@@ -210,11 +146,21 @@ class AsyncServicesTestStubs(object):
 
     """
     def _kick_off(self, *args, **kwargs):
+        """We expect users to also include `AsyncServicesTestBase` as a base
+        class that defines this method.
+
+        See `AsyncServicesTestBase._kick_off()` for details.
+
+        """
         raise NotImplementedError('Add AsyncServicesTestBase as base to your '
                                   'test class to get the implementation of '
                                   'this method.')
 
     def test_with_select_async_services(self):
+        """Test entry point for `select_connection.IOLoop`-based async services
+        implementation.
+
+        """
         from pika.adapters.select_connection import IOLoop
         from pika.adapters.selector_ioloop_adapter import (
             SelectorAsyncServicesAdapter)
@@ -224,6 +170,10 @@ class AsyncServicesTestStubs(object):
             native_loop=native_loop)
 
     def test_with_tornado_async_services(self):
+        """Test entry point for `tornado.ioloop.IOLoop`-based async services
+        implementation.
+
+        """
         from tornado.ioloop import IOLoop
         from pika.adapters.selector_ioloop_adapter import (
             SelectorAsyncServicesAdapter)
@@ -234,15 +184,13 @@ class AsyncServicesTestStubs(object):
             native_loop=native_loop)
 
     def test_with_twisted_async_services(self):
-        global _module_pid
+        """Test entry point for `twisted.reactor`-based async services
+        implementation.
 
+        """
         # Twisted testing requires a test runner that isolates each test in an
         # individual process, such as `py.test` with the `--boxed` option provided
         # by the `pytest-xdist` module.
-
-        # print('ZZZ module pid={}'.format(g_module_pid), file=sys.stderr)
-        # print('ZZZ test method pid={}'.format(os.getpid()), file=sys.stderr)
-        # raise Exception("ZZZ")
 
         if os.getpid() == g_module_pid:
             raise unittest.SkipTest(
@@ -261,6 +209,10 @@ class AsyncServicesTestStubs(object):
 
     @unittest.skipIf(sys.version_info < (3, 4), "Asyncio available for Python 3.4+")
     def test_with_asyncio_async_services(self):
+        """Test entry point for `asyncio` event loop-based async services
+        implementation.
+
+        """
         import asyncio
         from pika.adapters.asyncio_connection import (
             _AsyncioAsyncServicesAdapter)

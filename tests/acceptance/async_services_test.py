@@ -13,11 +13,7 @@ except ImportError:
 # NOTE: We import AsyncServicesTestBaseSelfChecks to make sure that self-checks
 # will run
 from .async_services_test_base import (AsyncServicesTestBase,
-                                       AsyncServicesTestStubs,
-                                       AsyncServicesTestBaseSelfChecks)
-
-# Make pylin't unused-import check happy
-AsyncServicesTestBaseSelfChecks = AsyncServicesTestBaseSelfChecks
+                                       AsyncServicesTestStubs)
 
 
 class TestGetNativeIOLoop(AsyncServicesTestBase,
