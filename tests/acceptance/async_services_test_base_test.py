@@ -2,6 +2,8 @@
 Tests for async_services_test_base.py
 
 """
+from __future__ import print_function
+
 import sys
 import time
 
