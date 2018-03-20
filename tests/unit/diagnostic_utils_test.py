@@ -53,7 +53,7 @@ class DiagnosticUtilsTest(unittest.TestCase):
         # Now, repeat without any args/kwargs
         expected_args = tuple()
         expected_kwargs = dict()
-        bucket.clear()
+        del bucket[:]  # .clear() doesn't exist in python 2.7
 
         result = my_func()
 
