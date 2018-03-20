@@ -141,7 +141,7 @@ class _AsyncioAsyncServicesAdapter(
 
         """
         self._loop.add_reader(fd, on_readable)
-        LOGGER.debug('set_reader(%s, %s)', fd, on_readable)
+        LOGGER.debug('set_reader(%s, _)', fd)
 
     def remove_reader(self, fd):
         """Stop watching the given file descriptor for readability
@@ -163,7 +163,7 @@ class _AsyncioAsyncServicesAdapter(
 
         """
         self._loop.add_writer(fd, on_writable)
-        LOGGER.debug('set_writer(%s, %s)', fd, on_writable)
+        LOGGER.debug('set_writer(%s, _)', fd)
 
     def remove_writer(self, fd):
         """Stop watching the given file descriptor for writability

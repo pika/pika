@@ -287,18 +287,16 @@ class SelectorAsyncServicesAdapter(
                                    self._on_reader_writer_fd_events,
                                    self._readable_mask)
             self._watchers[fd] = _FileDescriptorCallbacks(reader=on_readable)
-            LOGGER.debug('set_reader(%s, %s) added handler Rd', fd, on_readable)
+            LOGGER.debug('set_reader(%s, _) added handler Rd', fd)
         else:
             if callbacks.reader is None:
                 assert callbacks.writer is not None
                 self._loop.update_handler(
                     fd,
                     self._readable_mask | self._writable_mask)
-                LOGGER.debug('set_reader(%s, %s) updated handler RdWr', fd,
-                             on_readable)
+                LOGGER.debug('set_reader(%s, _) updated handler RdWr', fd)
             else:
-                LOGGER.debug('set_reader(%s, %s) replacing on_readable', fd,
-                             on_readable)
+                LOGGER.debug('set_reader(%s, _) replacing reader', fd)
 
             callbacks.reader = on_readable
 
@@ -318,7 +316,8 @@ class SelectorAsyncServicesAdapter(
             return False
 
         if callbacks.reader is None:
-            LOGGER.debug('remove_reader(%s) reader wasn\'t set', fd)
+            assert callbacks.writer is not None
+            LOGGER.debug('remove_reader(%s) reader wasn\'t set Wr', fd)
             return False
 
         callbacks.reader = None
@@ -326,7 +325,7 @@ class SelectorAsyncServicesAdapter(
         if callbacks.writer is None:
             del self._watchers[fd]
             self._loop.remove_handler(fd)
-            LOGGER.debug('remove_reader(%s) removed handler Wr', fd)
+            LOGGER.debug('remove_reader(%s) removed handler', fd)
         else:
             self._loop.update_handler(fd, self._writable_mask)
             LOGGER.debug('remove_reader(%s) updated handler Wr', fd)
@@ -352,18 +351,16 @@ class SelectorAsyncServicesAdapter(
                                    self._on_reader_writer_fd_events,
                                    self._writable_mask)
             self._watchers[fd] = _FileDescriptorCallbacks(writer=on_writable)
-            LOGGER.debug('set_writer(%s, %s) added handler', fd, on_writable)
+            LOGGER.debug('set_writer(%s, _) added handler Wr', fd)
         else:
             if callbacks.writer is None:
                 assert callbacks.reader is not None
                 self._loop.update_handler(
                     fd,
                     self._readable_mask | self._writable_mask)
-                LOGGER.debug('set_writer(%s, %s) updated handler RdWr', fd,
-                             on_writable)
+                LOGGER.debug('set_writer(%s, _) updated handler RdWr', fd)
             else:
-                LOGGER.debug('set_writer(%s, %s) replacing on_writable', fd,
-                             on_writable)
+                LOGGER.debug('set_writer(%s, _) replacing writer', fd)
 
             callbacks.writer = on_writable
 
@@ -383,7 +380,8 @@ class SelectorAsyncServicesAdapter(
             return False
 
         if callbacks.writer is None:
-            LOGGER.debug('remove_writer(%s) writer wasn\'t set', fd)
+            assert callbacks.reader is not None
+            LOGGER.debug('remove_writer(%s) writer wasn\'t set Rd', fd)
             return False
 
         callbacks.writer = None

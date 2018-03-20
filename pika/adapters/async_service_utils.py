@@ -247,6 +247,7 @@ class _AsyncSocketConnector(object):
 
         """
         if self._watching_socket_events:
+            self._watching_socket_events = False
             self._async.remove_writer(self._sock.fileno())
 
     def start(self):
@@ -435,6 +436,7 @@ class _AsyncStreamConnector(object):
         _LOGGER.debug('%r(%r)', self._cleanup, close)
 
         if self._watching_socket:
+            self._watching_socket = False
             _LOGGER.debug('%r(%r): removing reader and writer',
                           self._cleanup, close)
             self._async.remove_reader(self._sock.fileno())
@@ -668,7 +670,7 @@ class _AsyncStreamConnector(object):
             # So that our `_cleanup()` won't interfere with the transport's
             # socket watcher configuration.
             self._watching_socket = False
-            
+
             self._linkup()
 
 
