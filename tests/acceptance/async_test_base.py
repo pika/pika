@@ -34,7 +34,7 @@ class AsyncTestCase(unittest.TestCase):
         self.parameters = pika.ConnectionParameters(
             host='localhost',
             port=5672)
-        if self.should_test_tls():
+        if self.should_use_tls():
             self.logger.info('testing using TLS/SSL connection to port 5671')
             self.parameters.port = 5671
             context = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
@@ -47,7 +47,7 @@ class AsyncTestCase(unittest.TestCase):
         super(AsyncTestCase, self).setUp()
 
     @staticmethod
-    def should_test_tls():
+    def should_use_tls():
         if 'PIKA_TEST_TLS' in os.environ and \
                 os.environ['PIKA_TEST_TLS'].lower() == 'true':
             return True
