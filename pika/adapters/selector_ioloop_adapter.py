@@ -277,7 +277,8 @@ class SelectorAsyncServicesAdapter(
             when fd becomes readable.
 
         """
-        LOGGER.debug('SelectorAsyncServicesAdapter.set_reader(%s, _)', fd)
+        LOGGER.debug('SelectorAsyncServicesAdapter.set_reader(%s, %r)',
+                     fd, on_readable)
 
         check_fd_arg(fd)
         check_callback_arg(on_readable, 'on_readable')
@@ -345,7 +346,8 @@ class SelectorAsyncServicesAdapter(
             when fd becomes writable.
 
         """
-        LOGGER.debug('SelectorAsyncServicesAdapter.set_writer(%s, _)', fd)
+        LOGGER.debug('SelectorAsyncServicesAdapter.set_writer(%s, %r)',
+                     fd, on_writable)
 
         check_fd_arg(fd)
         check_callback_arg(on_writable, 'on_writable')

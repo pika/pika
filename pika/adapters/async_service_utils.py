@@ -441,7 +441,7 @@ class _AsyncStreamConnector(object):
 
         :param bool close: close the socket if true
         """
-        _LOGGER.debug('%r(%r)', self._cleanup, close)
+        _LOGGER.debug('_AsyncStreamConnector._cleanup(%r)', close)
 
         if self._watching_socket:
             _LOGGER.debug(
@@ -578,7 +578,7 @@ class _AsyncStreamConnector(object):
         and invoke user's completion callback.
 
         """
-        _LOGGER.debug('%r()', self._linkup)
+        _LOGGER.debug('_AsyncStreamConnector._linkup()')
 
         transport = None
 
@@ -647,7 +647,7 @@ class _AsyncStreamConnector(object):
         """Perform asynchronous SSL handshake on the already wrapped socket
 
         """
-        _LOGGER.debug('%r()', self._do_ssl_handshake)
+        _LOGGER.debug('_AsyncStreamConnector._do_ssl_handshake()')
 
         if self._state != self._STATE_ACTIVE:
             _LOGGER.debug('_do_ssl_handshake: Abandoning streaming linkup due '
@@ -664,22 +664,14 @@ class _AsyncStreamConnector(object):
                 if error.errno == ssl.SSL_ERROR_WANT_READ:
                     _LOGGER.debug('SSL handshake wants read; %s.', self._sock)
                     self._watching_socket = True
-                    _LOGGER.debug('_do_ssl_handshake: setting reader; %s',
-                                  self._sock)
                     self._async.set_reader(self._sock.fileno(),
-                                           self._do_ssl_handshake())
-                    _LOGGER.debug('_do_ssl_handshake: removing writer; %s',
-                                  self._sock)
+                                           self._do_ssl_handshake)
                     self._async.remove_writer(self._sock.fileno())
                 elif error.errno == ssl.SSL_ERROR_WANT_WRITE:
                     _LOGGER.debug('SSL handshake wants write. %s', self._sock)
                     self._watching_socket = True
-                    _LOGGER.debug('_do_ssl_handshake: setting writer; %s',
-                                  self._sock)
                     self._async.set_writer(self._sock.fileno(),
-                                           self._do_ssl_handshake())
-                    _LOGGER.debug('_do_ssl_handshake: removing reader; %s',
-                                  self._sock)
+                                           self._do_ssl_handshake)
                     self._async.remove_reader(self._sock.fileno())
                 else:
                     # Outer catch will report it
