@@ -1,7 +1,8 @@
 """Use pika with the Tornado IOLoop"""
-from tornado import ioloop
 import logging
 import time
+
+from tornado import ioloop
 
 from pika.adapters import base_connection
 
@@ -65,7 +66,7 @@ class TornadoConnection(base_connection.BaseConnection):
         Tornado's timeout where you pass in the time you want to have your
         callback called. Only pass in the seconds until it's to be called.
 
-        :param int deadline: The number of seconds to wait to call callback
+        :param float deadline: The number of seconds to wait to call callback
         :param method callback: The callback method
         :rtype: str
 

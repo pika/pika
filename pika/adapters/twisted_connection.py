@@ -21,6 +21,10 @@ from pika import exceptions
 from pika.adapters import base_connection
 
 
+# Disable invalid-name because Twisted interfaces force their convention on
+# our implementation
+# pylint: disable=C0103
+
 class ClosableDeferredQueue(defer.DeferredQueue):
     """
     Like the normal Twisted DeferredQueue, but after close() is called with an
@@ -210,7 +214,7 @@ class IOLoopReactorAdapter(object):
         Tornado's timeout where you pass in the time you want to have your
         callback called. Only pass in the seconds until it's to be called.
 
-        :param int deadline: The number of seconds to wait to call callback
+        :param float deadline: The number of seconds to wait to call callback
         :param method callback: The callback method
         :rtype: twisted.internet.interfaces.IDelayedCall
 

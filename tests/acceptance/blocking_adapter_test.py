@@ -47,6 +47,7 @@ def setUpModule():
     logging.basicConfig(level=logging.DEBUG)
 
 
+#@unittest.skip('SKIPPING WHILE DEBUGGING SOME CHANGES. DO NOT MERGE LIKE THIS')
 class BlockingTestCaseBase(unittest.TestCase):
 
     TIMEOUT = DEFAULT_TIMEOUT
@@ -60,11 +61,56 @@ class BlockingTestCaseBase(unittest.TestCase):
         self.addCleanup(lambda: connection.close()
                         if connection.is_open else None)
 
-        connection._impl.add_timeout(
-            self.TIMEOUT, # pylint: disable=E1101
-            self._on_test_timeout)
+        # We use impl's timer directly in order to get a callback regardless
+        # of BlockingConnection's event dispatch modality
+        connection._impl.add_timeout(self.TIMEOUT, # pylint: disable=E1101
+                                     self._on_test_timeout)
+
+        # Patch calls into I/O loop to fail test if exceptions are
+        # leaked back through SelectConnection or the I/O loop.
+        self._instrument_io_loop_exception_leak_detection(connection)
 
         return connection
+
+    def _instrument_io_loop_exception_leak_detection(self, connection):
+        """Instrument the given connection to detect and fail test when
+        an exception is leaked through the I/O loop
+
+        NOTE: BlockingConnection's underlying asynchronous connection adapter
+        (SelectConnection) uses callbacks to communicate with its user (
+        BlockingConnection in this case). If BlockingConnection leaks
+        exceptions back into the I/O loop or the asynchronous connection
+        adapter, we interrupt their normal workflow and introduce a high
+        likelihood of state inconsistency.
+        """
+        # Patch calls into I/O loop to fail test if exceptions are
+        # leaked back through SelectConnection or the I/O loop.
+        real_poll = connection._impl.ioloop.poll
+        def my_poll(*args, **kwargs):
+            try:
+                return real_poll(*args, **kwargs)
+            except BaseException as exc:
+                self.fail('Unwanted exception leaked into asynchronous layer '
+                          'via ioloop.poll(): {!r}'.format(exc))
+
+        connection._impl.ioloop.poll = my_poll
+        self.addCleanup(setattr, connection._impl.ioloop, 'poll', real_poll)
+
+        real_process_timeouts = connection._impl.ioloop.process_timeouts
+        def my_process_timeouts(*args, **kwargs):
+            try:
+                return real_process_timeouts(*args, **kwargs)
+            except AssertionError:
+                # Our test timeout logic and unit test assert* routines rely
+                # on being able to pass AssertionError
+                raise
+            except BaseException as exc:
+                self.fail('Unwanted exception leaked into asynchronous layer '
+                          'via ioloop.process_timeouts(): {!r}'.format(exc))
+
+        connection._impl.ioloop.process_timeouts = my_process_timeouts
+        self.addCleanup(setattr, connection._impl.ioloop, 'process_timeouts',
+                        real_process_timeouts)
 
     def _on_test_timeout(self):
         """Called when test times out"""
@@ -205,7 +251,7 @@ class TestCreateAndCloseConnectionWithChannelAndConsumer(BlockingTestCaseBase):
 
         # Declare a new queue
         ch.queue_declare(q_name, auto_delete=True)
-        self.addCleanup(self._connect().channel().queue_delete, q_name)
+        self.addCleanup(lambda: self._connect().channel().queue_delete(q_name))
 
         # Publish the message to the queue by way of default exchange
         ch.publish(exchange='', routing_key=q_name, body=body1)
@@ -707,7 +753,7 @@ class TestExchangeBindAndUnbind(BlockingTestCaseBase):
 
         # Declare a new queue
         ch.queue_declare(q_name, auto_delete=True)
-        self.addCleanup(self._connect().channel().queue_delete, q_name)
+        self.addCleanup(lambda: self._connect().channel().queue_delete(q_name))
 
         # Bind the queue to the destination exchange
         ch.queue_bind(q_name, exchange=dest_exg_name, routing_key=routing_key)
@@ -754,7 +800,7 @@ class TestQueueDeclareAndDelete(BlockingTestCaseBase):
 
         # Declare a new queue
         frame = ch.queue_declare(q_name, auto_delete=True)
-        self.addCleanup(self._connect().channel().queue_delete, q_name)
+        self.addCleanup(lambda: self._connect().channel().queue_delete(q_name))
 
         self.assertIsInstance(frame.method, pika.spec.Queue.DeclareOk)
 
@@ -812,7 +858,7 @@ class TestQueueBindAndUnbindAndPurge(BlockingTestCaseBase):
 
         # Declare a new queue
         ch.queue_declare(q_name, auto_delete=True)
-        self.addCleanup(self._connect().channel().queue_delete, q_name)
+        self.addCleanup(lambda: self._connect().channel().queue_delete(q_name))
 
         # Bind the queue to the exchange using routing key
         frame = ch.queue_bind(q_name, exchange=exg_name,
@@ -877,7 +923,7 @@ class TestBasicGet(BlockingTestCaseBase):
 
         # Declare a new queue
         ch.queue_declare(q_name, auto_delete=True)
-        self.addCleanup(self._connect().channel().queue_delete, q_name)
+        self.addCleanup(lambda: self._connect().channel().queue_delete(q_name))
         LOGGER.info('%s DECLARED QUEUE (%s)', datetime.utcnow(), self)
 
         # Verify result of getting a message from an empty queue
@@ -933,7 +979,7 @@ class TestBasicReject(BlockingTestCaseBase):
 
         # Declare a new queue
         ch.queue_declare(q_name, auto_delete=True)
-        self.addCleanup(self._connect().channel().queue_delete, q_name)
+        self.addCleanup(lambda: self._connect().channel().queue_delete(q_name))
 
         # Deposit two messages in the queue via default exchange
         ch.publish(exchange='', routing_key=q_name,
@@ -979,7 +1025,7 @@ class TestBasicRejectNoRequeue(BlockingTestCaseBase):
 
         # Declare a new queue
         ch.queue_declare(q_name, auto_delete=True)
-        self.addCleanup(self._connect().channel().queue_delete, q_name)
+        self.addCleanup(lambda: self._connect().channel().queue_delete(q_name))
 
         # Deposit two messages in the queue via default exchange
         ch.publish(exchange='', routing_key=q_name,
@@ -1024,7 +1070,7 @@ class TestBasicNack(BlockingTestCaseBase):
 
         # Declare a new queue
         ch.queue_declare(q_name, auto_delete=True)
-        self.addCleanup(self._connect().channel().queue_delete, q_name)
+        self.addCleanup(lambda: self._connect().channel().queue_delete(q_name))
 
         # Deposit two messages in the queue via default exchange
         ch.publish(exchange='', routing_key=q_name,
@@ -1070,7 +1116,7 @@ class TestBasicNackNoRequeue(BlockingTestCaseBase):
 
         # Declare a new queue
         ch.queue_declare(q_name, auto_delete=True)
-        self.addCleanup(self._connect().channel().queue_delete, q_name)
+        self.addCleanup(lambda: self._connect().channel().queue_delete(q_name))
 
         # Deposit two messages in the queue via default exchange
         ch.publish(exchange='', routing_key=q_name,
@@ -1115,7 +1161,7 @@ class TestBasicNackMultiple(BlockingTestCaseBase):
 
         # Declare a new queue
         ch.queue_declare(q_name, auto_delete=True)
-        self.addCleanup(self._connect().channel().queue_delete, q_name)
+        self.addCleanup(lambda: self._connect().channel().queue_delete(q_name))
 
         # Deposit two messages in the queue via default exchange
         ch.publish(exchange='', routing_key=q_name,
@@ -1171,7 +1217,7 @@ class TestBasicRecoverWithRequeue(BlockingTestCaseBase):
 
         # Declare a new queue
         ch.queue_declare(q_name, auto_delete=True)
-        self.addCleanup(self._connect().channel().queue_delete, q_name)
+        self.addCleanup(lambda: self._connect().channel().queue_delete(q_name))
 
         # Deposit two messages in the queue via default exchange
         ch.publish(exchange='', routing_key=q_name,
@@ -1219,7 +1265,7 @@ class TestTxCommit(BlockingTestCaseBase):
 
         # Declare a new queue
         ch.queue_declare(q_name, auto_delete=True)
-        self.addCleanup(self._connect().channel().queue_delete, q_name)
+        self.addCleanup(lambda: self._connect().channel().queue_delete(q_name))
 
         # Select standard transaction mode
         frame = ch.tx_select()
@@ -1257,7 +1303,7 @@ class TestTxRollback(BlockingTestCaseBase):
 
         # Declare a new queue
         ch.queue_declare(q_name, auto_delete=True)
-        self.addCleanup(self._connect().channel().queue_delete, q_name)
+        self.addCleanup(lambda: self._connect().channel().queue_delete(q_name))
 
         # Select standard transaction mode
         frame = ch.tx_select()
@@ -1537,7 +1583,7 @@ class TestBasicPublishDeliveredWhenPendingUnroutable(BlockingTestCaseBase):
 
         # Declare a new queue
         ch.queue_declare(q_name, auto_delete=True)
-        self.addCleanup(self._connect().channel().queue_delete, q_name)
+        self.addCleanup(lambda: self._connect().channel().queue_delete(q_name))
 
         # Bind the queue to the exchange using routing key
         ch.queue_bind(q_name, exchange=exg_name, routing_key=routing_key)
@@ -1613,7 +1659,7 @@ class TestPublishAndConsumeWithPubacksAndQosOfOne(BlockingTestCaseBase):
 
         # Declare a new queue
         ch.queue_declare(q_name, auto_delete=True)
-        self.addCleanup(self._connect().channel().queue_delete, q_name)
+        self.addCleanup(lambda: self._connect().channel().queue_delete(q_name))
 
         # Bind the queue to the exchange using routing key
         ch.queue_bind(q_name, exchange=exg_name, routing_key=routing_key)
@@ -1752,7 +1798,7 @@ class TestBasicConsumeWithAckFromAnotherThread(BlockingTestCaseBase):
 
         # Declare a new queue
         ch.queue_declare(q_name, auto_delete=True)
-        self.addCleanup(self._connect().channel().queue_delete, q_name)
+        self.addCleanup(lambda: self._connect().channel().queue_delete(q_name))
 
         # Bind the queue to the exchange using routing key
         ch.queue_bind(q_name, exchange=exg_name, routing_key=routing_key)
@@ -1850,7 +1896,7 @@ class TestConsumeGeneratorWithAckFromAnotherThread(BlockingTestCaseBase):
 
         # Declare a new queue
         ch.queue_declare(q_name, auto_delete=True)
-        self.addCleanup(self._connect().channel().queue_delete, q_name)
+        self.addCleanup(lambda: self._connect().channel().queue_delete(q_name))
 
         # Bind the queue to the exchange using routing key
         ch.queue_bind(q_name, exchange=exg_name, routing_key=routing_key)
@@ -1938,11 +1984,11 @@ class TestTwoBasicConsumersOnSameChannel(BlockingTestCaseBase):
 
         # Declare the two new queues and bind them to the exchange
         ch.queue_declare(q1_name, auto_delete=True)
-        self.addCleanup(self._connect().channel().queue_delete, q1_name)
+        self.addCleanup(lambda: self._connect().channel().queue_delete(q1_name))
         ch.queue_bind(q1_name, exchange=exg_name, routing_key=q1_routing_key)
 
         ch.queue_declare(q2_name, auto_delete=True)
-        self.addCleanup(self._connect().channel().queue_delete, q2_name)
+        self.addCleanup(lambda: self._connect().channel().queue_delete(q2_name))
         ch.queue_bind(q2_name, exchange=exg_name, routing_key=q2_routing_key)
 
         # Deposit messages in the queues
@@ -2031,8 +2077,7 @@ class TestBasicCancelPurgesPendingConsumerCancellationEvt(BlockingTestCaseBase):
 
         ch.queue_declare(q_name)
 
-        cleanup_channel = self._connect().channel()
-        self.addCleanup(cleanup_channel.queue_delete, q_name)
+        self.addCleanup(lambda: self._connect().channel().queue_delete(q_name))
 
         ch.publish('', routing_key=q_name, body='via-publish', mandatory=True)
 
@@ -2088,7 +2133,7 @@ class TestBasicPublishWithoutPubacks(BlockingTestCaseBase):
 
         # Declare a new queue
         ch.queue_declare(q_name, auto_delete=True)
-        self.addCleanup(self._connect().channel().queue_delete, q_name)
+        self.addCleanup(lambda: self._connect().channel().queue_delete(q_name))
 
         # Bind the queue to the exchange using routing key
         ch.queue_bind(q_name, exchange=exg_name, routing_key=routing_key)
@@ -2208,9 +2253,9 @@ class TestPublishFromBasicConsumeCallback(BlockingTestCaseBase):
 
         # Declare source and destination queues
         ch.queue_declare(src_q_name, auto_delete=True)
-        self.addCleanup(self._connect().channel().queue_delete, src_q_name)
+        self.addCleanup(lambda: self._connect().channel().queue_delete(src_q_name))
         ch.queue_declare(dest_q_name, auto_delete=True)
-        self.addCleanup(self._connect().channel().queue_delete, dest_q_name)
+        self.addCleanup(lambda: self._connect().channel().queue_delete(dest_q_name))
 
         # Deposit a message in the source queue
         ch.publish('',
@@ -2367,7 +2412,7 @@ class TestCloseConnectionFromBasicConsumeCallback(BlockingTestCaseBase):
 
         # Declare the queue
         ch.queue_declare(q_name, auto_delete=False)
-        self.addCleanup(self._connect().channel().queue_delete, q_name)
+        self.addCleanup(lambda: self._connect().channel().queue_delete(q_name))
 
         # Deposit two messages in the queue
         ch.publish('',
@@ -2404,6 +2449,82 @@ class TestCloseConnectionFromBasicConsumeCallback(BlockingTestCaseBase):
         self.assertEqual(rx_body, as_bytes('via-publish2'))
 
 
+class TestStartConsumingRaisesChannelClosedOnSameChannelFailure(BlockingTestCaseBase):
+
+    def test(self):
+        """start_consuming() exits with ChannelClosed exception on same channel failure
+        """
+        connection = self._connect()
+
+        # Fail test if exception leaks back ito I/O loop
+        self._instrument_io_loop_exception_leak_detection(connection)
+
+        ch = connection.channel()
+
+        q_name = (
+            'TestStartConsumingPassesChannelClosedOnSameChannelFailure_q' +
+            uuid.uuid1().hex)
+
+        # Declare the queue
+        ch.queue_declare(q_name, auto_delete=False)
+        self.addCleanup(lambda: self._connect().channel().queue_delete(q_name))
+
+        ch.basic_consume(q_name,
+                         lambda *args, **kwargs: None,
+                         auto_ack=False,
+                         exclusive=False,
+                         arguments=None)
+
+        # Schedule a callback that will cause a channel error on the consumer's
+        # channel by publishing to an unknown exchange. This will cause the
+        # broker to close our channel.
+        connection.add_callback_threadsafe(
+            lambda: ch.basic_publish(
+                exchange=q_name,
+                routing_key='123',
+                body=b'Nope this is wrong'))
+
+        self.assertFalse(ch._impl.is_closed_by_broker)
+
+        with self.assertRaises(pika.exceptions.ChannelClosed):
+            ch.start_consuming()
+
+        self.assertTrue(ch._impl.is_closed_by_broker)
+
+
+class TestStartConsumingReturnsAfterCancelFromBroker(BlockingTestCaseBase):
+
+    def test(self):
+        """start_consuming() returns after Cancel from broker
+        """
+        connection = self._connect()
+
+        ch = connection.channel()
+
+        q_name = (
+            'TestStartConsumingExitsOnCancelFromBroker_q' + uuid.uuid1().hex)
+
+        # Declare the queue
+        ch.queue_declare(q_name, auto_delete=False)
+        self.addCleanup(lambda: self._connect().channel().queue_delete(q_name))
+
+        consumer_tag = ch.basic_consume(q_name,
+                                        lambda *args, **kwargs: None,
+                                        auto_ack=False,
+                                        exclusive=False,
+                                        arguments=None)
+
+        # Schedule a callback that will run while start_consuming() is
+        # executing and delete the queue. This will cause the broker to cancel
+        # our consumer
+        connection.add_callback_threadsafe(
+            lambda: self._connect().channel().queue_delete(q_name))
+
+        ch.start_consuming()
+
+        self.assertNotIn(consumer_tag, ch._consumer_infos)
+
+
 class TestNonPubAckPublishAndConsumeHugeMessage(BlockingTestCaseBase):
 
     def test(self):
@@ -2417,7 +2538,7 @@ class TestNonPubAckPublishAndConsumeHugeMessage(BlockingTestCaseBase):
 
         # Declare a new queue
         ch.queue_declare(q_name, auto_delete=False)
-        self.addCleanup(self._connect().channel().queue_delete, q_name)
+        self.addCleanup(lambda: self._connect().channel().queue_delete(q_name))
 
         # Publish a message to the queue by way of default exchange
         ch.publish(exchange='', routing_key=q_name, body=body)
@@ -2452,7 +2573,7 @@ class TestNonPubAckPublishAndConsumeHugeMessage(BlockingTestCaseBase):
                                                       expected_count=0)
 
 
-class TestNonPubackPublishAndConsumeManyMessages(BlockingTestCaseBase):
+class TestNonPubAckPublishAndConsumeManyMessages(BlockingTestCaseBase):
 
     def test(self):
         """BlockingChannel non-pub-ack publish/consume many messages"""
@@ -2468,7 +2589,7 @@ class TestNonPubackPublishAndConsumeManyMessages(BlockingTestCaseBase):
 
         # Declare a new queue
         ch.queue_declare(q_name, auto_delete=False)
-        self.addCleanup(self._connect().channel().queue_delete, q_name)
+        self.addCleanup(lambda: self._connect().channel().queue_delete(q_name))
 
         for _ in pika.compat.xrange(num_messages_to_publish):
             # Publish a message to the queue by way of default exchange
@@ -2526,7 +2647,7 @@ class TestBasicCancelWithNonAckableConsumer(BlockingTestCaseBase):
 
         # Declare a new queue
         ch.queue_declare(q_name, auto_delete=False)
-        self.addCleanup(self._connect().channel().queue_delete, q_name)
+        self.addCleanup(lambda: self._connect().channel().queue_delete(q_name))
 
         # Publish two messages to the queue by way of default exchange
         ch.publish(exchange='', routing_key=q_name, body=body1)
@@ -2583,7 +2704,7 @@ class TestBasicCancelWithAckableConsumer(BlockingTestCaseBase):
 
         # Declare a new queue
         ch.queue_declare(q_name, auto_delete=False)
-        self.addCleanup(self._connect().channel().queue_delete, q_name)
+        self.addCleanup(lambda: self._connect().channel().queue_delete(q_name))
 
         # Publish two messages to the queue by way of default exchange
         ch.publish(exchange='', routing_key=q_name, body=body1)
@@ -2635,7 +2756,7 @@ class TestUnackedMessageAutoRestoredToQueueOnChannelClose(BlockingTestCaseBase):
 
         # Declare a new queue
         ch.queue_declare(q_name, auto_delete=False)
-        self.addCleanup(self._connect().channel().queue_delete, q_name)
+        self.addCleanup(lambda: self._connect().channel().queue_delete(q_name))
 
         # Publish two messages to the queue by way of default exchange
         ch.publish(exchange='', routing_key=q_name, body=body1)
@@ -2682,7 +2803,7 @@ class TestNoAckMessageNotRestoredToQueueOnChannelClose(BlockingTestCaseBase):
 
         # Declare a new queue
         ch.queue_declare(q_name, auto_delete=False)
-        self.addCleanup(self._connect().channel().queue_delete, q_name)
+        self.addCleanup(lambda: self._connect().channel().queue_delete(q_name))
 
         # Publish two messages to the queue by way of default exchange
         ch.publish(exchange='', routing_key=q_name, body=body1)
@@ -2713,7 +2834,7 @@ class TestNoAckMessageNotRestoredToQueueOnChannelClose(BlockingTestCaseBase):
         self.assertEqual(frame.method.message_count, 0)
 
 
-class TestConsumeInactivityTimeout(BlockingTestCaseBase):
+class TestConsumeGeneratorInactivityTimeout(BlockingTestCaseBase):
 
     def test(self):
         """BlockingChannel consume returns 3-tuple of None values on inactivity timeout """
@@ -2721,21 +2842,18 @@ class TestConsumeInactivityTimeout(BlockingTestCaseBase):
 
         ch = connection.channel()
 
-        q_name = ('TestConsumeInactivityTimeout_q' +
-                  uuid.uuid1().hex)
+        q_name = ('TestConsumeGeneratorInactivityTimeout_q' + uuid.uuid1().hex)
 
         # Declare a new queue
         ch.queue_declare(q_name, auto_delete=True)
 
-        # Consume, but don't ack
+        # Expect to get only (None, None, None) upon inactivity timeout, since
+        # there are no messages in queue
         for msg in ch.consume(q_name, inactivity_timeout=0.1):
-            a, b, c = msg
-            self.assertIsNone(a)
-            self.assertIsNone(b)
-            self.assertIsNone(c)
+            self.assertEqual(msg, (None, None, None))
             break
         else:
-            self.fail('expected (None, None, None), but got %s' % msg)
+            self.fail('expected (None, None, None), but iterator stopped')
 
 
 class TestConsumeGeneratorInterruptedByCancelFromBroker(BlockingTestCaseBase):
@@ -2798,6 +2916,44 @@ class TestConsumeGeneratorCancelEncountersCancelFromBroker(BlockingTestCaseBase)
             self.assertIsNone(ch._queue_consumer_generator)
 
 
+class TestConsumeGeneratorPassesChannelClosedOnSameChannelFailure(BlockingTestCaseBase):
+
+    def test(self):
+        """consume() exits with ChannelClosed exception on same channel failure
+        """
+        connection = self._connect()
+
+        # Fail test if exception leaks back ito I/O loop
+        self._instrument_io_loop_exception_leak_detection(connection)
+
+        ch = connection.channel()
+
+        q_name = (
+            'TestConsumeGeneratorPassesChannelClosedOnSameChannelFailure_q' +
+            uuid.uuid1().hex)
+
+        # Declare the queue
+        ch.queue_declare(q_name, auto_delete=False)
+        self.addCleanup(lambda: self._connect().channel().queue_delete(q_name))
+
+        # Schedule a callback that will cause a channel error on the consumer's
+        # channel by publishing to an unknown exchange. This will cause the
+        # broker to close our channel.
+        connection.add_callback_threadsafe(
+            lambda: ch.basic_publish(
+                exchange=q_name,
+                routing_key='123',
+                body=b'Nope this is wrong'))
+
+        self.assertFalse(ch._impl.is_closed_by_broker)
+
+        with self.assertRaises(pika.exceptions.ChannelClosed):
+            for _ in ch.consume(q_name):
+                pass
+
+        self.assertTrue(ch._impl.is_closed_by_broker)
+
+
 class TestChannelFlow(BlockingTestCaseBase):
 
     def test(self):
@@ -2810,7 +2966,7 @@ class TestChannelFlow(BlockingTestCaseBase):
 
         # Declare a new queue
         ch.queue_declare(q_name, auto_delete=False)
-        self.addCleanup(self._connect().channel().queue_delete, q_name)
+        self.addCleanup(lambda: self._connect().channel().queue_delete(q_name))
 
         # Verify zero active consumers on the queue
         frame = ch.queue_declare(q_name, passive=True)

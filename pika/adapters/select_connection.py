@@ -361,7 +361,7 @@ class IOLoop(object):
         Tornado's timeout where you pass in the time you want to have your
         callback called. Only pass in the seconds until it's to be called.
 
-        :param int deadline: The number of seconds to wait to call callback
+        :param float deadline: The number of seconds to wait to call callback
         :param method callback: The callback method
         :rtype: str
 
@@ -409,7 +409,9 @@ class IOLoop(object):
         """
         # Avoid I/O starvation by postponing new callbacks to the next iteration
         for _ in pika.compat.xrange(len(self._callbacks)):
-            self._callbacks.popleft()()
+            callback = self._callbacks.popleft()
+            LOGGER.debug('process_timeouts: invoking callback=%r', callback)
+            callback()
 
         self._timer.process_timeouts()
 

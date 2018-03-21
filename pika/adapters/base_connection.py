@@ -98,7 +98,7 @@ class BaseConnection(connection.Connection):
         """Add the callback to the IOLoop timer to fire after deadline
         seconds. Returns a handle to the timeout
 
-        :param int deadline: The number of seconds to wait to call callback
+        :param float deadline: The number of seconds to wait to call callback
         :param method callback: The callback method
         :rtype: str
 

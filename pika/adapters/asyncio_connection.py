@@ -35,7 +35,7 @@ class IOLoopAdapter:
         """Add the callback to the EventLoop timer to fire after deadline
         seconds. Returns a Handle to the timeout.
 
-        :param int deadline: The number of seconds to wait to call callback
+        :param float deadline: The number of seconds to wait to call callback
         :param method callback: The callback method
         :rtype: asyncio.Handle
 
