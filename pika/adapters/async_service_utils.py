@@ -11,6 +11,8 @@ import numbers
 import os
 import socket
 import ssl
+import sys
+import traceback
 
 from pika.adapters import async_interface
 import pika.compat
@@ -816,7 +818,6 @@ class _AsyncTransportBase(  # pylint: disable=W0223
         self._tx_buffers.append(data)
         self._tx_buffered_byte_count += len(data)
 
-    @_log_exceptions
     def _consume(self):
         """Utility method for use by subclasses to ingest data from socket and
         dispatch it to protocol's `data_received()` method socket-specific
@@ -853,7 +854,6 @@ class _AsyncTransportBase(  # pylint: disable=W0223
                               error, self._sock)
                 raise
 
-    @_log_exceptions
     def _produce(self):
         """Utility method for use by subclasses to emit data from tx_buffers.
         This method sends chunks from `tx_buffers` until all chunks are
@@ -880,7 +880,6 @@ class _AsyncTransportBase(  # pylint: disable=W0223
                 self._tx_buffered_byte_count, self._state)
 
     @staticmethod
-    @_log_exceptions
     @_retry_on_sigint
     def _sigint_safe_recv(sock, max_bytes):
         """Receive data from socket, retrying on SIGINT.
@@ -895,7 +894,6 @@ class _AsyncTransportBase(  # pylint: disable=W0223
         return sock.recv(max_bytes)
 
     @staticmethod
-    @_log_exceptions
     @_retry_on_sigint
     def _sigint_safe_send(sock, data):
         """Send data to socket, retrying on SIGINT.
@@ -1108,8 +1106,11 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
                     error.errno in _TRY_IO_AGAIN_SOCK_ERROR_CODES):
                 _LOGGER.debug('Recv would block on %s', self._sock)
             else:
-                _LOGGER.error('Consume failed, aborting connection: %r; %s',
-                              error, self._sock)
+                _LOGGER.exception(
+                    '_AsyncBaseTransport._consume() failed, aborting '
+                    'connection: error=%r; sock=%s; Caller\'s stack:\n%s',
+                    error, self._sock,
+                    ''.join(traceback.format_exception(*sys.exc_info())))
                 self._initiate_abort(error)
         else:
             if self._state != self._STATE_ACTIVE:
@@ -1145,8 +1146,11 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
                     error.errno in _TRY_IO_AGAIN_SOCK_ERROR_CODES):
                 _LOGGER.debug('Send would block on %s', self._sock)
             else:
-                _LOGGER.error('Consume failed, aborting connection: %r; %s',
-                              error, self._sock)
+                _LOGGER.exception(
+                    '_AsyncBaseTransport._produce() failed, aborting '
+                    'connection: error=%r; sock=%s; Caller\'s stack:\n%s',
+                    error, self._sock,
+                    ''.join(traceback.format_exception(*sys.exc_info())))
                 self._initiate_abort(error)
         else:
             if not self._tx_buffers:
@@ -1266,7 +1270,11 @@ class _AsyncSSLTransport(_AsyncTransportBase):
                 _LOGGER.debug('SSL ingester wants write: %s', self._sock)
                 next_consume_on_readable = False
             else:
-                _LOGGER.error('SSL consumer failed: %r; %s', error, self._sock)
+                _LOGGER.exception(
+                    '_AsyncBaseTransport._consume() failed, aborting '
+                    'connection: error=%r; sock=%s; Caller\'s stack:\n%s',
+                    error, self._sock,
+                    ''.join(traceback.format_exception(*sys.exc_info())))
                 raise  # let outer catch block abort the transport
         else:
             if self._state != self._STATE_ACTIVE:
@@ -1336,7 +1344,11 @@ class _AsyncSSLTransport(_AsyncTransportBase):
                 _LOGGER.debug('SSL emitter wants write: %s', self._sock)
                 next_produce_on_writable = True
             else:
-                _LOGGER.error('SSL producer failed: %r; %s', error, self._sock)
+                _LOGGER.exception(
+                    '_AsyncBaseTransport._produce() failed, aborting '
+                    'connection: error=%r; sock=%s; Caller\'s stack:\n%s',
+                    error, self._sock,
+                    ''.join(traceback.format_exception(*sys.exc_info())))
                 raise  # let outer catch block abort the transport
         else:
             # No exception, so everything must have been written to the socket
@@ -1380,8 +1392,11 @@ class _AsyncSSLTransport(_AsyncTransportBase):
             else:
                 assert self._ssl_writable_action is self._produce, (
                     '_AsyncSSLTransport._produce(): with empty tx_buffers, '
-                    'expected writable_action as _produce if readable_action '
-                    'is not _produce', self._state)
+                    'expected writable_action as _produce when readable_action '
+                    'is not _produce',
+                    'writable_action:', self._ssl_writable_action,
+                    'readable_action:', self._ssl_readable_action,
+                    'state:', self._state)
                 self._ssl_writable_action = None
                 self._async.remove_writer(self._sock.fileno())
 
