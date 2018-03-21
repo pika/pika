@@ -1299,7 +1299,8 @@ class _AsyncSSLTransport(_AsyncTransportBase):
                                        self._on_socket_readable)
             self._ssl_readable_action = self._consume
 
-            if self._ssl_writable_action is self._consume:
+            # NOTE: can't use identity check, it fails for instance methods
+            if self._ssl_writable_action == self._consume:
                 self._async.remove_writer(self._sock.fileno())
                 self._ssl_writable_action = None
         else:
@@ -1368,7 +1369,8 @@ class _AsyncSSLTransport(_AsyncTransportBase):
                                            self._on_socket_writable)
                 self._ssl_writable_action = self._produce
 
-                if self._ssl_readable_action is self._produce:
+                # NOTE: can't use identity check, it fails for instance methods
+                if self._ssl_readable_action == self._produce:
                     self._async.remove_reader(self._sock.fileno())
                     self._ssl_readable_action = None
             else:
@@ -1382,15 +1384,17 @@ class _AsyncSSLTransport(_AsyncTransportBase):
                     self._async.remove_writer(self._sock.fileno())
                     self._ssl_writable_action = None
         else:
-            if self._ssl_readable_action is self._produce:
+            # NOTE: can't use identity check, it fails for instance methods
+            if self._ssl_readable_action == self._produce:
                 self._async.remove_reader(self._sock.fileno())
                 self._ssl_readable_action = None
-                assert self._ssl_writable_action is not self._produce, (
+                assert self._ssl_writable_action != self._produce, (
                     '_AsyncSSLTransport._produce(): with empty tx_buffers, '
                     'writable_action cannot be _produce when readable is '
                     '_produce', self._state)
             else:
-                assert self._ssl_writable_action is self._produce, (
+                # NOTE: can't use identity check, it fails for instance methods
+                assert self._ssl_writable_action == self._produce, (
                     '_AsyncSSLTransport._produce(): with empty tx_buffers, '
                     'expected writable_action as _produce when readable_action '
                     'is not _produce',
