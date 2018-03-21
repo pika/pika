@@ -26,7 +26,6 @@ class ConnectionTemplate(connection.Connection):
     # overridden
     _adapter_connect = connection.Connection._adapter_connect
     _adapter_disconnect = connection.Connection._adapter_disconnect
-    _flush_outbound = connection.Connection._flush_outbound
     add_timeout = connection.Connection.add_timeout
     remove_timeout = connection.Connection.remove_timeout
 

@@ -49,10 +49,10 @@ before_script:
 script:
   # See https://github.com/travis-ci/travis-ci/issues/1066 and https://github.com/pika/pika/pull/984#issuecomment-370565220
   # as to why 'set -e' and 'set +e' are added here
-  - set -e
+  #- set -e
   - nosetests
   - PIKA_TEST_TLS=true nosetests
-  - set +e
+  #- set +e
 
 after_success:
   - aws s3 cp .coverage "s3://com-gavinroy-travis/pika/$TRAVIS_BUILD_NUMBER/.coverage.${TRAVIS_PYTHON_VERSION}"

@@ -15,25 +15,25 @@ import threading
 import pika.compat
 
 from pika.adapters.base_connection import BaseConnection
+from pika.adapters.selector_ioloop_adapter import (
+    SelectorAsyncServicesAdapter,
+    AbstractSelectorIOLoop)
+
 
 LOGGER = logging.getLogger(__name__)
 
 # One of select, epoll, kqueue or poll
 SELECT_TYPE = None
 
-# Use epoll's constants to keep life easy
-READ = 0x0001
-WRITE = 0x0004
-ERROR = 0x0008
-
 # Reason for this unconventional dict initialization is the fact that on some
 # platforms select.error is an aliases for OSError. We don't want the lambda
 # for select.error to win over one for OSError.
 _SELECT_ERROR_CHECKERS = {}
 if pika.compat.PY3:
-    #InterruptedError is undefined in PY2
-    #pylint: disable=E0602
+    # InterruptedError is undefined in PY2
+    # pylint: disable=E0602
     _SELECT_ERROR_CHECKERS[InterruptedError] = lambda e: True
+
 _SELECT_ERROR_CHECKERS[select.error] = lambda e: e.args[0] == errno.EINTR
 _SELECT_ERROR_CHECKERS[IOError] = lambda e: e.errno == errno.EINTR
 _SELECT_ERROR_CHECKERS[OSError] = lambda e: e.errno == errno.EINTR
@@ -42,15 +42,17 @@ _SELECT_ERROR_CHECKERS[OSError] = lambda e: e.errno == errno.EINTR
 # class relationship because only the most generic ones needs to be caught.
 # For now the optimization is left out.
 # Following is better but still incomplete.
-#_SELECT_ERRORS = tuple(filter(lambda e: not isinstance(e, OSError),
+# _SELECT_ERRORS = tuple(filter(lambda e: not isinstance(e, OSError),
 #                              _SELECT_ERROR_CHECKERS.keys())
 #                       + [OSError])
 _SELECT_ERRORS = tuple(_SELECT_ERROR_CHECKERS.keys())
 
 
 def _is_resumable(exc):
-    ''' Check if caught exception represents EINTR error.
-    :param exc: exception; must be one of classes in _SELECT_ERRORS '''
+    """Check if caught exception represents EINTR error.
+    :param exc: exception; must be one of classes in _SELECT_ERRORS
+
+    """
     checker = _SELECT_ERROR_CHECKERS.get(exc.__class__, None)
     if checker is not None:
         return checker(exc)
@@ -89,27 +91,7 @@ class SelectConnection(BaseConnection):
             on_open_callback,
             on_open_error_callback,
             on_close_callback,
-            ioloop)
-
-    def _adapter_connect(self):
-        """Connect to the RabbitMQ broker, returning True on success, False
-        on failure.
-
-        :rtype: bool
-
-        """
-        error = super(SelectConnection, self)._adapter_connect()
-        if not error:
-            self.ioloop.add_handler(self.socket.fileno(),
-                                    self._handle_connection_socket_events,
-                                    self.event_state)
-        return error
-
-    def _adapter_disconnect(self):
-        """Disconnect from the RabbitMQ broker"""
-        if self.socket:
-            self.ioloop.remove_handler(self.socket.fileno())
-        super(SelectConnection, self)._adapter_disconnect()
+            SelectorAsyncServicesAdapter(ioloop))
 
 
 @functools.total_ordering
@@ -216,7 +198,7 @@ class _Timer(object):
         # timeout and garbage-collect it at a later time; see discussion
         # in http://docs.python.org/library/heapq.html
         if timeout.callback is None:
-            LOGGER.warning(
+            LOGGER.debug(
                 'remove_timeout: timeout was already removed or called %r',
                 timeout)
         else:
@@ -279,16 +261,27 @@ class _Timer(object):
                 heapq.heapify(self._timeout_heap)
 
 
-class IOLoop(object):
-    """Singleton wrapper that decides which type of poller to use, creates an
-    instance of it in start_poller and keeps the invoking application in a
-    blocking state by calling the pollers start method. Poller should keep
-    looping until IOLoop.instance().stop() is called or there is a socket
-    error.
+class PollEvents(object):
+    """Event flags for I/O"""
 
-    Passes through all operations to the loaded poller object.
+    # Use epoll's constants to keep life easy
+    READ = 0x0001  # available for read
+    WRITE = 0x0004  # available for write
+    ERROR = 0x0008  # error on associated fd
+
+
+class IOLoop(AbstractSelectorIOLoop):
+    """I/O loop implementation that picks a suitable poller (`select`,
+     `poll`, `epoll`, `kqueue`) to use based on platform.
+
+     Implements the
+     `pika.adapters.selector_ioloop_adapter.AbstractSelectorIOLoop` interface.
 
     """
+    # READ/WRITE/ERROR per `AbstractSelectorIOLoop` requirements
+    READ = PollEvents.READ
+    WRITE = PollEvents.WRITE
+    ERROR = PollEvents.ERROR
 
     def __init__(self):
         self._timer = _Timer()
@@ -355,26 +348,27 @@ class IOLoop(object):
 
         return poller
 
-    def add_timeout(self, deadline, callback):
-        """[API] Add the callback to the IOLoop timer to fire after
-        deadline seconds. Returns a handle to the timeout. Do not confuse with
-        Tornado's timeout where you pass in the time you want to have your
-        callback called. Only pass in the seconds until it's to be called.
+    def call_later(self, delay, callback):
+        """Add the callback to the IOLoop timer to be called after delay seconds
+        from the time of call on best-effort basis. Returns a handle to the
+        timeout.
 
-        :param int deadline: The number of seconds to wait to call callback
+        :param int delay: The number of seconds to wait to call callback
         :param method callback: The callback method
-        :rtype: str
+        :returns: handle to the created timeout that may be passed to
+            `remove_timeout()`
+        :rtype: opaque
 
         """
-        return self._timer.call_later(deadline, callback)
+        return self._timer.call_later(delay, callback)
 
-    def remove_timeout(self, timeout_id):
-        """[API] Remove a timeout
+    def remove_timeout(self, timeout_handle):
+        """Remove a timeout
 
-        :param str timeout_id: The timeout id to remove
+        :param timeout_handle: Handle of timeout to remove
 
         """
-        self._timer.remove_timeout(timeout_id)
+        self._timer.remove_timeout(timeout_handle)
 
     def add_callback_threadsafe(self, callback):
         """Requests a call to the given function as soon as possible in the
@@ -402,6 +396,9 @@ class IOLoop(object):
 
         LOGGER.debug('add_callback_threadsafe: added callback=%r', callback)
 
+    # To satisfy `AbstractSelectorIOLoop` requirement
+    add_callback = add_callback_threadsafe
+
     def process_timeouts(self):
         """[Extension] Process pending callbacks and timeouts, invoking those
         whose time has come. Internal use only.
@@ -427,32 +424,33 @@ class IOLoop(object):
 
         return self._timer.get_remaining_interval()
 
-    def add_handler(self, fileno, handler, events):
-        """[API] Add a new fileno to the set to be monitored
+    def add_handler(self, fd, handler, events):
+        """Start watching the given file descriptor for events
 
-        :param int fileno: The file descriptor
-        :param method handler: What is called when an event happens
+        :param int fd: The file descriptor
+        :param method handler: When requested event(s) occur,
+            `handler(fd, events)` will be called.
+        :param int events: The event mask using READ, WRITE, ERROR.
+
+        """
+        self._poller.add_handler(fd, handler, events)
+
+    def update_handler(self, fd, events):
+        """Changes the events we watch for
+
+        :param int fd: The file descriptor
         :param int events: The event mask using READ, WRITE, ERROR
 
         """
-        self._poller.add_handler(fileno, handler, events)
+        self._poller.update_handler(fd, events)
 
-    def update_handler(self, fileno, events):
-        """[API] Set the events to the current events
+    def remove_handler(self, fd):
+        """Stop watching the given file descriptor for events
 
-        :param int fileno: The file descriptor
-        :param int events: The event mask using READ, WRITE, ERROR
-
-        """
-        self._poller.update_handler(fileno, events)
-
-    def remove_handler(self, fileno):
-        """[API] Remove a file descriptor from the set
-
-        :param int fileno: The file descriptor
+        :param int fd: The file descriptor
 
         """
-        self._poller.remove_handler(fileno)
+        self._poller.remove_handler(fd)
 
     def start(self):
         """[API] Start the main poller loop. It will loop until requested to
@@ -502,10 +500,7 @@ class IOLoop(object):
         self._poller.poll()
 
 
-_AbstractBase = abc.ABCMeta('_AbstractBase', (object,), {})
-
-
-class _PollerBase(_AbstractBase):  # pylint: disable=R0902
+class _PollerBase(pika.compat.AbstractBase):  # pylint: disable=R0902
     """Base class for select-based IOLoop implementations"""
 
     # Drop out of the poll loop every _MAX_POLL_TIMEOUT secs as a worst case;
@@ -535,7 +530,9 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
         self._fd_handlers = dict()
 
         # event-to-fdset mappings
-        self._fd_events = {READ: set(), WRITE: set(), ERROR: set()}
+        self._fd_events = {PollEvents.READ: set(),
+                           PollEvents.WRITE: set(),
+                           PollEvents.ERROR: set()}
 
         self._processing_fd_event_map = {}
 
@@ -546,7 +543,9 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
 
         # Create ioloop-interrupt socket pair and register read handler.
         self._r_interrupt, self._w_interrupt = self._get_interrupt_pair()
-        self.add_handler(self._r_interrupt.fileno(), self._read_interrupt, READ)
+        self.add_handler(self._r_interrupt.fileno(),
+                         self._read_interrupt,
+                         PollEvents.READ)
 
     def close(self):
         """Release poller's resources.
@@ -564,7 +563,8 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
 
         with self._waking_mutex:
             if self._w_interrupt is not None:
-                self.remove_handler(self._r_interrupt.fileno()) # pylint: disable=E1101
+                self.remove_handler(
+                    self._r_interrupt.fileno())  # pylint: disable=E1101
                 self._r_interrupt.close()
                 self._r_interrupt = None
                 self._w_interrupt.close()
@@ -597,7 +597,6 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
                 # loop after POLL_TIMEOUT secs in worst case anyway.
                 LOGGER.warning("Failed to send interrupt to poller: %s", err)
                 raise
-
 
     def _get_max_wait(self):
         """Get the interval to the next timeout event, or a default interval
@@ -674,7 +673,7 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
         events_cleared = 0
         events_set = 0
 
-        for evt in (READ, WRITE, ERROR):
+        for evt in (PollEvents.READ, PollEvents.WRITE, PollEvents.ERROR):
             if events & evt:
                 if fileno not in self._fd_events[evt]:
                     self._fd_events[evt].add(fileno)
@@ -829,7 +828,7 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
                 continue
 
             events = fd_event_map[fileno]
-            for evt in [READ, WRITE, ERROR]:
+            for evt in [PollEvents.READ, PollEvents.WRITE, PollEvents.ERROR]:
                 if fileno not in self._fd_events[evt]:
                     events &= ~evt
 
@@ -844,18 +843,18 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
         so use a pair of simple TCP sockets instead. The sockets will be
         closed and garbage collected by python when the ioloop itself is.
         """
-        return pika.compat._nonblocking_socketpair() # pylint: disable=W0212
+        return pika.compat._nonblocking_socketpair()  # pylint: disable=W0212
 
-    def _read_interrupt(self, interrupt_fd, events):  # pylint: disable=W0613
+    def _read_interrupt(self, _interrupt_fd, _events):
         """ Read the interrupt byte(s). We ignore the event mask as we can ony
         get here if there's data to be read on our fd.
 
-        :param int interrupt_fd: The file descriptor to read from
-        :param int events: (unused) The events generated for this fd
+        :param int _interrupt_fd: (unused) The file descriptor to read from
+        :param int _events: (unused) The events generated for this fd
         """
         try:
             # NOTE Use recv instead of os.read for windows compatibility
-            self._r_interrupt.recv(512) # pylint: disable=E1101
+            self._r_interrupt.recv(512)  # pylint: disable=E1101
         except pika.compat.SOCKET_ERROR as err:
             if err.errno != errno.EAGAIN:
                 raise
@@ -878,11 +877,14 @@ class SelectPoller(_PollerBase):
         """
         while True:
             try:
-                if (self._fd_events[READ] or self._fd_events[WRITE] or
-                        self._fd_events[ERROR]):
+                if (self._fd_events[PollEvents.READ] or
+                        self._fd_events[PollEvents.WRITE] or
+                        self._fd_events[PollEvents.ERROR]):
                     read, write, error = select.select(
-                        self._fd_events[READ], self._fd_events[WRITE],
-                        self._fd_events[ERROR], self._get_max_wait())
+                        self._fd_events[PollEvents.READ],
+                        self._fd_events[PollEvents.WRITE],
+                        self._fd_events[PollEvents.ERROR],
+                        self._get_max_wait())
                 else:
                     # NOTE When called without any FDs, select fails on
                     # Windows with error 10022, 'An invalid argument was
@@ -900,7 +902,9 @@ class SelectPoller(_PollerBase):
         # Build an event bit mask for each fileno we've received an event for
 
         fd_event_map = collections.defaultdict(int)
-        for fd_set, evt in zip((read, write, error), (READ, WRITE, ERROR)):
+        for fd_set, evt in zip(
+                (read, write, error),
+                (PollEvents.READ, PollEvents.WRITE, PollEvents.ERROR)):
             for fileno in fd_set:
                 fd_event_map[fileno] |= evt
 
@@ -968,15 +972,19 @@ class KQueuePoller(_PollerBase):
         :param kevent kevent: a kevent object as returned by kqueue.control()
 
         """
+        mask = 0
         if kevent.filter == select.KQ_FILTER_READ:
-            return READ
+            mask = PollEvents.READ
         elif kevent.filter == select.KQ_FILTER_WRITE:
-            return WRITE
+            mask = PollEvents.WRITE
+            if kevent.flags & select.KQ_EV_EOF:
+                mask |= PollEvents.ERROR
         elif kevent.flags & select.KQ_EV_ERROR:
-            return ERROR
+            mask = PollEvents.ERROR
+        else:
+            LOGGER.critical('Unexpected kevent: %s', kevent)
 
-        # Should never happen
-        return None
+        return mask
 
     def poll(self):
         """Wait for events of interest on registered file descriptors until an
@@ -1039,25 +1047,25 @@ class KQueuePoller(_PollerBase):
 
         kevents = list()
 
-        if events_to_clear & READ:
+        if events_to_clear & PollEvents.READ:
             kevents.append(
                 select.kevent(
                     fileno,
                     filter=select.KQ_FILTER_READ,
                     flags=select.KQ_EV_DELETE))
-        if events_to_set & READ:
+        if events_to_set & PollEvents.READ:
             kevents.append(
                 select.kevent(
                     fileno,
                     filter=select.KQ_FILTER_READ,
                     flags=select.KQ_EV_ADD))
-        if events_to_clear & WRITE:
+        if events_to_clear & PollEvents.WRITE:
             kevents.append(
                 select.kevent(
                     fileno,
                     filter=select.KQ_FILTER_WRITE,
                     flags=select.KQ_EV_DELETE))
-        if events_to_set & WRITE:
+        if events_to_set & PollEvents.WRITE:
             kevents.append(
                 select.kevent(
                     fileno,

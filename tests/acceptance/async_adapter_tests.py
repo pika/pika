@@ -21,7 +21,7 @@ import pika.connection
 import pika.frame
 import pika.spec
 
-from async_test_base import (AsyncTestCase, BoundQueueTestCase, AsyncAdapters)
+from .async_test_base import (AsyncTestCase, BoundQueueTestCase, AsyncAdapters)
 
 
 class TestA_Connect(AsyncTestCase, AsyncAdapters):  # pylint: disable=C0103

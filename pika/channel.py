@@ -1375,7 +1375,7 @@ class Channel(object):
                                    self._on_synchronous_complete,
                                    arguments=arguments)
                 if callback is not None:
-                    LOGGER.debug('Adding passed-in callback')
+                    LOGGER.debug('Adding passed-in RPC response callback')
                     self.callbacks.add(self.channel_number, reply, callback,
                                        arguments=arguments)
 

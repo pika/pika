@@ -82,7 +82,7 @@ class AsyncTestCase(unittest.TestCase):
             self._run_ioloop()
             self.assertFalse(self._timed_out)
         finally:
-            self.connection.ioloop.close()
+            self.connection._async.close()
             self.connection = None
 
     def stop_ioloop_only(self):
@@ -90,7 +90,7 @@ class AsyncTestCase(unittest.TestCase):
         closing the connection
         """
         self._safe_remove_test_timeout()
-        self.connection.ioloop.stop()
+        self.connection._async.stop()
 
     def stop(self):
         """close the connection and stop the ioloop"""
@@ -103,7 +103,7 @@ class AsyncTestCase(unittest.TestCase):
         logic after we instantiate the connection and assign it to
         `self.connection`, but before we run the ioloop
         """
-        self.connection.ioloop.start()
+        self.connection._async.run()
 
     def _safe_remove_test_timeout(self):
         if hasattr(self, 'timeout') and self.timeout is not None:
@@ -115,7 +115,7 @@ class AsyncTestCase(unittest.TestCase):
         if hasattr(self, 'connection') and self.connection is not None:
             self._safe_remove_test_timeout()
             self.logger.info("Stopping ioloop")
-            self.connection.ioloop.stop()
+            self.connection._async.stop()
 
     def on_closed(self, connection, reply_code, reply_text):
         """called when the connection has finished closing"""
@@ -129,7 +129,7 @@ class AsyncTestCase(unittest.TestCase):
 
     def on_open_error(self, connection, error):
         self.logger.error('on_open_error: %r %r', connection, error)
-        connection.ioloop.stop()
+        connection._async.stop()
         raise AssertionError('Error connecting to RabbitMQ')
 
     def on_timeout(self):

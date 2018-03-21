@@ -68,7 +68,7 @@ class IOLoopBaseTest(unittest.TestCase):
         and start polling.
 
         """
-        fail_timer = self.ioloop.add_timeout(self.TIMEOUT, self.on_timeout)
+        fail_timer = self.ioloop.call_later(self.TIMEOUT, self.on_timeout)
         self.addCleanup(self.ioloop.remove_timeout, fail_timer)
         self.ioloop.start()
 
@@ -179,7 +179,7 @@ class IOLoopTimerTestSelect(IOLoopBaseTest):
         self.timer_stack = list()
         for i in range(self.NUM_TIMERS, 0, -1):
             deadline = i * self.TIMER_INTERVAL
-            self.ioloop.add_timeout(
+            self.ioloop.call_later(
                 deadline, functools.partial(self.on_timer, i))
             self.timer_stack.append(i)
 
@@ -209,7 +209,7 @@ class IOLoopTimerTestSelect(IOLoopBaseTest):
         self.timer_stack = list()
         handle_holder = []
         self.timer_got_fired = False
-        self.handle = self.ioloop.add_timeout(
+        self.handle = self.ioloop.call_later(
             0.1, functools.partial(
                 self._on_timer_delete_itself, handle_holder))
         handle_holder.append(self.handle)
@@ -232,10 +232,10 @@ class IOLoopTimerTestSelect(IOLoopBaseTest):
 
         """
         holder_for_target_timer = []
-        self.ioloop.add_timeout(
+        self.ioloop.call_later(
             0.01, functools.partial(
                 self._on_timer_delete_another, holder_for_target_timer))
-        timer_2 = self.ioloop.add_timeout(0.02, self._on_timer_no_call)
+        timer_2 = self.ioloop.call_later(0.02, self._on_timer_no_call)
         holder_for_target_timer.append(timer_2)
         time.sleep(0.03)  # so that timer_1 and timer_2 fires at the same time.
         self.start()
@@ -261,7 +261,7 @@ class IOLoopTimerTestSelect(IOLoopBaseTest):
             self.assertIsNone(target_timer.callback)
             self.ioloop.stop()
 
-        self.ioloop.add_timeout(0.01, _on_timer_conclude)
+        self.ioloop.call_later(0.01, _on_timer_conclude)
 
     def _on_timer_no_call(self):
         """A timeout handler that is used when it's assumed not be called."""
@@ -345,7 +345,7 @@ class IOLoopSocketBaseSelect(IOLoopBaseTest):
         listen_sock.listen(1)
         fd_ = self.save_sock(listen_sock)
         self.listen_addr = listen_sock.getsockname()
-        self.ioloop.add_handler(fd_, self.do_accept, select_connection.READ)
+        self.ioloop.add_handler(fd_, self.do_accept, self.ioloop.READ)
 
     def create_write_socket(self, on_connected):
         """ Create a pair of socket and setup 'connected' handler """
@@ -355,16 +355,16 @@ class IOLoopSocketBaseSelect(IOLoopBaseTest):
         # NOTE we get errno.EWOULDBLOCK 10035 on Windows
         self.assertIn(err, (errno.EINPROGRESS, errno.EWOULDBLOCK))
         fd_ = self.save_sock(write_sock)
-        self.ioloop.add_handler(fd_, on_connected, select_connection.WRITE)
+        self.ioloop.add_handler(fd_, on_connected, self.ioloop.WRITE)
         return write_sock
 
     def do_accept(self, fd_, events):
         """ Create socket from the given fd_ and setup 'read' handler """
-        self.assertEqual(events, select_connection.READ)
+        self.assertEqual(events, self.ioloop.READ)
         listen_sock = self.sock_map[fd_]
         read_sock, _ = listen_sock.accept()
         fd_ = self.save_sock(read_sock)
-        self.ioloop.add_handler(fd_, self.do_read, select_connection.READ)
+        self.ioloop.add_handler(fd_, self.do_read, self.ioloop.READ)
 
     def connected(self, _fd, _events):
         """ Create socket from given _fd and respond to 'connected'.
@@ -373,7 +373,7 @@ class IOLoopSocketBaseSelect(IOLoopBaseTest):
 
     def do_read(self, fd_, events):
         """ read from fd and check the received content """
-        self.assertEqual(events, select_connection.READ)
+        self.assertEqual(events, self.ioloop.READ)
         # NOTE Use socket.recv instead of os.read for Windows compatibility
         self.verify_message(self.sock_map[fd_].recv(self.READ_SIZE))
 
@@ -419,7 +419,7 @@ class IOLoopSimpleMessageTestCaseSelect(IOLoopSocketBaseSelect):
 
     def connected(self, fd, events):
         """Respond to 'connected' event by writing to the write-side."""
-        self.assertEqual(events, select_connection.WRITE)
+        self.assertEqual(events, self.ioloop.WRITE)
         # NOTE Use socket.send instead of os.write for Windows compatibility
         self.sock_map[fd].send(b'X')
         self.ioloop.update_handler(fd, 0)
@@ -465,7 +465,7 @@ class IOLoopEintrTestCaseSelect(IOLoopBaseTest):
 
     def _eintr_read_handler(self, fileno, events):
         """Read from within poll loop that gets receives eintr error."""
-        self.assertEqual(events, select_connection.READ)
+        self.assertEqual(events, self.ioloop.READ)
 
         sock = socket.fromfd(
             os.dup(fileno), socket.AF_INET, socket.SOCK_STREAM)
@@ -505,9 +505,9 @@ class IOLoopEintrTestCaseSelect(IOLoopBaseTest):
 
         self._eintr_read_handler_is_called = False
         self.poller.add_handler(sockpair[0].fileno(), self._eintr_read_handler,
-                                select_connection.READ)
+                                self.ioloop.READ)
 
-        self.ioloop.add_timeout(self.TIMEOUT, self._eintr_test_fail)
+        self.ioloop.call_later(self.TIMEOUT, self._eintr_test_fail)
 
         original_signal_handler = \
             signal.signal(signal.SIGUSR1, self.signal_handler)

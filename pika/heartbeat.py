@@ -85,7 +85,8 @@ class HeartbeatChecker(object):
                      self._heartbeat_frames_sent)
 
         if self.connection_is_idle:
-            return self._close_connection()
+            self._close_connection()
+            return
 
         # Connection has not received any data, increment the counter
         if not self._has_received_data:
@@ -116,13 +117,23 @@ class HeartbeatChecker(object):
         duration = self._max_idle_count * self._interval
         text = HeartbeatChecker._STALE_CONNECTION % duration
 
-        # NOTE: this won't achieve the perceived effect of sending
+        # TODO: this won't achieve the perceived effect of sending
         # Connection.Close to broker, because the frame will only get buffered
-        # in memory before the next statement terminates the connection.
+        # in memory before the next statement terminates the connection. And
+        # even worse, if there are open channels, Connection will attempt to
+        # auto-close them and end up perpetually waiting for the response or
+        # for unblocking of a previously-issued, but unresponded, synchronous
+        # "RPC" request.
+        #
+        # So, this _connection.close() line simply needs to be deleted.
         self._connection.close(HeartbeatChecker._CONNECTION_FORCED, text)
 
-        self._connection._on_terminate(HeartbeatChecker._CONNECTION_FORCED,
-                                       text)
+        # Abort the stream connection. There is no point trying to gracefully
+        # close the AMQP connection since lack of heartbeat suggests that the
+        # stream is dead.
+        self._connection._on_terminate(  # pylint: disable=W0212
+            HeartbeatChecker._CONNECTION_FORCED,
+            text)
 
     @property
     def _has_received_data(self):
@@ -147,7 +158,7 @@ class HeartbeatChecker(object):
 
         """
         LOGGER.debug('Sending heartbeat frame')
-        self._connection._send_frame(self._new_heartbeat_frame())
+        self._connection._send_frame(self._new_heartbeat_frame())  # pylint: disable=W0212
         self._heartbeat_frames_sent += 1
 
     def _setup_timer(self):

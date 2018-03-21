@@ -182,11 +182,11 @@ class _IoloopTimerContext(object):
         self._duration = duration
         self._connection = connection
         self._callback_result = _CallbackResult()
-        self._timer_id = None
+        self._timer_handle = None
 
     def __enter__(self):
         """Register a timer"""
-        self._timer_id = self._connection.add_timeout(
+        self._timer_handle = self._connection.add_timeout(
             self._duration,
             self._callback_result.signal_once)
         return self
@@ -194,7 +194,8 @@ class _IoloopTimerContext(object):
     def __exit__(self, *_args, **_kwargs):
         """Unregister timer if it hasn't fired yet"""
         if not self._callback_result:
-            self._connection.remove_timeout(self._timer_id)
+            self._connection.remove_timeout(self._timer_handle)
+            self._timer_handle = None
 
     def is_ready(self):
         """
@@ -452,7 +453,8 @@ class BlockingConnection(object):
         #   empty outbound buffer and any waiter is ready
         is_done = (lambda:
                    self._closed_result.ready or
-                   (not self._impl.outbound_buffer and
+                   (self._impl._transport and
+                    self._impl._adapter_get_write_buffer_size()== 0 and
                     (not waiters or any(ready() for ready in waiters))))
 
         # Process I/O until our completion condition is satisified
@@ -1281,7 +1283,8 @@ class BlockingChannel(object):
 
         :param waiters: sequence of zero or more callables taking no args and
                         returning true when it's time to stop processing.
-                        Their results are OR'ed together.
+                        Their results are OR'ed together. An empty sequence is
+                        treated as equivalent to a waiter always returning true.
         """
         if self.is_closed:
             raise exceptions.ChannelClosed()
