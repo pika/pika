@@ -246,6 +246,7 @@ class _AsyncSocketConnector(object):
         self._state = self._STATE_NOT_STARTED
         self._watching_socket_events = False
 
+    @_log_exceptions
     def _cleanup(self):
         """Remove socket watcher, if any
 
@@ -259,7 +260,9 @@ class _AsyncSocketConnector(object):
 
         :rtype: async_interface.AbstractAsyncReference
         """
-        assert self._state == self._STATE_NOT_STARTED, self._state
+        assert self._state == self._STATE_NOT_STARTED, (
+            '_AsyncSocketConnector.start(): expected _STATE_NOT_STARTED',
+            self._state)
 
         self._state = self._STATE_ACTIVE
 
@@ -288,6 +291,7 @@ class _AsyncSocketConnector(object):
                       'state=%s; %s', self._state, self._sock)
         return False
 
+    @_log_exceptions
     def _report_completion(self, result):
         """Advance to COMPLETED state, remove socket watcher, and invoke user's
         completion callback.
@@ -298,14 +302,19 @@ class _AsyncSocketConnector(object):
         _LOGGER.debug('_AsyncSocketConnector._report_completion(%r); %s',
                       result, self._sock)
 
-        assert isinstance(result, (BaseException, type(None))), result
-        assert self._state == self._STATE_ACTIVE, self._state
+        assert isinstance(result, (BaseException, type(None))), (
+            '_AsyncSocketConnector._report_completion() expected exception or '
+            'None as result.', result)
+        assert self._state == self._STATE_ACTIVE, (
+            '_AsyncSocketConnector._report_completion() expected '
+            '_STATE_NOT_STARTED', self._state)
 
         self._state = self._STATE_COMPLETED
         self._cleanup()
 
         self._on_done(result)
 
+    @_log_exceptions
     def _start_safe(self):
         """Called as callback from I/O loop to kick-start the workflow, so it's
         safe to call user's completion callback from here, if needed
@@ -343,6 +352,7 @@ class _AsyncSocketConnector(object):
             _LOGGER.debug('Connection-establishment is in progress for %s.',
                           self._sock)
 
+    @_log_exceptions
     def _on_writable(self):
         """Called when socket connects or fails to. Check for predicament and
         invoke user's completion callback.
@@ -477,7 +487,9 @@ class _AsyncStreamConnector(object):
         """
         _LOGGER.debug('_AsyncStreamConnector.start(); %s', self._sock)
 
-        assert self._state == self._STATE_NOT_STARTED, self._state
+        assert self._state == self._STATE_NOT_STARTED, (
+            '_AsyncStreamConnector.start() expected '
+            '_STATE_NOT_STARTED', self._state)
 
         self._state = self._STATE_ACTIVE
 
@@ -518,8 +530,12 @@ class _AsyncStreamConnector(object):
         _LOGGER.debug('_AsyncStreamConnector._report_completion(%r); %s',
                       result, self._sock)
 
-        assert isinstance(result, (BaseException, tuple)), result
-        assert self._state == self._STATE_ACTIVE, self._state
+        assert isinstance(result, (BaseException, tuple)), (
+            '_AsyncStreamConnector._report_completion() expected exception or '
+            'tuple as result.', result, self._state)
+        assert self._state == self._STATE_ACTIVE, (
+            '_AsyncStreamConnector._report_completion() expected '
+            '_STATE_ACTIVE', self._state)
 
         self._state = self._STATE_COMPLETED
 
@@ -697,7 +713,7 @@ class _AsyncStreamConnector(object):
             # socket watcher configuration.
             self._watching_socket = False
             _LOGGER.debug(
-                '_do_ssl_handshake: pre-linkup removal of watchers is done: %s',
+                '_do_ssl_handshake: pre-linkup removal of watchers is done; %s',
                 self._sock)
 
             self._linkup()
@@ -720,7 +736,7 @@ class _AsyncTransportBase(  # pylint: disable=W0223
     _MAX_CONSUME_BYTES = 1024 * 100
 
     class RxEndOfFile(OSError):
-        """We raise this when EOF (empty read) is detected on input
+        """We raise this internally when EOF (empty read) is detected on input.
 
         """
         def __init__(self):
@@ -800,6 +816,7 @@ class _AsyncTransportBase(  # pylint: disable=W0223
         self._tx_buffers.append(data)
         self._tx_buffered_byte_count += len(data)
 
+    @_log_exceptions
     def _consume(self):
         """Utility method for use by subclasses to ingest data from socket and
         dispatch it to protocol's `data_received()` method socket-specific
@@ -836,6 +853,7 @@ class _AsyncTransportBase(  # pylint: disable=W0223
                               error, self._sock)
                 raise
 
+    @_log_exceptions
     def _produce(self):
         """Utility method for use by subclasses to emit data from tx_buffers.
         This method sends chunks from `tx_buffers` until all chunks are
@@ -857,10 +875,12 @@ class _AsyncTransportBase(  # pylint: disable=W0223
                 self._tx_buffers.appendleft(chunk[num_bytes_sent:])
 
             self._tx_buffered_byte_count -= num_bytes_sent
-            assert self._tx_buffered_byte_count >= 0, \
-                self._tx_buffered_byte_count
+            assert self._tx_buffered_byte_count >= 0, (
+                '_AsyncTransportBase._produce() tx buffer size underflow',
+                self._tx_buffered_byte_count, self._state)
 
     @staticmethod
+    @_log_exceptions
     @_retry_on_sigint
     def _sigint_safe_recv(sock, max_bytes):
         """Receive data from socket, retrying on SIGINT.
@@ -875,6 +895,7 @@ class _AsyncTransportBase(  # pylint: disable=W0223
         return sock.recv(max_bytes)
 
     @staticmethod
+    @_log_exceptions
     @_retry_on_sigint
     def _sigint_safe_send(sock, data):
         """Send data to socket, retrying on SIGINT.
@@ -888,6 +909,7 @@ class _AsyncTransportBase(  # pylint: disable=W0223
         """
         return sock.send(data)
 
+    @_log_exceptions
     def _deactivate(self):
         """Unregister the transport from I/O events
 
@@ -899,6 +921,7 @@ class _AsyncTransportBase(  # pylint: disable=W0223
             self._async.remove_writer(self._sock.fileno())
             self._tx_buffers.clear()
 
+    @_log_exceptions
     def _close_and_finalize(self):
         """Close the transport's socket and unlink the transport it from
         references to other assets (protocol, etc.)
@@ -917,6 +940,7 @@ class _AsyncTransportBase(  # pylint: disable=W0223
             self._async = None
             self._state = self._STATE_COMPLETED
 
+    @_log_exceptions
     def _initiate_abort(self, error):
         """Initiate asynchronous abort of the transport that concludes with a
         call to the protocol's `connection_lost()` method. No flushing of
@@ -927,10 +951,13 @@ class _AsyncTransportBase(  # pylint: disable=W0223
             otherwise the exception corresponding to the the failed connection.
         """
         _LOGGER.info(
-            'Initiating abrupt asynchronous transport shutdown: state=%s; '
-            'error=%r; %s', self._state, error, self._sock)
+            '_AsyncTransportBase._initate_abort(): Initiating abrupt '
+            'asynchronous transport shutdown: state=%s; error=%r; %s',
+            self._state, error, self._sock)
 
-        assert self._state != self._STATE_COMPLETED, self._state
+        assert self._state != self._STATE_COMPLETED, (
+            '_AsyncTransportBase._initate_abort() expected '
+            'non-_STATE_COMPLETED', self._state)
 
         if self._state == self._STATE_COMPLETED:
             return
@@ -952,7 +979,9 @@ class _AsyncTransportBase(  # pylint: disable=W0223
             # Connection failed
 
             if self._state != self._STATE_ACTIVE:
-                assert self._state == self._STATE_ABORTED_BY_USER, self._state
+                assert self._state == self._STATE_ABORTED_BY_USER, (
+                    '_AsyncTransportBase._initate_abort() expected '
+                    '_STATE_ABORTED_BY_USER', self._state)
                 return
 
             self._state = self._STATE_FAILED
@@ -964,6 +993,7 @@ class _AsyncTransportBase(  # pylint: disable=W0223
                 self._connection_lost_notify_safe,
                 error))
 
+    @_log_exceptions
     def _connection_lost_notify_safe(self, error):
         """Handle aborting of transport either due to socket error or user-
         initiated `abort()` call. Must be called from an I/O loop callback owned
@@ -981,7 +1011,9 @@ class _AsyncTransportBase(  # pylint: disable=W0223
 
         if error is not None and self._state != self._STATE_FAILED:
             # Priority is given to user-initiated abort notification
-            assert self._state == self._STATE_ABORTED_BY_USER, self._state
+            assert self._state == self._STATE_ABORTED_BY_USER, (
+                '_AsyncTransportBase._connection_lost_notify_safe() '
+                'expected _STATE_ABORTED_BY_USER', self._state)
             return
 
         # Inform protocol
@@ -1030,7 +1062,8 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
                           'state=%s; %s', self._state, self._sock)
             return
 
-        assert data
+        assert data, ('_AsyncPlaintextTransport.write(): empty data from user.',
+                      data, self._state)
 
         if not self.get_write_buffer_size():
             self._async.set_writer(self._sock.fileno(),
@@ -1039,6 +1072,7 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
 
         self._buffer_tx_data(data)
 
+    @_log_exceptions
     def _on_socket_readable(self):
         """Ingest data from socket and dispatch it to protocol until exception
         occurs (typically EAGAIN or EWOULDBLOCK), per-event data consumption
@@ -1088,6 +1122,7 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
                 #
                 pass
 
+    @_log_exceptions
     def _on_socket_writable(self):
         """Handle writable socket notification
 
@@ -1098,7 +1133,9 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
             return
 
         # We shouldn't be getting called with empty tx buffers
-        assert self._tx_buffers
+        assert self._tx_buffers, (
+            '_AsyncPlaintextTransport._on_socket_writable() called, '
+            'but _tx_buffers is empty.', self._state)
 
         try:
             # Transmit buffered data to remote socket
@@ -1165,6 +1202,7 @@ class _AsyncSSLTransport(_AsyncTransportBase):
                                    self._on_socket_writable)
             _LOGGER.debug('Turned on writability watcher: %s', self._sock)
 
+    @_log_exceptions
     def _on_socket_readable(self):
         """Handle readable socket indication
 
@@ -1184,6 +1222,7 @@ class _AsyncSSLTransport(_AsyncTransportBase):
                           'ssl_writable_action=%r; %s',
                           self._ssl_writable_action, self._sock)
 
+    @_log_exceptions
     def _on_socket_writable(self):
         """Handle writable socket notification
 
@@ -1203,6 +1242,7 @@ class _AsyncSSLTransport(_AsyncTransportBase):
                           'ssl_readable_action=%r; %s',
                           self._ssl_readable_action, self._sock)
 
+    @_log_exceptions
     def _consume(self):
         """[override] Ingest data from socket and dispatch it to protocol until
         exception occurs (typically ssl.SSLError with
@@ -1271,6 +1311,7 @@ class _AsyncSSLTransport(_AsyncTransportBase):
             self._async.set_writer(self._sock.fileno(),
                                    self._on_socket_writable)
 
+    @_log_exceptions
     def _produce(self):
         """[override] Emit data from tx_buffers all chunks are exhausted or
         sending is interrupted by an exception (typically ssl.SSLError with
@@ -1299,11 +1340,15 @@ class _AsyncSSLTransport(_AsyncTransportBase):
                 raise  # let outer catch block abort the transport
         else:
             # No exception, so everything must have been written to the socket
-            assert not self._tx_buffers, len(self._tx_buffers)
+            assert not self._tx_buffers, (
+                '_AsyncSSLTransport._produce(): no exception from parent '
+                'class, but data remains in _tx_buffers.', len(self._tx_buffers))
 
         # Update producer registration
         if self._tx_buffers:
-            assert next_produce_on_writable is not None
+            assert next_produce_on_writable is not None, (
+                '_AsyncSSLTransport._produce(): next_produce_on_writable is '
+                'still None', self._state)
 
             if next_produce_on_writable:
                 if not self._ssl_writable_action:
@@ -1328,9 +1373,15 @@ class _AsyncSSLTransport(_AsyncTransportBase):
             if self._ssl_readable_action is self._produce:
                 self._async.remove_reader(self._sock.fileno())
                 self._ssl_readable_action = None
-                assert self._ssl_writable_action is not self._produce
+                assert self._ssl_writable_action is not self._produce, (
+                    '_AsyncSSLTransport._produce(): with empty tx_buffers, '
+                    'writable_action cannot be _produce when readable is '
+                    '_produce', self._state)
             else:
-                assert self._ssl_writable_action is self._produce
+                assert self._ssl_writable_action is self._produce, (
+                    '_AsyncSSLTransport._produce(): with empty tx_buffers, '
+                    'expected writable_action as _produce if readable_action '
+                    'is not _produce', self._state)
                 self._ssl_writable_action = None
                 self._async.remove_writer(self._sock.fileno())
 
