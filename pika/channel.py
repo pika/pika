@@ -1152,7 +1152,7 @@ class Channel(object):
             # a meta-close (see `_on_close_meta()` which fakes receipt of
             # `Channel.CloseOk` and dispatches the `'_on_channel_close'`
             # callbacks.
-            self._drain_blocked_methods_on_remote_close()
+            self._drain_blocked_methods_on_close()
         else:
             self._transition_to_closed()
 
@@ -1416,6 +1416,19 @@ class Channel(object):
             self._blocked.append([method, callback, acceptable_replies])
             return
 
+        # Note: _send_method can throw exceptions if there are framing errors
+        # or invalid data passed in. Call it here, before the acceptable_replies
+        # block to prevent callbacks from being registered if an exception is
+        # thrown
+        try:
+            self._send_method(method)
+        except Exception as err:
+            if self._blocking:
+                LOGGER.error(
+                    "send_method failed for blocking method %s with %s, will discard",
+                    self._blocking, type(err).__name__)
+            raise
+
         # If acceptable replies are set, add callbacks
         if acceptable_replies:
             # Block until a response frame is received for synchronous frames
@@ -1437,15 +1450,6 @@ class Channel(object):
                     LOGGER.debug('Adding passed-in RPC response callback')
                     self.callbacks.add(self.channel_number, reply, callback,
                                        arguments=arguments)
-
-        try:
-            self._send_method(method)
-        except Exception as err:
-            if self._blocking:
-                LOGGER.error(
-                    "send_method failed for blocking method %s with %s, will discard",
-                    self._blocking, type(err).__name__)
-            raise
 
     def _raise_if_not_open(self):
         """If channel is not in the OPEN state, raises ChannelClosed with
