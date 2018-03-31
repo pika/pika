@@ -625,8 +625,9 @@ class TestExchangeRedeclareWithDifferentValues(AsyncTestCase, AsyncAdapters):
         raise AssertionError("Should not have received an Exchange.DeclareOk")
 
 
-class TestPassiveExchangeDeclareWithConcurrentClose(AsyncTestCase, AsyncAdapters):
-    DESCRIPTION = "should close channel: declare passive exchange with close"
+class TestNoDeadlockWhenClosingChannelWithPendingBlockedRequestsAndConcurrentChannelCloseFromBroker(
+        AsyncTestCase, AsyncAdapters):
+    DESCRIPTION = "No deadlock when closing a channel with pending blocked requests and concurrent Channel.Close from broker."
 
     # To observe the behavior that this is testing, comment out this line
     # in pika/channel.py - _on_close:
@@ -636,10 +637,12 @@ class TestPassiveExchangeDeclareWithConcurrentClose(AsyncTestCase, AsyncAdapters
     # With the above line commented out, this test will hang
 
     def begin(self, channel):
-        self.name = self.__class__.__name__ + ':' + uuid.uuid1().hex
+        base_exch_name = self.__class__.__name__ + ':' + uuid.uuid1().hex
         self.channel.add_on_close_callback(self.on_channel_closed)
         for i in range(0, 99):
-            exch_name = self.name + ':' + str(i)
+            # Passively declare a non-existent exchange to force Channel.Close
+            # from broker
+            exch_name = base_exch_name + ':' + str(i)
             cb = functools.partial(self.on_bad_result, exch_name)
             channel.exchange_declare(exch_name,
                                      exchange_type='direct',
@@ -648,15 +651,49 @@ class TestPassiveExchangeDeclareWithConcurrentClose(AsyncTestCase, AsyncAdapters
         channel.close()
 
     def on_channel_closed(self, channel, reply_code, reply_text):
+        # The close is expected because the requested exchange doesn't exist
         self.stop()
 
     def on_bad_result(self, exch_name, frame):
-        self.channel.exchange_delete(exch_name)
-        raise AssertionError("Should not have received an Exchange.DeclareOk")
+        self.fail("Should not have received an Exchange.DeclareOk")
 
 
-class TestQueueDeclareAndDelete(AsyncTestCase, AsyncAdapters):
-    DESCRIPTION = "Create and delete a queue"
+class TestClosingAChannelPermitsBlockedRequestToComplete(AsyncTestCase,
+                                                         AsyncAdapters):
+    DESCRIPTION = "Closing a channel permits blocked requests to complete."
+
+    def begin(self, channel):
+        self._queue_deleted = False
+
+        channel.add_on_close_callback(self.on_channel_closed)
+
+        q_name = self.__class__.__name__ + ':' + uuid.uuid1().hex
+        # NOTE we pass callback to make it a blocking request
+        channel.queue_declare(q_name,
+                              exclusive=True,
+                              callback=lambda _frame: None)
+
+        self.assertIsNotNone(channel._blocking)
+
+        # The Queue.Delete should block on completion of Queue.Declare
+        channel.queue_delete(q_name, callback=self.on_queue_deleted)
+        self.assertTrue(channel._blocked)
+
+        # This Channel.Close should allow the blocked Queue.Delete to complete
+        # Before closing the channel
+        channel.close()
+
+    def on_queue_deleted(self, _frame):
+        # Getting this callback shows that the blocked request was processed
+        self._queue_deleted = True
+
+    def on_channel_closed(self, _channel, _reply_code, _reply_text):
+        self.assertTrue(self._queue_deleted)
+        self.stop()
+
+
+class TestQueueUnnamedDeclareAndDelete(AsyncTestCase, AsyncAdapters):
+    DESCRIPTION = "Create and delete an unnamed queue"
 
     def begin(self, channel):
         channel.queue_declare(queue='',
@@ -673,11 +710,11 @@ class TestQueueDeclareAndDelete(AsyncTestCase, AsyncAdapters):
 
     def on_queue_delete(self, frame):
         self.assertIsInstance(frame.method, spec.Queue.DeleteOk)
+        # NOTE: with event loops that suppress exceptions from callbacks
         self.stop()
 
 
-
-class TestQueueNameDeclareAndDelete(AsyncTestCase, AsyncAdapters):
+class TestQueueNamedDeclareAndDelete(AsyncTestCase, AsyncAdapters):
     DESCRIPTION = "Create and delete a named queue"
 
     def begin(self, channel):
@@ -699,7 +736,6 @@ class TestQueueNameDeclareAndDelete(AsyncTestCase, AsyncAdapters):
     def on_queue_delete(self, frame):
         self.assertIsInstance(frame.method, spec.Queue.DeleteOk)
         self.stop()
-
 
 
 class TestQueueRedeclareWithDifferentValues(AsyncTestCase, AsyncAdapters):
@@ -743,7 +779,6 @@ class TestTX1_Select(AsyncTestCase, AsyncAdapters):  # pylint: disable=C0103
     def on_complete(self, frame):
         self.assertIsInstance(frame.method, spec.Tx.SelectOk)
         self.stop()
-
 
 
 class TestTX2_Commit(AsyncTestCase, AsyncAdapters):  # pylint: disable=C0103
