@@ -281,6 +281,12 @@ def decode_value(encoded, offset):
             pass
         offset += length
 
+    elif kind == b'x':
+        length = struct.unpack_from('>I', encoded, offset)[0]
+        offset += 4
+        value = encoded[offset:offset + length]
+        offset += length
+
     # Field Array
     elif kind == b'A':
         length = struct.unpack_from('>I', encoded, offset)[0]
