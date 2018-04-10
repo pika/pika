@@ -1152,7 +1152,7 @@ class Channel(object):
             # a meta-close (see `_on_close_meta()` which fakes receipt of
             # `Channel.CloseOk` and dispatches the `'_on_channel_close'`
             # callbacks.
-            self._drain_blocked_methods_on_close()
+            self._drain_blocked_methods_on_remote_close()
         else:
             self._transition_to_closed()
 
@@ -1330,10 +1330,9 @@ class Channel(object):
         while self._blocked and self._blocking is None:
             self._rpc(*self._blocked.popleft())
 
-    def _drain_blocked_methods_on_close(self):
+    def _drain_blocked_methods_on_remote_close(self):
         """This is called when the broker sends a Channel.Close while the
-        client is in CLOSING state, or when a local Channel.Close is requested
-        while self._blocking is true. This method checks the blocked method
+        client is in CLOSING state. This method checks the blocked method
         queue for a pending client-initiated Channel.Close method and
         ensures its callbacks are processed, but does not send the method
         to the broker.
@@ -1348,7 +1347,7 @@ class Channel(object):
         sent, and thus its completion callback would never be called.
 
         """
-        LOGGER.debug('Draining %i blocked frames due to Channel.Close',
+        LOGGER.debug('Draining %i blocked frames due to broker-requested Channel.Close',
                      len(self._blocked))
         while self._blocked:
             method = self._blocked.popleft()[0]
@@ -1401,13 +1400,6 @@ class Channel(object):
         if self.is_closed:
             self._raise_if_not_open()
 
-        if self.is_closing and self._blocking:
-            LOGGER.debug(
-                'In blocking state but close requested, '
-                'so discarding blocked method %s', self._blocking)
-            self._blocking = None
-            self._drain_blocked_methods_on_close()
-
         # If the channel is blocking, add subsequent commands to our stack
         if self._blocking:
             LOGGER.debug('Already in blocking state, so enqueueing method %s; '
@@ -1417,17 +1409,10 @@ class Channel(object):
             return
 
         # Note: _send_method can throw exceptions if there are framing errors
-        # or invalid data passed in. Call it here, before the acceptable_replies
-        # block to prevent callbacks from being registered if an exception is
-        # thrown
-        try:
-            self._send_method(method)
-        except Exception as err:
-            if self._blocking:
-                LOGGER.error(
-                    "send_method failed for blocking method %s with %s, will discard",
-                    self._blocking, type(err).__name__)
-            raise
+        # or invalid data passed in. Call it here to prevent self._blocking
+        # from being set if an exception is thrown. This also prevents
+        # acceptable_replies registering callbacks when exceptions are thrown
+        self._send_method(method)
 
         # If acceptable replies are set, add callbacks
         if acceptable_replies:

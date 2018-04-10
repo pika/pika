@@ -2306,7 +2306,7 @@ class Connection(pika.compat.AbstractBase):
                 'Attempted to send a frame on closed connection.')
 
         marshaled_frame = frame_value.marshal()
-        self._output_marshaled_frame(marshaled_frame)
+        self._output_marshaled_frames([marshaled_frame])
 
     def _send_method(self, channel_number, method, content=None):
         """Constructs a RPC method frame and then sends it to the broker.
@@ -2332,15 +2332,14 @@ class Connection(pika.compat.AbstractBase):
 
         """
         length = len(content[1])
+        marshaled_body_frames = []
 
-        # Note: we construct the Method and Header objects, marshal them
+        # Note: we construct the Method, Header and Content objects, marshal them
         # *then* output in case the marshaling operation throws an exception
         frame_method = frame.Method(channel_number, method_frame)
         frame_header = frame.Header(channel_number, length, content[0])
-        frame_method_marshaled = frame_method.marshal()
-        frame_header_marshaled = frame_header.marshal()
-        self._output_marshaled_frame(frame_method_marshaled)
-        self._output_marshaled_frame(frame_header_marshaled)
+        marshaled_body_frames.append(frame_method.marshal())
+        marshaled_body_frames.append(frame_header.marshal())
 
         if content[1]:
             chunks = int(math.ceil(float(length) / self._body_max_length))
@@ -2350,8 +2349,9 @@ class Connection(pika.compat.AbstractBase):
                 if end > length:
                     end = length
                 frame_body = frame.Body(channel_number, content[1][start:end])
-                frame_body_marshaled = frame_body.marshal()
-                self._output_marshaled_frame(frame_body_marshaled)
+                marshaled_body_frames.append(frame_body.marshal())
+
+        self._output_marshaled_frames(marshaled_body_frames)
 
     def _set_connection_state(self, connection_state):
         """Set the connection state.
@@ -2388,14 +2388,15 @@ class Connection(pika.compat.AbstractBase):
         self._frame_buffer = self._frame_buffer[byte_count:]
         self.bytes_received += byte_count
 
-    def _output_marshaled_frame(self, marshaled_frame):
-        """Output marshaled frame to buffer
+    def _output_marshaled_frames(self, marshaled_frames):
+        """Output list of marshaled frames to buffer and update stats
 
-        :param bytes marshaled: The frame marshaled to bytes
+        :param list marshaled_frames: A list of frames marshaled to bytes
 
         """
-        self.bytes_sent += len(marshaled_frame)
-        self.frames_sent += 1
-        self._adapter_emit_data(marshaled_frame)
+        for marshaled_frame in marshaled_frames:
+            self.bytes_sent += len(marshaled_frame)
+            self.frames_sent += 1
+            self._adapter_emit_data(marshaled_frame)
         if self.params.backpressure_detection:
             self._detect_backpressure()
