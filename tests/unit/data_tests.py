@@ -7,6 +7,7 @@ import datetime
 import decimal
 import unittest
 from collections import OrderedDict
+from pika.compat import PY2, PY3
 
 from pika import data, exceptions
 from pika.compat import long
@@ -14,23 +15,23 @@ from pika.compat import long
 
 class DataTests(unittest.TestCase):
 
-    FIELD_TBL_ENCODED = (
-        b'\x00\x00\x00\xd9'
-        b'\x05arrayA\x00\x00\x00\x0fI\x00\x00\x00\x01I'
-        b'\x00\x00\x00\x02I\x00\x00\x00\x03'
-        b'\x07boolvalt\x01'
-        b'\x07decimalD\x02\x00\x00\x01:'
-        b'\x0bdecimal_tooD\x00\x00\x00\x00d'
-        b'\x07dictvalF\x00\x00\x00\x0c\x03fooS\x00\x00\x00\x03bar'
-        b'\x06intvalI\x00\x00\x00\x01'
-        b'\x06bigint\x6c\x00\x00\x00\x00\x9a\x7e\xc8\x00'
-        b'\x07longval\x6c\x00\x00\x00\x00\x36\x65\x26\x55'
-        b'\x04nullV'
-        b'\x06strvalS\x00\x00\x00\x04Test'
-        b'\x0ctimestampvalT\x00\x00\x00\x00Ec)\x92'
-        b'\x07unicodeS\x00\x00\x00\x08utf8=\xe2\x9c\x93'
-        b'\x05bytesx\x00\x00\x00\x03foo'
-        )
+    FIELD_TBL_ENCODED = "".join((
+        b'\x00\x00\x00\xd9' if PY3 else b'\x00\x00\x00\xdc',
+        b'\x05arrayA\x00\x00\x00\x0fI\x00\x00\x00\x01I',
+        b'\x00\x00\x00\x02I\x00\x00\x00\x03',
+        b'\x07boolvalt\x01',
+        b'\x07decimalD\x02\x00\x00\x01:',
+        b'\x0bdecimal_tooD\x00\x00\x00\x00d',
+        b'\x07dictvalF\x00\x00\x00\x0c\x03fooS\x00\x00\x00\x03bar',
+        b'\x06intvalI\x00\x00\x00\x01',
+        b'\x06bigint\x6c\x00\x00\x00\x00\x9a\x7e\xc8\x00',
+        b'\x07longval\x6c\x00\x00\x00\x00\x36\x65\x26\x55',
+        b'\x04nullV',
+        b'\x06strvalS\x00\x00\x00\x04Test',
+        b'\x0ctimestampvalT\x00\x00\x00\x00Ec)\x92',
+        b'\x07unicodeS\x00\x00\x00\x08utf8=\xe2\x9c\x93',
+        b'\x05bytesx\x00\x00\x00\x06foobar' if PY3 else b'\x05bytesS\x00\x00\x00\x06foobar',
+        ))
 
     FIELD_TBL_VALUE = OrderedDict(
         [
@@ -46,7 +47,7 @@ class DataTests(unittest.TestCase):
             ('strval', 'Test'),
             ('timestampval', datetime.datetime(2006, 11, 21, 16, 30, 10)),
             ('unicode', u'utf8=✓'),
-            ('bytes', b'foo'),
+            ('bytes', b'foobar'),
         ])
 
     def test_encode_table(self):
@@ -57,7 +58,7 @@ class DataTests(unittest.TestCase):
     def test_encode_table_bytes(self):
         result = []
         byte_count = data.encode_table(result, self.FIELD_TBL_VALUE)
-        self.assertEqual(byte_count, 221)
+        self.assertEqual(byte_count, 224)
 
     def test_decode_table(self):
         value, byte_count = data.decode_table(self.FIELD_TBL_ENCODED, 0)
@@ -65,7 +66,7 @@ class DataTests(unittest.TestCase):
 
     def test_decode_table_bytes(self):
         value, byte_count = data.decode_table(self.FIELD_TBL_ENCODED, 0)
-        self.assertEqual(byte_count, 221)
+        self.assertEqual(byte_count, 224)
 
     def test_encode_raises(self):
         self.assertRaises(exceptions.UnsupportedAMQPFieldException,
