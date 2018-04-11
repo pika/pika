@@ -15,8 +15,8 @@ from pika.compat import long
 
 class DataTests(unittest.TestCase):
 
-    FIELD_TBL_ENCODED = "".join((
-        b'\x00\x00\x00\xd9' if PY3 else b'\x00\x00\x00\xdc',
+    FIELD_TBL_ENCODED = b"".join((
+        b'\x00\x00\x00\xdc',
         b'\x05arrayA\x00\x00\x00\x0fI\x00\x00\x00\x01I',
         b'\x00\x00\x00\x02I\x00\x00\x00\x03',
         b'\x07boolvalt\x01',
