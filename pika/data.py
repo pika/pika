@@ -119,6 +119,12 @@ def encode_value(pieces, value):
             pieces.append(struct.pack('>cI', b'S', len(value)))
             pieces.append(value)
             return 5 + len(value)
+
+        if isinstance(value, bytes):
+            pieces.append(struct.pack('>cI', b'x', len(value)))
+            pieces.append(value)
+            return 5 + len(value)
+
     if isinstance(value, bool):
         pieces.append(struct.pack('>cB', b't', int(value)))
         return 2
