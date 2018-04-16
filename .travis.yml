@@ -2,19 +2,24 @@ language: python
 
 sudo: false
 
-addons:
-  apt:
-    sources:
-      - sourceline: deb https://packages.erlang-solutions.com/ubuntu trusty contrib
-        key_url: https://packages.erlang-solutions.com/ubuntu/erlang_solutions.asc
-    packages:
-      - erlang-nox
+services:
+  - rabbitmq
+
+# TODO:
+# set 'sudo: false' and uncomment once "Hash Sum mismatch" failure in 'apt-get update' is fixed
+# addons:
+#   apt:
+#     sources:
+#       - sourceline: deb https://packages.erlang-solutions.com/ubuntu trusty contrib
+#         key_url: https://packages.erlang-solutions.com/ubuntu/erlang_solutions.asc
+#     packages:
+#       - erlang=1:20.3-1
 
 env:
   global:
-    - RABBITMQ_VERSION=3.7.4
-    - RABBITMQ_DOWNLOAD_URL="https://github.com/rabbitmq/rabbitmq-server/releases/download/v$RABBITMQ_VERSION/rabbitmq-server-generic-unix-$RABBITMQ_VERSION.tar.xz"
-    - RABBITMQ_TAR="rabbitmq-$RABBITMQ_VERSION.tar.xz"
+    # - RABBITMQ_VERSION=3.7.4
+    # - RABBITMQ_DOWNLOAD_URL="https://github.com/rabbitmq/rabbitmq-server/releases/download/v$RABBITMQ_VERSION/rabbitmq-server-generic-unix-$RABBITMQ_VERSION.tar.xz"
+    # - RABBITMQ_TAR="rabbitmq-$RABBITMQ_VERSION.tar.xz"
     - PATH=$HOME/.local/bin:$PATH
     - AWS_DEFAULT_REGION=us-east-1
     - secure: "Eghft2UgJmWuCgnqz6O+KV5F9AERzUbKIeXkcw7vsFAVdkB9z01XgqVLhQ6N+n6i8mkiRDkc0Jes6htVtO4Hi6lTTFeDhu661YCXXTFdRdsx+D9v5bgw8Q2bP41xFy0iao7otYqkzFKIo32Q2cUYzMUqXlS661Yai5DXldr3mjM="
@@ -27,31 +32,31 @@ stages:
 - name: deploy
   if: tag IS present
 
-cache:
-  apt: true
-  directories:
-    - $HOME/.cache
+# cache:
+#   apt: true
+#   directories:
+#     - $HOME/.cache
 
 install:
   - pip install -r test-requirements.txt
   - pip install awscli==1.11.18
-  - if [ ! -d "$HOME/.cache" ]; then mkdir "$HOME/.cache"; fi
-  - if [ -s "$HOME/.cache/$RABBITMQ_TAR" ]; then echo "[INFO] found cached $RABBITMQ_TAR file"; else wget -O "$HOME/.cache/$RABBITMQ_TAR" "$RABBITMQ_DOWNLOAD_URL"; fi
-  - tar -C "$TRAVIS_BUILD_DIR" -xvf "$HOME/.cache/$RABBITMQ_TAR"
-  - sed -e "s#PIKA_DIR#$TRAVIS_BUILD_DIR#g" "$TRAVIS_BUILD_DIR/testdata/rabbitmq.conf.in" > "$TRAVIS_BUILD_DIR/testdata/rabbitmq.conf"
+# - if [ ! -d "$HOME/.cache" ]; then mkdir "$HOME/.cache"; fi
+# - if [ -s "$HOME/.cache/$RABBITMQ_TAR" ]; then echo "[INFO] found cached $RABBITMQ_TAR file"; else wget -O "$HOME/.cache/$RABBITMQ_TAR" "$RABBITMQ_DOWNLOAD_URL"; fi
+# - tar -C "$TRAVIS_BUILD_DIR" -xvf "$HOME/.cache/$RABBITMQ_TAR"
+# - sed -e "s#PIKA_DIR#$TRAVIS_BUILD_DIR#g" "$TRAVIS_BUILD_DIR/testdata/rabbitmq.conf.in" > "$TRAVIS_BUILD_DIR/testdata/rabbitmq.conf"
 
 before_script:
   - pip freeze
-  - /bin/sh -c "RABBITMQ_PID_FILE=$TRAVIS_BUILD_DIR/rabbitmq.pid RABBITMQ_CONFIG_FILE=$TRAVIS_BUILD_DIR/testdata/rabbitmq $TRAVIS_BUILD_DIR/rabbitmq_server-$RABBITMQ_VERSION/sbin/rabbitmq-server &"
-  - /bin/sh "$TRAVIS_BUILD_DIR/rabbitmq_server-$RABBITMQ_VERSION/sbin/rabbitmqctl" wait "$TRAVIS_BUILD_DIR/rabbitmq.pid"
-  - /bin/sh "$TRAVIS_BUILD_DIR/rabbitmq_server-$RABBITMQ_VERSION/sbin/rabbitmqctl" status
+# - /bin/sh -c "RABBITMQ_PID_FILE=$TRAVIS_BUILD_DIR/rabbitmq.pid RABBITMQ_CONFIG_FILE=$TRAVIS_BUILD_DIR/testdata/rabbitmq $TRAVIS_BUILD_DIR/rabbitmq_server-$RABBITMQ_VERSION/sbin/rabbitmq-server &"
+# - /bin/sh "$TRAVIS_BUILD_DIR/rabbitmq_server-$RABBITMQ_VERSION/sbin/rabbitmqctl" wait "$TRAVIS_BUILD_DIR/rabbitmq.pid"
+# - /bin/sh "$TRAVIS_BUILD_DIR/rabbitmq_server-$RABBITMQ_VERSION/sbin/rabbitmqctl" status
 
 script:
   # See https://github.com/travis-ci/travis-ci/issues/1066 and https://github.com/pika/pika/pull/984#issuecomment-370565220
   # as to why 'set -e' and 'set +e' are added here
   - set -e
   - nosetests
-  - PIKA_TEST_TLS=true nosetests
+  # - PIKA_TEST_TLS=true nosetests
   - set +e
 
 after_success:
