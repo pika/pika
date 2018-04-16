@@ -336,7 +336,7 @@ class IOLoop(object):
         :rtype: str
 
         """
-        return self._timer.call_later(deadline, callback)
+        return self._timer.call_later(deadline, callback_method)
 
     def remove_timeout(self, timeout_id):
         """[API] Remove a timeout
