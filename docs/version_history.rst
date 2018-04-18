@@ -1,12 +1,41 @@
 Version History
 ===============
 
-1.0.0b1 2018-02-01
-------------------
+0.12.0b1 2018-04-18
+-------------------
 
-`GitHub milestone <https://github.com/pika/pika/milestone/8>`_
+`GitHub milestone <https://github.com/pika/pika/milestone/12>`_
 
-- `BlockingConnection.consume` now returns `(None, None, None)` when inactivity timeout is reached (`PR <https://github.com/pika/pika/pull/899>`_)
+This is an interim release prior to version `1.0.0`. It includes the following backported pull requests and commits from the `master` branch:
+
+- `PR #908 <https://github.com/pika/pika/pull/908>`_
+- `PR #910 <https://github.com/pika/pika/pull/910>`_
+- `PR #918 <https://github.com/pika/pika/pull/918>`_
+- `PR #920 <https://github.com/pika/pika/pull/920>`_
+- `PR #924 <https://github.com/pika/pika/pull/924>`_
+- `PR #937 <https://github.com/pika/pika/pull/937>`_
+- `PR #938 <https://github.com/pika/pika/pull/938>`_
+- `PR #933 <https://github.com/pika/pika/pull/933>`_
+- `PR #940 <https://github.com/pika/pika/pull/940>`_
+- `PR #932 <https://github.com/pika/pika/pull/932>`_
+- `PR #928 <https://github.com/pika/pika/pull/928>`_
+- `PR #934 <https://github.com/pika/pika/pull/934>`_
+- `PR #915 <https://github.com/pika/pika/pull/915>`_
+- `PR #946 <https://github.com/pika/pika/pull/946>`_
+- `PR #947 <https://github.com/pika/pika/pull/947>`_
+- `PR #952 <https://github.com/pika/pika/pull/952>`_
+- `PR #956 <https://github.com/pika/pika/pull/956>`_
+- `PR #966 <https://github.com/pika/pika/pull/966>`_
+- `PR #975 <https://github.com/pika/pika/pull/975>`_
+- `PR #978 <https://github.com/pika/pika/pull/978>`_
+- `PR #981 <https://github.com/pika/pika/pull/981>`_
+- `PR #994 <https://github.com/pika/pika/pull/994>`_
+- `PR #1007 <https://github.com/pika/pika/pull/1007>`_
+- `PR #1007 <https://github.com/pika/pika/pull/1007>`_
+
+Commits:
+
+Travis CI fail fast - 3f0e739
 
 0.11.2 2017-11-30
 -----------------
