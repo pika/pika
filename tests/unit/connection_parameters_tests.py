@@ -1,38 +1,31 @@
 """
 Test `pika.connection.Parameters`, `pika.connection.ConnectionParameters`, and
 `pika.connection.URLParameters`
+
 """
-
-# Disable pylint complaints about missing docstrings and invalid method names
-# pylint: disable=C0111,C0103
-
 import copy
+import unittest
 import warnings
-
-try:
-    import unittest2 as unittest
-except ImportError:
-    import unittest
 
 import pika
 from pika.compat import urlencode, url_quote, dict_iteritems
-from pika import channel
-from pika import connection
-from pika import credentials
-from pika import exceptions
-from pika import spec
+from pika import channel, connection, credentials, spec
+
+
+# disable missing-docstring
+# pylint: disable=C0111
+
+# disable invalid-name
+# pylint: disable=C0103
 
 
 # Unordered sequence of connection.Parameters's property getters
 _ALL_PUBLIC_PARAMETERS_PROPERTIES = tuple(
-    attr for attr in vars(connection.Parameters)
-    if not attr.startswith('_') and
-    issubclass(type(getattr(connection.Parameters, attr)), property)
-)
+    attr for attr in vars(connection.Parameters) if not attr.startswith('_')
+    and issubclass(type(getattr(connection.Parameters, attr)), property))
 
 
 class _ParametersTestsBase(unittest.TestCase):
-
     def setUp(self):
         warnings.resetwarnings()
         self.addCleanup(warnings.resetwarnings)
@@ -45,30 +38,46 @@ class _ParametersTestsBase(unittest.TestCase):
         """
         kls = connection.Parameters
         defaults = {
-            'backpressure_detection': kls.DEFAULT_BACKPRESSURE_DETECTION,
+            'backpressure_detection':
+            kls.DEFAULT_BACKPRESSURE_DETECTION,
             'blocked_connection_timeout':
-                kls.DEFAULT_BLOCKED_CONNECTION_TIMEOUT,
-            'channel_max': kls.DEFAULT_CHANNEL_MAX,
-            'client_properties': kls.DEFAULT_CLIENT_PROPERTIES,
-            'connection_attempts': kls.DEFAULT_CONNECTION_ATTEMPTS,
-            'credentials': credentials.PlainCredentials(kls.DEFAULT_USERNAME,
-                                                        kls.DEFAULT_PASSWORD),
-            'frame_max': kls.DEFAULT_FRAME_MAX,
-            'heartbeat': kls.DEFAULT_HEARTBEAT_TIMEOUT,
-            'host': kls.DEFAULT_HOST,
-            'locale': kls.DEFAULT_LOCALE,
-            'port': kls.DEFAULT_PORT,
-            'retry_delay': kls.DEFAULT_RETRY_DELAY,
-            'socket_timeout': kls.DEFAULT_SOCKET_TIMEOUT,
-            'ssl': kls.DEFAULT_SSL,
-            'ssl_options': kls.DEFAULT_SSL_OPTIONS,
-            'virtual_host': kls.DEFAULT_VIRTUAL_HOST,
-            'tcp_options': kls.DEFAULT_TCP_OPTIONS
+            kls.DEFAULT_BLOCKED_CONNECTION_TIMEOUT,
+            'channel_max':
+            kls.DEFAULT_CHANNEL_MAX,
+            'client_properties':
+            kls.DEFAULT_CLIENT_PROPERTIES,
+            'connection_attempts':
+            kls.DEFAULT_CONNECTION_ATTEMPTS,
+            'credentials':
+            credentials.PlainCredentials(kls.DEFAULT_USERNAME,
+                                         kls.DEFAULT_PASSWORD),
+            'frame_max':
+            kls.DEFAULT_FRAME_MAX,
+            'heartbeat':
+            kls.DEFAULT_HEARTBEAT_TIMEOUT,
+            'host':
+            kls.DEFAULT_HOST,
+            'locale':
+            kls.DEFAULT_LOCALE,
+            'port':
+            kls.DEFAULT_PORT,
+            'retry_delay':
+            kls.DEFAULT_RETRY_DELAY,
+            'socket_timeout':
+            kls.DEFAULT_SOCKET_TIMEOUT,
+            'ssl':
+            kls.DEFAULT_SSL,
+            'ssl_options':
+            kls.DEFAULT_SSL_OPTIONS,
+            'virtual_host':
+            kls.DEFAULT_VIRTUAL_HOST,
+            'tcp_options':
+            kls.DEFAULT_TCP_OPTIONS
         }
 
         # Make sure we didn't miss anything
-        self.assertSequenceEqual(sorted(defaults),
-                                 sorted(_ALL_PUBLIC_PARAMETERS_PROPERTIES))
+        self.assertSequenceEqual(
+            sorted(defaults), sorted(_ALL_PUBLIC_PARAMETERS_PROPERTIES))
 
         return defaults
 
@@ -84,9 +93,11 @@ class _ParametersTestsBase(unittest.TestCase):
         for name, expected_value in dict_iteritems(
                 self.get_default_properties()):
             value = getattr(params, name)
-            self.assertEqual(value, expected_value,
-                             msg='Expected %s=%r, but got %r' %
-                             (name, expected_value, value))
+            self.assertEqual(
+                value,
+                expected_value,
+                msg='Expected %s=%r, but got %r' % (name, expected_value,
+                                                    value))
 
 
 class ParametersTests(_ParametersTestsBase):
@@ -223,6 +234,9 @@ class ParametersTests(_ParametersTestsBase):
     def test_heartbeat(self):
         params = connection.Parameters()
 
+        params.heartbeat = None
+        self.assertIsNone(params.heartbeat)
+
         params.heartbeat = 0
         self.assertEqual(params.heartbeat, 0)
 
@@ -237,6 +251,12 @@ class ParametersTests(_ParametersTestsBase):
 
         with self.assertRaises(ValueError):
             params.heartbeat = -1
+
+        def heartbeat_callback(_conn, _val):
+            return 1
+        params.heartbeat = heartbeat_callback
+        self.assertTrue(callable(params.heartbeat))
+        self.assertIs(params.heartbeat, heartbeat_callback)
 
     def test_host(self):
         params = connection.Parameters()
@@ -374,7 +394,11 @@ class ParametersTests(_ParametersTestsBase):
     def test_tcp_options(self):
         params = connection.Parameters()
 
-        opt = dict(TCP_KEEPIDLE=60, TCP_KEEPINTVL=2, TCP_KEEPCNT=1, TCP_USER_TIMEOUT=1000)
+        opt = dict(
+            TCP_KEEPIDLE=60,
+            TCP_KEEPINTVL=2,
+            TCP_KEEPCNT=1,
+            TCP_USER_TIMEOUT=1000)
         params.tcp_options = copy.deepcopy(opt)
         self.assertEqual(params.tcp_options, opt)
 
@@ -419,7 +443,9 @@ class ConnectionParametersTests(_ParametersTestsBase):
             'backpressure_detection': False,
             'blocked_connection_timeout': 10.5,
             'channel_max': 3,
-            'client_properties': {'good': 'day'},
+            'client_properties': {
+                'good': 'day'
+            },
             'connection_attempts': 2,
             'credentials': credentials.PlainCredentials('very', 'secure'),
             'frame_max': 40000,
@@ -430,9 +456,13 @@ class ConnectionParametersTests(_ParametersTestsBase):
             'retry_delay': 3,
             'socket_timeout': 100.5,
             'ssl': True,
-            'ssl_options': {'ssl': 'options'},
+            'ssl_options': {
+                'ssl': 'options'
+            },
             'virtual_host': u'vvhost',
-            'tcp_options': {'TCP_USER_TIMEOUT': 1000}
+            'tcp_options': {
+                'TCP_USER_TIMEOUT': 1000
+            }
         }
         params = connection.ConnectionParameters(**kwargs)
 
@@ -441,14 +471,16 @@ class ConnectionParametersTests(_ParametersTestsBase):
         expected_values = copy.copy(kwargs)
 
         # Make sure we're testing all public properties
-        self.assertSequenceEqual(sorted(expected_values),
-                                 sorted(_ALL_PUBLIC_PARAMETERS_PROPERTIES))
+        self.assertSequenceEqual(
+            sorted(expected_values), sorted(_ALL_PUBLIC_PARAMETERS_PROPERTIES))
         # Check property values
         for t_param in expected_values:
             value = getattr(params, t_param)
-            self.assertEqual(expected_values[t_param], value,
-                             msg='Expected %s=%r, but got %r' %
-                             (t_param, expected_values[t_param], value))
+            self.assertEqual(
+                expected_values[t_param],
+                value,
+                msg='Expected %s=%r, but got %r' %
+                (t_param, expected_values[t_param], value))
 
     def test_deprecated_heartbeat_interval(self):
         with warnings.catch_warnings(record=True) as warnings_list:
@@ -459,8 +491,13 @@ class ConnectionParametersTests(_ParametersTestsBase):
 
             # Check that a warning was generated
             self.assertEqual(len(warnings_list), 1)
-            self.assertIs(warnings_list[0].category,
-                          DeprecationWarning)
+            self.assertIs(warnings_list[0].category, DeprecationWarning)
+
+    def test_callable_heartbeat(self):
+        def heartbeat_callback(_connection, _broker_val):
+            return 1
+        parameters = pika.ConnectionParameters(heartbeat=heartbeat_callback)
+        self.assertIs(parameters.heartbeat, heartbeat_callback)
 
     def test_bad_type_connection_parameters(self):
         """test connection kwargs type checks throw errors for bad input"""
@@ -476,15 +513,23 @@ class ConnectionParametersTests(_ParametersTestsBase):
             'blocked_connection_timeout': 10.5
         }
         # Test Type Errors
-        for bad_field, bad_value in (
-                ('host', 15672), ('port', '5672a'), ('virtual_host', True),
-                ('channel_max', '4'), ('frame_max', '5'),
-                ('credentials', 'bad'), ('locale', 1),
-                ('heartbeat', '6'), ('socket_timeout', '42'),
-                ('retry_delay', 'two'), ('backpressure_detection', 'true'),
-                ('ssl', {'ssl': 'dict'}), ('ssl_options', True),
-                ('connection_attempts', 'hello'),
-                ('blocked_connection_timeout', set())):
+        for bad_field, bad_value in (('host', 15672), ('port', '5672a'),
+                                     ('virtual_host',
+                                      True), ('channel_max',
+                                              '4'), ('frame_max',
+                                                     '5'), ('credentials',
+                                                            'bad'), ('locale',
+                                                                     1),
+                                     ('heartbeat',
+                                      '6'), ('socket_timeout',
+                                             '42'), ('retry_delay', 'two'),
+                                     ('backpressure_detection',
+                                      'true'), ('ssl', {
+                                          'ssl': 'dict'
+                                      }), ('ssl_options', True),
+                                     ('connection_attempts',
+                                      'hello'), ('blocked_connection_timeout',
+                                                 set())):
 
             bkwargs = copy.deepcopy(kwargs)
 
@@ -511,7 +556,6 @@ class ConnectionParametersTests(_ParametersTestsBase):
 
 
 class URLParametersTests(_ParametersTestsBase):
-
     def test_default_property_values(self):
         params = connection.URLParameters('')
         self.assert_default_parameter_values(params)
@@ -561,8 +605,13 @@ class URLParametersTests(_ParametersTestsBase):
             'locale': 'en_UK',
             'retry_delay': 3,
             'socket_timeout': 100.5,
-            'ssl_options': {'ssl': 'options'},
-            'tcp_options': {'TCP_USER_TIMEOUT': 1000, 'TCP_KEEPIDLE': 60}
+            'ssl_options': {
+                'ssl': 'options'
+            },
+            'tcp_options': {
+                'TCP_USER_TIMEOUT': 1000,
+                'TCP_KEEPIDLE': 60
+            }
         }
 
         for backpressure in ('t', 'f'):
@@ -570,8 +619,10 @@ class URLParametersTests(_ParametersTestsBase):
             test_params['backpressure_detection'] = backpressure
             virtual_host = '/'
             query_string = urlencode(test_params)
-            test_url = ('https://myuser:mypass@www.test.com:5678/%s?%s' %
-                        (url_quote(virtual_host, safe=''), query_string,))
+            test_url = ('https://myuser:mypass@www.test.com:5678/%s?%s' % (
+                url_quote(virtual_host, safe=''),
+                query_string,
+            ))
 
             params = connection.URLParameters(test_url)
 
@@ -581,11 +632,14 @@ class URLParametersTests(_ParametersTestsBase):
                 expected_value = query_args[t_param]
                 actual_value = getattr(params, t_param)
 
-                self.assertEqual(actual_value, expected_value,
-                                 msg = 'Expected %s=%r, but got %r' %
-                                 (t_param, expected_value, actual_value))
+                self.assertEqual(
+                    actual_value,
+                    expected_value,
+                    msg='Expected %s=%r, but got %r' %
+                    (t_param, expected_value, actual_value))
 
-            self.assertEqual(params.backpressure_detection, backpressure == 't')
+            self.assertEqual(params.backpressure_detection,
+                             backpressure == 't')
 
             # check all values from base URL
             self.assertEqual(params.ssl, True)
@@ -607,8 +661,7 @@ class URLParametersTests(_ParametersTestsBase):
 
             # Check that a warning was generated
             self.assertEqual(len(warnings_list), 1)
-            self.assertIs(warnings_list[0].category,
-                          DeprecationWarning)
+            self.assertIs(warnings_list[0].category, DeprecationWarning)
 
     def test_accepts_plain_string(self):
         parameters = pika.URLParameters('amqp://prtfqpeo:oihdglkhcp0@myserver.'
@@ -639,14 +692,40 @@ class URLParametersTests(_ParametersTestsBase):
         self.assertEqual(parameters.virtual_host,
                          pika.URLParameters.DEFAULT_VIRTUAL_HOST)
 
-    def test_uses_default_virtual_host_if_only_slash_is_specified(
-            self):
+    def test_uses_default_virtual_host_if_only_slash_is_specified(self):
         parameters = pika.URLParameters('amqp://myserver.mycompany.com/')
         self.assertEqual(parameters.virtual_host,
                          pika.URLParameters.DEFAULT_VIRTUAL_HOST)
 
-    def test_uses_default_username_and_password_if_not_specified(
-            self):
+    def test_uses_default_virtual_host_via_encoded_slash_upcase(self):
+        parameters = pika.URLParameters('amqp://myserver.mycompany.com/%2F')
+        self.assertEqual(parameters.virtual_host,
+                         pika.URLParameters.DEFAULT_VIRTUAL_HOST)
+
+    def test_uses_default_virtual_host_via_encoded_slash_downcase(self):
+        parameters = pika.URLParameters('amqp://myserver.mycompany.com/%2f')
+        self.assertEqual(parameters.virtual_host,
+                         pika.URLParameters.DEFAULT_VIRTUAL_HOST)
+
+    def test_uses_default_virtual_host_via_encoded_slash_upcase_ending_with_slash(self):
+        parameters = pika.URLParameters('amqp://myserver.mycompany.com/%2F/')
+        self.assertEqual(parameters.virtual_host,
+                         pika.URLParameters.DEFAULT_VIRTUAL_HOST)
+
+    def test_uses_default_virtual_host_via_encoded_slash_downcase_ending_with_slash(self):
+        parameters = pika.URLParameters('amqp://myserver.mycompany.com/%2f/')
+        self.assertEqual(parameters.virtual_host,
+                         pika.URLParameters.DEFAULT_VIRTUAL_HOST)
+
+    def test_uses_default_virtual_host_if_only_parameters_provided(self):
+        parameters = pika.URLParameters(
+            'amqp://myserver.mycompany.com?frame_max=8192&locale=utf8')
+        self.assertEqual(parameters.virtual_host,
+                         pika.URLParameters.DEFAULT_VIRTUAL_HOST)
+        self.assertEqual(parameters.frame_max, 8192)
+        self.assertEqual(parameters.locale, 'utf8')
+
+    def test_uses_default_username_and_password_if_not_specified(self):
         parameters = pika.URLParameters('amqp://myserver.mycompany.com')
         self.assertEqual(parameters.credentials.username,
                          pika.URLParameters.DEFAULT_USERNAME)
@@ -661,7 +740,7 @@ class URLParametersTests(_ParametersTestsBase):
     def test_url_decodes_username_and_password(self):
         username = '@@@@'
         password = '////'
-        parameters = pika.URLParameters('amqp://%40%40%40%40:%2F%2F%2F%2F@myserver.mycompany.com')
+        parameters = pika.URLParameters(
+            'amqp://%40%40%40%40:%2F%2F%2F%2F@myserver.mycompany.com')
         self.assertEqual(parameters.credentials.username, username)
         self.assertEqual(parameters.credentials.password, password)
-

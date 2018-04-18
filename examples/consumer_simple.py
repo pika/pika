@@ -5,7 +5,7 @@ import pika
 import json
 
 
-print(('pika version: %s') % pika.__version__)
+print('pika version: %s' % pika.__version__)
 
 
 connection = pika.BlockingConnection(pika.ConnectionParameters(host='localhost'))

@@ -2,20 +2,16 @@
 Tests for pika.frame
 
 """
-try:
-    import unittest2 as unittest
-except ImportError:
-    import unittest
+import unittest
 
-from pika import exceptions
-from pika import frame
-from pika import spec
+from pika import exceptions, frame, spec
 
 
 class FrameTests(unittest.TestCase):
 
-    BASIC_ACK = (b'\x01\x00\x01\x00\x00\x00\r\x00<\x00P\x00\x00\x00\x00\x00\x00'
-                 b'\x00d\x00\xce')
+    BASIC_ACK = (
+        b'\x01\x00\x01\x00\x00\x00\r\x00<\x00P\x00\x00\x00\x00\x00\x00'
+        b'\x00d\x00\xce')
     BODY_FRAME = b'\x03\x00\x01\x00\x00\x00\x14I like it that sound\xce'
     BODY_FRAME_VALUE = b'I like it that sound'
     CONTENT_HEADER = (b'\x02\x00\x01\x00\x00\x00\x0f\x00<\x00\x00\x00'
@@ -48,15 +44,15 @@ class FrameTests(unittest.TestCase):
         self.assertEqual(protocol_header.marshal(), self.PROTOCOL_HEADER)
 
     def decode_protocol_header_instance_test(self):
-        self.assertIsInstance(frame.decode_frame(self.PROTOCOL_HEADER)[1],
-                              frame.ProtocolHeader)
+        self.assertIsInstance(
+            frame.decode_frame(self.PROTOCOL_HEADER)[1], frame.ProtocolHeader)
 
     def decode_protocol_header_bytes_test(self):
         self.assertEqual(frame.decode_frame(self.PROTOCOL_HEADER)[0], 8)
 
     def decode_method_frame_instance_test(self):
-        self.assertIsInstance(frame.decode_frame(self.BASIC_ACK)[1],
-                              frame.Method)
+        self.assertIsInstance(
+            frame.decode_frame(self.BASIC_ACK)[1], frame.Method)
 
     def decode_protocol_header_failure_test(self):
         self.assertEqual(frame.decode_frame(b'AMQPa'), (0, None))
@@ -65,12 +61,12 @@ class FrameTests(unittest.TestCase):
         self.assertEqual(frame.decode_frame(self.BASIC_ACK)[0], 21)
 
     def decode_method_frame_method_test(self):
-        self.assertIsInstance(frame.decode_frame(self.BASIC_ACK)[1].method,
-                              spec.Basic.Ack)
+        self.assertIsInstance(
+            frame.decode_frame(self.BASIC_ACK)[1].method, spec.Basic.Ack)
 
     def decode_header_frame_instance_test(self):
-        self.assertIsInstance(frame.decode_frame(self.CONTENT_HEADER)[1],
-                              frame.Header)
+        self.assertIsInstance(
+            frame.decode_frame(self.CONTENT_HEADER)[1], frame.Header)
 
     def decode_header_frame_bytes_test(self):
         self.assertEqual(frame.decode_frame(self.CONTENT_HEADER)[0], 23)
@@ -80,8 +76,8 @@ class FrameTests(unittest.TestCase):
         self.assertIsInstance(frame_value.properties, spec.BasicProperties)
 
     def decode_frame_decoding_failure_test(self):
-        self.assertEqual(frame.decode_frame(b'\x01\x00\x01\x00\x00\xce'),
-                         (0, None))
+        self.assertEqual(
+            frame.decode_frame(b'\x01\x00\x01\x00\x00\xce'), (0, None))
 
     def decode_frame_decoding_no_end_byte_test(self):
         self.assertEqual(frame.decode_frame(self.BASIC_ACK[:-1]), (0, None))
@@ -91,19 +87,20 @@ class FrameTests(unittest.TestCase):
                           self.BASIC_ACK[:-1] + b'A')
 
     def decode_body_frame_instance_test(self):
-        self.assertIsInstance(frame.decode_frame(self.BODY_FRAME)[1],
-                              frame.Body)
+        self.assertIsInstance(
+            frame.decode_frame(self.BODY_FRAME)[1], frame.Body)
 
     def decode_body_frame_fragment_test(self):
-        self.assertEqual(frame.decode_frame(self.BODY_FRAME)[1].fragment,
-                         self.BODY_FRAME_VALUE)
+        self.assertEqual(
+            frame.decode_frame(self.BODY_FRAME)[1].fragment,
+            self.BODY_FRAME_VALUE)
 
     def decode_body_frame_fragment_consumed_bytes_test(self):
         self.assertEqual(frame.decode_frame(self.BODY_FRAME)[0], 28)
 
     def decode_heartbeat_frame_test(self):
-        self.assertIsInstance(frame.decode_frame(self.HEARTBEAT)[1],
-                              frame.Heartbeat)
+        self.assertIsInstance(
+            frame.decode_frame(self.HEARTBEAT)[1], frame.Heartbeat)
 
     def decode_heartbeat_frame_bytes_consumed_test(self):
         self.assertEqual(frame.decode_frame(self.HEARTBEAT)[0], 8)

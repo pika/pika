@@ -10,6 +10,9 @@ and the :class:`~pika.adapters.blocking_connection.BlockingChannel`
 classes.
 
 """
+# Suppress too-many-lines
+# pylint: disable=C0302
+
 # Disable "access to protected member warnings: this wrapper implementation is
 # a friend of those instances
 # pylint: disable=W0212
@@ -155,7 +158,7 @@ class _CallbackResult(object):
                                 with `append_element`
         """
         assert self._ready, '_CallbackResult was not set'
-        assert isinstance(self._values, list) and len(self._values) > 0, (
+        assert isinstance(self._values, list) and self._values, (
             '_CallbackResult value is incompatible with append_element: %r'
             % (self._values,))
 
@@ -378,7 +381,7 @@ class BlockingConnection(object):
 
     def _cleanup(self):
         """Clean up members that might inhibit garbage collection"""
-        self._impl.ioloop.deactivate_poller()
+        self._impl.ioloop.close()
         self._ready_events.clear()
         self._opened_result.reset()
         self._open_error_result.reset()
@@ -525,6 +528,18 @@ class BlockingConnection(object):
         """
         self._ready_events.append(evt)
 
+    def _on_threadsafe_callback(self, user_callback):
+        """Handle callback that was registered via `add_callback_threadsafe`.
+
+        :param user_callback: callback passed to `add_callback_threadsafe` by
+                              the application.
+
+        """
+        # Turn it into a 0-delay timeout to take advantage of our existing logic
+        # that deals with reentrancy
+        self.add_timeout(0, user_callback)
+
+
     def _on_connection_blocked(self, user_callback, method_frame):
         """Handle Connection.Blocked notification from RabbitMQ broker
 
@@ -631,6 +646,29 @@ class BlockingConnection(object):
         evt.timer_id = timer_id
 
         return timer_id
+
+    def add_callback_threadsafe(self, callback):
+        """Requests a call to the given function as soon as possible in the
+        context of this connection's thread.
+
+        NOTE: This is the only thread-safe method in `BlockingConnection`. All
+         other manipulations of `BlockingConnection` must be performed from the
+         connection's thread.
+
+        For example, a thread may request a call to the
+        `BlockingChannel.basic_ack` method of a `BlockingConnection` that is
+        running in a different thread via
+
+        ```
+        connection.add_callback_threadsafe(
+            functools.partial(channel.basic_ack, delivery_tag=...))
+        ```
+
+        :param method callback: The callback method; must be callable
+
+        """
+        self._impl.add_callback_threadsafe(
+            functools.partial(self._on_threadsafe_callback, callback))
 
     def remove_timeout(self, timeout_id):
         """Remove a timer if it's still in the timeout stack
@@ -874,7 +912,7 @@ class _ConsumerCancellationEvt(_ChannelPendingEvt):
     `Basic.Cancel`
     """
 
-    __slots__ = ('method_frame')
+    __slots__ = ('method_frame',)
 
     def __init__(self, method_frame):
         """
@@ -1798,7 +1836,8 @@ class BlockingChannel(object):
         """Blocking consumption of a queue instead of via a callback. This
         method is a generator that yields each message as a tuple of method,
         properties, and body. The active generator iterator terminates when the
-        consumer is cancelled by client or broker.
+        consumer is cancelled by client via `BlockingChannel.cancel()` or by
+        broker.
 
         Example:
 
@@ -1820,8 +1859,8 @@ class BlockingChannel(object):
         :param bool exclusive: Don't allow other consumers on the queue
         :param dict arguments: Custom key/value pair arguments for the consumer
         :param float inactivity_timeout: if a number is given (in
-            seconds), will cause the method to yield None after the given period
-            of inactivity; this permits for pseudo-regular maintenance
+            seconds), will cause the method to yield (None, None, None) after the
+            given period of inactivity; this permits for pseudo-regular maintenance
             activities to be carried out by the user while waiting for messages
             to arrive. If None is given (default), then the method blocks until
             the next event arrives. NOTE that timing granularity is limited by
@@ -1907,7 +1946,7 @@ class BlockingChannel(object):
                 delta = wait_deadline - time.time()
                 if delta <= 0.0:
                     # Signal inactivity timeout
-                    yield None
+                    yield (None, None, None)
                     break
 
     def get_waiting_message_count(self):
@@ -2034,7 +2073,7 @@ class BlockingChannel(object):
                                    self._basic_getempty_result.is_ready)
                 if get_ok_result:
                     evt = get_ok_result.value
-                    return (evt.method, evt.properties, evt.body)
+                    return evt.method, evt.properties, evt.body
                 else:
                     assert self._basic_getempty_result, (
                         "wait completed without GetOk and GetEmpty")
@@ -2398,7 +2437,8 @@ class BlockingChannel(object):
         :param queue: The queue name
         :type queue: str or unicode; if empty string, the broker will create a
           unique queue name;
-        :param bool passive: Only check to see if the queue exists
+        :param bool passive: Only check to see if the queue exists and raise
+          `ChannelClosed` if it doesn't;
         :param bool durable: Survive reboots of the broker
         :param bool exclusive: Only allow access by the current connection
         :param bool auto_delete: Delete after consumer cancels or disconnects

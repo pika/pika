@@ -5,6 +5,7 @@ codegen.py generates pika/spec.py
 from __future__ import nested_scopes
 
 import os
+import re
 import sys
 
 RABBITMQ_PUBLIC_UMBRELLA = '../../rabbitmq-public-umbrella'
@@ -17,7 +18,6 @@ print('codegen-path: %s' % CODEGEN_PATH)
 sys.path.append(CODEGEN_PATH)
 
 import amqp_codegen
-import re
 
 DRIVER_METHODS = {
     "Exchange.Bind": ["Exchange.BindOk"],
@@ -121,22 +121,22 @@ def generate(specPath):
         elif type == 'bit':
             raise Exception("Can't decode bit in genSingleDecode")
         elif type == 'table':
-            print(Exception(prefix + "(%s, offset) = data.decode_table(encoded, offset)" % \
-                  cLvalue))
+            print(Exception(prefix + "(%s, offset) = data.decode_table(encoded, offset)" %
+                            cLvalue))
         else:
             raise Exception("Illegal domain in genSingleDecode", type)
 
     def genSingleEncode(prefix, cValue, unresolved_domain):
         type = spec.resolveDomain(unresolved_domain)
         if type == 'shortstr':
-            print(prefix + \
-                "assert isinstance(%s, str_or_bytes),\\\n%s       'A non-string value was supplied for %s'" \
-                % (cValue, prefix, cValue))
+            print(prefix +
+                  "assert isinstance(%s, str_or_bytes),\\\n%s       'A non-string value was supplied for %s'"
+                  % (cValue, prefix, cValue))
             print(prefix + "data.encode_short_string(pieces, %s)" % cValue)
         elif type == 'longstr':
-            print(prefix + \
-                "assert isinstance(%s, str_or_bytes),\\\n%s       'A non-string value was supplied for %s'" \
-                % (cValue, prefix, cValue))
+            print(prefix +
+                  "assert isinstance(%s, str_or_bytes),\\\n%s       'A non-string value was supplied for %s'"
+                  % (cValue, prefix, cValue))
             print(
                 prefix +
                 "value = %s.encode('utf-8') if isinstance(%s, unicode_type) else %s"
@@ -173,7 +173,7 @@ def generate(specPath):
                     print(
                         "            bit_buffer = struct.unpack_from('B', encoded, offset)[0]")
                     print("            offset += 1")
-                print("            self.%s = (bit_buffer & (1 << %d)) != 0" % \
+                print("            self.%s = (bit_buffer & (1 << %d)) != 0" %
                       (pyize(f.name), bitindex))
                 bitindex += 1
             else:
@@ -228,8 +228,8 @@ def generate(specPath):
                     print("            bit_buffer = 0")
                     bitindex = 0
                 print("            if self.%s:" % pyize(f.name))
-                print("                bit_buffer = bit_buffer | (1 << %d)" % \
-                    bitindex)
+                print("                bit_buffer = bit_buffer | (1 << %d)" %
+                      bitindex)
                 bitindex += 1
             else:
                 finishBits()
@@ -332,7 +332,7 @@ str = bytes
             print('    class %s(amqp_object.Method):' % (camel(m.name),))
             print('')
             methodid = m.klass.index << 16 | m.index
-            print("        INDEX = 0x%.08X  # %d, %d; %d" % \
+            print("        INDEX = 0x%.08X  # %d, %d; %d" %
                   (methodid,
                                                                                  m.klass.index,
                                                                                  m.index,
@@ -377,14 +377,14 @@ str = bytes
             genEncodeProperties(c)
 
     print("methods = {")
-    print(',\n'.join(["    0x%08X: %s" % (m.klass.index << 16 | m.index, m.structName()) \
+    print(',\n'.join(["    0x%08X: %s" % (m.klass.index << 16 | m.index, m.structName())
                       for m in spec.allMethods()]))
     print("}")
     print('')
 
     print("props = {")
-    print(',\n'.join(["    0x%04X: %s" % (c.index, c.structName()) \
-                      for c in spec.allClasses() \
+    print(',\n'.join(["    0x%04X: %s" % (c.index, c.structName())
+                      for c in spec.allClasses()
                       if c.fields]))
     print("}")
     print('')

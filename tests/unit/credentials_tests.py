@@ -2,18 +2,11 @@
 Tests for pika.credentials
 
 """
-try:
-    import mock
-except ImportError:
-    from unittest import mock
+import unittest
 
-try:
-    import unittest2 as unittest
-except ImportError:
-    import unittest
+import mock
 
-from pika import credentials
-from pika import spec
+from pika import credentials, spec
 
 
 class PlainCredentialsTests(unittest.TestCase):
@@ -72,9 +65,9 @@ class PlainCredentialsTests(unittest.TestCase):
                 self.extra = 'e'
 
             def __eq__(self, other):
-                return (isinstance(other, ImprovedPlainCredentials) and
-                        self.extra == other.extra and
-                        super(ImprovedPlainCredentials, self).__eq__(other))
+                return (isinstance(other, ImprovedPlainCredentials)
+                        and self.extra == other.extra and super(
+                            ImprovedPlainCredentials, self).__eq__(other))
 
             def __ne__(self, other):
                 return not self == other
@@ -90,8 +83,8 @@ class PlainCredentialsTests(unittest.TestCase):
     def test_response_for(self):
         obj = credentials.PlainCredentials(*self.CREDENTIALS)
         start = spec.Connection.Start()
-        self.assertEqual(obj.response_for(start),
-                         ('PLAIN', b'\x00guest\x00guest'))
+        self.assertEqual(
+            obj.response_for(start), ('PLAIN', b'\x00guest\x00guest'))
 
     def test_erase_response_for_no_mechanism_match(self):
         obj = credentials.PlainCredentials(*self.CREDENTIALS)
@@ -111,12 +104,24 @@ class PlainCredentialsTests(unittest.TestCase):
         self.assertEqual((obj.username, obj.password), (None, None))
 
 
-class ExternalCredentialsTest(unittest.TestCase):
+class ImprovedExternalCredentials(credentials.ExternalCredentials):
+    def __init__(self, *args, **kwargs):
+        super(ImprovedExternalCredentials, self).__init__(*args, **kwargs)
+        self.extra = 'e'
 
+    def __eq__(self, other):
+        return (isinstance(other, ImprovedExternalCredentials)
+                and self.extra == other.extra and super(
+                    ImprovedExternalCredentials, self).__eq__(other))
+
+    def __ne__(self, other):
+        return not self == other
+
+
+class ExternalCredentialsTest(unittest.TestCase):
     def test_eq(self):
-        self.assertEqual(
-            credentials.ExternalCredentials(),
-            credentials.ExternalCredentials())
+        self.assertEqual(credentials.ExternalCredentials(),
+                         credentials.ExternalCredentials())
 
     def test_ne(self):
         cr1 = credentials.ExternalCredentials()
@@ -127,34 +132,12 @@ class ExternalCredentialsTest(unittest.TestCase):
         self.assertNotEqual(cr2, cr1)
 
         cred = credentials.ExternalCredentials()
-        self.assertNotEqual(
-            cred,
-            dict(erase_on_connect=cred.erase_on_connect))
-
-        self.assertNotEqual(
-            dict(erase_on_connect=cred.erase_on_connect),
-            cred)
-
-        class ImprovedExternalCredentials(credentials.ExternalCredentials):
-            def __init__(self, *args, **kwargs):
-                super(ImprovedExternalCredentials, self).__init__(*args, **kwargs)
-                self.extra = 'e'
-
-            def __eq__(self, other):
-                return (isinstance(other, ImprovedExternalCredentials) and
-                        self.extra == other.extra and
-                        super(ImprovedExternalCredentials, self).__eq__(other))
-
-            def __ne__(self, other):
-                return not self == other
-
-        self.assertNotEqual(
-            credentials.ExternalCredentials(),
-            ImprovedExternalCredentials())
-
-        self.assertNotEqual(
-            ImprovedExternalCredentials(),
-            credentials.ExternalCredentials())
+        self.assertNotEqual(cred, dict(erase_on_connect=cred.erase_on_connect))
+        self.assertNotEqual(dict(erase_on_connect=cred.erase_on_connect), cred)
+        self.assertNotEqual(credentials.ExternalCredentials(),
+                            ImprovedExternalCredentials())
+        self.assertNotEqual(ImprovedExternalCredentials(),
+                            credentials.ExternalCredentials())
 
     def test_response_for(self):
         obj = credentials.ExternalCredentials()

@@ -225,6 +225,28 @@ class IOLoopReactorAdapter(object):
         """
         call.cancel()
 
+    def add_callback_threadsafe(self, callback):
+        """Requests a call to the given function as soon as possible in the
+        context of this IOLoop's thread.
+
+        NOTE: This is the only thread-safe method offered by the IOLoop adapter.
+         All other manipulations of the IOLoop adapter and its parent connection
+         must be performed from the connection's thread.
+
+        For example, a thread may request a call to the
+        `channel.basic_ack` method of a connection that is running in a
+        different thread via
+
+        ```
+        connection.add_callback_threadsafe(
+            functools.partial(channel.basic_ack, delivery_tag=...))
+        ```
+
+        :param method callback: The callback method; must be callable.
+
+        """
+        self.reactor.callFromThread(callback)
+
     def stop(self):
         # Guard against stopping the reactor multiple times
         if not self.started:

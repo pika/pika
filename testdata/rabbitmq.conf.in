@@ -1,0 +1,13 @@
+listeners.tcp.default = 5672
+listeners.ssl.default = 5671
+num_acceptors.tcp = 10
+num_acceptors.ssl = 10
+reverse_dns_lookups = false
+loopback_users.guest = true
+ssl_options.verify = verify_peer
+ssl_options.fail_if_no_peer_cert = true
+ssl_options.cacertfile = PIKA_DIR/testdata/certs/ca_certificate.pem
+ssl_options.certfile = PIKA_DIR/testdata/certs/server_certificate.pem
+ssl_options.keyfile = PIKA_DIR/testdata/certs/server_key.pem
+log.console = false
+log.console.level = debug

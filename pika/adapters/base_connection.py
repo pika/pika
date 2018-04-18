@@ -10,18 +10,10 @@ import ssl
 
 import pika.compat
 import pika.tcp_socket_opts
+
 from pika import connection
-
-if pika.compat.PY2:
-    _SOCKET_ERROR = socket.error
-else:
-    # socket.error was deprecated and replaced by OSError in python 3.3
-    _SOCKET_ERROR = OSError
-
-try:
-    SOL_TCP = socket.SOL_TCP
-except AttributeError:
-    SOL_TCP = socket.IPPROTO_TCP
+from pika.compat import SOCKET_ERROR
+from pika.compat import SOL_TCP
 
 LOGGER = logging.getLogger(__name__)
 
@@ -90,13 +82,13 @@ class BaseConnection(connection.Connection):
             peername = None
             try:
                 sockname = sock.getsockname()
-            except socket.error:
+            except SOCKET_ERROR:
                 # closed?
                 pass
             else:
                 try:
                     peername = sock.getpeername()
-                except socket.error:
+                except SOCKET_ERROR:
                     # not connected?
                     pass
 
@@ -143,6 +135,32 @@ class BaseConnection(connection.Connection):
         """
         self.ioloop.remove_timeout(timeout_id)
 
+    def add_callback_threadsafe(self, callback):
+        """Requests a call to the given function as soon as possible in the
+        context of this connection's IOLoop thread.
+
+        NOTE: This is the only thread-safe method offered by the connection. All
+         other manipulations of the connection must be performed from the
+         connection's thread.
+
+        For example, a thread may request a call to the
+        `channel.basic_ack` method of a connection that is running in a
+        different thread via
+
+        ```
+        connection.add_callback_threadsafe(
+            functools.partial(channel.basic_ack, delivery_tag=...))
+        ```
+
+        :param method callback: The callback method; must be callable.
+
+        """
+        if not callable(callback):
+            raise TypeError(
+                'callback must be a callable, but got %r' % (callback,))
+
+        self.ioloop.add_callback_threadsafe(callback)
+
     def _adapter_connect(self):
         """Connect to the RabbitMQ broker, returning True if connected.
 
@@ -156,7 +174,7 @@ class BaseConnection(connection.Connection):
                     self.params.host, self.params.port, 0, socket.SOCK_STREAM,
                     socket.IPPROTO_TCP)
                 break
-            except _SOCKET_ERROR as error:
+            except SOCKET_ERROR as error:
                 if error.errno == errno.EINTR:
                     continue
 
@@ -189,7 +207,7 @@ class BaseConnection(connection.Connection):
         if self.socket:
             try:
                 self.socket.shutdown(socket.SHUT_RDWR)
-            except _SOCKET_ERROR:
+            except SOCKET_ERROR:
                 pass
             self.socket.close()
             self.socket = None
@@ -223,11 +241,11 @@ class BaseConnection(connection.Connection):
                 sock_addr_tuple[4][0], sock_addr_tuple[4][1])
             LOGGER.error(error)
             return error
-        except _SOCKET_ERROR as error:
+        except SOCKET_ERROR as error:
             error = 'Connection to %s:%s failed: %s' % (sock_addr_tuple[4][0],
                                                         sock_addr_tuple[4][1],
                                                         error)
-            LOGGER.warning(error)
+            LOGGER.error(error)
             return error
 
         # Handle SSL Connection Negotiation
@@ -293,13 +311,7 @@ class BaseConnection(connection.Connection):
         if not error_value:
             return None
 
-        if hasattr(error_value, 'errno'):  # Python >= 2.6
-            return error_value.errno
-        else:
-            # TODO this doesn't look right; error_value.args[0] ??? Could
-            # probably remove this code path since pika doesn't test against
-            # Python 2.5
-            return error_value[0]  # Python <= 2.5
+        return error_value.errno
 
     def _flush_outbound(self):
         """Have the state manager schedule the necessary I/O.
@@ -325,7 +337,7 @@ class BaseConnection(connection.Connection):
             LOGGER.warning('Connection is closed but not stopping IOLoop')
 
     def _handle_error(self, error_value):
-        """Internal error handling method. Here we expect a socket.error
+        """Internal error handling method. Here we expect a socket error
         coming in and will handle different socket errors differently.
 
         :param int|object error_value: The inbound error
@@ -417,7 +429,7 @@ class BaseConnection(connection.Connection):
                         data = self.socket.recv(self._buffer_size)
 
                     break
-                except _SOCKET_ERROR as error:
+                except SOCKET_ERROR as error:
                     if error.errno == errno.EINTR:
                         continue
                     else:
@@ -434,7 +446,7 @@ class BaseConnection(connection.Connection):
                 return 0
             return self._handle_error(error)
 
-        except _SOCKET_ERROR as error:
+        except SOCKET_ERROR as error:
             if error.errno in (errno.EAGAIN, errno.EWOULDBLOCK):
                 return 0
             return self._handle_error(error)
@@ -460,7 +472,7 @@ class BaseConnection(connection.Connection):
                     try:
                         num_bytes_sent = self.socket.send(frame)
                         break
-                    except _SOCKET_ERROR as error:
+                    except SOCKET_ERROR as error:
                         if error.errno == errno.EINTR:
                             continue
                         else:
@@ -478,7 +490,17 @@ class BaseConnection(connection.Connection):
             self.outbound_buffer.appendleft(frame)
             self._handle_timeout()
 
-        except _SOCKET_ERROR as error:
+        except ssl.SSLError as error:
+            if error.args[0] == ssl.SSL_ERROR_WANT_WRITE:
+                # In Python 3.5+, SSLSocket.send raises this if the socket is
+                # not currently able to write. Handle this just like an
+                # EWOULDBLOCK socket error.
+                LOGGER.debug("Would block, requeuing frame")
+                self.outbound_buffer.appendleft(frame)
+            else:
+                return self._handle_error(error)
+
+        except SOCKET_ERROR as error:
             if error.errno in (errno.EAGAIN, errno.EWOULDBLOCK):
                 LOGGER.debug("Would block, requeuing frame")
                 self.outbound_buffer.appendleft(frame)
@@ -514,11 +536,44 @@ class BaseConnection(connection.Connection):
             self.ioloop.update_handler(self.socket.fileno(), self.event_state)
 
     def _wrap_socket(self, sock):
-        """Wrap the socket for connecting over SSL.
+        """Wrap the socket for connecting over SSL. This allows the user to use
+        a dict for the usual SSL options or an SSLOptions object for more
+        advanced control.
 
         :rtype: ssl.SSLSocket
 
         """
         ssl_options = self.params.ssl_options or {}
-        return ssl.wrap_socket(
-            sock, do_handshake_on_connect=self.DO_HANDSHAKE, **ssl_options)
+        # our wrapped return sock
+        ssl_sock = None
+
+        if isinstance(ssl_options, connection.SSLOptions):
+            context = ssl.SSLContext(ssl_options.ssl_version)
+            context.verify_mode = ssl_options.verify_mode
+            if ssl_options.certfile is not None:
+                context.load_cert_chain(
+                    certfile=ssl_options.certfile,
+                    keyfile=ssl_options.keyfile,
+                    password=ssl_options.key_password)
+
+            # only one of either cafile or capath have to defined
+            if ssl_options.cafile is not None or ssl_options.capath is not None:
+                context.load_verify_locations(
+                    cafile=ssl_options.cafile,
+                    capath=ssl_options.capath,
+                    cadata=ssl_options.cadata)
+
+            if ssl_options.ciphers is not None:
+                context.set_ciphers(ssl_options.ciphers)
+
+            ssl_sock = context.wrap_socket(
+                sock,
+                server_side=ssl_options.server_side,
+                do_handshake_on_connect=ssl_options.do_handshake_on_connect,
+                suppress_ragged_eofs=ssl_options.suppress_ragged_eofs,
+                server_hostname=ssl_options.server_hostname)
+        else:
+            ssl_sock = ssl.wrap_socket(
+                sock, do_handshake_on_connect=self.DO_HANDSHAKE, **ssl_options)
+
+        return ssl_sock

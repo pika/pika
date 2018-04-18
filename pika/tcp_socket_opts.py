@@ -2,11 +2,6 @@ import logging
 import socket
 import pika.compat
 
-try:
-    SOL_TCP = socket.SOL_TCP
-except AttributeError:
-    SOL_TCP = socket.IPPROTO_TCP
-
 LOGGER = logging.getLogger(__name__)
 
 _SUPPORTED_TCP_OPTIONS = {}
@@ -43,6 +38,6 @@ def set_sock_opts(tcp_options, sock):
     for key, value in tcp_options.items():
         option = _SUPPORTED_TCP_OPTIONS.get(key)
         if option:
-            sock.setsockopt(SOL_TCP, option, value)
+            sock.setsockopt(pika.compat.SOL_TCP, option, value)
         else:
             LOGGER.warning('Unsupported TCP option %s:%s', key, value)

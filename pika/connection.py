@@ -8,6 +8,7 @@ import math
 import numbers
 import platform
 import warnings
+import ssl
 
 if sys.version_info > (3,):
     import urllib.parse as urlparse  # pylint: disable=E0611,F0401
@@ -109,7 +110,7 @@ class Parameters(object):  # pylint: disable=R0902
     DEFAULT_LOCALE = 'en_US'
     DEFAULT_PORT = 5672
     DEFAULT_RETRY_DELAY = 2.0
-    DEFAULT_SOCKET_TIMEOUT = 0.25
+    DEFAULT_SOCKET_TIMEOUT = 10.0
     DEFAULT_SSL = False
     DEFAULT_SSL_OPTIONS = None
     DEFAULT_SSL_PORT = 5671
@@ -354,10 +355,11 @@ class Parameters(object):  # pylint: disable=R0902
     @property
     def heartbeat(self):
         """
-        :returns: desired connection heartbeat timeout for negotiation or
+        :returns: AMQP connection heartbeat timeout value for negotiation during
+            connection tuning or callable which is invoked during connection tuning.
             None to accept broker's value. 0 turns heartbeat off. Defaults to
             `DEFAULT_HEARTBEAT_TIMEOUT`.
-        :rtype: integer, float, or None
+        :rtype: integer, None or callable
 
         """
         return self._heartbeat
@@ -365,15 +367,19 @@ class Parameters(object):  # pylint: disable=R0902
     @heartbeat.setter
     def heartbeat(self, value):
         """
-        :param value: desired connection heartbeat timeout for negotiation or
-            None to accept broker's value. 0 turns heartbeat off.
-
+        :param int|None|callable value: Controls AMQP heartbeat timeout negotiation
+            during connection tuning. An integer value always overrides the value
+            proposed by broker. Use 0 to deactivate heartbeats and None to always
+            accept the broker's proposal. If a callable is given, it will be called
+            with the connection instance and the heartbeat timeout proposed by broker
+            as its arguments. The callback should return a non-negative integer that
+            will be used to override the broker's proposal.
         """
         if value is not None:
-            if not isinstance(value, numbers.Integral):
-                raise TypeError('heartbeat must be an int, but got %r' %
+            if not isinstance(value, numbers.Integral) and not callable(value):
+                raise TypeError('heartbeat must be an int or a callable function, but got %r' %
                                 (value,))
-            if value < 0:
+            if not callable(value) and value < 0:
                 raise ValueError('heartbeat must >= 0, but got %r' % (value,))
         self._heartbeat = value
 
@@ -517,14 +523,17 @@ class Parameters(object):  # pylint: disable=R0902
     @ssl_options.setter
     def ssl_options(self, value):
         """
-        :param value: None or a dict of options to pass to `ssl.wrap_socket`.
+        :param value: None, a dict of options to pass to `ssl.wrap_socket` or
+            a SSLOptions object for advanced setup.
 
         """
-        if not isinstance(value, (dict, type(None))):
-            raise TypeError('ssl_options must be a dict or None, but got %r' %
-                            (value,))
+        if not isinstance(value, (dict, SSLOptions, type(None))):
+            raise TypeError(
+                'ssl_options must be a dict, None or an SSLOptions but got %r'
+                % (value, ))
         # Copy the mutable object to avoid accidental side-effects
         self._ssl_options = copy.deepcopy(value)
+
 
     @property
     def virtual_host(self):
@@ -606,9 +615,13 @@ class ConnectionParameters(Parameters):
         :param pika.credentials.Credentials credentials: auth credentials
         :param int channel_max: Maximum number of channels to allow
         :param int frame_max: The maximum byte size for an AMQP frame
-        :param int heartbeat: Heartbeat timeout. Max between this value
-            and server's proposal will be used as the heartbeat timeout. Use 0
-            to deactivate heartbeats and None to accept server's proposal.
+        :param int|None|callable value: Controls AMQP heartbeat timeout negotiation
+            during connection tuning. An integer value always overrides the value
+            proposed by broker. Use 0 to deactivate heartbeats and None to always
+            accept the broker's proposal. If a callable is given, it will be called
+            with the connection instance and the heartbeat timeout proposed by broker
+            as its arguments. The callback should return a non-negative integer that
+            will be used to override the broker's proposal.
         :param bool ssl: Enable SSL
         :param dict ssl_options: None or a dict of arguments to be passed to
             ssl.wrap_socket
@@ -735,8 +748,8 @@ class URLParameters(Parameters):
         - frame_max:
             Override the default maximum frame size for communication
         - heartbeat:
-            Specify the number of seconds between heartbeat frames to ensure that
-            the link between RabbitMQ and your application is up
+            Desired connection heartbeat timeout for negotiation. If not present
+            the broker's value is accepted. 0 turns heartbeat off.
         - locale:
             Override the default `en_US` locale value
         - ssl:
@@ -817,7 +830,6 @@ class URLParameters(Parameters):
             self.virtual_host = url_unquote(parts.path.split('/')[1])
 
         # Handle query string values, validating and assigning them
-
         self._all_url_query_values = urlparse.parse_qs(parts.query)
 
         for name, value in dict_iteritems(self._all_url_query_values):
@@ -939,6 +951,58 @@ class URLParameters(Parameters):
         """Deserialize and apply the corresponding query string arg"""
         self.tcp_options = ast.literal_eval(value)
 
+class SSLOptions(object):
+    """Class used to provide parameters for optional fine grained control of SSL
+    socket wrapping.
+
+    :param string keyfile: The key file to pass to SSLContext.load_cert_chain
+    :param string key_password: The key password to passed to
+                                                    SSLContext.load_cert_chain
+    :param string certfile: The certificate file to passed to
+                                                    SSLContext.load_cert_chain
+    :param bool server_side: Passed to SSLContext.wrap_socket
+    :param verify_mode: Passed to SSLContext.wrap_socket
+    :param ssl_version: Passed to SSLContext init, defines the ssl
+                                                                version to use
+    :param string cafile: The CA file passed to
+                                            SSLContext.load_verify_locations
+    :param string capath: The CA path passed to
+                                            SSLContext.load_verify_locations
+    :param string cadata: The CA data passed to
+                                            SSLContext.load_verify_locations
+    :param do_handshake_on_connect: Passed to SSLContext.wrap_socket
+    :param suppress_ragged_eofs: Passed to SSLContext.wrap_socket
+    :param ciphers: Passed to SSLContext.set_ciphers
+    :param server_hostname: SSLContext.wrap_socket, used to enable SNI
+    """
+
+    def __init__(self,
+                 keyfile=None,
+                 key_password=None,
+                 certfile=None,
+                 server_side=False,
+                 verify_mode=ssl.CERT_NONE,
+                 ssl_version=ssl.PROTOCOL_SSLv23,
+                 cafile=None,
+                 capath=None,
+                 cadata=None,
+                 do_handshake_on_connect=True,
+                 suppress_ragged_eofs=True,
+                 ciphers=None,
+                 server_hostname=None):
+        self.keyfile = keyfile
+        self.key_password = key_password
+        self.certfile = certfile
+        self.server_side = server_side
+        self.verify_mode = verify_mode
+        self.ssl_version = ssl_version
+        self.cafile = cafile
+        self.capath = capath
+        self.cadata = cadata
+        self.do_handshake_on_connect = do_handshake_on_connect
+        self.suppress_ragged_eofs = suppress_ragged_eofs
+        self.ciphers = ciphers
+        self.server_hostname = server_hostname
 
 class Connection(object):
     """This is the core class that implements communication with RabbitMQ. This
@@ -1174,8 +1238,11 @@ class Connection(object):
             LOGGER.warning('Suppressing close request on %s', self)
             return
 
+        # NOTE The connection is either in opening or open state
+
         # Initiate graceful closing of channels that are OPEN or OPENING
-        self._close_channels(reply_code, reply_text)
+        if self._channels:
+            self._close_channels(reply_code, reply_text)
 
         # Set our connection state
         self._set_connection_state(self.CONNECTION_CLOSING)
@@ -1445,13 +1512,15 @@ class Connection(object):
         """Create a heartbeat checker instance if there is a heartbeat interval
         set.
 
-        :rtype: pika.heartbeat.Heartbeat
+        :rtype: pika.heartbeat.Heartbeat|None
 
         """
         if self.params.heartbeat is not None and self.params.heartbeat > 0:
             LOGGER.debug('Creating a HeartbeatChecker: %r',
                          self.params.heartbeat)
             return heartbeat.HeartbeatChecker(self, self.params.heartbeat)
+
+        return None
 
     def _remove_heartbeat(self):
         """Stop the heartbeat checker if it exists
@@ -1810,7 +1879,9 @@ class Connection(object):
 
         error = self._adapter_connect()
         if not error:
-            return self._on_connected()
+            self._on_connected()
+            return
+
         self.remaining_connection_attempts -= 1
         LOGGER.warning('Could not connect, %i attempts left',
                        self.remaining_connection_attempts)
@@ -1873,6 +1944,8 @@ class Connection(object):
         > - The client responds and **MAY reduce those limits** for its
             connection
 
+        If the client specifies a value, it always takes precedence.
+
         :param client_value: None to accept server_value; otherwise, an integral
             number in seconds; 0 (zero) to disable heartbeat.
         :param server_value: integral value of the heartbeat timeout proposed by
@@ -1884,7 +1957,7 @@ class Connection(object):
             # Accept server's limit
             timeout = server_value
         else:
-            timeout = Connection._negotiate_integer_value(client_value, server_value)
+            timeout = client_value
 
         return timeout
 
@@ -1904,6 +1977,16 @@ class Connection(object):
                                                                       method_frame.method.channel_max)
         self.params.frame_max = Connection._negotiate_integer_value(self.params.frame_max,
                                                                     method_frame.method.frame_max)
+
+        if callable(self.params.heartbeat):
+            ret_heartbeat = self.params.heartbeat(self, method_frame.method.heartbeat)
+            if ret_heartbeat is None or callable(ret_heartbeat):
+                # Enforce callback-specific restrictions on callback's return value
+                raise TypeError('heartbeat callback must not return None '
+                                'or callable, but got %r' % (ret_heartbeat,))
+
+            # Leave it to hearbeat setter deal with the rest of the validation
+            self.params.heartbeat = ret_heartbeat
 
         # Negotiate heatbeat timeout
         self.params.heartbeat = self._tune_heartbeat_timeout(
@@ -2199,37 +2282,27 @@ class Connection(object):
         else:
             self._send_frame(frame.Method(channel_number, method))
 
-    def _send_message(self, channel_number, method, content=None):
-        """Send the message directly, bypassing the single _send_frame
-        invocation by directly appending to the output buffer and flushing
-        within a lock.
+    def _send_message(self, channel_number, method_frame, content):
+        """Publish a message.
 
         :param int channel_number: The channel number for the frame
-        :param pika.amqp_object.Method method: The method frame to send
-        :param tuple content: If set, is a content frame, is tuple of
-                              properties and body.
+        :param pika.object.Method method_frame: The method frame to send
+        :param tuple content: A content frame, which is tuple of properties and
+                              body.
 
         """
         length = len(content[1])
-        write_buffer = [frame.Method(channel_number, method).marshal(),
-                        frame.Header(channel_number, length,
-                                     content[0]).marshal()]
+        self._send_frame(frame.Method(channel_number, method_frame))
+        self._send_frame(frame.Header(channel_number, length, content[0]))
+
         if content[1]:
             chunks = int(math.ceil(float(length) / self._body_max_length))
             for chunk in xrange(0, chunks):
-                start = chunk * self._body_max_length
-                end = start + self._body_max_length
-                if end > length:
-                    end = length
-                write_buffer.append(frame.Body(channel_number,
-                                               content[1][start:end]).marshal())
-
-        self.outbound_buffer += write_buffer
-        self.frames_sent += len(write_buffer)
-        self.bytes_sent += sum(len(frame) for frame in write_buffer)
-        self._flush_outbound()
-        if self.params.backpressure_detection:
-            self._detect_backpressure()
+                s = chunk * self._body_max_length
+                e = s + self._body_max_length
+                if e > length:
+                    e = length
+                self._send_frame(frame.Body(channel_number, content[1][s:e]))
 
     def _set_connection_state(self, connection_state):
         """Set the connection state.

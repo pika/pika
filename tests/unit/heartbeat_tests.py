@@ -2,29 +2,11 @@
 Tests for pika.heartbeat
 
 """
+import unittest
 
-# Suppress pylint warnings concering access to protected member
-# pylint: disable=W0212
+import mock
 
-# Suppress pylint messages concering missing docstring
-# pylint: disable=C0111
-
-# Suppress pylint messages concering invalid method name
-# pylint: disable=C0103
-
-try:
-    import mock
-except ImportError:
-    from unittest import mock
-
-try:
-    import unittest2 as unittest
-except ImportError:
-    import unittest
-
-from pika import connection
-from pika import frame
-from pika import heartbeat
+from pika import connection, frame, heartbeat
 
 
 class HeartbeatTests(unittest.TestCase):
@@ -141,8 +123,8 @@ class HeartbeatTests(unittest.TestCase):
         self.obj._idle_byte_intervals = 3
         self.obj._idle_heartbeat_intervals = 4
         self.obj._close_connection()
-        reason = self.obj._STALE_CONNECTION % (self.obj._max_idle_count *
-                                               self.obj._interval)
+        reason = self.obj._STALE_CONNECTION % (
+            self.obj._max_idle_count * self.obj._interval)
         self.mock_conn.close.assert_called_once_with(
             self.obj._CONNECTION_FORCED, reason)
         self.mock_conn._on_terminate.assert_called_once_with(
@@ -173,8 +155,7 @@ class HeartbeatTests(unittest.TestCase):
 
     def test_setup_timer_called(self):
         self.mock_conn.add_timeout.assert_called_once_with(
-            self.INTERVAL,
-            self.obj.send_and_check)
+            self.INTERVAL, self.obj.send_and_check)
 
     @mock.patch('pika.heartbeat.HeartbeatChecker._setup_timer')
     def test_start_timer_not_active(self, setup_timer):

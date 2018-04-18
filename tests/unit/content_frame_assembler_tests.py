@@ -4,20 +4,12 @@ Tests for pika.channel.ContentFrameAssembler
 
 """
 import marshal
+import unittest
 
-try:
-    import unittest2 as unittest
-except ImportError:
-    import unittest
-
-from pika import channel
-from pika import exceptions
-from pika import frame
-from pika import spec
+from pika import channel, exceptions, frame, spec
 
 
 class ContentFrameAssemblerTests(unittest.TestCase):
-
     def setUp(self):
         self.obj = channel.ContentFrameAssembler()
 

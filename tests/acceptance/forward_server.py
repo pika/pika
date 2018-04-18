@@ -15,23 +15,24 @@ import sys
 import threading
 import traceback
 
-from pika.compat import PY3
+import pika.compat
 
-if PY3:
-    def buffer(object, offset, size): # pylint: disable=W0622
+if pika.compat.PY3:
+
+    def buffer(object, offset, size):  # pylint: disable=W0622
         """array etc. have the buffer protocol"""
         return object[offset:offset + size]
+
 
 try:
     import SocketServer
 except ImportError:
-    import socketserver as SocketServer # pylint: disable=F0401
+    import socketserver as SocketServer  # pylint: disable=F0401
 
 
 def _trace(fmt, *args):
     """Format and output the text to stderr"""
     print((fmt % args) + "\n", end="", file=sys.stderr)
-
 
 
 class ForwardServer(object):  # pylint: disable=R0902
@@ -80,15 +81,15 @@ class ForwardServer(object):  # pylint: disable=R0902
     # Amount of time, in seconds, we're willing to wait for the subprocess
     _SUBPROC_TIMEOUT = 10
 
-
-    def __init__(self,  # pylint: disable=R0913
-                 remote_addr,
-                 remote_addr_family=socket.AF_INET,
-                 remote_socket_type=socket.SOCK_STREAM,
-                 server_addr=("127.0.0.1", 0),
-                 server_addr_family=socket.AF_INET,
-                 server_socket_type=socket.SOCK_STREAM,
-                 local_linger_args=None):
+    def __init__(
+            self,  # pylint: disable=R0913
+            remote_addr,
+            remote_addr_family=socket.AF_INET,
+            remote_socket_type=socket.SOCK_STREAM,
+            server_addr=("127.0.0.1", 0),
+            server_addr_family=socket.AF_INET,
+            server_socket_type=socket.SOCK_STREAM,
+            local_linger_args=None):
         """
         :param tuple remote_addr: remote server's IP address, whose structure
           depends on remote_addr_family; pair (host-or-ip-addr, port-number).
@@ -118,7 +119,6 @@ class ForwardServer(object):  # pylint: disable=R0902
         assert remote_socket_type == socket.SOCK_STREAM, remote_socket_type
         self._remote_socket_type = remote_socket_type
 
-
         assert server_addr is not None
         self._server_addr = server_addr
 
@@ -131,7 +131,6 @@ class ForwardServer(object):  # pylint: disable=R0902
         self._local_linger_args = local_linger_args
 
         self._subproc = None
-
 
     @property
     def running(self):
@@ -148,7 +147,6 @@ class ForwardServer(object):  # pylint: disable=R0902
 
         return self._server_addr_family
 
-
     @property
     def server_address(self):
         """ Property: Get listening socket's address; the returned value
@@ -160,7 +158,6 @@ class ForwardServer(object):  # pylint: disable=R0902
 
         return self._server_addr
 
-
     def __enter__(self):
         """ Context manager entry. Starts the forwarding server
 
@@ -168,12 +165,10 @@ class ForwardServer(object):  # pylint: disable=R0902
         """
         return self.start()
 
-
     def __exit__(self, *args):
         """ Context manager exit; stops the forwarding server
         """
         self.stop()
-
 
     def start(self):
         """ Start the server
@@ -203,10 +198,9 @@ class ForwardServer(object):  # pylint: disable=R0902
         try:
             # Get server socket info from subprocess
             self._server_addr_family, self._server_addr = queue.get(
-                block=True,
-                timeout=self._SUBPROC_TIMEOUT)
+                block=True, timeout=self._SUBPROC_TIMEOUT)
             queue.close()
-        except Exception: # pylint: disable=W0703
+        except Exception:  # pylint: disable=W0703
             try:
                 self._logger.exception(
                     "Failed while waiting for local socket info")
@@ -216,13 +210,12 @@ class ForwardServer(object):  # pylint: disable=R0902
                 # Clean up
                 try:
                     self.stop()
-                except Exception: # pylint: disable=W0703
+                except Exception:  # pylint: disable=W0703
                     # Suppress secondary exception in favor of the primary
                     self._logger.exception(
                         "Emergency subprocess shutdown failed")
 
         return self
-
 
     def stop(self):
         """Stop the server
@@ -252,10 +245,15 @@ class ForwardServer(object):  # pylint: disable=R0902
             self._subproc = None
 
 
-
-def _run_server(local_addr, local_addr_family, local_socket_type,  # pylint: disable=R0913
-                local_linger_args, remote_addr, remote_addr_family,
-                remote_socket_type, queue):
+def _run_server(
+        local_addr,
+        local_addr_family,
+        local_socket_type,  # pylint: disable=R0913
+        local_linger_args,
+        remote_addr,
+        remote_addr_family,
+        remote_socket_type,
+        queue):
     """ Run the server; executed in the subprocess
 
     :param local_addr: listening address
@@ -283,15 +281,13 @@ def _run_server(local_addr, local_addr_family, local_socket_type,  # pylint: dis
     # NOTE: we add `object` to the base classes because `_ThreadedTCPServer`
     # isn't derived from `object`, which prevents `super` from working properly
     class _ThreadedTCPServer(SocketServer.ThreadingMixIn,
-                             SocketServer.TCPServer,
-                             object):
+                             SocketServer.TCPServer, object):
         """Threaded streaming server for forwarding"""
 
         # Override TCPServer's class members
         address_family = local_addr_family
         socket_type = local_socket_type
         allow_reuse_address = True
-
 
         def __init__(self):
 
@@ -303,10 +299,7 @@ def _run_server(local_addr, local_addr_family, local_socket_type,  # pylint: dis
                 remote_socket_type=remote_socket_type)
 
             super(_ThreadedTCPServer, self).__init__(
-                local_addr,
-                handler_class_factory,
-                bind_and_activate=True)
-
+                local_addr, handler_class_factory, bind_and_activate=True)
 
     server = _ThreadedTCPServer()
 
@@ -318,7 +311,6 @@ def _run_server(local_addr, local_addr_family, local_socket_type,  # pylint: dis
     server.serve_forever()
 
 
-
 # NOTE: we add `object` to the base classes because `StreamRequestHandler` isn't
 # derived from `object`, which prevents `super` from working properly
 class _TCPHandler(SocketServer.StreamRequestHandler, object):
@@ -328,15 +320,15 @@ class _TCPHandler(SocketServer.StreamRequestHandler, object):
 
     _SOCK_RX_BUF_SIZE = 16 * 1024
 
-
-    def __init__(self,  # pylint: disable=R0913
-                 request,
-                 client_address,
-                 server,
-                 local_linger_args,
-                 remote_addr,
-                 remote_addr_family,
-                 remote_socket_type):
+    def __init__(
+            self,  # pylint: disable=R0913
+            request,
+            client_address,
+            server,
+            local_linger_args,
+            remote_addr,
+            remote_addr_family,
+            remote_socket_type):
         """
         :param request: for super
         :param client_address: for super
@@ -359,10 +351,8 @@ class _TCPHandler(SocketServer.StreamRequestHandler, object):
         self._remote_addr_family = remote_addr_family
         self._remote_socket_type = remote_socket_type
 
-        super(_TCPHandler, self).__init__(request=request,
-                                          client_address=client_address,
-                                          server=server)
-
+        super(_TCPHandler, self).__init__(
+            request=request, client_address=client_address, server=server)
 
     def handle(self):  # pylint: disable=R0912
         """Connect to remote and forward data between local and remote"""
@@ -381,16 +371,19 @@ class _TCPHandler(SocketServer.StreamRequestHandler, object):
                 type=self._remote_socket_type,
                 proto=socket.IPPROTO_IP)
             remote_dest_sock.connect(self._remote_addr)
-            _trace("%s _TCPHandler connected to remote %s",
-                   datetime.utcnow(), remote_dest_sock.getpeername())
+            _trace("%s _TCPHandler connected to remote %s", datetime.utcnow(),
+                   remote_dest_sock.getpeername())
         else:
             # Echo set-up
-            remote_dest_sock, remote_src_sock = socket_pair()
+            remote_dest_sock, remote_src_sock = \
+                    pika.compat._nonblocking_socketpair()
 
         try:
             local_forwarder = threading.Thread(
-                target=self._forward,
-                args=(local_sock, remote_dest_sock,))
+                target=self._forward, args=(
+                    local_sock,
+                    remote_dest_sock,
+                ))
             local_forwarder.setDaemon(True)
             local_forwarder.start()
 
@@ -402,24 +395,21 @@ class _TCPHandler(SocketServer.StreamRequestHandler, object):
         finally:
             try:
                 try:
-                    _safe_shutdown_socket(remote_dest_sock,
-                                          socket.SHUT_RDWR)
+                    _safe_shutdown_socket(remote_dest_sock, socket.SHUT_RDWR)
                 finally:
                     if remote_src_sock is not remote_dest_sock:
-                        _safe_shutdown_socket(remote_src_sock,
-                                              socket.SHUT_RDWR)
+                        _safe_shutdown_socket(remote_src_sock, socket.SHUT_RDWR)
             finally:
                 remote_dest_sock.close()
                 if remote_src_sock is not remote_dest_sock:
                     remote_src_sock.close()
 
-
-    def _forward(self, src_sock, dest_sock): # pylint: disable=R0912
+    def _forward(self, src_sock, dest_sock):  # pylint: disable=R0912
         """Forward from src_sock to dest_sock"""
         src_peername = src_sock.getpeername()
 
-        _trace("%s forwarding from %s to %s", datetime.utcnow(),
-               src_peername, dest_sock.getpeername())
+        _trace("%s forwarding from %s to %s", datetime.utcnow(), src_peername,
+               dest_sock.getpeername())
         try:
             # NOTE: python 2.6 doesn't support bytearray with recv_into, so
             # we use array.array instead; this is only okay as long as the
@@ -431,13 +421,13 @@ class _TCPHandler(SocketServer.StreamRequestHandler, object):
             while True:
                 try:
                     nbytes = src_sock.recv_into(rx_buf)
-                except socket.error as exc:
+                except pika.compat.SOCKET_ERROR as exc:
                     if exc.errno == errno.EINTR:
                         continue
                     elif exc.errno == errno.ECONNRESET:
                         # Source peer forcibly closed connection
-                        _trace("%s errno.ECONNRESET from %s",
-                               datetime.utcnow(), src_peername)
+                        _trace("%s errno.ECONNRESET from %s", datetime.utcnow(),
+                               src_peername)
                         break
                     else:
                         _trace("%s Unexpected errno=%s from %s\n%s",
@@ -452,12 +442,12 @@ class _TCPHandler(SocketServer.StreamRequestHandler, object):
 
                 try:
                     dest_sock.sendall(buffer(rx_buf, 0, nbytes))
-                except socket.error as exc:
+                except pika.compat.SOCKET_ERROR as exc:
                     if exc.errno == errno.EPIPE:
                         # Destination peer closed its end of the connection
                         _trace("%s Destination peer %s closed its end of "
-                               "the connection: errno.EPIPE",
-                               datetime.utcnow(), dest_sock.getpeername())
+                               "the connection: errno.EPIPE", datetime.utcnow(),
+                               dest_sock.getpeername())
                         break
                     elif exc.errno == errno.ECONNRESET:
                         # Destination peer forcibly closed connection
@@ -466,11 +456,10 @@ class _TCPHandler(SocketServer.StreamRequestHandler, object):
                                datetime.utcnow(), dest_sock.getpeername())
                         break
                     else:
-                        _trace(
-                            "%s Unexpected errno=%s in sendall to %s\n%s",
-                            datetime.utcnow(), exc.errno,
-                            dest_sock.getpeername(),
-                            "".join(traceback.format_stack()))
+                        _trace("%s Unexpected errno=%s in sendall to %s\n%s",
+                               datetime.utcnow(), exc.errno,
+                               dest_sock.getpeername(), "".join(
+                                   traceback.format_stack()))
                         raise
         except:
             _trace("forward failed\n%s", "".join(traceback.format_exc()))
@@ -509,8 +498,8 @@ def echo(port=0):
         _trace("Connection from peer=%s", remote_addr)
         while True:
             try:
-                data = sock.recv(4 * 1024) # pylint: disable=E1101
-            except socket.error as exc:
+                data = sock.recv(4 * 1024)  # pylint: disable=E1101
+            except pika.compat.SOCKET_ERROR as exc:
                 if exc.errno == errno.EINTR:
                     continue
                 else:
@@ -519,7 +508,7 @@ def echo(port=0):
             if not data:
                 break
 
-            sock.sendall(data) # pylint: disable=E1101
+            sock.sendall(data)  # pylint: disable=E1101
     finally:
         try:
             _safe_shutdown_socket(sock, socket.SHUT_RDWR)
@@ -527,66 +516,11 @@ def echo(port=0):
             sock.close()
 
 
-
 def _safe_shutdown_socket(sock, how=socket.SHUT_RDWR):
     """ Shutdown a socket, suppressing ENOTCONN
     """
     try:
         sock.shutdown(how)
-    except socket.error as exc:
+    except pika.compat.SOCKET_ERROR as exc:
         if exc.errno != errno.ENOTCONN:
             raise
-
-
-
-def socket_pair(family=None, sock_type=socket.SOCK_STREAM,
-                proto=socket.IPPROTO_IP):
-    """ socket.socketpair abstraction with support for Windows
-
-    :param family: address family; e.g., socket.AF_UNIX, socket.AF_INET, etc.;
-      defaults to socket.AF_UNIX if available, with fallback to socket.AF_INET.
-    :param sock_type: socket type; defaults to socket.SOCK_STREAM
-    :param proto: protocol; defaults to socket.IPPROTO_IP
-    """
-    if family is None:
-        if hasattr(socket, "AF_UNIX"):
-            family = socket.AF_UNIX
-        else:
-            family = socket.AF_INET
-
-    if hasattr(socket, "socketpair"):
-        socket1, socket2 = socket.socketpair(family, sock_type, proto)
-    else:
-        # Probably running on Windows where socket.socketpair isn't supported
-
-        # Work around lack of socket.socketpair()
-
-        socket1 = socket2 = None
-
-        listener = socket.socket(family, sock_type, proto)
-        listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-
-        listener.bind(("localhost", 0))
-        listener.listen(1)
-        listener_port = listener.getsockname()[1]
-
-        socket1 = socket.socket(family, sock_type, proto)
-
-        # Use thread to connect in background, while foreground issues the
-        # blocking accept()
-        conn_thread = threading.Thread(
-            target=socket1.connect,
-            args=(('localhost', listener_port),))
-        conn_thread.setDaemon(1)
-        conn_thread.start()
-
-        try:
-            socket2 = listener.accept()[0]
-        finally:
-            listener.close()
-
-            # Join/reap background thread
-            conn_thread.join(timeout=10)
-            assert not conn_thread.isAlive()
-
-    return (socket1, socket2)

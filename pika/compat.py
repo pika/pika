@@ -1,12 +1,24 @@
+import errno
 import os
-import sys as _sys
 import platform
 import re
+import socket
+import sys as _sys
 
 PY2 = _sys.version_info < (3,)
 PY3 = not PY2
 RE_NUM = re.compile(r'(\d+).+')
 
+if _sys.version_info[:2] < (3, 3):
+    SOCKET_ERROR = socket.error
+else:
+    # socket.error was deprecated and replaced by OSError in python 3.3
+    SOCKET_ERROR = OSError
+
+try:
+    SOL_TCP = socket.SOL_TCP
+except AttributeError:
+    SOL_TCP = socket.IPPROTO_TCP
 
 if not PY2:
     # these were moved around for Python 3
@@ -151,3 +163,48 @@ EINTR_IS_EXPOSED = _sys.version_info[:2] <= (3, 4)
 LINUX_VERSION = None
 if platform.system() == 'Linux':
     LINUX_VERSION = get_linux_version(platform.release())
+
+_LOCALHOST = '127.0.0.1'
+_LOCALHOST_V6 = '::1'
+
+def _nonblocking_socketpair(family=socket.AF_INET, type=socket.SOCK_STREAM, proto=0):
+    """
+    Returns a pair of sockets in the manner of socketpair with the additional
+    feature that they will be non-blocking. Prior to Python 3.5, socketpair
+    did not exist on Windows at all.
+    """
+    if family == socket.AF_INET:
+        host = _LOCALHOST
+    elif family == socket.AF_INET6:
+        host = _LOCALHOST_V6
+    else:
+        raise ValueError(
+            'Only AF_INET and AF_INET6 socket address families '
+            'are supported')
+    if type != socket.SOCK_STREAM:
+        raise ValueError('Only SOCK_STREAM socket type is supported')
+    if proto != 0:
+        raise ValueError('Only protocol zero is supported')
+
+    lsock = socket.socket(family, type, proto)
+    try:
+        lsock.bind((host, 0))
+        lsock.listen(min(socket.SOMAXCONN, 128))
+        # On IPv6, ignore flow_info and scope_id
+        addr, port = lsock.getsockname()[:2]
+        csock = socket.socket(family, type, proto)
+        try:
+            csock.connect((addr, port))
+            ssock, _ = lsock.accept()
+        except Exception:
+            csock.close()
+            raise
+    finally:
+        lsock.close()
+
+    # Make sockets non-blocking to prevent deadlocks
+    # See https://github.com/pika/pika/issues/917
+    csock.setblocking(False)
+    ssock.setblocking(False)
+
+    return ssock, csock
