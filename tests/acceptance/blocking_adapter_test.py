@@ -1,7 +1,9 @@
 """blocking adapter test"""
 from datetime import datetime
+import functools
 import logging
 import socket
+import threading
 import time
 import unittest
 import uuid
@@ -449,6 +451,46 @@ class TestBlockedConnectionTimeout(BlockingTestCaseBase):
              'Blocked connection timeout expired'))
 
 
+class TestAddCallbackThreadsafeFromSameThread(BlockingTestCaseBase):
+
+    def test(self):
+        """BlockingConnection.add_callback_threadsafe from same thread"""
+        connection = self._connect()
+
+        # Test timer completion
+        start_time = time.time()
+        rx_callback = []
+        connection.add_callback_threadsafe(
+            lambda: rx_callback.append(time.time()))
+        while not rx_callback:
+            connection.process_data_events(time_limit=None)
+
+        self.assertEqual(len(rx_callback), 1)
+        elapsed = time.time() - start_time
+        self.assertLess(elapsed, 0.25)
+
+
+class TestAddCallbackThreadsafeFromAnotherThread(BlockingTestCaseBase):
+
+    def test(self):
+        """BlockingConnection.add_callback_threadsafe from another thread"""
+        connection = self._connect()
+
+        # Test timer completion
+        start_time = time.time()
+        rx_callback = []
+        timer = threading.Timer(
+            0,
+            functools.partial(connection.add_callback_threadsafe,
+                              lambda: rx_callback.append(time.time())))
+        self.addCleanup(timer.cancel)
+        timer.start()
+        while not rx_callback:
+            connection.process_data_events(time_limit=None)
+
+        self.assertEqual(len(rx_callback), 1)
+        elapsed = time.time() - start_time
+        self.assertLess(elapsed, 0.25)
 
 
 class TestAddTimeoutRemoveTimeout(BlockingTestCaseBase):
@@ -488,6 +530,32 @@ class TestAddTimeoutRemoveTimeout(BlockingTestCaseBase):
         repr(evt)
 
 
+class TestViabilityOfMultipleTimeoutsWithSameDeadlineAndCallback(BlockingTestCaseBase):
+
+    def test(self):
+        """BlockingConnection viability of multiple timeouts with same deadline and callback"""
+        connection = self._connect()
+
+        rx_callback = []
+
+        def callback():
+            rx_callback.append(1)
+
+        timer1 = connection.add_timeout(0, callback)
+        timer2 = connection.add_timeout(0, callback)
+
+        self.assertNotEqual(timer1, timer2)
+
+        connection.remove_timeout(timer1)
+
+        # Wait for second timer to fire
+        start_wait_time = time.time()
+        while not rx_callback and time.time() - start_wait_time < 0.25:
+            connection.process_data_events(time_limit=0.001)
+
+        self.assertListEqual(rx_callback, [1])
+
+
 class TestRemoveTimeoutFromTimeoutCallback(BlockingTestCaseBase):
 
     def test(self):
@@ -508,7 +576,7 @@ class TestRemoveTimeoutFromTimeoutCallback(BlockingTestCaseBase):
         while not rx_timer2:
             connection.process_data_events(time_limit=None)
 
-        self.assertNotIn(timer_id1, connection._impl.ioloop._poller._timeouts)
+        self.assertIsNone(timer_id1.callback)
         self.assertFalse(connection._ready_events)
 
 
@@ -1471,7 +1539,7 @@ class TestBasicPublishDeliveredWhenPendingUnroutable(BlockingTestCaseBase):
                                mandatory=True)
         self.assertEqual(res, True)
 
-        # Flush channel to force Basic.Return
+        # Flush connection to force Basic.Return
         connection.channel().close()
 
         # Deposit a routable message in the queue
@@ -1630,7 +1698,7 @@ class TestPublishAndConsumeWithPubacksAndQosOfOne(BlockingTestCaseBase):
                                                       queue=q_name,
                                                       expected_count=0)
 
-        # Attempt to cosume again with a short timeout
+        # Attempt to consume again with a short timeout
         connection.process_data_events(time_limit=0.005)
         self.assertEqual(len(rx_messages), 2)
 
@@ -1643,6 +1711,197 @@ class TestPublishAndConsumeWithPubacksAndQosOfOne(BlockingTestCaseBase):
         self.assertEqual(len(rx_cancellations), 1)
         frame, = rx_cancellations
         self.assertEqual(frame.method.consumer_tag, consumer_tag)
+
+
+class TestBasicConsumeWithAckFromAnotherThread(BlockingTestCaseBase):
+
+    def test(self):  # pylint: disable=R0914,R0915
+        """BlockingChannel.basic_consume with ack from another thread and \
+        requesting basic_ack via add_callback_threadsafe
+        """
+        # This test simulates processing of a message on another thread and
+        # then requesting an ACK to be dispatched on the connection's thread
+        # via BlockingConnection.add_callback_threadsafe
+
+        connection = self._connect()
+
+        ch = connection.channel()
+
+        q_name = 'TestBasicConsumeWithAckFromAnotherThread_q' + uuid.uuid1().hex
+        exg_name = ('TestBasicConsumeWithAckFromAnotherThread_exg' +
+                    uuid.uuid1().hex)
+        routing_key = 'TestBasicConsumeWithAckFromAnotherThread'
+
+        # Place channel in publisher-acknowledgments mode so that publishing
+        # with mandatory=True will be synchronous (for convenience)
+        res = ch.confirm_delivery()
+        self.assertIsNone(res)
+
+        # Declare a new exchange
+        ch.exchange_declare(exg_name, exchange_type='direct')
+        self.addCleanup(connection.channel().exchange_delete, exg_name)
+
+        # Declare a new queue
+        ch.queue_declare(q_name, auto_delete=True)
+        self.addCleanup(self._connect().channel().queue_delete, q_name)
+
+        # Bind the queue to the exchange using routing key
+        ch.queue_bind(q_name, exchange=exg_name, routing_key=routing_key)
+
+        # Publish 2 messages with mandatory=True for synchronous processing
+        ch.publish(exg_name, routing_key, body='msg1', mandatory=True)
+        ch.publish(exg_name, routing_key, body='last-msg', mandatory=True)
+
+        # Configure QoS for one message so that the 2nd message will be
+        # delivered only after the 1st one is ACKed
+        ch.basic_qos(prefetch_size=0, prefetch_count=1, all_channels=False)
+
+        # Create a consumer
+        rx_messages = []
+        def ackAndEnqueueMessageViaAnotherThread(rx_ch,
+                                                 rx_method,
+                                                 rx_properties, # pylint: disable=W0613
+                                                 rx_body):
+            LOGGER.debug(
+                '%s: Got message body=%r; delivery-tag=%r',
+                datetime.now(), rx_body, rx_method.delivery_tag)
+
+            # Request ACK dispatch via add_callback_threadsafe from other
+            # thread; if last message, cancel consumer so that start_consuming
+            # can return
+
+            def processOnConnectionThread():
+                LOGGER.debug('%s: ACKing message body=%r; delivery-tag=%r',
+                             datetime.now(),
+                             rx_body,
+                             rx_method.delivery_tag)
+                ch.basic_ack(delivery_tag=rx_method.delivery_tag,
+                             multiple=False)
+                rx_messages.append(rx_body)
+
+                # NOTE on python3, `b'last-msg' != 'last-msg'`
+                if rx_body == b'last-msg':
+                    LOGGER.debug('%s: Canceling consumer consumer-tag=%r',
+                                 datetime.now(),
+                                 rx_method.consumer_tag)
+                    rx_ch.basic_cancel(rx_method.consumer_tag)
+
+            # Spawn a thread to initiate ACKing
+            timer = threading.Timer(0,
+                                    lambda: connection.add_callback_threadsafe(
+                                        processOnConnectionThread))
+            self.addCleanup(timer.cancel)
+            timer.start()
+
+        consumer_tag = ch.basic_consume(
+            ackAndEnqueueMessageViaAnotherThread,
+            q_name,
+            no_ack=False,
+            exclusive=False,
+            arguments=None)
+
+        # Wait for both messages
+        LOGGER.debug('%s: calling start_consuming(); consumer tag=%r',
+                     datetime.now(),
+                     consumer_tag)
+        ch.start_consuming()
+        LOGGER.debug('%s: Returned from start_consuming(); consumer tag=%r',
+                     datetime.now(),
+                     consumer_tag)
+
+        self.assertEqual(len(rx_messages), 2)
+        self.assertEqual(rx_messages[0], b'msg1')
+        self.assertEqual(rx_messages[1], b'last-msg')
+
+
+class TestConsumeGeneratorWithAckFromAnotherThread(BlockingTestCaseBase):
+
+    def test(self):  # pylint: disable=R0914,R0915
+        """BlockingChannel.consume and requesting basic_ack from another \
+        thread via add_callback_threadsafe
+        """
+        connection = self._connect()
+
+        ch = connection.channel()
+
+        q_name = ('TestConsumeGeneratorWithAckFromAnotherThread_q' +
+                  uuid.uuid1().hex)
+        exg_name = ('TestConsumeGeneratorWithAckFromAnotherThread_exg' +
+                    uuid.uuid1().hex)
+        routing_key = 'TestConsumeGeneratorWithAckFromAnotherThread'
+
+        # Place channel in publisher-acknowledgments mode so that publishing
+        # with mandatory=True will be synchronous (for convenience)
+        res = ch.confirm_delivery()
+        self.assertIsNone(res)
+
+        # Declare a new exchange
+        ch.exchange_declare(exg_name, exchange_type='direct')
+        self.addCleanup(connection.channel().exchange_delete, exg_name)
+
+        # Declare a new queue
+        ch.queue_declare(q_name, auto_delete=True)
+        self.addCleanup(self._connect().channel().queue_delete, q_name)
+
+        # Bind the queue to the exchange using routing key
+        ch.queue_bind(q_name, exchange=exg_name, routing_key=routing_key)
+
+        # Publish 2 messages with mandatory=True for synchronous processing
+        ch.publish(exg_name, routing_key, body='msg1', mandatory=True)
+        ch.publish(exg_name, routing_key, body='last-msg', mandatory=True)
+
+        # Configure QoS for one message so that the 2nd message will be
+        # delivered only after the 1st one is ACKed
+        ch.basic_qos(prefetch_size=0, prefetch_count=1, all_channels=False)
+
+        # Create a consumer
+        rx_messages = []
+        def ackAndEnqueueMessageViaAnotherThread(rx_ch,
+                                                 rx_method,
+                                                 rx_properties, # pylint: disable=W0613
+                                                 rx_body):
+            LOGGER.debug(
+                '%s: Got message body=%r; delivery-tag=%r',
+                datetime.now(), rx_body, rx_method.delivery_tag)
+
+            # Request ACK dispatch via add_callback_threadsafe from other
+            # thread; if last message, cancel consumer so that consumer
+            # generator completes
+
+            def processOnConnectionThread():
+                LOGGER.debug('%s: ACKing message body=%r; delivery-tag=%r',
+                             datetime.now(),
+                             rx_body,
+                             rx_method.delivery_tag)
+                ch.basic_ack(delivery_tag=rx_method.delivery_tag,
+                             multiple=False)
+                rx_messages.append(rx_body)
+
+                # NOTE on python3, `b'last-msg' != 'last-msg'`
+                if rx_body == b'last-msg':
+                    LOGGER.debug('%s: Canceling consumer consumer-tag=%r',
+                                 datetime.now(),
+                                 rx_method.consumer_tag)
+                    # NOTE Need to use cancel() for the consumer generator
+                    # instead of basic_cancel()
+                    rx_ch.cancel()
+
+            # Spawn a thread to initiate ACKing
+            timer = threading.Timer(0,
+                                    lambda: connection.add_callback_threadsafe(
+                                        processOnConnectionThread))
+            self.addCleanup(timer.cancel)
+            timer.start()
+
+        for method, properties, body in ch.consume(q_name, no_ack=False):
+            ackAndEnqueueMessageViaAnotherThread(rx_ch=ch,
+                                                 rx_method=method,
+                                                 rx_properties=properties,
+                                                 rx_body=body)
+
+        self.assertEqual(len(rx_messages), 2)
+        self.assertEqual(rx_messages[0], b'msg1')
+        self.assertEqual(rx_messages[1], b'last-msg')
 
 
 class TestTwoBasicConsumersOnSameChannel(BlockingTestCaseBase):
@@ -1914,7 +2173,7 @@ class TestBasicPublishWithoutPubacks(BlockingTestCaseBase):
                                                       queue=q_name,
                                                       expected_count=0)
 
-        # Attempt to cosume again with a short timeout
+        # Attempt to consume again with a short timeout
         connection.process_data_events(time_limit=0.005)
         self.assertEqual(len(rx_messages), 2)
 

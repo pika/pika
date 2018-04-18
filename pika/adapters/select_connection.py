@@ -3,15 +3,14 @@ platform pika is running on.
 
 """
 import abc
-import os
-import logging
-import socket
-import select
+import collections
 import errno
+import functools
+import heapq
+import logging
+import select
 import time
 import threading
-
-from collections import defaultdict
 
 import pika.compat
 
@@ -111,6 +110,173 @@ class SelectConnection(BaseConnection):
         super(SelectConnection, self)._adapter_disconnect()
 
 
+@functools.total_ordering
+class _Timeout(object):
+    """Represents a timeout"""
+
+    __slots__ = ('deadline', 'callback',)
+
+    def __init__(self, deadline, callback):
+        """
+        :param float deadline: timer expiration as non-negative epoch number
+        :param callable callback: callback to call when timeout expires
+        :raises ValueError, TypeError:
+        """
+
+        if deadline < 0:
+            raise ValueError(
+                'deadline must be non-negative epoch number, but got %r' %
+                (deadline,))
+
+        if not callable(callback):
+            raise TypeError(
+                'callback must be a callable, but got %r' % (callback,))
+
+        self.deadline = deadline
+        self.callback = callback
+
+    def __eq__(self, other):
+        """NOTE: not supporting sort stability"""
+        return self.deadline == other.deadline
+
+    def __lt__(self, other):
+        """NOTE: not supporting sort stability"""
+        return self.deadline < other.deadline
+
+    def __le__(self, other):
+        """NOTE: not supporting sort stability"""
+        return self.deadline <= other.deadline
+
+
+class _Timer(object):
+    """Manage timeouts for use in ioloop"""
+
+    # Cancellation count threshold for triggering garbage collection of
+    # cancelled timers
+    _GC_CANCELLATION_THRESHOLD = 1024
+
+    def __init__(self):
+        self._timeout_heap = []
+
+        # Number of canceled timeouts on heap; for scheduling garbage
+        # collection of canceled timeouts
+        self._num_cancellations = 0
+
+    def close(self):
+        """Release resources. Don't use the `_Timer` instance after closing
+        it
+        """
+        # Eliminate potential reference cycles to aid garbage-collection
+        if self._timeout_heap is not None:
+            for timeout in self._timeout_heap:
+                timeout.callback = None
+            self._timeout_heap = None
+
+    def call_later(self, delay, callback):
+        """Schedule a one-shot timeout given delay seconds.
+
+        NOTE: you may cancel the timer before dispatch of the callback. Timer
+            Manager cancels the timer upon dispatch of the callback.
+
+        :param float delay: Non-negative number of seconds from now until
+                            expiration
+        :param method callback: The callback method, having the signature
+                                `callback()`
+
+        :rtype: _Timeout
+        :raises ValueError, TypeError
+
+        """
+        if delay < 0:
+            raise ValueError(
+                'call_later: delay must be non-negative, but got %r'
+                % (delay,))
+
+        now = time.time()
+
+        timeout = _Timeout(now + delay, callback)
+
+        heapq.heappush(self._timeout_heap, timeout)
+
+        LOGGER.debug('call_later: added timeout %r with deadline=%r and '
+                     'callback=%r; now=%s; delay=%s', timeout, timeout.deadline,
+                     timeout.callback, now, delay)
+
+        return timeout
+
+    def remove_timeout(self, timeout):
+        """Cancel the timeout
+
+        :param _Timeout timeout: The timer to cancel
+
+        """
+        # NOTE removing from the heap is difficult, so we just deactivate the
+        # timeout and garbage-collect it at a later time; see discussion
+        # in http://docs.python.org/library/heapq.html
+        if timeout.callback is None:
+            LOGGER.warning(
+                'remove_timeout: timeout was already removed or called %r',
+                timeout)
+        else:
+            LOGGER.debug('remove_timeout: removing timeout %r with deadline=%r '
+                         'and callback=%r', timeout, timeout.deadline,
+                         timeout.callback)
+            timeout.callback = None
+            self._num_cancellations += 1
+
+    def get_remaining_interval(self):
+        """Get the interval to the next timeout expiration
+
+        :returns: non-negative number of seconds until next timer expiration;
+                  None if there are no timers
+        :rtype: float
+
+        """
+        if self._timeout_heap:
+            interval = max(0, self._timeout_heap[0].deadline - time.time())
+        else:
+            interval = None
+
+        return interval
+
+    def process_timeouts(self):
+        """Process pending timeouts, invoking callbacks for those whose time has
+        come
+
+        """
+        if self._timeout_heap:
+            now = time.time()
+
+            # Remove ready timeouts from the heap now to prevent IO starvation
+            # from timeouts added during callback processing
+            ready_timeouts = []
+
+            while self._timeout_heap and self._timeout_heap[0].deadline <= now:
+                timeout = heapq.heappop(self._timeout_heap)
+                if timeout.callback is not None:
+                    ready_timeouts.append(timeout)
+                else:
+                    self._num_cancellations -= 1
+
+            # Invoke ready timeout callbacks
+            for timeout in ready_timeouts:
+                if timeout.callback is None:
+                    # Must have been canceled from a prior callback
+                    self._num_cancellations -= 1
+                    continue
+
+                timeout.callback()
+                timeout.callback = None
+
+            # Garbage-collect canceled timeouts if they exceed threshold
+            if (self._num_cancellations >= self._GC_CANCELLATION_THRESHOLD and
+                    self._num_cancellations > (len(self._timeout_heap) >> 1)):
+                self._num_cancellations = 0
+                self._timeout_heap = [t for t in self._timeout_heap
+                                      if t.callback is not None]
+                heapq.heapify(self._timeout_heap)
+
+
 class IOLoop(object):
     """Singleton wrapper that decides which type of poller to use, creates an
     instance of it in start_poller and keeps the invoking application in a
@@ -123,33 +289,67 @@ class IOLoop(object):
     """
 
     def __init__(self):
-        self._poller = self._get_poller()
+        self._timer = _Timer()
+
+        # Callbacks requested via `add_callback`
+        self._callbacks = collections.deque()
+
+        # Identity of this IOLoop's thread
+        self._thread_id = None
+
+        self._poller = self._get_poller(self._get_remaining_interval,
+                                        self.process_timeouts)
+
+    def close(self):
+        """Release IOLoop's resources.
+
+        `IOLoop.close` is intended to be called by the application or test code
+        only after `IOLoop.start()` returns. After calling `close()`, no other
+        interaction with the closed instance of `IOLoop` should be performed.
+
+        """
+        if self._callbacks is not None:
+            self._poller.close()
+            self._timer.close()
+            self._callbacks = None
 
     @staticmethod
-    def _get_poller():
-        """Determine the best poller to use for this enviroment."""
+    def _get_poller(get_wait_seconds, process_timeouts):
+        """Determine the best poller to use for this environment and instantiate
+        it.
+
+        :param get_wait_seconds: Function for getting the maximum number of
+                                 seconds to wait for IO for use by the poller
+        :param process_timeouts: Function for processing timeouts for use by the
+                                 poller
+
+        :returns: the instantiated poller instance supporting `_PollerBase` API
+        """
 
         poller = None
+
+        kwargs = dict(get_wait_seconds=get_wait_seconds,
+                      process_timeouts=process_timeouts)
 
         if hasattr(select, 'epoll'):
             if not SELECT_TYPE or SELECT_TYPE == 'epoll':
                 LOGGER.debug('Using EPollPoller')
-                poller = EPollPoller()
+                poller = EPollPoller(**kwargs)
 
         if not poller and hasattr(select, 'kqueue'):
             if not SELECT_TYPE or SELECT_TYPE == 'kqueue':
                 LOGGER.debug('Using KQueuePoller')
-                poller = KQueuePoller()
+                poller = KQueuePoller(**kwargs)
 
         if (not poller and hasattr(select, 'poll') and
                 hasattr(select.poll(), 'modify')):  # pylint: disable=E1101
             if not SELECT_TYPE or SELECT_TYPE == 'poll':
                 LOGGER.debug('Using PollPoller')
-                poller = PollPoller()
+                poller = PollPoller(**kwargs)
 
         if not poller:
             LOGGER.debug('Using SelectPoller')
-            poller = SelectPoller()
+            poller = SelectPoller(**kwargs)
 
         return poller
 
@@ -164,7 +364,7 @@ class IOLoop(object):
         :rtype: str
 
         """
-        return self._poller.add_timeout(deadline, callback_method)
+        return self._timer.call_later(deadline, callback_method)
 
     def remove_timeout(self, timeout_id):
         """[API] Remove a timeout
@@ -172,7 +372,58 @@ class IOLoop(object):
         :param str timeout_id: The timeout id to remove
 
         """
-        self._poller.remove_timeout(timeout_id)
+        self._timer.remove_timeout(timeout_id)
+
+    def add_callback_threadsafe(self, callback):
+        """Requests a call to the given function as soon as possible in the
+        context of this IOLoop's thread.
+
+        NOTE: This is the only thread-safe method in IOLoop. All other
+        manipulations of IOLoop must be performed from the IOLoop's thread.
+
+        For example, a thread may request a call to the `stop` method of an
+        ioloop that is running in a different thread via
+        `ioloop.add_callback_threadsafe(ioloop.stop)`
+
+        :param method callback: The callback method
+
+        """
+        if not callable(callback):
+            raise TypeError(
+                'callback must be a callable, but got %r' % (callback,))
+
+        # NOTE: `deque.append` is atomic
+        self._callbacks.append(callback)
+        if threading.current_thread().ident != self._thread_id:
+            # Wake up the IOLoop running in another thread
+            self._poller.wake_threadsafe()
+
+        LOGGER.debug('add_callback_threadsafe: added callback=%r', callback)
+
+    def process_timeouts(self):
+        """[Extension] Process pending callbacks and timeouts, invoking those
+        whose time has come. Internal use only.
+
+        """
+        # Avoid I/O starvation by postponing new callbacks to the next iteration
+        for _ in pika.compat.xrange(len(self._callbacks)):
+            self._callbacks.popleft()()
+
+        self._timer.process_timeouts()
+
+    def _get_remaining_interval(self):
+        """Get the remaining interval to the next callback or timeout
+        expiration.
+
+        :returns: non-negative number of seconds until next callback or timer
+                  expiration; None if there are no callbacks and timers
+        :rtype: float
+
+        """
+        if self._callbacks:
+            return 0
+
+        return self._timer.get_remaining_interval()
 
     def add_handler(self, fileno, handler, events):
         """[API] Add a new fileno to the set to be monitored
@@ -206,27 +457,31 @@ class IOLoop(object):
         exit. See `IOLoop.stop`.
 
         """
+        self._thread_id = threading.current_thread().ident
         self._poller.start()
 
     def stop(self):
         """[API] Request exit from the ioloop. The loop is NOT guaranteed to
-        stop before this method returns. This is the only method that may be
-        called from another thread.
+        stop before this method returns.
+
+        To invoke `stop()` safely from a thread other than this IOLoop's thread,
+        call it via `add_callback_threadsafe`; e.g.,
+
+            `ioloop.add_callback_threadsafe(ioloop.stop)`
 
         """
+        if (self._thread_id is not None and
+                threading.current_thread().ident != self._thread_id):
+            LOGGER.warning('Use add_callback_threadsafe to request '
+                           'ioloop.stop() from another thread')
+
         self._poller.stop()
-
-    def process_timeouts(self):
-        """[Extension] Process pending timeouts, invoking callbacks for those
-        whose time has come
-
-        """
-        self._poller.process_timeouts()
 
     def activate_poller(self):
         """[Extension] Activate the poller
 
         """
+        self._thread_id = threading.current_thread().ident
         self._poller.activate_poller()
 
     def deactivate_poller(self):
@@ -259,7 +514,21 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
     # if the poller uses MS override with 1000
     POLL_TIMEOUT_MULT = 1
 
-    def __init__(self):
+    def __init__(self, get_wait_seconds, process_timeouts):
+        """
+        :param get_wait_seconds: Function for getting the maximum number of
+                                 seconds to wait for IO for use by the poller
+        :param process_timeouts: Function for processing timeouts for use by the
+                                 poller
+
+        """
+        self._get_wait_seconds = get_wait_seconds
+        self._process_timeouts = process_timeouts
+
+        # We guard access to the waking file descriptors to avoid races from
+        # closing them while another thread is calling our `wake()` method.
+        self._waking_mutex = threading.Lock()
+
         # fd-to-handler function mappings
         self._fd_handlers = dict()
 
@@ -271,105 +540,77 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
         # Reentrancy tracker of the `start` method
         self._start_nesting_levels = 0
 
-        self._timeouts = {}
-        self._next_timeout = None
-
         self._stopping = False
 
-        # Mutex for controlling critical sections where ioloop-interrupt sockets
-        # are created, used, and destroyed. Needed in case `stop()` is called
-        # from a thread.
-        self._mutex = threading.Lock()
+        # Create ioloop-interrupt socket pair and register read handler.
+        self._r_interrupt, self._w_interrupt = self._get_interrupt_pair()
+        self.add_handler(self._r_interrupt.fileno(), self._read_interrupt, READ)
 
-        # ioloop-interrupt socket pair; initialized in start()
-        self._r_interrupt = None
-        self._w_interrupt = None
+    def close(self):
+        """Release poller's resources.
 
-    def add_timeout(self, deadline, callback_method):
-        """Add the callback_method to the IOLoop timer to fire after deadline
-        seconds. Returns a handle to the timeout. Do not confuse with
-        Tornado's timeout where you pass in the time you want to have your
-        callback called. Only pass in the seconds until it's to be called.
-
-        :param int deadline: The number of seconds to wait to call callback
-        :param method callback_method: The callback method
-        :rtype: str
+        `close()` is intended to be called after the poller's `start()` method
+        returns. After calling `close()`, no other interaction with the closed
+        poller instance should be performed.
 
         """
-        timeout_at = time.time() + deadline
-        value = {'deadline': timeout_at, 'callback': callback_method}
-        # TODO when timer resolution is low (e.g., windows), we get id collision
-        # when retrying failing connection with tiny (e.g., 0) retry interval
-        timeout_id = hash(frozenset(value.items()))
-        self._timeouts[timeout_id] = value
+        # Unregister and close ioloop-interrupt socket pair; mutual exclusion is
+        # necessary to avoid race condition with `wake_threadsafe` executing in
+        # another thread's context
+        assert self._start_nesting_levels == 0, \
+            'Cannot call close() before start() unwinds.'
 
-        if not self._next_timeout or timeout_at < self._next_timeout:
-            self._next_timeout = timeout_at
+        with self._waking_mutex:
+            if self._w_interrupt is not None:
+                self.remove_handler(self._r_interrupt.fileno()) # pylint: disable=E1101
+                self._r_interrupt.close()
+                self._r_interrupt = None
+                self._w_interrupt.close()
+                self._w_interrupt = None
 
-        LOGGER.debug('add_timeout: added timeout %s; deadline=%s at %s',
-                     timeout_id, deadline, timeout_at)
-        return timeout_id
+        self.deactivate_poller()
 
-    def remove_timeout(self, timeout_id):
-        """Remove a timeout if it's still in the timeout stack
+        self._fd_handlers = None
+        self._fd_events = None
+        self._processing_fd_event_map = None
 
-        :param str timeout_id: The timeout id to remove
+    def wake_threadsafe(self):
+        """Wake up the poller as soon as possible. As the name indicates, this
+        method is thread-safe.
 
         """
-        try:
-            timeout = self._timeouts.pop(timeout_id)
-        except KeyError:
-            LOGGER.warning('remove_timeout: %s not found', timeout_id)
-        else:
-            if timeout['deadline'] == self._next_timeout:
-                self._next_timeout = None
+        with self._waking_mutex:
+            if self._w_interrupt is None:
+                return
 
-            LOGGER.debug('remove_timeout: removed %s', timeout_id)
+            try:
+                # Send byte to interrupt the poll loop, use send() instead of
+                # os.write for Windows compatibility
+                self._w_interrupt.send(b'X')
+            except pika.compat.SOCKET_ERROR as err:
+                if err.errno != errno.EWOULDBLOCK:
+                    raise
+            except Exception as err:
+                # There's nothing sensible to do here, we'll exit the interrupt
+                # loop after POLL_TIMEOUT secs in worst case anyway.
+                LOGGER.warning("Failed to send interrupt to poller: %s", err)
+                raise
 
-    def _get_next_deadline(self):
+
+    def _get_max_wait(self):
         """Get the interval to the next timeout event, or a default interval
 
+        :returns: maximum number of self.POLL_TIMEOUT_MULT-scaled time units
+                  to wait for IO events
+
         """
-        if self._next_timeout:
-            timeout = max(self._next_timeout - time.time(), 0)
-
-        elif self._timeouts:
-            deadlines = [t['deadline'] for t in self._timeouts.values()]
-            self._next_timeout = min(deadlines)
-            timeout = max((self._next_timeout - time.time(), 0))
-
+        delay = self._get_wait_seconds()
+        if delay is None:
+            delay = self._MAX_POLL_TIMEOUT
         else:
-            timeout = self._MAX_POLL_TIMEOUT
+            delay = min(delay, self._MAX_POLL_TIMEOUT)
 
-        timeout = min(timeout, self._MAX_POLL_TIMEOUT)
-        return timeout * self.POLL_TIMEOUT_MULT
-
-    def process_timeouts(self):
-        """Process pending timeouts, invoking callbacks for those whose time has
-        come
-
-        """
-        now = time.time()
-        # Run the timeouts in order of deadlines. Although this shouldn't
-        # be strictly necessary it preserves old behaviour when timeouts
-        # were only run periodically.
-        to_run = sorted(
-            [(k, timer)
-             for (k, timer) in self._timeouts.items()
-             if timer['deadline'] <= now],
-            key=lambda item: item[1]['deadline'])
-
-        for k, timer in to_run:
-            if k not in self._timeouts:
-                # Previous invocation(s) should have deleted the timer.
-                continue
-            try:
-                timer['callback']()
-            finally:
-                # Don't do 'del self._timeout[k]' as the key might
-                # have been deleted just now.
-                if self._timeouts.pop(k, None) is not None:
-                    self._next_timeout = None
+        return delay * self.POLL_TIMEOUT_MULT
 
     def add_handler(self, fileno, handler, events):
         """Add a new fileno to the set to be monitored
@@ -449,7 +690,7 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
         """
         # Activate the underlying poller and register current events
         self._init_poller()
-        fd_to_events = defaultdict(int)
+        fd_to_events = collections.defaultdict(int)
         for event, file_descriptors in self._fd_events.items():
             for fileno in file_descriptors:
                 fd_to_events[fileno] |= event
@@ -471,21 +712,9 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
 
         if self._start_nesting_levels == 1:
             LOGGER.debug('Entering IOLoop')
-            self._stopping = False
 
             # Activate the underlying poller and register current events
             self.activate_poller()
-
-            # Create ioloop-interrupt socket pair and register read handler.
-            # NOTE: we defer their creation because some users (e.g.,
-            # BlockingConnection adapter) don't use the event loop and these
-            # sockets would get reported as leaks
-            with self._mutex:
-                assert self._r_interrupt is None
-                self._r_interrupt, self._w_interrupt = self._get_interrupt_pair(
-                )
-                self.add_handler(self._r_interrupt.fileno(),
-                                 self._read_interrupt, READ)
 
         else:
             LOGGER.debug('Reentering IOLoop at nesting level=%s',
@@ -495,52 +724,32 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
             # Run event loop
             while not self._stopping:
                 self.poll()
-                self.process_timeouts()
+                self._process_timeouts()
 
         finally:
             self._start_nesting_levels -= 1
 
             if self._start_nesting_levels == 0:
-                LOGGER.debug('Cleaning up IOLoop')
-                # Unregister and close ioloop-interrupt socket pair
-                with self._mutex:
-                    self.remove_handler(self._r_interrupt.fileno())
-                    self._r_interrupt.close()
-                    self._r_interrupt = None
-                    self._w_interrupt.close()
-                    self._w_interrupt = None
+                try:
+                    LOGGER.debug('Deactivating poller')
 
-                # Deactivate the underlying poller
-                self.deactivate_poller()
+                    # Deactivate the underlying poller
+                    self.deactivate_poller()
+                finally:
+                    self._stopping = False
             else:
                 LOGGER.debug('Leaving IOLoop with %s nesting levels remaining',
                              self._start_nesting_levels)
 
     def stop(self):
         """Request exit from the ioloop. The loop is NOT guaranteed to stop
-        before this method returns. This is the only method that may be called
-        from another thread.
+        before this method returns.
 
         """
         LOGGER.debug('Stopping IOLoop')
         self._stopping = True
 
-        with self._mutex:
-            if self._w_interrupt is None:
-                return
-
-            try:
-                # Send byte to interrupt the poll loop, use send() instead of
-                # os.write for Windows compatibility
-                self._w_interrupt.send(b'X')
-            except pika.compat.SOCKET_ERROR as err:
-                if err.errno != errno.EWOULDBLOCK:
-                    raise
-            except Exception as err:
-                # There's nothing sensible to do here, we'll exit the interrupt
-                # loop after POLL_TIMEOUT secs in worst case anyway.
-                LOGGER.warning("Failed to send ioloop interrupt: %s", err)
-                raise
+        self.wake_threadsafe()
 
     @abc.abstractmethod
     def poll(self):
@@ -633,7 +842,7 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
         so use a pair of simple TCP sockets instead. The sockets will be
         closed and garbage collected by python when the ioloop itself is.
         """
-        return pika.compat._nonblocking_socketpair()
+        return pika.compat._nonblocking_socketpair() # pylint: disable=W0212
 
     def _read_interrupt(self, interrupt_fd, events):  # pylint: disable=W0613
         """ Read the interrupt byte(s). We ignore the event mask as we can ony
@@ -644,7 +853,7 @@ class _PollerBase(_AbstractBase):  # pylint: disable=R0902
         """
         try:
             # NOTE Use recv instead of os.read for windows compatibility
-            self._r_interrupt.recv(512)
+            self._r_interrupt.recv(512) # pylint: disable=E1101
         except pika.compat.SOCKET_ERROR as err:
             if err.errno != errno.EAGAIN:
                 raise
@@ -659,12 +868,6 @@ class SelectPoller(_PollerBase):
     # if the poller uses MS specify 1000
     POLL_TIMEOUT_MULT = 1
 
-    def __init__(self):
-        """Create an instance of the SelectPoller
-
-        """
-        super(SelectPoller, self).__init__()
-
     def poll(self):
         """Wait for events of interest on registered file descriptors until an
         event of interest occurs or next timer deadline or _MAX_POLL_TIMEOUT,
@@ -677,12 +880,12 @@ class SelectPoller(_PollerBase):
                         self._fd_events[ERROR]):
                     read, write, error = select.select(
                         self._fd_events[READ], self._fd_events[WRITE],
-                        self._fd_events[ERROR], self._get_next_deadline())
+                        self._fd_events[ERROR], self._get_max_wait())
                 else:
                     # NOTE When called without any FDs, select fails on
                     # Windows with error 10022, 'An invalid argument was
                     # supplied'.
-                    time.sleep(self._get_next_deadline())
+                    time.sleep(self._get_max_wait())
                     read, write, error = [], [], []
 
                 break
@@ -694,7 +897,7 @@ class SelectPoller(_PollerBase):
 
         # Build an event bit mask for each fileno we've received an event for
 
-        fd_event_map = defaultdict(int)
+        fd_event_map = collections.defaultdict(int)
         for fd_set, evt in zip((read, write, error), (READ, WRITE, ERROR)):
             for fileno in fd_set:
                 fd_event_map[fileno] |= evt
@@ -750,17 +953,11 @@ class SelectPoller(_PollerBase):
 class KQueuePoller(_PollerBase):
     """KQueuePoller works on BSD based systems and is faster than select"""
 
-    def __init__(self):
+    def __init__(self, get_wait_seconds, process_timeouts):
         """Create an instance of the KQueuePoller
-
-        :param int fileno: The file descriptor to check events for
-        :param method handler: What is called when an event happens
-        :param int events: The events to look for
-
         """
-        super(KQueuePoller, self).__init__()
-
         self._kqueue = None
+        super(KQueuePoller, self).__init__(get_wait_seconds, process_timeouts)
 
     @staticmethod
     def _map_event(kevent):
@@ -776,6 +973,9 @@ class KQueuePoller(_PollerBase):
         elif kevent.flags & select.KQ_EV_ERROR:
             return ERROR
 
+        # Should never happen
+        return None
+
     def poll(self):
         """Wait for events of interest on registered file descriptors until an
         event of interest occurs or next timer deadline or _MAX_POLL_TIMEOUT,
@@ -785,7 +985,7 @@ class KQueuePoller(_PollerBase):
         while True:
             try:
                 kevents = self._kqueue.control(None, 1000,
-                                               self._get_next_deadline())
+                                               self._get_max_wait())
                 break
             except _SELECT_ERRORS as error:
                 if _is_resumable(error):
@@ -793,7 +993,7 @@ class KQueuePoller(_PollerBase):
                 else:
                     raise
 
-        fd_event_map = defaultdict(int)
+        fd_event_map = collections.defaultdict(int)
         for event in kevents:
             fd_event_map[event.ident] |= self._map_event(event)
 
@@ -807,8 +1007,9 @@ class KQueuePoller(_PollerBase):
 
     def _uninit_poller(self):
         """Notify the implementation to release the poller resource"""
-        self._kqueue.close()
-        self._kqueue = None
+        if self._kqueue is not None:
+            self._kqueue.close()
+            self._kqueue = None
 
     def _register_fd(self, fileno, events):
         """The base class invokes this method to notify the implementation to
@@ -882,16 +1083,12 @@ class PollPoller(_PollerBase):
     """
     POLL_TIMEOUT_MULT = 1000
 
-    def __init__(self):
+    def __init__(self, get_wait_seconds, process_timeouts):
         """Create an instance of the KQueuePoller
-
-        :param int fileno: The file descriptor to check events for
-        :param method handler: What is called when an event happens
-        :param int events: The events to look for
 
         """
         self._poll = None
-        super(PollPoller, self).__init__()
+        super(PollPoller, self).__init__(get_wait_seconds, process_timeouts)
 
     @staticmethod
     def _create_poller():
@@ -908,7 +1105,7 @@ class PollPoller(_PollerBase):
         """
         while True:
             try:
-                events = self._poll.poll(self._get_next_deadline())
+                events = self._poll.poll(self._get_max_wait())
                 break
             except _SELECT_ERRORS as error:
                 if _is_resumable(error):
@@ -916,7 +1113,7 @@ class PollPoller(_PollerBase):
                 else:
                     raise
 
-        fd_event_map = defaultdict(int)
+        fd_event_map = collections.defaultdict(int)
         for fileno, event in events:
             fd_event_map[fileno] |= event
 
@@ -930,10 +1127,11 @@ class PollPoller(_PollerBase):
 
     def _uninit_poller(self):
         """Notify the implementation to release the poller resource"""
-        if hasattr(self._poll, "close"):
-            self._poll.close()
+        if self._poll is not None:
+            if hasattr(self._poll, "close"):
+                self._poll.close()
 
-        self._poll = None
+            self._poll = None
 
     def _register_fd(self, fileno, events):
         """The base class invokes this method to notify the implementation to

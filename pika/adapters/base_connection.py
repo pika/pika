@@ -135,6 +135,32 @@ class BaseConnection(connection.Connection):
         """
         self.ioloop.remove_timeout(timeout_id)
 
+    def add_callback_threadsafe(self, callback):
+        """Requests a call to the given function as soon as possible in the
+        context of this connection's IOLoop thread.
+
+        NOTE: This is the only thread-safe method offered by the connection. All
+         other manipulations of the connection must be performed from the
+         connection's thread.
+
+        For example, a thread may request a call to the
+        `channel.basic_ack` method of a connection that is running in a
+        different thread via
+
+        ```
+        connection.add_callback_threadsafe(
+            functools.partial(channel.basic_ack, delivery_tag=...))
+        ```
+
+        :param method callback: The callback method; must be callable.
+
+        """
+        if not callable(callback):
+            raise TypeError(
+                'callback must be a callable, but got %r' % (callback,))
+
+        self.ioloop.add_callback_threadsafe(callback)
+
     def _adapter_connect(self):
         """Connect to the RabbitMQ broker, returning True if connected.
 
