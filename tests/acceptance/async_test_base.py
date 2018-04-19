@@ -1,10 +1,8 @@
-# Suppress pylint warnings concerning attribute defined outside __init__
-# pylint: disable=W0201
+"""Base test classes for async_adapter_tests.py
 
-# Suppress pylint messages concerning missing docstrings
-# pylint: disable=C0111
-
+"""
 import datetime
+import functools
 import os
 import select
 import ssl
@@ -24,6 +22,14 @@ from pika.adapters import select_connection
 
 from ..threaded_test_wrapper import create_run_in_thread_decorator
 
+# invalid-name
+# pylint: disable=C0103
+
+# Suppress pylint warnings concerning attribute defined outside __init__
+# pylint: disable=W0201
+
+# Suppress pylint messages concerning missing docstrings
+# pylint: disable=C0111
 
 # protected-access
 # pylint: disable=W0212
@@ -38,6 +44,47 @@ run_test_in_thread_with_timeout = create_run_in_thread_decorator(  # pylint: dis
     TEST_TIMEOUT * 1.1)
 
 
+def make_stop_on_error_with_self(the_self=None):
+    """Create a decorator that stops test if the decorated method exits
+    with exception and causes the test to fail by re-raising that exception
+    after ioloop exits.
+
+    :param None | AsyncTestCase the_self: if None, will use the first arg of
+        decorated method if it is an instance of AsyncTestCase, raising
+        exception otherwise.
+
+    """
+    def stop_on_error_with_self_decorator(fun):
+
+        @functools.wraps(fun)
+        def stop_on_error_wrapper(*args, **kwargs):
+            this = the_self
+            if this is None and args and isinstance(args[0], AsyncTestCase):
+                this = args[0]
+            if not isinstance(this, AsyncTestCase):
+                raise AssertionError('Decorated method is not an AsyncTestCase '
+                                     'instance method: {!r}'.format(fun))
+            try:
+                return fun(*args, **kwargs)
+            except Exception as error:  # pylint: disable=W0703
+                this.logger.exception('Stopping test due to failure in %r: %r',
+                                      fun, error)
+                this.stop(error)
+
+        return stop_on_error_wrapper
+
+    return stop_on_error_with_self_decorator
+
+
+# Decorator that stops test if AsyncTestCase-based method exits with
+# exception and causes the test to fail by re-raising that exception after
+# ioloop exits.
+#
+# NOTE: only use it to decorate instance methods where self arg is a
+#    AsyncTestCase instance.
+stop_on_error_in_async_test_case_method = make_stop_on_error_with_self()
+
+
 class AsyncTestCase(unittest.TestCase):
     DESCRIPTION = ""
     ADAPTER = None
@@ -45,25 +92,13 @@ class AsyncTestCase(unittest.TestCase):
 
     def setUp(self):
         self.logger = logging.getLogger(self.__class__.__name__)
-        self.parameters = self.new_plaintext_connection_params()
-        if self.should_use_tls():
-            self.logger.info('testing using TLS/SSL connection to port 5671')
-            self.parameters.port = 5671
-            context = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
-            context.verify_mode = ssl.CERT_REQUIRED
-            context.load_verify_locations('testdata/certs/ca_certificate.pem')
-            context.load_cert_chain('testdata/certs/client_certificate.pem',
-                                    'testdata/certs/client_key.pem')
-            self.parameters.ssl_options = pika.SSLOptions(context)
+        self.parameters = self.new_connection_params()
         self._timed_out = False
         self._conn_open_error = None
         self._public_stop_requested = False
         self._conn_closed_reason = None
+        self._public_stop_error_in = None  # exception passed to our stop()
         super(AsyncTestCase, self).setUp()
-
-    @staticmethod
-    def new_plaintext_connection_params():
-        return pika.ConnectionParameters(host='localhost', port=5672)
 
     @staticmethod
     def should_use_tls():
@@ -71,6 +106,41 @@ class AsyncTestCase(unittest.TestCase):
                 os.environ['PIKA_TEST_TLS'].lower() == 'true':
             return True
         return False
+
+    def new_connection_params(self):
+        """
+        :rtype: pika.ConnectionParameters
+
+        """
+        if self.should_use_tls():
+            return self._new_tls_connection_params()
+        else:
+            return self._new_plaintext_connection_params()
+
+    def _new_tls_connection_params(self):
+        """
+        :rtype: pika.ConnectionParameters
+
+        """
+        self.logger.info('testing using TLS/SSL connection to port 5671')
+        params = self._new_plaintext_connection_params()
+        params.port = 5671
+        context = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
+        context.verify_mode = ssl.CERT_REQUIRED
+        context.load_verify_locations('testdata/certs/ca_certificate.pem')
+        context.load_cert_chain('testdata/certs/client_certificate.pem',
+                                'testdata/certs/client_key.pem')
+        params.ssl_options = pika.SSLOptions(context)
+
+        return params
+
+    @staticmethod
+    def _new_plaintext_connection_params():
+        """
+        :rtype: pika.ConnectionParameters
+
+        """
+        return pika.ConnectionParameters(host='localhost', port=5672)
 
     def tearDown(self):
         self._stop()
@@ -99,11 +169,15 @@ class AsyncTestCase(unittest.TestCase):
             self.timeout = self.connection.add_timeout(self.TIMEOUT,
                                                        self.on_timeout)
             self._run_ioloop()
+
             self.assertFalse(self._timed_out)
             self.assertIsNone(self._conn_open_error)
             # Catch unexpected loss of connection
             self.assertTrue(self._public_stop_requested,
-                            self._conn_closed_reason)
+                            'Unexpected end of test; connection close reason: '
+                            '{!r}'.format(self._conn_closed_reason))
+            if self._public_stop_error_in is not None:
+                raise self._public_stop_error_in  # pylint: disable=E0702
         finally:
             self.connection._nbio.close()
             self.connection = None
@@ -115,8 +189,20 @@ class AsyncTestCase(unittest.TestCase):
         self._safe_remove_test_timeout()
         self.connection._nbio.stop()
 
-    def stop(self):
-        """close the connection and stop the ioloop"""
+    def stop(self, error=None):
+        """close the connection and stop the ioloop
+
+        :param None | Exception error: if not None, will raise the given
+            exception after ioloop exits.
+        """
+        if error is not None:
+            if self._public_stop_error_in is None:
+                self.logger.error('stop(): stopping with error=%r.', error)
+            else:
+                self.logger.error('stop(): replacing pending error=%r with %r',
+                                  self._public_stop_error_in, error)
+            self._public_stop_error_in = error
+
         self.logger.info('Stopping test')
         self._public_stop_requested = True
         if self.connection.is_open:

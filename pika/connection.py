@@ -1053,7 +1053,7 @@ class Connection(pika.compat.AbstractBase):
         :param method on_open_callback: Called when the connection is opened:
             on_open_callback(connection)
         :param method on_open_error_callback: Called if the connection can't
-            be established: on_open_error_callback(Connection, BaseException)
+            be established: on_open_error_callback(Connection, Exception)
         :param method on_close_callback: Called when the connection is closed:
             `on_close_callback(connection, exception)`, where `exception` is
             either an instance of `exceptions.ConnectionClosed` (if
@@ -1367,9 +1367,6 @@ class Connection(pika.compat.AbstractBase):
             raise exceptions.ConnectionWrongStateError(msg)
 
         # NOTE The connection is either in opening or open state
-
-        # TODO: need a test for closing connection while it's opening - i.e., no
-        #       transport yet, have transport but AMQP not fully up.
 
         # Initiate graceful closing of channels that are OPEN or OPENING
         if self._channels:

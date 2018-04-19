@@ -40,7 +40,7 @@ class BaseConnection(connection.Connection):
             be established: on_open_error_callback(connection, str|BaseException)
         :param None|method on_close_callback: Called when the connection is closed:
             on_close_callback(connection, reason_code, reason_text)
-        :param .utils.nbio_interface.AbstractIOServices nbio:
+        :param pika.adapters.utils.nbio_interface.AbstractIOServices nbio:
             asynchronous services
         :param bool internal_connection_workflow: True for autonomous connection
             establishment which is default; False for externally-managed
