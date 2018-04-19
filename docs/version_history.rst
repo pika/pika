@@ -1,7 +1,7 @@
 Version History
 ===============
 
-0.12.0b1 2018-04-18
+0.12.0b2 2018-04-19
 -------------------
 
 `GitHub milestone <https://github.com/pika/pika/milestone/12>`_
