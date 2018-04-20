@@ -1391,7 +1391,7 @@ class Connection(pika.compat.AbstractBase):
                     self._STATE_NAMES[prev_state],
                     reply_code,
                     reply_text))
-            self._adapter_abort_connection_workflow()
+            self._adapter_disconnect()
 
         else:
             self._error = exceptions.ConnectionClosedByClient(reply_code,
@@ -1498,17 +1498,6 @@ class Connection(pika.compat.AbstractBase):
 
         NOTE: On success, the stack will be up already, so there is no
               corresponding callback.
-
-        """
-        raise NotImplementedError
-
-    @abc.abstractmethod
-    def _adapter_abort_connection_workflow(self):
-        """Asynchronously abort connection workflow. Upon completion, call
-        `Connection._on_stack_connection_workflow_failed()` with None as the
-        argument.
-
-        Assumption: may be called only while connection is opening.
 
         """
         raise NotImplementedError

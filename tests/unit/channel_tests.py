@@ -27,8 +27,6 @@ class ConnectionTemplate(connection.Connection):
 
     # Suppress pylint warnings about specific abstract methods not being
     # overridden
-    _adapter_abort_connection_workflow = (
-        connection.Connection._adapter_abort_connection_workflow)
     _adapter_connect_stack = connection.Connection._adapter_connect_stack
     _adapter_disconnect = connection.Connection._adapter_disconnect
     _adapter_emit_data = connection.Connection._adapter_emit_data

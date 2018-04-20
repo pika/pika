@@ -305,43 +305,52 @@ class TwistedProtocolConnection(base_connection.BaseConnection):
 
     """
 
-    def __init__(self, parameters=None, on_close_callback=None):
+    class _PikaTransportAdapter(nbio_interface.AbstractStreamTransport):
+        """Maps AbstractStreamTransport methods to twisted ITCPTransport"""
+
+        def __init__(self, transport):
+            self._transport = transport
+
+        def abort(self):
+            """Implement `AbstractStreamTransport.abort()`"""
+            self._transport.abortConnection()
+
+        def get_protocol(self):
+            """Implement `AbstractStreamTransport.get_protocol()`"""
+            raise NotImplementedError
+
+        def write(self, data):
+            """Implement `AbstractStreamTransport.write()`"""
+            self._transport.write(data)
+
+        def get_write_buffer_size(self):
+            """Implement `AbstractStreamTransport.get_write_buffer_size ()`"""
+            raise NotImplementedError
+
+
+    def __init__(self,
+                 parameters=None,
+                 on_close_callback=None,
+                 custom_ioloop=None):
+
         self.ready = defer.Deferred()
-        self.transport = None
+
         super(TwistedProtocolConnection, self).__init__(
             parameters=parameters,
             on_open_callback=self.connectionReady,
             on_open_error_callback=self.connectionFailed,
             on_close_callback=on_close_callback,
-            nbio=_TwistedIOServicesAdapter(reactor),
+            nbio=_TwistedIOServicesAdapter(custom_ioloop),
             internal_connection_workflow=False)
 
     @classmethod
     def create_connection(cls, *args, **kwargs):
-        raise NotImplementedError
-
-    def connect(self):
-        # The connection is open asynchronously by Twisted, so skip the whole
-        # connect() part, except for setting the connection state
-        self._set_connection_state(self.CONNECTION_INIT)
-
-    def _adapter_connect(self):
-        # Should never be called, as we override connect() and leave the
-        # building of a TCP connection to Twisted, but implement anyway to keep
-        # the interface
-        return False
+        """Implement `BaseConnection.create_connection()`"""
+        raise NotImplementedError('create_connection()')
 
     def _adapter_disconnect(self):
-        # Disconnect from the server
-        self.transport.loseConnection()
-
-    # def _flush_outbound(self):
-    #     """Override BaseConnection._flush_outbound to send all bufferred data
-    #     the Twisted way, by writing to the transport. No need for buffering,
-    #     Twisted handles that for us.
-    #     """
-    #     while self.outbound_buffer:
-    #         self.transport.write(self.outbound_buffer.popleft())
+        """Override `BaseConnection._adapter_disconnect()"""
+        self._transport.abort()
 
     def channel(self, channel_number=None):
         """Create a new channel with the next available channel number or pass
@@ -364,7 +373,7 @@ class TwistedProtocolConnection(base_connection.BaseConnection):
 
     def dataReceived(self, data):
         # Pass the bytes to Pika for parsing
-        self._on_data_available(data)
+        self._proto_data_received(data)
 
     def connectionLost(self, reason):
         # Let the caller know there's been an error
@@ -372,13 +381,15 @@ class TwistedProtocolConnection(base_connection.BaseConnection):
         if d:
             d.errback(reason)
 
+        self._proto_connection_lost(reason)
+
     def makeConnection(self, transport):
-        self.transport = transport
+        self._proto_connection_made(self._PikaTransportAdapter(transport))
         self.connectionMade()
 
     def connectionMade(self):
         # Tell everyone we're connected
-        self._on_stream_connected()
+        pass
 
     # Our own methods
 

@@ -290,7 +290,7 @@ class BaseConnection(connection.Connection):
 
         user_on_done(result)
 
-    def _adapter_abort_connection_workflow(self):
+    def _abort_connection_workflow(self):
         """Asynchronously abort connection workflow. Upon
         completion, call `Connection._on_stack_connection_workflow_failed()`
         with None as the argument.
@@ -299,7 +299,7 @@ class BaseConnection(connection.Connection):
 
         """
         assert not self._opened, (
-            '_adapter_abort_connection_workflow() may be called only when '
+            '_abort_connection_workflow() may be called only when '
             'connection is opening.')
 
         if self._transport is None:
@@ -308,7 +308,7 @@ class BaseConnection(connection.Connection):
             # self._connection_workflow.abort() would not call
             # Connection.close() before pairing of connection with transport.
             assert self._internal_connection_workflow, (
-                'Unexpected _adapter_abort_connection_workflow() call with '
+                'Unexpected _abort_connection_workflow() call with '
                 'no transport in external connection workflow mode.')
 
             # This will result in call to _on_connection_workflow_done() upon
@@ -377,9 +377,12 @@ class BaseConnection(connection.Connection):
         `Connection._on_stack_terminated()` asynchronously when complete.
 
         """
-        # This completes asynchronously, culminating in call to our method
-        # `connection_lost()`
-        self._transport.abort()
+        if not self._opened:
+            self._abort_connection_workflow()
+        else:
+            # This completes asynchronously, culminating in call to our method
+            # `connection_lost()`
+            self._transport.abort()
 
     def _adapter_emit_data(self, data):
         """Take ownership of data and send it to AMQP server as soon as
@@ -411,7 +414,7 @@ class BaseConnection(connection.Connection):
         """
         self._transport = transport
 
-        # Lset connection know that stream is available
+        # Let connection know that stream is available
         self._on_stream_connected()
 
     def _proto_connection_lost(self, error):

@@ -41,9 +41,6 @@ class ConstructibleConnection(connection.Connection):
     def _adapter_connect_stack(self):
         raise NotImplementedError
 
-    def _adapter_abort_connection_workflow(self):
-        raise NotImplementedError
-
     def _adapter_disconnect(self):
         raise NotImplementedError
 
