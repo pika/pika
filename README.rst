@@ -63,14 +63,18 @@ And an example of writing a blocking consumer:
     connection.close()
 
 You can also pass multiple connection parameter instances for
-fault-tolerance like this (host names are just examples, of course):
+fault-tolerance like this (host names are just examples, of course). To enable
+retries, set `connection_attempts` and `retry_delay` as needed in the last
+`pika.ConnectionParameters` of the sequence. Retries occur after connection
+attempts using all of the given conection parameters fail.
 
 .. code :: python
 
     import pika
     configs = (
         pika.ConnectionParameters(host='rabbitmq.zone1.yourdomain.com'),
-        pika.ConnectionParameters(host='rabbitmq.zone2.yourdomain.com'))
+        pika.ConnectionParameters(host='rabbitmq.zone2.yourdomain.com',
+                                  connection_attempts=5, retry_delay=1))
     connection = pika.BlockingConnection(configs)
 
 With non-blocking adapters, you can request a connection using multiple
