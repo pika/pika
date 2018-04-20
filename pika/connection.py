@@ -1385,13 +1385,13 @@ class Connection(pika.compat.AbstractBase):
                         'bypassing graceful AMQP close, since AMQP is still '
                         'opening.')
 
-            self._error = exceptions.ConnectionOpenAborted(
+            error = exceptions.ConnectionOpenAborted(
                 'Connection.close() called before connection '
                 'finished opening: prev_state={} ({}): {!r}'.format(
                     self._STATE_NAMES[prev_state],
                     reply_code,
                     reply_text))
-            self._adapter_disconnect()
+            self._terminate_stream(error)
 
         else:
             self._error = exceptions.ConnectionClosedByClient(reply_code,
@@ -1494,7 +1494,7 @@ class Connection(pika.compat.AbstractBase):
     def _adapter_connect_stack(self):
         """Subclasses should override to initiate full-stack connection
         workflow asynchronously. Upon failed or aborted completion, they must
-        invoke `Connection._on_stack_connection_workflow_failed()`.
+        invoke `Connection._on_stack_terminated()`.
 
         NOTE: On success, the stack will be up already, so there is no
               corresponding callback.
@@ -1927,26 +1927,6 @@ class Connection(pika.compat.AbstractBase):
         except Exception as error:  # pylint: disable=W0703
             LOGGER.exception('Error processing Connection.Start.')
             self._terminate_stream(error)
-
-    def _on_stack_connection_workflow_failed(self, error):
-        """Handle failure of self-initiated stack bring-up. Called by adapter
-        layer when the full-stack connection workflow fails.
-
-        :param Exception | None error: exception instance describing the reason
-            for failure or None if the connection workflow was aborted.
-        """
-        if error is None:
-            LOGGER.info('Self-initiated stack bring-up aborted.')
-        else:
-            LOGGER.error('Self-initiated stack bring-up failed: %r', error)
-
-        if not self.is_closed:
-            self._on_stack_terminated(error)
-        else:
-            # This may happen when AMQP layer bring up was started but did not
-            # complete
-            LOGGER.debug('_on_stack_connection_workflow_failed(): '
-                         'suppressing - connection already closed.')
 
     @staticmethod
     def _negotiate_integer_value(client_value, server_value):

@@ -254,7 +254,7 @@ class BaseConnection(connection.Connection):
         internally-initiated connection bring-up.
 
         Upon failed completion, we will invoke
-        `Connection._on_stack_connection_workflow_failed()`. NOTE: On success,
+        `Connection._on_stack_terminated()`. NOTE: On success,
         the stack will be up already, so there is no corresponding callback.
 
         """
@@ -292,8 +292,8 @@ class BaseConnection(connection.Connection):
 
     def _abort_connection_workflow(self):
         """Asynchronously abort connection workflow. Upon
-        completion, call `Connection._on_stack_connection_workflow_failed()`
-        with None as the argument.
+        completion, `Connection._on_stack_terminated()` will be called with None
+        as the error argument.
 
         Assumption: may be called only while connection is opening.
 
@@ -348,7 +348,7 @@ class BaseConnection(connection.Connection):
                           connection_workflow.AMQPConnectionWorkflowAborted):
                 LOGGER.info('Full-stack connection workflow aborted: %r',
                             conn_or_exc)
-                # So that _on_stack_connection_workflow_failed() will know it's
+                # So that _handle_connection_workflow_failure() will know it's
                 # not a failure
                 conn_or_exc = None
             else:
@@ -364,13 +364,35 @@ class BaseConnection(connection.Connection):
                         conn_or_exc)
 
 
-            self._on_stack_connection_workflow_failed(conn_or_exc)
+            self._handle_connection_workflow_failure(conn_or_exc)
         else:
             # NOTE: On success, the stack will be up already, so there is no
             #       corresponding callback.
             assert conn_or_exc is self, \
                 'Expected self conn={!r} from workflow, but got {!r}.'.format(
                     self, conn_or_exc)
+
+    def _handle_connection_workflow_failure(self, error):
+        """Handle failure of self-initiated stack bring-up and call
+        `Connection._on_stack_terminated()` if connection is not in closed state
+        yet. Called by adapter layer when the full-stack connection workflow
+        fails.
+
+        :param Exception | None error: exception instance describing the reason
+            for failure or None if the connection workflow was aborted.
+        """
+        if error is None:
+            LOGGER.info('Self-initiated stack bring-up aborted.')
+        else:
+            LOGGER.error('Self-initiated stack bring-up failed: %r', error)
+
+        if not self.is_closed:
+            self._on_stack_terminated(error)
+        else:
+            # This may happen when AMQP layer bring up was started but did not
+            # complete
+            LOGGER.debug('_handle_connection_workflow_failure(): '
+                         'suppressing - connection already closed.')
 
     def _adapter_disconnect(self):
         """Asynchronously bring down the streaming transport layer and invoke
