@@ -348,8 +348,8 @@ class TwistedProtocolConnection(base_connection.BaseConnection):
         """Implement `BaseConnection.create_connection()`"""
         raise NotImplementedError('create_connection()')
 
-    def _adapter_disconnect(self):
-        """Override `BaseConnection._adapter_disconnect()"""
+    def _adapter_disconnect_stream(self):
+        """Override `BaseConnection._adapter_disconnect_stream()"""
         self._transport.abort()
 
     def channel(self, channel_number=None):

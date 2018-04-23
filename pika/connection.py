@@ -1132,7 +1132,7 @@ class Connection(pika.compat.AbstractBase):
         if self._internal_connection_workflow:
             # Kick off full-stack connection establishment. It will complete
             # asynchronously.
-            self._adapter_connect_stack()
+            self._adapter_connect_stream()
         else:
             # Externally-managed connection workflow will proceed asynchronously
             # using adapter-specific mechanism
@@ -1491,10 +1491,10 @@ class Connection(pika.compat.AbstractBase):
     # Internal methods for managing the communication process
     #
     @abc.abstractmethod
-    def _adapter_connect_stack(self):
-        """Subclasses should override to initiate full-stack connection
+    def _adapter_connect_stream(self):
+        """Subclasses should override to initiate stream connection
         workflow asynchronously. Upon failed or aborted completion, they must
-        invoke `Connection._on_stack_terminated()`.
+        invoke `Connection._on_stream_terminated()`.
 
         NOTE: On success, the stack will be up already, so there is no
               corresponding callback.
@@ -1503,9 +1503,9 @@ class Connection(pika.compat.AbstractBase):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def _adapter_disconnect(self):
+    def _adapter_disconnect_stream(self):
         """Asynchronously bring down the streaming transport layer and invoke
-        `Connection._on_stack_terminated()` asynchronously when complete.
+        `Connection._on_stream_terminated()` asynchronously when complete.
 
         :raises: NotImplementedError
 
@@ -2071,9 +2071,9 @@ class Connection(pika.compat.AbstractBase):
         self._remove_heartbeat()
 
         # Begin disconnection of stream or termination of connection workflow
-        self._adapter_disconnect()
+        self._adapter_disconnect_stream()
 
-    def _on_stack_terminated(self, error):
+    def _on_stream_terminated(self, error):
         """Handle termination of stack (including TCP layer) or failure to
         establish the stack. Notify registered ON_CONNECTION_ERROR or
         ON_CONNECTION_CLOSED callbacks, depending on whether the connection
@@ -2090,12 +2090,12 @@ class Connection(pika.compat.AbstractBase):
 
         if error is not None:
             if self._error is not None:
-                LOGGER.debug('_on_stack_terminated(): overriding '
+                LOGGER.debug('_on_stream_terminated(): overriding '
                              'pending-error=%r with %r', self._error, error)
             self._error = error
         else:
             assert self._error is not None, (
-                '_on_stack_terminated() expected self._error to be populated '
+                '_on_stream_terminated() expected self._error to be populated '
                 'with reason for terminating stack.')
 
         # Stop the heartbeat checker if it exists

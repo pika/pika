@@ -35,7 +35,7 @@ class ConstructibleBaseConnection(base_connection.BaseConnection):
 class BaseConnectionTests(unittest.TestCase):
     def setUp(self):
         with mock.patch.object(ConstructibleBaseConnection,
-                               '_adapter_connect_stack'):
+                               '_adapter_connect_stream'):
             self.connection = ConstructibleBaseConnection(
                 None, None, None, None, None,
                 internal_connection_workflow=True)

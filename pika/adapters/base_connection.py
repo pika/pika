@@ -249,12 +249,12 @@ class BaseConnection(connection.Connection):
 
         self._nbio.add_callback_threadsafe(callback)
 
-    def _adapter_connect_stack(self):
+    def _adapter_connect_stream(self):
         """Initiate full-stack connection establishment asynchronously for
         internally-initiated connection bring-up.
 
         Upon failed completion, we will invoke
-        `Connection._on_stack_terminated()`. NOTE: On success,
+        `Connection._on_stream_terminated()`. NOTE: On success,
         the stack will be up already, so there is no corresponding callback.
 
         """
@@ -292,7 +292,7 @@ class BaseConnection(connection.Connection):
 
     def _abort_connection_workflow(self):
         """Asynchronously abort connection workflow. Upon
-        completion, `Connection._on_stack_terminated()` will be called with None
+        completion, `Connection._on_stream_terminated()` will be called with None
         as the error argument.
 
         Assumption: may be called only while connection is opening.
@@ -374,7 +374,7 @@ class BaseConnection(connection.Connection):
 
     def _handle_connection_workflow_failure(self, error):
         """Handle failure of self-initiated stack bring-up and call
-        `Connection._on_stack_terminated()` if connection is not in closed state
+        `Connection._on_stream_terminated()` if connection is not in closed state
         yet. Called by adapter layer when the full-stack connection workflow
         fails.
 
@@ -387,16 +387,16 @@ class BaseConnection(connection.Connection):
             LOGGER.error('Self-initiated stack bring-up failed: %r', error)
 
         if not self.is_closed:
-            self._on_stack_terminated(error)
+            self._on_stream_terminated(error)
         else:
             # This may happen when AMQP layer bring up was started but did not
             # complete
             LOGGER.debug('_handle_connection_workflow_failure(): '
                          'suppressing - connection already closed.')
 
-    def _adapter_disconnect(self):
+    def _adapter_disconnect_stream(self):
         """Asynchronously bring down the streaming transport layer and invoke
-        `Connection._on_stack_terminated()` asynchronously when complete.
+        `Connection._on_stream_terminated()` asynchronously when complete.
 
         """
         if not self._opened:
@@ -469,7 +469,7 @@ class BaseConnection(connection.Connection):
                    'connection_lost: %r',
                    error)
 
-        self._on_stack_terminated(error)
+        self._on_stream_terminated(error)
 
     def _proto_eof_received(self):  # pylint: disable=R0201
         """Called after the remote peer shuts its write end of the connection.

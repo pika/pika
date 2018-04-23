@@ -27,8 +27,8 @@ class ConnectionTemplate(connection.Connection):
 
     # Suppress pylint warnings about specific abstract methods not being
     # overridden
-    _adapter_connect_stack = connection.Connection._adapter_connect_stack
-    _adapter_disconnect = connection.Connection._adapter_disconnect
+    _adapter_connect_stream = connection.Connection._adapter_connect_stream
+    _adapter_disconnect_stream = connection.Connection._adapter_disconnect_stream
     _adapter_emit_data = connection.Connection._adapter_emit_data
     _adapter_get_write_buffer_size = (
         connection.Connection._adapter_get_write_buffer_size)
