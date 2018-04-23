@@ -24,6 +24,7 @@ from twisted.internet import (defer, error as twisted_error, reactor,
                               threads as twisted_threads)
 import twisted.python.failure
 
+import pika.connection
 from pika import exceptions
 from pika.adapters import base_connection
 from pika.adapters.utils import nbio_interface, io_services_utils
@@ -288,7 +289,7 @@ class TwistedConnection(base_connection.BaseConnection):
         return d.addCallback(TwistedChannel)
 
 
-class TwistedProtocolConnection(base_connection.BaseConnection):
+class TwistedProtocolConnection(pika.connection.Connection):
     """A hybrid between a Pika Connection and a Twisted Protocol. Allows using
     Twisted's non-blocking connectTCP/connectSSL methods for connecting to the
     server.
@@ -303,54 +304,27 @@ class TwistedProtocolConnection(base_connection.BaseConnection):
     that the host, port and ssl values of the connection parameters are ignored
     because, yet again, it's Twisted who manages the connection.
 
+    NOTE: since base_connection.BaseConnection's primary responsibility is
+    management of the transport, we use pika.connection.Connection directly as
+    our base class because this adapter uses a different transport management
+    strategy.
+
     """
-
-    class _PikaTransportAdapter(nbio_interface.AbstractStreamTransport):
-        """Maps AbstractStreamTransport methods to twisted ITCPTransport"""
-
-        def __init__(self, transport):
-            self._transport = transport
-
-        def abort(self):
-            """Implement `AbstractStreamTransport.abort()`"""
-            self._transport.abortConnection()
-
-        def get_protocol(self):
-            """Implement `AbstractStreamTransport.get_protocol()`"""
-            raise NotImplementedError
-
-        def write(self, data):
-            """Implement `AbstractStreamTransport.write()`"""
-            self._transport.write(data)
-
-        def get_write_buffer_size(self):
-            """Implement `AbstractStreamTransport.get_write_buffer_size ()`"""
-            raise NotImplementedError
-
-
     def __init__(self,
                  parameters=None,
                  on_close_callback=None,
-                 custom_ioloop=None):
-
-        self.ready = defer.Deferred()
+                 custom_reactor=None):
 
         super(TwistedProtocolConnection, self).__init__(
             parameters=parameters,
             on_open_callback=self.connectionReady,
             on_open_error_callback=self.connectionFailed,
             on_close_callback=on_close_callback,
-            nbio=_TwistedIOServicesAdapter(custom_ioloop),
             internal_connection_workflow=False)
 
-    @classmethod
-    def create_connection(cls, *args, **kwargs):
-        """Implement `BaseConnection.create_connection()`"""
-        raise NotImplementedError('create_connection()')
-
-    def _adapter_disconnect_stream(self):
-        """Override `BaseConnection._adapter_disconnect_stream()"""
-        self._transport.abort()
+        self.ready = defer.Deferred()
+        self._reactor = custom_reactor or reactor
+        self._transport = None # to be provided by `makeConnection()`
 
     def channel(self, channel_number=None):
         """Create a new channel with the next available channel number or pass
@@ -366,25 +340,80 @@ class TwistedProtocolConnection(base_connection.BaseConnection):
 
         """
         d = defer.Deferred()
-        base_connection.BaseConnection.channel(self, channel_number, d.callback)
+        super(TwistedProtocolConnection, self).channel(channel_number,
+                                                       d.callback)
         return d.addCallback(TwistedChannel)
+
+
+    def add_timeout(self, deadline, callback):
+        """Implement pure virtual
+        :py:ref:meth:`pika.connection.Connection.add_timeout()` method.
+
+        """
+        check_callback_arg(callback, 'callback')
+        return _TimerHandle(self._reactor.callLater(deadline, callback))
+
+    def remove_timeout(self, timeout_id):
+        """Implement pure virtual
+        :py:ref:meth:`pika.connection.Connection.remove_timeout()` method.
+
+        :param _TimerHandle timeout_id:
+        """
+        timeout_id.cancel()
+
+    def _adapter_connect_stream(self):
+        """Implement pure virtual
+        :py:ref:meth:`pika.connection.Connection._adapter_connect_stream()`
+         method.
+
+        NOTE: This should not be called due to our initialization of Connection
+        via `internal_connection_workflow=False`
+        """
+        raise NotImplementedError
+
+    def _adapter_disconnect_stream(self):
+        """Implement pure virtual
+        :py:ref:meth:`pika.connection.Connection._adapter_disconnect_stream()`
+         method.
+
+        """
+        self._transport.abort()
+
+    def _adapter_emit_data(self, data):
+        """Implement pure virtual
+        :py:ref:meth:`pika.connection.Connection._adapter_emit_data()` method.
+
+        """
+        self._transport.write(data)
+
+    def _adapter_get_write_buffer_size(self):
+        """Implement pure virtual
+        :py:ref:meth:`pika.connection.Connection._adapter_emit_data()` method.
+
+        TODO: this method only belongs in SelectConnection, none others needs it
+        and twisted transport doesn't expose it.
+        """
+        raise NotImplementedError
 
     # IProtocol methods
 
     def dataReceived(self, data):
         # Pass the bytes to Pika for parsing
-        self._proto_data_received(data)
+        self._on_data_available(data)
 
     def connectionLost(self, reason):
+        self._transport = None
+
         # Let the caller know there's been an error
         d, self.ready = self.ready, None
         if d:
             d.errback(reason)
 
-        self._proto_connection_lost(reason)
+        self._on_stream_terminated(reason)
 
     def makeConnection(self, transport):
-        self._proto_connection_made(self._PikaTransportAdapter(transport))
+        self._transport = transport
+        self._on_stream_connected()
         self.connectionMade()
 
     def connectionMade(self):
