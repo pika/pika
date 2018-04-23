@@ -48,6 +48,15 @@ class DataTests(unittest.TestCase):
             ('bytes', b'foobar'),
         ])
 
+    def test_decode_bytes(self):
+        input = (
+                b'\x00\x00\x00\x01'
+                b'\x05bytesx\x00\x00\x00\x06foobar'
+            )
+        result = data.decode_table(input, 0)
+        self.assertEqual(result, ({'bytes': b'foobar'}, 21))
+
+
     def test_encode_table(self):
         result = []
         data.encode_table(result, self.FIELD_TBL_VALUE)
