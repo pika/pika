@@ -188,6 +188,13 @@ class TestCreateConnectionViaDefaultConnectionWorkflow(AsyncTestCase,
         @async_test_base.make_stop_on_error_with_self(self)
         def on_done(conn):
             self.assertIsInstance(conn, connection_class)
+            conn.add_on_close_callback(on_my_connection_closed)
+            conn.close()
+
+        @async_test_base.make_stop_on_error_with_self(self)
+        def on_my_connection_closed(_conn, error):
+            self.assertIsInstance(error,
+                                  pika.exceptions.ConnectionClosedByClient)
             self.stop()
 
         workflow = connection_class.create_connection(configs,
