@@ -304,8 +304,8 @@ class TwistedProtocolConnection(pika.connection.Connection):
     that the host, port and ssl values of the connection parameters are ignored
     because, yet again, it's Twisted who manages the connection.
 
-    NOTE: since base_connection.BaseConnection's primary responsibility is
-    management of the transport, we use pika.connection.Connection directly as
+    NOTE: since `base_connection.BaseConnection`'s primary responsibility is
+    management of the transport, we use `pika.connection.Connection` directly as
     our base class because this adapter uses a different transport management
     strategy.
 

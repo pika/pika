@@ -110,7 +110,9 @@ New non-blocking adapters may be implemented in either of the following ways:
   examples, refer to the implementations of
   :py:class:`pika.AsyncioConnection` and :py:class:`pika.TornadoConnection`.
 - By subclassing :py:class:`pika.connection.connection.Connection` and
-  implementing its abstract method(s).
+  implementing its abstract method(s). For an example, refer to the
+  implementation of
+  :py:class:`pika.adapters.twisted_connection.TwistedProtocolConnection`.
 
 .. |Version| image:: https://img.shields.io/pypi/v/pika.svg?
    :target: http://badge.fury.io/py/pika
