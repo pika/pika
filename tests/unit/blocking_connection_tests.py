@@ -76,7 +76,9 @@ class BlockingConnectionTests(unittest.TestCase):
                                side_effect=
                                lambda configs,
                                       on_done,
-                                      custom_ioloop: on_done(mock_connection)):
+                                      custom_ioloop: [on_done(mock_connection),
+                                                      custom_ioloop.close(),
+                                                      None][2]):
             result = connection._create_connection(
                 None,
                 select_connection_class_mock)
