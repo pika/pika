@@ -5,6 +5,7 @@
 .tox
 .DS_Store
 .python-version
+.pytest_cache/
 pika.iml
 codegen
 pika.egg-info

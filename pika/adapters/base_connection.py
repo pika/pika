@@ -3,52 +3,53 @@ connection.Connection class to encapsulate connection behavior but still
 isolate socket and low level communication.
 
 """
-import errno
+import abc
+import functools
 import logging
-import socket
-import ssl
 
 import pika.compat
+import pika.exceptions
 import pika.tcp_socket_opts
 
+from pika.adapters.utils import connection_workflow, nbio_interface
 from pika import connection
-from pika.compat import SOCKET_ERROR
-from pika.compat import SOL_TCP
+
 
 LOGGER = logging.getLogger(__name__)
 
 
 class BaseConnection(connection.Connection):
-    """BaseConnection class that should be extended by connection adapters"""
+    """BaseConnection class that should be extended by connection adapters.
 
-    # Use epoll's constants to keep life easy
-    READ = 0x0001
-    WRITE = 0x0004
-    ERROR = 0x0008
+    This class abstracts I/O loop and transport services from pika core.
 
-    ERRORS_TO_IGNORE = [errno.EWOULDBLOCK, errno.EAGAIN, errno.EINTR]
-
-    ERRORS_TO_ABORT = [
-        errno.EBADF, errno.ECONNABORTED, errno.EPIPE, errno.ETIMEDOUT
-    ]
-
-    DO_HANDSHAKE = True
+    """
 
     def __init__(self,
-                 parameters=None,
-                 on_open_callback=None,
-                 on_open_error_callback=None,
-                 on_close_callback=None,
-                 ioloop=None):
+                 parameters,
+                 on_open_callback,
+                 on_open_error_callback,
+                 on_close_callback,
+                 nbio,
+                 internal_connection_workflow):
         """Create a new instance of the Connection object.
 
-        :param pika.connection.Parameters parameters: Connection parameters
-        :param method on_open_callback: Method to call on connection open
-        :param method on_open_error_callback: Called if the connection can't
-            be established: on_open_error_callback(connection, str|exception)
-        :param method on_close_callback: Called when the connection is closed:
-            on_close_callback(connection, reason_code, reason_text)
-        :param object ioloop: IOLoop object to use
+        :param None|pika.connection.Parameters parameters: Connection parameters
+        :param None|method on_open_callback: Method to call on connection open
+        :param None | method on_open_error_callback: Called if the connection
+            can't be established or connection establishment is interrupted by
+            `Connection.close()`: on_open_error_callback(Connection, exception).
+        :param None | method on_close_callback: Called when a previously fully
+            open connection is closed:
+            `on_close_callback(Connection, exception)`, where `exception` is
+            either an instance of `exceptions.ConnectionClosed` if closed by
+            user or broker or exception of another type that describes the cause
+            of connection failure.
+        :param pika.adapters.utils.nbio_interface.AbstractIOServices nbio:
+            asynchronous services
+        :param bool internal_connection_workflow: True for autonomous connection
+            establishment which is default; False for externally-managed
+            connection workflow via the `create_connection()` factory.
         :raises: RuntimeError
         :raises: ValueError
 
@@ -57,74 +58,175 @@ class BaseConnection(connection.Connection):
             raise ValueError(
                 'Expected instance of Parameters, not %r' % parameters)
 
-        self.base_events = self.READ | self.ERROR
-        self.event_state = self.base_events
-        self.ioloop = ioloop
-        self.socket = None
-        self.write_buffer = None
-        super(BaseConnection,
-              self).__init__(parameters, on_open_callback,
-                             on_open_error_callback, on_close_callback)
+        self._nbio = nbio
+
+        self._connection_workflow = None  # type: connection_workflow.AMQPConnectionWorkflow
+        self._transport = None  # type: pika.adapters.utils.nbio_interface.AbstractStreamTransport
+
+        self._got_eof = False  # transport indicated EOF (connection reset)
+
+        super(BaseConnection, self).__init__(
+            parameters,
+            on_open_callback,
+            on_open_error_callback,
+            on_close_callback,
+            internal_connection_workflow=internal_connection_workflow)
+
+    def _init_connection_state(self):
+        """Initialize or reset all of our internal state variables for a given
+        connection. If we disconnect and reconnect, all of our state needs to
+        be wiped.
+
+        """
+        super(BaseConnection, self)._init_connection_state()
+
+        self._connection_workflow = None
+        self._transport = None
+        self._got_eof = False
 
     def __repr__(self):
 
-        def get_socket_repr(sock):
-            """Return socket info suitable for use in repr"""
-            if sock is None:
-                return None
-
-            sockname = None
-            peername = None
-            try:
-                sockname = sock.getsockname()
-            except SOCKET_ERROR:
-                # closed?
-                pass
-            else:
-                try:
-                    peername = sock.getpeername()
-                except SOCKET_ERROR:
-                    # not connected?
-                    pass
-
-            return '%s->%s' % (sockname, peername)
-
-        return ('<%s %s socket=%s params=%s>' %
+        # def get_socket_repr(sock):
+        #     """Return socket info suitable for use in repr"""
+        #     if sock is None:
+        #         return None
+        #
+        #     sockname = None
+        #     peername = None
+        #     try:
+        #         sockname = sock.getsockname()
+        #     except pika.compat.SOCKET_ERROR:
+        #         # closed?
+        #         pass
+        #     else:
+        #         try:
+        #             peername = sock.getpeername()
+        #         except pika.compat.SOCKET_ERROR:
+        #             # not connected?
+        #             pass
+        #
+        #     return '%s->%s' % (sockname, peername)
+        # TODO need helpful __repr__ in transports
+        return ('<%s %s transport=%s params=%s>' %
                 (self.__class__.__name__,
                  self._STATE_NAMES[self.connection_state],
-                 get_socket_repr(self.socket), self.params))
+                 self._transport, self.params))
+
+    @classmethod
+    @abc.abstractmethod
+    def create_connection(cls,
+                          connection_configs,
+                          on_done,
+                          custom_ioloop=None,
+                          workflow=None):
+        """Asynchronously create a connection to an AMQP broker using the given
+        configurations. Will attempt to connect using each config in the given
+        order, including all compatible resolved IP addresses of the hostname
+        supplied in each config, until one is established or all attempts fail.
+
+        See also `_start_connection_workflow()`.
+
+        :param sequence connection_configs: A sequence of one or more
+            `pika.connection.Parameters`-based objects.
+        :param callable on_done: as defined in
+            `connection_workflow.AbstractAMQPConnectionWorkflow.start()`.
+        :param object | None custom_ioloop: Provide a custom I/O loop that is
+            native to the specific adapter implementation; if None, the adapter
+            will use a default loop instance, which is typically a singleton.
+        :param connection_workflow.AbstractAMQPConnectionWorkflow | None workflow:
+            Pass an instance of an implementation of the
+            `connection_workflow.AbstractAMQPConnectionWorkflow` interface;
+            defaults to a `connection_workflow.AMQPConnectionWorkflow` instance
+            with default values for optional args.
+
+        :return: Connection workflow instance in use. The user should limit
+            their interaction with this object only to it's `abort()` method.
+        :rtype: connection_workflow.AbstractAMQPConnectionWorkflow
+
+        """
+        raise NotImplementedError
+
+    @classmethod
+    def _start_connection_workflow(cls,
+                                   connection_configs,
+                                   connection_factory,
+                                   nbio,
+                                   workflow,
+                                   on_done):
+        """Helper function for custom implementations of `create_connection()`.
+
+        :param sequence connection_configs: A sequence of one or more
+            `pika.connection.Parameters`-based objects.
+        :param callable connection_factory: A function that takes
+            `pika.connection.Parameters` as its only arg and returns a brand new
+            `pika.connection.Connection`-based adapter instance each time it is
+            called. The factory must instantiate the connection with
+            `internal_connection_workflow=False`.
+        :param pika.adapters.utils.nbio_interface.AbstractIOServices nbio:
+        :param connection_workflow.AbstractAMQPConnectionWorkflow | None workflow:
+            Pass an instance of an implementation of the
+            `connection_workflow.AbstractAMQPConnectionWorkflow` interface;
+            defaults to a `connection_workflow.AMQPConnectionWorkflow` instance
+            with default values for optional args.
+        :param callable on_done: as defined in
+            :py:meth:`connection_workflow.AbstractAMQPConnectionWorkflow.start()`.
+
+        :return: Connection workflow instance in use. The user should limit
+            their interaction with this object only to it's `abort()` method.
+        :rtype: connection_workflow.AbstractAMQPConnectionWorkflow
+
+        """
+        if workflow is None:
+            workflow = connection_workflow.AMQPConnectionWorkflow()
+            LOGGER.debug('Created default connection workflow %r', workflow)
+
+        if isinstance(workflow, connection_workflow.AMQPConnectionWorkflow):
+            workflow.set_io_services(nbio)
+
+        def create_connector():
+            """`AMQPConnector` factory."""
+            return connection_workflow.AMQPConnector(
+                lambda params: _StreamingProtocolShim(
+                    connection_factory(params)),
+                nbio)
+
+        workflow.start(
+            connection_configs=connection_configs,
+            connector_factory=create_connector,
+            native_loop=nbio.get_native_ioloop(),
+            on_done=functools.partial(cls._unshim_connection_workflow_callback,
+                                      on_done))
+
+        return workflow
+
+    @property
+    def ioloop(self):
+        """
+        :return: the native I/O loop instance underlying async services selected
+            by user or the default selected by the specialized connection
+            adapter (e.g., Twisted reactor, `asyncio.SelectorEventLoop`,
+            `select_connection.IOLoop`, etc.)
+        """
+        return self._nbio.get_native_ioloop()
 
     def add_timeout(self, deadline, callback):
         """Add the callback to the IOLoop timer to fire after deadline
-        seconds. Returns a handle to the timeout
+        seconds.
 
         :param float deadline: The number of seconds to wait to call callback
         :param method callback: The callback method
-        :rtype: str
+        :return: Handle that can be passed to `remove_timeout()` to cancel the
+            callback.
 
         """
-        return self.ioloop.add_timeout(deadline, callback)
-
-    def close(self, reply_code=200, reply_text='Normal shutdown'):
-        """Disconnect from RabbitMQ. If there are any open channels, it will
-        attempt to close them prior to fully disconnecting. Channels which
-        have active consumers will attempt to send a Basic.Cancel to RabbitMQ
-        to cleanly stop the delivery of messages prior to closing the channel.
-
-        :param int reply_code: The code number for the close
-        :param str reply_text: The text reason for the close
-
-        """
-        super(BaseConnection, self).close(reply_code, reply_text)
+        return self._nbio.call_later(deadline, callback)
 
     def remove_timeout(self, timeout_id):
         """Remove the timeout from the IOLoop by the ID returned from
         add_timeout.
 
-        :rtype: str
-
         """
-        self.ioloop.remove_timeout(timeout_id)
+        timeout_id.cancel()
 
     def add_callback_threadsafe(self, callback):
         """Requests a call to the given function as soon as possible in the
@@ -150,363 +252,297 @@ class BaseConnection(connection.Connection):
             raise TypeError(
                 'callback must be a callable, but got %r' % (callback,))
 
-        self.ioloop.add_callback_threadsafe(callback)
+        self._nbio.add_callback_threadsafe(callback)
 
-    def _adapter_connect(self):
-        """Connect to the RabbitMQ broker, returning True if connected.
+    def _adapter_connect_stream(self):
+        """Initiate full-stack connection establishment asynchronously for
+        internally-initiated connection bring-up.
 
-        :returns: error string or exception instance on error; None on success
+        Upon failed completion, we will invoke
+        `Connection._on_stream_terminated()`. NOTE: On success,
+        the stack will be up already, so there is no corresponding callback.
 
         """
-        # Get the addresses for the socket, supporting IPv4 & IPv6
-        while True:
-            try:
-                addresses = self._getaddrinfo(
-                    self.params.host, self.params.port, 0, socket.SOCK_STREAM,
-                    socket.IPPROTO_TCP)
-                break
-            except SOCKET_ERROR as error:
-                if error.errno == errno.EINTR:
-                    continue
+        self._connection_workflow = connection_workflow.AMQPConnectionWorkflow(
+            _until_first_amqp_attempt=True)
 
-                LOGGER.critical('Could not get addresses to use: %s (%s)',
-                                error, self.params.host)
-                return error
+        self._connection_workflow.set_io_services(self._nbio)
 
-        # If the socket is created and connected, continue on
-        error = "No socket addresses available"
-        for sock_addr in addresses:
-            error = self._create_and_connect_to_socket(sock_addr)
-            if not error:
-                # Make the socket non-blocking after the connect
-                self.socket.setblocking(0)
-                return None
-            self._cleanup_socket()
+        def create_connector():
+            """`AMQPConnector` factory"""
+            return connection_workflow.AMQPConnector(
+                lambda _params: _StreamingProtocolShim(self),
+                self._nbio)
 
-        # Failed to connect
-        return error
+        self._connection_workflow.start(
+            [self.params],
+            connector_factory=create_connector,
+            native_loop=self._nbio.get_native_ioloop(),
+            on_done=functools.partial(self._unshim_connection_workflow_callback,
+                                      self._on_connection_workflow_done))
 
-    def _adapter_disconnect(self):
-        """Invoked if the connection is being told to disconnect"""
-        self._cleanup_socket()
-
-    def _cleanup_socket(self):
-        """Close the socket cleanly"""
-        if self.socket:
-            try:
-                self.socket.shutdown(socket.SHUT_RDWR)
-            except SOCKET_ERROR:
-                pass
-            self.socket.close()
-            self.socket = None
-
-    def _create_and_connect_to_socket(self, sock_addr_tuple):
-        """Create socket and connect to it, using SSL if enabled.
-
-        :returns: error string on failure; None on success
+    @staticmethod
+    def _unshim_connection_workflow_callback(user_on_done, shim_or_exc):
         """
-        self.socket = self._create_tcp_connection_socket(
-            sock_addr_tuple[0], sock_addr_tuple[1], sock_addr_tuple[2])
-        self.socket.setsockopt(SOL_TCP, socket.TCP_NODELAY, 1)
-        self.socket.settimeout(self.params.socket_timeout)
-        pika.tcp_socket_opts.set_sock_opts(self.params.tcp_options, self.socket)
 
-        # Wrap socket if using SSL
-        if self.params.ssl_options is not None:
-            self.socket = self._wrap_socket(self.socket)
-            ssl_text = " with SSL"
+        :param callable user_on_done: user's `on_done` callback as defined in
+            :py:meth:`connection_workflow.AbstractAMQPConnectionWorkflow.start()`.
+        :param _StreamingProtocolShim | Exception shim_or_exc:
+        """
+        result = shim_or_exc
+        if isinstance(result, _StreamingProtocolShim):
+            result = result.conn
+
+        user_on_done(result)
+
+    def _abort_connection_workflow(self):
+        """Asynchronously abort connection workflow. Upon
+        completion, `Connection._on_stream_terminated()` will be called with None
+        as the error argument.
+
+        Assumption: may be called only while connection is opening.
+
+        """
+        assert not self._opened, (
+            '_abort_connection_workflow() may be called only when '
+            'connection is opening.')
+
+        if self._transport is None:
+            # NOTE: this is possible only when user calls Connection.close() to
+            # interrupt internally-initiated connection establishment.
+            # self._connection_workflow.abort() would not call
+            # Connection.close() before pairing of connection with transport.
+            assert self._internal_connection_workflow, (
+                'Unexpected _abort_connection_workflow() call with '
+                'no transport in external connection workflow mode.')
+
+            # This will result in call to _on_connection_workflow_done() upon
+            # completion
+            self._connection_workflow.abort()
         else:
-            ssl_text = ""
+            # NOTE: we can't use self._connection_workflow.abort() in this case,
+            # because it would result in infinite recursion as we're called
+            # from Connection.close() and _connection_workflow.abort() calls
+            # Connection.close() to abort a connection that's already been
+            # paired with a transport. During internally-initiated connection
+            # establishment, AMQPConnectionWorkflow will discover that user
+            # aborted the connection when it receives
+            # pika.exceptions.ConnectionOpenAborted.
 
-        LOGGER.info('Connecting to %s:%s%s', sock_addr_tuple[4][0],
-                    sock_addr_tuple[4][1], ssl_text)
+            # This completes asynchronously, culminating in call to our method
+            # `connection_lost()`
+            self._transport.abort()
 
-        # Connect to the socket
-        try:
-            self.socket.connect(sock_addr_tuple[4])
-        except socket.timeout:
-            error = 'Connection to %s:%s failed: timeout' % (
-                sock_addr_tuple[4][0], sock_addr_tuple[4][1])
-            LOGGER.error(error)
-            return error
-        except SOCKET_ERROR as error:
-            error = 'Connection to %s:%s failed: %s' % (sock_addr_tuple[4][0],
-                                                        sock_addr_tuple[4][1],
-                                                        error)
-            LOGGER.error(error)
-            return error
+    def _on_connection_workflow_done(self, conn_or_exc):
+        """`AMQPConnectionWorkflow` completion callback.
 
-        # Handle SSL Connection Negotiation
-        if self.params.ssl_options is not None and self.DO_HANDSHAKE:
-            try:
-                self._do_ssl_handshake()
-            except ssl.SSLError as error:
-                error = 'SSL connection to %s:%s failed: %s' % (
-                    sock_addr_tuple[4][0], sock_addr_tuple[4][1], error)
-                LOGGER.error(error)
-                return error
-        # Made it this far
-        return None
-
-    @staticmethod
-    def _create_tcp_connection_socket(sock_family, sock_type, sock_proto):
-        """ Create TCP/IP stream socket for AMQP connection
-
-        :param int sock_family: socket family
-        :param int sock_type: socket type
-        :param int sock_proto: socket protocol number
-
-        NOTE We break this out to make it easier to patch in mock tests
-        """
-        return socket.socket(sock_family, sock_type, sock_proto)
-
-    def _do_ssl_handshake(self):
-        """Perform SSL handshaking, copied from python stdlib test_ssl.py.
+        :param BaseConnection | Exception conn_or_exc: Our own connection
+            instance on success; exception on failure. See
+            `AbstractAMQPConnectionWorkflow.start()` for details.
 
         """
-        if not self.DO_HANDSHAKE:
-            return
-        while True:
-            try:
-                self.socket.do_handshake()
-                break
-            # TODO should be using SSLWantReadError, etc. directly
-            except ssl.SSLError as err:
-                # TODO these exc are for non-blocking sockets, but ours isn't
-                # at this stage, so it's not clear why we have this.
-                if err.errno == ssl.SSL_ERROR_WANT_READ:
-                    self.event_state = self.READ
-                elif err.errno == ssl.SSL_ERROR_WANT_WRITE:
-                    self.event_state = self.WRITE
-                else:
-                    raise
-                self._manage_event_state()
+        LOGGER.debug('Full-stack connection workflow completed: %r',
+                     conn_or_exc)
 
-    @staticmethod
-    def _getaddrinfo(host, port, family, socktype, proto):
-        """Wrap `socket.getaddrinfo` to make it easier to patch for unit tests
-        """
-        return socket.getaddrinfo(host, port, family, socktype, proto)
+        self._connection_workflow = None
 
-    def _flush_outbound(self):
-        """Have the state manager schedule the necessary I/O.
-        """
-        # NOTE: We don't call _handle_write() from this context, because pika
-        # code was not designed to be writing to (or reading from) the socket
-        # from any methods, except from ioloop handler callbacks. Many methods
-        # in pika core and adapters do not deal gracefully with connection
-        # errors occurring in their context; e.g., Connection.channel (pika
-        # issue #659), Connection._on_connection_tune (if connection loss is
-        # detected in _send_connection_tune_ok, before _send_connection_open is
-        # called), etc., etc., etc.
-        self._manage_event_state()
-
-    def _handle_connection_socket_error(self, exception):
-        """Internal error handling method. Here we expect a socket error
-        coming in and will handle different socket errors differently.
-
-        :param exception: An exception object with `errno` attribute.
-
-        """
-        # Assertion failure here would indicate internal logic error
-        if not exception.errno:
-            raise ValueError("No socket error indicated: %r" % (exception,))
-        if exception.errno in self.ERRORS_TO_IGNORE:
-            raise ValueError("Soft error not handled by I/O logic: %r"
-                             % (exception,))
-
-        # Socket is no longer connected, abort
-        if exception.errno in self.ERRORS_TO_ABORT:
-            LOGGER.error("Fatal Socket Error: %r", exception)
-
-        elif isinstance(exception, ssl.SSLError):
-
-            if exception.errno == ssl.SSL_ERROR_WANT_READ:
-                # TODO doesn't seem right: this logic updates event state, but
-                # the logic at the bottom unconditionaly disconnects anyway.
-                # Clearly, we're not prepared to handle re-handshaking. It
-                # should have been handled gracefully without ending up in this
-                # error handler; ditto for SSL_ERROR_WANT_WRITE below.
-                self.event_state = self.READ
-            elif exception.errno == ssl.SSL_ERROR_WANT_WRITE:
-                self.event_state = self.WRITE
+        # Notify protocol of failure
+        if isinstance(conn_or_exc, Exception):
+            self._transport = None
+            if isinstance(conn_or_exc,
+                          connection_workflow.AMQPConnectionWorkflowAborted):
+                LOGGER.info('Full-stack connection workflow aborted: %r',
+                            conn_or_exc)
+                # So that _handle_connection_workflow_failure() will know it's
+                # not a failure
+                conn_or_exc = None
             else:
-                LOGGER.error("SSL Socket error: %r", exception)
+                LOGGER.error('Full-stack connection workflow failed: %r',
+                             conn_or_exc)
+                if (isinstance(
+                        conn_or_exc,
+                        connection_workflow.AMQPConnectionWorkflowFailed) and
+                        isinstance(
+                            conn_or_exc.exceptions[-1],
+                            connection_workflow.AMQPConnectorSocketConnectError)):
+                    conn_or_exc = pika.exceptions.AMQPConnectionError(
+                        conn_or_exc)
 
+
+            self._handle_connection_workflow_failure(conn_or_exc)
         else:
-            # Haven't run into this one yet, log it.
-            LOGGER.error("Unexpected socket Error: %r", exception)
+            # NOTE: On success, the stack will be up already, so there is no
+            #       corresponding callback.
+            assert conn_or_exc is self, \
+                'Expected self conn={!r} from workflow, but got {!r}.'.format(
+                    self, conn_or_exc)
 
-        # Disconnect from our IOLoop and let Connection know what's up
-        self._on_terminate(connection.InternalCloseReasons.SOCKET_ERROR,
-                           repr(exception))
+    def _handle_connection_workflow_failure(self, error):
+        """Handle failure of self-initiated stack bring-up and call
+        `Connection._on_stream_terminated()` if connection is not in closed state
+        yet. Called by adapter layer when the full-stack connection workflow
+        fails.
 
-    def _handle_timeout(self):
-        """Handle a socket timeout in read or write.
-        We don't do anything in the non-blocking handlers because we
-        only have the socket in a blocking state during connect."""
-        LOGGER.warning("Unexpected socket timeout")
+        :param Exception | None error: exception instance describing the reason
+            for failure or None if the connection workflow was aborted.
+        """
+        if error is None:
+            LOGGER.info('Self-initiated stack bring-up aborted.')
+        else:
+            LOGGER.error('Self-initiated stack bring-up failed: %r', error)
 
-    def _handle_connection_socket_events(self, fd, events):
-        """Handle IO/Event loop events, processing them.
+        if not self.is_closed:
+            self._on_stream_terminated(error)
+        else:
+            # This may happen when AMQP layer bring up was started but did not
+            # complete
+            LOGGER.debug('_handle_connection_workflow_failure(): '
+                         'suppressing - connection already closed.')
 
-        :param int fd: The file descriptor for the events
-        :param int events: Events from the IO/Event loop
+    def _adapter_disconnect_stream(self):
+        """Asynchronously bring down the streaming transport layer and invoke
+        `Connection._on_stream_terminated()` asynchronously when complete.
 
         """
-        if not self.socket:
-            LOGGER.error('Received events on closed socket: %r', fd)
-            return
+        if not self._opened:
+            self._abort_connection_workflow()
+        else:
+            # This completes asynchronously, culminating in call to our method
+            # `connection_lost()`
+            self._transport.abort()
 
-        if self.socket and (events & self.WRITE):
-            self._handle_write()
-            self._manage_event_state()
+    def _adapter_emit_data(self, data):
+        """Take ownership of data and send it to AMQP server as soon as
+        possible.
 
-        if self.socket and (events & self.READ):
-            self._handle_read()
+        :param bytes data:
 
+        """
+        self._transport.write(data)
 
-        if self.socket and (events & self.ERROR):
-            # No need to handle the ERROR event separately from I/O. If there is
-            # a stream error, READ and/or WRITE will also be inidicated and the
-            # corresponding _handle_write/_handle_read will get tripped up with
-            # the approrpriate error and terminate the connection. So, we'll
-            # just debug-log the information in case it helps with diagnostics.
-            error = self.socket.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
-            LOGGER.debug('Sock error events %r; sock error code %r', events,
-                         error)
+    def _adapter_get_write_buffer_size(self):
+        """
+        Subclasses must override this
 
-    def _handle_read(self):
-        """Read from the socket and call our on_data_available with the data."""
-        try:
-            while True:
-                try:
-                    if self.params.ssl_options is not None:
-                        # TODO Why using read instead of recv on ssl socket?
-                        data = self.socket.read(self._buffer_size)
-                    else:
-                        data = self.socket.recv(self._buffer_size)
+        :return: Current size of output data buffered by the transport
+        :rtype: int
 
-                    break
-                except SOCKET_ERROR as error:
-                    if error.errno == errno.EINTR:
-                        continue
-                    else:
-                        raise
+        """
+        return self._transport.get_write_buffer_size()
 
-        except socket.timeout:
-            self._handle_timeout()
-            return 0
+    def _proto_connection_made(self, transport):
+        """Introduces transport to protocol after transport is connected.
 
-        except ssl.SSLError as error:
-            if error.errno == ssl.SSL_ERROR_WANT_READ:
-                # ssl wants more data but there is nothing currently
-                # available in the socket, wait for it to become readable.
-                return 0
-            return self._handle_connection_socket_error(error)
+        :py:class:`.utils.nbio_interface.AbstractStreamProtocol` implementation.
 
-        except SOCKET_ERROR as error:
-            if error.errno in (errno.EAGAIN, errno.EWOULDBLOCK):
-                return 0
-            return self._handle_connection_socket_error(error)
+        :param nbio_interface.AbstractStreamTransport transport:
+        :raises Exception: Exception-based exception on error
 
-        if not data:
-            # Remote peer closed or shut down our input stream - disconnect
-            LOGGER.error('Read empty data, calling disconnect')
-            return self._on_terminate(
-                connection.InternalCloseReasons.SOCKET_ERROR, "EOF")
+        """
+        self._transport = transport
 
-        # Pass the data into our top level frame dispatching method
+        # Let connection know that stream is available
+        self._on_stream_connected()
+
+    def _proto_connection_lost(self, error):
+        """Called upon loss or closing of TCP connection.
+
+        :py:class:`.utils.nbio_interface.AbstractStreamProtocol` implementation.
+
+        NOTE: `connection_made()` and `connection_lost()` are each called just
+        once and in that order. All other callbacks are called between them.
+
+        :param BaseException | None error: An exception (check for
+            `BaseException`) indicates connection failure. None indicates that
+            connection was closed on this side, such as when it's aborted or
+            when `AbstractStreamProtocol.eof_received()` returns a falsy result.
+        :raises Exception: Exception-based exception on error
+
+        """
+        self._transport = None
+
+        if error is None:
+            # Either result of `eof_received()` or abort
+            if self._got_eof:
+                error = pika.exceptions.StreamLostError(
+                    'Transport indicated EOF')
+        else:
+            error = pika.exceptions.StreamLostError(
+                'Stream connection lost: {!r}'.format(error))
+
+        LOGGER.log(logging.DEBUG if error is None else logging.ERROR,
+                   'connection_lost: %r',
+                   error)
+
+        self._on_stream_terminated(error)
+
+    def _proto_eof_received(self):  # pylint: disable=R0201
+        """Called after the remote peer shuts its write end of the connection.
+
+        :py:class:`.utils.nbio_interface.AbstractStreamProtocol` implementation.
+
+        :return: A falsy value (including None) will cause the transport to
+            close itself, resulting in an eventual `connection_lost()` call
+            from the transport. If a truthy value is returned, it will be the
+            protocol's responsibility to close/abort the transport.
+        :rtype: falsy | truthy
+        :raises Exception: Exception-based exception on error
+
+        """
+        LOGGER.error('Transport indicated EOF.')
+
+        self._got_eof = True
+
+        # This is how a reset connection will typically present itself
+        # when we have nothing to send to the server over plaintext stream.
+        #
+        # Have transport tear down the connection and invoke our
+        # `connection_lost` method
+        return False
+
+    def _proto_data_received(self, data):
+        """Called to deliver incoming data from the server to the protocol.
+
+        :py:class:`.utils.nbio_interface.AbstractStreamProtocol` implementation.
+
+        :param data: Non-empty data bytes.
+        :raises Exception: Exception-based exception on error
+
+        """
         self._on_data_available(data)
-        return len(data)
 
-    def _handle_write(self):
-        """Try and write as much as we can, if we get blocked requeue
-        what's left"""
-        total_bytes_sent = 0
-        try:
-            while self.outbound_buffer:
-                frame = self.outbound_buffer.popleft()
-                while True:
-                    try:
-                        num_bytes_sent = self.socket.send(frame)
-                        break
-                    except SOCKET_ERROR as error:
-                        if error.errno == errno.EINTR:
-                            continue
-                        else:
-                            raise
 
-                total_bytes_sent += num_bytes_sent
-                if num_bytes_sent < len(frame):
-                    LOGGER.debug("Partial write, requeing remaining data")
-                    self.outbound_buffer.appendleft(frame[num_bytes_sent:])
-                    break
+class _StreamingProtocolShim(nbio_interface.AbstractStreamProtocol):
+    """Shim for callbacks from transport so that we BaseConnection can
+    delegate to private methods, thus avoiding contamination of API with
+    methods that look public, but aren't.
 
-        except socket.timeout:
-            # Will only come here if the socket is blocking
-            LOGGER.debug("socket timeout, requeuing frame")
-            self.outbound_buffer.appendleft(frame)
-            self._handle_timeout()
+    """
 
-        except ssl.SSLError as error:
-            if error.errno == ssl.SSL_ERROR_WANT_WRITE:
-                # In Python 3.5+, SSLSocket.send raises this if the socket is
-                # not currently able to write. Handle this just like an
-                # EWOULDBLOCK socket error.
-                LOGGER.debug("Would block, requeuing frame")
-                self.outbound_buffer.appendleft(frame)
-            else:
-                return self._handle_connection_socket_error(error)
+    # Override AbstractStreamProtocol abstract methods to enable instantiation
+    connection_made = None
+    connection_lost = None
+    eof_received = None
+    data_received = None
 
-        except SOCKET_ERROR as error:
-            if error.errno in (errno.EAGAIN, errno.EWOULDBLOCK):
-                LOGGER.debug("Would block, requeuing frame")
-                self.outbound_buffer.appendleft(frame)
-            else:
-                return self._handle_connection_socket_error(error)
+    def __init__(self, conn):
+        """
+        :param BaseConnection conn:
+        """
+        self.conn = conn
+        # pylint: disable=W0212
+        self.connection_made = conn._proto_connection_made
+        self.connection_lost = conn._proto_connection_lost
+        self.eof_received = conn._proto_eof_received
+        self.data_received = conn._proto_data_received
 
-        return total_bytes_sent
-
-    def _init_connection_state(self):
-        """Initialize or reset all of our internal state variables for a given
-        connection. If we disconnect and reconnect, all of our state needs to
-        be wiped.
+    def __getattr__(self, attr):
+        """Proxy inexistent attribute requests to our connection instance
+        so that AMQPConnectionWorkflow/AMQPConnector may treat the shim as an
+        actual connection.
 
         """
-        super(BaseConnection, self)._init_connection_state()
-        self.base_events = self.READ | self.ERROR
-        self.event_state = self.base_events
-        self.socket = None
+        return getattr(self.conn, attr)
 
-    def _manage_event_state(self):
-        """Manage the bitmask for reading/writing/error which is used by the
-        io/event handler to specify when there is an event such as a read or
-        write.
-
-        """
-        if self.outbound_buffer:
-            if not self.event_state & self.WRITE:
-                self.event_state |= self.WRITE
-                self.ioloop.update_handler(self.socket.fileno(),
-                                           self.event_state)
-        elif self.event_state & self.WRITE:
-            self.event_state = self.base_events
-            self.ioloop.update_handler(self.socket.fileno(), self.event_state)
-
-    def _wrap_socket(self, sock):
-        """Wrap the socket for connecting over SSL. This allows the user to use
-        a dict for the usual SSL options or an SSLOptions object for more
-        advanced control.
-
-        :rtype: ssl.SSLSocket
-
-        """
-        ssl_options = self.params.ssl_options
-
-        return ssl_options.context.wrap_socket(
-            sock,
-            server_side=False,
-            do_handshake_on_connect=self.DO_HANDSHAKE,
-            suppress_ragged_eofs=True,
-            server_hostname=ssl_options.server_hostname)
+    def __repr__(self):
+        return '{}: {!r}'.format(self.__class__.__name__, self.conn)

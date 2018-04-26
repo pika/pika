@@ -1,6 +1,7 @@
 """Handle AMQP Heartbeats"""
 import logging
 
+import pika.exceptions
 from pika import frame
 
 LOGGER = logging.getLogger(__name__)
@@ -12,7 +13,6 @@ class HeartbeatChecker(object):
 
     """
     MAX_IDLE_COUNT = 2
-    _CONNECTION_FORCED = 320
     _STALE_CONNECTION = "Too Many Missed Heartbeats, No reply in %i seconds"
 
     def __init__(self, connection, interval, idle_count=MAX_IDLE_COUNT):
@@ -117,9 +117,11 @@ class HeartbeatChecker(object):
         duration = self._max_idle_count * self._interval
         text = HeartbeatChecker._STALE_CONNECTION % duration
 
-        self._connection._on_terminate(  # pylint: disable=W0212
-            HeartbeatChecker._CONNECTION_FORCED,
-            text)
+        # Abort the stream connection. There is no point trying to gracefully
+        # close the AMQP connection since lack of heartbeat suggests that the
+        # stream is dead.
+        self._connection._terminate_stream(  # pylint: disable=W0212
+            pika.exceptions.AMQPHeartbeatTimeout(text))
 
     @property
     def _has_received_data(self):

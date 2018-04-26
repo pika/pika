@@ -25,13 +25,15 @@ import time
 
 import pika.channel
 
+from pika.adapters.utils import connection_workflow
 from pika import compat
+import pika.connection
 from pika import exceptions
 
 import pika.spec
 
 # NOTE: import SelectConnection after others to avoid circular depenency
-from pika.adapters.select_connection import SelectConnection
+from pika.adapters import select_connection
 
 
 LOGGER = logging.getLogger(__name__)
@@ -176,17 +178,17 @@ class _IoloopTimerContext(object):
     def __init__(self, duration, connection):
         """
         :param float duration: non-negative timer duration in seconds
-        :param SelectConnection connection:
+        :param select_connection.SelectConnection connection:
         """
         assert hasattr(connection, 'add_timeout'), connection
         self._duration = duration
         self._connection = connection
         self._callback_result = _CallbackResult()
-        self._timer_id = None
+        self._timer_handle = None
 
     def __enter__(self):
         """Register a timer"""
-        self._timer_id = self._connection.add_timeout(
+        self._timer_handle = self._connection.add_timeout(
             self._duration,
             self._callback_result.signal_once)
         return self
@@ -194,7 +196,8 @@ class _IoloopTimerContext(object):
     def __exit__(self, *_args, **_kwargs):
         """Unregister timer if it hasn't fired yet"""
         if not self._callback_result:
-            self._connection.remove_timeout(self._timer_id)
+            self._connection.remove_timeout(self._timer_handle)
+            self._timer_handle = None
 
     def is_ready(self):
         """
@@ -307,24 +310,14 @@ class BlockingConnection(object):
     channels will not dispatch user callbacks. SOLUTION: To break this potential
     deadlock, applications may configure the `blocked_connection_timeout`
     connection parameter when instantiating `BlockingConnection`. Upon blocked
-    connection timeout, this adapter will raise ConnectionClosed exception with
-    first exception arg of
-    `pika.connection.InternalCloseReasons.BLOCKED_CONNECTION_TIMEOUT`. See
-    `pika.connection.ConnectionParameters` documentation to learn more about
-    `blocked_connection_timeout` configuration.
+    connection timeout, this adapter will raise ConnectionBlockedTimeout
+    exception`. See `pika.connection.ConnectionParameters` documentation to
+    learn more about the `blocked_connection_timeout` configuration.
 
     """
-    # Connection-opened callback args
-    _OnOpenedArgs = namedtuple('BlockingConnection__OnOpenedArgs',
-                               'connection')
-
-    # Connection-establishment error callback args
-    _OnOpenErrorArgs = namedtuple('BlockingConnection__OnOpenErrorArgs',
-                                  'connection error')
-
     # Connection-closing callback args
     _OnClosedArgs = namedtuple('BlockingConnection__OnClosedArgs',
-                               'connection reason_code reason_text')
+                               'connection error')
 
     # Channel-opened callback args
     _OnChannelOpenedArgs = namedtuple(
@@ -334,7 +327,11 @@ class BlockingConnection(object):
     def __init__(self, parameters=None, _impl_class=None):
         """Create a new instance of the Connection object.
 
-        :param pika.connection.Parameters parameters: Connection parameters
+        :param None | pika.connection.Parameters | sequence parameters:
+            Connection parameters instance or non-empty sequence of them. If
+            None, a `pika.connection.Parameters` instance will be created with
+            default settings. See `pika.AMQPConnectionWorkflow` for more
+            details about multiple parameter configurations and retries.
         :param _impl_class: for tests/debugging only; implementation class;
             None=default
 
@@ -354,40 +351,31 @@ class BlockingConnection(object):
         # `_request_channel_dispatch`
         self._channels_pending_dispatch = set()
 
-        # Receives on_open_callback args from Connection
-        self._opened_result = _CallbackResult(self._OnOpenedArgs)
-
-        # Receives on_open_error_callback args from Connection
-        self._open_error_result = _CallbackResult(self._OnOpenErrorArgs)
-
         # Receives on_close_callback args from Connection
         self._closed_result = _CallbackResult(self._OnClosedArgs)
 
-        # Set to True when when user calls close() on the connection
-        # NOTE: this is a workaround to detect socket error because
-        # on_close_callback passes reason_code=0 when called due to socket error
-        self._user_initiated_close = False
-
-        impl_class = _impl_class or SelectConnection
-        self._impl = impl_class(
-            parameters=parameters,
-            on_open_callback=self._opened_result.set_value_once,
-            on_open_error_callback=self._open_error_result.set_value_once,
-            on_close_callback=self._closed_result.set_value_once)
-
-        self._impl.ioloop.activate_poller()
-
-        self._process_io_for_connection_setup()
+        # Perform connection workflow
+        self._impl = None  # so that attribute is created in case below raises
+        self._impl = self._create_connection(parameters, _impl_class)
+        self._impl.add_on_close_callback(self._closed_result.set_value_once)
 
     def __repr__(self):
         return '<%s impl=%r>' % (self.__class__.__name__, self._impl)
 
+    def __enter__(self):
+        # Prepare `with` context
+        return self
+
+    def __exit__(self, exc_type, value, traceback):
+        # Close connection after `with` context
+        if self.is_open:
+            self.close()
+
     def _cleanup(self):
         """Clean up members that might inhibit garbage collection"""
-        self._impl.ioloop.close()
+        if self._impl is not None:
+            self._impl.ioloop.close()
         self._ready_events.clear()
-        self._opened_result.reset()
-        self._open_error_result.reset()
         self._closed_result.reset()
 
     @contextlib.contextmanager
@@ -408,28 +396,90 @@ class BlockingConnection(object):
             # __exit__ part
             self._event_dispatch_suspend_depth -= 1
 
-    def _process_io_for_connection_setup(self):
-        """ Perform follow-up processing for connection setup request: flush
-        connection output and process input while waiting for connection-open
-        or connection-error.
+    def _create_connection(self, configs, impl_class):
+        """Run connection workflow, blocking until it completes.
 
-        :raises AMQPConnectionError: on connection open error
+        :param None | pika.connection.Parameters | sequence configs: Connection
+            parameters instance or non-empty sequence of them.
+        :param None | SelectConnection impl_class: for tests/debugging only;
+            implementation class;
+
+        :rtype: impl_class
+
+        :raises: exception on failure
         """
-        if not self._open_error_result.ready:
-            self._flush_output(self._opened_result.is_ready,
-                               self._open_error_result.is_ready)
 
-        if self._open_error_result.ready:
-            try:
-                exception_or_message = self._open_error_result.value.error
-                if isinstance(exception_or_message, Exception):
-                    raise exception_or_message
-                raise exceptions.AMQPConnectionError(exception_or_message)
-            finally:
-                self._cleanup()
+        if configs is None:
+            configs = (pika.connection.Parameters(),)
 
-        assert self._opened_result.ready
-        assert self._opened_result.value.connection is self._impl
+        if isinstance(configs, pika.connection.Parameters):
+            configs = (configs,)
+
+        if not configs:
+            raise ValueError('Expected a non-empty sequence of connection '
+                             'parameters, but got {!r}.'.format(configs))
+
+        # Connection workflow completion args
+        #   `result` may be an instance of connection on success or exception on
+        #   failure.
+        on_cw_done_result = _CallbackResult(
+            namedtuple(
+                'BlockingConnection_OnConnectionWorkflowDoneArgs',
+                'result'))
+
+        impl_class = impl_class or select_connection.SelectConnection
+
+        ioloop = select_connection.IOLoop()
+
+        ioloop.activate_poller()
+        try:
+            impl_class.create_connection(
+                configs,
+                on_done=on_cw_done_result.set_value_once,
+                custom_ioloop=ioloop)
+
+            while not on_cw_done_result.ready:
+                ioloop.poll()
+                ioloop.process_timeouts()
+
+            if isinstance(on_cw_done_result.value.result, BaseException):
+                error = on_cw_done_result.value.result
+                LOGGER.error('Connection workflow failed: %r', error)
+                raise self._reap_last_connection_workflow_error(error)
+            else:
+                LOGGER.info('Connection workflow succeeded: %r',
+                            on_cw_done_result.value.result)
+                return on_cw_done_result.value.result
+        except Exception:
+            LOGGER.exception('Error in _create_connection().')
+            ioloop.close()
+            self._cleanup()
+            raise
+
+    @staticmethod
+    def _reap_last_connection_workflow_error(error):
+        """Extract exception value from the last connection attempt
+
+        :param Exception error: error passed by the `AMQPConnectionWorkflow`
+            completion callback.
+
+        :returns: Exception value from the last connection attempt
+        :rtype: Exception
+        """
+        if isinstance(error,
+                      connection_workflow.AMQPConnectionWorkflowFailed):
+            # Extract exception value from the last connection attempt
+            error = error.exceptions[-1]
+            if isinstance(
+                    error,
+                    connection_workflow.AMQPConnectorSocketConnectError):
+                error = exceptions.AMQPConnectionError(error)
+            elif isinstance(
+                    error,
+                    connection_workflow.AMQPConnectorPhaseErrorBase):
+                error = error.exception
+
+        return error
 
     def _flush_output(self, *waiters):
         """ Flush output and process input while waiting for any of the given
@@ -441,9 +491,11 @@ class BlockingConnection(object):
         :param waiters: sequence of zero or more callables taking no args and
                         returning true when it's time to stop processing.
                         Their results are OR'ed together.
+        :raises: exceptions passed by impl if opening of connection fails or
+            connection closes.
         """
         if self.is_closed:
-            raise exceptions.ConnectionClosed()
+            raise exceptions.ConnectionWrongStateError()
 
         # Conditions for terminating the processing loop:
         #   connection closed
@@ -453,33 +505,24 @@ class BlockingConnection(object):
         #   empty outbound buffer and any waiter is ready
         is_done = (lambda:
                    self._closed_result.ready or
-                   (not self._impl.outbound_buffer and
+                   ((not self._impl._transport or
+                     self._impl._adapter_get_write_buffer_size() == 0) and
                     (not waiters or any(ready() for ready in waiters))))
 
-        # Process I/O until our completion condition is satisified
+        # Process I/O until our completion condition is satisfied
         while not is_done():
             self._impl.ioloop.poll()
             self._impl.ioloop.process_timeouts()
 
-        if self._open_error_result.ready or self._closed_result.ready:
+        if self._closed_result.ready:
             try:
-                if not self._user_initiated_close:
-                    if self._open_error_result.ready:
-                        maybe_exception = self._open_error_result.value.error
-                        LOGGER.error('Connection open failed - %r',
-                                     maybe_exception)
-                        if isinstance(maybe_exception, Exception):
-                            raise maybe_exception
-                        else:
-                            raise exceptions.ConnectionClosed(maybe_exception)
-                    else:
-                        result = self._closed_result.value
-                        LOGGER.error('Connection close detected; result=%r',
-                                     result)
-                        raise exceptions.ConnectionClosed(result.reason_code,
-                                                          result.reason_text)
+                if not isinstance(self._closed_result.value.error,
+                                  exceptions.ConnectionClosedByClient):
+                    LOGGER.error('Unexpected connection close detected: %r',
+                                 self._closed_result.value.error)
+                    raise self._closed_result.value.error
                 else:
-                    LOGGER.info('Connection closed; result=%r',
+                    LOGGER.info('User-initiated close: result=%r',
                                 self._closed_result.value)
             finally:
                 self._cleanup()
@@ -548,7 +591,7 @@ class BlockingConnection(object):
 
         :param callable user_callback: callback passed to
            `add_on_connection_blocked_callback`
-        :param SelectConnection _impl:
+        :param select_connection.SelectConnection _impl:
         :param pika.frame.Method method_frame: method frame having `method`
             member of type `pika.spec.Connection.Blocked`
         """
@@ -560,7 +603,7 @@ class BlockingConnection(object):
 
         :param callable user_callback: callback passed to
            `add_on_connection_unblocked_callback`
-        :param SelectConnection _impl:
+        :param select_connection.SelectConnection _impl:
         :param pika.frame.Method method_frame: method frame having `method`
             member of type `pika.spec.Connection.Blocked`
         """
@@ -705,15 +748,16 @@ class BlockingConnection(object):
         :param int reply_code: The code number for the close
         :param str reply_text: The text reason for the close
 
+        :raises pika.exceptions.ConnectionWrongStateError: if called on a closed
+            connection (NEW in v1.0.0)
         """
-        if self.is_closed:
-            LOGGER.debug('Close called on closed connection (%s): %s',
-                         reply_code, reply_text)
-            return
+        if not self.is_open:
+            msg = '{}.close({}, {!r}) called on closed connection.'.format(
+                self.__class__.__name__, reply_code, reply_text)
+            LOGGER.error(msg)
+            raise exceptions.ConnectionWrongStateError(msg)
 
         LOGGER.info('Closing connection (%s): %s', reply_code, reply_text)
-
-        self._user_initiated_close = True
 
         # Close channels that remain opened
         for impl_channel in pika.compat.dictvalues(self._impl._channels):
@@ -803,14 +847,6 @@ class BlockingConnection(object):
             channel._flush_output(opened_args.is_ready)
 
         return channel
-
-    def __enter__(self):
-        # Prepare `with` context
-        return self
-
-    def __exit__(self, exc_type, value, traceback):
-        # Close connection after `with` context
-        self.close()
 
     #
     # Connections state properties
@@ -1269,7 +1305,8 @@ class BlockingChannel(object):
 
         :param waiters: sequence of zero or more callables taking no args and
                         returning true when it's time to stop processing.
-                        Their results are OR'ed together.
+                        Their results are OR'ed together. An empty sequence is
+                        treated as equivalent to a waiter always returning true.
         """
         if self.is_closed:
             self._impl._raise_if_not_open()
@@ -1804,14 +1841,14 @@ class BlockingChannel(object):
         pika callback, because dispatching `basic_consume` callbacks from this
         context would constitute recursion.
 
-        :raises pika.exceptions.RecursionError: if called from the scope of a
+        :raises pika.exceptions.ReentrancyError: if called from the scope of a
             `BlockingConnection` or `BlockingChannel` callback
         :raises ChannelClosed: when this channel is closed by broker.
         """
         # Check if called from the scope of an event dispatch callback
         with self.connection._acquire_event_dispatch() as dispatch_allowed:
             if not dispatch_allowed:
-                raise exceptions.RecursionError(
+                raise exceptions.ReentrancyError(
                     'start_consuming may not be called from the scope of '
                     'another BlockingConnection or BlockingChannel callback')
 

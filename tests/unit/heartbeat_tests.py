@@ -7,6 +7,17 @@ import unittest
 import mock
 
 from pika import connection, frame, heartbeat
+import pika.exceptions
+
+
+# protected-access
+# pylint: disable=W0212
+
+# missing-docstring
+# pylint: disable=C0111
+
+# invalid-name
+# pylint: disable=C0103
 
 
 class HeartbeatTests(unittest.TestCase):
@@ -125,8 +136,13 @@ class HeartbeatTests(unittest.TestCase):
         self.obj._close_connection()
         reason = self.obj._STALE_CONNECTION % (
             self.obj._max_idle_count * self.obj._interval)
-        self.mock_conn._on_terminate.assert_called_once_with(
-            self.obj._CONNECTION_FORCED, reason)
+        self.mock_conn._terminate_stream.assert_called_once_with(mock.ANY)
+
+        self.assertIsInstance(self.mock_conn._terminate_stream.call_args[0][0],
+                              pika.exceptions.AMQPHeartbeatTimeout)
+        self.assertEqual(
+            self.mock_conn._terminate_stream.call_args[0][0].args[0],
+            reason)
 
     def test_has_received_data_false(self):
         self.obj._bytes_received = 100

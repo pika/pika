@@ -7,7 +7,10 @@ import sys
 import unittest
 import warnings
 
-import mock
+try:
+    from unittest import mock  # pylint: disable=C0412
+except ImportError:
+    import mock
 
 from pika import channel, connection, exceptions, frame, spec
 
@@ -24,9 +27,11 @@ class ConnectionTemplate(connection.Connection):
 
     # Suppress pylint warnings about specific abstract methods not being
     # overridden
-    _adapter_connect = connection.Connection._adapter_connect
-    _adapter_disconnect = connection.Connection._adapter_disconnect
-    _flush_outbound = connection.Connection._flush_outbound
+    _adapter_connect_stream = connection.Connection._adapter_connect_stream
+    _adapter_disconnect_stream = connection.Connection._adapter_disconnect_stream
+    _adapter_emit_data = connection.Connection._adapter_emit_data
+    _adapter_get_write_buffer_size = (
+        connection.Connection._adapter_get_write_buffer_size)
     add_timeout = connection.Connection.add_timeout
     remove_timeout = connection.Connection.remove_timeout
 
@@ -181,7 +186,7 @@ class ChannelTests(unittest.TestCase):
 
         self.obj.basic_cancel(consumer_tag, callback=callback_mock)
 
-        raise_if_not_open.assert_called_once()
+        raise_if_not_open.assert_called_once_with()
 
     def test_basic_cancel_synch(self):
         self.obj._set_state(self.obj.OPEN)
@@ -263,7 +268,7 @@ class ChannelTests(unittest.TestCase):
         self.obj.basic_consume('test-queue', mock_on_msg_callback,
                                callback=mock_callback)
         require.assert_called_once_with(mock_on_msg_callback)
-        raise_if_not_open.assert_called_once()
+        raise_if_not_open.assert_called_once_with()
 
     def test_basic_consume_consumer_tag_no_completion_callback(self):
         self.obj._set_state(self.obj.OPEN)

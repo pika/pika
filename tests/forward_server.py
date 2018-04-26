@@ -41,7 +41,7 @@ class ForwardServer(object):  # pylint: disable=R0902
     remote address and forwards data back and forth between the two
     endpoints.
 
-    This is similar to the subset of `netcat` functionality, but without
+    This is similar to a subset of `netcat` functionality, but without
     dependency on any specific flavor of netcat
 
     Connection forwarding example; forward local connection to default
@@ -64,9 +64,9 @@ class ForwardServer(object):  # pylint: disable=R0902
             sock.sendall("12345")
             sock.shutdown(socket.SHUT_WR)
 
-        with ForwardServer(None) as fwd:
+        with ForwardServer(None) as echo:
             sock = socket.socket()
-            sock.connect(fwd.server_address)
+            sock.connect(echo.server_address)
 
             worker = threading.Thread(target=produce,
                                       args=[sock])
@@ -375,8 +375,13 @@ class _TCPHandler(SocketServer.StreamRequestHandler, object):
                    remote_dest_sock.getpeername())
         else:
             # Echo set-up
+            # NOTE: Use pika.compat._nonblocking_socketpair() since
+            # socket.socketpair() isn't available on Windows under python 2 yet.
             remote_dest_sock, remote_src_sock = \
                     pika.compat._nonblocking_socketpair()
+            # We rely on blocking I/O
+            remote_dest_sock.setblocking(True)
+            remote_src_sock.setblocking(True)
 
         try:
             local_forwarder = threading.Thread(
@@ -486,7 +491,8 @@ def echo(port=0):
     Then, we run telnet and point it at forwarder and see if whatever we
     type gets echoed back to us.
 
-    This function exits when the remote end connects, then closes connection
+    This function waits for the client to connect and exits after the client
+    closes the connection
     """
     lsock = socket.socket()
     lsock.bind(("", port))
