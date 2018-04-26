@@ -986,8 +986,8 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
 
 
     def test_no_side_effects_from_message_marshal_error(self):
-        # Verify that outbound buffer is empty on entry
-        self.assertFalse(self.connection.outbound_buffer)
+        # Verify that frame buffer is empty on entry
+        self.assertEqual(b'', self.connection._frame_buffer)
 
         # Use Basic.Public with invalid body to trigger marshalling error
         method = spec.Basic.Publish()
@@ -1004,13 +1004,10 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
             frame.Body(1, body).marshal()
 
         # Now, attempt to send the method with the bogus body
-        with mock.patch.object(self.connection,
-                               '_flush_outbound') as flush_mock:
-            with self.assertRaises(TypeError):
-                self.connection._send_method(channel_number=1,
-                                      method=method,
-                                      content=(properties, body))
+        with self.assertRaises(TypeError):
+            self.connection._send_method(channel_number=1,
+                                    method=method,
+                                    content=(properties, body))
 
-        # Now make sure that nothing is enqueued on output buffer
-        self.assertFalse(self.connection.outbound_buffer)
-        self.assertEqual(flush_mock.call_count, 0)
+        # Now make sure that nothing is enqueued on frame buffer
+        self.assertEqual(b'', self.connection._frame_buffer)
