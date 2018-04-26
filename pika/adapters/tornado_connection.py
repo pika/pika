@@ -29,10 +29,15 @@ class TornadoConnection(base_connection.BaseConnection):
         :param pika.connection.Parameters parameters: Connection parameters
         :param on_open_callback: The method to call when the connection is open
         :type on_open_callback: method
-        :param method on_open_error_callback: Called if the connection can't
-            be established: on_open_error_callback(connection, str|exception)
-        :param method on_close_callback: Called when the connection is closed:
-            on_close_callback(connection, reason_code, reason_text)
+        :param None | method on_open_error_callback: Called if the connection
+            can't be established or connection establishment is interrupted by
+            `Connection.close()`: on_open_error_callback(Connection, exception).
+        :param None | method on_close_callback: Called when a previously fully
+            open connection is closed:
+            `on_close_callback(Connection, exception)`, where `exception` is
+            either an instance of `exceptions.ConnectionClosed` if closed by
+            user or broker or exception of another type that describes the cause
+            of connection failure.
         :param None | ioloop.IOLoop |
             nbio_interface.AbstractIOServices custom_ioloop:
                 Override using the global IOLoop in Tornado

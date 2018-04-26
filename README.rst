@@ -62,11 +62,14 @@ And an example of writing a blocking consumer:
     print('Requeued %i messages' % requeued_messages)
     connection.close()
 
+Multiple Connection Parameters
+------------------------------
 You can also pass multiple connection parameter instances for
-fault-tolerance like this (host names are just examples, of course). To enable
-retries, set `connection_attempts` and `retry_delay` as needed in the last
-`pika.ConnectionParameters` of the sequence. Retries occur after connection
-attempts using all of the given conection parameters fail.
+fault-tolerance as in the code snippet below (host names are just examples, of
+course). To enable retries, set `connection_attempts` and `retry_delay` as
+needed in the last `pika.ConnectionParameters` element of the sequence. Retries
+occur after connection attempts using all of the given connection parameters
+fail.
 
 .. code :: python
 

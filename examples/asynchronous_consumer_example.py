@@ -70,27 +70,28 @@ class ExampleConsumer(object):
         can't be established.
 
         :type unused_connection: pika.SelectConnection
-        :type err: str
+        :type err: Exception
 
         """
         LOGGER.error('Connection open failed: %s', err)
+        self._connection.add_timeout(5, self.reconnect)
 
-    def on_connection_closed(self, connection, reply_code, reply_text):
+    def on_connection_closed(self, connection, reason):
         """This method is invoked by pika when the connection to RabbitMQ is
         closed unexpectedly. Since it is unexpected, we will reconnect to
         RabbitMQ if it disconnects.
 
         :param pika.connection.Connection connection: The closed connection obj
-        :param int reply_code: The server provided reply_code if given
-        :param str reply_text: The server provided reply_text if given
+        :param Exception reason: exception representing reason for loss of
+            connection.
 
         """
         self._channel = None
         if self._closing:
             self._connection.ioloop.stop()
         else:
-            LOGGER.warning('Connection closed, reopening in 5 seconds: (%s) %s',
-                            reply_code, reply_text)
+            LOGGER.warning('Connection closed, reopening in 5 seconds: %s',
+                            reason)
             self._connection.add_timeout(5, self.reconnect)
 
     def reconnect(self):
