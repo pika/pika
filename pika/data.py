@@ -119,6 +119,12 @@ def encode_value(pieces, value):
             pieces.append(struct.pack('>cI', b'S', len(value)))
             pieces.append(value)
             return 5 + len(value)
+
+        if isinstance(value, bytes):
+            pieces.append(struct.pack('>cI', b'x', len(value)))
+            pieces.append(value)
+            return 5 + len(value)
+
     if isinstance(value, bool):
         pieces.append(struct.pack('>cB', b't', int(value)))
         return 2
@@ -279,6 +285,12 @@ def decode_value(encoded, offset):
             value = value.decode('utf8')
         except UnicodeDecodeError:
             pass
+        offset += length
+
+    elif kind == b'x':
+        length = struct.unpack_from('>I', encoded, offset)[0]
+        offset += 4
+        value = encoded[offset:offset + length]
         offset += length
 
     # Field Array
