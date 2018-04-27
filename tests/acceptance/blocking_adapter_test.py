@@ -50,7 +50,6 @@ def setUpModule():
     logging.basicConfig(level=logging.DEBUG)
 
 
-#@unittest.skip('SKIPPING WHILE DEBUGGING SOME CHANGES. DO NOT MERGE LIKE THIS')
 class BlockingTestCaseBase(unittest.TestCase):
 
     TIMEOUT = DEFAULT_TIMEOUT
@@ -353,6 +352,16 @@ class TestCreateAndCloseConnectionWithChannelAndConsumer(BlockingTestCaseBase):
 
         self.assertFalse(ch._consumer_infos)
         self.assertFalse(ch._impl._consumers)
+
+
+class TestUsingInvalidQueueArgument(BlockingTestCaseBase):
+    def test(self):
+        """BlockingConnection raises expected exception when invalid queue parameter is used
+        """
+        connection = self._connect()
+        ch = connection.channel()
+        with self.assertRaises(AssertionError):
+            ch.queue_declare(queue=[1, 2, 3])
 
 
 class TestSuddenBrokerDisconnectBeforeChannel(BlockingTestCaseBase):

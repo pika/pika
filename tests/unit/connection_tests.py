@@ -983,3 +983,31 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
 
         # Make sure _detect_backpressure doesn't throw
         self.connection._detect_backpressure()
+
+
+    def test_no_side_effects_from_message_marshal_error(self):
+        # Verify that frame buffer is empty on entry
+        self.assertEqual(b'', self.connection._frame_buffer)
+
+        # Use Basic.Public with invalid body to trigger marshalling error
+        method = spec.Basic.Publish()
+        properties = spec.BasicProperties()
+        # Verify that marshalling of method and header won't trigger error
+        frame.Method(1, method).marshal()
+        frame.Header(1, body_size=10, props=properties).marshal()
+        # Create bogus body that should trigger an error during marshalling
+        body = [1,2,3,4]
+        # Verify that frame body can be created using the bogus body, but
+        # that marshalling will fail
+        frame.Body(1, body)
+        with self.assertRaises(TypeError):
+            frame.Body(1, body).marshal()
+
+        # Now, attempt to send the method with the bogus body
+        with self.assertRaises(TypeError):
+            self.connection._send_method(channel_number=1,
+                                    method=method,
+                                    content=(properties, body))
+
+        # Now make sure that nothing is enqueued on frame buffer
+        self.assertEqual(b'', self.connection._frame_buffer)

@@ -1347,7 +1347,7 @@ class Channel(object):
         sent, and thus its completion callback would never be called.
 
         """
-        LOGGER.debug('Draining %i blocked frames due to remote Channel.Close',
+        LOGGER.debug('Draining %i blocked frames due to broker-requested Channel.Close',
                      len(self._blocked))
         while self._blocked:
             method = self._blocked.popleft()[0]
@@ -1408,6 +1408,12 @@ class Channel(object):
             self._blocked.append([method, callback, acceptable_replies])
             return
 
+        # Note: _send_method can throw exceptions if there are framing errors
+        # or invalid data passed in. Call it here to prevent self._blocking
+        # from being set if an exception is thrown. This also prevents
+        # acceptable_replies registering callbacks when exceptions are thrown
+        self._send_method(method)
+
         # If acceptable replies are set, add callbacks
         if acceptable_replies:
             # Block until a response frame is received for synchronous frames
@@ -1429,8 +1435,6 @@ class Channel(object):
                     LOGGER.debug('Adding passed-in RPC response callback')
                     self.callbacks.add(self.channel_number, reply, callback,
                                        arguments=arguments)
-
-        self._send_method(method)
 
     def _raise_if_not_open(self):
         """If channel is not in the OPEN state, raises ChannelClosed with

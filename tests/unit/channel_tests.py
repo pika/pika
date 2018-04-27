@@ -1587,3 +1587,18 @@ class ChannelTests(unittest.TestCase):
         self.assertRaises(TypeError,
                           self.obj._validate_rpc_completion_callback,
                           'foo')
+
+    def test_no_side_effects_from_send_method_error(self):
+        self.obj._set_state(self.obj.OPEN)
+
+        self.assertIsNone(self.obj._blocking)
+
+        with mock.patch.object(self.obj.callbacks, 'add') as cb_add_mock:
+            with mock.patch.object(self.obj, '_send_method',
+                                   side_effect=TypeError) as send_method_mock:
+                with self.assertRaises(TypeError):
+                    self.obj.queue_delete('', callback=lambda _frame: None)
+
+        self.assertEqual(send_method_mock.call_count, 1)
+        self.assertIsNone(self.obj._blocking)
+        self.assertEqual(cb_add_mock.call_count, 0)
