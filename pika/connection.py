@@ -2143,9 +2143,7 @@ class Connection(pika.compat.AbstractBase):
             if channel not in self._channels:
                 continue
             # pylint: disable=W0212
-            self._channels[channel]._on_close_meta(
-                pika.channel.ClientChannelErrors.CONNECTION_CLOSED,
-                repr(self._error))
+            self._channels[channel]._on_close_meta(self._error)
 
         # Inform interested parties
         if not self._opened:

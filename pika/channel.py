@@ -20,20 +20,6 @@ LOGGER = logging.getLogger(__name__)
 MAX_CHANNELS = 65535  # per AMQP 0.9.1 spec.
 
 
-class ClientChannelErrors(object):
-    """Client-side channel error codes using negative values to avoid collision
-     with AMQP-defined reply-code values. This values may be used as
-     `reply_code` in `ChannelClosed` exception.
-
-     """
-    # Our codes will be -1001, -1002, -1003, etc. to avoid collision
-    # with `Connection`-defined internal client error codes
-    FIRST = -1000
-    CONNECTION_CLOSED = -1001 # Connection closed suddenly
-    OPEN_PENDING = -1002  # channel is not usable yet; wait until it opens
-    CLOSE_PENDING = -1003  # channel is closing
-
-
 class Channel(object):
     """A Channel is the primary communication method for interacting with
     RabbitMQ. It is recommended that you do not directly invoke
@@ -95,19 +81,12 @@ class Channel(object):
         self._on_openok_callback = on_open_callback
         self._state = self.CLOSED
 
-        # Will be set to True upon receipt of `Channel.Close` from broker.
-        self._closed_by_broker = False
-
-        # We save the closing reason code and text to be passed to
-        # on-channel-close callback at closing of the channel. Channel.close
-        # stores the given reply_code/reply_text if the channel was in OPEN or
-        # OPENING states. An incoming Channel.Close AMQP method from broker will
-        # override this value. And a sudden loss of connection has the highest
-        # precedence to override it.
-        #
-        # When initiating or receving 'Channel.Close' from broker, set to
-        # the two-tuple: (int reply_code, str reply_text)
-        self._closing_code_and_text = None
+        # We save the closing reason exception to be passed to on-channel-close
+        # callback at closing of the channel. Exception representing the closing
+        # reason; ChannelClosedByClient or ChannelClosedByBroker on controlled
+        # close; otherwise another exception describing the reason for failure
+        # (most likely connection failure).
+        self._closing_reason = None  # type: None | Exception
 
         # opaque cookie value set by wrapper layer (e.g., BlockingConnection)
         # via _set_cookie
@@ -154,24 +133,23 @@ class Channel(object):
 
     def add_on_close_callback(self, callback):
         """Pass a callback function that will be called when the channel is
-        closed. The callback function will receive the channel, the
-        reply_code (int) and the reply_text (string) describing why the channel was
-        closed.
+        closed. The callback function will receive the channel and an exception
+        describing why the channel was closed.
 
         If the channel is closed by broker via Channel.Close, the callback will
-        receive the reply_code/reply_text provided by the broker.
+        receive `ChannelClosedByBroker` as the reason.
 
-        If channel closing is initiated by user (either directly of indirectly
-        by closing a connection containing the channel) and closing
-        concludes gracefully without Channel.Close from the broker and without
-        loss of connection, the callback will receive 0 as reply_code and empty
-        string as reply_text.
+        If graceful user-initiated channel closing completes successfully (
+        either directly of indirectly by closing a connection containing the
+        channel) and closing concludes gracefully without Channel.Close from the
+        broker and without loss of connection, the callback will receive
+        `ChannelClosedByClient` exception as reason.
 
         If channel was closed due to loss of connection, the callback will
-        receive reply_code and reply_text representing the loss of connection.
+        receive another exception type describing the failure.
 
         :param callable callback: The callback, having the signature:
-            callback(Channel, int reply_code, str reply_text)
+            callback(Channel, Exception reason)
 
         """
         self.callbacks.add(self.channel_number, '_on_channel_close', callback,
@@ -541,20 +519,13 @@ class Channel(object):
         :param int reply_code: The reason code to send to broker
         :param str reply_text: The reason text to send to broker
 
-        :raises ChannelClosed: if channel is already closed
-        :raises ChannelAlreadyClosing: if channel is already closing
+        :raises ChannelWrongStateError: if channel is closed or closing
 
         """
-        if self.is_closed:
+        if self.is_closed or self.is_closing:
             # Whoever is calling `close` might expect the on-channel-close-cb
-            # to be called, which won't happen when it's already closed
+            # to be called, which won't happen when it's already closed.
             self._raise_if_not_open()
-
-        if self.is_closing:
-            # Whoever is calling `close` might expect their reply_code and
-            # reply_text to be sent to broker, which won't happen if we're
-            # already closing.
-            raise exceptions.ChannelAlreadyClosing('Already closing: %s' % self)
 
         # If channel is OPENING, we will transition it to CLOSING state,
         # causing the _on_openok method to suppress the OPEN state transition
@@ -565,14 +536,15 @@ class Channel(object):
 
         # Save the reason info so that we may use it in the '_on_channel_close'
         # callback processing
-        self._closing_code_and_text = (reply_code, reply_text)
+        self._closing_reason = exceptions.ChannelClosedByClient(reply_code,
+                                                                reply_text)
 
         for consumer_tag in dictkeys(self._consumers):
             if consumer_tag not in self._cancelled:
                 self.basic_cancel(consumer_tag=consumer_tag)
 
-        # Change state after cancelling consumers to avoid ChannelClosed
-        # exception from basic_cancel
+        # Change state after cancelling consumers to avoid
+        # ChannelWrongStateError exception from basic_cancel
         self._set_state(self.CLOSING)
 
         self._rpc(spec.Channel.Close(reply_code, reply_text, 0, 0),
@@ -768,21 +740,6 @@ class Channel(object):
 
         """
         return self._state == self.CLOSED
-
-    @property
-    def is_closed_by_broker(self):
-        """Check whether this channel received `Channel.Close` from AMQP broker.
-
-        This may be useful in conjunction with `Channel.is_closed` for narrowing
-         down the cause of the channel becoming closed.
-
-        NEW in v1.0.0
-
-        :return: True if this channel received `Channel.Close` from AMQP broker.
-        :rtype: bool
-
-        """
-        return self._closed_by_broker
 
     @property
     def is_closing(self):
@@ -1098,19 +1055,18 @@ class Channel(object):
         `Channel.add_on_close_callback()`, and mop up.
 
         Assumes that the channel is not in CLOSED state and that
-        `self._closing_code_and_text` has been set up
+        `self._closing_reason` has been set up
 
         """
         assert not self.is_closed
-        assert self._closing_code_and_text is not None
+        assert self._closing_reason is not None
 
         self._set_state(self.CLOSED)
 
         try:
             self.callbacks.process(self.channel_number, '_on_channel_close',
                                    self, self,
-                                   self._closing_code_and_text[0],
-                                   self._closing_code_and_text[1])
+                                   self._closing_reason)
         finally:
             self._cleanup()
 
@@ -1128,18 +1084,15 @@ class Channel(object):
         # Note, we should not be called when channel is already closed
         assert not self.is_closed
 
-        # Set this early so that the correct value is available to callbacks,
-        # etc.
-        self._closed_by_broker = True
-
         # AMQP 0.9.1 requires CloseOk response to Channel.Close;
         self._send_method(spec.Channel.CloseOk())
 
         # Save the details, possibly overriding user-provided values if
         # user-initiated close is pending (in which case they will be provided
         # to user callback when CloseOk arrives).
-        self._closing_code_and_text = (method_frame.method.reply_code,
-                                       method_frame.method.reply_text)
+        self._closing_reason = exceptions.ChannelClosedByBroker(
+            method_frame.method.reply_code,
+            method_frame.method.reply_text)
 
         if self.is_closing:
             # Since we may have already put Channel.Close on the wire, we need
@@ -1156,21 +1109,20 @@ class Channel(object):
         else:
             self._transition_to_closed()
 
-    def _on_close_meta(self, reply_code, reply_text):
+    def _on_close_meta(self, reason):
         """Handle meta-close request from either a remote Channel.Close from
         the broker (when a pending Channel.Close method is queued for
         execution) or a Connection's cleanup logic after sudden connection
         loss. We use this opportunity to transition to CLOSED state, clean up
         the channel, and dispatch the on-channel-closed callbacks.
 
-        :param int reply_code: The reply code to pass to on-close callback
-        :param str reply_text: The reply text to pass to on-close callback
+        :param Exception reason: Exception describing the reason for closing.
 
         """
-        LOGGER.debug('Handling meta-close on %s', self)
+        LOGGER.debug('Handling meta-close on %s: %r', self, reason)
 
         if not self.is_closed:
-            self._closing_code_and_text = reply_code, reply_text
+            self._closing_reason = reason
             self._transition_to_closed()
 
     def _on_closeok(self, method_frame):
@@ -1352,9 +1304,8 @@ class Channel(object):
         while self._blocked:
             method = self._blocked.popleft()[0]
             if isinstance(method, spec.Channel.Close):
-                # The desired reply_code and reply_text are already in
-                # self._closing_code_and_text
-                self._on_close_meta(*self._closing_code_and_text)
+                # The desired reason is already in self._closing_reason
+                self._on_close_meta(self._closing_reason)
             else:
                 LOGGER.debug('Ignoring drained blocked method: %s', method)
 
@@ -1437,29 +1388,23 @@ class Channel(object):
                                        arguments=arguments)
 
     def _raise_if_not_open(self):
-        """If channel is not in the OPEN state, raises ChannelClosed with
-        `reply_code` and `reply_text` corresponding to current state. If channel
-        is closed by user (CLOSING or CLOSED states), the values will be as
-        provided to `Channel.close()`. If channel is CLOSED by broker, the
-        values will be from the `Channel-Close` method. If channel is OPENING,
-        `reply_code` will be ClientChannelErrors.OPEN_PENDING`
+        """If channel is not in the OPEN state, raises ChannelWrongStateError
+        with `reply_code` and `reply_text` corresponding to current state.
 
-        :raises exceptions.ChannelClosed: if channel is not in OPEN state.
+        :raises exceptions.ChannelWrongStateError: if channel is not in OPEN
+            state.
         """
         if self._state == self.OPEN:
             return
 
         if self._state == self.OPENING:
-            raise exceptions.ChannelClosed(
-                ClientChannelErrors.OPEN_PENDING,
+            raise exceptions.ChannelWrongStateError(
                 'Channel is opening, but is not usable yet.')
         elif self._state == self.CLOSING:
-            raise exceptions.ChannelClosed(
-                ClientChannelErrors.CLOSE_PENDING,
-                'Channel is closing.')
+            raise exceptions.ChannelWrongStateError('Channel is closing.')
         else:  # Assumed self.CLOSED
             assert self._state == self.CLOSED
-            raise exceptions.ChannelClosed(*self._closing_code_and_text)
+            raise exceptions.ChannelWrongStateError('Channel is closed.')
 
     def _send_method(self, method, content=None):
         """Shortcut wrapper to send a method through our connection, passing in

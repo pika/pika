@@ -250,6 +250,7 @@ class TestConnectionContextManagerExitSurvivesClosedConnection(BlockingTestCaseB
         with self._connect() as connection:
             self.assertTrue(connection.is_open)
             connection.close()
+            self.assertTrue(connection.is_closed)
 
         self.assertTrue(connection.is_closed)
 
@@ -387,7 +388,7 @@ class TestSuddenBrokerDisconnectBeforeChannel(BlockingTestCaseBase):
         self.assertIsNone(self.connection._impl._transport)
 
 
-class TestNoAccessToFileDescriptorAfterConnectionClosed(BlockingTestCaseBase):
+class TestNoAccessToConnectionAfterConnectionLost(BlockingTestCaseBase):
 
     def test(self):
         """BlockingConnection no access file descriptor after StreamLostError
@@ -807,7 +808,7 @@ class TestExchangeDeclareAndDelete(BlockingTestCaseBase):
         self.assertIsInstance(frame.method, pika.spec.Exchange.DeleteOk)
 
         # Verify that it's been deleted
-        with self.assertRaises(pika.exceptions.ChannelClosed) as cm:
+        with self.assertRaises(pika.exceptions.ChannelClosedByBroker) as cm:
             ch.exchange_declare(name, passive=True)
 
         self.assertEqual(cm.exception.args[0], 404)
@@ -899,7 +900,7 @@ class TestQueueDeclareAndDelete(BlockingTestCaseBase):
         self.assertIsInstance(frame.method, pika.spec.Queue.DeleteOk)
 
         # Verify that it's been deleted
-        with self.assertRaises(pika.exceptions.ChannelClosed) as cm:
+        with self.assertRaises(pika.exceptions.ChannelClosedByBroker) as cm:
             ch.queue_declare(q_name, passive=True)
 
         self.assertEqual(cm.exception.args[0], 404)
@@ -915,7 +916,7 @@ class TestPassiveQueueDeclareOfUnknownQueueRaisesChannelClosed(
         q_name = ("TestPassiveQueueDeclareOfUnknownQueueRaisesChannelClosed_q_"
                   + uuid.uuid1().hex)
 
-        with self.assertRaises(pika.exceptions.ChannelClosed) as ex_cm:
+        with self.assertRaises(pika.exceptions.ChannelClosedByBroker) as ex_cm:
             ch.queue_declare(q_name, passive=True)
 
         self.assertEqual(ex_cm.exception.args[0], 404)
@@ -1421,7 +1422,7 @@ class TestBasicConsumeFromUnknownQueueRaisesChannelClosed(BlockingTestCaseBase):
         q_name = ("TestBasicConsumeFromUnknownQueueRaisesChannelClosed_q_" +
                   uuid.uuid1().hex)
 
-        with self.assertRaises(pika.exceptions.ChannelClosed) as ex_cm:
+        with self.assertRaises(pika.exceptions.ChannelClosedByBroker) as ex_cm:
             ch.basic_consume(q_name, lambda *args: None)
 
         self.assertEqual(ex_cm.exception.args[0], 404)
@@ -2570,12 +2571,8 @@ class TestStartConsumingRaisesChannelClosedOnSameChannelFailure(BlockingTestCase
                 routing_key='123',
                 body=b'Nope this is wrong'))
 
-        self.assertFalse(ch._impl.is_closed_by_broker)
-
-        with self.assertRaises(pika.exceptions.ChannelClosed):
+        with self.assertRaises(pika.exceptions.ChannelClosedByBroker):
             ch.start_consuming()
-
-        self.assertTrue(ch._impl.is_closed_by_broker)
 
 
 class TestStartConsumingReturnsAfterCancelFromBroker(BlockingTestCaseBase):
@@ -3031,13 +3028,9 @@ class TestConsumeGeneratorPassesChannelClosedOnSameChannelFailure(BlockingTestCa
                 routing_key='123',
                 body=b'Nope this is wrong'))
 
-        self.assertFalse(ch._impl.is_closed_by_broker)
-
-        with self.assertRaises(pika.exceptions.ChannelClosed):
+        with self.assertRaises(pika.exceptions.ChannelClosedByBroker):
             for _ in ch.consume(q_name):
                 pass
-
-        self.assertTrue(ch._impl.is_closed_by_broker)
 
 
 class TestChannelFlow(BlockingTestCaseBase):
@@ -3072,6 +3065,66 @@ class TestChannelFlow(BlockingTestCaseBase):
         # Verify still one active consumer on the queue now
         frame = ch.queue_declare(q_name, passive=True)
         self.assertEqual(frame.method.consumer_count, 1)
+
+
+class TestChannelRaisesWrongStateWhenDeclaringQueueOnClosedChannel(BlockingTestCaseBase):
+    def test(self):
+        """BlockingConnection: Declaring queue on closed channel raises ChannelWrongStateError"""
+        q_name = (
+            'TestChannelRaisesWrongStateWhenDeclaringQueueOnClosedChannel_q' +
+            uuid.uuid1().hex)
+
+        channel = self._connect().channel()
+        channel.close()
+        with self.assertRaises(pika.exceptions.ChannelWrongStateError):
+            channel.queue_declare(q_name)
+
+
+class TestChannelRaisesWrongStateWhenClosingClosedChannel(BlockingTestCaseBase):
+    def test(self):
+        """BlockingConnection: Closing closed channel raises ChannelWrongStateError"""
+        channel = self._connect().channel()
+        channel.close()
+        with self.assertRaises(pika.exceptions.ChannelWrongStateError):
+            channel.close()
+
+
+class TestChannelContextManagerClosesChannel(BlockingTestCaseBase):
+    def test(self):
+        """BlockingConnection: chanel context manager exit survives closed channel"""
+        with self._connect().channel() as channel:
+            self.assertTrue(channel.is_open)
+
+        self.assertTrue(channel.is_closed)
+
+
+class TestChannelContextManagerExitSurvivesClosedChannel(BlockingTestCaseBase):
+    def test(self):
+        """BlockingConnection: chanel context manager exit survives closed channel"""
+        with self._connect().channel() as channel:
+            self.assertTrue(channel.is_open)
+            channel.close()
+            self.assertTrue(channel.is_closed)
+
+        self.assertTrue(channel.is_closed)
+
+
+class TestChannelContextManagerDoesNotSuppressChannelClosedByBroker(
+        BlockingTestCaseBase):
+    def test(self):
+        """BlockingConnection: chanel context manager doesn't suppress ChannelClosedByBroker exception"""
+
+        exg_name = (
+            "TestChannelContextManagerDoesNotSuppressChannelClosedByBroker" +
+            uuid.uuid1().hex)
+
+        with self.assertRaises(pika.exceptions.ChannelClosedByBroker) as cm:
+            with self._connect().channel() as channel:
+                # Passively declaring non-existent exchange should force broker
+                # to close channel
+                channel.exchange_declare(exg_name, passive=True)
+
+        self.assertTrue(channel.is_closed)
 
 
 if __name__ == '__main__':
