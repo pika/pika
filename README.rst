@@ -112,24 +112,25 @@ connection errors. Simplified example:
 .. code :: python
     import pika
     while(True):
-    try:
-        connection = pika.BlockingConnection(parameters)
-        channel = connection.channel()
-        channel.basic_consume('standard', on_message_callback)
-        channel.start_consuming()
-    # Do not recover if connection was closed by broker
-    except pika.exceptions.ConnectionClosedByBroker:
-        break
-    # Do not recover on channel errors
-    except pika.exceptions.AMQPChannelError:
-        break
-    # Recover on all other connection errors
-    except pika.exceptions.AMQPConnectionError:
-        continue
+        try:
+            connection = pika.BlockingConnection(parameters)
+            channel = connection.channel()
+            channel.basic_consume('standard', on_message_callback)
+            channel.start_consuming()
+        # Do not recover if connection was closed by broker
+        except pika.exceptions.ConnectionClosedByBroker:
+            break
+        # Do not recover on channel errors
+        except pika.exceptions.AMQPChannelError:
+            break
+        # Recover on all other connection errors
+        except pika.exceptions.AMQPConnectionError:
+            continue
 
 This example can be found in `examples/consume_recover.py`.
 
-You can also use decorators like `retry` to set up recovery behaviour:
+You can also use decorators like `retry <https://github.com/invl/retry>`_
+to set up recovery behaviour:
 
 .. code :: python
     from retry import retry
