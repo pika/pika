@@ -110,6 +110,7 @@ For BlockingConnection adapter exception handling can be used to check for
 connection errors. Simplified example:
 
 .. code :: python
+
     import pika
     while(True):
         try:
@@ -133,6 +134,7 @@ You can also use decorators like `retry <https://github.com/invl/retry>`_
 to set up recovery behaviour:
 
 .. code :: python
+
     from retry import retry
     @retry(pika.exceptions.AMQPConnectionError, delay=5, jitter=(1, 3))
     def consume():
@@ -157,6 +159,7 @@ This callback can be used to clean up and recover the connection.
 For example:
 
 .. code :: python
+
     def on_connection_closed(self, connection, reason):
         """This method is invoked by pika when the connection to RabbitMQ is
         closed unexpectedly. Since it is unexpected, we will reconnect to
