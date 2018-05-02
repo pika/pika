@@ -75,8 +75,8 @@ class BlockingTestCaseBase(unittest.TestCase):
 
         # We use impl's timer directly in order to get a callback regardless
         # of BlockingConnection's event dispatch modality
-        connection._impl.add_timeout(self.TIMEOUT, # pylint: disable=E1101
-                                     self._on_test_timeout)
+        connection._impl._adapter_add_timeout(self.TIMEOUT, # pylint: disable=E1101
+                                              self._on_test_timeout)
 
         # Patch calls into I/O loop to fail test if exceptions are
         # leaked back through SelectConnection or the I/O loop.

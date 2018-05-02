@@ -107,7 +107,7 @@ class HeartbeatChecker(object):
         """Stop the heartbeat checker"""
         if self._timer:
             LOGGER.debug('Removing timeout for next heartbeat interval')
-            self._connection.remove_timeout(self._timer)
+            self._connection._adapter_remove_timeout(self._timer)  # pylint: disable=W0212
             self._timer = None
 
     def _close_connection(self):
@@ -156,8 +156,9 @@ class HeartbeatChecker(object):
         every interval seconds.
 
         """
-        self._timer = self._connection.add_timeout(self._interval,
-                                                   self.send_and_check)
+        self._timer = self._connection._adapter_add_timeout(  # pylint: disable=W0212
+            self._interval,
+            self.send_and_check)
 
     def _start_timer(self):
         """If the connection still has this object set for heartbeats, add a

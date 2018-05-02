@@ -345,21 +345,28 @@ class TwistedProtocolConnection(pika.connection.Connection):
         return d.addCallback(TwistedChannel)
 
 
-    def add_timeout(self, deadline, callback):
-        """Implement pure virtual
-        :py:ref:meth:`pika.connection.Connection.add_timeout()` method.
+    def _adapter_add_timeout(self, deadline, callback):
+        """Implement
+        :py:meth:`pika.connection.Connection._adapter_add_timeout()`.
 
         """
         check_callback_arg(callback, 'callback')
         return _TimerHandle(self._reactor.callLater(deadline, callback))
 
-    def remove_timeout(self, timeout_id):
-        """Implement pure virtual
-        :py:ref:meth:`pika.connection.Connection.remove_timeout()` method.
+    def _adapter_remove_timeout(self, timeout_id):
+        """Implement
+        :py:meth:`pika.connection.Connection._adapter_remove_timeout()`.
 
-        :param _TimerHandle timeout_id:
         """
         timeout_id.cancel()
+
+    def _adapter_add_callback_threadsafe(self, callback):
+        """Implement
+        :py:meth:`pika.connection.Connection._adapter_add_callback_threadsafe()`.
+
+        """
+        check_callback_arg(callback, 'callback')
+        self._reactor.callFromThread(callback)
 
     def _adapter_connect_stream(self):
         """Implement pure virtual

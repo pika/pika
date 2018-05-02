@@ -1191,7 +1191,7 @@ class Connection(pika.compat.AbstractBase):
             if self._blocked_conn_timer is not None:
                 # Blocked connection timer was active when teardown was
                 # initiated
-                self.remove_timeout(self._blocked_conn_timer)
+                self._adapter_remove_timeout(self._blocked_conn_timer)
                 self._blocked_conn_timer = None
 
             self.add_on_connection_blocked_callback(
@@ -1297,29 +1297,6 @@ class Connection(pika.compat.AbstractBase):
             self.callbacks.remove(0, self.ON_CONNECTION_ERROR,
                                   self._default_on_connection_error)
         self.callbacks.add(0, self.ON_CONNECTION_ERROR, callback, False)
-
-    @abc.abstractmethod
-    def add_timeout(self, deadline, callback):
-        """Adapters should override to call the callback after the
-        specified number of seconds have elapsed, using a timer, or a
-        thread, or similar.
-
-        :param float deadline: The number of seconds to wait to call callback
-        :param method callback: The callback will be called without args.
-        :return: Handle that can be passed to `remove_timeout()` to cancel the
-            callback.
-
-        """
-        raise NotImplementedError
-
-    @abc.abstractmethod
-    def remove_timeout(self, timeout_id):
-        """Adapters should override: Remove a timeout
-
-        :param opaque timeout_id: The timeout handle to remove
-
-        """
-        raise NotImplementedError
 
     def channel(self, channel_number=None, on_open_callback=None):
         """Create a new channel with the next available channel number or pass
@@ -1488,6 +1465,44 @@ class Connection(pika.compat.AbstractBase):
 
         """
         return self.server_capabilities.get('publisher_confirms', False)
+
+    @abc.abstractmethod
+    def _adapter_add_timeout(self, deadline, callback):
+        """Adapters should override to call the callback after the
+        specified number of seconds have elapsed, using a timer, or a
+        thread, or similar.
+
+        :param float | int deadline: The number of seconds to wait to call
+            callback
+        :param method callback: The callback will be called without args.
+        :return: Handle that can be passed to `_adapter_remove_timeout()` to
+            cancel the callback.
+
+        """
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def _adapter_remove_timeout(self, timeout_id):
+        """Adapters should override: Remove a timeout
+
+        :param opaque timeout_id: The timeout handle to remove
+
+        """
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def _adapter_add_callback_threadsafe(self, callback):
+        """Requests a call to the given function as soon as possible in the
+        context of this connection's IOLoop thread.
+
+        NOTE: This is the only thread-safe method offered by the connection. All
+         other manipulations of the connection must be performed from the
+         connection's thread.
+
+        :param method callback: The callback method; must be callable.
+
+        """
+        raise NotImplementedError
 
     #
     # Internal methods for managing the communication process
@@ -1840,7 +1855,7 @@ class Connection(pika.compat.AbstractBase):
                            '_on_connection_blocked is called',
                            self._blocked_conn_timer)
         else:
-            self._blocked_conn_timer = self.add_timeout(
+            self._blocked_conn_timer = self._adapter_add_timeout(
                 self.params.blocked_connection_timeout,
                 self._on_blocked_connection_timeout)
 
@@ -1858,7 +1873,7 @@ class Connection(pika.compat.AbstractBase):
             LOGGER.warning('_blocked_conn_timer was not active when '
                            '_on_connection_unblocked called')
         else:
-            self.remove_timeout(self._blocked_conn_timer)
+            self._adapter_remove_timeout(self._blocked_conn_timer)
             self._blocked_conn_timer = None
 
     def _on_connection_close_from_broker(self, method_frame):

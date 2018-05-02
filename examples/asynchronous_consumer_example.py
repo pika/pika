@@ -74,7 +74,7 @@ class ExampleConsumer(object):
 
         """
         LOGGER.error('Connection open failed: %s', err)
-        self._connection.add_timeout(5, self.reconnect)
+        self._connection.ioloop.call_later(5, self.reconnect)
 
     def on_connection_closed(self, connection, reason):
         """This method is invoked by pika when the connection to RabbitMQ is
@@ -92,7 +92,7 @@ class ExampleConsumer(object):
         else:
             LOGGER.warning('Connection closed, reopening in 5 seconds: %s',
                             reason)
-            self._connection.add_timeout(5, self.reconnect)
+            self._connection.ioloop.call_later(5, self.reconnect)
 
     def reconnect(self):
         """Will be invoked by the IOLoop timer if the connection is

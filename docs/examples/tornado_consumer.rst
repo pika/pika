@@ -85,7 +85,7 @@ consumer.py::
             else:
                 LOGGER.warning('Connection closed, reopening in 5 seconds: %s',
                                reason)
-                self._connection.add_timeout(5, self.reconnect)
+                self._connection.ioloop.call_later(5, self.reconnect)
 
         def on_connection_open(self, unused_connection):
             """This method is called by pika once the connection to RabbitMQ has

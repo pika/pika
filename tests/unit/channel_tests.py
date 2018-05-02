@@ -32,8 +32,10 @@ class ConnectionTemplate(connection.Connection):
     _adapter_emit_data = connection.Connection._adapter_emit_data
     _adapter_get_write_buffer_size = (
         connection.Connection._adapter_get_write_buffer_size)
-    add_timeout = connection.Connection.add_timeout
-    remove_timeout = connection.Connection.remove_timeout
+    _adapter_add_timeout = connection.Connection._adapter_add_timeout
+    _adapter_remove_timeout = connection.Connection._adapter_remove_timeout
+    _adapter_add_callback_threadsafe = (
+        connection.Connection._adapter_add_callback_threadsafe)
 
 
 class ChannelTests(unittest.TestCase):
