@@ -93,6 +93,68 @@ Pika provides the following adapters
 - TornadoConnection  - adapter for use with the Tornado IO Loop http://tornadoweb.org
 - TwistedConnection  - adapter for use with the Twisted asynchronous package http://twistedmatrix.com/
 
+Connection recovery
+-------------------
+
+Some RabbitMQ clients use automated connection recovery mechanisms to
+reconnect and recover channels and consumers in case of network errors.
+
+Different types of connection adapters alow you to set up different approaches
+to connection recovery.
+
+For BlockingConnection adapter exception handling can be used to check for
+connection errors. Simplified example:
+
+.. code :: python
+
+    import pika
+    while(True):
+        try:
+            connection = pika.BlockingConnection(parameters)
+            channel = connection.channel()
+            channel.basic_consume('standard', on_message_callback)
+            channel.start_consuming()
+        # Do not recover if connection was closed by broker
+        except pika.exceptions.ConnectionClosedByBroker:
+            break
+        # Do not recover on channel errors
+        except pika.exceptions.AMQPChannelError:
+            break
+        # Recover on all other connection errors
+        except pika.exceptions.AMQPConnectionError:
+            continue
+
+This example can be found in `examples/consume_recover.py`.
+
+You can also use decorators like `retry <https://github.com/invl/retry>`_
+to set up recovery behaviour:
+
+.. code :: python
+
+    from retry import retry
+    @retry(pika.exceptions.AMQPConnectionError, delay=5, jitter=(1, 3))
+    def consume():
+        connection = pika.BlockingConnection(parameters)
+        channel = connection.channel()
+        channel.basic_consume('standard', on_message_callback)
+        try:
+            channel.start_consuming()
+        # Do not recover connections closed by server
+        except pika.exceptions.ConnectionClosedByBroker:
+            pass
+    consume()
+
+These decorators allow you to configure some additional recovery behaviours,
+like delays and attempts count.
+
+This example can be found in `examples/consume_recover_retry.py`.
+
+For asynchronous adapters you can use `on_close_callback` for connection.
+This callback can be used to clean up and recover the connection.
+
+An example of recovery using `on_close_callback` can be found
+in `examples/asynchronous_consumer_example.py`
+
 Contributing
 ------------
 To contribute to pika, please make sure that any new features or changes
