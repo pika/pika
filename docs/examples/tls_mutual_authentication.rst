@@ -13,10 +13,10 @@ tls_example.py::
 
     logging.basicConfig(level=logging.INFO)
     context = ssl.create_default_context(
-        cafile="/Users/me/tls-gen/basic/testca/cacert.pem")
-    context.load_cert_chain("/Users/me/tls-gen/basic/client/cert.pem",
-                            "/Users/me/tls-gen/basic/client/key.pem")
-    ssl_options = pika.SSLOptions(context, "example.com")
+        cafile="PIKA_DIR/testdata/certs/ca_certificate.pem")
+    context.load_cert_chain("PIKA_DIR/testdata/certs/client_certificate.pem",
+                            "PIKA_DIR/testdata/certs/client_key.pem")
+    ssl_options = pika.SSLOptions(context, "localhost")
     conn_params = pika.ConnectionParameters(port=5671,
                                             ssl_options=ssl_options)
     
@@ -30,15 +30,15 @@ rabbitmq.config::
 
     # Enable A.M.Q.P.S.
     listeners.ssl.default = 5671
-    ssl_options.cacertfile = /Users/me/tls-gen/basic/testca/cacert.pem
-    ssl_options.certfile = /Users/me/tls-gen/basic/server/cert.pem
-    ssl_options.keyfile = /Users/me/tls-gen/basic/server/key.pem
+    ssl_options.cacertfile = PIKA_DIR/testdata/certs/ca_certificate.pem
+    ssl_options.certfile = PIKA_DIR/testdata/certs/server_certificate.pem
+    ssl_options.keyfile = PIKA_DIR/testdata/certs/server_key.pem
     ssl_options.verify = verify_peer
     ssl_options.fail_if_no_peer_cert = true
 
     # Enable H.T.T.P.S.
     management.listener.port = 15671
     management.listener.ssl = true
-    management.listener.ssl_opts.cacertfile = /Users/me/tls-gen/basic/testca/cacert.pem
-    management.listener.ssl_opts.certfile = /Users/me/tls-gen/basic/server/cert.pem
-    management.listener.ssl_opts.keyfile = /Users/me/tls-gen/basic/server/key.pem
+    management.listener.ssl_opts.cacertfile = PIKA_DIR/testdata/certs/ca_certificate.pem
+    management.listener.ssl_opts.certfile = PIKA_DIR/testdata/certs/server_certificate.pem
+    management.listener.ssl_opts.keyfile = PIKA_DIR/testdata/certs/server_key.pem
