@@ -96,15 +96,11 @@ Pika provides the following adapters
 Connection recovery
 -------------------
 
-Some RabbitMQ clients using automated connection recovery mechanisms to
+Some RabbitMQ clients use automated connection recovery mechanisms to
 reconnect and recover channels and consumers in case of network errors.
 
-Connection recovery is mostly valuable in case of consumers, because they are
-long-running tasks doing smaller pieces of work on each message, hence they
-can be restarted on errors.
-
-Different connection adapters alow you to set up different approaches to
-connection recovery.
+Different types of connection adapters alow you to set up different approaches
+to connection recovery.
 
 For BlockingConnection adapter exception handling can be used to check for
 connection errors. Simplified example:
@@ -156,29 +152,8 @@ This example can be found in `examples/consume_recover_retry.py`.
 For asynchronous adapters you can use `on_close_callback` for connection.
 This callback can be used to clean up and recover the connection.
 
-For example:
-
-.. code :: python
-
-    def on_connection_closed(self, connection, reason):
-        """This method is invoked by pika when the connection to RabbitMQ is
-        closed unexpectedly. Since it is unexpected, we will reconnect to
-        RabbitMQ if it disconnects.
-
-        :param pika.connection.Connection connection: The closed connection obj
-        :param Exception reason: exception representing reason for loss of
-            connection.
-
-        """
-        self._channel = None
-        if self._closing:
-            self._connection.ioloop.stop()
-        else:
-            LOGGER.warning('Connection closed, reopening in 5 seconds: %s',
-                            reason)
-            self._connection.add_timeout(5, self.reconnect)
-
-The full example can be found in `examples/asynchronous_consumer_example.py`
+An example of recovery using `on_close_callback` can be found
+in `examples/asynchronous_consumer_example.py`
 
 Contributing
 ------------

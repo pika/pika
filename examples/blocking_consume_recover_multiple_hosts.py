@@ -1,17 +1,24 @@
 import functools
 import pika
+import random
 
 def on_message(channel, method_frame, header_frame, body, userdata=None):
     print('Userdata: {} Message body: {}'.format(userdata, body))
     channel.basic_ack(delivery_tag=method_frame.delivery_tag)
 
 credentials = pika.PlainCredentials('guest', 'guest')
-parameters =  pika.ConnectionParameters('localhost', credentials=credentials)
+
+params1 = pika.ConnectionParameters('localhost', port=5672, credentials=credentials)
+params2 = pika.ConnectionParameters('localhost', port=5673, credentials=credentials)
+params3 = pika.ConnectionParameters('localhost', port=5674, credentials=credentials)
+params_all = [params1, params2, params3]
+
 
 # Infinite loop
 while(True):
     try:
-        connection = pika.BlockingConnection(parameters)
+        random.shuffle(params_all)
+        connection = pika.BlockingConnection(params_all)
         channel = connection.channel()
         channel.exchange_declare(exchange='test_exchange', exchange_type='direct', passive=False, durable=True, auto_delete=False)
         channel.queue_declare(queue='standard', auto_delete=True)
@@ -25,8 +32,9 @@ while(True):
             channel.start_consuming()
         except KeyboardInterrupt:
             channel.stop_consuming()
-            connection.close()
-            break
+
+        connection.close()
+        break
     # Do not recover if connection was closed by broker
     except pika.exceptions.ConnectionClosedByBroker:
         break
@@ -36,5 +44,4 @@ while(True):
     # Recover on all other connection errors
     except pika.exceptions.AMQPConnectionError:
         continue
-
 
