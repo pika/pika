@@ -878,14 +878,6 @@ class BlockingConnection(object):
         return self._impl.is_closed
 
     @property
-    def is_closing(self):
-        """
-        Returns True if connection is in the process of closing due to
-        client-initiated `close` request, but closing is not yet complete.
-        """
-        return self._impl.is_closing
-
-    @property
     def is_open(self):
         """
         Returns a boolean reporting the current connection state.
@@ -1292,16 +1284,6 @@ class BlockingChannel(object):
 
         """
         return self._impl.is_closed
-
-    @property
-    def is_closing(self):
-        """Returns True if client-initiated closing of the channel is in
-        progress.
-
-        :rtype: bool
-
-        """
-        return self._impl.is_closing
 
     @property
     def is_open(self):

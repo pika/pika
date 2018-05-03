@@ -146,12 +146,12 @@ class TestCreateAndCloseConnection(BlockingTestCaseBase):
         self.assertIsInstance(connection, pika.BlockingConnection)
         self.assertTrue(connection.is_open)
         self.assertFalse(connection.is_closed)
-        self.assertFalse(connection.is_closing)
+        self.assertFalse(connection._impl.is_closing)
 
         connection.close()
         self.assertTrue(connection.is_closed)
         self.assertFalse(connection.is_open)
-        self.assertFalse(connection.is_closing)
+        self.assertFalse(connection._impl.is_closing)
 
 
 class TestCreateConnectionWithNoneSocketAndStackTimeouts(BlockingTestCaseBase):
@@ -223,12 +223,12 @@ class TestMultiCloseConnectionRaisesWrongState(BlockingTestCaseBase):
         self.assertIsInstance(connection, pika.BlockingConnection)
         self.assertTrue(connection.is_open)
         self.assertFalse(connection.is_closed)
-        self.assertFalse(connection.is_closing)
+        self.assertFalse(connection._impl.is_closing)
 
         connection.close()
         self.assertTrue(connection.is_closed)
         self.assertFalse(connection.is_open)
-        self.assertFalse(connection.is_closing)
+        self.assertFalse(connection._impl.is_closing)
 
         with self.assertRaises(pika.exceptions.ConnectionWrongStateError):
             connection.close()
@@ -347,7 +347,7 @@ class TestCreateAndCloseConnectionWithChannelAndConsumer(BlockingTestCaseBase):
         connection.close()
         self.assertTrue(connection.is_closed)
         self.assertFalse(connection.is_open)
-        self.assertFalse(connection.is_closing)
+        self.assertFalse(connection._impl.is_closing)
 
         self.assertFalse(connection._impl._channels)
 
@@ -761,7 +761,7 @@ class TestConnectionProperties(BlockingTestCaseBase):
         connection = self._connect()
 
         self.assertTrue(connection.is_open)
-        self.assertFalse(connection.is_closing)
+        self.assertFalse(connection._impl.is_closing)
         self.assertFalse(connection.is_closed)
 
         self.assertTrue(connection.basic_nack_supported)
@@ -771,7 +771,7 @@ class TestConnectionProperties(BlockingTestCaseBase):
 
         connection.close()
         self.assertFalse(connection.is_open)
-        self.assertFalse(connection.is_closing)
+        self.assertFalse(connection._impl.is_closing)
         self.assertTrue(connection.is_closed)
 
 
@@ -786,13 +786,13 @@ class TestCreateAndCloseChannel(BlockingTestCaseBase):
         self.assertIsInstance(ch, blocking_connection.BlockingChannel)
         self.assertTrue(ch.is_open)
         self.assertFalse(ch.is_closed)
-        self.assertFalse(ch.is_closing)
+        self.assertFalse(ch._impl.is_closing)
         self.assertIs(ch.connection, connection)
 
         ch.close()
         self.assertTrue(ch.is_closed)
         self.assertFalse(ch.is_open)
-        self.assertFalse(ch.is_closing)
+        self.assertFalse(ch._impl.is_closing)
 
 
 class TestExchangeDeclareAndDelete(BlockingTestCaseBase):
