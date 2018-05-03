@@ -39,6 +39,9 @@ from pika.adapters import select_connection
 # invalid-name
 # pylint: disable=C0103
 
+# attribute-defined-outside-init
+# pylint: disable=W0201
+
 
 LOGGER = logging.getLogger(__name__)
 
@@ -151,10 +154,10 @@ class IOLoopCloseClosesSubordinateObjectsTestSelect(IOLoopBaseTest):
             self.ioloop.close()
             mocks['_timer'].close.assert_called_once_with()
             mocks['_poller'].close.assert_called_once_with()
-            self.assertIsNone(self.ioloop._callbacks)
+            self.assertEqual(self.ioloop._callbacks, [])
 
 
-class IOLoopCloseAfterStartReturnsTestSelect(IOLoopBaseTest):
+class IOLoopCloseAfterStartReturnsTest(IOLoopBaseTest):
     """ Test IOLoop.close() after normal return from start(). """
     SELECT_POLLER = 'select'
 
@@ -162,7 +165,7 @@ class IOLoopCloseAfterStartReturnsTestSelect(IOLoopBaseTest):
         self.ioloop.stop() # so start will terminate quickly
         self.start()
         self.ioloop.close()
-        self.assertIsNone(self.ioloop._callbacks)
+        self.assertEqual(self.ioloop._callbacks, [])
 
 
 class IOLoopCloseBeforeStartReturnsTestSelect(IOLoopBaseTest):
@@ -216,6 +219,20 @@ class IOLoopThreadStopTestEPoll(IOLoopThreadStopTestSelect):
 class IOLoopThreadStopTestKqueue(IOLoopThreadStopTestSelect):
     """Same as IOLoopThreadStopTestSelect but uses 'kqueue' syscall."""
     SELECT_POLLER = 'kqueue'
+
+
+class IOLoopAddCallbackAfterCloseDoesNotRaiseTestSelect(IOLoopBaseTest):
+    """ Test ioloop add_callback_threadsafe() after ioloop close doesn't raise exception. """
+    SELECT_POLLER = 'select'
+
+    def start_test(self):
+        # Simulate closing after start returns
+        self.ioloop.stop()  # so that start() returns ASAP
+        self.start() # NOTE: Normal return from `start()` constitutes success
+        self.ioloop.close()
+
+        # Expect: add_callback_threadsafe() won't raise after ioloop.close()
+        self.ioloop.add_callback_threadsafe(lambda: None)
 
 
 # TODO FUTURE - fix this flaky test

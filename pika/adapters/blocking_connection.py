@@ -21,6 +21,7 @@ from collections import namedtuple, deque
 import contextlib
 import functools
 import logging
+import threading
 import time
 
 import pika.channel
@@ -338,6 +339,12 @@ class BlockingConnection(object):
         :raises RuntimeError:
 
         """
+        # Used for mutual exclusion to avoid race condition between
+        # BlockingConnection._cleanup() and another thread calling
+        # BlockingConnection.add_callback_threadsafe() against a closed
+        # ioloop.
+        self._cleanup_mutex = threading.Lock()
+
         # Used by the _acquire_event_dispatch decorator; when already greater
         # than 0, event dispatch is already acquired higher up the call stack
         self._event_dispatch_suspend_depth = 0
@@ -372,11 +379,14 @@ class BlockingConnection(object):
             self.close()
 
     def _cleanup(self):
-        """Clean up members that might inhibit garbage collection"""
-        if self._impl is not None:
-            self._impl.ioloop.close()
-        self._ready_events.clear()
-        self._closed_result.reset()
+        """Clean up members that might inhibit garbage collection
+
+        """
+        with self._cleanup_mutex:
+            if self._impl is not None:
+                self._impl.ioloop.close()
+            self._ready_events.clear()
+            self._closed_result.reset()
 
     @contextlib.contextmanager
     def _acquire_event_dispatch(self):
@@ -715,9 +725,17 @@ class BlockingConnection(object):
 
         :param method callback: The callback method; must be callable
 
+        :raises pika.exceptions.ConnectionWrongStateError: if connection is
+            closed
         """
-        self._impl.add_callback_threadsafe(
-            functools.partial(self._on_threadsafe_callback, callback))
+        with self._cleanup_mutex:
+            if self.is_closed:
+                raise exceptions.ConnectionWrongStateError(
+                    'BlockingConnection.add_callback_threadsafe() called on '
+                    'closed or closing connection.')
+
+            self._impl.add_callback_threadsafe(
+                functools.partial(self._on_threadsafe_callback, callback))
 
     def remove_timeout(self, timeout_id):
         """Remove a timer if it's still in the timeout stack
