@@ -129,7 +129,7 @@ class AsyncTestCase(unittest.TestCase):
             cafile='testdata/certs/ca_certificate.pem')
         context.load_cert_chain('testdata/certs/client_certificate.pem',
                                 'testdata/certs/client_key.pem')
-        params.ssl_options = pika.SSLOptions(context, "localhost")
+        params.ssl_options = pika.SSLOptions(context, 'localhost')
         return params
 
     @staticmethod
