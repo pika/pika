@@ -125,13 +125,11 @@ class AsyncTestCase(unittest.TestCase):
         self.logger.info('testing using TLS/SSL connection to port 5671')
         params = self._new_plaintext_connection_params()
         params.port = 5671
-        context = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
-        context.verify_mode = ssl.CERT_REQUIRED
-        context.load_verify_locations('testdata/certs/ca_certificate.pem')
+        context = ssl.create_default_context(
+            cafile='testdata/certs/ca_certificate.pem')
         context.load_cert_chain('testdata/certs/client_certificate.pem',
                                 'testdata/certs/client_key.pem')
-        params.ssl_options = pika.SSLOptions(context)
-
+        params.ssl_options = pika.SSLOptions(context, "localhost")
         return params
 
     @staticmethod
