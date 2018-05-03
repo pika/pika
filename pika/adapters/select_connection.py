@@ -352,7 +352,10 @@ class IOLoop(AbstractSelectorIOLoop):
         if self._callbacks is not None:
             self._poller.close()
             self._timer.close()
-            self._callbacks = None
+            # Set _callbacks to empty list rather than None so that race from
+            # another thread calling add_callback_threadsafe() won't result in
+            # AttributeError
+            self._callbacks = []
 
     @staticmethod
     def _get_poller(get_wait_seconds, process_timeouts):

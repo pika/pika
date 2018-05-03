@@ -635,6 +635,18 @@ class TestAddCallbackThreadsafeFromAnotherThread(BlockingTestCaseBase):
         self.assertLess(elapsed, 0.25)
 
 
+class TestAddCallbackThreadsafeOnClosedConnectionRaisesWrongState(
+        BlockingTestCaseBase):
+
+    def test(self):
+        """BlockingConnection.add_callback_threadsafe on closed connection raises ConnectionWrongStateError"""
+        connection = self._connect()
+        connection.close()
+
+        with self.assertRaises(pika.exceptions.ConnectionWrongStateError):
+            connection.add_callback_threadsafe(lambda: None)
+
+
 class TestAddTimeoutRemoveTimeout(BlockingTestCaseBase):
 
     def test(self):
