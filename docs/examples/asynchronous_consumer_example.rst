@@ -142,7 +142,7 @@ consumer.py::
             LOGGER.info('Adding channel close callback')
             self._channel.add_on_close_callback(self.on_channel_closed)
 
-        def on_channel_closed(self, channel, reply_code, reply_text):
+        def on_channel_closed(self, channel, reason):
             """Invoked by pika when RabbitMQ unexpectedly closes the channel.
             Channels are usually closed if you attempt to do something that
             violates the protocol, such as re-declare an exchange or queue with
@@ -150,12 +150,10 @@ consumer.py::
             to shutdown the object.
 
             :param pika.channel.Channel: The closed channel
-            :param int reply_code: The numeric reason the channel was closed
-            :param str reply_text: The text reason the channel was closed
+            :param Exception reason: why the channel was closed
 
             """
-            LOGGER.warning('Channel %i was closed: (%s) %s',
-                           channel, reply_code, reply_text)
+            LOGGER.warning('Channel %i was closed: %s', channel, reason)
             self._connection.close()
 
         def setup_exchange(self, exchange_name):

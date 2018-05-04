@@ -1219,6 +1219,9 @@ class BlockingChannel(object):
         # Basic.Return in publisher-acknowledgments mode.
         self._puback_return = None
 
+        # self._on_channel_closed() saves the reason exception here
+        self._closing_reason = None  # type: None | Exception
+
         # Receives Basic.ConsumeOk reply from server
         self._basic_consume_ok_result = _CallbackResult()
 
@@ -1261,10 +1264,8 @@ class BlockingChannel(object):
         return self
 
     def __exit__(self, exc_type, value, traceback):
-        try:
+        if self.is_open:
             self.close()
-        except exceptions.ChannelClosed:
-            pass
 
     def _cleanup(self):
         """Clean up members that might inhibit garbage collection"""
@@ -1336,8 +1337,9 @@ class BlockingChannel(object):
             lambda: self.is_closed,
             *waiters)
 
-        if self.is_closed and self._impl.is_closed_by_broker:
-            self._impl._raise_if_not_open()
+        if self.is_closed and isinstance(self._closing_reason,
+                                         exceptions.ChannelClosedByBroker):
+            raise self._closing_reason  # pylint: disable=E0702
 
     def _on_puback_message_returned(self, channel, method, properties, body):
         """Called as the result of Basic.Return from broker in
@@ -1377,7 +1379,7 @@ class BlockingChannel(object):
         self._pending_events.append(evt)
         self.connection._request_channel_dispatch(self.channel_number)
 
-    def _on_channel_closed(self, _channel, reply_code, reply_text):
+    def _on_channel_closed(self, _channel, reason):
         """Callback from impl notifying us that the channel has been closed.
         This may be as the result of user-, broker-, or internal connection
         clean-up initiated closing or meta-closing of the channel.
@@ -1397,16 +1399,14 @@ class BlockingChannel(object):
         See `pika.Channel.add_on_close_callback()` for additional documentation.
 
         :param pika.Channel _channel: (unused)
-        :param int reply_code:
-        :param str reply_text:
-        """
-        LOGGER.debug('_on_channel_closed: by_broker=%s; (%s) %s; %r',
-                     self._impl.is_closed_by_broker,
-                     reply_code,
-                     reply_text,
-                     self)
+        :param Exception reason:
 
-        if self._impl.is_closed_by_broker:
+        """
+        LOGGER.debug('_on_channel_closed: %r; %r', reason, self)
+
+        self._closing_reason = reason
+
+        if isinstance(reason, exceptions.ChannelClosedByBroker):
             self._cleanup()
 
             # Request urgent termination of `process_data_events()`, in case
@@ -2038,11 +2038,11 @@ class BlockingChannel(object):
 
         """
         self.connection.process_data_events(time_limit=time_limit)
-        if self.is_closed and self._impl.is_closed_by_broker:
-            LOGGER.debug(
-                'Channel close by broker detected, raising ChannelClose...; %r',
-                self)
-            self._impl._raise_if_not_open()
+        if self.is_closed and isinstance(self._closing_reason,
+                                         exceptions.ChannelClosedByBroker):
+            LOGGER.debug('Channel close by broker detected, raising %r; %r',
+                         self._closing_reason, self)
+            raise self._closing_reason  # pylint: disable=E0702
 
     def get_waiting_message_count(self):
         """Returns the number of messages that may be retrieved from the current

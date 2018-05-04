@@ -70,6 +70,7 @@ class NoFreeChannels(AMQPConnectionError):
 
 
 class ConnectionWrongStateError(AMQPConnectionError):
+    """Connection is in wrong state for the requested operation."""
 
     def __repr__(self):
         if self.args:
@@ -136,27 +137,29 @@ class AMQPHeartbeatTimeout(AMQPConnectionError):
 class AMQPChannelError(AMQPError):
 
     def __repr__(self):
-        return ('{}: An unspecified AMQP channel error has occurred: {!r}'
-                .format(self.__class__.__name__, self.args))
+        return '{}: {!r}'.format(self.__class__.__name__, self.args)
+
+
+class ChannelWrongStateError(AMQPChannelError):
+    """Channel is in wrong state for the requested operation."""
+    pass
 
 
 class ChannelClosed(AMQPChannelError):
-    """The channel is in a state other than OPEN (e.g., OPENING, CLOSING, or
-    CLOSED). You may introspect the channel's state properties (`is_closed`,
-    `is_closing`).
+    """The channel closed by client or by broker
 
     """
     def __init__(self, reply_code, reply_text):
         """
 
         :param int reply_code: reply-code that was used in user's or broker's
-            `Channel.Close` method. One of the AMQP-defined Channel Errors or
-            negative error values from `Channel.ClientChannelErrors`;
+            `Channel.Close` method. One of the AMQP-defined Channel Errors.
             NEW in v1.0.0
         :param str reply_text: reply-text that was used in user's or broker's
             `Channel.Close` method. Human-readable string corresponding to
             `reply_code`;
             NEW in v1.0.0
+
         """
         super(ChannelClosed, self).__init__(int(reply_code), str(reply_text))
 
@@ -182,10 +185,24 @@ class ChannelClosed(AMQPChannelError):
         return self.args[1]
 
 
-class ChannelAlreadyClosing(AMQPChannelError):
-    """Raised when `Channel.close` is called while channel is already closing"""
+class ChannelClosedByBroker(ChannelClosed):
+    """`Channel.Close` from broker; may be passed as reason to channel's
+    on-closed callback of non-blocking connection adapters or raised by
+    `BlockingConnection`.
+
+    NEW in v1.0.0
+    """
     pass
 
+
+class ChannelClosedByClient(ChannelClosed):
+    """Channel closed by client upon receipt of `Channel.CloseOk`; may be passed
+    as reason to channel's on-closed callback of non-blocking connection
+    adapters, but not raised by `BlockingConnection`.
+
+    NEW in v1.0.0
+    """
+    pass
 
 class DuplicateConsumerTag(AMQPChannelError):
 

@@ -609,7 +609,7 @@ class TestExchangeRedeclareWithDifferentValues(AsyncTestCase, AsyncAdapters):
         channel.exchange_delete(self.name)
         self.stop()
 
-    def on_channel_closed(self, channel, reply_code, reply_text):
+    def on_channel_closed(self, _channel, _reason):
         self.connection.channel(on_open_callback=self.on_cleanup_channel)
 
     def on_exchange_declared(self, frame):
@@ -650,7 +650,7 @@ class TestNoDeadlockWhenClosingChannelWithPendingBlockedRequestsAndConcurrentCha
                                      callback=cb)
         channel.close()
 
-    def on_channel_closed(self, channel, reply_code, reply_text):
+    def on_channel_closed(self, _channel, _reason):
         # The close is expected because the requested exchange doesn't exist
         self.stop()
 
@@ -662,6 +662,7 @@ class TestClosingAChannelPermitsBlockedRequestToComplete(AsyncTestCase,
                                                          AsyncAdapters):
     DESCRIPTION = "Closing a channel permits blocked requests to complete."
 
+    @async_test_base.stop_on_error_in_async_test_case_method
     def begin(self, channel):
         self._queue_deleted = False
 
@@ -687,7 +688,8 @@ class TestClosingAChannelPermitsBlockedRequestToComplete(AsyncTestCase,
         # Getting this callback shows that the blocked request was processed
         self._queue_deleted = True
 
-    def on_channel_closed(self, _channel, _reply_code, _reply_text):
+    @async_test_base.stop_on_error_in_async_test_case_method
+    def on_channel_closed(self, _channel, _reason):
         self.assertTrue(self._queue_deleted)
         self.stop()
 
@@ -695,6 +697,7 @@ class TestClosingAChannelPermitsBlockedRequestToComplete(AsyncTestCase,
 class TestQueueUnnamedDeclareAndDelete(AsyncTestCase, AsyncAdapters):
     DESCRIPTION = "Create and delete an unnamed queue"
 
+    @async_test_base.stop_on_error_in_async_test_case_method
     def begin(self, channel):
         channel.queue_declare(queue='',
                               passive=False,
@@ -704,13 +707,14 @@ class TestQueueUnnamedDeclareAndDelete(AsyncTestCase, AsyncAdapters):
                               arguments={'x-expires': self.TIMEOUT * 1000},
                               callback=self.on_queue_declared)
 
+    @async_test_base.stop_on_error_in_async_test_case_method
     def on_queue_declared(self, frame):
         self.assertIsInstance(frame.method, spec.Queue.DeclareOk)
         self.channel.queue_delete(frame.method.queue, callback=self.on_queue_delete)
 
+    @async_test_base.stop_on_error_in_async_test_case_method
     def on_queue_delete(self, frame):
         self.assertIsInstance(frame.method, spec.Queue.DeleteOk)
-        # NOTE: with event loops that suppress exceptions from callbacks
         self.stop()
 
 
@@ -752,7 +756,7 @@ class TestQueueRedeclareWithDifferentValues(AsyncTestCase, AsyncAdapters):
                               arguments={'x-expires': self.TIMEOUT * 1000},
                               callback=self.on_queue_declared)
 
-    def on_channel_closed(self, channel, reply_code, reply_text):
+    def on_channel_closed(self, _channel, _reason):
         self.stop()
 
     def on_queue_declared(self, frame):
@@ -803,7 +807,7 @@ class TestTX2_CommitFailure(AsyncTestCase, AsyncAdapters):  # pylint: disable=C0
         self.channel.add_on_close_callback(self.on_channel_closed)
         self.channel.tx_commit(callback=self.on_commitok)
 
-    def on_channel_closed(self, channel, reply_code, reply_text):
+    def on_channel_closed(self, _channel, _reason):
         self.stop()
 
     def on_selectok(self, frame):
@@ -836,7 +840,7 @@ class TestTX3_RollbackFailure(AsyncTestCase, AsyncAdapters):  # pylint: disable=
         self.channel.add_on_close_callback(self.on_channel_closed)
         self.channel.tx_rollback(callback=self.on_commitok)
 
-    def on_channel_closed(self, channel, reply_code, reply_text):
+    def on_channel_closed(self, _channel, _reason):
         self.stop()
 
     @staticmethod

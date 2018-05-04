@@ -190,9 +190,7 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
 
         heartbeat.stop.assert_called_once_with()
 
-        self.channel._on_close_meta.assert_called_once_with(
-            pika.channel.ClientChannelErrors.CONNECTION_CLOSED,
-            repr(original_exc))
+        self.channel._on_close_meta.assert_called_once_with(original_exc)
 
         self.assertTrue(self.connection.is_closed)
 
