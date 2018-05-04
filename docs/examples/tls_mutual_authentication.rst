@@ -28,7 +28,7 @@ tls_example.py::
 
 rabbitmq.config::
 
-    # Enable A.M.Q.P.S.
+    # Enable AMQPS
     listeners.ssl.default = 5671
     ssl_options.cacertfile = PIKA_DIR/testdata/certs/ca_certificate.pem
     ssl_options.certfile = PIKA_DIR/testdata/certs/server_certificate.pem
@@ -36,7 +36,7 @@ rabbitmq.config::
     ssl_options.verify = verify_peer
     ssl_options.fail_if_no_peer_cert = true
 
-    # Enable H.T.T.P.S.
+    # Enable HTTPS
     management.listener.port = 15671
     management.listener.ssl = true
     management.listener.ssl_opts.cacertfile = PIKA_DIR/testdata/certs/ca_certificate.pem
