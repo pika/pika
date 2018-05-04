@@ -729,6 +729,11 @@ class BlockingConnection(object):
             closed
         """
         with self._cleanup_mutex:
+            # NOTE: keep in mind that we may be called from another thread and
+            # this mutex only synchronizes us with our connection cleanup logic,
+            # so a simple check for "is_closed" is pretty much all we're allowed
+            # to do here besides calling the only thread-safe method
+            # _adapter_add_callback_threadsafe().
             if self.is_closed:
                 raise exceptions.ConnectionWrongStateError(
                     'BlockingConnection.add_callback_threadsafe() called on '
