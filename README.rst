@@ -12,9 +12,9 @@ extensions.
 - Python 2.7 and 3.4+ are supported.
 
 - Since threads aren't appropriate to every situation, it doesn't
-  require threads. It takes care not to forbid them, either. The same
-  goes for greenlets, callbacks, continuations and generators. It is
-  not necessarily thread-safe however, and your mileage will vary.
+  require threads. Pika core takes care not to forbid them, either. The same
+  goes for greenlets, callbacks, continuations, and generators. An instance of
+  Pika's built-in connection adapters is not thread-safe, however.
 
 - People may be using direct sockets, plain old `select()`,
   or any of the wide variety of ways of getting network events to and from a
