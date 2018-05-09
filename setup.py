@@ -22,7 +22,7 @@ setuptools.setup(
     maintainer='Gavin M. Roy',
     maintainer_email='gavinmroy@gmail.com',
     url='https://pika.readthedocs.io',
-    packages=setuptools.find_packages('pika', 'pika.*'),
+    packages=setuptools.find_packages(include=['pika', 'pika.*']),
     license='BSD',
     install_requires=requirements,
     package_data={'': ['LICENSE', 'README.rst']},
