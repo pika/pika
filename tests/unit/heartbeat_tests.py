@@ -20,15 +20,39 @@ import pika.exceptions
 # pylint: disable=C0103
 
 
+class ConstructableConnection(connection.Connection):
+    """Adds dummy overrides for `Connection`'s abstract methods so
+    that we can instantiate and test it.
+
+    """
+    def _adapter_connect_stream(self):
+        pass
+
+    def _adapter_disconnect_stream(self):
+        raise NotImplementedError
+
+    def add_timeout(self, deadline, callback):
+        raise NotImplementedError
+
+    def remove_timeout(self, timeout_id):
+        raise NotImplementedError
+
+    def _adapter_emit_data(self, data):
+        raise NotImplementedError
+
+    def _adapter_get_write_buffer_size(self):
+        raise NotImplementedError
+
+
 class HeartbeatTests(unittest.TestCase):
 
     INTERVAL = 5
 
     def setUp(self):
-        self.mock_conn = mock.Mock(spec=connection.Connection)
+        self.mock_conn = mock.Mock(spec_set=ConstructableConnection())
         self.mock_conn.bytes_received = 100
         self.mock_conn.bytes_sent = 100
-        self.mock_conn.heartbeat = mock.Mock(spec=heartbeat.HeartbeatChecker)
+        self.mock_conn._heartbeat_checker = mock.Mock(spec=heartbeat.HeartbeatChecker)
         self.obj = heartbeat.HeartbeatChecker(self.mock_conn, self.INTERVAL)
 
     def tearDown(self):
@@ -65,11 +89,11 @@ class HeartbeatTests(unittest.TestCase):
         timer.assert_called_once_with()
 
     def test_active_true(self):
-        self.mock_conn.heartbeat = self.obj
+        self.mock_conn._heartbeat_checker = self.obj
         self.assertTrue(self.obj.active)
 
     def test_active_false(self):
-        self.mock_conn.heartbeat = mock.Mock()
+        self.mock_conn._heartbeat_checker = mock.Mock()
         self.assertFalse(self.obj.active)
 
     def test_bytes_received_on_connection(self):
@@ -178,7 +202,7 @@ class HeartbeatTests(unittest.TestCase):
 
     @mock.patch('pika.heartbeat.HeartbeatChecker._setup_timer')
     def test_start_timer_active(self, setup_timer):
-        self.mock_conn.heartbeat = self.obj
+        self.mock_conn._heartbeat_checker = self.obj
         self.obj._start_timer()
         self.assertTrue(setup_timer.called)
 

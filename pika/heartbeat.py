@@ -50,7 +50,7 @@ class HeartbeatChecker(object):
         :rtype True
 
         """
-        return self._connection.heartbeat is self
+        return self._connection._heartbeat_checker is self
 
     @property
     def bytes_received_on_connection(self):
