@@ -739,6 +739,11 @@ class BlockingConnection(object):
             closed
         """
         with self._cleanup_mutex:
+            # NOTE: keep in mind that we may be called from another thread and
+            # this mutex only synchronizes us with our connection cleanup logic,
+            # so a simple check for "is_closed" is pretty much all we're allowed
+            # to do here besides calling the only thread-safe method
+            # _adapter_add_callback_threadsafe().
             if self.is_closed:
                 raise exceptions.ConnectionWrongStateError(
                     'BlockingConnection.add_callback_threadsafe() called on '
@@ -886,14 +891,6 @@ class BlockingConnection(object):
         Returns a boolean reporting the current connection state.
         """
         return self._impl.is_closed
-
-    @property
-    def is_closing(self):
-        """
-        Returns True if connection is in the process of closing due to
-        client-initiated `close` request, but closing is not yet complete.
-        """
-        return self._impl.is_closing
 
     @property
     def is_open(self):
@@ -1302,16 +1299,6 @@ class BlockingChannel(object):
 
         """
         return self._impl.is_closed
-
-    @property
-    def is_closing(self):
-        """Returns True if client-initiated closing of the channel is in
-        progress.
-
-        :rtype: bool
-
-        """
-        return self._impl.is_closing
 
     @property
     def is_open(self):
