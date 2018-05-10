@@ -1227,11 +1227,15 @@ class Connection(pika.compat.AbstractBase):
         self.callbacks.add(0, self.ON_CONNECTION_CLOSED, callback, False)
 
     def add_on_connection_blocked_callback(self, callback):
-        """Add a callback to be notified when RabbitMQ has sent a
-        ``Connection.Blocked`` frame indicating that RabbitMQ is low on
-        resources. Publishers can use this to voluntarily suspend publishing,
-        instead of relying on back pressure throttling. The callback
-        will be passed the ``Connection.Blocked`` method frame.
+        """RabbitMQ AMQP extension - Add a callback to be notified when the
+        connection gets blocked (`Connection.Blocked` received from RabbitMQ)
+        due to the broker running low on resources (memory or disk). In this
+        state RabbitMQ suspends processing incoming data until the connection
+        is unblocked, so it's a good idea for publishers receiving this
+        notification to suspend publishing until the connection becomes
+        unblocked.
+
+        See also `Connection.add_on_connection_unblocked_callback()`
 
         See also `ConnectionParameters.blocked_connection_timeout`.
 
@@ -1250,10 +1254,9 @@ class Connection(pika.compat.AbstractBase):
                            one_shot=False)
 
     def add_on_connection_unblocked_callback(self, callback):
-        """Add a callback to be notified when RabbitMQ has sent a
-        ``Connection.Unblocked`` frame letting publishers know it's ok
-        to start publishing again. The callback will be passed the
-        ``Connection.Unblocked`` method frame.
+        """RabbitMQ AMQP extension - Add a callback to be notified when the
+        connection gets unblocked (`Connection.Unblocked` frame is received from
+        RabbitMQ) letting publishers know it's ok to start publishing again.
 
         :param method callback: Callback to call on
             `Connection.Unblocked`, having the signature
