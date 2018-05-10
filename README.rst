@@ -62,6 +62,15 @@ And an example of writing a blocking consumer:
     print('Requeued %i messages' % requeued_messages)
     connection.close()
 
+Pika provides the following adapters
+------------------------------------
+
+- AsyncioConnection  - adapter for the Python3 AsyncIO event loop
+- BlockingConnection - enables blocking, synchronous operation on top of library for simple usage
+- SelectConnection   - fast asynchronous adapter without 3rd-party dependencies
+- TornadoConnection  - adapter for use with the Tornado IO Loop http://tornadoweb.org
+- TwistedConnection  - adapter for use with the Twisted asynchronous package http://twistedmatrix.com/
+
 Multiple Connection Parameters
 ------------------------------
 You can also pass multiple connection parameter instances for
@@ -80,18 +89,61 @@ fail.
                                   connection_attempts=5, retry_delay=1))
     connection = pika.BlockingConnection(configs)
 
-With non-blocking adapters, you can request a connection using multiple
-connection parameter instances via the connection adapter's
-`create_connection()` class method.
+With non-blocking adapters, such as `SelectConnection` and `AsyncioConnection`,
+you can request a connection using multiple connection parameter instances via
+the connection adapter's `create_connection()` class method.
 
-Pika provides the following adapters
-------------------------------------
+Requesting message ACKs from another thread
+-------------------------------------------
+The single-threaded usage constraint of an individual Pika connection adapter
+instance may result in a dropped AMQP/stream connection due to AMQP heartbeat
+timeout in consumers that take a long time to process an incoming message. A
+common solution is to delegate processing of the incoming messages to another
+thread, while the connection adapter's thread continues to service its ioloop's
+message pump, permitting AMQP heartbeats and other I/O to be serviced in a
+timely fashion.
 
-- AsyncioConnection  - adapter for the Python3 AsyncIO event loop
-- BlockingConnection - enables blocking, synchronous operation on top of library for simple usage
-- SelectConnection   - fast asynchronous adapter without 3rd-party dependencies
-- TornadoConnection  - adapter for use with the Tornado IO Loop http://tornadoweb.org
-- TwistedConnection  - adapter for use with the Twisted asynchronous package http://twistedmatrix.com/
+Messages processed in another thread may not be ACK'ed directly from that thread,
+since all accesses to the connection adapter instance must be from a single
+thread - the thread that is running the adapter's ioloop. However, this may be
+accomplished by requesting a callback to be executed in the adapter's ioloop
+thread. For example, the callback function's implementation might look like this:
+
+.. code :: python
+
+    def ack_message(channel, delivery_tag):
+        """Note that `channel` must be the same pika channel instance via which
+        the message being ACKed was retrieved (AMQP protocol constraint).
+        """
+        if channel.is_open:
+            channel.basic_ack(delivery_tag)
+        else:
+            # Channel is already closed, so we can't ACK this message;
+            # log and/or do something that makes sense for your app in this case.
+            pass
+
+The code running in the other thread may request the `ack_message()` function
+to be executed in the connection adapter's ioloop thread using an
+adapter-specific mechanism:
+
+- :py:class:`pika.BlockingConnection` abstracts its ioloop from the application
+  and thus exposes :py:meth:`pika.BlockingConnection.add_callback_threadsafe()`.
+  Refer to this method's docstring for additional information. For example:
+
+  .. code :: python
+
+      connection.add_callback_threadsafe(functools.partial(ack_message, channel, delivery_tag))
+
+- When using a non-blocking connection adapter, such as
+  :py:class:`pika.AsyncioConnection` or :py:class:`pika.SelectConnection`, you
+  use the underlying asynchronous framework's native API for requesting an
+  ioloop-bound callback from another thread. For example, `SelectConnection`'s
+  `IOLoop` provides `add_callback_threadsafe()`, `Tornado`'s `IOLoop` has
+  `add_callback()`, while `asyncio`'s event loop exposes `call_soon_threadsafe()`.
+
+This threadsafe callback request mechanism may also be used to delegate
+publishing of messages, etc., from a background thread to the connection adapter's
+thread.
 
 Connection recovery
 -------------------
@@ -162,7 +214,7 @@ Contributing
 To contribute to pika, please make sure that any new features or changes
 to existing functionality **include test coverage**.
 
-*Pull requests that add or change code without coverage will be rejected.*
+*Pull requests that add or change code without adequate test coverage will be rejected.*
 
 Additionally, please format your code using `yapf <http://pypi.python.org/pypi/yapf>`_
 with ``google`` style prior to issuing your pull request.
@@ -170,15 +222,19 @@ with ``google`` style prior to issuing your pull request.
 Extending to support additional I/O frameworks
 ----------------------------------------------
 New non-blocking adapters may be implemented in either of the following ways:
+
 - By subclassing :py:class:`pika.adapters.base_connection.BaseConnection` and
   implementing its abstract method(s) and passing BaseConnection's constructor
   an implementation of
-  :py.class:`pika.adapters.utils.nbio_interface.AbstractIOServices`. For
+  :py.class:`pika.adapters.utils.nbio_interface.AbstractIOServices`.
+  `BaseConnection` implements `pika.connection.connection.Connection`'s pure
+  virtual methods, including internally-initiated connection logic. For
   examples, refer to the implementations of
   :py:class:`pika.AsyncioConnection` and :py:class:`pika.TornadoConnection`.
 - By subclassing :py:class:`pika.connection.connection.Connection` and
-  implementing its abstract method(s). For an example, refer to the
-  implementation of
+  implementing its abstract method(s). This approach facilitates implementation
+  of of custom connection-establishment and transport mechanisms. For an example,
+  refer to the implementation of
   :py:class:`pika.adapters.twisted_connection.TwistedProtocolConnection`.
 
 .. |Version| image:: https://img.shields.io/pypi/v/pika.svg?

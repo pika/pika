@@ -44,10 +44,13 @@ class ConstructibleConnection(connection.Connection):
     def _adapter_disconnect_stream(self):
         raise NotImplementedError
 
-    def add_timeout(self, deadline, callback):
+    def _adapter_add_timeout(self, deadline, callback):
         raise NotImplementedError
 
-    def remove_timeout(self, timeout_id):
+    def _adapter_remove_timeout(self, timeout_id):
+        raise NotImplementedError
+
+    def _adapter_add_callback_threadsafe(self, callback):
         raise NotImplementedError
 
     def _adapter_emit_data(self, data):
@@ -739,7 +742,7 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
         conn.add_on_connection_unblocked_callback.assert_called_once_with(
             conn._on_connection_unblocked)
 
-    @mock.patch.object(ConstructibleConnection, 'add_timeout')
+    @mock.patch.object(ConstructibleConnection, '_adapter_add_timeout')
     @mock.patch.object(
         connection.Connection,
         '_adapter_connect_stream',
@@ -757,12 +760,12 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
             mock.Mock(name='frame.Method(Connection.Blocked)'))
 
         # Check
-        conn.add_timeout.assert_called_once_with(
+        conn._adapter_add_timeout.assert_called_once_with(
             60, conn._on_blocked_connection_timeout)
 
         self.assertIsNotNone(conn._blocked_conn_timer)
 
-    @mock.patch.object(ConstructibleConnection, 'add_timeout')
+    @mock.patch.object(ConstructibleConnection, '_adapter_add_timeout')
     @mock.patch.object(
         connection.Connection,
         '_adapter_connect_stream',
@@ -782,7 +785,7 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
             mock.Mock(name='frame.Method(Connection.Blocked)'))
 
         # Check
-        conn.add_timeout.assert_called_once_with(
+        conn._adapter_add_timeout.assert_called_once_with(
             60, conn._on_blocked_connection_timeout)
 
         self.assertIsNotNone(conn._blocked_conn_timer)
@@ -794,14 +797,14 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
             conn,
             mock.Mock(name='frame.Method(Connection.Blocked)'))
 
-        self.assertEqual(conn.add_timeout.call_count, 1)
+        self.assertEqual(conn._adapter_add_timeout.call_count, 1)
         self.assertIs(conn._blocked_conn_timer, timer)
 
     @mock.patch.object(connection.Connection, '_on_stream_terminated')
     @mock.patch.object(
         ConstructibleConnection,
-        'add_timeout',
-        spec_set=connection.Connection.add_timeout)
+        '_adapter_add_timeout',
+        spec_set=connection.Connection._adapter_add_timeout)
     @mock.patch.object(
         connection.Connection,
         '_adapter_connect_stream',
@@ -832,11 +835,11 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
 
             self.assertIsNone(conn._blocked_conn_timer)
 
-    @mock.patch.object(ConstructibleConnection, 'remove_timeout')
+    @mock.patch.object(ConstructibleConnection, '_adapter_remove_timeout')
     @mock.patch.object(
         ConstructibleConnection,
-        'add_timeout',
-        spec_set=connection.Connection.add_timeout)
+        '_adapter_add_timeout',
+        spec_set=connection.Connection._adapter_add_timeout)
     @mock.patch.object(
         connection.Connection,
         '_adapter_connect_stream',
@@ -863,14 +866,14 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
             mock.Mock(name='frame.Method(Connection.Unblocked)'))
 
         # Check
-        conn.remove_timeout.assert_called_once_with(timer)
+        conn._adapter_remove_timeout.assert_called_once_with(timer)
         self.assertIsNone(conn._blocked_conn_timer)
 
-    @mock.patch.object(ConstructibleConnection, 'remove_timeout')
+    @mock.patch.object(ConstructibleConnection, '_adapter_remove_timeout')
     @mock.patch.object(
         ConstructibleConnection,
-        'add_timeout',
-        spec_set=connection.Connection.add_timeout)
+        '_adapter_add_timeout',
+        spec_set=connection.Connection._adapter_add_timeout)
     @mock.patch.object(
         connection.Connection,
         '_adapter_connect_stream',
@@ -899,7 +902,7 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
             mock.Mock(name='frame.Method(Connection.Unblocked)'))
 
         # Check
-        conn.remove_timeout.assert_called_once_with(timer)
+        conn._adapter_remove_timeout.assert_called_once_with(timer)
         self.assertIsNone(conn._blocked_conn_timer)
 
         # Simulate Connection.Unblocked again
@@ -907,14 +910,14 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
             conn,
             mock.Mock(name='frame.Method(Connection.Unblocked)'))
 
-        self.assertEqual(conn.remove_timeout.call_count, 1)
+        self.assertEqual(conn._adapter_remove_timeout.call_count, 1)
         self.assertIsNone(conn._blocked_conn_timer)
 
-    @mock.patch.object(ConstructibleConnection, 'remove_timeout')
+    @mock.patch.object(ConstructibleConnection, '_adapter_remove_timeout')
     @mock.patch.object(
         ConstructibleConnection,
-        'add_timeout',
-        spec_set=connection.Connection.add_timeout)
+        '_adapter_add_timeout',
+        spec_set=connection.Connection._adapter_add_timeout)
     @mock.patch.object(
         connection.Connection,
         '_adapter_connect_stream',
@@ -945,7 +948,7 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
         conn._on_stream_terminated(exceptions.StreamLostError())
 
         # Check
-        conn.remove_timeout.assert_called_once_with(timer)
+        conn._adapter_remove_timeout.assert_called_once_with(timer)
         self.assertIsNone(conn._blocked_conn_timer)
 
     @mock.patch.object(

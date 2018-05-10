@@ -164,8 +164,8 @@ class AsyncTestCase(unittest.TestCase):
                                        self.on_closed,
                                        custom_ioloop=ioloop_factory())
         try:
-            self.timeout = self.connection.add_timeout(self.TIMEOUT,
-                                                       self.on_timeout)
+            self.timeout = self.connection._adapter_add_timeout(self.TIMEOUT,
+                                                                self.on_timeout)
             self._run_ioloop()
 
             self.assertFalse(self._timed_out)
@@ -220,7 +220,7 @@ class AsyncTestCase(unittest.TestCase):
     def _safe_remove_test_timeout(self):
         if hasattr(self, 'timeout') and self.timeout is not None:
             self.logger.info("Removing timeout")
-            self.connection.remove_timeout(self.timeout)
+            self.connection._adapter_remove_timeout(self.timeout)
             self.timeout = None
 
     def _stop(self):

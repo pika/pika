@@ -209,43 +209,23 @@ class BaseConnection(connection.Connection):
         """
         return self._nbio.get_native_ioloop()
 
-    def add_timeout(self, deadline, callback):
-        """Add the callback to the IOLoop timer to fire after deadline
-        seconds.
-
-        :param float deadline: The number of seconds to wait to call callback
-        :param method callback: The callback method
-        :return: Handle that can be passed to `remove_timeout()` to cancel the
-            callback.
+    def _adapter_add_timeout(self, deadline, callback):
+        """Implement
+        :py:meth:`pika.connection.Connection._adapter_add_timeout()`.
 
         """
         return self._nbio.call_later(deadline, callback)
 
-    def remove_timeout(self, timeout_id):
-        """Remove the timeout from the IOLoop by the ID returned from
-        add_timeout.
+    def _adapter_remove_timeout(self, timeout_id):
+        """Implement
+        :py:meth:`pika.connection.Connection._adapter_remove_timeout()`.
 
         """
         timeout_id.cancel()
 
-    def add_callback_threadsafe(self, callback):
-        """Requests a call to the given function as soon as possible in the
-        context of this connection's IOLoop thread.
-
-        NOTE: This is the only thread-safe method offered by the connection. All
-         other manipulations of the connection must be performed from the
-         connection's thread.
-
-        For example, a thread may request a call to the
-        `channel.basic_ack` method of a connection that is running in a
-        different thread via
-
-        ```
-        connection.add_callback_threadsafe(
-            functools.partial(channel.basic_ack, delivery_tag=...))
-        ```
-
-        :param method callback: The callback method; must be callable.
+    def _adapter_add_callback_threadsafe(self, callback):
+        """Implement
+        :py:meth:`pika.connection.Connection._adapter_add_callback_threadsafe()`.
 
         """
         if not callable(callback):

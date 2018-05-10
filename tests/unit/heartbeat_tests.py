@@ -192,7 +192,7 @@ class HeartbeatTests(unittest.TestCase):
         self.assertEqual(self.obj._heartbeat_frames_sent, 1)
 
     def test_setup_timer_called(self):
-        self.mock_conn.add_timeout.assert_called_once_with(
+        self.mock_conn._adapter_add_timeout.assert_called_once_with(
             self.INTERVAL, self.obj.send_and_check)
 
     @mock.patch('pika.heartbeat.HeartbeatChecker._setup_timer')

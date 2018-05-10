@@ -81,7 +81,7 @@ class ExamplePublisher(object):
 
         """
         LOGGER.error('Connection open failed, reopening in 5 seconds: %s', err)
-        self._connection.add_timeout(5, self._connection.ioloop.stop)
+        self._connection.ioloop.call_later(5, self._connection.ioloop.stop)
 
     def on_connection_closed(self, connection, reason):
         """This method is invoked by pika when the connection to RabbitMQ is
@@ -99,7 +99,7 @@ class ExamplePublisher(object):
         else:
             LOGGER.warning('Connection closed, reopening in 5 seconds: %s',
                            reason)
-            self._connection.add_timeout(5, self._connection.ioloop.stop)
+            self._connection.ioloop.call_later(5, self._connection.ioloop.stop)
 
     def open_channel(self):
         """This method will open a new channel with RabbitMQ by issuing the
@@ -269,8 +269,8 @@ class ExamplePublisher(object):
         """
         LOGGER.info('Scheduling next message for %0.1f seconds',
                     self.PUBLISH_INTERVAL)
-        self._connection.add_timeout(self.PUBLISH_INTERVAL,
-                                     self.publish_message)
+        self._connection.ioloop.call_later(self.PUBLISH_INTERVAL,
+                                           self.publish_message)
 
     def publish_message(self):
         """If the class is not stopping, publish a message to RabbitMQ,

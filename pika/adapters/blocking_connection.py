@@ -181,7 +181,7 @@ class _IoloopTimerContext(object):
         :param float duration: non-negative timer duration in seconds
         :param select_connection.SelectConnection connection:
         """
-        assert hasattr(connection, 'add_timeout'), connection
+        assert hasattr(connection, '_adapter_add_timeout'), connection
         self._duration = duration
         self._connection = connection
         self._callback_result = _CallbackResult()
@@ -189,7 +189,7 @@ class _IoloopTimerContext(object):
 
     def __enter__(self):
         """Register a timer"""
-        self._timer_handle = self._connection.add_timeout(
+        self._timer_handle = self._connection._adapter_add_timeout(
             self._duration,
             self._callback_result.signal_once)
         return self
@@ -197,7 +197,7 @@ class _IoloopTimerContext(object):
     def __exit__(self, *_args, **_kwargs):
         """Unregister timer if it hasn't fired yet"""
         if not self._callback_result:
-            self._connection.remove_timeout(self._timer_handle)
+            self._connection._adapter_remove_timeout(self._timer_handle)
             self._timer_handle = None
 
     def is_ready(self):
@@ -218,7 +218,7 @@ class _TimerEvt(object):
         self._callback = callback
 
         # Will be set to timer id returned from the underlying implementation's
-        # `add_timeout` method
+        # `_adapter_add_timeout` method
         self.timer_id = None
 
     def __repr__(self):
@@ -577,7 +577,8 @@ class BlockingConnection(object):
                     impl_channel._get_cookie()._dispatch_events()
 
     def _on_timer_ready(self, evt):
-        """Handle expiry of a timer that was registered via `add_timeout`
+        """Handle expiry of a timer that was registered via
+        `_adapter_add_timeout()`
 
         :param _TimerEvt evt:
 
@@ -585,10 +586,11 @@ class BlockingConnection(object):
         self._ready_events.append(evt)
 
     def _on_threadsafe_callback(self, user_callback):
-        """Handle callback that was registered via `add_callback_threadsafe`.
+        """Handle callback that was registered via
+        `self._impl._adapter_add_callback_threadsafe`.
 
-        :param user_callback: callback passed to `add_callback_threadsafe` by
-                              the application.
+        :param user_callback: callback passed to our
+            `add_callback_threadsafe` by the application.
 
         """
         # Turn it into a 0-delay timeout to take advantage of our existing logic
@@ -694,8 +696,8 @@ class BlockingConnection(object):
 
         NOTE: the timer callbacks are dispatched only in the scope of
         specially-designated methods: see
-        `BlockingConnection.process_data_events` and
-        `BlockingChannel.start_consuming`.
+        `BlockingConnection.process_data_events()` and
+        `BlockingChannel.start_consuming()`.
 
         :param float deadline: The number of seconds to wait to call callback
         :param callable callback: The callback method with the signature
@@ -709,7 +711,7 @@ class BlockingConnection(object):
                 'callback must be a callable, but got %r' % (callback,))
 
         evt = _TimerEvt(callback=callback)
-        timer_id = self._impl.add_timeout(
+        timer_id = self._impl._adapter_add_timeout(
             deadline,
             functools.partial(self._on_timer_ready, evt))
         evt.timer_id = timer_id
@@ -723,6 +725,11 @@ class BlockingConnection(object):
         NOTE: This is the only thread-safe method in `BlockingConnection`. All
          other manipulations of `BlockingConnection` must be performed from the
          connection's thread.
+
+        NOTE: the callbacks are dispatched only in the scope of
+        specially-designated methods: see
+        `BlockingConnection.process_data_events()` and
+        `BlockingChannel.start_consuming()`.
 
         For example, a thread may request a call to the
         `BlockingChannel.basic_ack` method of a `BlockingConnection` that is
@@ -749,7 +756,7 @@ class BlockingConnection(object):
                     'BlockingConnection.add_callback_threadsafe() called on '
                     'closed or closing connection.')
 
-            self._impl.add_callback_threadsafe(
+            self._impl._adapter_add_callback_threadsafe(
                 functools.partial(self._on_threadsafe_callback, callback))
 
     def remove_timeout(self, timeout_id):
@@ -759,7 +766,7 @@ class BlockingConnection(object):
 
         """
         # Remove from the impl's timeout stack
-        self._impl.remove_timeout(timeout_id)
+        self._impl._adapter_remove_timeout(timeout_id)
 
         # Remove from ready events, if the timer fired already
         for i, evt in enumerate(self._ready_events):

@@ -627,7 +627,8 @@ class TestExchangeRedeclareWithDifferentValues(AsyncTestCase, AsyncAdapters):
 
 class TestNoDeadlockWhenClosingChannelWithPendingBlockedRequestsAndConcurrentChannelCloseFromBroker(
         AsyncTestCase, AsyncAdapters):
-    DESCRIPTION = "No deadlock when closing a channel with pending blocked requests and concurrent Channel.Close from broker."
+    DESCRIPTION = ("No deadlock when closing a channel with pending blocked "
+                   "requests and concurrent Channel.Close from broker.")
 
     # To observe the behavior that this is testing, comment out this line
     # in pika/channel.py - _on_close:
@@ -981,7 +982,7 @@ class TestBlockedConnectionUnblocks(AsyncTestCase, AsyncAdapters):  # pylint: di
             pika.frame.Method(0, spec.Connection.Unblocked()))
 
         # Schedule shutdown after blocked connection timeout would expire
-        channel.connection.add_timeout(0.005, self.on_cleanup_timer)
+        channel.connection._adapter_add_timeout(0.005, self.on_cleanup_timer)
 
     def on_cleanup_timer(self):
         self.stop()
@@ -993,16 +994,18 @@ class TestBlockedConnectionUnblocks(AsyncTestCase, AsyncAdapters):  # pylint: di
 
 
 class TestAddCallbackThreadsafeRequestBeforeIOLoopStarts(AsyncTestCase, AsyncAdapters):
-    DESCRIPTION = "Test add_callback_threadsafe request before ioloop starts."
+    DESCRIPTION = (
+        "Test _adapter_add_callback_threadsafe request before ioloop starts.")
 
     def _run_ioloop(self, *args, **kwargs):  # pylint: disable=W0221
         """We intercept this method from AsyncTestCase in order to call
-        add_callback_threadsafe before AsyncTestCase starts the ioloop.
+        _adapter_add_callback_threadsafe before AsyncTestCase starts the ioloop.
 
         """
         self.my_start_time = time.time()
         # Request a callback from our current (ioloop's) thread
-        self.connection.add_callback_threadsafe(self.on_requested_callback)
+        self.connection._adapter_add_callback_threadsafe(
+            self.on_requested_callback)
 
         return super(
             TestAddCallbackThreadsafeRequestBeforeIOLoopStarts, self)._run_ioloop(
@@ -1026,7 +1029,8 @@ class TestAddCallbackThreadsafeRequestBeforeIOLoopStarts(AsyncTestCase, AsyncAda
 
 
 class TestAddCallbackThreadsafeFromIOLoopThread(AsyncTestCase, AsyncAdapters):
-    DESCRIPTION = "Test add_callback_threadsafe request from same thread."
+    DESCRIPTION = (
+        "Test _adapter_add_callback_threadsafe request from same thread.")
 
     def start(self, *args, **kwargs):  # pylint: disable=W0221
         self.loop_thread_ident = threading.current_thread().ident
@@ -1038,7 +1042,8 @@ class TestAddCallbackThreadsafeFromIOLoopThread(AsyncTestCase, AsyncAdapters):
     def begin(self, channel):
         self.my_start_time = time.time()
         # Request a callback from our current (ioloop's) thread
-        channel.connection.add_callback_threadsafe(self.on_requested_callback)
+        channel.connection._adapter_add_callback_threadsafe(
+            self.on_requested_callback)
 
     def on_requested_callback(self):
         self.assertEqual(threading.current_thread().ident,
@@ -1049,7 +1054,8 @@ class TestAddCallbackThreadsafeFromIOLoopThread(AsyncTestCase, AsyncAdapters):
 
 
 class TestAddCallbackThreadsafeFromAnotherThread(AsyncTestCase, AsyncAdapters):
-    DESCRIPTION = "Test add_callback_threadsafe request from another thread."
+    DESCRIPTION = (
+        "Test _adapter_add_callback_threadsafe request from another thread.")
 
     def start(self, *args, **kwargs):  # pylint: disable=W0221
         self.loop_thread_ident = threading.current_thread().ident
@@ -1063,7 +1069,7 @@ class TestAddCallbackThreadsafeFromAnotherThread(AsyncTestCase, AsyncAdapters):
         # Request a callback from ioloop while executing in another thread
         timer = threading.Timer(
             0,
-            lambda: channel.connection.add_callback_threadsafe(
+            lambda: channel.connection._adapter_add_callback_threadsafe(
                 self.on_requested_callback))
         self.addCleanup(timer.cancel)
         timer.start()
@@ -1106,12 +1112,12 @@ class TestViabilityOfMultipleTimeoutsWithSameDeadlineAndCallback(AsyncTestCase, 
     DESCRIPTION = "Test viability of multiple timeouts with same deadline and callback"
 
     def begin(self, channel):
-        timer1 = channel.connection.add_timeout(0, self.on_my_timer)
-        timer2 = channel.connection.add_timeout(0, self.on_my_timer)
+        timer1 = channel.connection._adapter_add_timeout(0, self.on_my_timer)
+        timer2 = channel.connection._adapter_add_timeout(0, self.on_my_timer)
 
         self.assertIsNot(timer1, timer2)
 
-        channel.connection.remove_timeout(timer1)
+        channel.connection._adapter_remove_timeout(timer1)
 
         # Wait for timer2 to fire
 
