@@ -642,11 +642,22 @@ class BlockingConnection(object):
                 evt.dispatch()
 
     def add_on_connection_blocked_callback(self, callback):
-        """Add a callback to be notified when RabbitMQ has sent a
-        `Connection.Blocked` frame indicating that RabbitMQ is low on
-        resources. Publishers can use this to voluntarily suspend publishing,
-        instead of relying on back pressure throttling. The callback
-        will be passed the `Connection.Blocked` method frame.
+        """RabbitMQ AMQP extension - Add a callback to be notified when the
+        connection gets blocked (`Connection.Blocked` received from RabbitMQ)
+        due to the broker running low on resources (memory or disk). In this
+        state RabbitMQ suspends processing incoming data until the connection
+        is unblocked, so it's a good idea for publishers receiving this
+        notification to suspend publishing until the connection becomes
+        unblocked.
+
+        NOTE: due to the blocking nature of BlockingConnection, if it's sending
+        outbound data while the connection is/becomes blocked, the call may
+        remain blocked until the connection becomes unblocked, if ever. You
+        may use `ConnectionParameters.blocked_connection_timeout` to abort a
+        BlockingConnection method call with an exception when the connection
+        remains blocked longer than the given timeout value.
+
+        See also `Connection.add_on_connection_unblocked_callback()`
 
         See also `ConnectionParameters.blocked_connection_timeout`.
 
@@ -661,10 +672,9 @@ class BlockingConnection(object):
                               functools.partial(callback, self)))
 
     def add_on_connection_unblocked_callback(self, callback):
-        """Add a callback to be notified when RabbitMQ has sent a
-        `Connection.Unblocked` frame letting publishers know it's ok
-        to start publishing again. The callback will be passed the
-        `Connection.Unblocked` method frame.
+        """RabbitMQ AMQP extension - Add a callback to be notified when the
+        connection gets unblocked (`Connection.Unblocked` frame is received from
+        RabbitMQ) letting publishers know it's ok to start publishing again.
 
         :param method callback: Callback to call on Connection.Unblocked`,
             having the signature `callback(connection, pika.frame.Method)`,
