@@ -43,6 +43,15 @@ class ConstructableConnection(connection.Connection):
     def _adapter_get_write_buffer_size(self):
         raise NotImplementedError
 
+    def _adapter_add_callback_threadsafe(self):
+        raise NotImplementedError
+
+    def _adapter_add_timeout(self):
+        raise NotImplementedError
+
+    def _adapter_remove_timeout(self):
+        raise NotImplementedError
+
 
 class HeartbeatTests(unittest.TestCase):
 
