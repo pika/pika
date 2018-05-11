@@ -940,9 +940,7 @@ class SelectPoller(_PollerBase):
                     # NOTE When called without any FDs, select fails on
                     # Windows with error 10022, 'An invalid argument was
                     # supplied'.
-                    time.sleep(self._get_max_wait())
                     read, write, error = [], [], []
-
                 break
             except _SELECT_ERRORS as error:
                 if _is_resumable(error):
