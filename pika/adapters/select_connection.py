@@ -335,9 +335,6 @@ class IOLoop(AbstractSelectorIOLoop):
         # Callbacks requested via `add_callback`
         self._callbacks = collections.deque()
 
-        # Identity of this IOLoop's thread
-        self._thread_id = None
-
         self._poller = self._get_poller(self._get_remaining_interval,
                                         self.process_timeouts)
 
@@ -439,9 +436,9 @@ class IOLoop(AbstractSelectorIOLoop):
 
         # NOTE: `deque.append` is atomic
         self._callbacks.append(callback)
-        if threading.current_thread().ident != self._thread_id:
-            # Wake up the IOLoop running in another thread
-            self._poller.wake_threadsafe()
+
+        # Wake up the IOLoop running in another thread
+        self._poller.wake_threadsafe()
 
         LOGGER.debug('add_callback_threadsafe: added callback=%r', callback)
 
@@ -508,7 +505,6 @@ class IOLoop(AbstractSelectorIOLoop):
         exit. See `IOLoop.stop`.
 
         """
-        self._thread_id = threading.current_thread().ident
         self._poller.start()
 
     def stop(self):
@@ -521,18 +517,12 @@ class IOLoop(AbstractSelectorIOLoop):
             `ioloop.add_callback_threadsafe(ioloop.stop)`
 
         """
-        if (self._thread_id is not None and
-                threading.current_thread().ident != self._thread_id):
-            LOGGER.warning('Use add_callback_threadsafe to request '
-                           'ioloop.stop() from another thread')
-
         self._poller.stop()
 
     def activate_poller(self):
         """[Extension] Activate the poller
 
         """
-        self._thread_id = threading.current_thread().ident
         self._poller.activate_poller()
 
     def deactivate_poller(self):
