@@ -937,10 +937,8 @@ class SelectPoller(_PollerBase):
                         self._fd_events[PollEvents.ERROR],
                         self._get_max_wait())
                 else:
-                    # NOTE When called without any FDs, select fails on
-                    # Windows with error 10022, 'An invalid argument was
-                    # supplied'.
-                    read, write, error = [], [], []
+                    # https://github.com/pika/pika/issues/1044#issuecomment-388514004
+                    raise RuntimeError('All _fd_events arrays are empty')
                 break
             except _SELECT_ERRORS as error:
                 if _is_resumable(error):
@@ -949,7 +947,6 @@ class SelectPoller(_PollerBase):
                     raise
 
         # Build an event bit mask for each fileno we've received an event for
-
         fd_event_map = collections.defaultdict(int)
         for fd_set, evt in zip(
                 (read, write, error),
