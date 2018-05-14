@@ -740,6 +740,10 @@ class BlockingConnection(object):
             functools.partial(channel.basic_ack, delivery_tag=...))
         ```
 
+        NOTE: if you know that the requester is running on the same thread as
+        the connection it is more efficient to use the
+        `BlockingConnection.add_timeout()` method with a deadline of 0.
+
         :param method callback: The callback method; must be callable
 
         :raises pika.exceptions.ConnectionWrongStateError: if connection is
