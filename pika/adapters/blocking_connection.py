@@ -723,8 +723,8 @@ class BlockingConnection(object):
         context of this connection's thread.
 
         NOTE: This is the only thread-safe method in `BlockingConnection`. All
-         other manipulations of `BlockingConnection` must be performed from the
-         connection's thread.
+        other manipulations of `BlockingConnection` must be performed from the
+        connection's thread.
 
         NOTE: the callbacks are dispatched only in the scope of
         specially-designated methods: see

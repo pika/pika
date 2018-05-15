@@ -97,6 +97,10 @@ class AbstractIOServices(pika.compat.AbstractBase):
               All other manipulations of the IOLoop adapter and objects governed
               by it must be performed from the IOLoop's thread.
 
+        NOTE: if you know that the requester is running on the same thread as
+              the connection it is more efficient to use the
+              `ioloop.call_later()` method with a delay of 0.
+
         :param method callback: The callback method; must be callable.
         :return: None
         """

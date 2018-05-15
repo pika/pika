@@ -437,7 +437,7 @@ class IOLoop(AbstractSelectorIOLoop):
         # NOTE: `deque.append` is atomic
         self._callbacks.append(callback)
 
-        # Wake up the IOLoop running in another thread
+        # Wake up the IOLoop which may be running in another thread
         self._poller.wake_threadsafe()
 
         LOGGER.debug('add_callback_threadsafe: added callback=%r', callback)
@@ -927,8 +927,11 @@ class SelectPoller(_PollerBase):
                         self._fd_events[PollEvents.ERROR],
                         self._get_max_wait())
                 else:
-                    # https://github.com/pika/pika/issues/1044#issuecomment-388514004
-                    raise RuntimeError('All _fd_events arrays are empty')
+                    # NOTE When called without any FDs, select fails on
+                    # Windows with error 10022, 'An invalid argument was
+                    # supplied'.
+                    time.sleep(self._get_max_wait())
+                    read, write, error = [], [], []
                 break
             except _SELECT_ERRORS as error:
                 if _is_resumable(error):
