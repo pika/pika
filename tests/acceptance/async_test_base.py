@@ -109,7 +109,8 @@ class AsyncTestCase(unittest.TestCase):
     def _safe_remove_test_timeout(self):
         if hasattr(self, 'timeout') and self.timeout is not None:
             self.logger.info("Removing timeout")
-            self.connection.remove_timeout(self.timeout)
+            if hasattr(self, 'connection') and self.connection is not None:
+                self.connection.remove_timeout(self.timeout)
             self.timeout = None
 
     def _stop(self):
