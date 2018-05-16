@@ -32,6 +32,7 @@ This is an interim release prior to version `1.0.0`. It includes the following b
 - `PR #994 <https://github.com/pika/pika/pull/994>`_
 - `PR #1007 <https://github.com/pika/pika/pull/1007>`_
 - `PR #1045 <https://github.com/pika/pika/pull/1045>`_ (manually backported)
+- `PR #1011 <https://github.com/pika/pika/pull/1011>`_
 
 Commits:
 
