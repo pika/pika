@@ -1,7 +1,7 @@
 Version History
 ===============
 
-0.12.0b2 2018-04-19
+0.12.0b3 2018-05-16
 -------------------
 
 `GitHub milestone <https://github.com/pika/pika/milestone/12>`_
@@ -31,7 +31,7 @@ This is an interim release prior to version `1.0.0`. It includes the following b
 - `PR #981 <https://github.com/pika/pika/pull/981>`_
 - `PR #994 <https://github.com/pika/pika/pull/994>`_
 - `PR #1007 <https://github.com/pika/pika/pull/1007>`_
-- `PR #1007 <https://github.com/pika/pika/pull/1007>`_
+- `PR #1045 <https://github.com/pika/pika/pull/1045>`_ (manually backported)
 
 Commits:
 
