@@ -294,9 +294,6 @@ class IOLoop(object):
         # Callbacks requested via `add_callback`
         self._callbacks = collections.deque()
 
-        # Identity of this IOLoop's thread
-        self._thread_id = None
-
         self._poller = self._get_poller(self._get_remaining_interval,
                                         self.process_timeouts)
 
@@ -385,6 +382,10 @@ class IOLoop(object):
         ioloop that is running in a different thread via
         `ioloop.add_callback_threadsafe(ioloop.stop)`
 
+        NOTE: if you know that the requester is running on the same thread as
+        the connection it is more efficient to use the
+        `call_later()` method with a delay of 0.
+
         :param method callback: The callback method
 
         """
@@ -394,9 +395,9 @@ class IOLoop(object):
 
         # NOTE: `deque.append` is atomic
         self._callbacks.append(callback)
-        if threading.current_thread().ident != self._thread_id:
-            # Wake up the IOLoop running in another thread
-            self._poller.wake_threadsafe()
+
+        # Wake up the IOLoop which may be running in another thread
+        self._poller.wake_threadsafe()
 
         LOGGER.debug('add_callback_threadsafe: added callback=%r', callback)
 
@@ -457,7 +458,6 @@ class IOLoop(object):
         exit. See `IOLoop.stop`.
 
         """
-        self._thread_id = threading.current_thread().ident
         self._poller.start()
 
     def stop(self):
@@ -470,11 +470,6 @@ class IOLoop(object):
             `ioloop.add_callback_threadsafe(ioloop.stop)`
 
         """
-        if (self._thread_id is not None and
-                threading.current_thread().ident != self._thread_id):
-            LOGGER.warning('Use add_callback_threadsafe to request '
-                           'ioloop.stop() from another thread')
-
         self._poller.stop()
 
     def activate_poller(self):
@@ -887,7 +882,6 @@ class SelectPoller(_PollerBase):
                     # supplied'.
                     time.sleep(self._get_max_wait())
                     read, write, error = [], [], []
-
                 break
             except _SELECT_ERRORS as error:
                 if _is_resumable(error):
