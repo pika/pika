@@ -8,7 +8,7 @@ Starting with RabbitMQ 3.5.5, the broker's default hearbeat timeout decreased fr
 
 When RabbitMQ broker is running out of certain resources, such as memory and disk space, it may block connections that are performing resource-consuming operations, such as publishing messages. Once a connection is blocked, RabbiMQ stops reading from that connection's socket, so no commands from the client will get through to te broker on that connection until the broker unblocks it. A blocked connection may last for an indefinite period of time, stalling the connection and possibly resulting in a hang (e.g., in BlockingConnection) until the connection is unblocked. Blocked Connectin Timeout is intended to interrupt (i.e., drop) a connection that has been blocked longer than the given timeout value.
 
-Example of configuring hertbeat and blocked-connection timeouts::
+Example of configuring heartbeat and blocked-connection timeouts::
 
     import pika
 
