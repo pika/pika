@@ -166,15 +166,21 @@ class _Timeout(object):
 
     def __eq__(self, other):
         """NOTE: not supporting sort stability"""
-        return self.deadline == other.deadline
+        if isinstance(self, type(other)):
+            return self.deadline == other.deadline
+        return NotImplemented
 
     def __lt__(self, other):
         """NOTE: not supporting sort stability"""
-        return self.deadline < other.deadline
+        if isinstance(self, type(other)):
+            return self.deadline < other.deadline
+        return NotImplemented
 
     def __le__(self, other):
         """NOTE: not supporting sort stability"""
-        return self.deadline <= other.deadline
+        if isinstance(self, type(other)):
+            return self.deadline <= other.deadline
+        return NotImplemented
 
 
 class _Timer(object):
