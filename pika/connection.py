@@ -158,7 +158,7 @@ class Parameters(object):  # pylint: disable=R0902
                  self.virtual_host, bool(self.ssl_options)))
 
     def __eq__(self, other):
-        if isinstance(self, type(other)):
+        if isinstance(self, other.__class__):
             return (
                 self._backpressure_detection == other._backpressure_detection
                 and self._channel_max == other._channel_max
