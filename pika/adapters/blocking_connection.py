@@ -1642,9 +1642,12 @@ class BlockingChannel(object):
             consumer_tag is already present.
 
         """
+        if not isinstance(queue, compat.basestring):
+            raise TypeError('queue must be a str or unicode str, but got %r' %
+                            (queue,))
         if not callable(on_message_callback):
-            raise ValueError('callback on_message_callback must be callable; got %r'
-                             % on_message_callback)
+            raise TypeError('callback on_message_callback must be callable; got %r'
+                            % on_message_callback)
 
         return self._basic_consume_impl(
             queue=queue,

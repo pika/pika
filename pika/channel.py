@@ -12,7 +12,7 @@ import uuid
 import pika.frame as frame
 import pika.exceptions as exceptions
 import pika.spec as spec
-from pika.compat import unicode_type, dictkeys, is_integer
+from pika.compat import basestring, unicode_type, dictkeys, is_integer
 
 
 LOGGER = logging.getLogger(__name__)
@@ -301,6 +301,7 @@ class Channel(object):
         :raises ValueError:
 
         """
+        self._require_string(queue, 'queue')
         self._require_callback(on_message_callback)
         self._raise_if_not_open()
         self._validate_rpc_completion_callback(callback)
@@ -1442,6 +1443,28 @@ class Channel(object):
 
         """
         LOGGER.error('Unexpected frame: %r', frame_value)
+
+    @staticmethod
+    def _require_string(value, value_name):
+        """Require that value is a string
+
+        :raises: TypeError
+
+        """
+        if not isinstance(value, basestring):
+            raise TypeError('%s must be a str or unicode str, but got %r' %
+                            (value_name, value,))
+
+    @staticmethod
+    def _require_callback(callback):
+        """Require that callback is callable and is not None
+
+        :raises: TypeError
+
+        """
+        if not callable(callback):
+            raise TypeError(
+                'Callback must be callable, but got %r' % (callback,))
 
     @staticmethod
     def _require_callback(callback):

@@ -250,6 +250,21 @@ class ChannelTests(unittest.TestCase):
         self.obj.basic_cancel(consumer_tag, callback=callback_mock)
         self.assertFalse(rpc.called)
 
+    def test_basic_consume_legacy_parameter_queue(self):
+        # This is for the unlikely scenario where only
+        # the first parameter is updated
+        self.obj._set_state(self.obj.OPEN)
+        callback_mock = mock.Mock()
+        with self.assertRaises(TypeError):
+            self.obj.basic_consume('queue',
+                                   'whoops this should be a callback')
+
+    def test_basic_consume_legacy_parameter_callback(self):
+        self.obj._set_state(self.obj.OPEN)
+        callback_mock = mock.Mock()
+        with self.assertRaises(TypeError):
+            self.obj.basic_consume(callback_mock, 'queue')
+
     def test_basic_consume_channel_closed(self):
         mock_callback = mock.Mock()
         mock_on_msg_callback = mock.Mock()

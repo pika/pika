@@ -47,6 +47,17 @@ class BlockingChannelTests(unittest.TestCase):
     def test_init_initial_value_buback_return(self):
         self.assertIsNone(self.obj._puback_return)
 
+    def test_basic_consume_legacy_parameter_queue(self):
+        # This is for the unlikely scenario where only
+        # the first parameter is updated
+        with self.assertRaises(TypeError):
+            self.obj.basic_consume('queue',
+                                   'whoops this should be a callback')
+
+    def test_basic_consume_legacy_parameter_callback(self):
+        with self.assertRaises(TypeError):
+            self.obj.basic_consume(mock.Mock(), 'queue')
+
     def test_basic_consume(self):
         with mock.patch.object(self.obj._impl, '_generate_consumer_tag'):
             self.obj._impl._generate_consumer_tag.return_value = 'ctag0'
