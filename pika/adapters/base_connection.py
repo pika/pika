@@ -11,6 +11,7 @@ import ssl
 import pika.compat
 import pika.tcp_socket_opts
 
+from pika import __version__
 from pika import connection
 from pika.compat import SOCKET_ERROR
 from pika.compat import SOL_TCP
@@ -230,7 +231,9 @@ class BaseConnection(connection.Connection):
         else:
             ssl_text = ""
 
-        LOGGER.info('Connecting to %s:%s%s', sock_addr_tuple[4][0],
+        LOGGER.info('Pika version %s connecting to %s:%s%s',
+                    __version__,
+                    sock_addr_tuple[4][0],
                     sock_addr_tuple[4][1], ssl_text)
 
         # Connect to the socket
