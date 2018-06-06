@@ -536,7 +536,7 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
                                 _adapter_emit_data,
                                 method,
                                 heartbeat_checker):
-        """make sure on connection tune turns the connection params"""
+        """make sure _on_connection_tune tunes the connection params"""
         heartbeat_checker.return_value = 'hearbeat obj'
         self.connection._flush_outbound = mock.Mock()
         marshal = mock.Mock(return_value='ab')

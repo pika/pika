@@ -12,21 +12,24 @@ class HeartbeatChecker(object):
     intervals.
 
     """
+    DEFAULT_INTERVAL = 60
     MAX_IDLE_COUNT = 2
+
     _STALE_CONNECTION = "Too Many Missed Heartbeats, No reply in %i seconds"
 
-    def __init__(self, connection, interval, idle_count=MAX_IDLE_COUNT):
+    def __init__(self, connection, interval=DEFAULT_INTERVAL, idle_count=MAX_IDLE_COUNT):
         """Create a heartbeat on connection sending a heartbeat frame every
         interval seconds.
 
         :param pika.connection.Connection: Connection object
-        :param int interval: Heartbeat check interval
-        :param int idle_count: Number of heartbeat intervals missed until the
-                               connection is considered idle and disconnects
+        :param int interval: Heartbeat check interval. Note: heartbeats will
+                             be sent at interval / 2 frequency.
 
         """
         self._connection = connection
-        self._interval = interval
+        # Note: see the following document:
+        # https://www.rabbitmq.com/heartbeats.html#heartbeats-timeout
+        self._interval = float(interval / 2)
         self._max_idle_count = idle_count
 
         # Initialize counters
