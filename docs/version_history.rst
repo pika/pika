@@ -1,7 +1,7 @@
 Version History
 ===============
 
-0.12.0b3 2018-05-18
+0.12.0b4 2018-06-07
 -------------------
 
 `GitHub milestone <https://github.com/pika/pika/milestone/12>`_
@@ -37,6 +37,16 @@ This is an interim release prior to version `1.0.0`. It includes the following b
 Commits:
 
 Travis CI fail fast - 3f0e739
+
+New features:
+
+`BlockingConnection` now supports the `add_callback_threadsafe` method which allows a function to be executed correctly on the IO loop thread. The main use-case for this is as follows:
+
+- Application sets up a thread for `BlockingConnection` and calls `basic_consume` on it
+- When a message is received, work is done on another thread
+- When the work is done, the worker uses `connection.add_callback_threadsafe` to call the `basic_ack` method on the channel instance.
+
+Please see `examples/basic_consumer_threaded.py` for an example. As always, `SelectConnection` and a fully async consumer/publisher is the preferred method of using Pika.
 
 0.11.2 2017-11-30
 -----------------
