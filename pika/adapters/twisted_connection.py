@@ -122,7 +122,6 @@ class TwistedChannel(object):
 
         try:
             self.__channel.basic_consume(*args, **kwargs)
-        # TODO this should be more specific.
         except Exception:
             return defer.fail()
 
@@ -181,7 +180,6 @@ class TwistedChannel(object):
 
             try:
                 method(*args, **kwargs)
-            # TODO this should be more specific.
             except Exception:
                 return defer.fail()
             return d
@@ -312,7 +310,7 @@ class TwistedProtocolConnection(pika.connection.Connection):
         """Implement pure virtual
         :py:ref:meth:`pika.connection.Connection._adapter_emit_data()` method.
 
-        TODO: this method only belongs in SelectConnection, none others needs it
+        TODO: this method only belongs in SelectConnection, no others need it
         and twisted transport doesn't expose it.
         """
         raise NotImplementedError
