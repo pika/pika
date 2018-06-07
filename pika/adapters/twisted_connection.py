@@ -117,18 +117,20 @@ class TwistedChannel(object):
 
         queue = ClosableDeferredQueue()
         queue_name = kwargs['queue']
-        kwargs['callback'] = lambda *args: queue.put(args)
+        kwargs['on_message_callback'] = lambda *args: queue.put(args)
         self.__consumers.setdefault(queue_name, set()).add(queue)
+        d = defer.Deferred()
+        kwargs["callback"] = lambda frame: d.callback(
+            (queue, frame.consumer_tag)
+        )
 
         try:
-            consumer_tag = self.__channel.basic_consume(*args, **kwargs)
-        # TODO this except without types would suppress system-exiting
-        # exceptions, such as SystemExit and KeyboardInterrupt. It should be at
-        # least `except Exception` and preferably more specific.
-        except:
+            self.__channel.basic_consume(*args, **kwargs)
+        # TODO this should be more specific.
+        except Exception:
             return defer.fail()
 
-        return defer.succeed((queue, consumer_tag))
+        return d
 
     def queue_delete(self, *args, **kwargs):
         """Wraps the method the same way all the others are wrapped, but removes
@@ -183,10 +185,8 @@ class TwistedChannel(object):
 
             try:
                 method(*args, **kwargs)
-            # TODO this except without types would suppress system-exiting
-            # exceptions, such as SystemExit and KeyboardInterrupt. It should be
-            # at least `except Exception` and preferably more specific.
-            except:
+            # TODO this should be more specific.
+            except Exception:
                 return defer.fail()
             return d
 
