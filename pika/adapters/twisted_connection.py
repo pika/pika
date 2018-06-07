@@ -310,7 +310,7 @@ class TwistedProtocolConnection(pika.connection.Connection):
         """Implement pure virtual
         :py:ref:meth:`pika.connection.Connection._adapter_emit_data()` method.
 
-        TODO: this method only belongs in SelectConnection, no others need it
+        This method only belongs in SelectConnection, no others need it
         and twisted transport doesn't expose it.
         """
         raise NotImplementedError
