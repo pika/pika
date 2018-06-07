@@ -73,7 +73,7 @@ class HeartbeatTests(unittest.TestCase):
         self.assertEqual(self.obj._interval, self.HALF_INTERVAL)
 
     def test_default_initialization_max_idle_count(self):
-        self.assertEqual(self.obj._max_idle_count, self.obj.MAX_IDLE_COUNT)
+        self.assertEqual(self.obj._max_idle_count, self.obj.MAX_IDLE_COUNT * 2)
 
     def test_constructor_assignment_connection(self):
         self.assertIs(self.obj._connection, self.mock_conn)

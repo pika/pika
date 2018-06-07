@@ -6,7 +6,7 @@ LOG_FORMAT = ('%(levelname) -10s %(asctime)s %(name) -30s %(funcName) '
               '-35s %(lineno) -5d: %(message)s')
 LOGGER = logging.getLogger(__name__)
 
-logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
+logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT)
 
 def on_message(channel, method_frame, header_frame, body, userdata=None):
     LOGGER.info('Userdata: {} Message body: {}'.format(userdata, body))

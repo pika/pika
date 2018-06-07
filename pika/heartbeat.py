@@ -24,13 +24,22 @@ class HeartbeatChecker(object):
         :param pika.connection.Connection: Connection object
         :param int interval: Heartbeat check interval. Note: heartbeats will
                              be sent at interval / 2 frequency.
+        :param int idle_count: The number of heartbeat intervals without data
+                               received that will close the current connection.
 
         """
         self._connection = connection
+
         # Note: see the following document:
         # https://www.rabbitmq.com/heartbeats.html#heartbeats-timeout
         self._interval = float(interval / 2)
-        self._max_idle_count = idle_count
+
+        # Note: even though we're sending heartbeats in half the specified
+        # interval, the broker will be sending them to us at the specified
+        # interval. This means we'll be checking for an idle connection
+        # twice as many times as the broker will send heartbeats to us,
+        # so we need to double the max idle count here
+        self._max_idle_count = idle_count * 2
 
         # Initialize counters
         self._bytes_received = 0
@@ -83,9 +92,12 @@ class HeartbeatChecker(object):
         been idle too long.
 
         """
-        LOGGER.debug('Received %i heartbeat frames, sent %i',
+        LOGGER.debug('Received %i heartbeat frames, sent %i, '
+                     'idle intervals %i, max idle count %i',
                      self._heartbeat_frames_received,
-                     self._heartbeat_frames_sent)
+                     self._heartbeat_frames_sent,
+                     self._idle_byte_intervals,
+                     self._max_idle_count)
 
         if self.connection_is_idle:
             self._close_connection()
