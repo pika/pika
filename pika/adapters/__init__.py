@@ -11,7 +11,7 @@ Pika provides multiple adapters to connect to RabbitMQ:
   adapter that implements select, kqueue, poll and epoll.
 - adapters.tornado_connection.TornadoConnection: Connection adapter for use
   with the Tornado web framework.
-- adapters.twisted_connection.TwistedConnection: Connection adapter for use
+- adapters.twisted_connection.TwistedProtocolConnection: Connection adapter for use
   with the Twisted framework
 
 """
@@ -32,9 +32,7 @@ except ImportError:
     TornadoConnection = None
 
 try:
-    from pika.adapters.twisted_connection import TwistedConnection
     from pika.adapters.twisted_connection import TwistedProtocolConnection
 except ImportError:
-    TwistedConnection = None
     TwistedProtocolConnection = None
 
