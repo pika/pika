@@ -18,7 +18,7 @@ from nose.twistedtools import reactor, deferred
 from twisted.internet import defer, error as twisted_error
 
 from pika.adapters.twisted_connection import (
-    ClosableDeferredQueue, TwistedChannel, TwistedConnection,
+    ClosableDeferredQueue, TwistedChannel,
     TwistedProtocolConnection, _TimerHandle)
 from pika.exceptions import AMQPConnectionError
 
@@ -245,36 +245,6 @@ class TwistedChannelTestCase(TestCase):
         result = self.channel.basic_ack()
         self.assertFalse(isinstance(result, defer.Deferred))
         self.pika_channel.basic_ack.assert_called_once()
-
-
-class TwistedConnectionTestCase(TestCase):
-
-    def setUp(self):
-        # Disable the internal connection workflow
-        # because it will setup a system that we're
-        # not testing here.
-        self.conn = TwistedConnection(internal_connection_workflow=False)
-
-    def tearDown(self):
-        if self.conn._transport is None:
-            self.conn._transport = mock.Mock()
-        self.conn.close()
-
-    @deferred(timeout=5.0)
-    def test_channel(self):
-        # Verify that the request for a channel works properly.
-        # Simulate an open connection
-        self.conn._on_connection_open_ok(mock.Mock())
-        self.conn._create_channel = mock.Mock()
-        d = self.conn.channel()
-        self.conn._create_channel.assert_called_once()
-
-        def check(result):
-            self.assertTrue(isinstance(result, TwistedChannel))
-        d.addCallback(check)
-        # Simulate server response
-        self.conn._create_channel.call_args_list[0][0][1](mock.Mock())
-        return d
 
 
 class TwistedProtocolConnectionTestCase(TestCase):

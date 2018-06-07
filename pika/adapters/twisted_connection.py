@@ -1,14 +1,10 @@
 """Using Pika with a Twisted reactor.
 
-Supports two methods of establishing the connection, using TwistedConnection
-or TwistedProtocolConnection. For details about each method, see the docstrings
-of the corresponding classes.
-
 The interfaces in this module are Deferred-based when possible. This means that
 the connection.channel() method and most of the channel methods return
 Deferreds instead of taking a callback argument and that basic_consume()
 returns a Twisted DeferredQueue where messages from the server will be
-stored. Refer to the docstrings for TwistedConnection.channel() and the
+stored. Refer to the docstrings for TwistedProtocolConnection.channel() and the
 TwistedChannel class for details.
 
 """
@@ -206,87 +202,6 @@ class TwistedChannel(object):
         if name in self.WRAPPED_METHODS:
             return self.__wrap_channel_method(name)
         return getattr(self.__channel, name)
-
-
-class TwistedConnection(base_connection.BaseConnection):
-    """A standard Pika connection adapter. You instantiate the class passing the
-    connection parameters and the connected callback and when it gets called
-    you can start using it.
-
-    The problem is that connection establishing is done using the blocking
-    socket module. For instance, if the host you are connecting to is behind a
-    misconfigured firewall that just drops packets, the whole process will
-    freeze until the connection timeout passes. To work around that problem,
-    use TwistedProtocolConnection, but read its docstring first.
-
-    """
-
-    def __init__(self,
-                 parameters=None,
-                 on_open_callback=None,
-                 on_open_error_callback=None,
-                 on_close_callback=None,
-                 custom_ioloop=None,
-                 internal_connection_workflow=True):
-        """
-        :param parameters:
-        :param on_open_callback:
-        :param on_open_error_callback:
-        :param on_close_callback:
-        :param custom_ioloop:
-        :param internal_connection_workflow:
-
-        """
-        if isinstance(custom_ioloop, nbio_interface.AbstractIOServices):
-            nbio = custom_ioloop
-        else:
-            nbio = _TwistedIOServicesAdapter(custom_ioloop)
-
-        super(TwistedConnection, self).__init__(
-            parameters=parameters,
-            on_open_callback=on_open_callback,
-            on_open_error_callback=on_open_error_callback,
-            on_close_callback=on_close_callback,
-            nbio=nbio,
-            internal_connection_workflow=internal_connection_workflow)
-
-    @classmethod
-    def create_connection(cls,
-                          connection_configs,
-                          on_done,
-                          custom_ioloop=None,
-                          workflow=None):
-        """Implement
-        :py:classmethod:`pika.adapters.BaseConnection.create_connection()`.
-
-        """
-        nbio = _TwistedIOServicesAdapter(custom_ioloop)
-
-        def connection_factory(params):
-            """Connection factory."""
-            if params is None:
-                raise ValueError('Expected pika.connection.Parameters '
-                                 'instance, but got None in params arg.')
-            return cls(
-                parameters=params,
-                custom_ioloop=nbio,
-                internal_connection_workflow=False)
-
-        return cls._start_connection_workflow(
-            connection_configs=connection_configs,
-            connection_factory=connection_factory,
-            nbio=nbio,
-            workflow=workflow,
-            on_done=on_done)
-
-    def channel(self, channel_number=None):
-        """Return a Deferred that fires with an instance of a wrapper around the
-        Pika Channel class.
-
-        """
-        d = defer.Deferred()
-        super(TwistedConnection, self).channel(channel_number, d.callback)
-        return d.addCallback(TwistedChannel)
 
 
 class TwistedProtocolConnection(pika.connection.Connection):

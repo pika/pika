@@ -18,6 +18,6 @@ from pika.adapters import BaseConnection
 from pika.adapters import BlockingConnection
 from pika.adapters import SelectConnection
 from pika.adapters import TornadoConnection
-from pika.adapters import TwistedConnection
+from pika.adapters import TwistedProtocolConnection
 
 from pika.adapters.utils.connection_workflow import AMQPConnectionWorkflow
