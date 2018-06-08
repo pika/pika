@@ -22,7 +22,6 @@ import twisted.python.failure
 
 import pika.connection
 from pika import exceptions
-from pika.adapters import base_connection
 from pika.adapters.utils import nbio_interface, io_services_utils
 from pika.adapters.utils.io_services_utils import (check_callback_arg,
                                                    check_fd_arg)
@@ -122,7 +121,7 @@ class TwistedChannel(object):
 
         try:
             self.__channel.basic_consume(*args, **kwargs)
-        except Exception:
+        except Exception:  # pylint: disable-msg=W0703
             return defer.fail()
 
         return d
@@ -180,7 +179,7 @@ class TwistedChannel(object):
 
             try:
                 method(*args, **kwargs)
-            except Exception:
+            except Exception:  # pylint: disable-msg=W0703
                 return defer.fail()
             return d
 
@@ -239,7 +238,7 @@ class TwistedProtocolConnection(pika.connection.Connection):
         self._reactor = custom_reactor or reactor
         self._transport = None # to be provided by `makeConnection()`
 
-    def channel(self, channel_number=None):
+    def channel(self, channel_number=None):  # pylint: disable-msg=W0221
         """Create a new channel with the next available channel number or pass
         in a channel number to use. Must be non-zero if you would like to
         specify but it is recommended that you let Pika manage the channel
