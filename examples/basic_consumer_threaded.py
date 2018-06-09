@@ -16,10 +16,14 @@ def do_work(connection, channel, delivery_tag, body):
     LOGGER.info(fmt1.format(thread_id, delivery_tag, body))
     # Sleeping to simulate 10 seconds of work
     time.sleep(10)
-    fmt2 = 'Thread id: {} Delivery tag: {} sending ack'
-    LOGGER.info(fmt2.format(thread_id, delivery_tag))
-    cb = functools.partial(channel.basic_ack, delivery_tag)
-    connection.add_callback_threadsafe(cb)
+    if channel.is_open:
+        fmt2 = 'Thread id: {} Delivery tag: {} sending ack'
+        LOGGER.info(fmt2.format(thread_id, delivery_tag))
+        cb = functools.partial(channel.basic_ack, delivery_tag)
+        connection.add_callback_threadsafe(cb)
+    else:
+        fmt2 = 'Thread id: {} Delivery tag: {} not sending ack, channel closed'
+        LOGGER.info(fmt2.format(thread_id, delivery_tag))
 
 def on_message(channel, method_frame, header_frame, body, args):
     (connection, threads) = args
@@ -38,6 +42,9 @@ channel = connection.channel()
 channel.exchange_declare(exchange="test_exchange", exchange_type="direct", passive=False, durable=True, auto_delete=False)
 channel.queue_declare(queue="standard", auto_delete=True)
 channel.queue_bind(queue="standard", exchange="test_exchange", routing_key="standard_key")
+# Note: prefetch is set to 1 here as an example only and to keep the number of threads created
+# to a reasonable amount. In production you will want to test with different prefetch values
+# to find which one provides the best performance and usability for your solution
 channel.basic_qos(prefetch_count=1)
 
 threads = []
