@@ -8,37 +8,32 @@ LOGGER = logging.getLogger(__name__)
 
 class HeartbeatChecker(object):
     """Checks to make sure that our heartbeat is received at the expected
-    intervals.
+    timeouts.
 
     """
-    DEFAULT_INTERVAL = 60
-    MAX_IDLE_COUNT = 2
+    # Note: even though we're sending heartbeats in half the specified
+    # timeout value, the broker will be sending them to us at the specified
+    # value. This means we'll be checking for an idle connection via send_and_check
+    # twice as many times as the broker will send heartbeats to us,
+    # so we need to set max idle count to 4 here
+    _MAX_IDLE_COUNT = 4
     _CONNECTION_FORCED = 320
     _STALE_CONNECTION = "Too Many Missed Heartbeats, No reply in %i seconds"
 
-    def __init__(self, connection, interval=DEFAULT_INTERVAL, idle_count=MAX_IDLE_COUNT):
+    def __init__(self, connection, timeout):
         """Create a heartbeat on connection sending a heartbeat frame every
-        interval seconds.
+        timeout seconds.
 
         :param pika.connection.Connection: Connection object
-        :param int interval: Heartbeat check interval. Note: heartbeats will
-                             be sent at interval / 2 frequency.
-        :param int idle_count: The number of heartbeat intervals without data
-                               received that will close the current connection.
+        :param int timeout: Heartbeat check timeout. Note: heartbeats will
+                            actually be sent at timeout / 2 frequency.
 
         """
         self._connection = connection
 
         # Note: see the following document:
         # https://www.rabbitmq.com/heartbeats.html#heartbeats-timeout
-        self._interval = float(interval / 2)
-
-        # Note: even though we're sending heartbeats in half the specified
-        # interval, the broker will be sending them to us at the specified
-        # interval. This means we'll be checking for an idle connection
-        # twice as many times as the broker will send heartbeats to us,
-        # so we need to double the max idle count here
-        self._max_idle_count = idle_count * 2
+        self._timeout = float(timeout / 2)
 
         # Initialize counters
         self._bytes_received = 0
@@ -78,7 +73,7 @@ class HeartbeatChecker(object):
         to trip the max idle threshold.
 
         """
-        return self._idle_byte_intervals >= self._max_idle_count
+        return self._idle_byte_intervals >= HeartbeatChecker._MAX_IDLE_COUNT
 
     def received(self):
         """Called when a heartbeat is received"""
@@ -96,7 +91,7 @@ class HeartbeatChecker(object):
                      self._heartbeat_frames_received,
                      self._heartbeat_frames_sent,
                      self._idle_byte_intervals,
-                     self._max_idle_count)
+                     HeartbeatChecker._MAX_IDLE_COUNT)
 
         if self.connection_is_idle:
             return self._close_connection()
@@ -127,7 +122,7 @@ class HeartbeatChecker(object):
         """Close the connection with the AMQP Connection-Forced value."""
         LOGGER.info('Connection is idle, %i stale byte intervals',
                     self._idle_byte_intervals)
-        duration = self._max_idle_count * self._interval
+        duration = HeartbeatChecker._MAX_IDLE_COUNT * self._timeout
         text = HeartbeatChecker._STALE_CONNECTION % duration
 
         # NOTE: this won't achieve the perceived effect of sending
@@ -170,7 +165,7 @@ class HeartbeatChecker(object):
         every interval seconds.
 
         """
-        self._timer = self._connection.add_timeout(self._interval,
+        self._timer = self._connection.add_timeout(self._timeout,
                                                    self.send_and_check)
 
     def _start_timer(self):
