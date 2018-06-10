@@ -52,7 +52,7 @@ class PlainCredentials(object):
         self.erase_on_connect = erase_on_connect
 
     def __eq__(self, other):
-        if isinstance(self, other.__class__):
+        if isinstance(other, PlainCredentials):
             return (self.username == other.username
                     and self.password == other.password
                     and self.erase_on_connect == other.erase_on_connect)
@@ -98,7 +98,7 @@ class ExternalCredentials(object):
         self.erase_on_connect = False
 
     def __eq__(self, other):
-        if isinstance(self, other.__class__):
+        if isinstance(other, ExternalCredentials):
             return self.erase_on_connect == other.erase_on_connect
         return NotImplemented
 

@@ -26,7 +26,21 @@ _ALL_PUBLIC_PARAMETERS_PROPERTIES = tuple(
     and issubclass(type(getattr(connection.Parameters, attr)), property))
 
 
-class _ParametersTestsBase(unittest.TestCase):
+class ChildParameters(connection.Parameters):
+
+    def __init__(self, *args, **kwargs):
+        super(ChildParameters, self).__init__(*args, **kwargs)
+        self.extra = 'e'
+
+    def __eq__(self, other):
+        if isinstance(other, ChildParameters):
+            return self.extra == other.extra and super(
+                ChildParameters, self).__eq__(other)
+        return NotImplemented
+
+
+class ParametersTestsBase(unittest.TestCase):
+
     def setUp(self):
         warnings.resetwarnings()
         self.addCleanup(warnings.resetwarnings)
@@ -101,8 +115,89 @@ class _ParametersTestsBase(unittest.TestCase):
                                                     value))
 
 
-class ParametersTests(_ParametersTestsBase):
-    """Test `pika.connection.Parameters`"""
+class ParametersTests(ParametersTestsBase):
+
+    def test_eq(self):
+        params_1 = connection.Parameters()
+        params_2 = connection.Parameters()
+        params_3 = ChildParameters()
+
+        self.assertEqual(params_1, params_2)
+        self.assertEqual(params_2, params_1)
+
+        params_1.host = 'localhost'
+        params_1.port = 5672
+        params_1.virtual_host = '/'
+        params_1.credentials = credentials.PlainCredentials('u', 'p')
+        params_2.host = 'localhost'
+        params_2.port = 5672
+        params_2.virtual_host = '//'
+        params_2.credentials = credentials.PlainCredentials('uu', 'pp')
+        self.assertEqual(params_1, params_2)
+        self.assertEqual(params_2, params_1)
+
+        params_1.host = 'localhost'
+        params_1.port = 5672
+        params_1.virtual_host = '/'
+        params_1.credentials = credentials.PlainCredentials('u', 'p')
+        params_3.host = 'localhost'
+        params_3.port = 5672
+        params_3.virtual_host = '//'
+        params_3.credentials = credentials.PlainCredentials('uu', 'pp')
+        self.assertEqual(params_1, params_3)
+        self.assertEqual(params_3, params_1)
+
+        class Foreign(object):
+
+            def __eq__(self, other):
+                return "foobar"
+
+        self.assertEqual(params_1 == Foreign(), 'foobar')
+        self.assertEqual(Foreign() == params_1, 'foobar')
+
+    def test_ne(self):
+        params_1 = connection.Parameters()
+        params_2 = connection.Parameters()
+        params_3 = ChildParameters()
+
+        params_1.host = 'localhost'
+        params_1.port = 5672
+        params_2.host = 'myserver.com'
+        params_2.port = 5672
+        self.assertNotEqual(params_1, params_2)
+        self.assertNotEqual(params_2, params_1)
+
+        params_1.host = 'localhost'
+        params_1.port = 5672
+        params_2.host = 'localhost'
+        params_2.port = 5671
+        self.assertNotEqual(params_1, params_2)
+        self.assertNotEqual(params_2, params_1)
+
+        params_1.host = 'localhost'
+        params_1.port = 5672
+        params_3.host = 'myserver.com'
+        params_3.port = 5672
+        self.assertNotEqual(params_1, params_3)
+        self.assertNotEqual(params_3, params_1)
+
+        params_1.host = 'localhost'
+        params_1.port = 5672
+        params_3.host = 'localhost'
+        params_3.port = 5671
+        self.assertNotEqual(params_1, params_3)
+        self.assertNotEqual(params_3, params_1)
+
+        self.assertNotEqual(params_1, dict(host='localhost', port=5672))
+        self.assertNotEqual(dict(host='localhost', port=5672), params_1)
+
+        class Foreign(object):
+
+            def __ne__(self, other):
+                return 'foobar'
+
+        self.assertEqual(params_1 != Foreign(), 'foobar')
+        self.assertEqual(Foreign() != params_1, 'foobar')
 
     def test_default_property_values(self):
         self.assert_default_parameter_values(connection.Parameters())
@@ -265,11 +360,11 @@ class ParametersTests(_ParametersTestsBase):
         params.host = '127.0.0.1'
         self.assertEqual(params.host, '127.0.0.1')
 
-        params.host = 'my.server.com'
-        self.assertEqual(params.host, 'my.server.com')
+        params.host = 'myserver.com'
+        self.assertEqual(params.host, 'myserver.com')
 
-        params.host = u'my.server.com'
-        self.assertEqual(params.host, u'my.server.com')
+        params.host = u'myserver.com'
+        self.assertEqual(params.host, u'myserver.com')
 
         with self.assertRaises(TypeError):
             params.host = 127
@@ -392,7 +487,8 @@ class ParametersTests(_ParametersTestsBase):
             params.tcp_options = str(opt)
 
 
-class ConnectionParametersTests(_ParametersTestsBase):
+class ConnectionParametersTests(ParametersTestsBase):
+
     def test_default_property_values(self):
         self.assert_default_parameter_values(connection.ConnectionParameters())
 
@@ -547,7 +643,8 @@ class ConnectionParametersTests(_ParametersTestsBase):
         self.assertEqual(parameters.locale, 'en_US')
 
 
-class URLParametersTests(_ParametersTestsBase):
+class URLParametersTests(ParametersTestsBase):
+
     def test_default_property_values(self):
         params = connection.URLParameters('')
         self.assert_default_parameter_values(params)

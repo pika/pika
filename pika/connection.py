@@ -158,23 +158,8 @@ class Parameters(object):  # pylint: disable=R0902
                  self.virtual_host, bool(self.ssl_options)))
 
     def __eq__(self, other):
-        if isinstance(self, other.__class__):
-            return (
-                self._backpressure_detection == other._backpressure_detection
-                and self._channel_max == other._channel_max
-                and self._connection_attempts == other._connection_attempts
-                and self._credentials == other._credentials
-                and self._frame_max == other._frame_max
-                and self._heartbeat == other._heartbeat
-                and self._host == other._host
-                and self._locale == other._locale
-                and self._port == other._port
-                and self._retry_delay == other._retry_delay
-                and self._socket_timeout == other._socket_timeout
-                and self._stack_timeout == other._stack_timeout
-                and self._ssl_options == other._ssl_options
-                and self._virtual_host == other._virtual_host
-                and self._tcp_options == other._tcp_options)
+        if isinstance(other, Parameters):
+            return (self._host == other._host and self._port == other._port)
         return NotImplemented
 
     def __ne__(self, other):
