@@ -17,7 +17,7 @@ class ChildPlainCredentials(credentials.PlainCredentials):
 
     def __eq__(self, other):
         if isinstance(other, ChildPlainCredentials):
-            return other.extra == self.extra and super(
+            return self.extra == other.extra and super(
                 ChildPlainCredentials, self).__eq__(other)
         return NotImplemented
 
@@ -30,7 +30,7 @@ class ChildExternalCredentials(credentials.ExternalCredentials):
 
     def __eq__(self, other):
         if isinstance(other, ChildExternalCredentials):
-            return other.extra == self.extra and super(
+            return self.extra == other.extra and super(
                 ChildExternalCredentials, self).__eq__(other)
         return NotImplemented
 
@@ -63,7 +63,7 @@ class PlainCredentialsTests(unittest.TestCase):
         class Foreign(object):
 
             def __eq__(self, other):
-                return "foobar"
+                return 'foobar'
 
         self.assertEqual(
             credentials.PlainCredentials('u', 'p', False) == Foreign(),
@@ -116,7 +116,7 @@ class PlainCredentialsTests(unittest.TestCase):
         class Foreign(object):
 
             def __ne__(self, other):
-                return "foobar"
+                return 'foobar'
 
         self.assertEqual(
             credentials.PlainCredentials('u', 'p', False) != Foreign(),
@@ -177,7 +177,7 @@ class ExternalCredentialsTest(unittest.TestCase):
         class Foreign(object):
 
             def __eq__(self, other):
-                return "foobar"
+                return 'foobar'
 
         self.assertEqual(
             credentials.ExternalCredentials() == Foreign(),
@@ -207,7 +207,7 @@ class ExternalCredentialsTest(unittest.TestCase):
         class Foreign(object):
 
             def __ne__(self, other):
-                return "foobar"
+                return 'foobar'
 
         self.assertEqual(
             credentials.ExternalCredentials() != Foreign(),

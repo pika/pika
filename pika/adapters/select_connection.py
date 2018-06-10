@@ -143,7 +143,7 @@ class SelectConnection(BaseConnection):
 class _Timeout(object):
     """Represents a timeout"""
 
-    __slots__ = ('deadline', 'callback',)
+    __slots__ = ('deadline', 'callback')
 
     def __init__(self, deadline, callback):
         """
@@ -151,7 +151,6 @@ class _Timeout(object):
         :param callable callback: callback to call when timeout expires
         :raises ValueError, TypeError:
         """
-
         if deadline < 0:
             raise ValueError(
                 'deadline must be non-negative epoch number, but got %r' %
@@ -167,19 +166,13 @@ class _Timeout(object):
     def __eq__(self, other):
         """NOTE: not supporting sort stability"""
         if isinstance(other, _Timeout):
-            return other.deadline == self.deadline
+            return self.deadline == other.deadline
         return NotImplemented
 
     def __lt__(self, other):
         """NOTE: not supporting sort stability"""
         if isinstance(other, _Timeout):
-            return other.deadline < self.deadline
-        return NotImplemented
-
-    def __le__(self, other):
-        """NOTE: not supporting sort stability"""
-        if isinstance(other, _Timeout):
-            return other.deadline <= self.deadline
+            return self.deadline < other.deadline
         return NotImplemented
 
 

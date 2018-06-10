@@ -34,7 +34,7 @@ class ChildParameters(connection.Parameters):
 
     def __eq__(self, other):
         if isinstance(other, ChildParameters):
-            return other.extra == self.extra and super(
+            return self.extra == other.extra and super(
                 ChildParameters, self).__eq__(other)
         return NotImplemented
 
@@ -150,7 +150,7 @@ class ParametersTests(ParametersTestsBase):
         class Foreign(object):
 
             def __eq__(self, other):
-                return "foobar"
+                return 'foobar'
 
         self.assertEqual(params_1 == Foreign(), 'foobar')
         self.assertEqual(Foreign() == params_1, 'foobar')
