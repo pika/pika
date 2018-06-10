@@ -159,7 +159,7 @@ class Parameters(object):  # pylint: disable=R0902
 
     def __eq__(self, other):
         if isinstance(other, Parameters):
-            return (self._host == other._host and self._port == other._port)
+            return (other._host == self._host and other._port == self._port)
         return NotImplemented
 
     def __ne__(self, other):

@@ -53,9 +53,9 @@ class PlainCredentials(object):
 
     def __eq__(self, other):
         if isinstance(other, PlainCredentials):
-            return (self.username == other.username
-                    and self.password == other.password
-                    and self.erase_on_connect == other.erase_on_connect)
+            return (other.username == self.username
+                    and other.password == self.password
+                    and other.erase_on_connect == self.erase_on_connect)
         return NotImplemented
 
     def __ne__(self, other):
@@ -99,7 +99,7 @@ class ExternalCredentials(object):
 
     def __eq__(self, other):
         if isinstance(other, ExternalCredentials):
-            return self.erase_on_connect == other.erase_on_connect
+            return other.erase_on_connect == self.erase_on_connect
         return NotImplemented
 
     def __ne__(self, other):

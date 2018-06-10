@@ -17,7 +17,7 @@ class ChildPlainCredentials(credentials.PlainCredentials):
 
     def __eq__(self, other):
         if isinstance(other, ChildPlainCredentials):
-            return self.extra == other.extra and super(
+            return other.extra == self.extra and super(
                 ChildPlainCredentials, self).__eq__(other)
         return NotImplemented
 
@@ -30,7 +30,7 @@ class ChildExternalCredentials(credentials.ExternalCredentials):
 
     def __eq__(self, other):
         if isinstance(other, ChildExternalCredentials):
-            return self.extra == other.extra and super(
+            return other.extra == self.extra and super(
                 ChildExternalCredentials, self).__eq__(other)
         return NotImplemented
 

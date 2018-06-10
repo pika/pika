@@ -34,7 +34,7 @@ class ChildParameters(connection.Parameters):
 
     def __eq__(self, other):
         if isinstance(other, ChildParameters):
-            return self.extra == other.extra and super(
+            return other.extra == self.extra and super(
                 ChildParameters, self).__eq__(other)
         return NotImplemented
 
