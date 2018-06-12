@@ -22,7 +22,6 @@ as defined by PREFETCH_COUNT
 
 import pika
 from pika import spec
-from pika import exceptions
 from pika.adapters import twisted_connection
 
 from twisted.internet import protocol
@@ -34,6 +33,7 @@ from twisted.python import log
 from twisted.internet import reactor
 
 PREFETCH_COUNT = 2
+
 
 class PikaService(service.MultiService):
     name = 'amqp'
@@ -89,10 +89,12 @@ class PikaProtocol(twisted_connection.TwistedProtocolConnection):
     @inlineCallbacks
     def setup_read(self, exchange, routing_key, callback):
         """This function does the work to read from an exchange."""
-        if not exchange == '':
+        if exchange:
             yield self.channel.exchange_declare(exchange=exchange, exchange_type='topic', durable=True, auto_delete=False)
 
-        self.channel.queue_declare(queue=routing_key, durable=True)
+        yield self.channel.queue_declare(queue=routing_key, durable=True)
+        if exchange:
+            yield self.channel.queue_bind(queue=routing_key, exchange=exchange)
 
         (queue, consumer_tag,) = yield self.channel.basic_consume(queue=routing_key, auto_ack=False)
         d = queue.get()
