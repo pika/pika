@@ -25,14 +25,12 @@ class HeartbeatTests(unittest.TestCase):
         del self.obj
         del self.mock_conn
 
-    def test_default_initialization_interval(self):
-        self.assertEqual(self.obj._timeout, self.HALF_TIMEOUT)
-
     def test_constructor_assignment_connection(self):
         self.assertIs(self.obj._connection, self.mock_conn)
 
-    def test_constructor_assignment_heartbeat_interval(self):
-        self.assertEqual(self.obj._timeout, self.HALF_TIMEOUT)
+    def test_constructor_assignment_timeout_and_check_interval(self):
+        self.assertEqual(self.obj._timeout, self.TIMEOUT)
+        self.assertEqual(self.obj._check_interval, self.HALF_TIMEOUT)
 
     def test_constructor_initial_bytes_received(self):
         self.assertEqual(self.obj._bytes_received, 0)
@@ -124,8 +122,7 @@ class HeartbeatTests(unittest.TestCase):
         self.obj._idle_byte_intervals = 3
         self.obj._idle_heartbeat_intervals = 4
         self.obj._close_connection()
-        reason = self.obj._STALE_CONNECTION % (
-            heartbeat.HeartbeatChecker._MAX_IDLE_COUNT * self.obj._timeout)
+        reason = self.obj._STALE_CONNECTION % self.obj._timeout
         self.mock_conn.close.assert_called_once_with(
             self.obj._CONNECTION_FORCED, reason)
         self.mock_conn._on_terminate.assert_called_once_with(

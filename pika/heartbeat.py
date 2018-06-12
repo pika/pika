@@ -7,8 +7,8 @@ LOGGER = logging.getLogger(__name__)
 
 
 class HeartbeatChecker(object):
-    """Checks to make sure that our heartbeat is received at the expected
-    timeouts.
+    """Sends heartbeats to the broker and checks to make sure that the broker's
+    heartbeat is received before the expected timeout expires.
 
     """
     # Note: even though we're sending heartbeats in half the specified
@@ -21,8 +21,9 @@ class HeartbeatChecker(object):
     _STALE_CONNECTION = "Too Many Missed Heartbeats, No reply in %i seconds"
 
     def __init__(self, connection, timeout):
-        """Create a heartbeat on connection sending a heartbeat frame every
-        timeout seconds.
+        """Create a heartbeat on the connection that sends two heartbeat frames
+        within the specified timeout window. Also checks to ensure heartbeats
+        are received from the broker.
 
         :param pika.connection.Connection: Connection object
         :param int timeout: Heartbeat check timeout. Note: heartbeats will
@@ -33,7 +34,8 @@ class HeartbeatChecker(object):
 
         # Note: see the following document:
         # https://www.rabbitmq.com/heartbeats.html#heartbeats-timeout
-        self._timeout = float(timeout / 2)
+        self._timeout = timeout
+        self._check_interval = float(self._timeout / 2)
 
         # Initialize counters
         self._bytes_received = 0
@@ -122,8 +124,7 @@ class HeartbeatChecker(object):
         """Close the connection with the AMQP Connection-Forced value."""
         LOGGER.info('Connection is idle, %i stale byte intervals',
                     self._idle_byte_intervals)
-        duration = HeartbeatChecker._MAX_IDLE_COUNT * self._timeout
-        text = HeartbeatChecker._STALE_CONNECTION % duration
+        text = HeartbeatChecker._STALE_CONNECTION % self._timeout
 
         # NOTE: this won't achieve the perceived effect of sending
         # Connection.Close to broker, because the frame will only get buffered
@@ -165,7 +166,7 @@ class HeartbeatChecker(object):
         every interval seconds.
 
         """
-        self._timer = self._connection.add_timeout(self._timeout,
+        self._timer = self._connection.add_timeout(self._check_interval,
                                                    self.send_and_check)
 
     def _start_timer(self):
