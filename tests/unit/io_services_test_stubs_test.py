@@ -36,9 +36,6 @@ del _TORNADO_IO_LOOP
 _SUPPORTED_LOOP_CLASSES = {
     select_connection.IOLoop,
     _TORNADO_IOLOOP_CLASS,
-    # NOTE: twisted automagically makes its reactor module look like an IO Loop
-    # instance
-    twisted.internet.reactor.__class__,  # pylint: disable=E1101
 }
 
 if asyncio is not None:

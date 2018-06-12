@@ -111,22 +111,6 @@ class IOServicesTestStubs(object):
             nbio_factory=lambda: SelectorIOServicesAdapter(native_loop),
             native_loop=native_loop)
 
-    @run_in_thread_with_timeout
-    def test_with_twisted_io_services(self):
-        # Test entry point for `twisted.reactor`-based async services
-        # implementation.
-
-        from twisted.internet import reactor
-        from pika.adapters.twisted_connection import (
-            _TwistedIOServicesAdapter)
-
-        # NOTE: reactor magically sets reactor.__class__ to the class of the
-        # I/O loop that it automagically selected for this platform
-        native_loop = reactor.__class__()  # pylint: disable=E1101
-        self._run_start(
-            nbio_factory=lambda: _TwistedIOServicesAdapter(native_loop),
-            native_loop=native_loop)
-
     @unittest.skipIf(sys.version_info < (3, 4),
                      "Asyncio is available only with Python 3.4+")
     @run_in_thread_with_timeout
