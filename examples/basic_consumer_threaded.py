@@ -10,20 +10,25 @@ LOGGER = logging.getLogger(__name__)
 
 logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT)
 
+def ack_message(channel, delivery_tag):
+    """Note that `channel` must be the same pika channel instance via which
+    the message being ACKed was retrieved (AMQP protocol constraint).
+    """
+    if channel.is_open:
+        channel.basic_ack(delivery_tag)
+    else:
+        # Channel is already closed, so we can't ACK this message;
+        # log and/or do something that makes sense for your app in this case.
+        pass
+
 def do_work(connection, channel, delivery_tag, body):
     thread_id = threading.get_ident()
     fmt1 = 'Thread id: {} Delivery tag: {} Message body: {}'
     LOGGER.info(fmt1.format(thread_id, delivery_tag, body))
     # Sleeping to simulate 10 seconds of work
     time.sleep(10)
-    if channel.is_open:
-        fmt2 = 'Thread id: {} Delivery tag: {} sending ack'
-        LOGGER.info(fmt2.format(thread_id, delivery_tag))
-        cb = functools.partial(channel.basic_ack, delivery_tag)
-        connection.add_callback_threadsafe(cb)
-    else:
-        fmt2 = 'Thread id: {} Delivery tag: {} not sending ack, channel closed'
-        LOGGER.info(fmt2.format(thread_id, delivery_tag))
+    cb = functools.partial(ack_message, channel, delivery_tag)
+    connection.add_callback_threadsafe(cb)
 
 def on_message(channel, method_frame, header_frame, body, args):
     (connection, threads) = args
