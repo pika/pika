@@ -36,7 +36,7 @@ Here is the most simple example of use, sending a message with the BlockingConne
     channel = connection.channel()
     channel.basic_publish(exchange='example',
                           routing_key='test',
-                          body=b'Test Message')
+                          body='Test Message')
     connection.close()
 
 And an example of writing a blocking consumer:
