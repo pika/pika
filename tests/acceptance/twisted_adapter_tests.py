@@ -18,9 +18,11 @@ from nose.twistedtools import reactor, deferred
 from twisted.internet import defer, error as twisted_error
 
 from pika.adapters.twisted_connection import (
-    ClosableDeferredQueue, TwistedChannel,
+    ClosableDeferredQueue, TwistedChannel, _TwistedConnectionAdapter,
     TwistedProtocolConnection, _TimerHandle)
+from pika import spec
 from pika.exceptions import AMQPConnectionError
+from pika.frame import Method
 
 
 class TestCase(unittest.TestCase):
@@ -130,8 +132,7 @@ class TwistedChannelTestCase(TestCase):
             return queue_get_d
         d.addCallback(check_cb)
         # Simulate a ConsumeOk from the server
-        frame = mock.Mock()
-        frame.consumer_tag = "testconsumertag"
+        frame = Method(1, spec.Basic.ConsumeOk(consumer_tag="testconsumertag"))
         kwargs["callback"](frame)
         return d
 
@@ -251,107 +252,53 @@ class TwistedProtocolConnectionTestCase(TestCase):
 
     def setUp(self):
         self.conn = TwistedProtocolConnection()
-
-    def tearDown(self):
-        if self.conn._transport is None:
-            self.conn._transport = mock.Mock()
-        self.conn.close()
+        self.conn._impl = mock.Mock()
 
     @deferred(timeout=5.0)
     def test_connection(self):
         # Verify that the connection opening is properly wrapped.
-        self.conn.connectionMade = mock.Mock()
         transport = mock.Mock()
+        self.conn.connectionMade = mock.Mock()
         self.conn.makeConnection(transport)
-        transport.write.assert_called_once()
+        self.conn._impl.connection_made.assert_called_once_with(
+            transport)
         self.conn.connectionMade.assert_called_once()
-        self.assertEqual(
-            self.conn.connection_state, self.conn.CONNECTION_PROTOCOL)
         d = self.conn.ready
-        self.conn._on_connection_open_ok(mock.Mock())
-        self.assertEqual(
-            self.conn.connection_state, self.conn.CONNECTION_OPEN)
+        self.conn.connectionReady(None)
         return d
 
     @deferred(timeout=5.0)
     def test_channel(self):
         # Verify that the request for a channel works properly.
-        self.conn._create_channel = mock.Mock()
-        transport = mock.Mock()
-        self.conn.makeConnection(transport)
-        self.conn._set_connection_state(self.conn.CONNECTION_OPEN)
+        channel = mock.Mock()
+        self.conn._impl.channel.side_effect = lambda n, cb: cb(channel)
         d = self.conn.channel()
-        self.conn._create_channel.assert_called_once()
+        self.conn._impl.channel.assert_called_once()
 
         def check(result):
             self.assertTrue(isinstance(result, TwistedChannel))
         d.addCallback(check)
-        # Simulate server response
-        self.conn._create_channel.call_args_list[0][0][1](mock.Mock())
-        return d
-
-    def test_adapter_disconnect_stream(self):
-        # Verify that the underlying transport is aborted.
-        transport = mock.Mock()
-        self.conn.makeConnection(transport)
-        self.conn._adapter_disconnect_stream()
-        transport.abort.assert_called_once()
-
-    def test_adapter_emit_data(self):
-        # Verify that the data is transmitted to the underlying transport.
-        transport = mock.Mock()
-        self.conn.makeConnection(transport)
-        self.conn._adapter_emit_data("testdata")
-        transport.write.assert_called_with("testdata")
-
-    def test_timeout(self):
-        # Verify that timeouts are registered and cancelled properly.
-        callback = mock.Mock()
-        timer_id = self.conn._adapter_add_timeout(5, callback)
-        self.assertEqual(len(reactor.getDelayedCalls()), 1)
-        self.conn._adapter_remove_timeout(timer_id)
-        self.assertEqual(len(reactor.getDelayedCalls()), 0)
-        callback.assert_not_called()
-
-    @deferred(timeout=5.0)
-    def test_call_threadsafe(self):
-        # Verify that the method is actually called using the reactor's
-        # callFromThread method.
-        callback = mock.Mock()
-        self.conn._adapter_add_callback_threadsafe(callback)
-        d = defer.Deferred()
-
-        def check():
-            callback.assert_called_once()
-            d.callback(None)
-        # Give time to run the callFromThread call
-        reactor.callLater(0.1, check)
         return d
 
     def test_dataReceived(self):
         # Verify that the data is transmitted to the callback method.
-        self.conn._on_data_available = mock.Mock()
         self.conn.dataReceived("testdata")
-        self.conn._on_data_available.assert_called_once_with("testdata")
+        self.conn._impl.data_received.assert_called_once_with("testdata")
 
     @deferred(timeout=5.0)
     def test_connectionLost(self):
-        # Verify that the "ready" Deferred errbacks on connectionLost, that the
-        # correct callback is called, and that the attributes are
-        # reinitialized.
-        self.conn._on_stream_terminated = mock.Mock()
+        # Verify that the "ready" Deferred errbacks on connectionLost, and that
+        # the underlying implementation callback is called.
         ready_d = self.conn.ready
         error = RuntimeError("testreason")
         self.conn.connectionLost(error)
-        self.conn._on_stream_terminated.assert_called_with(error)
+        self.conn._impl.connection_lost.assert_called_with(error)
         self.assertIsNone(self.conn.ready)
-        self.assertIsNone(self.conn._transport)
         return self.assertFailure(ready_d, RuntimeError)
 
     def test_connectionLost_twice(self):
         # Verify that calling connectionLost twice will not cause an
         # AlreadyCalled error on the Deferred.
-        self.conn._on_stream_terminated = mock.Mock()
         ready_d = self.conn.ready
         error = RuntimeError("testreason")
         self.conn.connectionLost(error)
@@ -367,7 +314,7 @@ class TwistedProtocolConnectionTestCase(TestCase):
         d = self.conn.ready
         self.conn.connectionReady("testresult")
         self.assertTrue(d.called)
-        d.addCallback(self.assertEqual, "testresult")
+        d.addCallback(self.assertEqual, self.conn)
         return d
 
     def test_connectionReady_twice(self):
@@ -395,6 +342,79 @@ class TwistedProtocolConnectionTestCase(TestCase):
         d.addErrback(lambda f: None)  # silence the error
         # A second call must not raise AlreadyCalled
         self.conn.connectionFailed(None)
+
+
+class TwistedConnectionAdapterTestCase(TestCase):
+
+    def setUp(self):
+        self.conn = _TwistedConnectionAdapter()
+
+    def tearDown(self):
+        if self.conn._transport is None:
+            self.conn._transport = mock.Mock()
+        self.conn.close()
+
+    def test_adapter_disconnect_stream(self):
+        # Verify that the underlying transport is aborted.
+        transport = mock.Mock()
+        self.conn.connection_made(transport)
+        self.conn._adapter_disconnect_stream()
+        transport.abort.assert_called_once()
+
+    def test_adapter_emit_data(self):
+        # Verify that the data is transmitted to the underlying transport.
+        transport = mock.Mock()
+        self.conn.connection_made(transport)
+        self.conn._adapter_emit_data("testdata")
+        transport.write.assert_called_with("testdata")
+
+    def test_timeout(self):
+        # Verify that timeouts are registered and cancelled properly.
+        callback = mock.Mock()
+        timer_id = self.conn._adapter_add_timeout(5, callback)
+        self.assertEqual(len(reactor.getDelayedCalls()), 1)
+        self.conn._adapter_remove_timeout(timer_id)
+        self.assertEqual(len(reactor.getDelayedCalls()), 0)
+        callback.assert_not_called()
+
+    @deferred(timeout=5.0)
+    def test_call_threadsafe(self):
+        # Verify that the method is actually called using the reactor's
+        # callFromThread method.
+        callback = mock.Mock()
+        self.conn._adapter_add_callback_threadsafe(callback)
+        d = defer.Deferred()
+
+        def check():
+            callback.assert_called_once()
+            d.callback(None)
+        # Give time to run the callFromThread call
+        reactor.callLater(0.1, check)
+        return d
+
+    def test_connection_made(self):
+        # Verify the connection callback
+        transport = mock.Mock()
+        self.conn.connection_made(transport)
+        self.assertEqual(self.conn._transport, transport)
+        self.assertEqual(
+            self.conn.connection_state, self.conn.CONNECTION_PROTOCOL)
+
+    def test_connection_lost(self):
+        # Verify that the correct callback is called and that the
+        # attributes are reinitialized.
+        self.conn._on_stream_terminated = mock.Mock()
+        error = RuntimeError("testreason")
+        self.conn.connection_lost(error)
+        self.conn._on_stream_terminated.assert_called_with(error)
+        self.assertIsNone(self.conn._transport)
+
+    def test_data_received(self):
+        # Verify that the received data is forwarded to the Connection.
+        data = b"test data"
+        self.conn._on_data_available = mock.Mock()
+        self.conn.data_received(data)
+        self.conn._on_data_available.assert_called_once_with(data)
 
 
 class TimerHandleTestCase(TestCase):
