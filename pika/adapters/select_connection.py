@@ -141,7 +141,7 @@ class SelectConnection(BaseConnection):
 class _Timeout(object):
     """Represents a timeout"""
 
-    __slots__ = ('deadline', 'callback')
+    __slots__ = ('deadline', 'callback',)
 
     def __init__(self, deadline, callback):
         """
@@ -149,6 +149,7 @@ class _Timeout(object):
         :param callable callback: callback to call when timeout expires
         :raises ValueError, TypeError:
         """
+
         if deadline < 0:
             raise ValueError(
                 'deadline must be non-negative epoch number, but got %r' %
