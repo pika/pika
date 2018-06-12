@@ -8,6 +8,19 @@ Version History
 
 - `BlockingConnection.consume` now returns `(None, None, None)` when inactivity timeout is reached (`PR <https://github.com/pika/pika/pull/899>`_)
 
+API changes from previous versions:
+
+pika/channel.py
+
+def basic_consume(self,
+                  queue,
+                  on_message_callback,
+                  auto_ack=False,
+                  exclusive=False,
+                  consumer_tag=None,
+                  arguments=None,
+                  callback=None)
+
 0.11.2 2017-11-30
 -----------------
 
