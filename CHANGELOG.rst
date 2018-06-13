@@ -67,6 +67,21 @@ exchange_declare
 queue_bind
 queue_declare
 
+TODO:
+basic_cancel
+basic_get
+basic_qos
+basic_recover
+confirm_delivery
+exchange_bind
+exchange_delete
+exchange_unbind
+flow
+queue_delete
+queue_purge
+queue_unbind
+
+
 0.11.2 2017-11-30
 -----------------
 
