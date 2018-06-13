@@ -58,6 +58,13 @@ Please see `examples/basic_consumer_threaded.py` for an example. As always, `Sel
 
 Heartbeats are now sent at an interval equal to 1/2 of the negotiated idle connection timeout. RabbitMQ's default timeout value is 60 seconds, so heartbeats will be sent at a 30 second interval. In addition, Pika's check for an idle connection will be done at an interval equal to the timeout value plus 5 seconds to allow for delays. This results in an interval of 65 seconds by default.
 
+API changes from previous versions:
+
+pika/channel.py
+
+basic_consume
+queue_declare
+
 0.11.2 2017-11-30
 -----------------
 

@@ -58,6 +58,10 @@ class BlockingChannelTests(unittest.TestCase):
         with self.assertRaises(TypeError):
             self.obj.basic_consume(mock.Mock(), 'queue')
 
+    def test_queue_declare_legacy_parameter_callback(self):
+        with self.assertRaises(TypeError):
+            self.obj.queue_declare(mock.Mock(), 'queue')
+
     def test_basic_consume(self):
         with mock.patch.object(self.obj._impl, '_generate_consumer_tag'):
             self.obj._impl._generate_consumer_tag.return_value = 'ctag0'

@@ -361,7 +361,7 @@ class TestUsingInvalidQueueArgument(BlockingTestCaseBase):
         """
         connection = self._connect()
         ch = connection.channel()
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(TypeError):
             ch.queue_declare(queue=[1, 2, 3])
 
 

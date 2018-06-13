@@ -2552,6 +2552,9 @@ class BlockingChannel(object):
           `spec.Queue.DeclareOk`
 
         """
+        if not isinstance(queue, compat.basestring):
+            raise TypeError('queue must be a str or unicode str, but got %r' %
+                            (queue,))
         with _CallbackResult(self._MethodFrameCallbackResultArgs) as \
                 declare_ok_result:
             self._impl.queue_declare(
