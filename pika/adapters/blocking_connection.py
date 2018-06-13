@@ -2430,6 +2430,9 @@ class BlockingChannel(object):
           `spec.Exchange.DeclareOk`
 
         """
+        if not isinstance(exchange, compat.basestring):
+            raise TypeError('exchange must be a str or unicode str, but got %r' %
+                            (exchange,))
         with _CallbackResult(
             self._MethodFrameCallbackResultArgs) as declare_ok_result:
             self._impl.exchange_declare(

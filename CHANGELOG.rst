@@ -64,6 +64,7 @@ pika/channel.py
 
 basic_consume
 queue_declare
+exchange_declare
 
 0.11.2 2017-11-30
 -----------------

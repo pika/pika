@@ -270,6 +270,12 @@ class ChannelTests(unittest.TestCase):
         with self.assertRaises(TypeError):
             self.obj.queue_declare(callback_mock, 'queue')
 
+    def test_exchange_declare_legacy_parameter_callback(self):
+        self.obj._set_state(self.obj.OPEN)
+        callback_mock = mock.Mock()
+        with self.assertRaises(TypeError):
+            self.obj.exchange_declare(callback_mock, 'exchange')
+
     def test_basic_consume_channel_closed(self):
         mock_callback = mock.Mock()
         mock_on_msg_callback = mock.Mock()

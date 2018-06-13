@@ -659,6 +659,7 @@ class Channel(object):
         :raises ValueError:
 
         """
+        self._require_string(exchange, 'exchange')
         self._raise_if_not_open()
         nowait = self._validate_rpc_completion_callback(callback)
         return self._rpc(spec.Exchange.Declare(0, exchange, exchange_type,
