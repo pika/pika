@@ -8,6 +8,53 @@ Version History
 
 - `BlockingConnection.consume` now returns `(None, None, None)` when inactivity timeout is reached (`PR <https://github.com/pika/pika/pull/899>`_)
 
+0.12.0b4 2018-06-07
+-------------------
+
+`GitHub milestone <https://github.com/pika/pika/milestone/12>`_
+
+This is an interim release prior to version `1.0.0`. It includes the following backported pull requests and commits from the `master` branch:
+
+- `PR #908 <https://github.com/pika/pika/pull/908>`_
+- `PR #910 <https://github.com/pika/pika/pull/910>`_
+- `PR #918 <https://github.com/pika/pika/pull/918>`_
+- `PR #920 <https://github.com/pika/pika/pull/920>`_
+- `PR #924 <https://github.com/pika/pika/pull/924>`_
+- `PR #937 <https://github.com/pika/pika/pull/937>`_
+- `PR #938 <https://github.com/pika/pika/pull/938>`_
+- `PR #933 <https://github.com/pika/pika/pull/933>`_
+- `PR #940 <https://github.com/pika/pika/pull/940>`_
+- `PR #932 <https://github.com/pika/pika/pull/932>`_
+- `PR #928 <https://github.com/pika/pika/pull/928>`_
+- `PR #934 <https://github.com/pika/pika/pull/934>`_
+- `PR #915 <https://github.com/pika/pika/pull/915>`_
+- `PR #946 <https://github.com/pika/pika/pull/946>`_
+- `PR #947 <https://github.com/pika/pika/pull/947>`_
+- `PR #952 <https://github.com/pika/pika/pull/952>`_
+- `PR #956 <https://github.com/pika/pika/pull/956>`_
+- `PR #966 <https://github.com/pika/pika/pull/966>`_
+- `PR #975 <https://github.com/pika/pika/pull/975>`_
+- `PR #978 <https://github.com/pika/pika/pull/978>`_
+- `PR #981 <https://github.com/pika/pika/pull/981>`_
+- `PR #994 <https://github.com/pika/pika/pull/994>`_
+- `PR #1007 <https://github.com/pika/pika/pull/1007>`_
+- `PR #1045 <https://github.com/pika/pika/pull/1045>`_ (manually backported)
+- `PR #1011 <https://github.com/pika/pika/pull/1011>`_
+
+Commits:
+
+Travis CI fail fast - 3f0e739
+
+New features:
+
+`BlockingConnection` now supports the `add_callback_threadsafe` method which allows a function to be executed correctly on the IO loop thread. The main use-case for this is as follows:
+
+- Application sets up a thread for `BlockingConnection` and calls `basic_consume` on it
+- When a message is received, work is done on another thread
+- When the work is done, the worker uses `connection.add_callback_threadsafe` to call the `basic_ack` method on the channel instance.
+
+Please see `examples/basic_consumer_threaded.py` for an example. As always, `SelectConnection` and a fully async consumer/publisher is the preferred method of using Pika.
+
 0.11.2 2017-11-30
 -----------------
 
