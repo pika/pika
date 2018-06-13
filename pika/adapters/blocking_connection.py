@@ -2630,6 +2630,12 @@ class BlockingChannel(object):
           `spec.Queue.BindOk`
 
         """
+        if not isinstance(queue, compat.basestring):
+            raise TypeError('queue must be a str or unicode str, but got %r' %
+                            (queue,))
+        if not isinstance(exchange, compat.basestring):
+            raise TypeError('exchange must be a str or unicode str, but got %r' %
+                            (exchange,))
         with _CallbackResult(
             self._MethodFrameCallbackResultArgs) as bind_ok_result:
             self._impl.queue_bind(queue=queue,

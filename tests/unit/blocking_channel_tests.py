@@ -66,6 +66,12 @@ class BlockingChannelTests(unittest.TestCase):
         with self.assertRaises(TypeError):
             self.obj.exchange_declare(mock.Mock(), 'exchange')
 
+    def test_queue_bind_legacy_parameter_callback(self):
+        with self.assertRaises(TypeError):
+            self.obj.queue_bind(mock.Mock(),
+                                'queue',
+                                'exchange')
+
     def test_basic_consume(self):
         with mock.patch.object(self.obj._impl, '_generate_consumer_tag'):
             self.obj._impl._generate_consumer_tag.return_value = 'ctag0'

@@ -787,6 +787,8 @@ class Channel(object):
         :raises ValueError:
 
         """
+        self._require_string(queue, 'queue')
+        self._require_string(exchange, 'exchange')
         self._raise_if_not_open()
         nowait = self._validate_rpc_completion_callback(callback)
         if routing_key is None:

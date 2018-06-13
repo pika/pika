@@ -276,6 +276,14 @@ class ChannelTests(unittest.TestCase):
         with self.assertRaises(TypeError):
             self.obj.exchange_declare(callback_mock, 'exchange')
 
+    def test_queue_bind_legacy_parameter_callback(self):
+        self.obj._set_state(self.obj.OPEN)
+        callback_mock = mock.Mock()
+        with self.assertRaises(TypeError):
+            self.obj.queue_bind(callback_mock,
+                                'queue',
+                                'exchange')
+
     def test_basic_consume_channel_closed(self):
         mock_callback = mock.Mock()
         mock_on_msg_callback = mock.Mock()
@@ -916,7 +924,7 @@ class ChannelTests(unittest.TestCase):
 
     def test_queue_bind_raises_channel_wrong_state(self):
         self.assertRaises(exceptions.ChannelWrongStateError,
-                          self.obj.queue_bind, None,
+                          self.obj.queue_bind, '',
                           'foo', 'bar', 'baz')
 
     def test_queue_bind_raises_value_error_on_invalid_callback(self):

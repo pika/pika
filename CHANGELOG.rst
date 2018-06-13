@@ -63,8 +63,9 @@ API changes from previous versions:
 pika/channel.py
 
 basic_consume
-queue_declare
 exchange_declare
+queue_bind
+queue_declare
 
 0.11.2 2017-11-30
 -----------------
