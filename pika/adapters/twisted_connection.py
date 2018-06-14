@@ -177,7 +177,7 @@ class TwistedChannel(object):
                     (queue_obj, frame.method.consumer_tag)
                 ),
             )
-        except Exception:  # pylint: disable-msg=W0703
+        except Exception:  # pylint: disable=W0703
             return defer.fail()
 
         return d
@@ -276,7 +276,7 @@ class TwistedChannel(object):
 
             try:
                 method(*args, **kwargs)
-            except Exception:  # pylint: disable-msg=W0703
+            except Exception:  # pylint: disable=W0703
                 return defer.fail()
             return d
 
@@ -449,7 +449,7 @@ class TwistedProtocolConnection(protocol.Protocol):
             custom_reactor=custom_reactor,
         )
 
-    def channel(self, channel_number=None):  # pylint: disable-msg=W0221
+    def channel(self, channel_number=None):  # pylint: disable=W0221
         """Create a new channel with the next available channel number or pass
         in a channel number to use. Must be non-zero if you would like to
         specify but it is recommended that you let Pika manage the channel
