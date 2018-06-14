@@ -35,7 +35,7 @@ class HeartbeatChecker(object):
         # Note: see the following document:
         # https://www.rabbitmq.com/heartbeats.html#heartbeats-timeout
         self._timeout = timeout
-        self._check_interval = float(self._timeout / 2)
+        self._check_interval = float(self._timeout) / 2
 
         # Initialize counters
         self._bytes_received = 0
