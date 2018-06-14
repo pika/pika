@@ -93,26 +93,26 @@ class TwistedChannel(object):
                        'tx_rollback', 'flow', 'basic_cancel')
 
     def __init__(self, channel):
-        self.__channel = channel
-        self.__closed = None
-        self.__calls = set()
-        self.__consumers = {}
+        self._channel = channel
+        self._closed = None
+        self._calls = set()
+        self._consumers = {}
 
         channel.add_on_close_callback(self.channel_closed)
 
     def channel_closed(self, _channel, reason):
         # enter the closed state
-        self.__closed = reason
+        self._closed = reason
         # errback all pending calls
-        for d in self.__calls:
-            d.errback(self.__closed)
+        for d in self._calls:
+            d.errback(self._closed)
         # close all open queues
-        for consumers in self.__consumers.values():
+        for consumers in self._consumers.values():
             for c in consumers:
-                c.close(self.__closed)
+                c.close(self._closed)
         # release references to stored objects
-        self.__calls = set()
-        self.__consumers = {}
+        self._calls = set()
+        self._consumers = {}
 
     def basic_consume(self,
                       queue,
@@ -157,15 +157,15 @@ class TwistedChannel(object):
         :rtype: Deferred
 
         """
-        if self.__closed:
-            return defer.fail(self.__closed)
+        if self._closed:
+            return defer.fail(self._closed)
 
         queue_obj = ClosableDeferredQueue()
-        self.__consumers.setdefault(queue, set()).add(queue_obj)
+        self._consumers.setdefault(queue, set()).add(queue_obj)
         d = defer.Deferred()
 
         try:
-            self.__channel.basic_consume(
+            self._channel.basic_consume(
                 queue=queue,
                 on_message_callback=lambda *args: queue_obj.put(args),
                 auto_ack=auto_ack,
@@ -188,11 +188,11 @@ class TwistedChannel(object):
         See :meth:`Channel.queue_delete <pika.channel.Channel.queue_delete>`.
 
         """
-        wrapped = self.__wrap_channel_method('queue_delete')
+        wrapped = self._wrap_channel_method('queue_delete')
         queue_name = kwargs['queue']
 
         d = wrapped(*args, **kwargs)
-        return d.addCallback(self.__clear_consumer, queue_name)
+        return d.addCallback(self._clear_consumer, queue_name)
 
     def basic_publish(self, *args, **kwargs):
         """Make sure the channel is not closed and then publish. Return a
@@ -201,27 +201,27 @@ class TwistedChannel(object):
         See :meth:`Channel.basic_publish <pika.channel.Channel.basic_publish>`.
 
         """
-        if self.__closed:
-            return defer.fail(self.__closed)
-        return defer.succeed(self.__channel.basic_publish(*args, **kwargs))
+        if self._closed:
+            return defer.fail(self._closed)
+        return defer.succeed(self._channel.basic_publish(*args, **kwargs))
 
-    def __wrap_channel_method(self, name):
+    def _wrap_channel_method(self, name):
         """Wrap Pika's Channel method to make it return a Deferred that fires
         when the method completes and errbacks if the channel gets closed. If
         the original method's callback would receive more than one argument, the
         Deferred fires with a tuple of argument values.
 
         """
-        method = getattr(self.__channel, name)
+        method = getattr(self._channel, name)
 
         @functools.wraps(method)
         def wrapped(*args, **kwargs):
-            if self.__closed:
-                return defer.fail(self.__closed)
+            if self._closed:
+                return defer.fail(self._closed)
 
             d = defer.Deferred()
-            self.__calls.add(d)
-            d.addCallback(self.__clear_call, d)
+            self._calls.add(d)
+            d.addCallback(self._clear_call, d)
 
             def single_argument(*args):
                 """
@@ -244,20 +244,20 @@ class TwistedChannel(object):
 
         return wrapped
 
-    def __clear_consumer(self, ret, queue_name):
-        self.__consumers.pop(queue_name, None)
+    def _clear_consumer(self, ret, queue_name):
+        self._consumers.pop(queue_name, None)
         return ret
 
-    def __clear_call(self, ret, d):
-        self.__calls.discard(d)
+    def _clear_call(self, ret, d):
+        self._calls.discard(d)
         return ret
 
     def __getattr__(self, name):
         # Wrap methods defined in WRAPPED_METHODS, forward the rest of accesses
         # to the channel.
         if name in self.WRAPPED_METHODS:
-            return self.__wrap_channel_method(name)
-        return getattr(self.__channel, name)
+            return self._wrap_channel_method(name)
+        return getattr(self._channel, name)
 
 
 class _TwistedConnectionAdapter(pika.connection.Connection):
