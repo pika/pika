@@ -12,22 +12,18 @@ class HeartbeatChecker(object):
     heartbeat is received before the expected timeout expires.
 
     """
-    # Note: even though we're sending heartbeats in half the specified
-    # timeout value, the broker will be sending them to us at the specified
-    # value. This means we'll be checking for an idle connection via send_and_check
-    # twice as many times as the broker will send heartbeats to us,
-    # so we need to set max idle count to 4 here
     _MAX_IDLE_COUNT = 4
     _STALE_CONNECTION = "Too Many Missed Heartbeats, No reply in %i seconds"
 
-    def __init__(self, connection, timeout):
+    def __init__(self, connection, interval):
         """Create a heartbeat on the connection that sends two heartbeat frames
         within the specified timeout window. Also checks to ensure heartbeats
         are received from the broker.
 
         :param pika.connection.Connection: Connection object
-        :param int timeout: Heartbeat check timeout. Note: heartbeats will
-                            actually be sent at timeout / 2 frequency.
+        :param int interval: Heartbeat check interval. Note: heartbeats will
+                             actually be sent at interval / 2 frequency, and
+                             heartbeak checks at (interval * 3) / 2.
 
         """
         self._connection = connection

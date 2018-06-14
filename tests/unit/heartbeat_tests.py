@@ -55,15 +55,16 @@ class ConstructableConnection(connection.Connection):
 
 class HeartbeatTests(unittest.TestCase):
 
-    TIMEOUT = 60
-    HALF_TIMEOUT = TIMEOUT / 2
+    INTERVAL = 60
+    SEND_INTERVAL = float(INTERVAL) / 2
+    CHECK_INTERVAL = (float(INTERVAL) * 3) / 2
 
     def setUp(self):
         self.mock_conn = mock.Mock(spec_set=ConstructableConnection())
         self.mock_conn.bytes_received = 100
         self.mock_conn.bytes_sent = 100
         self.mock_conn._heartbeat_checker = mock.Mock(spec=heartbeat.HeartbeatChecker)
-        self.obj = heartbeat.HeartbeatChecker(self.mock_conn, self.TIMEOUT)
+        self.obj = heartbeat.HeartbeatChecker(self.mock_conn, self.INTERVAL)
 
     def tearDown(self):
         del self.obj
@@ -72,9 +73,10 @@ class HeartbeatTests(unittest.TestCase):
     def test_constructor_assignment_connection(self):
         self.assertIs(self.obj._connection, self.mock_conn)
 
-    def test_constructor_assignment_timeout_and_check_interval(self):
-        self.assertEqual(self.obj._timeout, self.TIMEOUT)
-        self.assertEqual(self.obj._check_interval, self.HALF_TIMEOUT)
+    def test_constructor_assignment_intervals(self):
+        self.assertEqual(self.obj._timeout, self.INTERVAL)
+        self.assertEqual(self.obj._send_interval, self.SEND_INTERVAL)
+        self.assertEqual(self.obj._check_interval, self.CHECK_INTERVAL)
 
     def test_constructor_initial_bytes_received(self):
         self.assertEqual(self.obj._bytes_received, 0)
@@ -91,9 +93,14 @@ class HeartbeatTests(unittest.TestCase):
     def test_constructor_initial_idle_byte_intervals(self):
         self.assertEqual(self.obj._idle_byte_intervals, 0)
 
-    @mock.patch('pika.heartbeat.HeartbeatChecker._setup_timer')
-    def test_constructor_called_setup_timer(self, timer):
-        heartbeat.HeartbeatChecker(self.mock_conn, self.TIMEOUT)
+    @mock.patch('pika.heartbeat.HeartbeatChecker._setup_send_timer')
+    def test_constructor_called_setup_send_timer(self, timer):
+        heartbeat.HeartbeatChecker(self.mock_conn, self.INTERVAL)
+        timer.assert_called_once_with()
+
+    @mock.patch('pika.heartbeat.HeartbeatChecker._setup_check_timer')
+    def test_constructor_called_setup_check_timer(self, timer):
+        heartbeat.HeartbeatChecker(self.mock_conn, self.INTERVAL)
         timer.assert_called_once_with()
 
     def test_active_true(self):
@@ -111,7 +118,7 @@ class HeartbeatTests(unittest.TestCase):
         self.assertFalse(self.obj.connection_is_idle)
 
     def test_connection_is_idle_true(self):
-        self.obj._idle_byte_intervals = self.TIMEOUT
+        self.obj._idle_byte_intervals = self.INTERVAL
         self.assertTrue(self.obj.connection_is_idle)
 
     def test_received(self):
@@ -119,47 +126,59 @@ class HeartbeatTests(unittest.TestCase):
         self.assertTrue(self.obj._heartbeat_frames_received, 1)
 
     @mock.patch('pika.heartbeat.HeartbeatChecker._close_connection')
-    def test_send_and_check_not_closed(self, close_connection):
-        obj = heartbeat.HeartbeatChecker(self.mock_conn, self.TIMEOUT)
-        obj.send_and_check()
+    def test_send_heartbeat_not_closed(self, close_connection):
+        obj = heartbeat.HeartbeatChecker(self.mock_conn, self.INTERVAL)
+        obj.send_heartbeat()
         close_connection.assert_not_called()
 
     @mock.patch('pika.heartbeat.HeartbeatChecker._close_connection')
-    def test_send_and_check_missed_bytes(self, close_connection):
-        obj = heartbeat.HeartbeatChecker(self.mock_conn, self.TIMEOUT)
-        obj._idle_byte_intervals = self.TIMEOUT
-        obj.send_and_check()
+    def test_check_heartbeat_not_closed(self, close_connection):
+        obj = heartbeat.HeartbeatChecker(self.mock_conn, self.INTERVAL)
+        obj.check_heartbeat()
+        close_connection.assert_not_called()
+
+    @mock.patch('pika.heartbeat.HeartbeatChecker._close_connection')
+    def test_check_heartbeat_missed_bytes(self, close_connection):
+        obj = heartbeat.HeartbeatChecker(self.mock_conn, self.INTERVAL)
+        obj._idle_byte_intervals = self.INTERVAL
+        obj.check_heartbeat()
         close_connection.assert_called_once_with()
 
-    def test_send_and_check_increment_no_bytes(self):
+    def test_check_heartbeat_increment_no_bytes(self):
         self.mock_conn.bytes_received = 100
         self.obj._bytes_received = 100
-        self.obj.send_and_check()
+        self.obj.check_heartbeat()
         self.assertEqual(self.obj._idle_byte_intervals, 1)
 
-    def test_send_and_check_increment_bytes(self):
+    def test_check_heartbeat_increment_bytes(self):
         self.mock_conn.bytes_received = 100
         self.obj._bytes_received = 128
-        self.obj.send_and_check()
+        self.obj.check_heartbeat()
         self.assertEqual(self.obj._idle_byte_intervals, 0)
 
     @mock.patch('pika.heartbeat.HeartbeatChecker._update_counters')
-    def test_send_and_check_update_counters(self, update_counters):
-        obj = heartbeat.HeartbeatChecker(self.mock_conn, self.TIMEOUT)
-        obj.send_and_check()
+    def test_check_heartbeat_update_counters(self, update_counters):
+        obj = heartbeat.HeartbeatChecker(self.mock_conn, self.INTERVAL)
+        obj.check_heartbeat()
         update_counters.assert_called_once_with()
 
     @mock.patch('pika.heartbeat.HeartbeatChecker._send_heartbeat_frame')
-    def test_send_and_check_send_heartbeat_frame(self, send_heartbeat_frame):
-        obj = heartbeat.HeartbeatChecker(self.mock_conn, self.TIMEOUT)
-        obj.send_and_check()
+    def test_send_heartbeat_sends_heartbeat_frame(self, send_heartbeat_frame):
+        obj = heartbeat.HeartbeatChecker(self.mock_conn, self.INTERVAL)
+        obj.send_heartbeat()
         send_heartbeat_frame.assert_called_once_with()
 
-    @mock.patch('pika.heartbeat.HeartbeatChecker._start_timer')
-    def test_send_and_check_start_timer(self, start_timer):
-        obj = heartbeat.HeartbeatChecker(self.mock_conn, self.TIMEOUT)
-        obj.send_and_check()
-        start_timer.assert_called_once_with()
+    @mock.patch('pika.heartbeat.HeartbeatChecker._start_send_timer')
+    def test_send_heartbeat_start_timer(self, start_send_timer):
+        obj = heartbeat.HeartbeatChecker(self.mock_conn, self.INTERVAL)
+        obj.send_heartbeat()
+        start_send_timer.assert_called_once_with()
+
+    @mock.patch('pika.heartbeat.HeartbeatChecker._start_check_timer')
+    def test_check_heartbeat_start_timer(self, start_check_timer):
+        obj = heartbeat.HeartbeatChecker(self.mock_conn, self.INTERVAL)
+        obj.check_heartbeat()
+        start_check_timer.assert_called_once_with()
 
     def test_connection_close(self):
         self.obj._idle_byte_intervals = 3
@@ -199,18 +218,23 @@ class HeartbeatTests(unittest.TestCase):
 
     def test_setup_timer_called(self):
         self.mock_conn._adapter_add_timeout.assert_called_once_with(
-            self.HALF_TIMEOUT, self.obj.send_and_check)
+            self.SEND_INTERVAL, self.obj.send_and_check)
 
-    @mock.patch('pika.heartbeat.HeartbeatChecker._setup_timer')
-    def test_start_timer_not_active(self, setup_timer):
-        self.obj._start_timer()
-        setup_timer.assert_not_called()
+    @mock.patch('pika.heartbeat.HeartbeatChecker._setup_send_timer')
+    def test_start_send_timer_not_active(self, setup_send_timer):
+        self.obj._start_send_timer()
+        setup_send_timer.assert_not_called()
 
-    @mock.patch('pika.heartbeat.HeartbeatChecker._setup_timer')
-    def test_start_timer_active(self, setup_timer):
+    @mock.patch('pika.heartbeat.HeartbeatChecker._setup_check_timer')
+    def test_start_check_timer_not_active(self, setup_check_timer):
+        self.obj._start_check_timer()
+        setup_check_timer.assert_not_called()
+
+    @mock.patch('pika.heartbeat.HeartbeatChecker._setup_send_timer')
+    def test_start_timer_active(self, setup_send_timer):
         self.mock_conn._heartbeat_checker = self.obj
-        self.obj._start_timer()
-        self.assertTrue(setup_timer.called)
+        self.obj._start_send_timer()
+        self.assertTrue(setup_send_timer.called)
 
     def test_update_counters_bytes_received(self):
         self.mock_conn.bytes_received = 256
