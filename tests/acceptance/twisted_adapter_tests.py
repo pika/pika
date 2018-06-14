@@ -102,15 +102,15 @@ class TwistedChannelTestCase(TestCase):
     def test_close(self):
         # Verify that the channel can be closed and that pending calls and
         # consumers are errbacked.
-        calls = self.channel._TwistedChannel__calls = [defer.Deferred()]
-        consumers = self.channel._TwistedChannel__consumers = {
+        calls = self.channel._calls = [defer.Deferred()]
+        consumers = self.channel._consumers = {
             "testqueue": set([mock.Mock()])
         }
         error = RuntimeError("testing")
         self.channel.channel_closed(None, error)
         list(consumers["testqueue"])[0].close.assert_called_once_with(error)
-        self.assertEqual(len(self.channel._TwistedChannel__calls), 0)
-        self.assertEqual(len(self.channel._TwistedChannel__consumers), 0)
+        self.assertEqual(len(self.channel._calls), 0)
+        self.assertEqual(len(self.channel._consumers), 0)
         return self.assertFailure(calls[0], RuntimeError)
 
     @deferred(timeout=5.0)
@@ -156,10 +156,10 @@ class TwistedChannelTestCase(TestCase):
     @deferred(timeout=5.0)
     def test_queue_delete(self):
         # Verify that the consumers are cleared when a queue is deleted.
-        self.channel._TwistedChannel__consumers = {
+        self.channel._consumers = {
             "testqueue": set([None]),
         }
-        self.channel._TwistedChannel__calls = set()
+        self.channel._calls = set()
         self.pika_channel.queue_delete.__name__ = "queue_delete"
         d = self.channel.queue_delete(queue="testqueue")
         self.pika_channel.queue_delete.assert_called_once()
@@ -167,11 +167,11 @@ class TwistedChannelTestCase(TestCase):
         self.assertEqual(call_kw["queue"], "testqueue")
 
         def check(_):
-            self.assertEqual(len(self.channel._TwistedChannel__consumers), 0)
+            self.assertEqual(len(self.channel._consumers), 0)
         d.addCallback(check)
         # Simulate a server response
-        self.assertEqual(len(self.channel._TwistedChannel__calls), 1)
-        list(self.channel._TwistedChannel__calls)[0].callback(None)
+        self.assertEqual(len(self.channel._calls), 1)
+        list(self.channel._calls)[0].callback(None)
         return d
 
     @deferred(timeout=5.0)
