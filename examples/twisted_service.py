@@ -158,11 +158,11 @@ class PikaFactory(protocol.ReconnectingClientFactory):
         return self.client
 
     def clientConnectionLost(self, connector, reason):
-        log.msg('Lost connection.  Reason: %s' % reason, system=self.name)
+        log.msg('Lost connection.  Reason: %s' % reason.value, system=self.name)
         protocol.ReconnectingClientFactory.clientConnectionLost(self, connector, reason)
 
     def clientConnectionFailed(self, connector, reason):
-        log.msg('Connection failed. Reason: %s' % reason, system=self.name)
+        log.msg('Connection failed. Reason: %s' % reason.value, system=self.name)
         protocol.ReconnectingClientFactory.clientConnectionFailed(self, connector, reason)
 
     def send_message(self, exchange = None, routing_key = None, message = None):

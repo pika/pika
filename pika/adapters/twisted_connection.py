@@ -14,6 +14,7 @@ import logging
 
 from twisted.internet import (
     defer, error as twisted_error, reactor, protocol)
+from twisted.python.failure import Failure
 
 import pika.connection
 from pika import exceptions
@@ -181,29 +182,66 @@ class TwistedChannel(object):
 
         return d
 
-    def queue_delete(self, *args, **kwargs):
-        """Wraps the method the same way all the others are wrapped, but removes
-        the reference to the queue object after it gets deleted on the server.
+    def queue_delete(self,
+                     queue,
+                     if_unused=False,
+                     if_empty=False):
+        """Delete a queue from the broker.
 
-        See :meth:`Channel.queue_delete <pika.channel.Channel.queue_delete>`.
+
+        This method wraps :meth:`Channel.queue_delete
+        <pika.channel.Channel.queue_delete>`, and removes the reference to the
+        queue object after it gets deleted on the server.
+
+        :param queue: The queue to delete
+        :type queue: str or unicode
+        :param bool if_unused: only delete if it's unused
+        :param bool if_empty: only delete if the queue is empty
+        :raises ValueError:
 
         """
         wrapped = self._wrap_channel_method('queue_delete')
-        queue_name = kwargs['queue']
+        d = wrapped(queue=queue, if_unused=if_unused, if_empty=if_empty)
+        return d.addCallback(self._clear_consumer, queue)
 
-        d = wrapped(*args, **kwargs)
-        return d.addCallback(self._clear_consumer, queue_name)
+    def basic_publish(self, exchange, routing_key, body,
+                      properties=None,
+                      mandatory=False,
+                      immediate=False):
+        """Publish to the channel with the given exchange, routing key and body.
 
-    def basic_publish(self, *args, **kwargs):
-        """Make sure the channel is not closed and then publish. Return a
-        Deferred that fires with the result of the channel's basic_publish.
+        This method wraps :meth:`Channel.basic_publish
+        <pika.channel.Channel.basic_publish>`, but makes sure the channel is
+        not closed before publishing.
 
-        See :meth:`Channel.basic_publish <pika.channel.Channel.basic_publish>`.
+        For more information on basic_publish and what the parameters do, see:
+
+        http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.publish
+
+        :param exchange: The exchange to publish to
+        :type exchange: str or unicode
+        :param routing_key: The routing key to bind on
+        :type routing_key: str or unicode
+        :param body: The message body
+        :type body: str or unicode
+        :param pika.spec.BasicProperties properties: Basic.properties
+        :param bool mandatory: The mandatory flag
+        :param bool immediate: The immediate flag
+        :return: A Deferred that fires with the result of the channel's
+            basic_publish.
+        :rtype: Deferred
 
         """
         if self._closed:
             return defer.fail(self._closed)
-        return defer.succeed(self._channel.basic_publish(*args, **kwargs))
+        return defer.succeed(self._channel.basic_publish(
+            exchange=exchange,
+            routing_key=routing_key,
+            body=body,
+            properties=properties,
+            mandatory=mandatory,
+            immediate=immediate,
+        ))
 
     def _wrap_channel_method(self, name):
         """Wrap Pika's Channel method to make it return a Deferred that fires
@@ -270,11 +308,11 @@ class _TwistedConnectionAdapter(pika.connection.Connection):
 
     """
     def __init__(self,
-                 parameters=None,
-                 on_open_callback=None,
-                 on_open_error_callback=None,
-                 on_close_callback=None,
-                 custom_reactor=None):
+                 parameters,
+                 on_open_callback,
+                 on_open_error_callback,
+                 on_close_callback,
+                 custom_reactor):
         super(_TwistedConnectionAdapter, self).__init__(
             parameters=parameters,
             on_open_callback=on_open_callback,
@@ -386,10 +424,13 @@ class TwistedProtocolConnection(protocol.Protocol):
     Twisted's non-blocking connectTCP/connectSSL methods for connecting to the
     server.
 
-    It has one caveat: TwistedProtocolConnection objects have a ready
-    instance variable that's a Deferred which fires when the connection is
-    ready to be used (the initial AMQP handshaking has been done). You *have*
-    to wait for this Deferred to fire before requesting a channel.
+    TwistedProtocolConnection objects have a `ready` instance variable that's a
+    Deferred which fires when the connection is ready to be used (the initial
+    AMQP handshaking has been done). You *have* to wait for this Deferred to
+    fire before requesting a channel.
+
+    Once the connection is ready, you will be able to use the `closed` instance
+    variable: a Deferred which fires when the connection is closed.
 
     Since it's Twisted handling connection establishing it does not accept
     connect callbacks, you have to implement that within Twisted. Also remember
@@ -397,16 +438,15 @@ class TwistedProtocolConnection(protocol.Protocol):
     because, yet again, it's Twisted who manages the connection.
 
     """
-    def __init__(self,
-                 parameters=None,
-                 on_close_callback=None):
-
+    def __init__(self, parameters=None, custom_reactor=None):
         self.ready = defer.Deferred()
+        self.closed = None
         self._impl = _TwistedConnectionAdapter(
             parameters=parameters,
-            on_open_callback=self.connectionReady,
-            on_open_error_callback=self.connectionFailed,
-            on_close_callback=on_close_callback,
+            on_open_callback=self._connectionReady,
+            on_open_error_callback=self._connectionFailed,
+            on_close_callback=self._connectionClosed,
+            custom_reactor=custom_reactor,
         )
 
     def channel(self, channel_number=None):  # pylint: disable-msg=W0221
@@ -445,17 +485,27 @@ class TwistedProtocolConnection(protocol.Protocol):
 
     # Our own methods
 
-    def connectionReady(self, _res):
+    def _connectionReady(self, _res):
         d, self.ready = self.ready, None
         if d:
+            self.closed = defer.Deferred()
             d.callback(self)
 
-    def connectionFailed(self, _connection, _error_message=None):
+    def _connectionFailed(self, _connection, _error_message=None):
         d, self.ready = self.ready, None
         if d:
             attempts = self._impl.params.connection_attempts
             exc = exceptions.AMQPConnectionError(attempts)
             d.errback(exc)
+
+    def _connectionClosed(self, _connection, exception):
+        d, self.closed = self.closed, None
+        if d:
+            if isinstance(exception, Failure):
+                # Calling `callback` with a Failure instance will trigger the
+                # errback path.
+                exception = exception.value
+            d.callback(exception)
 
 
 class _TimerHandle(nbio_interface.AbstractTimerReference):

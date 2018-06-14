@@ -16,6 +16,7 @@ import unittest
 import mock
 from nose.twistedtools import reactor, deferred
 from twisted.internet import defer, error as twisted_error
+from twisted.python.failure import Failure
 
 from pika.adapters.twisted_connection import (
     ClosableDeferredQueue, TwistedChannel, _TwistedConnectionAdapter,
@@ -178,10 +179,16 @@ class TwistedChannelTestCase(TestCase):
     def test_basic_publish(self):
         # Verify that basic_consume wraps properly.
         args = [object()]
-        kwargs = {"testing": object()}
+        kwargs = {"routing_key": object(), "body": object()}
         d = self.channel.basic_publish(*args, **kwargs)
+        kwargs.update(dict(
+            # Args are converted to kwargs
+            exchange=args[0],
+            # Defaults
+            immediate=False, mandatory=False, properties=None,
+        ))
         self.pika_channel.basic_publish.assert_called_once_with(
-            *args, **kwargs)
+            **kwargs)
         return d
 
     @deferred(timeout=5.0)
@@ -189,7 +196,7 @@ class TwistedChannelTestCase(TestCase):
         # Verify that a Failure is returned when the channel's basic_publish
         # is called and the channel is closed.
         self.channel.channel_closed(None, RuntimeError("testing"))
-        d = self.channel.basic_publish()
+        d = self.channel.basic_publish(None, None, None)
         self.pika_channel.basic_publish.assert_not_called()
         d = self.assertFailure(d, RuntimeError)
         d.addCallback(lambda e: self.assertEqual(e.args[0], "testing"))
@@ -264,7 +271,7 @@ class TwistedProtocolConnectionTestCase(TestCase):
             transport)
         self.conn.connectionMade.assert_called_once()
         d = self.conn.ready
-        self.conn.connectionReady(None)
+        self.conn._connectionReady(None)
         return d
 
     @deferred(timeout=5.0)
@@ -310,44 +317,85 @@ class TwistedProtocolConnectionTestCase(TestCase):
 
     @deferred(timeout=5.0)
     def test_connectionReady(self):
-        # Verify that the "ready" Deferred is resolved on connectionReady.
+        # Verify that the "ready" Deferred is resolved on _connectionReady.
         d = self.conn.ready
-        self.conn.connectionReady("testresult")
+        self.conn._connectionReady("testresult")
         self.assertTrue(d.called)
         d.addCallback(self.assertEqual, self.conn)
         return d
 
     def test_connectionReady_twice(self):
-        # Verify that calling connectionReady twice will not cause an
+        # Verify that calling _connectionReady twice will not cause an
         # AlreadyCalled error on the Deferred.
         d = self.conn.ready
-        self.conn.connectionReady("testresult")
+        self.conn._connectionReady("testresult")
         self.assertTrue(d.called)
         # A second call must not raise AlreadyCalled
-        self.conn.connectionReady("testresult")
+        self.conn._connectionReady("testresult")
 
     @deferred(timeout=5.0)
     def test_connectionFailed(self):
-        # Verify that the "ready" Deferred errbacks on connectionFailed.
+        # Verify that the "ready" Deferred errbacks on _connectionFailed.
         d = self.conn.ready
-        self.conn.connectionFailed(None)
+        self.conn._connectionFailed(None)
         return self.assertFailure(d, AMQPConnectionError)
 
     def test_connectionFailed_twice(self):
-        # Verify that calling connectionFailed twice will not cause an
+        # Verify that calling _connectionFailed twice will not cause an
         # AlreadyCalled error on the Deferred.
         d = self.conn.ready
-        self.conn.connectionFailed(None)
+        self.conn._connectionFailed(None)
         self.assertTrue(d.called)
         d.addErrback(lambda f: None)  # silence the error
         # A second call must not raise AlreadyCalled
-        self.conn.connectionFailed(None)
+        self.conn._connectionFailed(None)
+
+    @deferred(timeout=5.0)
+    def test_connectionClosed(self):
+        # Verify that the "closed" Deferred is resolved on _connectionClosed.
+        self.conn._connectionReady("dummy")
+        d = self.conn.closed
+        self.conn._connectionClosed("test conn", "test reason")
+        self.assertTrue(d.called)
+        d.addCallback(self.assertEqual, "test reason")
+        return d
+
+    def test_connectionClosed_twice(self):
+        # Verify that calling _connectionClosed twice will not cause an
+        # AlreadyCalled error on the Deferred.
+        self.conn._connectionReady("dummy")
+        d = self.conn.closed
+        self.conn._connectionClosed("test conn", "test reason")
+        self.assertTrue(d.called)
+        # A second call must not raise AlreadyCalled
+        self.conn._connectionClosed("test conn", "test reason")
+
+    @deferred(timeout=5.0)
+    def test_connectionClosed_Failure(self):
+        # Verify that the _connectionClosed method can be called with
+        # a Failure instance without triggering the errback path.
+        self.conn._connectionReady("dummy")
+        error = RuntimeError()
+        d = self.conn.closed
+        self.conn._connectionClosed("test conn", Failure(error))
+        self.assertTrue(d.called)
+
+        def _check_cb(result):
+            self.assertEqual(result, error)
+
+        def _check_eb(_failure):
+            self.fail("The errback path should not have been triggered")
+
+        d.addCallbacks(_check_cb, _check_eb)
+        return d
 
 
 class TwistedConnectionAdapterTestCase(TestCase):
 
     def setUp(self):
-        self.conn = _TwistedConnectionAdapter()
+        self.conn = _TwistedConnectionAdapter(
+            None, None, None, None, None
+        )
 
     def tearDown(self):
         if self.conn._transport is None:
