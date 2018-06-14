@@ -12,7 +12,7 @@ class HeartbeatChecker(object):
     heartbeat is received before the expected timeout expires.
 
     """
-    _MAX_IDLE_COUNT = 4
+    _MAX_IDLE_COUNT = 2
     _STALE_CONNECTION = "Too Many Missed Heartbeats, No reply in %i seconds"
 
     def __init__(self, connection, interval):
@@ -23,15 +23,22 @@ class HeartbeatChecker(object):
         :param pika.connection.Connection: Connection object
         :param int interval: Heartbeat check interval. Note: heartbeats will
                              actually be sent at interval / 2 frequency, and
-                             heartbeak checks at (interval * 3) / 2.
+                             heartbeat checks made at (interval * 3) / 2. Default
+                             interval is 60 seconds so Pika will send heartbeats
+                             at 30 second intervals and will check every 90 seconds.
+                             If no heartbeat is received from the broker, nor data
+                             activity on the connection after 180 seconds the
+                             connection will be assumed dead and closed.
 
         """
         self._connection = connection
 
-        # Note: see the following document:
+        # Note: see the following documents:
         # https://www.rabbitmq.com/heartbeats.html#heartbeats-timeout
-        self._timeout = timeout
-        self._check_interval = float(self._timeout) / 2
+        # https://github.com/pika/pika/pull/1072
+        # https://groups.google.com/d/topic/rabbitmq-users/Fmfeqe5ocTY/discussion
+        self._send_interval = float(interval) / 2
+        self._check_interval = (float(interval) * 3) / 2
 
         # Initialize counters
         self._bytes_received = 0
@@ -40,11 +47,10 @@ class HeartbeatChecker(object):
         self._heartbeat_frames_sent = 0
         self._idle_byte_intervals = 0
 
-        # The handle for the last timer
-        self._timer = None
+        self._send_timer = None
+        self._check_timer = None
 
-        # Setup the timer to fire in _interval seconds
-        self._setup_timer()
+        self._setup_timers()
 
     @property
     def active(self):
@@ -78,8 +84,16 @@ class HeartbeatChecker(object):
         LOGGER.debug('Received heartbeat frame')
         self._heartbeat_frames_received += 1
 
-    def send_and_check(self):
-        """Invoked by a timer to send a heartbeat when we need to, check to see
+    def send_heartbeat(self):
+        """Invoked by a timer to send a heartbeat when we need to.
+
+        """
+        LOGGER.debug('Sending heartbeat frame')
+        self._send_heartbeat_frame()
+        self._start_send_timer()
+
+    def check_heartbeat(self):
+        """Invoked by a timer to check for broker heartbeats. Checks to see
         if we've missed any heartbeats and disconnect our connection if it's
         been idle too long.
 
@@ -101,27 +115,26 @@ class HeartbeatChecker(object):
         else:
             self._idle_byte_intervals = 0
 
-        # Update the counters of bytes sent/received and the frames received
         self._update_counters()
-
-        # Send a heartbeat frame
-        self._send_heartbeat_frame()
-
-        # Update the timer to fire again
-        self._start_timer()
+        self._start_check_timer()
 
     def stop(self):
         """Stop the heartbeat checker"""
-        if self._timer:
-            LOGGER.debug('Removing timeout for next heartbeat interval')
-            self._connection._adapter_remove_timeout(self._timer)  # pylint: disable=W0212
-            self._timer = None
+        if self._send_timer:
+            LOGGER.debug('Removing timer for next heartbeat send interval')
+            self._connection._adapter_remove_timeout(self._send_timer)  # pylint: disable=W0212
+            self._send_timer = None
+        if self._check_timer:
+            LOGGER.debug('Removing timer for next heartbeat check interval')
+            self._connection._adapter_remove_timeout(self._check_timer)  # pylint: disable=W0212
+            self._check_timer = None
 
     def _close_connection(self):
         """Close the connection with the AMQP Connection-Forced value."""
         LOGGER.info('Connection is idle, %i stale byte intervals',
                     self._idle_byte_intervals)
-        text = HeartbeatChecker._STALE_CONNECTION % self._timeout
+        text = HeartbeatChecker._STALE_CONNECTION % (
+                   self._check_interval * HeartbeatChecker._MAX_IDLE_COUNT)
 
         # Abort the stream connection. There is no point trying to gracefully
         # close the AMQP connection since lack of heartbeat suggests that the
@@ -156,23 +169,40 @@ class HeartbeatChecker(object):
             self._new_heartbeat_frame())
         self._heartbeat_frames_sent += 1
 
-    def _setup_timer(self):
-        """Use the connection objects delayed_call function which is
-        implemented by the Adapter for calling the check_heartbeats function
-        every interval seconds.
+    def _setup_timers(self):
+        """Use the connection objects _adapter_add_timeout function which is
+        implemented by the Adapter for calling our send and check functions
+        after interval seconds.
 
         """
-        self._timer = self._connection._adapter_add_timeout(  # pylint: disable=W0212
-            self._check_interval,
-            self.send_and_check)
+        self._setup_send_timer()
+        self._setup_check_timer()
 
-    def _start_timer(self):
+    def _setup_send_timer(self):
+        self._send_timer = self._connection._adapter_add_timeout(  # pylint: disable=W0212
+            self._send_interval,
+            self.send_heartbeat)
+
+    def _setup_check_timer(self):
+        self._check_timer = self._connection._adapter_add_timeout(  # pylint: disable=W0212
+            self._check_interval,
+            self.check_heartbeat)
+
+    def _start_send_timer(self):
         """If the connection still has this object set for heartbeats, add a
-        new timer.
+        new send timer.
 
         """
         if self.active:
-            self._setup_timer()
+            self._setup_send_timer()
+
+    def _start_check_timer(self):
+        """If the connection still has this object set for heartbeats, add a
+        new check timer.
+
+        """
+        if self.active:
+            self._setup_check_timer()
 
     def _update_counters(self):
         """Update the internal counters for bytes sent and received and the
