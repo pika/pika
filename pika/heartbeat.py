@@ -60,7 +60,7 @@ class HeartbeatChecker(object):
         :rtype True
 
         """
-        return self._connection.heartbeat is self
+        return self._connection.heartbeat is self  # pylint: disable=W0212
 
     @property
     def bytes_received_on_connection(self):
@@ -133,7 +133,7 @@ class HeartbeatChecker(object):
         LOGGER.info('Connection is idle, %i stale byte intervals',
                     self._idle_byte_intervals)
         text = HeartbeatChecker._STALE_CONNECTION % (
-                   self._check_interval * HeartbeatChecker._MAX_IDLE_COUNT)
+            self._check_interval * HeartbeatChecker._MAX_IDLE_COUNT)
 
         # NOTE: this won't achieve the perceived effect of sending
         # Connection.Close to broker, because the frame will only get buffered
@@ -178,12 +178,12 @@ class HeartbeatChecker(object):
         self._setup_send_timer()
         self._setup_check_timer()
 
-    def _setup_send_timer(self):
+    def _setup_send_timer(self): # pylint: disable=C0111
         self._send_timer = self._connection.add_timeout(  # pylint: disable=W0212
             self._send_interval,
             self.send_heartbeat)
 
-    def _setup_check_timer(self):
+    def _setup_check_timer(self): # pylint: disable=C0111
         self._check_timer = self._connection.add_timeout(  # pylint: disable=W0212
             self._check_interval,
             self.check_heartbeat)
