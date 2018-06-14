@@ -30,7 +30,6 @@ class HeartbeatTests(unittest.TestCase):
         self.assertIs(self.obj._connection, self.mock_conn)
 
     def test_constructor_assignment_intervals(self):
-        self.assertEqual(self.obj._timeout, self.INTERVAL)
         self.assertEqual(self.obj._send_interval, self.SEND_INTERVAL)
         self.assertEqual(self.obj._check_interval, self.CHECK_INTERVAL)
 
@@ -141,7 +140,8 @@ class HeartbeatTests(unittest.TestCase):
         self.obj._idle_byte_intervals = 3
         self.obj._idle_heartbeat_intervals = 4
         self.obj._close_connection()
-        reason = self.obj._STALE_CONNECTION % self.obj._timeout
+        reason = self.obj._STALE_CONNECTION % (
+                 self.obj._check_interval * self.obj._MAX_IDLE_COUNT)
         self.mock_conn.close.assert_called_once_with(
             self.obj._CONNECTION_FORCED, reason)
         self.mock_conn._on_terminate.assert_called_once_with(
@@ -170,9 +170,13 @@ class HeartbeatTests(unittest.TestCase):
         self.obj._send_heartbeat_frame()
         self.assertEqual(self.obj._heartbeat_frames_sent, 1)
 
-    def test_setup_timer_called(self):
-        self.mock_conn.add_timeout.assert_called_once_with(
-            self.SEND_INTERVAL, self.obj.send_and_check)
+    def test_setup_send_timer_called(self):
+        want = [mock.call(self.SEND_INTERVAL, self.obj.send_heartbeat),
+                mock.call(self.CHECK_INTERVAL, self.obj.check_heartbeat)]
+        self.obj.send_heartbeat()
+        self.obj.check_heartbeat()
+        got = self.mock_conn.add_timeout.call_args_list
+        self.assertEqual(got, want)
 
     @mock.patch('pika.heartbeat.HeartbeatChecker._setup_send_timer')
     def test_start_send_timer_not_active(self, setup_send_timer):
