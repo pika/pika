@@ -222,6 +222,7 @@ class Channel(object):
         :raises ValueError:
 
         """
+        self._require_string(consumer_tag, 'consumer_tag')
         self._raise_if_not_open()
         nowait = self._validate_rpc_completion_callback(callback)
 

@@ -66,9 +66,9 @@ basic_consume
 exchange_declare
 queue_bind
 queue_declare
+basic_cancel
 
 TODO:
-basic_cancel
 basic_get
 basic_qos
 basic_recover

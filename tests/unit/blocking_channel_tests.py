@@ -72,6 +72,10 @@ class BlockingChannelTests(unittest.TestCase):
                                 'queue',
                                 'exchange')
 
+    def test_basic_cancel_legacy_parameter(self):
+        with self.assertRaises(TypeError):
+            self.obj.basic_cancel(mock.Mock(), 'tag')
+
     def test_basic_consume(self):
         with mock.patch.object(self.obj._impl, '_generate_consumer_tag'):
             self.obj._impl._generate_consumer_tag.return_value = 'ctag0'
