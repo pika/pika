@@ -7,8 +7,10 @@ LOGGER = logging.getLogger(__name__)
 
 
 class HeartbeatChecker(object):
-    """Sends heartbeats to the broker and checks to make sure that the broker's
-    heartbeat is received before the expected timeout expires.
+    """Sends heartbeats to the broker twice during the provided interval
+    and checks at a different interval to make sure that the broker's
+    heartbeat is received as expected. See the parameter list for more
+    details.
 
     """
     _CONNECTION_FORCED = 320
@@ -17,8 +19,8 @@ class HeartbeatChecker(object):
 
     def __init__(self, connection, interval):
         """Create a heartbeat on the connection that sends two heartbeat frames
-        within the specified timeout window. Also checks to ensure heartbeats
-        are received from the broker.
+        within the specified interval. Also checks to ensure heartbeats are
+        received from the broker at a different interval explained below.
 
         :param pika.connection.Connection: Connection object
         :param int interval: Heartbeat check interval. Note: heartbeats will
