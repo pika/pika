@@ -8,30 +8,30 @@ LOGGER = logging.getLogger(__name__)
 
 
 class HeartbeatChecker(object):
-    """Sends heartbeats to the broker twice during the provided interval
-    and checks at a different interval to make sure that the broker's
-    heartbeat is received as expected. See the parameter list for more
+    """Sends heartbeats to the broker. The provided timeout is used to
+    determine if the connection is stale - no received heartbeats or
+    other activity will close the connection. See the parameter list for more
     details.
 
     """
-    _MAX_IDLE_COUNT = 2
-    _STALE_CONNECTION = "Too Many Missed Heartbeats, No reply in %i seconds"
+    _STALE_CONNECTION = "No activity or too many missed meartbeats in the last %i seconds"
 
-    def __init__(self, connection, interval):
-        """Create a heartbeat on the connection that sends two heartbeat frames
-        within the specified interval. Also checks to ensure heartbeats are
-        received from the broker at a different interval explained below.
+    def __init__(self, connection, timeout):
+        """Create an object that will check for activity on the provided
+        connection as well as receive heartbeat frames from the broker. The
+        timeout parameter defines a window within which this activity must
+        happen. If not, the connection is considered dead and closed.
+
+        The value passed for timeout is also used to calculate an interval
+        at which a heartbeat frame is sent to the broker. The interval is
+        equal to the timeout value divided by two.
 
         :param pika.connection.Connection: Connection object
-        :param int interval: Heartbeat check interval. Note: heartbeats will
-                             actually be sent at interval / 2 frequency, and
-                             heartbeat checks made at interval. The default
-                             interval is 60 seconds so Pika will send heartbeats
-                             at 30 second intervals and will check every 60 seconds.
-                             If no heartbeat is received from the broker, nor data
-                             activity on the connection after 120 seconds (two
-                             intervals, what RabbitMQ uses) the connection will be
-                             assumed dead and closed.
+        :param int timeout: Connection idle timeout. If no activity occurs on the
+                            connection nor heartbeat frames received during the
+                            timeout window the connection will be closed. The
+                            interval used to send heartbeats is calculated from
+                            this value by dividing it by two.
 
         """
         self._connection = connection
@@ -45,8 +45,9 @@ class HeartbeatChecker(object):
         # *timeout*, plus that any activity on the connection counts for a
         # heartbeat. This is to avoid edge cases and not to depend on network
         # latency.
-        self._send_interval = float(interval) / 2
-        self._check_interval = interval
+        self._timeout = timeout
+        self._send_interval = float(timeout) / 2
+        self._check_interval = timeout
 
         # Initialize counters
         self._bytes_received = 0
@@ -75,7 +76,7 @@ class HeartbeatChecker(object):
         to trip the max idle threshold.
 
         """
-        return self._idle_byte_intervals >= HeartbeatChecker._MAX_IDLE_COUNT
+        return self._idle_byte_intervals > 0
 
     def received(self):
         """Called when a heartbeat is received"""
@@ -96,24 +97,22 @@ class HeartbeatChecker(object):
         been idle too long.
 
         """
+        if self._has_received_data:
+            self._idle_byte_intervals = 0
+        else:
+            # Connection has not received any data, increment the counter
+            self._idle_byte_intervals += 1
+
         LOGGER.debug('Received %i heartbeat frames, sent %i, '
-                     'idle intervals %i, max idle count %i',
+                     'idle intervals %i',
                      self._heartbeat_frames_received,
                      self._heartbeat_frames_sent,
-                     self._idle_byte_intervals,
-                     HeartbeatChecker._MAX_IDLE_COUNT)
+                     self._idle_byte_intervals)
 
         if self.connection_is_idle:
             self._close_connection()
             return
 
-        # Connection has not received any data, increment the counter
-        if not self._has_received_data:
-            self._idle_byte_intervals += 1
-        else:
-            self._idle_byte_intervals = 0
-
-        self._update_counters()
         self._start_check_timer()
 
     def stop(self):
@@ -131,8 +130,7 @@ class HeartbeatChecker(object):
         """Close the connection with the AMQP Connection-Forced value."""
         LOGGER.info('Connection is idle, %i stale byte intervals',
                     self._idle_byte_intervals)
-        text = HeartbeatChecker._STALE_CONNECTION % (
-            self._check_interval * HeartbeatChecker._MAX_IDLE_COUNT)
+        text = HeartbeatChecker._STALE_CONNECTION % self._timeout
 
         # Abort the stream connection. There is no point trying to gracefully
         # close the AMQP connection since lack of heartbeat suggests that the
@@ -142,7 +140,7 @@ class HeartbeatChecker(object):
 
     @property
     def _has_received_data(self):
-        """Returns True if the connection has received data on the connection.
+        """Returns True if the connection has received data.
 
         :rtype: bool
 
@@ -175,6 +173,12 @@ class HeartbeatChecker(object):
 
     def _start_check_timer(self):
         """Start a new heartbeat check timer."""
+        # Note: update counters now to get current values
+        # at the start of the timeout window. Values will be
+        # checked against the connection's byte count at the
+        # end of the window
+        self._update_counters()
+
         self._check_timer = self._connection._adapter_add_timeout(  # pylint: disable=W0212
             self._check_interval,
             self._check_heartbeat)
