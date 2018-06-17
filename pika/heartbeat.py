@@ -34,6 +34,9 @@ class HeartbeatChecker(object):
                             this value by dividing it by two.
 
         """
+        if timeout < 1:
+            raise ValueError('timeout must >= 0, but got %r' % (timeout,))
+
         self._connection = connection
 
         # Note: see the following documents:
@@ -46,8 +49,20 @@ class HeartbeatChecker(object):
         # heartbeat. This is to avoid edge cases and not to depend on network
         # latency.
         self._timeout = timeout
+
         self._send_interval = float(timeout) / 2
-        self._check_interval = timeout
+
+        # Note: Pika doubles the negotiated timeout to match the behavior of the
+        # RabbitMQ Java client and the spec that suggests a check interval equivalent
+        # to two times the heartbeat timeout value.
+        # https://github.com/pika/pika/pull/1072#issuecomment-397850795
+        # https://github.com/rabbitmq/rabbitmq-java-client/blob/b55bd20a1a236fc2d1ea9369b579770fa0237615/src/main/java/com/rabbitmq/client/impl/AMQConnection.java#L773-L780
+        self._check_interval = float(timeout) * 2;
+
+        LOGGER.debug('timeout: %f send_interval: %f check_interval: %f',
+                     self._timeout,
+                     self._send_interval,
+                     self._check_interval)
 
         # Initialize counters
         self._bytes_received = 0

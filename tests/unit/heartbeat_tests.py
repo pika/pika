@@ -12,7 +12,7 @@ class HeartbeatTests(unittest.TestCase):
 
     INTERVAL = 60
     SEND_INTERVAL = float(INTERVAL) / 2
-    CHECK_INTERVAL = INTERVAL
+    CHECK_INTERVAL = float(INTERVAL) * 2
 
     def setUp(self):
         self.mock_conn = mock.Mock(spec=connection.Connection)
