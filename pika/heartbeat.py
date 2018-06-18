@@ -52,13 +52,17 @@ class HeartbeatChecker(object):
 
         self._send_interval = float(timeout) / 2
 
-        # Note: Pika doubles the negotiated timeout to match the behavior of the
-        # RabbitMQ Java client and the spec that suggests a check interval equivalent
-        # to two times the heartbeat timeout value.
+        # Note: Pika will calculate the heartbeat / connectivity check interval
+        # by adding 5 seconds to the negotiated timeout to leave a bit of room
+        # for broker heartbeats that may be right at the edge of the timeout
+        # window. This is different behavior from the RabbitMQ Java client and
+        # the spec that suggests a check interval equivalent to two times the
+        # heartbeat timeout value. But, one advantage of adding a small amount
+        # is that bad connections will be detected faster.
         # https://github.com/pika/pika/pull/1072#issuecomment-397850795
         # https://github.com/rabbitmq/rabbitmq-java-client/blob/b55bd20a1a236fc2d1ea9369b579770fa0237615/src/main/java/com/rabbitmq/client/impl/AMQConnection.java#L773-L780
         # https://github.com/ruby-amqp/bunny/blob/3259f3af2e659a49c38c2470aa565c8fb825213c/lib/bunny/session.rb#L1187-L1192
-        self._check_interval = float(timeout) * 2
+        self._check_interval = timeout + 5
 
         LOGGER.debug('timeout: %f send_interval: %f check_interval: %f',
                      self._timeout,
