@@ -397,13 +397,14 @@ class _TwistedConnectionAdapter(pika.connection.Connection):
         NOTE: `connection_made()` and `connection_lost()` are each called just
         once and in that order. All other callbacks are called between them.
 
-        :param BaseException | None error: An exception (check for
-            `BaseException`) indicates connection failure. None indicates that
-            connection was closed on this side, such as when it's aborted.
-        :raises Exception: Exception-based exception on error
+        :param Failure: A Twisted Failure instance wrapping an exception.
 
         """
         self._transport = None
+        error = error.value  # drop the Failure wrapper
+        if isinstance(error, twisted_error.ConnectionDone):
+            self._error = error
+            error = None
         LOGGER.log(logging.DEBUG if error is None else logging.ERROR,
                    'connection_lost: %r',
                    error)

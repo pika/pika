@@ -452,9 +452,19 @@ class TwistedConnectionAdapterTestCase(TestCase):
         # Verify that the correct callback is called and that the
         # attributes are reinitialized.
         self.conn._on_stream_terminated = mock.Mock()
-        error = RuntimeError("testreason")
+        error = Failure(RuntimeError("testreason"))
         self.conn.connection_lost(error)
-        self.conn._on_stream_terminated.assert_called_with(error)
+        self.conn._on_stream_terminated.assert_called_with(error.value)
+        self.assertIsNone(self.conn._transport)
+
+    def test_connection_lost_connectiondone(self):
+        # When the ConnectionDone is transmitted, consider it an expected
+        # disconnection.
+        self.conn._on_stream_terminated = mock.Mock()
+        error = Failure(twisted_error.ConnectionDone())
+        self.conn.connection_lost(error)
+        self.assertEqual(self.conn._error, error.value)
+        self.conn._on_stream_terminated.assert_called_with(None)
         self.assertIsNone(self.conn._transport)
 
     def test_data_received(self):
