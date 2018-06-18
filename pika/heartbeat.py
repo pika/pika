@@ -57,7 +57,8 @@ class HeartbeatChecker(object):
         # to two times the heartbeat timeout value.
         # https://github.com/pika/pika/pull/1072#issuecomment-397850795
         # https://github.com/rabbitmq/rabbitmq-java-client/blob/b55bd20a1a236fc2d1ea9369b579770fa0237615/src/main/java/com/rabbitmq/client/impl/AMQConnection.java#L773-L780
-        self._check_interval = float(timeout) * 2;
+        # https://github.com/ruby-amqp/bunny/blob/3259f3af2e659a49c38c2470aa565c8fb825213c/lib/bunny/session.rb#L1187-L1192
+        self._check_interval = float(timeout) * 2
 
         LOGGER.debug('timeout: %f send_interval: %f check_interval: %f',
                      self._timeout,
@@ -152,7 +153,7 @@ class HeartbeatChecker(object):
         # in memory before the next statement terminates the connection.
         self._connection.close(HeartbeatChecker._CONNECTION_FORCED, text)
 
-        self._connection._on_terminate(HeartbeatChecker._CONNECTION_FORCED,
+        self._connection._on_terminate(HeartbeatChecker._CONNECTION_FORCED,  # pylint: disable=W0212
                                        text)
 
     @property
