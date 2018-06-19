@@ -1301,7 +1301,7 @@ class Connection(object):
         self._backpressure_multiplier = value
 
     #
-    # Connections state properties
+    # Connection state properties
     #
 
     @property
