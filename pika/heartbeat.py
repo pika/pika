@@ -14,7 +14,7 @@ class HeartbeatChecker(object):
     details.
 
     """
-    _STALE_CONNECTION = "No activity or too many missed meartbeats in the last %i seconds"
+    _STALE_CONNECTION = "No activity or too many missed heartbeats in the last %i seconds"
 
     def __init__(self, connection, timeout):
         """Create an object that will check for activity on the provided
