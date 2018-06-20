@@ -389,6 +389,20 @@ class TwistedProtocolConnectionTestCase(TestCase):
         d.addCallbacks(_check_cb, _check_eb)
         return d
 
+    def test_close(self):
+        # Verify that the close method is properly wrapped.
+        self.conn._impl.is_closed = False
+        self.conn.closed = "TESTING"
+        value = self.conn.close()
+        self.assertEqual(value, "TESTING")
+        self.conn._impl.close.assert_called_once_with(200, "Normal shutdown")
+
+    def test_close_twice(self):
+        # Verify that the close method is only transmitted when open.
+        self.conn._impl.is_closed = True
+        self.conn.close()
+        self.conn._impl.close.assert_not_called()
+
 
 class TwistedConnectionAdapterTestCase(TestCase):
 
