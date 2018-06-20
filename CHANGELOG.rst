@@ -8,8 +8,8 @@ Version History
 
 - `BlockingConnection.consume` now returns `(None, None, None)` when inactivity timeout is reached (`PR <https://github.com/pika/pika/pull/899>`_)
 
-0.12.0b4 2018-06-07
--------------------
+0.12.0 2018-06-19
+-----------------
 
 `GitHub milestone <https://github.com/pika/pika/milestone/12>`_
 
@@ -54,6 +54,8 @@ New features:
 - When the work is done, the worker uses `connection.add_callback_threadsafe` to call the `basic_ack` method on the channel instance.
 
 Please see `examples/basic_consumer_threaded.py` for an example. As always, `SelectConnection` and a fully async consumer/publisher is the preferred method of using Pika.
+
+Heartbeats are now sent at an interval equal to 1/2 of the negotiated idle connection timeout. RabbitMQ's default timeout value is 60 seconds, so heartbeats will be sent at a 30 second interval. In addition, Pika's check for an idle connection will be done at an interval equal to the timeout value plus 5 seconds to allow for delays. This results in an interval of 65 seconds by default.
 
 0.11.2 2017-11-30
 -----------------
