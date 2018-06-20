@@ -467,6 +467,11 @@ class TwistedProtocolConnection(protocol.Protocol):
         self._impl.channel(channel_number, d.callback)
         return d.addCallback(TwistedChannel)
 
+    def close(self, reply_code=200, reply_text='Normal shutdown'):
+        if not self._impl.is_closed:
+            self._impl.close(reply_code, reply_text)
+        return self.closed
+
     # IProtocol methods
 
     def dataReceived(self, data):
