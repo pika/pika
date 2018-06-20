@@ -407,7 +407,7 @@ class TwistedConnectionAdapterTestCase(TestCase):
         transport = mock.Mock()
         self.conn.connection_made(transport)
         self.conn._adapter_disconnect_stream()
-        transport.abort.assert_called_once()
+        transport.loseConnection.assert_called_once()
 
     def test_adapter_emit_data(self):
         # Verify that the data is transmitted to the underlying transport.

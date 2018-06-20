@@ -362,7 +362,7 @@ class _TwistedConnectionAdapter(pika.connection.Connection):
          method.
 
         """
-        self._transport.abort()
+        self._transport.loseConnection()
 
     def _adapter_emit_data(self, data):
         """Implement pure virtual
