@@ -1402,7 +1402,7 @@ class Connection(pika.compat.AbstractBase):
         self._backpressure_multiplier = value
 
     #
-    # Connections state properties
+    # Connection state properties
     #
 
     @property
