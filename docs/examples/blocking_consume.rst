@@ -11,7 +11,7 @@ Example of consuming messages and acknowledging them::
 
     import pika
 
-
+    queue_name = 'test'
     def on_message(channel, method_frame, header_frame, body):
         print(method_frame.delivery_tag)
         print(body)
@@ -21,7 +21,7 @@ Example of consuming messages and acknowledging them::
 
     connection = pika.BlockingConnection()
     channel = connection.channel()
-    channel.basic_consume('test', on_message)
+    channel.basic_consume(on_message, queue_name)
     try:
         channel.start_consuming()
     except KeyboardInterrupt:
