@@ -41,7 +41,7 @@ connection errors::
             ## This queue is intentionally non-durable. See http://www.rabbitmq.com/ha.html#non-mirrored-queue-behavior-on-node-failure
             ## to learn more.
             channel.queue_declare('recovery-example', durable = False, auto_delete = True)
-            channel.basic_consume('recovery-example', on_message)
+            channel.basic_consume(on_message, 'recovery-example')
             try:
                 channel.start_consuming()
             except KeyboardInterrupt:
@@ -97,7 +97,7 @@ In this example the `retry` decorator is used to set up recovery with delay::
         ## This queue is intentionally non-durable. See http://www.rabbitmq.com/ha.html#non-mirrored-queue-behavior-on-node-failure
         ## to learn more.
         channel.queue_declare('recovery-example', durable = False, auto_delete = True)
-        channel.basic_consume('recovery-example', on_message)
+        channel.basic_consume(on_message, 'recovery-example')
 
         try:
             channel.start_consuming()
