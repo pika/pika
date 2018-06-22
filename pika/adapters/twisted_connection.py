@@ -45,6 +45,7 @@ class ClosableDeferredQueue(defer.DeferredQueue):
 
         """
         if self.closed:
+            LOGGER.error('Impossible to put to the queue, it is closed.')
             return defer.fail(self.closed)
         return defer.DeferredQueue.put(self, obj)
 
@@ -60,6 +61,7 @@ class ClosableDeferredQueue(defer.DeferredQueue):
 
         """
         if self.closed:
+            LOGGER.error('Impossible to get from the queue, it is closed.')
             return defer.fail(self.closed)
         return defer.DeferredQueue.get(self)
 
@@ -69,6 +71,9 @@ class ClosableDeferredQueue(defer.DeferredQueue):
         Errback the pending calls to :meth:`get()`.
 
         """
+        if self.closed:
+            LOGGER.warning('Queue was already closed with reason: %s.',
+                           self.closed)
         self.closed = reason
         while self.waiting:
             self.waiting.pop().errback(reason)
