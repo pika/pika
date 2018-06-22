@@ -99,9 +99,9 @@ class TwistedChannel(object):
         self._calls = set()
         self._consumers = {}
 
-        channel.add_on_close_callback(self.channel_closed)
+        channel.add_on_close_callback(self._channel_closed)
 
-    def channel_closed(self, _channel, reason):
+    def _channel_closed(self, _channel, reason):
         # enter the closed state
         self._closed = reason
         # errback all pending calls
