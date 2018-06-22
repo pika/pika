@@ -108,7 +108,7 @@ class TwistedChannelTestCase(TestCase):
             "testqueue": set([mock.Mock()])
         }
         error = RuntimeError("testing")
-        self.channel.channel_closed(None, error)
+        self.channel._channel_closed(None, error)
         list(consumers["testqueue"])[0].close.assert_called_once_with(error)
         self.assertEqual(len(self.channel._calls), 0)
         self.assertEqual(len(self.channel._consumers), 0)
@@ -142,7 +142,7 @@ class TwistedChannelTestCase(TestCase):
         # Verify that a Failure is returned when the channel's basic_consume
         # is called and the channel is closed.
         error = RuntimeError("testing")
-        self.channel.channel_closed(None, error)
+        self.channel._channel_closed(None, error)
         d = self.channel.basic_consume(queue="testqueue")
         return self.assertFailure(d, RuntimeError)
 
@@ -195,7 +195,7 @@ class TwistedChannelTestCase(TestCase):
     def test_basic_publish_closed(self):
         # Verify that a Failure is returned when the channel's basic_publish
         # is called and the channel is closed.
-        self.channel.channel_closed(None, RuntimeError("testing"))
+        self.channel._channel_closed(None, RuntimeError("testing"))
         d = self.channel.basic_publish(None, None, None)
         self.pika_channel.basic_publish.assert_not_called()
         d = self.assertFailure(d, RuntimeError)
@@ -223,7 +223,7 @@ class TwistedChannelTestCase(TestCase):
         # Verify that a Failure is returned when one of the channel's wrapped
         # methods is called and the channel is closed.
         error = RuntimeError("testing")
-        self.channel.channel_closed(None, error)
+        self.channel._channel_closed(None, error)
         self.pika_channel.queue_declare.__name__ = "queue_declare"
         d = self.channel.queue_declare(queue="testqueue")
         return self.assertFailure(d, RuntimeError)
