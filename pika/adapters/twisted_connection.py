@@ -11,18 +11,21 @@ TwistedChannel class for details.
 
 import functools
 import logging
+from collections import namedtuple
 
 from twisted.internet import (
     defer, error as twisted_error, reactor, protocol)
 from twisted.python.failure import Failure
 
 import pika.connection
-from pika import exceptions
+from pika import exceptions, spec
 from pika.adapters.utils import nbio_interface
 from pika.adapters.utils.io_services_utils import check_callback_arg
 
 # Twistisms
 # pylint: disable=C0111,C0103
+# Other
+# pylint: disable=too-many-lines
 
 LOGGER = logging.getLogger(__name__)
 
@@ -80,6 +83,10 @@ class ClosableDeferredQueue(defer.DeferredQueue):
         self.pending = []
 
 
+ReceivedMessage = namedtuple(
+    "ReceivedMessage", ["channel", "method", "properties", "body"])
+
+
 class TwistedChannel(object):
     """A wrapper around Pika's Channel.
 
@@ -89,36 +96,268 @@ class TwistedChannel(object):
     ChannelClosed exception. The returned Deferreds fire with whatever
     arguments the callback to the original method would receive.
 
-    The basic_consume method is wrapped in a special way, see its docstring for
-    details.
+    Some methods like basic_consume and basic_get are wrapped in a special way,
+    see their docstrings for details.
     """
-
-    WRAPPED_METHODS = ('exchange_declare', 'exchange_delete', 'queue_declare',
-                       'queue_bind', 'queue_purge', 'queue_unbind', 'basic_qos',
-                       'basic_get', 'basic_recover', 'tx_select', 'tx_commit',
-                       'tx_rollback', 'flow', 'basic_cancel')
 
     def __init__(self, channel):
         self._channel = channel
         self._closed = None
         self._calls = set()
         self._consumers = {}
+        # Store Basic.Get calls so we can handle GetEmpty replies
+        self._basic_get_deferred = None
+        self._channel.add_callback(
+            self._on_getempty, [spec.Basic.GetEmpty], False)
+        # We need this mapping to close the ClosableDeferredQueue when a queue
+        # is deleted.
+        self._queue_name_to_consumer_tags = {}
+        # Whether RabbitMQ delivery confirmation has been enabled
+        self._delivery_confirmation = False
+        self._delivery_message_id = None
+        self._deliveries = {}
+        # Holds a ReceivedMessage object representing a message received via
+        # Basic.Return in publisher-acknowledgments mode.
+        self._puback_return = None
 
-        channel.add_on_close_callback(self._channel_closed)
+        self.on_closed = defer.Deferred()
+        self._channel.add_on_close_callback(self._on_channel_closed)
+        self._channel.add_on_cancel_callback(
+            self._on_consumer_cancelled_by_broker)
 
-    def _channel_closed(self, _channel, reason):
+    def __repr__(self):
+        return '<{cls} channel={chan!r}>'.format(
+            cls=self.__class__.__name__, chan=self._channel)
+
+    def _on_channel_closed(self, _channel, reason):
         # enter the closed state
         self._closed = reason
         # errback all pending calls
         for d in self._calls:
             d.errback(self._closed)
         # close all open queues
-        for consumers in self._consumers.values():
-            for c in consumers:
-                c.close(self._closed)
+        for consumer in self._consumers.values():
+            consumer.close(self._closed)
         # release references to stored objects
         self._calls = set()
         self._consumers = {}
+        self.on_closed.callback(self._closed)
+
+    def _on_consumer_cancelled_by_broker(self, method_frame):
+        """Called by impl when broker cancels consumer via Basic.Cancel.
+
+        This is a RabbitMQ-specific feature. The circumstances include deletion
+        of queue being consumed as well as failure of a HA node responsible for
+        the queue being consumed.
+
+        :param pika.frame.Method method_frame: method frame with the
+            `spec.Basic.Cancel` method
+
+        """
+        return self._on_consumer_cancelled(method_frame)
+
+    def _on_consumer_cancelled(self, frame):
+        """Called when the broker cancels a consumer via Basic.Cancel or when
+        the broker responds to a Basic.Cancel request by Basic.CancelOk.
+
+        :param pika.frame.Method frame: method frame with the
+            `spec.Basic.Cancel` or `spec.Basic.CancelOk` method
+
+        """
+        consumer_tag = frame.method.consumer_tag
+        if consumer_tag not in self._consumers:
+            # Could be cancelled by user or broker earlier
+            LOGGER.warning('basic_cancel - consumer not found: %s',
+                           consumer_tag)
+            return frame
+        self._consumers[consumer_tag].close(exceptions.ConsumerCancelled())
+        del self._consumers[consumer_tag]
+        # Remove from the queue-to-ctags index:
+        for ctags in self._queue_name_to_consumer_tags.values():
+            try:
+                ctags.remove(consumer_tag)
+            except KeyError:
+                continue
+        return frame
+
+    def _on_getempty(self, _method_frame):
+        """Callback the Basic.Get deferred with None.
+        """
+        if self._basic_get_deferred is None:
+            LOGGER.warning("Got Basic.GetEmpty but no Basic.Get calls "
+                           "were pending.")
+            return
+        self._basic_get_deferred.callback(None)
+
+    def _wrap_channel_method(self, name):
+        """Wrap Pika's Channel method to make it return a Deferred that fires
+        when the method completes and errbacks if the channel gets closed. If
+        the original method's callback would receive more than one argument,
+        the Deferred fires with a tuple of argument values.
+
+        """
+        method = getattr(self._channel, name)
+
+        @functools.wraps(method)
+        def wrapped(*args, **kwargs):
+            if self._closed:
+                return defer.fail(self._closed)
+
+            d = defer.Deferred()
+            self._calls.add(d)
+            d.addCallback(self._clear_call, d)
+
+            def single_argument(*args):
+                """
+                Make sure that the deferred is called with a single argument.
+                In case the original callback fires with more than one, convert
+                to a tuple.
+                """
+                if len(args) > 1:
+                    d.callback(tuple(args))
+                else:
+                    d.callback(*args)
+
+            kwargs['callback'] = single_argument
+
+            try:
+                method(*args, **kwargs)
+            except Exception:  # pylint: disable=W0703
+                return defer.fail()
+            return d
+
+        return wrapped
+
+    def _clear_call(self, ret, d):
+        self._calls.discard(d)
+        return ret
+
+    # Public Channel attributes
+
+    @property
+    def channel_number(self):
+        return self._channel.channel_number
+
+    @property
+    def connection(self):
+        return self._channel.connection
+
+    @property
+    def is_closed(self):
+        """Returns True if the channel is closed.
+
+        :rtype: bool
+
+        """
+        return self._channel.is_closed
+
+    @property
+    def is_closing(self):
+        """Returns True if client-initiated closing of the channel is in
+        progress.
+
+        :rtype: bool
+
+        """
+        return self._channel.is_closing
+
+    @property
+    def is_open(self):
+        """Returns True if the channel is open.
+
+        :rtype: bool
+
+        """
+        return self._channel.is_open
+
+    @property
+    def flow_active(self):
+        return self._channel.flow_active
+
+    # Deferred-equivalents of public Channel methods
+
+    def callback_deferred(self, deferred, replies):
+        """Pass in a Deferred and a list replies from the RabbitMQ broker which
+        you'd like the Deferred to be callbacked on with the frame as callback
+        value.
+
+        :param Deferred deferred: The Deferred to callback
+        :param list replies: The replies to callback on
+
+        """
+        self._channel.add_callback(deferred.callback, replies)
+
+    # Public Channel methods
+
+    def add_on_return_callback(self, callback):
+        """Pass a callback function that will be called when a published
+        message is rejected and returned by the server via `Basic.Return`.
+
+        :param callable callback: The method to call on callback with the
+            message as only argument. The message is a named tuple with
+            the following attributes:
+            channel: this TwistedChannel
+            method: pika.spec.Basic.Return
+            properties: pika.spec.BasicProperties
+            body: str, unicode, or bytes (python 3.x)
+
+        """
+        self._channel.add_on_return_callback(
+            lambda _channel, method, properties, body: callback(
+                ReceivedMessage(
+                    channel=self,
+                    method=method,
+                    properties=properties,
+                    body=body,
+                )
+            )
+        )
+
+    def basic_ack(self, delivery_tag=0, multiple=False):
+        """Acknowledge one or more messages. When sent by the client, this
+        method acknowledges one or more messages delivered via the Deliver or
+        Get-Ok methods. When sent by server, this method acknowledges one or
+        more messages published with the Publish method on a channel in
+        confirm mode. The acknowledgement can be for a single message or a
+        set of messages up to and including a specific message.
+
+        :param integer delivery_tag: int/long The server-assigned delivery tag
+        :param bool multiple: If set to True, the delivery tag is treated as
+                              "up to and including", so that multiple messages
+                              can be acknowledged with a single method. If set
+                              to False, the delivery tag refers to a single
+                              message. If the multiple field is 1, and the
+                              delivery tag is zero, this indicates
+                              acknowledgement of all outstanding messages.
+
+        """
+        return self._channel.basic_ack(
+            delivery_tag=delivery_tag, multiple=multiple)
+
+    def basic_cancel(self, consumer_tag=''):
+        """This method cancels a consumer. This does not affect already
+        delivered messages, but it does mean the server will not send any more
+        messages for that consumer. The client may receive an arbitrary number
+        of messages in between sending the cancel method and receiving the
+        cancel-ok reply. It may also be sent from the server to the client in
+        the event of the consumer being unexpectedly cancelled (i.e. cancelled
+        for any reason other than the server receiving the corresponding
+        basic.cancel from the client). This allows clients to be notified of
+        the loss of consumers due to events such as queue deletion.
+
+        This method wraps :meth:`Channel.basic_cancel
+        <pika.channel.Channel.basic_cancel>` and closes any deferred queue
+        associated with that consumer.
+
+        :param str consumer_tag: Identifier for the consumer
+        :return: Deferred that fires on the Basic.CancelOk response
+        :rtype: Deferred
+        :raises ValueError:
+
+        """
+        wrapped = self._wrap_channel_method('basic_cancel')
+        d = wrapped(consumer_tag=consumer_tag)
+        return d.addCallback(self._on_consumer_cancelled)
 
     def basic_consume(self,
                       queue,
@@ -154,9 +393,9 @@ class TwistedChannel(object):
             of :class:`ClosableDeferredQueue`, where data received from
             the queue will be stored. Clients should use its
             :meth:`get() <ClosableDeferredQueue.get>` method to fetch an
-            individual message, which will return a Deferred firing with the
-            tuple ``(channel, method, properties, body)``, where:
-             - channel: pika.Channel
+            individual message, which will return a Deferred firing with a
+            namedtuple whose attributes are:
+             - channel: this TwistedChannel
              - method: pika.spec.Basic.Deliver
              - properties: pika.spec.BasicProperties
              - body: str, unicode, or bytes (python 3.x)
@@ -167,47 +406,115 @@ class TwistedChannel(object):
             return defer.fail(self._closed)
 
         queue_obj = ClosableDeferredQueue()
-        self._consumers.setdefault(queue, set()).add(queue_obj)
         d = defer.Deferred()
+
+        def on_consume_ok(frame):
+            consumer_tag = frame.method.consumer_tag
+            self._queue_name_to_consumer_tags.setdefault(
+                queue, set()).add(consumer_tag)
+            self._consumers[consumer_tag] = queue_obj
+            d.callback((queue_obj, consumer_tag))
+
+        def on_message_callback(_channel, method, properties, body):
+            """Add the ReceivedMessage to the queue, while replacing the
+            channel implementation.
+            """
+            queue_obj.put(ReceivedMessage(
+                channel=self, method=method, properties=properties, body=body,
+            ))
 
         try:
             self._channel.basic_consume(
                 queue=queue,
-                on_message_callback=lambda *args: queue_obj.put(args),
+                on_message_callback=on_message_callback,
                 auto_ack=auto_ack,
                 exclusive=exclusive,
                 consumer_tag=consumer_tag,
                 arguments=arguments,
-                callback=lambda frame: d.callback(
-                    (queue_obj, frame.method.consumer_tag)
-                ),
+                callback=on_consume_ok,
             )
         except Exception:  # pylint: disable=W0703
             return defer.fail()
 
         return d
 
-    def queue_delete(self,
-                     queue,
-                     if_unused=False,
-                     if_empty=False):
-        """Delete a queue from the broker.
+    def basic_get(self, queue, auto_ack=False):
+        """Get a single message from the AMQP broker.
 
+        Will return If the queue is empty, it will return None.
+        If you want to
+        be notified of Basic.GetEmpty, use the Channel.add_callback method
+        adding your Basic.GetEmpty callback which should expect only one
+        parameter, frame. Due to implementation details, this cannot be called
+        a second time until the callback is executed.  For more information on
+        basic_get and its parameters, see:
 
-        This method wraps :meth:`Channel.queue_delete
-        <pika.channel.Channel.queue_delete>`, and removes the reference to the
-        queue object after it gets deleted on the server.
+        http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.get
 
-        :param queue: The queue to delete
+        This method wraps :meth:`Channel.basic_get
+        <pika.channel.Channel.basic_get>`.
+
+        :param queue: The queue from which to get a message. Use the empty
+                      string to specify the most recent server-named queue
+                      for this channel.
         :type queue: str or unicode
-        :param bool if_unused: only delete if it's unused
-        :param bool if_empty: only delete if the queue is empty
-        :raises ValueError:
+        :param bool auto_ack: Tell the broker to not expect a reply
+        :return: Deferred that fires with a namedtuple whose attributes are:
+            channel: this TwistedChannel
+            method: pika.spec.Basic.GetOk
+            properties: pika.spec.BasicProperties
+            body: str, unicode, or bytes (python 3.x)
+            If the queue is empty, None will be returned.
+        :rtype: Deferred(ReceivedMessage|None)
+        :raises pika.exceptions.DuplicateGetOkCallback:
 
         """
-        wrapped = self._wrap_channel_method('queue_delete')
-        d = wrapped(queue=queue, if_unused=if_unused, if_empty=if_empty)
-        return d.addCallback(self._clear_consumer, queue)
+        if self._basic_get_deferred is not None:
+            raise exceptions.DuplicateGetOkCallback()
+
+        def create_namedtuple(result):
+            if result is None:
+                return None
+            _channel, method, properties, body = result
+            return ReceivedMessage(
+                channel=self, method=method, properties=properties, body=body,
+            )
+
+        def cleanup_attribute(result):
+            self._basic_get_deferred = None
+            return result
+
+        d = self._wrap_channel_method("basic_get")(
+            queue=queue, auto_ack=auto_ack)
+        d.addCallback(create_namedtuple)
+        d.addBoth(cleanup_attribute)
+        self._basic_get_deferred = d
+        return d
+
+    def basic_nack(self, delivery_tag=None, multiple=False, requeue=True):
+        """This method allows a client to reject one or more incoming messages.
+        It can be used to interrupt and cancel large incoming messages, or
+        return untreatable messages to their original queue.
+
+        :param integer delivery-tag: int/long The server-assigned delivery tag
+        :param bool multiple: If set to True, the delivery tag is treated as
+                              "up to and including", so that multiple messages
+                              can be acknowledged with a single method. If set
+                              to False, the delivery tag refers to a single
+                              message. If the multiple field is 1, and the
+                              delivery tag is zero, this indicates
+                              acknowledgement of all outstanding messages.
+        :param bool requeue: If requeue is true, the server will attempt to
+                             requeue the message. If requeue is false or the
+                             requeue attempt fails the messages are discarded
+                             or dead-lettered.
+
+        """
+        return self._channel.basic_nack(
+            delivery_tag=delivery_tag,
+            multiple=multiple,
+            requeue=requeue,
+        )
 
     def basic_publish(self, exchange, routing_key, body,
                       properties=None,
@@ -236,80 +543,540 @@ class TwistedChannel(object):
             basic_publish.
         :rtype: Deferred
 
+        :raises UnroutableError: raised when a message published in
+            publisher-acknowledgments mode (see
+            `BlockingChannel.confirm_delivery`) is returned via `Basic.Return`
+            followed by `Basic.Ack`.
+        :raises NackError: raised when a message published in
+            publisher-acknowledgements mode is Nack'ed by the broker. See
+            `BlockingChannel.confirm_delivery`.
+
         """
         if self._closed:
             return defer.fail(self._closed)
-        return defer.succeed(self._channel.basic_publish(
+        result = self._channel.basic_publish(
             exchange=exchange,
             routing_key=routing_key,
             body=body,
             properties=properties,
             mandatory=mandatory,
             immediate=immediate,
-        ))
+        )
+        if not self._delivery_confirmation:
+            return defer.succeed(result)
+        else:
+            # See http://www.rabbitmq.com/confirms.html#publisher-confirms
+            self._delivery_message_id += 1
+            self._deliveries[self._delivery_message_id] = defer.Deferred()
+            return self._deliveries[self._delivery_message_id]
 
-    def _wrap_channel_method(self, name):
-        """Wrap Pika's Channel method to make it return a Deferred that fires
-        when the method completes and errbacks if the channel gets closed. If
-        the original method's callback would receive more than one argument, the
-        Deferred fires with a tuple of argument values.
+    def basic_qos(self,
+                  prefetch_size=0,
+                  prefetch_count=0,
+                  all_channels=False):
+        """Specify quality of service. This method requests a specific quality
+        of service. The QoS can be specified for the current channel or for all
+        channels on the connection. The client can request that messages be
+        sent in advance so that when the client finishes processing a message,
+        the following message is already held locally, rather than needing to
+        be sent down the channel. Prefetching gives a performance improvement.
+
+        :param int prefetch_size:  This field specifies the prefetch window
+                                   size. The server will send a message in
+                                   advance if it is equal to or smaller in size
+                                   than the available prefetch size (and also
+                                   falls into other prefetch limits). May be
+                                   set to zero, meaning "no specific limit",
+                                   although other prefetch limits may still
+                                   apply. The prefetch-size is ignored by
+                                   consumers who have enabled the no-ack
+                                   option.
+        :param int prefetch_count: Specifies a prefetch window in terms of
+                                   whole messages. This field may be used in
+                                   combination with the prefetch-size field; a
+                                   message will only be sent in advance if both
+                                   prefetch windows (and those at the channel
+                                   and connection level) allow it. The
+                                   prefetch-count is ignored by consumers who
+                                   have enabled the no-ack option.
+        :param bool all_channels: Should the QoS apply to all channels
+        :return: Deferred that fires on the Basic.QosOk response
+        :rtype: Deferred
 
         """
-        method = getattr(self._channel, name)
+        return self._wrap_channel_method("basic_qos")(
+            prefetch_size=prefetch_size,
+            prefetch_count=prefetch_count,
+            all_channels=all_channels,
+        )
 
-        @functools.wraps(method)
-        def wrapped(*args, **kwargs):
-            if self._closed:
-                return defer.fail(self._closed)
+    def basic_reject(self, delivery_tag, requeue=True):
+        """Reject an incoming message. This method allows a client to reject a
+        message. It can be used to interrupt and cancel large incoming
+        messages, or return untreatable messages to their original queue.
 
-            d = defer.Deferred()
-            self._calls.add(d)
-            d.addCallback(self._clear_call, d)
+        :param integer delivery_tag: int/long The server-assigned delivery tag
+        :param bool requeue: If requeue is true, the server will attempt to
+                             requeue the message. If requeue is false or the
+                             requeue attempt fails the messages are discarded
+                             or dead-lettered.
+        :raises: TypeError
 
-            def single_argument(*args):
-                """
-                Make sure that the deferred is called with a single argument.
-                In case the original callback fires with more than one, convert
-                to a tuple.
-                """
-                if len(args) > 1:
-                    d.callback(tuple(args))
+        """
+        return self._channel.basic_reject(
+            delivery_tag=delivery_tag, requeue=requeue)
+
+    def basic_recover(self, requeue=False):
+        """This method asks the server to redeliver all unacknowledged messages
+        on a specified channel. Zero or more messages may be redelivered. This
+        method replaces the asynchronous Recover.
+
+        :param bool requeue: If False, the message will be redelivered to the
+                             original recipient. If True, the server will
+                             attempt to requeue the message, potentially then
+                             delivering it to an alternative subscriber.
+        :return: Deferred that fires on the Basic.RecoverOk response
+        :rtype: Deferred
+
+        """
+        return self._wrap_channel_method("basic_recover")(requeue=requeue)
+
+    def close(self, reply_code=0, reply_text="Normal shutdown"):
+        """Invoke a graceful shutdown of the channel with the AMQP Broker.
+
+        If channel is OPENING, transition to CLOSING and suppress the incoming
+        Channel.OpenOk, if any.
+
+        :param int reply_code: The reason code to send to broker
+        :param str reply_text: The reason text to send to broker
+
+        :raises ChannelWrongStateError: if channel is closed or closing
+
+        """
+        return self._channel.close(
+            reply_code=reply_code, reply_text=reply_text)
+
+    def confirm_delivery(self):
+        """Turn on Confirm mode in the channel. Pass in a callback to be
+        notified by the Broker when a message has been confirmed as received or
+        rejected (Basic.Ack, Basic.Nack) from the broker to the publisher.
+
+        For more information see:
+            http://www.rabbitmq.com/confirms.html#publisher-confirms
+
+        :return: Deferred that fires on the Confirm.SelectOk response
+        :rtype: Deferred
+
+        """
+        if self._delivery_confirmation:
+            LOGGER.error('confirm_delivery: confirmation was already enabled.')
+            return defer.succeed(None)
+        wrapped = self._wrap_channel_method('confirm_delivery')
+        d = wrapped(ack_nack_callback=self._on_delivery_confirmation)
+
+        def set_delivery_confirmation(result):
+            self._delivery_confirmation = True
+            self._delivery_message_id = 0
+            LOGGER.debug("Delivery confirmation enabled.")
+            return result
+        d.addCallback(set_delivery_confirmation)
+        # Unroutable messages returned after this point will be in the context
+        # of publisher acknowledgments
+        self._channel.add_on_return_callback(self._on_puback_message_returned)
+        return d
+
+    def _on_delivery_confirmation(self, method_frame):
+        """Invoked by pika when RabbitMQ responds to a Basic.Publish RPC
+        command, passing in either a Basic.Ack or Basic.Nack frame with
+        the delivery tag of the message that was published. The delivery tag
+        is an integer counter indicating the message number that was sent
+        on the channel via Basic.Publish. Here we're just doing house keeping
+        to keep track of stats and remove message numbers that we expect
+        a delivery confirmation of from the list used to keep track of messages
+        that are pending confirmation.
+
+        :param pika.frame.Method method_frame: Basic.Ack or Basic.Nack frame
+
+        """
+        delivery_tag = method_frame.method.delivery_tag
+        if delivery_tag not in self._deliveries:
+            LOGGER.error("Delivery tag %s not found in the pending deliveries",
+                         delivery_tag)
+            return
+        if method_frame.method.multiple:
+            tags = [
+                tag for tag in self._deliveries
+                if tag <= delivery_tag
+            ]
+            tags.sort()
+        else:
+            tags = [delivery_tag]
+        for tag in tags:
+            d = self._deliveries[tag]
+            del self._deliveries[tag]
+            if isinstance(method_frame.method, pika.spec.Basic.Nack):
+                # Broker was unable to process the message due to internal
+                # error
+                LOGGER.warning(
+                    "Message was Nack'ed by broker: nack=%r; channel=%s;",
+                    method_frame.method, self.channel_number)
+                if self._puback_return is not None:
+                    returned_messages = [self._puback_return]
+                    self._puback_return = None
                 else:
-                    d.callback(*args)
+                    returned_messages = []
+                d.errback(exceptions.NackError(returned_messages))
+            else:
+                assert isinstance(method_frame.method, pika.spec.Basic.Ack)
+                if self._puback_return is not None:
+                    # Unroutable message was returned
+                    returned_messages = [self._puback_return]
+                    self._puback_return = None
+                    d.errback(exceptions.UnroutableError(returned_messages))
+                else:
+                    d.callback(method_frame.method)
 
-            kwargs['callback'] = single_argument
+    def _on_puback_message_returned(self, message):
+        """Called as the result of Basic.Return from broker in
+        publisher-acknowledgements mode. Saves the info as a ReturnedMessage
+        instance in self._puback_return.
 
-            try:
-                method(*args, **kwargs)
-            except Exception:  # pylint: disable=W0703
-                return defer.fail()
-            return d
+        :param pika.Channel channel: our self._impl channel
+        :param pika.spec.Basic.Return method:
+        :param pika.spec.BasicProperties properties: message properties
+        :param body: returned message body; empty string if no body
+        :type body: str, unicode
 
-        return wrapped
+        """
+        assert isinstance(message.method, spec.Basic.Return), message.method
+        assert isinstance(message.properties, spec.BasicProperties), (
+            message.properties)
 
-    def _clear_consumer(self, ret, queue_name):
-        self._consumers.pop(queue_name, None)
-        return ret
+        LOGGER.warning(
+            "Published message was returned: _delivery_confirmation=%s; "
+            "channel=%s; method=%r; properties=%r; body_size=%d; "
+            "body_prefix=%.255r", self._delivery_confirmation,
+            message.channel.channel_number, message.method, message.properties,
+            len(message.body) if message.body is not None else None,
+            message.body)
 
-    def _clear_call(self, ret, d):
-        self._calls.discard(d)
-        return ret
+        self._puback_return = message
 
-    def __getattr__(self, name):
-        # Wrap methods defined in WRAPPED_METHODS, forward the rest of accesses
-        # to the channel.
-        if name in self.WRAPPED_METHODS:
-            return self._wrap_channel_method(name)
-        return getattr(self._channel, name)
+    def exchange_bind(self,
+                      destination=None,
+                      source=None,
+                      routing_key='',
+                      arguments=None):
+        """Bind an exchange to another exchange.
+
+        :param destination: The destination exchange to bind
+        :type destination: str or unicode
+        :param source: The source exchange to bind to
+        :type source: str or unicode
+        :param routing_key: The routing key to bind on
+        :type routing_key: str or unicode
+        :param arguments: Custom key/value pair arguments for the binding
+        :type arguments: dict
+        :raises ValueError:
+        :return: Deferred that fires on the Exchange.BindOk response
+        :rtype: Deferred
+
+        """
+        return self._wrap_channel_method("exchange_bind")(
+            destination=destination,
+            source=source,
+            routing_key=routing_key,
+            arguments=arguments,
+        )
+
+    def exchange_declare(self,
+                         exchange=None,
+                         exchange_type='direct',
+                         passive=False,
+                         durable=False,
+                         auto_delete=False,
+                         internal=False,
+                         arguments=None):
+        """This method creates an exchange if it does not already exist, and if
+        the exchange exists, verifies that it is of the correct and expected
+        class.
+
+        If passive set, the server will reply with Declare-Ok if the exchange
+        already exists with the same name, and raise an error if not and if the
+        exchange does not already exist, the server MUST raise a channel
+        exception with reply code 404 (not found).
+
+        :param exchange: The exchange name consists of a non-empty
+        :type exchange: str or unicode
+                                     sequence of these characters: letters,
+                                     digits, hyphen, underscore, period, or
+                                     colon.
+        :param str exchange_type: The exchange type to use
+        :param bool passive: Perform a declare or just check to see if it
+            exists
+        :param bool durable: Survive a reboot of RabbitMQ
+        :param bool auto_delete: Remove when no more queues are bound to it
+        :param bool internal: Can only be published to by other exchanges
+        :param dict arguments: Custom key/value pair arguments for the exchange
+        :return: Deferred that fires on the Exchange.DeclareOk response
+        :rtype: Deferred
+        :raises ValueError:
+
+        """
+        return self._wrap_channel_method("exchange_declare")(
+            exchange=exchange,
+            exchange_type=exchange_type,
+            passive=passive,
+            durable=durable,
+            auto_delete=auto_delete,
+            internal=internal,
+            arguments=arguments,
+        )
+
+    def exchange_delete(self,
+                        exchange=None,
+                        if_unused=False):
+        """Delete the exchange.
+
+        :param exchange: The exchange name
+        :type exchange: str or unicode
+        :param bool if_unused: only delete if the exchange is unused
+        :return: Deferred that fires on the Exchange.DeleteOk response
+        :rtype: Deferred
+        :raises ValueError:
+
+        """
+        return self._wrap_channel_method("exchange_delete")(
+            exchange=exchange,
+            if_unused=if_unused,
+        )
+
+    def exchange_unbind(self,
+                        destination=None,
+                        source=None,
+                        routing_key='',
+                        arguments=None):
+        """Unbind an exchange from another exchange.
+
+        :param destination: The destination exchange to unbind
+        :type destination: str or unicode
+        :param source: The source exchange to unbind from
+        :type source: str or unicode
+        :param routing_key: The routing key to unbind
+        :type routing_key: str or unicode
+        :param dict arguments: Custom key/value pair arguments for the binding
+        :return: Deferred that fires on the Exchange.UnbindOk response
+        :rtype: Deferred
+        :raises ValueError:
+
+        """
+        return self._wrap_channel_method("exchange_unbind")(
+            destination=destination,
+            source=source,
+            routing_key=routing_key,
+            arguments=arguments,
+        )
+
+    def flow(self, active):
+        """Turn Channel flow control off and on.
+
+        Returns a Deferred that will fire with a bool indicating the channel
+        flow state. For more information, please reference:
+
+        http://www.rabbitmq.com/amqp-0-9-1-reference.html#channel.flow
+
+        :param bool active: Turn flow on or off
+        :return: Deferred that fires with the channel flow state
+        :rtype: Deferred(bool)
+        :raises ValueError:
+
+        """
+        return self._wrap_channel_method("flow")(active=active)
+
+    def open(self):
+        """Open the channel"""
+        return self._channel.open()
+
+    def queue_bind(self,
+                   queue,
+                   exchange,
+                   routing_key=None,
+                   arguments=None):
+        """Bind the queue to the specified exchange
+
+        :param queue: The queue to bind to the exchange
+        :type queue: str or unicode
+        :param exchange: The source exchange to bind to
+        :type exchange: str or unicode
+        :param routing_key: The routing key to bind on
+        :type routing_key: str or unicode
+        :param dict arguments: Custom key/value pair arguments for the binding
+        :return: Deferred that fires on the Queue.BindOk response
+        :rtype: Deferred
+        :raises ValueError:
+
+        """
+        return self._wrap_channel_method("queue_bind")(
+            queue=queue,
+            exchange=exchange,
+            routing_key=routing_key,
+            arguments=arguments,
+        )
+
+    def queue_declare(self,
+                      queue,
+                      passive=False,
+                      durable=False,
+                      exclusive=False,
+                      auto_delete=False,
+                      arguments=None):
+        """Declare queue, create if needed. This method creates or checks a
+        queue. When creating a new queue the client can specify various
+        properties that control the durability of the queue and its contents,
+        and the level of sharing for the queue.
+
+        Use an empty string as the queue name for the broker to auto-generate
+        one
+
+        :param queue: The queue name
+        :type queue: str or unicode; if empty string, the broker will create a
+          unique queue name;
+        :param bool passive: Only check to see if the queue exists
+        :param bool durable: Survive reboots of the broker
+        :param bool exclusive: Only allow access by the current connection
+        :param bool auto_delete: Delete after consumer cancels or disconnects
+        :param dict arguments: Custom key/value arguments for the queue
+        :return: Deferred that fires on the Queue.DeclareOk response
+        :rtype: Deferred
+          Queue.DeclareOk
+        :raises ValueError:
+
+        """
+        return self._wrap_channel_method("queue_declare")(
+            queue=queue,
+            passive=passive,
+            durable=durable,
+            exclusive=exclusive,
+            auto_delete=auto_delete,
+            arguments=arguments,
+        )
+
+    def queue_delete(self,
+                     queue,
+                     if_unused=False,
+                     if_empty=False):
+        """Delete a queue from the broker.
+
+
+        This method wraps :meth:`Channel.queue_delete
+        <pika.channel.Channel.queue_delete>`, and removes the reference to the
+        queue object after it gets deleted on the server.
+
+        :param queue: The queue to delete
+        :type queue: str or unicode
+        :param bool if_unused: only delete if it's unused
+        :param bool if_empty: only delete if the queue is empty
+        :return: Deferred that fires on the Queue.DeleteOk response
+        :rtype: Deferred
+        :raises ValueError:
+
+        """
+        wrapped = self._wrap_channel_method('queue_delete')
+        d = wrapped(queue=queue, if_unused=if_unused, if_empty=if_empty)
+
+        def _clear_consumer(ret, queue_name):
+            for consumer_tag in list(
+                    self._queue_name_to_consumer_tags.get(queue_name, set())):
+                self._consumers[consumer_tag].close(
+                    exceptions.ConsumerCancelled(
+                        "Queue %s was deleted." % queue_name
+                    ))
+                del self._consumers[consumer_tag]
+                self._queue_name_to_consumer_tags[queue_name].remove(
+                    consumer_tag)
+            return ret
+        return d.addCallback(_clear_consumer, queue)
+
+    def queue_purge(self, queue):
+        """Purge all of the messages from the specified queue
+
+        :param queue: The queue to purge
+        :type queue: str or unicode
+        :return: Deferred that fires on the Queue.PurgeOk response
+        :rtype: Deferred
+        :raises ValueError:
+
+        """
+        return self._wrap_channel_method("queue_purge")(queue=queue)
+
+    def queue_unbind(self,
+                     queue,
+                     exchange=None,
+                     routing_key=None,
+                     arguments=None):
+        """Unbind a queue from an exchange.
+
+        :param queue: The queue to unbind from the exchange
+        :type queue: str or unicode
+        :param exchange: The source exchange to bind from
+        :type exchange: str or unicode
+        :param routing_key: The routing key to unbind
+        :type routing_key: str or unicode
+        :param dict arguments: Custom key/value pair arguments for the binding
+        :return: Deferred that fires on the Queue.UnbindOk response
+        :rtype: Deferred
+        :raises ValueError:
+
+        """
+        return self._wrap_channel_method("queue_unbind")(
+            queue=queue,
+            exchange=exchange,
+            routing_key=routing_key,
+            arguments=arguments,
+        )
+
+    def tx_commit(self):
+        """Commit a transaction.
+
+        :return: Deferred that fires on the Tx.CommitOk response
+        :rtype: Deferred
+
+        :raises ValueError:
+
+        """
+        return self._wrap_channel_method("tx_commit")()
+
+    def tx_rollback(self):
+        """Rollback a transaction.
+
+        :return: Deferred that fires on the Tx.RollbackOk response
+        :rtype: Deferred
+
+        :raises ValueError:
+
+        """
+        return self._wrap_channel_method("tx_rollback")()
+
+    def tx_select(self):
+        """Select standard transaction mode. This method sets the channel to use
+        standard transactions. The client must use this method at least once on
+        a channel before using the Commit or Rollback methods.
+
+        :return: Deferred that fires on the Tx.SelectOk response
+        :rtype: Deferred
+        :raises ValueError:
+
+        """
+        return self._wrap_channel_method("tx_select")()
 
 
 class _TwistedConnectionAdapter(pika.connection.Connection):
     """A Twisted-specific implementation of a Pika Connection.
 
     NOTE: since `base_connection.BaseConnection`'s primary responsibility is
-    management of the transport, we use `pika.connection.Connection` directly as
-    our base class because this adapter uses a different transport management
-    strategy.
+    management of the transport, we use `pika.connection.Connection` directly
+    as our base class because this adapter uses a different transport
+    management strategy.
 
     """
     def __init__(self,
@@ -446,12 +1213,15 @@ class TwistedProtocolConnection(protocol.Protocol):
     """
     def __init__(self, parameters=None, custom_reactor=None):
         self.ready = defer.Deferred()
+        self.ready.addCallback(
+            lambda _: self.connectionReady()
+        )
         self.closed = None
         self._impl = _TwistedConnectionAdapter(
             parameters=parameters,
-            on_open_callback=self._connectionReady,
-            on_open_error_callback=self._connectionFailed,
-            on_close_callback=self._connectionClosed,
+            on_open_callback=self._on_connection_ready,
+            on_open_error_callback=self._on_connection_failed,
+            on_close_callback=self._on_connection_closed,
             custom_reactor=custom_reactor,
         )
 
@@ -463,8 +1233,8 @@ class TwistedProtocolConnection(protocol.Protocol):
 
         :param int channel_number: The channel number to use, defaults to the
                                    next available.
-        :returns: a Deferred that fires with an instance of a wrapper around the
-            Pika Channel class.
+        :returns: a Deferred that fires with an instance of a wrapper around
+            the Pika Channel class.
         :rtype: Deferred
 
         """
@@ -496,20 +1266,25 @@ class TwistedProtocolConnection(protocol.Protocol):
 
     # Our own methods
 
-    def _connectionReady(self, _res):
+    def connectionReady(self):
+        """This method will be called when the underlying connection is ready.
+        """
+        pass
+
+    def _on_connection_ready(self, _connection):
         d, self.ready = self.ready, None
         if d:
             self.closed = defer.Deferred()
-            d.callback(self)
+            d.callback(None)
 
-    def _connectionFailed(self, _connection, _error_message=None):
+    def _on_connection_failed(self, _connection, _error_message=None):
         d, self.ready = self.ready, None
         if d:
             attempts = self._impl.params.connection_attempts
             exc = exceptions.AMQPConnectionError(attempts)
             d.errback(exc)
 
-    def _connectionClosed(self, _connection, exception):
+    def _on_connection_closed(self, _connection, exception):
         d, self.closed = self.closed, None
         if d:
             if isinstance(exception, Failure):
