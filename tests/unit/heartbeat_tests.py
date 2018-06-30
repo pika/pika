@@ -52,7 +52,6 @@ class ConstructableConnection(connection.Connection):
     def _adapter_remove_timeout(self, timeout_id):
         raise NotImplementedError
 
-
 class HeartbeatTests(unittest.TestCase):
 
     INTERVAL = 60

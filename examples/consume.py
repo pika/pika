@@ -9,7 +9,6 @@ LOGGER = logging.getLogger(__name__)
 
 logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT)
 
-
 def on_message(chan, method_frame, _header_frame, body, userdata=None):
     """Called when a message is received. Log message and ack it."""
     LOGGER.info('Userdata: %s Message body: %s', userdata, body)
