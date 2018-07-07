@@ -213,7 +213,9 @@ class _Timer(object):
         # NOTE removing from the heap is difficult, so we just deactivate the
         # timeout and garbage-collect it at a later time; see discussion
         # in http://docs.python.org/library/heapq.html
-        if timeout.callback is None:
+        if timeout is None:
+            LOGGER.warning('remove_timeout: ignoring  NoneType timeout')
+        elif timeout.callback is None:
             LOGGER.warning(
                 'remove_timeout: timeout was already removed or called %r',
                 timeout)
