@@ -331,6 +331,12 @@ class Parameters(object):  # pylint: disable=R0902
             connection tuning or callable which is invoked during connection tuning.
             None to accept broker's value. 0 turns heartbeat off. Defaults to
             `DEFAULT_HEARTBEAT_TIMEOUT`.
+
+        Note: The connection may still be timed out by the broker, regardless of the
+              heartbeat setting, if the client takes too long to accept new messages.
+              Setting `prefetch_count` to 1 on the channel is one way to prevent this
+              from happening. See the `Channel.basic_qos()` method.
+
         :rtype: integer, None or callable
 
         """
