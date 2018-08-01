@@ -71,7 +71,7 @@ class PikaProtocol(twisted_connection.TwistedProtocolConnection):
     name = 'AMQP:Protocol'
 
     @inlineCallbacks
-    def connected(self, connection):
+    def onConnected(self, connection):
         self.channel = yield connection.channel()
         yield self.channel.basic_qos(prefetch_count=PREFETCH_COUNT)
         self.connected = True
@@ -154,7 +154,7 @@ class PikaFactory(protocol.ReconnectingClientFactory):
         log.msg('Connected', system=self.name)
         self.client = PikaProtocol(self.parameters)
         self.client.factory = self
-        self.client.ready.addCallback(self.client.connected)
+        self.client.ready.addCallback(self.client.onConnected)
         return self.client
 
     def clientConnectionLost(self, connector, reason):
