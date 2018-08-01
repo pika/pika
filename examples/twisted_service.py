@@ -78,6 +78,7 @@ class PikaProtocol(twisted_connection.TwistedProtocolConnection):
         self.channel = yield connection.channel()
         yield self.channel.basic_qos(prefetch_count=PREFETCH_COUNT)
         self.connected = True
+        yield self.channel.confirm_delivery()
         for (exchange, routing_key, callback,) in self.factory.read_list:
             yield self.setup_read(exchange, routing_key, callback)
 
