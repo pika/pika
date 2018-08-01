@@ -1242,6 +1242,11 @@ class TwistedProtocolConnection(protocol.Protocol):
         self._impl.channel(channel_number, d.callback)
         return d.addCallback(TwistedChannel)
 
+    @property
+    def is_closed(self):
+        # For compatibility with previous releases.
+        return self._impl.is_closed
+
     def close(self, reply_code=200, reply_text='Normal shutdown'):
         if not self._impl.is_closed:
             self._impl.close(reply_code, reply_text)
