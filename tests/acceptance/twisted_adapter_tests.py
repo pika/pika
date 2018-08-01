@@ -108,6 +108,16 @@ class TwistedChannelTestCase(TestCase):
     def setUp(self):
         self.pika_channel = mock.Mock()
         self.channel = TwistedChannel(self.pika_channel)
+        # This is only needed on Python2 for functools.wraps to work.
+        wrapped = (
+            "basic_cancel", "basic_get", "basic_qos", "basic_recover",
+            "exchange_bind", "exchange_unbind", "exchange_declare",
+            "exchange_delete", "confirm_delivery", "flow",
+            "queue_bind", "queue_declare", "queue_delete", "queue_purge",
+            "queue_unbind", "tx_commit", "tx_rollback", "tx_select",
+        )
+        for meth_name in wrapped:
+            getattr(self.pika_channel, meth_name).__name__ = meth_name
 
     def test_repr(self):
         self.pika_channel.__repr__ = lambda _s: "<TestChannel>"
