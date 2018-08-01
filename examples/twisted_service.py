@@ -20,6 +20,9 @@ the application can asynchronously run a maximum of 2 tasks at once
 as defined by PREFETCH_COUNT
 """
 
+import logging
+import sys
+
 import pika
 from pika import spec
 from pika.adapters import twisted_connection
@@ -208,3 +211,7 @@ class TestService(service.Service):
 
 ts = TestService()
 ts.setServiceParent(application)
+
+observer = log.PythonLoggingObserver()
+observer.start()
+logging.basicConfig(level=logging.INFO, stream=sys.stdout)
