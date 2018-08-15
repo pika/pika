@@ -20,9 +20,11 @@ the application can asynchronously run a maximum of 2 tasks at once
 as defined by PREFETCH_COUNT
 """
 
+import logging
+import sys
+
 import pika
 from pika import spec
-from pika import exceptions
 from pika.adapters import twisted_connection
 
 from twisted.internet import protocol
@@ -34,6 +36,7 @@ from twisted.python import log
 from twisted.internet import reactor
 
 PREFETCH_COUNT = 2
+
 
 class PikaService(service.MultiService):
     name = 'amqp'
@@ -71,10 +74,11 @@ class PikaProtocol(twisted_connection.TwistedProtocolConnection):
     name = 'AMQP:Protocol'
 
     @inlineCallbacks
-    def connected(self, connection):
+    def onConnected(self, connection):
         self.channel = yield connection.channel()
         yield self.channel.basic_qos(prefetch_count=PREFETCH_COUNT)
         self.connected = True
+        yield self.channel.confirm_delivery()
         for (exchange, routing_key, callback,) in self.factory.read_list:
             yield self.setup_read(exchange, routing_key, callback)
 
@@ -89,10 +93,12 @@ class PikaProtocol(twisted_connection.TwistedProtocolConnection):
     @inlineCallbacks
     def setup_read(self, exchange, routing_key, callback):
         """This function does the work to read from an exchange."""
-        if not exchange == '':
+        if exchange:
             yield self.channel.exchange_declare(exchange=exchange, exchange_type='topic', durable=True, auto_delete=False)
 
-        self.channel.queue_declare(queue=routing_key, durable=True)
+        yield self.channel.queue_declare(queue=routing_key, durable=True)
+        if exchange:
+            yield self.channel.queue_bind(queue=routing_key, exchange=exchange)
 
         (queue, consumer_tag,) = yield self.channel.basic_consume(queue=routing_key, auto_ack=False)
         d = queue.get()
@@ -152,15 +158,15 @@ class PikaFactory(protocol.ReconnectingClientFactory):
         log.msg('Connected', system=self.name)
         self.client = PikaProtocol(self.parameters)
         self.client.factory = self
-        self.client.ready.addCallback(self.client.connected)
+        self.client.ready.addCallback(self.client.onConnected)
         return self.client
 
     def clientConnectionLost(self, connector, reason):
-        log.msg('Lost connection.  Reason: %s' % reason, system=self.name)
+        log.msg('Lost connection.  Reason: %s' % reason.value, system=self.name)
         protocol.ReconnectingClientFactory.clientConnectionLost(self, connector, reason)
 
     def clientConnectionFailed(self, connector, reason):
-        log.msg('Connection failed. Reason: %s' % reason, system=self.name)
+        log.msg('Connection failed. Reason: %s' % reason.value, system=self.name)
         protocol.ReconnectingClientFactory.clientConnectionFailed(self, connector, reason)
 
     def send_message(self, exchange = None, routing_key = None, message = None):
@@ -206,3 +212,7 @@ class TestService(service.Service):
 
 ts = TestService()
 ts.setServiceParent(application)
+
+observer = log.PythonLoggingObserver()
+observer.start()
+logging.basicConfig(level=logging.INFO, stream=sys.stdout)

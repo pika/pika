@@ -69,7 +69,7 @@ Pika provides the following adapters
 - BlockingConnection - enables blocking, synchronous operation on top of library for simple usage
 - SelectConnection   - fast asynchronous adapter without 3rd-party dependencies
 - TornadoConnection  - adapter for use with the Tornado IO Loop http://tornadoweb.org
-- TwistedConnection  - adapter for use with the Twisted asynchronous package http://twistedmatrix.com/
+- TwistedProtocolConnection  - adapter for use with the Twisted asynchronous package http://twistedmatrix.com/
 
 Multiple Connection Parameters
 ------------------------------

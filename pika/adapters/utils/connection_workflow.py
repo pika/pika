@@ -14,6 +14,7 @@ import socket
 import pika.compat
 import pika.exceptions
 import pika.tcp_socket_opts
+from pika import __version__
 
 
 _LOG = logging.getLogger(__name__)
@@ -186,7 +187,8 @@ class AMQPConnector(object):
         self._sock.setblocking(False)
 
         addr = self._addr_record[4]
-        _LOG.info('Connecting to AMQP broker at %r', addr)
+        _LOG.info('Pika version %s connecting to %r',
+                  __version__, addr)
         self._task_ref = self._nbio.connect_socket(
             self._sock,
             addr,
