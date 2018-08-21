@@ -271,7 +271,7 @@ class TwistedChannelTestCase(TestCase):
         # Check the simple attribute passthroughs
         attributes = (
             "channel_number", "connection", "is_closed", "is_closing",
-            "is_open", "flow_active",
+            "is_open", "flow_active", "consumer_tags",
         )
         for name in attributes:
             value = "testvalue-{}".format(name)
