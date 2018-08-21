@@ -4,7 +4,7 @@ This examples demonstrates a TLS session with RabbitMQ using server authenticati
 
 It was tested against RabbitMQ 3.6.10, using Python 3.6.1 and pre-release Pika `0.11.0`
 
-Note the use of `ssl_version=ssl.PROTOCOL_TLSv1`. The recent verions of RabbitMQ disable older versions of
+Note the use of `ssl_version=ssl.PROTOCOL_TLSv1`. The recent versions of RabbitMQ disable older versions of
 SSL due to security vulnerabilities.
 
 See https://www.rabbitmq.com/ssl.html for certificate creation and rabbitmq SSL configuration instructions.
