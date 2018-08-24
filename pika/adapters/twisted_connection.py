@@ -274,6 +274,10 @@ class TwistedChannel(object):
     def flow_active(self):
         return self._channel.flow_active
 
+    @property
+    def consumer_tags(self):
+        return self._channel.consumer_tags
+
     # Deferred-equivalents of public Channel methods
 
     def callback_deferred(self, deferred, replies):
