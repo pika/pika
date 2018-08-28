@@ -5,7 +5,6 @@ platform pika is running on.
 import abc
 import collections
 import errno
-import functools
 import heapq
 import logging
 import select
@@ -139,7 +138,6 @@ class SelectConnection(BaseConnection):
             on_done=on_done)
 
 
-@functools.total_ordering
 class _Timeout(object):
     """Represents a timeout"""
 
@@ -166,15 +164,40 @@ class _Timeout(object):
 
     def __eq__(self, other):
         """NOTE: not supporting sort stability"""
-        return self.deadline == other.deadline
+        if isinstance(other, _Timeout):
+            return self.deadline == other.deadline
+        return NotImplemented
+
+    def __ne__(self, other):
+        """NOTE: not supporting sort stability"""
+        result = self.__eq__(other)
+        if result is not NotImplemented:
+            return not result
+        return NotImplemented
 
     def __lt__(self, other):
         """NOTE: not supporting sort stability"""
-        return self.deadline < other.deadline
+        if isinstance(other, _Timeout):
+            return self.deadline < other.deadline
+        return NotImplemented
+
+    def __gt__(self, other):
+        """NOTE: not supporting sort stability"""
+        if isinstance(other, _Timeout):
+            return self.deadline > other.deadline
+        return NotImplemented
 
     def __le__(self, other):
         """NOTE: not supporting sort stability"""
-        return self.deadline <= other.deadline
+        if isinstance(other, _Timeout):
+            return self.deadline <= other.deadline
+        return NotImplemented
+
+    def __ge__(self, other):
+        """NOTE: not supporting sort stability"""
+        if isinstance(other, _Timeout):
+            return self.deadline >= other.deadline
+        return NotImplemented
 
 
 class _Timer(object):

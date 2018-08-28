@@ -157,6 +157,17 @@ class Parameters(object):  # pylint: disable=R0902
                 (self.__class__.__name__, self.host, self.port,
                  self.virtual_host, bool(self.ssl_options)))
 
+    def __eq__(self, other):
+        if isinstance(other, Parameters):
+            return (self._host == other._host and self._port == other._port)
+        return NotImplemented
+
+    def __ne__(self, other):
+        result = self.__eq__(other)
+        if result is not NotImplemented:
+            return not result
+        return NotImplemented
+
     @property
     def backpressure_detection(self):
         """

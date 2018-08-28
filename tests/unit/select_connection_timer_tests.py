@@ -21,6 +21,20 @@ from pika.adapters import select_connection
 # Suppress invalid-name
 # pylint: disable=C0103
 
+
+class ChildTimeout(select_connection._Timeout):
+
+    def __init__(self, *args, **kwargs):
+        super(ChildTimeout, self).__init__(*args, **kwargs)
+        self.extra = 'e'
+
+    def __eq__(self, other):
+        if isinstance(other, ChildTimeout):
+            return self.extra == other.extra and super(
+                ChildTimeout, self).__eq__(other)
+        return NotImplemented
+
+
 class TimeoutClassTests(unittest.TestCase):
     """Test select_connection._Timeout class"""
 
@@ -54,38 +68,184 @@ class TimeoutClassTests(unittest.TestCase):
         self.assertIn('callback must be a callable, but got',
                       cm.exception.args[0])
 
-    def test_eq_operator(self):
+    def test_eq(self):
         # Comparison should be by deadline only
-        t1 = select_connection._Timeout(5, lambda: None)
-        t2 = select_connection._Timeout(5, lambda: 5)
-        self.assertEqual(t1, t2)
+        self.assertEqual(
+            select_connection._Timeout(5, lambda: None),
+            select_connection._Timeout(5, lambda: 5))
+        self.assertEqual(
+            select_connection._Timeout(5, lambda: 5),
+            select_connection._Timeout(5, lambda: None))
 
-        t2 = select_connection._Timeout(10, lambda: 5)
-        self.assertNotEqual(t1, t2)
+        self.assertEqual(
+            select_connection._Timeout(5, lambda: None),
+            ChildTimeout(5, lambda: 5))
+        self.assertEqual(
+            ChildTimeout(5, lambda: 5),
+            select_connection._Timeout(5, lambda: None))
 
-    def test_lt_operator(self):
+        class Foreign(object):
+
+            def __eq__(self, other):
+                return 'foobar'
+
+        self.assertEqual(
+            select_connection._Timeout(5, lambda: None) == Foreign(),
+            'foobar')
+        self.assertEqual(
+            Foreign() == select_connection._Timeout(5, lambda: None),
+            'foobar')
+
+    def test_ne(self):
         # Comparison should be by deadline only
-        t1 = select_connection._Timeout(4, lambda: None)
-        t2 = select_connection._Timeout(5, lambda: 5)
-        self.assertLess(t1, t2)
+        self.assertNotEqual(
+            select_connection._Timeout(5, lambda: None),
+            select_connection._Timeout(10, lambda: None))
+        self.assertNotEqual(
+            select_connection._Timeout(10, lambda: None),
+            select_connection._Timeout(5, lambda: None))
 
-        t2 = select_connection._Timeout(4, lambda: 5)
-        self.assertFalse(t1 < t2)
+        self.assertNotEqual(
+            select_connection._Timeout(5, lambda: None),
+            ChildTimeout(10, lambda: None))
+        self.assertNotEqual(
+            ChildTimeout(10, lambda: None),
+            select_connection._Timeout(5, lambda: None))
 
-        t2 = select_connection._Timeout(3, lambda: 5)
-        self.assertFalse(t1 < t2)
+        self.assertNotEqual(
+            select_connection._Timeout(5, lambda: None),
+            dict(deadline=5, callback=lambda: None))
+        self.assertNotEqual(
+            dict(deadline=5, callback=lambda: None),
+            select_connection._Timeout(5, lambda: None))
 
-    def test_le_operator(self):
+        class Foreign(object):
+
+            def __ne__(self, other):
+                return 'foobar'
+
+        self.assertEqual(
+            select_connection._Timeout(5, lambda: None) != Foreign(),
+            'foobar')
+        self.assertEqual(
+            Foreign() != select_connection._Timeout(5, lambda: None),
+            'foobar')
+
+    def test_lt(self):
         # Comparison should be by deadline only
-        t1 = select_connection._Timeout(4, lambda: None)
-        t2 = select_connection._Timeout(4, lambda: 5)
-        self.assertLessEqual(t1, t2)
+        self.assertLess(
+            select_connection._Timeout(5, lambda: None),
+            select_connection._Timeout(10, lambda: None))
 
-        t2 = select_connection._Timeout(5, lambda: 5)
-        self.assertLessEqual(t1, t2)
+        self.assertLess(
+            select_connection._Timeout(5, lambda: None),
+            ChildTimeout(10, lambda: None))
 
-        t2 = select_connection._Timeout(3, lambda: 5)
-        self.assertFalse(t1 <= t2)
+        class Foreign(object):
+
+            def __gt__(self, other):
+                return 'foobar'
+
+        self.assertEqual(
+            select_connection._Timeout(5, lambda: None) < Foreign(),
+            'foobar')
+
+        self.assertFalse(
+            select_connection._Timeout(5, lambda: None)
+            < select_connection._Timeout(5, lambda: None))
+
+        self.assertFalse(
+            select_connection._Timeout(5, lambda: None)
+            < select_connection._Timeout(1, lambda: None))
+
+    def test_gt(self):
+        # Comparison should be by deadline only
+        self.assertGreater(
+            select_connection._Timeout(10, lambda: None),
+            select_connection._Timeout(5, lambda: None))
+
+        self.assertGreater(
+            select_connection._Timeout(10, lambda: None),
+            ChildTimeout(5, lambda: None))
+
+        class Foreign(object):
+
+            def __lt__(self, other):
+                return 'foobar'
+
+        self.assertEqual(
+            select_connection._Timeout(5, lambda: None) > Foreign(),
+            'foobar')
+
+        self.assertFalse(
+            select_connection._Timeout(5, lambda: None)
+            > select_connection._Timeout(5, lambda: None))
+
+        self.assertFalse(
+            select_connection._Timeout(1, lambda: None)
+            > select_connection._Timeout(5, lambda: None))
+
+    def test_le(self):
+        # Comparison should be by deadline only
+        self.assertLessEqual(
+            select_connection._Timeout(5, lambda: None),
+            select_connection._Timeout(10, lambda: None))
+
+        self.assertLessEqual(
+            select_connection._Timeout(5, lambda: None),
+            select_connection._Timeout(5, lambda: None))
+
+        self.assertLessEqual(
+            select_connection._Timeout(5, lambda: None),
+            ChildTimeout(10, lambda: None))
+
+        self.assertLessEqual(
+            select_connection._Timeout(5, lambda: None),
+            ChildTimeout(5, lambda: None))
+
+        class Foreign(object):
+
+            def __ge__(self, other):
+                return 'foobar'
+
+        self.assertEqual(
+            select_connection._Timeout(5, lambda: None) <= Foreign(),
+            'foobar')
+
+        self.assertFalse(
+            select_connection._Timeout(5, lambda: None)
+            <= select_connection._Timeout(1, lambda: None))
+
+    def test_ge(self):
+        # Comparison should be by deadline only
+        self.assertGreaterEqual(
+            select_connection._Timeout(10, lambda: None),
+            select_connection._Timeout(5, lambda: None))
+
+        self.assertGreaterEqual(
+            select_connection._Timeout(5, lambda: None),
+            select_connection._Timeout(5, lambda: None))
+
+        self.assertGreaterEqual(
+            select_connection._Timeout(10, lambda: None),
+            ChildTimeout(5, lambda: None))
+
+        self.assertGreaterEqual(
+            select_connection._Timeout(5, lambda: None),
+            ChildTimeout(5, lambda: None))
+
+        class Foreign(object):
+
+            def __le__(self, other):
+                return 'foobar'
+
+        self.assertEqual(
+            select_connection._Timeout(5, lambda: None) >= Foreign(),
+            'foobar')
+
+        self.assertFalse(
+            select_connection._Timeout(1, lambda: None)
+            >= select_connection._Timeout(5, lambda: None))
 
 
 class TimerClassTests(unittest.TestCase):

@@ -52,13 +52,17 @@ class PlainCredentials(object):
         self.erase_on_connect = erase_on_connect
 
     def __eq__(self, other):
-        return (isinstance(other, PlainCredentials) and
-                other.username == self.username and
-                other.password == self.password and
-                other.erase_on_connect == self.erase_on_connect)
+        if isinstance(other, PlainCredentials):
+            return (self.username == other.username
+                    and self.password == other.password
+                    and self.erase_on_connect == other.erase_on_connect)
+        return NotImplemented
 
     def __ne__(self, other):
-        return not self == other
+        result = self.__eq__(other)
+        if result is not NotImplemented:
+            return not result
+        return NotImplemented
 
     def response_for(self, start):
         """Validate that this type of authentication is supported
@@ -94,11 +98,15 @@ class ExternalCredentials(object):
         self.erase_on_connect = False
 
     def __eq__(self, other):
-        return (isinstance(other, ExternalCredentials) and
-                other.erase_on_connect == self.erase_on_connect)
+        if isinstance(other, ExternalCredentials):
+            return self.erase_on_connect == other.erase_on_connect
+        return NotImplemented
 
     def __ne__(self, other):
-        return not self == other
+        result = self.__eq__(other)
+        if result is not NotImplemented:
+            return not result
+        return NotImplemented
 
     def response_for(self, start):
         """Validate that this type of authentication is supported
