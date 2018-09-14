@@ -57,7 +57,7 @@ class BaseConnection(connection.Connection):
         """
         if parameters and not isinstance(parameters, connection.Parameters):
             raise ValueError(
-                'Expected instance of Parameters, not %r' % parameters)
+                'Expected instance of Parameters, not %r' % (parameters,))
 
         # Let the developer know we could not import SSL
         if parameters and parameters.ssl and not ssl:
