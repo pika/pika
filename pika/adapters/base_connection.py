@@ -56,7 +56,7 @@ class BaseConnection(connection.Connection):
         """
         if parameters and not isinstance(parameters, connection.Parameters):
             raise ValueError(
-                'Expected instance of Parameters, not %r' % parameters)
+                'Expected instance of Parameters, not %r' % (parameters,))
 
         self._nbio = nbio
 
