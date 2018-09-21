@@ -33,7 +33,7 @@ KQUEUE_SUPPORTED = hasattr(select, 'kqueue')
 
 class IOLoopBaseTest(unittest.TestCase):
     SELECT_POLLER = None
-    TIMEOUT = 1.0
+    TIMEOUT = 1.5
 
     def setUp(self):
         select_type_patch = mock.patch.multiple(
