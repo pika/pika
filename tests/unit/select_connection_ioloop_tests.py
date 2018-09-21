@@ -182,7 +182,7 @@ class IOLoopTimerTestSelect(IOLoopBaseTest):
 
     """
     NUM_TIMERS = 5
-    TIMER_INTERVAL = 0.02
+    TIMER_INTERVAL = 0.25
     SELECT_POLLER = 'select'
 
     def set_timers(self):
