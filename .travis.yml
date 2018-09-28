@@ -12,36 +12,11 @@ addons:
         key_url: https://packages.erlang-solutions.com/ubuntu/erlang_solutions.asc
     packages:
       # apt-cache show erlang-nox=1:20.3-1 | grep Depends | tr ' ' '\n' | grep erlang | grep -v erlang-base-hipe | tr -d ',' | sed 's/$/=1:20.3-1/'
-      - erlang-base=1:20.3-1
-      - erlang-asn1=1:20.3-1
-      - erlang-corba=1:20.3-1
-      - erlang-crypto=1:20.3-1
-      - erlang-diameter=1:20.3-1
-      - erlang-edoc=1:20.3-1
-      - erlang-eldap=1:20.3-1
-      - erlang-erl-docgen=1:20.3-1
-      - erlang-eunit=1:20.3-1
-      - erlang-ic=1:20.3-1
-      - erlang-inets=1:20.3-1
-      - erlang-inviso=1:20.3-1
-      - erlang-mnesia=1:20.3-1
-      - erlang-odbc=1:20.3-1
-      - erlang-os-mon=1:20.3-1
-      - erlang-parsetools=1:20.3-1
-      - erlang-percept=1:20.3-1
-      - erlang-public-key=1:20.3-1
-      - erlang-runtime-tools=1:20.3-1
-      - erlang-snmp=1:20.3-1
-      - erlang-ssh=1:20.3-1
-      - erlang-ssl=1:20.3-1
-      - erlang-syntax-tools=1:20.3-1
-      - erlang-tools=1:20.3-1
-      - erlang-xmerl=1:20.3-1
-      - erlang-nox=1:20.3-1
+      - erlang-nox
 
 env:
   global:
-    - RABBITMQ_VERSION=3.7.4
+    - RABBITMQ_VERSION=3.7.8
     - RABBITMQ_DOWNLOAD_URL="https://github.com/rabbitmq/rabbitmq-server/releases/download/v$RABBITMQ_VERSION/rabbitmq-server-generic-unix-$RABBITMQ_VERSION.tar.xz"
     - RABBITMQ_TAR="rabbitmq-$RABBITMQ_VERSION.tar.xz"
     - PATH=$HOME/.local/bin:$PATH
