@@ -1,7 +1,6 @@
 import pika
 from threading import Thread
 
-
 HOST = 'localhost'
 USER = 'guest'
 PASSWORD = 'guest'
@@ -11,17 +10,16 @@ QUEUE = "not_exist"
 
 
 class RabbitMQ():
-    def __init__(
-            self,
-            exchange='alter_exchange',
-            host='localhost',
-            user='guest',
-            password='guest',
-            virtual_host='/'):
+
+    def __init__(self,
+                 exchange='alter_exchange',
+                 host='localhost',
+                 user='guest',
+                 password='guest',
+                 virtual_host='/'):
         self.exchange = exchange
         self.virtual_host = virtual_host
-        self.credentials = pika.PlainCredentials(
-            user, password)
+        self.credentials = pika.PlainCredentials(user, password)
         self.parameters = pika.ConnectionParameters(
             host=host, virtual_host=virtual_host, credentials=self.credentials)
         self.rmq_connect()
@@ -37,7 +35,9 @@ class RabbitMQ():
             exchange_type='direct',
             durable=True,
             auto_delete=False,
-            arguments={"alternate-exchange": "unrouted"})
+            arguments={
+                "alternate-exchange": "unrouted"
+            })
         self.channel.exchange_declare(
             exchange='unrouted',
             exchange_type='fanout',
@@ -47,12 +47,12 @@ class RabbitMQ():
 
     def _queues_declare(self):
         self.channel.queue_declare(QUEUE, durable=True, auto_delete=False)
-        self.channel.queue_bind(exchange=self.exchange,
-                                queue=QUEUE, routing_key=QUEUE)
+        self.channel.queue_bind(
+            exchange=self.exchange, queue=QUEUE, routing_key=QUEUE)
         self.channel.queue_declare(
             'unrouted_queue', durable=True, auto_delete=False)
-        self.channel.queue_bind(exchange='unrouted',
-                                queue='unrouted_queue', routing_key='')
+        self.channel.queue_bind(
+            exchange='unrouted', queue='unrouted_queue', routing_key='')
 
     def send_msg(self, msg, queue):
         properties = pika.BasicProperties(delivery_mode=2)

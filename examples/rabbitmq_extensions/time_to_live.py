@@ -1,6 +1,5 @@
 import pika
 
-
 HOST = 'localhost'
 USER = 'guest'
 PASSWORD = 'guest'
@@ -11,13 +10,18 @@ QUEUE = 'ttl_queue'
 
 
 class RabbitMQ():
-    def __init__(self, exchange="messages", host='localhost',
-                 user='guest', password='guest', virtual_host="/", queue=""):
+
+    def __init__(self,
+                 exchange="messages",
+                 host='localhost',
+                 user='guest',
+                 password='guest',
+                 virtual_host="/",
+                 queue=""):
         self.exchange = exchange
         self.virtual_host = virtual_host
         self.queue = queue
-        self.credentials = pika.PlainCredentials(
-            user, password)
+        self.credentials = pika.PlainCredentials(user, password)
         self.parameters = pika.ConnectionParameters(
             host=host, virtual_host=virtual_host, credentials=self.credentials)
         self.rmq_connect()
@@ -35,8 +39,8 @@ class RabbitMQ():
             auto_delete=False)
         self.channel.queue_declare(
             queue=self.queue, durable=True, auto_delete=False)
-        self.channel.queue_bind(exchange=self.exchange,
-                                queue=self.queue, routing_key=self.queue)
+        self.channel.queue_bind(
+            exchange=self.exchange, queue=self.queue, routing_key=self.queue)
 
     def send_msg(self, msg, ttl=0):
         properties = pika.BasicProperties(delivery_mode=2, expiration=str(ttl))

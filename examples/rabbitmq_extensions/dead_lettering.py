@@ -12,17 +12,16 @@ TTL_QUEUE = 'dl_ttl_queue'
 
 
 class RabbitMQ():
-    def __init__(
-            self,
-            exchange='messages',
-            host='localhost',
-            user='guest',
-            password='guest',
-            virtual_host='/'):
+
+    def __init__(self,
+                 exchange='messages',
+                 host='localhost',
+                 user='guest',
+                 password='guest',
+                 virtual_host='/'):
         self.exchange = exchange
         self.virtual_host = virtual_host
-        self.credentials = pika.PlainCredentials(
-            user, password)
+        self.credentials = pika.PlainCredentials(user, password)
         self.parameters = pika.ConnectionParameters(
             host=host, virtual_host=virtual_host, credentials=self.credentials)
         self.rmq_connect()
@@ -44,12 +43,16 @@ class RabbitMQ():
         self.channel.queue_declare(
             DEAD_LETTER_QUEUE, durable=True, auto_delete=False)
         self.channel.queue_declare(
-            queue=TTL_QUEUE, durable=True, auto_delete=False, arguments={
+            queue=TTL_QUEUE,
+            durable=True,
+            auto_delete=False,
+            arguments={
                 'x-dead-letter-exchange': 'messages',
-                'x-dead-letter-routing-key': DEAD_LETTER_QUEUE, })
+                'x-dead-letter-routing-key': DEAD_LETTER_QUEUE,
+            })
         for queue in [TTL_QUEUE, DEAD_LETTER_QUEUE]:
-            self.channel.queue_bind(exchange=self.exchange,
-                                    queue=queue, routing_key=queue)
+            self.channel.queue_bind(
+                exchange=self.exchange, queue=queue, routing_key=queue)
 
     def send_msg(self, msg, queue, ttl=0):
         properties = pika.BasicProperties(delivery_mode=2, expiration=str(ttl))

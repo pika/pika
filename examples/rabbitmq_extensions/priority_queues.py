@@ -11,17 +11,16 @@ QUEUE = 'prio_queue'
 
 
 class RabbitMQ():
-    def __init__(
-            self,
-            exchange='messages',
-            host='localhost',
-            user='guest',
-            password='guest',
-            virtual_host='/'):
+
+    def __init__(self,
+                 exchange='messages',
+                 host='localhost',
+                 user='guest',
+                 password='guest',
+                 virtual_host='/'):
         self.exchange = exchange
         self.virtual_host = virtual_host
-        self.credentials = pika.PlainCredentials(
-            user, password)
+        self.credentials = pika.PlainCredentials(user, password)
         self.parameters = pika.ConnectionParameters(
             host=host, virtual_host=virtual_host, credentials=self.credentials)
         self.rmq_connect()
@@ -54,9 +53,10 @@ class RabbitMQ():
             durable=True,
             auto_delete=False,
             arguments={
-                "x-max-priority": 5})
-        self.channel.queue_bind(exchange=self.exchange,
-                                queue=QUEUE, routing_key=QUEUE)
+                "x-max-priority": 5
+            })
+        self.channel.queue_bind(
+            exchange=self.exchange, queue=QUEUE, routing_key=QUEUE)
 
     def send_msg(self, msg, queue, priority):
         properties = pika.BasicProperties(delivery_mode=2, priority=priority)
