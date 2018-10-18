@@ -113,11 +113,13 @@ adapter-specific mechanism:
       connection.add_callback_threadsafe(functools.partial(ack_message, channel, delivery_tag))
 
 - When using a non-blocking connection adapter, such as
-  :py:class:`pika.AsyncioConnection` or :py:class:`pika.SelectConnection`, you
-  use the underlying asynchronous framework's native API for requesting an
-  ioloop-bound callback from another thread. For example, `SelectConnection`'s
-  `IOLoop` provides `add_callback_threadsafe()`, `Tornado`'s `IOLoop` has
-  `add_callback()`, while `asyncio`'s event loop exposes `call_soon_threadsafe()`.
+:py:class:`pika.adapters.asyncio_connection.AsyncioConnection` or
+:py:class:`pika.SelectConnection`, you use the underlying asynchronous
+framework's native API for requesting an ioloop-bound callback from
+another thread. For example, `SelectConnection`'s `IOLoop` provides
+`add_callback_threadsafe()`, `Tornado`'s `IOLoop` has
+`add_callback()`, while `asyncio`'s event loop exposes
+`call_soon_threadsafe()`.
 
 This threadsafe callback request mechanism may also be used to delegate
 publishing of messages, etc., from a background thread to the connection adapter's

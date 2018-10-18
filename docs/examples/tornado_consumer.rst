@@ -53,8 +53,8 @@ consumer.py::
 
             """
             LOGGER.info('Connecting to %s', self._url)
-            return adapters.TornadoConnection(pika.URLParameters(self._url),
-                                              self.on_connection_open)
+            return adapters.tornado_connection.TornadoConnection(pika.URLParameters(self._url),
+                                                                 self.on_connection_open)
 
         def close_connection(self):
             """This method closes the connection to RabbitMQ."""

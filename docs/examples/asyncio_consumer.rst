@@ -59,8 +59,8 @@ consumer.py::
 
             """
             LOGGER.info('Connecting to %s', self._url)
-            return adapters.AsyncioConnection(pika.URLParameters(self._url),
-                                              self.on_connection_open)
+            return adapters.asyncio_connection.AsyncioConnection(pika.URLParameters(self._url),
+                                                                 self.on_connection_open)
 
         def close_connection(self):
             """This method closes the connection to RabbitMQ."""
