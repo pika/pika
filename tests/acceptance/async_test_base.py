@@ -360,10 +360,10 @@ class AsyncAdapters(object):
     def test_with_tornado(self):
         """TornadoConnection"""
         ioloop_factory = None
-        if adapters.TornadoConnection is not None:
+        if adapters.tornado_connection.TornadoConnection is not None:
             import tornado.ioloop
             ioloop_factory = tornado.ioloop.IOLoop
-        self.start(adapters.TornadoConnection, ioloop_factory)
+        self.start(adapters.tornado_connection.TornadoConnection, ioloop_factory)
 
     @unittest.skipIf(sys.version_info < (3, 4),
                      'Asyncio is available only with Python 3.4+')
@@ -371,8 +371,8 @@ class AsyncAdapters(object):
     def test_with_asyncio(self):
         """AsyncioConnection"""
         ioloop_factory = None
-        if adapters.AsyncioConnection is not None:
+        if adapters.asyncio_connection.AsyncioConnection is not None:
             import asyncio
             ioloop_factory = asyncio.new_event_loop
 
-        self.start(adapters.AsyncioConnection, ioloop_factory)
+        self.start(adapters.asyncio_connection.AsyncioConnection, ioloop_factory)
