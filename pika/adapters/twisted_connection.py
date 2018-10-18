@@ -72,8 +72,10 @@ class TwistedChannel(object):
         self.__closed = None
         self.__calls = set()
         self.__consumers = {}
+        self.__consumers_by_ctag = {}
 
         channel.add_on_close_callback(self.channel_closed)
+        channel.add_on_cancel_callback(self.consumer_cancelled)
 
     def channel_closed(self, channel, reply_code, reply_text):
         # enter the closed state
@@ -88,6 +90,17 @@ class TwistedChannel(object):
         # release references to stored objects
         self.__calls = set()
         self.__consumers = {}
+        self.__consumers_by_ctag = {}
+
+    def consumer_cancelled(self, frame):
+        ctag = frame.method.consumer_tag
+        try:
+            consumer = self.__consumers_by_ctag[ctag]
+        except KeyError:
+            return
+
+        del self.__consumers_by_ctag[ctag]
+        consumer.close(exceptions.ConsumerCancelled())
 
     def basic_consume(self, *args, **kwargs):
         """Consume from a server queue. Returns a Deferred that fires with a
@@ -111,6 +124,8 @@ class TwistedChannel(object):
         # least `except Exception` and preferably more specific.
         except:
             return defer.fail()
+
+        self.__consumers_by_ctag[consumer_tag] = queue
 
         return defer.succeed((queue, consumer_tag))
 
