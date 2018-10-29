@@ -606,7 +606,12 @@ class URLParametersTests(_ParametersTestsBase):
             'retry_delay': 3,
             'socket_timeout': 100.5,
             'ssl_options': {
-                'ssl': 'options'
+                'ca_certs': '/etc/ssl',
+                'certfile': '/etc/certs/cert.pem',
+                'keyfile': '/etc/certs/key.pem',
+                'password': 'test123',
+                'ciphers': None,
+                'server_hostname': 'blah.blah.com'
             },
             'tcp_options': {
                 'TCP_USER_TIMEOUT': 1000,
@@ -619,7 +624,7 @@ class URLParametersTests(_ParametersTestsBase):
             test_params['backpressure_detection'] = backpressure
             virtual_host = '/'
             query_string = urlencode(test_params)
-            test_url = ('https://myuser:mypass@www.test.com:5678/%s?%s' % (
+            test_url = ('amqps://myuser:mypass@www.test.com:5678/%s?%s' % (
                 url_quote(virtual_host, safe=''),
                 query_string,
             ))
@@ -632,17 +637,23 @@ class URLParametersTests(_ParametersTestsBase):
                 expected_value = query_args[t_param]
                 actual_value = getattr(params, t_param)
 
-                self.assertEqual(
-                    actual_value,
-                    expected_value,
-                    msg='Expected %s=%r, but got %r' %
-                    (t_param, expected_value, actual_value))
+                if t_param == 'ssl_options':
+                    self.assertEqual(actual_value.server_hostname,
+                                     expected_value['server_hostname'])
+                else:
+                    self.assertEqual(
+                        actual_value,
+                        expected_value,
+                        msg='Expected %s=%r, but got %r' %
+                        (t_param, expected_value, actual_value))
 
             self.assertEqual(params.backpressure_detection,
                              backpressure == 't')
 
             # check all values from base URL
-            self.assertEqual(params.ssl, True)
+            self.assertIsNotNone(params.ssl_options)
+            self.assertIsNotNone(params.ssl_options.context)
+            self.assertIsInstance(params.ssl_options.context, ssl.SSLContext)
             self.assertEqual(params.credentials.username, 'myuser')
             self.assertEqual(params.credentials.password, 'mypass')
             self.assertEqual(params.host, 'www.test.com')
