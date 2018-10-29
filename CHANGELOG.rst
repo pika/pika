@@ -1,6 +1,13 @@
 Version History
 ===============
 
+0.13.0 2018-11-12
+------------------
+
+`GitHub milestone <https://github.com/pika/pika/milestone/13>`_
+
+- `AsyncioConnection`, `TornadoConnection` and `TwistedProtocolConnection` are no longer auto-imported (`PR <https://github.com/pika/pika/pull/1129>`_)
+
 0.12.0 2018-06-19
 -----------------
 
