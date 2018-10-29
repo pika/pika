@@ -9,8 +9,8 @@ import functools
 import logging
 import math
 import numbers
+import os
 import platform
-import socket
 import warnings
 import ssl
 
@@ -963,27 +963,64 @@ class URLParameters(Parameters):
         """Deserialize and apply the corresponding query string arg
 
         """
-        options = ast.literal_eval(value)
-        if options is None:
+        opts = ast.literal_eval(value)
+        if opts is None:
             if self.ssl_options is not None:
                 raise ValueError(
                     'Specified ssl_options=None URL arg is inconsistent with '
                     'the specified https URL scheme.')
         else:
-            # Convert options to pika.SSLOptions via ssl.SSLSocket()
-            sock = socket.socket()
-            try:
-                ssl_sock = ssl.SSLSocket(sock=sock, **options)
-                try:
-                    self.ssl_options = pika.SSLOptions(
-                        context=ssl_sock.context,
-                        server_hostname=ssl_sock.server_hostname)
-                finally:
-                    ssl_sock.close()
-            finally:
-                sock.close()
+            # Note: this is the deprecated wrap_socket signature and info:
+            #
+            # Internally, function creates a SSLContext with protocol
+            # ssl_version and SSLContext.options set to cert_reqs.
+            # If parameters keyfile, certfile, ca_certs or ciphers are set,
+            # then the values are passed to SSLContext.load_cert_chain(),
+            # SSLContext.load_verify_locations(), and SSLContext.set_ciphers().
+            #
+            # ssl.wrap_socket(sock,
+            #     keyfile=None,
+            #     certfile=None,
+            #     server_side=False,        # Not URL-supported
+            #     cert_reqs=CERT_NONE,      # Not URL-supported
+            #     ssl_version=PROTOCOL_TLS, # Not URL-supported
+            #     ca_certs=None,
+            #     do_handshake_on_connect=True, # Not URL-supported
+            #     suppress_ragged_eofs=True,    # Not URL-supported
+            #     ciphers=None
+            cxt = None
+            if 'ca_certs' in opts:
+                opt_ca_certs = opts['ca_certs']
+                if os.path.isfile(opt_ca_certs):
+                    cxt = ssl.create_default_context(cafile=opt_ca_certs)
+                elif os.path.isdir(opt_ca_certs):
+                    cxt = ssl.create_default_context(capath=opt_ca_certs)
+                else:
+                    LOGGER.warning('ca_certs is specified via ssl_options but '
+                                   'is neither a valid file nor directory: "%s"',
+                                   opt_ca_certs)
 
+            if 'certfile' in opts:
+                if os.path.isfile(opts['certfile']):
+                    keyfile = opts.get('keyfile')
+                    password = opts.get('password')
+                    cxt.load_cert_chain(opts['certfile'], keyfile, password)
+                else:
+                    LOGGER.warning('certfile is specified via ssl_options but '
+                                   'is not a valid file: "%s"',
+                                   opts['certfile'])
 
+            if 'ciphers' in opts:
+                opt_ciphers = opts['ciphers']
+                if opt_ciphers is not None:
+                    cxt.set_ciphers(opt_ciphers)
+                else:
+                    LOGGER.warning('ciphers specified in ssl_options but '
+                                   'evaluates to None')
+
+            server_hostname = opts.get('server_hostname')
+            self.ssl_options = pika.SSLOptions(context=cxt,
+                                               server_hostname=server_hostname)
 
     def _set_url_tcp_options(self, value):
         """Deserialize and apply the corresponding query string arg"""
