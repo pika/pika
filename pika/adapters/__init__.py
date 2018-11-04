@@ -19,20 +19,3 @@ from pika.adapters.base_connection import BaseConnection
 from pika.adapters.blocking_connection import BlockingConnection
 from pika.adapters.select_connection import SelectConnection
 from pika.adapters.select_connection import IOLoop
-
-# Dynamically handle 3rd party library dependencies for optional imports
-try:
-    from pika.adapters.asyncio_connection import AsyncioConnection
-except ImportError:
-    AsyncioConnection = None
-
-try:
-    from pika.adapters.tornado_connection import TornadoConnection
-except ImportError:
-    TornadoConnection = None
-
-try:
-    from pika.adapters.twisted_connection import TwistedProtocolConnection
-except ImportError:
-    TwistedProtocolConnection = None
-

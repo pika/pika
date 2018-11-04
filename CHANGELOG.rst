@@ -6,6 +6,7 @@ Version History
 
 `GitHub milestone <https://github.com/pika/pika/milestone/8>`_
 
+- `AsyncioConnection`, `TornadoConnection` and `TwistedProtocolConnection` are no longer auto-imported (`PR <https://github.com/pika/pika/pull/1129>`_)
 - `BlockingConnection.consume` now returns `(None, None, None)` when inactivity timeout is reached (`PR <https://github.com/pika/pika/pull/899>`_)
 
 0.12.0 2018-06-19

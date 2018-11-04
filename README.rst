@@ -135,11 +135,13 @@ adapter-specific mechanism:
       connection.add_callback_threadsafe(functools.partial(ack_message, channel, delivery_tag))
 
 - When using a non-blocking connection adapter, such as
-  :py:class:`pika.AsyncioConnection` or :py:class:`pika.SelectConnection`, you
-  use the underlying asynchronous framework's native API for requesting an
-  ioloop-bound callback from another thread. For example, `SelectConnection`'s
-  `IOLoop` provides `add_callback_threadsafe()`, `Tornado`'s `IOLoop` has
-  `add_callback()`, while `asyncio`'s event loop exposes `call_soon_threadsafe()`.
+:py:class:`pika.adapters.asyncio_connection.AsyncioConnection` or
+:py:class:`pika.SelectConnection`, you use the underlying asynchronous
+framework's native API for requesting an ioloop-bound callback from
+another thread. For example, `SelectConnection`'s `IOLoop` provides
+`add_callback_threadsafe()`, `Tornado`'s `IOLoop` has
+`add_callback()`, while `asyncio`'s event loop exposes
+`call_soon_threadsafe()`.
 
 This threadsafe callback request mechanism may also be used to delegate
 publishing of messages, etc., from a background thread to the connection adapter's
@@ -223,14 +225,17 @@ Extending to support additional I/O frameworks
 ----------------------------------------------
 New non-blocking adapters may be implemented in either of the following ways:
 
-- By subclassing :py:class:`pika.adapters.base_connection.BaseConnection` and
-  implementing its abstract method(s) and passing BaseConnection's constructor
-  an implementation of
+- By subclassing
+  :py:class:`pika.adapters.base_connection.BaseConnection` and
+  implementing its abstract method(s) and passing BaseConnection's
+  constructor an implementation of
   :py.class:`pika.adapters.utils.nbio_interface.AbstractIOServices`.
-  `BaseConnection` implements `pika.connection.connection.Connection`'s pure
-  virtual methods, including internally-initiated connection logic. For
-  examples, refer to the implementations of
-  :py:class:`pika.AsyncioConnection` and :py:class:`pika.TornadoConnection`.
+  `BaseConnection` implements
+  `pika.connection.connection.Connection`'s pure virtual methods,
+  including internally-initiated connection logic. For examples, refer
+  to the implementations of
+  :py:class:`pika.adapters.asyncio_connection.AsyncioConnection` and
+  :py:class:`pika.adapters.tornado_connection.TornadoConnection`.
 - By subclassing :py:class:`pika.connection.connection.Connection` and
   implementing its abstract method(s). This approach facilitates implementation
   of of custom connection-establishment and transport mechanisms. For an example,
