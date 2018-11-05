@@ -699,12 +699,10 @@ class URLParametersTests(ParametersTestsBase):
             # on <VerifyMode.CERT_NONE: 1>:
             # {'cert_reqs': <VerifyMode.CERT_NONE: 1>, 'server_hostname': 'blah.blah.com'}
             'ssl_options': {
-                'keyfile': None,
-                'certfile': None,
-                'ssl_version': int(ssl.PROTOCOL_SSLv23),
-                'ca_certs': None,
-                'cert_reqs': int(ssl.CERT_NONE),
-                'npn_protocols': None,
+                'ca_certs': '/etc/ssl',
+                'certfile': '/etc/certs/cert.pem',
+                'keyfile': '/etc/certs/key.pem',
+                'password': 'test123',
                 'ciphers': None,
                 'server_hostname': 'blah.blah.com'
             },
@@ -719,7 +717,7 @@ class URLParametersTests(ParametersTestsBase):
             test_params['backpressure_detection'] = backpressure
             virtual_host = '/'
             query_string = urlencode(test_params)
-            test_url = ('https://myuser:mypass@www.test.com:5678/%s?%s' % (
+            test_url = ('amqps://myuser:mypass@www.test.com:5678/%s?%s' % (
                 url_quote(virtual_host, safe=''),
                 query_string,
             ))
@@ -733,8 +731,6 @@ class URLParametersTests(ParametersTestsBase):
                 actual_value = getattr(params, t_param)
 
                 if t_param == 'ssl_options':
-                    self.assertEqual(actual_value.context.verify_mode,
-                                     expected_value['cert_reqs'])
                     self.assertEqual(actual_value.server_hostname,
                                      expected_value['server_hostname'])
                 else:
@@ -749,6 +745,8 @@ class URLParametersTests(ParametersTestsBase):
 
             # check all values from base URL
             self.assertIsNotNone(params.ssl_options)
+            self.assertIsNotNone(params.ssl_options.context)
+            self.assertIsInstance(params.ssl_options.context, ssl.SSLContext)
             self.assertEqual(params.credentials.username, 'myuser')
             self.assertEqual(params.credentials.password, 'mypass')
             self.assertEqual(params.host, 'www.test.com')
