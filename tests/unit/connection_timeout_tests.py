@@ -112,7 +112,7 @@ class ConnectionTests(unittest.TestCase):
     def test_tornado_connection_timeout(self):
         with self.assertRaises(exceptions.AMQPConnectionError) as err_ctx:
             with mock.patch(
-                    'pika.TornadoConnection'
+                    'pika.adapters.tornado_connection.TornadoConnection'
                     '._create_tcp_connection_socket',
                     return_value=mock.Mock(
                         spec_set=socket.socket,
@@ -131,7 +131,7 @@ class ConnectionTests(unittest.TestCase):
     def test_twisted_connection_timeout(self):
         with self.assertRaises(exceptions.AMQPConnectionError) as err_ctx:
             with mock.patch(
-                    'pika.TwistedConnection._create_tcp_connection_socket',
+                    'pika.adapters.twisted_connection.TwistedConnection._create_tcp_connection_socket',
                     return_value=mock.Mock(
                         spec_set=socket.socket,
                         connect=mock.Mock(
