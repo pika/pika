@@ -1,6 +1,14 @@
 Version History
 ===============
 
+0.13.0 2018-11-12
+-----------------
+
+`GitHub milestone <https://github.com/pika/pika/milestone/13>`_
+
+- `AsyncioConnection`, `TornadoConnection` and `TwistedProtocolConnection` are no longer auto-imported (`PR <https://github.com/pika/pika/pull/1129>`_)
+- Python `3.7` support (`Issue <https://github.com/pika/pika/issues/1107>`_)
+
 0.12.0 2018-06-19
 -----------------
 
@@ -156,14 +164,14 @@ High-level summary of notable changes:
   adapter.
 - Non-backward-compatible changes in `Channel.add_on_return_callback` callback's
   signature.
-- The `AsyncoreConnection` adapter was retired
+- The `AsynchoreConnection` adapter was retired
 
 **Details**
 
 Python 3.x: this release introduces python 3.x support. Tested on Python 3.3
 and 3.4.
 
-`AsyncoreConnection`: Retired this legacy adapter to reduce maintenance burden;
+`AsynchoreConnection`: Retired this legacy adapter to reduce maintenance burden;
 the recommended replacement is the `SelectConnection` adapter.
 
 `SelectConnection`: ioloop was refactored for compatibility with other ioloops.
@@ -187,7 +195,7 @@ changes:
     to process pending I/O, additional callbacks will be suppressed whenever
     `BlockingConnection.process_data_events` and `BlockingConnection.sleep` are
     nested in any combination; in that case, the callback information will be
-    buffered and dispatched once nesting unwinds and control returns to the
+    bufferred and dispatched once nesting unwinds and control returns to the
     level-zero dispatcher.
   - `BlockingConnection.connect`: this method was removed in favor of the
     constructor as the only way to establish connections; this reduces
