@@ -605,14 +605,7 @@ class URLParametersTests(_ParametersTestsBase):
             'locale': 'en_UK',
             'retry_delay': 3,
             'socket_timeout': 100.5,
-            'ssl_options': {
-                'ca_certs': '/etc/ssl',
-                'certfile': '/etc/certs/cert.pem',
-                'keyfile': '/etc/certs/key.pem',
-                'password': 'test123',
-                'ciphers': None,
-                'server_hostname': 'blah.blah.com'
-            },
+            'ssl_options': None,
             'tcp_options': {
                 'TCP_USER_TIMEOUT': 1000,
                 'TCP_KEEPIDLE': 60
@@ -637,23 +630,16 @@ class URLParametersTests(_ParametersTestsBase):
                 expected_value = query_args[t_param]
                 actual_value = getattr(params, t_param)
 
-                if t_param == 'ssl_options':
-                    self.assertEqual(actual_value.server_hostname,
-                                     expected_value['server_hostname'])
-                else:
-                    self.assertEqual(
-                        actual_value,
-                        expected_value,
-                        msg='Expected %s=%r, but got %r' %
-                        (t_param, expected_value, actual_value))
+                self.assertEqual(
+                    actual_value,
+                    expected_value,
+                    msg='Expected %s=%r, but got %r' %
+                    (t_param, expected_value, actual_value))
 
             self.assertEqual(params.backpressure_detection,
                              backpressure == 't')
 
             # check all values from base URL
-            self.assertIsNotNone(params.ssl_options)
-            self.assertIsNotNone(params.ssl_options.context)
-            self.assertIsInstance(params.ssl_options.context, ssl.SSLContext)
             self.assertEqual(params.credentials.username, 'myuser')
             self.assertEqual(params.credentials.password, 'mypass')
             self.assertEqual(params.host, 'www.test.com')
