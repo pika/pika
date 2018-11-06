@@ -694,18 +694,7 @@ class URLParametersTests(ParametersTestsBase):
             'locale': 'en_UK',
             'retry_delay': 3,
             'socket_timeout': 100.5,
-            # NOTE: just straight ssl.CERT_OPTIONAL breaks on python 3.6 and 3.7
-            # during ast.literal_eval() of the urlencoded dict as invalid syntax
-            # on <VerifyMode.CERT_NONE: 1>:
-            # {'cert_reqs': <VerifyMode.CERT_NONE: 1>, 'server_hostname': 'blah.blah.com'}
-            'ssl_options': {
-                'ca_certs': '/etc/ssl',
-                'certfile': '/etc/certs/cert.pem',
-                'keyfile': '/etc/certs/key.pem',
-                'password': 'test123',
-                'ciphers': None,
-                'server_hostname': 'blah.blah.com'
-            },
+            'ssl_options': None,
             'tcp_options': {
                 'TCP_USER_TIMEOUT': 1000,
                 'TCP_KEEPIDLE': 60
@@ -717,7 +706,7 @@ class URLParametersTests(ParametersTestsBase):
             test_params['backpressure_detection'] = backpressure
             virtual_host = '/'
             query_string = urlencode(test_params)
-            test_url = ('amqps://myuser:mypass@www.test.com:5678/%s?%s' % (
+            test_url = ('amqp://myuser:mypass@www.test.com:5678/%s?%s' % (
                 url_quote(virtual_host, safe=''),
                 query_string,
             ))
@@ -744,9 +733,6 @@ class URLParametersTests(ParametersTestsBase):
                              backpressure == 't')
 
             # check all values from base URL
-            self.assertIsNotNone(params.ssl_options)
-            self.assertIsNotNone(params.ssl_options.context)
-            self.assertIsInstance(params.ssl_options.context, ssl.SSLContext)
             self.assertEqual(params.credentials.username, 'myuser')
             self.assertEqual(params.credentials.password, 'mypass')
             self.assertEqual(params.host, 'www.test.com')
