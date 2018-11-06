@@ -68,6 +68,7 @@ jobs:
     - python: 3.6
     - python: 3.7-dev
     - stage: coverage
+      if: fork = false OR type != pull_request
       python: 3.6
       services: []
       install:
