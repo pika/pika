@@ -719,15 +719,11 @@ class URLParametersTests(ParametersTestsBase):
                 expected_value = query_args[t_param]
                 actual_value = getattr(params, t_param)
 
-                if t_param == 'ssl_options':
-                    self.assertEqual(actual_value.server_hostname,
-                                     expected_value['server_hostname'])
-                else:
-                    self.assertEqual(
-                        actual_value,
-                        expected_value,
-                        msg='Expected %s=%r, but got %r' %
-                        (t_param, expected_value, actual_value))
+                self.assertEqual(
+                    actual_value,
+                    expected_value,
+                    msg='Expected %s=%r, but got %r' %
+                    (t_param, expected_value, actual_value))
 
             self.assertEqual(params.backpressure_detection,
                              backpressure == 't')
