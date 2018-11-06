@@ -6,8 +6,8 @@ Version History
 
 `GitHub milestone <https://github.com/pika/pika/milestone/8>`_
 
-- `BlockingConnection.consume` now returns `(None, None, None)` when inactivity timeout is reached (`PR <https://github.com/pika/pika/pull/899>`_)
 - `AsyncioConnection`, `TornadoConnection` and `TwistedProtocolConnection` are no longer auto-imported (`PR <https://github.com/pika/pika/pull/1129>`_)
+- `BlockingConnection.consume` now returns `(None, None, None)` when inactivity timeout is reached (`PR <https://github.com/pika/pika/pull/899>`_)
 - Python `3.7` support (`Issue <https://github.com/pika/pika/issues/1107>`_)
 
 0.12.0 2018-06-19
@@ -165,14 +165,14 @@ High-level summary of notable changes:
   adapter.
 - Non-backward-compatible changes in `Channel.add_on_return_callback` callback's
   signature.
-- The `AsynchoreConnection` adapter was retired
+- The `AsyncoreConnection` adapter was retired
 
 **Details**
 
 Python 3.x: this release introduces python 3.x support. Tested on Python 3.3
 and 3.4.
 
-`AsynchoreConnection`: Retired this legacy adapter to reduce maintenance burden;
+`AsyncoreConnection`: Retired this legacy adapter to reduce maintenance burden;
 the recommended replacement is the `SelectConnection` adapter.
 
 `SelectConnection`: ioloop was refactored for compatibility with other ioloops.
