@@ -617,7 +617,7 @@ class URLParametersTests(_ParametersTestsBase):
             test_params['backpressure_detection'] = backpressure
             virtual_host = '/'
             query_string = urlencode(test_params)
-            test_url = ('amqps://myuser:mypass@www.test.com:5678/%s?%s' % (
+            test_url = ('amqp://myuser:mypass@www.test.com:5678/%s?%s' % (
                 url_quote(virtual_host, safe=''),
                 query_string,
             ))
