@@ -59,8 +59,3 @@ If you would like to run TLS/SSL tests, use the following procedure:
     PIKA_TEST_TLS=true nosetests
     ```
 
-
-## Code Formatting
-
-Please format your code using [yapf](http://pypi.python.org/pypi/yapf)
-with ``google`` style prior to issuing your pull request.
