@@ -92,7 +92,8 @@ class PikaProtocol(twisted_connection.TwistedProtocolConnection):
         if not exchange == '':
             yield self.channel.exchange_declare(exchange=exchange, exchange_type='topic', durable=True, auto_delete=False)
 
-        self.channel.queue_declare(queue=routing_key, durable=True)
+        yield self.channel.queue_declare(queue=routing_key, durable=True)
+        yield self.channel.queue_bind(queue=routing_key, exchange=exchange, routing_key=routing_key)
 
         (queue, consumer_tag,) = yield self.channel.basic_consume(queue=routing_key, no_ack=False)
         d = queue.get()
