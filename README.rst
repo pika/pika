@@ -219,7 +219,9 @@ to existing functionality **include test coverage**.
 *Pull requests that add or change code without adequate test coverage will be rejected.*
 
 Additionally, please format your code using `yapf <http://pypi.python.org/pypi/yapf>`_
-with ``google`` style prior to issuing your pull request.
+with ``google`` style prior to issuing your pull request. *Note: only format those
+lines that you have changed in your pull request. If you format an entire file and
+change code outside of the scope of your PR, it will likely be rejected.*
 
 Extending to support additional I/O frameworks
 ----------------------------------------------
