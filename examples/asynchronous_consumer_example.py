@@ -211,8 +211,8 @@ class ExampleConsumer(object):
                     self.EXCHANGE, queue_name, self.ROUTING_KEY)
         cb = functools.partial(self.on_bindok,
                                userdata=queue_name)
-        self._channel.queue_bind(queue=queue_name,
-                                 exchange=self.EXCHANGE,
+        self._channel.queue_bind(queue_name,
+                                 self.EXCHANGE,
                                  routing_key=self.ROUTING_KEY,
                                  callback=cb)
 
@@ -240,8 +240,8 @@ class ExampleConsumer(object):
         """
         LOGGER.info('Issuing consumer related RPC commands')
         self.add_on_cancel_callback()
-        self._consumer_tag = self._channel.basic_consume(queue=self.QUEUE,
-                                                         callback=self.on_message)
+        self._consumer_tag = self._channel.basic_consume(self.QUEUE,
+                                                         self.on_message)
 
     def add_on_cancel_callback(self):
         """Add a callback that will be invoked if RabbitMQ cancels the consumer
@@ -301,8 +301,7 @@ class ExampleConsumer(object):
             LOGGER.info('Sending a Basic.Cancel RPC command to RabbitMQ')
             cb = functools.partial(self.on_cancelok,
                                    userdata=self._consumer_tag)
-            self._channel.basic_cancel(consumer_tag=self._consumer_tag,
-                                       callback=cb)
+            self._channel.basic_cancel(self._consumer_tag, cb)
 
     def on_cancelok(self, unused_frame, userdata):
         """This method is invoked by pika when RabbitMQ acknowledges the
