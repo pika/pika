@@ -202,7 +202,7 @@ class ExamplePublisher(object):
                     self.EXCHANGE, self.QUEUE, self.ROUTING_KEY)
         self._channel.queue_bind(self.QUEUE,
                                  self.EXCHANGE,
-                                 self.ROUTING_KEY,
+                                 routing_key=self.ROUTING_KEY,
                                  callback=self.on_bindok)
 
     def on_bindok(self, unused_frame):
@@ -233,7 +233,7 @@ class ExamplePublisher(object):
 
         """
         LOGGER.info('Issuing Confirm.Select RPC command')
-        self._channel.confirm_delivery(ack_nack_callback=self.on_delivery_confirmation)
+        self._channel.confirm_delivery(self.on_delivery_confirmation)
 
     def on_delivery_confirmation(self, method_frame):
         """Invoked by pika when RabbitMQ responds to a Basic.Publish RPC
