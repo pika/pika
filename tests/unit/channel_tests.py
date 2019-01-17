@@ -308,6 +308,17 @@ class ChannelTests(unittest.TestCase):
         with self.assertRaises(TypeError):
             self.obj.basic_recover(callback_mock, True)
 
+    def test_confirm_delivery_legacy_no_parameters(self):
+        self.obj._set_state(self.obj.OPEN)
+        with self.assertRaises(TypeError):
+            self.obj.confirm_delivery()
+
+    def test_confirm_delivery_legacy_nowait_parameter(self):
+        self.obj._set_state(self.obj.OPEN)
+        callback_mock = mock.Mock()
+        with self.assertRaises(TypeError):
+            self.obj.confirm_delivery(callback_mock, True)
+
     def test_basic_consume_channel_closed(self):
         mock_callback = mock.Mock()
         mock_on_msg_callback = mock.Mock()

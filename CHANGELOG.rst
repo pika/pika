@@ -69,10 +69,10 @@ queue_declare
 basic_cancel
 basic_get
 basic_qos
-
-TODO:
 basic_recover
 confirm_delivery
+
+TODO:
 exchange_bind
 exchange_delete
 exchange_unbind
