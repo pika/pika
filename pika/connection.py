@@ -14,17 +14,15 @@ import platform
 import warnings
 import ssl
 
-from pika import __version__
-from pika import callback as pika_callback
+import pika.callback as callback
 import pika.channel
-from pika import credentials as pika_credentials
-from pika import exceptions
-from pika import frame
-from pika import heartbeat as pika_heartbeat
-
-from pika import spec
-
 import pika.compat
+import pika.credentials as credentials
+import pika.exceptions as exceptions
+import pika.frame as frame
+import pika.heartbeat as heartbeat
+import pika.spec as spec
+import pika.validators as validators
 from pika.compat import (xrange, basestring, # pylint: disable=W0622
                          url_unquote, dictkeys, dict_itervalues,
                          dict_iteritems)
@@ -71,7 +69,7 @@ class Parameters(object):  # pylint: disable=R0902
     DEFAULT_BLOCKED_CONNECTION_TIMEOUT = None
     DEFAULT_CHANNEL_MAX = pika.channel.MAX_CHANNELS
     DEFAULT_CLIENT_PROPERTIES = None
-    DEFAULT_CREDENTIALS = pika_credentials.PlainCredentials(DEFAULT_USERNAME,
+    DEFAULT_CREDENTIALS = credentials.PlainCredentials(DEFAULT_USERNAME,
                                                             DEFAULT_PASSWORD)
     DEFAULT_CONNECTION_ATTEMPTS = 1
     DEFAULT_FRAME_MAX = spec.FRAME_MAX_SIZE
@@ -303,9 +301,9 @@ class Parameters(object):  # pylint: disable=R0902
             from  `pika.credentials.VALID_TYPES`
 
         """
-        if not isinstance(value, tuple(pika_credentials.VALID_TYPES)):
-            raise TypeError('Credentials must be an object of type: %r, but '
-                            'got %r' % (pika_credentials.VALID_TYPES, value))
+        if not isinstance(value, tuple(credentials.VALID_TYPES)):
+            raise TypeError('credentials must be an object of type: %r, but '
+                            'got %r' % (credentials.VALID_TYPES, value))
         # Copy the mutable object to avoid accidental side-effects
         self._credentials = copy.deepcopy(value)
 
@@ -381,9 +379,7 @@ class Parameters(object):  # pylint: disable=R0902
         :param str value: hostname or ip address of broker
 
         """
-        if not isinstance(value, basestring):
-            raise TypeError('host must be a str or unicode str, but got %r' %
-                            (value,))
+        validators.require_string(value, 'host')
         self._host = value
 
     @property
@@ -402,8 +398,7 @@ class Parameters(object):  # pylint: disable=R0902
         :param str value: locale value to pass to broker; e.g., "en_US"
 
         """
-        if not isinstance(value, basestring):
-            raise TypeError('locale must be a str, but got %r' % (value,))
+        validators.require_string(value, 'locale')
         self._locale = value
 
     @property
@@ -546,8 +541,7 @@ class Parameters(object):  # pylint: disable=R0902
         :param str value: rabbitmq virtual host name
 
         """
-        if not isinstance(value, basestring):
-            raise TypeError('virtual_host must be a str, but got %r' % (value,))
+        validators.require_string(value, 'virtual_host')
         self._virtual_host = value
 
     @property
@@ -718,7 +712,7 @@ class ConnectionParameters(Parameters):
             self.tcp_options = tcp_options
 
         if kwargs:
-            raise TypeError('Unexpected kwargs: %r' % (kwargs,))
+            raise TypeError('unexpected kwargs: %r' % (kwargs,))
 
 
 class URLParameters(Parameters):
@@ -829,8 +823,8 @@ class URLParameters(Parameters):
                          else self.DEFAULT_PORT)
 
         if parts.username is not None:
-            self.credentials = pika_credentials.PlainCredentials(url_unquote(parts.username),
-                                                                 url_unquote(parts.password))
+            self.credentials = credentials.PlainCredentials(url_unquote(parts.username),
+                                                            url_unquote(parts.password))
 
         # Get the Virtual Host
         if len(parts.path) > 1:
@@ -1148,7 +1142,7 @@ class Connection(pika.compat.AbstractBase):
         self._internal_connection_workflow = internal_connection_workflow
 
         # Define our callback dictionary
-        self.callbacks = pika_callback.CallbackManager()
+        self.callbacks = callback.CallbackManager()
 
         # Attributes that will be properly initialized by _init_connection_state
         # and/or during connection handshake.
@@ -1254,8 +1248,7 @@ class Connection(pika.compat.AbstractBase):
         :param method callback: The method to call
 
         """
-        if not callable(callback):
-            raise TypeError('callback should be a function or method.')
+        validators.require_callback(callback)
         self.callbacks.add(0, self.ON_CONNECTION_BACKPRESSURE, callback,
                            False)
 
@@ -1270,8 +1263,7 @@ class Connection(pika.compat.AbstractBase):
             callback(pika.connection.Connection, exception)
 
         """
-        if not callable(callback):
-            raise TypeError('callback should be a function or method.')
+        validators.require_callback(callback)
         self.callbacks.add(0, self.ON_CONNECTION_CLOSED, callback, False)
 
     def add_on_connection_blocked_callback(self, callback):
@@ -1293,9 +1285,7 @@ class Connection(pika.compat.AbstractBase):
             `pika.spec.Connection.Blocked`
 
         """
-        if not callable(callback):
-            raise TypeError('callback should be a function or method.')
-
+        validators.require_callback(callback)
         self.callbacks.add(0,
                            spec.Connection.Blocked,
                            functools.partial(callback, self),
@@ -1312,9 +1302,7 @@ class Connection(pika.compat.AbstractBase):
             `method` member is of type `pika.spec.Connection.Unblocked`
 
         """
-        if not callable(callback):
-            raise TypeError('callback should be a function or method.')
-
+        validators.require_callback(callback)
         self.callbacks.add(0,
                            spec.Connection.Unblocked,
                            functools.partial(callback, self),
@@ -1327,8 +1315,7 @@ class Connection(pika.compat.AbstractBase):
         :param method callback: Callback to call when open
 
         """
-        if not callable(callback):
-            raise TypeError('callback should be a function or method.')
+        validators.require_callback(callback)
         self.callbacks.add(0, self.ON_CONNECTION_OPEN_OK, callback, False)
 
     def add_on_open_error_callback(self, callback, remove_default=True):
@@ -1342,8 +1329,7 @@ class Connection(pika.compat.AbstractBase):
         :param bool remove_default: Remove default exception raising callback
 
         """
-        if not callable(callback):
-            raise TypeError('callback should be a function or method.')
+        validators.require_callback(callback)
         if remove_default:
             self.callbacks.remove(0, self.ON_CONNECTION_ERROR,
                                   self._default_on_connection_error)
@@ -1659,7 +1645,7 @@ class Connection(pika.compat.AbstractBase):
                 'publisher_confirms': True
             },
             'information': 'See http://pika.rtfd.org',
-            'version': __version__
+            'version': pika.__version__
         }
 
         if self.params.client_properties:
@@ -1714,7 +1700,7 @@ class Connection(pika.compat.AbstractBase):
         if self.params.heartbeat is not None and self.params.heartbeat > 0:
             LOGGER.debug('Creating a HeartbeatChecker: %r',
                          self.params.heartbeat)
-            return pika_heartbeat.HeartbeatChecker(self, self.params.heartbeat)
+            return heartbeat.HeartbeatChecker(self, self.params.heartbeat)
 
         return None
 
@@ -2312,9 +2298,7 @@ class Connection(pika.compat.AbstractBase):
 
         # Validate the callback is callable
         if callback is not None:
-            if not callable(callback):
-                raise TypeError('callback should be None, function or method.')
-
+            validators.require_callback(callback)
             for reply in acceptable_replies:
                 self.callbacks.add(channel_number, reply, callback)
 

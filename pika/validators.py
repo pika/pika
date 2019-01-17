@@ -1,3 +1,5 @@
+from pika.compat import basestring
+
 def require_string(value, value_name):
     """Require that value is a string
 
