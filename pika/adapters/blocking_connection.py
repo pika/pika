@@ -2172,6 +2172,10 @@ class BlockingChannel(object):
         """
         assert not self._basic_getempty_result
 
+        if not isinstance(queue, compat.basestring):
+            raise TypeError('queue must be a str or unicode str, but got %r' %
+                            (queue,))
+
         # NOTE: nested with for python 2.6 compatibility
         with _CallbackResult(self._RxMessageArgs) as get_ok_result:
             with self._basic_getempty_result:

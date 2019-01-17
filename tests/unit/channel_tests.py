@@ -290,6 +290,12 @@ class ChannelTests(unittest.TestCase):
         with self.assertRaises(TypeError):
             self.obj.basic_cancel(callback_mock, 'tag')
 
+    def test_basic_get_legacy_parameter(self):
+        self.obj._set_state(self.obj.OPEN)
+        callback_mock = mock.Mock()
+        with self.assertRaises(TypeError):
+            self.obj.basic_get(callback_mock)
+
     def test_basic_consume_channel_closed(self):
         mock_callback = mock.Mock()
         mock_on_msg_callback = mock.Mock()

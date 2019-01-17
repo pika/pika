@@ -367,6 +367,7 @@ class Channel(object):
         :raises ValueError:
 
         """
+        self._require_string(queue, 'queue')
         self._require_callback(callback)
         if self._on_getok_callback is not None:
             raise exceptions.DuplicateGetOkCallback()
