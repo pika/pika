@@ -12,6 +12,7 @@ import uuid
 import pika.frame as frame
 import pika.exceptions as exceptions
 import pika.spec as spec
+import pika.validators as validators
 from pika.compat import basestring, unicode_type, dictkeys, is_integer
 
 
@@ -59,7 +60,7 @@ class Channel(object):
         if not isinstance(channel_number, int):
             raise exceptions.InvalidChannelNumber
 
-        self._validate_rpc_completion_callback(on_open_callback)
+        validators.rpc_completion_callback(on_open_callback)
 
         self.channel_number = channel_number
         self.callbacks = connection.callbacks
@@ -222,9 +223,9 @@ class Channel(object):
         :raises ValueError:
 
         """
-        self._require_string(consumer_tag, 'consumer_tag')
+        validators.require_string(consumer_tag, 'consumer_tag')
         self._raise_if_not_open()
-        nowait = self._validate_rpc_completion_callback(callback)
+        nowait = validators.rpc_completion_callback(callback)
 
         if consumer_tag in self._cancelled:
             # We check for cancelled first, because basic_cancel removes
@@ -302,10 +303,10 @@ class Channel(object):
         :raises ValueError:
 
         """
-        self._require_string(queue, 'queue')
-        self._require_callback(on_message_callback)
+        validators.require_string(queue, 'queue')
+        validators.require_callback(on_message_callback)
         self._raise_if_not_open()
-        self._validate_rpc_completion_callback(callback)
+        validators.rpc_completion_callback(callback)
 
         # If a consumer tag was not passed, create one
         if not consumer_tag:
@@ -367,8 +368,8 @@ class Channel(object):
         :raises ValueError:
 
         """
-        self._require_string(queue, 'queue')
-        self._require_callback(callback)
+        validators.require_string(queue, 'queue')
+        validators.require_callback(callback)
         if self._on_getok_callback is not None:
             raise exceptions.DuplicateGetOkCallback()
         self._on_getok_callback = callback
@@ -469,9 +470,9 @@ class Channel(object):
 
         """
         self._raise_if_not_open()
-        self._validate_rpc_completion_callback(callback)
-        self._validate_zero_or_greater('prefetch_size', prefetch_size)
-        self._validate_zero_or_greater('prefetch_count', prefetch_count)
+        validators.rpc_completion_callback(callback)
+        validators.zero_or_greater('prefetch_size', prefetch_size)
+        validators.zero_or_greater('prefetch_count', prefetch_count)
         return self._rpc(spec.Basic.Qos(prefetch_size, prefetch_count,
                                         all_channels),
                          callback, [spec.Basic.QosOk])
@@ -509,7 +510,7 @@ class Channel(object):
 
         """
         self._raise_if_not_open()
-        self._validate_rpc_completion_callback(callback)
+        validators.rpc_completion_callback(callback)
         return self._rpc(spec.Basic.Recover(requeue), callback,
                          [spec.Basic.RecoverOk])
 
@@ -577,7 +578,7 @@ class Channel(object):
                              'to receieve Basic.Ack/Basic.Nack notifications')
 
         self._raise_if_not_open()
-        nowait = self._validate_rpc_completion_callback(callback)
+        nowait = validators.rpc_completion_callback(callback)
 
         if not (self.connection.publisher_confirms and
                 self.connection.basic_nack):
@@ -622,7 +623,7 @@ class Channel(object):
 
         """
         self._raise_if_not_open()
-        nowait = self._validate_rpc_completion_callback(callback)
+        nowait = validators.rpc_completion_callback(callback)
         return self._rpc(spec.Exchange.Bind(0, destination, source, routing_key,
                                             nowait, arguments or dict()),
                          callback, [spec.Exchange.BindOk] if not nowait
@@ -661,9 +662,9 @@ class Channel(object):
         :raises ValueError:
 
         """
-        self._require_string(exchange, 'exchange')
+        validators.require_string(exchange, 'exchange')
         self._raise_if_not_open()
-        nowait = self._validate_rpc_completion_callback(callback)
+        nowait = validators.rpc_completion_callback(callback)
         return self._rpc(spec.Exchange.Declare(0, exchange, exchange_type,
                                                passive, durable, auto_delete,
                                                internal, nowait,
@@ -685,7 +686,7 @@ class Channel(object):
 
         """
         self._raise_if_not_open()
-        nowait = self._validate_rpc_completion_callback(callback)
+        nowait = validators.rpc_completion_callback(callback)
         return self._rpc(spec.Exchange.Delete(0, exchange, if_unused, nowait),
                          callback, [spec.Exchange.DeleteOk] if not nowait
                          else [])
@@ -710,7 +711,7 @@ class Channel(object):
 
         """
         self._raise_if_not_open()
-        nowait = self._validate_rpc_completion_callback(callback)
+        nowait = validators.rpc_completion_callback(callback)
         return self._rpc(spec.Exchange.Unbind(0, destination, source,
                                               routing_key, nowait, arguments),
                          callback,
@@ -731,7 +732,7 @@ class Channel(object):
 
         """
         self._raise_if_not_open()
-        self._validate_rpc_completion_callback(callback)
+        validators.rpc_completion_callback(callback)
         self._on_flowok_callback = callback
         self._rpc(spec.Channel.Flow(active), self._on_flowok,
                   [spec.Channel.FlowOk])
@@ -789,10 +790,10 @@ class Channel(object):
         :raises ValueError:
 
         """
-        self._require_string(queue, 'queue')
-        self._require_string(exchange, 'exchange')
+        validators.require_string(queue, 'queue')
+        validators.require_string(exchange, 'exchange')
         self._raise_if_not_open()
-        nowait = self._validate_rpc_completion_callback(callback)
+        nowait = validators.rpc_completion_callback(callback)
         if routing_key is None:
             routing_key = queue
         return self._rpc(spec.Queue.Bind(0, queue, exchange, routing_key,
@@ -829,9 +830,9 @@ class Channel(object):
         :raises ValueError:
 
         """
-        self._require_string(queue, 'queue')
+        validators.require_string(queue, 'queue')
         self._raise_if_not_open()
-        nowait = self._validate_rpc_completion_callback(callback)
+        nowait = validators.rpc_completion_callback(callback)
 
         if queue:
             condition = (spec.Queue.DeclareOk, {'queue': queue})
@@ -860,7 +861,7 @@ class Channel(object):
 
         """
         self._raise_if_not_open()
-        nowait = self._validate_rpc_completion_callback(callback)
+        nowait = validators.rpc_completion_callback(callback)
         replies = [spec.Queue.DeleteOk] if not nowait else []
         return self._rpc(spec.Queue.Delete(0, queue, if_unused, if_empty,
                                            nowait),
@@ -876,7 +877,7 @@ class Channel(object):
 
         """
         self._raise_if_not_open()
-        nowait = self._validate_rpc_completion_callback(callback)
+        nowait = validators.rpc_completion_callback(callback)
         replies = [spec.Queue.PurgeOk] if not nowait else []
         return self._rpc(spec.Queue.Purge(0, queue, nowait), callback, replies)
 
@@ -900,7 +901,7 @@ class Channel(object):
 
         """
         self._raise_if_not_open()
-        self._validate_rpc_completion_callback(callback)
+        validators.rpc_completion_callback(callback)
         if routing_key is None:
             routing_key = queue
         return self._rpc(spec.Queue.Unbind(0, queue, exchange, routing_key,
@@ -915,7 +916,7 @@ class Channel(object):
 
         """
         self._raise_if_not_open()
-        self._validate_rpc_completion_callback(callback)
+        validators.rpc_completion_callback(callback)
         return self._rpc(spec.Tx.Commit(), callback, [spec.Tx.CommitOk])
 
     def tx_rollback(self, callback=None):
@@ -926,7 +927,7 @@ class Channel(object):
 
         """
         self._raise_if_not_open()
-        self._validate_rpc_completion_callback(callback)
+        validators.rpc_completion_callback(callback)
         return self._rpc(spec.Tx.Rollback(), callback, [spec.Tx.RollbackOk])
 
     def tx_select(self, callback=None):
@@ -939,7 +940,7 @@ class Channel(object):
 
         """
         self._raise_if_not_open()
-        self._validate_rpc_completion_callback(callback)
+        validators.rpc_completion_callback(callback)
         return self._rpc(spec.Tx.Select(), callback, [spec.Tx.SelectOk])
 
     # Internal methods
@@ -1449,70 +1450,6 @@ class Channel(object):
 
         """
         LOGGER.error('Unexpected frame: %r', frame_value)
-
-    @staticmethod
-    def _require_string(value, value_name):
-        """Require that value is a string
-
-        :raises: TypeError
-
-        """
-        if not isinstance(value, basestring):
-            raise TypeError('%s must be a str or unicode str, but got %r' %
-                            (value_name, value,))
-
-    @staticmethod
-    def _require_callback(callback):
-        """Require that callback is callable and is not None
-
-        :raises: TypeError
-
-        """
-        if not callable(callback):
-            raise TypeError(
-                'Callback must be callable, but got %r' % (callback,))
-
-    @staticmethod
-    def _require_callback(callback):
-        """Require that callback is callable and is not None
-
-        :raises: TypeError
-
-        """
-        if not callable(callback):
-            raise TypeError(
-                'Callback must be callable, but got %r' % (callback,))
-
-    @staticmethod
-    def _validate_rpc_completion_callback(callback):
-        """Verify callback is callable if not None
-
-        :returns: boolean indicating nowait
-        :raises: TypeError
-
-        """
-        if callback is None:
-            # No callback means we will not expect a response
-            # i.e. nowait=True
-            return True
-
-        if callable(callback):
-            # nowait=False
-            return False
-        else:
-            raise TypeError(
-                'Completion callback must be callable if not None')
-
-    def _validate_zero_or_greater(self, name, value):
-        """Verify that value is zero or greater. If not, 'name'
-        will be used in error message
-
-        :raises: ValueError
-
-        """
-        if int(value) < 0:
-            errmsg = '{} must be >= 0, but got {}'.format(name, value)
-            raise ValueError(errmsg)
 
 
 class ContentFrameAssembler(object):

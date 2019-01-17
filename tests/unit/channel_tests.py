@@ -305,16 +305,11 @@ class ChannelTests(unittest.TestCase):
                           callback=mock_callback)
 
     @mock.patch('pika.channel.Channel._raise_if_not_open')
-    @mock.patch('pika.channel.Channel._require_callback')
-    def test_basic_consume_calls_raise_if_not_open(self,
-                                                   require,
-                                                   raise_if_not_open):
+    def test_basic_consume_calls_raise_if_not_open(self, raise_if_not_open):
         self.obj._set_state(self.obj.OPEN)
         mock_callback = mock.Mock()
         mock_on_msg_callback = mock.Mock()
-        self.obj.basic_consume('test-queue', mock_on_msg_callback,
-                               callback=mock_callback)
-        require.assert_called_once_with(mock_on_msg_callback)
+        self.obj.basic_consume('test-queue', mock_on_msg_callback, callback=mock_callback)
         raise_if_not_open.assert_called_once_with()
 
     def test_basic_consume_consumer_tag_no_completion_callback(self):
@@ -413,12 +408,10 @@ class ChannelTests(unittest.TestCase):
                                         'consumer_tag': consumer_tag
                                     })])
 
-    @mock.patch('pika.channel.Channel._require_callback')
-    def test_basic_get_calls_require_callback(self, require):
+    def test_basic_get_requires_callback(self):
         self.obj._set_state(self.obj.OPEN)
-        mock_callback = mock.Mock()
-        self.obj.basic_get('test-queue', mock_callback)
-        require.assert_called_once_with(mock_callback)
+        with self.assertRaises(TypeError):
+            self.obj.basic_get('test-queue', None)
 
     @mock.patch('pika.channel.Channel._send_method')
     def test_basic_get_callback(self, _unused):
@@ -1615,13 +1608,6 @@ class ChannelTests(unittest.TestCase):
     def test_raise_if_not_open_raises_channel_wrong_state(self):
         self.assertRaises(exceptions.ChannelWrongStateError,
                           self.obj._raise_if_not_open)
-
-    def test_validate_callback_raises_value_error_not_callable(
-            self):
-        self.obj._set_state(self.obj.OPEN)
-        self.assertRaises(TypeError,
-                          self.obj._validate_rpc_completion_callback,
-                          'foo')
 
     def test_no_side_effects_from_send_method_error(self):
         self.obj._set_state(self.obj.OPEN)
