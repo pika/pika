@@ -8,7 +8,7 @@ def require_string(value, value_name):
         raise TypeError('%s must be a str or unicode str, but got %r' %
                         (value_name, value,))
 
-def require_callback(callback):
+def require_callback(callback, callback_name='callback'):
     """Require that callback is callable and is not None
 
     :raises: TypeError
@@ -16,7 +16,8 @@ def require_callback(callback):
     """
     if not callable(callback):
         raise TypeError(
-            'Callback must be callable, but got %r' % (callback,))
+            'callback %s must be callable, but got %r' %
+            (callback_name, callback,))
 
 def rpc_completion_callback(callback):
     """Verify callback is callable if not None
