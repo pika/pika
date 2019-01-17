@@ -38,7 +38,7 @@ def rpc_completion_callback(callback):
         return False
     else:
         raise TypeError(
-            'Completion callback must be callable if not None')
+            'completion callback must be callable if not None')
 
 def zero_or_greater(name, value):
     """Verify that value is zero or greater. If not, 'name'
