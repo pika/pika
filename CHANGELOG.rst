@@ -75,8 +75,6 @@ exchange_bind
 exchange_delete
 exchange_unbind
 flow
-
-TODO:
 queue_delete
 queue_purge
 queue_unbind

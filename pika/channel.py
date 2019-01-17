@@ -861,6 +861,7 @@ class Channel(object):
 
         """
         self._raise_if_not_open()
+        validators.require_string(queue, 'queue')
         nowait = validators.rpc_completion_callback(callback)
         replies = [spec.Queue.DeleteOk] if not nowait else []
         return self._rpc(spec.Queue.Delete(0, queue, if_unused, if_empty,
@@ -877,6 +878,7 @@ class Channel(object):
 
         """
         self._raise_if_not_open()
+        validators.require_string(queue, 'queue')
         nowait = validators.rpc_completion_callback(callback)
         replies = [spec.Queue.PurgeOk] if not nowait else []
         return self._rpc(spec.Queue.Purge(0, queue, nowait), callback, replies)
@@ -901,6 +903,7 @@ class Channel(object):
 
         """
         self._raise_if_not_open()
+        validators.require_string(queue, 'queue')
         validators.rpc_completion_callback(callback)
         if routing_key is None:
             routing_key = queue

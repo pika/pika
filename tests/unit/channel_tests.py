@@ -353,6 +353,32 @@ class ChannelTests(unittest.TestCase):
         with self.assertRaises(TypeError):
             self.obj.flow(callback_mock, True)
 
+    def test_queue_delete_legacy_parameter(self):
+        self.obj._set_state(self.obj.OPEN)
+        callback_mock = mock.Mock()
+        with self.assertRaises(TypeError):
+            self.obj.queue_delete(callback_mock,
+                                  'queue',
+                                  True,
+                                  True)
+
+    def test_queue_unbind_legacy_parameter(self):
+        self.obj._set_state(self.obj.OPEN)
+        callback_mock = mock.Mock()
+        with self.assertRaises(TypeError):
+            self.obj.queue_unbind(callback_mock,
+                                  'queue',
+                                  'exchange',
+                                  'routing_key')
+
+    def test_queue_purge_legacy_parameter(self):
+        self.obj._set_state(self.obj.OPEN)
+        callback_mock = mock.Mock()
+        with self.assertRaises(TypeError):
+            self.obj.queue_purge(callback_mock,
+                                  'queue',
+                                  True)
+
     def test_basic_consume_channel_closed(self):
         mock_callback = mock.Mock()
         mock_on_msg_callback = mock.Mock()
