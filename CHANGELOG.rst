@@ -71,12 +71,12 @@ basic_get
 basic_qos
 basic_recover
 confirm_delivery
-
-TODO:
 exchange_bind
 exchange_delete
 exchange_unbind
 flow
+
+TODO:
 queue_delete
 queue_purge
 queue_unbind

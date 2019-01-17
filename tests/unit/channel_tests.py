@@ -319,6 +319,40 @@ class ChannelTests(unittest.TestCase):
         with self.assertRaises(TypeError):
             self.obj.confirm_delivery(callback_mock, True)
 
+    def test_exchange_bind_legacy_parameter(self):
+        self.obj._set_state(self.obj.OPEN)
+        callback_mock = mock.Mock()
+        with self.assertRaises(TypeError):
+            self.obj.exchange_bind(callback_mock,
+                                   'destination',
+                                   'source',
+                                   'routing_key',
+                                   True)
+
+    def test_exchange_delete_legacy_parameter(self):
+        self.obj._set_state(self.obj.OPEN)
+        callback_mock = mock.Mock()
+        with self.assertRaises(TypeError):
+            self.obj.exchange_delete(callback_mock,
+                                     'exchange',
+                                     True)
+
+    def test_exchange_unbind_legacy_parameter(self):
+        self.obj._set_state(self.obj.OPEN)
+        callback_mock = mock.Mock()
+        with self.assertRaises(TypeError):
+            self.obj.exchange_unbind(callback_mock,
+                                     'destination',
+                                     'source',
+                                     'routing_key',
+                                     True)
+
+    def test_flow_legacy_parameter(self):
+        self.obj._set_state(self.obj.OPEN)
+        callback_mock = mock.Mock()
+        with self.assertRaises(TypeError):
+            self.obj.flow(callback_mock, True)
+
     def test_basic_consume_channel_closed(self):
         mock_callback = mock.Mock()
         mock_on_msg_callback = mock.Mock()
