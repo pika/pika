@@ -1,5 +1,6 @@
 from pika.compat import basestring
 
+
 def require_string(value, value_name):
     """Require that value is a string
 
@@ -7,8 +8,11 @@ def require_string(value, value_name):
 
     """
     if not isinstance(value, basestring):
-        raise TypeError('%s must be a str or unicode str, but got %r' %
-                        (value_name, value,))
+        raise TypeError('%s must be a str or unicode str, but got %r' % (
+            value_name,
+            value,
+        ))
+
 
 def require_callback(callback, callback_name='callback'):
     """Require that callback is callable and is not None
@@ -17,9 +21,11 @@ def require_callback(callback, callback_name='callback'):
 
     """
     if not callable(callback):
-        raise TypeError(
-            'callback %s must be callable, but got %r' %
-            (callback_name, callback,))
+        raise TypeError('callback %s must be callable, but got %r' % (
+            callback_name,
+            callback,
+        ))
+
 
 def rpc_completion_callback(callback):
     """Verify callback is callable if not None
@@ -37,8 +43,8 @@ def rpc_completion_callback(callback):
         # nowait=False
         return False
     else:
-        raise TypeError(
-            'completion callback must be callable if not None')
+        raise TypeError('completion callback must be callable if not None')
+
 
 def zero_or_greater(name, value):
     """Verify that value is zero or greater. If not, 'name'
