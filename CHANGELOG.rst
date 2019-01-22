@@ -2,7 +2,6 @@ Version History
 ===============
 
 1.0.0b1 2018-12-31
-------------------
 
 `GitHub milestone <https://github.com/pika/pika/milestone/8>`_
 
