@@ -1,7 +1,7 @@
 TLS parameters example
 ======================
 
-This example demonstrates a TLS session with RabbitMQ using mutual authentication (server and client authentication). It was tested against RabbitMQ 3.7.4, using Python 3.6.5 and Pika 1.0.0b1.
+This example demonstrates a TLS session with RabbitMQ using mutual authentication (server and client authentication). It was tested against RabbitMQ 3.7.4, using Python 3.6.5 and Pika 1.0.0.
 
 See `the RabbitMQ TLS/SSL documentation <https://www.rabbitmq.com/ssl.html>`_ for certificate generation and RabbitMQ TLS configuration. Please note that the `RabbitMQ TLS (x509 certificate) authentication mechanism <https://github.com/rabbitmq/rabbitmq-auth-mechanism-ssl>`_ must be enabled for these examples to work.
 

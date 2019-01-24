@@ -5,7 +5,7 @@ import re
 import socket
 import sys as _sys
 
-PY2 = _sys.version_info < (3,)
+PY2 = _sys.version_info.major == 2
 PY3 = not PY2
 RE_NUM = re.compile(r'(\d+).+')
 
@@ -29,7 +29,7 @@ try:
 except AttributeError:
     SOL_TCP = socket.IPPROTO_TCP
 
-if not PY2:
+if PY3:
     # these were moved around for Python 3
     from urllib.parse import (quote as url_quote, unquote as url_unquote,
                               urlencode, parse_qs as url_parse_qs,

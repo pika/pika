@@ -1,13 +1,34 @@
 Version History
 ===============
 
-1.0.0b1 2018-12-31
+1.0.0b2 2019-01-22
+------------------
 
 `GitHub milestone <https://github.com/pika/pika/milestone/8>`_
 
-- `AsyncioConnection`, `TornadoConnection` and `TwistedProtocolConnection` are no longer auto-imported (`PR <https://github.com/pika/pika/pull/1129>`_)
-- `BlockingConnection.consume` now returns `(None, None, None)` when inactivity timeout is reached (`PR <https://github.com/pika/pika/pull/899>`_)
-- Python `3.7` support (`Issue <https://github.com/pika/pika/issues/1107>`_)
+- ``AsyncioConnection``, ``TornadoConnection`` and ``TwistedProtocolConnection`` are no longer auto-imported (`PR <https://github.com/pika/pika/pull/1129>`_)
+- ``BlockingConnection.consume`` now returns ``(None, None, None)`` when inactivity timeout is reached (`PR <https://github.com/pika/pika/pull/899>`_)
+- Python 3.7 support (`Issue <https://github.com/pika/pika/issues/1107>`_)
+
+
+**IMPORTANT**: The signature of the following methods has changed from Pika 0.13.0. In general, the callback parameter that indicates completion of the method has been moved to the end of the parameter list to be consistent with other parts of Pika's API and with other libraries in general.
+
+- ``basic_cancel``
+- ``basic_consume``
+- ``basic_get``
+- ``basic_qos``
+- ``basic_recover``
+- ``confirm_delivery``
+- ``exchange_bind``
+- ``exchange_declare``
+- ``exchange_delete``
+- ``exchange_unbind``
+- ``flow``
+- ``queue_bind``
+- ``queue_declare``
+- ``queue_delete``
+- ``queue_purge``
+- ``queue_unbind``
 
 0.12.0 2018-06-19
 -----------------

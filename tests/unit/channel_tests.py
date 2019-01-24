@@ -250,6 +250,135 @@ class ChannelTests(unittest.TestCase):
         self.obj.basic_cancel(consumer_tag, callback=callback_mock)
         self.assertFalse(rpc.called)
 
+    def test_basic_consume_legacy_parameter_queue(self):
+        # This is for the unlikely scenario where only
+        # the first parameter is updated
+        self.obj._set_state(self.obj.OPEN)
+        with self.assertRaises(TypeError):
+            self.obj.basic_consume('queue',
+                                   'whoops this should be a callback')
+
+    def test_basic_consume_legacy_parameter_callback(self):
+        self.obj._set_state(self.obj.OPEN)
+        callback_mock = mock.Mock()
+        with self.assertRaises(TypeError):
+            self.obj.basic_consume(callback_mock, 'queue')
+
+    def test_queue_declare_legacy_parameter_callback(self):
+        self.obj._set_state(self.obj.OPEN)
+        callback_mock = mock.Mock()
+        with self.assertRaises(TypeError):
+            self.obj.queue_declare(callback_mock, 'queue')
+
+    def test_exchange_declare_legacy_parameter_callback(self):
+        self.obj._set_state(self.obj.OPEN)
+        callback_mock = mock.Mock()
+        with self.assertRaises(TypeError):
+            self.obj.exchange_declare(callback_mock, 'exchange')
+
+    def test_queue_bind_legacy_parameter_callback(self):
+        self.obj._set_state(self.obj.OPEN)
+        callback_mock = mock.Mock()
+        with self.assertRaises(TypeError):
+            self.obj.queue_bind(callback_mock,
+                                'queue',
+                                'exchange')
+
+    def test_basic_cancel_legacy_parameter(self):
+        self.obj._set_state(self.obj.OPEN)
+        callback_mock = mock.Mock()
+        with self.assertRaises(TypeError):
+            self.obj.basic_cancel(callback_mock, 'tag')
+
+    def test_basic_get_legacy_parameter(self):
+        self.obj._set_state(self.obj.OPEN)
+        callback_mock = mock.Mock()
+        with self.assertRaises(TypeError):
+            self.obj.basic_get(callback_mock)
+
+    def test_basic_qos_legacy_parameter(self):
+        self.obj._set_state(self.obj.OPEN)
+        callback_mock = mock.Mock()
+        with self.assertRaises(TypeError):
+            self.obj.basic_get(callback_mock, 0, 0, False)
+
+    def test_basic_recover_legacy_parameter(self):
+        self.obj._set_state(self.obj.OPEN)
+        callback_mock = mock.Mock()
+        with self.assertRaises(TypeError):
+            self.obj.basic_recover(callback_mock, True)
+
+    def test_confirm_delivery_legacy_no_parameters(self):
+        self.obj._set_state(self.obj.OPEN)
+        with self.assertRaises(TypeError):
+            self.obj.confirm_delivery()
+
+    def test_confirm_delivery_legacy_nowait_parameter(self):
+        self.obj._set_state(self.obj.OPEN)
+        callback_mock = mock.Mock()
+        with self.assertRaises(TypeError):
+            self.obj.confirm_delivery(callback_mock, True)
+
+    def test_exchange_bind_legacy_parameter(self):
+        self.obj._set_state(self.obj.OPEN)
+        callback_mock = mock.Mock()
+        with self.assertRaises(TypeError):
+            self.obj.exchange_bind(callback_mock,
+                                   'destination',
+                                   'source',
+                                   'routing_key',
+                                   True)
+
+    def test_exchange_delete_legacy_parameter(self):
+        self.obj._set_state(self.obj.OPEN)
+        callback_mock = mock.Mock()
+        with self.assertRaises(TypeError):
+            self.obj.exchange_delete(callback_mock,
+                                     'exchange',
+                                     True)
+
+    def test_exchange_unbind_legacy_parameter(self):
+        self.obj._set_state(self.obj.OPEN)
+        callback_mock = mock.Mock()
+        with self.assertRaises(TypeError):
+            self.obj.exchange_unbind(callback_mock,
+                                     'destination',
+                                     'source',
+                                     'routing_key',
+                                     True)
+
+    def test_flow_legacy_parameter(self):
+        self.obj._set_state(self.obj.OPEN)
+        callback_mock = mock.Mock()
+        with self.assertRaises(TypeError):
+            self.obj.flow(callback_mock, True)
+
+    def test_queue_delete_legacy_parameter(self):
+        self.obj._set_state(self.obj.OPEN)
+        callback_mock = mock.Mock()
+        with self.assertRaises(TypeError):
+            self.obj.queue_delete(callback_mock,
+                                  'queue',
+                                  True,
+                                  True)
+
+    def test_queue_unbind_legacy_parameter(self):
+        self.obj._set_state(self.obj.OPEN)
+        callback_mock = mock.Mock()
+        with self.assertRaises(TypeError):
+            self.obj.queue_unbind(callback_mock,
+                                  'queue',
+                                  'exchange',
+                                  'routing_key')
+
+    def test_queue_purge_legacy_parameter(self):
+        self.obj._set_state(self.obj.OPEN)
+        callback_mock = mock.Mock()
+        with self.assertRaises(TypeError):
+            self.obj.queue_purge(callback_mock,
+                                  'queue',
+                                  True)
+
     def test_basic_consume_channel_closed(self):
         mock_callback = mock.Mock()
         mock_on_msg_callback = mock.Mock()
@@ -259,16 +388,11 @@ class ChannelTests(unittest.TestCase):
                           callback=mock_callback)
 
     @mock.patch('pika.channel.Channel._raise_if_not_open')
-    @mock.patch('pika.channel.Channel._require_callback')
-    def test_basic_consume_calls_raise_if_not_open(self,
-                                                   require,
-                                                   raise_if_not_open):
+    def test_basic_consume_calls_raise_if_not_open(self, raise_if_not_open):
         self.obj._set_state(self.obj.OPEN)
         mock_callback = mock.Mock()
         mock_on_msg_callback = mock.Mock()
-        self.obj.basic_consume('test-queue', mock_on_msg_callback,
-                               callback=mock_callback)
-        require.assert_called_once_with(mock_on_msg_callback)
+        self.obj.basic_consume('test-queue', mock_on_msg_callback, callback=mock_callback)
         raise_if_not_open.assert_called_once_with()
 
     def test_basic_consume_consumer_tag_no_completion_callback(self):
@@ -367,12 +491,10 @@ class ChannelTests(unittest.TestCase):
                                         'consumer_tag': consumer_tag
                                     })])
 
-    @mock.patch('pika.channel.Channel._require_callback')
-    def test_basic_get_calls_require_callback(self, require):
+    def test_basic_get_requires_callback(self):
         self.obj._set_state(self.obj.OPEN)
-        mock_callback = mock.Mock()
-        self.obj.basic_get('test-queue', mock_callback)
-        require.assert_called_once_with(mock_callback)
+        with self.assertRaises(TypeError):
+            self.obj.basic_get('test-queue', None)
 
     @mock.patch('pika.channel.Channel._send_method')
     def test_basic_get_callback(self, _unused):
@@ -890,7 +1012,7 @@ class ChannelTests(unittest.TestCase):
 
     def test_queue_bind_raises_channel_wrong_state(self):
         self.assertRaises(exceptions.ChannelWrongStateError,
-                          self.obj.queue_bind, None,
+                          self.obj.queue_bind, '',
                           'foo', 'bar', 'baz')
 
     def test_queue_bind_raises_value_error_on_invalid_callback(self):
@@ -1569,13 +1691,6 @@ class ChannelTests(unittest.TestCase):
     def test_raise_if_not_open_raises_channel_wrong_state(self):
         self.assertRaises(exceptions.ChannelWrongStateError,
                           self.obj._raise_if_not_open)
-
-    def test_validate_callback_raises_value_error_not_callable(
-            self):
-        self.obj._set_state(self.obj.OPEN)
-        self.assertRaises(TypeError,
-                          self.obj._validate_rpc_completion_callback,
-                          'foo')
 
     def test_no_side_effects_from_send_method_error(self):
         self.obj._set_state(self.obj.OPEN)

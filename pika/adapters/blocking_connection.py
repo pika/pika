@@ -24,14 +24,11 @@ import logging
 import threading
 import time
 
-import pika.channel
-
-from pika.adapters.utils import connection_workflow
-from pika import compat
-import pika.connection
-from pika import exceptions
-
+import pika.compat as compat
+import pika.exceptions as exceptions
 import pika.spec
+import pika.validators as validators
+from pika.adapters.utils import connection_workflow
 
 # NOTE: import SelectConnection after others to avoid circular depenency
 from pika.adapters import select_connection
@@ -706,9 +703,7 @@ class BlockingConnection(object):
         :returns: opaque timer id
 
         """
-        if not callable(callback):
-            raise TypeError(
-                'callback must be a callable, but got %r' % (callback,))
+        validators.require_callback(callback)
 
         evt = _TimerEvt(callback=callback)
         timer_id = self._impl._adapter_add_timeout(
@@ -1642,10 +1637,8 @@ class BlockingChannel(object):
             consumer_tag is already present.
 
         """
-        if not callable(on_message_callback):
-            raise ValueError('callback on_message_callback must be callable; got %r'
-                             % on_message_callback)
-
+        validators.require_string(queue, 'queue')
+        validators.require_callback(on_message_callback, 'on_message_callback')
         return self._basic_consume_impl(
             queue=queue,
             on_message_callback=on_message_callback,
@@ -2169,6 +2162,8 @@ class BlockingChannel(object):
         """
         assert not self._basic_getempty_result
 
+        validators.require_string(queue, 'queue')
+
         # NOTE: nested with for python 2.6 compatibility
         with _CallbackResult(self._RxMessageArgs) as get_ok_result:
             with self._basic_getempty_result:
@@ -2427,6 +2422,7 @@ class BlockingChannel(object):
           `spec.Exchange.DeclareOk`
 
         """
+        validators.require_string(exchange, 'exchange')
         with _CallbackResult(
             self._MethodFrameCallbackResultArgs) as declare_ok_result:
             self._impl.exchange_declare(
@@ -2549,6 +2545,7 @@ class BlockingChannel(object):
           `spec.Queue.DeclareOk`
 
         """
+        validators.require_string(queue, 'queue')
         with _CallbackResult(self._MethodFrameCallbackResultArgs) as \
                 declare_ok_result:
             self._impl.queue_declare(
@@ -2621,6 +2618,8 @@ class BlockingChannel(object):
           `spec.Queue.BindOk`
 
         """
+        validators.require_string(queue, 'queue')
+        validators.require_string(exchange, 'exchange')
         with _CallbackResult(
             self._MethodFrameCallbackResultArgs) as bind_ok_result:
             self._impl.queue_bind(queue=queue,
