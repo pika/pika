@@ -30,6 +30,8 @@ Version History
 - ``queue_purge``
 - ``queue_unbind``
 
+**IMPORTANT**: When specifying TLS / SSL options, the ``SSLOptions`` class must be used, and a ``dict`` is no longer supported.
+
 0.12.0 2018-06-19
 -----------------
 
