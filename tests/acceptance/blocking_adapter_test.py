@@ -1782,7 +1782,7 @@ class TestPublishAndConsumeWithPubacksAndQosOfOne(BlockingTestCaseBase):
         self.assertEqual(frame.method.message_count, 2)
 
         # Configure QoS for one message
-        ch.basic_qos(prefetch_size=0, prefetch_count=1, all_channels=False)
+        ch.basic_qos(prefetch_size=0, prefetch_count=1, global_qos=False)
 
         # Create a consumer
         rx_messages = []
@@ -1908,7 +1908,7 @@ class TestBasicConsumeWithAckFromAnotherThread(BlockingTestCaseBase):
 
         # Configure QoS for one message so that the 2nd message will be
         # delivered only after the 1st one is ACKed
-        ch.basic_qos(prefetch_size=0, prefetch_count=1, all_channels=False)
+        ch.basic_qos(prefetch_size=0, prefetch_count=1, global_qos=False)
 
         # Create a consumer
         rx_messages = []
@@ -2006,7 +2006,7 @@ class TestConsumeGeneratorWithAckFromAnotherThread(BlockingTestCaseBase):
 
         # Configure QoS for one message so that the 2nd message will be
         # delivered only after the 1st one is ACKed
-        ch.basic_qos(prefetch_size=0, prefetch_count=1, all_channels=False)
+        ch.basic_qos(prefetch_size=0, prefetch_count=1, global_qos=False)
 
         # Create a consumer
         rx_messages = []

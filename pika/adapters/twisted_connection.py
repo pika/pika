@@ -577,7 +577,7 @@ class TwistedChannel(object):
     def basic_qos(self,
                   prefetch_size=0,
                   prefetch_count=0,
-                  all_channels=False):
+                  global_qos=False):
         """Specify quality of service. This method requests a specific quality
         of service. The QoS can be specified for the current channel or for all
         channels on the connection. The client can request that messages be
@@ -603,7 +603,8 @@ class TwistedChannel(object):
                                    and connection level) allow it. The
                                    prefetch-count is ignored by consumers who
                                    have enabled the no-ack option.
-        :param bool all_channels: Should the QoS apply to all channels
+        :param bool global_qos:    Should the QoS apply to all consumers on the
+                                   Channel
         :return: Deferred that fires on the Basic.QosOk response
         :rtype: Deferred
 
@@ -611,7 +612,7 @@ class TwistedChannel(object):
         return self._wrap_channel_method("basic_qos")(
             prefetch_size=prefetch_size,
             prefetch_count=prefetch_count,
-            all_channels=all_channels,
+            global_qos=global_qos,
         )
 
     def basic_reject(self, delivery_tag, requeue=True):
