@@ -964,6 +964,13 @@ class URLParameters(Parameters):
                     'Specified ssl_options=None URL arg is inconsistent with '
                     'the specified https URL scheme.')
         else:
+            # Older versions of Pika would take the opts dict and pass it
+            # directly as kwargs to the deprecated ssl.wrap_socket method.
+            # Here, we take the valid options and translate them into args
+            # for various SSLContext methods.
+            #
+            # https://docs.python.org/3/library/ssl.html#ssl.wrap_socket
+            #
             # Note: this is the deprecated wrap_socket signature and info:
             #
             # Internally, function creates a SSLContext with protocol
@@ -981,36 +988,22 @@ class URLParameters(Parameters):
             #     ca_certs=None,
             #     do_handshake_on_connect=True, # Not URL-supported
             #     suppress_ragged_eofs=True,    # Not URL-supported
-            #     ciphers=None
-            cxt = None
+            #     ciphers=None)
+            #
+            cxt = ssl.SSLContext()
             if 'ca_certs' in opts:
                 opt_ca_certs = opts['ca_certs']
-                if os.path.isfile(opt_ca_certs):
-                    cxt = ssl.create_default_context(cafile=opt_ca_certs)
-                elif os.path.isdir(opt_ca_certs):
-                    cxt = ssl.create_default_context(capath=opt_ca_certs)
-                else:
-                    LOGGER.warning('ca_certs is specified via ssl_options but '
-                                   'is neither a valid file nor directory: "%s"',
-                                   opt_ca_certs)
+                cxt.load_verify_locations(opt_ca_certs)
 
             if 'certfile' in opts:
-                if os.path.isfile(opts['certfile']):
-                    keyfile = opts.get('keyfile')
-                    password = opts.get('password')
-                    cxt.load_cert_chain(opts['certfile'], keyfile, password)
-                else:
-                    LOGGER.warning('certfile is specified via ssl_options but '
-                                   'is not a valid file: "%s"',
-                                   opts['certfile'])
+                opt_certfile = opts['certfile']
+                opt_keyfile = opts.get('keyfile')
+                opt_password = opts.get('password')
+                cxt.load_cert_chain(opt_certfile, opt_keyfile, opt_password)
 
             if 'ciphers' in opts:
                 opt_ciphers = opts['ciphers']
-                if opt_ciphers is not None:
-                    cxt.set_ciphers(opt_ciphers)
-                else:
-                    LOGGER.warning('ciphers specified in ssl_options but '
-                                   'evaluates to None')
+                cxt.set_ciphers(opt_ciphers)
 
             server_hostname = opts.get('server_hostname')
             self.ssl_options = pika.SSLOptions(context=cxt,
