@@ -2394,9 +2394,13 @@ class BlockingChannel(object):
         # of publisher acknowledgments
         self._impl.add_on_return_callback(self._on_puback_message_returned)
 
-    def exchange_declare(self, exchange=None,
-                         exchange_type='direct', passive=False, durable=False,
-                         auto_delete=False, internal=False,
+    def exchange_declare(self,
+                         exchange,
+                         exchange_type='direct',
+                         passive=False,
+                         durable=False,
+                         auto_delete=False,
+                         internal=False,
                          arguments=None):
         """This method creates an exchange if it does not already exist, and if
         the exchange exists, verifies that it is of the correct and expected
@@ -2462,8 +2466,8 @@ class BlockingChannel(object):
             return delete_ok_result.value.method_frame
 
     def exchange_bind(self,
-                      destination=None,
-                      source=None,
+                      destination,
+                      source,
                       routing_key='',
                       arguments=None):
         """Bind an exchange to another exchange.
