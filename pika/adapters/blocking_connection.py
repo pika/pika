@@ -2303,7 +2303,7 @@ class BlockingChannel(object):
                                      immediate=immediate)
             self._flush_output()
 
-    def basic_qos(self, prefetch_size=0, prefetch_count=0, all_channels=False):
+    def basic_qos(self, prefetch_size=0, prefetch_count=0, global_qos=False):
         """Specify quality of service. This method requests a specific quality
         of service. The QoS can be specified for the current channel or for all
         channels on the connection. The client can request that messages be sent
@@ -2328,14 +2328,15 @@ class BlockingChannel(object):
                                    and connection level) allow it. The
                                    prefetch-count is ignored if the no-ack
                                    option is set in the consumer.
-        :param bool all_channels: Should the QoS apply to all channels
+        :param bool global_qos:    Should the QoS apply to all consumers on the
+                                   Channel
 
         """
         with _CallbackResult() as qos_ok_result:
             self._impl.basic_qos(callback=qos_ok_result.signal_once,
                                  prefetch_size=prefetch_size,
                                  prefetch_count=prefetch_count,
-                                 all_channels=all_channels)
+                                 global_qos=global_qos)
             self._flush_output(qos_ok_result.is_ready)
 
     def basic_recover(self, requeue=False):
@@ -2460,7 +2461,10 @@ class BlockingChannel(object):
             self._flush_output(delete_ok_result.is_ready)
             return delete_ok_result.value.method_frame
 
-    def exchange_bind(self, destination=None, source=None, routing_key='',
+    def exchange_bind(self,
+                      destination=None,
+                      source=None,
+                      routing_key='',
                       arguments=None):
         """Bind an exchange to another exchange.
 
@@ -2477,6 +2481,8 @@ class BlockingChannel(object):
           `spec.Exchange.BindOk`
 
         """
+        validators.require_string(destination, 'destination')
+        validators.require_string(source, 'source')
         with _CallbackResult(self._MethodFrameCallbackResultArgs) as \
                 bind_ok_result:
             self._impl.exchange_bind(

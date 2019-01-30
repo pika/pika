@@ -450,7 +450,7 @@ class TwistedChannelTestCase(TestCase):
         kwargs = {"prefetch_size": 2}
         d = self.channel.basic_qos(**kwargs)
         # Defaults
-        kwargs.update(dict(prefetch_count=0, all_channels=False))
+        kwargs.update(dict(prefetch_count=0, global_qos=False))
         self._test_wrapped_func(self.pika_channel.basic_qos, kwargs, True)
         return d
 
