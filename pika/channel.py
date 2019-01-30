@@ -605,8 +605,8 @@ class Channel(object):
         return dictkeys(self._consumers)
 
     def exchange_bind(self,
-                      destination=None,
-                      source=None,
+                      destination,
+                      source,
                       routing_key='',
                       arguments=None,
                       callback=None):
@@ -633,7 +633,7 @@ class Channel(object):
                          else [])
 
     def exchange_declare(self,
-                         exchange=None,
+                         exchange,
                          exchange_type='direct',
                          passive=False,
                          durable=False,
