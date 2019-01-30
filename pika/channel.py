@@ -624,6 +624,8 @@ class Channel(object):
 
         """
         self._raise_if_not_open()
+        validators.require_string(destination, 'destination')
+        validators.require_string(source, 'source')
         nowait = validators.rpc_completion_callback(callback)
         return self._rpc(spec.Exchange.Bind(0, destination, source, routing_key,
                                             nowait, arguments or dict()),
