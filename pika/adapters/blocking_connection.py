@@ -2460,7 +2460,10 @@ class BlockingChannel(object):
             self._flush_output(delete_ok_result.is_ready)
             return delete_ok_result.value.method_frame
 
-    def exchange_bind(self, destination=None, source=None, routing_key='',
+    def exchange_bind(self,
+                      destination=None,
+                      source=None,
+                      routing_key='',
                       arguments=None):
         """Bind an exchange to another exchange.
 
@@ -2477,6 +2480,8 @@ class BlockingChannel(object):
           `spec.Exchange.BindOk`
 
         """
+        validators.require_string(destination, 'destination')
+        validators.require_string(source, 'source')
         with _CallbackResult(self._MethodFrameCallbackResultArgs) as \
                 bind_ok_result:
             self._impl.exchange_bind(
