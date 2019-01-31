@@ -2181,11 +2181,11 @@ class BlockingChannel(object):
                     return None, None, None
 
     def basic_publish(self,
-                exchange,
-                routing_key,
-                body,
-                properties=None,
-                mandatory=False):
+                      exchange,
+                      routing_key,
+                      body,
+                      properties=None,
+                      mandatory=False):
         """Publish to the channel with the given exchange, routing key, and
         body.
 

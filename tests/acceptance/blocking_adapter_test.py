@@ -1462,11 +1462,6 @@ class TestPublishAndBasicPublishWithPubacksUnroutable(BlockingTestCaseBase):
         self.addCleanup(connection.channel().exchange_delete, exg_name)
 
         # Verify unroutable message handling using basic_publish
-        res = ch.basic_publish(exg_name, routing_key=routing_key, body='',
-                               mandatory=True)
-        self.assertEqual(res, False)
-
-        # Verify unroutable message handling using publish
         msg2_headers = dict(
             test_name='TestPublishAndBasicPublishWithPubacksUnroutable')
         msg2_properties = pika.spec.BasicProperties(headers=msg2_headers)
@@ -1505,9 +1500,8 @@ class TestConfirmDeliveryAfterUnroutableMessage(BlockingTestCaseBase):
         ch.add_on_return_callback(lambda *args: returned_messages.append(args))
 
         # Emit unroutable message without pubacks
-        res = ch.basic_publish(exg_name, routing_key=routing_key, body='',
-                               mandatory=True)
-        self.assertEqual(res, True)
+        ch.basic_publish(exg_name, routing_key=routing_key, body='',
+                         mandatory=True)
 
         # Select delivery confirmations
         ch.confirm_delivery()
@@ -1618,13 +1612,12 @@ class TestUnroutableMessageReturnedInPubackMode(BlockingTestCaseBase):
             lambda *args: returned_messages.append(args))
 
         # Emit unroutable messages with pubacks
-        res = ch.basic_publish(exg_name, routing_key=routing_key, body='msg1',
-                               mandatory=True)
-        self.assertEqual(res, False)
-
-        res = ch.basic_publish(exg_name, routing_key=routing_key, body='msg2',
-                               mandatory=True)
-        self.assertEqual(res, False)
+        with self.assertRaises(pika.exceptions.UnroutableError):
+            ch.basic_publish(exg_name, routing_key=routing_key, body='msg1',
+                            mandatory=True)
+        with self.assertRaises(pika.exceptions.UnroutableError):
+            ch.basic_publish(exg_name, routing_key=routing_key, body='msg2',
+                            mandatory=True)
 
         # Verify that unroutable messages are already in pending events
         self.assertEqual(len(ch._pending_events), 2)
@@ -1688,19 +1681,17 @@ class TestBasicPublishDeliveredWhenPendingUnroutable(BlockingTestCaseBase):
         ch.queue_bind(q_name, exchange=exg_name, routing_key=routing_key)
 
         # Attempt to send an unroutable message in the queue via basic_publish
-        res = ch.basic_publish(exg_name, routing_key='',
-                               body='unroutable-message',
-                               mandatory=True)
-        self.assertIsNone(res)
+        ch.basic_publish(exg_name, routing_key='',
+                         body='unroutable-message',
+                         mandatory=True)
 
         # Flush connection to force Basic.Return
         connection.channel().close()
 
         # Deposit a routable message in the queue
-        res = ch.basic_publish(exg_name, routing_key=routing_key,
-                               body='routable-message',
-                               mandatory=True)
-        self.assertIsNone(res)
+        ch.basic_publish(exg_name, routing_key=routing_key,
+                         body='routable-message',
+                         mandatory=True)
 
         # Wait for the queue to get the routable message
         self._assert_exact_message_count_with_retries(channel=ch,
@@ -1763,19 +1754,18 @@ class TestPublishAndConsumeWithPubacksAndQosOfOne(BlockingTestCaseBase):
         # Bind the queue to the exchange using routing key
         ch.queue_bind(q_name, exchange=exg_name, routing_key=routing_key)
 
-        # Deposit a message in the queue via basic_publish
+        # Deposit a message in the queue
         msg1_headers = dict(
             test_name='TestPublishAndConsumeWithPubacksAndQosOfOne')
         msg1_properties = pika.spec.BasicProperties(headers=msg1_headers)
-        res = ch.basic_publish(exg_name, routing_key=routing_key,
-                               body='via-basic_publish',
-                               properties=msg1_properties,
-                               mandatory=True)
-        self.assertIsNone(res)
+        ch.basic_publish(exg_name, routing_key=routing_key,
+                         body='via-basic_publish',
+                         properties=msg1_properties,
+                         mandatory=True)
 
-        # Deposit another message in the queue via publish
+        # Deposit another message in the queue
         ch.basic_publish(exg_name, routing_key, body='via-publish',
-                   mandatory=True)
+                         mandatory=True)
 
         # Check that the queue now has two messages
         frame = ch.queue_declare(q_name, passive=True)
@@ -2237,21 +2227,19 @@ class TestBasicPublishWithoutPubacks(BlockingTestCaseBase):
         # Bind the queue to the exchange using routing key
         ch.queue_bind(q_name, exchange=exg_name, routing_key=routing_key)
 
-        # Deposit a message in the queue via basic_publish and mandatory=True
+        # Deposit a message in the queue with mandatory=True
         msg1_headers = dict(
             test_name='TestBasicPublishWithoutPubacks')
         msg1_properties = pika.spec.BasicProperties(headers=msg1_headers)
-        res = ch.basic_publish(exg_name, routing_key=routing_key,
-                               body='via-basic_publish_mandatory=True',
-                               properties=msg1_properties,
-                               mandatory=True)
-        self.assertIsNone(res)
+        ch.basic_publish(exg_name, routing_key=routing_key,
+                         body='via-basic_publish_mandatory=True',
+                         properties=msg1_properties,
+                         mandatory=True)
 
-        # Deposit a message in the queue via basic_publish and mandatory=False
-        res = ch.basic_publish(exg_name, routing_key=routing_key,
-                               body='via-basic_publish_mandatory=False',
-                               mandatory=False)
-        self.assertEqual(res, True)
+        # Deposit a message in the queue with mandatory=False
+        ch.basic_publish(exg_name, routing_key=routing_key,
+                         body='via-basic_publish_mandatory=False',
+                         mandatory=False)
 
         # Wait for the messages to arrive in queue
         self._assert_exact_message_count_with_retries(channel=ch,
