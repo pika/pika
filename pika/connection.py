@@ -82,8 +82,6 @@ class Parameters(object):  # pylint: disable=R0902
     DEFAULT_VIRTUAL_HOST = '/'
     DEFAULT_TCP_OPTIONS = None
 
-    DEFAULT_HEARTBEAT_INTERVAL = DEFAULT_HEARTBEAT_TIMEOUT # DEPRECATED
-
     def __init__(self):
         # If not None, blocked_connection_timeout is the timeout, in seconds,
         # for the connection to remain blocked; if the timeout expires, the
