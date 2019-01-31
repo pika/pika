@@ -28,8 +28,6 @@ from pika.compat import (xrange, basestring, # pylint: disable=W0622
                          dict_iteritems)
 
 
-BACKPRESSURE_WARNING = ("Pika: Write buffer exceeded warning threshold at "
-                        "%i bytes and an estimated %i frames behind")
 PRODUCT = "Pika Python Client Library"
 
 LOGGER = logging.getLogger(__name__)
@@ -43,7 +41,6 @@ class Parameters(object):  # pylint: disable=R0902
     # Declare slots to protect against accidental assignment of an invalid
     # attribute
     __slots__ = (
-        '_backpressure_detection',
         '_blocked_connection_timeout',
         '_channel_max',
         '_client_properties',
@@ -65,7 +62,6 @@ class Parameters(object):  # pylint: disable=R0902
     DEFAULT_USERNAME = 'guest'
     DEFAULT_PASSWORD = 'guest'
 
-    DEFAULT_BACKPRESSURE_DETECTION = False
     DEFAULT_BLOCKED_CONNECTION_TIMEOUT = None
     DEFAULT_CHANNEL_MAX = pika.channel.MAX_CHANNELS
     DEFAULT_CLIENT_PROPERTIES = None
@@ -89,9 +85,6 @@ class Parameters(object):  # pylint: disable=R0902
     DEFAULT_HEARTBEAT_INTERVAL = DEFAULT_HEARTBEAT_TIMEOUT # DEPRECATED
 
     def __init__(self):
-        self._backpressure_detection = None
-        self.backpressure_detection = self.DEFAULT_BACKPRESSURE_DETECTION
-
         # If not None, blocked_connection_timeout is the timeout, in seconds,
         # for the connection to remain blocked; if the timeout expires, the
         # connection will be torn down, triggering the connection's
@@ -165,27 +158,6 @@ class Parameters(object):  # pylint: disable=R0902
         if result is not NotImplemented:
             return not result
         return NotImplemented
-
-    @property
-    def backpressure_detection(self):
-        """
-        :returns: boolean indicating whether backpressure detection is
-            enabled. Defaults to `DEFAULT_BACKPRESSURE_DETECTION`.
-
-        """
-        return self._backpressure_detection
-
-    @backpressure_detection.setter
-    def backpressure_detection(self, value):
-        """
-        :param bool value: boolean indicating whether to enable backpressure
-            detection
-
-        """
-        if not isinstance(value, bool):
-            raise TypeError('backpressure_detection must be a bool, '
-                            'but got %r' % (value,))
-        self._backpressure_detection = value
 
     @property
     def blocked_connection_timeout(self):
@@ -592,7 +564,6 @@ class ConnectionParameters(Parameters):
                  socket_timeout=_DEFAULT,
                  stack_timeout=_DEFAULT,
                  locale=_DEFAULT,
-                 backpressure_detection=_DEFAULT,
                  blocked_connection_timeout=_DEFAULT,
                  client_properties=_DEFAULT,
                  tcp_options=_DEFAULT,
@@ -623,9 +594,6 @@ class ConnectionParameters(Parameters):
             (TCP/[SSL]/AMQP) bring-up timeout in seconds. It's recommended to
             set this value higher than `socket_timeout`.
         :param str locale: Set the locale value
-        :param bool backpressure_detection: DEPRECATED in favor of
-            `Connection.Blocked` and `Connection.Unblocked`. See
-            `Connection.add_on_connection_blocked_callback`.
         :param blocked_connection_timeout: If not None,
             the value is a non-negative timeout, in seconds, for the
             connection to remain blocked (triggered by Connection.Blocked from
@@ -643,9 +611,6 @@ class ConnectionParameters(Parameters):
         :param tcp_options: None or a dict of TCP options to set for socket
         """
         super(ConnectionParameters, self).__init__()
-
-        if backpressure_detection is not self._DEFAULT:
-            self.backpressure_detection = backpressure_detection
 
         if blocked_connection_timeout is not self._DEFAULT:
             self.blocked_connection_timeout = blocked_connection_timeout
@@ -727,10 +692,6 @@ class URLParameters(Parameters):
 
     Valid query string values are:
 
-        - backpressure_detection:
-            DEPRECATED in favor of
-            `Connection.Blocked` and `Connection.Unblocked`. See
-            `Connection.add_on_connection_blocked_callback`.
         - channel_max:
             Override the default maximum channel count value
         - client_properties:
@@ -847,15 +808,6 @@ class URLParameters(Parameters):
                                      name, len(value), value))
 
             set_value(value)
-
-    def _set_url_backpressure_detection(self, value):
-        """Deserialize and apply the corresponding query string arg"""
-        try:
-            backpressure_detection = {'t': True, 'f': False}[value]
-        except KeyError:
-            raise ValueError('Invalid backpressure_detection value: %r' %
-                             (value,))
-        self.backpressure_detection = backpressure_detection
 
     def _set_url_blocked_connection_timeout(self, value):
         """Deserialize and apply the corresponding query string arg"""
@@ -1048,7 +1000,6 @@ class Connection(pika.compat.AbstractBase):
     # Disable pylint messages concerning "method could be a funciton"
     # pylint: disable=R0201
 
-    ON_CONNECTION_BACKPRESSURE = '_on_connection_backpressure'
     ON_CONNECTION_CLOSED = '_on_connection_closed'
     ON_CONNECTION_ERROR = '_on_connection_error'
     ON_CONNECTION_OPEN_OK = '_on_connection_open_ok'
@@ -1145,7 +1096,6 @@ class Connection(pika.compat.AbstractBase):
         self.known_hosts = None
         self._frame_buffer = None
         self._channels = None
-        self._backpressure_multiplier = None
 
         self._init_connection_state()
 
@@ -1205,9 +1155,6 @@ class Connection(pika.compat.AbstractBase):
         self.frames_received = 0
         self._heartbeat_checker = None
 
-        # Default back-pressure multiplier value
-        self._backpressure_multiplier = 10
-
         # When closing, holds reason why
         self._error = None
 
@@ -1233,17 +1180,6 @@ class Connection(pika.compat.AbstractBase):
                 self._on_connection_blocked)
             self.add_on_connection_unblocked_callback(
                 self._on_connection_unblocked)
-
-    def add_backpressure_callback(self, callback):
-        """Call method "callback" when pika believes backpressure is being
-        applied.
-
-        :param method callback: The method to call
-
-        """
-        validators.require_callback(callback)
-        self.callbacks.add(0, self.ON_CONNECTION_BACKPRESSURE, callback,
-                           False)
 
     def add_on_close_callback(self, callback):
         """Add a callback notification when the connection has closed. The
@@ -1417,17 +1353,6 @@ class Connection(pika.compat.AbstractBase):
                 LOGGER.info(
                     'Connection.close is waiting for %d channels to close: %s',
                     len(self._channels), self)
-
-    def set_backpressure_multiplier(self, value=10):
-        """Alter the backpressure multiplier value. We set this to 10 by default.
-        This value is used to raise warnings and trigger the backpressure
-        callback.
-
-        :param int value: The multiplier value to set
-
-        """
-        self._backpressure_multiplier = value
-
     #
     # Connection state properties
     #
@@ -1721,19 +1646,6 @@ class Connection(pika.compat.AbstractBase):
 
         # pylint: disable=W0212
         self._channels[value.channel_number]._handle_content_frame(value)
-
-    def _detect_backpressure(self):
-        """Attempt to calculate if TCP backpressure is being applied due to
-        our outbound buffer being larger than the average frame size over
-        a window of frames.
-
-        """
-        avg_frame_size = self.bytes_sent / self.frames_sent
-        buffer_size = self._adapter_get_write_buffer_size()
-        if buffer_size > (avg_frame_size * self._backpressure_multiplier):
-            LOGGER.warning(BACKPRESSURE_WARNING, buffer_size,
-                           int(buffer_size / avg_frame_size))
-            self.callbacks.process(0, self.ON_CONNECTION_BACKPRESSURE, self)
 
     def _ensure_closed(self):
         """If the connection is not closed, close it."""
@@ -2439,5 +2351,3 @@ class Connection(pika.compat.AbstractBase):
             self.bytes_sent += len(marshaled_frame)
             self.frames_sent += 1
             self._adapter_emit_data(marshaled_frame)
-        if self.params.backpressure_detection:
-            self._detect_backpressure()
