@@ -27,7 +27,7 @@ import pika
 def main():
 
     # NOTE: These paramerers work with all Pika connection types
-    params = pika.ConnectionParameters(heartbeat_interval=600,
+    params = pika.ConnectionParameters(heartbeat=600,
                                        blocked_connection_timeout=300)
 
     conn = pika.BlockingConnection(params)

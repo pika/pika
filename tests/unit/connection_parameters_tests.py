@@ -549,17 +549,6 @@ class ConnectionParametersTests(ParametersTestsBase):
                 msg='Expected %s=%r, but got %r' %
                 (t_param, expected_values[t_param], value))
 
-    def test_deprecated_heartbeat_interval(self):
-        with warnings.catch_warnings(record=True) as warnings_list:
-            warnings.simplefilter('always')
-
-            params = connection.ConnectionParameters(heartbeat_interval=999)
-            self.assertEqual(params.heartbeat, 999)
-
-            # Check that a warning was generated
-            self.assertEqual(len(warnings_list), 1)
-            self.assertIs(warnings_list[0].category, DeprecationWarning)
-
     def test_callable_heartbeat(self):
         def heartbeat_callback(_connection, _broker_val):
             return 1
@@ -706,20 +695,6 @@ class URLParametersTests(ParametersTestsBase):
         self.assertEqual(params.host, 'www.test.com')
         self.assertEqual(params.port, 5678)
         self.assertEqual(params.virtual_host, virtual_host)
-
-    def test_deprecated_heartbeat_interval(self):
-        with warnings.catch_warnings(record=True) as warnings_list:
-            warnings.simplefilter('always')
-
-            params = pika.URLParameters(
-                'amqp://prtfqpeo:oihdglkhcp0@myserver.'
-                'mycompany.com:5672/prtfqpeo?heartbeat_interval=999')
-
-            self.assertEqual(params.heartbeat, 999)
-
-            # Check that a warning was generated
-            self.assertEqual(len(warnings_list), 1)
-            self.assertIs(warnings_list[0].category, DeprecationWarning)
 
     def test_accepts_plain_string(self):
         parameters = pika.URLParameters('amqp://prtfqpeo:oihdglkhcp0@myserver.'

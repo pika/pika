@@ -604,8 +604,6 @@ class ConnectionParameters(Parameters):
         :param client_properties: None or dict of client properties used to
             override the fields in the default client properties reported to
             RabbitMQ via `Connection.StartOk` method.
-        :param heartbeat_interval: DEPRECATED; use `heartbeat` instead, and
-            don't pass both
         :param tcp_options: None or a dict of TCP options to set for socket
         """
         super(ConnectionParameters, self).__init__()
@@ -630,19 +628,6 @@ class ConnectionParameters(Parameters):
 
         if heartbeat is not self._DEFAULT:
             self.heartbeat = heartbeat
-
-        try:
-            heartbeat_interval = kwargs.pop('heartbeat_interval')
-        except KeyError:
-            # Good, this one is deprecated
-            pass
-        else:
-            warnings.warn('heartbeat_interval is deprecated, use heartbeat',
-                          DeprecationWarning, stacklevel=2)
-            if heartbeat is not self._DEFAULT:
-                raise TypeError('heartbeat and deprecated heartbeat_interval '
-                                'are mutually-exclusive')
-            self.heartbeat = heartbeat_interval
 
         if host is not self._DEFAULT:
             self.host = host
@@ -847,30 +832,10 @@ class URLParameters(Parameters):
 
     def _set_url_heartbeat(self, value):
         """Deserialize and apply the corresponding query string arg"""
-        if 'heartbeat_interval' in self._all_url_query_values:
-            raise ValueError('Deprecated URL parameter heartbeat_interval must '
-                             'not be specified together with heartbeat')
-
         try:
             heartbeat_timeout = int(value)
         except ValueError as exc:
             raise ValueError('Invalid heartbeat value %r: %r' % (value, exc,))
-        self.heartbeat = heartbeat_timeout
-
-    def _set_url_heartbeat_interval(self, value):
-        """Deserialize and apply the corresponding query string arg"""
-        warnings.warn('heartbeat_interval is deprecated, use heartbeat',
-                      DeprecationWarning, stacklevel=2)
-
-        if 'heartbeat' in self._all_url_query_values:
-            raise ValueError('Deprecated URL parameter heartbeat_interval must '
-                             'not be specified together with heartbeat')
-
-        try:
-            heartbeat_timeout = int(value)
-        except ValueError as exc:
-            raise ValueError('Invalid heartbeat_interval value %r: %r' %
-                             (value, exc,))
         self.heartbeat = heartbeat_timeout
 
     def _set_url_locale(self, value):

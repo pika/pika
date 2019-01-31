@@ -10,6 +10,7 @@ Version History
 - ``BlockingConnection.consume`` now returns ``(None, None, None)`` when inactivity timeout is reached (`PR <https://github.com/pika/pika/pull/899>`_)
 - Python 3.7 support (`Issue <https://github.com/pika/pika/issues/1107>`_)
 - ``all_channels`` parameter of the ``Channel.basic_qos`` method renamed to ``global_qos``
+- **NOTE:** ``heartbeat_interval`` is removed, use ``heartbeat`` instead.
 - **NOTE:** The `backpressure_detection` option of `ConnectionParameters` and `URLParameters` property is REMOVED in favor of `Connection.Blocked` and `Connection.Unblocked`. See `Connection.add_on_connection_blocked_callback`.
 - **NOTE:** The legacy ``basic_publish`` method is removed, and ``publish`` renamed to ``basic_publish``
 - **NOTE**: The signature of the following methods has changed from Pika 0.13.0. In general, the callback parameter that indicates completion of the method has been moved to the end of the parameter list to be consistent with other parts of Pika's API and with other libraries in general.
