@@ -37,16 +37,6 @@ class ExceptionTests(unittest.TestCase):
             'BodyTooLongError: Received too many bytes for a message delivery: '
             'Received 100, expected 50')
 
-    def test_invalid_minimum_frame_size_repr(self):
-        self.assertEqual(
-            repr(exceptions.InvalidMinimumFrameSize()),
-            'InvalidMinimumFrameSize: AMQP Minimum Frame Size is 4096 Bytes')
-
-    def test_invalid_maximum_frame_size_repr(self):
-        self.assertEqual(
-            repr(exceptions.InvalidMaximumFrameSize()),
-            'InvalidMaximumFrameSize: AMQP Maximum Frame Size is 131072 Bytes')
-
     def test_channel_closed_properties_positional_args(self):
         exc = exceptions.ChannelClosed(9, 'args abcd')
         self.assertEqual(exc.reply_code, 9)

@@ -1549,15 +1549,6 @@ class Connection(pika.compat.AbstractBase):
             if not (chan.is_closing or chan.is_closed):
                 chan.close(reply_code, reply_text)
 
-    def _connect(self):
-        """Attempt to connect to RabbitMQ
-
-        :rtype: bool
-
-        """
-        warnings.warn('This method is deprecated, use Connection.connect',
-                      DeprecationWarning)
-
     def _create_channel(self, channel_number, on_open_callback):
         """Create a new channel using the specified channel number and calling
         back the method specified by on_open_callback
