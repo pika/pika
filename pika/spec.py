@@ -693,7 +693,7 @@ class Exchange(amqp_object.Class):
         INDEX = 0x0028000A  # 40, 10; 2621450
         NAME = 'Exchange.Declare'
 
-        def __init__(self, ticket=0, exchange=None, type='direct', passive=False, durable=False, auto_delete=False, internal=False, nowait=False, arguments={}):
+        def __init__(self, ticket=0, exchange=None, type='direct', passive=False, durable=False, auto_delete=False, internal=False, nowait=False, arguments=None):
             self.ticket = ticket
             self.exchange = exchange
             self.type = type
@@ -702,7 +702,7 @@ class Exchange(amqp_object.Class):
             self.auto_delete = auto_delete
             self.internal = internal
             self.nowait = nowait
-            self.arguments = arguments
+            self.arguments = arguments if arguments is not None else {}
 
         @property
         def synchronous(self):
@@ -829,13 +829,13 @@ class Exchange(amqp_object.Class):
         INDEX = 0x0028001E  # 40, 30; 2621470
         NAME = 'Exchange.Bind'
 
-        def __init__(self, ticket=0, destination=None, source=None, routing_key='', nowait=False, arguments={}):
+        def __init__(self, ticket=0, destination=None, source=None, routing_key='', nowait=False, arguments=None):
             self.ticket = ticket
             self.destination = destination
             self.source = source
             self.routing_key = routing_key
             self.nowait = nowait
-            self.arguments = arguments
+            self.arguments = arguments if arguments is not None else {}
 
         @property
         def synchronous(self):
@@ -896,13 +896,13 @@ class Exchange(amqp_object.Class):
         INDEX = 0x00280028  # 40, 40; 2621480
         NAME = 'Exchange.Unbind'
 
-        def __init__(self, ticket=0, destination=None, source=None, routing_key='', nowait=False, arguments={}):
+        def __init__(self, ticket=0, destination=None, source=None, routing_key='', nowait=False, arguments=None):
             self.ticket = ticket
             self.destination = destination
             self.source = source
             self.routing_key = routing_key
             self.nowait = nowait
-            self.arguments = arguments
+            self.arguments = arguments if arguments is not None else {}
 
         @property
         def synchronous(self):
@@ -969,7 +969,7 @@ class Queue(amqp_object.Class):
         INDEX = 0x0032000A  # 50, 10; 3276810
         NAME = 'Queue.Declare'
 
-        def __init__(self, ticket=0, queue='', passive=False, durable=False, exclusive=False, auto_delete=False, nowait=False, arguments={}):
+        def __init__(self, ticket=0, queue='', passive=False, durable=False, exclusive=False, auto_delete=False, nowait=False, arguments=None):
             self.ticket = ticket
             self.queue = queue
             self.passive = passive
@@ -977,7 +977,7 @@ class Queue(amqp_object.Class):
             self.exclusive = exclusive
             self.auto_delete = auto_delete
             self.nowait = nowait
-            self.arguments = arguments
+            self.arguments = arguments if arguments is not None else {}
 
         @property
         def synchronous(self):
@@ -1054,13 +1054,13 @@ class Queue(amqp_object.Class):
         INDEX = 0x00320014  # 50, 20; 3276820
         NAME = 'Queue.Bind'
 
-        def __init__(self, ticket=0, queue='', exchange=None, routing_key='', nowait=False, arguments={}):
+        def __init__(self, ticket=0, queue='', exchange=None, routing_key='', nowait=False, arguments=None):
             self.ticket = ticket
             self.queue = queue
             self.exchange = exchange
             self.routing_key = routing_key
             self.nowait = nowait
-            self.arguments = arguments
+            self.arguments = arguments if arguments is not None else {}
 
         @property
         def synchronous(self):
@@ -1243,12 +1243,12 @@ class Queue(amqp_object.Class):
         INDEX = 0x00320032  # 50, 50; 3276850
         NAME = 'Queue.Unbind'
 
-        def __init__(self, ticket=0, queue='', exchange=None, routing_key='', arguments={}):
+        def __init__(self, ticket=0, queue='', exchange=None, routing_key='', arguments=None):
             self.ticket = ticket
             self.queue = queue
             self.exchange = exchange
             self.routing_key = routing_key
-            self.arguments = arguments
+            self.arguments = arguments if arguments is not None else {}
 
         @property
         def synchronous(self):
@@ -1361,7 +1361,7 @@ class Basic(amqp_object.Class):
         INDEX = 0x003C0014  # 60, 20; 3932180
         NAME = 'Basic.Consume'
 
-        def __init__(self, ticket=0, queue='', consumer_tag='', no_local=False, no_ack=False, exclusive=False, nowait=False, arguments={}):
+        def __init__(self, ticket=0, queue='', consumer_tag='', no_local=False, no_ack=False, exclusive=False, nowait=False, arguments=None):
             self.ticket = ticket
             self.queue = queue
             self.consumer_tag = consumer_tag
@@ -1369,7 +1369,7 @@ class Basic(amqp_object.Class):
             self.no_ack = no_ack
             self.exclusive = exclusive
             self.nowait = nowait
-            self.arguments = arguments
+            self.arguments = arguments if arguments is not None else {}
 
         @property
         def synchronous(self):
