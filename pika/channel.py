@@ -403,10 +403,12 @@ class Channel(object):
         return self._send_method(spec.Basic.Nack(delivery_tag, multiple,
                                                  requeue))
 
-    def basic_publish(self, exchange, routing_key, body,
+    def basic_publish(self,
+                      exchange,
+                      routing_key,
+                      body,
                       properties=None,
-                      mandatory=False,
-                      immediate=False):
+                      mandatory=False):
         """Publish to the channel with the given exchange, routing key and body.
         For more information on basic_publish and what the parameters do, see:
 
@@ -420,19 +422,15 @@ class Channel(object):
         :type body: str or unicode
         :param pika.spec.BasicProperties properties: Basic.properties
         :param bool mandatory: The mandatory flag
-        :param bool immediate: The immediate flag
 
         """
         self._raise_if_not_open()
-        if immediate:
-            LOGGER.warning('The immediate flag is deprecated in RabbitMQ')
         if isinstance(body, unicode_type):
             body = body.encode('utf-8')
         properties = properties or spec.BasicProperties()
         self._send_method(spec.Basic.Publish(exchange=exchange,
                                              routing_key=routing_key,
-                                             mandatory=mandatory,
-                                             immediate=immediate),
+                                             mandatory=mandatory),
                           (properties, body))
 
     def basic_qos(self,

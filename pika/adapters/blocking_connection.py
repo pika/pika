@@ -2180,57 +2180,20 @@ class BlockingChannel(object):
                         "wait completed without GetOk and GetEmpty")
                     return None, None, None
 
-    def basic_publish(self, exchange, routing_key, body,
-                      properties=None, mandatory=False, immediate=False):
-        """Publish to the channel with the given exchange, routing key and body.
-        Returns a boolean value indicating the success of the operation.
-
-        This is the legacy BlockingChannel method for publishing. See also
-        `BlockingChannel.publish` that provides more information about failures.
-
-        For more information on basic_publish and what the parameters do, see:
-
-            http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.publish
-
-        NOTE: mandatory and immediate may be enabled even without delivery
-          confirmation, but in the absence of delivery confirmation the
-          synchronous implementation has no way to know how long to wait for
-          the Basic.Return or lack thereof.
-
-        :param exchange: The exchange to publish to
-        :type exchange: str or unicode
-        :param routing_key: The routing key to bind on
-        :type routing_key: str or unicode
-        :param body: The message body; empty string if no body
-        :type body: bytes
-        :param pika.spec.BasicProperties properties: message properties
-        :param bool mandatory: The mandatory flag
-        :param bool immediate: The immediate flag
-
-        :returns: True if delivery confirmation is not enabled (NEW in pika
-            0.10.0); otherwise returns False if the message could not be
-            delivered (Basic.nack and/or Basic.Return) and True if the message
-            was delivered (Basic.ack and no Basic.Return)
-        """
-        try:
-            self.publish(exchange, routing_key, body, properties,
-                         mandatory, immediate)
-        except (exceptions.NackError, exceptions.UnroutableError):
-            return False
-        else:
-            return True
-
-    def publish(self, exchange, routing_key, body,
-                properties=None, mandatory=False, immediate=False):
+    def basic_publish(self,
+                exchange,
+                routing_key,
+                body,
+                properties=None,
+                mandatory=False):
         """Publish to the channel with the given exchange, routing key, and
-        body. Unlike the legacy `BlockingChannel.basic_publish`, this method
-        provides more information about failures via exceptions.
+        body.
 
         For more information on basic_publish and what the parameters do, see:
 
             http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.publish
 
-        NOTE: mandatory and immediate may be enabled even without delivery
+        NOTE: mandatory may be enabled even without delivery
           confirmation, but in the absence of delivery confirmation the
           synchronous implementation has no way to know how long to wait for
           the Basic.Return.
@@ -2243,7 +2206,6 @@ class BlockingChannel(object):
         :type body: bytes
         :param pika.spec.BasicProperties properties: message properties
         :param bool mandatory: The mandatory flag
-        :param bool immediate: The immediate flag
 
         :raises UnroutableError: raised when a message published in
             publisher-acknowledgments mode (see
@@ -2261,8 +2223,7 @@ class BlockingChannel(object):
                                          routing_key=routing_key,
                                          body=body,
                                          properties=properties,
-                                         mandatory=mandatory,
-                                         immediate=immediate)
+                                         mandatory=mandatory)
 
                 self._flush_output(self._message_confirmation_result.is_ready)
                 conf_method = (self._message_confirmation_result.value
@@ -2274,9 +2235,9 @@ class BlockingChannel(object):
                     # error
                     LOGGER.warning(
                         "Message was Nack'ed by broker: nack=%r; channel=%s; "
-                        "exchange=%s; routing_key=%s; mandatory=%r; "
-                        "immediate=%r", conf_method, self.channel_number,
-                        exchange, routing_key, mandatory, immediate)
+                        "exchange=%s; routing_key=%s; mandatory=%r; ",
+                        conf_method, self.channel_number,
+                        exchange, routing_key, mandatory)
                     if self._puback_return is not None:
                         returned_messages = [self._puback_return]
                         self._puback_return = None
@@ -2299,8 +2260,7 @@ class BlockingChannel(object):
                                      routing_key=routing_key,
                                      body=body,
                                      properties=properties,
-                                     mandatory=mandatory,
-                                     immediate=immediate)
+                                     mandatory=mandatory)
             self._flush_output()
 
     def basic_qos(self, prefetch_size=0, prefetch_count=0, global_qos=False):
