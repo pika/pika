@@ -40,9 +40,6 @@ class ConstructableConnection(connection.Connection):
     def _adapter_emit_data(self, data):
         raise NotImplementedError
 
-    def _adapter_get_write_buffer_size(self):
-        raise NotImplementedError
-
     def _adapter_add_callback_threadsafe(self, callback):
         raise NotImplementedError
 

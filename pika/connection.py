@@ -1459,17 +1459,6 @@ class Connection(pika.compat.AbstractBase):
         """
         raise NotImplementedError
 
-    @abc.abstractmethod
-    def _adapter_get_write_buffer_size(self):
-        """
-        Subclasses must override this
-
-        :return: Current size of output data buffered by the transport
-        :rtype: int
-
-        """
-        raise NotImplementedError
-
     def _add_channel_callbacks(self, channel_number):
         """Add the appropriate callbacks for the specified channel number.
 
