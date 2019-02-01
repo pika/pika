@@ -1308,10 +1308,10 @@ class Basic(amqp_object.Class):
         INDEX = 0x003C000A  # 60, 10; 3932170
         NAME = 'Basic.Qos'
 
-        def __init__(self, prefetch_size=0, prefetch_count=0, global_=False):
+        def __init__(self, prefetch_size=0, prefetch_count=0, global_qos=False):
             self.prefetch_size = prefetch_size
             self.prefetch_count = prefetch_count
-            self.global_ = global_
+            self.global_qos = global_qos
 
         @property
         def synchronous(self):
@@ -1324,7 +1324,7 @@ class Basic(amqp_object.Class):
             offset += 2
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.global_ = (bit_buffer & (1 << 0)) != 0
+            self.global_qos = (bit_buffer & (1 << 0)) != 0
             return self
 
         def encode(self):
@@ -1332,7 +1332,7 @@ class Basic(amqp_object.Class):
             pieces.append(struct.pack('>I', self.prefetch_size))
             pieces.append(struct.pack('>H', self.prefetch_count))
             bit_buffer = 0
-            if self.global_:
+            if self.global_qos:
                 bit_buffer = bit_buffer | (1 << 0)
             pieces.append(struct.pack('B', bit_buffer))
             return pieces
