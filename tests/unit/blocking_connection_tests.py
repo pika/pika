@@ -40,7 +40,7 @@ class SelectConnectionTemplate(
     _channels = None
     ioloop = None
     _transport = None
-    _adapter_get_write_buffer_size = None
+    _get_write_buffer_size = None
 
 
 class BlockingConnectionTests(unittest.TestCase):
@@ -121,7 +121,7 @@ class BlockingConnectionTests(unittest.TestCase):
             connection = blocking_connection.BlockingConnection('params')
 
         get_buffer_size_mock = mock.Mock(
-            name='_adapter_get_write_buffer_size',
+            name='_get_write_buffer_size',
             side_effect=[100, 50, 0],
             spec=nbio_interface.AbstractStreamTransport.get_write_buffer_size)
 
@@ -129,7 +129,7 @@ class BlockingConnectionTests(unittest.TestCase):
             spec_set=nbio_interface.AbstractStreamTransport)
 
         connection._impl._transport = transport_mock
-        connection._impl._adapter_get_write_buffer_size = get_buffer_size_mock
+        connection._impl._get_write_buffer_size = get_buffer_size_mock
 
         connection._flush_output(lambda: False, lambda: True)
 

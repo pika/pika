@@ -137,7 +137,7 @@ class SelectConnection(BaseConnection):
             workflow=workflow,
             on_done=on_done)
 
-    def _adapter_get_write_buffer_size(self):
+    def _get_write_buffer_size(self):
         """
         :return: Current size of output data buffered by the transport
         :rtype: int
