@@ -8,14 +8,14 @@ import os
 import re
 import sys
 
-RABBITMQ_PUBLIC_UMBRELLA = '../../rabbitmq-public-umbrella'
-RABBITMQ_CODEGEN = 'rabbitmq-codegen'
-PIKA_SPEC = '../pika/spec.py'
 
-CODEGEN_PATH = os.path.realpath('%s/%s' % (RABBITMQ_PUBLIC_UMBRELLA,
-                                           RABBITMQ_CODEGEN))
-print('codegen-path: %s' % CODEGEN_PATH)
-sys.path.append(CODEGEN_PATH)
+if sys.version_info.major != 2:
+    sys.exit('Python 2 is required at this time')
+
+RABBITMQ_CODEGEN_PATH = sys.argv[1]
+PIKA_SPEC = '../pika/spec.py'
+print('codegen-path: %s' % RABBITMQ_CODEGEN_PATH)
+sys.path.append(RABBITMQ_CODEGEN_PATH)
 
 import amqp_codegen
 
@@ -58,6 +58,8 @@ def pyize(s):
     s = normalize_separators(s)
     if s in ('global', 'class'):
         s += '_'
+    if s == 'global_':
+        s = 'global_qos'
     return s
 
 
@@ -401,4 +403,4 @@ str = bytes
 if __name__ == "__main__":
     with open(PIKA_SPEC, 'w') as handle:
         sys.stdout = handle
-        generate(['%s/amqp-rabbitmq-0.9.1.json' % CODEGEN_PATH])
+        generate(['%s/amqp-rabbitmq-0.9.1.json' % RABBITMQ_CODEGEN_PATH])
