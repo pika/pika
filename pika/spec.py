@@ -317,7 +317,7 @@ class Connection(amqp_object.Class):
             data.encode_short_string(pieces, self.capabilities)
             bit_buffer = 0
             if self.insist:
-                bit_buffer = bit_buffer | (1 << 0)
+                bit_buffer |= 1 << 0
             pieces.append(struct.pack('B', bit_buffer))
             return pieces
 
@@ -523,7 +523,7 @@ class Channel(amqp_object.Class):
             pieces = list()
             bit_buffer = 0
             if self.active:
-                bit_buffer = bit_buffer | (1 << 0)
+                bit_buffer |= 1 << 0
             pieces.append(struct.pack('B', bit_buffer))
             return pieces
 
@@ -549,7 +549,7 @@ class Channel(amqp_object.Class):
             pieces = list()
             bit_buffer = 0
             if self.active:
-                bit_buffer = bit_buffer | (1 << 0)
+                bit_buffer |= 1 << 0
             pieces.append(struct.pack('B', bit_buffer))
             return pieces
 
@@ -648,15 +648,15 @@ class Access(amqp_object.Class):
             data.encode_short_string(pieces, self.realm)
             bit_buffer = 0
             if self.exclusive:
-                bit_buffer = bit_buffer | (1 << 0)
+                bit_buffer |= 1 << 0
             if self.passive:
-                bit_buffer = bit_buffer | (1 << 1)
+                bit_buffer |= 1 << 1
             if self.active:
-                bit_buffer = bit_buffer | (1 << 2)
+                bit_buffer |= 1 << 2
             if self.write:
-                bit_buffer = bit_buffer | (1 << 3)
+                bit_buffer |= 1 << 3
             if self.read:
-                bit_buffer = bit_buffer | (1 << 4)
+                bit_buffer |= 1 << 4
             pieces.append(struct.pack('B', bit_buffer))
             return pieces
 
@@ -734,15 +734,15 @@ class Exchange(amqp_object.Class):
             data.encode_short_string(pieces, self.type)
             bit_buffer = 0
             if self.passive:
-                bit_buffer = bit_buffer | (1 << 0)
+                bit_buffer |= 1 << 0
             if self.durable:
-                bit_buffer = bit_buffer | (1 << 1)
+                bit_buffer |= 1 << 1
             if self.auto_delete:
-                bit_buffer = bit_buffer | (1 << 2)
+                bit_buffer |= 1 << 2
             if self.internal:
-                bit_buffer = bit_buffer | (1 << 3)
+                bit_buffer |= 1 << 3
             if self.nowait:
-                bit_buffer = bit_buffer | (1 << 4)
+                bit_buffer |= 1 << 4
             pieces.append(struct.pack('B', bit_buffer))
             data.encode_table(pieces, self.arguments)
             return pieces
@@ -799,9 +799,9 @@ class Exchange(amqp_object.Class):
             data.encode_short_string(pieces, self.exchange)
             bit_buffer = 0
             if self.if_unused:
-                bit_buffer = bit_buffer | (1 << 0)
+                bit_buffer |= 1 << 0
             if self.nowait:
-                bit_buffer = bit_buffer | (1 << 1)
+                bit_buffer |= 1 << 1
             pieces.append(struct.pack('B', bit_buffer))
             return pieces
 
@@ -867,7 +867,7 @@ class Exchange(amqp_object.Class):
             data.encode_short_string(pieces, self.routing_key)
             bit_buffer = 0
             if self.nowait:
-                bit_buffer = bit_buffer | (1 << 0)
+                bit_buffer |= 1 << 0
             pieces.append(struct.pack('B', bit_buffer))
             data.encode_table(pieces, self.arguments)
             return pieces
@@ -934,7 +934,7 @@ class Exchange(amqp_object.Class):
             data.encode_short_string(pieces, self.routing_key)
             bit_buffer = 0
             if self.nowait:
-                bit_buffer = bit_buffer | (1 << 0)
+                bit_buffer |= 1 << 0
             pieces.append(struct.pack('B', bit_buffer))
             data.encode_table(pieces, self.arguments)
             return pieces
@@ -1005,15 +1005,15 @@ class Queue(amqp_object.Class):
             data.encode_short_string(pieces, self.queue)
             bit_buffer = 0
             if self.passive:
-                bit_buffer = bit_buffer | (1 << 0)
+                bit_buffer |= 1 << 0
             if self.durable:
-                bit_buffer = bit_buffer | (1 << 1)
+                bit_buffer |= 1 << 1
             if self.exclusive:
-                bit_buffer = bit_buffer | (1 << 2)
+                bit_buffer |= 1 << 2
             if self.auto_delete:
-                bit_buffer = bit_buffer | (1 << 3)
+                bit_buffer |= 1 << 3
             if self.nowait:
-                bit_buffer = bit_buffer | (1 << 4)
+                bit_buffer |= 1 << 4
             pieces.append(struct.pack('B', bit_buffer))
             data.encode_table(pieces, self.arguments)
             return pieces
@@ -1092,7 +1092,7 @@ class Queue(amqp_object.Class):
             data.encode_short_string(pieces, self.routing_key)
             bit_buffer = 0
             if self.nowait:
-                bit_buffer = bit_buffer | (1 << 0)
+                bit_buffer |= 1 << 0
             pieces.append(struct.pack('B', bit_buffer))
             data.encode_table(pieces, self.arguments)
             return pieces
@@ -1147,7 +1147,7 @@ class Queue(amqp_object.Class):
             data.encode_short_string(pieces, self.queue)
             bit_buffer = 0
             if self.nowait:
-                bit_buffer = bit_buffer | (1 << 0)
+                bit_buffer |= 1 << 0
             pieces.append(struct.pack('B', bit_buffer))
             return pieces
 
@@ -1208,11 +1208,11 @@ class Queue(amqp_object.Class):
             data.encode_short_string(pieces, self.queue)
             bit_buffer = 0
             if self.if_unused:
-                bit_buffer = bit_buffer | (1 << 0)
+                bit_buffer |= 1 << 0
             if self.if_empty:
-                bit_buffer = bit_buffer | (1 << 1)
+                bit_buffer |= 1 << 1
             if self.nowait:
-                bit_buffer = bit_buffer | (1 << 2)
+                bit_buffer |= 1 << 2
             pieces.append(struct.pack('B', bit_buffer))
             return pieces
 
@@ -1333,7 +1333,7 @@ class Basic(amqp_object.Class):
             pieces.append(struct.pack('>H', self.prefetch_count))
             bit_buffer = 0
             if self.global_qos:
-                bit_buffer = bit_buffer | (1 << 0)
+                bit_buffer |= 1 << 0
             pieces.append(struct.pack('B', bit_buffer))
             return pieces
 
@@ -1400,13 +1400,13 @@ class Basic(amqp_object.Class):
             data.encode_short_string(pieces, self.consumer_tag)
             bit_buffer = 0
             if self.no_local:
-                bit_buffer = bit_buffer | (1 << 0)
+                bit_buffer |= 1 << 0
             if self.no_ack:
-                bit_buffer = bit_buffer | (1 << 1)
+                bit_buffer |= 1 << 1
             if self.exclusive:
-                bit_buffer = bit_buffer | (1 << 2)
+                bit_buffer |= 1 << 2
             if self.nowait:
-                bit_buffer = bit_buffer | (1 << 3)
+                bit_buffer |= 1 << 3
             pieces.append(struct.pack('B', bit_buffer))
             data.encode_table(pieces, self.arguments)
             return pieces
@@ -1461,7 +1461,7 @@ class Basic(amqp_object.Class):
             data.encode_short_string(pieces, self.consumer_tag)
             bit_buffer = 0
             if self.nowait:
-                bit_buffer = bit_buffer | (1 << 0)
+                bit_buffer |= 1 << 0
             pieces.append(struct.pack('B', bit_buffer))
             return pieces
 
@@ -1526,9 +1526,9 @@ class Basic(amqp_object.Class):
             data.encode_short_string(pieces, self.routing_key)
             bit_buffer = 0
             if self.mandatory:
-                bit_buffer = bit_buffer | (1 << 0)
+                bit_buffer |= 1 << 0
             if self.immediate:
-                bit_buffer = bit_buffer | (1 << 1)
+                bit_buffer |= 1 << 1
             pieces.append(struct.pack('B', bit_buffer))
             return pieces
 
@@ -1604,7 +1604,7 @@ class Basic(amqp_object.Class):
             pieces.append(struct.pack('>Q', self.delivery_tag))
             bit_buffer = 0
             if self.redelivered:
-                bit_buffer = bit_buffer | (1 << 0)
+                bit_buffer |= 1 << 0
             pieces.append(struct.pack('B', bit_buffer))
             assert isinstance(self.exchange, str_or_bytes),\
                    'A non-string value was supplied for self.exchange'
@@ -1645,7 +1645,7 @@ class Basic(amqp_object.Class):
             data.encode_short_string(pieces, self.queue)
             bit_buffer = 0
             if self.no_ack:
-                bit_buffer = bit_buffer | (1 << 0)
+                bit_buffer |= 1 << 0
             pieces.append(struct.pack('B', bit_buffer))
             return pieces
 
@@ -1682,7 +1682,7 @@ class Basic(amqp_object.Class):
             pieces.append(struct.pack('>Q', self.delivery_tag))
             bit_buffer = 0
             if self.redelivered:
-                bit_buffer = bit_buffer | (1 << 0)
+                bit_buffer |= 1 << 0
             pieces.append(struct.pack('B', bit_buffer))
             assert isinstance(self.exchange, str_or_bytes),\
                    'A non-string value was supplied for self.exchange'
@@ -1742,7 +1742,7 @@ class Basic(amqp_object.Class):
             pieces.append(struct.pack('>Q', self.delivery_tag))
             bit_buffer = 0
             if self.multiple:
-                bit_buffer = bit_buffer | (1 << 0)
+                bit_buffer |= 1 << 0
             pieces.append(struct.pack('B', bit_buffer))
             return pieces
 
@@ -1772,7 +1772,7 @@ class Basic(amqp_object.Class):
             pieces.append(struct.pack('>Q', self.delivery_tag))
             bit_buffer = 0
             if self.requeue:
-                bit_buffer = bit_buffer | (1 << 0)
+                bit_buffer |= 1 << 0
             pieces.append(struct.pack('B', bit_buffer))
             return pieces
 
@@ -1798,7 +1798,7 @@ class Basic(amqp_object.Class):
             pieces = list()
             bit_buffer = 0
             if self.requeue:
-                bit_buffer = bit_buffer | (1 << 0)
+                bit_buffer |= 1 << 0
             pieces.append(struct.pack('B', bit_buffer))
             return pieces
 
@@ -1824,7 +1824,7 @@ class Basic(amqp_object.Class):
             pieces = list()
             bit_buffer = 0
             if self.requeue:
-                bit_buffer = bit_buffer | (1 << 0)
+                bit_buffer |= 1 << 0
             pieces.append(struct.pack('B', bit_buffer))
             return pieces
 
@@ -1875,9 +1875,9 @@ class Basic(amqp_object.Class):
             pieces.append(struct.pack('>Q', self.delivery_tag))
             bit_buffer = 0
             if self.multiple:
-                bit_buffer = bit_buffer | (1 << 0)
+                bit_buffer |= 1 << 0
             if self.requeue:
-                bit_buffer = bit_buffer | (1 << 1)
+                bit_buffer |= 1 << 1
             pieces.append(struct.pack('B', bit_buffer))
             return pieces
 
@@ -2029,7 +2029,7 @@ class Confirm(amqp_object.Class):
             pieces = list()
             bit_buffer = 0
             if self.nowait:
-                bit_buffer = bit_buffer | (1 << 0)
+                bit_buffer |= 1 << 0
             pieces.append(struct.pack('B', bit_buffer))
             return pieces
 

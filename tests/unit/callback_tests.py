@@ -331,12 +331,6 @@ class CallbackTests(unittest.TestCase):
 
     def test_should_process_callback_false_only_caller_failure(self):
         self.obj.add(self.PREFIX_CLASS, self.KEY, self.callback_mock)
-        value = self.obj._callback_dict(self.callback_mock, False, self, None)
-        self.assertTrue(
-            self.obj._should_process_callback(value, self.mock_caller, []))
-
-    def test_should_process_callback_false_only_caller_failure(self):
-        self.obj.add(self.PREFIX_CLASS, self.KEY, self.callback_mock)
         value = self.obj._callback_dict(self.callback_mock, False,
                                         self.mock_caller, None)
         self.assertTrue(

@@ -13,9 +13,8 @@ params2 = pika.ConnectionParameters('localhost', port=5673, credentials=credenti
 params3 = pika.ConnectionParameters('localhost', port=5674, credentials=credentials)
 params_all = [params1, params2, params3]
 
-
 # Infinite loop
-while(True):
+while True:
     try:
         random.shuffle(params_all)
         connection = pika.BlockingConnection(params_all)
@@ -44,4 +43,3 @@ while(True):
     # Recover on all other connection errors
     except pika.exceptions.AMQPConnectionError:
         continue
-
