@@ -536,23 +536,6 @@ class ChannelTests(unittest.TestCase):
         self.assertRaises(exceptions.ChannelWrongStateError,
                           self.obj.basic_publish, 'foo', 'bar', 'baz')
 
-    @mock.patch('pika.channel.LOGGER')
-    @mock.patch('pika.spec.Basic.Publish')
-    @mock.patch('pika.channel.Channel._send_method')
-    def test_immediate_called_logger_warning(self, _send_method, _unused,
-                                             logger):
-        self.obj._set_state(self.obj.OPEN)
-        exchange = 'basic_publish_test'
-        routing_key = 'routing-key-fun'
-        body = b'This is my body'
-        properties = spec.BasicProperties(content_type='text/plain')
-        mandatory = False
-        immediate = True
-        self.obj.basic_publish(exchange, routing_key, body, properties,
-                               mandatory, immediate)
-        logger.warning.assert_called_once_with('The immediate flag is '
-                                               'deprecated in RabbitMQ')
-
     @mock.patch('pika.spec.Basic.Publish')
     @mock.patch('pika.channel.Channel._send_method')
     def test_basic_publish_send_method_request(self, send_method, _unused):
@@ -562,15 +545,13 @@ class ChannelTests(unittest.TestCase):
         body = b'This is my body'
         properties = spec.BasicProperties(content_type='text/plain')
         mandatory = False
-        immediate = False
         self.obj.basic_publish(exchange, routing_key, body, properties,
-                               mandatory, immediate)
+                               mandatory)
         send_method.assert_called_once_with(
             spec.Basic.Publish(
                 exchange=exchange,
                 routing_key=routing_key,
-                mandatory=mandatory,
-                immediate=immediate), (properties, body))
+                mandatory=mandatory), (properties, body))
 
     def test_basic_qos_raises_channel_wrong_state(self):
         self.assertRaises(exceptions.ChannelWrongStateError,

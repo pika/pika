@@ -16,7 +16,7 @@ Example of configuring heartbeat and blocked-connection timeouts::
     def main():
 
         # NOTE: These parameters work with all Pika connection types
-        params = pika.ConnectionParameters(heartbeat_interval=600,
+        params = pika.ConnectionParameters(heartbeat=600,
                                            blocked_connection_timeout=300)
 
         conn = pika.BlockingConnection(params)

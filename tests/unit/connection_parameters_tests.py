@@ -53,8 +53,6 @@ class ParametersTestsBase(unittest.TestCase):
         """
         kls = connection.Parameters
         defaults = {
-            'backpressure_detection':
-            kls.DEFAULT_BACKPRESSURE_DETECTION,
             'blocked_connection_timeout':
             kls.DEFAULT_BLOCKED_CONNECTION_TIMEOUT,
             'channel_max':
@@ -201,24 +199,6 @@ class ParametersTests(ParametersTestsBase):
 
     def test_default_property_values(self):
         self.assert_default_parameter_values(connection.Parameters())
-
-    def test_backpressure_detection(self):
-        params = connection.Parameters()
-
-        params.backpressure_detection = False
-        self.assertEqual(params.backpressure_detection, False)
-
-        params.backpressure_detection = True
-        self.assertEqual(params.backpressure_detection, True)
-
-        with self.assertRaises(TypeError):
-            params.backpressure_detection = 1
-
-        with self.assertRaises(TypeError):
-            params.backpressure_detection = 'true'
-
-        with self.assertRaises(TypeError):
-            params.backpressure_detection = 'f'
 
     def test_blocked_connection_timeout(self):
         params = connection.Parameters()
@@ -530,7 +510,6 @@ class ConnectionParametersTests(ParametersTestsBase):
     def test_good_connection_parameters(self):
         """make sure connection kwargs get set correctly"""
         kwargs = {
-            'backpressure_detection': False,
             'blocked_connection_timeout': 10.5,
             'channel_max': 3,
             'client_properties': {
@@ -570,17 +549,6 @@ class ConnectionParametersTests(ParametersTestsBase):
                 msg='Expected %s=%r, but got %r' %
                 (t_param, expected_values[t_param], value))
 
-    def test_deprecated_heartbeat_interval(self):
-        with warnings.catch_warnings(record=True) as warnings_list:
-            warnings.simplefilter('always')
-
-            params = connection.ConnectionParameters(heartbeat_interval=999)
-            self.assertEqual(params.heartbeat, 999)
-
-            # Check that a warning was generated
-            self.assertEqual(len(warnings_list), 1)
-            self.assertIs(warnings_list[0].category, DeprecationWarning)
-
     def test_callable_heartbeat(self):
         def heartbeat_callback(_connection, _broker_val):
             return 1
@@ -596,7 +564,6 @@ class ConnectionParametersTests(ParametersTestsBase):
             'channel_max': 3,
             'frame_max': 40000,
             'heartbeat': 7,
-            'backpressure_detection': False,
             'ssl': True,
             'blocked_connection_timeout': 10.5
         }
@@ -613,7 +580,6 @@ class ConnectionParametersTests(ParametersTestsBase):
                 ('socket_timeout', '42'),
                 ('stack_timeout', '99'),
                 ('retry_delay', 'two'),
-                ('backpressure_detection', 'true'),
                 ('ssl', {'ssl': 'dict'}),
                 ('ssl_options', True),
                 ('connection_attempts', 'hello'),
@@ -701,53 +667,34 @@ class URLParametersTests(ParametersTestsBase):
             }
         }
 
-        for backpressure in ('t', 'f'):
-            test_params = dict(query_args)
-            test_params['backpressure_detection'] = backpressure
-            virtual_host = '/'
-            query_string = urlencode(test_params)
-            test_url = ('amqp://myuser:mypass@www.test.com:5678/%s?%s' % (
-                url_quote(virtual_host, safe=''),
-                query_string,
-            ))
+        test_params = dict(query_args)
+        virtual_host = '/'
+        query_string = urlencode(test_params)
+        test_url = ('amqp://myuser:mypass@www.test.com:5678/%s?%s' % (
+            url_quote(virtual_host, safe=''),
+            query_string,
+        ))
 
-            params = connection.URLParameters(test_url)
+        params = connection.URLParameters(test_url)
 
-            # check all value from query string
+        # check all value from query string
 
-            for t_param in query_args:
-                expected_value = query_args[t_param]
-                actual_value = getattr(params, t_param)
+        for t_param in query_args:
+            expected_value = query_args[t_param]
+            actual_value = getattr(params, t_param)
 
-                self.assertEqual(
-                    actual_value,
-                    expected_value,
-                    msg='Expected %s=%r, but got %r' %
-                    (t_param, expected_value, actual_value))
+            self.assertEqual(
+                actual_value,
+                expected_value,
+                msg='Expected %s=%r, but got %r' %
+                (t_param, expected_value, actual_value))
 
-            self.assertEqual(params.backpressure_detection,
-                             backpressure == 't')
-
-            # check all values from base URL
-            self.assertEqual(params.credentials.username, 'myuser')
-            self.assertEqual(params.credentials.password, 'mypass')
-            self.assertEqual(params.host, 'www.test.com')
-            self.assertEqual(params.port, 5678)
-            self.assertEqual(params.virtual_host, virtual_host)
-
-    def test_deprecated_heartbeat_interval(self):
-        with warnings.catch_warnings(record=True) as warnings_list:
-            warnings.simplefilter('always')
-
-            params = pika.URLParameters(
-                'amqp://prtfqpeo:oihdglkhcp0@myserver.'
-                'mycompany.com:5672/prtfqpeo?heartbeat_interval=999')
-
-            self.assertEqual(params.heartbeat, 999)
-
-            # Check that a warning was generated
-            self.assertEqual(len(warnings_list), 1)
-            self.assertIs(warnings_list[0].category, DeprecationWarning)
+        # check all values from base URL
+        self.assertEqual(params.credentials.username, 'myuser')
+        self.assertEqual(params.credentials.password, 'mypass')
+        self.assertEqual(params.host, 'www.test.com')
+        self.assertEqual(params.port, 5678)
+        self.assertEqual(params.virtual_host, virtual_host)
 
     def test_accepts_plain_string(self):
         parameters = pika.URLParameters('amqp://prtfqpeo:oihdglkhcp0@myserver.'

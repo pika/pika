@@ -23,7 +23,7 @@ tls_example.py::
     with pika.BlockingConnection(conn_params) as conn:
         ch = conn.channel()
         ch.queue_declare("foobar")
-        ch.publish("", "foobar", "Hello, world!")
+        ch.basic_publish("", "foobar", "Hello, world!")
         print(ch.basic_get("foobar"))
 
 rabbitmq.config::

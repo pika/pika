@@ -520,10 +520,12 @@ class TwistedChannel(object):
             requeue=requeue,
         )
 
-    def basic_publish(self, exchange, routing_key, body,
+    def basic_publish(self,
+                      exchange,
+                      routing_key,
+                      body,
                       properties=None,
-                      mandatory=False,
-                      immediate=False):
+                      mandatory=False):
         """Publish to the channel with the given exchange, routing key and body.
 
         This method wraps :meth:`Channel.basic_publish
@@ -542,7 +544,6 @@ class TwistedChannel(object):
         :type body: str or unicode
         :param pika.spec.BasicProperties properties: Basic.properties
         :param bool mandatory: The mandatory flag
-        :param bool immediate: The immediate flag
         :return: A Deferred that fires with the result of the channel's
             basic_publish.
         :rtype: Deferred
@@ -563,9 +564,7 @@ class TwistedChannel(object):
             routing_key=routing_key,
             body=body,
             properties=properties,
-            mandatory=mandatory,
-            immediate=immediate,
-        )
+            mandatory=mandatory)
         if not self._delivery_confirmation:
             return defer.succeed(result)
         else:

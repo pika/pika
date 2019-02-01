@@ -416,7 +416,7 @@ class TwistedChannelTestCase(TestCase):
             # Args are converted to kwargs
             exchange=args[0],
             # Defaults
-            immediate=False, mandatory=False, properties=None,
+            mandatory=False, properties=None,
         ))
         self.pika_channel.basic_publish.assert_called_once_with(
             **kwargs)

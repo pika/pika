@@ -314,8 +314,6 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
         """make sure the callback adding works"""
         self.connection.callbacks = mock.Mock(spec=self.connection.callbacks)
         for test_method, expected_key in (
-            (self.connection.add_backpressure_callback,
-             self.connection.ON_CONNECTION_BACKPRESSURE),
             (self.connection.add_on_open_callback,
              self.connection.ON_CONNECTION_OPEN_OK),
             (self.connection.add_on_close_callback,
@@ -447,12 +445,6 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
             conn = ConstructibleConnection(params)
 
         self.assertDictEqual(conn._client_properties, expectation)
-
-    def test_set_backpressure_multiplier(self):
-        """test setting the backpressure multiplier"""
-        self.connection._backpressure_multiplier = None
-        self.connection.set_backpressure_multiplier(value=5)
-        self.assertEqual(5, self.connection._backpressure_multiplier)
 
     def test_close_channels(self):
         """test closing all channels"""
@@ -981,10 +973,6 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
 
         self.assertEqual(self.connection.frames_sent, frames_sent)
         self.assertEqual(self.connection.bytes_sent, bytes_sent)
-
-        # Make sure _detect_backpressure doesn't throw
-        self.connection._detect_backpressure()
-
 
     def test_no_side_effects_from_message_marshal_error(self):
         # Verify that frame buffer is empty on entry

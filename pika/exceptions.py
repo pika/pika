@@ -335,26 +335,6 @@ class ChannelError(Exception):
             self.__class__.__name__)
 
 
-class InvalidMinimumFrameSize(ProtocolSyntaxError):
-    """ DEPRECATED; pika.connection.Parameters.frame_max property setter now
-    raises the standard `ValueError` exception when the value is out of bounds.
-    """
-
-    def __repr__(self):
-        return '%s: AMQP Minimum Frame Size is 4096 Bytes' % (
-            self.__class__.__name__)
-
-
-class InvalidMaximumFrameSize(ProtocolSyntaxError):
-    """ DEPRECATED; pika.connection.Parameters.frame_max property setter now
-    raises the standard `ValueError` exception when the value is out of bounds.
-    """
-
-    def __repr__(self):
-        return '%s: AMQP Maximum Frame Size is 131072 Bytes' % (
-            self.__class__.__name__)
-
-
 class ReentrancyError(Exception):
     """The requested operation would result in unsupported recursion or
     reentrancy.
