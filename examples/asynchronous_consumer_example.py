@@ -39,6 +39,7 @@ class ExampleConsumer(object):
         self._closing = False
         self._consumer_tag = None
         self._url = amqp_url
+        self._reconnect_delay = 0
 
     def connect(self):
         """This method connects to RabbitMQ, returning the connection handle.
@@ -74,7 +75,7 @@ class ExampleConsumer(object):
 
         """
         LOGGER.error('Connection open failed: %s', err)
-        self._connection.ioloop.call_later(5, self.reconnect)
+        self._connection.ioloop.call_later(self._get_reconnect_delay(), self.reconnect)
 
     def on_connection_closed(self, connection, reason):
         """This method is invoked by pika when the connection to RabbitMQ is
@@ -92,7 +93,7 @@ class ExampleConsumer(object):
         else:
             LOGGER.warning('Connection closed, reopening in 5 seconds: %s',
                             reason)
-            self._connection.ioloop.call_later(5, self.reconnect)
+            self._connection.ioloop.call_later(self._get_reconnect_delay(), self.reconnect)
 
     def reconnect(self):
         """Will be invoked by the IOLoop timer if the connection is
@@ -353,6 +354,11 @@ class ExampleConsumer(object):
         """This method closes the connection to RabbitMQ."""
         LOGGER.info('Closing connection')
         self._connection.close()
+
+    def _get_reconnect_delay(self):
+        self._reconnect_delay = self._reconnect_delay + 1
+        LOGGER.info('Reconnect delay: %d', self._reconnect_delay)
+        return self._reconnect_delay
 
 
 def main():
