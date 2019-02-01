@@ -27,7 +27,7 @@ Pika's documentation can be found at
 Example
 -------
 Here is the most simple example of use, sending a message with the
-:py:class:`pika.BlockingConnection` adapter:
+``pika.BlockingConnection`` adapter:
 
 .. code :: python
 
@@ -66,18 +66,18 @@ And an example of writing a blocking consumer:
 Pika provides the following adapters
 ------------------------------------
 
-- :py:class:`AsyncioConnection` - adapter for the Python3 AsyncIO I/O loop.
-- :py:class:`BlockingConnection` - synchronous adapter on top of library for simple usage.
-- :py:class:`SelectConnection` - fast asynchronous adapter without third-party dependencies.
-- :py:class:`TornadoConnection` - adapter for use with the Tornado I/O loop http://tornadoweb.org.
-- :py:class:`TwistedProtocolConnection` - adapter for use with the Twisted asynchronous package http://twistedmatrix.com.
+- ``AsyncioConnection`` - adapter for the Python3 AsyncIO I/O loop.
+- ``BlockingConnection`` - synchronous adapter on top of library for simple usage.
+- ``SelectConnection`` - fast asynchronous adapter without third-party dependencies.
+- ``TornadoConnection`` - adapter for use with the Tornado I/O loop http://tornadoweb.org.
+- ``TwistedProtocolConnection`` - adapter for use with the Twisted asynchronous package http://twistedmatrix.com.
 
 Multiple connection parameters
 ------------------------------
-You can also pass multiple :py:class:`pika.ConnectionParameters` instances for
+You can also pass multiple ``pika.ConnectionParameters`` instances for
 fault-tolerance as in the code snippet below (host names are just examples, of
 course). To enable retries, set `connection_attempts` and `retry_delay` as
-needed in the last :py:class:`pika.ConnectionParameters` element of the
+needed in the last ``pika.ConnectionParameters`` element of the
 sequence.  Retries occur after connection attempts using all of the given
 connection parameters fail.
 
@@ -91,8 +91,8 @@ connection parameters fail.
                                   connection_attempts=5, retry_delay=1))
     connection = pika.BlockingConnection(configs)
 
-With non-blocking adapters, such as :py:class:`pika.SelectConnection` and
-:py:class:`pika.adapters.asyncio_connection.AsyncioConnection`, you can request
+With non-blocking adapters, such as ``pika.SelectConnection`` and
+``pika.adapters.asyncio_connection.AsyncioConnection``, you can request
 a connection using multiple connection parameter instances via the connection
 adapter's `create_connection()` class method.
 
@@ -130,7 +130,7 @@ The code running in the other thread may request the `ack_message()` function
 to be executed in the connection adapter's I/O loop thread using an
 adapter-specific mechanism:
 
-- :py:class:`pika.BlockingConnection` abstracts its I/O loop from the application
+- ``pika.BlockingConnection`` abstracts its I/O loop from the application
   and thus exposes :py:meth:`pika.BlockingConnection.add_callback_threadsafe()`.
   Refer to this method's docstring for additional information. For example:
 
@@ -139,14 +139,14 @@ adapter-specific mechanism:
       connection.add_callback_threadsafe(functools.partial(ack_message, channel, delivery_tag))
 
 - When using a non-blocking connection adapter, such as
-:py:class:`pika.adapters.asyncio_connection.AsyncioConnection` or
-:py:class:`pika.SelectConnection`, you use the underlying asynchronous
+``pika.adapters.asyncio_connection.AsyncioConnection`` or
+``pika.SelectConnection``, you use the underlying asynchronous
 framework's native API for requesting an I/O loop-bound callback from
-another thread. For example, :py:class:`pika.SelectConnection`'s I/O loop
+another thread. For example, ``pika.SelectConnection``'s I/O loop
 provides `add_callback_threadsafe()`,
-:py:class:`adapters.tornado_connection.TornadoConnection`'s I/O loop has
+``adapters.tornado_connection.TornadoConnection``'s I/O loop has
 `add_callback()`, while
-:py:class:`pika.adapters.asyncio_connection.AsyncioConnection`'s I/O loop exposes
+``pika.adapters.asyncio_connection.AsyncioConnection``'s I/O loop exposes
 `call_soon_threadsafe()`.
 
 This threadsafe callback request mechanism may also be used to delegate
@@ -165,7 +165,7 @@ straightforward process. Pika falls into the second category.
 Pika supports multiple connection adapters. They take different approaches to
 connection recovery.
 
-For :py:class:`pika.BlockingConnection` adapter exception handling can be used
+For ``pika.BlockingConnection`` adapter exception handling can be used
 to check for connection errors. Here's a very basic example:
 
 .. code :: python
@@ -242,21 +242,21 @@ Extending to support additional I/O frameworks
 New non-blocking adapters may be implemented in either of the following ways:
 
 - By subclassing
-  :py:class:`pika.adapters.base_connection.BaseConnection` and
+  ``pika.adapters.base_connection.BaseConnection`` and
   implementing its abstract method(s) and passing
-  :py:class:`pika.BaseConnection`'s constructor an implementation of
-  :py.class:`pika.adapters.utils.nbio_interface.AbstractIOServices`.
-  :py:class:`pika.BaseConnection` implements
+  ``pika.BaseConnection``'s constructor an implementation of
+  ``pika.adapters.utils.nbio_interface.AbstractIOServices``.
+  ``pika.BaseConnection`` implements
   `pika.connection.connection.Connection`'s pure virtual methods,
   including internally-initiated connection logic. For examples, refer
   to the implementations of
-  :py:class:`pika.adapters.asyncio_connection.AsyncioConnection` and
-  :py:class:`pika.adapters.tornado_connection.TornadoConnection`.
-- By subclassing :py:class:`pika.connection.connection.Connection` and
+  ``pika.adapters.asyncio_connection.AsyncioConnection`` and
+  ``pika.adapters.tornado_connection.TornadoConnection``.
+- By subclassing ``pika.connection.connection.Connection`` and
   implementing its abstract method(s). This approach facilitates implementation
   of of custom connection-establishment and transport mechanisms. For an
   example, refer to the implementation of
-  :py:class:`pika.adapters.twisted_connection.TwistedProtocolConnection`.
+  ``pika.adapters.twisted_connection.TwistedProtocolConnection``.
 
 .. |Version| image:: https://img.shields.io/pypi/v/pika.svg?
    :target: http://badge.fury.io/py/pika
