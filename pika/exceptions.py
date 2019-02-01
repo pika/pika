@@ -77,7 +77,7 @@ class ConnectionWrongStateError(AMQPConnectionError):
             return super(ConnectionWrongStateError, self).__repr__()
         else:
             return ('%s: The connection is in wrong state for the requested '
-                    'operation.' % (self.__class__.__name__))
+                    'operation.' % self.__class__.__name__)
 
 
 class ConnectionClosed(AMQPConnectionError):
@@ -214,7 +214,7 @@ class DuplicateConsumerTag(AMQPChannelError):
 class ConsumerCancelled(AMQPChannelError):
 
     def __repr__(self):
-        return '%s: Server cancelled consumer' % (self.__class__.__name__)
+        return '%s: Server cancelled consumer' % self.__class__.__name__
 
 
 class UnroutableError(AMQPChannelError):

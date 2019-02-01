@@ -230,8 +230,7 @@ def generate(specPath):
                     print("            bit_buffer = 0")
                     bitindex = 0
                 print("            if self.%s:" % pyize(f.name))
-                print("                bit_buffer = bit_buffer | (1 << %d)" %
-                      bitindex)
+                print("                bit_buffer |= 1 << %d" % bitindex)
                 bitindex += 1
             else:
                 finishBits()
