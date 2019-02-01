@@ -56,9 +56,6 @@ class ConstructibleConnection(connection.Connection):
     def _adapter_emit_data(self, data):
         raise NotImplementedError
 
-    def _adapter_get_write_buffer_size(self):
-        raise NotImplementedError
-
 
 class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
     def setUp(self):
@@ -947,14 +944,8 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
         ConstructibleConnection,
         '_adapter_emit_data',
         spec_set=connection.Connection._adapter_emit_data)
-    @mock.patch.object(
-        ConstructibleConnection,
-        '_adapter_get_write_buffer_size',
-        spec_set=connection.Connection._adapter_get_write_buffer_size,
-        return_value = 1000)
     def test_send_message_updates_frames_sent_and_bytes_sent(
             self,
-            _adapter_get_write_buffer_size,
             _adapter_emit_data):
         self.connection._flush_outbound = mock.Mock()
         self.connection._body_max_length = 10000

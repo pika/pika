@@ -400,16 +400,6 @@ class BaseConnection(connection.Connection):
         """
         self._transport.write(data)
 
-    def _adapter_get_write_buffer_size(self):
-        """
-        Subclasses must override this
-
-        :return: Current size of output data buffered by the transport
-        :rtype: int
-
-        """
-        return self._transport.get_write_buffer_size()
-
     def _proto_connection_made(self, transport):
         """Introduces transport to protocol after transport is connected.
 

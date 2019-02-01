@@ -137,6 +137,13 @@ class SelectConnection(BaseConnection):
             workflow=workflow,
             on_done=on_done)
 
+    def _adapter_get_write_buffer_size(self):
+        """
+        :return: Current size of output data buffered by the transport
+        :rtype: int
+        """
+        return self._transport.get_write_buffer_size()
+
 
 class _Timeout(object):
     """Represents a timeout"""

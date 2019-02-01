@@ -1147,15 +1147,6 @@ class _TwistedConnectionAdapter(pika.connection.Connection):
         """
         self._transport.write(data)
 
-    def _adapter_get_write_buffer_size(self):
-        """Implement pure virtual
-        :py:ref:meth:`pika.connection.Connection._adapter_emit_data()` method.
-
-        This method only belongs in SelectConnection, no others need it
-        and twisted transport doesn't expose it.
-        """
-        raise NotImplementedError
-
     def connection_made(self, transport):
         """Introduces transport to protocol after transport is connected.
 
