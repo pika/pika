@@ -5,7 +5,7 @@ Pika is a RabbitMQ (AMQP-0-9-1) client library for Python.
 |Version| |Python versions| |Status| |Coverage| |License| |Docs|
 
 Introduction
--------------
+------------
 Pika is a pure-Python implementation of the AMQP 0-9-1 protocol including
 RabbitMQ's extensions.
 
@@ -14,7 +14,7 @@ RabbitMQ's extensions.
   require threads. Pika core takes care not to forbid them, either. The same
   goes for greenlets, callbacks, continuations, and generators. An instance of
   Pika's built-in connection adapters is not thread-safe, however.
-- People may be using direct sockets, plain old `select()`,
+- People may be using direct sockets, plain old ``select()``,
   or any of the wide variety of ways of getting network events to and from a
   python application. Pika tries to stay compatible with all of these, and to
   make adapting it to a new environment as simple as possible.
@@ -66,17 +66,22 @@ And an example of writing a blocking consumer:
 Pika provides the following adapters
 ------------------------------------
 
-- ``AsyncioConnection`` - adapter for the Python3 AsyncIO I/O loop.
-- ``BlockingConnection`` - synchronous adapter on top of library for simple usage.
-- ``SelectConnection`` - fast asynchronous adapter without third-party dependencies.
-- ``TornadoConnection`` - adapter for use with the Tornado I/O loop http://tornadoweb.org.
-- ``TwistedProtocolConnection`` - adapter for use with the Twisted asynchronous package http://twistedmatrix.com.
+- ``pika.adapters.asyncio_connection.AsyncioConnection`` - adapter for the
+  Python3 AsyncIO I/O loop.
+- ``pika.BlockingConnection`` - synchronous adapter on top of library for
+  simple usage.
+- ``pika.SelectConnection`` - fast asynchronous adapter without third-party
+  dependencies.
+- ``pika.adapters.tornado_connection.TornadoConnection`` - adapter for use
+  with the Tornado I/O loop http://tornadoweb.org.
+- ``pika.adapters.twisted_connection.TwistedProtocolConnection`` - adapter for
+  use with the Twisted asynchronous package http://twistedmatrix.com.
 
 Multiple connection parameters
 ------------------------------
 You can also pass multiple ``pika.ConnectionParameters`` instances for
 fault-tolerance as in the code snippet below (host names are just examples, of
-course). To enable retries, set `connection_attempts` and `retry_delay` as
+course). To enable retries, set ``connection_attempts`` and ``retry_delay`` as
 needed in the last ``pika.ConnectionParameters`` element of the
 sequence.  Retries occur after connection attempts using all of the given
 connection parameters fail.
@@ -94,7 +99,7 @@ connection parameters fail.
 With non-blocking adapters, such as ``pika.SelectConnection`` and
 ``pika.adapters.asyncio_connection.AsyncioConnection``, you can request
 a connection using multiple connection parameter instances via the connection
-adapter's `create_connection()` class method.
+adapter's ``create_connection()`` class method.
 
 Requesting message ACKs from another thread
 -------------------------------------------
@@ -126,12 +131,12 @@ might look like this:
             # log and/or do something that makes sense for your app in this case.
             pass
 
-The code running in the other thread may request the `ack_message()` function
+The code running in the other thread may request the ``ack_message()`` function
 to be executed in the connection adapter's I/O loop thread using an
 adapter-specific mechanism:
 
 - ``pika.BlockingConnection`` abstracts its I/O loop from the application
-  and thus exposes :py:meth:`pika.BlockingConnection.add_callback_threadsafe()`.
+  and thus exposes ``pika.BlockingConnection.add_callback_threadsafe()``.
   Refer to this method's docstring for additional information. For example:
 
   .. code :: python
@@ -143,9 +148,9 @@ adapter-specific mechanism:
 ``pika.SelectConnection``, you use the underlying asynchronous
 framework's native API for requesting an I/O loop-bound callback from
 another thread. For example, ``pika.SelectConnection``'s I/O loop
-provides `add_callback_threadsafe()`,
-``adapters.tornado_connection.TornadoConnection``'s I/O loop has
-`add_callback()`, while
+provides ``add_callback_threadsafe()``,
+``pika.adapters.tornado_connection.TornadoConnection``'s I/O loop has
+``add_callback()``, while
 ``pika.adapters.asyncio_connection.AsyncioConnection``'s I/O loop exposes
 `call_soon_threadsafe()`.
 
@@ -216,12 +221,12 @@ retries and limiting the number of retries:
 
 This example can be found in `examples/consume_recover_retry.py`.
 
-For asynchronous adapters, use `on_close_callback` to react to connection
+For asynchronous adapters, use ``on_close_callback`` to react to connection
 failure events. This callback can be used to clean up and recover the
 connection.
 
-An example of recovery using `on_close_callback` can be found
-in `examples/asynchronous_consumer_example.py`
+An example of recovery using ``on_close_callback`` can be found
+in `examples/asynchronous_consumer_example.py`.
 
 Contributing
 ------------
