@@ -135,7 +135,7 @@ to be executed in the connection adapter's I/O loop thread using an
 adapter-specific mechanism:
 
 - ``pika.BlockingConnection`` abstracts its I/O loop from the application and
-  thus exposes ``pika.BlockingConnection.add_callback_threadsafe()``.  Refer to
+  thus exposes ``pika.BlockingConnection.add_callback_threadsafe()``. Refer to
   this method's docstring for additional information. For example:
 
   .. code :: python
