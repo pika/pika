@@ -32,7 +32,7 @@ Here is the most simple example of use, sending a message with the
 .. code :: python
 
     import pika
-    
+
     connection = pika.BlockingConnection()
     channel = connection.channel()
     channel.basic_publish(exchange='test', routing_key='test',
@@ -44,19 +44,19 @@ And an example of writing a blocking consumer:
 .. code :: python
 
     import pika
-    
+
     connection = pika.BlockingConnection()
     channel = connection.channel()
-    
+
     for method_frame, properties, body in channel.consume('test'):
         # Display the message parts and acknowledge the message
         print(method_frame, properties, body)
         channel.basic_ack(method_frame.delivery_tag)
-        
+
         # Escape out of the loop after 10 messages
         if method_frame.delivery_tag == 10:
             break
-    
+
     # Cancel the consumer and return any pending messages
     requeued_messages = channel.cancel()
     print('Requeued %i messages' % requeued_messages)
@@ -88,7 +88,7 @@ parameters fail.
 .. code :: python
 
     import pika
-    
+
     parameters = (
         pika.ConnectionParameters(host='rabbitmq.zone1.yourdomain.com'),
         pika.ConnectionParameters(host='rabbitmq.zone2.yourdomain.com',
@@ -175,7 +175,7 @@ for connection errors. Here is a very basic example:
 .. code :: python
 
     import pika
-    
+
     while True:
         try:
             connection = pika.BlockingConnection(parameters)
@@ -202,21 +202,21 @@ retries and limiting the number of retries:
 .. code :: python
 
     from retry import retry
-    
-    
+
+
     @retry(pika.exceptions.AMQPConnectionError, delay=5, jitter=(1, 3))
     def consume():
         connection = pika.BlockingConnection(parameters)
         channel = connection.channel()
         channel.basic_consume('test', on_message_callback)
-        
+
         try:
             channel.start_consuming()
         # Don't recover connections closed by server
         except pika.exceptions.ConnectionClosedByBroker:
             pass
-    
-    
+
+
     consume()
 
 This example can be found in `examples/consume_recover_retry.py`.
