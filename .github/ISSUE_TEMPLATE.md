@@ -1,15 +1,18 @@
 Thank you for using Pika.
 
-GitHub issues are **strictly** used for actionable work and pull
-requests.
+- IMPORTANT ---------------------------------------------------
+|                                                             |
+| STOP NOW AND READ THIS BEFORE OPENING A NEW ISSUE ON GITHUB |
+|                                                             |
+---------------------------------------------------------------
 
-Pika's maintainers do NOT use GitHub issues for questions, root cause
-analysis, conversations, code reviews, etc.
+Unless you are CERTAIN you have found a reproducible bug in Pika, you must
+first ask your question, discuss your suspected issue, or propose your new
+feature on the mailing list:
 
-Please direct all non-work issues to either the `pika-python` or
-`rabbitmq-users` mailing list:
+https://groups.google.com/forum/#!forum/pika-python
 
-* https://groups.google.com/forum/#!forum/pika-python
-* https://groups.google.com/forum/#!forum/rabbitmq-users
+Pika's maintainers do NOT use GitHub issues for questions, root cause analysis,
+conversations, code reviews, etc.
 
-Thank you
+Thank you!
