@@ -249,9 +249,9 @@ New non-blocking adapters may be implemented in either of the following ways:
 - By subclassing ``pika.BaseConnection``, implementing its abstract method and
   passing its constructor an implementation of
   ``pika.adapters.utils.nbio_interface.AbstractIOServices``.
-  ``pika.BaseConnection`` implements ``pika.connection.Connection``'s pure
-  virtual methods, including internally-initiated connection logic. For
-  examples, refer to the implementations of
+  ``pika.BaseConnection`` implements ``pika.connection.Connection``'s abstract
+  methods, including internally-initiated connection logic. For examples, refer
+  to the implementations of
   ``pika.adapters.asyncio_connection.AsyncioConnection`` and
   ``pika.adapters.tornado_connection.TornadoConnection``.
 - By subclassing ``pika.connection.Connection`` and implementing its abstract
