@@ -21,8 +21,7 @@ RabbitMQ's extensions.
 
 Documentation
 -------------
-Pika's documentation can be found at
-`https://pika.readthedocs.io <https://pika.readthedocs.io>`_.
+Pika's documentation can be found at https://pika.readthedocs.io.
 
 Example
 -------
@@ -66,15 +65,16 @@ Pika provides the following adapters
 ------------------------------------
 
 - ``pika.adapters.asyncio_connection.AsyncioConnection`` - asynchronous adapter
-  for the Python 3 AsyncIO I/O loop.
+  for Python 3 `AsyncIO <https://docs.python.org/3/library/asyncio.html>`_'s
+  I/O loop.
 - ``pika.BlockingConnection`` - synchronous adapter on top of library for
   simple usage.
 - ``pika.SelectConnection`` - asynchronous adapter without third-party
   dependencies.
 - ``pika.adapters.tornado_connection.TornadoConnection`` - asynchronous adapter
-  for use with the Tornado I/O loop http://tornadoweb.org.
+  for use with `Tornado <http://tornadoweb.org>`_'s I/O loop.
 - ``pika.adapters.twisted_connection.TwistedProtocolConnection`` - asynchronous
-  adapter for use with the Twisted I/O loop http://twistedmatrix.com.
+  adapter for use with `Twisted <http://twistedmatrix.com>`_'s I/O loop.
 
 Multiple connection parameters
 ------------------------------
@@ -178,7 +178,7 @@ for connection errors. Here is a very basic example:
 
     while True:
         try:
-            connection = pika.BlockingConnection(parameters)
+            connection = pika.BlockingConnection()
             channel = connection.channel()
             channel.basic_consume('test', on_message_callback)
             channel.start_consuming()
@@ -206,7 +206,7 @@ retries and limiting the number of retries:
 
     @retry(pika.exceptions.AMQPConnectionError, delay=5, jitter=(1, 3))
     def consume():
-        connection = pika.BlockingConnection(parameters)
+        connection = pika.BlockingConnection()
         channel = connection.channel()
         channel.basic_consume('test', on_message_callback)
 
@@ -246,17 +246,16 @@ Extending to support additional I/O frameworks
 ----------------------------------------------
 New non-blocking adapters may be implemented in either of the following ways:
 
-- By subclassing ``pika.adapters.base_connection.BaseConnection`` and
-  implementing its abstract method(s) and passing ``pika.BaseConnection``'s
-  constructor an implementation of
+- By subclassing ``pika.BaseConnection``, implementing its abstract method and
+  passing its constructor an implementation of
   ``pika.adapters.utils.nbio_interface.AbstractIOServices``.
-  ``pika.BaseConnection`` implements `pika.connection.connection.Connection`'s
-  pure virtual methods, including internally-initiated connection logic. For
+  ``pika.BaseConnection`` implements ``pika.connection.Connection``'s pure
+  virtual methods, including internally-initiated connection logic. For
   examples, refer to the implementations of
   ``pika.adapters.asyncio_connection.AsyncioConnection`` and
   ``pika.adapters.tornado_connection.TornadoConnection``.
-- By subclassing ``pika.connection.connection.Connection`` and implementing its
-  abstract method(s). This approach facilitates implementation of custom
+- By subclassing ``pika.connection.Connection`` and implementing its abstract
+  methods. This approach facilitates implementation of custom
   connection-establishment and transport mechanisms. For an example, refer to
   the implementation of
   ``pika.adapters.twisted_connection.TwistedProtocolConnection``.
