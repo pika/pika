@@ -53,6 +53,7 @@ def callback(ch, method, properties, body):
     process_buffer()
 
 
+consumer_channel.basic_qos(prefetch_count=1)
 consumer_channel.basic_consume(queue, callback, auto_ack=True)
 
 try:
