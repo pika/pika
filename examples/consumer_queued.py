@@ -27,7 +27,6 @@ queue_tickers = main_channel.queue_declare('', exclusive=True).method.queue
 main_channel.queue_bind(exchange='com.micex.sten', queue=queue, routing_key='order.stop.create')
 
 
-
 def process_buffer():
     if not lock.acquire(False):
         print('locked!')
@@ -37,8 +36,10 @@ def process_buffer():
             body = buffer.pop(0)
 
             ticker = None
-            if 'ticker' in body['data']['params']['condition']: ticker = body['data']['params']['condition']['ticker']
-            if not ticker: continue
+            if 'ticker' in body['data']['params']['condition']:
+                ticker = body['data']['params']['condition']['ticker']
+            if not ticker:
+                continue
 
             print('got ticker %s, gonna bind it...' % ticker)
             bind_channel.queue_bind(exchange='com.micex.lasttrades', queue=queue_tickers, routing_key=str(ticker))
@@ -53,7 +54,6 @@ def callback(ch, method, properties, body):
     process_buffer()
 
 
-consumer_channel.basic_qos(prefetch_count=1)
 consumer_channel.basic_consume(queue, callback, auto_ack=True)
 
 try:

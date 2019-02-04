@@ -45,6 +45,7 @@ class ExampleConsumer(object):
         self._consumer_tag = None
         self._url = amqp_url
         self._consuming = False
+        # Increase prefetch for higher consumer throughput
         self._prefetch_count = 1
 
     def connect(self):
