@@ -45,6 +45,8 @@ class ExampleConsumer(object):
         self._consumer_tag = None
         self._url = amqp_url
         self._consuming = False
+        # Increase prefetch for higher consumer throughput
+        self._prefetch_count = 1
 
     def connect(self):
         """This method connects to RabbitMQ, returning the connection handle.
@@ -218,14 +220,34 @@ class ExampleConsumer(object):
 
     def on_bindok(self, _unused_frame, userdata):
         """Invoked by pika when the Queue.Bind method has completed. At this
-        point we will start consuming messages by calling start_consuming
-        which will invoke the needed RPC commands to start the process.
+        point we will set the prefetch count for the channel.
 
         :param pika.frame.Method _unused_frame: The Queue.BindOk response frame
         :param str|unicode userdata: Extra user data (queue name)
 
         """
         LOGGER.info('Queue bound: %s', userdata)
+        self.set_qos()
+
+    def set_qos(self):
+        """This method sets up the consumer prefetch to only be delivered
+        one message at a time. The consumer must acknowledge this message
+        before RabbitMQ will deliver another one. You should experiment
+        with different prefetch values to achieve desired performance.
+
+        """
+        self._channel.basic_qos(
+            prefetch_count=self._prefetch_count, callback=self.on_basic_qos_ok)
+
+    def on_basic_qos_ok(self, _unused_frame):
+        """Invoked by pika when the Basic.QoS method has completed. At this
+        point we will start consuming messages by calling start_consuming
+        which will invoke the needed RPC commands to start the process.
+
+        :param pika.frame.Method _unused_frame: The Basic.QosOk response frame
+
+        """
+        LOGGER.info('QOS set to: %d', self._prefetch_count)
         self.start_consuming()
 
     def start_consuming(self):
