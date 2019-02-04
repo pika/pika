@@ -608,7 +608,7 @@ class _PollerBase(pika.compat.AbstractBase):  # pylint: disable=R0902
         self._processing_fd_event_map = {}
 
         # Reentrancy tracker of the `start` method
-        self._start_nesting_levels = 0
+        self._running = False
 
         self._stopping = False
 
@@ -629,8 +629,8 @@ class _PollerBase(pika.compat.AbstractBase):  # pylint: disable=R0902
         # Unregister and close ioloop-interrupt socket pair; mutual exclusion is
         # necessary to avoid race condition with `wake_threadsafe` executing in
         # another thread's context
-        assert self._start_nesting_levels == 0, \
-            'Cannot call close() before start() unwinds.'
+        assert self._running, \
+            'Cannot call close() without first calling start().'
 
         with self._waking_mutex:
             if self._w_interrupt is not None:
@@ -777,41 +777,32 @@ class _PollerBase(pika.compat.AbstractBase):  # pylint: disable=R0902
         self._uninit_poller()
 
     def start(self):
-        """Start the main poller loop. It will loop until requested to exit
+        """Start the main poller loop. It will loop until requested to exit.
+        This method is not reentrant and will raise an error if called
+        recursively (pika/pika#1095)
+
+        :raises: RuntimeError
 
         """
-        self._start_nesting_levels += 1
-
-        if self._start_nesting_levels == 1:
-            LOGGER.debug('Entering IOLoop')
-
-            # Activate the underlying poller and register current events
-            self.activate_poller()
-
+        if self._running:
+            raise RuntimeError('IOLoop is not reentrant and is already running')
         else:
-            LOGGER.debug('Reentering IOLoop at nesting level=%s',
-                         self._start_nesting_levels)
+            LOGGER.debug('Entering IOLoop')
+            self._running = True
+            self.activate_poller()
 
         try:
             # Run event loop
             while not self._stopping:
                 self.poll()
                 self._process_timeouts()
-
         finally:
-            self._start_nesting_levels -= 1
-
-            if self._start_nesting_levels == 0:
-                try:
-                    LOGGER.debug('Deactivating poller')
-
-                    # Deactivate the underlying poller
-                    self.deactivate_poller()
-                finally:
-                    self._stopping = False
-            else:
-                LOGGER.debug('Leaving IOLoop with %s nesting levels remaining',
-                             self._start_nesting_levels)
+            try:
+                LOGGER.debug('Deactivating poller')
+                self.deactivate_poller()
+            finally:
+                self._stopping = False
+                self._running = False
 
     def stop(self):
         """Request exit from the ioloop. The loop is NOT guaranteed to stop
@@ -820,7 +811,6 @@ class _PollerBase(pika.compat.AbstractBase):  # pylint: disable=R0902
         """
         LOGGER.debug('Stopping IOLoop')
         self._stopping = True
-
         self.wake_threadsafe()
 
     @abc.abstractmethod
