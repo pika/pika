@@ -53,7 +53,9 @@ def callback(ch, method, properties, body):
     buffer.append(body)
     process_buffer()
 
-
+# Note: consuming with automatic acknowledgements has its risks
+#       and used here for simplicity.
+#       See https://www.rabbitmq.com/confirms.html.
 consumer_channel.basic_consume(queue, callback, auto_ack=True)
 
 try:
