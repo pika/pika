@@ -4,6 +4,7 @@ language: python
 # github.com/travis-ci/travis-ci/issues/8711. See also related reference in
 # before_script section.
 sudo: false
+dist: xenial
 
 addons:
   apt:
