@@ -3,23 +3,19 @@ language: python
 # Turn on sudo mode to facilitate the IPv6 workaround per
 # github.com/travis-ci/travis-ci/issues/8711. See also related reference in
 # before_script section.
-sudo: true
+sudo: false
 
 addons:
   apt:
     sources:
-      - sourceline: deb https://packages.erlang-solutions.com/ubuntu trusty contrib
-        key_url: https://packages.erlang-solutions.com/ubuntu/erlang_solutions.asc
+      - sourceline: deb https://dl.bintray.com/rabbitmq-erlang/debian xenial erlang
+      - sourceline: deb https://dl.bintray.com/rabbitmq/debian xenial main
+        key_url: https://github.com/rabbitmq/signing-keys/releases/download/2.0/rabbitmq-release-signing-key.asc
     packages:
-      # apt-cache show erlang-nox=1:20.3-1 | grep Depends | tr ' ' '\n' | grep erlang | grep -v erlang-base-hipe | tr -d ',' | sed 's/$/=1:20.3-1/'
-      - erlang-nox
+      - rabbitmq-server
 
 env:
   global:
-    - RABBITMQ_VERSION=3.7.11
-    - RABBITMQ_DOWNLOAD_URL="https://github.com/rabbitmq/rabbitmq-server/releases/download/v$RABBITMQ_VERSION/rabbitmq-server-generic-unix-$RABBITMQ_VERSION.tar.xz"
-    - RABBITMQ_TAR="rabbitmq-$RABBITMQ_VERSION.tar.xz"
-    - PATH=$HOME/.local/bin:$PATH
     - AWS_DEFAULT_REGION=us-east-1
     - secure: "Eghft2UgJmWuCgnqz6O+KV5F9AERzUbKIeXkcw7vsFAVdkB9z01XgqVLhQ6N+n6i8mkiRDkc0Jes6htVtO4Hi6lTTFeDhu661YCXXTFdRdsx+D9v5bgw8Q2bP41xFy0iao7otYqkzFKIo32Q2cUYzMUqXlS661Yai5DXldr3mjM="
     - secure: "LjieH/Yh0ng5gwT6+Pl3rL7RMxxb/wOlogoLG7cS99XKdX6N4WRVFvWbHWwCxoVr0be2AcyQynu4VOn+0jC8iGfQjkJZ7UrJjZCDGWbNjAWrNcY0F9VdretFDy8Vn2sHfBXq8fINqszJkgTnmbQk8dZWUtj0m/RNVnOBeBcsIOU="
@@ -33,24 +29,13 @@ stages:
 
 cache:
   apt: true
-  directories:
-    - $HOME/.cache
 
 install:
   - pip install -r test-requirements.txt
   - pip install awscli==1.11.18
-  - if [ ! -d "$HOME/.cache" ]; then mkdir "$HOME/.cache"; fi
-  - if [ -s "$HOME/.cache/$RABBITMQ_TAR" ]; then echo "[INFO] found cached $RABBITMQ_TAR file"; else wget -O "$HOME/.cache/$RABBITMQ_TAR" "$RABBITMQ_DOWNLOAD_URL"; fi
-  - tar -C "$TRAVIS_BUILD_DIR" -xvf "$HOME/.cache/$RABBITMQ_TAR"
-  - sed -e "s#PIKA_DIR#$TRAVIS_BUILD_DIR#g" "$TRAVIS_BUILD_DIR/testdata/rabbitmq.conf.in" > "$TRAVIS_BUILD_DIR/testdata/rabbitmq.conf"
 
 before_script:
-  # Enable IPv6 for our tests - see github.com/travis-ci/travis-ci/issues/8711
-  - echo 0 | sudo tee /proc/sys/net/ipv6/conf/all/disable_ipv6
   - pip freeze
-  - /bin/sh -c "RABBITMQ_PID_FILE=$TRAVIS_BUILD_DIR/rabbitmq.pid RABBITMQ_CONFIG_FILE=$TRAVIS_BUILD_DIR/testdata/rabbitmq $TRAVIS_BUILD_DIR/rabbitmq_server-$RABBITMQ_VERSION/sbin/rabbitmq-server &"
-  - /bin/sh "$TRAVIS_BUILD_DIR/rabbitmq_server-$RABBITMQ_VERSION/sbin/rabbitmqctl" wait "$TRAVIS_BUILD_DIR/rabbitmq.pid"
-  - /bin/sh "$TRAVIS_BUILD_DIR/rabbitmq_server-$RABBITMQ_VERSION/sbin/rabbitmqctl" status
 
 script:
   # See https://github.com/travis-ci/travis-ci/issues/1066 and https://github.com/pika/pika/pull/984#issuecomment-370565220
