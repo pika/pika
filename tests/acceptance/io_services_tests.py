@@ -735,19 +735,6 @@ class TestConnectSocketIPv4Cancel(SocketConnectorTestBase,
         self.check_cancel_connect(socket.AF_INET)
 
 
-class TestConnectSocketIPv6Success(SocketConnectorTestBase,
-                                   IOServicesTestStubs):
-
-    def start(self):
-        self.check_successful_connect(family=socket.AF_INET6)
-
-
-class TestConnectSocketIPv6Fail(SocketConnectorTestBase, IOServicesTestStubs):
-
-    def start(self):
-        self.check_failed_connect(socket.AF_INET6)
-
-
 class StreamingTestBase(AsyncServicesTestBase):
     pass
 
