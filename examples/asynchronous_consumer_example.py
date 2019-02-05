@@ -15,10 +15,10 @@ class ExampleConsumer(object):
     """This is an example consumer that will handle unexpected interactions
     with RabbitMQ such as channel and connection closures.
 
-    If RabbitMQ closes the connection, it will reopen it. You should
-    look at the output, as there are limited reasons why the connection may
-    be closed, which usually are tied to permission related issues or
-    socket timeouts.
+    If RabbitMQ closes the connection, this class will stop and indicate
+    that reconnection is necessary. You should look at the output, as
+    there are limited reasons why the connection may be closed, which
+    usually are tied to permission related issues or socket timeouts.
 
     If the channel is closed, it will indicate a problem with one of the
     commands that were issued and that should surface in the output as well.
@@ -99,13 +99,13 @@ class ExampleConsumer(object):
         if self._closing:
             self._connection.ioloop.stop()
         else:
-            LOGGER.warning('Connection closed, reopening in 5 seconds: %s',
-                           reason)
+            LOGGER.warning('Connection closed, reconnect necessary: %s', reason)
             self.reconnect()
 
     def reconnect(self):
-        """Will be invoked by the IOLoop timer if the connection is
-        closed. See the on_connection_closed method.
+        """Will be invoked if the connection can't be opened or is
+        closed. Indicates that a reconnect is necessary then stops the
+        ioloop.
 
         """
         self.should_reconnect = True
@@ -389,26 +389,49 @@ class ExampleConsumer(object):
             self._connection.close()
 
 
-def main():
-    reconnect_delay = 0
-    logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT)
-    while True:
-        try:
-            example = ExampleConsumer('amqp://guest:guest@localhost:5672/%2F')
-            example.run()
-        except KeyboardInterrupt:
-            example.stop()
-            break
-        if example.should_reconnect:
-            example.stop()
-            if example.was_consuming:
-                reconnect_delay = 0
-            else:
-                reconnect_delay += 1
-            if reconnect_delay > 30:
-                reconnect_delay = 30
+class ReconnectingExampleConsumer(object):
+    """This is an example consumer that will reconnect if the nested
+    ExampleConsumer indicates that a reconnect is necessary.
+
+    """
+
+    def __init__(self, amqp_url):
+        self._reconnect_delay = 0
+        self._amqp_url = amqp_url
+        self._consumer = ExampleConsumer(self._amqp_url)
+
+    def run(self):
+        while True:
+            try:
+                self._consumer.run()
+            except KeyboardInterrupt:
+                self._consumer.stop()
+                break
+            self._maybe_reconnect()
+
+    def _maybe_reconnect(self):
+        if self._consumer.should_reconnect:
+            self._consumer.stop()
+            reconnect_delay = self._get_reconnect_delay()
             LOGGER.info('Reconnecting after %d seconds', reconnect_delay)
             time.sleep(reconnect_delay)
+            self._consumer = ExampleConsumer(self._amqp_url)
+
+    def _get_reconnect_delay(self):
+        if self._consumer.was_consuming:
+            self._reconnect_delay = 0
+        else:
+            self._reconnect_delay += 1
+        if self._reconnect_delay > 30:
+            self._reconnect_delay = 30
+        return self._reconnect_delay
+
+
+def main():
+    logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT)
+    amqp_url = 'amqp://guest:guest@localhost:5672/%2F'
+    consumer = ReconnectingExampleConsumer(amqp_url)
+    consumer.run()
 
 
 if __name__ == '__main__':
