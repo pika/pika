@@ -16,8 +16,8 @@ extend the :class:`~pika.credentials.ExternalCredentials` class implementing
 the required behavior.
 
 """
-from .compat import as_bytes
 import logging
+from .compat import as_bytes
 
 LOGGER = logging.getLogger(__name__)
 
@@ -108,7 +108,7 @@ class ExternalCredentials(object):
             return not result
         return NotImplemented
 
-    def response_for(self, start):
+    def response_for(self, start): # pylint: disable=R0201
         """Validate that this type of authentication is supported
 
         :param spec.Connection.Start start: Connection.Start method
@@ -120,7 +120,7 @@ class ExternalCredentials(object):
             return None, None
         return ExternalCredentials.TYPE, b''
 
-    def erase_credentials(self):
+    def erase_credentials(self): # pylint: disable=R0201
         """Called by Connection when it no longer needs the credentials"""
         LOGGER.debug('Not supported by this Credentials type')
 
