@@ -43,6 +43,10 @@ DRIVER_METHODS = {
 def fieldvalue(v):
     if isinstance(v, unicode):
         return repr(v.encode('ascii'))
+    elif isinstance(v, dict):
+        return repr(None)
+    elif isinstance(v, list):
+        return repr(None)
     else:
         return repr(v)
 
