@@ -13,7 +13,7 @@ import pika.frame as frame
 import pika.exceptions as exceptions
 import pika.spec as spec
 import pika.validators as validators
-from pika.compat import basestring, unicode_type, dictkeys, is_integer
+from pika.compat import unicode_type, dictkeys, is_integer
 
 LOGGER = logging.getLogger(__name__)
 

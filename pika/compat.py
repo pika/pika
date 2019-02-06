@@ -1,3 +1,9 @@
+"""The compat module provides various Python 2 / Python 3
+compatibility functions
+
+"""
+# pylint: disable=C0103
+
 import abc
 import os
 import platform
@@ -29,6 +35,7 @@ except AttributeError:
 
 if PY3:
     # these were moved around for Python 3
+    # pylint: disable=W0611
     from urllib.parse import (quote as url_quote, unquote as url_unquote,
                               urlencode, parse_qs as url_parse_qs, urlparse)
     from io import StringIO
@@ -115,22 +122,23 @@ if PY3:
         return str(value)
 
     def is_integer(value):
+        """
+        Is value an integer?
+        """
         return isinstance(value, int)
 else:
-    from urllib import quote as url_quote, unquote as url_unquote, urlencode
-
-    from urlparse import parse_qs as url_parse_qs, urlparse
-
-    from StringIO import StringIO
+    from urllib import (quote as url_quote, unquote as url_unquote, urlencode) # pylint: disable=C0412,E0611
+    from urlparse import (parse_qs as url_parse_qs, urlparse) # pylint: disable=E0401
+    from StringIO import StringIO # pylint: disable=E0401
 
     basestring = basestring
     str_or_bytes = basestring
     xrange = xrange
-    unicode_type = unicode
+    unicode_type = unicode # pylint: disable=E0602
     dictkeys = dict.keys
     dictvalues = dict.values
-    dict_iteritems = dict.iteritems
-    dict_itervalues = dict.itervalues
+    dict_iteritems = dict.iteritems # pylint: disable=E1101
+    dict_itervalues = dict.itervalues # pylint: disable=E1101
     byte = chr
     long = long
 
@@ -147,16 +155,25 @@ else:
             return str(value.encode('utf-8'))
 
     def is_integer(value):
+        """
+        Is value an integer?
+        """
         return isinstance(value, (int, long))
 
 
 def as_bytes(value):
+    """
+    Returns value as bytes
+    """
     if not isinstance(value, bytes):
         return value.encode('UTF-8')
     return value
 
 
 def to_digit(value):
+    """
+    Returns value as in integer
+    """
     if value.isdigit():
         return int(value)
     match = RE_NUM.match(value)
@@ -164,6 +181,9 @@ def to_digit(value):
 
 
 def get_linux_version(release_str):
+    """
+    Gets linux version
+    """
     ver_str = release_str.split('-')[0]
     return tuple(map(to_digit, ver_str.split('.')[:3]))
 
@@ -181,7 +201,7 @@ _LOCALHOST_V6 = '::1'
 
 
 def _nonblocking_socketpair(family=socket.AF_INET,
-                            type=socket.SOCK_STREAM,
+                            socket_type=socket.SOCK_STREAM,
                             proto=0):
     """
     Returns a pair of sockets in the manner of socketpair with the additional
@@ -195,18 +215,18 @@ def _nonblocking_socketpair(family=socket.AF_INET,
     else:
         raise ValueError('Only AF_INET and AF_INET6 socket address families '
                          'are supported')
-    if type != socket.SOCK_STREAM:
-        raise ValueError('Only SOCK_STREAM socket type is supported')
+    if socket_type != socket.SOCK_STREAM:
+        raise ValueError('Only SOCK_STREAM socket socket_type is supported')
     if proto != 0:
         raise ValueError('Only protocol zero is supported')
 
-    lsock = socket.socket(family, type, proto)
+    lsock = socket.socket(family, socket_type, proto)
     try:
         lsock.bind((host, 0))
         lsock.listen(min(socket.SOMAXCONN, 128))
         # On IPv6, ignore flow_info and scope_id
         addr, port = lsock.getsockname()[:2]
-        csock = socket.socket(family, type, proto)
+        csock = socket.socket(family, socket_type, proto)
         try:
             csock.connect((addr, port))
             ssock, _ = lsock.accept()

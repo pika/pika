@@ -85,7 +85,7 @@ def check_for_prefix_and_key(function):
             key = name_or_value(args[offset])
 
         # Make sure prefix and key are in the stack
-        if prefix not in args[0]._stack or key not in args[0]._stack[prefix]:
+        if prefix not in args[0]._stack or key not in args[0]._stack[prefix]:  # pylint: disable=W0212
             return False
 
         # Execute the method
