@@ -1,4 +1,5 @@
 """Pika specific exceptions"""
+# pylint: disable=C0111,E1136
 
 
 class AMQPError(Exception):
@@ -20,12 +21,10 @@ class AMQPConnectionError(AMQPError):
 
 class ConnectionOpenAborted(AMQPConnectionError):
     """Client closed connection while opening."""
-    pass
 
 
 class StreamLostError(AMQPConnectionError):
     """Stream (TCP) connection lost."""
-    pass
 
 
 class IncompatibleProtocolError(AMQPConnectionError):
@@ -122,22 +121,18 @@ class ConnectionClosed(AMQPConnectionError):
 
 class ConnectionClosedByBroker(ConnectionClosed):
     """Connection.Close from broker."""
-    pass
 
 
 class ConnectionClosedByClient(ConnectionClosed):
     """Connection was closed at request of Pika client."""
-    pass
 
 
 class ConnectionBlockedTimeout(AMQPConnectionError):
     """RabbitMQ-specific: timed out waiting for connection.unblocked."""
-    pass
 
 
 class AMQPHeartbeatTimeout(AMQPConnectionError):
     """Connection was dropped as result of heartbeat timeout."""
-    pass
 
 
 class AMQPChannelError(AMQPError):
@@ -148,7 +143,6 @@ class AMQPChannelError(AMQPError):
 
 class ChannelWrongStateError(AMQPChannelError):
     """Channel is in wrong state for the requested operation."""
-    pass
 
 
 class ChannelClosed(AMQPChannelError):
@@ -198,7 +192,6 @@ class ChannelClosedByBroker(ChannelClosed):
 
     NEW in v1.0.0
     """
-    pass
 
 
 class ChannelClosedByClient(ChannelClosed):
@@ -208,7 +201,6 @@ class ChannelClosedByClient(ChannelClosed):
 
     NEW in v1.0.0
     """
-    pass
 
 
 class DuplicateConsumerTag(AMQPChannelError):
