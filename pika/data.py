@@ -44,6 +44,7 @@ def encode_short_string(pieces, value):
 
 
 if PY2:
+
     def decode_short_string(encoded, offset):
         """Decode a short string value from ``encoded`` data at ``offset``.
         """
@@ -60,6 +61,7 @@ if PY2:
         return value, offset
 
 else:
+
     def decode_short_string(encoded, offset):
         """Decode a short string value from ``encoded`` data at ``offset``.
         """
@@ -146,15 +148,15 @@ def encode_value(pieces, value):
         value = value.normalize()
         if value.as_tuple().exponent < 0:
             decimals = -value.as_tuple().exponent
-            raw = int(value * (decimal.Decimal(10) ** decimals))
+            raw = int(value * (decimal.Decimal(10)**decimals))
             pieces.append(struct.pack('>cBi', b'D', decimals, raw))
         else:
             # per spec, the "decimals" octet is unsigned (!)
             pieces.append(struct.pack('>cBi', b'D', 0, int(value)))
         return 6
     elif isinstance(value, datetime):
-        pieces.append(struct.pack('>cQ', b'T',
-                                  calendar.timegm(value.utctimetuple())))
+        pieces.append(
+            struct.pack('>cQ', b'T', calendar.timegm(value.utctimetuple())))
         return 9
     elif isinstance(value, dict):
         pieces.append(struct.pack('>c', b'F'))
@@ -270,7 +272,7 @@ def decode_value(encoded, offset):
         offset += 1
         raw = struct.unpack_from('>i', encoded, offset)[0]
         offset += 4
-        value = decimal.Decimal(raw) * (decimal.Decimal(10) ** -decimals)
+        value = decimal.Decimal(raw) * (decimal.Decimal(10)**-decimals)
 
     # Short String
     elif kind == b's':
@@ -305,8 +307,8 @@ def decode_value(encoded, offset):
 
     # Timestamp
     elif kind == b'T':
-        value = datetime.utcfromtimestamp(struct.unpack_from('>Q', encoded,
-                                                             offset)[0])
+        value = datetime.utcfromtimestamp(
+            struct.unpack_from('>Q', encoded, offset)[0])
         offset += 8
 
     # Field Table

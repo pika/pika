@@ -12,8 +12,7 @@ class AMQPConnectionError(AMQPError):
 
     def __repr__(self):
         if len(self.args) == 2:
-            return '{}: ({}) {}'.format(self.__class__.__name__,
-                                        self.args[0],
+            return '{}: ({}) {}'.format(self.__class__.__name__, self.args[0],
                                         self.args[1])
         else:
             return '{}: {}'.format(self.__class__.__name__, self.args)
@@ -32,8 +31,11 @@ class StreamLostError(AMQPConnectionError):
 class IncompatibleProtocolError(AMQPConnectionError):
 
     def __repr__(self):
-        return ('%s: The protocol returned by the server is not supported: %s' %
-                (self.__class__.__name__, self.args,))
+        return (
+            '%s: The protocol returned by the server is not supported: %s' % (
+                self.__class__.__name__,
+                self.args,
+            ))
 
 
 class AuthenticationError(AMQPConnectionError):
@@ -49,8 +51,10 @@ class ProbableAuthenticationError(AMQPConnectionError):
     def __repr__(self):
         return (
             '%s: Client was disconnected at a connection stage indicating a '
-            'probable authentication error: %s' % (self.__class__.__name__,
-                                                   self.args,))
+            'probable authentication error: %s' % (
+                self.__class__.__name__,
+                self.args,
+            ))
 
 
 class ProbableAccessDeniedError(AMQPConnectionError):
@@ -58,8 +62,10 @@ class ProbableAccessDeniedError(AMQPConnectionError):
     def __repr__(self):
         return (
             '%s: Client was disconnected at a connection stage indicating a '
-            'probable denial of access to the specified virtual host: %s' %
-            (self.__class__.__name__, self.args,))
+            'probable denial of access to the specified virtual host: %s' % (
+                self.__class__.__name__,
+                self.args,
+            ))
 
 
 class NoFreeChannels(AMQPConnectionError):
@@ -94,8 +100,7 @@ class ConnectionClosed(AMQPConnectionError):
         super(ConnectionClosed, self).__init__(int(reply_code), str(reply_text))
 
     def __repr__(self):
-        return '{}: ({}) {!r}'.format(self.__class__.__name__,
-                                      self.reply_code,
+        return '{}: ({}) {!r}'.format(self.__class__.__name__, self.reply_code,
                                       self.reply_text)
 
     @property
@@ -113,6 +118,7 @@ class ConnectionClosed(AMQPConnectionError):
 
         """
         return self.args[1]
+
 
 class ConnectionClosedByBroker(ConnectionClosed):
     """Connection.Close from broker."""
@@ -149,6 +155,7 @@ class ChannelClosed(AMQPChannelError):
     """The channel closed by client or by broker
 
     """
+
     def __init__(self, reply_code, reply_text):
         """
 
@@ -164,8 +171,7 @@ class ChannelClosed(AMQPChannelError):
         super(ChannelClosed, self).__init__(int(reply_code), str(reply_text))
 
     def __repr__(self):
-        return '{}: ({}) {!r}'.format(self.__class__.__name__,
-                                      self.reply_code,
+        return '{}: ({}) {!r}'.format(self.__class__.__name__, self.reply_code,
                                       self.reply_text)
 
     @property
@@ -203,6 +209,7 @@ class ChannelClosedByClient(ChannelClosed):
     NEW in v1.0.0
     """
     pass
+
 
 class DuplicateConsumerTag(AMQPChannelError):
 
@@ -257,8 +264,8 @@ class NackError(AMQPChannelError):
         :type messages: sequence of `blocking_connection.ReturnedMessage`
             objects
         """
-        super(NackError, self).__init__(
-            "%s message(s) NACKed" % (len(messages)))
+        super(NackError,
+              self).__init__("%s message(s) NACKed" % (len(messages)))
 
         self.messages = messages
 

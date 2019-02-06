@@ -9,14 +9,12 @@ PY2 = _sys.version_info.major == 2
 PY3 = not PY2
 RE_NUM = re.compile(r'(\d+).+')
 
-
 ON_LINUX = platform.system() == 'Linux'
 ON_OSX = platform.system() == 'Darwin'
 ON_WINDOWS = platform.system() == 'Windows'
 
 # Portable Abstract Base Class
 AbstractBase = abc.ABCMeta('AbstractBase', (object,), {})
-
 
 if _sys.version_info[:2] < (3, 3):
     SOCKET_ERROR = socket.error
@@ -32,8 +30,7 @@ except AttributeError:
 if PY3:
     # these were moved around for Python 3
     from urllib.parse import (quote as url_quote, unquote as url_unquote,
-                              urlencode, parse_qs as url_parse_qs,
-                              urlparse)
+                              urlencode, parse_qs as url_parse_qs, urlparse)
     from io import StringIO
 
     # Python 3 does not have basestring anymore; we include
@@ -182,7 +179,10 @@ if platform.system() == 'Linux':
 _LOCALHOST = '127.0.0.1'
 _LOCALHOST_V6 = '::1'
 
-def _nonblocking_socketpair(family=socket.AF_INET, type=socket.SOCK_STREAM, proto=0):
+
+def _nonblocking_socketpair(family=socket.AF_INET,
+                            type=socket.SOCK_STREAM,
+                            proto=0):
     """
     Returns a pair of sockets in the manner of socketpair with the additional
     feature that they will be non-blocking. Prior to Python 3.5, socketpair
@@ -193,9 +193,8 @@ def _nonblocking_socketpair(family=socket.AF_INET, type=socket.SOCK_STREAM, prot
     elif family == socket.AF_INET6:
         host = _LOCALHOST_V6
     else:
-        raise ValueError(
-            'Only AF_INET and AF_INET6 socket address families '
-            'are supported')
+        raise ValueError('Only AF_INET and AF_INET6 socket address families '
+                         'are supported')
     if type != socket.SOCK_STREAM:
         raise ValueError('Only SOCK_STREAM socket type is supported')
     if proto != 0:

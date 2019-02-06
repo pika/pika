@@ -113,7 +113,10 @@ class CallbackManager(object):
         self._stack = dict()
 
     @sanitize_prefix
-    def add(self, prefix, key, callback,
+    def add(self,
+            prefix,
+            key,
+            callback,
             one_shot=True,
             only_caller=None,
             arguments=None):
@@ -147,8 +150,8 @@ class CallbackManager(object):
         # Check for a duplicate
         for callback_dict in self._stack[prefix][key]:
             if (callback_dict[self.CALLBACK] == callback and
-                callback_dict[self.ARGUMENTS] == arguments and
-                callback_dict[self.ONLY_CALLER] == only_caller):
+                    callback_dict[self.ARGUMENTS] == arguments and
+                    callback_dict[self.ONLY_CALLER] == only_caller):
                 if callback_dict[self.ONE_SHOT] is True:
                     callback_dict[self.CALLS] += 1
                     LOGGER.debug('Incremented callback reference counter: %r',
@@ -260,7 +263,7 @@ class CallbackManager(object):
                 callback_dict = self._stack[prefix][key][offset - 1]
 
                 if (callback_dict[self.CALLBACK] == callback_value and
-                    self._arguments_match(callback_dict, [arguments])):
+                        self._arguments_match(callback_dict, [arguments])):
                     offsets_to_remove.append(offset - 1)
 
             for offset in offsets_to_remove:
@@ -302,9 +305,9 @@ class CallbackManager(object):
         if isinstance(args[0], dict):
             return self._dict_arguments_match(args[0],
                                               callback_dict[self.ARGUMENTS])
-        return self._obj_arguments_match(args[0].method
-                                         if hasattr(args[0], 'method') else
-                                         args[0], callback_dict[self.ARGUMENTS])
+        return self._obj_arguments_match(
+            args[0].method if hasattr(args[0], 'method') else args[0],
+            callback_dict[self.ARGUMENTS])
 
     def _callback_dict(self, callback, one_shot, only_caller, arguments):
         """Return the callback dictionary.

@@ -53,9 +53,9 @@ class PlainCredentials(object):
 
     def __eq__(self, other):
         if isinstance(other, PlainCredentials):
-            return (self.username == other.username
-                    and self.password == other.password
-                    and self.erase_on_connect == other.erase_on_connect)
+            return (self.username == other.username and
+                    self.password == other.password and
+                    self.erase_on_connect == other.erase_on_connect)
         return NotImplemented
 
     def __ne__(self, other):
@@ -74,9 +74,9 @@ class PlainCredentials(object):
         if as_bytes(PlainCredentials.TYPE) not in\
                 as_bytes(start.mechanisms).split():
             return None, None
-        return (PlainCredentials.TYPE,
-                b'\0' + as_bytes(self.username) +
-                b'\0' + as_bytes(self.password))
+        return (
+            PlainCredentials.TYPE,
+            b'\0' + as_bytes(self.username) + b'\0' + as_bytes(self.password))
 
     def erase_credentials(self):
         """Called by Connection when it no longer needs the credentials"""
@@ -123,6 +123,7 @@ class ExternalCredentials(object):
     def erase_credentials(self):
         """Called by Connection when it no longer needs the credentials"""
         LOGGER.debug('Not supported by this Credentials type')
+
 
 # Append custom credential types to this list for validation support
 VALID_TYPES = [PlainCredentials, ExternalCredentials]

@@ -8,7 +8,6 @@ import os
 import re
 import sys
 
-
 if sys.version_info.major != 2:
     sys.exit('Python 2 is required at this time')
 
@@ -67,8 +66,7 @@ def camel(s):
     return normalize_separators(s).title().replace('_', '')
 
 
-amqp_codegen.AmqpMethod.structName = lambda m: camel(
-    m.klass.name) + '.' + camel(m.name)
+amqp_codegen.AmqpMethod.structName = lambda m: camel(m.klass.name) + '.' + camel(m.name)
 amqp_codegen.AmqpClass.structName = lambda c: camel(c.name) + "Properties"
 
 
@@ -89,7 +87,9 @@ def generate(specPath):
     def genSingleDecode(prefix, cLvalue, unresolved_domain):
         type = spec.resolveDomain(unresolved_domain)
         if type == 'shortstr':
-            print(prefix + "%s, offset = data.decode_short_string(encoded, offset)" % cLvalue)
+            print(prefix +
+                  "%s, offset = data.decode_short_string(encoded, offset)" %
+                  cLvalue)
         elif type == 'longstr':
             print(prefix +
                   "length = struct.unpack_from('>I', encoded, offset)[0]")
@@ -101,44 +101,48 @@ def generate(specPath):
             print(prefix + "    pass")
             print(prefix + "offset += length")
         elif type == 'octet':
-            print(prefix + "%s = struct.unpack_from('B', encoded, offset)[0]" %
-                  cLvalue)
+            print(prefix +
+                  "%s = struct.unpack_from('B', encoded, offset)[0]" % cLvalue)
             print(prefix + "offset += 1")
         elif type == 'short':
-            print(prefix + "%s = struct.unpack_from('>H', encoded, offset)[0]" %
-                  cLvalue)
+            print(prefix +
+                  "%s = struct.unpack_from('>H', encoded, offset)[0]" % cLvalue)
             print(prefix + "offset += 2")
         elif type == 'long':
-            print(prefix + "%s = struct.unpack_from('>I', encoded, offset)[0]" %
-                  cLvalue)
+            print(prefix +
+                  "%s = struct.unpack_from('>I', encoded, offset)[0]" % cLvalue)
             print(prefix + "offset += 4")
         elif type == 'longlong':
-            print(prefix + "%s = struct.unpack_from('>Q', encoded, offset)[0]" %
-                  cLvalue)
+            print(prefix +
+                  "%s = struct.unpack_from('>Q', encoded, offset)[0]" % cLvalue)
             print(prefix + "offset += 8")
         elif type == 'timestamp':
-            print(prefix + "%s = struct.unpack_from('>Q', encoded, offset)[0]" %
-                  cLvalue)
+            print(prefix +
+                  "%s = struct.unpack_from('>Q', encoded, offset)[0]" % cLvalue)
             print(prefix + "offset += 8")
         elif type == 'bit':
             raise Exception("Can't decode bit in genSingleDecode")
         elif type == 'table':
-            print(Exception(prefix + "(%s, offset) = data.decode_table(encoded, offset)" %
-                            cLvalue))
+            print(
+                Exception(prefix +
+                          "(%s, offset) = data.decode_table(encoded, offset)" %
+                          cLvalue))
         else:
             raise Exception("Illegal domain in genSingleDecode", type)
 
     def genSingleEncode(prefix, cValue, unresolved_domain):
         type = spec.resolveDomain(unresolved_domain)
         if type == 'shortstr':
-            print(prefix +
-                  "assert isinstance(%s, str_or_bytes),\\\n%s       'A non-string value was supplied for %s'"
-                  % (cValue, prefix, cValue))
+            print(
+                prefix +
+                "assert isinstance(%s, str_or_bytes),\\\n%s       'A non-string value was supplied for %s'"
+                % (cValue, prefix, cValue))
             print(prefix + "data.encode_short_string(pieces, %s)" % cValue)
         elif type == 'longstr':
-            print(prefix +
-                  "assert isinstance(%s, str_or_bytes),\\\n%s       'A non-string value was supplied for %s'"
-                  % (cValue, prefix, cValue))
+            print(
+                prefix +
+                "assert isinstance(%s, str_or_bytes),\\\n%s       'A non-string value was supplied for %s'"
+                % (cValue, prefix, cValue))
             print(
                 prefix +
                 "value = %s.encode('utf-8') if isinstance(%s, unicode_type) else %s"
@@ -173,7 +177,8 @@ def generate(specPath):
                     bitindex = 0
                 if not bitindex:
                     print(
-                        "            bit_buffer = struct.unpack_from('B', encoded, offset)[0]")
+                        "            bit_buffer = struct.unpack_from('B', encoded, offset)[0]"
+                    )
                     print("            offset += 1")
                 print("            self.%s = (bit_buffer & (1 << %d)) != 0" %
                       (pyize(f.name), bitindex))
@@ -191,17 +196,19 @@ def generate(specPath):
         print("        flagword_index = 0")
         print("        while True:")
         print(
-            "            partial_flags = struct.unpack_from('>H', encoded, offset)[0]")
+            "            partial_flags = struct.unpack_from('>H', encoded, offset)[0]"
+        )
         print("            offset += 2")
         print(
-            "            flags = flags | (partial_flags << (flagword_index * 16))")
+            "            flags = flags | (partial_flags << (flagword_index * 16))"
+        )
         print("            if not (partial_flags & 1):")
         print("                break")
         print("            flagword_index += 1")
         for f in c.fields:
             if spec.resolveDomain(f.domain) == 'bit':
-                print("        self.%s = (flags & %s) != 0" %
-                      (pyize(f.name), flagName(c, f)))
+                print("        self.%s = (flags & %s) != 0" % (pyize(f.name),
+                                                               flagName(c, f)))
             else:
                 print("        if flags & %s:" % (flagName(c, f),))
                 genSingleDecode("            ", "self.%s" % (pyize(f.name),),
@@ -247,8 +254,8 @@ def generate(specPath):
         print("        flags = 0")
         for f in c.fields:
             if spec.resolveDomain(f.domain) == 'bit':
-                print("        if self.%s: flags = flags | %s" %
-                      (pyize(f.name), flagName(c, f)))
+                print("        if self.%s: flags = flags | %s" % (pyize(
+                    f.name), flagName(c, f)))
             else:
                 print("        if self.%s is not None:" % (pyize(f.name),))
                 print("            flags = flags | %s" % (flagName(c, f),))
@@ -269,8 +276,10 @@ def generate(specPath):
         print('')
 
     def fieldDeclList(fields):
-        return ''.join([", %s=%s" % (pyize(f.name), fieldvalue(f.defaultvalue))
-                        for f in fields])
+        return ''.join([
+            ", %s=%s" % (pyize(f.name), fieldvalue(f.defaultvalue))
+            for f in fields
+        ])
 
     def fieldInitList(prefix, fields):
         if fields:
@@ -334,14 +343,11 @@ str = bytes
             print('')
             methodid = m.klass.index << 16 | m.index
             print("        INDEX = 0x%.08X  # %d, %d; %d" %
-                  (methodid,
-                                                                                 m.klass.index,
-                                                                                 m.index,
-                                                                                 methodid))
+                  (methodid, m.klass.index, m.index, methodid))
             print("        NAME = %s" % (fieldvalue(m.structName(),)))
             print('')
-            print("        def __init__(self%s):" %
-                  (fieldDeclList(m.arguments),))
+            print(
+                "        def __init__(self%s):" % (fieldDeclList(m.arguments),))
             print(fieldInitList('            ', m.arguments))
             print("        @property")
             print("        def synchronous(self):")
@@ -378,15 +384,19 @@ str = bytes
             genEncodeProperties(c)
 
     print("methods = {")
-    print(',\n'.join(["    0x%08X: %s" % (m.klass.index << 16 | m.index, m.structName())
-                      for m in spec.allMethods()]))
+    print(',\n'.join([
+        "    0x%08X: %s" % (m.klass.index << 16 | m.index, m.structName())
+        for m in spec.allMethods()
+    ]))
     print("}")
     print('')
 
     print("props = {")
-    print(',\n'.join(["    0x%04X: %s" % (c.index, c.structName())
-                      for c in spec.allClasses()
-                      if c.fields]))
+    print(',\n'.join([
+        "    0x%04X: %s" % (c.index, c.structName())
+        for c in spec.allClasses()
+        if c.fields
+    ]))
     print("}")
     print('')
     print('')

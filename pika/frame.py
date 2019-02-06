@@ -7,7 +7,6 @@ from pika import exceptions
 from pika import spec
 from pika.compat import byte
 
-
 LOGGER = logging.getLogger(__name__)
 
 
@@ -102,8 +101,8 @@ class Header(Frame):
 
         """
         pieces = self.properties.encode()
-        pieces.insert(0, struct.pack('>HxxQ', self.properties.INDEX,
-                                     self.body_size))
+        pieces.insert(
+            0, struct.pack('>HxxQ', self.properties.INDEX, self.body_size))
         return self._marshal(pieces)
 
 
@@ -183,7 +182,7 @@ class ProtocolHeader(amqp_object.AMQPObject):
 
         """
         return b'AMQP' + struct.pack('BBBB', 0, self.major, self.minor,
-                                    self.revision)
+                                     self.revision)
 
 
 def decode_frame(data_in):
@@ -205,8 +204,8 @@ def decode_frame(data_in):
 
     # Get the Frame Type, Channel Number and Frame Size
     try:
-        (frame_type, channel_number,
-         frame_size) = struct.unpack('>BHL', data_in[0:7])
+        (frame_type, channel_number, frame_size) = struct.unpack(
+            '>BHL', data_in[0:7])
     except struct.error:
         return 0, None
 
