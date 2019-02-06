@@ -1,3 +1,5 @@
+# pylint: disable=C0111
+
 import logging
 import socket
 import pika.compat
@@ -25,7 +27,9 @@ except AttributeError:
 
 
 def socket_requires_keepalive(tcp_options):
-    return 'TCP_KEEPIDLE' in tcp_options or 'TCP_KEEPCNT' in tcp_options or 'TCP_KEEPINTVL' in tcp_options
+    return ('TCP_KEEPIDLE' in tcp_options or
+            'TCP_KEEPCNT' in tcp_options or
+            'TCP_KEEPINTVL' in tcp_options)
 
 
 def set_sock_opts(tcp_options, sock):
