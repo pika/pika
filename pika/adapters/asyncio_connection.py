@@ -6,7 +6,6 @@ import logging
 from pika.adapters import base_connection
 from pika.adapters.utils import nbio_interface, io_services_utils
 
-
 LOGGER = logging.getLogger(__name__)
 
 
@@ -14,6 +13,7 @@ class AsyncioConnection(base_connection.BaseConnection):
     """ The AsyncioConnection runs on the Asyncio EventLoop.
 
     """
+
     def __init__(self,
                  parameters=None,
                  on_open_callback=None,
@@ -87,11 +87,10 @@ class AsyncioConnection(base_connection.BaseConnection):
             on_done=on_done)
 
 
-class _AsyncioIOServicesAdapter(
-        io_services_utils.SocketConnectionMixin,
-        io_services_utils.StreamingConnectionMixin,
-        nbio_interface.AbstractIOServices,
-        nbio_interface.AbstractFileDescriptorServices):
+class _AsyncioIOServicesAdapter(io_services_utils.SocketConnectionMixin,
+                                io_services_utils.StreamingConnectionMixin,
+                                nbio_interface.AbstractIOServices,
+                                nbio_interface.AbstractFileDescriptorServices):
     """Implements
     :py:class:`.utils.nbio_interface.AbstractIOServices` interface
     on top of `asyncio`.
@@ -150,20 +149,26 @@ class _AsyncioIOServicesAdapter(
         """
         return _TimerHandle(self._loop.call_later(delay, callback))
 
-    def getaddrinfo(self, host, port, on_done, family=0, socktype=0, proto=0,
+    def getaddrinfo(self,
+                    host,
+                    port,
+                    on_done,
+                    family=0,
+                    socktype=0,
+                    proto=0,
                     flags=0):
         """Implement
         :py:meth:`.utils.nbio_interface.AbstractIOServices.getaddrinfo()`.
 
         """
         return self._schedule_and_wrap_in_io_ref(
-            self._loop.getaddrinfo(host,
-                                   port,
-                                   family=family,
-                                   type=socktype,
-                                   proto=proto,
-                                   flags=flags),
-            on_done)
+            self._loop.getaddrinfo(
+                host,
+                port,
+                family=family,
+                type=socktype,
+                proto=proto,
+                flags=flags), on_done)
 
     def set_reader(self, fd, on_readable):
         """Implement
@@ -213,8 +218,7 @@ class _AsyncioIOServicesAdapter(
                 'on_done arg must be callable, but got {!r}'.format(on_done))
 
         return _AsyncioIOReference(
-            asyncio.ensure_future(coro, loop=self._loop),
-            on_done)
+            asyncio.ensure_future(coro, loop=self._loop), on_done)
 
 
 class _TimerHandle(nbio_interface.AbstractTimerReference):

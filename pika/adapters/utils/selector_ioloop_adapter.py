@@ -13,7 +13,6 @@ from pika.adapters.utils import nbio_interface, io_services_utils
 from pika.adapters.utils.io_services_utils import (check_callback_arg,
                                                    check_fd_arg)
 
-
 LOGGER = logging.getLogger(__name__)
 
 
@@ -36,7 +35,6 @@ class AbstractSelectorIOLoop(object):
         READ/WRITE/ERROR properties with class-level attributes
 
         """
-        pass
 
     @property
     @abc.abstractmethod
@@ -45,7 +43,6 @@ class AbstractSelectorIOLoop(object):
         with bitwise operators as expected
 
         """
-        pass
 
     @property
     @abc.abstractmethod
@@ -54,7 +51,6 @@ class AbstractSelectorIOLoop(object):
         with bitwise operators as expected
 
         """
-        pass
 
     @abc.abstractmethod
     def close(self):
@@ -65,14 +61,12 @@ class AbstractSelectorIOLoop(object):
         interaction with the closed instance of `IOLoop` should be performed.
 
         """
-        pass
 
     @abc.abstractmethod
     def start(self):
         """Run the I/O loop. It will loop until requested to exit. See `stop()`.
 
         """
-        pass
 
     @abc.abstractmethod
     def stop(self):
@@ -85,7 +79,6 @@ class AbstractSelectorIOLoop(object):
             `ioloop.add_callback(ioloop.stop)`
 
         """
-        pass
 
     @abc.abstractmethod
     def call_later(self, delay, callback):
@@ -100,7 +93,6 @@ class AbstractSelectorIOLoop(object):
         :rtype: opaque
 
         """
-        pass
 
     @abc.abstractmethod
     def remove_timeout(self, timeout_handle):
@@ -109,7 +101,6 @@ class AbstractSelectorIOLoop(object):
         :param timeout_handle: Handle of timeout to remove
 
         """
-        pass
 
     @abc.abstractmethod
     def add_callback(self, callback):
@@ -126,7 +117,6 @@ class AbstractSelectorIOLoop(object):
         :param method callback: The callback method
 
         """
-        pass
 
     @abc.abstractmethod
     def add_handler(self, fd, handler, events):
@@ -138,7 +128,6 @@ class AbstractSelectorIOLoop(object):
         :param int events: The event mask using READ, WRITE, ERROR.
 
         """
-        pass
 
     @abc.abstractmethod
     def update_handler(self, fd, events):
@@ -148,7 +137,6 @@ class AbstractSelectorIOLoop(object):
         :param int events: The event mask using READ, WRITE, ERROR
 
         """
-        pass
 
     @abc.abstractmethod
     def remove_handler(self, fd):
@@ -157,14 +145,12 @@ class AbstractSelectorIOLoop(object):
         :param int fd: The file descriptor
 
         """
-        pass
 
 
-class SelectorIOServicesAdapter(
-        io_services_utils.SocketConnectionMixin,
-        io_services_utils.StreamingConnectionMixin,
-        nbio_interface.AbstractIOServices,
-        nbio_interface.AbstractFileDescriptorServices):
+class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
+                                io_services_utils.StreamingConnectionMixin,
+                                nbio_interface.AbstractIOServices,
+                                nbio_interface.AbstractFileDescriptorServices):
     """Implements the
     :py:class:`.nbio_interface.AbstractIOServices` interface
     on top of selector-style native loop having the
@@ -176,6 +162,7 @@ class SelectorIOServicesAdapter(
     interface is only required by the mixins.
 
     """
+
     def __init__(self, native_loop):
         """
         :param AbstractSelectorIOLoop native_loop: An instance compatible with
@@ -234,28 +221,35 @@ class SelectorIOServicesAdapter(
         """
         return _TimerHandle(self._loop.call_later(delay, callback), self._loop)
 
-    def getaddrinfo(self, host, port, on_done, family=0, socktype=0, proto=0,
+    def getaddrinfo(self,
+                    host,
+                    port,
+                    on_done,
+                    family=0,
+                    socktype=0,
+                    proto=0,
                     flags=0):
         """Implement :py:meth:`.nbio_interface.AbstractIOServices.getaddrinfo()`.
 
         """
         return _SelectorIOLoopIOHandle(
-            _AddressResolver(native_loop=self._loop,
-                             host=host,
-                             port=port,
-                             family=family,
-                             socktype=socktype,
-                             proto=proto,
-                             flags=flags,
-                             on_done=on_done).start())
+            _AddressResolver(
+                native_loop=self._loop,
+                host=host,
+                port=port,
+                family=family,
+                socktype=socktype,
+                proto=proto,
+                flags=flags,
+                on_done=on_done).start())
 
     def set_reader(self, fd, on_readable):
         """Implement
         :py:meth:`.nbio_interface.AbstractFileDescriptorServices.set_reader()`.
 
         """
-        LOGGER.debug('SelectorIOServicesAdapter.set_reader(%s, %r)',
-                     fd, on_readable)
+        LOGGER.debug('SelectorIOServicesAdapter.set_reader(%s, %r)', fd,
+                     on_readable)
 
         check_fd_arg(fd)
         check_callback_arg(on_readable, 'on_readable')
@@ -263,8 +257,7 @@ class SelectorIOServicesAdapter(
         try:
             callbacks = self._watchers[fd]
         except KeyError:
-            self._loop.add_handler(fd,
-                                   self._on_reader_writer_fd_events,
+            self._loop.add_handler(fd, self._on_reader_writer_fd_events,
                                    self._readable_mask)
             self._watchers[fd] = _FileDescriptorCallbacks(reader=on_readable)
             LOGGER.debug('set_reader(%s, _) added handler Rd', fd)
@@ -272,8 +265,7 @@ class SelectorIOServicesAdapter(
             if callbacks.reader is None:
                 assert callbacks.writer is not None
                 self._loop.update_handler(
-                    fd,
-                    self._readable_mask | self._writable_mask)
+                    fd, self._readable_mask | self._writable_mask)
                 LOGGER.debug('set_reader(%s, _) updated handler RdWr', fd)
             else:
                 LOGGER.debug('set_reader(%s, _) replacing reader', fd)
@@ -317,8 +309,8 @@ class SelectorIOServicesAdapter(
         :py:meth:`.nbio_interface.AbstractFileDescriptorServices.set_writer()`.
 
         """
-        LOGGER.debug('SelectorIOServicesAdapter.set_writer(%s, %r)',
-                     fd, on_writable)
+        LOGGER.debug('SelectorIOServicesAdapter.set_writer(%s, %r)', fd,
+                     on_writable)
 
         check_fd_arg(fd)
         check_callback_arg(on_writable, 'on_writable')
@@ -326,8 +318,7 @@ class SelectorIOServicesAdapter(
         try:
             callbacks = self._watchers[fd]
         except KeyError:
-            self._loop.add_handler(fd,
-                                   self._on_reader_writer_fd_events,
+            self._loop.add_handler(fd, self._on_reader_writer_fd_events,
                                    self._writable_mask)
             self._watchers[fd] = _FileDescriptorCallbacks(writer=on_writable)
             LOGGER.debug('set_writer(%s, _) added handler Wr', fd)
@@ -335,8 +326,7 @@ class SelectorIOServicesAdapter(
             if callbacks.writer is None:
                 assert callbacks.reader is not None
                 self._loop.update_handler(
-                    fd,
-                    self._readable_mask | self._writable_mask)
+                    fd, self._readable_mask | self._writable_mask)
                 LOGGER.debug('set_writer(%s, _) updated handler RdWr', fd)
             else:
                 LOGGER.debug('set_writer(%s, _) replacing writer', fd)
@@ -395,7 +385,6 @@ class SelectorIOServicesAdapter(
             LOGGER.warning(
                 'READ indicated on fd=%s, but reader callback is None; '
                 'events=%s', fd, bin(events))
-
 
         if events & self._writable_mask:
             if callbacks.writer is not None:
@@ -482,14 +471,7 @@ class _AddressResolver(object):
     CANCELED = 2
     COMPLETED = 3
 
-    def __init__(self,
-                 native_loop,
-                 host,
-                 port,
-                 family,
-                 socktype,
-                 proto,
-                 flags,
+    def __init__(self, native_loop, host, port, family, socktype, proto, flags,
                  on_done):
         """
 
@@ -576,11 +558,8 @@ class _AddressResolver(object):
         """
         try:
             # NOTE: on python 2.x, can't pass keyword args to getaddrinfo()
-            result = socket.getaddrinfo(self._host,
-                                        self._port,
-                                        self._family,
-                                        self._socktype,
-                                        self._proto,
+            result = socket.getaddrinfo(self._host, self._port, self._family,
+                                        self._socktype, self._proto,
                                         self._flags)
         except Exception as exc:  # pylint: disable=W0703
             LOGGER.error('Address resolution failed: %r', exc)
@@ -593,8 +572,9 @@ class _AddressResolver(object):
             if self._state == self.ACTIVE:
                 self._loop.add_callback(self._dispatch_result)
             else:
-                LOGGER.debug('Asynchronous getaddrinfo cancellation detected; '
-                             'in thread; host=%r', self._host)
+                LOGGER.debug(
+                    'Asynchronous getaddrinfo cancellation detected; '
+                    'in thread; host=%r', self._host)
 
     def _dispatch_result(self):
         """This is called from the user's I/O loop to pass the result to the
@@ -611,5 +591,6 @@ class _AddressResolver(object):
             finally:
                 self._cleanup()
         else:
-            LOGGER.debug('Asynchronous getaddrinfo cancellation detected; '
-                         'in I/O loop context; host=%r', self._host)
+            LOGGER.debug(
+                'Asynchronous getaddrinfo cancellation detected; '
+                'in I/O loop context; host=%r', self._host)

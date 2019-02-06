@@ -124,7 +124,13 @@ class AbstractIOServices(pika.compat.AbstractBase):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def getaddrinfo(self, host, port, on_done, family=0, socktype=0, proto=0,
+    def getaddrinfo(self,
+                    host,
+                    port,
+                    on_done,
+                    family=0,
+                    socktype=0,
+                    proto=0,
                     flags=0):
         """Perform the equivalent of `socket.getaddrinfo()` asynchronously.
 
@@ -348,6 +354,7 @@ class AbstractStreamProtocol(pika.compat.AbstractBase):
         """
         raise NotImplementedError
 
+    # pylint: disable=W0511
     # TODO Undecided whether we need write flow-control yet, although it seems
     #      like a good idea.
     # @abc.abstractmethod
@@ -410,6 +417,7 @@ class AbstractStreamTransport(pika.compat.AbstractBase):
         """
         raise NotImplementedError
 
+    # pylint: disable=W0511
     # TODO Udecided whether we need write flow-control yet, although it seems
     #      like a good idea.
     # @abc.abstractmethod

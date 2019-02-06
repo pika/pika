@@ -8,7 +8,6 @@ from tornado import ioloop
 from pika.adapters.utils import nbio_interface, selector_ioloop_adapter
 from pika.adapters import base_connection
 
-
 LOGGER = logging.getLogger(__name__)
 
 
@@ -49,9 +48,8 @@ class TornadoConnection(base_connection.BaseConnection):
         if isinstance(custom_ioloop, nbio_interface.AbstractIOServices):
             nbio = custom_ioloop
         else:
-            nbio = (
-                selector_ioloop_adapter.SelectorIOServicesAdapter(
-                    custom_ioloop or ioloop.IOLoop.instance()))
+            nbio = (selector_ioloop_adapter.SelectorIOServicesAdapter(
+                custom_ioloop or ioloop.IOLoop.instance()))
         super(TornadoConnection, self).__init__(
             parameters,
             on_open_callback,
