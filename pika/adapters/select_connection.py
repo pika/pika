@@ -16,9 +16,7 @@ import pika.compat
 from pika.adapters.utils import nbio_interface
 from pika.adapters.base_connection import BaseConnection
 from pika.adapters.utils.selector_ioloop_adapter import (
-    SelectorIOServicesAdapter,
-    AbstractSelectorIOLoop)
-
+    SelectorIOServicesAdapter, AbstractSelectorIOLoop)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -148,7 +146,10 @@ class SelectConnection(BaseConnection):
 class _Timeout(object):
     """Represents a timeout"""
 
-    __slots__ = ('deadline', 'callback',)
+    __slots__ = (
+        'deadline',
+        'callback',
+    )
 
     def __init__(self, deadline, callback):
         """
@@ -248,8 +249,7 @@ class _Timer(object):
         """
         if delay < 0:
             raise ValueError(
-                'call_later: delay must be non-negative, but got %r'
-                % (delay,))
+                'call_later: delay must be non-negative, but got %r' % (delay,))
 
         now = time.time()
 
@@ -257,9 +257,10 @@ class _Timer(object):
 
         heapq.heappush(self._timeout_heap, timeout)
 
-        LOGGER.debug('call_later: added timeout %r with deadline=%r and '
-                     'callback=%r; now=%s; delay=%s', timeout, timeout.deadline,
-                     timeout.callback, now, delay)
+        LOGGER.debug(
+            'call_later: added timeout %r with deadline=%r and '
+            'callback=%r; now=%s; delay=%s', timeout, timeout.deadline,
+            timeout.callback, now, delay)
 
         return timeout
 
@@ -277,9 +278,9 @@ class _Timer(object):
                 'remove_timeout: timeout was already removed or called %r',
                 timeout)
         else:
-            LOGGER.debug('remove_timeout: removing timeout %r with deadline=%r '
-                         'and callback=%r', timeout, timeout.deadline,
-                         timeout.callback)
+            LOGGER.debug(
+                'remove_timeout: removing timeout %r with deadline=%r '
+                'and callback=%r', timeout, timeout.deadline, timeout.callback)
             timeout.callback = None
             self._num_cancellations += 1
 
@@ -331,8 +332,9 @@ class _Timer(object):
             if (self._num_cancellations >= self._GC_CANCELLATION_THRESHOLD and
                     self._num_cancellations > (len(self._timeout_heap) >> 1)):
                 self._num_cancellations = 0
-                self._timeout_heap = [t for t in self._timeout_heap
-                                      if t.callback is not None]
+                self._timeout_heap = [
+                    t for t in self._timeout_heap if t.callback is not None
+                ]
                 heapq.heapify(self._timeout_heap)
 
 
@@ -399,8 +401,9 @@ class IOLoop(AbstractSelectorIOLoop):
 
         poller = None
 
-        kwargs = dict(get_wait_seconds=get_wait_seconds,
-                      process_timeouts=process_timeouts)
+        kwargs = dict(
+            get_wait_seconds=get_wait_seconds,
+            process_timeouts=process_timeouts)
 
         if hasattr(select, 'epoll'):
             if not SELECT_TYPE or SELECT_TYPE == 'epoll':
@@ -601,9 +604,11 @@ class _PollerBase(pika.compat.AbstractBase):  # pylint: disable=R0902
         self._fd_handlers = dict()
 
         # event-to-fdset mappings
-        self._fd_events = {PollEvents.READ: set(),
-                           PollEvents.WRITE: set(),
-                           PollEvents.ERROR: set()}
+        self._fd_events = {
+            PollEvents.READ: set(),
+            PollEvents.WRITE: set(),
+            PollEvents.ERROR: set()
+        }
 
         self._processing_fd_event_map = {}
 
@@ -614,8 +619,7 @@ class _PollerBase(pika.compat.AbstractBase):  # pylint: disable=R0902
 
         # Create ioloop-interrupt socket pair and register read handler.
         self._r_interrupt, self._w_interrupt = self._get_interrupt_pair()
-        self.add_handler(self._r_interrupt.fileno(),
-                         self._read_interrupt,
+        self.add_handler(self._r_interrupt.fileno(), self._read_interrupt,
                          PollEvents.READ)
 
     def close(self):
@@ -633,8 +637,7 @@ class _PollerBase(pika.compat.AbstractBase):  # pylint: disable=R0902
 
         with self._waking_mutex:
             if self._w_interrupt is not None:
-                self.remove_handler(
-                    self._r_interrupt.fileno())  # pylint: disable=E1101
+                self.remove_handler(self._r_interrupt.fileno())  # pylint: disable=E1101
                 self._r_interrupt.close()
                 self._r_interrupt = None
                 self._w_interrupt.close()
@@ -943,8 +946,7 @@ class SelectPoller(_PollerBase):
                     read, write, error = select.select(
                         self._fd_events[PollEvents.READ],
                         self._fd_events[PollEvents.WRITE],
-                        self._fd_events[PollEvents.ERROR],
-                        self._get_max_wait())
+                        self._fd_events[PollEvents.ERROR], self._get_max_wait())
                 else:
                     # NOTE When called without any FDs, select fails on
                     # Windows with error 10022, 'An invalid argument was
@@ -971,12 +973,10 @@ class SelectPoller(_PollerBase):
     def _init_poller(self):
         """Notify the implementation to allocate the poller resource"""
         # It's a no op in SelectPoller
-        pass
 
     def _uninit_poller(self):
         """Notify the implementation to release the poller resource"""
         # It's a no op in SelectPoller
-        pass
 
     def _register_fd(self, fileno, events):
         """The base class invokes this method to notify the implementation to
@@ -987,7 +987,6 @@ class SelectPoller(_PollerBase):
         :param int events: The event mask using READ, WRITE, ERROR
         """
         # It's a no op in SelectPoller
-        pass
 
     def _modify_fd_events(self, fileno, events, events_to_clear, events_to_set):
         """The base class invoikes this method to notify the implementation to
@@ -1000,7 +999,6 @@ class SelectPoller(_PollerBase):
         :param int events_to_set: The events to set (READ, WRITE, ERROR)
         """
         # It's a no op in SelectPoller
-        pass
 
     def _unregister_fd(self, fileno, events_to_clear):
         """The base class invokes this method to notify the implementation to
@@ -1011,10 +1009,11 @@ class SelectPoller(_PollerBase):
         :param int events_to_clear: The events to clear (READ, WRITE, ERROR)
         """
         # It's a no op in SelectPoller
-        pass
 
 
 class KQueuePoller(_PollerBase):
+    # pylint: disable=E1101
+
     """KQueuePoller works on BSD based systems and is faster than select"""
 
     def __init__(self, get_wait_seconds, process_timeouts):
@@ -1055,8 +1054,7 @@ class KQueuePoller(_PollerBase):
         """
         while True:
             try:
-                kevents = self._kqueue.control(None, 1000,
-                                               self._get_max_wait())
+                kevents = self._kqueue.control(None, 1000, self._get_max_wait())
                 break
             except _SELECT_ERRORS as error:
                 if _is_resumable(error):

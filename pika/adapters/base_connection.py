@@ -14,7 +14,6 @@ import pika.tcp_socket_opts
 from pika.adapters.utils import connection_workflow, nbio_interface
 from pika import connection
 
-
 LOGGER = logging.getLogger(__name__)
 
 
@@ -25,13 +24,8 @@ class BaseConnection(connection.Connection):
 
     """
 
-    def __init__(self,
-                 parameters,
-                 on_open_callback,
-                 on_open_error_callback,
-                 on_close_callback,
-                 nbio,
-                 internal_connection_workflow):
+    def __init__(self, parameters, on_open_callback, on_open_error_callback,
+                 on_close_callback, nbio, internal_connection_workflow):
         """Create a new instance of the Connection object.
 
         :param None|pika.connection.Parameters parameters: Connection parameters
@@ -107,10 +101,9 @@ class BaseConnection(connection.Connection):
         #
         #     return '%s->%s' % (sockname, peername)
         # TODO need helpful __repr__ in transports
-        return ('<%s %s transport=%s params=%s>' %
-                (self.__class__.__name__,
-                 self._STATE_NAMES[self.connection_state],
-                 self._transport, self.params))
+        return ('<%s %s transport=%s params=%s>' % (
+            self.__class__.__name__, self._STATE_NAMES[self.connection_state],
+            self._transport, self.params))
 
     @classmethod
     @abc.abstractmethod
@@ -147,12 +140,8 @@ class BaseConnection(connection.Connection):
         raise NotImplementedError
 
     @classmethod
-    def _start_connection_workflow(cls,
-                                   connection_configs,
-                                   connection_factory,
-                                   nbio,
-                                   workflow,
-                                   on_done):
+    def _start_connection_workflow(cls, connection_configs, connection_factory,
+                                   nbio, workflow, on_done):
         """Helper function for custom implementations of `create_connection()`.
 
         :param sequence connection_configs: A sequence of one or more
@@ -251,8 +240,7 @@ class BaseConnection(connection.Connection):
         def create_connector():
             """`AMQPConnector` factory"""
             return connection_workflow.AMQPConnector(
-                lambda _params: _StreamingProtocolShim(self),
-                self._nbio)
+                lambda _params: _StreamingProtocolShim(self), self._nbio)
 
         self._connection_workflow.start(
             [self.params],
@@ -339,15 +327,13 @@ class BaseConnection(connection.Connection):
             else:
                 LOGGER.error('Full-stack connection workflow failed: %r',
                              conn_or_exc)
-                if (isinstance(
-                        conn_or_exc,
-                        connection_workflow.AMQPConnectionWorkflowFailed) and
-                        isinstance(
-                            conn_or_exc.exceptions[-1],
-                            connection_workflow.AMQPConnectorSocketConnectError)):
+                if (isinstance(conn_or_exc,
+                               connection_workflow.AMQPConnectionWorkflowFailed)
+                        and isinstance(
+                            conn_or_exc.exceptions[-1], connection_workflow.
+                            AMQPConnectorSocketConnectError)):
                     conn_or_exc = pika.exceptions.AMQPConnectionError(
                         conn_or_exc)
-
 
             self._handle_connection_workflow_failure(conn_or_exc)
         else:
@@ -441,8 +427,7 @@ class BaseConnection(connection.Connection):
                 'Stream connection lost: {!r}'.format(error))
 
         LOGGER.log(logging.DEBUG if error is None else logging.ERROR,
-                   'connection_lost: %r',
-                   error)
+                   'connection_lost: %r', error)
 
         self._on_stream_terminated(error)
 

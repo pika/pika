@@ -16,30 +16,25 @@ import pika.exceptions
 import pika.tcp_socket_opts
 from pika import __version__
 
-
 _LOG = logging.getLogger(__name__)
 
 
 class AMQPConnectorException(Exception):
     """Base exception for this module"""
-    pass
 
 
 class AMQPConnectorStackTimeout(AMQPConnectorException):
     """Overall TCP/[SSL]/AMQP stack connection attempt timed out."""
-    pass
 
 
 class AMQPConnectorAborted(AMQPConnectorException):
     """Asynchronous request was aborted"""
-    pass
 
 
 class AMQPConnectorWrongState(AMQPConnectorException):
     """AMQPConnector operation requested in wrong state, such as aborting after
     completion was reported.
     """
-    pass
 
 
 class AMQPConnectorPhaseErrorBase(AMQPConnectorException):
@@ -63,31 +58,26 @@ class AMQPConnectorPhaseErrorBase(AMQPConnectorException):
 
 class AMQPConnectorSocketConnectError(AMQPConnectorPhaseErrorBase):
     """Error connecting TCP socket to remote peer"""
-    pass
 
 
 class AMQPConnectorTransportSetupError(AMQPConnectorPhaseErrorBase):
     """Error setting up transport after TCP connected but before AMQP handshake.
 
     """
-    pass
 
 
 class AMQPConnectorAMQPHandshakeError(AMQPConnectorPhaseErrorBase):
     """Error during AMQP handshake"""
-    pass
 
 
 class AMQPConnectionWorkflowAborted(AMQPConnectorException):
     """AMQP Connection workflow was aborted."""
-    pass
 
 
 class AMQPConnectionWorkflowWrongState(AMQPConnectorException):
     """AMQP Connection Workflow operation requested in wrong state, such as
     aborting after completion was reported.
     """
-    pass
 
 
 class AMQPConnectionWorkflowFailed(AMQPConnectorException):
@@ -108,8 +98,7 @@ class AMQPConnectionWorkflowFailed(AMQPConnectorException):
     def __repr__(self):
         return ('{}: {} exceptions in all; last exception - {!r}; first '
                 'exception - {!r}').format(
-                    self.__class__.__name__,
-                    len(self.exceptions),
+                    self.__class__.__name__, len(self.exceptions),
                     self.exceptions[-1],
                     self.exceptions[0] if len(self.exceptions) > 1 else None)
 
@@ -187,12 +176,9 @@ class AMQPConnector(object):
         self._sock.setblocking(False)
 
         addr = self._addr_record[4]
-        _LOG.info('Pika version %s connecting to %r',
-                  __version__, addr)
+        _LOG.info('Pika version %s connecting to %r', __version__, addr)
         self._task_ref = self._nbio.connect_socket(
-            self._sock,
-            addr,
-            on_done=self._on_tcp_connection_done)
+            self._sock, addr, on_done=self._on_tcp_connection_done)
 
         # Start socket connection timeout timer
         self._tcp_timeout_ref = None
@@ -205,8 +191,7 @@ class AMQPConnector(object):
         self._stack_timeout_ref = None
         if self._conn_params.stack_timeout is not None:
             self._stack_timeout_ref = self._nbio.call_later(
-                self._conn_params.stack_timeout,
-                self._on_overall_timeout)
+                self._conn_params.stack_timeout, self._on_overall_timeout)
 
     def abort(self):
         """Abort the workflow asynchronously. The completion callback will be
@@ -227,16 +212,16 @@ class AMQPConnector(object):
         self._state = self._STATE_ABORTING
         self._deactivate()
 
-        _LOG.info('AMQPConnector: beginning client-initiated asynchronous '
-                  'abort; %r/%s', self._conn_params.host, self._addr_record)
+        _LOG.info(
+            'AMQPConnector: beginning client-initiated asynchronous '
+            'abort; %r/%s', self._conn_params.host, self._addr_record)
 
         if self._amqp_conn is None:
             _LOG.debug('AMQPConnector.abort(): no connection, so just '
                        'scheduling completion report via I/O loop.')
             self._nbio.add_callback_threadsafe(
-                functools.partial(
-                    self._report_completion_and_cleanup,
-                    AMQPConnectorAborted()))
+                functools.partial(self._report_completion_and_cleanup,
+                                  AMQPConnectorAborted()))
         else:
             if not self._amqp_conn.is_closing:
                 # Initiate close of AMQP connection and wait for asynchronous
@@ -244,8 +229,7 @@ class AMQPConnector(object):
                 # completion to client
                 _LOG.debug('AMQPConnector.abort(): closing Connection.')
                 self._amqp_conn.close(
-                    320,
-                    'Client-initiated abort of AMQP Connection Workflow.')
+                    320, 'Client-initiated abort of AMQP Connection Workflow.')
             else:
                 # It's already closing, must be due to our timeout processing,
                 # so we'll just piggy back on the callback it registered
@@ -322,9 +306,8 @@ class AMQPConnector(object):
         self._tcp_timeout_ref = None
 
         error = AMQPConnectorSocketConnectError(
-            socket.timeout(
-                'TCP connection attempt timed out: {!r}/{}'.format(
-                    self._conn_params.host, self._addr_record)))
+            socket.timeout('TCP connection attempt timed out: {!r}/{}'.format(
+                self._conn_params.host, self._addr_record)))
         self._report_completion_and_cleanup(error)
 
     def _on_overall_timeout(self):
@@ -345,9 +328,9 @@ class AMQPConnector(object):
         self._state = self._STATE_TIMEOUT
 
         if prev_state == self._STATE_AMQP:
-            msg = ('Timeout while setting up AMQP to {!r}/{}; ssl={}'
-                   .format(self._conn_params.host, self._addr_record,
-                           bool(self._conn_params.ssl_options)))
+            msg = ('Timeout while setting up AMQP to {!r}/{}; ssl={}'.format(
+                self._conn_params.host, self._addr_record,
+                bool(self._conn_params.ssl_options)))
             _LOG.error(msg)
             # Initiate close of AMQP connection and wait for asynchronous
             # callback from the Connection instance before reporting completion
@@ -367,10 +350,9 @@ class AMQPConnector(object):
             assert prev_state == self._STATE_TRANSPORT
             error = AMQPConnectorTransportSetupError(
                 AMQPConnectorStackTimeout(
-                    'Timeout while setting up transport to {!r}/{}; ssl={}'
-                    .format(self._conn_params.host,
-                            self._addr_record,
-                            bool(self._conn_params.ssl_options))))
+                    'Timeout while setting up transport to {!r}/{}; ssl={}'.
+                    format(self._conn_params.host, self._addr_record,
+                           bool(self._conn_params.ssl_options))))
 
         self._report_completion_and_cleanup(error)
 
@@ -390,8 +372,8 @@ class AMQPConnector(object):
             self._tcp_timeout_ref = None
 
         if exc is not None:
-            _LOG.error('TCP Connection attempt failed: %r; dest=%r',
-                       exc, self._addr_record)
+            _LOG.error('TCP Connection attempt failed: %r; dest=%r', exc,
+                       self._addr_record)
             self._report_completion_and_cleanup(
                 AMQPConnectorSocketConnectError(exc))
             return
@@ -433,10 +415,10 @@ class AMQPConnector(object):
         self._task_ref = None
 
         if isinstance(result, BaseException):
-            _LOG.error('Attempt to create the streaming transport failed: %r; '
-                       '%r/%s; ssl=%s',
-                       result, self._conn_params.host, self._addr_record,
-                       bool(self._conn_params.ssl_options))
+            _LOG.error(
+                'Attempt to create the streaming transport failed: %r; '
+                '%r/%s; ssl=%s', result, self._conn_params.host,
+                self._addr_record, bool(self._conn_params.ssl_options))
             self._report_completion_and_cleanup(
                 AMQPConnectorTransportSetupError(result))
             return
@@ -449,8 +431,8 @@ class AMQPConnector(object):
         # AMQP handshake is in progress - initiated during transport link-up
         self._state = self._STATE_AMQP
         # We explicitly remove default handler because it raises an exception.
-        self._amqp_conn.add_on_open_error_callback(self._on_amqp_handshake_done,
-                                                   remove_default=True)
+        self._amqp_conn.add_on_open_error_callback(
+            self._on_amqp_handshake_done, remove_default=True)
         self._amqp_conn.add_on_open_callback(self._on_amqp_handshake_done)
 
     def _on_amqp_handshake_done(self, connection, error=None):
@@ -466,9 +448,10 @@ class AMQPConnector(object):
             failure
 
         """
-        _LOG.debug('AMQPConnector: AMQP handshake attempt completed; state=%s; '
-                   'error=%r; %r/%s', self._state, error,
-                   self._conn_params.host, self._addr_record)
+        _LOG.debug(
+            'AMQPConnector: AMQP handshake attempt completed; state=%s; '
+            'error=%r; %r/%s', self._state, error, self._conn_params.host,
+            self._addr_record)
 
         # Don't need it any more; and _deactivate() checks that it's None
         self._amqp_conn = None
@@ -480,8 +463,7 @@ class AMQPConnector(object):
             result = AMQPConnectorAMQPHandshakeError(
                 AMQPConnectorStackTimeout(
                     'Timeout during AMQP handshake{!r}/{}; ssl={}'.format(
-                        self._conn_params.host,
-                        self._addr_record,
+                        self._conn_params.host, self._addr_record,
                         bool(self._conn_params.ssl_options))))
         elif self._state == self._STATE_AMQP:
             if error is None:
@@ -492,15 +474,16 @@ class AMQPConnector(object):
             else:
                 _LOG.debug(
                     'AMQPConnector: AMQP connection handshake failed for '
-                    '%r/%s: %r',
-                    self._conn_params.host, self._addr_record, error)
+                    '%r/%s: %r', self._conn_params.host, self._addr_record,
+                    error)
                 result = AMQPConnectorAMQPHandshakeError(error)
         else:
             # We timed out or aborted and initiated closing of the connection,
             # but this callback snuck in
-            _LOG.debug('AMQPConnector: Ignoring AMQP handshake completion '
-                       'notification due to wrong state=%s; error=%r; conn=%r',
-                       self._state, error, connection)
+            _LOG.debug(
+                'AMQPConnector: Ignoring AMQP handshake completion '
+                'notification due to wrong state=%s; error=%r; conn=%r',
+                self._state, error, connection)
             return
 
         self._report_completion_and_cleanup(result)
@@ -511,10 +494,7 @@ class AbstractAMQPConnectionWorkflow(pika.compat.AbstractBase):
 
     """
 
-    def start(self,
-              connection_configs,
-              connector_factory,
-              native_loop,
+    def start(self, connection_configs, connector_factory, native_loop,
               on_done):
         """Asynchronously perform the workflow until success or all retries
         are exhausted. Called by the adapter.
@@ -580,8 +560,7 @@ class AMQPConnectionWorkflow(AbstractAMQPConnectionWorkflow):
     _STATE_ABORTING = 2
     _STATE_DONE = 3
 
-    def __init__(self,
-                 _until_first_amqp_attempt=False):
+    def __init__(self, _until_first_amqp_attempt=False):
         """
         :param int | float retry_pause: Non-negative number of seconds to wait
             before retrying the config sequence. Meaningful only if retries is
@@ -637,11 +616,12 @@ class AMQPConnectionWorkflow(AbstractAMQPConnectionWorkflow):
         """
         self._nbio = nbio
 
-    def start(self,
-              connection_configs,
-              connector_factory,
-              native_loop,  # pylint: disable=W0613
-              on_done):
+    def start(
+            self,
+            connection_configs,
+            connector_factory,
+            native_loop,  # pylint: disable=W0613
+            on_done):
         """Override `AbstractAMQPConnectionWorkflow.start()`.
 
         NOTE: This implementation uses `connection_attempts` and `retry_delay`
@@ -678,8 +658,7 @@ class AMQPConnectionWorkflow(AbstractAMQPConnectionWorkflow):
         # Begin from our own I/O loop context to avoid calling back into client
         # from client's call here
         self._task_ref = self._nbio.call_later(
-            0,
-            functools.partial(self._start_new_cycle_async, first=True))
+            0, functools.partial(self._start_new_cycle_async, first=True))
 
     def abort(self):
         """Override `AbstractAMQPConnectionWorkflow.abort()`.
@@ -701,9 +680,8 @@ class AMQPConnectionWorkflow(AbstractAMQPConnectionWorkflow):
             _LOG.debug('AMQPConnectionWorkflow.abort(): no connector, so just '
                        'scheduling completion report via I/O loop.')
             self._nbio.add_callback_threadsafe(
-                functools.partial(
-                    self._report_completion_and_cleanup,
-                    AMQPConnectionWorkflowAborted()))
+                functools.partial(self._report_completion_and_cleanup,
+                                  AMQPConnectionWorkflowAborted()))
         else:
             _LOG.debug('AMQPConnectionWorkflow.abort(): requesting '
                        'connector.abort().')
@@ -742,8 +720,7 @@ class AMQPConnectionWorkflow(AbstractAMQPConnectionWorkflow):
             value to pass to user's `on_done` callback.
         """
         if isinstance(result, BaseException):
-            _LOG.error('AMQPConnectionWorkflow - reporting failure: %r',
-                       result)
+            _LOG.error('AMQPConnectionWorkflow - reporting failure: %r', result)
         else:
             _LOG.info('AMQPConnectionWorkflow - reporting success: %r', result)
 
@@ -771,14 +748,14 @@ class AMQPConnectionWorkflow(AbstractAMQPConnectionWorkflow):
             return
 
         self._attempts_remaining -= 1
-        _LOG.debug('Beginning a new AMQP connection workflow cycle; attempts '
-                   'remaining after this: %s', self._attempts_remaining)
+        _LOG.debug(
+            'Beginning a new AMQP connection workflow cycle; attempts '
+            'remaining after this: %s', self._attempts_remaining)
 
         self._current_config_index = None
 
         self._task_ref = self._nbio.call_later(
-            0 if first else self._retry_pause,
-            self._try_next_config_async)
+            0 if first else self._retry_pause, self._try_next_config_async)
 
     def _try_next_config_async(self):
         """Attempt to connect using the next Parameters config. If there are no

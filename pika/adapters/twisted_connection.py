@@ -13,8 +13,7 @@ import functools
 import logging
 from collections import namedtuple
 
-from twisted.internet import (
-    defer, error as twisted_error, reactor, protocol)
+from twisted.internet import (defer, error as twisted_error, reactor, protocol)
 from twisted.python.failure import Failure
 
 import pika.connection
@@ -83,8 +82,8 @@ class ClosableDeferredQueue(defer.DeferredQueue):
         self.pending = []
 
 
-ReceivedMessage = namedtuple(
-    "ReceivedMessage", ["channel", "method", "properties", "body"])
+ReceivedMessage = namedtuple("ReceivedMessage",
+                             ["channel", "method", "properties", "body"])
 
 
 class TwistedChannel(object):
@@ -107,8 +106,8 @@ class TwistedChannel(object):
         self._consumers = {}
         # Store Basic.Get calls so we can handle GetEmpty replies
         self._basic_get_deferred = None
-        self._channel.add_callback(
-            self._on_getempty, [spec.Basic.GetEmpty], False)
+        self._channel.add_callback(self._on_getempty, [spec.Basic.GetEmpty],
+                                   False)
         # We need this mapping to close the ClosableDeferredQueue when a queue
         # is deleted.
         self._queue_name_to_consumer_tags = {}
@@ -423,9 +422,13 @@ class TwistedChannel(object):
             """Add the ReceivedMessage to the queue, while replacing the
             channel implementation.
             """
-            queue_obj.put(ReceivedMessage(
-                channel=self, method=method, properties=properties, body=body,
-            ))
+            queue_obj.put(
+                ReceivedMessage(
+                    channel=self,
+                    method=method,
+                    properties=properties,
+                    body=body,
+                ))
 
         try:
             self._channel.basic_consume(
@@ -481,7 +484,10 @@ class TwistedChannel(object):
                 return None
             _channel, method, properties, body = result
             return ReceivedMessage(
-                channel=self, method=method, properties=properties, body=body,
+                channel=self,
+                method=method,
+                properties=properties,
+                body=body,
             )
 
         def cleanup_attribute(result):
@@ -573,10 +579,7 @@ class TwistedChannel(object):
             self._deliveries[self._delivery_message_id] = defer.Deferred()
             return self._deliveries[self._delivery_message_id]
 
-    def basic_qos(self,
-                  prefetch_size=0,
-                  prefetch_count=0,
-                  global_qos=False):
+    def basic_qos(self, prefetch_size=0, prefetch_count=0, global_qos=False):
         """Specify quality of service. This method requests a specific quality
         of service. The QoS can be specified for the current channel or for all
         channels on the connection. The client can request that messages be
@@ -657,8 +660,7 @@ class TwistedChannel(object):
         :raises ChannelWrongStateError: if channel is closed or closing
 
         """
-        return self._channel.close(
-            reply_code=reply_code, reply_text=reply_text)
+        return self._channel.close(reply_code=reply_code, reply_text=reply_text)
 
     def confirm_delivery(self):
         """Turn on Confirm mode in the channel. Pass in a callback to be
@@ -683,6 +685,7 @@ class TwistedChannel(object):
             self._delivery_message_id = 0
             LOGGER.debug("Delivery confirmation enabled.")
             return result
+
         d.addCallback(set_delivery_confirmation)
         # Unroutable messages returned after this point will be in the context
         # of publisher acknowledgments
@@ -708,10 +711,7 @@ class TwistedChannel(object):
                          delivery_tag)
             return
         if method_frame.method.multiple:
-            tags = [
-                tag for tag in self._deliveries
-                if tag <= delivery_tag
-            ]
+            tags = [tag for tag in self._deliveries if tag <= delivery_tag]
             tags.sort()
         else:
             tags = [delivery_tag]
@@ -753,8 +753,8 @@ class TwistedChannel(object):
 
         """
         assert isinstance(message.method, spec.Basic.Return), message.method
-        assert isinstance(message.properties, spec.BasicProperties), (
-            message.properties)
+        assert isinstance(message.properties,
+                          spec.BasicProperties), (message.properties)
 
         LOGGER.warning(
             "Published message was returned: _delivery_confirmation=%s; "
@@ -766,10 +766,7 @@ class TwistedChannel(object):
 
         self._puback_return = message
 
-    def exchange_bind(self,
-                      destination,
-                      source,
-                      routing_key='',
+    def exchange_bind(self, destination, source, routing_key='',
                       arguments=None):
         """Bind an exchange to another exchange.
 
@@ -837,9 +834,7 @@ class TwistedChannel(object):
             arguments=arguments,
         )
 
-    def exchange_delete(self,
-                        exchange=None,
-                        if_unused=False):
+    def exchange_delete(self, exchange=None, if_unused=False):
         """Delete the exchange.
 
         :param exchange: The exchange name
@@ -901,11 +896,7 @@ class TwistedChannel(object):
         """Open the channel"""
         return self._channel.open()
 
-    def queue_bind(self,
-                   queue,
-                   exchange,
-                   routing_key=None,
-                   arguments=None):
+    def queue_bind(self, queue, exchange, routing_key=None, arguments=None):
         """Bind the queue to the specified exchange
 
         :param queue: The queue to bind to the exchange
@@ -965,10 +956,7 @@ class TwistedChannel(object):
             arguments=arguments,
         )
 
-    def queue_delete(self,
-                     queue,
-                     if_unused=False,
-                     if_empty=False):
+    def queue_delete(self, queue, if_unused=False, if_empty=False):
         """Delete a queue from the broker.
 
 
@@ -993,12 +981,12 @@ class TwistedChannel(object):
                     self._queue_name_to_consumer_tags.get(queue_name, set())):
                 self._consumers[consumer_tag].close(
                     exceptions.ConsumerCancelled(
-                        "Queue %s was deleted." % queue_name
-                    ))
+                        "Queue %s was deleted." % queue_name))
                 del self._consumers[consumer_tag]
                 self._queue_name_to_consumer_tags[queue_name].remove(
                     consumer_tag)
             return ret
+
         return d.addCallback(_clear_consumer, queue)
 
     def queue_purge(self, queue):
@@ -1083,12 +1071,9 @@ class _TwistedConnectionAdapter(pika.connection.Connection):
     management strategy.
 
     """
-    def __init__(self,
-                 parameters,
-                 on_open_callback,
-                 on_open_error_callback,
-                 on_close_callback,
-                 custom_reactor):
+
+    def __init__(self, parameters, on_open_callback, on_open_error_callback,
+                 on_close_callback, custom_reactor):
         super(_TwistedConnectionAdapter, self).__init__(
             parameters=parameters,
             on_open_callback=on_open_callback,
@@ -1173,8 +1158,7 @@ class _TwistedConnectionAdapter(pika.connection.Connection):
             self._error = error
             error = None
         LOGGER.log(logging.DEBUG if error is None else logging.ERROR,
-                   'connection_lost: %r',
-                   error)
+                   'connection_lost: %r', error)
         self._on_stream_terminated(error)
 
     def data_received(self, data):
@@ -1206,11 +1190,10 @@ class TwistedProtocolConnection(protocol.Protocol):
     because, yet again, it's Twisted who manages the connection.
 
     """
+
     def __init__(self, parameters=None, custom_reactor=None):
         self.ready = defer.Deferred()
-        self.ready.addCallback(
-            lambda _: self.connectionReady()
-        )
+        self.ready.addCallback(lambda _: self.connectionReady())
         self.closed = None
         self._impl = _TwistedConnectionAdapter(
             parameters=parameters,
@@ -1269,7 +1252,6 @@ class TwistedProtocolConnection(protocol.Protocol):
     def connectionReady(self):
         """This method will be called when the underlying connection is ready.
         """
-        pass
 
     def _on_connection_ready(self, _connection):
         d, self.ready = self.ready, None
