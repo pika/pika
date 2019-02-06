@@ -629,6 +629,8 @@ class _PollerBase(pika.compat.AbstractBase):  # pylint: disable=R0902
         # Unregister and close ioloop-interrupt socket pair; mutual exclusion is
         # necessary to avoid race condition with `wake_threadsafe` executing in
         # another thread's context
+        assert not self._running, 'Cannot call close() before start() unwinds.'
+
         with self._waking_mutex:
             if self._w_interrupt is not None:
                 self.remove_handler(

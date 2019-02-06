@@ -168,6 +168,48 @@ class IOLoopCloseAfterStartReturnsTest(IOLoopBaseTest):
         self.assertEqual(self.ioloop._callbacks, [])
 
 
+class IOLoopStartReentrancyNotAllowedTestSelect(IOLoopBaseTest):
+    """ Test calling IOLoop.start() while arleady in start() raises exception. """
+    SELECT_POLLER = 'select'
+
+    def start_test(self):
+        callback_completed = []
+
+        def call_close_from_callback():
+            with self.assertRaises(RuntimeError) as cm:
+                self.ioloop.start()
+
+            self.assertEqual(cm.exception.args[0],
+                             'IOLoop is not reentrant and is already running')
+            self.ioloop.stop()
+            callback_completed.append(1)
+
+        self.ioloop.add_callback_threadsafe(call_close_from_callback)
+        self.start()
+        self.assertEqual(callback_completed, [1])
+
+
+class IOLoopCloseBeforeStartReturnsTestSelect(IOLoopBaseTest):
+    """ Test calling IOLoop.close() before return from start() raises exception. """
+    SELECT_POLLER = 'select'
+
+    def start_test(self):
+        callback_completed = []
+
+        def call_close_from_callback():
+            with self.assertRaises(AssertionError) as cm:
+                self.ioloop.close()
+
+            self.assertEqual(cm.exception.args[0],
+                             'Cannot call close() before start() unwinds.')
+            self.ioloop.stop()
+            callback_completed.append(1)
+
+        self.ioloop.add_callback_threadsafe(call_close_from_callback)
+        self.start()
+        self.assertEqual(callback_completed, [1])
+
+
 class IOLoopThreadStopTestSelect(IOLoopBaseTest):
     """ Test ioloop being stopped by another Thread. """
     SELECT_POLLER = 'select'
