@@ -9,23 +9,20 @@ import functools
 import logging
 import math
 import numbers
-import os
 import platform
-import warnings
 import ssl
 
-import pika.callback as callback
+import pika.callback
 import pika.channel
 import pika.compat
-import pika.credentials as credentials
+import pika.credentials
 import pika.exceptions as exceptions
 import pika.frame as frame
-import pika.heartbeat as heartbeat
+import pika.heartbeat
 import pika.spec as spec
 import pika.validators as validators
 from pika.compat import (
     xrange,
-    basestring,  # pylint: disable=W0622
     url_unquote,
     dictkeys,
     dict_itervalues,
@@ -55,8 +52,8 @@ class Parameters(object):  # pylint: disable=R0902
     DEFAULT_BLOCKED_CONNECTION_TIMEOUT = None
     DEFAULT_CHANNEL_MAX = pika.channel.MAX_CHANNELS
     DEFAULT_CLIENT_PROPERTIES = None
-    DEFAULT_CREDENTIALS = credentials.PlainCredentials(DEFAULT_USERNAME,
-                                                       DEFAULT_PASSWORD)
+    DEFAULT_CREDENTIALS = pika.credentials.PlainCredentials(
+        DEFAULT_USERNAME, DEFAULT_PASSWORD)
     DEFAULT_CONNECTION_ATTEMPTS = 1
     DEFAULT_FRAME_MAX = spec.FRAME_MAX_SIZE
     DEFAULT_HEARTBEAT_TIMEOUT = None  # None accepts server's proposal
@@ -138,7 +135,7 @@ class Parameters(object):  # pylint: disable=R0902
 
     def __eq__(self, other):
         if isinstance(other, Parameters):
-            return self._host == other._host and self._port == other._port
+            return self._host == other._host and self._port == other._port  # pylint: disable=W0212
         return NotImplemented
 
     def __ne__(self, other):
@@ -264,9 +261,9 @@ class Parameters(object):  # pylint: disable=R0902
             from  `pika.credentials.VALID_TYPES`
 
         """
-        if not isinstance(value, tuple(credentials.VALID_TYPES)):
+        if not isinstance(value, tuple(pika.credentials.VALID_TYPES)):
             raise TypeError('credentials must be an object of type: %r, but '
-                            'got %r' % (credentials.VALID_TYPES, value))
+                            'got %r' % (pika.credentials.VALID_TYPES, value))
         # Copy the mutable object to avoid accidental side-effects
         self._credentials = copy.deepcopy(value)
 
@@ -541,10 +538,9 @@ class ConnectionParameters(Parameters):
 
     class _DEFAULT(object):
         """Designates default parameter value; internal use"""
-        pass
 
-    def __init__(
-            self,  # pylint: disable=R0913,R0914,R0912
+    def __init__( # pylint: disable=R0913,R0914
+            self,
             host=_DEFAULT,
             port=_DEFAULT,
             virtual_host=_DEFAULT,
@@ -762,7 +758,7 @@ class URLParameters(Parameters):
                          if self.ssl_options else self.DEFAULT_PORT)
 
         if parts.username is not None:
-            self.credentials = credentials.PlainCredentials(
+            self.credentials = pika.credentials.PlainCredentials(
                 url_unquote(parts.username), url_unquote(parts.password))
 
         # Get the Virtual Host
@@ -1065,7 +1061,7 @@ class Connection(pika.compat.AbstractBase):
         self._internal_connection_workflow = internal_connection_workflow
 
         # Define our callback dictionary
-        self.callbacks = callback.CallbackManager()
+        self.callbacks = pika.callback.CallbackManager()
 
         # Attributes that will be properly initialized by _init_connection_state
         # and/or during connection handshake.
@@ -1574,7 +1570,7 @@ class Connection(pika.compat.AbstractBase):
         if self.params.heartbeat is not None and self.params.heartbeat > 0:
             LOGGER.debug('Creating a HeartbeatChecker: %r',
                          self.params.heartbeat)
-            return heartbeat.HeartbeatChecker(self, self.params.heartbeat)
+            return pika.heartbeat.HeartbeatChecker(self, self.params.heartbeat)
 
         return None
 
