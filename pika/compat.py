@@ -10,6 +10,7 @@ import platform
 import re
 import socket
 import sys as _sys
+import time
 
 PY2 = _sys.version_info.major == 2
 PY3 = not PY2
@@ -52,6 +53,12 @@ if PY3:
 
     # the unicode type is str
     unicode_type = str
+
+    def time_now():
+        """
+        Python 3 supports monotonic time
+        """
+        return time.monotonic()
 
     def dictkeys(dct):
         """
@@ -142,6 +149,12 @@ else:
     dict_itervalues = dict.itervalues # pylint: disable=E1101
     byte = chr
     long = long
+
+    def time_now():
+        """
+        Python 2 does not support monotonic time
+        """
+        return time.time()
 
     def canonical_str(value):
         """

@@ -10,7 +10,7 @@ import uuid
 
 import pika
 from pika.adapters import blocking_connection
-from pika.compat import as_bytes
+from pika.compat import as_bytes, time_now
 import pika.connection
 import pika.exceptions
 
@@ -519,15 +519,15 @@ class TestProcessDataEvents(BlockingTestCaseBase):
         connection = self._connect()
 
         # Try with time_limit=0
-        start_time = time.time()
+        start_time = time_now()
         connection.process_data_events(time_limit=0)
-        elapsed = time.time() - start_time
+        elapsed = time_now() - start_time
         self.assertLess(elapsed, 0.25)
 
         # Try with time_limit=0.005
-        start_time = time.time()
+        start_time = time_now()
         connection.process_data_events(time_limit=0.005)
-        elapsed = time.time() - start_time
+        elapsed = time_now() - start_time
         self.assertGreaterEqual(elapsed, 0.005)
         self.assertLess(elapsed, 0.25)
 
@@ -601,15 +601,15 @@ class TestAddCallbackThreadsafeFromSameThread(BlockingTestCaseBase):
         connection = self._connect()
 
         # Test timer completion
-        start_time = time.time()
+        start_time = time_now()
         rx_callback = []
         connection.add_callback_threadsafe(
-            lambda: rx_callback.append(time.time()))
+            lambda: rx_callback.append(time_now()))
         while not rx_callback:
             connection.process_data_events(time_limit=None)
 
         self.assertEqual(len(rx_callback), 1)
-        elapsed = time.time() - start_time
+        elapsed = time_now() - start_time
         self.assertLess(elapsed, 0.25)
 
 
@@ -620,19 +620,19 @@ class TestAddCallbackThreadsafeFromAnotherThread(BlockingTestCaseBase):
         connection = self._connect()
 
         # Test timer completion
-        start_time = time.time()
+        start_time = time_now()
         rx_callback = []
         timer = threading.Timer(
             0,
             functools.partial(connection.add_callback_threadsafe,
-                              lambda: rx_callback.append(time.time())))
+                              lambda: rx_callback.append(time_now())))
         self.addCleanup(timer.cancel)
         timer.start()
         while not rx_callback:
             connection.process_data_events(time_limit=None)
 
         self.assertEqual(len(rx_callback), 1)
-        elapsed = time.time() - start_time
+        elapsed = time_now() - start_time
         self.assertLess(elapsed, 0.25)
 
 
@@ -655,16 +655,16 @@ class TestAddTimeoutRemoveTimeout(BlockingTestCaseBase):
         connection = self._connect()
 
         # Test timer completion
-        start_time = time.time()
+        start_time = time_now()
         rx_callback = []
         timer_id = connection.call_later(
             0.005,
-            lambda: rx_callback.append(time.time()))
+            lambda: rx_callback.append(time_now()))
         while not rx_callback:
             connection.process_data_events(time_limit=None)
 
         self.assertEqual(len(rx_callback), 1)
-        elapsed = time.time() - start_time
+        elapsed = time_now() - start_time
         self.assertLess(elapsed, 0.25)
 
         # Test removing triggered timeout
@@ -675,7 +675,7 @@ class TestAddTimeoutRemoveTimeout(BlockingTestCaseBase):
         rx_callback = []
         timer_id = connection.call_later(
             0.001,
-            lambda: rx_callback.append(time.time()))
+            lambda: rx_callback.append(time_now()))
         connection.remove_timeout(timer_id)
         connection.process_data_events(time_limit=0.1)
         self.assertFalse(rx_callback)
@@ -704,8 +704,8 @@ class TestViabilityOfMultipleTimeoutsWithSameDeadlineAndCallback(BlockingTestCas
         connection.remove_timeout(timer1)
 
         # Wait for second timer to fire
-        start_wait_time = time.time()
-        while not rx_callback and time.time() - start_wait_time < 0.25:
+        start_wait_time = time_now()
+        while not rx_callback and time_now() - start_wait_time < 0.25:
             connection.process_data_events(time_limit=0.001)
 
         self.assertListEqual(rx_callback, [1])
@@ -741,15 +741,15 @@ class TestSleep(BlockingTestCaseBase):
         connection = self._connect()
 
         # Try with duration=0
-        start_time = time.time()
+        start_time = time_now()
         connection.sleep(duration=0)
-        elapsed = time.time() - start_time
+        elapsed = time_now() - start_time
         self.assertLess(elapsed, 0.25)
 
         # Try with duration=0.005
-        start_time = time.time()
+        start_time = time_now()
         connection.sleep(duration=0.005)
-        elapsed = time.time() - start_time
+        elapsed = time_now() - start_time
         self.assertGreaterEqual(elapsed, 0.005)
         self.assertLess(elapsed, 0.25)
 

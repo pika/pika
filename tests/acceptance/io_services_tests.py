@@ -145,10 +145,10 @@ class TestCallLaterDoesNotCallAheadOfTime(AsyncServicesTestBase,
             loop.stop()
             bucket.append('I was here')
 
-        start_time = time.time()
+        start_time = pika.compat.time_now()
         loop.call_later(0.1, callback)
         loop.run()
-        self.assertGreaterEqual(round(time.time() - start_time, 3), 0.1)
+        self.assertGreaterEqual(round(pika.compat.time_now() - start_time, 3), 0.1)
         self.assertEqual(bucket, ['I was here'])
 
 

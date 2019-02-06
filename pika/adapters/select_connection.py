@@ -251,7 +251,7 @@ class _Timer(object):
             raise ValueError(
                 'call_later: delay must be non-negative, but got %r' % (delay,))
 
-        now = time.time()
+        now = pika.compat.time_now()
 
         timeout = _Timeout(now + delay, callback)
 
@@ -293,7 +293,8 @@ class _Timer(object):
 
         """
         if self._timeout_heap:
-            interval = max(0, self._timeout_heap[0].deadline - time.time())
+            now = pika.compat.time_now()
+            interval = max(0, self._timeout_heap[0].deadline - now)
         else:
             interval = None
 
@@ -305,7 +306,7 @@ class _Timer(object):
 
         """
         if self._timeout_heap:
-            now = time.time()
+            now = pika.compat.time_now()
 
             # Remove ready timeouts from the heap now to prevent IO starvation
             # from timeouts added during callback processing

@@ -657,12 +657,12 @@ class SelectPollerTestPollWithoutSockets(unittest.TestCase):
 
         delay = poller._get_wait_seconds()
         self.assertIsNotNone(delay)
-        deadline = time.time() + delay
+        deadline = pika.compat.time_now() + delay
 
         while True:
             poller._process_timeouts()
 
-            if time.time() < deadline:
+            if pika.compat.time_now() < deadline:
                 self.assertEqual(timer_call_container, [])
             else:
                 # One last time in case deadline reached after previous
