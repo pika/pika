@@ -7,7 +7,7 @@ import warnings
 from datetime import datetime
 
 from pika import exceptions
-from pika.compat import PY2, PY3
+from pika.compat import PY2, basestring
 from pika.compat import unicode_type, long, as_bytes
 
 
@@ -97,7 +97,7 @@ def encode_table(pieces, table):
     return tablesize + 4
 
 
-def encode_value(pieces, value):
+def encode_value(pieces, value): # pylint: disable=R0911
     """Encode the value passed in and append it to the pieces list returning
     the the size of the encoded value.
 
@@ -116,7 +116,7 @@ def encode_value(pieces, value):
             return 5 + len(value)
     else:
         # support only str on Python 3
-        if isinstance(value, str):
+        if isinstance(value, basestring):
             value = value.encode('utf-8')
             pieces.append(struct.pack('>cI', b'S', len(value)))
             pieces.append(value)
@@ -137,12 +137,12 @@ def encode_value(pieces, value):
         with warnings.catch_warnings():
             warnings.filterwarnings('error')
             try:
-                p = struct.pack('>ci', b'I', value)
-                pieces.append(p)
+                packed = struct.pack('>ci', b'I', value)
+                pieces.append(packed)
                 return 5
             except (struct.error, DeprecationWarning):
-                p = struct.pack('>cq', b'l', long(value))
-                pieces.append(p)
+                packed = struct.pack('>cq', b'l', long(value))
+                pieces.append(packed)
                 return 9
     elif isinstance(value, decimal.Decimal):
         value = value.normalize()
@@ -162,10 +162,10 @@ def encode_value(pieces, value):
         pieces.append(struct.pack('>c', b'F'))
         return 1 + encode_table(pieces, value)
     elif isinstance(value, list):
-        p = []
-        for v in value:
-            encode_value(p, v)
-        piece = b''.join(p)
+        list_pieces = []
+        for val in value:
+            encode_value(list_pieces, val)
+        piece = b''.join(list_pieces)
         pieces.append(struct.pack('>cI', b'A', len(piece)))
         pieces.append(piece)
         return 5 + len(piece)
@@ -196,7 +196,7 @@ def decode_table(encoded, offset):
     return result, offset
 
 
-def decode_value(encoded, offset):
+def decode_value(encoded, offset): # pylint: disable=R0912,R0915
     """Decode the value passed in returning the decoded value and the number
     of bytes read in addition to the starting offset.
 
@@ -302,8 +302,8 @@ def decode_value(encoded, offset):
         offset_end = offset + length
         value = []
         while offset < offset_end:
-            v, offset = decode_value(encoded, offset)
-            value.append(v)
+            val, offset = decode_value(encoded, offset)
+            value.append(val)
 
     # Timestamp
     elif kind == b'T':
