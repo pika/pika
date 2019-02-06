@@ -13,7 +13,7 @@ def closeit():
     print('Close it')
     connection.close()
 
-connection.add_timeout(5, closeit)
+connection.call_later(5, closeit)
 
 connection.sleep(100)
 

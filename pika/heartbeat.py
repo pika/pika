@@ -187,7 +187,7 @@ class HeartbeatChecker(object):
 
     def _start_send_timer(self):
         """Start a new heartbeat send timer."""
-        self._send_timer = self._connection._adapter_add_timeout(  # pylint: disable=W0212
+        self._send_timer = self._connection._adapter_call_later(  # pylint: disable=W0212
             self._send_interval,
             self._send_heartbeat)
 
@@ -199,7 +199,7 @@ class HeartbeatChecker(object):
         # end of the window
         self._update_counters()
 
-        self._check_timer = self._connection._adapter_add_timeout(  # pylint: disable=W0212
+        self._check_timer = self._connection._adapter_call_later(  # pylint: disable=W0212
             self._check_interval,
             self._check_heartbeat)
 
