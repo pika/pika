@@ -198,12 +198,12 @@ class BaseConnection(connection.Connection):
         """
         return self._nbio.get_native_ioloop()
 
-    def _adapter_add_timeout(self, deadline, callback):
+    def _adapter_call_later(self, delay, callback):
         """Implement
-        :py:meth:`pika.connection.Connection._adapter_add_timeout()`.
+        :py:meth:`pika.connection.Connection._adapter_call_later()`.
 
         """
-        return self._nbio.call_later(deadline, callback)
+        return self._nbio.call_later(delay, callback)
 
     def _adapter_remove_timeout(self, timeout_id):
         """Implement

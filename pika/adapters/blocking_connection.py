@@ -176,7 +176,7 @@ class _IoloopTimerContext(object):
         :param float duration: non-negative timer duration in seconds
         :param select_connection.SelectConnection connection:
         """
-        assert hasattr(connection, '_adapter_add_timeout'), connection
+        assert hasattr(connection, '_adapter_call_later'), connection
         self._duration = duration
         self._connection = connection
         self._callback_result = _CallbackResult()
@@ -184,7 +184,7 @@ class _IoloopTimerContext(object):
 
     def __enter__(self):
         """Register a timer"""
-        self._timer_handle = self._connection._adapter_add_timeout(
+        self._timer_handle = self._connection._adapter_call_later(
             self._duration, self._callback_result.signal_once)
         return self
 
@@ -202,17 +202,17 @@ class _IoloopTimerContext(object):
 
 
 class _TimerEvt(object):
-    """Represents a timer created via `BlockingConnection.add_timeout`"""
+    """Represents a timer created via `BlockingConnection.call_later`"""
     __slots__ = ('timer_id', '_callback')
 
     def __init__(self, callback):
         """
-        :param callback: see callback in `BlockingConnection.add_timeout`
+        :param callback: see callback in `BlockingConnection.call_later`
         """
         self._callback = callback
 
         # Will be set to timer id returned from the underlying implementation's
-        # `_adapter_add_timeout` method
+        # `_adapter_call_later` method
         self.timer_id = None
 
     def __repr__(self):
@@ -279,7 +279,7 @@ class BlockingConnection(object):
     in nested context (e.g., while waiting for `BlockingConnection.channel` or
     `BlockingChannel.queue_declare` to complete), dispatching them synchronously
     once nesting returns to the desired context. This concerns all callbacks,
-    such as those registered via `BlockingConnection.add_timeout`,
+    such as those registered via `BlockingConnection.call_later`,
     `BlockingConnection.add_on_connection_blocked_callback`,
     `BlockingConnection.add_on_connection_unblocked_callback`,
     `BlockingChannel.basic_consume`, etc.
@@ -564,7 +564,7 @@ class BlockingConnection(object):
 
     def _on_timer_ready(self, evt):
         """Handle expiry of a timer that was registered via
-        `_adapter_add_timeout()`
+        `_adapter_call_later()`
 
         :param _TimerEvt evt:
 
@@ -581,7 +581,7 @@ class BlockingConnection(object):
         """
         # Turn it into a 0-delay timeout to take advantage of our existing logic
         # that deals with reentrancy
-        self.add_timeout(0, user_callback)
+        self.call_later(0, user_callback)
 
     def _on_connection_blocked(self, user_callback, _impl, method_frame):
         """Handle Connection.Blocked notification from RabbitMQ broker
@@ -673,8 +673,8 @@ class BlockingConnection(object):
             functools.partial(self._on_connection_unblocked,
                               functools.partial(callback, self)))
 
-    def add_timeout(self, deadline, callback):
-        """Create a single-shot timer to fire after deadline seconds. Do not
+    def call_later(self, delay, callback):
+        """Create a single-shot timer to fire after delay seconds. Do not
         confuse with Tornado's timeout where you pass in the time you want to
         have your callback called. Only pass in the seconds until it's to be
         called.
@@ -684,7 +684,7 @@ class BlockingConnection(object):
         `BlockingConnection.process_data_events()` and
         `BlockingChannel.start_consuming()`.
 
-        :param float deadline: The number of seconds to wait to call callback
+        :param float delay: The number of seconds to wait to call callback
         :param callable callback: The callback method with the signature
             callback()
 
@@ -694,8 +694,8 @@ class BlockingConnection(object):
         validators.require_callback(callback)
 
         evt = _TimerEvt(callback=callback)
-        timer_id = self._impl._adapter_add_timeout(
-            deadline, functools.partial(self._on_timer_ready, evt))
+        timer_id = self._impl._adapter_call_later(
+            delay, functools.partial(self._on_timer_ready, evt))
         evt.timer_id = timer_id
 
         return timer_id
@@ -724,7 +724,7 @@ class BlockingConnection(object):
 
         NOTE: if you know that the requester is running on the same thread as
         the connection it is more efficient to use the
-        `BlockingConnection.add_timeout()` method with a deadline of 0.
+        `BlockingConnection.call_later()` method with a delay of 0.
 
         :param method callback: The callback method; must be callable
 

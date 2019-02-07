@@ -164,8 +164,8 @@ class AsyncTestCase(unittest.TestCase):
                                        self.on_closed,
                                        custom_ioloop=ioloop_factory())
         try:
-            self.timeout = self.connection._adapter_add_timeout(self.TIMEOUT,
-                                                                self.on_timeout)
+            self.timeout = self.connection._adapter_call_later(self.TIMEOUT,
+                                                               self.on_timeout)
             self._run_ioloop()
 
             self.assertFalse(self._timed_out)

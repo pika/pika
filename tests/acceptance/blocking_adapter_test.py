@@ -75,7 +75,7 @@ class BlockingTestCaseBase(unittest.TestCase):
 
         # We use impl's timer directly in order to get a callback regardless
         # of BlockingConnection's event dispatch modality
-        connection._impl._adapter_add_timeout(self.TIMEOUT, # pylint: disable=E1101
+        connection._impl._adapter_call_later(self.TIMEOUT, # pylint: disable=E1101
                                               self._on_test_timeout)
 
         # Patch calls into I/O loop to fail test if exceptions are
@@ -651,13 +651,13 @@ class TestAddCallbackThreadsafeOnClosedConnectionRaisesWrongState(
 class TestAddTimeoutRemoveTimeout(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingConnection.add_timeout and remove_timeout"""
+        """BlockingConnection.call_later and remove_timeout"""
         connection = self._connect()
 
         # Test timer completion
         start_time = time.time()
         rx_callback = []
-        timer_id = connection.add_timeout(
+        timer_id = connection.call_later(
             0.005,
             lambda: rx_callback.append(time.time()))
         while not rx_callback:
@@ -673,7 +673,7 @@ class TestAddTimeoutRemoveTimeout(BlockingTestCaseBase):
 
         # Test aborted timer
         rx_callback = []
-        timer_id = connection.add_timeout(
+        timer_id = connection.call_later(
             0.001,
             lambda: rx_callback.append(time.time()))
         connection.remove_timeout(timer_id)
@@ -696,8 +696,8 @@ class TestViabilityOfMultipleTimeoutsWithSameDeadlineAndCallback(BlockingTestCas
         def callback():
             rx_callback.append(1)
 
-        timer1 = connection.add_timeout(0, callback)
-        timer2 = connection.add_timeout(0, callback)
+        timer1 = connection.call_later(0, callback)
+        timer2 = connection.call_later(0, callback)
 
         self.assertIsNot(timer1, timer2)
 
@@ -718,7 +718,7 @@ class TestRemoveTimeoutFromTimeoutCallback(BlockingTestCaseBase):
         connection = self._connect()
 
         # Test timer completion
-        timer_id1 = connection.add_timeout(5, lambda: 0/0)
+        timer_id1 = connection.call_later(5, lambda: 0/0)
 
         rx_timer2 = []
         def on_timer2():
@@ -726,7 +726,7 @@ class TestRemoveTimeoutFromTimeoutCallback(BlockingTestCaseBase):
             connection.remove_timeout(timer_id2)
             rx_timer2.append(1)
 
-        timer_id2 = connection.add_timeout(0, on_timer2)
+        timer_id2 = connection.call_later(0, on_timer2)
 
         while not rx_timer2:
             connection.process_data_events(time_limit=None)

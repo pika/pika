@@ -800,7 +800,7 @@ class TwistedConnectionAdapterTestCase(TestCase):
     def test_timeout(self):
         # Verify that timeouts are registered and cancelled properly.
         callback = mock.Mock()
-        timer_id = self.conn._adapter_add_timeout(5, callback)
+        timer_id = self.conn._adapter_call_later(5, callback)
         self.assertEqual(len(reactor.getDelayedCalls()), 1)
         self.conn._adapter_remove_timeout(timer_id)
         self.assertEqual(len(reactor.getDelayedCalls()), 0)

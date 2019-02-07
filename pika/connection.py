@@ -1394,12 +1394,12 @@ class Connection(pika.compat.AbstractBase):
         return self.server_capabilities.get('publisher_confirms', False)
 
     @abc.abstractmethod
-    def _adapter_add_timeout(self, deadline, callback):
+    def _adapter_call_later(self, delay, callback):
         """Adapters should override to call the callback after the
         specified number of seconds have elapsed, using a timer, or a
         thread, or similar.
 
-        :param float | int deadline: The number of seconds to wait to call
+        :param float | int delay: The number of seconds to wait to call
             callback
         :param method callback: The callback will be called without args.
         :return: Handle that can be passed to `_adapter_remove_timeout()` to
@@ -1748,7 +1748,7 @@ class Connection(pika.compat.AbstractBase):
                 '_blocked_conn_timer %s already set when '
                 '_on_connection_blocked is called', self._blocked_conn_timer)
         else:
-            self._blocked_conn_timer = self._adapter_add_timeout(
+            self._blocked_conn_timer = self._adapter_call_later(
                 self.params.blocked_connection_timeout,
                 self._on_blocked_connection_timeout)
 
