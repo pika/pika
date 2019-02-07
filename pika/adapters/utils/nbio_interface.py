@@ -101,8 +101,7 @@ class AbstractIOServices(pika.compat.AbstractBase):
               the connection it is more efficient to use the
               `ioloop.call_later()` method with a delay of 0.
 
-        :param method callback: The callback method; must be callable.
-        :return: None
+        :param callable callback: The callback method; must be callable.
         """
         raise NotImplementedError
 
@@ -116,7 +115,7 @@ class AbstractIOServices(pika.compat.AbstractBase):
         be called first.
 
         :param float delay: The number of seconds to wait to call callback
-        :param method callback: The callback method
+        :param callable callback: The callback method
         :returns: A handle that can be used to cancel the request.
         :rtype: AbstractTimerReference
 
@@ -239,6 +238,7 @@ class AbstractFileDescriptorServices(pika.compat.AbstractBase):
 
         :param fd: file descriptor
         :returns: True if reader was removed; False if none was registered.
+        :rtype: bool
 
         """
         raise NotImplementedError
@@ -270,6 +270,7 @@ class AbstractFileDescriptorServices(pika.compat.AbstractBase):
 
         :param fd: file descriptor
         :returns: True if reader was removed; False if none was registered.
+        :rtype: bool
 
         """
         raise NotImplementedError
@@ -281,8 +282,6 @@ class AbstractTimerReference(pika.compat.AbstractBase):
     @abc.abstractmethod
     def cancel(self):
         """Cancel callback. If already cancelled, has no affect.
-
-        :returns: None
         """
         raise NotImplementedError
 
@@ -336,11 +335,11 @@ class AbstractStreamProtocol(pika.compat.AbstractBase):
     def eof_received(self):
         """Called after the remote peer shuts its write end of the connection.
 
-        :return: A falsy value (including None) will cause the transport to
+        :returns: A falsy value (including None) will cause the transport to
             close itself, resulting in an eventual `connection_lost()` call
             from the transport. If a truthy value is returned, it will be the
             protocol's responsibility to close/abort the transport.
-        :rtype: falsy | truthy
+        :rtype: falsy|truthy
         :raises Exception: Exception-based exception on error
         """
         raise NotImplementedError
@@ -413,7 +412,8 @@ class AbstractStreamTransport(pika.compat.AbstractBase):
     @abc.abstractmethod
     def get_write_buffer_size(self):
         """
-        :return: Current size of output data buffered by the transport
+        :returns: Current size of output data buffered by the transport
+        :rtype: int
         """
         raise NotImplementedError
 

@@ -229,9 +229,8 @@ class UnroutableError(AMQPChannelError):
 
     def __init__(self, messages):
         """
-        :param messages: sequence of returned unroutable messages
-        :type messages: sequence of `blocking_connection.ReturnedMessage`
-           objects
+        :param sequence(blocking_connection.ReturnedMessage) messages: Sequence
+            of returned unroutable messages
         """
         super(UnroutableError, self).__init__(
             "%s unroutable message(s) returned" % (len(messages)))
@@ -252,9 +251,8 @@ class NackError(AMQPChannelError):
 
     def __init__(self, messages):
         """
-        :param messages: sequence of returned unroutable messages
-        :type messages: sequence of `blocking_connection.ReturnedMessage`
-            objects
+        :param sequence(blocking_connection.ReturnedMessage) messages: Sequence
+            of returned unroutable messages
         """
         super(NackError,
               self).__init__("%s message(s) NACKed" % (len(messages)))

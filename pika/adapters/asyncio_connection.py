@@ -271,7 +271,6 @@ class _AsyncioIOReference(nbio_interface.AbstractIOReference):
     def cancel(self):
         """Cancel pending operation
 
-
         :returns: False if was already done or cancelled; True otherwise
         :rtype: bool
 

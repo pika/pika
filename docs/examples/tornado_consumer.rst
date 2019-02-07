@@ -92,7 +92,7 @@ consumer.py::
             been established. It passes the handle to the connection object in
             case we need it, but in this case, we'll just mark it unused.
 
-            :type unused_connection: pika.SelectConnection
+            :param pika.SelectConnection _unused_connection: The connection
 
             """
             LOGGER.info('Connection opened')
@@ -237,7 +237,7 @@ consumer.py::
             :param pika.channel.Channel unused_channel: The channel object
             :param pika.Spec.Basic.Deliver: basic_deliver method
             :param pika.Spec.BasicProperties: properties
-            :param str|unicode body: The message body
+            :param bytes body: The message body
 
             """
             LOGGER.info('Received message # %s from %s: %s',

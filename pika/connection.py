@@ -147,8 +147,9 @@ class Parameters(object):  # pylint: disable=R0902
     @property
     def blocked_connection_timeout(self):
         """
-        :returns: None or float blocked connection timeout. Defaults to
+        :returns: blocked connection timeout. Defaults to
             `DEFAULT_BLOCKED_CONNECTION_TIMEOUT`.
+        :rtype: float|None
 
         """
         return self._blocked_connection_timeout
@@ -198,10 +199,10 @@ class Parameters(object):  # pylint: disable=R0902
     @property
     def client_properties(self):
         """
-        :returns: None or dict of client properties used to override the fields
-            in the default client poperties reported  to RabbitMQ via
-            `Connection.StartOk` method. Defaults to
-            `DEFAULT_CLIENT_PROPERTIES`.
+        :returns: client properties used to override the fields in the default
+            client poperties reported  to RabbitMQ via `Connection.StartOk`
+            method. Defaults to `DEFAULT_CLIENT_PROPERTIES`.
+        :rtype: dict|None
 
         """
         return self._client_properties
@@ -227,6 +228,7 @@ class Parameters(object):  # pylint: disable=R0902
         """
         :returns: number of socket connection attempts. Defaults to
             `DEFAULT_CONNECTION_ATTEMPTS`. See also `retry_delay`.
+        :rtype: int
 
         """
         return self._connection_attempts
@@ -272,6 +274,7 @@ class Parameters(object):  # pylint: disable=R0902
         """
         :returns: desired maximum AMQP frame size to use. Defaults to
             `DEFAULT_FRAME_MAX`.
+        :rtype: int
 
         """
         return self._frame_max
@@ -304,7 +307,7 @@ class Parameters(object):  # pylint: disable=R0902
             connection tuning or callable which is invoked during connection tuning.
             None to accept broker's value. 0 turns heartbeat off. Defaults to
             `DEFAULT_HEARTBEAT_TIMEOUT`.
-        :rtype: integer, None or callable
+        :rtype: int|callable|None
 
         """
         return self._heartbeat
@@ -414,7 +417,7 @@ class Parameters(object):  # pylint: disable=R0902
         """
         :returns: socket connect timeout in seconds. Defaults to
             `DEFAULT_SOCKET_TIMEOUT`. The value None disables this timeout.
-        :rtype: float | None
+        :rtype: float|None
 
         """
         return self._socket_timeout
@@ -493,6 +496,7 @@ class Parameters(object):  # pylint: disable=R0902
         """
         :returns: rabbitmq virtual host name. Defaults to
             `DEFAULT_VIRTUAL_HOST`.
+        :rtype: str
 
         """
         return self._virtual_host
@@ -584,7 +588,7 @@ class ConnectionParameters(Parameters):
             (TCP/[SSL]/AMQP) bring-up timeout in seconds. It's recommended to
             set this value higher than `socket_timeout`.
         :param str locale: Set the locale value
-        :param blocked_connection_timeout: If not None,
+        :param int|float|None blocked_connection_timeout: If not None,
             the value is a non-negative timeout, in seconds, for the
             connection to remain blocked (triggered by Connection.Blocked from
             broker); if the timeout expires before connection becomes unblocked,
@@ -592,7 +596,6 @@ class ConnectionParameters(Parameters):
             mechanism for informing client app about the closed connection:
             passing `ConnectionBlockedTimeout` exception to on_close_callback
             in asynchronous adapters or raising it in `BlockingConnection`.
-        :type blocked_connection_timeout: None, int, float
         :param client_properties: None or dict of client properties used to
             override the fields in the default client properties reported to
             RabbitMQ via `Connection.StartOk` method.
@@ -1011,7 +1014,7 @@ class Connection(pika.compat.AbstractBase):
 
         :param pika.connection.Parameters parameters: Read-only connection
             parameters.
-        :param method on_open_callback: Called when the connection is opened:
+        :param callable on_open_callback: Called when the connection is opened:
             on_open_callback(connection)
         :param None | method on_open_error_callback: Called if the connection
             can't be established or connection establishment is interrupted by
@@ -1160,7 +1163,7 @@ class Connection(pika.compat.AbstractBase):
         a fully-open connection was closed by user or broker or exception of
         another type that describes the cause of connection closure/failure.
 
-        :param method callback: Callback to call on close, having the signature:
+        :param callable callback: Callback to call on close, having the signature:
             callback(pika.connection.Connection, exception)
 
         """
@@ -1180,7 +1183,7 @@ class Connection(pika.compat.AbstractBase):
 
         See also `ConnectionParameters.blocked_connection_timeout`.
 
-        :param method callback: Callback to call on `Connection.Blocked`,
+        :param callable callback: Callback to call on `Connection.Blocked`,
             having the signature `callback(connection, pika.frame.Method)`,
             where the method frame's `method` member is of type
             `pika.spec.Connection.Blocked`
@@ -1198,7 +1201,7 @@ class Connection(pika.compat.AbstractBase):
         connection gets unblocked (`Connection.Unblocked` frame is received from
         RabbitMQ) letting publishers know it's ok to start publishing again.
 
-        :param method callback: Callback to call on
+        :param callable callback: Callback to call on
             `Connection.Unblocked`, having the signature
             `callback(connection, pika.frame.Method)`, where the method frame's
             `method` member is of type `pika.spec.Connection.Unblocked`
@@ -1215,7 +1218,7 @@ class Connection(pika.compat.AbstractBase):
         """Add a callback notification when the connection has opened. The
         callback will be passed the connection instance as its only arg.
 
-        :param method callback: Callback to call when open
+        :param callable callback: Callback to call when open
 
         """
         validators.require_callback(callback)
@@ -1227,7 +1230,7 @@ class Connection(pika.compat.AbstractBase):
         The callback method should accept the connection instance that could not
         connect, and either a string or an exception as its second arg.
 
-        :param method callback: Callback to call when can't connect, having
+        :param callable callback: Callback to call when can't connect, having
             the signature _(Connection, Exception)
         :param bool remove_default: Remove default exception raising callback
 
@@ -1246,9 +1249,9 @@ class Connection(pika.compat.AbstractBase):
 
         :param int channel_number: The channel number to use, defaults to the
                                    next available.
-        :param method on_open_callback: The callback when the channel is opened.
-            The callback will be invoked with the `Channel` instance as its only
-            argument.
+        :param callable on_open_callback: The callback when the channel is
+            opened.  The callback will be invoked with the `Channel` instance
+            as its only argument.
         :rtype: pika.channel.Channel
 
         """
@@ -1399,11 +1402,11 @@ class Connection(pika.compat.AbstractBase):
         specified number of seconds have elapsed, using a timer, or a
         thread, or similar.
 
-        :param float | int delay: The number of seconds to wait to call
-            callback
-        :param method callback: The callback will be called without args.
-        :return: Handle that can be passed to `_adapter_remove_timeout()` to
+        :param float|int delay: The number of seconds to wait to call callback
+        :param callable callback: The callback will be called without args.
+        :returns: Handle that can be passed to `_adapter_remove_timeout()` to
             cancel the callback.
+        :rtype: object
 
         """
         raise NotImplementedError
@@ -1426,7 +1429,7 @@ class Connection(pika.compat.AbstractBase):
          other manipulations of the connection must be performed from the
          connection's thread.
 
-        :param method callback: The callback method; must be callable.
+        :param callable callback: The callback method; must be callable.
 
         """
         raise NotImplementedError
@@ -1552,9 +1555,9 @@ class Connection(pika.compat.AbstractBase):
         back the method specified by on_open_callback
 
         :param int channel_number: The channel number to use
-        :param method on_open_callback: The callback when the channel is opened.
-            The callback will be invoked with the `Channel` instance as its only
-            argument.
+        :param callable on_open_callback: The callback when the channel is
+            opened.  The callback will be invoked with the `Channel` instance
+            as its only argument.
 
         """
         LOGGER.debug('Creating channel %s', channel_number)
@@ -1882,6 +1885,7 @@ class Connection(pika.compat.AbstractBase):
             broker; 0 (zero) to disable heartbeat.
 
         :returns: the value of the heartbeat timeout to use and return to broker
+        :rtype: int
         """
         if client_value is None:
             # Accept server's limit
@@ -2090,8 +2094,8 @@ class Connection(pika.compat.AbstractBase):
     def _process_frame(self, frame_value):
         """Process an inbound frame from the socket.
 
-        :param frame_value: The frame to process
-        :type frame_value: pika.frame.Frame | pika.frame.Method
+        :param pika.frame.Frame|pika.frame.Method frame_value: The frame to
+            process
 
         """
         # Will receive a frame type of -1 if protocol version mismatch
@@ -2148,7 +2152,7 @@ class Connection(pika.compat.AbstractBase):
 
         :param int channel_number: The channel number for the RPC call
         :param pika.amqp_object.Method method: The method frame to call
-        :param method callback: The callback for the RPC response
+        :param callable callback: The callback for the RPC response
         :param list acceptable_replies: The replies this RPC call expects
 
         """
@@ -2206,8 +2210,8 @@ class Connection(pika.compat.AbstractBase):
         """This appends the fully generated frame to send to the broker to the
         output buffer which will be then sent via the connection adapter.
 
-        :param frame_value: The frame to write
-        :type frame_value:  pika.frame.Frame|pika.frame.ProtocolHeader
+        :param pika.frame.Frame|pika.frame.ProtocolHeader frame_value: The
+            frame to write
         :raises: exceptions.ConnectionClosed
 
         """

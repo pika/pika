@@ -87,10 +87,10 @@ class AbstractSelectorIOLoop(object):
         timeout.
 
         :param float delay: The number of seconds to wait to call callback
-        :param method callback: The callback method
+        :param callable callback: The callback method
         :returns: handle to the created timeout that may be passed to
             `remove_timeout()`
-        :rtype: opaque
+        :rtype: object
 
         """
 
@@ -114,7 +114,7 @@ class AbstractSelectorIOLoop(object):
         ioloop that is running in a different thread via
         `ioloop.add_callback_threadsafe(ioloop.stop)`
 
-        :param method callback: The callback method
+        :param callable callback: The callback method
 
         """
 
@@ -123,7 +123,7 @@ class AbstractSelectorIOLoop(object):
         """Start watching the given file descriptor for events
 
         :param int fd: The file descriptor
-        :param method handler: When requested event(s) occur,
+        :param callable handler: When requested event(s) occur,
             `handler(fd, events)` will be called.
         :param int events: The event mask using READ, WRITE, ERROR.
 
@@ -453,6 +453,7 @@ class _SelectorIOLoopIOHandle(nbio_interface.AbstractIOReference):
         """Cancel pending operation
 
         :returns: False if was already done or cancelled; True otherwise
+        :rtype: bool
 
         """
         return self._cancel()

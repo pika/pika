@@ -12,7 +12,8 @@ def create_log_exception_decorator(logger):
     the decorated function
 
     :param logging.Logger logger:
-    :return: the decorator
+    :returns: the decorator
+    :rtype: callable
 
     Usage example
 
@@ -32,7 +33,8 @@ def create_log_exception_decorator(logger):
         """The decorator returned by the parent function
 
         :param func: function to be wrapped
-        :return: the function wrapper
+        :returns: the function wrapper
+        :rtype: callable
         """
 
         @functools.wraps(func)
@@ -44,7 +46,8 @@ def create_log_exception_decorator(logger):
 
             :param args: positional args passed to wrapped function
             :param kwargs: keyword args passed to wrapped function
-            :return: whatever the wrapped function returns
+            :returns: whatever the wrapped function returns
+            :rtype: object
             """
             try:
                 return func(*args, **kwargs)

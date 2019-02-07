@@ -16,8 +16,7 @@ def encode_short_string(pieces, value):
     returning the size of the encoded value.
 
     :param list pieces: Already encoded values
-    :param value: String value to encode
-    :type value: str or unicode
+    :param str value: String value to encode
     :rtype: int
 
     """

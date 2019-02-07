@@ -176,7 +176,7 @@ class Channel(object):
                                 channel: pika.Channel
                                 method: pika.spec.Basic.Return
                                 properties: pika.spec.BasicProperties
-                                body: str, unicode, or bytes (python 3.x)
+                                body: bytes
 
         """
         self.callbacks.add(self.channel_number, '_on_return', callback, False)
@@ -279,26 +279,25 @@ class Channel(object):
         http://www.rabbitmq.com/confirms.html
         http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.consume
 
-        :param queue: The queue to consume from. Use the empty string to specify the
-                      most recent server-named queue for this channel.
-        :type queue: str or unicode
-        :param callable on_message_callback: The function to call when consuming
-            with the signature on_message_callback(channel, method, properties, body), where
-                                channel: pika.Channel
-                                method: pika.spec.Basic.Deliver
-                                properties: pika.spec.BasicProperties
-                                body: str, unicode, or bytes (python 3.x)
-        :param bool auto_ack: if set to True, automatic acknowledgement mode will be used
-                              (see http://www.rabbitmq.com/confirms.html). This corresponds
-                              with the 'no_ack' parameter in the basic.consume AMQP 0.9.1
-                              method
+        :param str queue: The queue to consume from. Use the empty string to
+            specify the most recent server-named queue for this channel
+        :param callable on_message_callback: The function to call when
+            consuming with the signature
+            on_message_callback(channel, method, properties, body), where
+                channel: pika.Channel
+                method: pika.spec.Basic.Deliver
+                properties: pika.spec.BasicProperties
+                body: bytes
+        :param bool auto_ack: if set to True, automatic acknowledgement mode
+            will be used (see http://www.rabbitmq.com/confirms.html).
+            This corresponds with the 'no_ack' parameter in the basic.consume
+            AMQP 0.9.1 method
         :param bool exclusive: Don't allow other consumers on the queue
-        :param consumer_tag: Specify your own consumer tag
-        :type consumer_tag: str or unicode
+        :param str consumer_tag: Specify your own consumer tag
         :param dict arguments: Custom key/value pair arguments for the consumer
         :param callable callback: callback(pika.frame.Method) for method
           Basic.ConsumeOk.
-        :return: Consumer tag which may be used to cancel the consumer.
+        :returns: Consumer tag which may be used to cancel the consumer.
         :rtype: str
         :raises ValueError:
 
@@ -356,16 +355,15 @@ class Channel(object):
 
         http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.get
 
-        :param queue: The queue from which to get a message. Use the empty
-                      string to specify the most recent server-named queue
-                      for this channel.
-        :type queue: str or unicode
+        :param str queue: The queue from which to get a message. Use the empty
+            string to specify the most recent server-named queue for this
+            channel
         :param callable callback: The callback to call with a message that has
             the signature callback(channel, method, properties, body), where:
             channel: pika.Channel
             method: pika.spec.Basic.GetOk
             properties: pika.spec.BasicProperties
-            body: str, unicode, or bytes (python 3.x)
+            body: bytes
         :param bool auto_ack: Tell the broker to not expect a reply
         :raises ValueError:
 
@@ -416,12 +414,9 @@ class Channel(object):
 
         http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.publish
 
-        :param exchange: The exchange to publish to
-        :type exchange: str or unicode
-        :param routing_key: The routing key to bind on
-        :type routing_key: str or unicode
-        :param body: The message body
-        :type body: str or unicode
+        :param str exchange: The exchange to publish to
+        :param str routing_key: The routing key to bind on
+        :param bytes body: The message body
         :param pika.spec.BasicProperties properties: Basic.properties
         :param bool mandatory: The mandatory flag
 
@@ -614,12 +609,9 @@ class Channel(object):
                       callback=None):
         """Bind an exchange to another exchange.
 
-        :param destination: The destination exchange to bind
-        :type destination: str or unicode
-        :param source: The source exchange to bind to
-        :type source: str or unicode
-        :param routing_key: The routing key to bind on
-        :type routing_key: str or unicode
+        :param str destination: The destination exchange to bind
+        :param str source: The source exchange to bind to
+        :param str routing_key: The routing key to bind on
         :param dict arguments: Custom key/value pair arguments for the binding
         :param callable callback: The callback to call on Exchange.BindOk
         :raises ValueError:
@@ -652,11 +644,9 @@ class Channel(object):
         exchange does not already exist, the server MUST raise a channel
         exception with reply code 404 (not found).
 
-        :param exchange: The exchange name consists of a non-empty
-        :type exchange: str or unicode
-                                     sequence of these characters: letters,
-                                     digits, hyphen, underscore, period, or
-                                     colon.
+        :param str exchange: The exchange name consists of a non-empty sequence
+            of these characters: letters, digits, hyphen, underscore, period,
+            or colon
         :param str exchange_type: The exchange type to use
         :param bool passive: Perform a declare or just check to see if it exists
         :param bool durable: Survive a reboot of RabbitMQ
@@ -679,8 +669,7 @@ class Channel(object):
     def exchange_delete(self, exchange=None, if_unused=False, callback=None):
         """Delete the exchange.
 
-        :param exchange: The exchange name
-        :type exchange: str or unicode
+        :param str exchange: The exchange name
         :param bool if_unused: only delete if the exchange is unused
         :param callable callback: The function to call on Exchange.DeleteOk
         :raises ValueError:
@@ -700,12 +689,9 @@ class Channel(object):
                         callback=None):
         """Unbind an exchange from another exchange.
 
-        :param destination: The destination exchange to unbind
-        :type destination: str or unicode
-        :param source: The source exchange to unbind from
-        :type source: str or unicode
-        :param routing_key: The routing key to unbind
-        :type routing_key: str or unicode
+        :param str destination: The destination exchange to unbind
+        :param str source: The source exchange to unbind from
+        :param str routing_key: The routing key to unbind
         :param dict arguments: Custom key/value pair arguments for the binding
         :param callable callback: The callback to call on Exchange.UnbindOk
         :raises ValueError:
@@ -780,12 +766,9 @@ class Channel(object):
                    callback=None):
         """Bind the queue to the specified exchange
 
-        :param queue: The queue to bind to the exchange
-        :type queue: str or unicode
-        :param exchange: The source exchange to bind to
-        :type exchange: str or unicode
-        :param routing_key: The routing key to bind on
-        :type routing_key: str or unicode
+        :param str queue: The queue to bind to the exchange
+        :param str exchange: The source exchange to bind to
+        :param str routing_key: The routing key to bind on
         :param dict arguments: Custom key/value pair arguments for the binding
         :param callable callback: The callback to call on Queue.BindOk
         :raises ValueError:
@@ -818,9 +801,8 @@ class Channel(object):
         Use an empty string as the queue name for the broker to auto-generate
         one
 
-        :param queue: The queue name
-        :type queue: str or unicode; if empty string, the broker will create a
-          unique queue name;
+        :param str queue: The queue name; if empty string, the broker will
+            create a unique queue name
         :param bool passive: Only check to see if the queue exists
         :param bool durable: Survive reboots of the broker
         :param bool exclusive: Only allow access by the current connection
@@ -853,8 +835,7 @@ class Channel(object):
                      callback=None):
         """Delete a queue from the broker.
 
-        :param queue: The queue to delete
-        :type queue: str or unicode
+        :param str queue: The queue to delete
         :param bool if_unused: only delete if it's unused
         :param bool if_empty: only delete if the queue is empty
         :param callable callback: The callback to call on Queue.DeleteOk
@@ -872,8 +853,7 @@ class Channel(object):
     def queue_purge(self, queue, callback=None):
         """Purge all of the messages from the specified queue
 
-        :param queue: The queue to purge
-        :type queue: str or unicode
+        :param str queue: The queue to purge
         :param callable callback: The callback to call on Queue.PurgeOk
         :raises ValueError:
 
@@ -892,12 +872,9 @@ class Channel(object):
                      callback=None):
         """Unbind a queue from an exchange.
 
-        :param queue: The queue to unbind from the exchange
-        :type queue: str or unicode
-        :param exchange: The source exchange to bind from
-        :type exchange: str or unicode
-        :param routing_key: The routing key to unbind
-        :type routing_key: str or unicode
+        :param str queue: The queue to unbind from the exchange
+        :param str exchange: The source exchange to bind from
+        :param str routing_key: The routing key to unbind
         :param dict arguments: Custom key/value pair arguments for the binding
         :param callable callback: The callback to call on Queue.UnbindOk
         :raises ValueError:
@@ -1011,6 +988,7 @@ class Channel(object):
         retrieve the cookie that it set via `_set_cookie`
 
         :returns: opaque cookie value that was set via `_set_cookie`
+        :rtype: object
 
         """
         return self._cookie
@@ -1155,8 +1133,7 @@ class Channel(object):
 
         :param pika.frame.Method method_frame: The method frame received
         :param pika.frame.Header header_frame: The header frame received
-        :param body: The body received
-        :type body: str or unicode
+        :param bytes body: The body received
 
         """
         consumer_tag = method_frame.method.consumer_tag
@@ -1220,8 +1197,7 @@ class Channel(object):
 
         :param pika.frame.Method method_frame: The method frame received
         :param pika.frame.Header header_frame: The header frame received
-        :param body: The body received
-        :type body: str or unicode
+        :param bytes body: The body received
 
         """
         if self._on_getok_callback is not None:
@@ -1258,8 +1234,7 @@ class Channel(object):
 
         :param pika.frame.Method method_frame: The Basic.Return frame
         :param pika.frame.Header header_frame: The content header frame
-        :param body: The message body
-        :type body: str or unicode
+        :param bytes body: The message body
 
         """
         if not self.callbacks.process(self.channel_number, '_on_return', self,
@@ -1334,9 +1309,8 @@ class Channel(object):
 
         :param pika.amqp_object.Method method: The AMQP method to invoke
         :param callable callback: The callback for the RPC response
-        :param acceptable_replies: A (possibly empty) sequence of
+        :param list|None acceptable_replies: A (possibly empty) sequence of
             replies this RPC call expects or None
-        :type acceptable_replies: list or None
 
         """
         assert method.synchronous, (

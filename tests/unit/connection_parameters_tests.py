@@ -98,10 +98,8 @@ class ParametersTestsBase(unittest.TestCase):
         """Assert that the given parameters object has the default parameter
         values.
 
-        :param params: verify that the given params instance has all default
-           property values
-        :type params: one of the classes based on `pika.connection.Parameters`
-
+        :param pika.connection.Parameters params: Verify that the given params
+            instance has all default property values
         """
         for name, expected_value in dict_iteritems(
                 self.get_default_properties()):

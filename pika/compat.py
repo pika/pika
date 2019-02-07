@@ -91,6 +91,7 @@ if PY3:
         """
         :param dict dct:
         :returns: an iterator of the values of a dictionary
+        :rtype: iterator
         """
         return dct.values()
 

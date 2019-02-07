@@ -79,7 +79,8 @@ class ExampleConsumer(object):
         been established. It passes the handle to the connection object in
         case we need it, but in this case, we'll just mark it unused.
 
-        :type unused_connection: pika.adapters.asyncio_connection.AsyncioConnection
+        :param pika.adapters.asyncio_connection.AsyncioConnection _unused_connection:
+           The connection
 
         """
         LOGGER.info('Connection opened')
@@ -89,8 +90,9 @@ class ExampleConsumer(object):
         """This method is called by pika if the connection to RabbitMQ
         can't be established.
 
-        :type unused_connection: pika.adapters.asyncio_connection.AsyncioConnection
-        :type err: Exception
+        :param pika.adapters.asyncio_connection.AsyncioConnection _unused_connection:
+           The connection
+        :param Exception err: The error
 
         """
         LOGGER.error('Connection open failed: %s', err)
@@ -310,7 +312,7 @@ class ExampleConsumer(object):
         :param pika.channel.Channel _unused_channel: The channel object
         :param pika.Spec.Basic.Deliver: basic_deliver method
         :param pika.Spec.BasicProperties: properties
-        :param str|unicode body: The message body
+        :param bytes body: The message body
 
         """
         LOGGER.info('Received message # %s from %s: %s',

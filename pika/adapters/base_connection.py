@@ -131,8 +131,7 @@ class BaseConnection(connection.Connection):
             `connection_workflow.AbstractAMQPConnectionWorkflow` interface;
             defaults to a `connection_workflow.AMQPConnectionWorkflow` instance
             with default values for optional args.
-
-        :return: Connection workflow instance in use. The user should limit
+        :returns: Connection workflow instance in use. The user should limit
             their interaction with this object only to it's `abort()` method.
         :rtype: connection_workflow.AbstractAMQPConnectionWorkflow
 
@@ -159,8 +158,7 @@ class BaseConnection(connection.Connection):
             with default values for optional args.
         :param callable on_done: as defined in
             :py:meth:`connection_workflow.AbstractAMQPConnectionWorkflow.start()`.
-
-        :return: Connection workflow instance in use. The user should limit
+        :returns: Connection workflow instance in use. The user should limit
             their interaction with this object only to it's `abort()` method.
         :rtype: connection_workflow.AbstractAMQPConnectionWorkflow
 
@@ -191,10 +189,11 @@ class BaseConnection(connection.Connection):
     @property
     def ioloop(self):
         """
-        :return: the native I/O loop instance underlying async services selected
+        :returns: the native I/O loop instance underlying async services selected
             by user or the default selected by the specialized connection
             adapter (e.g., Twisted reactor, `asyncio.SelectorEventLoop`,
             `select_connection.IOLoop`, etc.)
+        :rtype: object
         """
         return self._nbio.get_native_ioloop()
 
@@ -433,14 +432,13 @@ class BaseConnection(connection.Connection):
 
     def _proto_eof_received(self):  # pylint: disable=R0201
         """Called after the remote peer shuts its write end of the connection.
-
         :py:class:`.utils.nbio_interface.AbstractStreamProtocol` implementation.
 
-        :return: A falsy value (including None) will cause the transport to
+        :returns: A falsy value (including None) will cause the transport to
             close itself, resulting in an eventual `connection_lost()` call
             from the transport. If a truthy value is returned, it will be the
             protocol's responsibility to close/abort the transport.
-        :rtype: falsy | truthy
+        :rtype: falsy|truthy
         :raises Exception: Exception-based exception on error
 
         """

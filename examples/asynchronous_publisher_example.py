@@ -68,7 +68,7 @@ class ExamplePublisher(object):
         been established. It passes the handle to the connection object in
         case we need it, but in this case, we'll just mark it unused.
 
-        :type unused_connection: pika.SelectConnection
+        :param pika.SelectConnection _unused_connection: The connection
 
         """
         LOGGER.info('Connection opened')
@@ -78,8 +78,8 @@ class ExamplePublisher(object):
         """This method is called by pika if the connection to RabbitMQ
         can't be established.
 
-        :type unused_connection: pika.SelectConnection
-        :type err: Exception
+        :param pika.SelectConnection _unused_connection: The connection
+        :param Exception err: The error
 
         """
         LOGGER.error('Connection open failed, reopening in 5 seconds: %s', err)
