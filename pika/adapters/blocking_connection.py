@@ -789,7 +789,7 @@ class BlockingConnection(object):
         LOGGER.info('Closing connection (%s): %s', reply_code, reply_text)
 
         # Close channels that remain opened
-        for impl_channel in pika.compat.dictvalues(self._impl._channels):
+        for impl_channel in compat.dictvalues(self._impl._channels):
             channel = impl_channel._get_cookie()
             if channel.is_open:
                 try:
@@ -845,12 +845,12 @@ class BlockingConnection(object):
         """
         assert duration >= 0, duration
 
-        deadline = time.time() + duration
+        deadline = compat.time_now() + duration
         time_limit = duration
         # Process events at least once
         while True:
             self.process_data_events(time_limit)
-            time_limit = deadline - time.time()
+            time_limit = deadline - compat.time_now()
             if time_limit <= 0:
                 break
 
@@ -1467,7 +1467,7 @@ class BlockingChannel(object):
                 self.cancel()
 
             # Cancel consumers created via basic_consume
-            for consumer_tag in pika.compat.dictkeys(self._consumer_infos):
+            for consumer_tag in compat.dictkeys(self._consumer_infos):
                 self.basic_cancel(consumer_tag)
 
     def _dispatch_events(self):
@@ -1973,7 +1973,7 @@ class BlockingChannel(object):
                 continue
 
             # Wait with inactivity timeout
-            wait_start_time = time.time()
+            wait_start_time = compat.time_now()
             wait_deadline = wait_start_time + inactivity_timeout
             delta = inactivity_timeout
 
@@ -1990,7 +1990,7 @@ class BlockingChannel(object):
                     # Got message(s)
                     break
 
-                delta = wait_deadline - time.time()
+                delta = wait_deadline - compat.time_now()
                 if delta <= 0.0:
                     # Signal inactivity timeout
                     yield (None, None, None)

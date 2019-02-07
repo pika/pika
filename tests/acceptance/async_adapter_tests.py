@@ -27,7 +27,7 @@ import uuid
 import pika
 from pika.adapters.utils import connection_workflow
 from pika import spec
-from pika.compat import as_bytes
+from pika.compat import as_bytes, time_now
 import pika.connection
 import pika.exceptions
 import pika.frame
@@ -550,7 +550,7 @@ class TestConsumeCancel(AsyncTestCase, AsyncAdapters):
     def on_queue_declared(self, frame):
         for i in range(0, 100):
             msg_body = '{}:{}:{}'.format(self.__class__.__name__, i,
-                                         time.time())
+                                         time_now())
             self.channel.basic_publish('', self.queue_name, msg_body)
         self.ctag = self.channel.basic_consume(self.queue_name,
                                                self.on_message,
@@ -854,7 +854,7 @@ class TestZ_PublishAndConsume(BoundQueueTestCase, AsyncAdapters):  # pylint: dis
 
     def on_ready(self, frame):
         self.ctag = self.channel.basic_consume(self.queue, self.on_message)
-        self.msg_body = "%s: %i" % (self.__class__.__name__, time.time())
+        self.msg_body = "%s: %i" % (self.__class__.__name__, time_now())
         self.channel.basic_publish(self.exchange, self.routing_key,
                                    self.msg_body)
 
@@ -897,7 +897,7 @@ class TestZ_PublishAndGet(BoundQueueTestCase, AsyncAdapters):  # pylint: disable
     DESCRIPTION = "Publish a message and get it"
 
     def on_ready(self, frame):
-        self.msg_body = "%s: %i" % (self.__class__.__name__, time.time())
+        self.msg_body = "%s: %i" % (self.__class__.__name__, time_now())
         self.channel.basic_publish(self.exchange, self.routing_key,
                                    self.msg_body)
         self.channel.basic_get(self.queue, self.on_get)
@@ -1002,7 +1002,7 @@ class TestAddCallbackThreadsafeRequestBeforeIOLoopStarts(AsyncTestCase, AsyncAda
         _adapter_add_callback_threadsafe before AsyncTestCase starts the ioloop.
 
         """
-        self.my_start_time = time.time()
+        self.my_start_time = time_now()
         # Request a callback from our current (ioloop's) thread
         self.connection._adapter_add_callback_threadsafe(
             self.on_requested_callback)
@@ -1024,7 +1024,7 @@ class TestAddCallbackThreadsafeRequestBeforeIOLoopStarts(AsyncTestCase, AsyncAda
     def on_requested_callback(self):
         self.assertEqual(threading.current_thread().ident,
                          self.loop_thread_ident)
-        self.assertLess(time.time() - self.my_start_time, 0.25)
+        self.assertLess(time_now() - self.my_start_time, 0.25)
         self.got_callback = True
 
 
@@ -1040,7 +1040,7 @@ class TestAddCallbackThreadsafeFromIOLoopThread(AsyncTestCase, AsyncAdapters):
         self.assertTrue(self.got_callback)
 
     def begin(self, channel):
-        self.my_start_time = time.time()
+        self.my_start_time = time_now()
         # Request a callback from our current (ioloop's) thread
         channel.connection._adapter_add_callback_threadsafe(
             self.on_requested_callback)
@@ -1048,7 +1048,7 @@ class TestAddCallbackThreadsafeFromIOLoopThread(AsyncTestCase, AsyncAdapters):
     def on_requested_callback(self):
         self.assertEqual(threading.current_thread().ident,
                          self.loop_thread_ident)
-        self.assertLess(time.time() - self.my_start_time, 0.25)
+        self.assertLess(time_now() - self.my_start_time, 0.25)
         self.got_callback = True
         self.stop()
 
@@ -1065,7 +1065,7 @@ class TestAddCallbackThreadsafeFromAnotherThread(AsyncTestCase, AsyncAdapters):
         self.assertTrue(self.got_callback)
 
     def begin(self, channel):
-        self.my_start_time = time.time()
+        self.my_start_time = time_now()
         # Request a callback from ioloop while executing in another thread
         timer = threading.Timer(
             0,
@@ -1077,7 +1077,7 @@ class TestAddCallbackThreadsafeFromAnotherThread(AsyncTestCase, AsyncAdapters):
     def on_requested_callback(self):
         self.assertEqual(threading.current_thread().ident,
                          self.loop_thread_ident)
-        self.assertLess(time.time() - self.my_start_time, 0.25)
+        self.assertLess(time_now() - self.my_start_time, 0.25)
         self.got_callback = True
         self.stop()
 
@@ -1090,13 +1090,13 @@ class TestIOLoopStopBeforeIOLoopStarts(AsyncTestCase, AsyncAdapters):
         ioloop.stop() before AsyncTestCase starts the ioloop.
         """
         # Request ioloop to stop before it starts
-        my_start_time = time.time()
+        my_start_time = time_now()
         self.stop_ioloop_only()
 
         super(
             TestIOLoopStopBeforeIOLoopStarts, self)._run_ioloop(*args, **kwargs)
 
-        self.assertLess(time.time() - my_start_time, 0.25)
+        self.assertLess(time_now() - my_start_time, 0.25)
 
         # Resume I/O loop to facilitate normal course of events and closure
         # of connection in order to prevent reporting of a socket resource leak

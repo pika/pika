@@ -4,11 +4,13 @@ Tests for SelectConnection _Timer and _Timeout classes
 
 """
 
+import math
 import time
 import unittest
 
 import mock
 
+import pika.compat
 from pika.adapters import select_connection
 
 
@@ -20,6 +22,16 @@ from pika.adapters import select_connection
 
 # Suppress invalid-name
 # pylint: disable=C0103
+
+
+def test_now():
+    # pika/pika#1184
+    # Note that time is a float, and these tests depend
+    # on exact math. Round up the value to ensure that
+    # CI doesn't fail because of something like this:
+    # raise self.failureException('6.000000000000028 != 6')
+    # https://travis-ci.org/pika/pika/jobs/489828602
+    return math.ceil(pika.compat.time_now())
 
 
 class ChildTimeout(select_connection._Timeout):
@@ -39,7 +51,7 @@ class TimeoutClassTests(unittest.TestCase):
     """Test select_connection._Timeout class"""
 
     def test_properties(self):
-        now = time.time()
+        now = test_now()
         cb = lambda: None
         timeout = select_connection._Timeout(now + 5.3, cb)
         self.assertIs(timeout.callback, cb)
@@ -270,17 +282,17 @@ class TimerClassTests(unittest.TestCase):
         self.assertIsNone(timer.get_remaining_interval())
 
     def test_call_later_non_negative_delay_check(self):
-        now = time.time()
+        now = test_now()
 
         # 0 delay is okay
-        with mock.patch('time.time', return_value=now):
+        with mock.patch('pika.compat.time_now', return_value=now):
             timer = select_connection._Timer()
             timer.call_later(0, lambda: None)
             self.assertEqual(timer._timeout_heap[0].deadline, now)
             self.assertEqual(timer.get_remaining_interval(), 0)
 
         # Positive delay is okay
-        with mock.patch('time.time', return_value=now):
+        with mock.patch('pika.compat.time_now', return_value=now):
             timer = select_connection._Timer()
             timer.call_later(0.5, lambda: None)
             self.assertEqual(timer._timeout_heap[0].deadline, now + 0.5)
@@ -294,9 +306,9 @@ class TimerClassTests(unittest.TestCase):
                       cm.exception.args[0])
 
     def test_call_later_single_timer_expires(self):
-        now = time.time()
+        now = test_now()
 
-        with mock.patch('time.time', return_value=now):
+        with mock.patch('pika.compat.time_now', return_value=now):
             bucket = []
             timer = select_connection._Timer()
             timer.call_later(5, lambda: bucket.append(1))
@@ -307,7 +319,7 @@ class TimerClassTests(unittest.TestCase):
             self.assertEqual(timer.get_remaining_interval(), 5)
 
         # Advance time by 5 seconds and expect the timer to expire
-        with mock.patch('time.time', return_value=now + 5):
+        with mock.patch('pika.compat.time_now', return_value=now + 5):
             self.assertEqual(timer.get_remaining_interval(), 0)
             timer.process_timeouts()
             self.assertEqual(bucket, [1])
@@ -315,12 +327,12 @@ class TimerClassTests(unittest.TestCase):
             self.assertIsNone(timer.get_remaining_interval())
 
     def test_call_later_multiple_timers(self):
-        now = time.time()
+        now = test_now()
 
         bucket = []
         timer = select_connection._Timer()
 
-        with mock.patch('time.time', return_value=now):
+        with mock.patch('pika.compat.time_now', return_value=now):
             timer.call_later(5, lambda: bucket.append(1))
             timer.call_later(5, lambda: bucket.append(2))
             timer.call_later(10, lambda: bucket.append(3))
@@ -332,7 +344,7 @@ class TimerClassTests(unittest.TestCase):
             self.assertEqual(timer.get_remaining_interval(), 5)
 
         # Advance time by 6 seconds and expect first two timers to expire
-        with mock.patch('time.time', return_value=now + 6):
+        with mock.patch('pika.compat.time_now', return_value=now + 6):
             self.assertEqual(timer.get_remaining_interval(), 0)
             timer.process_timeouts()
             self.assertEqual(bucket, [1, 2])
@@ -340,7 +352,7 @@ class TimerClassTests(unittest.TestCase):
             self.assertEqual(timer.get_remaining_interval(), 4)
 
         # Advance time by 10 seconds and expect the 3rd timeout to expire
-        with mock.patch('time.time', return_value=now + 10):
+        with mock.patch('pika.compat.time_now', return_value=now + 10):
             self.assertEqual(timer.get_remaining_interval(), 0)
             timer.process_timeouts()
             self.assertEqual(bucket, [1, 2, 3])
@@ -348,12 +360,12 @@ class TimerClassTests(unittest.TestCase):
             self.assertIsNone(timer.get_remaining_interval())
 
     def test_add_and_remove_timeout(self):
-        now = time.time()
+        now = test_now()
 
         bucket = []
         timer = select_connection._Timer()
 
-        with mock.patch('time.time', return_value=now):
+        with mock.patch('pika.compat.time_now', return_value=now):
             timer.call_later(10, lambda: bucket.append(3)) # t3
             t2 = timer.call_later(6, lambda: bucket.append(2))
             t1 = timer.call_later(5, lambda: bucket.append(1))
@@ -380,7 +392,7 @@ class TimerClassTests(unittest.TestCase):
 
         # Advance time by 6 seconds to expire t1 and t2 and verify they don't
         # fire
-        with mock.patch('time.time', return_value=now + 6):
+        with mock.patch('pika.compat.time_now', return_value=now + 6):
             self.assertEqual(timer.get_remaining_interval(), 0)
             timer.process_timeouts()
             self.assertEqual(bucket, [])
@@ -389,7 +401,7 @@ class TimerClassTests(unittest.TestCase):
             self.assertEqual(timer.get_remaining_interval(), 4)
 
         # Advance time by 10 seconds to expire t3 and verify it fires
-        with mock.patch('time.time', return_value=now + 10):
+        with mock.patch('pika.compat.time_now', return_value=now + 10):
             self.assertEqual(timer.get_remaining_interval(), 0)
             timer.process_timeouts()
             self.assertEqual(bucket, [3])
@@ -397,13 +409,13 @@ class TimerClassTests(unittest.TestCase):
             self.assertIsNone(timer.get_remaining_interval())
 
     def test_gc_of_unexpired_timeouts(self):
-        now = time.time()
+        now = test_now()
         bucket = []
         timer = select_connection._Timer()
 
         with mock.patch.multiple(select_connection._Timer,
                                  _GC_CANCELLATION_THRESHOLD=1):
-            with mock.patch('time.time', return_value=now):
+            with mock.patch('pika.compat.time_now', return_value=now):
                 t3 = timer.call_later(10, lambda: bucket.append(3))
                 t2 = timer.call_later(6, lambda: bucket.append(2))
                 t1 = timer.call_later(5, lambda: bucket.append(1))
@@ -430,11 +442,11 @@ class TimerClassTests(unittest.TestCase):
                 self.assertEqual(timer._num_cancellations, 0)
 
     def test_add_timeout_from_another_timeout(self):
-        now = time.time()
+        now = test_now()
         bucket = []
         timer = select_connection._Timer()
 
-        with mock.patch('time.time', return_value=now):
+        with mock.patch('pika.compat.time_now', return_value=now):
             t1 = timer.call_later(
                 5,
                 lambda: bucket.append(
@@ -443,7 +455,7 @@ class TimerClassTests(unittest.TestCase):
         # Advance time by 10 seconds and verify that t1 fires and creates t2,
         # but timer manager defers firing of t2 to next `process_timeouts` in
         # order to avoid IO starvation
-        with mock.patch('time.time', return_value=now + 10):
+        with mock.patch('pika.compat.time_now', return_value=now + 10):
             timer.process_timeouts()
             t2 = bucket.pop()
             self.assertIsInstance(t2, select_connection._Timeout)
@@ -459,11 +471,11 @@ class TimerClassTests(unittest.TestCase):
             self.assertEqual(timer.get_remaining_interval(), None)
 
     def test_cancel_unexpired_timeout_from_another_timeout(self):
-        now = time.time()
+        now = test_now()
         bucket = []
         timer = select_connection._Timer()
 
-        with mock.patch('time.time', return_value=now):
+        with mock.patch('pika.compat.time_now', return_value=now):
             t2 = timer.call_later(10, lambda: bucket.append(2))
             t1 = timer.call_later(5, lambda: timer.remove_timeout(t2))
 
@@ -471,7 +483,7 @@ class TimerClassTests(unittest.TestCase):
 
         # Advance time by 6 seconds and check that t2 is cancelled, but not
         # removed from timeout heap
-        with mock.patch('time.time', return_value=now + 6):
+        with mock.patch('pika.compat.time_now', return_value=now + 6):
             timer.process_timeouts()
             self.assertIsNone(t2.callback)
             self.assertEqual(timer.get_remaining_interval(), 4)
@@ -480,7 +492,7 @@ class TimerClassTests(unittest.TestCase):
 
         # Advance time by 10 seconds and verify that t2 is removed without
         # firing
-        with mock.patch('time.time', return_value=now + 10):
+        with mock.patch('pika.compat.time_now', return_value=now + 10):
             timer.process_timeouts()
             self.assertEqual(bucket, [])
             self.assertIsNone(timer.get_remaining_interval())
@@ -489,11 +501,11 @@ class TimerClassTests(unittest.TestCase):
 
 
     def test_cancel_expired_timeout_from_another_timeout(self):
-        now = time.time()
+        now = test_now()
         bucket = []
         timer = select_connection._Timer()
 
-        with mock.patch('time.time', return_value=now):
+        with mock.patch('pika.compat.time_now', return_value=now):
             t2 = timer.call_later(10, lambda: bucket.append(2))
             t1 = timer.call_later(
                 5,
@@ -504,7 +516,7 @@ class TimerClassTests(unittest.TestCase):
 
         # Advance time by 10 seconds and check that t2 is cancelled and
         # removed from timeout heap
-        with mock.patch('time.time', return_value=now + 10):
+        with mock.patch('pika.compat.time_now', return_value=now + 10):
             timer.process_timeouts()
             self.assertEqual(bucket, [])
             self.assertIsNone(t2.callback)
