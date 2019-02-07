@@ -982,7 +982,7 @@ class TestBlockedConnectionUnblocks(AsyncTestCase, AsyncAdapters):  # pylint: di
             pika.frame.Method(0, spec.Connection.Unblocked()))
 
         # Schedule shutdown after blocked connection timeout would expire
-        channel.connection._adapter_add_timeout(0.005, self.on_cleanup_timer)
+        channel.connection._adapter_call_later(0.005, self.on_cleanup_timer)
 
     def on_cleanup_timer(self):
         self.stop()
@@ -1112,8 +1112,8 @@ class TestViabilityOfMultipleTimeoutsWithSameDeadlineAndCallback(AsyncTestCase, 
     DESCRIPTION = "Test viability of multiple timeouts with same deadline and callback"
 
     def begin(self, channel):
-        timer1 = channel.connection._adapter_add_timeout(0, self.on_my_timer)
-        timer2 = channel.connection._adapter_add_timeout(0, self.on_my_timer)
+        timer1 = channel.connection._adapter_call_later(0, self.on_my_timer)
+        timer2 = channel.connection._adapter_call_later(0, self.on_my_timer)
 
         self.assertIsNot(timer1, timer2)
 

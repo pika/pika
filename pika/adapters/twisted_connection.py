@@ -1084,13 +1084,13 @@ class _TwistedConnectionAdapter(pika.connection.Connection):
         self._reactor = custom_reactor or reactor
         self._transport = None  # to be provided by `connection_made()`
 
-    def _adapter_add_timeout(self, deadline, callback):
+    def _adapter_call_later(self, delay, callback):
         """Implement
-        :py:meth:`pika.connection.Connection._adapter_add_timeout()`.
+        :py:meth:`pika.connection.Connection._adapter_call_later()`.
 
         """
         check_callback_arg(callback, 'callback')
-        return _TimerHandle(self._reactor.callLater(deadline, callback))
+        return _TimerHandle(self._reactor.callLater(delay, callback))
 
     def _adapter_remove_timeout(self, timeout_id):
         """Implement

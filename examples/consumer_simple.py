@@ -29,7 +29,7 @@ def hello():
     print('Hello world')
 
 
-connection.add_timeout(5, hello)
+connection.call_later(5, hello)
 
 
 def callback(_ch, _method, _properties, body):

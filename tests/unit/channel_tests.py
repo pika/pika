@@ -30,7 +30,7 @@ class ConnectionTemplate(connection.Connection):
     _adapter_connect_stream = connection.Connection._adapter_connect_stream
     _adapter_disconnect_stream = connection.Connection._adapter_disconnect_stream
     _adapter_emit_data = connection.Connection._adapter_emit_data
-    _adapter_add_timeout = connection.Connection._adapter_add_timeout
+    _adapter_call_later = connection.Connection._adapter_call_later
     _adapter_remove_timeout = connection.Connection._adapter_remove_timeout
     _adapter_add_callback_threadsafe = (
         connection.Connection._adapter_add_callback_threadsafe)
