@@ -1,7 +1,7 @@
 Version History
 ===============
 
-1.0.0b2 2019-02-06
+1.0.0b2 2019-02-07
 ------------------
 
 `GitHub milestone <https://github.com/pika/pika/milestone/8>`_
