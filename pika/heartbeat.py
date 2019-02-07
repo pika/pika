@@ -65,9 +65,7 @@ class HeartbeatChecker(object):
         self._check_interval = timeout + 5
 
         LOGGER.debug('timeout: %f send_interval: %f check_interval: %f',
-                     self._timeout,
-                     self._send_interval,
-                     self._check_interval)
+                     self._timeout, self._send_interval, self._check_interval)
 
         # Initialize counters
         self._bytes_received = 0
@@ -123,11 +121,10 @@ class HeartbeatChecker(object):
             # Connection has not received any data, increment the counter
             self._idle_byte_intervals += 1
 
-        LOGGER.debug('Received %i heartbeat frames, sent %i, '
-                     'idle intervals %i',
-                     self._heartbeat_frames_received,
-                     self._heartbeat_frames_sent,
-                     self._idle_byte_intervals)
+        LOGGER.debug(
+            'Received %i heartbeat frames, sent %i, '
+            'idle intervals %i', self._heartbeat_frames_received,
+            self._heartbeat_frames_sent, self._idle_byte_intervals)
 
         if self.connection_is_idle:
             self._close_connection()
@@ -188,8 +185,7 @@ class HeartbeatChecker(object):
     def _start_send_timer(self):
         """Start a new heartbeat send timer."""
         self._send_timer = self._connection._adapter_add_timeout(  # pylint: disable=W0212
-            self._send_interval,
-            self._send_heartbeat)
+            self._send_interval, self._send_heartbeat)
 
     def _start_check_timer(self):
         """Start a new heartbeat check timer."""
@@ -200,8 +196,7 @@ class HeartbeatChecker(object):
         self._update_counters()
 
         self._check_timer = self._connection._adapter_add_timeout(  # pylint: disable=W0212
-            self._check_interval,
-            self._check_heartbeat)
+            self._check_interval, self._check_heartbeat)
 
     def _update_counters(self):
         """Update the internal counters for bytes sent and received and the

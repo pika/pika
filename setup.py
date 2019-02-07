@@ -26,13 +26,16 @@ setuptools.setup(
     license='BSD',
     install_requires=requirements,
     package_data={'': ['LICENSE', 'README.rst']},
-    extras_require={'tornado': ['tornado'],
-                    'twisted': ['twisted']},
+    extras_require={
+        'tornado': ['tornado'],
+        'twisted': ['twisted']
+    },
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: BSD License',
-        'Natural Language :: English', 'Operating System :: OS Independent',
+        'Natural Language :: English',
+        'Operating System :: OS Independent',
         'Programming Language :: Python :: 2',
         'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',

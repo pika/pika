@@ -1,3 +1,7 @@
+"""
+Common validation functions
+"""
+
 from pika.compat import basestring
 
 
