@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# pylint: disable=C0111,C0103,R0205
 
 """
 This example demonstrates RabbitMQ's "Direct reply-to" usage via
@@ -7,7 +8,6 @@ for more info about this feature.
 """
 
 import pika
-
 
 SERVER_QUEUE = 'rpc.server.queue'
 
@@ -26,11 +26,9 @@ def main():
 
         # Set up server
 
-        channel.queue_declare(queue=SERVER_QUEUE,
-                              exclusive=True,
-                              auto_delete=True)
+        channel.queue_declare(
+            queue=SERVER_QUEUE, exclusive=True, auto_delete=True)
         channel.basic_consume(SERVER_QUEUE, on_server_rx_rpc_request)
-
 
         # Set up client
 
@@ -44,9 +42,10 @@ def main():
         # Client must create its consumer with auto_ack=True, because the reply-to
         # queue isn't real.
 
-        channel.basic_consume('amq.rabbitmq.reply-to',
-                              on_client_rx_reply_from_server,
-                              auto_ack=True)
+        channel.basic_consume(
+            'amq.rabbitmq.reply-to',
+            on_client_rx_reply_from_server,
+            auto_ack=True)
         channel.basic_publish(
             exchange='',
             routing_key=SERVER_QUEUE,
@@ -66,7 +65,7 @@ def on_server_rx_rpc_request(ch, method_frame, properties, body):
     print('RPC Server says good bye')
 
 
-def on_client_rx_reply_from_server(ch, method_frame, properties, body):
+def on_client_rx_reply_from_server(ch, _method_frame, _properties, body):
     print('RPC Client got reply: %s' % body)
 
     # NOTE A real client might want to make additional RPC requests, but in this

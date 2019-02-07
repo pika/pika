@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
+# pylint: disable=C0111,C0103,R0205
 
 import functools
 import logging
-import pika
 import json
+import pika
 
 LOG_FORMAT = ('%(levelname) -10s %(asctime)s %(name) -30s %(funcName) '
-                '-35s %(lineno) -5d: %(message)s')
+              '-35s %(lineno) -5d: %(message)s')
 LOGGER = logging.getLogger(__name__)
 
 
@@ -56,12 +57,13 @@ class ExamplePublisher(object):
 
         """
         LOGGER.info('Connecting to %s', self._url)
-        return pika.SelectConnection(pika.URLParameters(self._url),
-                                     on_open_callback=self.on_connection_open,
-                                     on_open_error_callback=self.on_connection_open_error,
-                                     on_close_callback=self.on_connection_closed)
+        return pika.SelectConnection(
+            pika.URLParameters(self._url),
+            on_open_callback=self.on_connection_open,
+            on_open_error_callback=self.on_connection_open_error,
+            on_close_callback=self.on_connection_closed)
 
-    def on_connection_open(self, unused_connection):
+    def on_connection_open(self, _unused_connection):
         """This method is called by pika once the connection to RabbitMQ has
         been established. It passes the handle to the connection object in
         case we need it, but in this case, we'll just mark it unused.
@@ -72,7 +74,7 @@ class ExamplePublisher(object):
         LOGGER.info('Connection opened')
         self.open_channel()
 
-    def on_connection_open_error(self, unused_connection, err):
+    def on_connection_open_error(self, _unused_connection, err):
         """This method is called by pika if the connection to RabbitMQ
         can't be established.
 
@@ -83,7 +85,7 @@ class ExamplePublisher(object):
         LOGGER.error('Connection open failed, reopening in 5 seconds: %s', err)
         self._connection.ioloop.call_later(5, self._connection.ioloop.stop)
 
-    def on_connection_closed(self, connection, reason):
+    def on_connection_closed(self, _unused_connection, reason):
         """This method is invoked by pika when the connection to RabbitMQ is
         closed unexpectedly. Since it is unexpected, we will reconnect to
         RabbitMQ if it disconnects.
@@ -160,12 +162,14 @@ class ExamplePublisher(object):
         LOGGER.info('Declaring exchange %s', exchange_name)
         # Note: using functools.partial is not required, it is demonstrating
         # how arbitrary data can be passed to the callback when it is called
-        cb = functools.partial(self.on_exchange_declareok, userdata=exchange_name)
-        self._channel.exchange_declare(exchange=exchange_name,
-                                       exchange_type=self.EXCHANGE_TYPE,
-                                       callback=cb)
+        cb = functools.partial(
+            self.on_exchange_declareok, userdata=exchange_name)
+        self._channel.exchange_declare(
+            exchange=exchange_name,
+            exchange_type=self.EXCHANGE_TYPE,
+            callback=cb)
 
-    def on_exchange_declareok(self, unused_frame, userdata):
+    def on_exchange_declareok(self, _unused_frame, userdata):
         """Invoked by pika when RabbitMQ has finished the Exchange.Declare RPC
         command.
 
@@ -185,10 +189,10 @@ class ExamplePublisher(object):
 
         """
         LOGGER.info('Declaring queue %s', queue_name)
-        self._channel.queue_declare(queue=queue_name,
-                                    callback=self.on_queue_declareok)
+        self._channel.queue_declare(
+            queue=queue_name, callback=self.on_queue_declareok)
 
-    def on_queue_declareok(self, method_frame):
+    def on_queue_declareok(self, _unused_frame):
         """Method invoked by pika when the Queue.Declare RPC call made in
         setup_queue has completed. In this method we will bind the queue
         and exchange together with the routing key by issuing the Queue.Bind
@@ -198,14 +202,15 @@ class ExamplePublisher(object):
         :param pika.frame.Method method_frame: The Queue.DeclareOk frame
 
         """
-        LOGGER.info('Binding %s to %s with %s',
-                    self.EXCHANGE, self.QUEUE, self.ROUTING_KEY)
-        self._channel.queue_bind(self.QUEUE,
-                                 self.EXCHANGE,
-                                 routing_key=self.ROUTING_KEY,
-                                 callback=self.on_bindok)
+        LOGGER.info('Binding %s to %s with %s', self.EXCHANGE, self.QUEUE,
+                    self.ROUTING_KEY)
+        self._channel.queue_bind(
+            self.QUEUE,
+            self.EXCHANGE,
+            routing_key=self.ROUTING_KEY,
+            callback=self.on_bindok)
 
-    def on_bindok(self, unused_frame):
+    def on_bindok(self, _unused_frame):
         """This method is invoked by pika when it receives the Queue.BindOk
         response from RabbitMQ. Since we know we're now setup and bound, it's
         time to start publishing."""
@@ -249,18 +254,17 @@ class ExamplePublisher(object):
 
         """
         confirmation_type = method_frame.method.NAME.split('.')[1].lower()
-        LOGGER.info('Received %s for delivery tag: %i',
-                    confirmation_type,
+        LOGGER.info('Received %s for delivery tag: %i', confirmation_type,
                     method_frame.method.delivery_tag)
         if confirmation_type == 'ack':
             self._acked += 1
         elif confirmation_type == 'nack':
             self._nacked += 1
         self._deliveries.remove(method_frame.method.delivery_tag)
-        LOGGER.info('Published %i messages, %i have yet to be confirmed, '
-                    '%i were acked and %i were nacked',
-                    self._message_number, len(self._deliveries),
-                    self._acked, self._nacked)
+        LOGGER.info(
+            'Published %i messages, %i have yet to be confirmed, '
+            '%i were acked and %i were nacked', self._message_number,
+            len(self._deliveries), self._acked, self._nacked)
 
     def schedule_next_message(self):
         """If we are not closing our connection to RabbitMQ, schedule another
@@ -288,12 +292,11 @@ class ExamplePublisher(object):
         if self._channel is None or not self._channel.is_open:
             return
 
-        hdrs = {u'مفتاح': u' قيمة',
-                u'键': u'值',
-                u'キー': u'値'}
-        properties = pika.BasicProperties(app_id='example-publisher',
-                                          content_type='application/json',
-                                          headers=hdrs)
+        hdrs = {u'مفتاح': u' قيمة', u'键': u'值', u'キー': u'値'}
+        properties = pika.BasicProperties(
+            app_id='example-publisher',
+            content_type='application/json',
+            headers=hdrs)
 
         message = u'مفتاح قيمة 键 值 キー 値'
         self._channel.basic_publish(self.EXCHANGE, self.ROUTING_KEY,
@@ -361,7 +364,9 @@ def main():
     logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT)
 
     # Connect to localhost:5672 as guest with the password guest and virtual host "/" (%2F)
-    example = ExamplePublisher('amqp://guest:guest@localhost:5672/%2F?connection_attempts=3&heartbeat=3600')
+    example = ExamplePublisher(
+        'amqp://guest:guest@localhost:5672/%2F?connection_attempts=3&heartbeat=3600'
+    )
     example.run()
 
 

@@ -1,5 +1,6 @@
+# -*- coding: utf-8 -*-
+# pylint: disable=C0111,C0103,R0205
 """
-# -*- coding:utf-8 -*-
 # based on:
 #  - txamqp-helpers by Dan Siemon <dan@coverfire.com> (March 2010)
 #    http://git.coverfire.com/?p=txamqp-twistd.git;a=tree
@@ -23,10 +24,6 @@ as defined by PREFETCH_COUNT
 import logging
 import sys
 
-import pika
-from pika import spec
-from pika.adapters import twisted_connection
-
 from twisted.internet import protocol
 from twisted.application import internet
 from twisted.application import service
@@ -34,6 +31,10 @@ from twisted.internet.defer import inlineCallbacks
 from twisted.internet import ssl, defer, task
 from twisted.python import log
 from twisted.internet import reactor
+
+import pika
+from pika import spec
+from pika.adapters import twisted_connection
 
 PREFETCH_COUNT = 2
 
@@ -50,20 +51,26 @@ class PikaService(service.MultiService):
         service.MultiService.startService(self)
 
     def getFactory(self):
-        if len(self.services) > 0:
-            return self.services[0].factory
+        return self.services[0].factory
 
     def connect(self):
         f = PikaFactory(self.parameters)
         if self.parameters.ssl_options:
             s = ssl.ClientContextFactory()
-            serv = internet.SSLClient(host=self.parameters.host, port=self.parameters.port, factory=f, contextFactory=s)
+            serv = internet.SSLClient( # pylint: disable=E1101
+                host=self.parameters.host,
+                port=self.parameters.port,
+                factory=f,
+                contextFactory=s)
         else:
-            serv = internet.TCPClient(host=self.parameters.host, port=self.parameters.port, factory=f)
-        serv.factory = f
-        f.service = serv
-        name = '%s%s:%d' % ('ssl:' if self.parameters.ssl_options else '', self.parameters.host, self.parameters.port)
-        serv.__repr__ = lambda : '<AMQP Connection to %s>' % name
+            serv = internet.TCPClient( # pylint: disable=E1101
+                host=self.parameters.host,
+                port=self.parameters.port,
+                factory=f)
+        f.service = serv # pylint: disable=W0201
+        name = '%s%s:%d' % ('ssl:' if self.parameters.ssl_options else '',
+                            self.parameters.host, self.parameters.port)
+        serv.__repr__ = lambda: '<AMQP Connection to %s>' % name
         serv.setName(name)
         serv.parent = self
         self.addService(serv)
@@ -73,13 +80,21 @@ class PikaProtocol(twisted_connection.TwistedProtocolConnection):
     connected = False
     name = 'AMQP:Protocol'
 
+    def __init__(self, factory, parameters):
+        super().__init__(parameters)
+        self.factory = factory
+
     @inlineCallbacks
     def onConnected(self, connection):
         self.channel = yield connection.channel()
         yield self.channel.basic_qos(prefetch_count=PREFETCH_COUNT)
         self.connected = True
         yield self.channel.confirm_delivery()
-        for (exchange, routing_key, callback,) in self.factory.read_list:
+        for (
+                exchange,
+                routing_key,
+                callback,
+        ) in self.factory.read_list:
             yield self.setup_read(exchange, routing_key, callback)
 
         self.send()
@@ -94,14 +109,23 @@ class PikaProtocol(twisted_connection.TwistedProtocolConnection):
     def setup_read(self, exchange, routing_key, callback):
         """This function does the work to read from an exchange."""
         if exchange:
-            yield self.channel.exchange_declare(exchange=exchange, exchange_type='topic', durable=True, auto_delete=False)
+            yield self.channel.exchange_declare(
+                exchange=exchange,
+                exchange_type='topic',
+                durable=True,
+                auto_delete=False)
 
         yield self.channel.queue_declare(queue=routing_key, durable=True)
         if exchange:
             yield self.channel.queue_bind(queue=routing_key, exchange=exchange)
-            yield self.channel.queue_bind(queue=routing_key, exchange=exchange, routing_key=routing_key)
+            yield self.channel.queue_bind(
+                queue=routing_key, exchange=exchange, routing_key=routing_key)
 
-        (queue, consumer_tag,) = yield self.channel.basic_consume(queue=routing_key, auto_ack=False)
+        (
+            queue,
+            _consumer_tag,
+        ) = yield self.channel.basic_consume(
+            queue=routing_key, auto_ack=False)
         d = queue.get()
         d.addCallback(self._read_item, queue, callback)
         d.addErrback(self._read_item_err)
@@ -111,34 +135,54 @@ class PikaProtocol(twisted_connection.TwistedProtocolConnection):
         d = queue.get()
         d.addCallback(self._read_item, queue, callback)
         d.addErrback(self._read_item_err)
-        (channel, deliver, props, msg,) = item
+        (
+            channel,
+            deliver,
+            _props,
+            msg,
+        ) = item
 
-        log.msg('%s (%s): %s' % (deliver.exchange, deliver.routing_key, repr(msg)), system='Pika:<=')
+        log.msg(
+            '%s (%s): %s' % (deliver.exchange, deliver.routing_key, repr(msg)),
+            system='Pika:<=')
         d = defer.maybeDeferred(callback, item)
-        d.addCallbacks(
-            lambda _: channel.basic_ack(deliver.delivery_tag),
-            lambda _: channel.basic_nack(deliver.delivery_tag)
-        )
+        d.addCallbacks(lambda _: channel.basic_ack(deliver.delivery_tag),
+                       lambda _: channel.basic_nack(deliver.delivery_tag))
 
-    def _read_item_err(self, error):
+    @staticmethod
+    def _read_item_err(error):
         print(error)
 
     def send(self):
         """If connected, send all waiting messages."""
         if self.connected:
-            while len(self.factory.queued_messages) > 0:
-                (exchange, r_key, message,) = self.factory.queued_messages.pop(0)
+            while self.factory.queued_messages:
+                (
+                    exchange,
+                    r_key,
+                    message,
+                ) = self.factory.queued_messages.pop(0)
                 self.send_message(exchange, r_key, message)
 
     @inlineCallbacks
     def send_message(self, exchange, routing_key, msg):
         """Send a single message."""
-        log.msg('%s (%s): %s' % (exchange, routing_key, repr(msg)), system='Pika:=>')
-        yield self.channel.exchange_declare(exchange=exchange, exchange_type='topic', durable=True, auto_delete=False)
+        log.msg(
+            '%s (%s): %s' % (exchange, routing_key, repr(msg)),
+            system='Pika:=>')
+        yield self.channel.exchange_declare(
+            exchange=exchange,
+            exchange_type='topic',
+            durable=True,
+            auto_delete=False)
         prop = spec.BasicProperties(delivery_mode=2)
         try:
-            yield self.channel.basic_publish(exchange=exchange, routing_key=routing_key, body=msg, properties=prop)
-        except Exception as error:
+            yield self.channel.basic_publish(
+                exchange=exchange,
+                routing_key=routing_key,
+                body=msg,
+                properties=prop)
+        except Exception as error:  # pylint: disable=W0703
             log.msg('Error while sending message: %s' % error, system=self.name)
 
 
@@ -157,20 +201,22 @@ class PikaFactory(protocol.ReconnectingClientFactory):
     def buildProtocol(self, addr):
         self.resetDelay()
         log.msg('Connected', system=self.name)
-        self.client = PikaProtocol(self.parameters)
-        self.client.factory = self
+        self.client = PikaProtocol(self, self.parameters)
         self.client.ready.addCallback(self.client.onConnected)
         return self.client
 
-    def clientConnectionLost(self, connector, reason):
+    def clientConnectionLost(self, connector, reason): # pylint: disable=W0221
         log.msg('Lost connection.  Reason: %s' % reason.value, system=self.name)
-        protocol.ReconnectingClientFactory.clientConnectionLost(self, connector, reason)
+        protocol.ReconnectingClientFactory.clientConnectionLost(
+            self, connector, reason)
 
     def clientConnectionFailed(self, connector, reason):
-        log.msg('Connection failed. Reason: %s' % reason.value, system=self.name)
-        protocol.ReconnectingClientFactory.clientConnectionFailed(self, connector, reason)
+        log.msg(
+            'Connection failed. Reason: %s' % reason.value, system=self.name)
+        protocol.ReconnectingClientFactory.clientConnectionFailed(
+            self, connector, reason)
 
-    def send_message(self, exchange = None, routing_key = None, message = None):
+    def send_message(self, exchange=None, routing_key=None, message=None):
         self.queued_messages.append((exchange, routing_key, message))
         if self.client is not None:
             self.client.send()
@@ -184,13 +230,21 @@ class PikaFactory(protocol.ReconnectingClientFactory):
 
 application = service.Application("pikaapplication")
 
-ps = PikaService(pika.ConnectionParameters(host="localhost", virtual_host="/", credentials=pika.PlainCredentials("guest", "guest")))
+ps = PikaService(
+    pika.ConnectionParameters(
+        host="localhost",
+        virtual_host="/",
+        credentials=pika.PlainCredentials("guest", "guest")))
 ps.setServiceParent(application)
 
 
 class TestService(service.Service):
 
-    def task(self, msg):
+    def __init__(self):
+        super().__init__()
+        self.amqp = None
+
+    def task(self, _msg): # pylint: disable=R0201
         """
         Method for a time consuming task.
 
@@ -205,11 +259,13 @@ class TestService(service.Service):
         self.amqp.send_message('foobar', 'response', msg[3])
 
     def startService(self):
-        self.amqp = self.parent.getServiceNamed("amqp").getFactory()
+        amqp_service = self.parent.getServiceNamed("amqp") # pylint: disable=E1111,E1121
+        self.amqp = amqp_service.getFactory()
         self.amqp.read_messages("foobar", "request1", self.respond)
         self.amqp.read_messages("foobar", "request2", self.respond)
         self.amqp.read_messages("foobar", "request3", self.respond)
         self.amqp.read_messages("foobar", "task", self.task)
+
 
 ts = TestService()
 ts.setServiceParent(application)
