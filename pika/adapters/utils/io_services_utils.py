@@ -162,6 +162,7 @@ class _AsyncServiceAsyncHandle(AbstractIOReference):
         """Cancel pending operation
 
         :returns: False if was already done or cancelled; True otherwise
+        :rtype: bool
 
         """
         return self._cancel()
@@ -741,7 +742,8 @@ class _AsyncTransportBase(  # pylint: disable=W0223
 
     def get_write_buffer_size(self):
         """
-        :return: Current size of output data buffered by the transport
+        :returns: Current size of output data buffered by the transport
+        :rtype: int
         """
         return self._tx_buffered_byte_count
 
@@ -835,7 +837,8 @@ class _AsyncTransportBase(  # pylint: disable=W0223
 
         :param sock: stream or SSL socket
         :param max_bytes: maximum number of bytes to receive
-        :return: received data or empty bytes uppon end of file
+        :returns: received data or empty bytes uppon end of file
+        :rtype: bytes
         :raises: whatever the corresponding `sock.recv()` raises except socket
                  error with errno.EINTR
 
@@ -849,7 +852,8 @@ class _AsyncTransportBase(  # pylint: disable=W0223
 
         :param sock: stream or SSL socket
         :param data: data bytes to send
-        :return: number of bytes actually sent
+        :returns: number of bytes actually sent
+        :rtype: int
         :raises: whatever the corresponding `sock.send()` raises except socket
                  error with errno.EINTR
 

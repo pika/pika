@@ -58,7 +58,7 @@ class ClosableDeferredQueue(defer.DeferredQueue):
 
         The Deferred will errback if the queue is closed.
 
-        :return: Deferred that fires with the next item.
+        :returns: Deferred that fires with the next item.
         :rtype: Deferred
 
         """
@@ -302,7 +302,7 @@ class TwistedChannel(object):
             channel: this TwistedChannel
             method: pika.spec.Basic.Return
             properties: pika.spec.BasicProperties
-            body: str, unicode, or bytes (python 3.x)
+            body: bytes
 
         """
         self._channel.add_on_return_callback(
@@ -353,7 +353,7 @@ class TwistedChannel(object):
         associated with that consumer.
 
         :param str consumer_tag: Identifier for the consumer
-        :return: Deferred that fires on the Basic.CancelOk response
+        :returns: Deferred that fires on the Basic.CancelOk response
         :rtype: Deferred
         :raises ValueError:
 
@@ -380,18 +380,16 @@ class TwistedChannel(object):
         http://www.rabbitmq.com/confirms.html
         http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.consume
 
-        :param queue: The queue to consume from. Use the empty string to
+        :param str queue: The queue to consume from. Use the empty string to
             specify the most recent server-named queue for this channel.
-        :type queue: str or unicode
         :param bool auto_ack: if set to True, automatic acknowledgement mode
             will be used (see http://www.rabbitmq.com/confirms.html). This
             corresponds with the 'no_ack' parameter in the basic.consume AMQP
             0.9.1 method
         :param bool exclusive: Don't allow other consumers on the queue
-        :param consumer_tag: Specify your own consumer tag
-        :type consumer_tag: str or unicode
+        :param str consumer_tag: Specify your own consumer tag
         :param dict arguments: Custom key/value pair arguments for the consumer
-        :return: Deferred that fires with a tuple
+        :returns: Deferred that fires with a tuple
             ``(queue_object, consumer_tag)``.  The queue object is an instance
             of :class:`ClosableDeferredQueue`, where data received from
             the queue will be stored. Clients should use its
@@ -401,7 +399,7 @@ class TwistedChannel(object):
              - channel: this TwistedChannel
              - method: pika.spec.Basic.Deliver
              - properties: pika.spec.BasicProperties
-             - body: str, unicode, or bytes (python 3.x)
+             - body: bytes
         :rtype: Deferred
 
         """
@@ -461,18 +459,17 @@ class TwistedChannel(object):
         This method wraps :meth:`Channel.basic_get
         <pika.channel.Channel.basic_get>`.
 
-        :param queue: The queue from which to get a message. Use the empty
+        :param str queue: The queue from which to get a message. Use the empty
                       string to specify the most recent server-named queue
                       for this channel.
-        :type queue: str or unicode
         :param bool auto_ack: Tell the broker to not expect a reply
-        :return: Deferred that fires with a namedtuple whose attributes are:
+        :returns: Deferred that fires with a namedtuple whose attributes are:
             channel: this TwistedChannel
             method: pika.spec.Basic.GetOk
             properties: pika.spec.BasicProperties
-            body: str, unicode, or bytes (python 3.x)
+            body: bytes
             If the queue is empty, None will be returned.
-        :rtype: Deferred(ReceivedMessage|None)
+        :rtype: Deferred
         :raises pika.exceptions.DuplicateGetOkCallback:
 
         """
@@ -542,18 +539,14 @@ class TwistedChannel(object):
 
         http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.publish
 
-        :param exchange: The exchange to publish to
-        :type exchange: str or unicode
-        :param routing_key: The routing key to bind on
-        :type routing_key: str or unicode
-        :param body: The message body
-        :type body: str or unicode
+        :param str exchange: The exchange to publish to
+        :param str routing_key: The routing key to bind on
+        :param bytes body: The message body
         :param pika.spec.BasicProperties properties: Basic.properties
         :param bool mandatory: The mandatory flag
-        :return: A Deferred that fires with the result of the channel's
+        :returns: A Deferred that fires with the result of the channel's
             basic_publish.
         :rtype: Deferred
-
         :raises UnroutableError: raised when a message published in
             publisher-acknowledgments mode (see
             `BlockingChannel.confirm_delivery`) is returned via `Basic.Return`
@@ -607,7 +600,7 @@ class TwistedChannel(object):
                                    have enabled the no-ack option.
         :param bool global_qos:    Should the QoS apply to all consumers on the
                                    Channel
-        :return: Deferred that fires on the Basic.QosOk response
+        :returns: Deferred that fires on the Basic.QosOk response
         :rtype: Deferred
 
         """
@@ -642,7 +635,7 @@ class TwistedChannel(object):
                              original recipient. If True, the server will
                              attempt to requeue the message, potentially then
                              delivering it to an alternative subscriber.
-        :return: Deferred that fires on the Basic.RecoverOk response
+        :returns: Deferred that fires on the Basic.RecoverOk response
         :rtype: Deferred
 
         """
@@ -670,7 +663,7 @@ class TwistedChannel(object):
         For more information see:
             http://www.rabbitmq.com/confirms.html#publisher-confirms
 
-        :return: Deferred that fires on the Confirm.SelectOk response
+        :returns: Deferred that fires on the Confirm.SelectOk response
         :rtype: Deferred
 
         """
@@ -748,8 +741,7 @@ class TwistedChannel(object):
         :param pika.Channel channel: our self._impl channel
         :param pika.spec.Basic.Return method:
         :param pika.spec.BasicProperties properties: message properties
-        :param body: returned message body; empty string if no body
-        :type body: str, unicode
+        :param bytes body: returned message body; empty string if no body
 
         """
         assert isinstance(message.method, spec.Basic.Return), message.method
@@ -770,16 +762,12 @@ class TwistedChannel(object):
                       arguments=None):
         """Bind an exchange to another exchange.
 
-        :param destination: The destination exchange to bind
-        :type destination: str or unicode
-        :param source: The source exchange to bind to
-        :type source: str or unicode
-        :param routing_key: The routing key to bind on
-        :type routing_key: str or unicode
-        :param arguments: Custom key/value pair arguments for the binding
-        :type arguments: dict
+        :param str destination: The destination exchange to bind
+        :param str source: The source exchange to bind to
+        :param str routing_key: The routing key to bind on
+        :param dict arguments: Custom key/value pair arguments for the binding
         :raises ValueError:
-        :return: Deferred that fires on the Exchange.BindOk response
+        :returns: Deferred that fires on the Exchange.BindOk response
         :rtype: Deferred
 
         """
@@ -807,11 +795,9 @@ class TwistedChannel(object):
         exchange does not already exist, the server MUST raise a channel
         exception with reply code 404 (not found).
 
-        :param exchange: The exchange name consists of a non-empty
-        :type exchange: str or unicode
-                                     sequence of these characters: letters,
-                                     digits, hyphen, underscore, period, or
-                                     colon.
+        :param str exchange: The exchange name consists of a non-empty sequence
+            of these characters: letters, digits, hyphen, underscore, period,
+            or colon
         :param str exchange_type: The exchange type to use
         :param bool passive: Perform a declare or just check to see if it
             exists
@@ -819,7 +805,7 @@ class TwistedChannel(object):
         :param bool auto_delete: Remove when no more queues are bound to it
         :param bool internal: Can only be published to by other exchanges
         :param dict arguments: Custom key/value pair arguments for the exchange
-        :return: Deferred that fires on the Exchange.DeclareOk response
+        :returns: Deferred that fires on the Exchange.DeclareOk response
         :rtype: Deferred
         :raises ValueError:
 
@@ -837,10 +823,9 @@ class TwistedChannel(object):
     def exchange_delete(self, exchange=None, if_unused=False):
         """Delete the exchange.
 
-        :param exchange: The exchange name
-        :type exchange: str or unicode
+        :param str exchange: The exchange name
         :param bool if_unused: only delete if the exchange is unused
-        :return: Deferred that fires on the Exchange.DeleteOk response
+        :returns: Deferred that fires on the Exchange.DeleteOk response
         :rtype: Deferred
         :raises ValueError:
 
@@ -857,14 +842,11 @@ class TwistedChannel(object):
                         arguments=None):
         """Unbind an exchange from another exchange.
 
-        :param destination: The destination exchange to unbind
-        :type destination: str or unicode
-        :param source: The source exchange to unbind from
-        :type source: str or unicode
-        :param routing_key: The routing key to unbind
-        :type routing_key: str or unicode
+        :param str destination: The destination exchange to unbind
+        :param str source: The source exchange to unbind from
+        :param str routing_key: The routing key to unbind
         :param dict arguments: Custom key/value pair arguments for the binding
-        :return: Deferred that fires on the Exchange.UnbindOk response
+        :returns: Deferred that fires on the Exchange.UnbindOk response
         :rtype: Deferred
         :raises ValueError:
 
@@ -885,8 +867,8 @@ class TwistedChannel(object):
         http://www.rabbitmq.com/amqp-0-9-1-reference.html#channel.flow
 
         :param bool active: Turn flow on or off
-        :return: Deferred that fires with the channel flow state
-        :rtype: Deferred(bool)
+        :returns: Deferred that fires with the channel flow state
+        :rtype: Deferred
         :raises ValueError:
 
         """
@@ -899,14 +881,11 @@ class TwistedChannel(object):
     def queue_bind(self, queue, exchange, routing_key=None, arguments=None):
         """Bind the queue to the specified exchange
 
-        :param queue: The queue to bind to the exchange
-        :type queue: str or unicode
-        :param exchange: The source exchange to bind to
-        :type exchange: str or unicode
-        :param routing_key: The routing key to bind on
-        :type routing_key: str or unicode
+        :param str queue: The queue to bind to the exchange
+        :param str exchange: The source exchange to bind to
+        :param str routing_key: The routing key to bind on
         :param dict arguments: Custom key/value pair arguments for the binding
-        :return: Deferred that fires on the Queue.BindOk response
+        :returns: Deferred that fires on the Queue.BindOk response
         :rtype: Deferred
         :raises ValueError:
 
@@ -933,17 +912,15 @@ class TwistedChannel(object):
         Use an empty string as the queue name for the broker to auto-generate
         one
 
-        :param queue: The queue name
-        :type queue: str or unicode; if empty string, the broker will create a
-          unique queue name;
+        :param str queue: The queue name; if empty string, the broker will
+            create a unique queue name
         :param bool passive: Only check to see if the queue exists
         :param bool durable: Survive reboots of the broker
         :param bool exclusive: Only allow access by the current connection
         :param bool auto_delete: Delete after consumer cancels or disconnects
         :param dict arguments: Custom key/value arguments for the queue
-        :return: Deferred that fires on the Queue.DeclareOk response
+        :returns: Deferred that fires on the Queue.DeclareOk response
         :rtype: Deferred
-          Queue.DeclareOk
         :raises ValueError:
 
         """
@@ -964,11 +941,10 @@ class TwistedChannel(object):
         <pika.channel.Channel.queue_delete>`, and removes the reference to the
         queue object after it gets deleted on the server.
 
-        :param queue: The queue to delete
-        :type queue: str or unicode
+        :param str queue: The queue to delete
         :param bool if_unused: only delete if it's unused
         :param bool if_empty: only delete if the queue is empty
-        :return: Deferred that fires on the Queue.DeleteOk response
+        :returns: Deferred that fires on the Queue.DeleteOk response
         :rtype: Deferred
         :raises ValueError:
 
@@ -992,9 +968,8 @@ class TwistedChannel(object):
     def queue_purge(self, queue):
         """Purge all of the messages from the specified queue
 
-        :param queue: The queue to purge
-        :type queue: str or unicode
-        :return: Deferred that fires on the Queue.PurgeOk response
+        :param str queue: The queue to purge
+        :returns: Deferred that fires on the Queue.PurgeOk response
         :rtype: Deferred
         :raises ValueError:
 
@@ -1008,14 +983,11 @@ class TwistedChannel(object):
                      arguments=None):
         """Unbind a queue from an exchange.
 
-        :param queue: The queue to unbind from the exchange
-        :type queue: str or unicode
-        :param exchange: The source exchange to bind from
-        :type exchange: str or unicode
-        :param routing_key: The routing key to unbind
-        :type routing_key: str or unicode
+        :param str queue: The queue to unbind from the exchange
+        :param str exchange: The source exchange to bind from
+        :param str routing_key: The routing key to unbind
         :param dict arguments: Custom key/value pair arguments for the binding
-        :return: Deferred that fires on the Queue.UnbindOk response
+        :returns: Deferred that fires on the Queue.UnbindOk response
         :rtype: Deferred
         :raises ValueError:
 
@@ -1030,9 +1002,8 @@ class TwistedChannel(object):
     def tx_commit(self):
         """Commit a transaction.
 
-        :return: Deferred that fires on the Tx.CommitOk response
+        :returns: Deferred that fires on the Tx.CommitOk response
         :rtype: Deferred
-
         :raises ValueError:
 
         """
@@ -1041,9 +1012,8 @@ class TwistedChannel(object):
     def tx_rollback(self):
         """Rollback a transaction.
 
-        :return: Deferred that fires on the Tx.RollbackOk response
+        :returns: Deferred that fires on the Tx.RollbackOk response
         :rtype: Deferred
-
         :raises ValueError:
 
         """
@@ -1054,7 +1024,7 @@ class TwistedChannel(object):
         standard transactions. The client must use this method at least once on
         a channel before using the Commit or Rollback methods.
 
-        :return: Deferred that fires on the Tx.SelectOk response
+        :returns: Deferred that fires on the Tx.SelectOk response
         :rtype: Deferred
         :raises ValueError:
 

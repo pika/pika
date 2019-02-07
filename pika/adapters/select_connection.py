@@ -75,7 +75,7 @@ class SelectConnection(BaseConnection):
         """Create a new instance of the Connection object.
 
         :param pika.connection.Parameters parameters: Connection parameters
-        :param method on_open_callback: Method to call on connection open
+        :param callable on_open_callback: Method to call on connection open
         :param None | method on_open_error_callback: Called if the connection
             can't be established or connection establishment is interrupted by
             `Connection.close()`: on_open_error_callback(Connection, exception).
@@ -137,7 +137,7 @@ class SelectConnection(BaseConnection):
 
     def _get_write_buffer_size(self):
         """
-        :return: Current size of output data buffered by the transport
+        :returns: Current size of output data buffered by the transport
         :rtype: int
         """
         return self._transport.get_write_buffer_size()
@@ -239,9 +239,9 @@ class _Timer(object):
             Manager cancels the timer upon dispatch of the callback.
 
         :param float delay: Non-negative number of seconds from now until
-                            expiration
-        :param method callback: The callback method, having the signature
-                                `callback()`
+            expiration
+        :param callable callback: The callback method, having the signature
+            `callback()`
 
         :rtype: _Timeout
         :raises ValueError, TypeError
@@ -396,7 +396,8 @@ class IOLoop(AbstractSelectorIOLoop):
         :param process_timeouts: Function for processing timeouts for use by the
                                  poller
 
-        :returns: the instantiated poller instance supporting `_PollerBase` API
+        :returns: The instantiated poller instance supporting `_PollerBase` API
+        :rtype: object
         """
 
         poller = None
@@ -433,10 +434,10 @@ class IOLoop(AbstractSelectorIOLoop):
         timeout.
 
         :param float delay: The number of seconds to wait to call callback
-        :param method callback: The callback method
+        :param callable callback: The callback method
         :returns: handle to the created timeout that may be passed to
             `remove_timeout()`
-        :rtype: opaque
+        :rtype: object
 
         """
         return self._timer.call_later(delay, callback)
@@ -460,7 +461,7 @@ class IOLoop(AbstractSelectorIOLoop):
         ioloop that is running in a different thread via
         `ioloop.add_callback_threadsafe(ioloop.stop)`
 
-        :param method callback: The callback method
+        :param callable callback: The callback method
 
         """
         if not callable(callback):
@@ -509,7 +510,7 @@ class IOLoop(AbstractSelectorIOLoop):
         """Start watching the given file descriptor for events
 
         :param int fd: The file descriptor
-        :param method handler: When requested event(s) occur,
+        :param callable handler: When requested event(s) occur,
             `handler(fd, events)` will be called.
         :param int events: The event mask using READ, WRITE, ERROR.
 
@@ -676,6 +677,7 @@ class _PollerBase(pika.compat.AbstractBase):  # pylint: disable=R0902
 
         :returns: maximum number of self.POLL_TIMEOUT_MULT-scaled time units
                   to wait for IO events
+        :rtype: int
 
         """
         delay = self._get_wait_seconds()
@@ -690,7 +692,7 @@ class _PollerBase(pika.compat.AbstractBase):  # pylint: disable=R0902
         """Add a new fileno to the set to be monitored
 
         :param int fileno: The file descriptor
-        :param method handler: What is called when an event happens
+        :param callable handler: What is called when an event happens
         :param int events: The event mask using READ, WRITE, ERROR
 
         """
@@ -742,6 +744,7 @@ class _PollerBase(pika.compat.AbstractBase):  # pylint: disable=R0902
         :param int events: The event mask (READ, WRITE, ERROR)
 
         :returns: a 2-tuple (events_cleared, events_set)
+        :rtype: tuple
         """
         events_cleared = 0
         events_set = 0

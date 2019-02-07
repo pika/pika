@@ -35,6 +35,7 @@ def rpc_completion_callback(callback):
     """Verify callback is callable if not None
 
     :returns: boolean indicating nowait
+    :rtype: bool
     :raises: TypeError
 
     """

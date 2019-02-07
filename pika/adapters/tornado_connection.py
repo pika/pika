@@ -23,26 +23,27 @@ class TornadoConnection(base_connection.BaseConnection):
                  custom_ioloop=None,
                  internal_connection_workflow=True):
         """Create a new instance of the TornadoConnection class, connecting
-        to RabbitMQ automatically
+        to RabbitMQ automatically.
 
-        :param pika.connection.Parameters parameters: Connection parameters
-        :param on_open_callback: The method to call when the connection is open
-        :type on_open_callback: method
-        :param None | method on_open_error_callback: Called if the connection
+        :param pika.connection.Parameters|None parameters: The connection
+            parameters
+        :param callable|None on_open_callback: The method to call when the
+            connection is open
+        :param callable|None on_open_error_callback: Called if the connection
             can't be established or connection establishment is interrupted by
-            `Connection.close()`: on_open_error_callback(Connection, exception).
-        :param None | method on_close_callback: Called when a previously fully
+            `Connection.close()`:
+            on_open_error_callback(Connection, exception)
+        :param callable|None on_close_callback: Called when a previously fully
             open connection is closed:
             `on_close_callback(Connection, exception)`, where `exception` is
             either an instance of `exceptions.ConnectionClosed` if closed by
-            user or broker or exception of another type that describes the cause
-            of connection failure.
-        :param None | ioloop.IOLoop |
-            nbio_interface.AbstractIOServices custom_ioloop:
-                Override using the global IOLoop in Tornado
+            user or broker or exception of another type that describes the
+            cause of connection failure
+        :param ioloop.IOLoop|nbio_interface.AbstractIOServices|None custom_ioloop:
+            Override using the global IOLoop in Tornado
         :param bool internal_connection_workflow: True for autonomous connection
             establishment which is default; False for externally-managed
-            connection workflow via the `create_connection()` factory.
+            connection workflow via the `create_connection()` factory
 
         """
         if isinstance(custom_ioloop, nbio_interface.AbstractIOServices):
