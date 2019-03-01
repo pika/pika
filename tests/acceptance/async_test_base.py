@@ -24,6 +24,13 @@ from pika import adapters
 from pika.adapters import select_connection
 
 
+def enable_tls():
+    if 'PIKA_TEST_TLS' in os.environ and \
+            os.environ['PIKA_TEST_TLS'].lower() == 'true':
+        return True
+    return False
+
+
 class AsyncTestCase(unittest.TestCase):
     DESCRIPTION = ""
     ADAPTER = None
@@ -31,28 +38,14 @@ class AsyncTestCase(unittest.TestCase):
 
     def setUp(self):
         self.logger = logging.getLogger(self.__class__.__name__)
-        self.parameters = pika.ConnectionParameters(
-            host='localhost',
-            port=5672)
-        if self.should_test_tls():
+        if enable_tls():
             self.logger.info('testing using TLS/SSL connection to port 5671')
-            self.parameters.port = 5671
-            self.parameters.ssl = True
-            self.parameters.ssl_options = dict(
-                ssl_version=ssl.PROTOCOL_TLSv1,
-                ca_certs="testdata/certs/ca_certificate.pem",
-                keyfile="testdata/certs/client_key.pem",
-                certfile="testdata/certs/client_certificate.pem",
-                cert_reqs=ssl.CERT_REQUIRED)
+            url = 'amqps://localhost:5671/%2F?ssl_options=%7B%27ca_certs%27%3A%27testdata%2Fcerts%2Fca_certificate.pem%27%2C%27keyfile%27%3A%27testdata%2Fcerts%2Fclient_key.pem%27%2C%27certfile%27%3A%27testdata%2Fcerts%2Fclient_certificate.pem%27%7D'
+            self.parameters = pika.URLParameters(url)
+        else:
+            self.parameters = pika.ConnectionParameters(host='localhost', port=5672)
         self._timed_out = False
         super(AsyncTestCase, self).setUp()
-
-    @staticmethod
-    def should_test_tls():
-        if 'PIKA_TEST_TLS' in os.environ and \
-                os.environ['PIKA_TEST_TLS'].lower() == 'true':
-            return True
-        return False
 
     def tearDown(self):
         self._stop()
