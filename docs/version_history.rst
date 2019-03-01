@@ -1,6 +1,11 @@
 Version History
 ===============
 
+0.13.1 2019-02-04
+-----------------
+
+`GitHub milestone <https://github.com/pika/pika/milestone/14>`_
+
 0.13.0 2019-01-17
 -----------------
 
