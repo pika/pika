@@ -37,6 +37,16 @@ Version History
 
 **IMPORTANT**: When specifying TLS / SSL options, the ``SSLOptions`` class must be used, and a ``dict`` is no longer supported.
 
+0.13.1 2019-02-04
+-----------------
+
+`GitHub milestone <https://github.com/pika/pika/milestone/14>`_
+
+0.13.0 2019-01-17
+-----------------
+
+`GitHub milestone <https://github.com/pika/pika/milestone/13>`_
+
 0.12.0 2018-06-19
 -----------------
 

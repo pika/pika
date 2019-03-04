@@ -901,30 +901,22 @@ class URLParameters(Parameters):
             #
             # https://docs.python.org/3/library/ssl.html#ssl.wrap_socket
             #
-            # Note: this is the deprecated wrap_socket signature and info:
-            #
-            # Internally, function creates a SSLContext with protocol
-            # ssl_version and SSLContext.options set to cert_reqs.
-            # If parameters keyfile, certfile, ca_certs or ciphers are set,
-            # then the values are passed to SSLContext.load_cert_chain(),
-            # SSLContext.load_verify_locations(), and SSLContext.set_ciphers().
-            #
-            # ssl.wrap_socket(sock,
-            #     keyfile=None,
-            #     certfile=None,
-            #     server_side=False,        # Not URL-supported
-            #     cert_reqs=CERT_NONE,      # Not URL-supported
-            #     ssl_version=PROTOCOL_TLS, # Not URL-supported
-            #     ca_certs=None,
-            #     do_handshake_on_connect=True, # Not URL-supported
-            #     suppress_ragged_eofs=True,    # Not URL-supported
-            #     ciphers=None)
-            #
-            cxt = ssl.SSLContext()
-            if 'ca_certs' in opts:
-                opt_ca_certs = opts['ca_certs']
-                cxt.load_verify_locations(opt_ca_certs)
+            # SSLContext.load_verify_locations(cafile=None, capath=None, cadata=None)
+            try:
+                opt_protocol = ssl.PROTOCOL_TLS
+            except AttributeError:
+                opt_protocol = ssl.PROTOCOL_TLSv1
+            if 'protocol' in opts:
+                opt_protocol = opts['protocol']
 
+            cxt = ssl.SSLContext(protocol=opt_protocol)
+
+            opt_cafile = opts.get('ca_certs') or opts.get('cafile')
+            opt_capath = opts.get('ca_path') or opts.get('capath')
+            opt_cadata = opts.get('ca_data') or opts.get('cadata')
+            cxt.load_verify_locations(opt_cafile, opt_capath, opt_cadata)
+
+            # SSLContext.load_cert_chain(certfile, keyfile=None, password=None)
             if 'certfile' in opts:
                 opt_certfile = opts['certfile']
                 opt_keyfile = opts.get('keyfile')

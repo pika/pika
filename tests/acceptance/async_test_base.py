@@ -85,6 +85,13 @@ def make_stop_on_error_with_self(the_self=None):
 stop_on_error_in_async_test_case_method = make_stop_on_error_with_self()
 
 
+def enable_tls():
+    if 'PIKA_TEST_TLS' in os.environ and \
+            os.environ['PIKA_TEST_TLS'].lower() == 'true':
+        return True
+    return False
+
+
 class AsyncTestCase(unittest.TestCase):
     DESCRIPTION = ""
     ADAPTER = None
@@ -100,19 +107,12 @@ class AsyncTestCase(unittest.TestCase):
         self._public_stop_error_in = None  # exception passed to our stop()
         super(AsyncTestCase, self).setUp()
 
-    @staticmethod
-    def should_use_tls():
-        if 'PIKA_TEST_TLS' in os.environ and \
-                os.environ['PIKA_TEST_TLS'].lower() == 'true':
-            return True
-        return False
-
     def new_connection_params(self):
         """
         :rtype: pika.ConnectionParameters
 
         """
-        if self.should_use_tls():
+        if enable_tls():
             return self._new_tls_connection_params()
         else:
             return self._new_plaintext_connection_params()
@@ -123,13 +123,8 @@ class AsyncTestCase(unittest.TestCase):
 
         """
         self.logger.info('testing using TLS/SSL connection to port 5671')
-        params = self._new_plaintext_connection_params()
-        params.port = 5671
-        context = ssl.create_default_context(
-            cafile='testdata/certs/ca_certificate.pem')
-        context.load_cert_chain('testdata/certs/client_certificate.pem',
-                                'testdata/certs/client_key.pem')
-        params.ssl_options = pika.SSLOptions(context, 'localhost')
+        url = 'amqps://localhost:5671/%2F?ssl_options=%7B%27ca_certs%27%3A%27testdata%2Fcerts%2Fca_certificate.pem%27%2C%27keyfile%27%3A%27testdata%2Fcerts%2Fclient_key.pem%27%2C%27certfile%27%3A%27testdata%2Fcerts%2Fclient_certificate.pem%27%7D'
+        params = pika.URLParameters(url)
         return params
 
     @staticmethod
