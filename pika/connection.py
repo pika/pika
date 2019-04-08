@@ -571,7 +571,7 @@ class ConnectionParameters(Parameters):
         :param pika.credentials.Credentials credentials: auth credentials
         :param int channel_max: Maximum number of channels to allow
         :param int frame_max: The maximum byte size for an AMQP frame
-        :param int|None|callable value: Controls AMQP heartbeat timeout negotiation
+        :param int|None|callable heartbeat: Controls AMQP heartbeat timeout negotiation
             during connection tuning. An integer value always overrides the value
             proposed by broker. Use 0 to deactivate heartbeats and None to always
             accept the broker's proposal. If a callable is given, it will be called
