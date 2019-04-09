@@ -214,9 +214,9 @@ class Channel(object):
         the loss of consumers due to events such as queue deletion.
 
         :param str consumer_tag: Identifier for the consumer
-        :param callable callback: Callback to call for a Basic.CancelOk
-            response. If None, do not expect a Basic.CancelOk response,
-            otherwise, callback must be callable.
+        :param callable callback: callback(pika.frame.Method) for method
+            Basic.CancelOk. If None, do not expect a Basic.CancelOk response,
+            otherwise, callback must be callable
 
         :raises ValueError:
 
@@ -502,6 +502,8 @@ class Channel(object):
                              delivering it to an alternative subscriber.
         :param callable callback: Callback to call when receiving
             Basic.RecoverOk
+        :param callable callback: callback(pika.frame.Method) for method
+            Basic.RecoverOk
         :raises ValueError:
 
         """
@@ -563,7 +565,7 @@ class Channel(object):
             confirmations that has the following signature:
             callback(pika.frame.Method), where method_frame contains
             either method `spec.Basic.Ack` or `spec.Basic.Nack`.
-        :param callable callback: Callback to call when receiving
+        :param callable callback: callback(pika.frame.Method) for method
             Confirm.SelectOk
         :raises ValueError:
 
@@ -613,7 +615,7 @@ class Channel(object):
         :param str source: The source exchange to bind to
         :param str routing_key: The routing key to bind on
         :param dict arguments: Custom key/value pair arguments for the binding
-        :param callable callback: The callback to call on Exchange.BindOk
+        :param callable callback: callback(pika.frame.Method) for method Exchange.BindOk
         :raises ValueError:
 
         """
@@ -653,7 +655,7 @@ class Channel(object):
         :param bool auto_delete: Remove when no more queues are bound to it
         :param bool internal: Can only be published to by other exchanges
         :param dict arguments: Custom key/value pair arguments for the exchange
-        :param callable callback: Call this method on Exchange.DeclareOk
+        :param callable callback: callback(pika.frame.Method) for method Exchange.DeclareOk
         :raises ValueError:
 
         """
@@ -671,7 +673,7 @@ class Channel(object):
 
         :param str exchange: The exchange name
         :param bool if_unused: only delete if the exchange is unused
-        :param callable callback: The function to call on Exchange.DeleteOk
+        :param callable callback: callback(pika.frame.Method) for method Exchange.DeleteOk
         :raises ValueError:
 
         """
@@ -693,7 +695,7 @@ class Channel(object):
         :param str source: The source exchange to unbind from
         :param str routing_key: The routing key to unbind
         :param dict arguments: Custom key/value pair arguments for the binding
-        :param callable callback: The callback to call on Exchange.UnbindOk
+        :param callable callback: callback(pika.frame.Method) for method Exchange.UnbindOk
         :raises ValueError:
 
         """
@@ -713,8 +715,7 @@ class Channel(object):
         http://www.rabbitmq.com/amqp-0-9-1-reference.html#channel.flow
 
         :param bool active: Turn flow on or off
-        :param callable callback: The optional callback to call upon
-                                  completion
+        :param callable callback: callback(bool) upon completion
         :raises ValueError:
 
         """
@@ -770,7 +771,7 @@ class Channel(object):
         :param str exchange: The source exchange to bind to
         :param str routing_key: The routing key to bind on
         :param dict arguments: Custom key/value pair arguments for the binding
-        :param callable callback: The callback to call on Queue.BindOk
+        :param callable callback: callback(pika.frame.Method) for method Queue.BindOk
         :raises ValueError:
 
         """
@@ -808,8 +809,7 @@ class Channel(object):
         :param bool exclusive: Only allow access by the current connection
         :param bool auto_delete: Delete after consumer cancels or disconnects
         :param dict arguments: Custom key/value arguments for the queue
-        :param callable callback: callback(pika.frame.Method) for method
-          Queue.DeclareOk
+        :param callable callback: callback(pika.frame.Method) for method Queue.DeclareOk
         :raises ValueError:
 
         """
@@ -838,7 +838,7 @@ class Channel(object):
         :param str queue: The queue to delete
         :param bool if_unused: only delete if it's unused
         :param bool if_empty: only delete if the queue is empty
-        :param callable callback: The callback to call on Queue.DeleteOk
+        :param callable callback: callback(pika.frame.Method) for method Queue.DeleteOk
         :raises ValueError:
 
         """
@@ -854,7 +854,7 @@ class Channel(object):
         """Purge all of the messages from the specified queue
 
         :param str queue: The queue to purge
-        :param callable callback: The callback to call on Queue.PurgeOk
+        :param callable callback: callback(pika.frame.Method) for method Queue.PurgeOk
         :raises ValueError:
 
         """
@@ -876,7 +876,7 @@ class Channel(object):
         :param str exchange: The source exchange to bind from
         :param str routing_key: The routing key to unbind
         :param dict arguments: Custom key/value pair arguments for the binding
-        :param callable callback: The callback to call on Queue.UnbindOk
+        :param callable callback: callback(pika.frame.Method) for method Queue.UnbindOk
         :raises ValueError:
 
         """
