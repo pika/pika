@@ -254,12 +254,11 @@ class Channel(object):
 
         self._cancelled.add(consumer_tag)
 
-        self._rpc(
-            spec.Basic.Cancel(consumer_tag=consumer_tag, nowait=nowait),
-            self._on_cancelok if not nowait else None,
-            [(spec.Basic.CancelOk, {
-                'consumer_tag': consumer_tag
-            })] if not nowait else [])
+        self._rpc(spec.Basic.Cancel(consumer_tag=consumer_tag, nowait=nowait),
+                  self._on_cancelok if not nowait else None,
+                  [(spec.Basic.CancelOk, {
+                      'consumer_tag': consumer_tag
+                  })] if not nowait else [])
 
     def basic_consume(self,
                       queue,
@@ -322,12 +321,11 @@ class Channel(object):
         rpc_callback = self._on_eventok if callback is None else callback
 
         self._rpc(
-            spec.Basic.Consume(
-                queue=queue,
-                consumer_tag=consumer_tag,
-                no_ack=auto_ack,
-                exclusive=exclusive,
-                arguments=arguments or dict()), rpc_callback,
+            spec.Basic.Consume(queue=queue,
+                               consumer_tag=consumer_tag,
+                               no_ack=auto_ack,
+                               exclusive=exclusive,
+                               arguments=arguments or dict()), rpc_callback,
             [(spec.Basic.ConsumeOk, {
                 'consumer_tag': consumer_tag
             })])
@@ -426,9 +424,9 @@ class Channel(object):
             body = body.encode('utf-8')
         properties = properties or spec.BasicProperties()
         self._send_method(
-            spec.Basic.Publish(
-                exchange=exchange, routing_key=routing_key,
-                mandatory=mandatory), (properties, body))
+            spec.Basic.Publish(exchange=exchange,
+                               routing_key=routing_key,
+                               mandatory=mandatory), (properties, body))
 
     def basic_qos(self,
                   prefetch_size=0,
@@ -509,8 +507,8 @@ class Channel(object):
         """
         self._raise_if_not_open()
         validators.rpc_completion_callback(callback)
-        return self._rpc(
-            spec.Basic.Recover(requeue), callback, [spec.Basic.RecoverOk])
+        return self._rpc(spec.Basic.Recover(requeue), callback,
+                         [spec.Basic.RecoverOk])
 
     def close(self, reply_code=0, reply_text="Normal shutdown"):
         """Invoke a graceful shutdown of the channel with the AMQP Broker.
@@ -549,9 +547,8 @@ class Channel(object):
         # ChannelWrongStateError exception from basic_cancel
         self._set_state(self.CLOSING)
 
-        self._rpc(
-            spec.Channel.Close(reply_code, reply_text, 0, 0), self._on_closeok,
-            [spec.Channel.CloseOk])
+        self._rpc(spec.Channel.Close(reply_code, reply_text, 0, 0),
+                  self._on_closeok, [spec.Channel.CloseOk])
 
     def confirm_delivery(self, ack_nack_callback, callback=None):
         """Turn on Confirm mode in the channel. Pass in a callback to be
@@ -590,9 +587,8 @@ class Channel(object):
         self.callbacks.add(self.channel_number, spec.Basic.Nack,
                            ack_nack_callback, False)
 
-        self._rpc(
-            spec.Confirm.Select(nowait), callback,
-            [spec.Confirm.SelectOk] if not nowait else [])
+        self._rpc(spec.Confirm.Select(nowait), callback,
+                  [spec.Confirm.SelectOk] if not nowait else [])
 
     @property
     def consumer_tags(self):
@@ -679,9 +675,9 @@ class Channel(object):
         """
         self._raise_if_not_open()
         nowait = validators.rpc_completion_callback(callback)
-        return self._rpc(
-            spec.Exchange.Delete(0, exchange, if_unused, nowait), callback,
-            [spec.Exchange.DeleteOk] if not nowait else [])
+        return self._rpc(spec.Exchange.Delete(0, exchange, if_unused,
+                                              nowait), callback,
+                         [spec.Exchange.DeleteOk] if not nowait else [])
 
     def exchange_unbind(self,
                         destination=None,
@@ -722,8 +718,8 @@ class Channel(object):
         self._raise_if_not_open()
         validators.rpc_completion_callback(callback)
         self._on_flowok_callback = callback
-        self._rpc(
-            spec.Channel.Flow(active), self._on_flowok, [spec.Channel.FlowOk])
+        self._rpc(spec.Channel.Flow(active), self._on_flowok,
+                  [spec.Channel.FlowOk])
 
     @property
     def is_closed(self):
@@ -957,12 +953,11 @@ class Channel(object):
             signature: callback(channel)
 
         """
-        self.callbacks.add(
-            self.channel_number,
-            self._ON_CHANNEL_CLEANUP_CB_KEY,
-            callback,
-            one_shot=True,
-            only_caller=self)
+        self.callbacks.add(self.channel_number,
+                           self._ON_CHANNEL_CLEANUP_CB_KEY,
+                           callback,
+                           one_shot=True,
+                           only_caller=self)
 
     def _cleanup(self):
         """Remove all consumers and any callbacks for the channel."""
@@ -1363,18 +1358,16 @@ class Channel(object):
                 else:
                     arguments = None
                 LOGGER.debug('Adding on_synchronous_complete callback')
-                self.callbacks.add(
-                    self.channel_number,
-                    reply,
-                    self._on_synchronous_complete,
-                    arguments=arguments)
+                self.callbacks.add(self.channel_number,
+                                   reply,
+                                   self._on_synchronous_complete,
+                                   arguments=arguments)
                 if callback is not None:
                     LOGGER.debug('Adding passed-in RPC response callback')
-                    self.callbacks.add(
-                        self.channel_number,
-                        reply,
-                        callback,
-                        arguments=arguments)
+                    self.callbacks.add(self.channel_number,
+                                       reply,
+                                       callback,
+                                       arguments=arguments)
 
     def _raise_if_not_open(self):
         """If channel is not in the OPEN state, raises ChannelWrongStateError
