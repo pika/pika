@@ -24,7 +24,7 @@ from pika.adapters.twisted_connection import (
 from pika import spec
 from pika.exceptions import (
     AMQPConnectionError, ConsumerCancelled, DuplicateGetOkCallback, NackError,
-    UnroutableError)
+    UnroutableError, ChannelClosedByBroker)
 from pika.frame import Method
 
 
@@ -185,6 +185,14 @@ class TwistedChannelTestCase(TestCase):
         self.pika_channel.basic_consume.side_effect = RuntimeError()
         d = self.channel.basic_consume(queue="testqueue")
         return self.assertFailure(d, RuntimeError)
+
+    def test_basic_consume_errback_on_close(self):
+        # Verify Deferreds that haven't had their callback invoked errback when
+        # the channel closes.
+        d = self.channel.basic_consume(queue="testqueue")
+        self.channel._on_channel_closed(
+            self, ChannelClosedByBroker(404, "NOT FOUND"))
+        return self.assertFailure(d, ChannelClosedByBroker)
 
     @deferred(timeout=5.0)
     def test_queue_delete(self):

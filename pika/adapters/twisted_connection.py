@@ -390,11 +390,12 @@ class TwistedChannel(object):
         :param str consumer_tag: Specify your own consumer tag
         :param dict arguments: Custom key/value pair arguments for the consumer
         :returns: Deferred that fires with a tuple
-            ``(queue_object, consumer_tag)``.  The queue object is an instance
-            of :class:`ClosableDeferredQueue`, where data received from
-            the queue will be stored. Clients should use its
-            :meth:`get() <ClosableDeferredQueue.get>` method to fetch an
-            individual message, which will return a Deferred firing with a
+            ``(queue_object, consumer_tag)``. The Deferred will errback with an
+            instance of :class:`exceptions.ChannelClosed` if the call fails.
+            The queue object is an instance of :class:`ClosableDeferredQueue`,
+            where data received from the queue will be stored. Clients should
+            use its :meth:`get() <ClosableDeferredQueue.get>` method to fetch
+            an individual message, which will return a Deferred firing with a
             namedtuple whose attributes are:
              - channel: this TwistedChannel
              - method: pika.spec.Basic.Deliver
@@ -408,12 +409,14 @@ class TwistedChannel(object):
 
         queue_obj = ClosableDeferredQueue()
         d = defer.Deferred()
+        self._calls.add(d)
 
         def on_consume_ok(frame):
             consumer_tag = frame.method.consumer_tag
             self._queue_name_to_consumer_tags.setdefault(
                 queue, set()).add(consumer_tag)
             self._consumers[consumer_tag] = queue_obj
+            self._calls.discard(d)
             d.callback((queue_obj, consumer_tag))
 
         def on_message_callback(_channel, method, properties, body):
