@@ -67,13 +67,13 @@ class PikaService(service.MultiService):
                 host=self.parameters.host,
                 port=self.parameters.port,
                 factory=f)
+        serv.factory = f
         f.service = serv # pylint: disable=W0201
         name = '%s%s:%d' % ('ssl:' if self.parameters.ssl_options else '',
                             self.parameters.host, self.parameters.port)
         serv.__repr__ = lambda: '<AMQP Connection to %s>' % name
         serv.setName(name)
-        serv.parent = self
-        self.addService(serv)
+        serv.setServiceParent(self)
 
 
 class PikaProtocol(twisted_connection.TwistedProtocolConnection):
@@ -85,11 +85,11 @@ class PikaProtocol(twisted_connection.TwistedProtocolConnection):
         self.factory = factory
 
     @inlineCallbacks
-    def onConnected(self, connection):
-        self.channel = yield connection.channel()
-        yield self.channel.basic_qos(prefetch_count=PREFETCH_COUNT)
+    def connectionReady(self):
+        self._channel = yield self.channel()
+        yield self._channel.basic_qos(prefetch_count=PREFETCH_COUNT)
         self.connected = True
-        yield self.channel.confirm_delivery()
+        yield self._channel.confirm_delivery()
         for (
                 exchange,
                 routing_key,
@@ -109,22 +109,22 @@ class PikaProtocol(twisted_connection.TwistedProtocolConnection):
     def setup_read(self, exchange, routing_key, callback):
         """This function does the work to read from an exchange."""
         if exchange:
-            yield self.channel.exchange_declare(
+            yield self._channel.exchange_declare(
                 exchange=exchange,
                 exchange_type='topic',
                 durable=True,
                 auto_delete=False)
 
-        yield self.channel.queue_declare(queue=routing_key, durable=True)
+        yield self._channel.queue_declare(queue=routing_key, durable=True)
         if exchange:
-            yield self.channel.queue_bind(queue=routing_key, exchange=exchange)
-            yield self.channel.queue_bind(
+            yield self._channel.queue_bind(queue=routing_key, exchange=exchange)
+            yield self._channel.queue_bind(
                 queue=routing_key, exchange=exchange, routing_key=routing_key)
 
         (
             queue,
             _consumer_tag,
-        ) = yield self.channel.basic_consume(
+        ) = yield self._channel.basic_consume(
             queue=routing_key, auto_ack=False)
         d = queue.get()
         d.addCallback(self._read_item, queue, callback)
@@ -170,14 +170,14 @@ class PikaProtocol(twisted_connection.TwistedProtocolConnection):
         log.msg(
             '%s (%s): %s' % (exchange, routing_key, repr(msg)),
             system='Pika:=>')
-        yield self.channel.exchange_declare(
+        yield self._channel.exchange_declare(
             exchange=exchange,
             exchange_type='topic',
             durable=True,
             auto_delete=False)
         prop = spec.BasicProperties(delivery_mode=2)
         try:
-            yield self.channel.basic_publish(
+            yield self._channel.basic_publish(
                 exchange=exchange,
                 routing_key=routing_key,
                 body=msg,
@@ -202,7 +202,6 @@ class PikaFactory(protocol.ReconnectingClientFactory):
         self.resetDelay()
         log.msg('Connected', system=self.name)
         self.client = PikaProtocol(self, self.parameters)
-        self.client.ready.addCallback(self.client.onConnected)
         return self.client
 
     def clientConnectionLost(self, connector, reason): # pylint: disable=W0221
