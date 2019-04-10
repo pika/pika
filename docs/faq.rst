@@ -15,4 +15,4 @@ Frequently Asked Questions
 
 - How can I contribute to Pika?
 
-    You can `fork the project on Github <http://help.github.com/forking/>`_ and issue `Pull Requests <http://help.github.com/pull-requests/>`_ when you believe you have something solid to be added to the main repository.
+    You can `fork the project on Github <https://help.github.com/en/articles/fork-a-repo/>`_ and issue `Pull Requests <https://help.github.com/en/articles/about-pull-requests/>`_ when you believe you have something solid to be added to the main repository.

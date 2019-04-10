@@ -556,7 +556,7 @@ class Channel(object):
         rejected (Basic.Ack, Basic.Nack) from the broker to the publisher.
 
         For more information see:
-            http://www.rabbitmq.com/extensions.html#confirms
+            https://www.rabbitmq.com/confirms.html
 
         :param callable ack_nack_callback: Required callback for delivery
             confirmations that has the following signature:

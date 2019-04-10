@@ -2310,7 +2310,7 @@ class BlockingChannel(object):
         """Turn on RabbitMQ-proprietary Confirm mode in the channel.
 
         For more information see:
-            http://www.rabbitmq.com/extensions.html#confirms
+            https://www.rabbitmq.com/confirms.html
         """
         if self._delivery_confirmation:
             LOGGER.error(
