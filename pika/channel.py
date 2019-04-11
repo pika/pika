@@ -214,9 +214,9 @@ class Channel(object):
         the loss of consumers due to events such as queue deletion.
 
         :param str consumer_tag: Identifier for the consumer
-        :param callable callback: Callback to call for a Basic.CancelOk
-            response. If None, do not expect a Basic.CancelOk response,
-            otherwise, callback must be callable.
+        :param callable callback: callback(pika.frame.Method) for method
+            Basic.CancelOk. If None, do not expect a Basic.CancelOk response,
+            otherwise, callback must be callable
 
         :raises ValueError:
 
@@ -254,12 +254,11 @@ class Channel(object):
 
         self._cancelled.add(consumer_tag)
 
-        self._rpc(
-            spec.Basic.Cancel(consumer_tag=consumer_tag, nowait=nowait),
-            self._on_cancelok if not nowait else None,
-            [(spec.Basic.CancelOk, {
-                'consumer_tag': consumer_tag
-            })] if not nowait else [])
+        self._rpc(spec.Basic.Cancel(consumer_tag=consumer_tag, nowait=nowait),
+                  self._on_cancelok if not nowait else None,
+                  [(spec.Basic.CancelOk, {
+                      'consumer_tag': consumer_tag
+                  })] if not nowait else [])
 
     def basic_consume(self,
                       queue,
@@ -322,12 +321,11 @@ class Channel(object):
         rpc_callback = self._on_eventok if callback is None else callback
 
         self._rpc(
-            spec.Basic.Consume(
-                queue=queue,
-                consumer_tag=consumer_tag,
-                no_ack=auto_ack,
-                exclusive=exclusive,
-                arguments=arguments or dict()), rpc_callback,
+            spec.Basic.Consume(queue=queue,
+                               consumer_tag=consumer_tag,
+                               no_ack=auto_ack,
+                               exclusive=exclusive,
+                               arguments=arguments or dict()), rpc_callback,
             [(spec.Basic.ConsumeOk, {
                 'consumer_tag': consumer_tag
             })])
@@ -426,9 +424,9 @@ class Channel(object):
             body = body.encode('utf-8')
         properties = properties or spec.BasicProperties()
         self._send_method(
-            spec.Basic.Publish(
-                exchange=exchange, routing_key=routing_key,
-                mandatory=mandatory), (properties, body))
+            spec.Basic.Publish(exchange=exchange,
+                               routing_key=routing_key,
+                               mandatory=mandatory), (properties, body))
 
     def basic_qos(self,
                   prefetch_size=0,
@@ -502,13 +500,15 @@ class Channel(object):
                              delivering it to an alternative subscriber.
         :param callable callback: Callback to call when receiving
             Basic.RecoverOk
+        :param callable callback: callback(pika.frame.Method) for method
+            Basic.RecoverOk
         :raises ValueError:
 
         """
         self._raise_if_not_open()
         validators.rpc_completion_callback(callback)
-        return self._rpc(
-            spec.Basic.Recover(requeue), callback, [spec.Basic.RecoverOk])
+        return self._rpc(spec.Basic.Recover(requeue), callback,
+                         [spec.Basic.RecoverOk])
 
     def close(self, reply_code=0, reply_text="Normal shutdown"):
         """Invoke a graceful shutdown of the channel with the AMQP Broker.
@@ -547,9 +547,8 @@ class Channel(object):
         # ChannelWrongStateError exception from basic_cancel
         self._set_state(self.CLOSING)
 
-        self._rpc(
-            spec.Channel.Close(reply_code, reply_text, 0, 0), self._on_closeok,
-            [spec.Channel.CloseOk])
+        self._rpc(spec.Channel.Close(reply_code, reply_text, 0, 0),
+                  self._on_closeok, [spec.Channel.CloseOk])
 
     def confirm_delivery(self, ack_nack_callback, callback=None):
         """Turn on Confirm mode in the channel. Pass in a callback to be
@@ -557,13 +556,13 @@ class Channel(object):
         rejected (Basic.Ack, Basic.Nack) from the broker to the publisher.
 
         For more information see:
-            http://www.rabbitmq.com/extensions.html#confirms
+            https://www.rabbitmq.com/confirms.html
 
         :param callable ack_nack_callback: Required callback for delivery
             confirmations that has the following signature:
             callback(pika.frame.Method), where method_frame contains
             either method `spec.Basic.Ack` or `spec.Basic.Nack`.
-        :param callable callback: Callback to call when receiving
+        :param callable callback: callback(pika.frame.Method) for method
             Confirm.SelectOk
         :raises ValueError:
 
@@ -588,9 +587,8 @@ class Channel(object):
         self.callbacks.add(self.channel_number, spec.Basic.Nack,
                            ack_nack_callback, False)
 
-        self._rpc(
-            spec.Confirm.Select(nowait), callback,
-            [spec.Confirm.SelectOk] if not nowait else [])
+        self._rpc(spec.Confirm.Select(nowait), callback,
+                  [spec.Confirm.SelectOk] if not nowait else [])
 
     @property
     def consumer_tags(self):
@@ -613,7 +611,7 @@ class Channel(object):
         :param str source: The source exchange to bind to
         :param str routing_key: The routing key to bind on
         :param dict arguments: Custom key/value pair arguments for the binding
-        :param callable callback: The callback to call on Exchange.BindOk
+        :param callable callback: callback(pika.frame.Method) for method Exchange.BindOk
         :raises ValueError:
 
         """
@@ -653,7 +651,7 @@ class Channel(object):
         :param bool auto_delete: Remove when no more queues are bound to it
         :param bool internal: Can only be published to by other exchanges
         :param dict arguments: Custom key/value pair arguments for the exchange
-        :param callable callback: Call this method on Exchange.DeclareOk
+        :param callable callback: callback(pika.frame.Method) for method Exchange.DeclareOk
         :raises ValueError:
 
         """
@@ -671,15 +669,15 @@ class Channel(object):
 
         :param str exchange: The exchange name
         :param bool if_unused: only delete if the exchange is unused
-        :param callable callback: The function to call on Exchange.DeleteOk
+        :param callable callback: callback(pika.frame.Method) for method Exchange.DeleteOk
         :raises ValueError:
 
         """
         self._raise_if_not_open()
         nowait = validators.rpc_completion_callback(callback)
-        return self._rpc(
-            spec.Exchange.Delete(0, exchange, if_unused, nowait), callback,
-            [spec.Exchange.DeleteOk] if not nowait else [])
+        return self._rpc(spec.Exchange.Delete(0, exchange, if_unused,
+                                              nowait), callback,
+                         [spec.Exchange.DeleteOk] if not nowait else [])
 
     def exchange_unbind(self,
                         destination=None,
@@ -693,7 +691,7 @@ class Channel(object):
         :param str source: The source exchange to unbind from
         :param str routing_key: The routing key to unbind
         :param dict arguments: Custom key/value pair arguments for the binding
-        :param callable callback: The callback to call on Exchange.UnbindOk
+        :param callable callback: callback(pika.frame.Method) for method Exchange.UnbindOk
         :raises ValueError:
 
         """
@@ -713,16 +711,15 @@ class Channel(object):
         http://www.rabbitmq.com/amqp-0-9-1-reference.html#channel.flow
 
         :param bool active: Turn flow on or off
-        :param callable callback: The optional callback to call upon
-                                  completion
+        :param callable callback: callback(bool) upon completion
         :raises ValueError:
 
         """
         self._raise_if_not_open()
         validators.rpc_completion_callback(callback)
         self._on_flowok_callback = callback
-        self._rpc(
-            spec.Channel.Flow(active), self._on_flowok, [spec.Channel.FlowOk])
+        self._rpc(spec.Channel.Flow(active), self._on_flowok,
+                  [spec.Channel.FlowOk])
 
     @property
     def is_closed(self):
@@ -770,7 +767,7 @@ class Channel(object):
         :param str exchange: The source exchange to bind to
         :param str routing_key: The routing key to bind on
         :param dict arguments: Custom key/value pair arguments for the binding
-        :param callable callback: The callback to call on Queue.BindOk
+        :param callable callback: callback(pika.frame.Method) for method Queue.BindOk
         :raises ValueError:
 
         """
@@ -808,8 +805,7 @@ class Channel(object):
         :param bool exclusive: Only allow access by the current connection
         :param bool auto_delete: Delete after consumer cancels or disconnects
         :param dict arguments: Custom key/value arguments for the queue
-        :param callable callback: callback(pika.frame.Method) for method
-          Queue.DeclareOk
+        :param callable callback: callback(pika.frame.Method) for method Queue.DeclareOk
         :raises ValueError:
 
         """
@@ -838,7 +834,7 @@ class Channel(object):
         :param str queue: The queue to delete
         :param bool if_unused: only delete if it's unused
         :param bool if_empty: only delete if the queue is empty
-        :param callable callback: The callback to call on Queue.DeleteOk
+        :param callable callback: callback(pika.frame.Method) for method Queue.DeleteOk
         :raises ValueError:
 
         """
@@ -854,7 +850,7 @@ class Channel(object):
         """Purge all of the messages from the specified queue
 
         :param str queue: The queue to purge
-        :param callable callback: The callback to call on Queue.PurgeOk
+        :param callable callback: callback(pika.frame.Method) for method Queue.PurgeOk
         :raises ValueError:
 
         """
@@ -876,7 +872,7 @@ class Channel(object):
         :param str exchange: The source exchange to bind from
         :param str routing_key: The routing key to unbind
         :param dict arguments: Custom key/value pair arguments for the binding
-        :param callable callback: The callback to call on Queue.UnbindOk
+        :param callable callback: callback(pika.frame.Method) for method Queue.UnbindOk
         :raises ValueError:
 
         """
@@ -957,12 +953,11 @@ class Channel(object):
             signature: callback(channel)
 
         """
-        self.callbacks.add(
-            self.channel_number,
-            self._ON_CHANNEL_CLEANUP_CB_KEY,
-            callback,
-            one_shot=True,
-            only_caller=self)
+        self.callbacks.add(self.channel_number,
+                           self._ON_CHANNEL_CLEANUP_CB_KEY,
+                           callback,
+                           one_shot=True,
+                           only_caller=self)
 
     def _cleanup(self):
         """Remove all consumers and any callbacks for the channel."""
@@ -1363,18 +1358,16 @@ class Channel(object):
                 else:
                     arguments = None
                 LOGGER.debug('Adding on_synchronous_complete callback')
-                self.callbacks.add(
-                    self.channel_number,
-                    reply,
-                    self._on_synchronous_complete,
-                    arguments=arguments)
+                self.callbacks.add(self.channel_number,
+                                   reply,
+                                   self._on_synchronous_complete,
+                                   arguments=arguments)
                 if callback is not None:
                     LOGGER.debug('Adding passed-in RPC response callback')
-                    self.callbacks.add(
-                        self.channel_number,
-                        reply,
-                        callback,
-                        arguments=arguments)
+                    self.callbacks.add(self.channel_number,
+                                       reply,
+                                       callback,
+                                       arguments=arguments)
 
     def _raise_if_not_open(self):
         """If channel is not in the OPEN state, raises ChannelWrongStateError
