@@ -1,6 +1,14 @@
 Version History
 ===============
 
+1.0.1 2019-04-12
+----------------
+
+`GitHub milestone <https://github.com/pika/pika/milestone/15?closed=1>`_
+
+- API docstring updates
+- Twisted adapter: Add basic_consume Deferred to the call list (`PR <https://github.com/pika/pika/pull/1202>`_)
+
 1.0.0 2019-03-26
 ----------------
 
