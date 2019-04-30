@@ -112,8 +112,8 @@ a timely fashion.
 
 Messages processed in another thread may not be acknowledged directly from that
 thread, since all accesses to the connection adapter instance must be from a
-single thread—the thread that is running the adapter's I/O loop. However, this
-may be accomplished by requesting a callback to be executed in the adapter's
+single thread, which is the thread running the adapter's I/O loop. This is
+accomplished by requesting a callback to be executed in the adapter's
 I/O loop thread. For example, the callback function's implementation might look
 like this:
 
