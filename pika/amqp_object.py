@@ -46,8 +46,8 @@ class Method(AMQPObject):
         :param bytes body: The message body
 
         """
-        self._properties = properties # pylint: disable=W0201
-        self._body = body # pylint: disable=W0201
+        self._properties = properties  # pylint: disable=W0201
+        self._body = body  # pylint: disable=W0201
 
     def get_properties(self):
         """Return the properties if they are set.
