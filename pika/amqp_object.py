@@ -21,6 +21,12 @@ class AMQPObject(object):
             return "<%s>" % self.NAME
         return "<%s(%s)>" % (self.NAME, sorted(items))
 
+    def __eq__(self, other):
+        if other is not None:
+            return self.__dict__ == other.__dict__
+        else:
+            return False
+
 
 class Class(AMQPObject):
     """Is extended by AMQP classes"""
