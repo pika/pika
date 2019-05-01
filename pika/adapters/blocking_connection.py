@@ -1303,6 +1303,15 @@ class BlockingChannel(object):
         """
         return self._impl.is_open
 
+    @property
+    def consumer_tags(self):
+        """Property method that returns a list of currently active consumers
+
+        :rtype: list
+
+        """
+        return compat.dictkeys(self._consumer_infos)
+
     _ALWAYS_READY_WAITERS = ((lambda: True),)
 
     def _flush_output(self, *waiters):
