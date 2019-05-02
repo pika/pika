@@ -21,6 +21,12 @@ class AMQPObject(object):
             return "<%s>" % self.NAME
         return "<%s(%s)>" % (self.NAME, sorted(items))
 
+    def __eq__(self, other):
+        if other is not None:
+            return self.__dict__ == other.__dict__
+        else:
+            return False
+
 
 class Class(AMQPObject):
     """Is extended by AMQP classes"""
@@ -40,8 +46,8 @@ class Method(AMQPObject):
         :param bytes body: The message body
 
         """
-        self._properties = properties # pylint: disable=W0201
-        self._body = body # pylint: disable=W0201
+        self._properties = properties  # pylint: disable=W0201
+        self._body = body  # pylint: disable=W0201
 
     def get_properties(self):
         """Return the properties if they are set.
