@@ -1,6 +1,12 @@
 """
 codegen.py generates pika/spec.py
 
+The required spec json file can be found at
+https://github.com/rabbitmq/rabbitmq-codegen
+.
+
+After cloning it run the following to generate a spec.py file:
+python2 ./codegen.py ../../rabbitmq-codegen
 """
 from __future__ import nested_scopes
 
