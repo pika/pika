@@ -113,3 +113,12 @@ class BlockingChannelTests(unittest.TestCase):
             chan.close()
         chan._impl.close.assert_called_with(
             reply_code=0, reply_text='Normal shutdown')
+
+    def test_consumer_tags_property(self):
+        with mock.patch.object(self.obj._impl, '_generate_consumer_tag'):
+            self.assertEqual(0, len(self.obj.consumer_tags))
+            self.obj._impl._generate_consumer_tag.return_value = 'ctag0'
+            self.obj._impl.basic_consume.return_value = 'ctag0'
+            self.obj.basic_consume('queue', mock.Mock())
+            self.assertEqual(1, len(self.obj.consumer_tags))
+            self.assertIn('ctag0', self.obj.consumer_tags)
