@@ -1305,7 +1305,8 @@ class BlockingChannel(object):
 
     @property
     def consumer_tags(self):
-        """Property method that returns a list of currently active consumers
+        """Property method that returns a list of consumer tags for active
+        consumers
 
         :rtype: list
 
