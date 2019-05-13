@@ -25,7 +25,7 @@ The following example demonstrates how to check if a message is delivered by set
                               body='Hello World!',
                               properties=pika.BasicProperties(content_type='text/plain',
                                                               delivery_mode=1),
-                              mandatory=True):
+                              mandatory=True)
         print('Message was published')
     except pika.exceptions.UnroutableError:
         print('Message was returned')
