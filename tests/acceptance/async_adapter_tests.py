@@ -21,7 +21,6 @@
 import functools
 import socket
 import threading
-import time
 import uuid
 
 import pika
@@ -331,11 +330,12 @@ class TestCreateConnectionRetriesWithDefaultConnectionWorkflow(
                     MyConnectionClass.got_second_config = True
                     logger.info('Got second config.')
                     raise Exception('Reject second config.')
-                elif not MyConnectionClass.got_second_config:
+
+                if not MyConnectionClass.got_second_config:
                     logger.info('Still on first attempt with first config.')
                     raise Exception('Still on first attempt with first config.')
-                else:
-                    logger.info('Start of retry cycle detected.')
+
+                logger.info('Start of retry cycle detected.')
 
                 super(MyConnectionClass, self).__init__(parameters,
                                                         *args,

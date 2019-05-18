@@ -205,9 +205,9 @@ class AMQPConnector(object):
         """
         if self._state == self._STATE_INIT:
             raise AMQPConnectorWrongState('Cannot abort before starting.')
-        elif self._state == self._STATE_DONE:
-            raise AMQPConnectorWrongState(
-                'Cannot abort after completion was reported')
+
+        if self._state == self._STATE_DONE:
+            raise AMQPConnectorWrongState('Cannot abort after completion was reported')
 
         self._state = self._STATE_ABORTING
         self._deactivate()

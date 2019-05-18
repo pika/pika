@@ -5,11 +5,9 @@ Tests for pika.base_connection.BaseConnection
 
 import socket
 import unittest
-
 import mock
 
 import pika
-
 import pika.tcp_socket_opts
 from pika.adapters import base_connection
 
@@ -21,6 +19,7 @@ try:
     TCP_KEEPIDLE = socket.TCP_KEEPIDLE
 except AttributeError:
     TCP_KEEPIDLE = 4
+
 
 class ConstructibleBaseConnection(base_connection.BaseConnection):
     """Adds dummy overrides for `BaseConnection`'s abstract methods so

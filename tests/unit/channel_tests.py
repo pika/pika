@@ -374,8 +374,8 @@ class ChannelTests(unittest.TestCase):
         callback_mock = mock.Mock()
         with self.assertRaises(TypeError):
             self.obj.queue_purge(callback_mock,
-                                  'queue',
-                                  True)
+                                 'queue',
+                                 True)
 
     def test_basic_consume_channel_closed(self):
         mock_callback = mock.Mock()
