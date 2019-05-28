@@ -1251,8 +1251,11 @@ class Connection(pika.compat.AbstractBase):
             raise exceptions.ConnectionWrongStateError(
                 'Channel allocation requires an open connection: %s' % self)
 
+        validators.rpc_completion_callback(on_open_callback)
+
         if not channel_number:
             channel_number = self._next_channel_number()
+
         self._channels[channel_number] = self._create_channel(
             channel_number, on_open_callback)
         self._add_channel_callbacks(channel_number)
