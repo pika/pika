@@ -1295,7 +1295,7 @@ class Channel(object):
         the channel is already in the blocking state, then enqueue the request,
         but don't send it at this time; it will be eventually sent by
         `_on_synchronous_complete` after the prior blocking request receives a
-        resposne. If the channel is not in the blocking state and
+        response. If the channel is not in the blocking state and
         `acceptable_replies` is not empty, transition the channel to the
         blocking state and register for `_on_synchronous_complete` before
         sending the request.
