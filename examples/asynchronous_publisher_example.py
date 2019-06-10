@@ -361,7 +361,8 @@ class ExamplePublisher(object):
 
 
 def main():
-    logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT)
+    logging.basicConfig(level=logging.WARNING, format=LOG_FORMAT)
+    LOGGER.setLevel(logging.DEBUG)
 
     # Connect to localhost:5672 as guest with the password guest and virtual host "/" (%2F)
     example = ExamplePublisher(
