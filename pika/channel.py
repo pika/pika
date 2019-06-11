@@ -57,7 +57,7 @@ class Channel(object):
 
         """
         if not isinstance(channel_number, int):
-            raise exceptions.InvalidChannelNumber
+            raise exceptions.InvalidChannelNumber(channel_number)
 
         validators.rpc_completion_callback(on_open_callback)
 

@@ -58,7 +58,7 @@ Example::
     def on_connected(connection):
         """Called when we are fully connected to RabbitMQ"""
         # Open a channel
-        connection.channel(on_channel_open)
+        connection.channel(on_open_callback=on_channel_open)
 
     # Step #3
     def on_channel_open(new_channel):
@@ -79,7 +79,7 @@ Example::
 
     # Step #1: Connect to RabbitMQ using the default parameters
     parameters = pika.ConnectionParameters()
-    connection = pika.SelectConnection(parameters, on_connected)
+    connection = pika.SelectConnection(parameters, on_open_callback=on_connected)
 
     try:
         # Loop so we can communicate with RabbitMQ
