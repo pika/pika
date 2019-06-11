@@ -1656,10 +1656,8 @@ class ChannelTests(unittest.TestCase):
 
     def test_send_method(self):
         expectation = [2, 3]
-        with mock.patch.object(self.obj.connection,
-                               '_send_method') as send_method:
-            self.obj._send_method(*expectation)
-            send_method.assert_called_once_with(
+        self.obj._send_method(*expectation)
+        self.obj.connection._send_method.assert_called_once_with(
                 *[self.obj.channel_number] + expectation)
 
     def test_set_state(self):
