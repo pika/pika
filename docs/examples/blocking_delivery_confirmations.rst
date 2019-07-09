@@ -18,11 +18,12 @@ The following code demonstrates how to turn on delivery confirmations with the B
     channel.confirm_delivery()
 
     # Send a message
-    if channel.basic_publish(exchange='test',
-                             routing_key='test',
-                             body='Hello World!',
-                             properties=pika.BasicProperties(content_type='text/plain',
-                                                             delivery_mode=1)):
+    try:
+        channel.basic_publish(exchange='test',
+                              routing_key='test',
+                              body='Hello World!',
+                              properties=pika.BasicProperties(content_type='text/plain',
+                                                              delivery_mode=1)):
         print('Message publish was confirmed')
-    else:
+    except pika.exceptions.UnroutableError:
         print('Message could not be confirmed')
