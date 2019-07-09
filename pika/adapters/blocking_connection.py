@@ -22,7 +22,6 @@ import contextlib
 import functools
 import logging
 import threading
-import time
 
 import pika.compat as compat
 import pika.exceptions as exceptions

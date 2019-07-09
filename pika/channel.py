@@ -1380,13 +1380,14 @@ class Channel(object):
             return
 
         if self._state == self.OPENING:
-            raise exceptions.ChannelWrongStateError(
-                'Channel is opening, but is not usable yet.')
-        elif self._state == self.CLOSING:
+            raise exceptions.ChannelWrongStateError('Channel is opening, but is not usable yet.')
+
+        if self._state == self.CLOSING:
             raise exceptions.ChannelWrongStateError('Channel is closing.')
-        else:  # Assumed self.CLOSED
-            assert self._state == self.CLOSED
-            raise exceptions.ChannelWrongStateError('Channel is closed.')
+
+        # Assumed self.CLOSED
+        assert self._state == self.CLOSED
+        raise exceptions.ChannelWrongStateError('Channel is closed.')
 
     def _send_method(self, method, content=None):
         """Shortcut wrapper to send a method through our connection, passing in

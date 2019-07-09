@@ -792,10 +792,10 @@ class _PollerBase(pika.compat.AbstractBase):  # pylint: disable=R0902
         """
         if self._running:
             raise RuntimeError('IOLoop is not reentrant and is already running')
-        else:
-            LOGGER.debug('Entering IOLoop')
-            self._running = True
-            self.activate_poller()
+
+        LOGGER.debug('Entering IOLoop')
+        self._running = True
+        self.activate_poller()
 
         try:
             # Run event loop

@@ -5,7 +5,6 @@ import datetime
 import functools
 import os
 import select
-import ssl
 import sys
 import logging
 import unittest
