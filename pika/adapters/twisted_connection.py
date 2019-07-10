@@ -601,8 +601,8 @@ class TwistedChannel(object):
                                    and connection level) allow it. The
                                    prefetch-count is ignored by consumers who
                                    have enabled the no-ack option.
-        :param bool global_qos:    Should the QoS apply to all consumers on the
-                                   Channel
+        :param bool global_qos:    Should the QoS apply to all channels on the
+                                   connection.
         :returns: Deferred that fires on the Basic.QosOk response
         :rtype: Deferred
 
