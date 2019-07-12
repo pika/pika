@@ -273,9 +273,11 @@ def decode_value(encoded, offset): # pylint: disable=R0912,R0915
         offset += 4
         value = decimal.Decimal(raw) * (decimal.Decimal(10)**-decimals)
 
-    # Short String
+    # https://github.com/pika/pika/issues/1205
+    # Short Signed Int
     elif kind == b's':
-        value, offset = decode_short_string(encoded, offset)
+        value = struct.unpack_from('>h', encoded, offset)[0]
+        offset += 2
 
     # Long String
     elif kind == b'S':

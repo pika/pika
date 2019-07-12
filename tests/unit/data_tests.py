@@ -35,16 +35,19 @@ class DataTests(unittest.TestCase):
     FIELD_TBL_ENCODED += b'\x05bytesx\x00\x00\x00\x06foobar' if PY3 else b'\x05bytesS\x00\x00\x00\x06foobar'
 
     FIELD_TBL_VALUE = OrderedDict(
-        [('array', [1, 2, 3]), ('boolval', True), ('decimal',
-                                                   decimal.Decimal('3.14')),
-         ('decimal_too', decimal.Decimal('100')), ('dictval', {
-             'foo': 'bar'
-         }), ('intval', 1), ('bigint', 2592000000), ('longval',
-                                                     long(912598613)), ('null',
-                                                                        None),
-         ('strval', 'Test'), ('timestampval',
-                              datetime.datetime(2006, 11, 21, 16, 30,
-                                                10)), ('unicode', u'utf8=✓'),
+        [
+            ('array', [1, 2, 3]),
+            ('boolval', True),
+            ('decimal', decimal.Decimal('3.14')),
+            ('decimal_too', decimal.Decimal('100')),
+            ('dictval', { 'foo': 'bar' }),
+            ('intval', 1),
+            ('bigint', 2592000000),
+            ('longval', long(912598613)),
+            ('null', None),
+            ('strval', 'Test'),
+            ('timestampval', datetime.datetime(2006, 11, 21, 16, 30, 10)),
+            ('unicode', u'utf8=✓'),
             ('bytes', b'foobar'),
         ])
 
@@ -56,6 +59,15 @@ class DataTests(unittest.TestCase):
         result = data.decode_table(input, 0)
         self.assertEqual(result, ({'bytes': b'foobar'}, 21))
 
+    # b'\x08shortints\x04\xd2'
+    # ('shortint', 1234),
+    def test_decode_shortint(self):
+        input = (
+                b'\x00\x00\x00\x01'
+                b'\x08shortints\x04\xd2'
+            )
+        result = data.decode_table(input, 0)
+        self.assertEqual(result, ({'shortint': 1234}, 16))
 
     def test_encode_table(self):
         result = []
