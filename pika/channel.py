@@ -22,10 +22,9 @@ MAX_CHANNELS = 65535  # per AMQP 0.9.1 spec.
 
 class Channel(object):
     """A Channel is the primary communication method for interacting with
-    RabbitMQ. It is recommended that you do not directly invoke
-    the creation of a channel object in your application code but rather
-    construct the a channel by calling the active connection's channel()
-    method.
+    RabbitMQ. It is recommended that you do not directly invoke the creation of
+    a channel object in your application code but rather construct a channel by
+    calling the active connection's channel() method.
 
     """
 
