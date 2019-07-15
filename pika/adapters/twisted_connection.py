@@ -736,7 +736,7 @@ class TwistedChannel(object):
                 else:
                     d.callback(method_frame.method)
 
-    def _on_puback_message_returned(self, message):
+    def _on_puback_message_returned(self, channel, method, properties, body):
         """Called as the result of Basic.Return from broker in
         publisher-acknowledgements mode. Saves the info as a ReturnedMessage
         instance in self._puback_return.
@@ -747,19 +747,18 @@ class TwistedChannel(object):
         :param bytes body: returned message body; empty string if no body
 
         """
-        assert isinstance(message.method, spec.Basic.Return), message.method
-        assert isinstance(message.properties,
-                          spec.BasicProperties), (message.properties)
+        assert isinstance(method, spec.Basic.Return), method
+        assert isinstance(properties, spec.BasicProperties), properties
 
         LOGGER.warning(
             "Published message was returned: _delivery_confirmation=%s; "
             "channel=%s; method=%r; properties=%r; body_size=%d; "
             "body_prefix=%.255r", self._delivery_confirmation,
-            message.channel.channel_number, message.method, message.properties,
-            len(message.body) if message.body is not None else None,
-            message.body)
+            channel.channel_number, method, properties,
+            len(body) if body is not None else None, body)
 
-        self._puback_return = message
+        self._puback_return = ReceivedMessage(channel=self,
+                method=method, properties=properties, body=body)
 
     def exchange_bind(self, destination, source, routing_key='',
                       arguments=None):
