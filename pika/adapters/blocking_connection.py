@@ -2272,8 +2272,8 @@ class BlockingChannel(object):
                                    and connection level) allow it. The
                                    prefetch-count is ignored if the no-ack
                                    option is set in the consumer.
-        :param bool global_qos:    Should the QoS apply to all consumers on the
-                                   Channel
+        :param bool global_qos:    Should the QoS apply to all channels on the
+                                   connection.
 
         """
         with _CallbackResult() as qos_ok_result:

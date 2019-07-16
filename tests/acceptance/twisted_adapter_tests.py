@@ -519,7 +519,7 @@ class TwistedChannelTestCase(TestCase):
             return d
 
         def check_response(error):
-            self.assertTrue(isinstance(error.value, NackError))
+            self.assertIsInstance(error.value, NackError)
             self.assertEqual(len(error.value.messages), 0)
         d.addCallback(send_message)
         d.addCallbacks(self.fail, check_response)
@@ -539,19 +539,15 @@ class TwistedChannelTestCase(TestCase):
             # Send the Basic.Return frame
             method = spec.Basic.Return(
                 exchange="testexch", routing_key="testrk")
-            return_cb(ReceivedMessage(
-                channel=self.channel,
-                method=method,
-                properties=spec.BasicProperties(),
-                body="testbody",
-            ))
+            return_cb(self.channel, method,
+                    spec.BasicProperties(), "testbody")
             # Send the Basic.Ack frame
             frame = Method(1, spec.Basic.Ack(delivery_tag=1))
             self.channel._on_delivery_confirmation(frame)
             return d
 
         def check_response(error):
-            self.assertTrue(isinstance(error.value, UnroutableError))
+            self.assertIsInstance(error.value, UnroutableError)
             self.assertEqual(len(error.value.messages), 1)
             msg = error.value.messages[0]
             self.assertEqual(msg.body, "testbody")
@@ -574,12 +570,8 @@ class TwistedChannelTestCase(TestCase):
             # Send the Basic.Return frame
             method = spec.Basic.Return(
                 exchange="testexch", routing_key="testrk")
-            return_cb(ReceivedMessage(
-                channel=self.channel,
-                method=method,
-                properties=spec.BasicProperties(),
-                body="testbody",
-            ))
+            return_cb(self.channel, method,
+                    spec.BasicProperties(), "testbody")
             # Send the Basic.Nack frame
             frame = Method(1, spec.Basic.Nack(delivery_tag=1))
             self.channel._on_delivery_confirmation(frame)
