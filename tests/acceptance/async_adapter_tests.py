@@ -910,14 +910,14 @@ class TestZ_PublishAndGet(BoundQueueTestCase, AsyncAdapters):  # pylint: disable
 
 
 class TestZ_AccessDenied(AsyncTestCase, AsyncAdapters):  # pylint: disable=C0103
-    DESCRIPTION = "Unknown vhost results in ConnectionClosedByBroker."
+    DESCRIPTION = "Unknown vhost results in ProbableAccessDeniedError."
 
     def start(self, *args, **kwargs):  # pylint: disable=W0221
         self.parameters.virtual_host = str(uuid.uuid4())
         self.error_captured = None
         super(TestZ_AccessDenied, self).start(*args, **kwargs)
         self.assertIsInstance(self.error_captured,
-                              pika.exceptions.ConnectionClosedByBroker)
+                              pika.exceptions.ProbableAccessDeniedError)
 
     def on_open_error(self, connection, error):
         self.error_captured = error

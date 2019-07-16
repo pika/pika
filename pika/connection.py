@@ -1995,7 +1995,8 @@ class Connection(pika.compat.AbstractBase):
         """
         LOGGER.info(
             'AMQP stack terminated, failed to connect, or aborted: '
-            'error-arg=%r; pending-error=%r', error, self._error)
+            'opened=%r, error-arg=%r; pending-error=%r',
+            self._opened, error, self._error)
 
         if error is not None:
             if self._error is not None:
@@ -2016,11 +2017,11 @@ class Connection(pika.compat.AbstractBase):
                                [spec.Connection.Close, spec.Connection.Start])
 
         if self.params.blocked_connection_timeout is not None:
-            self._remove_callbacks(
-                0, [spec.Connection.Blocked, spec.Connection.Unblocked])
+            self._remove_callbacks(0,
+                    [spec.Connection.Blocked, spec.Connection.Unblocked])
 
         if not self._opened and isinstance(self._error,
-                                           exceptions.StreamLostError):
+                (exceptions.StreamLostError, exceptions.ConnectionClosedByBroker)):
             # Heuristically deduce error based on connection state
             if self.connection_state == self.CONNECTION_PROTOCOL:
                 LOGGER.error('Probably incompatible Protocol Versions')
