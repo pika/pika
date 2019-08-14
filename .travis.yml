@@ -11,12 +11,11 @@ addons:
       - sourceline: deb https://packages.erlang-solutions.com/ubuntu trusty contrib
         key_url: https://packages.erlang-solutions.com/ubuntu/erlang_solutions.asc
     packages:
-      # apt-cache show erlang-nox=1:20.3-1 | grep Depends | tr ' ' '\n' | grep erlang | grep -v erlang-base-hipe | tr -d ',' | sed 's/$/=1:20.3-1/'
       - erlang-nox
 
 env:
   global:
-    - RABBITMQ_VERSION=3.7.13
+    - RABBITMQ_VERSION=3.7.17
     - RABBITMQ_DOWNLOAD_URL="https://github.com/rabbitmq/rabbitmq-server/releases/download/v$RABBITMQ_VERSION/rabbitmq-server-generic-unix-$RABBITMQ_VERSION.tar.xz"
     - RABBITMQ_TAR="rabbitmq-$RABBITMQ_VERSION.tar.xz"
     - PATH=$HOME/.local/bin:$PATH
@@ -68,7 +67,6 @@ jobs:
     - python: pypy3
     - python: pypy
     - python: 2.7
-    - python: 3.4
     - python: 3.5
     - python: 3.6
     - python: 3.7
