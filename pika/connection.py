@@ -200,7 +200,7 @@ class Parameters(object):  # pylint: disable=R0902
     def client_properties(self):
         """
         :returns: client properties used to override the fields in the default
-            client poperties reported  to RabbitMQ via `Connection.StartOk`
+            client properties reported  to RabbitMQ via `Connection.StartOk`
             method. Defaults to `DEFAULT_CLIENT_PROPERTIES`.
         :rtype: dict|None
 
@@ -211,7 +211,7 @@ class Parameters(object):  # pylint: disable=R0902
     def client_properties(self, value):
         """
         :param value: None or dict of client properties used to override the
-            fields in the default client poperties reported to RabbitMQ via
+            fields in the default client properties reported to RabbitMQ via
             `Connection.StartOk` method.
         """
         if not isinstance(value, (
