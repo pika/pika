@@ -718,12 +718,10 @@ class BlockingConnection(object):
 
         For example, a thread may request a call to the
         `BlockingChannel.basic_ack` method of a `BlockingConnection` that is
-        running in a different thread via
+        running in a different thread via::
 
-        ```
-        connection.add_callback_threadsafe(
-            functools.partial(channel.basic_ack, delivery_tag=...))
-        ```
+            connection.add_callback_threadsafe(
+                functools.partial(channel.basic_ack, delivery_tag=...))
 
         NOTE: if you know that the requester is running on the same thread as
         the connection it is more efficient to use the
