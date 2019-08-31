@@ -467,10 +467,10 @@ class TwistedChannel(object):
                       for this channel.
         :param bool auto_ack: Tell the broker to not expect a reply
         :returns: Deferred that fires with a namedtuple whose attributes are:
-            channel: this TwistedChannel
-            method: pika.spec.Basic.GetOk
-            properties: pika.spec.BasicProperties
-            body: bytes
+             - channel: this TwistedChannel
+             - method: pika.spec.Basic.GetOk
+             - properties: pika.spec.BasicProperties
+             - body: bytes
             If the queue is empty, None will be returned.
         :rtype: Deferred
         :raises pika.exceptions.DuplicateGetOkCallback:

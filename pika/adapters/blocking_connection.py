@@ -1002,10 +1002,10 @@ class _ReturnedMessageEvt(_ChannelPendingEvt):
         """
         :param callable callback: user's callback, having the signature
             callback(channel, method, properties, body), where
-                                channel: pika.Channel
-                                method: pika.spec.Basic.Return
-                                properties: pika.spec.BasicProperties
-                                body: bytes
+             - channel: pika.Channel
+             - method: pika.spec.Basic.Return
+             - properties: pika.spec.BasicProperties
+             - body: bytes
         :param pika.Channel channel:
         :param pika.spec.Basic.Return method:
         :param pika.spec.BasicProperties properties:
@@ -1071,10 +1071,10 @@ class _ConsumerInfo(object):
         :param callable on_message_callback: The function for dispatching messages to
             user, having the signature:
             on_message_callback(channel, method, properties, body)
-                channel: BlockingChannel
-                method: spec.Basic.Deliver
-                properties: spec.BasicProperties
-                body: bytes
+             - channel: BlockingChannel
+             - method: spec.Basic.Deliver
+             - properties: spec.BasicProperties
+             - body: bytes
         :param callable alternate_event_sink: if specified, _ConsumerDeliveryEvt
             and _ConsumerCancellationEvt objects will be diverted to this
             callback instead of being deposited in the channel's
@@ -1569,10 +1569,10 @@ class BlockingChannel(object):
 
         :param callable callback: The method to call on callback with the
             signature callback(channel, method, properties, body), where
-            channel: pika.Channel
-            method: pika.spec.Basic.Return
-            properties: pika.spec.BasicProperties
-            body: bytes
+             - channel: pika.Channel
+             - method: pika.spec.Basic.Return
+             - properties: pika.spec.BasicProperties
+             - body: bytes
 
         """
         self._impl.add_on_return_callback(
@@ -1605,10 +1605,10 @@ class BlockingChannel(object):
         :param callable on_message_callback: Required function for dispatching messages
             to user, having the signature:
             on_message_callback(channel, method, properties, body)
-                channel: BlockingChannel
-                method: spec.Basic.Deliver
-                properties: spec.BasicProperties
-                body: bytes
+             - channel: BlockingChannel
+             - method: spec.Basic.Deliver
+             - properties: spec.BasicProperties
+             - body: bytes
         :param bool auto_ack: if set to True, automatic acknowledgement mode will be used
                               (see http://www.rabbitmq.com/confirms.html). This corresponds
                               with the 'no_ack' parameter in the basic.consume AMQP 0.9.1
@@ -1733,10 +1733,10 @@ class BlockingChannel(object):
             the cancellation (this is done instead of via consumer's callback in
             order to prevent reentrancy/recursion. Each message is four-tuple:
             (channel, method, properties, body)
-                channel: BlockingChannel
-                method: spec.Basic.Deliver
-                properties: spec.BasicProperties
-                body: bytes
+             - channel: BlockingChannel
+             - method: spec.Basic.Deliver
+             - properties: spec.BasicProperties
+             - body: bytes
         :rtype: list
         """
         try:
@@ -1891,7 +1891,7 @@ class BlockingChannel(object):
         broker.
 
         Example:
-
+        ::
             for method, properties, body in channel.consume('queue'):
                 print body
                 channel.basic_ack(method.delivery_tag)
