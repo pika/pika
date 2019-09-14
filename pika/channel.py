@@ -172,10 +172,10 @@ class Channel(object):
         :param callable callback: The function to call, having the signature
                                 callback(channel, method, properties, body)
                                 where
-                                channel: pika.Channel
-                                method: pika.spec.Basic.Return
-                                properties: pika.spec.BasicProperties
-                                body: bytes
+                                 - channel: pika.Channel
+                                 - method: pika.spec.Basic.Return
+                                 - properties: pika.spec.BasicProperties
+                                 - body: bytes
 
         """
         self.callbacks.add(self.channel_number, '_on_return', callback, False)
@@ -282,10 +282,10 @@ class Channel(object):
         :param callable on_message_callback: The function to call when
             consuming with the signature
             on_message_callback(channel, method, properties, body), where
-                channel: pika.Channel
-                method: pika.spec.Basic.Deliver
-                properties: pika.spec.BasicProperties
-                body: bytes
+             - channel: pika.Channel
+             - method: pika.spec.Basic.Deliver
+             - properties: pika.spec.BasicProperties
+             - body: bytes
         :param bool auto_ack: if set to True, automatic acknowledgement mode
             will be used (see http://www.rabbitmq.com/confirms.html).
             This corresponds with the 'no_ack' parameter in the basic.consume
@@ -357,10 +357,10 @@ class Channel(object):
             channel
         :param callable callback: The callback to call with a message that has
             the signature callback(channel, method, properties, body), where:
-            channel: pika.Channel
-            method: pika.spec.Basic.GetOk
-            properties: pika.spec.BasicProperties
-            body: bytes
+             - channel: pika.Channel
+             - method: pika.spec.Basic.GetOk
+             - properties: pika.spec.BasicProperties
+             - body: bytes
         :param bool auto_ack: Tell the broker to not expect a reply
         :raises ValueError:
 
