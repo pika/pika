@@ -4,6 +4,9 @@ $running = $false
 $epmd = [System.IO.Path]::Combine($env:ERLANG_HOME, $env:erlang_erts_version, "bin", "epmd.exe")
 
 Do {
+    Write-Host '[INFO] epmd -names output:'
+    & $epmd -names
+
     $running = & $epmd -names | Select-String -CaseSensitive -SimpleMatch -Quiet -Pattern 'name rabbit at port 25672'
     if ($running -eq $true) {
         Write-Host '[INFO] epmd reports that RabbitMQ is at port 25672'

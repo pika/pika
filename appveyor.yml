@@ -1,14 +1,14 @@
 # Windows build and test of Pika
 
 environment:
-  erlang_download_url: "http://erlang.org/download/otp_win64_19.3.exe"
-  erlang_exe_path: "C:\\Users\\appveyor\\erlang_19.3.exe"
+  erlang_download_url: "http://erlang.org/download/otp_win64_22.1.exe"
+  erlang_exe_path: "C:\\Users\\appveyor\\erlang_22.1.exe"
   erlang_home_dir: "C:\\Users\\appveyor\\erlang"
-  erlang_erts_version: "erts-8.3"
+  erlang_erts_version: "erts-10.5"
 
-  rabbitmq_version: 3.7.4
-  rabbitmq_installer_download_url: "https://github.com/rabbitmq/rabbitmq-server/releases/download/v3.7.4/rabbitmq-server-3.7.4.exe"
-  rabbitmq_installer_path: "C:\\Users\\appveyor\\rabbitmq-server-3.7.4.exe"
+  rabbitmq_version: 3.8.0
+  rabbitmq_installer_download_url: "https://github.com/rabbitmq/rabbitmq-server/releases/download/v3.8.0/rabbitmq-server-3.8.0.exe"
+  rabbitmq_installer_path: "C:\\Users\\appveyor\\rabbitmq-server-3.8.0.exe"
 
   matrix:
     - PYTHON_ARCH: "32"
@@ -27,24 +27,24 @@ cache:
 
 
 install:
-  - SET PYTHONPATH=%PYTHONHOME%
-  - SET PATH=%PYTHONHOME%\Scripts;%PYTHONHOME%;%PATH%
+  - set PYTHONPATH=%PYTHONHOME%
+  - set PATH=%PYTHONHOME%\Scripts;%PYTHONHOME%;%PATH%
 
   # For diagnostics
-  - ECHO %PYTHONPATH%
-  - ECHO %PATH%
+  - echo %PYTHONPATH%
+  - echo %PATH%
   - python --version
 
-  - ECHO Upgrading pip...
+  - echo Upgrading pip...
   - python -m pip install --upgrade pip setuptools
   - pip --version
 
-  - ECHO Installing wheel...
+  - echo Installing wheel...
   - pip install wheel
 
 
 build_script:
-  - ECHO Building distributions...
+  - echo Building distributions...
   - python setup.py sdist bdist bdist_wheel
   - DIR /s *.whl
 
@@ -56,10 +56,10 @@ artifacts:
 
 before_test:
   # Install test requirements
-  - ECHO Installing pika...
+  - echo Installing pika...
   - python setup.py install
 
-  - ECHO Installing pika test requirements...
+  - echo Installing pika test requirements...
   - pip install -r test-requirements.txt
 
   # List conents of C:\ to help debug caching of rabbitmq artifacts
@@ -67,36 +67,44 @@ before_test:
 
   - ps: $webclient=New-Object System.Net.WebClient
 
-  - ECHO Downloading Erlang...
+  - echo Downloading Erlang...
   - ps: if (-Not (Test-Path "$env:erlang_exe_path")) { $webclient.DownloadFile("$env:erlang_download_url", "$env:erlang_exe_path") } else { Write-Host "Found" $env:erlang_exe_path "in cache." }
 
-  - ECHO Installing Erlang...
+  - echo Removing all existing versions of Erlang...
+  - ps: Get-ChildItem -Path 'C:\Program Files\erl*\Uninstall.exe' | %{ Start-Process -Wait -NoNewWindow -FilePath $_ -ArgumentList '/S' }
+
+  - echo Installing Erlang...
   - start /B /WAIT %erlang_exe_path% /S /D=%erlang_home_dir%
   - set ERLANG_HOME=%erlang_home_dir%
 
-  - ECHO Downloading RabbitMQ...
+  - echo Downloading RabbitMQ...
   - ps: if (-Not (Test-Path "$env:rabbitmq_installer_path")) { $webclient.DownloadFile("$env:rabbitmq_installer_download_url", "$env:rabbitmq_installer_path") } else { Write-Host "Found" $env:rabbitmq_installer_path "in cache." }
 
-  - ECHO Creating directory %AppData%\RabbitMQ...
+  - echo Creating directory %AppData%\RabbitMQ...
   - ps: New-Item -ItemType Directory -ErrorAction Continue -Path "$env:AppData/RabbitMQ"
 
-  - ECHO Creating RabbitMQ configuration file in %AppData%\RabbitMQ...
+  - echo Creating RabbitMQ configuration file in %AppData%\RabbitMQ...
   - ps: Get-Content C:/Projects/pika/testdata/rabbitmq.conf.in | %{ $_ -replace 'PIKA_DIR', 'C:/projects/pika' } | Set-Content -Path "$env:AppData/RabbitMQ/rabbitmq.conf"
   - ps: Get-Content "$env:AppData/RabbitMQ/rabbitmq.conf"
 
-  - ECHO Creating Erlang cookie files...
+  - echo Creating Erlang cookie files...
   - ps: '[System.IO.File]::WriteAllText("C:\Users\appveyor\.erlang.cookie", "PIKAISTHEBEST", [System.Text.Encoding]::ASCII)'
   - ps: '[System.IO.File]::WriteAllText("C:\Windows\System32\config\systemprofile\.erlang.cookie", "PIKAISTHEBEST", [System.Text.Encoding]::ASCII)'
 
-  - ECHO Installing and starting RabbitMQ with default config...
+  - echo Installing and starting RabbitMQ with default config...
   - start /B /WAIT %rabbitmq_installer_path% /S
   - ps: (Get-Service -Name RabbitMQ).Status
 
-  - ECHO Waiting for epmd to report that RabbitMQ has started...
-  - ps: 'C:\projects\pika\testdata\wait-epmd.ps1'
-  - ps: 'C:\projects\pika\testdata\wait-rabbitmq.ps1'
+  - echo RabbitMQ Service Registry Entry
+  - reg query HKLM\SOFTWARE\Ericsson\Erlang\ErlSrv\1.1\RabbitMQ
 
-  - ECHO Getting RabbitMQ status...
+  - echo Waiting for epmd to report that RabbitMQ has started...
+  - ps: C:\projects\pika\testdata\wait-epmd.ps1
+
+  - echo Waiting for RabbitMQ to start...
+  - ps: C:\projects\pika\testdata\wait-rabbitmq.ps1
+
+  - echo Getting RabbitMQ status...
   - cmd /c "C:\Program Files\RabbitMQ Server\rabbitmq_server-%rabbitmq_version%\sbin\rabbitmqctl.bat" status
 
 
