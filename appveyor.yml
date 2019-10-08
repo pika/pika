@@ -71,7 +71,7 @@ before_test:
   - ps: if (-Not (Test-Path "$env:erlang_exe_path")) { $webclient.DownloadFile("$env:erlang_download_url", "$env:erlang_exe_path") } else { Write-Host "Found" $env:erlang_exe_path "in cache." }
 
   - echo Removing all existing versions of Erlang...
-  - cmd /c "C:\Program Files\erl9.2\Uninstall.exe" /S
+  - ps: Get-ChildItem -Path 'C:\Program Files\erl*\Uninstall.exe' | %{ Start-Process -Wait -NoNewWindow -FilePath $_ -ArgumentList '/S' }
 
   - echo Installing Erlang...
   - start /B /WAIT %erlang_exe_path% /S /D=%erlang_home_dir%
