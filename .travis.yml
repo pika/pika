@@ -1,7 +1,5 @@
 language: python
 
-dist: bionic
-
 # Turn on sudo mode to facilitate the IPv6 workaround per
 # github.com/travis-ci/travis-ci/issues/8711. See also related reference in
 # before_script section.
@@ -10,8 +8,8 @@ sudo: true
 addons:
   apt:
     sources:
-      - sourceline: deb https://dl.bintray.com/rabbitmq-erlang/debian bionic erlang
-        key_url: https://github.com/rabbitmq/signing-keys/releases/download/2.0/rabbitmq-release-signing-key.asc
+      - sourceline: deb https://packages.erlang-solutions.com/ubuntu trusty contrib
+        key_url: https://packages.erlang-solutions.com/ubuntu/erlang_solutions.asc
     packages:
       - erlang-nox
 
