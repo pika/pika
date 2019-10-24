@@ -21,6 +21,7 @@ Version History
 
 - ``AsyncioConnection``, ``TornadoConnection`` and ``TwistedProtocolConnection`` are no longer auto-imported (`PR <https://github.com/pika/pika/pull/1129>`_)
 - ``BlockingConnection.consume`` now returns ``(None, None, None)`` when inactivity timeout is reached (`PR <https://github.com/pika/pika/pull/899>`_)
+- ``BlockingConnection.add_timeout`` renamed to ``BlockingConnection.call_later``
 - Python 3.7 support (`Issue <https://github.com/pika/pika/issues/1107>`_)
 - ``all_channels`` parameter of the ``Channel.basic_qos`` method renamed to ``global_qos``
 - ``global_`` parameter of the ``Basic.Qos`` spec class renamed to ``global_qos``
