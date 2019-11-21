@@ -172,7 +172,7 @@ class Channel(object):
         :param callable callback: The function to call, having the signature
                                 callback(channel, method, properties, body)
                                 where
-                                 - channel: pika.Channel
+                                 - channel: pika.channel.Channel
                                  - method: pika.spec.Basic.Return
                                  - properties: pika.spec.BasicProperties
                                  - body: bytes
@@ -282,7 +282,7 @@ class Channel(object):
         :param callable on_message_callback: The function to call when
             consuming with the signature
             on_message_callback(channel, method, properties, body), where
-             - channel: pika.Channel
+             - channel: pika.channel.Channel
              - method: pika.spec.Basic.Deliver
              - properties: pika.spec.BasicProperties
              - body: bytes
@@ -357,7 +357,7 @@ class Channel(object):
             channel
         :param callable callback: The callback to call with a message that has
             the signature callback(channel, method, properties, body), where:
-             - channel: pika.Channel
+             - channel: pika.channel.Channel
              - method: pika.spec.Basic.GetOk
              - properties: pika.spec.BasicProperties
              - body: bytes
