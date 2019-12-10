@@ -95,3 +95,7 @@ class DataTests(unittest.TestCase):
         self.assertRaises(exceptions.InvalidFieldTypeException,
                           data.decode_table,
                           b'\x00\x00\x00\t\x03fooZ\x00\x00\x04\xd2', 0)
+
+    def test_long_repr(self):
+        value = long(912598613)
+        self.assertEqual(repr(value), '912598613L')
