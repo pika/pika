@@ -118,6 +118,9 @@ if PY3:
         serialized as `l` instead of `I`
         """
 
+        def __str__(self):
+            return str(int(self))
+
         def __repr__(self):
             return str(self) + 'L'
 

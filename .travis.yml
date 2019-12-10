@@ -15,7 +15,7 @@ addons:
 
 env:
   global:
-    - RABBITMQ_VERSION=3.8.0
+    - RABBITMQ_VERSION=3.8.2
     - RABBITMQ_DOWNLOAD_URL="https://github.com/rabbitmq/rabbitmq-server/releases/download/v$RABBITMQ_VERSION/rabbitmq-server-generic-unix-$RABBITMQ_VERSION.tar.xz"
     - RABBITMQ_TAR="rabbitmq-$RABBITMQ_VERSION.tar.xz"
     - PATH=$HOME/.local/bin:$PATH
@@ -71,6 +71,8 @@ jobs:
     - python: 3.6
     - python: 3.7
       dist: xenial    # required for Python 3.7 (travis-ci/travis-ci#9069)
+    - python: 3.8
+      dist: xenial
     - stage: coverage
       if: fork = false OR type != pull_request
       python: 3.6
