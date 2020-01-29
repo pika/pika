@@ -4,6 +4,7 @@
 import json
 import random
 import pika
+from pika.exchange_type import ExchangeType
 
 print('pika version: %s' % pika.__version__)
 
@@ -11,9 +12,9 @@ connection = pika.BlockingConnection(
     pika.ConnectionParameters(host='localhost'))
 main_channel = connection.channel()
 
-main_channel.exchange_declare(exchange='com.micex.sten', exchange_type='direct')
+main_channel.exchange_declare(exchange='com.micex.sten', exchange_type=ExchangeType.direct.name)
 main_channel.exchange_declare(
-    exchange='com.micex.lasttrades', exchange_type='direct')
+    exchange='com.micex.lasttrades', exchange_type=ExchangeType.direct.name)
 
 tickers = {
     'MXSE.EQBR.LKOH': (1933, 1940),

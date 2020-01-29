@@ -31,6 +31,7 @@ from pika.adapters.utils import connection_workflow
 
 # NOTE: import SelectConnection after others to avoid circular depenency
 from pika.adapters import select_connection
+from pika.exchange_type import ExchangeType
 
 LOGGER = logging.getLogger(__name__)
 
@@ -2341,7 +2342,7 @@ class BlockingChannel(object):
 
     def exchange_declare(self,
                          exchange,
-                         exchange_type='direct',
+                         exchange_type=ExchangeType.direct.name,
                          passive=False,
                          durable=False,
                          auto_delete=False,

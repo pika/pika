@@ -29,6 +29,7 @@ from pika import spec
 from pika.compat import as_bytes, time_now
 import pika.connection
 import pika.exceptions
+from pika.exchange_type import ExchangeType
 import pika.frame
 
 from . import async_test_base
@@ -646,7 +647,7 @@ class TestNoDeadlockWhenClosingChannelWithPendingBlockedRequestsAndConcurrentCha
             exch_name = base_exch_name + ':' + str(i)
             cb = functools.partial(self.on_bad_result, exch_name)
             channel.exchange_declare(exch_name,
-                                     exchange_type='direct',
+                                     exchange_type=ExchangeType.direct.name,
                                      passive=True,
                                      callback=cb)
         channel.close()

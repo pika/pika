@@ -9,11 +9,13 @@ import collections
 import logging
 import uuid
 
+
 import pika.frame as frame
 import pika.exceptions as exceptions
 import pika.spec as spec
 import pika.validators as validators
 from pika.compat import unicode_type, dictkeys, is_integer
+from pika.exchange_type import ExchangeType
 
 LOGGER = logging.getLogger(__name__)
 
@@ -625,7 +627,7 @@ class Channel(object):
 
     def exchange_declare(self,
                          exchange,
-                         exchange_type='direct',
+                         exchange_type=ExchangeType.direct.name,
                          passive=False,
                          durable=False,
                          auto_delete=False,

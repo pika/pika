@@ -20,6 +20,7 @@ import pika.connection
 from pika import exceptions, spec
 from pika.adapters.utils import nbio_interface
 from pika.adapters.utils.io_services_utils import check_callback_arg
+from pika.exchange_type import ExchangeType
 
 # Twistisms
 # pylint: disable=C0111,C0103
@@ -782,7 +783,7 @@ class TwistedChannel(object):
 
     def exchange_declare(self,
                          exchange,
-                         exchange_type='direct',
+                         exchange_type=ExchangeType.direct.name,
                          passive=False,
                          durable=False,
                          auto_delete=False,

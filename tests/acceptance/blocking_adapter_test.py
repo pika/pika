@@ -12,6 +12,7 @@ from pika.adapters import blocking_connection
 from pika.compat import as_bytes, time_now
 import pika.connection
 import pika.exceptions
+from pika.exchange_type import ExchangeType
 
 from ..forward_server import ForwardServer
 from .test_utils import retry_assertion
@@ -803,7 +804,7 @@ class TestExchangeDeclareAndDelete(BlockingTestCaseBase):
         name = "TestExchangeDeclareAndDelete_" + uuid.uuid1().hex
 
         # Declare a new exchange
-        frame = ch.exchange_declare(name, exchange_type='direct')
+        frame = ch.exchange_declare(name, exchange_type=ExchangeType.direct.name)
         self.addCleanup(connection.channel().exchange_delete, name)
 
         self.assertIsInstance(frame.method, pika.spec.Exchange.DeclareOk)
@@ -842,9 +843,9 @@ class TestExchangeBindAndUnbind(BlockingTestCaseBase):
         self.assertIsNone(res)
 
         # Declare both exchanges
-        ch.exchange_declare(src_exg_name, exchange_type='direct')
+        ch.exchange_declare(src_exg_name, exchange_type=ExchangeType.direct.name)
         self.addCleanup(connection.channel().exchange_delete, src_exg_name)
-        ch.exchange_declare(dest_exg_name, exchange_type='direct')
+        ch.exchange_declare(dest_exg_name, exchange_type=ExchangeType.direct.name)
         self.addCleanup(connection.channel().exchange_delete, dest_exg_name)
 
         # Declare a new queue
@@ -948,7 +949,7 @@ class TestQueueBindAndUnbindAndPurge(BlockingTestCaseBase):
         self.assertIsNone(res)
 
         # Declare a new exchange
-        ch.exchange_declare(exg_name, exchange_type='direct')
+        ch.exchange_declare(exg_name, exchange_type=ExchangeType.direct.name)
         self.addCleanup(connection.channel().exchange_delete, exg_name)
 
         # Declare a new queue
@@ -1439,7 +1440,7 @@ class TestPublishAndBasicPublishWithPubacksUnroutable(BlockingTestCaseBase):
         self.assertIsNone(res)
 
         # Declare a new exchange
-        ch.exchange_declare(exg_name, exchange_type='direct')
+        ch.exchange_declare(exg_name, exchange_type=ExchangeType.direct.name)
         self.addCleanup(connection.channel().exchange_delete, exg_name)
 
         # Verify unroutable message handling using basic_publish
@@ -1473,7 +1474,7 @@ class TestConfirmDeliveryAfterUnroutableMessage(BlockingTestCaseBase):
         routing_key = 'TestConfirmDeliveryAfterUnroutableMessage'
 
         # Declare a new exchange
-        ch.exchange_declare(exg_name, exchange_type='direct')
+        ch.exchange_declare(exg_name, exchange_type=ExchangeType.direct.name)
         self.addCleanup(connection.channel().exchange_delete, exg_name)
 
         # Register on-return callback
@@ -1523,7 +1524,7 @@ class TestUnroutableMessagesReturnedInNonPubackMode(BlockingTestCaseBase):
         routing_key = 'TestUnroutableMessageReturnedInNonPubackMode'
 
         # Declare a new exchange
-        ch.exchange_declare(exg_name, exchange_type='direct')
+        ch.exchange_declare(exg_name, exchange_type=ExchangeType.direct.name)
         self.addCleanup(connection.channel().exchange_delete, exg_name)
 
         # Register on-return callback
@@ -1577,7 +1578,7 @@ class TestUnroutableMessageReturnedInPubackMode(BlockingTestCaseBase):
         routing_key = 'TestUnroutableMessageReturnedInPubackMode'
 
         # Declare a new exchange
-        ch.exchange_declare(exg_name, exchange_type='direct')
+        ch.exchange_declare(exg_name, exchange_type=ExchangeType.direct.name)
         self.addCleanup(connection.channel().exchange_delete, exg_name)
 
         # Select delivery confirmations
@@ -1646,7 +1647,7 @@ class TestBasicPublishDeliveredWhenPendingUnroutable(BlockingTestCaseBase):
         routing_key = 'TestBasicPublishDeliveredWhenPendingUnroutable'
 
         # Declare a new exchange
-        ch.exchange_declare(exg_name, exchange_type='direct')
+        ch.exchange_declare(exg_name, exchange_type=ExchangeType.direct.name)
         self.addCleanup(connection.channel().exchange_delete, exg_name)
 
         # Declare a new queue
@@ -1720,7 +1721,7 @@ class TestPublishAndConsumeWithPubacksAndQosOfOne(BlockingTestCaseBase):
         self.assertIsNone(res)
 
         # Declare a new exchange
-        ch.exchange_declare(exg_name, exchange_type='direct')
+        ch.exchange_declare(exg_name, exchange_type=ExchangeType.direct.name)
         self.addCleanup(connection.channel().exchange_delete, exg_name)
 
         # Declare a new queue
@@ -1858,7 +1859,7 @@ class TestBasicConsumeWithAckFromAnotherThread(BlockingTestCaseBase):
         self.assertIsNone(res)
 
         # Declare a new exchange
-        ch.exchange_declare(exg_name, exchange_type='direct')
+        ch.exchange_declare(exg_name, exchange_type=ExchangeType.direct.name)
         self.addCleanup(connection.channel().exchange_delete, exg_name)
 
         # Declare a new queue
@@ -1956,7 +1957,7 @@ class TestConsumeGeneratorWithAckFromAnotherThread(BlockingTestCaseBase):
         self.assertIsNone(res)
 
         # Declare a new exchange
-        ch.exchange_declare(exg_name, exchange_type='direct')
+        ch.exchange_declare(exg_name, exchange_type=ExchangeType.direct.name)
         self.addCleanup(connection.channel().exchange_delete, exg_name)
 
         # Declare a new queue
@@ -2044,7 +2045,7 @@ class TestTwoBasicConsumersOnSameChannel(BlockingTestCaseBase):
         ch.confirm_delivery()
 
         # Declare a new exchange
-        ch.exchange_declare(exg_name, exchange_type='direct')
+        ch.exchange_declare(exg_name, exchange_type=ExchangeType.direct.name)
         self.addCleanup(connection.channel().exchange_delete, exg_name)
 
         # Declare the two new queues and bind them to the exchange
@@ -2191,7 +2192,7 @@ class TestBasicPublishWithoutPubacks(BlockingTestCaseBase):
         routing_key = 'TestBasicPublishWithoutPubacks'
 
         # Declare a new exchange
-        ch.exchange_declare(exg_name, exchange_type='direct')
+        ch.exchange_declare(exg_name, exchange_type=ExchangeType.direct.name)
         self.addCleanup(connection.channel().exchange_delete, exg_name)
 
         # Declare a new queue
