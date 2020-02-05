@@ -3,7 +3,7 @@
 
 import logging
 import pika
-from pika.spec import ExchangeType
+from pika.exchange_type import ExchangeType
 
 logging.basicConfig(level=logging.DEBUG)
 

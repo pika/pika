@@ -18,7 +18,7 @@ except ImportError:
 import pika
 from pika import adapters
 from pika.adapters import select_connection
-from pika.spec import ExchangeType
+from pika.exchange_type import ExchangeType
 
 from ..threaded_test_wrapper import create_run_in_thread_decorator
 

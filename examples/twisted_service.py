@@ -35,7 +35,7 @@ from twisted.internet import reactor
 import pika
 from pika import spec
 from pika.adapters import twisted_connection
-from pika.spec import ExchangeType
+from pika.exchange_type import ExchangeType
 
 PREFETCH_COUNT = 2
 
