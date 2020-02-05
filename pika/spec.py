@@ -15,6 +15,7 @@ import struct
 from pika import amqp_object
 from pika import data
 from pika.compat import str_or_bytes, unicode_type
+from pika.exchange_type import ExchangeType
 
 # Python 3 support for str object
 str = bytes
@@ -693,7 +694,7 @@ class Exchange(amqp_object.Class):
         INDEX = 0x0028000A  # 40, 10; 2621450
         NAME = 'Exchange.Declare'
 
-        def __init__(self, ticket=0, exchange=None, type='direct', passive=False, durable=False, auto_delete=False, internal=False, nowait=False, arguments=None):
+        def __init__(self, ticket=0, exchange=None, type=ExchangeType.direct.name, passive=False, durable=False, auto_delete=False, internal=False, nowait=False, arguments=None):
             self.ticket = ticket
             self.exchange = exchange
             self.type = type
