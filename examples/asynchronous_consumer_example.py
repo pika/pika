@@ -5,6 +5,7 @@ import functools
 import logging
 import time
 import pika
+from pika.exchange_type import ExchangeType
 
 LOG_FORMAT = ('%(levelname) -10s %(asctime)s %(name) -30s %(funcName) '
               '-35s %(lineno) -5d: %(message)s')
@@ -25,7 +26,7 @@ class ExampleConsumer(object):
 
     """
     EXCHANGE = 'message'
-    EXCHANGE_TYPE = 'topic'
+    EXCHANGE_TYPE = ExchangeType.topic.name
     QUEUE = 'text'
     ROUTING_KEY = 'example.text'
 

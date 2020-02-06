@@ -570,7 +570,7 @@ class TestConsumeCancel(AsyncTestCase, AsyncAdapters):
 class TestExchangeDeclareAndDelete(AsyncTestCase, AsyncAdapters):
     DESCRIPTION = "Create and delete and exchange"
 
-    X_TYPE = 'direct'
+    X_TYPE = ExchangeType.direct.name
 
     def begin(self, channel):
         self.name = self.__class__.__name__ + ':' + uuid.uuid1().hex
@@ -593,8 +593,8 @@ class TestExchangeDeclareAndDelete(AsyncTestCase, AsyncAdapters):
 class TestExchangeRedeclareWithDifferentValues(AsyncTestCase, AsyncAdapters):
     DESCRIPTION = "should close chan: re-declared exchange w/ diff params"
 
-    X_TYPE1 = 'direct'
-    X_TYPE2 = 'topic'
+    X_TYPE1 = ExchangeType.direct.name
+    X_TYPE2 = ExchangeType.topic.name
 
     def begin(self, channel):
         self.name = self.__class__.__name__ + ':' + uuid.uuid1().hex
