@@ -30,7 +30,7 @@ while True:
         channel = connection.channel()
         channel.exchange_declare(
             exchange='test_exchange',
-            exchange_type=ExchangeType.direct.name,
+            exchange_type=ExchangeType.direct,
             passive=False,
             durable=True,
             auto_delete=False)

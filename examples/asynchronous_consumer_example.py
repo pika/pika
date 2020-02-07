@@ -26,7 +26,7 @@ class ExampleConsumer(object):
 
     """
     EXCHANGE = 'message'
-    EXCHANGE_TYPE = ExchangeType.topic.name
+    EXCHANGE_TYPE = ExchangeType.topic
     QUEUE = 'text'
     ROUTING_KEY = 'example.text'
 

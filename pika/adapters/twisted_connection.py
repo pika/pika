@@ -783,7 +783,7 @@ class TwistedChannel(object):
 
     def exchange_declare(self,
                          exchange,
-                         exchange_type=ExchangeType.direct.name,
+                         exchange_type=ExchangeType.direct,
                          passive=False,
                          durable=False,
                          auto_delete=False,

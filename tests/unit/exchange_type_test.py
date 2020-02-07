@@ -16,13 +16,7 @@ from pika.exchange_type import ExchangeType
 
 class ExchangeTypeTests(unittest.TestCase):
     def test_exchange_type_direct(self):
-        self.assertEqual(
-            ExchangeType.direct.value,
-            "Exchange type used for AMQP direct exchanges."
-        )
+        self.assertEqual(ExchangeType.direct.value, 'direct')
 
     def test_exchange_type_fanout(self):
-        self.assertEqual(
-            ExchangeType.fanout.value,
-            "Exchange type used for AMQP fanout exchanges."
-        )
+        self.assertEqual(ExchangeType.fanout.value, 'fanout')

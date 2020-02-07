@@ -26,7 +26,7 @@ class ExamplePublisher(object):
 
     """
     EXCHANGE = 'message'
-    EXCHANGE_TYPE = ExchangeType.topic.name
+    EXCHANGE_TYPE = ExchangeType.topic
     PUBLISH_INTERVAL = 1
     QUEUE = 'text'
     ROUTING_KEY = 'example.text'

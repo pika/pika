@@ -12,9 +12,9 @@ connection = pika.BlockingConnection(
     pika.ConnectionParameters(host='localhost'))
 main_channel = connection.channel()
 
-main_channel.exchange_declare(exchange='com.micex.sten', exchange_type=ExchangeType.direct.name)
+main_channel.exchange_declare(exchange='com.micex.sten', exchange_type=ExchangeType.direct)
 main_channel.exchange_declare(
-    exchange='com.micex.lasttrades', exchange_type=ExchangeType.direct.name)
+    exchange='com.micex.lasttrades', exchange_type=ExchangeType.direct)
 
 tickers = {
     'MXSE.EQBR.LKOH': (1933, 1940),

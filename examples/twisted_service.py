@@ -112,7 +112,7 @@ class PikaProtocol(twisted_connection.TwistedProtocolConnection):
         if exchange:
             yield self._channel.exchange_declare(
                 exchange=exchange,
-                exchange_type=ExchangeType.topic.name,
+                exchange_type=ExchangeType.topic,
                 durable=True,
                 auto_delete=False)
 
@@ -173,7 +173,7 @@ class PikaProtocol(twisted_connection.TwistedProtocolConnection):
             system='Pika:=>')
         yield self._channel.exchange_declare(
             exchange=exchange,
-            exchange_type=ExchangeType.topic.name,
+            exchange_type=ExchangeType.topic,
             durable=True,
             auto_delete=False)
         prop = spec.BasicProperties(delivery_mode=2)
