@@ -694,7 +694,7 @@ class Exchange(amqp_object.Class):
         INDEX = 0x0028000A  # 40, 10; 2621450
         NAME = 'Exchange.Declare'
 
-        def __init__(self, ticket=0, exchange=None, type=ExchangeType.direct.name, passive=False, durable=False, auto_delete=False, internal=False, nowait=False, arguments=None):
+        def __init__(self, ticket=0, exchange=None, type=ExchangeType.direct, passive=False, durable=False, auto_delete=False, internal=False, nowait=False, arguments=None):
             self.ticket = ticket
             self.exchange = exchange
             self.type = type

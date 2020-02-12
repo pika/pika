@@ -264,7 +264,7 @@ class BoundQueueTestCase(AsyncTestCase):
 
     def begin(self, channel):
         self.channel.exchange_declare(self.exchange,
-                                      exchange_type=ExchangeType.direct.value,
+                                      exchange_type=ExchangeType.direct,
                                       passive=False,
                                       durable=False,
                                       auto_delete=True,
