@@ -20,6 +20,7 @@ Version History
 `GitHub milestone <https://github.com/pika/pika/milestone/8?closed=1>`_
 
 - ``AsyncioConnection``, ``TornadoConnection`` and ``TwistedProtocolConnection`` are no longer auto-imported (`PR <https://github.com/pika/pika/pull/1129>`_)
+- ``BlockingConnection.consume`` now returns ``(None, None, None)`` when inactivity timeout is reached (`PR <https://github.com/pika/pika/pull/901>`_)
 - Python 3.7 support (`Issue <https://github.com/pika/pika/issues/1107>`_)
 - ``all_channels`` parameter of the ``Channel.basic_qos`` method renamed to ``global_qos``
 - ``global_`` parameter of the ``Basic.Qos`` spec class renamed to ``global_qos``
@@ -66,6 +67,7 @@ Version History
 
 This is an interim release prior to version `1.0.0`. It includes the following backported pull requests and commits from the `master` branch:
 
+- `PR #901 <https://github.com/pika/pika/pull/901>`_
 - `PR #908 <https://github.com/pika/pika/pull/908>`_
 - `PR #910 <https://github.com/pika/pika/pull/910>`_
 - `PR #918 <https://github.com/pika/pika/pull/918>`_
@@ -98,13 +100,15 @@ Travis CI fail fast - 3f0e739
 
 New features:
 
-`BlockingConnection` now supports the `add_callback_threadsafe` method which allows a function to be executed correctly on the IO loop thread. The main use-case for this is as follows:
+``BlockingConnection.consume`` now returns ``(None, None, None)`` when inactivity timeout is reached (`PR <https://github.com/pika/pika/pull/901>`_)
 
-- Application sets up a thread for `BlockingConnection` and calls `basic_consume` on it
+``BlockingConnection`` now supports the ``add_callback_threadsafe`` method which allows a function to be executed correctly on the IO loop thread. The main use-case for this is as follows:
+
+- Application sets up a thread for ``BlockingConnection`` and calls ``basic_consume`` on it
 - When a message is received, work is done on another thread
-- When the work is done, the worker uses `connection.add_callback_threadsafe` to call the `basic_ack` method on the channel instance.
+- When the work is done, the worker uses ``connection.add_callback_threadsafe`` to call the ``basic_ack`` method on the channel instance.
 
-Please see `examples/basic_consumer_threaded.py` for an example. As always, `SelectConnection` and a fully async consumer/publisher is the preferred method of using Pika.
+Please see ``examples/basic_consumer_threaded.py`` for an example. As always, ``SelectConnection`` and a fully async consumer/publisher is the preferred method of using Pika.
 
 Heartbeats are now sent at an interval equal to 1/2 of the negotiated idle connection timeout. RabbitMQ's default timeout value is 60 seconds, so heartbeats will be sent at a 30 second interval. In addition, Pika's check for an idle connection will be done at an interval equal to the timeout value plus 5 seconds to allow for delays. This results in an interval of 65 seconds by default.
 
