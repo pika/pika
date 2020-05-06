@@ -17,7 +17,8 @@ tls_example.py::
     context.load_cert_chain("PIKA_DIR/testdata/certs/client_certificate.pem",
                             "PIKA_DIR/testdata/certs/client_key.pem")
     ssl_options = pika.SSLOptions(context, "localhost")
-    conn_params = pika.ConnectionParameters(port=5671,
+    conn_params = pika.ConnectionParameters(host="localhost",
+                                            port=5671,
                                             ssl_options=ssl_options)
     
     with pika.BlockingConnection(conn_params) as conn:
