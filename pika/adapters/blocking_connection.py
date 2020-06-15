@@ -509,9 +509,11 @@ class BlockingConnection(object):
                     (not waiters or any(ready() for ready in waiters))))
 
         # Process I/O until our completion condition is satisfied
-        while not is_done():
+        while True:
             self._impl.ioloop.poll()
             self._impl.ioloop.process_timeouts()
+            if is_done():
+                break
 
         if self._closed_result.ready:
             try:
