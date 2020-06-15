@@ -1224,6 +1224,7 @@ class TwistedProtocolConnection(protocol.Protocol):
     def connectionReady(self):
         """This method will be called when the underlying connection is ready.
         """
+        return self
 
     def _on_connection_ready(self, _connection):
         d, self.ready = self.ready, None
