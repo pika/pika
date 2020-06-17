@@ -1193,6 +1193,11 @@ class TwistedProtocolConnection(protocol.Protocol):
         return d.addCallback(TwistedChannel)
 
     @property
+    def is_open(self):
+        # For compatibility with previous releases.
+        return self._impl.is_open
+
+    @property
     def is_closed(self):
         # For compatibility with previous releases.
         return self._impl.is_closed
