@@ -1573,8 +1573,7 @@ class ChannelTests(unittest.TestCase):
         self.obj.callbacks.process.return_value = False
         self.obj._on_return(method_value, header_value, body_value)
         warning.assert_called_with(
-            'Basic.Return received from server (%r, %r)', method_value.method,
-            header_value.properties)
+            'Basic.Return received from server (%r)', method_value.method)
 
     @mock.patch('pika.channel.Channel._rpc')
     def test_on_synchronous_complete(self, rpc):
