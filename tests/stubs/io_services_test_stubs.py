@@ -25,7 +25,7 @@ class TestGetNativeIOLoop(unittest.TestCase,
 import sys
 import unittest
 
-from .threaded_test_wrapper import run_in_thread_with_timeout
+from tests.wrappers.threaded_test_wrapper import run_in_thread_with_timeout
 
 # Suppress missing-docstring to allow test method names to be printed by our the
 # test runner

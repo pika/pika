@@ -7,6 +7,7 @@ import os
 import select
 import sys
 import logging
+import platform
 import unittest
 import uuid
 
@@ -16,11 +17,12 @@ except ImportError:
     import mock
 
 import pika
+import pika.compat
 from pika import adapters
 from pika.adapters import select_connection
 from pika.exchange_type import ExchangeType
 
-from ..threaded_test_wrapper import create_run_in_thread_decorator
+from tests.wrappers.threaded_test_wrapper import create_run_in_thread_decorator
 
 # invalid-name
 # pylint: disable=C0103
@@ -36,6 +38,7 @@ from ..threaded_test_wrapper import create_run_in_thread_decorator
 
 
 TEST_TIMEOUT = 15
+
 
 # Decorator for running our tests in threads with timeout
 # NOTE: we give it a little more time to give our I/O loop-based timeout logic
@@ -351,23 +354,33 @@ class AsyncAdapters(object):
         with mock.patch.multiple(select_connection, SELECT_TYPE='kqueue'):
             self.start(adapters.SelectConnection, select_connection.IOLoop)
 
+    @unittest.skipIf(pika.compat.ON_WINDOWS, "Windows not supported")
+    @run_test_in_thread_with_timeout
+    def test_with_gevent(self):
+        """GeventConnection"""
+        import gevent
+        from pika.adapters.gevent_connection import GeventConnection
+        from pika.adapters.gevent_connection import _GeventSelectorIOLoop
+
+        def ioloop_factory():
+            return _GeventSelectorIOLoop(gevent.get_hub())
+
+        self.start(GeventConnection, ioloop_factory)
+
     @run_test_in_thread_with_timeout
     def test_with_tornado(self):
         """TornadoConnection"""
-        ioloop_factory = None
-        if adapters.tornado_connection.TornadoConnection is not None:
-            import tornado.ioloop
-            ioloop_factory = tornado.ioloop.IOLoop
-        self.start(adapters.tornado_connection.TornadoConnection, ioloop_factory)
+        import tornado.ioloop
+        from pika.adapters.tornado_connection import TornadoConnection
+        ioloop_factory = tornado.ioloop.IOLoop
+        self.start(TornadoConnection, ioloop_factory)
 
     @unittest.skipIf(sys.version_info < (3, 4),
                      'Asyncio is available only with Python 3.4+')
     @run_test_in_thread_with_timeout
     def test_with_asyncio(self):
         """AsyncioConnection"""
-        ioloop_factory = None
-        if adapters.asyncio_connection.AsyncioConnection is not None:
-            import asyncio
-            ioloop_factory = asyncio.new_event_loop
-
-        self.start(adapters.asyncio_connection.AsyncioConnection, ioloop_factory)
+        import asyncio
+        from pika.adapters.asyncio_connection import AsyncioConnection
+        ioloop_factory = asyncio.new_event_loop
+        self.start(AsyncioConnection, ioloop_factory)

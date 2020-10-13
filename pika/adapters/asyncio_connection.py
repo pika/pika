@@ -2,11 +2,16 @@
 
 import asyncio
 import logging
+import sys
 
 from pika.adapters import base_connection
 from pika.adapters.utils import nbio_interface, io_services_utils
 
 LOGGER = logging.getLogger(__name__)
+
+
+if sys.platform == 'win32':
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 
 class AsyncioConnection(base_connection.BaseConnection):

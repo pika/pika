@@ -14,8 +14,8 @@ import pika.connection
 import pika.exceptions
 from pika.exchange_type import ExchangeType
 
-from ..forward_server import ForwardServer
-from .test_utils import retry_assertion
+from tests.misc.forward_server import ForwardServer
+from tests.misc.test_utils import retry_assertion
 
 # too-many-lines
 # pylint: disable=C0302

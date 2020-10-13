@@ -32,8 +32,8 @@ import pika.exceptions
 from pika.exchange_type import ExchangeType
 import pika.frame
 
-from . import async_test_base
-from .async_test_base import (AsyncTestCase, BoundQueueTestCase, AsyncAdapters)
+from tests.base import async_test_base
+from tests.base.async_test_base import (AsyncTestCase, BoundQueueTestCase, AsyncAdapters)
 
 
 class TestA_Connect(AsyncTestCase, AsyncAdapters):  # pylint: disable=C0103
