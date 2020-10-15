@@ -1018,11 +1018,16 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
         assert data, ('_AsyncPlaintextTransport.write(): empty data from user.',
                       data, self._state)
 
-        if not self.get_write_buffer_size():
-            self._nbio.set_writer(self._sock.fileno(), self._on_socket_writable)
-            _LOGGER.debug('Turned on writability watcher: %s', self._sock)
+        # NOTE: Modify code to write data to buffer before setting writer.
+        # Otherwise a race condition can occur where ioloop executes writer 
+        # while buffer is still empty. 
+        setWriter = True if not self.get_write_buffer_size() else False
 
         self._buffer_tx_data(data)
+
+        if setWriter:
+            self._nbio.set_writer(self._sock.fileno(), self._on_socket_writable)
+            _LOGGER.debug('Turned on writability watcher: %s', self._sock)
 
     @_log_exceptions
     def _on_socket_readable(self):

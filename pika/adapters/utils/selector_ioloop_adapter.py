@@ -325,13 +325,16 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         else:
             if callbacks.writer is None:
                 assert callbacks.reader is not None
+                # NOTE: Set the writer func before setting the mask!
+                # Otherwise a race condition can occur where ioloop tries to
+                # call writer when it is still None.
+                callbacks.writer = on_writable
                 self._loop.update_handler(
                     fd, self._readable_mask | self._writable_mask)
                 LOGGER.debug('set_writer(%s, _) updated handler RdWr', fd)
             else:
                 LOGGER.debug('set_writer(%s, _) replacing writer', fd)
-
-            callbacks.writer = on_writable
+                callbacks.writer = on_writable
 
     def remove_writer(self, fd):
         """Implement
