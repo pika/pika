@@ -247,6 +247,9 @@ class _Timer(object):
         :raises ValueError, TypeError
 
         """
+        if self._timeout_heap is None:
+            raise ValueError("Timeout closed before call")
+
         if delay < 0:
             raise ValueError(
                 'call_later: delay must be non-negative, but got %r' % (delay,))
