@@ -65,17 +65,11 @@ after_success:
 jobs:
   include:
     - python: pypy3
-    - python: pypy
-    - python: 2.7
-    - python: 3.5
-    - python: 3.6
-    - python: 3.7
-      dist: xenial    # required for Python 3.7 (travis-ci/travis-ci#9069)
     - python: 3.8
-      dist: xenial
+    - python: 3.9
     - stage: coverage
       if: fork = false OR type != pull_request
-      python: 3.6
+      python: 3.8
       services: []
       install:
         - pip install awscli coverage codecov
@@ -91,7 +85,7 @@ jobs:
       after_success: codecov
     - stage: deploy
       if: repo = pika/pika
-      python: 3.6
+      python: 3.8
       services: []
       install: true
       before_script: []
