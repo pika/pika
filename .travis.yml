@@ -15,7 +15,7 @@ addons:
 
 env:
   global:
-    - RABBITMQ_VERSION=3.8.4
+    - RABBITMQ_VERSION=3.8.9
     - RABBITMQ_DOWNLOAD_URL="https://github.com/rabbitmq/rabbitmq-server/releases/download/v$RABBITMQ_VERSION/rabbitmq-server-generic-unix-$RABBITMQ_VERSION.tar.xz"
     - RABBITMQ_TAR="rabbitmq-$RABBITMQ_VERSION.tar.xz"
     - PATH=$HOME/.local/bin:$PATH
@@ -37,7 +37,7 @@ cache:
 
 install:
   - pip install -r test-requirements.txt
-  - pip install awscli==1.11.18
+  - pip install awscli
   - if [ ! -d "$HOME/.cache" ]; then mkdir "$HOME/.cache"; fi
   - if [ -s "$HOME/.cache/$RABBITMQ_TAR" ]; then echo "[INFO] found cached $RABBITMQ_TAR file"; else wget -O "$HOME/.cache/$RABBITMQ_TAR" "$RABBITMQ_DOWNLOAD_URL"; fi
   - tar -C "$TRAVIS_BUILD_DIR" -xvf "$HOME/.cache/$RABBITMQ_TAR"
