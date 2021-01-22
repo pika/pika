@@ -1174,6 +1174,7 @@ class TwistedProtocolConnection(protocol.Protocol):
             on_close_callback=self._on_connection_closed,
             custom_reactor=custom_reactor,
         )
+        self._calls = set()
 
     def channel(self, channel_number=None):  # pylint: disable=W0221
         """Create a new channel with the next available channel number or pass
@@ -1190,6 +1191,8 @@ class TwistedProtocolConnection(protocol.Protocol):
         """
         d = defer.Deferred()
         self._impl.channel(channel_number, d.callback)
+        self._calls.add(d)
+        d.addCallback(self._clear_call, d)
         return d.addCallback(TwistedChannel)
 
     @property
@@ -1239,6 +1242,11 @@ class TwistedProtocolConnection(protocol.Protocol):
             d.errback(exc)
 
     def _on_connection_closed(self, _connection, exception):
+        # errback all pending calls
+        for d in self._calls:
+            d.errback(exception)
+        self._calls = set()
+
         d, self.closed = self.closed, None
         if d:
             if isinstance(exception, Failure):
@@ -1246,6 +1254,10 @@ class TwistedProtocolConnection(protocol.Protocol):
                 # errback path.
                 exception = exception.value
             d.callback(exception)
+
+    def _clear_call(self, ret, d):
+        self._calls.discard(d)
+        return ret
 
 
 class _TimerHandle(nbio_interface.AbstractTimerReference):
