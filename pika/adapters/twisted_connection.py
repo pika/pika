@@ -134,11 +134,15 @@ class TwistedChannel(object):
         # errback all pending calls
         for d in self._calls:
             d.errback(self._closed)
+        # errback all pending deliveries
+        for d in self._deliveries.values():
+            d.errback(self._closed)
         # close all open queues
         for consumer in self._consumers.values():
             consumer.close(self._closed)
         # release references to stored objects
         self._calls = set()
+        self._deliveries = {}
         self._consumers = {}
         self.on_closed.callback(self._closed)
 

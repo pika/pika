@@ -610,6 +610,23 @@ class TwistedChannelTestCase(TestCase):
         self.pika_channel.confirm_delivery.call_args[1]["callback"](None)
         return d
 
+    @deferred(timeout=5.0)
+    def test_delivery_confirmation_errback_on_close(self):
+        # Verify deliveries that haven't had their callback invoked errback when
+        # the channel closes.
+        d = self.channel.confirm_delivery()
+        # Simulate Confirm.SelectOk
+        self.pika_channel.confirm_delivery.call_args[1]["callback"](None)
+
+        def send_message_and_close_channel(_result):
+            d = self.channel.basic_publish("testexch", "testrk", "testbody")
+            self.channel._on_channel_closed(None, RuntimeError("testing"))
+            self.assertEqual(len(self.channel._deliveries), 0)
+            return d
+
+        d.addCallback(send_message_and_close_channel)
+        return self.assertFailure(d, RuntimeError)
+
 
 class TwistedProtocolConnectionTestCase(TestCase):
 
