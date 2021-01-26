@@ -2,7 +2,6 @@
 import struct
 import decimal
 import calendar
-import warnings
 
 from datetime import datetime
 
@@ -133,16 +132,14 @@ def encode_value(pieces, value): # pylint: disable=R0911
         pieces.append(struct.pack('>cq', b'l', value))
         return 9
     elif isinstance(value, int):
-        with warnings.catch_warnings():
-            warnings.filterwarnings('error')
-            try:
-                packed = struct.pack('>ci', b'I', value)
-                pieces.append(packed)
-                return 5
-            except (struct.error, DeprecationWarning):
-                packed = struct.pack('>cq', b'l', long(value))
-                pieces.append(packed)
-                return 9
+        try:
+            packed = struct.pack('>ci', b'I', value)
+            pieces.append(packed)
+            return 5
+        except struct.error:
+            packed = struct.pack('>cq', b'l', long(value))
+            pieces.append(packed)
+            return 9
     elif isinstance(value, decimal.Decimal):
         value = value.normalize()
         if value.as_tuple().exponent < 0:
