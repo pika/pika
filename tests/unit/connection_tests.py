@@ -506,7 +506,7 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
                 'exchange_exchange_bindings': False
             }
         }
-        #This will be called, but shoudl not be implmented here, just mock it
+        #This will be called, but should not be implmented here, just mock it
         self.connection._flush_outbound = mock.Mock()
         self.connection._adapter_emit_data = mock.Mock()
         self.connection._on_connection_start(method_frame)
