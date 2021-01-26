@@ -660,6 +660,19 @@ class TwistedProtocolConnectionTestCase(TestCase):
         d.addCallback(check)
         return d
 
+    @deferred(timeout=5.0)
+    def test_channel_errback_if_connection_closed(self):
+        # Verify calls to channel() that haven't had their callback invoked
+        # errback when the connection closes.
+        self.conn._on_connection_ready("dummy")
+
+        d = self.conn.channel()
+
+        self.conn._on_connection_closed("test conn", RuntimeError("testing"))
+
+        self.assertEqual(len(self.conn._calls), 0)
+        return self.assertFailure(d, RuntimeError)
+
     def test_dataReceived(self):
         # Verify that the data is transmitted to the callback method.
         self.conn.dataReceived("testdata")
