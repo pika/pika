@@ -8,12 +8,14 @@ implementing the methods and behaviors for an AMQP Channel.
 import collections
 import logging
 import uuid
+from enum import Enum
 
 import pika.frame as frame
 import pika.exceptions as exceptions
 import pika.spec as spec
 import pika.validators as validators
 from pika.compat import unicode_type, dictkeys, is_integer
+from pika.exchange_type import ExchangeType
 
 LOGGER = logging.getLogger(__name__)
 
@@ -625,7 +627,7 @@ class Channel(object):
 
     def exchange_declare(self,
                          exchange,
-                         exchange_type='direct',
+                         exchange_type=ExchangeType.direct,
                          passive=False,
                          durable=False,
                          auto_delete=False,
@@ -657,6 +659,8 @@ class Channel(object):
         validators.require_string(exchange, 'exchange')
         self._raise_if_not_open()
         nowait = validators.rpc_completion_callback(callback)
+        if isinstance(exchange_type, Enum):
+            exchange_type = exchange_type.value
         return self._rpc(
             spec.Exchange.Declare(0, exchange, exchange_type, passive, durable,
                                   auto_delete, internal, nowait, arguments or

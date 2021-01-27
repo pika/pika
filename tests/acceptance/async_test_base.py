@@ -18,6 +18,7 @@ except ImportError:
 import pika
 from pika import adapters
 from pika.adapters import select_connection
+from pika.exchange_type import ExchangeType
 
 from ..threaded_test_wrapper import create_run_in_thread_decorator
 
@@ -263,7 +264,7 @@ class BoundQueueTestCase(AsyncTestCase):
 
     def begin(self, channel):
         self.channel.exchange_declare(self.exchange,
-                                      exchange_type='direct',
+                                      exchange_type=ExchangeType.direct,
                                       passive=False,
                                       durable=False,
                                       auto_delete=True,
