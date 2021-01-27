@@ -20,6 +20,7 @@ import pika.connection
 from pika import exceptions, spec
 from pika.adapters.utils import nbio_interface
 from pika.adapters.utils.io_services_utils import check_callback_arg
+from pika.exchange_type import ExchangeType
 
 # Twistisms
 # pylint: disable=C0111,C0103
@@ -786,7 +787,7 @@ class TwistedChannel(object):
 
     def exchange_declare(self,
                          exchange,
-                         exchange_type='direct',
+                         exchange_type=ExchangeType.direct,
                          passive=False,
                          durable=False,
                          auto_delete=False,
@@ -1200,6 +1201,11 @@ class TwistedProtocolConnection(protocol.Protocol):
         return d.addCallback(TwistedChannel)
 
     @property
+    def is_open(self):
+        # For compatibility with previous releases.
+        return self._impl.is_open
+
+    @property
     def is_closed(self):
         # For compatibility with previous releases.
         return self._impl.is_closed
@@ -1231,6 +1237,7 @@ class TwistedProtocolConnection(protocol.Protocol):
     def connectionReady(self):
         """This method will be called when the underlying connection is ready.
         """
+        return self
 
     def _on_connection_ready(self, _connection):
         d, self.ready = self.ready, None

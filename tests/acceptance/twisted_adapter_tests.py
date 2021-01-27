@@ -11,6 +11,7 @@
 # pylint: disable=E1101
 
 """twisted adapter test"""
+import functools
 import unittest
 
 import mock
@@ -707,7 +708,7 @@ class TwistedProtocolConnectionTestCase(TestCase):
         d = self.conn.ready
         self.conn._on_connection_ready("testresult")
         self.assertTrue(d.called)
-        d.addCallback(self.assertIsNone)
+        d.addCallback(functools.partial(self.assertIsInstance, cls=TwistedProtocolConnection))
         return d
 
     def test_on_connection_ready_twice(self):

@@ -1018,11 +1018,13 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
         assert data, ('_AsyncPlaintextTransport.write(): empty data from user.',
                       data, self._state)
 
-        if not self.get_write_buffer_size():
-            self._nbio.set_writer(self._sock.fileno(), self._on_socket_writable)
-            _LOGGER.debug('Turned on writability watcher: %s', self._sock)
+        tx_buffer_was_empty = self.get_write_buffer_size() == 0
 
         self._buffer_tx_data(data)
+
+        if tx_buffer_was_empty:
+            self._nbio.set_writer(self._sock.fileno(), self._on_socket_writable)
+            _LOGGER.debug('Turned on writability watcher: %s', self._sock)
 
     @_log_exceptions
     def _on_socket_readable(self):
@@ -1150,6 +1152,9 @@ class _AsyncSSLTransport(_AsyncTransportBase):
                 'Ignoring write() called during inactive state: '
                 'state=%s; %s', self._state, self._sock)
             return
+
+        assert data, ('_AsyncSSLTransport.write(): empty data from user.',
+                      data, self._state)
 
         tx_buffer_was_empty = self.get_write_buffer_size() == 0
 
