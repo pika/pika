@@ -20,6 +20,7 @@ import pika.connection
 from pika import exceptions, spec
 from pika.adapters.utils import nbio_interface
 from pika.adapters.utils.io_services_utils import check_callback_arg
+from pika.exchange_type import ExchangeType
 
 # Twistisms
 # pylint: disable=C0111,C0103
@@ -134,11 +135,15 @@ class TwistedChannel(object):
         # errback all pending calls
         for d in self._calls:
             d.errback(self._closed)
+        # errback all pending deliveries
+        for d in self._deliveries.values():
+            d.errback(self._closed)
         # close all open queues
         for consumer in self._consumers.values():
             consumer.close(self._closed)
         # release references to stored objects
         self._calls = set()
+        self._deliveries = {}
         self._consumers = {}
         self.on_closed.callback(self._closed)
 
@@ -782,7 +787,7 @@ class TwistedChannel(object):
 
     def exchange_declare(self,
                          exchange,
-                         exchange_type='direct',
+                         exchange_type=ExchangeType.direct,
                          passive=False,
                          durable=False,
                          auto_delete=False,
@@ -1174,6 +1179,7 @@ class TwistedProtocolConnection(protocol.Protocol):
             on_close_callback=self._on_connection_closed,
             custom_reactor=custom_reactor,
         )
+        self._calls = set()
 
     def channel(self, channel_number=None):  # pylint: disable=W0221
         """Create a new channel with the next available channel number or pass
@@ -1190,6 +1196,8 @@ class TwistedProtocolConnection(protocol.Protocol):
         """
         d = defer.Deferred()
         self._impl.channel(channel_number, d.callback)
+        self._calls.add(d)
+        d.addCallback(self._clear_call, d)
         return d.addCallback(TwistedChannel)
 
     @property
@@ -1245,6 +1253,11 @@ class TwistedProtocolConnection(protocol.Protocol):
             d.errback(exc)
 
     def _on_connection_closed(self, _connection, exception):
+        # errback all pending calls
+        for d in self._calls:
+            d.errback(exception)
+        self._calls = set()
+
         d, self.closed = self.closed, None
         if d:
             if isinstance(exception, Failure):
@@ -1252,6 +1265,10 @@ class TwistedProtocolConnection(protocol.Protocol):
                 # errback path.
                 exception = exception.value
             d.callback(exception)
+
+    def _clear_call(self, ret, d):
+        self._calls.discard(d)
+        return ret
 
 
 class _TimerHandle(nbio_interface.AbstractTimerReference):

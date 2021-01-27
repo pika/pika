@@ -6,6 +6,7 @@ import logging
 import threading
 import time
 import pika
+from pika.exchange_type import ExchangeType
 
 LOG_FORMAT = ('%(levelname) -10s %(asctime)s %(name) -30s %(funcName) '
               '-35s %(lineno) -5d: %(message)s')
@@ -54,7 +55,7 @@ connection = pika.BlockingConnection(parameters)
 channel = connection.channel()
 channel.exchange_declare(
     exchange="test_exchange",
-    exchange_type="direct",
+    exchange_type=ExchangeType.direct,
     passive=False,
     durable=True,
     auto_delete=False)

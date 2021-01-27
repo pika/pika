@@ -4,6 +4,7 @@
 import functools
 import random
 import pika
+from pika.exchange_type import ExchangeType
 
 
 def on_message(ch, method_frame, _header_frame, body, userdata=None):
@@ -29,7 +30,7 @@ while True:
         channel = connection.channel()
         channel.exchange_declare(
             exchange='test_exchange',
-            exchange_type='direct',
+            exchange_type=ExchangeType.direct,
             passive=False,
             durable=True,
             auto_delete=False)
