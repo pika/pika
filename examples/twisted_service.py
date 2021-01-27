@@ -35,6 +35,7 @@ from twisted.internet import reactor
 import pika
 from pika import spec
 from pika.adapters import twisted_connection
+from pika.exchange_type import ExchangeType
 
 PREFETCH_COUNT = 2
 
@@ -111,7 +112,7 @@ class PikaProtocol(twisted_connection.TwistedProtocolConnection):
         if exchange:
             yield self._channel.exchange_declare(
                 exchange=exchange,
-                exchange_type='topic',
+                exchange_type=ExchangeType.topic,
                 durable=True,
                 auto_delete=False)
 
@@ -172,7 +173,7 @@ class PikaProtocol(twisted_connection.TwistedProtocolConnection):
             system='Pika:=>')
         yield self._channel.exchange_declare(
             exchange=exchange,
-            exchange_type='topic',
+            exchange_type=ExchangeType.topic,
             durable=True,
             auto_delete=False)
         prop = spec.BasicProperties(delivery_mode=2)

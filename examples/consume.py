@@ -2,17 +2,19 @@
 import functools
 import logging
 import pika
+from pika.exchange_type import ExchangeType
 
 LOG_FORMAT = ('%(levelname) -10s %(asctime)s %(name) -30s %(funcName) '
               '-35s %(lineno) -5d: %(message)s')
 LOGGER = logging.getLogger(__name__)
 
-logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT)
+logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
 
 
-def on_message(chan, method_frame, _header_frame, body, userdata=None):
+def on_message(chan, method_frame, header_frame, body, userdata=None):
     """Called when a message is received. Log message and ack it."""
-    LOGGER.info('Userdata: %s Message body: %s', userdata, body)
+    LOGGER.info('Delivery properties: %s, message metadata: %s', method_frame, header_frame)
+    LOGGER.info('Userdata: %s, message body: %s', userdata, body)
     chan.basic_ack(delivery_tag=method_frame.delivery_tag)
 
 
@@ -25,7 +27,7 @@ def main():
     channel = connection.channel()
     channel.exchange_declare(
         exchange='test_exchange',
-        exchange_type='direct',
+        exchange_type=ExchangeType.direct,
         passive=False,
         durable=True,
         auto_delete=False)
