@@ -1562,20 +1562,6 @@ class ChannelTests(unittest.TestCase):
             self.obj.channel_number, '_on_return', self.obj, self.obj,
             method_value.method, header_value.properties, body_value)
 
-    @mock.patch('logging.Logger.warning')
-    def test_onreturn_warning(self, warning):
-        method_value = frame.Method(1,
-                                    spec.Basic.Return(999, 'Reply Text',
-                                                      'exchange_value',
-                                                      'routing.key'))
-        header_value = frame.Header(1, 10, spec.BasicProperties())
-        body_value = frame.Body(1, b'0123456789')
-        self.obj.callbacks.process.return_value = False
-        self.obj._on_return(method_value, header_value, body_value)
-        warning.assert_called_with(
-            'Basic.Return received from server (%r, %r)', method_value.method,
-            header_value.properties)
-
     @mock.patch('pika.channel.Channel._rpc')
     def test_on_synchronous_complete(self, rpc):
         mock_callback = mock.Mock()

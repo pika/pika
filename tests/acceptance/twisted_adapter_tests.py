@@ -610,6 +610,23 @@ class TwistedChannelTestCase(TestCase):
         self.pika_channel.confirm_delivery.call_args[1]["callback"](None)
         return d
 
+    @deferred(timeout=5.0)
+    def test_delivery_confirmation_errback_on_close(self):
+        # Verify deliveries that haven't had their callback invoked errback when
+        # the channel closes.
+        d = self.channel.confirm_delivery()
+        # Simulate Confirm.SelectOk
+        self.pika_channel.confirm_delivery.call_args[1]["callback"](None)
+
+        def send_message_and_close_channel(_result):
+            d = self.channel.basic_publish("testexch", "testrk", "testbody")
+            self.channel._on_channel_closed(None, RuntimeError("testing"))
+            self.assertEqual(len(self.channel._deliveries), 0)
+            return d
+
+        d.addCallback(send_message_and_close_channel)
+        return self.assertFailure(d, RuntimeError)
+
 
 class TwistedProtocolConnectionTestCase(TestCase):
 
@@ -642,6 +659,19 @@ class TwistedProtocolConnectionTestCase(TestCase):
             self.assertTrue(isinstance(result, TwistedChannel))
         d.addCallback(check)
         return d
+
+    @deferred(timeout=5.0)
+    def test_channel_errback_if_connection_closed(self):
+        # Verify calls to channel() that haven't had their callback invoked
+        # errback when the connection closes.
+        self.conn._on_connection_ready("dummy")
+
+        d = self.conn.channel()
+
+        self.conn._on_connection_closed("test conn", RuntimeError("testing"))
+
+        self.assertEqual(len(self.conn._calls), 0)
+        return self.assertFailure(d, RuntimeError)
 
     def test_dataReceived(self):
         # Verify that the data is transmitted to the callback method.
