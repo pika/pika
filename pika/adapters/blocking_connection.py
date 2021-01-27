@@ -2111,7 +2111,7 @@ class BlockingChannel(object):
         self._impl.basic_ack(delivery_tag=delivery_tag, multiple=multiple)
         self._flush_output()
 
-    def basic_nack(self, delivery_tag=None, multiple=False, requeue=True):
+    def basic_nack(self, delivery_tag=0, multiple=False, requeue=True):
         """This method allows a client to reject one or more incoming messages.
         It can be used to interrupt and cancel large incoming messages, or
         return untreatable messages to their original queue.
@@ -2299,7 +2299,7 @@ class BlockingChannel(object):
                 requeue=requeue, callback=recover_ok_result.signal_once)
             self._flush_output(recover_ok_result.is_ready)
 
-    def basic_reject(self, delivery_tag=None, requeue=True):
+    def basic_reject(self, delivery_tag=0, requeue=True):
         """Reject an incoming message. This method allows a client to reject a
         message. It can be used to interrupt and cancel large incoming messages,
         or return untreatable messages to their original queue.

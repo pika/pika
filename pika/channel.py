@@ -379,7 +379,7 @@ class Channel(object):
         # frames (or similar)
         self._send_method(spec.Basic.Get(queue=queue, no_ack=auto_ack))
 
-    def basic_nack(self, delivery_tag=None, multiple=False, requeue=True):
+    def basic_nack(self, delivery_tag=0, multiple=False, requeue=True):
         """This method allows a client to reject one or more incoming messages.
         It can be used to interrupt and cancel large incoming messages, or
         return untreatable messages to their original queue.
@@ -472,7 +472,7 @@ class Channel(object):
             spec.Basic.Qos(prefetch_size, prefetch_count, global_qos), callback,
             [spec.Basic.QosOk])
 
-    def basic_reject(self, delivery_tag, requeue=True):
+    def basic_reject(self, delivery_tag=0, requeue=True):
         """Reject an incoming message. This method allows a client to reject a
         message. It can be used to interrupt and cancel large incoming messages,
         or return untreatable messages to their original queue.
