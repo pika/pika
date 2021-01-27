@@ -3,6 +3,7 @@
 
 import logging
 import pika
+from pika.exchange_type import ExchangeType
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -12,7 +13,7 @@ connection = pika.BlockingConnection(parameters)
 channel = connection.channel()
 channel.exchange_declare(
     exchange="test_exchange",
-    exchange_type="direct",
+    exchange_type=ExchangeType.direct,
     passive=False,
     durable=True,
     auto_delete=False)

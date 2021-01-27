@@ -8,12 +8,14 @@ implementing the methods and behaviors for an AMQP Channel.
 import collections
 import logging
 import uuid
+from enum import Enum
 
 import pika.frame as frame
 import pika.exceptions as exceptions
 import pika.spec as spec
 import pika.validators as validators
 from pika.compat import unicode_type, dictkeys, is_integer
+from pika.exchange_type import ExchangeType
 
 LOGGER = logging.getLogger(__name__)
 
@@ -377,7 +379,7 @@ class Channel(object):
         # frames (or similar)
         self._send_method(spec.Basic.Get(queue=queue, no_ack=auto_ack))
 
-    def basic_nack(self, delivery_tag=None, multiple=False, requeue=True):
+    def basic_nack(self, delivery_tag=0, multiple=False, requeue=True):
         """This method allows a client to reject one or more incoming messages.
         It can be used to interrupt and cancel large incoming messages, or
         return untreatable messages to their original queue.
@@ -470,7 +472,7 @@ class Channel(object):
             spec.Basic.Qos(prefetch_size, prefetch_count, global_qos), callback,
             [spec.Basic.QosOk])
 
-    def basic_reject(self, delivery_tag, requeue=True):
+    def basic_reject(self, delivery_tag=0, requeue=True):
         """Reject an incoming message. This method allows a client to reject a
         message. It can be used to interrupt and cancel large incoming messages,
         or return untreatable messages to their original queue.
@@ -625,7 +627,7 @@ class Channel(object):
 
     def exchange_declare(self,
                          exchange,
-                         exchange_type='direct',
+                         exchange_type=ExchangeType.direct,
                          passive=False,
                          durable=False,
                          auto_delete=False,
@@ -657,6 +659,8 @@ class Channel(object):
         validators.require_string(exchange, 'exchange')
         self._raise_if_not_open()
         nowait = validators.rpc_completion_callback(callback)
+        if isinstance(exchange_type, Enum):
+            exchange_type = exchange_type.value
         return self._rpc(
             spec.Exchange.Declare(0, exchange, exchange_type, passive, durable,
                                   auto_delete, internal, nowait, arguments or
@@ -1234,8 +1238,8 @@ class Channel(object):
         if not self.callbacks.process(self.channel_number, '_on_return', self,
                                       self, method_frame.method,
                                       header_frame.properties, body):
-            LOGGER.warning('Basic.Return received from server (%r, %r)',
-                           method_frame.method, header_frame.properties)
+            LOGGER.debug('Basic.Return received from server (%r, %r)',
+                          method_frame.method, header_frame.properties)
 
     def _on_selectok(self, method_frame):
         """Called when the broker sends a Confirm.SelectOk frame

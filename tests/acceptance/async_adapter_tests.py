@@ -29,6 +29,7 @@ from pika import spec
 from pika.compat import as_bytes, time_now
 import pika.connection
 import pika.exceptions
+from pika.exchange_type import ExchangeType
 import pika.frame
 
 from . import async_test_base
@@ -569,7 +570,7 @@ class TestConsumeCancel(AsyncTestCase, AsyncAdapters):
 class TestExchangeDeclareAndDelete(AsyncTestCase, AsyncAdapters):
     DESCRIPTION = "Create and delete and exchange"
 
-    X_TYPE = 'direct'
+    X_TYPE = ExchangeType.direct
 
     def begin(self, channel):
         self.name = self.__class__.__name__ + ':' + uuid.uuid1().hex
@@ -592,8 +593,8 @@ class TestExchangeDeclareAndDelete(AsyncTestCase, AsyncAdapters):
 class TestExchangeRedeclareWithDifferentValues(AsyncTestCase, AsyncAdapters):
     DESCRIPTION = "should close chan: re-declared exchange w/ diff params"
 
-    X_TYPE1 = 'direct'
-    X_TYPE2 = 'topic'
+    X_TYPE1 = ExchangeType.direct
+    X_TYPE2 = ExchangeType.topic
 
     def begin(self, channel):
         self.name = self.__class__.__name__ + ':' + uuid.uuid1().hex
@@ -646,7 +647,7 @@ class TestNoDeadlockWhenClosingChannelWithPendingBlockedRequestsAndConcurrentCha
             exch_name = base_exch_name + ':' + str(i)
             cb = functools.partial(self.on_bad_result, exch_name)
             channel.exchange_declare(exch_name,
-                                     exchange_type='direct',
+                                     exchange_type=ExchangeType.direct,
                                      passive=True,
                                      callback=cb)
         channel.close()
