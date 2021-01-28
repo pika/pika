@@ -62,6 +62,10 @@ To perform mutual authentication with a Twisted connection::
         )
         print("published")
 
+    def connection_ready(conn):
+        conn.ready.addCallback(lambda _ :conn)
+        return conn.ready
+
     # Load the CA certificate to validate the server's identity
     with open("PIKA_DIR/testdata/certs/ca_certificate.pem") as fd:
         ca_cert = ssl.Certificate.loadPEM(fd.read())
@@ -69,7 +73,7 @@ To perform mutual authentication with a Twisted connection::
     # Load the client certificate and key to authenticate with the server
     with open("PIKA_DIR/testdata/certs/client_key.pem") as fd:
         client_key = fd.read()
-    with open("PIKA_DIR/testdata/certs/client_certificate.pem"") as fd:
+    with open("PIKA_DIR/testdata/certs/client_certificate.pem") as fd:
         client_cert = fd.read()
     client_keypair = ssl.PrivateCertificate.loadPEM(client_key + client_cert)
 
@@ -82,6 +86,6 @@ To perform mutual authentication with a Twisted connection::
     cc = protocol.ClientCreator(
         reactor, twisted_connection.TwistedProtocolConnection, params)
     deferred = cc.connectSSL("localhost", 5671, context_factory)
-    deferred.addCallback(lambda protocol: protocol.ready)
+    deferred.addCallback(connection_ready)
     deferred.addCallback(publish)
     reactor.run()
