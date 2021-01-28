@@ -8,7 +8,7 @@ environment:
 
   rabbitmq_version: 3.8.11
   rabbitmq_installer_download_url: "https://github.com/rabbitmq/rabbitmq-server/releases/download/v3.8.11/rabbitmq-server-3.8.11.exe"
-  rabbitmq_installer_path: "C:\\Users\\appveyor\\rabbitmq-server-3.8.9.exe"
+  rabbitmq_installer_path: "C:\\Users\\appveyor\\rabbitmq-server-3.8.11.exe"
 
   matrix:
     - PYTHONHOME: "C:\\Python38"
