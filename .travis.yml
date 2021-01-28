@@ -15,7 +15,7 @@ addons:
 
 env:
   global:
-    - RABBITMQ_VERSION=3.8.9
+    - RABBITMQ_VERSION=3.8.11
     - RABBITMQ_DOWNLOAD_URL="https://github.com/rabbitmq/rabbitmq-server/releases/download/v$RABBITMQ_VERSION/rabbitmq-server-generic-unix-$RABBITMQ_VERSION.tar.xz"
     - RABBITMQ_TAR="rabbitmq-$RABBITMQ_VERSION.tar.xz"
     - PATH=$HOME/.local/bin:$PATH

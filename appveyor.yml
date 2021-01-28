@@ -1,13 +1,13 @@
 # Windows build and test of Pika
 
 environment:
-  erlang_download_url: "https://github.com/erlang/otp/releases/download/OTP-23.2.1/otp_win64_23.2.1.exe"
+  erlang_download_url: "https://github.com/erlang/otp/releases/download/OTP-23.2.1/otp_win64_23.2.3.exe"
   erlang_exe_path: "C:\\Users\\appveyor\\erlang_installer.exe"
   erlang_home_dir: "C:\\Users\\appveyor\\erlang"
   erlang_erts_version: "erts-11.1.5"
 
-  rabbitmq_version: 3.8.9
-  rabbitmq_installer_download_url: "https://github.com/rabbitmq/rabbitmq-server/releases/download/v3.8.9/rabbitmq-server-3.8.9.exe"
+  rabbitmq_version: 3.8.11
+  rabbitmq_installer_download_url: "https://github.com/rabbitmq/rabbitmq-server/releases/download/v3.8.11/rabbitmq-server-3.8.11.exe"
   rabbitmq_installer_path: "C:\\Users\\appveyor\\rabbitmq-server-3.8.9.exe"
 
   matrix:
