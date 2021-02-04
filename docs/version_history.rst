@@ -1,6 +1,11 @@
 Version History
 ===============
 
+1.2.0 2021-02-04
+----------------
+
+`GitHub milestone <https://github.com/pika/pika/milestone/17?closed=1>`_
+
 1.1.0 2019-07-16
 ----------------
 
