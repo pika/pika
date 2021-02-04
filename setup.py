@@ -5,6 +5,7 @@ import os
 on_rtd = os.environ.get('READTHEDOCS', None) == 'True'
 requirements = list()
 if on_rtd:
+    requirements.append('gevent')
     requirements.append('tornado')
     requirements.append('twisted')
 
@@ -27,8 +28,9 @@ setuptools.setup(
     install_requires=requirements,
     package_data={'': ['LICENSE', 'README.rst']},
     extras_require={
+        'gevent': ['gevent'],
         'tornado': ['tornado'],
-        'twisted': ['twisted']
+        'twisted': ['twisted'],
     },
     classifiers=[
         'Development Status :: 5 - Production/Stable',

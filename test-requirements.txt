@@ -1,5 +1,6 @@
 coverage
 codecov
+gevent
 mock
 nose
 tornado

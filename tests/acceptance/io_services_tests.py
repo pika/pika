@@ -13,11 +13,11 @@ import time
 import unittest
 
 import pika.compat
+
 from pika.adapters.utils import nbio_interface
-
-from ..forward_server import ForwardServer
-
-from ..io_services_test_stubs import IOServicesTestStubs
+from pika.compat import ON_WINDOWS
+from tests.misc.forward_server import ForwardServer
+from tests.stubs.io_services_test_stubs import IOServicesTestStubs
 
 # too-many-lines
 # pylint: disable=C0302
@@ -34,9 +34,6 @@ from ..io_services_test_stubs import IOServicesTestStubs
 
 # too-many-locals
 # pylint: disable=R0914
-
-
-ON_WINDOWS = platform.system() == 'Windows'
 
 
 class AsyncServicesTestBase(unittest.TestCase):

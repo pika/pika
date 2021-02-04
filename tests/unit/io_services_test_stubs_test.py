@@ -8,6 +8,7 @@ try:
 except ImportError:
     asyncio = None
 
+import sys
 import threading
 import unittest
 
@@ -16,7 +17,7 @@ import twisted.internet.reactor
 
 from pika.adapters import select_connection
 
-from ..io_services_test_stubs import IOServicesTestStubs
+from tests.stubs.io_services_test_stubs import IOServicesTestStubs
 
 
 # Suppress invalid-name, since our test names are descriptive and quite long
@@ -39,6 +40,8 @@ _SUPPORTED_LOOP_CLASSES = {
 }
 
 if asyncio is not None:
+    if sys.platform == 'win32':
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     _SUPPORTED_LOOP_CLASSES.add(asyncio.get_event_loop().__class__)
 
 
@@ -52,6 +55,10 @@ class TestStartCalledFromOtherThreadAndWithVaryingNativeLoops(
     def setUpClass(cls):
         cls._native_loop_classes = set()
 
+    # AssertionError: Expected these 3 native I/O loop classes from IOServicesTestStubs:
+    # {<class 'asyncio.windows_events.ProactorEventLoop'>, <class 'tornado.platform.asyncio.AsyncIOLoop'>, <class 'pika.adapters.select_connection.IOLoop'>}
+    # but got these 3:
+    # {<class 'asyncio.windows_events._WindowsSelectorEventLoop'>, <class 'tornado.platform.asyncio.AsyncIOLoop'>, <class 'pika.adapters.select_connection.IOLoop'>} 
     @classmethod
     def tearDownClass(cls):
         # Now check against what was made available to us by

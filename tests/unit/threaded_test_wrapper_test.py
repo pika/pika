@@ -16,9 +16,8 @@ except ImportError:
 
 import pika.compat
 
-from .. import threaded_test_wrapper
-from ..threaded_test_wrapper import (_ThreadedTestWrapper,
-                                     run_in_thread_with_timeout)
+from tests.wrappers import threaded_test_wrapper
+from tests.wrappers.threaded_test_wrapper import (_ThreadedTestWrapper, run_in_thread_with_timeout)
 
 # Suppress invalid-name, since our test names are descriptive and quite long
 # pylint: disable=C0103

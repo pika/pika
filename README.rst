@@ -71,6 +71,8 @@ Pika provides the following adapters
   simple usage.
 - ``pika.SelectConnection`` - asynchronous adapter without third-party
   dependencies.
+- ``pika.adapters.gevent_connection.GeventConnection`` - asynchronous adapter
+  for use with `Gevent <http://www.gevent.org>`_'s I/O loop.
 - ``pika.adapters.tornado_connection.TornadoConnection`` - asynchronous adapter
   for use with `Tornado <http://tornadoweb.org>`_'s I/O loop.
 - ``pika.adapters.twisted_connection.TwistedProtocolConnection`` - asynchronous
@@ -252,7 +254,8 @@ New non-blocking adapters may be implemented in either of the following ways:
   ``pika.BaseConnection`` implements ``pika.connection.Connection``'s abstract
   methods, including internally-initiated connection logic. For examples, refer
   to the implementations of
-  ``pika.adapters.asyncio_connection.AsyncioConnection`` and
+  ``pika.adapters.asyncio_connection.AsyncioConnection``,
+  ``pika.adapters.gevent_connection.GeventConnection`` and
   ``pika.adapters.tornado_connection.TornadoConnection``.
 - By subclassing ``pika.connection.Connection`` and implementing its abstract
   methods. This approach facilitates implementation of custom
