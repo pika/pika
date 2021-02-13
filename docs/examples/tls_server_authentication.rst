@@ -18,7 +18,7 @@ tls_example.py::
 
     logging.basicConfig(level=logging.INFO)
 
-    context = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
+    context = ssl.SSLContext(ssl.PROTOCOL_TLSv2)
     context.verify_mode = ssl.CERT_REQUIRED
     context.load_verify_locations('/Users/me/tls-gen/basic/testca/cacert.pem')
 
@@ -31,29 +31,23 @@ tls_example.py::
     print(ch.basic_get("sslq"))
 
 
-rabbitmq.config::
+rabbitmq.conf::
 
-    %% Both the client and rabbitmq server were running on the same machine, a MacBookPro laptop.
+    %% In this example, both the client and RabbitMQ server are assumed to be running on the same machine
+    %% with a self-signed set of certificates generated using https://github.com/michaelklishin/tls-gen.
     %%
-    %% rabbitmq.config was created in its default location for OS X: /usr/local/etc/rabbitmq/rabbitmq.config.
+    %% To find out the default rabbitmq.conf location, see https://www.rabbitmq.com/configure.html.
     %%
-    %% The contents of the example rabbitmq.config are for demonstration purposes only. See https://www.rabbitmq.com/ssl.html for instructions about creating the test certificates and the contents of rabbitmq.config.
+    %% The contents of the example config file are for demonstration purposes only.
+    %% See https://www.rabbitmq.com/ssl.html to learn how to use TLS for client connections in RabbitMQ.
     %%
-    %% Note that the {fail_if_no_peer_cert,false} option, states that RabbitMQ should accept clients that don't have a certificate to send to the broker, but through the {verify,verify_peer} option, we state that if the client does send a certificate to the broker, the broker must be able to establish a chain of trust to it.
+    %% The example below allows clients without a certificate to connect
+    %% but performs peer verification on those that present a certificate chain.
 
-    [
-      {rabbit,
-        [
-          {ssl_listeners, [{"127.0.0.1", 5671}]},
+    listeners.ssl.default = 5671
 
-          %% Configuring SSL.
-          %% See http://www.rabbitmq.com/ssl.html for full documentation.
-          %%
-          {ssl_options, [{cacertfile,           "/Users/me/tls-gen/basic/testca/cacert.pem"},
-                         {certfile,             "/Users/me/tls-gen/basic/server/cert.pem"},
-                         {keyfile,              "/Users/me/tls-gen/basic/server/key.pem"},
-                         {verify,               verify_peer},
-                         {fail_if_no_peer_cert, false}]}
-        ]
-      }
-    ].
+    ssl_options.cacertfile = /Users/me/tls-gen/basic//ca_certificate.pem
+    ssl_options.certfile = /Users/me/tls-gen/basic//server_certificate.pem
+    ssl_options.keyfile = /Users/me/tls-gen/basic/server_key.pem
+    ssl_options.verify = verify_peer
+    ssl_options.fail_if_no_peer_cert = false
