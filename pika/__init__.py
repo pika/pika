@@ -12,6 +12,7 @@ from pika.connection import URLParameters
 from pika.connection import SSLOptions
 from pika.credentials import PlainCredentials
 from pika.spec import BasicProperties
+from pika.delivery_mode import DeliveryMode
 
 from pika import adapters
 from pika.adapters import BaseConnection
