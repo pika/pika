@@ -6,13 +6,15 @@ import logging
 import json
 import pika
 from pika.exchange_type import ExchangeType
+from queue import Queue
+from threading import Thread
 
 LOG_FORMAT = ('%(levelname) -10s %(asctime)s %(name) -30s %(funcName) '
               '-35s %(lineno) -5d: %(message)s')
 LOGGER = logging.getLogger(__name__)
 
 
-class ExamplePublisher(object):
+class ExamplePublisher(Thread):
     """This is an example publisher that will handle unexpected interactions
     with RabbitMQ such as channel and connection closures.
 
@@ -38,6 +40,8 @@ class ExamplePublisher(object):
         :param str amqp_url: The URL for connecting to RabbitMQ
 
         """
+        Thread.__init__(self)
+        self._task_queue = Queue()
         self._connection = None
         self._channel = None
 
@@ -299,14 +303,23 @@ class ExamplePublisher(object):
             content_type='application/json',
             headers=hdrs)
 
-        message = u'مفتاح قيمة 键 值 キー 値'
-        self._channel.basic_publish(self.EXCHANGE, self.ROUTING_KEY,
+        try:
+            message = self._task_queue.get()
+
+            self._channel.basic_publish(self.EXCHANGE, self.ROUTING_KEY,
                                     json.dumps(message, ensure_ascii=False),
                                     properties)
-        self._message_number += 1
-        self._deliveries.append(self._message_number)
-        LOGGER.info('Published message # %i', self._message_number)
+
+            self._message_number += 1
+            self._deliveries.append(self._message_number)
+            LOGGER.info('Published message # %i', self._message_number)
+        except Queue.empty:
+            pass
+        
         self.schedule_next_message()
+
+    def publish(self, message):
+        self._task_queue.put(message)
 
     def run(self):
         """Run the example code by connecting and then starting the IOLoop.
@@ -368,7 +381,12 @@ def main():
     example = ExamplePublisher(
         'amqp://guest:guest@localhost:5672/%2F?connection_attempts=3&heartbeat=3600'
     )
-    example.run()
+
+    # Start publisher as a seprate thread.
+    example.start()
+
+    message = u'مفتاح قيمة 键 值 キー 値'
+    example.publish(message)
 
 
 if __name__ == '__main__':
