@@ -33,7 +33,7 @@ from twisted.python import log
 from twisted.internet import reactor
 
 import pika
-from pika import spec
+from pika import spec, DeliveryMode
 from pika.adapters import twisted_connection
 from pika.exchange_type import ExchangeType
 
@@ -176,7 +176,7 @@ class PikaProtocol(twisted_connection.TwistedProtocolConnection):
             exchange_type=ExchangeType.topic,
             durable=True,
             auto_delete=False)
-        prop = spec.BasicProperties(delivery_mode=2)
+        prop = spec.BasicProperties(delivery_mode=DeliveryMode.Persistent)
         try:
             yield self._channel.basic_publish(
                 exchange=exchange,

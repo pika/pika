@@ -3,7 +3,7 @@
 
 import logging
 import pika
-from pika import spec
+from pika import spec, DeliveryMode
 
 ITERATIONS = 100
 
@@ -24,7 +24,8 @@ def on_channel_open(channel):
     for _iteration in range(0, ITERATIONS):
         channel.basic_publish(
             'test', 'test.confirm', 'message body value',
-            pika.BasicProperties(content_type='text/plain', delivery_mode=1))
+            pika.BasicProperties(content_type='text/plain',
+                                 delivery_mode=DeliveryMode.Transient))
         published += 1
 
 
@@ -45,8 +46,8 @@ def on_delivery_confirmation(frame):
 
 parameters = pika.URLParameters(
     'amqp://guest:guest@localhost:5672/%2F?connection_attempts=50')
-connection = pika.SelectConnection(
-    parameters=parameters, on_open_callback=on_open)
+connection = pika.SelectConnection(parameters=parameters,
+                                   on_open_callback=on_open)
 
 try:
     connection.ioloop.start()

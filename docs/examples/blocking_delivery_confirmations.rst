@@ -23,7 +23,7 @@ The following code demonstrates how to turn on delivery confirmations with the B
                               routing_key='test',
                               body='Hello World!',
                               properties=pika.BasicProperties(content_type='text/plain',
-                                                              delivery_mode=1)):
+                                                              delivery_mode=pika.DeliveryMode.Transient)):
         print('Message publish was confirmed')
     except pika.exceptions.UnroutableError:
         print('Message could not be confirmed')

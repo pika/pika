@@ -24,7 +24,7 @@ The following example demonstrates how to check if a message is delivered by set
                               routing_key='test',
                               body='Hello World!',
                               properties=pika.BasicProperties(content_type='text/plain',
-                                                              delivery_mode=1),
+                                                              delivery_mode=pika.DeliveryMode.Transient),
                               mandatory=True)
         print('Message was published')
     except pika.exceptions.UnroutableError:
