@@ -17,7 +17,7 @@ In the following example, a connection is made to RabbitMQ listening to port *56
                         'test_routing_key',
                         'message body value',
                         pika.BasicProperties(content_type='text/plain',
-                                             delivery_mode=1))
+                                             delivery_mode=pika.DeliveryMode.Transient))
 
   connection.close()
 
@@ -38,7 +38,7 @@ In contrast, using :py:meth:`pika.adapters.select_connection.SelectConnection` a
                                 'test_routing_key',
                                 'message body value',
                                 pika.BasicProperties(content_type='text/plain',
-                                                     delivery_mode=1))
+                                                     delivery_mode=pika.DeliveryMode.Transient))
 
         connection.close()
 

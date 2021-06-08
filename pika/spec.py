@@ -16,6 +16,7 @@ from pika import amqp_object
 from pika import data
 from pika.compat import str_or_bytes, unicode_type
 from pika.exchange_type import ExchangeType
+from pika.delivery_mode import DeliveryMode
 
 # Python 3 support for str object
 str = bytes
@@ -2079,7 +2080,10 @@ class BasicProperties(amqp_object.Properties):
         self.content_type = content_type
         self.content_encoding = content_encoding
         self.headers = headers
-        self.delivery_mode = delivery_mode
+        if isinstance(delivery_mode, DeliveryMode):
+            self.delivery_mode = delivery_mode.value
+        else:
+            self.delivery_mode = delivery_mode
         self.priority = priority
         self.correlation_id = correlation_id
         self.reply_to = reply_to
