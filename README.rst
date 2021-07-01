@@ -2,7 +2,7 @@ Pika
 ====
 Pika is a RabbitMQ (AMQP 0-9-1) client library for Python.
 
-|Version| |Python versions| |Travis CI Status| |AppVeyor Status| |Coverage| |License| |Docs|
+|Version| |Python versions| |Actions Status| |AppVeyor Status| |Coverage| |License| |Docs|
 
 Introduction
 ------------
@@ -269,8 +269,8 @@ New non-blocking adapters may be implemented in either of the following ways:
 .. |Python versions| image:: https://img.shields.io/pypi/pyversions/pika.svg
     :target: https://pypi.python.org/pypi/pika
 
-.. |Travis CI Status| image:: https://img.shields.io/travis/pika/pika.svg?
-   :target: https://travis-ci.org/pika/pika
+.. |Actions Status| image:: https://github.com/pika/pika/actions/workflows/tests.yml/badge.svg
+   :target: https://github.com/pika/pika/actions/workflows/tests.yml
 
 .. |AppVeyor Status| image:: https://ci.appveyor.com/api/projects/status/ql8u3dlls7hxvbqo?svg=true
    :target: https://ci.appveyor.com/project/gmr/pika
