@@ -13,7 +13,7 @@ of being accepted.*
 
 Pika test suite has a couple of requirements:
 
- * Dependencies from `test-dependencies.txt` are installed
+ * Dependencies from `test-requirements.txt` are installed
  * A RabbitMQ node with all defaults is running on `localhost:5672`
 
 
