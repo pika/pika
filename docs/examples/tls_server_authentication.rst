@@ -21,6 +21,17 @@ tls_example.py::
     context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
     context.verify_mode = ssl.CERT_REQUIRED
     context.load_verify_locations('/Users/me/tls-gen/basic/testca/cacert.pem')
+    
+    # Note: you can also connect without cacert.pem by comment these line
+    #
+    # context.verify_mode = ssl.CERT_REQUIRED
+    # context.load_verify_locations('/Users/me/tls-gen/basic/testca/cacert.pem')
+    #
+    # and add the following line
+    #
+    # context.verify_mode = ssl.CERT_NONE
+    
+    
 
     cp = pika.ConnectionParameters(ssl_options=pika.SSLOptions(context))
 
