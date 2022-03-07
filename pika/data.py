@@ -129,7 +129,10 @@ def encode_value(pieces, value): # pylint: disable=R0911
         pieces.append(struct.pack('>cB', b't', int(value)))
         return 2
     if isinstance(value, long):
-        pieces.append(struct.pack('>cq', b'l', value))
+        if value < 0:
+            pieces.append(struct.pack('>cq', b'L', value))
+        else:
+            pieces.append(struct.pack('>cQ', b'l', value))
         return 9
     elif isinstance(value, int):
         try:
@@ -137,7 +140,10 @@ def encode_value(pieces, value): # pylint: disable=R0911
             pieces.append(packed)
             return 5
         except struct.error:
-            packed = struct.pack('>cq', b'l', long(value))
+            if value < 0:
+                packed = struct.pack('>cq', b'L', long(value))
+            else:
+                packed = struct.pack('>cQ', b'l', long(value))
             pieces.append(packed)
             return 9
     elif isinstance(value, decimal.Decimal):
