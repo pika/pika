@@ -38,9 +38,9 @@ def do_work(conn, ch, delivery_tag, body):
 
 
 def on_message(ch, method_frame, _header_frame, body, args):
-    (conn, thrds) = args
+    (thrds) = args
     delivery_tag = method_frame.delivery_tag
-    t = threading.Thread(target=do_work, args=(conn, ch, delivery_tag, body))
+    t = threading.Thread(target=do_work, args=(ch.connection, ch, delivery_tag, body))
     t.start()
     thrds.append(t)
 
@@ -68,7 +68,7 @@ channel.queue_bind(
 channel.basic_qos(prefetch_count=1)
 
 threads = []
-on_message_callback = functools.partial(on_message, args=(connection, threads))
+on_message_callback = functools.partial(on_message, args=(threads))
 channel.basic_consume('standard', on_message_callback)
 
 try:
