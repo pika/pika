@@ -27,20 +27,20 @@ def ack_message(ch, delivery_tag):
         pass
 
 
-def do_work(conn, ch, delivery_tag, body):
+def do_work(ch, delivery_tag, body):
     thread_id = threading.get_ident()
     LOGGER.info('Thread id: %s Delivery tag: %s Message body: %s', thread_id,
                 delivery_tag, body)
     # Sleeping to simulate 10 seconds of work
     time.sleep(10)
     cb = functools.partial(ack_message, ch, delivery_tag)
-    conn.add_callback_threadsafe(cb)
+    ch.connection.add_callback_threadsafe(cb)
 
 
 def on_message(ch, method_frame, _header_frame, body, args):
-    (thrds) = args
+    thrds = args
     delivery_tag = method_frame.delivery_tag
-    t = threading.Thread(target=do_work, args=(ch.connection, ch, delivery_tag, body))
+    t = threading.Thread(target=do_work, args=(ch, delivery_tag, body))
     t.start()
     thrds.append(t)
 
