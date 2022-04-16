@@ -7,7 +7,6 @@ on:
   pull_request:
     branches:
       - main
-      - 1.3.x
 
 jobs:
   build-win32:
