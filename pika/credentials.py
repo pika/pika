@@ -22,7 +22,7 @@ from .compat import as_bytes
 LOGGER = logging.getLogger(__name__)
 
 
-class PlainCredentials(object):
+class PlainCredentials:
     """A credentials object for the default authentication methodology with
     RabbitMQ.
 
@@ -86,7 +86,7 @@ class PlainCredentials(object):
             self.password = None
 
 
-class ExternalCredentials(object):
+class ExternalCredentials:
     """The ExternalCredentials class allows the connection to use EXTERNAL
     authentication, generally with a client SSL certificate.
 

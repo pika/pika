@@ -220,7 +220,7 @@ class _AsyncioIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         """
         if not callable(on_done):
             raise TypeError(
-                'on_done arg must be callable, but got {!r}'.format(on_done))
+                f'on_done arg must be callable, but got {on_done!r}')
 
         return _AsyncioIOReference(
             asyncio.ensure_future(coro, loop=self._loop), on_done)
@@ -259,7 +259,7 @@ class _AsyncioIOReference(nbio_interface.AbstractIOReference):
         """
         if not callable(on_done):
             raise TypeError(
-                'on_done arg must be callable, but got {!r}'.format(on_done))
+                f'on_done arg must be callable, but got {on_done!r}')
 
         self._future = future
 

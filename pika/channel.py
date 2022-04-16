@@ -22,7 +22,7 @@ LOGGER = logging.getLogger(__name__)
 MAX_CHANNELS = 65535  # per AMQP 0.9.1 spec.
 
 
-class Channel(object):
+class Channel:
     """A Channel is the primary communication method for interacting with
     RabbitMQ. It is recommended that you do not directly invoke the creation of
     a channel object in your application code but rather construct a channel by
@@ -102,7 +102,7 @@ class Channel(object):
         return self.channel_number
 
     def __repr__(self):
-        return '<%s number=%s %s conn=%r>' % (
+        return '<{} number={} {} conn={!r}>'.format(
             self.__class__.__name__, self.channel_number,
             self._STATE_NAMES[self._state], self.connection)
 
@@ -1440,7 +1440,7 @@ class Channel(object):
         LOGGER.error('Unexpected frame: %r', frame_value)
 
 
-class ContentFrameAssembler(object):
+class ContentFrameAssembler:
     """Handle content related frames, building a message and return the message
     back in three parts upon receipt.
 

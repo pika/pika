@@ -4,7 +4,7 @@ AMQP classes and methods.
 """
 
 
-class AMQPObject(object):
+class AMQPObject:
     """Base object that is extended by AMQP low level frames and AMQP classes
     and methods.
 
@@ -16,10 +16,10 @@ class AMQPObject(object):
         items = list()
         for key, value in self.__dict__.items():
             if getattr(self.__class__, key, None) != value:
-                items.append('%s=%s' % (key, value))
+                items.append('{}={}'.format(key, value))
         if not items:
             return "<%s>" % self.NAME
-        return "<%s(%s)>" % (self.NAME, sorted(items))
+        return "<{}({})>".format(self.NAME, sorted(items))
 
     def __eq__(self, other):
         if other is not None:

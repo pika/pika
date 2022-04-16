@@ -51,7 +51,7 @@ class TornadoConnection(base_connection.BaseConnection):
         else:
             nbio = (selector_ioloop_adapter.SelectorIOServicesAdapter(
                 custom_ioloop or ioloop.IOLoop.instance()))
-        super(TornadoConnection, self).__init__(
+        super().__init__(
             parameters,
             on_open_callback,
             on_open_error_callback,
