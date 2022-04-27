@@ -131,6 +131,7 @@ class TestRunWithStopFromThreadsafeCallback(AsyncServicesTestBase,
         self.assertEqual(bucket, ['I was called'])
 
 
+@unittest.skipIf(pika.compat.ON_WINDOWS, "Windows timing is too precise")
 class TestCallLaterDoesNotCallAheadOfTime(AsyncServicesTestBase,
                                           IOServicesTestStubs):
 
