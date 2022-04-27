@@ -23,6 +23,9 @@ setuptools.setup(
     maintainer='Gavin M. Roy',
     maintainer_email='gavinmroy@gmail.com',
     url='https://pika.readthedocs.io',
+    project_urls={
+        'Source': 'https://github.com/pika/pika',
+    },
     packages=setuptools.find_packages(include=['pika', 'pika.*']),
     license='BSD',
     install_requires=requirements,
