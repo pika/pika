@@ -435,11 +435,12 @@ class Channel(object):
                   global_qos=False,
                   callback=None):
         """Specify quality of service. This method requests a specific quality
-        of service. The QoS can be specified for the current channel or for all
-        channels on the connection. The client can request that messages be sent
-        in advance so that when the client finishes processing a message, the
-        following message is already held locally, rather than needing to be
-        sent down the channel. Prefetching gives a performance improvement.
+        of service. The client can request that messages be sent in advance
+        so that when the client finishes processing a message, the following
+        message is already held locally, rather than needing to be sent down
+        the channel. The QoS can be applied separately to each new consumer on
+        channel or shared across all consumers on the channel. Prefetching
+        gives a performance improvement.
 
         :param int prefetch_size:  This field specifies the prefetch window
                                    size. The server will send a message in
@@ -458,8 +459,8 @@ class Channel(object):
                                    and connection level) allow it. The
                                    prefetch-count is ignored by consumers who
                                    have enabled the no-ack option.
-        :param bool global_qos:    Should the QoS apply to all channels on the
-                                   connection.
+        :param bool global_qos:    Should the QoS be shared across all
+                                   consumers on the channel.
         :param callable callback: The callback to call for Basic.QosOk response
         :raises ValueError:
 
