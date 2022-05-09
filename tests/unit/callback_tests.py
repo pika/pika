@@ -1,12 +1,11 @@
-# -*- coding: utf8 -*-
+# -*- coding: utf-8 -*-
 """
 Tests for pika.callback
 
 """
 import logging
 import unittest
-
-import mock
+from unittest import mock
 
 from pika import callback, frame, spec
 

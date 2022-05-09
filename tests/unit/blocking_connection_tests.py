@@ -1,12 +1,11 @@
-# -*- coding: utf8 -*-
+# -*- coding: utf-8 -*-
 """
 Tests for pika.adapters.blocking_connection.BlockingConnection
 
 """
 import unittest
-
-import mock
-from mock import patch
+from unittest import mock
+from unittest.mock import patch
 
 import pika
 from pika.adapters import blocking_connection

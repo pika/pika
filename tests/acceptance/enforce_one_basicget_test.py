@@ -1,6 +1,6 @@
 import unittest
 
-from mock import MagicMock
+from unittest.mock import MagicMock
 from pika.frame import Method, Header
 from pika.exceptions import DuplicateGetOkCallback
 from pika.channel import Channel

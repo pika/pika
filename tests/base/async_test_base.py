@@ -9,12 +9,8 @@ import sys
 import logging
 import platform
 import unittest
+from unittest import mock
 import uuid
-
-try:
-    from unittest import mock  # pylint: disable=C0412
-except ImportError:
-    import mock
 
 import pika
 import pika.compat

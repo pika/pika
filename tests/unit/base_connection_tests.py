@@ -5,7 +5,7 @@ Tests for pika.base_connection.BaseConnection
 
 import socket
 import unittest
-import mock
+from unittest import mock
 
 import pika
 import pika.tcp_socket_opts

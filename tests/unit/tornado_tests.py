@@ -3,8 +3,7 @@ Tests for pika.adapters.tornado_connection
 
 """
 import unittest
-
-import mock
+from unittest import mock
 
 from pika.adapters import tornado_connection
 from pika.adapters.utils import selector_ioloop_adapter

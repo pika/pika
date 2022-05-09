@@ -3,8 +3,7 @@ Tests for pika.heartbeat
 
 """
 import unittest
-
-import mock
+from unittest import mock
 
 from pika import connection, frame, heartbeat
 import pika.exceptions

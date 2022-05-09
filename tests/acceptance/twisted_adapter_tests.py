@@ -14,7 +14,7 @@
 import functools
 import unittest
 
-import mock
+from unittest import mock
 from nose.twistedtools import reactor, deferred
 from twisted.internet import defer, error as twisted_error
 from twisted.python.failure import Failure

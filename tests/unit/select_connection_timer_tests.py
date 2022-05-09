@@ -7,8 +7,7 @@ Tests for SelectConnection _Timer and _Timeout classes
 import math
 import time
 import unittest
-
-import mock
+from unittest import mock
 
 import pika.compat
 from pika.adapters import select_connection
