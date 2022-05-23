@@ -32,7 +32,7 @@ which on Python 3 might look like this
 
 To run all test suites, use
 
-    nosetests
+    nose2
 
 Note that some tests are OS-specific (e.g. epoll on Linux
 or kqueue on MacOS and BSD). Those will be skipped
@@ -56,7 +56,7 @@ If you would like to run TLS/SSL tests, use the following procedure:
 * Run the tests indicating that TLS/SSL connections should be used:
 
     ```
-    PIKA_TEST_TLS=true nosetests
+    PIKA_TEST_TLS=true nose2
     ```
 
 
