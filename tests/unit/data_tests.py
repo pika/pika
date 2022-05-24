@@ -16,7 +16,7 @@ from pika.compat import long
 class DataTests(unittest.TestCase):
 
     FIELD_TBL_ENCODED = (
-        b'\x00\x00\x00\xdc'
+        b'\x00\x00\x00\xef'
         b'\x05arrayA\x00\x00\x00\x0fI\x00\x00\x00\x01I'
         b'\x00\x00\x00\x02I\x00\x00\x00\x03'
         b'\x07boolvalt\x01'
@@ -26,6 +26,7 @@ class DataTests(unittest.TestCase):
         b'\x06intvalI\x00\x00\x00\x01'
         b'\x06bigint\x6c\x00\x00\x00\x00\x9a\x7e\xc8\x00'
         b'\x07longval\x6c\x00\x00\x00\x00\x36\x65\x26\x55'
+        b'\x09maxLLUINTl\xff\xff\xff\xff\xff\xff\xff\xff'
         b'\x04nullV'
         b'\x06strvalS\x00\x00\x00\x04Test'
         b'\x0ctimestampvalT\x00\x00\x00\x00Ec)\x92'
@@ -44,6 +45,7 @@ class DataTests(unittest.TestCase):
             ('intval', 1),
             ('bigint', 2592000000),
             ('longval', long(912598613)),
+            ('maxLLUINT', long(2**64-1)),
             ('null', None),
             ('strval', 'Test'),
             ('timestampval', datetime.datetime(2006, 11, 21, 16, 30, 10)),
@@ -77,7 +79,7 @@ class DataTests(unittest.TestCase):
     def test_encode_table_bytes(self):
         result = []
         byte_count = data.encode_table(result, self.FIELD_TBL_VALUE)
-        self.assertEqual(byte_count, 224)
+        self.assertEqual(byte_count, 243)
 
     def test_decode_table(self):
         value, byte_count = data.decode_table(self.FIELD_TBL_ENCODED, 0)
@@ -85,7 +87,7 @@ class DataTests(unittest.TestCase):
 
     def test_decode_table_bytes(self):
         value, byte_count = data.decode_table(self.FIELD_TBL_ENCODED, 0)
-        self.assertEqual(byte_count, 224)
+        self.assertEqual(byte_count, 243)
 
     def test_encode_raises(self):
         self.assertRaises(exceptions.UnsupportedAMQPFieldException,
