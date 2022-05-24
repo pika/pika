@@ -12,16 +12,10 @@ Tests for pika.connection.Connection
 # Suppress pylint messages concerning invalid method name
 # pylint: disable=C0103
 
-try:
-    import mock
-except ImportError:
-    from unittest import mock  # pylint: disable=E0611
-
 import random
 import platform
 import unittest
-
-import mock
+from unittest import mock
 
 from pika import connection, channel, credentials, exceptions, frame, spec
 import pika

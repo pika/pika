@@ -1,12 +1,11 @@
-# -*- coding: utf8 -*-
+# -*- coding: utf-8 -*-
 """
 Tests for pika.adapters.blocking_connection.BlockingChannel
 
 """
 from collections import deque
 import unittest
-
-import mock
+from unittest import mock
 
 from pika.adapters import blocking_connection
 from pika import channel

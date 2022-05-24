@@ -19,11 +19,7 @@ import sys
 import time
 import threading
 import unittest
-
-try:
-    from unittest import mock
-except ImportError:
-    import mock
+from unittest import mock
 
 import pika
 from pika import compat

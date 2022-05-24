@@ -6,11 +6,7 @@ import logging
 import sys
 import unittest
 import warnings
-
-try:
-    from unittest import mock  # pylint: disable=C0412
-except ImportError:
-    import mock
+from unittest import mock
 
 from pika import channel, connection, exceptions, frame, spec
 

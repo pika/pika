@@ -3,8 +3,7 @@ Tests for pika.credentials
 
 """
 import unittest
-
-import mock
+from unittest import mock
 
 from pika import credentials, spec
 
