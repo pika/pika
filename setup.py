@@ -27,7 +27,7 @@ setuptools.setup(
         'Source': 'https://github.com/pika/pika',
     },
     packages=setuptools.find_packages(include=['pika', 'pika.*']),
-    license='BSD',
+    license='BSD-3-Clause',
     install_requires=requirements,
     package_data={'': ['LICENSE', 'README.rst']},
     extras_require={
@@ -38,7 +38,7 @@ setuptools.setup(
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
-        'License :: OSI Approved :: BSD License',
+        'License :: OSI Approved :: BSD 3-Clause "New" or "Revised" License (BSD-3-Clause)',
         'Natural Language :: English',
         'Operating System :: OS Independent',
         'Programming Language :: Python :: 3',
