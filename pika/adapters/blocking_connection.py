@@ -2142,7 +2142,7 @@ class BlockingChannel(object):
         :param bool auto_ack: Tell the broker to not expect a reply
         :returns: a three-tuple; (None, None, None) if the queue was empty;
             otherwise (method, properties, body); NOTE: body may be None
-        :rtype: (spec.Basic.GetOk|None, spec.BasicProperties|None, str|None)
+        :rtype: (spec.Basic.GetOk|None, spec.BasicProperties|None, bytes|None)
         """
         assert not self._basic_getempty_result
 

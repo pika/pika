@@ -1,6 +1,8 @@
 Version History
 ===============
 
+`pika` uses [Semantic Versioning](https://semver.org)
+
 1.2.1 2022-04-27
 ----------------
 
