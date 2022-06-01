@@ -1295,7 +1295,7 @@ class Channel(object):
                 LOGGER.debug('Ignoring drained blocked method: %s', method)
 
     def _rpc(self, method, callback=None, acceptable_replies=None):
-        """Make a syncronous channel RPC call for a synchronous method frame. If
+        """Make a synchronous channel RPC call for a synchronous method frame. If
         the channel is already in the blocking state, then enqueue the request,
         but don't send it at this time; it will be eventually sent by
         `_on_synchronous_complete` after the prior blocking request receives a
