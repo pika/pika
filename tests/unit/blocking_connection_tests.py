@@ -287,6 +287,33 @@ class BlockingConnectionTests(unittest.TestCase):
         blocking_connection.select_connection,
         'SelectConnection',
         spec_set=SelectConnectionTemplate)
+    def test_update_secret(self, select_connection_class_mock):
+        impl_mock = select_connection_class_mock.return_value
+        impl_mock.is_closed = False
+        impl_mock.is_open = True
+        impl_mock._transport = None
+
+        with mock.patch.object(blocking_connection.BlockingConnection,
+                               '_create_connection',
+                               return_value=impl_mock):
+            connection = blocking_connection.BlockingConnection('params')
+
+        with mock.patch.object(blocking_connection._CallbackResult,
+                               'is_ready',
+                               return_value=True):
+            connection.update_secret("new_secret", "reason")
+
+        self.assertEqual(
+            select_connection_class_mock.return_value.update_secret.call_args.args[0], "new_secret")
+        self.assertEqual(
+            select_connection_class_mock.return_value.update_secret.call_args.args[1], "reason")
+        self.assertEqual(
+            len(select_connection_class_mock.return_value.update_secret.call_args.args), 3)
+
+    @patch.object(
+        blocking_connection.select_connection,
+        'SelectConnection',
+        spec_set=SelectConnectionTemplate)
     @patch.object(
         blocking_connection,
         'BlockingChannel',

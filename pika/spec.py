@@ -441,6 +441,62 @@ class Connection(amqp_object.Class):
         def encode(self):
             pieces = list()
             return pieces
+    
+    class UpdateSecret(amqp_object.Method):
+
+        INDEX = 0x000A0046  # 10, 70; 655430
+        NAME = 'Connection.UpdateSecret'
+
+        def __init__(self, new_secret, reason):
+            self.new_secret = new_secret
+            self.reason = reason
+
+        @property
+        def synchronous(self):
+            return True
+
+        def decode(self, encoded, offset=0):
+            length = struct.unpack_from('>I', encoded, offset)[0]
+            offset += 4
+            self.mechanisms = encoded[offset:offset + length]
+            try:
+                self.mechanisms = str(self.mechanisms)
+            except UnicodeEncodeError:
+                pass
+            offset += length
+            self.reason, offset = data.decode_short_string(encoded, offset)
+            return self
+
+        def encode(self):
+            pieces = list()
+            assert isinstance(self.new_secret, str_or_bytes),\
+                'A non-string value was supplied for self.new_secret'
+            value = self.new_secret.encode('utf-8') if isinstance(self.new_secret, unicode_type) else self.new_secret
+            pieces.append(struct.pack('>I', len(value)))
+            pieces.append(value)
+            assert isinstance(self.reason, str_or_bytes),\
+                'A non-string value was supplied for self.reason'
+            data.encode_short_string(pieces, self.reason)
+            return pieces
+
+    class UpdateSecretOk(amqp_object.Method):
+
+        INDEX = 0x000A0047  # 10, 71; 655431
+        NAME = 'Connection.UpdateSecretOk'
+
+        def __init__(self):
+            pass
+
+        @property
+        def synchronous(self):
+            return False
+
+        def decode(self, encoded, offset=0):
+            return self
+
+        def encode(self):
+            pieces = list()
+            return pieces
 
 
 class Channel(amqp_object.Class):
@@ -2256,6 +2312,8 @@ methods = {
     0x000A0033: Connection.CloseOk,
     0x000A003C: Connection.Blocked,
     0x000A003D: Connection.Unblocked,
+    0x000A0046: Connection.UpdateSecret,
+    0x000A0047: Connection.UpdateSecretOk,
     0x0014000A: Channel.Open,
     0x0014000B: Channel.OpenOk,
     0x00140014: Channel.Flow,
