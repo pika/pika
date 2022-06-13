@@ -766,6 +766,21 @@ class BlockingConnection(object):
 
         del self._ready_events[index_to_remove]
 
+    def update_secret(self, new_secret, reason):
+        """RabbitMQ AMQP extension - This method updates the secret used to authenticate this connection. 
+        It is used when secrets have an expiration date and need to be renewed, like OAuth 2 tokens.
+
+        :param string new_secret: The new secret
+        :param string reason: The reason for the secret update
+
+        :raises pika.exceptions.ConnectionWrongStateError: if connection is
+            not open.
+        """
+
+        result = _CallbackResult()
+        self._impl.update_secret(new_secret, reason, result.signal_once)
+        self._flush_output(result.is_ready)
+
     def close(self, reply_code=200, reply_text='Normal shutdown'):
         """Disconnect from RabbitMQ. If there are any open channels, it will
         attempt to close them prior to fully disconnecting. Channels which
