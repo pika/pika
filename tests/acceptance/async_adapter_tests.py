@@ -489,6 +489,18 @@ class TestCreateConnectionAndAsynchronouslyAbortDefaultConnectionWorkflow(
         self.connection._nbio.add_callback_threadsafe(workflow.abort)
 
 
+class TestUpdateSecret(AsyncTestCase, AsyncAdapters):
+    DESCRIPTION = "Update secret and receive confirmation"
+
+    def begin(self, channel):
+        self.connection.update_secret(
+            "new_secret", "reason", self.on_secret_update)
+
+    def on_secret_update(self, frame):
+        self.assertIsInstance(frame.method, spec.Connection.UpdateSecretOk)
+        self.stop()
+
+
 class TestConfirmSelect(AsyncTestCase, AsyncAdapters):
     DESCRIPTION = "Receive confirmation of Confirm.Select"
 
