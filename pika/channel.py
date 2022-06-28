@@ -753,6 +753,15 @@ class Channel(object):
         """
         return self._state == self.OPEN
 
+    @property
+    def is_opening(self):
+        """Returns True if the channel is opening.
+
+        :rtype: bool
+
+        """
+        return self._state == self.OPENING
+
     def open(self):
         """Open the channel"""
         self._set_state(self.OPENING)
