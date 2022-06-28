@@ -300,6 +300,50 @@ class TestLostConnectionResultsInIsClosedConnectionAndChannel(BlockingTestCaseBa
         self.assertTrue(connection.is_closed)
 
 
+class TestUpdateSecret(BlockingTestCaseBase):
+    def test(self):
+        connection = self._connect()
+        channel = connection.channel()
+
+        # Update secret
+        connection.update_secret("new_secret", "reason")
+
+        # Now check is_open/is_closed on channel and connection
+        self.assertTrue(channel.is_open)
+        self.assertFalse(channel.is_closed)
+        self.assertTrue(connection.is_open)
+        self.assertFalse(connection.is_closed)
+
+
+class TestUpdateSecretOnClosedRaisesWrongState(BlockingTestCaseBase):
+    def test(self):
+        connection = self._connect()
+
+        # Close Connection
+        connection.close()
+
+        # Attempt to update secret
+        with self.assertRaises(pika.exceptions.ConnectionWrongStateError):
+            connection.update_secret("new_secret", "reason")
+
+        # Now check is_open/is_closed on channel and connection
+        self.assertFalse(connection.is_open)
+        self.assertTrue(connection.is_closed)
+
+
+class TestUpdateSecretExpectsStrings(BlockingTestCaseBase):
+    def test(self):
+        connection = self._connect()
+
+        # Attempt to update secret with integer as new_secret
+        with self.assertRaises(AssertionError):
+            connection.update_secret(1, "reason")
+
+        # Attempt to update secret with integer as reason
+        with self.assertRaises(AssertionError):
+            connection.update_secret("new_secret", 1)
+
+
 class TestInvalidExchangeTypeRaisesConnectionClosed(BlockingTestCaseBase):
     def test(self):
         """BlockingConnection: ConnectionClosed raised when creating exchange with invalid type"""  # pylint: disable=C0301

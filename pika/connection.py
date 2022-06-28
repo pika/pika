@@ -1262,6 +1262,29 @@ class Connection(pika.compat.AbstractBase):
         self._channels[channel_number].open()
         return self._channels[channel_number]
 
+    def update_secret(self, new_secret, reason, callback=None):
+        """RabbitMQ AMQP extension - This method updates the secret used to authenticate this connection. 
+        It is used when secrets have an expiration date and need to be renewed, like OAuth 2 tokens.
+        Pass a callback to be notified of the response from the server.
+
+        :param string new_secret: The new secret
+        :param string reason: The reason for the secret update
+        :param callable callback: Callback to call on
+            `Connection.UpdateSecretOk`, having the signature
+            `callback(pika.frame.Method)`, where the method frame's
+            `method` member is of type `pika.spec.Connection.UpdateSecretOk`
+
+        :raises pika.exceptions.ConnectionWrongStateError: if connection is
+            not open.
+        """
+        if not self.is_open:
+            raise exceptions.ConnectionWrongStateError(
+                'ٍSecret update requires an open connection: %s' % self)
+
+        validators.rpc_completion_callback(callback)
+        self._rpc(0, spec.Connection.UpdateSecret(new_secret, reason),
+                  callback, [spec.Connection.UpdateSecretOk])
+
     def close(self, reply_code=200, reply_text='Normal shutdown'):
         """Disconnect from RabbitMQ. If there are any open channels, it will
         attempt to close them prior to fully disconnecting. Channels which

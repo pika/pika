@@ -117,6 +117,40 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
             self.assertEqual(self.channel.close.call_count, 0)
             self.assertEqual(self.connection.connection_state, closed_state)
 
+    @mock.patch('pika.connection.Connection._rpc')
+    def test_update_secret_raises_wrong_state_when_not_open(
+            self, rpc):
+        connection_states = (self.connection.CONNECTION_CLOSED, self.connection.CONNECTION_CLOSING,
+                             self.connection.CONNECTION_INIT, self.connection.CONNECTION_START,
+                             self.connection.CONNECTION_PROTOCOL, self.connection.CONNECTION_TUNE)
+        for connection_state in connection_states:
+            self.connection.connection_state = connection_state
+            with self.assertRaises(exceptions.ConnectionWrongStateError):
+                self.connection.update_secret(mock.Mock(), mock.Mock())
+
+    @mock.patch('pika.connection.Connection._send_method')
+    def test_update_secret_sends_method(
+            self, send_method):
+        """make sure it sends the update secret method"""
+        new_secret = mock.Mock()
+        reason = mock.Mock()
+        self.connection.connection_state = self.connection.CONNECTION_OPEN
+        self.connection.update_secret(new_secret, reason, dummy_callback)
+        send_method.assert_called_with(
+            0, spec.Connection.UpdateSecret(new_secret, reason))
+
+    @mock.patch('pika.connection.Connection._send_method')
+    def test_update_secret_adds_callback_on_update_secret_ok(
+            self, send_method):
+        """make sure the on update secret ok callback is added"""
+        self.connection.connection_state = self.connection.CONNECTION_OPEN
+        self.connection.callbacks = mock.Mock(spec=self.connection.callbacks)
+        new_secret = mock.Mock()
+        reason = mock.Mock()
+        self.connection.update_secret(new_secret, reason, dummy_callback)
+        self.connection.callbacks.add.assert_called_once_with(
+            0, spec.Connection.UpdateSecretOk, dummy_callback)
+
     @mock.patch('logging.Logger.critical')
     def test_deliver_frame_to_channel_with_frame_for_unknown_channel(
             self, critical_mock):
