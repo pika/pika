@@ -9,7 +9,6 @@ on:
     secrets:
       pypi_api_token:
         required: true
-        type: string
 
 jobs:
   publish-pypi:
