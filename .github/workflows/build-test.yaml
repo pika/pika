@@ -1,12 +1,7 @@
-name: pika
+name: pika build-test
 
 on:
-  push:
-    branches:
-      - "*"
-  pull_request:
-    branches:
-      - main
+  - workflow_call
 
 jobs:
   build-win32:

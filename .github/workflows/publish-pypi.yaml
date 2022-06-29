@@ -1,12 +1,10 @@
-name: Publish Python 🐍 distributions 📦 to PyPI and TestPyPI
+name: publish-pypi
 
 on:
-  push:
-    branches:
-      - main
+  - workflow_call
 
 jobs:
-  build-n-publish:
+  publish-pypi:
     name: Build and publish Python 🐍 distributions 📦 to PyPI and TestPyPI
     runs-on: ubuntu-latest
     steps:

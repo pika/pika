@@ -1,0 +1,13 @@
+﻿name: pika
+
+on:
+  push:
+    branches:
+      - "*"
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  call-build-test:
+    uses: ./.github/workflows/build-test.yaml
