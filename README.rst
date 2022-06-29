@@ -273,7 +273,7 @@ New non-blocking adapters may be implemented in either of the following ways:
    :target: https://github.com/pika/pika/actions/workflows/tests.yml
 
 .. |Coverage| image:: https://img.shields.io/codecov/c/github/pika/pika.svg?
-   :target: https://codecov.io/github/pika/pika?branch=master
+   :target: https://codecov.io/github/pika/pika?branch=main
 
 .. |License| image:: https://img.shields.io/pypi/l/pika.svg?
    :target: https://pika.readthedocs.io
