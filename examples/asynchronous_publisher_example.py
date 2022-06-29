@@ -163,12 +163,11 @@ class ExamplePublisher(object):
         LOGGER.info('Declaring exchange %s', exchange_name)
         # Note: using functools.partial is not required, it is demonstrating
         # how arbitrary data can be passed to the callback when it is called
-        cb = functools.partial(
-            self.on_exchange_declareok, userdata=exchange_name)
-        self._channel.exchange_declare(
-            exchange=exchange_name,
-            exchange_type=self.EXCHANGE_TYPE,
-            callback=cb)
+        cb = functools.partial(self.on_exchange_declareok,
+                               userdata=exchange_name)
+        self._channel.exchange_declare(exchange=exchange_name,
+                                       exchange_type=self.EXCHANGE_TYPE,
+                                       callback=cb)
 
     def on_exchange_declareok(self, _unused_frame, userdata):
         """Invoked by pika when RabbitMQ has finished the Exchange.Declare RPC
@@ -190,8 +189,8 @@ class ExamplePublisher(object):
 
         """
         LOGGER.info('Declaring queue %s', queue_name)
-        self._channel.queue_declare(
-            queue=queue_name, callback=self.on_queue_declareok)
+        self._channel.queue_declare(queue=queue_name,
+                                    callback=self.on_queue_declareok)
 
     def on_queue_declareok(self, _unused_frame):
         """Method invoked by pika when the Queue.Declare RPC call made in
@@ -205,11 +204,10 @@ class ExamplePublisher(object):
         """
         LOGGER.info('Binding %s to %s with %s', self.EXCHANGE, self.QUEUE,
                     self.ROUTING_KEY)
-        self._channel.queue_bind(
-            self.QUEUE,
-            self.EXCHANGE,
-            routing_key=self.ROUTING_KEY,
-            callback=self.on_bindok)
+        self._channel.queue_bind(self.QUEUE,
+                                 self.EXCHANGE,
+                                 routing_key=self.ROUTING_KEY,
+                                 callback=self.on_bindok)
 
     def on_bindok(self, _unused_frame):
         """This method is invoked by pika when it receives the Queue.BindOk
@@ -255,13 +253,29 @@ class ExamplePublisher(object):
 
         """
         confirmation_type = method_frame.method.NAME.split('.')[1].lower()
-        LOGGER.info('Received %s for delivery tag: %i', confirmation_type,
-                    method_frame.method.delivery_tag)
+        ack_multiple = method_frame.method.multiple
+        delivery_tag = method_frame.method.delivery_tag
+
+        LOGGER.info('Received %s for delivery tag: %i (multiple: %s)',
+                    confirmation_type, delivery_tag, ack_multiple)
+
         if confirmation_type == 'ack':
             self._acked += 1
         elif confirmation_type == 'nack':
             self._nacked += 1
-        self._deliveries.remove(method_frame.method.delivery_tag)
+
+        del self._deliveries[delivery_tag]
+
+        if ack_multiple:
+            for tmp_tag in list(self._deliveries.keys()):
+                if tmp_tag <= delivery_tag:
+                    self._acked += 1
+                    del self._deliveries[tmp_tag]
+        """
+        NOTE: at some point you would check self._deliveries for stale
+        entries and decide to attempt re-delivery
+        """
+
         LOGGER.info(
             'Published %i messages, %i have yet to be confirmed, '
             '%i were acked and %i were nacked', self._message_number,
@@ -294,17 +308,16 @@ class ExamplePublisher(object):
             return
 
         hdrs = {u'مفتاح': u' قيمة', u'键': u'值', u'キー': u'値'}
-        properties = pika.BasicProperties(
-            app_id='example-publisher',
-            content_type='application/json',
-            headers=hdrs)
+        properties = pika.BasicProperties(app_id='example-publisher',
+                                          content_type='application/json',
+                                          headers=hdrs)
 
         message = u'مفتاح قيمة 键 值 キー 値'
         self._channel.basic_publish(self.EXCHANGE, self.ROUTING_KEY,
                                     json.dumps(message, ensure_ascii=False),
                                     properties)
         self._message_number += 1
-        self._deliveries.append(self._message_number)
+        self._deliveries[self._message_number] = True
         LOGGER.info('Published message # %i', self._message_number)
         self.schedule_next_message()
 
@@ -314,7 +327,7 @@ class ExamplePublisher(object):
         """
         while not self._stopping:
             self._connection = None
-            self._deliveries = []
+            self._deliveries = {}
             self._acked = 0
             self._nacked = 0
             self._message_number = 0
@@ -326,7 +339,6 @@ class ExamplePublisher(object):
                 self.stop()
                 if (self._connection is not None and
                         not self._connection.is_closed):
-                    # Finish closing
                     self._connection.ioloop.start()
 
         LOGGER.info('Stopped')
