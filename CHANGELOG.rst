@@ -3,6 +3,11 @@ Version History
 
 `pika` uses [Semantic Versioning](https://semver.org)
 
+1.3.0 2022-06-29
+----------------
+
+`GitHub milestone <https://github.com/pika/pika/milestone/19?closed=1>`_
+
 1.2.1 2022-04-27
 ----------------
 
