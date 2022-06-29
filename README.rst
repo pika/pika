@@ -269,8 +269,8 @@ New non-blocking adapters may be implemented in either of the following ways:
 .. |Python versions| image:: https://img.shields.io/pypi/pyversions/pika.svg
     :target: https://pypi.python.org/pypi/pika
 
-.. |Actions Status| image:: https://github.com/pika/pika/actions/workflows/tests.yml/badge.svg
-   :target: https://github.com/pika/pika/actions/workflows/tests.yml
+.. |Actions Status| image:: https://github.com/pika/pika/actions/workflows/main.yaml/badge.svg
+   :target: https://github.com/pika/pika/actions/workflows/main.yaml
 
 .. |Coverage| image:: https://img.shields.io/codecov/c/github/pika/pika.svg?
    :target: https://codecov.io/github/pika/pika?branch=main
