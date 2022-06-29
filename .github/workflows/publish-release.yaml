@@ -1,0 +1,17 @@
+name: publish-release
+
+on:
+  release:
+    types:
+      - released
+
+jobs:
+  # call-build-test:
+  #   uses: ./.github/workflows/build-test.yaml
+  call-publish-nuget:
+    uses: ./.github/workflows/publish-pypi.yaml
+    # needs: call-build-test
+    with:
+      pypi_repository_url: https://upload.pypi.org/legacy/
+    secrets:
+      pypi_api_token: ${{ secrets.PYPI_API_TOKEN }}
