@@ -255,13 +255,29 @@ class ExamplePublisher(object):
 
         """
         confirmation_type = method_frame.method.NAME.split('.')[1].lower()
-        LOGGER.info('Received %s for delivery tag: %i', confirmation_type,
-                    method_frame.method.delivery_tag)
+        ack_multiple = method_frame.method.multiple
+        delivery_tag = method_frame.method.delivery_tag
+
+        LOGGER.info('Received %s for delivery tag: %i (multiple: %s)', confirmation_type, delivery_tag, ack_multiple)
+
         if confirmation_type == 'ack':
             self._acked += 1
         elif confirmation_type == 'nack':
             self._nacked += 1
-        self._deliveries.remove(method_frame.method.delivery_tag)
+
+        del self._deliveries[delivery_tag]
+
+        if ack_multiple:
+            for tmp_tag in list(self._deliveries.keys()):
+                if tmp_tag <= delivery_tag:
+                    self._acked += 1
+                    del self._deliveries[tmp_tag]
+
+        """
+        NOTE: at some point you would check self._deliveries for stale
+        entries and decide to attempt re-delivery
+        """
+
         LOGGER.info(
             'Published %i messages, %i have yet to be confirmed, '
             '%i were acked and %i were nacked', self._message_number,
@@ -304,7 +320,7 @@ class ExamplePublisher(object):
                                     json.dumps(message, ensure_ascii=False),
                                     properties)
         self._message_number += 1
-        self._deliveries.append(self._message_number)
+        self._deliveries[self._message_number] = True
         LOGGER.info('Published message # %i', self._message_number)
         self.schedule_next_message()
 
@@ -314,7 +330,7 @@ class ExamplePublisher(object):
         """
         while not self._stopping:
             self._connection = None
-            self._deliveries = []
+            self._deliveries = {}
             self._acked = 0
             self._nacked = 0
             self._message_number = 0
@@ -324,9 +340,7 @@ class ExamplePublisher(object):
                 self._connection.ioloop.start()
             except KeyboardInterrupt:
                 self.stop()
-                if (self._connection is not None and
-                        not self._connection.is_closed):
-                    # Finish closing
+                if (self._connection is not None and not self._connection.is_closed):
                     self._connection.ioloop.start()
 
         LOGGER.info('Stopped')
