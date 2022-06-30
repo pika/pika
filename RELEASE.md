@@ -19,7 +19,7 @@
     python -m build --sdist --wheel --outdir dist/ .
 
     # This creates the release on GitHub:
-    gh release create '1.3.0' --notes 'https://pypi.org/project/pika/1.3.0/%0A[GitHub milestone](https://github.com/pika/pika/milestone/19?closed=1)' ./dist/*
+    gh release create '1.3.0' --notes 'https://pypi.org/project/pika/1.3.0/ | [GitHub milestone](https://github.com/pika/pika/milestone/19?closed=1)' ./dist/*
     ```
 * Ensure the publish build succeeded. Example success output looks like this:
     ```
