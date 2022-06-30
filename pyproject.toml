@@ -4,8 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pika"
-version = "1.3.0rc1"
-maintainers = [{name = "Gavin M. Roy", email = "gavinmroy@gmail.com"}]
+version = "1.3.0rc2"
+maintainers = [
+    {name = "Gavin M. Roy", email = "gavinmroy@gmail.com"},
+    {name = "Luke Bakken", email = "lukerbakken@gmail.com"}
+]
 license = {text = "BSD-3-Clause"}
 description = "Pika Python AMQP Client Library"
 classifiers = [
