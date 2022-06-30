@@ -6,7 +6,7 @@ on:
       - prereleased
 
 jobs:
-  call-publish-nuget:
+  call-publish-pypi:
     uses: ./.github/workflows/publish-pypi.yaml
     with:
       pypi_repository_url: https://test.pypi.org/legacy/
