@@ -52,13 +52,7 @@ twisted = ["twisted"]
 [tool.setuptools]
 zip-safe = true
 include-package-data = false
-
-[tool.setuptools.packages.find]
-include = ["pika.*"]
-namespaces = false
+packages = ["pika"]
 
 [tool.setuptools.package-data]
 "*" = ["LICENSE", "README.rst"]
-
-[tool.distutils.bdist_wheel]
-universal = 1
