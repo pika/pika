@@ -74,11 +74,12 @@ class BasicPikaClient:
                     raise AMQPConnectionError(e)
 
     def _init_connection_parameters(self):
-        self.credentials = pika.PlainCredentials(
-            self.username, self.password
-        )
+        self.credentials = pika.PlainCredentials(self.username, self.password)
         self.parameters = pika.ConnectionParameters(
-            self.host, int(self.port), "/", self.credentials,
+            self.host,
+            int(self.port),
+            "/",
+            self.credentials,
         )
         if self.protocol == "amqps":
             # SSL Context for TLS configuration of Amazon MQ for RabbitMQ
@@ -95,7 +96,7 @@ class BasicPikaClient:
         self.connection.close()
 
     def declare_queue(
-            self, queue_name, exclusive: bool = False, max_priority: int = 10
+        self, queue_name, exclusive: bool = False, max_priority: int = 10
     ):
         self.check_connection()
         logger.debug(f"Trying to declare queue({queue_name})...")
@@ -125,7 +126,6 @@ class BasicPikaClient:
 
 
 class BasicMessageSender(BasicPikaClient):
-
     def encode_message(self, body: Dict, encoding_type: str = "bytes"):
         if encoding_type == "bytes":
             return msgpack.packb(body)
@@ -133,11 +133,11 @@ class BasicMessageSender(BasicPikaClient):
             raise NotImplementedError
 
     def send_message(
-            self,
-            exchange_name: str,
-            routing_key: str,
-            body: Dict,
-            headers: Optional[Headers],
+        self,
+        exchange_name: str,
+        routing_key: str,
+        body: Dict,
+        headers: Optional[Headers],
     ):
         body = self.encode_message(body=body)
         self.channel.basic_publish(
@@ -194,7 +194,6 @@ class BasicMessageReceiver(BasicPikaClient):
 
 
 class MyConsumer(BasicMessageReceiver):
-
     @sync
     async def consume(self, channel, method, properties, body):
         body = self.decode_message(body=body)
@@ -210,9 +209,11 @@ def create_consumer():
     worker = MyConsumer()
     worker.declare_queue(queue_name="myqueue")
     worker.declare_exchange(exchange_name="myexchange")
-    worker.bind_queue(exchange_name="myexchange", queue_name="myqueue", routing_key="randomkey")
+    worker.bind_queue(
+        exchange_name="myexchange", queue_name="myqueue", routing_key="randomkey"
+    )
     worker.consume_messages(queue="myqueue", callback=worker.consume)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     create_consumer()
