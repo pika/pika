@@ -821,7 +821,10 @@ class BlockingConnection(object):
     def process_data_events(self, time_limit=0):
         """Will make sure that data events are processed. Dispatches timer and
         channel callbacks if not called from the scope of BlockingConnection or
-        BlockingChannel callback. Your app can block on this method.
+        BlockingChannel callback. Your app can block on this method. If your
+        application maintains a long-lived publisher connection, this method
+        should be called periodically in order to respond to heartbeats and other
+        data events. See `examples/long_running_publisher.py` for an example.
 
         :param float time_limit: suggested upper bound on processing time in
             seconds. The actual blocking time depends on the granularity of the
