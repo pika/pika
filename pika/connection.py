@@ -903,9 +903,9 @@ class URLParameters(Parameters):
             #
             # SSLContext.load_verify_locations(cafile=None, capath=None, cadata=None)
             try:
-                opt_protocol = ssl.PROTOCOL_TLS
+                opt_protocol = ssl.PROTOCOL_TLS_CLIENT
             except AttributeError:
-                opt_protocol = ssl.PROTOCOL_TLSv1
+                opt_protocol = ssl.PROTOCOL_TLSv1_2
             if 'protocol' in opts:
                 opt_protocol = opts['protocol']
 

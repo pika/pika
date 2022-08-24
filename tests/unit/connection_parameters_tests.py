@@ -12,18 +12,16 @@ import pika
 from pika.compat import urlencode, url_quote, dict_iteritems
 from pika import channel, connection, credentials, spec
 
-
 # disable missing-docstring
 # pylint: disable=C0111
 
 # disable invalid-name
 # pylint: disable=C0103
 
-
 # Unordered sequence of connection.Parameters's property getters
 _ALL_PUBLIC_PARAMETERS_PROPERTIES = tuple(
-    attr for attr in vars(connection.Parameters) if not attr.startswith('_')
-    and issubclass(type(getattr(connection.Parameters, attr)), property))
+    attr for attr in vars(connection.Parameters) if not attr.startswith('_') and
+    issubclass(type(getattr(connection.Parameters, attr)), property))
 
 
 class ChildParameters(connection.Parameters):
@@ -641,6 +639,20 @@ class URLParametersTests(ParametersTestsBase):
         params.ssl_options = None
         params.port = params.DEFAULT_PORT
         self.assert_default_parameter_values(params)
+
+    def test_ssl_default_protocol_version_fallback(self):
+        """
+        This test does not set protocol_version option in ssl_options. Instead,
+        it relies on connection.URLParameters class to setup the default, and
+        then it asserts the protocol is what we expected (auto or TLSv1_2)
+        """
+        params = connection.URLParameters(
+            'amqps://foo.bar/some-vhost?ssl_options=%7B%27ca_certs%27%3A%27testdata%2Fcerts%2Fca_certificate.pem%27%7D'
+        )
+        self.assertTrue(
+            params.ssl_options.context.protocol == ssl.PROTOCOL_TLS_CLIENT or
+            params.ssl_options.context.protocol == ssl.PROTOCOL_TLSv1_2,
+            msg='Expected to fallback to a secure protocol')
 
     def test_no_url_scheme_defaults_to_plaintext(self):
         params = connection.URLParameters('//')
