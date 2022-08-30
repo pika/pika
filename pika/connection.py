@@ -1279,7 +1279,7 @@ class Connection(pika.compat.AbstractBase):
         """
         if not self.is_open:
             raise exceptions.ConnectionWrongStateError(
-                'ٍSecret update requires an open connection: %s' % self)
+                'Secret update requires an open connection: %s' % self)
 
         validators.rpc_completion_callback(callback)
         self._rpc(0, spec.Connection.UpdateSecret(new_secret, reason),
