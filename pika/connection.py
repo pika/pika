@@ -967,7 +967,7 @@ class Connection(pika.compat.AbstractBase):
 
     """
 
-    # Disable pylint messages concerning "method could be a funciton"
+    # Disable pylint messages concerning "method could be a function"
     # pylint: disable=R0201
 
     ON_CONNECTION_CLOSED = '_on_connection_closed'
