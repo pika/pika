@@ -2,11 +2,6 @@
 
 * Ensure build is green
 * Update version in `pyproject.toml` and `pika/__init__.py`
-* Update `CHANGELOG.md`. Be sure to use the `--since-tag 1.3.0` argument:
-    ```
-    github_changelog_generator --token github_pat_MY_TOKEN --user pika --project pika --since-tag 1.3.0
-    ```
-    Review the generated file for invalid entries
 * Commit changes to `main` branch and push:
     ```
     git commit -a -m 'pika 1.3.1' && git push
@@ -17,6 +12,15 @@
     git tag -a -s -u B1B82CC0CF84BA70147EBD05D99DE30E43EAE440 -m 'pika 1.3.1' '1.3.1' && git push --tags
     ```
 * Ensure build is green (if one triggered)
+* Update `CHANGELOG.md`. Be sure to use the `--since-tag 1.3.0` argument:
+    ```
+    github_changelog_generator --token github_pat_MY_TOKEN --user pika --project pika --since-tag 1.3.0
+    ```
+    Review the generated file for invalid entries
+* Commit changes to `main` branch and push:
+    ```
+    git commit -a -m 'pika 1.3.1 CHANGELOG' && git push
+    ```
 * Note the release's milestone number, then create release via GitHub Release UI or `gh` command like:
     ```
     # This creates artifacts to be uploaded:
