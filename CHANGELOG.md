@@ -1,23 +1,23 @@
 # Changelog
 
-## [Unreleased](https://github.com/pika/pika/tree/HEAD)
+## [1.3.1](https://github.com/pika/pika/tree/1.3.1) (2022-10-18)
 
-[Full Changelog](https://github.com/pika/pika/compare/1.3.0...HEAD)
+[Full Changelog](https://github.com/pika/pika/compare/1.3.0...1.3.1)
 
 **Closed issues:**
 
 - Open to funding? [\#1391](https://github.com/pika/pika/issues/1391)
-- Update fallback SSL/TLS protocol version [\#1385](https://github.com/pika/pika/issues/1385)
 - pika迁移数据到redis [\#1378](https://github.com/pika/pika/issues/1378)
 - Improve release process a bit [\#1375](https://github.com/pika/pika/issues/1375)
+- Update fallback SSL/TLS protocol version [\#1385](https://github.com/pika/pika/issues/1385)
 
 **Merged pull requests:**
 
-- Update CHANGELOG.md process for releases. [\#1392](https://github.com/pika/pika/pull/1392) ([lukebakken](https://github.com/lukebakken))
 - Fix a very minor typo in a source code comment [\#1388](https://github.com/pika/pika/pull/1388) ([martinky24](https://github.com/martinky24))
 - Update connection module to fix strange character [\#1387](https://github.com/pika/pika/pull/1387) ([Zerpet](https://github.com/Zerpet))
-- Update connection module to use TLS v1.2 as fallback [\#1386](https://github.com/pika/pika/pull/1386) ([Zerpet](https://github.com/Zerpet))
 - Long running publisher example [\#1384](https://github.com/pika/pika/pull/1384) ([karls](https://github.com/karls))
+- Update CHANGELOG.md process for releases. [\#1392](https://github.com/pika/pika/pull/1392) ([lukebakken](https://github.com/lukebakken))
+- Update connection module to use TLS v1.2 as fallback [\#1386](https://github.com/pika/pika/pull/1386) ([Zerpet](https://github.com/Zerpet))
 - Add async callback examples [\#1383](https://github.com/pika/pika/pull/1383) ([lukebakken](https://github.com/lukebakken))
 - Add requries-python to pyproject.toml [\#1376](https://github.com/pika/pika/pull/1376) ([gopackgo90](https://github.com/gopackgo90))
 
