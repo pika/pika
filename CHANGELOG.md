@@ -13,6 +13,7 @@
 
 **Merged pull requests:**
 
+- Update CHANGELOG.md process for releases. [\#1392](https://github.com/pika/pika/pull/1392) ([lukebakken](https://github.com/lukebakken))
 - Fix a very minor typo in a source code comment [\#1388](https://github.com/pika/pika/pull/1388) ([martinky24](https://github.com/martinky24))
 - Update connection module to fix strange character [\#1387](https://github.com/pika/pika/pull/1387) ([Zerpet](https://github.com/Zerpet))
 - Update connection module to use TLS v1.2 as fallback [\#1386](https://github.com/pika/pika/pull/1386) ([Zerpet](https://github.com/Zerpet))
