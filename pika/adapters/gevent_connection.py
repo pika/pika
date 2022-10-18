@@ -77,7 +77,7 @@ class GeventConnection(BaseConnection):
         else:
             nbio = _GeventSelectorIOServicesAdapter(custom_ioloop)
 
-        super(GeventConnection, self).__init__(
+        super().__init__(
             parameters,
             on_open_callback,
             on_open_error_callback,
@@ -116,7 +116,7 @@ class GeventConnection(BaseConnection):
             on_done=on_done)
 
 
-class _TSafeCallbackQueue(object):
+class _TSafeCallbackQueue:
     """Dispatch callbacks from any thread to be executed in the main thread
     efficiently with IO events.
     """
@@ -357,7 +357,7 @@ class _GeventIOLoopIOHandle(AbstractIOReference):
         return self._cancel()
 
 
-class _GeventAddressResolver(object):
+class _GeventAddressResolver:
     """Performs getaddrinfo asynchronously Gevent's configured resolver in a
     separate greenlet and invoking the provided callback with the result.
 

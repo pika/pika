@@ -16,7 +16,7 @@ from pika.adapters.utils.io_services_utils import (check_callback_arg,
 LOGGER = logging.getLogger(__name__)
 
 
-class AbstractSelectorIOLoop(object):
+class AbstractSelectorIOLoop:
     """Selector-based I/O loop interface expected by
     `selector_ioloop_adapter.SelectorIOServicesAdapter`
 
@@ -406,7 +406,7 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
                 pass
 
 
-class _FileDescriptorCallbacks(object):
+class _FileDescriptorCallbacks:
     """Holds reader and writer callbacks for a file descriptor"""
 
     __slots__ = ('reader', 'writer')
@@ -462,7 +462,7 @@ class _SelectorIOLoopIOHandle(nbio_interface.AbstractIOReference):
         return self._cancel()
 
 
-class _AddressResolver(object):
+class _AddressResolver:
     """Performs getaddrinfo asynchronously using a thread, then reports result
     via callback from the given I/O loop.
 

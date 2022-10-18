@@ -36,7 +36,7 @@ from pika.exchange_type import ExchangeType
 LOGGER = logging.getLogger(__name__)
 
 
-class _CallbackResult(object):
+class _CallbackResult:
     """ CallbackResult is a non-thread-safe implementation for receiving
     callback results; INTERNAL USE ONLY!
     """
@@ -169,7 +169,7 @@ class _CallbackResult(object):
         return self._values
 
 
-class _IoloopTimerContext(object):
+class _IoloopTimerContext:
     """Context manager for registering and safely unregistering a
     SelectConnection ioloop-based timer
     """
@@ -205,7 +205,7 @@ class _IoloopTimerContext(object):
         return self._callback_result.is_ready()
 
 
-class _TimerEvt(object):
+class _TimerEvt:
     """Represents a timer created via `BlockingConnection.call_later`"""
     __slots__ = ('timer_id', '_callback')
 
@@ -220,7 +220,7 @@ class _TimerEvt(object):
         self.timer_id = None
 
     def __repr__(self):
-        return '<%s timer_id=%s callback=%s>' % (self.__class__.__name__,
+        return '<{} timer_id={} callback={}>'.format(self.__class__.__name__,
                                                  self.timer_id, self._callback)
 
     def dispatch(self):
@@ -229,7 +229,7 @@ class _TimerEvt(object):
         self._callback()
 
 
-class _ConnectionBlockedUnblockedEvtBase(object):
+class _ConnectionBlockedUnblockedEvtBase:
     """Base class for `_ConnectionBlockedEvt` and `_ConnectionUnblockedEvt`"""
     __slots__ = ('_callback', '_method_frame')
 
@@ -245,7 +245,7 @@ class _ConnectionBlockedUnblockedEvtBase(object):
         self._method_frame = method_frame
 
     def __repr__(self):
-        return '<%s callback=%s, frame=%s>' % (
+        return '<{} callback={}, frame={}>'.format(
             self.__class__.__name__, self._callback, self._method_frame)
 
     def dispatch(self):
@@ -261,7 +261,7 @@ class _ConnectionUnblockedEvt(_ConnectionBlockedUnblockedEvtBase):
     """Represents a Connection.Unblocked notification from RabbitMQ broker`"""
 
 
-class BlockingConnection(object):
+class BlockingConnection:
     """The BlockingConnection creates a layer on top of Pika's asynchronous core
     providing methods that will block until their expected response has
     returned. Due to the asynchronous nature of the `Basic.Deliver` and
@@ -361,7 +361,7 @@ class BlockingConnection(object):
         self._impl.add_on_close_callback(self._closed_result.set_value_once)
 
     def __repr__(self):
-        return '<%s impl=%r>' % (self.__class__.__name__, self._impl)
+        return '<{} impl={!r}>'.format(self.__class__.__name__, self._impl)
 
     def __enter__(self):
         # Prepare `with` context
@@ -961,7 +961,7 @@ class BlockingConnection(object):
     publisher_confirms = publisher_confirms_supported
 
 
-class _ChannelPendingEvt(object):
+class _ChannelPendingEvt:
     """Base class for BlockingChannel pending events"""
 
 
@@ -1001,7 +1001,7 @@ class _ConsumerCancellationEvt(_ChannelPendingEvt):
         self.method_frame = method_frame
 
     def __repr__(self):
-        return '<%s method_frame=%r>' % (self.__class__.__name__,
+        return '<{} method_frame={!r}>'.format(self.__class__.__name__,
                                          self.method_frame)
 
     @property
@@ -1045,7 +1045,7 @@ class _ReturnedMessageEvt(_ChannelPendingEvt):
         self.callback(self.channel, self.method, self.properties, self.body)
 
 
-class ReturnedMessage(object):
+class ReturnedMessage:
     """Represents a message returned via Basic.Return in publish-acknowledgments
     mode
     """
@@ -1063,7 +1063,7 @@ class ReturnedMessage(object):
         self.body = body
 
 
-class _ConsumerInfo(object):
+class _ConsumerInfo:
     """Information about an active consumer"""
 
     __slots__ = ('consumer_tag', 'auto_ack', 'on_message_callback',
@@ -1129,7 +1129,7 @@ class _ConsumerInfo(object):
         return self.state == self.CANCELLED_BY_BROKER
 
 
-class _QueueConsumerGeneratorInfo(object):
+class _QueueConsumerGeneratorInfo:
     """Container for information about the active queue consumer generator """
     __slots__ = ('params', 'consumer_tag', 'pending_events')
 
@@ -1148,11 +1148,11 @@ class _QueueConsumerGeneratorInfo(object):
         self.pending_events = deque()
 
     def __repr__(self):
-        return '<%s params=%r consumer_tag=%r>' % (
+        return '<{} params={!r} consumer_tag={!r}>'.format(
             self.__class__.__name__, self.params, self.consumer_tag)
 
 
-class BlockingChannel(object):
+class BlockingChannel:
     """The BlockingChannel implements blocking semantics for most things that
     one would use callback-passing-style for with the
     :py:class:`~pika.channel.Channel` class. In addition,
@@ -1275,7 +1275,7 @@ class BlockingChannel(object):
         return self.channel_number
 
     def __repr__(self):
-        return '<%s impl=%r>' % (self.__class__.__name__, self._impl)
+        return '<{} impl={!r}>'.format(self.__class__.__name__, self._impl)
 
     def __enter__(self):
         return self

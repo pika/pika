@@ -63,7 +63,7 @@ def check_fd_arg(fd):
     """
     if not isinstance(fd, numbers.Integral):
         raise TypeError(
-            'Paramter must be a file descriptor, but got {!r}'.format(fd))
+            f'Paramter must be a file descriptor, but got {fd!r}')
 
 
 def _retry_on_sigint(func):
@@ -86,7 +86,7 @@ def _retry_on_sigint(func):
     return retry_sigint_wrap
 
 
-class SocketConnectionMixin(object):
+class SocketConnectionMixin:
     """Implements
     `pika.adapters.utils.nbio_interface.AbstractIOServices.connect_socket()`
     on top of
@@ -105,7 +105,7 @@ class SocketConnectionMixin(object):
             on_done=on_done).start()
 
 
-class StreamingConnectionMixin(object):
+class StreamingConnectionMixin:
     """Implements
     `.nbio_interface.AbstractIOServices.create_streaming_connection()` on
     top of `.nbio_interface.AbstractFileDescriptorServices` and basic
@@ -168,7 +168,7 @@ class _AsyncServiceAsyncHandle(AbstractIOReference):
         return self._cancel()
 
 
-class _AsyncSocketConnector(object):
+class _AsyncSocketConnector:
     """Connects the given non-blocking socket asynchronously using
     `.nbio_interface.AbstractFileDescriptorServices` and basic
     `.nbio_interface.AbstractIOServices`. Used for implementing
@@ -353,7 +353,7 @@ class _AsyncSocketConnector(object):
         self._report_completion(result)
 
 
-class _AsyncStreamConnector(object):
+class _AsyncStreamConnector:
     """Performs asynchronous SSL session establishment, if requested, on the
     already-connected socket and links the streaming transport to protocol.
     Used for implementing
@@ -757,7 +757,7 @@ class _AsyncTransportBase(  # pylint: disable=W0223
         if not data:
             _LOGGER.error('write() called with empty data: state=%s; %s',
                           self._state, self._sock)
-            raise ValueError('write() called with empty data {!r}'.format(data))
+            raise ValueError(f'write() called with empty data {data!r}')
 
         if self._state != self._STATE_ACTIVE:
             _LOGGER.debug(
@@ -996,7 +996,7 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
         :param AbstractIOServices | AbstractFileDescriptorServices nbio:
 
         """
-        super(_AsyncPlaintextTransport, self).__init__(sock, protocol, nbio)
+        super().__init__(sock, protocol, nbio)
 
         # Request to be notified of incoming data; we'll watch for writability
         # only when our write buffer is non-empty
@@ -1134,7 +1134,7 @@ class _AsyncSSLTransport(_AsyncTransportBase):
         :param AbstractIOServices | AbstractFileDescriptorServices nbio:
 
         """
-        super(_AsyncSSLTransport, self).__init__(sock, protocol, nbio)
+        super().__init__(sock, protocol, nbio)
 
         self._ssl_readable_action = self._consume
         self._ssl_writable_action = None
@@ -1232,7 +1232,7 @@ class _AsyncSSLTransport(_AsyncTransportBase):
         next_consume_on_readable = True
 
         try:
-            super(_AsyncSSLTransport, self)._consume()
+            super()._consume()
         except ssl.SSLError as error:
             if error.errno == ssl.SSL_ERROR_WANT_READ:
                 _LOGGER.debug('SSL ingester wants read: %s', self._sock)
@@ -1305,7 +1305,7 @@ class _AsyncSSLTransport(_AsyncTransportBase):
         next_produce_on_writable = None  # None means no need to produce
 
         try:
-            super(_AsyncSSLTransport, self)._produce()
+            super()._produce()
         except ssl.SSLError as error:
             if error.errno == ssl.SSL_ERROR_WANT_READ:
                 # Looks like SSL re-negotiation

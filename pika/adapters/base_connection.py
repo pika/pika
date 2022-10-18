@@ -50,7 +50,7 @@ class BaseConnection(connection.Connection):
         """
         if parameters and not isinstance(parameters, connection.Parameters):
             raise ValueError(
-                'Expected instance of Parameters, not %r' % (parameters,))
+                'Expected instance of Parameters, not {!r}'.format(parameters))
 
         self._nbio = nbio
 
@@ -59,7 +59,7 @@ class BaseConnection(connection.Connection):
 
         self._got_eof = False  # transport indicated EOF (connection reset)
 
-        super(BaseConnection, self).__init__(
+        super().__init__(
             parameters,
             on_open_callback,
             on_open_error_callback,
@@ -72,7 +72,7 @@ class BaseConnection(connection.Connection):
         be wiped.
 
         """
-        super(BaseConnection, self)._init_connection_state()
+        super()._init_connection_state()
 
         self._connection_workflow = None
         self._transport = None
@@ -101,7 +101,7 @@ class BaseConnection(connection.Connection):
         #
         #     return '%s->%s' % (sockname, peername)
         # TODO need helpful __repr__ in transports
-        return ('<%s %s transport=%s params=%s>' % (
+        return ('<{} {} transport={} params={}>'.format(
             self.__class__.__name__, self._STATE_NAMES[self.connection_state],
             self._transport, self.params))
 
@@ -218,7 +218,7 @@ class BaseConnection(connection.Connection):
         """
         if not callable(callback):
             raise TypeError(
-                'callback must be a callable, but got %r' % (callback,))
+                'callback must be a callable, but got {!r}'.format(callback))
 
         self._nbio.add_callback_threadsafe(callback)
 
@@ -423,7 +423,7 @@ class BaseConnection(connection.Connection):
                     'Transport indicated EOF')
         else:
             error = pika.exceptions.StreamLostError(
-                'Stream connection lost: {!r}'.format(error))
+                f'Stream connection lost: {error!r}')
 
         LOGGER.log(logging.DEBUG if error is None else logging.ERROR,
                    'connection_lost: %r', error)
@@ -498,4 +498,4 @@ class _StreamingProtocolShim(nbio_interface.AbstractStreamProtocol):
         return getattr(self.conn, attr)
 
     def __repr__(self):
-        return '{}: {!r}'.format(self.__class__.__name__, self.conn)
+        return f'{self.__class__.__name__}: {self.conn!r}'

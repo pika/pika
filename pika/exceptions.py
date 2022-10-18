@@ -5,7 +5,7 @@
 class AMQPError(Exception):
 
     def __repr__(self):
-        return '%s: An unspecified AMQP error has occurred; %s' % (
+        return '{}: An unspecified AMQP error has occurred; {}'.format(
             self.__class__.__name__, self.args)
 
 
@@ -16,7 +16,7 @@ class AMQPConnectionError(AMQPError):
             return '{}: ({}) {}'.format(self.__class__.__name__, self.args[0],
                                         self.args[1])
         else:
-            return '{}: {}'.format(self.__class__.__name__, self.args)
+            return f'{self.__class__.__name__}: {self.args}'
 
 
 class ConnectionOpenAborted(AMQPConnectionError):
@@ -31,7 +31,7 @@ class IncompatibleProtocolError(AMQPConnectionError):
 
     def __repr__(self):
         return (
-            '%s: The protocol returned by the server is not supported: %s' % (
+            '{}: The protocol returned by the server is not supported: {}'.format(
                 self.__class__.__name__,
                 self.args,
             ))
@@ -79,7 +79,7 @@ class ConnectionWrongStateError(AMQPConnectionError):
 
     def __repr__(self):
         if self.args:
-            return super(ConnectionWrongStateError, self).__repr__()
+            return super().__repr__()
         else:
             return ('%s: The connection is in wrong state for the requested '
                     'operation.' % self.__class__.__name__)
@@ -96,7 +96,7 @@ class ConnectionClosed(AMQPConnectionError):
             `Connection.Close` method. Human-readable string corresponding to
             `reply_code`. NEW in v1.0.0
         """
-        super(ConnectionClosed, self).__init__(int(reply_code), str(reply_text))
+        super().__init__(int(reply_code), str(reply_text))
 
     def __repr__(self):
         return '{}: ({}) {!r}'.format(self.__class__.__name__, self.reply_code,
@@ -138,7 +138,7 @@ class AMQPHeartbeatTimeout(AMQPConnectionError):
 class AMQPChannelError(AMQPError):
 
     def __repr__(self):
-        return '{}: {!r}'.format(self.__class__.__name__, self.args)
+        return f'{self.__class__.__name__}: {self.args!r}'
 
 
 class ChannelWrongStateError(AMQPChannelError):
@@ -162,7 +162,7 @@ class ChannelClosed(AMQPChannelError):
             NEW in v1.0.0
 
         """
-        super(ChannelClosed, self).__init__(int(reply_code), str(reply_text))
+        super().__init__(int(reply_code), str(reply_text))
 
     def __repr__(self):
         return '{}: ({}) {!r}'.format(self.__class__.__name__, self.reply_code,
@@ -232,7 +232,7 @@ class UnroutableError(AMQPChannelError):
         :param sequence(blocking_connection.ReturnedMessage) messages: Sequence
             of returned unroutable messages
         """
-        super(UnroutableError, self).__init__(
+        super().__init__(
             "%s unroutable message(s) returned" % (len(messages)))
 
         self.messages = messages
@@ -254,8 +254,7 @@ class NackError(AMQPChannelError):
         :param sequence(blocking_connection.ReturnedMessage) messages: Sequence
             of returned unroutable messages
         """
-        super(NackError,
-              self).__init__("%s message(s) NACKed" % (len(messages)))
+        super().__init__("%s message(s) NACKed" % (len(messages)))
 
         self.messages = messages
 
@@ -267,7 +266,7 @@ class NackError(AMQPChannelError):
 class InvalidChannelNumber(AMQPError):
 
     def __repr__(self):
-        return '%s: An invalid channel number has been specified: %s' % (
+        return '{}: An invalid channel number has been specified: {}'.format(
             self.__class__.__name__, self.args[0])
 
 
@@ -281,14 +280,14 @@ class ProtocolSyntaxError(AMQPError):
 class UnexpectedFrameError(ProtocolSyntaxError):
 
     def __repr__(self):
-        return '%s: Received a frame out of sequence: %r' % (
+        return '{}: Received a frame out of sequence: {!r}'.format(
             self.__class__.__name__, self.args[0])
 
 
 class ProtocolVersionMismatch(ProtocolSyntaxError):
 
     def __repr__(self):
-        return '%s: Protocol versions did not match: %r vs %r' % (
+        return '{}: Protocol versions did not match: {!r} vs {!r}'.format(
             self.__class__.__name__, self.args[0], self.args[1])
 
 
@@ -303,21 +302,21 @@ class BodyTooLongError(ProtocolSyntaxError):
 class InvalidFrameError(ProtocolSyntaxError):
 
     def __repr__(self):
-        return '%s: Invalid frame received: %r' % (self.__class__.__name__,
+        return '{}: Invalid frame received: {!r}'.format(self.__class__.__name__,
                                                    self.args[0])
 
 
 class InvalidFieldTypeException(ProtocolSyntaxError):
 
     def __repr__(self):
-        return '%s: Unsupported field kind %s' % (self.__class__.__name__,
+        return '{}: Unsupported field kind {}'.format(self.__class__.__name__,
                                                   self.args[0])
 
 
 class UnsupportedAMQPFieldException(ProtocolSyntaxError):
 
     def __repr__(self):
-        return '%s: Unsupported field kind %s' % (self.__class__.__name__,
+        return '{}: Unsupported field kind {}'.format(self.__class__.__name__,
                                                   type(self.args[1]))
 
 

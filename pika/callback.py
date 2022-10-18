@@ -94,7 +94,7 @@ def check_for_prefix_and_key(function):
     return wrapper
 
 
-class CallbackManager(object):
+class CallbackManager:
     """CallbackManager is a global callback system designed to be a single place
     where Pika can manage callbacks and process them. It should be referenced
     by the CallbackManager.instance() method instead of constructing new

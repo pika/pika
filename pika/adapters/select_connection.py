@@ -98,7 +98,7 @@ class SelectConnection(BaseConnection):
         else:
             nbio = SelectorIOServicesAdapter(custom_ioloop or IOLoop())
 
-        super(SelectConnection, self).__init__(
+        super().__init__(
             parameters,
             on_open_callback,
             on_open_error_callback,
@@ -143,7 +143,7 @@ class SelectConnection(BaseConnection):
         return self._transport.get_write_buffer_size()
 
 
-class _Timeout(object):
+class _Timeout:
     """Represents a timeout"""
 
     __slots__ = (
@@ -165,7 +165,7 @@ class _Timeout(object):
 
         if not callable(callback):
             raise TypeError(
-                'callback must be a callable, but got %r' % (callback,))
+                'callback must be a callable, but got {!r}'.format(callback))
 
         self.deadline = deadline
         self.callback = callback
@@ -208,7 +208,7 @@ class _Timeout(object):
         return NotImplemented
 
 
-class _Timer(object):
+class _Timer:
     """Manage timeouts for use in ioloop"""
 
     # Cancellation count threshold for triggering garbage collection of
@@ -252,7 +252,7 @@ class _Timer(object):
 
         if delay < 0:
             raise ValueError(
-                'call_later: delay must be non-negative, but got %r' % (delay,))
+                'call_later: delay must be non-negative, but got {!r}'.format(delay))
 
         now = pika.compat.time_now()
 
@@ -342,7 +342,7 @@ class _Timer(object):
                 heapq.heapify(self._timeout_heap)
 
 
-class PollEvents(object):
+class PollEvents:
     """Event flags for I/O"""
 
     # Use epoll's constants to keep life easy
@@ -470,7 +470,7 @@ class IOLoop(AbstractSelectorIOLoop):
         """
         if not callable(callback):
             raise TypeError(
-                'callback must be a callable, but got %r' % (callback,))
+                'callback must be a callable, but got {!r}'.format(callback))
 
         # NOTE: `deque.append` is atomic
         self._callbacks.append(callback)
@@ -1027,7 +1027,7 @@ class KQueuePoller(_PollerBase):
         """Create an instance of the KQueuePoller
         """
         self._kqueue = None
-        super(KQueuePoller, self).__init__(get_wait_seconds, process_timeouts)
+        super().__init__(get_wait_seconds, process_timeouts)
 
     @staticmethod
     def _map_event(kevent):
@@ -1164,7 +1164,7 @@ class PollPoller(_PollerBase):
 
         """
         self._poll = None
-        super(PollPoller, self).__init__(get_wait_seconds, process_timeouts)
+        super().__init__(get_wait_seconds, process_timeouts)
 
     @staticmethod
     def _create_poller():

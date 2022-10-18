@@ -49,11 +49,11 @@ class AMQPConnectorPhaseErrorBase(AMQPConnectorException):
             subclass-specific protocol bring-up phase to complete.
         :param args: args for parent class
         """
-        super(AMQPConnectorPhaseErrorBase, self).__init__(*args)
+        super().__init__(*args)
         self.exception = exception
 
     def __repr__(self):
-        return '{}: {!r}'.format(self.__class__.__name__, self.exception)
+        return f'{self.__class__.__name__}: {self.exception!r}'
 
 
 class AMQPConnectorSocketConnectError(AMQPConnectorPhaseErrorBase):
@@ -92,7 +92,7 @@ class AMQPConnectionWorkflowFailed(AMQPConnectorException):
         :param args: args to pass to base class
 
         """
-        super(AMQPConnectionWorkflowFailed, self).__init__(*args)
+        super().__init__(*args)
         self.exceptions = tuple(exceptions)
 
     def __repr__(self):
@@ -103,7 +103,7 @@ class AMQPConnectionWorkflowFailed(AMQPConnectorException):
                     self.exceptions[0] if len(self.exceptions) > 1 else None)
 
 
-class AMQPConnector(object):
+class AMQPConnector:
     """Performs a single TCP/[SSL]/AMQP connection workflow.
 
     """
@@ -161,7 +161,7 @@ class AMQPConnector(object):
         """
         if self._state != self._STATE_INIT:
             raise AMQPConnectorWrongState(
-                'Already in progress or finished; state={}'.format(self._state))
+                f'Already in progress or finished; state={self._state}')
 
         self._addr_record = addr_record
         self._conn_params = conn_params
@@ -336,7 +336,7 @@ class AMQPConnector(object):
             # callback from the Connection instance before reporting completion
             # to client
             assert not self._amqp_conn.is_open, \
-                'Unexpected open state of {!r}'.format(self._amqp_conn)
+                f'Unexpected open state of {self._amqp_conn!r}'
             if not self._amqp_conn.is_closing:
                 self._amqp_conn.close(320, msg)
             return
@@ -632,7 +632,7 @@ class AMQPConnectionWorkflow(AbstractAMQPConnectionWorkflow):
         """
         if self._state != self._STATE_INIT:
             raise AMQPConnectorWrongState(
-                'Already in progress or finished; state={}'.format(self._state))
+                f'Already in progress or finished; state={self._state}')
 
         try:
             iter(connection_configs)
@@ -642,7 +642,7 @@ class AMQPConnectionWorkflow(AbstractAMQPConnectionWorkflow):
                     error))
         if not connection_configs:
             raise ValueError(
-                'connection_configs is empty: {!r}.'.format(connection_configs))
+                f'connection_configs is empty: {connection_configs!r}.')
 
         self._connection_configs = connection_configs
         self._connector_factory = connector_factory
@@ -843,7 +843,7 @@ class AMQPConnectionWorkflow(AbstractAMQPConnectionWorkflow):
 
             if isinstance(conn_or_exc, AMQPConnectorAborted):
                 assert self._state == self._STATE_ABORTING, \
-                    'Expected _STATE_ABORTING, but got {!r}'.format(self._state)
+                    f'Expected _STATE_ABORTING, but got {self._state!r}'
 
                 self._report_completion_and_cleanup(
                     AMQPConnectionWorkflowAborted())

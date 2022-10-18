@@ -39,7 +39,7 @@ class ClosableDeferredQueue(defer.DeferredQueue):
 
     def __init__(self, size=None, backlog=None):
         self.closed = None
-        super(ClosableDeferredQueue, self).__init__(size, backlog)
+        super().__init__(size, backlog)
 
     def put(self, obj):
         """
@@ -87,7 +87,7 @@ ReceivedMessage = namedtuple("ReceivedMessage",
                              ["channel", "method", "properties", "body"])
 
 
-class TwistedChannel(object):
+class TwistedChannel:
     """A wrapper around Pika's Channel.
 
     Channel methods that normally take a callback argument are wrapped to
@@ -1051,7 +1051,7 @@ class _TwistedConnectionAdapter(pika.connection.Connection):
 
     def __init__(self, parameters, on_open_callback, on_open_error_callback,
                  on_close_callback, custom_reactor):
-        super(_TwistedConnectionAdapter, self).__init__(
+        super().__init__(
             parameters=parameters,
             on_open_callback=on_open_callback,
             on_open_error_callback=on_open_error_callback,
