@@ -3,10 +3,50 @@ Tests for pika.heartbeat
 
 """
 import unittest
-
-import mock
+from unittest import mock
 
 from pika import connection, frame, heartbeat
+import pika.exceptions
+
+
+# protected-access
+# pylint: disable=W0212
+
+# missing-docstring
+# pylint: disable=C0111
+
+# invalid-name
+# pylint: disable=C0103
+
+
+class ConstructableConnection(connection.Connection):
+    """Adds dummy overrides for `Connection`'s abstract methods so
+    that we can instantiate and test it.
+
+    """
+    def _adapter_connect_stream(self):
+        pass
+
+    def _adapter_disconnect_stream(self):
+        raise NotImplementedError
+
+    def call_later(self, delay, callback):
+        raise NotImplementedError
+
+    def remove_timeout(self, timeout_id):
+        raise NotImplementedError
+
+    def _adapter_emit_data(self, data):
+        raise NotImplementedError
+
+    def _adapter_add_callback_threadsafe(self, callback):
+        raise NotImplementedError
+
+    def _adapter_call_later(self, deadline, callback):
+        raise NotImplementedError
+
+    def _adapter_remove_timeout(self, timeout_id):
+        raise NotImplementedError
 
 class HeartbeatTests(unittest.TestCase):
 
@@ -15,10 +55,10 @@ class HeartbeatTests(unittest.TestCase):
     CHECK_INTERVAL = INTERVAL + 5
 
     def setUp(self):
-        self.mock_conn = mock.Mock(spec=connection.Connection)
+        self.mock_conn = mock.Mock(spec_set=ConstructableConnection())
         self.mock_conn.bytes_received = 100
         self.mock_conn.bytes_sent = 100
-        self.mock_conn.heartbeat = mock.Mock(spec=heartbeat.HeartbeatChecker)
+        self.mock_conn._heartbeat_checker = mock.Mock(spec=heartbeat.HeartbeatChecker)
         self.obj = heartbeat.HeartbeatChecker(self.mock_conn, self.INTERVAL)
 
     def tearDown(self):
@@ -138,10 +178,13 @@ class HeartbeatTests(unittest.TestCase):
         self.obj._idle_heartbeat_intervals = 4
         self.obj._close_connection()
         reason = self.obj._STALE_CONNECTION % self.obj._timeout
-        self.mock_conn.close.assert_called_once_with(
-            self.obj._CONNECTION_FORCED, reason)
-        self.mock_conn._on_terminate.assert_called_once_with(
-            self.obj._CONNECTION_FORCED, reason)
+        self.mock_conn._terminate_stream.assert_called_once_with(mock.ANY)
+
+        self.assertIsInstance(self.mock_conn._terminate_stream.call_args[0][0],
+                              pika.exceptions.AMQPHeartbeatTimeout)
+        self.assertEqual(
+            self.mock_conn._terminate_stream.call_args[0][0].args[0],
+            reason)
 
     def test_has_received_data_false(self):
         self.obj._bytes_received = 100
@@ -169,14 +212,8 @@ class HeartbeatTests(unittest.TestCase):
     def test_start_send_timer_called(self):
         want = [mock.call(self.SEND_INTERVAL, self.obj._send_heartbeat),
                 mock.call(self.CHECK_INTERVAL, self.obj._check_heartbeat)]
-        got = self.mock_conn.add_timeout.call_args_list
+        got = self.mock_conn._adapter_call_later.call_args_list
         self.assertEqual(got, want)
-
-    @mock.patch('pika.heartbeat.HeartbeatChecker._start_send_timer')
-    def test_start_timer_active(self, setup_send_timer):
-        self.mock_conn.heartbeat = self.obj
-        self.obj._start_send_timer()
-        self.assertTrue(setup_send_timer.called)
 
     def test_update_counters_bytes_received(self):
         self.mock_conn.bytes_received = 256

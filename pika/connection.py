@@ -1,128 +1,75 @@
 """Core connection objects"""
+# disable too-many-lines
+# pylint: disable=C0302
+
+import abc
 import ast
-import sys
-import collections
 import copy
+import functools
 import logging
 import math
 import numbers
 import platform
-import warnings
 import ssl
 
-if sys.version_info > (3,):
-    import urllib.parse as urlparse  # pylint: disable=E0611,F0401
-else:
-    import urlparse
-
-from pika import __version__
-from pika import callback
+import pika.callback
 import pika.channel
-from pika import credentials as pika_credentials
-from pika import exceptions
-from pika import frame
-from pika import heartbeat
-from pika import utils
+import pika.compat
+import pika.credentials
+import pika.exceptions as exceptions
+import pika.frame as frame
+import pika.heartbeat
+import pika.spec as spec
+import pika.validators as validators
+from pika.compat import (
+    xrange,
+    url_unquote,
+    dictkeys,
+    dict_itervalues,
+    dict_iteritems)
 
-from pika import spec
-
-from pika.compat import (xrange, basestring, # pylint: disable=W0622
-                         url_unquote, dictkeys, dict_itervalues,
-                         dict_iteritems)
-
-
-BACKPRESSURE_WARNING = ("Pika: Write buffer exceeded warning threshold at "
-                        "%i bytes and an estimated %i frames behind")
 PRODUCT = "Pika Python Client Library"
 
 LOGGER = logging.getLogger(__name__)
 
 
-class InternalCloseReasons(object):
-    """Internal reason codes passed to the user's on_close_callback when the
-    connection is terminated abruptly, without reply code/text from the broker.
-
-    AMQP 0.9.1 specification cites IETF RFC 821 for reply codes. To avoid
-    conflict, the `InternalCloseReasons` namespace uses negative integers. These
-    are invalid for sending to the broker.
-    """
-    SOCKET_ERROR = -1
-    BLOCKED_CONNECTION_TIMEOUT = -2
-
-
-class Parameters(object):  # pylint: disable=R0902
+class Parameters:  # pylint: disable=R0902
     """Base connection parameters class definition
 
-    :param bool backpressure_detection: `DEFAULT_BACKPRESSURE_DETECTION`
-    :param float|None blocked_connection_timeout:
-        `DEFAULT_BLOCKED_CONNECTION_TIMEOUT`
-    :param int channel_max: `DEFAULT_CHANNEL_MAX`
-    :param int connection_attempts: `DEFAULT_CONNECTION_ATTEMPTS`
-    :param  credentials: `DEFAULT_CREDENTIALS`
-    :param int frame_max: `DEFAULT_FRAME_MAX`
-    :param int heartbeat: `DEFAULT_HEARTBEAT_TIMEOUT`
-    :param str host: `DEFAULT_HOST`
-    :param str locale: `DEFAULT_LOCALE`
-    :param int port: `DEFAULT_PORT`
-    :param float retry_delay: `DEFAULT_RETRY_DELAY`
-    :param float socket_timeout: `DEFAULT_SOCKET_TIMEOUT`
-    :param bool ssl: `DEFAULT_SSL`
-    :param dict ssl_options: `DEFAULT_SSL_OPTIONS`
-    :param str virtual_host: `DEFAULT_VIRTUAL_HOST`
-    :param int tcp_options: `DEFAULT_TCP_OPTIONS`
     """
 
     # Declare slots to protect against accidental assignment of an invalid
     # attribute
-    __slots__ = (
-        '_backpressure_detection',
-        '_blocked_connection_timeout',
-        '_channel_max',
-        '_client_properties',
-        '_connection_attempts',
-        '_credentials',
-        '_frame_max',
-        '_heartbeat',
-        '_host',
-        '_locale',
-        '_port',
-        '_retry_delay',
-        '_socket_timeout',
-        '_ssl',
-        '_ssl_options',
-        '_virtual_host',
-        '_tcp_options'
-    )
+    __slots__ = ('_blocked_connection_timeout', '_channel_max',
+                 '_client_properties', '_connection_attempts', '_credentials',
+                 '_frame_max', '_heartbeat', '_host', '_locale', '_port',
+                 '_retry_delay', '_socket_timeout', '_stack_timeout',
+                 '_ssl_options', '_virtual_host', '_tcp_options')
 
     DEFAULT_USERNAME = 'guest'
     DEFAULT_PASSWORD = 'guest'
 
-    DEFAULT_BACKPRESSURE_DETECTION = False
     DEFAULT_BLOCKED_CONNECTION_TIMEOUT = None
     DEFAULT_CHANNEL_MAX = pika.channel.MAX_CHANNELS
     DEFAULT_CLIENT_PROPERTIES = None
-    DEFAULT_CREDENTIALS = pika_credentials.PlainCredentials(DEFAULT_USERNAME,
-                                                            DEFAULT_PASSWORD)
+    DEFAULT_CREDENTIALS = pika.credentials.PlainCredentials(
+        DEFAULT_USERNAME, DEFAULT_PASSWORD)
     DEFAULT_CONNECTION_ATTEMPTS = 1
     DEFAULT_FRAME_MAX = spec.FRAME_MAX_SIZE
-    DEFAULT_HEARTBEAT_TIMEOUT = None          # None accepts server's proposal
+    DEFAULT_HEARTBEAT_TIMEOUT = None  # None accepts server's proposal
     DEFAULT_HOST = 'localhost'
     DEFAULT_LOCALE = 'en_US'
     DEFAULT_PORT = 5672
     DEFAULT_RETRY_DELAY = 2.0
-    DEFAULT_SOCKET_TIMEOUT = 10.0
+    DEFAULT_SOCKET_TIMEOUT = 10.0  # socket.connect() timeout
+    DEFAULT_STACK_TIMEOUT = 15.0  # full-stack TCP/[SSl]/AMQP bring-up timeout
     DEFAULT_SSL = False
     DEFAULT_SSL_OPTIONS = None
     DEFAULT_SSL_PORT = 5671
     DEFAULT_VIRTUAL_HOST = '/'
     DEFAULT_TCP_OPTIONS = None
 
-    DEFAULT_HEARTBEAT_INTERVAL = DEFAULT_HEARTBEAT_TIMEOUT # DEPRECATED
-
     def __init__(self):
-        self._backpressure_detection = None
-        self.backpressure_detection = self.DEFAULT_BACKPRESSURE_DETECTION
-
         # If not None, blocked_connection_timeout is the timeout, in seconds,
         # for the connection to remain blocked; if the timeout expires, the
         # connection will be torn down, triggering the connection's
@@ -164,8 +111,8 @@ class Parameters(object):  # pylint: disable=R0902
         self._socket_timeout = None
         self.socket_timeout = self.DEFAULT_SOCKET_TIMEOUT
 
-        self._ssl = None
-        self.ssl = self.DEFAULT_SSL
+        self._stack_timeout = None
+        self.stack_timeout = self.DEFAULT_STACK_TIMEOUT
 
         self._ssl_options = None
         self.ssl_options = self.DEFAULT_SSL_OPTIONS
@@ -184,34 +131,25 @@ class Parameters(object):  # pylint: disable=R0902
         """
         return ('<%s host=%s port=%s virtual_host=%s ssl=%s>' %
                 (self.__class__.__name__, self.host, self.port,
-                 self.virtual_host, self.ssl))
+                 self.virtual_host, bool(self.ssl_options)))
 
-    @property
-    def backpressure_detection(self):
-        """
-        :returns: boolean indicating whether backpressure detection is
-            enabled. Defaults to `DEFAULT_BACKPRESSURE_DETECTION`.
+    def __eq__(self, other):
+        if isinstance(other, Parameters):
+            return self._host == other._host and self._port == other._port  # pylint: disable=W0212
+        return NotImplemented
 
-        """
-        return self._backpressure_detection
-
-    @backpressure_detection.setter
-    def backpressure_detection(self, value):
-        """
-        :param bool value: boolean indicating whether to enable backpressure
-            detection
-
-        """
-        if not isinstance(value, bool):
-            raise TypeError('backpressure_detection must be a bool, '
-                            'but got %r' % (value,))
-        self._backpressure_detection = value
+    def __ne__(self, other):
+        result = self.__eq__(other)
+        if result is not NotImplemented:
+            return not result
+        return NotImplemented
 
     @property
     def blocked_connection_timeout(self):
         """
-        :returns: None or float blocked connection timeout. Defaults to
+        :returns: blocked connection timeout. Defaults to
             `DEFAULT_BLOCKED_CONNECTION_TIMEOUT`.
+        :rtype: float|None
 
         """
         return self._blocked_connection_timeout
@@ -252,7 +190,7 @@ class Parameters(object):  # pylint: disable=R0902
 
         """
         if not isinstance(value, numbers.Integral):
-            raise TypeError('channel_max must be an int, but got %r' % (value,))
+            raise TypeError('channel_max must be an int, but got {!r}'.format(value))
         if value < 1 or value > pika.channel.MAX_CHANNELS:
             raise ValueError('channel_max must be <= %i and > 0, but got %r' %
                              (pika.channel.MAX_CHANNELS, value))
@@ -261,10 +199,10 @@ class Parameters(object):  # pylint: disable=R0902
     @property
     def client_properties(self):
         """
-        :returns: None or dict of client properties used to override the fields
-            in the default client poperties reported  to RabbitMQ via
-            `Connection.StartOk` method. Defaults to
-            `DEFAULT_CLIENT_PROPERTIES`.
+        :returns: client properties used to override the fields in the default
+            client properties reported  to RabbitMQ via `Connection.StartOk`
+            method. Defaults to `DEFAULT_CLIENT_PROPERTIES`.
+        :rtype: dict|None
 
         """
         return self._client_properties
@@ -273,10 +211,13 @@ class Parameters(object):  # pylint: disable=R0902
     def client_properties(self, value):
         """
         :param value: None or dict of client properties used to override the
-            fields in the default client poperties reported to RabbitMQ via
+            fields in the default client properties reported to RabbitMQ via
             `Connection.StartOk` method.
         """
-        if not isinstance(value, (dict, type(None),)):
+        if not isinstance(value, (
+                dict,
+                type(None),
+        )):
             raise TypeError('client_properties must be dict or None, '
                             'but got %r' % (value,))
         # Copy the mutable object to avoid accidental side-effects
@@ -286,7 +227,8 @@ class Parameters(object):  # pylint: disable=R0902
     def connection_attempts(self):
         """
         :returns: number of socket connection attempts. Defaults to
-            `DEFAULT_CONNECTION_ATTEMPTS`.
+            `DEFAULT_CONNECTION_ATTEMPTS`. See also `retry_delay`.
+        :rtype: int
 
         """
         return self._connection_attempts
@@ -294,14 +236,15 @@ class Parameters(object):  # pylint: disable=R0902
     @connection_attempts.setter
     def connection_attempts(self, value):
         """
-        :param int value: number of socket connection attempts of at least 1
+        :param int value: number of socket connection attempts of at least 1.
+            See also `retry_delay`.
 
         """
         if not isinstance(value, numbers.Integral):
             raise TypeError('connection_attempts must be an int')
         if value < 1:
-            raise ValueError('connection_attempts must be > 0, but got %r' %
-                             (value,))
+            raise ValueError(
+                'connection_attempts must be > 0, but got {!r}'.format(value))
         self._connection_attempts = value
 
     @property
@@ -320,9 +263,9 @@ class Parameters(object):  # pylint: disable=R0902
             from  `pika.credentials.VALID_TYPES`
 
         """
-        if not isinstance(value, tuple(pika_credentials.VALID_TYPES)):
-            raise TypeError('Credentials must be an object of type: %r, but '
-                            'got %r' % (pika_credentials.VALID_TYPES, value))
+        if not isinstance(value, tuple(pika.credentials.VALID_TYPES)):
+            raise TypeError('credentials must be an object of type: %r, but '
+                            'got %r' % (pika.credentials.VALID_TYPES, value))
         # Copy the mutable object to avoid accidental side-effects
         self._credentials = copy.deepcopy(value)
 
@@ -331,6 +274,7 @@ class Parameters(object):  # pylint: disable=R0902
         """
         :returns: desired maximum AMQP frame size to use. Defaults to
             `DEFAULT_FRAME_MAX`.
+        :rtype: int
 
         """
         return self._frame_max
@@ -343,13 +287,17 @@ class Parameters(object):  # pylint: disable=R0902
 
         """
         if not isinstance(value, numbers.Integral):
-            raise TypeError('frame_max must be an int, but got %r' % (value,))
+            raise TypeError('frame_max must be an int, but got {!r}'.format(value))
         if value < spec.FRAME_MIN_SIZE:
-            raise ValueError('Min AMQP 0.9.1 Frame Size is %i, but got %r',
-                             (spec.FRAME_MIN_SIZE, value,))
+            raise ValueError('Min AMQP 0.9.1 Frame Size is %i, but got %r' % (
+                spec.FRAME_MIN_SIZE,
+                value,
+            ))
         elif value > spec.FRAME_MAX_SIZE:
-            raise ValueError('Max AMQP 0.9.1 Frame Size is %i, but got %r',
-                             (spec.FRAME_MAX_SIZE, value,))
+            raise ValueError('Max AMQP 0.9.1 Frame Size is %i, but got %r' % (
+                spec.FRAME_MAX_SIZE,
+                value,
+            ))
         self._frame_max = value
 
     @property
@@ -359,7 +307,7 @@ class Parameters(object):  # pylint: disable=R0902
             connection tuning or callable which is invoked during connection tuning.
             None to accept broker's value. 0 turns heartbeat off. Defaults to
             `DEFAULT_HEARTBEAT_TIMEOUT`.
-        :rtype: integer, None or callable
+        :rtype: int|callable|None
 
         """
         return self._heartbeat
@@ -377,10 +325,11 @@ class Parameters(object):  # pylint: disable=R0902
         """
         if value is not None:
             if not isinstance(value, numbers.Integral) and not callable(value):
-                raise TypeError('heartbeat must be an int or a callable function, but got %r' %
-                                (value,))
+                raise TypeError(
+                    'heartbeat must be an int or a callable function, but got %r'
+                    % (value,))
             if not callable(value) and value < 0:
-                raise ValueError('heartbeat must >= 0, but got %r' % (value,))
+                raise ValueError('heartbeat must >= 0, but got {!r}'.format(value))
         self._heartbeat = value
 
     @property
@@ -398,9 +347,7 @@ class Parameters(object):  # pylint: disable=R0902
         :param str value: hostname or ip address of broker
 
         """
-        if not isinstance(value, basestring):
-            raise TypeError('host must be a str or unicode str, but got %r' %
-                            (value,))
+        validators.require_string(value, 'host')
         self._host = value
 
     @property
@@ -419,8 +366,7 @@ class Parameters(object):  # pylint: disable=R0902
         :param str value: locale value to pass to broker; e.g., "en_US"
 
         """
-        if not isinstance(value, basestring):
-            raise TypeError('locale must be a str, but got %r' % (value,))
+        validators.require_string(value, 'locale')
         self._locale = value
 
     @property
@@ -442,7 +388,7 @@ class Parameters(object):  # pylint: disable=R0902
         try:
             self._port = int(value)
         except (TypeError, ValueError):
-            raise TypeError('port must be an int, but got %r' % (value,))
+            raise TypeError('port must be an int, but got {!r}'.format(value))
 
     @property
     def retry_delay(self):
@@ -457,20 +403,21 @@ class Parameters(object):  # pylint: disable=R0902
     @retry_delay.setter
     def retry_delay(self, value):
         """
-        :param float value: interval between socket connection attempts; see
-            also `connection_attempts`.
+        :param int | float value: interval between socket connection attempts;
+            see also `connection_attempts`.
 
         """
         if not isinstance(value, numbers.Real):
-            raise TypeError('retry_delay must be a float or int, but got %r' %
-                            (value,))
+            raise TypeError(
+                'retry_delay must be a float or int, but got {!r}'.format(value))
         self._retry_delay = value
 
     @property
     def socket_timeout(self):
         """
-        :returns: socket timeout value. Defaults to `DEFAULT_SOCKET_TIMEOUT`.
-        :rtype: float
+        :returns: socket connect timeout in seconds. Defaults to
+            `DEFAULT_SOCKET_TIMEOUT`. The value None disables this timeout.
+        :rtype: float|None
 
         """
         return self._socket_timeout
@@ -478,68 +425,78 @@ class Parameters(object):  # pylint: disable=R0902
     @socket_timeout.setter
     def socket_timeout(self, value):
         """
-        :param float value: socket timeout value; NOTE: this is mostly unused
-           now, owing to switchover to to non-blocking socket setting after
-           initial socket connection establishment.
+        :param int | float | None value: positive socket connect timeout in
+            seconds. None to disable this timeout.
 
         """
         if value is not None:
             if not isinstance(value, numbers.Real):
                 raise TypeError('socket_timeout must be a float or int, '
                                 'but got %r' % (value,))
-            if not value > 0:
-                raise ValueError('socket_timeout must be > 0, but got %r' %
-                                 (value,))
+            if value <= 0:
+                raise ValueError(
+                    'socket_timeout must be > 0, but got {!r}'.format(value))
+            value = float(value)
+
         self._socket_timeout = value
 
     @property
-    def ssl(self):
+    def stack_timeout(self):
         """
-        :returns: boolean indicating whether to connect via SSL. Defaults to
-            `DEFAULT_SSL`.
+        :returns: full protocol stack TCP/[SSL]/AMQP bring-up timeout in
+            seconds. Defaults to `DEFAULT_STACK_TIMEOUT`. The value None
+            disables this timeout.
+        :rtype: float
 
         """
-        return self._ssl
+        return self._stack_timeout
 
-    @ssl.setter
-    def ssl(self, value):
+    @stack_timeout.setter
+    def stack_timeout(self, value):
         """
-        :param bool value: boolean indicating whether to connect via SSL
+        :param int | float | None value: positive full protocol stack
+            TCP/[SSL]/AMQP bring-up timeout in seconds. It's recommended to set
+            this value higher than `socket_timeout`. None to disable this
+            timeout.
 
         """
-        if not isinstance(value, bool):
-            raise TypeError('ssl must be a bool, but got %r' % (value,))
-        self._ssl = value
+        if value is not None:
+            if not isinstance(value, numbers.Real):
+                raise TypeError('stack_timeout must be a float or int, '
+                                'but got %r' % (value,))
+            if value <= 0:
+                raise ValueError(
+                    'stack_timeout must be > 0, but got {!r}'.format(value))
+            value = float(value)
+
+        self._stack_timeout = value
 
     @property
     def ssl_options(self):
         """
-        :returns: None or a dict of options to pass to `ssl.wrap_socket`.
-            Defaults to `DEFAULT_SSL_OPTIONS`.
-
+        :returns: None for plaintext or `pika.SSLOptions` instance for SSL/TLS.
+        :rtype: `pika.SSLOptions`|None
         """
         return self._ssl_options
 
     @ssl_options.setter
     def ssl_options(self, value):
         """
-        :param value: None, a dict of options to pass to `ssl.wrap_socket` or
-            a SSLOptions object for advanced setup.
+        :param `pika.SSLOptions`|None value: None for plaintext or
+            `pika.SSLOptions` instance for SSL/TLS. Defaults to None.
 
         """
-        if not isinstance(value, (dict, SSLOptions, type(None))):
+        if not isinstance(value, (SSLOptions, type(None))):
             raise TypeError(
-                'ssl_options must be a dict, None or an SSLOptions but got %r'
-                % (value, ))
-        # Copy the mutable object to avoid accidental side-effects
-        self._ssl_options = copy.deepcopy(value)
-
+                'ssl_options must be None or SSLOptions but got {!r}'.format(value))
+        self._ssl_options = value
 
     @property
     def virtual_host(self):
         """
         :returns: rabbitmq virtual host name. Defaults to
             `DEFAULT_VIRTUAL_HOST`.
+        :rtype: str
 
         """
         return self._virtual_host
@@ -550,27 +507,27 @@ class Parameters(object):  # pylint: disable=R0902
         :param str value: rabbitmq virtual host name
 
         """
-        if not isinstance(value, basestring):
-            raise TypeError('virtual_host must be a str, but got %r' % (value,))
+        validators.require_string(value, 'virtual_host')
         self._virtual_host = value
 
     @property
     def tcp_options(self):
         """
         :returns: None or a dict of options to pass to the underlying socket
+        :rtype: dict|None
         """
         return self._tcp_options
 
     @tcp_options.setter
     def tcp_options(self, value):
         """
-        :param bool value: None or a dict of options to pass to the underlying
+        :param dict|None value: None or a dict of options to pass to the underlying
             socket. Currently supported are TCP_KEEPIDLE, TCP_KEEPINTVL, TCP_KEEPCNT
             and TCP_USER_TIMEOUT. Availability of these may depend on your platform.
         """
         if not isinstance(value, (dict, type(None))):
-            raise TypeError('tcp_options must be a dict or None, but got %r' %
-                            (value,))
+            raise TypeError(
+                'tcp_options must be a dict or None, but got {!r}'.format(value))
         self._tcp_options = value
 
 
@@ -583,29 +540,28 @@ class ConnectionParameters(Parameters):
     # Protect against accidental assignment of an invalid attribute
     __slots__ = ()
 
-    class _DEFAULT(object):
+    class _DEFAULT:
         """Designates default parameter value; internal use"""
-        pass
 
-    def __init__(self,  # pylint: disable=R0913,R0914,R0912
-                 host=_DEFAULT,
-                 port=_DEFAULT,
-                 virtual_host=_DEFAULT,
-                 credentials=_DEFAULT,
-                 channel_max=_DEFAULT,
-                 frame_max=_DEFAULT,
-                 heartbeat=_DEFAULT,
-                 ssl=_DEFAULT,
-                 ssl_options=_DEFAULT,
-                 connection_attempts=_DEFAULT,
-                 retry_delay=_DEFAULT,
-                 socket_timeout=_DEFAULT,
-                 locale=_DEFAULT,
-                 backpressure_detection=_DEFAULT,
-                 blocked_connection_timeout=_DEFAULT,
-                 client_properties=_DEFAULT,
-                 tcp_options=_DEFAULT,
-                 **kwargs):
+    def __init__( # pylint: disable=R0913,R0914
+            self,
+            host=_DEFAULT,
+            port=_DEFAULT,
+            virtual_host=_DEFAULT,
+            credentials=_DEFAULT,
+            channel_max=_DEFAULT,
+            frame_max=_DEFAULT,
+            heartbeat=_DEFAULT,
+            ssl_options=_DEFAULT,
+            connection_attempts=_DEFAULT,
+            retry_delay=_DEFAULT,
+            socket_timeout=_DEFAULT,
+            stack_timeout=_DEFAULT,
+            locale=_DEFAULT,
+            blocked_connection_timeout=_DEFAULT,
+            client_properties=_DEFAULT,
+            tcp_options=_DEFAULT,
+            **kwargs):
         """Create a new ConnectionParameters instance. See `Parameters` for
         default values.
 
@@ -615,43 +571,37 @@ class ConnectionParameters(Parameters):
         :param pika.credentials.Credentials credentials: auth credentials
         :param int channel_max: Maximum number of channels to allow
         :param int frame_max: The maximum byte size for an AMQP frame
-        :param int|None|callable value: Controls AMQP heartbeat timeout negotiation
+        :param int|None|callable heartbeat: Controls AMQP heartbeat timeout negotiation
             during connection tuning. An integer value always overrides the value
             proposed by broker. Use 0 to deactivate heartbeats and None to always
             accept the broker's proposal. If a callable is given, it will be called
             with the connection instance and the heartbeat timeout proposed by broker
             as its arguments. The callback should return a non-negative integer that
             will be used to override the broker's proposal.
-        :param bool ssl: Enable SSL
-        :param dict ssl_options: None or a dict of arguments to be passed to
-            ssl.wrap_socket
+        :param `pika.SSLOptions`|None ssl_options: None for plaintext or
+            `pika.SSLOptions` instance for SSL/TLS. Defaults to None.
         :param int connection_attempts: Maximum number of retry attempts
         :param int|float retry_delay: Time to wait in seconds, before the next
-        :param int|float socket_timeout: Use for high latency networks
+        :param int|float socket_timeout: Positive socket connect timeout in
+            seconds.
+        :param int|float stack_timeout: Positive full protocol stack
+            (TCP/[SSL]/AMQP) bring-up timeout in seconds. It's recommended to
+            set this value higher than `socket_timeout`.
         :param str locale: Set the locale value
-        :param bool backpressure_detection: DEPRECATED in favor of
-            `Connection.Blocked` and `Connection.Unblocked`. See
-            `Connection.add_on_connection_blocked_callback`.
-        :param blocked_connection_timeout: If not None,
+        :param int|float|None blocked_connection_timeout: If not None,
             the value is a non-negative timeout, in seconds, for the
             connection to remain blocked (triggered by Connection.Blocked from
             broker); if the timeout expires before connection becomes unblocked,
             the connection will be torn down, triggering the adapter-specific
-            mechanism for informing client app about the closed connection (
-            e.g., on_close_callback or ConnectionClosed exception) with
-            `reason_code` of `InternalCloseReasons.BLOCKED_CONNECTION_TIMEOUT`.
-        :type blocked_connection_timeout: None, int, float
+            mechanism for informing client app about the closed connection:
+            passing `ConnectionBlockedTimeout` exception to on_close_callback
+            in asynchronous adapters or raising it in `BlockingConnection`.
         :param client_properties: None or dict of client properties used to
             override the fields in the default client properties reported to
             RabbitMQ via `Connection.StartOk` method.
-        :param heartbeat_interval: DEPRECATED; use `heartbeat` instead, and
-            don't pass both
         :param tcp_options: None or a dict of TCP options to set for socket
         """
-        super(ConnectionParameters, self).__init__()
-
-        if backpressure_detection is not self._DEFAULT:
-            self.backpressure_detection = backpressure_detection
+        super().__init__()
 
         if blocked_connection_timeout is not self._DEFAULT:
             self.blocked_connection_timeout = blocked_connection_timeout
@@ -674,19 +624,6 @@ class ConnectionParameters(Parameters):
         if heartbeat is not self._DEFAULT:
             self.heartbeat = heartbeat
 
-        try:
-            heartbeat_interval = kwargs.pop('heartbeat_interval')
-        except KeyError:
-            # Good, this one is deprecated
-            pass
-        else:
-            warnings.warn('heartbeat_interval is deprecated, use heartbeat',
-                          DeprecationWarning, stacklevel=2)
-            if heartbeat is not self._DEFAULT:
-                raise TypeError('heartbeat and deprecated heartbeat_interval '
-                                'are mutually-exclusive')
-            self.heartbeat = heartbeat_interval
-
         if host is not self._DEFAULT:
             self.host = host
 
@@ -699,8 +636,8 @@ class ConnectionParameters(Parameters):
         if socket_timeout is not self._DEFAULT:
             self.socket_timeout = socket_timeout
 
-        if ssl is not self._DEFAULT:
-            self.ssl = ssl
+        if stack_timeout is not self._DEFAULT:
+            self.stack_timeout = stack_timeout
 
         if ssl_options is not self._DEFAULT:
             self.ssl_options = ssl_options
@@ -708,8 +645,8 @@ class ConnectionParameters(Parameters):
         # Set port after SSL status is known
         if port is not self._DEFAULT:
             self.port = port
-        elif ssl is not self._DEFAULT:
-            self.port = self.DEFAULT_SSL_PORT if self.ssl else self.DEFAULT_PORT
+        else:
+            self.port = self.DEFAULT_SSL_PORT if self.ssl_options else self.DEFAULT_PORT
 
         if virtual_host is not self._DEFAULT:
             self.virtual_host = virtual_host
@@ -718,7 +655,7 @@ class ConnectionParameters(Parameters):
             self.tcp_options = tcp_options
 
         if kwargs:
-            raise TypeError('Unexpected kwargs: %r' % (kwargs,))
+            raise TypeError('unexpected kwargs: {!r}'.format(kwargs))
 
 
 class URLParameters(Parameters):
@@ -733,10 +670,6 @@ class URLParameters(Parameters):
 
     Valid query string values are:
 
-        - backpressure_detection:
-            DEPRECATED in favor of
-            `Connection.Blocked` and `Connection.Unblocked`. See
-            `Connection.add_on_connection_blocked_callback`.
         - channel_max:
             Override the default maximum channel count value
         - client_properties:
@@ -752,15 +685,20 @@ class URLParameters(Parameters):
             the broker's value is accepted. 0 turns heartbeat off.
         - locale:
             Override the default `en_US` locale value
-        - ssl:
-            Toggle SSL, possible values are `t`, `f`
         - ssl_options:
-            Arguments passed to :meth:`ssl.wrap_socket`
+            None for plaintext; for SSL: dict of public ssl context-related
+            arguments that may be passed to :meth:`ssl.SSLSocket` as kwargs,
+            except `sock`, `server_side`,`do_handshake_on_connect`, `family`,
+            `type`, `proto`, `fileno`.
         - retry_delay:
             The number of seconds to sleep before attempting to connect on
             connection failure.
         - socket_timeout:
-            Override low level socket timeout value
+            Socket connect timeout value in seconds (float or int)
+        - stack_timeout:
+            Positive full protocol stack (TCP/[SSL]/AMQP) bring-up timeout in
+            seconds. It's recommended to set this value higher than
+            `socket_timeout`.
         - blocked_connection_timeout:
             Set the timeout, in seconds, that the connection may remain blocked
             (triggered by Connection.Blocked from broker); if the timeout
@@ -776,7 +714,6 @@ class URLParameters(Parameters):
     # Protect against accidental assignment of an invalid attribute
     __slots__ = ('_all_url_query_values',)
 
-
     # The name of the private function for parsing and setting a given URL query
     # arg is constructed by catenating the query arg's name to this prefix
     _SETTER_PREFIX = '_set_url_'
@@ -787,7 +724,7 @@ class URLParameters(Parameters):
         :param str url: The URL value
 
         """
-        super(URLParameters, self).__init__()
+        super().__init__()
 
         self._all_url_query_values = None
 
@@ -800,14 +737,15 @@ class URLParameters(Parameters):
         if url[0:4].lower() == 'amqp':
             url = 'http' + url[4:]
 
-        # TODO Is support for the alternative http(s) schemes intentional?
-
-        parts = urlparse.urlparse(url)
+        parts = pika.compat.urlparse(url)
 
         if parts.scheme == 'https':
-            self.ssl = True
+            # Create default context which will get overridden by the
+            # ssl_options URL arg, if any
+            self.ssl_options = pika.SSLOptions(
+                context=ssl.create_default_context())
         elif parts.scheme == 'http':
-            self.ssl = False
+            self.ssl_options = None
         elif parts.scheme:
             raise ValueError('Unexpected URL scheme %r; supported scheme '
                              'values: amqp, amqps' % (parts.scheme,))
@@ -819,50 +757,45 @@ class URLParameters(Parameters):
         if parts.port is not None:
             self.port = parts.port
         else:
-            self.port = self.DEFAULT_SSL_PORT if self.ssl else self.DEFAULT_PORT
+            self.port = (self.DEFAULT_SSL_PORT
+                         if self.ssl_options else self.DEFAULT_PORT)
 
         if parts.username is not None:
-            self.credentials = pika_credentials.PlainCredentials(url_unquote(parts.username),
-                                                                 url_unquote(parts.password))
+            self.credentials = pika.credentials.PlainCredentials(
+                url_unquote(parts.username), url_unquote(parts.password))
 
         # Get the Virtual Host
         if len(parts.path) > 1:
             self.virtual_host = url_unquote(parts.path.split('/')[1])
 
         # Handle query string values, validating and assigning them
-        self._all_url_query_values = urlparse.parse_qs(parts.query)
+        self._all_url_query_values = pika.compat.url_parse_qs(parts.query)
 
         for name, value in dict_iteritems(self._all_url_query_values):
             try:
                 set_value = getattr(self, self._SETTER_PREFIX + name)
             except AttributeError:
-                raise ValueError('Unknown URL parameter: %r' % (name,))
+                raise ValueError('Unknown URL parameter: {!r}'.format(name))
 
             try:
                 (value,) = value
             except ValueError:
-                raise ValueError('Expected exactly one value for URL parameter '
-                                 '%s, but got %i values: %s' % (
-                                     name, len(value), value))
+                raise ValueError(
+                    'Expected exactly one value for URL parameter '
+                    '%s, but got %i values: %s' % (name, len(value), value))
 
             set_value(value)
-
-    def _set_url_backpressure_detection(self, value):
-        """Deserialize and apply the corresponding query string arg"""
-        try:
-            backpressure_detection = {'t': True, 'f': False}[value]
-        except KeyError:
-            raise ValueError('Invalid backpressure_detection value: %r' %
-                             (value,))
-        self.backpressure_detection = backpressure_detection
 
     def _set_url_blocked_connection_timeout(self, value):
         """Deserialize and apply the corresponding query string arg"""
         try:
             blocked_connection_timeout = float(value)
         except ValueError as exc:
-            raise ValueError('Invalid blocked_connection_timeout value %r: %r' %
-                             (value, exc,))
+            raise ValueError(
+                'Invalid blocked_connection_timeout value {!r}: {!r}'.format(
+                    value,
+                    exc,
+                ))
         self.blocked_connection_timeout = blocked_connection_timeout
 
     def _set_url_channel_max(self, value):
@@ -870,7 +803,10 @@ class URLParameters(Parameters):
         try:
             channel_max = int(value)
         except ValueError as exc:
-            raise ValueError('Invalid channel_max value %r: %r' % (value, exc,))
+            raise ValueError('Invalid channel_max value {!r}: {!r}'.format(
+                value,
+                exc,
+            ))
         self.channel_max = channel_max
 
     def _set_url_client_properties(self, value):
@@ -882,8 +818,10 @@ class URLParameters(Parameters):
         try:
             connection_attempts = int(value)
         except ValueError as exc:
-            raise ValueError('Invalid connection_attempts value %r: %r' %
-                             (value, exc,))
+            raise ValueError('Invalid connection_attempts value {!r}: {!r}'.format(
+                value,
+                exc,
+            ))
         self.connection_attempts = connection_attempts
 
     def _set_url_frame_max(self, value):
@@ -891,35 +829,21 @@ class URLParameters(Parameters):
         try:
             frame_max = int(value)
         except ValueError as exc:
-            raise ValueError('Invalid frame_max value %r: %r' % (value, exc,))
+            raise ValueError('Invalid frame_max value {!r}: {!r}'.format(
+                value,
+                exc,
+            ))
         self.frame_max = frame_max
 
     def _set_url_heartbeat(self, value):
         """Deserialize and apply the corresponding query string arg"""
-        if 'heartbeat_interval' in self._all_url_query_values:
-            raise ValueError('Deprecated URL parameter heartbeat_interval must '
-                             'not be specified together with heartbeat')
-
         try:
             heartbeat_timeout = int(value)
         except ValueError as exc:
-            raise ValueError('Invalid heartbeat value %r: %r' % (value, exc,))
-        self.heartbeat = heartbeat_timeout
-
-    def _set_url_heartbeat_interval(self, value):
-        """Deserialize and apply the corresponding query string arg"""
-        warnings.warn('heartbeat_interval is deprecated, use heartbeat',
-                      DeprecationWarning, stacklevel=2)
-
-        if 'heartbeat' in self._all_url_query_values:
-            raise ValueError('Deprecated URL parameter heartbeat_interval must '
-                             'not be specified together with heartbeat')
-
-        try:
-            heartbeat_timeout = int(value)
-        except ValueError as exc:
-            raise ValueError('Invalid heartbeat_interval value %r: %r' %
-                             (value, exc,))
+            raise ValueError('Invalid heartbeat value {!r}: {!r}'.format(
+                value,
+                exc,
+            ))
         self.heartbeat = heartbeat_timeout
 
     def _set_url_locale(self, value):
@@ -931,7 +855,10 @@ class URLParameters(Parameters):
         try:
             retry_delay = float(value)
         except ValueError as exc:
-            raise ValueError('Invalid retry_delay value %r: %r' % (value, exc,))
+            raise ValueError('Invalid retry_delay value {!r}: {!r}'.format(
+                value,
+                exc,
+            ))
         self.retry_delay = retry_delay
 
     def _set_url_socket_timeout(self, value):
@@ -939,93 +866,113 @@ class URLParameters(Parameters):
         try:
             socket_timeout = float(value)
         except ValueError as exc:
-            raise ValueError('Invalid socket_timeout value %r: %r' %
-                             (value, exc,))
+            raise ValueError('Invalid socket_timeout value {!r}: {!r}'.format(
+                value,
+                exc,
+            ))
         self.socket_timeout = socket_timeout
 
-    def _set_url_ssl_options(self, value):
+    def _set_url_stack_timeout(self, value):
         """Deserialize and apply the corresponding query string arg"""
-        self.ssl_options = ast.literal_eval(value)
+        try:
+            stack_timeout = float(value)
+        except ValueError as exc:
+            raise ValueError('Invalid stack_timeout value {!r}: {!r}'.format(
+                value,
+                exc,
+            ))
+        self.stack_timeout = stack_timeout
+
+    def _set_url_ssl_options(self, value):
+        """Deserialize and apply the corresponding query string arg
+
+        """
+        opts = ast.literal_eval(value)
+        if opts is None:
+            if self.ssl_options is not None:
+                raise ValueError(
+                    'Specified ssl_options=None URL arg is inconsistent with '
+                    'the specified https URL scheme.')
+        else:
+            # Older versions of Pika would take the opts dict and pass it
+            # directly as kwargs to the deprecated ssl.wrap_socket method.
+            # Here, we take the valid options and translate them into args
+            # for various SSLContext methods.
+            #
+            # https://docs.python.org/3/library/ssl.html#ssl.wrap_socket
+            #
+            # SSLContext.load_verify_locations(cafile=None, capath=None, cadata=None)
+            try:
+                opt_protocol = ssl.PROTOCOL_TLS_CLIENT
+            except AttributeError:
+                opt_protocol = ssl.PROTOCOL_TLSv1_2
+            if 'protocol' in opts:
+                opt_protocol = opts['protocol']
+
+            cxt = ssl.SSLContext(protocol=opt_protocol)
+
+            opt_cafile = opts.get('ca_certs') or opts.get('cafile')
+            opt_capath = opts.get('ca_path') or opts.get('capath')
+            opt_cadata = opts.get('ca_data') or opts.get('cadata')
+            cxt.load_verify_locations(opt_cafile, opt_capath, opt_cadata)
+
+            # SSLContext.load_cert_chain(certfile, keyfile=None, password=None)
+            if 'certfile' in opts:
+                opt_certfile = opts['certfile']
+                opt_keyfile = opts.get('keyfile')
+                opt_password = opts.get('password')
+                cxt.load_cert_chain(opt_certfile, opt_keyfile, opt_password)
+
+            if 'ciphers' in opts:
+                opt_ciphers = opts['ciphers']
+                cxt.set_ciphers(opt_ciphers)
+
+            server_hostname = opts.get('server_hostname')
+            self.ssl_options = pika.SSLOptions(
+                context=cxt, server_hostname=server_hostname)
 
     def _set_url_tcp_options(self, value):
         """Deserialize and apply the corresponding query string arg"""
         self.tcp_options = ast.literal_eval(value)
 
-class SSLOptions(object):
+
+class SSLOptions:
     """Class used to provide parameters for optional fine grained control of SSL
     socket wrapping.
 
-    :param string keyfile: The key file to pass to SSLContext.load_cert_chain
-    :param string key_password: The key password to passed to
-                                                    SSLContext.load_cert_chain
-    :param string certfile: The certificate file to passed to
-                                                    SSLContext.load_cert_chain
-    :param bool server_side: Passed to SSLContext.wrap_socket
-    :param verify_mode: Passed to SSLContext.wrap_socket
-    :param ssl_version: Passed to SSLContext init, defines the ssl
-                                                                version to use
-    :param string cafile: The CA file passed to
-                                            SSLContext.load_verify_locations
-    :param string capath: The CA path passed to
-                                            SSLContext.load_verify_locations
-    :param string cadata: The CA data passed to
-                                            SSLContext.load_verify_locations
-    :param do_handshake_on_connect: Passed to SSLContext.wrap_socket
-    :param suppress_ragged_eofs: Passed to SSLContext.wrap_socket
-    :param ciphers: Passed to SSLContext.set_ciphers
-    :param server_hostname: SSLContext.wrap_socket, used to enable SNI
     """
 
-    def __init__(self,
-                 keyfile=None,
-                 key_password=None,
-                 certfile=None,
-                 server_side=False,
-                 verify_mode=ssl.CERT_NONE,
-                 ssl_version=ssl.PROTOCOL_SSLv23,
-                 cafile=None,
-                 capath=None,
-                 cadata=None,
-                 do_handshake_on_connect=True,
-                 suppress_ragged_eofs=True,
-                 ciphers=None,
-                 server_hostname=None):
-        self.keyfile = keyfile
-        self.key_password = key_password
-        self.certfile = certfile
-        self.server_side = server_side
-        self.verify_mode = verify_mode
-        self.ssl_version = ssl_version
-        self.cafile = cafile
-        self.capath = capath
-        self.cadata = cadata
-        self.do_handshake_on_connect = do_handshake_on_connect
-        self.suppress_ragged_eofs = suppress_ragged_eofs
-        self.ciphers = ciphers
+    # Protect against accidental assignment of an invalid attribute
+    __slots__ = ('context', 'server_hostname')
+
+    def __init__(self, context, server_hostname=None):
+        """
+        :param ssl.SSLContext context: SSLContext instance
+        :param str|None server_hostname: SSLContext.wrap_socket, used to enable
+            SNI
+        """
+        if not isinstance(context, ssl.SSLContext):
+            raise TypeError(
+                'context must be of ssl.SSLContext type, but got {!r}'.format(
+                    context))
+
+        self.context = context
         self.server_hostname = server_hostname
 
-class Connection(object):
+
+class Connection(pika.compat.AbstractBase):
     """This is the core class that implements communication with RabbitMQ. This
     class should not be invoked directly but rather through the use of an
     adapter such as SelectConnection or BlockingConnection.
 
-    :param pika.connection.Parameters parameters: Connection parameters
-    :param method on_open_callback: Called when the connection is opened
-    :param method on_open_error_callback: Called if the connection cant
-                                   be opened
-    :param method on_close_callback: Called when the connection is closed
-
     """
 
-    # Disable pylint messages concerning "method could be a funciton"
+    # Disable pylint messages concerning "method could be a function"
     # pylint: disable=R0201
 
-    ON_CONNECTION_BACKPRESSURE = '_on_connection_backpressure'
-    ON_CONNECTION_BLOCKED = '_on_connection_blocked'
     ON_CONNECTION_CLOSED = '_on_connection_closed'
     ON_CONNECTION_ERROR = '_on_connection_error'
-    ON_CONNECTION_OPEN = '_on_connection_open'
-    ON_CONNECTION_UNBLOCKED = '_on_connection_unblocked'
+    ON_CONNECTION_OPEN_OK = '_on_connection_open_ok'
     CONNECTION_CLOSED = 0
     CONNECTION_INIT = 1
     CONNECTION_PROTOCOL = 2
@@ -1048,7 +995,8 @@ class Connection(object):
                  parameters=None,
                  on_open_callback=None,
                  on_open_error_callback=None,
-                 on_close_callback=None):
+                 on_close_callback=None,
+                 internal_connection_workflow=True):
         """Connection initialization expects an object that has implemented the
          Parameters class and a callback function to notify when we have
          successfully connected to the AMQP Broker.
@@ -1056,33 +1004,59 @@ class Connection(object):
         Available Parameters classes are the ConnectionParameters class and
         URLParameters class.
 
-        :param pika.connection.Parameters parameters: Connection parameters
-        :param method on_open_callback: Called when the connection is opened
-        :param method on_open_error_callback: Called if the connection can't
-            be established: on_open_error_callback(connection, str|exception)
-        :param method on_close_callback: Called when the connection is closed:
-            `on_close_callback(connection, reason_code, reason_text)`, where
-            `reason_code` is either an IETF RFC 821 reply code for AMQP-level
-          closures or a value from `pika.connection.InternalCloseReasons` for
-          internal causes, such as socket errors.
+        :param pika.connection.Parameters parameters: Read-only connection
+            parameters.
+        :param callable on_open_callback: Called when the connection is opened:
+            on_open_callback(connection)
+        :param None | method on_open_error_callback: Called if the connection
+            can't be established or connection establishment is interrupted by
+            `Connection.close()`: on_open_error_callback(Connection, exception).
+        :param None | method on_close_callback: Called when a previously fully
+            open connection is closed:
+            `on_close_callback(Connection, exception)`, where `exception` is
+            either an instance of `exceptions.ConnectionClosed` if closed by
+            user or broker or exception of another type that describes the cause
+            of connection failure.
+        :param bool internal_connection_workflow: True for autonomous connection
+            establishment which is default; False for externally-managed
+            connection workflow via the `create_connection()` factory.
 
         """
         self.connection_state = self.CONNECTION_CLOSED
 
-        # Holds timer when the initial connect or reconnect is scheduled
-        self._connection_attempt_timer = None
+        # Determines whether we invoke the on_open_error_callback or
+        # on_close_callback. So that we don't lose track when state transitions
+        # to CONNECTION_CLOSING as the result of Connection.close() call during
+        # opening.
+        self._opened = False
+
+        # Value to pass to on_open_error_callback or on_close_callback when
+        # connection fails to be established or becomes closed
+        self._error = None  # type: Exception
 
         # Used to hold timer if configured for Connection.Blocked timeout
         self._blocked_conn_timer = None
 
-        self.heartbeat = None
+        self._heartbeat_checker = None
 
         # Set our configuration options
-        self.params = (copy.deepcopy(parameters) if parameters is not None else
-                       ConnectionParameters())
+        if parameters is not None:
+            # NOTE: Work around inability to copy ssl.SSLContext contained in
+            # our SSLOptions; ssl.SSLContext fails to implement __getnewargs__
+            saved_ssl_options = parameters.ssl_options
+            parameters.ssl_options = None
+            try:
+                self.params = copy.deepcopy(parameters)
+                self.params.ssl_options = saved_ssl_options
+            finally:
+                parameters.ssl_options = saved_ssl_options
+        else:
+            self.params = ConnectionParameters()
+
+        self._internal_connection_workflow = internal_connection_workflow
 
         # Define our callback dictionary
-        self.callbacks = callback.CallbackManager()
+        self.callbacks = pika.callback.CallbackManager()
 
         # Attributes that will be properly initialized by _init_connection_state
         # and/or during connection handshake.
@@ -1090,19 +1064,15 @@ class Connection(object):
         self.server_properties = None
         self._body_max_length = None
         self.known_hosts = None
-        self.closing = None
         self._frame_buffer = None
         self._channels = None
-        self._backpressure_multiplier = None
-        self.remaining_connection_attempts = None
 
         self._init_connection_state()
 
-
         # Add the on connection error callback
-        self.callbacks.add(0, self.ON_CONNECTION_ERROR,
-                           on_open_error_callback or self._on_connection_error,
-                           False)
+        self.callbacks.add(
+            0, self.ON_CONNECTION_ERROR, on_open_error_callback or
+            self._default_on_connection_error, False)
 
         # On connection callback
         if on_open_callback:
@@ -1112,117 +1082,208 @@ class Connection(object):
         if on_close_callback:
             self.add_on_close_callback(on_close_callback)
 
-        self.connect()
+        self._set_connection_state(self.CONNECTION_INIT)
 
-    def add_backpressure_callback(self, callback_method):
-        """Call method "callback" when pika believes backpressure is being
-        applied.
+        if self._internal_connection_workflow:
+            # Kick off full-stack connection establishment. It will complete
+            # asynchronously.
+            self._adapter_connect_stream()
+        else:
+            # Externally-managed connection workflow will proceed asynchronously
+            # using adapter-specific mechanism
+            LOGGER.debug('Using external connection workflow.')
 
-        :param method callback_method: The method to call
+    def _init_connection_state(self):
+        """Initialize or reset all of the internal state variables for a given
+        connection. On disconnect or reconnect all of the state needs to
+        be wiped.
 
         """
-        self.callbacks.add(0, self.ON_CONNECTION_BACKPRESSURE, callback_method,
-                           False)
+        # TODO: probably don't need the state recovery logic since we don't
+        #       test re-connection sufficiently (if at all), and users should
+        #       just create a new instance of Connection when needed.
+        # So, just merge the pertinent logic into the constructor.
 
-    def add_on_close_callback(self, callback_method):
+        # Connection state
+        self._set_connection_state(self.CONNECTION_CLOSED)
+
+        # Negotiated server properties
+        self.server_properties = None
+
+        # Inbound buffer for decoding frames
+        self._frame_buffer = bytes()
+
+        # Dict of open channels
+        self._channels = dict()
+
+        # Data used for Heartbeat checking and back-pressure detection
+        self.bytes_sent = 0
+        self.bytes_received = 0
+        self.frames_sent = 0
+        self.frames_received = 0
+        self._heartbeat_checker = None
+
+        # When closing, holds reason why
+        self._error = None
+
+        # Our starting point once connected, first frame received
+        self._add_connection_start_callback()
+
+        # Add a callback handler for the Broker telling us to disconnect.
+        # NOTE: As of RabbitMQ 3.6.0, RabbitMQ broker may send Connection.Close
+        # to signal error during connection setup (and wait a longish time
+        # before closing the TCP/IP stream). Earlier RabbitMQ versions
+        # simply closed the TCP/IP stream.
+        self.callbacks.add(0, spec.Connection.Close,
+                           self._on_connection_close_from_broker)
+
+        if self.params.blocked_connection_timeout is not None:
+            if self._blocked_conn_timer is not None:
+                # Blocked connection timer was active when teardown was
+                # initiated
+                self._adapter_remove_timeout(self._blocked_conn_timer)
+                self._blocked_conn_timer = None
+
+            self.add_on_connection_blocked_callback(self._on_connection_blocked)
+            self.add_on_connection_unblocked_callback(
+                self._on_connection_unblocked)
+
+    def add_on_close_callback(self, callback):
         """Add a callback notification when the connection has closed. The
-        callback will be passed the connection, the reply_code (int) and the
-        reply_text (str), if sent by the remote server.
+        callback will be passed the connection and an exception instance. The
+        exception will either be an instance of `exceptions.ConnectionClosed` if
+        a fully-open connection was closed by user or broker or exception of
+        another type that describes the cause of connection closure/failure.
 
-        :param method callback_method: Callback to call on close
+        :param callable callback: Callback to call on close, having the signature:
+            callback(pika.connection.Connection, exception)
 
         """
-        self.callbacks.add(0, self.ON_CONNECTION_CLOSED, callback_method, False)
+        validators.require_callback(callback)
+        self.callbacks.add(0, self.ON_CONNECTION_CLOSED, callback, False)
 
-    def add_on_connection_blocked_callback(self, callback_method):
-        """Add a callback to be notified when RabbitMQ has sent a
-        ``Connection.Blocked`` frame indicating that RabbitMQ is low on
-        resources. Publishers can use this to voluntarily suspend publishing,
-        instead of relying on back pressure throttling. The callback
-        will be passed the ``Connection.Blocked`` method frame.
+    def add_on_connection_blocked_callback(self, callback):
+        """RabbitMQ AMQP extension - Add a callback to be notified when the
+        connection gets blocked (`Connection.Blocked` received from RabbitMQ)
+        due to the broker running low on resources (memory or disk). In this
+        state RabbitMQ suspends processing incoming data until the connection
+        is unblocked, so it's a good idea for publishers receiving this
+        notification to suspend publishing until the connection becomes
+        unblocked.
+
+        See also `Connection.add_on_connection_unblocked_callback()`
 
         See also `ConnectionParameters.blocked_connection_timeout`.
 
-        :param method callback_method: Callback to call on `Connection.Blocked`,
-            having the signature `callback_method(pika.frame.Method)`, where the
-            method frame's `method` member is of type
+        :param callable callback: Callback to call on `Connection.Blocked`,
+            having the signature `callback(connection, pika.frame.Method)`,
+            where the method frame's `method` member is of type
             `pika.spec.Connection.Blocked`
 
         """
-        self.callbacks.add(0, spec.Connection.Blocked, callback_method, False)
+        validators.require_callback(callback)
+        self.callbacks.add(
+            0,
+            spec.Connection.Blocked,
+            functools.partial(callback, self),
+            one_shot=False)
 
-    def add_on_connection_unblocked_callback(self, callback_method):
-        """Add a callback to be notified when RabbitMQ has sent a
-        ``Connection.Unblocked`` frame letting publishers know it's ok
-        to start publishing again. The callback will be passed the
-        ``Connection.Unblocked`` method frame.
+    def add_on_connection_unblocked_callback(self, callback):
+        """RabbitMQ AMQP extension - Add a callback to be notified when the
+        connection gets unblocked (`Connection.Unblocked` frame is received from
+        RabbitMQ) letting publishers know it's ok to start publishing again.
 
-        :param method callback_method: Callback to call on
+        :param callable callback: Callback to call on
             `Connection.Unblocked`, having the signature
-            `callback_method(pika.frame.Method)`, where the method frame's
+            `callback(connection, pika.frame.Method)`, where the method frame's
             `method` member is of type `pika.spec.Connection.Unblocked`
 
         """
-        self.callbacks.add(0, spec.Connection.Unblocked, callback_method, False)
+        validators.require_callback(callback)
+        self.callbacks.add(
+            0,
+            spec.Connection.Unblocked,
+            functools.partial(callback, self),
+            one_shot=False)
 
-    def add_on_open_callback(self, callback_method):
-        """Add a callback notification when the connection has opened.
+    def add_on_open_callback(self, callback):
+        """Add a callback notification when the connection has opened. The
+        callback will be passed the connection instance as its only arg.
 
-        :param method callback_method: Callback to call when open
+        :param callable callback: Callback to call when open
 
         """
-        self.callbacks.add(0, self.ON_CONNECTION_OPEN, callback_method, False)
+        validators.require_callback(callback)
+        self.callbacks.add(0, self.ON_CONNECTION_OPEN_OK, callback, False)
 
-    def add_on_open_error_callback(self, callback_method, remove_default=True):
+    def add_on_open_error_callback(self, callback, remove_default=True):
         """Add a callback notification when the connection can not be opened.
 
-        The callback method should accept the connection object that could not
-        connect, and an optional error message.
+        The callback method should accept the connection instance that could not
+        connect, and either a string or an exception as its second arg.
 
-        :param method callback_method: Callback to call when can't connect
+        :param callable callback: Callback to call when can't connect, having
+            the signature _(Connection, Exception)
         :param bool remove_default: Remove default exception raising callback
 
         """
+        validators.require_callback(callback)
         if remove_default:
             self.callbacks.remove(0, self.ON_CONNECTION_ERROR,
-                                  self._on_connection_error)
-        self.callbacks.add(0, self.ON_CONNECTION_ERROR, callback_method, False)
+                                  self._default_on_connection_error)
+        self.callbacks.add(0, self.ON_CONNECTION_ERROR, callback, False)
 
-    def add_timeout(self, deadline, callback_method):
-        """Adapters should override to call the callback after the
-        specified number of seconds have elapsed, using a timer, or a
-        thread, or similar.
-
-        :param int deadline: The number of seconds to wait to call callback
-        :param method callback_method: The callback method
-
-        """
-        raise NotImplementedError
-
-    def channel(self, on_open_callback, channel_number=None):
+    def channel(self, channel_number=None, on_open_callback=None):
         """Create a new channel with the next available channel number or pass
         in a channel number to use. Must be non-zero if you would like to
         specify but it is recommended that you let Pika manage the channel
         numbers.
 
-        :param method on_open_callback: The callback when the channel is opened
         :param int channel_number: The channel number to use, defaults to the
                                    next available.
+        :param callable on_open_callback: The callback when the channel is
+            opened.  The callback will be invoked with the `Channel` instance
+            as its only argument.
         :rtype: pika.channel.Channel
 
         """
         if not self.is_open:
-            # TODO if state is OPENING, then ConnectionClosed might be wrong
-            raise exceptions.ConnectionClosed(
+            raise exceptions.ConnectionWrongStateError(
                 'Channel allocation requires an open connection: %s' % self)
+
+        validators.rpc_completion_callback(on_open_callback)
 
         if not channel_number:
             channel_number = self._next_channel_number()
-        self._channels[channel_number] = self._create_channel(channel_number,
-                                                              on_open_callback)
+
+        self._channels[channel_number] = self._create_channel(
+            channel_number, on_open_callback)
         self._add_channel_callbacks(channel_number)
         self._channels[channel_number].open()
         return self._channels[channel_number]
+
+    def update_secret(self, new_secret, reason, callback=None):
+        """RabbitMQ AMQP extension - This method updates the secret used to authenticate this connection. 
+        It is used when secrets have an expiration date and need to be renewed, like OAuth 2 tokens.
+        Pass a callback to be notified of the response from the server.
+
+        :param string new_secret: The new secret
+        :param string reason: The reason for the secret update
+        :param callable callback: Callback to call on
+            `Connection.UpdateSecretOk`, having the signature
+            `callback(pika.frame.Method)`, where the method frame's
+            `method` member is of type `pika.spec.Connection.UpdateSecretOk`
+
+        :raises pika.exceptions.ConnectionWrongStateError: if connection is
+            not open.
+        """
+        if not self.is_open:
+            raise exceptions.ConnectionWrongStateError(
+                'Secret update requires an open connection: %s' % self)
+
+        validators.rpc_completion_callback(callback)
+        self._rpc(0, spec.Connection.UpdateSecret(new_secret, reason),
+                  callback, [spec.Connection.UpdateSecretOk])
 
     def close(self, reply_code=200, reply_text='Normal shutdown'):
         """Disconnect from RabbitMQ. If there are any open channels, it will
@@ -1233,10 +1294,16 @@ class Connection(object):
         :param int reply_code: The code number for the close
         :param str reply_text: The text reason for the close
 
+        :raises pika.exceptions.ConnectionWrongStateError: if connection is
+            closed or closing.
         """
         if self.is_closing or self.is_closed:
-            LOGGER.warning('Suppressing close request on %s', self)
-            return
+            msg = ('Illegal close({}, {!r}) request on {} because it '
+                   'was called while connection state={}.'.format(
+                       reply_code, reply_text, self,
+                       self._STATE_NAMES[self.connection_state]))
+            LOGGER.error(msg)
+            raise exceptions.ConnectionWrongStateError(msg)
 
         # NOTE The connection is either in opening or open state
 
@@ -1244,61 +1311,40 @@ class Connection(object):
         if self._channels:
             self._close_channels(reply_code, reply_text)
 
-        # Set our connection state
+        prev_state = self.connection_state
+
+        # Transition to closing
         self._set_connection_state(self.CONNECTION_CLOSING)
-        LOGGER.info("Closing connection (%s): %s", reply_code, reply_text)
-        self.closing = reply_code, reply_text
+        LOGGER.info("Closing connection (%s): %r", reply_code, reply_text)
 
-        # If there are channels that haven't finished closing yet, then
-        # _on_close_ready will finally be called from _on_channel_cleanup once
-        # all channels have been closed
-        if not self._channels:
-            # We can initiate graceful closing of the connection right away,
-            # since no more channels remain
-            self._on_close_ready()
+        if not self._opened:
+            # It was opening, but not fully open yet, so we won't attempt
+            # graceful AMQP Connection.Close.
+            LOGGER.info('Connection.close() is terminating stream and '
+                        'bypassing graceful AMQP close, since AMQP is still '
+                        'opening.')
+
+            error = exceptions.ConnectionOpenAborted(
+                'Connection.close() called before connection '
+                'finished opening: prev_state={} ({}): {!r}'.format(
+                    self._STATE_NAMES[prev_state], reply_code, reply_text))
+            self._terminate_stream(error)
+
         else:
-            LOGGER.info('Connection.close is waiting for '
-                        '%d channels to close: %s', len(self._channels), self)
+            self._error = exceptions.ConnectionClosedByClient(
+                reply_code, reply_text)
 
-    def connect(self):
-        """Invoke if trying to reconnect to a RabbitMQ server. Constructing the
-        Connection object should connect on its own.
-
-        """
-        assert self._connection_attempt_timer is None, (
-            'connect timer was already scheduled')
-
-        assert self.is_closed, (
-            'connect expected CLOSED state, but got: {}'.format(
-                self._STATE_NAMES[self.connection_state]))
-
-        self._set_connection_state(self.CONNECTION_INIT)
-
-        # Schedule a timer callback to start the actual connection logic from
-        # event loop's context, thus avoiding error callbacks in the context of
-        # the caller, which could be the constructor.
-        self._connection_attempt_timer = self.add_timeout(
-            0,
-            self._on_connect_timer)
-
-
-    def remove_timeout(self, timeout_id):
-        """Adapters should override: Remove a timeout
-
-        :param str timeout_id: The timeout id to remove
-
-        """
-        raise NotImplementedError
-
-    def set_backpressure_multiplier(self, value=10):
-        """Alter the backpressure multiplier value. We set this to 10 by default.
-        This value is used to raise warnings and trigger the backpressure
-        callback.
-
-        :param int value: The multiplier value to set
-
-        """
-        self._backpressure_multiplier = value
+            # If there are channels that haven't finished closing yet, then
+            # _on_close_ready will finally be called from _on_channel_cleanup once
+            # all channels have been closed
+            if not self._channels:
+                # We can initiate graceful closing of the connection right away,
+                # since no more channels remain
+                self._on_close_ready()
+            else:
+                LOGGER.info(
+                    'Connection.close is waiting for %d channels to close: %s',
+                    len(self._channels), self)
 
     #
     # Connection state properties
@@ -1368,23 +1414,77 @@ class Connection(object):
         """
         return self.server_capabilities.get('publisher_confirms', False)
 
+    @abc.abstractmethod
+    def _adapter_call_later(self, delay, callback):
+        """Adapters should override to call the callback after the
+        specified number of seconds have elapsed, using a timer, or a
+        thread, or similar.
+
+        :param float|int delay: The number of seconds to wait to call callback
+        :param callable callback: The callback will be called without args.
+        :returns: Handle that can be passed to `_adapter_remove_timeout()` to
+            cancel the callback.
+        :rtype: object
+
+        """
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def _adapter_remove_timeout(self, timeout_id):
+        """Adapters should override: Remove a timeout
+
+        :param opaque timeout_id: The timeout handle to remove
+
+        """
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def _adapter_add_callback_threadsafe(self, callback):
+        """Requests a call to the given function as soon as possible in the
+        context of this connection's IOLoop thread.
+
+        NOTE: This is the only thread-safe method offered by the connection. All
+         other manipulations of the connection must be performed from the
+         connection's thread.
+
+        :param callable callback: The callback method; must be callable.
+
+        """
+        raise NotImplementedError
+
     #
     # Internal methods for managing the communication process
     #
+    @abc.abstractmethod
+    def _adapter_connect_stream(self):
+        """Subclasses should override to initiate stream connection
+        workflow asynchronously. Upon failed or aborted completion, they must
+        invoke `Connection._on_stream_terminated()`.
 
-    def _adapter_connect(self):
-        """Subclasses should override to set up the outbound socket connection.
+        NOTE: On success, the stack will be up already, so there is no
+              corresponding callback.
+
+        """
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def _adapter_disconnect_stream(self):
+        """Asynchronously bring down the streaming transport layer and invoke
+        `Connection._on_stream_terminated()` asynchronously when complete.
 
         :raises: NotImplementedError
 
         """
         raise NotImplementedError
 
-    def _adapter_disconnect(self):
-        """Subclasses should override this to cause the underlying transport
-        (socket) to close.
+    @abc.abstractmethod
+    def _adapter_emit_data(self, data):
+        """Take ownership of data and send it to AMQP server as soon as
+        possible.
 
-        :raises: NotImplementedError
+        Subclasses must override this
+
+        :param bytes data:
 
         """
         raise NotImplementedError
@@ -1414,24 +1514,6 @@ class Connection(object):
         """Add a callback for when a Connection.Tune frame is received."""
         self.callbacks.add(0, spec.Connection.Tune, self._on_connection_tune)
 
-    def _append_frame_buffer(self, value):
-        """Append the bytes to the frame buffer.
-
-        :param str value: The bytes to append to the frame buffer
-
-        """
-        self._frame_buffer += value
-
-    @property
-    def _buffer_size(self):
-        """Return the suggested buffer size from the connection state/tune or
-        the default if that is None.
-
-        :rtype: int
-
-        """
-        return self.params.frame_max or spec.FRAME_MAX_SIZE
-
     def _check_for_protocol_mismatch(self, value):
         """Invoked when starting a connection to make sure it's a supported
         protocol.
@@ -1440,10 +1522,8 @@ class Connection(object):
         :raises: ProtocolVersionMismatch
 
         """
-        if (value.method.version_major,
-                value.method.version_minor) != spec.PROTOCOL_VERSION[0:2]:
-            # TODO This should call _on_terminate for proper callbacks and
-            # cleanup
+        if ((value.method.version_major, value.method.version_minor) !=
+                spec.PROTOCOL_VERSION[0:2]):
             raise exceptions.ProtocolVersionMismatch(frame.ProtocolHeader(),
                                                      value)
 
@@ -1465,7 +1545,7 @@ class Connection(object):
                 'publisher_confirms': True
             },
             'information': 'See http://pika.rtfd.org',
-            'version': __version__
+            'version': pika.__version__
         }
 
         if self.params.client_properties:
@@ -1488,21 +1568,14 @@ class Connection(object):
             if not (chan.is_closing or chan.is_closed):
                 chan.close(reply_code, reply_text)
 
-    def _connect(self):
-        """Attempt to connect to RabbitMQ
-
-        :rtype: bool
-
-        """
-        warnings.warn('This method is deprecated, use Connection.connect',
-                      DeprecationWarning)
-
     def _create_channel(self, channel_number, on_open_callback):
         """Create a new channel using the specified channel number and calling
         back the method specified by on_open_callback
 
         :param int channel_number: The channel number to use
-        :param method on_open_callback: The callback when the channel is opened
+        :param callable on_open_callback: The callback when the channel is
+            opened.  The callback will be invoked with the `Channel` instance
+            as its only argument.
 
         """
         LOGGER.debug('Creating channel %s', channel_number)
@@ -1518,7 +1591,7 @@ class Connection(object):
         if self.params.heartbeat is not None and self.params.heartbeat > 0:
             LOGGER.debug('Creating a HeartbeatChecker: %r',
                          self.params.heartbeat)
-            return heartbeat.HeartbeatChecker(self, self.params.heartbeat)
+            return pika.heartbeat.HeartbeatChecker(self, self.params.heartbeat)
 
         return None
 
@@ -1526,9 +1599,9 @@ class Connection(object):
         """Stop the heartbeat checker if it exists
 
         """
-        if self.heartbeat:
-            self.heartbeat.stop()
-            self.heartbeat = None
+        if self._heartbeat_checker:
+            self._heartbeat_checker.stop()
+            self._heartbeat_checker = None
 
     def _deliver_frame_to_channel(self, value):
         """Deliver the frame to the channel specified in the frame.
@@ -1547,32 +1620,10 @@ class Connection(object):
         # pylint: disable=W0212
         self._channels[value.channel_number]._handle_content_frame(value)
 
-    def _detect_backpressure(self):
-        """Attempt to calculate if TCP backpressure is being applied due to
-        our outbound buffer being larger than the average frame size over
-        a window of frames.
-
-        """
-        avg_frame_size = self.bytes_sent / self.frames_sent
-        buffer_size = sum([len(f) for f in self.outbound_buffer])
-        if buffer_size > (avg_frame_size * self._backpressure_multiplier):
-            LOGGER.warning(BACKPRESSURE_WARNING, buffer_size,
-                           int(buffer_size / avg_frame_size))
-            self.callbacks.process(0, self.ON_CONNECTION_BACKPRESSURE, self)
-
     def _ensure_closed(self):
         """If the connection is not closed, close it."""
         if self.is_open:
             self.close()
-
-    def _flush_outbound(self):
-        """Adapters should override to flush the contents of outbound_buffer
-        out along the socket.
-
-        :raises: NotImplementedError
-
-        """
-        raise NotImplementedError
 
     def _get_body_frame_max_length(self):
         """Calculate the maximum amount of bytes that can be in a body frame.
@@ -1580,9 +1631,8 @@ class Connection(object):
         :rtype: int
 
         """
-        return (
-            self.params.frame_max - spec.FRAME_HEADER_SIZE - spec.FRAME_END_SIZE
-        )
+        return (self.params.frame_max - spec.FRAME_HEADER_SIZE -
+                spec.FRAME_END_SIZE)
 
     def _get_credentials(self, method_frame):
         """Get credentials for authentication.
@@ -1594,8 +1644,6 @@ class Connection(object):
         (auth_type,
          response) = self.params.credentials.response_for(method_frame.method)
         if not auth_type:
-            # TODO this should call _on_terminate for proper callbacks and
-            # cleanup instead
             raise exceptions.AuthenticationError(self.params.credentials.TYPE)
         self.params.credentials.erase_credentials()
         return auth_type, response
@@ -1609,70 +1657,6 @@ class Connection(object):
 
         """
         return self.callbacks.pending(value.channel_number, value.method)
-
-    def _init_connection_state(self):
-        """Initialize or reset all of the internal state variables for a given
-        connection. On disconnect or reconnect all of the state needs to
-        be wiped.
-
-        """
-        # Connection state
-        self._set_connection_state(self.CONNECTION_CLOSED)
-
-        # Negotiated server properties
-        self.server_properties = None
-
-        # Outbound buffer for buffering writes until we're able to send them
-        self.outbound_buffer = collections.deque([])
-
-        # Inbound buffer for decoding frames
-        self._frame_buffer = bytes()
-
-        # Dict of open channels
-        self._channels = dict()
-
-        # Remaining connection attempts
-        self.remaining_connection_attempts = self.params.connection_attempts
-
-        # Data used for Heartbeat checking and back-pressure detection
-        self.bytes_sent = 0
-        self.bytes_received = 0
-        self.frames_sent = 0
-        self.frames_received = 0
-        self.heartbeat = None
-
-        # Default back-pressure multiplier value
-        self._backpressure_multiplier = 10
-
-        # When closing, hold reason why
-        self.closing = 0, 'Not specified'
-
-        # Our starting point once connected, first frame received
-        self._add_connection_start_callback()
-
-        # Add a callback handler for the Broker telling us to disconnect.
-        # NOTE: As of RabbitMQ 3.6.0, RabbitMQ broker may send Connection.Close
-        # to signal error during connection setup (and wait a longish time
-        # before closing the TCP/IP stream). Earlier RabbitMQ versions
-        # simply closed the TCP/IP stream.
-        self.callbacks.add(0, spec.Connection.Close, self._on_connection_close)
-
-        if self._connection_attempt_timer is not None:
-            # Connection attempt timer was active when teardown was initiated
-            self.remove_timeout(self._connection_attempt_timer)
-            self._connection_attempt_timer = None
-
-        if self.params.blocked_connection_timeout is not None:
-            if self._blocked_conn_timer is not None:
-                # Blocked connection timer was active when teardown was
-                # initiated
-                self.remove_timeout(self._blocked_conn_timer)
-                self._blocked_conn_timer = None
-
-            self.add_on_connection_blocked_callback(
-                self._on_connection_blocked)
-            self.add_on_connection_unblocked_callback(
-                self._on_connection_unblocked)
 
     def _is_method_frame(self, value):
         """Returns true if the frame is a method frame.
@@ -1718,8 +1702,7 @@ class Connection(object):
             del self._channels[channel.channel_number]
             LOGGER.debug('Removed channel %s', channel.channel_number)
         except KeyError:
-            LOGGER.error('Channel %r not in channels',
-                         channel.channel_number)
+            LOGGER.error('Channel %r not in channels', channel.channel_number)
         if self.is_closing:
             if not self._channels:
                 # Initiate graceful closing of the connection
@@ -1730,7 +1713,8 @@ class Connection(object):
                 # prevent Connection from completing its closing procedure.
                 channels_not_in_closing_state = [
                     chan for chan in dict_itervalues(self._channels)
-                    if not chan.is_closing]
+                    if not chan.is_closing
+                ]
                 if channels_not_in_closing_state:
                     LOGGER.critical(
                         'Connection in CLOSING state has non-CLOSING '
@@ -1738,7 +1722,7 @@ class Connection(object):
 
     def _on_close_ready(self):
         """Called when the Connection is in a state that it can close after
-        a close has been requested. This happens, for example, when all of the
+        a close has been requested by client. This happens after all of the
         channels are closed that were open when the close request was made.
 
         """
@@ -1746,9 +1730,11 @@ class Connection(object):
             LOGGER.warning('_on_close_ready invoked when already closed')
             return
 
-        self._send_connection_close(self.closing[0], self.closing[1])
+        # NOTE: Assuming self._error is instance of exceptions.ConnectionClosed
+        self._send_connection_close(self._error.reply_code,
+                                    self._error.reply_text)
 
-    def _on_connected(self):
+    def _on_stream_connected(self):
         """Invoked when the socket is connected and it's time to start speaking
         AMQP with the broker.
 
@@ -1764,10 +1750,11 @@ class Connection(object):
 
         """
         self._blocked_conn_timer = None
-        self._on_terminate(InternalCloseReasons.BLOCKED_CONNECTION_TIMEOUT,
-                           'Blocked connection timeout expired')
+        self._terminate_stream(
+            exceptions.ConnectionBlockedTimeout(
+                'Blocked connection timeout expired.'))
 
-    def _on_connection_blocked(self, method_frame):
+    def _on_connection_blocked(self, _connection, method_frame):
         """Handle Connection.Blocked notification from RabbitMQ broker
 
         :param pika.frame.Method method_frame: method frame having `method`
@@ -1778,15 +1765,15 @@ class Connection(object):
         if self._blocked_conn_timer is not None:
             # RabbitMQ is not supposed to repeat Connection.Blocked, but it
             # doesn't hurt to be careful
-            LOGGER.warning('_blocked_conn_timer %s already set when '
-                           '_on_connection_blocked is called',
-                           self._blocked_conn_timer)
+            LOGGER.warning(
+                '_blocked_conn_timer %s already set when '
+                '_on_connection_blocked is called', self._blocked_conn_timer)
         else:
-            self._blocked_conn_timer = self.add_timeout(
+            self._blocked_conn_timer = self._adapter_call_later(
                 self.params.blocked_connection_timeout,
                 self._on_blocked_connection_timeout)
 
-    def _on_connection_unblocked(self, method_frame):
+    def _on_connection_unblocked(self, _connection, method_frame):
         """Handle Connection.Unblocked notification from RabbitMQ broker
 
         :param pika.frame.Method method_frame: method frame having `method`
@@ -1800,22 +1787,21 @@ class Connection(object):
             LOGGER.warning('_blocked_conn_timer was not active when '
                            '_on_connection_unblocked called')
         else:
-            self.remove_timeout(self._blocked_conn_timer)
+            self._adapter_remove_timeout(self._blocked_conn_timer)
             self._blocked_conn_timer = None
 
-    def _on_connection_close(self, method_frame):
+    def _on_connection_close_from_broker(self, method_frame):
         """Called when the connection is closed remotely via Connection.Close
         frame from broker.
 
         :param pika.frame.Method method_frame: The Connection.Close frame
 
         """
-        LOGGER.debug('_on_connection_close: frame=%s', method_frame)
+        LOGGER.debug('_on_connection_close_from_broker: frame=%s', method_frame)
 
-        self.closing = (method_frame.method.reply_code,
-                        method_frame.method.reply_text)
-
-        self._on_terminate(self.closing[0], self.closing[1])
+        self._terminate_stream(
+            exceptions.ConnectionClosedByBroker(method_frame.method.reply_code,
+                                                method_frame.method.reply_text))
 
     def _on_connection_close_ok(self, method_frame):
         """Called when Connection.CloseOk is received from remote.
@@ -1825,26 +1811,24 @@ class Connection(object):
         """
         LOGGER.debug('_on_connection_close_ok: frame=%s', method_frame)
 
-        self._on_terminate(self.closing[0], self.closing[1])
+        self._terminate_stream(None)
 
-    def _on_connection_error(self, _connection_unused, error_message=None):
-        """Default behavior when the connecting connection can not connect.
+    def _default_on_connection_error(self, _connection_unused, error):
+        """Default behavior when the connecting connection cannot connect and
+        user didn't supply own `on_connection_error` callback.
 
-        :raises: exceptions.AMQPConnectionError
+        :raises: the given error
 
         """
-        raise exceptions.AMQPConnectionError(error_message or
-                                             self.params.connection_attempts)
+        raise error
 
-    def _on_connection_open(self, method_frame):
+    def _on_connection_open_ok(self, method_frame):
         """
         This is called once we have tuned the connection with the server and
         called the Connection.Open on the server and it has replied with
         Connection.Ok.
         """
-        # TODO _on_connection_open - what if user started closing it already?
-        # It shouldn't transition to OPEN if in closing state. Just log and skip
-        # the rest.
+        self._opened = True
 
         self.known_hosts = method_frame.method.known_hosts
 
@@ -1852,7 +1836,7 @@ class Connection(object):
         self._set_connection_state(self.CONNECTION_OPEN)
 
         # Call our initial callback that we're open
-        self.callbacks.process(0, self.ON_CONNECTION_OPEN, self, self)
+        self.callbacks.process(0, self.ON_CONNECTION_OPEN_OK, self, self)
 
     def _on_connection_start(self, method_frame):
         """This is called as a callback once we have received a Connection.Start
@@ -1863,50 +1847,17 @@ class Connection(object):
 
         """
         self._set_connection_state(self.CONNECTION_START)
-        if self._is_protocol_header_frame(method_frame):
-            raise exceptions.UnexpectedFrameError
-        self._check_for_protocol_mismatch(method_frame)
-        self._set_server_information(method_frame)
-        self._add_connection_tune_callback()
-        self._send_connection_start_ok(*self._get_credentials(method_frame))
 
-    def _on_connect_timer(self):
-        """Callback for self._connection_attempt_timer: initiate connection
-        attempt in the context of the event loop
-
-        """
-        self._connection_attempt_timer = None
-
-        error = self._adapter_connect()
-        if not error:
-            self._on_connected()
-            return
-
-        self.remaining_connection_attempts -= 1
-        LOGGER.warning('Could not connect, %i attempts left',
-                       self.remaining_connection_attempts)
-        if self.remaining_connection_attempts > 0:
-            LOGGER.info('Retrying in %i seconds', self.params.retry_delay)
-            self._connection_attempt_timer = self.add_timeout(
-                self.params.retry_delay,
-                self._on_connect_timer)
-        else:
-            # TODO connect must not call failure callback from constructor. The
-            # current behavior is error-prone, because the user code may get a
-            # callback upon socket connection failure before user's other state
-            # may be sufficiently initialized. Constructors must either succeed
-            # or raise an exception. To be forward-compatible with failure
-            # reporting from fully non-blocking connection establishment,
-            # connect() should set INIT state and schedule a 0-second timer to
-            # continue the rest of the logic in a private method. The private
-            # method should use itself instead of connect() as the callback for
-            # scheduling retries.
-
-            # TODO This should use _on_terminate for consistent behavior/cleanup
-            self.callbacks.process(0, self.ON_CONNECTION_ERROR, self, self,
-                                   error)
-            self.remaining_connection_attempts = self.params.connection_attempts
-            self._set_connection_state(self.CONNECTION_CLOSED)
+        try:
+            if self._is_protocol_header_frame(method_frame):
+                raise exceptions.UnexpectedFrameError(method_frame)
+            self._check_for_protocol_mismatch(method_frame)
+            self._set_server_information(method_frame)
+            self._add_connection_tune_callback()
+            self._send_connection_start_ok(*self._get_credentials(method_frame))
+        except Exception as error:  # pylint: disable=W0703
+            LOGGER.exception('Error processing Connection.Start.')
+            self._terminate_stream(error)
 
     @staticmethod
     def _negotiate_integer_value(client_value, server_value):
@@ -1919,9 +1870,9 @@ class Connection(object):
         :rtype: int
 
         """
-        if client_value == None:
+        if client_value is None:
             client_value = 0
-        if server_value == None:
+        if server_value is None:
             server_value = 0
 
         # this is consistent with how Java client and Bunny
@@ -1952,6 +1903,7 @@ class Connection(object):
             broker; 0 (zero) to disable heartbeat.
 
         :returns: the value of the heartbeat timeout to use and return to broker
+        :rtype: int
         """
         if client_value is None:
             # Accept server's limit
@@ -1973,13 +1925,14 @@ class Connection(object):
         self._set_connection_state(self.CONNECTION_TUNE)
 
         # Get our max channels, frames and heartbeat interval
-        self.params.channel_max = Connection._negotiate_integer_value(self.params.channel_max,
-                                                                      method_frame.method.channel_max)
-        self.params.frame_max = Connection._negotiate_integer_value(self.params.frame_max,
-                                                                    method_frame.method.frame_max)
+        self.params.channel_max = Connection._negotiate_integer_value(
+            self.params.channel_max, method_frame.method.channel_max)
+        self.params.frame_max = Connection._negotiate_integer_value(
+            self.params.frame_max, method_frame.method.frame_max)
 
         if callable(self.params.heartbeat):
-            ret_heartbeat = self.params.heartbeat(self, method_frame.method.heartbeat)
+            ret_heartbeat = self.params.heartbeat(self,
+                                                  method_frame.method.heartbeat)
             if ret_heartbeat is None or callable(ret_heartbeat):
                 # Enforce callback-specific restrictions on callback's return value
                 raise TypeError('heartbeat callback must not return None '
@@ -1997,7 +1950,7 @@ class Connection(object):
         self._body_max_length = self._get_body_frame_max_length()
 
         # Create a new heartbeat checker if needed
-        self.heartbeat = self._create_heartbeat_checker()
+        self._heartbeat_checker = self._create_heartbeat_checker()
 
         # Send the TuneOk response with what we've agreed upon
         self._send_connection_tune_ok()
@@ -2012,7 +1965,8 @@ class Connection(object):
         :param str data_in: The data that is available to read
 
         """
-        self._append_frame_buffer(data_in)
+        self._frame_buffer += data_in
+
         while self._frame_buffer:
             consumed_count, frame_value = self._read_frame()
             if not frame_value:
@@ -2020,89 +1974,120 @@ class Connection(object):
             self._trim_frame_buffer(consumed_count)
             self._process_frame(frame_value)
 
-    def _on_terminate(self, reason_code, reason_text):
-        """Terminate the connection and notify registered ON_CONNECTION_ERROR
-        and/or ON_CONNECTION_CLOSED callbacks
+    def _terminate_stream(self, error):
+        """Deactivate heartbeat instance if activated already, and initiate
+        termination of the stream (TCP) connection asynchronously.
 
-        :param integer reason_code: either IETF RFC 821 reply code for
-            AMQP-level closures or a value from `InternalCloseReasons` for
-            internal causes, such as socket errors
-        :param str reason_text: human-readable text message describing the error
+        When connection terminates, the appropriate user callback will be
+        invoked with the given error: "on open error" or "on connection closed".
+
+        :param Exception | None error: exception instance describing the reason
+            for termination; None for normal closing, such as upon receipt of
+            Connection.CloseOk.
+
+        """
+        assert isinstance(error, (type(None), Exception)), \
+            'error arg is neither None nor instance of Exception: {!r}.'.format(
+                error)
+
+        if error is not None:
+            # Save the exception for user callback once the stream closes
+            self._error = error
+        else:
+            assert self._error is not None, (
+                '_terminate_stream() expected self._error to be set when '
+                'passed None error arg.')
+
+        # So it won't mess with the stack
+        self._remove_heartbeat()
+
+        # Begin disconnection of stream or termination of connection workflow
+        self._adapter_disconnect_stream()
+
+    def _on_stream_terminated(self, error):
+        """Handle termination of stack (including TCP layer) or failure to
+        establish the stack. Notify registered ON_CONNECTION_ERROR or
+        ON_CONNECTION_CLOSED callbacks, depending on whether the connection
+        was opening or open.
+
+        :param Exception | None error: None means that the transport was aborted
+            internally and exception in `self._error` represents the cause.
+            Otherwise it's an exception object that describes the unexpected
+            loss of connection.
+
         """
         LOGGER.info(
-            'Disconnected from RabbitMQ at %s:%i (%s): %s',
-            self.params.host, self.params.port, reason_code,
-            reason_text)
+            'AMQP stack terminated, failed to connect, or aborted: '
+            'opened=%r, error-arg=%r; pending-error=%r',
+            self._opened, error, self._error)
 
-        if not isinstance(reason_code, numbers.Integral):
-            raise TypeError('reason_code must be an integer, but got %r'
-                            % (reason_code,))
+        if error is not None:
+            if self._error is not None:
+                LOGGER.debug(
+                    '_on_stream_terminated(): overriding '
+                    'pending-error=%r with %r', self._error, error)
+            self._error = error
+        else:
+            assert self._error is not None, (
+                '_on_stream_terminated() expected self._error to be populated '
+                'with reason for terminating stack.')
 
         # Stop the heartbeat checker if it exists
         self._remove_heartbeat()
 
         # Remove connection management callbacks
-        # TODO This call was moved here verbatim from legacy code and the
-        # following doesn't seem to be right: `Connection.Open` here is
-        # unexpected, we don't appear to ever register it, and the broker
-        # shouldn't be sending `Connection.Open` to us, anyway.
-        self._remove_callbacks(0, [spec.Connection.Close, spec.Connection.Start,
-                                   spec.Connection.Open])
+        self._remove_callbacks(0,
+                               [spec.Connection.Close, spec.Connection.Start])
 
         if self.params.blocked_connection_timeout is not None:
-            self._remove_callbacks(0, [spec.Connection.Blocked,
-                                       spec.Connection.Unblocked])
+            self._remove_callbacks(0,
+                    [spec.Connection.Blocked, spec.Connection.Unblocked])
 
-        # Close the socket
-        self._adapter_disconnect()
-
-        # Determine whether this was an error during connection setup
-        connection_error = None
-
-        if self.connection_state == self.CONNECTION_PROTOCOL:
-            LOGGER.error('Incompatible Protocol Versions')
-            connection_error = exceptions.IncompatibleProtocolError(
-                reason_code,
-                reason_text)
-        elif self.connection_state == self.CONNECTION_START:
-            LOGGER.error('Connection closed while authenticating indicating a '
-                         'probable authentication error')
-            connection_error = exceptions.ProbableAuthenticationError(
-                reason_code,
-                reason_text)
-        elif self.connection_state == self.CONNECTION_TUNE:
-            LOGGER.error('Connection closed while tuning the connection '
-                         'indicating a probable permission error when '
-                         'accessing a virtual host')
-            connection_error = exceptions.ProbableAccessDeniedError(
-                reason_code,
-                reason_text)
-        elif self.connection_state not in [self.CONNECTION_OPEN,
-                                           self.CONNECTION_CLOSED,
-                                           self.CONNECTION_CLOSING]:
-            LOGGER.warning('Unexpected connection state on disconnect: %i',
-                           self.connection_state)
+        if not self._opened and isinstance(self._error,
+                (exceptions.StreamLostError, exceptions.ConnectionClosedByBroker)):
+            # Heuristically deduce error based on connection state
+            if self.connection_state == self.CONNECTION_PROTOCOL:
+                LOGGER.error('Probably incompatible Protocol Versions')
+                self._error = exceptions.IncompatibleProtocolError(
+                    repr(self._error))
+            elif self.connection_state == self.CONNECTION_START:
+                LOGGER.error(
+                    'Connection closed while authenticating indicating a '
+                    'probable authentication error')
+                self._error = exceptions.ProbableAuthenticationError(
+                    repr(self._error))
+            elif self.connection_state == self.CONNECTION_TUNE:
+                LOGGER.error('Connection closed while tuning the connection '
+                             'indicating a probable permission error when '
+                             'accessing a virtual host')
+                self._error = exceptions.ProbableAccessDeniedError(
+                    repr(self._error))
+            elif self.connection_state not in [
+                    self.CONNECTION_OPEN, self.CONNECTION_CLOSED,
+                    self.CONNECTION_CLOSING
+            ]:
+                LOGGER.warning('Unexpected connection state on disconnect: %i',
+                               self.connection_state)
 
         # Transition to closed state
         self._set_connection_state(self.CONNECTION_CLOSED)
 
-        # Inform our channel proxies
+        # Inform our channel proxies, if any are still around
         for channel in dictkeys(self._channels):
             if channel not in self._channels:
                 continue
             # pylint: disable=W0212
-            self._channels[channel]._on_close_meta(reason_code, reason_text)
+            self._channels[channel]._on_close_meta(self._error)
 
         # Inform interested parties
-        if connection_error is not None:
-            LOGGER.error('Connection setup failed due to %r', connection_error)
-            self.callbacks.process(0,
-                                   self.ON_CONNECTION_ERROR,
-                                   self, self,
-                                   connection_error)
-
-        self.callbacks.process(0, self.ON_CONNECTION_CLOSED, self, self,
-                               reason_code, reason_text)
+        if not self._opened:
+            LOGGER.info('Connection setup terminated due to %r', self._error)
+            self.callbacks.process(0, self.ON_CONNECTION_ERROR, self, self,
+                                   self._error)
+        else:
+            LOGGER.info('Stack terminated due to %r', self._error)
+            self.callbacks.process(0, self.ON_CONNECTION_CLOSED, self, self,
+                                   self._error)
 
         # Reset connection properties
         self._init_connection_state()
@@ -2117,18 +2102,19 @@ class Connection(object):
         """
         if (self._is_method_frame(frame_value) and
                 self._has_pending_callbacks(frame_value)):
-            self.callbacks.process(frame_value.channel_number,  # Prefix
-                                   frame_value.method,  # Key
-                                   self,  # Caller
-                                   frame_value)  # Args
+            self.callbacks.process(
+                frame_value.channel_number,  # Prefix
+                frame_value.method,  # Key
+                self,  # Caller
+                frame_value)  # Args
             return True
         return False
 
     def _process_frame(self, frame_value):
         """Process an inbound frame from the socket.
 
-        :param frame_value: The frame to process
-        :type frame_value: pika.frame.Frame | pika.frame.Method
+        :param pika.frame.Frame|pika.frame.Method frame_value: The frame to
+            process
 
         """
         # Will receive a frame type of -1 if protocol version mismatch
@@ -2144,8 +2130,8 @@ class Connection(object):
 
         # If a heartbeat is received, update the checker
         if isinstance(frame_value, frame.Heartbeat):
-            if self.heartbeat:
-                self.heartbeat.received()
+            if self._heartbeat_checker:
+                self._heartbeat_checker.received()
             else:
                 LOGGER.warning('Received heartbeat frame without a heartbeat '
                                'checker')
@@ -2162,17 +2148,6 @@ class Connection(object):
         """
         return frame.decode_frame(self._frame_buffer)
 
-    def _remove_callback(self, channel_number, method_class):
-        """Remove the specified method_frame callback if it is set for the
-        specified channel number.
-
-        :param int channel_number: The channel number to remove the callback on
-        :param pika.amqp_object.Method method_class: The method class for the
-            callback
-
-        """
-        self.callbacks.remove(str(channel_number), method_class)
-
     def _remove_callbacks(self, channel_number, method_classes):
         """Remove the callbacks for the specified channel number and list of
         method frames.
@@ -2182,11 +2157,13 @@ class Connection(object):
             `pika.amqp_object.Method`) for the callbacks
 
         """
-        for method_frame in method_classes:
-            self._remove_callback(channel_number, method_frame)
+        for method_cls in method_classes:
+            self.callbacks.remove(str(channel_number), method_cls)
 
-    def _rpc(self, channel_number, method,
-             callback_method=None,
+    def _rpc(self,
+             channel_number,
+             method,
+             callback=None,
              acceptable_replies=None):
         """Make an RPC call for the given callback, channel number and method.
         acceptable_replies lists out what responses we'll process from the
@@ -2194,7 +2171,7 @@ class Connection(object):
 
         :param int channel_number: The channel number for the RPC call
         :param pika.amqp_object.Method method: The method frame to call
-        :param method callback_method: The callback for the RPC response
+        :param callable callback: The callback for the RPC response
         :param list acceptable_replies: The replies this RPC call expects
 
         """
@@ -2203,12 +2180,10 @@ class Connection(object):
             raise TypeError('acceptable_replies should be list or None')
 
         # Validate the callback is callable
-        if callback_method:
-            if not utils.is_callable(callback_method):
-                raise TypeError('callback should be None, function or method.')
-
+        if callback is not None:
+            validators.require_callback(callback)
             for reply in acceptable_replies:
-                self.callbacks.add(channel_number, reply, callback_method)
+                self.callbacks.add(channel_number, reply, callback)
 
         # Send the rpc call to RabbitMQ
         self._send_method(channel_number, method)
@@ -2225,9 +2200,9 @@ class Connection(object):
 
     def _send_connection_open(self):
         """Send a Connection.Open frame"""
-        self._rpc(0, spec.Connection.Open(self.params.virtual_host,
-                                          insist=True),
-                  self._on_connection_open, [spec.Connection.OpenOk])
+        self._rpc(0, spec.Connection.Open(
+            self.params.virtual_host, insist=True), self._on_connection_open_ok,
+                  [spec.Connection.OpenOk])
 
     def _send_connection_start_ok(self, authentication_type, response):
         """Send a Connection.StartOk frame
@@ -2236,37 +2211,36 @@ class Connection(object):
         :param str response: The encoded value to send
 
         """
-        self._send_method(0,
-                          spec.Connection.StartOk(self._client_properties,
-                                                  authentication_type, response,
-                                                  self.params.locale))
+        self._send_method(
+            0,
+            spec.Connection.StartOk(self._client_properties,
+                                    authentication_type, response,
+                                    self.params.locale))
 
     def _send_connection_tune_ok(self):
         """Send a Connection.TuneOk frame"""
-        self._send_method(0, spec.Connection.TuneOk(self.params.channel_max,
-                                                    self.params.frame_max,
-                                                    self.params.heartbeat))
+        self._send_method(
+            0,
+            spec.Connection.TuneOk(self.params.channel_max,
+                                   self.params.frame_max,
+                                   self.params.heartbeat))
 
     def _send_frame(self, frame_value):
         """This appends the fully generated frame to send to the broker to the
         output buffer which will be then sent via the connection adapter.
 
-        :param frame_value: The frame to write
-        :type frame_value:  pika.frame.Frame|pika.frame.ProtocolHeader
+        :param pika.frame.Frame|pika.frame.ProtocolHeader frame_value: The
+            frame to write
         :raises: exceptions.ConnectionClosed
 
         """
         if self.is_closed:
             LOGGER.error('Attempted to send frame when closed')
-            raise exceptions.ConnectionClosed
+            raise exceptions.ConnectionWrongStateError(
+                'Attempted to send a frame on closed connection.')
 
         marshaled_frame = frame_value.marshal()
-        self.bytes_sent += len(marshaled_frame)
-        self.frames_sent += 1
-        self.outbound_buffer.append(marshaled_frame)
-        self._flush_outbound()
-        if self.params.backpressure_detection:
-            self._detect_backpressure()
+        self._output_marshaled_frames([marshaled_frame])
 
     def _send_method(self, channel_number, method, content=None):
         """Constructs a RPC method frame and then sends it to the broker.
@@ -2292,17 +2266,26 @@ class Connection(object):
 
         """
         length = len(content[1])
-        self._send_frame(frame.Method(channel_number, method_frame))
-        self._send_frame(frame.Header(channel_number, length, content[0]))
+        marshaled_body_frames = []
+
+        # Note: we construct the Method, Header and Content objects, marshal them
+        # *then* output in case the marshaling operation throws an exception
+        frame_method = frame.Method(channel_number, method_frame)
+        frame_header = frame.Header(channel_number, length, content[0])
+        marshaled_body_frames.append(frame_method.marshal())
+        marshaled_body_frames.append(frame_header.marshal())
 
         if content[1]:
             chunks = int(math.ceil(float(length) / self._body_max_length))
             for chunk in xrange(0, chunks):
-                s = chunk * self._body_max_length
-                e = s + self._body_max_length
-                if e > length:
-                    e = length
-                self._send_frame(frame.Body(channel_number, content[1][s:e]))
+                start = chunk * self._body_max_length
+                end = start + self._body_max_length
+                if end > length:
+                    end = length
+                frame_body = frame.Body(channel_number, content[1][start:end])
+                marshaled_body_frames.append(frame_body.marshal())
+
+        self._output_marshaled_frames(marshaled_body_frames)
 
     def _set_connection_state(self, connection_state):
         """Set the connection state.
@@ -2310,6 +2293,10 @@ class Connection(object):
         :param int connection_state: The connection state to set
 
         """
+        LOGGER.debug('New Connection state: %s (prev=%s)',
+                     self._STATE_NAMES[connection_state],
+                     self._STATE_NAMES[self.connection_state])
+
         self.connection_state = connection_state
 
     def _set_server_information(self, method_frame):
@@ -2319,8 +2306,8 @@ class Connection(object):
 
         """
         self.server_properties = method_frame.method.server_properties
-        self.server_capabilities = self.server_properties.get('capabilities',
-                                                              dict())
+        self.server_capabilities = self.server_properties.get(
+            'capabilities', dict())
         if hasattr(self.server_properties, 'capabilities'):
             del self.server_properties['capabilities']
 
@@ -2334,3 +2321,14 @@ class Connection(object):
         """
         self._frame_buffer = self._frame_buffer[byte_count:]
         self.bytes_received += byte_count
+
+    def _output_marshaled_frames(self, marshaled_frames):
+        """Output list of marshaled frames to buffer and update stats
+
+        :param list marshaled_frames: A list of frames marshaled to bytes
+
+        """
+        for marshaled_frame in marshaled_frames:
+            self.bytes_sent += len(marshaled_frame)
+            self.frames_sent += 1
+            self._adapter_emit_data(marshaled_frame)

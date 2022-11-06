@@ -4,7 +4,7 @@ AMQP classes and methods.
 """
 
 
-class AMQPObject(object):
+class AMQPObject:
     """Base object that is extended by AMQP low level frames and AMQP classes
     and methods.
 
@@ -16,10 +16,16 @@ class AMQPObject(object):
         items = list()
         for key, value in self.__dict__.items():
             if getattr(self.__class__, key, None) != value:
-                items.append('%s=%s' % (key, value))
+                items.append('{}={}'.format(key, value))
         if not items:
             return "<%s>" % self.NAME
-        return "<%s(%s)>" % (self.NAME, sorted(items))
+        return "<{}({})>".format(self.NAME, sorted(items))
+
+    def __eq__(self, other):
+        if other is not None:
+            return self.__dict__ == other.__dict__
+        else:
+            return False
 
 
 class Class(AMQPObject):
@@ -37,12 +43,11 @@ class Method(AMQPObject):
         be carried as attributes of the class.
 
         :param pika.frame.Properties properties: AMQP Basic Properties
-        :param body: The message body
-        :type body: str or unicode
+        :param bytes body: The message body
 
         """
-        self._properties = properties
-        self._body = body
+        self._properties = properties  # pylint: disable=W0201
+        self._body = body  # pylint: disable=W0201
 
     def get_properties(self):
         """Return the properties if they are set.

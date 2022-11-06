@@ -1,6 +1,9 @@
-import pika
-from pika import spec
+# -*- coding: utf-8 -*-
+# pylint: disable=C0111,C0103,R0205,W0603
+
 import logging
+import pika
+from pika import spec, DeliveryMode
 
 ITERATIONS = 100
 
@@ -10,19 +13,21 @@ confirmed = 0
 errors = 0
 published = 0
 
-def on_open(connection):
-    connection.channel(on_channel_open)
+
+def on_open(conn):
+    conn.channel(on_open_callback=on_channel_open)
 
 
 def on_channel_open(channel):
     global published
-    channel.confirm_delivery(on_delivery_confirmation)
-    for iteration in xrange(0, ITERATIONS):
-        channel.basic_publish('test', 'test.confirm',
-                              'message body value',
-                               pika.BasicProperties(content_type='text/plain',
-                                                    delivery_mode=1))
+    channel.confirm_delivery(ack_nack_callback=on_delivery_confirmation)
+    for _iteration in range(0, ITERATIONS):
+        channel.basic_publish(
+            'test', 'test.confirm', 'message body value',
+            pika.BasicProperties(content_type='text/plain',
+                                 delivery_mode=DeliveryMode.Transient))
         published += 1
+
 
 def on_delivery_confirmation(frame):
     global confirmed, errors
@@ -33,10 +38,14 @@ def on_delivery_confirmation(frame):
         logging.error('Received negative confirmation: %r', frame.method)
         errors += 1
     if (confirmed + errors) == ITERATIONS:
-        logging.info('All confirmations received, published %i, confirmed %i with %i errors', published, confirmed, errors)
+        logging.info(
+            'All confirmations received, published %i, confirmed %i with %i errors',
+            published, confirmed, errors)
         connection.close()
 
-parameters = pika.URLParameters('amqp://guest:guest@localhost:5672/%2F?connection_attempts=50')
+
+parameters = pika.URLParameters(
+    'amqp://guest:guest@localhost:5672/%2F?connection_attempts=50')
 connection = pika.SelectConnection(parameters=parameters,
                                    on_open_callback=on_open)
 

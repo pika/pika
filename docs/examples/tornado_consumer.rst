@@ -4,9 +4,11 @@ The following example implements a consumer using the :class:`Tornado adapter <p
 
 consumer.py::
 
-    from pika import adapters
-    import pika
     import logging
+    import pika
+    from pika import adapters
+    from pika.adapters.tornado_connection import TornadoConnection
+    from pika.exchange_type import ExchangeType
 
     LOG_FORMAT = ('%(levelname) -10s %(asctime)s %(name) -30s %(funcName) '
                   '-35s %(lineno) -5d: %(message)s')
@@ -27,7 +29,7 @@ consumer.py::
 
         """
         EXCHANGE = 'message'
-        EXCHANGE_TYPE = 'topic'
+        EXCHANGE_TYPE = ExchangeType.topic
         QUEUE = 'text'
         ROUTING_KEY = 'example.text'
 
@@ -53,8 +55,10 @@ consumer.py::
 
             """
             LOGGER.info('Connecting to %s', self._url)
-            return adapters.TornadoConnection(pika.URLParameters(self._url),
-                                              self.on_connection_open)
+            return TornadoConnection(
+                pika.URLParameters(self._url),
+                self.on_connection_open,
+            )
 
         def close_connection(self):
             """This method closes the connection to RabbitMQ."""
@@ -69,30 +73,30 @@ consumer.py::
             LOGGER.info('Adding connection close callback')
             self._connection.add_on_close_callback(self.on_connection_closed)
 
-        def on_connection_closed(self, connection, reply_code, reply_text):
+        def on_connection_closed(self, connection, reason):
             """This method is invoked by pika when the connection to RabbitMQ is
             closed unexpectedly. Since it is unexpected, we will reconnect to
             RabbitMQ if it disconnects.
 
             :param pika.connection.Connection connection: The closed connection obj
-            :param int reply_code: The server provided reply_code if given
-            :param str reply_text: The server provided reply_text if given
+            :param Exception reason: exception representing reason for loss of
+                connection.
 
             """
             self._channel = None
             if self._closing:
                 self._connection.ioloop.stop()
             else:
-                LOGGER.warning('Connection closed, reopening in 5 seconds: (%s) %s',
-                               reply_code, reply_text)
-                self._connection.add_timeout(5, self.reconnect)
+                LOGGER.warning('Connection closed, reopening in 5 seconds: %s',
+                            reason)
+                self._connection.ioloop.call_later(5, self.reconnect)
 
         def on_connection_open(self, unused_connection):
             """This method is called by pika once the connection to RabbitMQ has
             been established. It passes the handle to the connection object in
             case we need it, but in this case, we'll just mark it unused.
 
-            :type unused_connection: pika.SelectConnection
+            :param pika.SelectConnection _unused_connection: The connection
 
             """
             LOGGER.info('Connection opened')
@@ -117,7 +121,7 @@ consumer.py::
             LOGGER.info('Adding channel close callback')
             self._channel.add_on_close_callback(self.on_channel_closed)
 
-        def on_channel_closed(self, channel, reply_code, reply_text):
+        def on_channel_closed(self, channel, reason):
             """Invoked by pika when RabbitMQ unexpectedly closes the channel.
             Channels are usually closed if you attempt to do something that
             violates the protocol, such as re-declare an exchange or queue with
@@ -125,12 +129,10 @@ consumer.py::
             to shutdown the object.
 
             :param pika.channel.Channel: The closed channel
-            :param int reply_code: The numeric reason the channel was closed
-            :param str reply_text: The text reason the channel was closed
+            :param Exception reason: why the channel was closed
 
             """
-            LOGGER.warning('Channel %i was closed: (%s) %s',
-                           channel, reply_code, reply_text)
+            LOGGER.warning('Channel %i was closed: %s', channel, reason)
             self._connection.close()
 
         def on_channel_open(self, channel):
@@ -156,9 +158,11 @@ consumer.py::
 
             """
             LOGGER.info('Declaring exchange %s', exchange_name)
-            self._channel.exchange_declare(self.on_exchange_declareok,
-                                           exchange_name,
-                                           self.EXCHANGE_TYPE)
+            self._channel.exchange_declare(
+                callback=self.on_exchange_declareok,
+                exchange=exchange_name,
+                exchange_type=self.EXCHANGE_TYPE,
+            )
 
         def on_exchange_declareok(self, unused_frame):
             """Invoked by pika when RabbitMQ has finished the Exchange.Declare RPC
@@ -179,7 +183,10 @@ consumer.py::
 
             """
             LOGGER.info('Declaring queue %s', queue_name)
-            self._channel.queue_declare(self.on_queue_declareok, queue_name)
+            self._channel.queue_declare(
+                queue=queue_name,
+                callback=self.on_queue_declareok,
+            )
 
         def on_queue_declareok(self, method_frame):
             """Method invoked by pika when the Queue.Declare RPC call made in
@@ -193,8 +200,12 @@ consumer.py::
             """
             LOGGER.info('Binding %s to %s with %s',
                         self.EXCHANGE, self.QUEUE, self.ROUTING_KEY)
-            self._channel.queue_bind(self.on_bindok, self.QUEUE,
-                                     self.EXCHANGE, self.ROUTING_KEY)
+            self._channel.queue_bind(
+                queue=self.QUEUE,
+                exchange=self.EXCHANGE,
+                routing_key=self.ROUTING_KEY,
+                callback=self.on_bindok,
+            )
 
         def add_on_cancel_callback(self):
             """Add a callback that will be invoked if RabbitMQ cancels the consumer
@@ -238,7 +249,7 @@ consumer.py::
             :param pika.channel.Channel unused_channel: The channel object
             :param pika.Spec.Basic.Deliver: basic_deliver method
             :param pika.Spec.BasicProperties: properties
-            :param str|unicode body: The message body
+            :param bytes body: The message body
 
             """
             LOGGER.info('Received message # %s from %s: %s',
@@ -278,8 +289,10 @@ consumer.py::
             """
             LOGGER.info('Issuing consumer related RPC commands')
             self.add_on_cancel_callback()
-            self._consumer_tag = self._channel.basic_consume(self.on_message,
-                                                             self.QUEUE)
+            self._consumer_tag = self._channel.basic_consume(
+                on_message_callback=self.on_message,
+                queue=self.QUEUE,
+            )
 
         def on_bindok(self, unused_frame):
             """Invoked by pika when the Queue.Bind method has completed. At this
@@ -346,4 +359,3 @@ consumer.py::
 
     if __name__ == '__main__':
         main()
-

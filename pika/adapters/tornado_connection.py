@@ -1,122 +1,90 @@
-"""Use pika with the Tornado IOLoop"""
-from tornado import ioloop
-import logging
-import time
+"""Use pika with the Tornado IOLoop
 
+"""
+import logging
+
+from tornado import ioloop
+
+from pika.adapters.utils import nbio_interface, selector_ioloop_adapter
 from pika.adapters import base_connection
 
 LOGGER = logging.getLogger(__name__)
 
 
 class TornadoConnection(base_connection.BaseConnection):
-    """The TornadoConnection runs on the Tornado IOLoop. If you're running the
-    connection in a web app, make sure you set stop_ioloop_on_close to False,
-    which is the default behavior for this adapter, otherwise the web app
-    will stop taking requests.
-
-    :param pika.connection.Parameters parameters: Connection parameters
-    :param on_open_callback: The method to call when the connection is open
-    :type on_open_callback: method
-    :param on_open_error_callback: Method to call if the connection cant
-                                   be opened
-    :type on_open_error_callback: method
-    :param bool stop_ioloop_on_close: Call ioloop.stop() if disconnected
-    :param custom_ioloop: Override using the global IOLoop in Tornado
-
+    """The TornadoConnection runs on the Tornado IOLoop.
     """
-    WARN_ABOUT_IOLOOP = True
 
     def __init__(self,
                  parameters=None,
                  on_open_callback=None,
                  on_open_error_callback=None,
                  on_close_callback=None,
-                 stop_ioloop_on_close=False,
-                 custom_ioloop=None):
+                 custom_ioloop=None,
+                 internal_connection_workflow=True):
         """Create a new instance of the TornadoConnection class, connecting
-        to RabbitMQ automatically
+        to RabbitMQ automatically.
 
-        :param pika.connection.Parameters parameters: Connection parameters
-        :param on_open_callback: The method to call when the connection is open
-        :type on_open_callback: method
-        :param method on_open_error_callback: Called if the connection can't
-            be established: on_open_error_callback(connection, str|exception)
-        :param method on_close_callback: Called when the connection is closed:
-            on_close_callback(connection, reason_code, reason_text)
-        :param bool stop_ioloop_on_close: Call ioloop.stop() if disconnected
-        :param custom_ioloop: Override using the global IOLoop in Tornado
-
-        """
-        self.sleep_counter = 0
-        self.ioloop = custom_ioloop or ioloop.IOLoop.instance()
-        super(TornadoConnection, self).__init__(parameters, on_open_callback,
-                                                on_open_error_callback,
-                                                on_close_callback, self.ioloop,
-                                                stop_ioloop_on_close)
-
-    def _adapter_connect(self):
-        """Connect to the remote socket, adding the socket to the IOLoop if
-        connected.
-
-        :rtype: bool
+        :param pika.connection.Parameters|None parameters: The connection
+            parameters
+        :param callable|None on_open_callback: The method to call when the
+            connection is open
+        :param callable|None on_open_error_callback: Called if the connection
+            can't be established or connection establishment is interrupted by
+            `Connection.close()`:
+            on_open_error_callback(Connection, exception)
+        :param callable|None on_close_callback: Called when a previously fully
+            open connection is closed:
+            `on_close_callback(Connection, exception)`, where `exception` is
+            either an instance of `exceptions.ConnectionClosed` if closed by
+            user or broker or exception of another type that describes the
+            cause of connection failure
+        :param ioloop.IOLoop|nbio_interface.AbstractIOServices|None custom_ioloop:
+            Override using the global IOLoop in Tornado
+        :param bool internal_connection_workflow: True for autonomous connection
+            establishment which is default; False for externally-managed
+            connection workflow via the `create_connection()` factory
 
         """
-        error = super(TornadoConnection, self)._adapter_connect()
-        if not error:
-            self.ioloop.add_handler(self.socket.fileno(), self._handle_events,
-                                    self.event_state)
-        return error
+        if isinstance(custom_ioloop, nbio_interface.AbstractIOServices):
+            nbio = custom_ioloop
+        else:
+            nbio = (selector_ioloop_adapter.SelectorIOServicesAdapter(
+                custom_ioloop or ioloop.IOLoop.instance()))
+        super().__init__(
+            parameters,
+            on_open_callback,
+            on_open_error_callback,
+            on_close_callback,
+            nbio,
+            internal_connection_workflow=internal_connection_workflow)
 
-    def _adapter_disconnect(self):
-        """Disconnect from the RabbitMQ broker"""
-        if self.socket:
-            self.ioloop.remove_handler(self.socket.fileno())
-        super(TornadoConnection, self)._adapter_disconnect()
-
-    def add_timeout(self, deadline, callback_method):
-        """Add the callback_method to the IOLoop timer to fire after deadline
-        seconds. Returns a handle to the timeout. Do not confuse with
-        Tornado's timeout where you pass in the time you want to have your
-        callback called. Only pass in the seconds until it's to be called.
-
-        :param int deadline: The number of seconds to wait to call callback
-        :param method callback_method: The callback method
-        :rtype: str
-
-        """
-        return self.ioloop.add_timeout(time.time() + deadline, callback_method)
-
-    def remove_timeout(self, timeout_id):
-        """Remove the timeout from the IOLoop by the ID returned from
-        add_timeout.
-
-        :rtype: str
+    @classmethod
+    def create_connection(cls,
+                          connection_configs,
+                          on_done,
+                          custom_ioloop=None,
+                          workflow=None):
+        """Implement
+        :py:classmethod:`pika.adapters.BaseConnection.create_connection()`.
 
         """
-        return self.ioloop.remove_timeout(timeout_id)
+        nbio = selector_ioloop_adapter.SelectorIOServicesAdapter(
+            custom_ioloop or ioloop.IOLoop.instance())
 
-    def add_callback_threadsafe(self, callback):
-        """Requests a call to the given function as soon as possible in the
-        context of this connection's IOLoop thread.
+        def connection_factory(params):
+            """Connection factory."""
+            if params is None:
+                raise ValueError('Expected pika.connection.Parameters '
+                                 'instance, but got None in params arg.')
+            return cls(
+                parameters=params,
+                custom_ioloop=nbio,
+                internal_connection_workflow=False)
 
-        NOTE: This is the only thread-safe method offered by the connection. All
-         other manipulations of the connection must be performed from the
-         connection's thread.
-
-        For example, a thread may request a call to the
-        `channel.basic_ack` method of a connection that is running in a
-        different thread via
-
-        ```
-        connection.add_callback_threadsafe(
-            functools.partial(channel.basic_ack, delivery_tag=...))
-        ```
-
-        :param method callback: The callback method; must be callable.
-
-        """
-        if not callable(callback):
-            raise TypeError(
-                'callback must be a callable, but got %r' % (callback,))
-
-        self.ioloop.add_callback(callback)
+        return cls._start_connection_workflow(
+            connection_configs=connection_configs,
+            connection_factory=connection_factory,
+            nbio=nbio,
+            workflow=workflow,
+            on_done=on_done)

@@ -1,105 +1,219 @@
 """Pika specific exceptions"""
+# pylint: disable=C0111,E1136
 
 
 class AMQPError(Exception):
 
     def __repr__(self):
-        return 'An unspecified AMQP error has occurred'
+        return '{}: An unspecified AMQP error has occurred; {}'.format(
+            self.__class__.__name__, self.args)
 
 
 class AMQPConnectionError(AMQPError):
 
     def __repr__(self):
-        if len(self.args) == 1:
-            if self.args[0] == 1:
-                return ('No connection could be opened after 1 '
-                        'connection attempt')
-            elif isinstance(self.args[0], int):
-                return ('No connection could be opened after %s '
-                        'connection attempts' % self.args[0])
-            else:
-                return 'No connection could be opened: %s' % self.args[0]
-        elif len(self.args) == 2:
-            return '%s: %s' % (self.args[0], self.args[1])
+        if len(self.args) == 2:
+            return '{}: ({}) {}'.format(self.__class__.__name__, self.args[0],
+                                        self.args[1])
+        else:
+            return f'{self.__class__.__name__}: {self.args}'
+
+
+class ConnectionOpenAborted(AMQPConnectionError):
+    """Client closed connection while opening."""
+
+
+class StreamLostError(AMQPConnectionError):
+    """Stream (TCP) connection lost."""
 
 
 class IncompatibleProtocolError(AMQPConnectionError):
 
     def __repr__(self):
-        return ('The protocol returned by the server is not supported: %s' %
-                (self.args,))
+        return (
+            '{}: The protocol returned by the server is not supported: {}'.format(
+                self.__class__.__name__,
+                self.args,
+            ))
 
 
 class AuthenticationError(AMQPConnectionError):
 
     def __repr__(self):
-        return ('Server and client could not negotiate use of the %s '
-                'authentication mechanism' % self.args[0])
+        return ('%s: Server and client could not negotiate use of the %s '
+                'authentication mechanism' % (self.__class__.__name__,
+                                              self.args[0]))
 
 
 class ProbableAuthenticationError(AMQPConnectionError):
 
     def __repr__(self):
-        return ('Client was disconnected at a connection stage indicating a '
-                'probable authentication error: %s' % (self.args,))
+        return (
+            '%s: Client was disconnected at a connection stage indicating a '
+            'probable authentication error: %s' % (
+                self.__class__.__name__,
+                self.args,
+            ))
 
 
 class ProbableAccessDeniedError(AMQPConnectionError):
 
     def __repr__(self):
-        return ('Client was disconnected at a connection stage indicating a '
-                'probable denial of access to the specified virtual host: %s' %
-                (self.args,))
+        return (
+            '%s: Client was disconnected at a connection stage indicating a '
+            'probable denial of access to the specified virtual host: %s' % (
+                self.__class__.__name__,
+                self.args,
+            ))
 
 
 class NoFreeChannels(AMQPConnectionError):
 
     def __repr__(self):
-        return 'The connection has run out of free channels'
+        return '%s: The connection has run out of free channels' % (
+            self.__class__.__name__)
+
+
+class ConnectionWrongStateError(AMQPConnectionError):
+    """Connection is in wrong state for the requested operation."""
+
+    def __repr__(self):
+        if self.args:
+            return super().__repr__()
+        else:
+            return ('%s: The connection is in wrong state for the requested '
+                    'operation.' % self.__class__.__name__)
 
 
 class ConnectionClosed(AMQPConnectionError):
 
+    def __init__(self, reply_code, reply_text):
+        """
+
+        :param int reply_code: reply-code that was used in user's or broker's
+            `Connection.Close` method. NEW in v1.0.0
+        :param str reply_text: reply-text that was used in user's or broker's
+            `Connection.Close` method. Human-readable string corresponding to
+            `reply_code`. NEW in v1.0.0
+        """
+        super().__init__(int(reply_code), str(reply_text))
+
     def __repr__(self):
-        if len(self.args) == 2:
-            return 'The AMQP connection was closed (%s) %s' % (self.args[0],
-                                                               self.args[1])
-        else:
-            return 'The AMQP connection was closed: %s' % (self.args,)
+        return '{}: ({}) {!r}'.format(self.__class__.__name__, self.reply_code,
+                                      self.reply_text)
+
+    @property
+    def reply_code(self):
+        """ NEW in v1.0.0
+        :rtype: int
+
+        """
+        return self.args[0]
+
+    @property
+    def reply_text(self):
+        """ NEW in v1.0.0
+        :rtype: str
+
+        """
+        return self.args[1]
+
+
+class ConnectionClosedByBroker(ConnectionClosed):
+    """Connection.Close from broker."""
+
+
+class ConnectionClosedByClient(ConnectionClosed):
+    """Connection was closed at request of Pika client."""
+
+
+class ConnectionBlockedTimeout(AMQPConnectionError):
+    """RabbitMQ-specific: timed out waiting for connection.unblocked."""
+
+
+class AMQPHeartbeatTimeout(AMQPConnectionError):
+    """Connection was dropped as result of heartbeat timeout."""
 
 
 class AMQPChannelError(AMQPError):
 
     def __repr__(self):
-        return 'An unspecified AMQP channel error has occurred'
+        return f'{self.__class__.__name__}: {self.args!r}'
+
+
+class ChannelWrongStateError(AMQPChannelError):
+    """Channel is in wrong state for the requested operation."""
 
 
 class ChannelClosed(AMQPChannelError):
+    """The channel closed by client or by broker
+
+    """
+
+    def __init__(self, reply_code, reply_text):
+        """
+
+        :param int reply_code: reply-code that was used in user's or broker's
+            `Channel.Close` method. One of the AMQP-defined Channel Errors.
+            NEW in v1.0.0
+        :param str reply_text: reply-text that was used in user's or broker's
+            `Channel.Close` method. Human-readable string corresponding to
+            `reply_code`;
+            NEW in v1.0.0
+
+        """
+        super().__init__(int(reply_code), str(reply_text))
 
     def __repr__(self):
-        if len(self.args) == 2:
-            return 'The channel was closed (%s) %s' % (self.args[0],
-                                                       self.args[1])
-        else:
-            return 'The channel was closed: %s' % (self.args,)
+        return '{}: ({}) {!r}'.format(self.__class__.__name__, self.reply_code,
+                                      self.reply_text)
+
+    @property
+    def reply_code(self):
+        """ NEW in v1.0.0
+        :rtype: int
+
+        """
+        return self.args[0]
+
+    @property
+    def reply_text(self):
+        """ NEW in v1.0.0
+        :rtype: str
+
+        """
+        return self.args[1]
 
 
-class ChannelAlreadyClosing(AMQPChannelError):
-    """Raised when `Channel.close` is called while channel is already closing"""
-    pass
+class ChannelClosedByBroker(ChannelClosed):
+    """`Channel.Close` from broker; may be passed as reason to channel's
+    on-closed callback of non-blocking connection adapters or raised by
+    `BlockingConnection`.
+
+    NEW in v1.0.0
+    """
+
+
+class ChannelClosedByClient(ChannelClosed):
+    """Channel closed by client upon receipt of `Channel.CloseOk`; may be passed
+    as reason to channel's on-closed callback of non-blocking connection
+    adapters, but not raised by `BlockingConnection`.
+
+    NEW in v1.0.0
+    """
 
 
 class DuplicateConsumerTag(AMQPChannelError):
 
     def __repr__(self):
-        return ('The consumer tag specified already exists for this '
-                'channel: %s' % self.args[0])
+        return ('%s: The consumer tag specified already exists for this '
+                'channel: %s' % (self.__class__.__name__, self.args[0]))
 
 
 class ConsumerCancelled(AMQPChannelError):
 
     def __repr__(self):
-        return 'Server cancelled consumer'
+        return '%s: Server cancelled consumer' % self.__class__.__name__
 
 
 class UnroutableError(AMQPChannelError):
@@ -115,11 +229,10 @@ class UnroutableError(AMQPChannelError):
 
     def __init__(self, messages):
         """
-        :param messages: sequence of returned unroutable messages
-        :type messages: sequence of `blocking_connection.ReturnedMessage`
-           objects
+        :param sequence(blocking_connection.ReturnedMessage) messages: Sequence
+            of returned unroutable messages
         """
-        super(UnroutableError, self).__init__(
+        super().__init__(
             "%s unroutable message(s) returned" % (len(messages)))
 
         self.messages = messages
@@ -138,12 +251,10 @@ class NackError(AMQPChannelError):
 
     def __init__(self, messages):
         """
-        :param messages: sequence of returned unroutable messages
-        :type messages: sequence of `blocking_connection.ReturnedMessage`
-            objects
+        :param sequence(blocking_connection.ReturnedMessage) messages: Sequence
+            of returned unroutable messages
         """
-        super(NackError, self).__init__(
-            "%s message(s) NACKed" % (len(messages)))
+        super().__init__("%s message(s) NACKed" % (len(messages)))
 
         self.messages = messages
 
@@ -155,55 +266,58 @@ class NackError(AMQPChannelError):
 class InvalidChannelNumber(AMQPError):
 
     def __repr__(self):
-        return 'An invalid channel number has been specified: %s' % self.args[0]
+        return '{}: An invalid channel number has been specified: {}'.format(
+            self.__class__.__name__, self.args[0])
 
 
 class ProtocolSyntaxError(AMQPError):
 
     def __repr__(self):
-        return 'An unspecified protocol syntax error occurred'
+        return '%s: An unspecified protocol syntax error occurred' % (
+            self.__class__.__name__)
 
 
 class UnexpectedFrameError(ProtocolSyntaxError):
 
     def __repr__(self):
-        return 'Received a frame out of sequence: %r' % self.args[0]
+        return '{}: Received a frame out of sequence: {!r}'.format(
+            self.__class__.__name__, self.args[0])
 
 
 class ProtocolVersionMismatch(ProtocolSyntaxError):
 
     def __repr__(self):
-        return 'Protocol versions did not match: %r vs %r' % (self.args[0],
-                                                              self.args[1])
+        return '{}: Protocol versions did not match: {!r} vs {!r}'.format(
+            self.__class__.__name__, self.args[0], self.args[1])
 
 
 class BodyTooLongError(ProtocolSyntaxError):
 
     def __repr__(self):
-        return ('Received too many bytes for a message delivery: '
-                'Received %i, expected %i' % (self.args[0], self.args[1]))
+        return ('%s: Received too many bytes for a message delivery: '
+                'Received %i, expected %i' % (self.__class__.__name__,
+                                              self.args[0], self.args[1]))
 
 
 class InvalidFrameError(ProtocolSyntaxError):
 
     def __repr__(self):
-        return 'Invalid frame received: %r' % self.args[0]
+        return '{}: Invalid frame received: {!r}'.format(self.__class__.__name__,
+                                                   self.args[0])
 
 
 class InvalidFieldTypeException(ProtocolSyntaxError):
 
     def __repr__(self):
-        return 'Unsupported field kind %s' % self.args[0]
+        return '{}: Unsupported field kind {}'.format(self.__class__.__name__,
+                                                  self.args[0])
 
 
 class UnsupportedAMQPFieldException(ProtocolSyntaxError):
 
     def __repr__(self):
-        return 'Unsupported field kind %s' % type(self.args[1])
-
-
-class UnspportedAMQPFieldException(UnsupportedAMQPFieldException):
-    """Deprecated version of UnsupportedAMQPFieldException"""
+        return '{}: Unsupported field kind {}'.format(self.__class__.__name__,
+                                                  type(self.args[1]))
 
 
 class MethodNotImplemented(AMQPError):
@@ -213,28 +327,11 @@ class MethodNotImplemented(AMQPError):
 class ChannelError(Exception):
 
     def __repr__(self):
-        return 'An unspecified error occurred with the Channel'
+        return '%s: An unspecified error occurred with the Channel' % (
+            self.__class__.__name__)
 
 
-class InvalidMinimumFrameSize(ProtocolSyntaxError):
-    """ DEPRECATED; pika.connection.Parameters.frame_max property setter now
-    raises the standard `ValueError` exception when the value is out of bounds.
-    """
-
-    def __repr__(self):
-        return 'AMQP Minimum Frame Size is 4096 Bytes'
-
-
-class InvalidMaximumFrameSize(ProtocolSyntaxError):
-    """ DEPRECATED; pika.connection.Parameters.frame_max property setter now
-    raises the standard `ValueError` exception when the value is out of bounds.
-    """
-
-    def __repr__(self):
-        return 'AMQP Maximum Frame Size is 131072 Bytes'
-
-
-class RecursionError(Exception):
+class ReentrancyError(Exception):
     """The requested operation would result in unsupported recursion or
     reentrancy.
 
@@ -246,12 +343,12 @@ class RecursionError(Exception):
 class ShortStringTooLong(AMQPError):
 
     def __repr__(self):
-        return ('AMQP Short String can contain up to 255 bytes: '
-                '%.300s' % self.args[0])
+        return ('%s: AMQP Short String can contain up to 255 bytes: '
+                '%.300s' % (self.__class__.__name__, self.args[0]))
 
 
 class DuplicateGetOkCallback(ChannelError):
 
     def __repr__(self):
-        return ('basic_get can only be called again after the callback for the'
-                'previous basic_get is executed')
+        return ('%s: basic_get can only be called again after the callback for '
+                'the previous basic_get is executed' % self.__class__.__name__)

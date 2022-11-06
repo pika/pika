@@ -11,6 +11,7 @@ Pika has various methods of use, between the synchronous BlockingConnection adap
    examples/connecting_async
    examples/blocking_basic_get
    examples/blocking_consume
+   examples/blocking_consume_recover_multiple_hosts
    examples/blocking_consumer_generator
    examples/comparing_publishing_sync_async
    examples/blocking_delivery_confirmations
@@ -21,3 +22,4 @@ Pika has various methods of use, between the synchronous BlockingConnection adap
    examples/tornado_consumer
    examples/tls_mutual_authentication
    examples/tls_server_authentication
+   examples/heartbeat_and_blocked_timeouts

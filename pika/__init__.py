@@ -1,19 +1,22 @@
-__version__ = '0.12.0'
+__version__ = '1.3.1'
 
 import logging
-from logging import NullHandler
 
-# Add NullHandler to prevent logging warnings
-logging.getLogger(__name__).addHandler(NullHandler())
+# Add NullHandler before importing Pika modules to prevent logging warnings
+logging.getLogger(__name__).addHandler(logging.NullHandler())
+
+# pylint: disable=C0413
 
 from pika.connection import ConnectionParameters
 from pika.connection import URLParameters
 from pika.connection import SSLOptions
 from pika.credentials import PlainCredentials
 from pika.spec import BasicProperties
+from pika.delivery_mode import DeliveryMode
 
+from pika import adapters
 from pika.adapters import BaseConnection
 from pika.adapters import BlockingConnection
 from pika.adapters import SelectConnection
-from pika.adapters import TornadoConnection
-from pika.adapters import TwistedConnection
+
+from pika.adapters.utils.connection_workflow import AMQPConnectionWorkflow

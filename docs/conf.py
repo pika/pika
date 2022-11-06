@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import sys
 sys.path.insert(0, '../')
-#needs_sphinx = '1.0'
+# needs_sphinx = '1.0'
 
 extensions = ['sphinx.ext.autodoc', 'sphinx.ext.viewcode',
               'sphinx.ext.intersphinx']

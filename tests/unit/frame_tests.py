@@ -4,7 +4,7 @@ Tests for pika.frame
 """
 import unittest
 
-from pika import exceptions, frame, spec
+from pika import exceptions, frame, spec, DeliveryMode
 
 
 class FrameTests(unittest.TestCase):
@@ -28,7 +28,9 @@ class FrameTests(unittest.TestCase):
         self.assertEqual(basic_ack.marshal(), self.BASIC_ACK)
 
     def headers_marshal_test(self):
-        header = frame.Header(1, 100, spec.BasicProperties(delivery_mode=2))
+        header = frame.Header(
+            1, 100,
+            spec.BasicProperties(delivery_mode=DeliveryMode.Persistent))
         self.assertEqual(header.marshal(), self.CONTENT_HEADER)
 
     def body_marshal_test(self):
@@ -76,8 +78,8 @@ class FrameTests(unittest.TestCase):
         self.assertIsInstance(frame_value.properties, spec.BasicProperties)
 
     def decode_frame_decoding_failure_test(self):
-        self.assertEqual(
-            frame.decode_frame(b'\x01\x00\x01\x00\x00\xce'), (0, None))
+        self.assertEqual(frame.decode_frame(b'\x01\x00\x01\x00\x00\xce'),
+                         (0, None))
 
     def decode_frame_decoding_no_end_byte_test(self):
         self.assertEqual(frame.decode_frame(self.BASIC_ACK[:-1]), (0, None))

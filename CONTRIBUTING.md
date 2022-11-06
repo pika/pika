@@ -13,7 +13,7 @@ of being accepted.*
 
 Pika test suite has a couple of requirements:
 
- * Dependencies from `test-dependencies.txt` are installed
+ * Dependencies from `test-requirements.txt` are installed
  * A RabbitMQ node with all defaults is running on `localhost:5672`
 
 
@@ -32,7 +32,7 @@ which on Python 3 might look like this
 
 To run all test suites, use
 
-    nosetests
+    nose2
 
 Note that some tests are OS-specific (e.g. epoll on Linux
 or kqueue on MacOS and BSD). Those will be skipped
@@ -56,11 +56,13 @@ If you would like to run TLS/SSL tests, use the following procedure:
 * Run the tests indicating that TLS/SSL connections should be used:
 
     ```
-    PIKA_TEST_TLS=true nosetests
+    PIKA_TEST_TLS=true nose2
     ```
 
 
 ## Code Formatting
 
 Please format your code using [yapf](http://pypi.python.org/pypi/yapf)
-with ``google`` style prior to issuing your pull request.
+with ``google`` style prior to issuing your pull request. *Note: only format those
+lines that you have changed in your pull request. If you format an entire file and
+change code outside of the scope of your PR, it will likely be rejected.*

@@ -2,12 +2,11 @@
 import struct
 import decimal
 import calendar
-import warnings
 
 from datetime import datetime
 
 from pika import exceptions
-from pika.compat import PY2, PY3
+from pika.compat import PY2, basestring
 from pika.compat import unicode_type, long, as_bytes
 
 
@@ -16,8 +15,7 @@ def encode_short_string(pieces, value):
     returning the size of the encoded value.
 
     :param list pieces: Already encoded values
-    :param value: String value to encode
-    :type value: str or unicode
+    :param str value: String value to encode
     :rtype: int
 
     """
@@ -44,6 +42,7 @@ def encode_short_string(pieces, value):
 
 
 if PY2:
+
     def decode_short_string(encoded, offset):
         """Decode a short string value from ``encoded`` data at ``offset``.
         """
@@ -60,6 +59,7 @@ if PY2:
         return value, offset
 
 else:
+
     def decode_short_string(encoded, offset):
         """Decode a short string value from ``encoded`` data at ``offset``.
         """
@@ -95,7 +95,7 @@ def encode_table(pieces, table):
     return tablesize + 4
 
 
-def encode_value(pieces, value):
+def encode_value(pieces, value): # pylint: disable=R0911
     """Encode the value passed in and append it to the pieces list returning
     the the size of the encoded value.
 
@@ -114,7 +114,7 @@ def encode_value(pieces, value):
             return 5 + len(value)
     else:
         # support only str on Python 3
-        if isinstance(value, str):
+        if isinstance(value, basestring):
             value = value.encode('utf-8')
             pieces.append(struct.pack('>cI', b'S', len(value)))
             pieces.append(value)
@@ -129,41 +129,45 @@ def encode_value(pieces, value):
         pieces.append(struct.pack('>cB', b't', int(value)))
         return 2
     if isinstance(value, long):
-        pieces.append(struct.pack('>cq', b'l', value))
+        if value < 0:
+            pieces.append(struct.pack('>cq', b'L', value))
+        else:
+            pieces.append(struct.pack('>cQ', b'l', value))
         return 9
     elif isinstance(value, int):
-        with warnings.catch_warnings():
-            warnings.filterwarnings('error')
-            try:
-                p = struct.pack('>ci', b'I', value)
-                pieces.append(p)
-                return 5
-            except (struct.error, DeprecationWarning):
-                p = struct.pack('>cq', b'l', long(value))
-                pieces.append(p)
-                return 9
+        try:
+            packed = struct.pack('>ci', b'I', value)
+            pieces.append(packed)
+            return 5
+        except struct.error:
+            if value < 0:
+                packed = struct.pack('>cq', b'L', long(value))
+            else:
+                packed = struct.pack('>cQ', b'l', long(value))
+            pieces.append(packed)
+            return 9
     elif isinstance(value, decimal.Decimal):
         value = value.normalize()
         if value.as_tuple().exponent < 0:
             decimals = -value.as_tuple().exponent
-            raw = int(value * (decimal.Decimal(10) ** decimals))
+            raw = int(value * (decimal.Decimal(10)**decimals))
             pieces.append(struct.pack('>cBi', b'D', decimals, raw))
         else:
             # per spec, the "decimals" octet is unsigned (!)
             pieces.append(struct.pack('>cBi', b'D', 0, int(value)))
         return 6
     elif isinstance(value, datetime):
-        pieces.append(struct.pack('>cQ', b'T',
-                                  calendar.timegm(value.utctimetuple())))
+        pieces.append(
+            struct.pack('>cQ', b'T', calendar.timegm(value.utctimetuple())))
         return 9
     elif isinstance(value, dict):
         pieces.append(struct.pack('>c', b'F'))
         return 1 + encode_table(pieces, value)
     elif isinstance(value, list):
-        p = []
-        for v in value:
-            encode_value(p, v)
-        piece = b''.join(p)
+        list_pieces = []
+        for val in value:
+            encode_value(list_pieces, val)
+        piece = b''.join(list_pieces)
         pieces.append(struct.pack('>cI', b'A', len(piece)))
         pieces.append(piece)
         return 5 + len(piece)
@@ -194,7 +198,7 @@ def decode_table(encoded, offset):
     return result, offset
 
 
-def decode_value(encoded, offset):
+def decode_value(encoded, offset): # pylint: disable=R0912,R0915
     """Decode the value passed in returning the decoded value and the number
     of bytes read in addition to the starting offset.
 
@@ -270,11 +274,13 @@ def decode_value(encoded, offset):
         offset += 1
         raw = struct.unpack_from('>i', encoded, offset)[0]
         offset += 4
-        value = decimal.Decimal(raw) * (decimal.Decimal(10) ** -decimals)
+        value = decimal.Decimal(raw) * (decimal.Decimal(10)**-decimals)
 
-    # Short String
+    # https://github.com/pika/pika/issues/1205
+    # Short Signed Int
     elif kind == b's':
-        value, offset = decode_short_string(encoded, offset)
+        value = struct.unpack_from('>h', encoded, offset)[0]
+        offset += 2
 
     # Long String
     elif kind == b'S':
@@ -300,13 +306,13 @@ def decode_value(encoded, offset):
         offset_end = offset + length
         value = []
         while offset < offset_end:
-            v, offset = decode_value(encoded, offset)
-            value.append(v)
+            val, offset = decode_value(encoded, offset)
+            value.append(val)
 
     # Timestamp
     elif kind == b'T':
-        value = datetime.utcfromtimestamp(struct.unpack_from('>Q', encoded,
-                                                             offset)[0])
+        value = datetime.utcfromtimestamp(
+            struct.unpack_from('>Q', encoded, offset)[0])
         offset += 8
 
     # Field Table

@@ -1,20 +1,20 @@
 """Handle AMQP Heartbeats"""
 import logging
 
+import pika.exceptions
 from pika import frame
 
 LOGGER = logging.getLogger(__name__)
 
 
-class HeartbeatChecker(object):
+class HeartbeatChecker:
     """Sends heartbeats to the broker. The provided timeout is used to
     determine if the connection is stale - no received heartbeats or
     other activity will close the connection. See the parameter list for more
     details.
 
     """
-    _CONNECTION_FORCED = 320
-    _STALE_CONNECTION = "No activity or too many missed meartbeats in the last %i seconds"
+    _STALE_CONNECTION = "No activity or too many missed heartbeats in the last %i seconds"
 
     def __init__(self, connection, timeout):
         """Create an object that will check for activity on the provided
@@ -35,7 +35,7 @@ class HeartbeatChecker(object):
 
         """
         if timeout < 1:
-            raise ValueError('timeout must >= 0, but got %r' % (timeout,))
+            raise ValueError('timeout must >= 0, but got {!r}'.format(timeout))
 
         self._connection = connection
 
@@ -65,9 +65,7 @@ class HeartbeatChecker(object):
         self._check_interval = timeout + 5
 
         LOGGER.debug('timeout: %f send_interval: %f check_interval: %f',
-                     self._timeout,
-                     self._send_interval,
-                     self._check_interval)
+                     self._timeout, self._send_interval, self._check_interval)
 
         # Initialize counters
         self._bytes_received = 0
@@ -123,11 +121,10 @@ class HeartbeatChecker(object):
             # Connection has not received any data, increment the counter
             self._idle_byte_intervals += 1
 
-        LOGGER.debug('Received %i heartbeat frames, sent %i, '
-                     'idle intervals %i',
-                     self._heartbeat_frames_received,
-                     self._heartbeat_frames_sent,
-                     self._idle_byte_intervals)
+        LOGGER.debug(
+            'Received %i heartbeat frames, sent %i, '
+            'idle intervals %i', self._heartbeat_frames_received,
+            self._heartbeat_frames_sent, self._idle_byte_intervals)
 
         if self.connection_is_idle:
             self._close_connection()
@@ -139,11 +136,11 @@ class HeartbeatChecker(object):
         """Stop the heartbeat checker"""
         if self._send_timer:
             LOGGER.debug('Removing timer for next heartbeat send interval')
-            self._connection.remove_timeout(self._send_timer)  # pylint: disable=W0212
+            self._connection._adapter_remove_timeout(self._send_timer)  # pylint: disable=W0212
             self._send_timer = None
         if self._check_timer:
             LOGGER.debug('Removing timer for next heartbeat check interval')
-            self._connection.remove_timeout(self._check_timer)  # pylint: disable=W0212
+            self._connection._adapter_remove_timeout(self._check_timer)  # pylint: disable=W0212
             self._check_timer = None
 
     def _close_connection(self):
@@ -152,13 +149,11 @@ class HeartbeatChecker(object):
                     self._idle_byte_intervals)
         text = HeartbeatChecker._STALE_CONNECTION % self._timeout
 
-        # NOTE: this won't achieve the perceived effect of sending
-        # Connection.Close to broker, because the frame will only get buffered
-        # in memory before the next statement terminates the connection.
-        self._connection.close(HeartbeatChecker._CONNECTION_FORCED, text)
-
-        self._connection._on_terminate(HeartbeatChecker._CONNECTION_FORCED,  # pylint: disable=W0212
-                                       text)
+        # Abort the stream connection. There is no point trying to gracefully
+        # close the AMQP connection since lack of heartbeat suggests that the
+        # stream is dead.
+        self._connection._terminate_stream(  # pylint: disable=W0212
+            pika.exceptions.AMQPHeartbeatTimeout(text))
 
     @property
     def _has_received_data(self):
@@ -189,7 +184,7 @@ class HeartbeatChecker(object):
 
     def _start_send_timer(self):
         """Start a new heartbeat send timer."""
-        self._send_timer = self._connection.add_timeout(  # pylint: disable=W0212
+        self._send_timer = self._connection._adapter_call_later(  # pylint: disable=W0212
             self._send_interval,
             self._send_heartbeat)
 
@@ -201,7 +196,7 @@ class HeartbeatChecker(object):
         # end of the window
         self._update_counters()
 
-        self._check_timer = self._connection.add_timeout(  # pylint: disable=W0212
+        self._check_timer = self._connection._adapter_call_later(  # pylint: disable=W0212
             self._check_interval,
             self._check_heartbeat)
 

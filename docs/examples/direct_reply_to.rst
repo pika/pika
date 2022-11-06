@@ -34,7 +34,7 @@ direct_reply_to.py::
             channel.queue_declare(queue=SERVER_QUEUE,
                                   exclusive=True,
                                   auto_delete=True)
-            channel.basic_consume(on_server_rx_rpc_request, queue=SERVER_QUEUE)
+            channel.basic_consume(SERVER_QUEUE, on_server_rx_rpc_request)
 
 
             # Set up client
@@ -46,12 +46,12 @@ direct_reply_to.py::
             # Also, client must create the consumer *before* starting to publish the
             # RPC requests.
             #
-            # Client must create its consumer with no_ack=True, because the reply-to
+            # Client must create its consumer with auto_ack=True, because the reply-to
             # queue isn't real.
 
-            channel.basic_consume(on_client_rx_reply_from_server,
-                                  queue='amq.rabbitmq.reply-to',
-                                  no_ack=True)
+            channel.basic_consume('amq.rabbitmq.reply-to',
+                                  on_client_rx_reply_from_server,
+                                  auto_ack=True)
             channel.basic_publish(
                 exchange='',
                 routing_key=SERVER_QUEUE,
@@ -62,20 +62,20 @@ direct_reply_to.py::
 
 
     def on_server_rx_rpc_request(ch, method_frame, properties, body):
-        print 'RPC Server got request:', body
+        print('RPC Server got request: %s' % body)
 
         ch.basic_publish('', routing_key=properties.reply_to, body='Polo')
 
         ch.basic_ack(delivery_tag=method_frame.delivery_tag)
 
-        print 'RPC Server says good bye'
+        print('RPC Server says good bye')
 
 
     def on_client_rx_reply_from_server(ch, method_frame, properties, body):
-        print 'RPC Client got reply:', body
+        print('RPC Client got reply: %s' % body)
 
         # NOTE A real client might want to make additional RPC requests, but in this
         # simple example we're closing the channel after getting our first reply
         # to force control to return from channel.start_consuming()
-        print 'RPC Client says bye'
+        print('RPC Client says bye')
         ch.close()

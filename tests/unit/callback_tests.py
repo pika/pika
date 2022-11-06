@@ -1,12 +1,11 @@
-# -*- coding: utf8 -*-
+# -*- coding: utf-8 -*-
 """
 Tests for pika.callback
 
 """
 import logging
 import unittest
-
-import mock
+from unittest import mock
 
 from pika import callback, frame, spec
 
@@ -328,12 +327,6 @@ class CallbackTests(unittest.TestCase):
                                               self.mock_caller, [{
                                                   'foo': 'baz'
                                               }]))
-
-    def test_should_process_callback_false_only_caller_failure(self):
-        self.obj.add(self.PREFIX_CLASS, self.KEY, self.callback_mock)
-        value = self.obj._callback_dict(self.callback_mock, False, self, None)
-        self.assertTrue(
-            self.obj._should_process_callback(value, self.mock_caller, []))
 
     def test_should_process_callback_false_only_caller_failure(self):
         self.obj.add(self.PREFIX_CLASS, self.KEY, self.callback_mock)

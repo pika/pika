@@ -1,3 +1,5 @@
+# pylint: disable=C0111
+
 import logging
 import socket
 import pika.compat
@@ -10,7 +12,7 @@ try:
     _SUPPORTED_TCP_OPTIONS['TCP_USER_TIMEOUT'] = socket.TCP_USER_TIMEOUT
 except AttributeError:
     if pika.compat.LINUX_VERSION and pika.compat.LINUX_VERSION >= (2, 6, 37):
-        # NB: this is not the timeout value, but the number corresponding
+        # this is not the timeout value, but the number corresponding
         # to the constant in tcp.h
         # https://github.com/torvalds/linux/blob/master/include/uapi/linux/tcp.h#
         # #define TCP_USER_TIMEOUT	18	/* How long for loss retry before timeout */
@@ -25,7 +27,9 @@ except AttributeError:
 
 
 def socket_requires_keepalive(tcp_options):
-    return 'TCP_KEEPIDLE' in tcp_options or 'TCP_KEEPCNT' in tcp_options or 'TCP_KEEPINTVL' in tcp_options
+    return ('TCP_KEEPIDLE' in tcp_options or
+            'TCP_KEEPCNT' in tcp_options or
+            'TCP_KEEPINTVL' in tcp_options)
 
 
 def set_sock_opts(tcp_options, sock):

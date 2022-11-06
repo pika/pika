@@ -16,13 +16,13 @@ extend the :class:`~pika.credentials.ExternalCredentials` class implementing
 the required behavior.
 
 """
-from .compat import as_bytes
 import logging
+from .compat import as_bytes
 
 LOGGER = logging.getLogger(__name__)
 
 
-class PlainCredentials(object):
+class PlainCredentials:
     """A credentials object for the default authentication methodology with
     RabbitMQ.
 
@@ -52,13 +52,17 @@ class PlainCredentials(object):
         self.erase_on_connect = erase_on_connect
 
     def __eq__(self, other):
-        return (isinstance(other, PlainCredentials) and
-                other.username == self.username and
-                other.password == self.password and
-                other.erase_on_connect == self.erase_on_connect)
+        if isinstance(other, PlainCredentials):
+            return (self.username == other.username and
+                    self.password == other.password and
+                    self.erase_on_connect == other.erase_on_connect)
+        return NotImplemented
 
     def __ne__(self, other):
-        return not self == other
+        result = self.__eq__(other)
+        if result is not NotImplemented:
+            return not result
+        return NotImplemented
 
     def response_for(self, start):
         """Validate that this type of authentication is supported
@@ -70,9 +74,9 @@ class PlainCredentials(object):
         if as_bytes(PlainCredentials.TYPE) not in\
                 as_bytes(start.mechanisms).split():
             return None, None
-        return (PlainCredentials.TYPE,
-                b'\0' + as_bytes(self.username) +
-                b'\0' + as_bytes(self.password))
+        return (
+            PlainCredentials.TYPE,
+            b'\0' + as_bytes(self.username) + b'\0' + as_bytes(self.password))
 
     def erase_credentials(self):
         """Called by Connection when it no longer needs the credentials"""
@@ -82,7 +86,7 @@ class PlainCredentials(object):
             self.password = None
 
 
-class ExternalCredentials(object):
+class ExternalCredentials:
     """The ExternalCredentials class allows the connection to use EXTERNAL
     authentication, generally with a client SSL certificate.
 
@@ -94,13 +98,17 @@ class ExternalCredentials(object):
         self.erase_on_connect = False
 
     def __eq__(self, other):
-        return (isinstance(other, ExternalCredentials) and
-                other.erase_on_connect == self.erase_on_connect)
+        if isinstance(other, ExternalCredentials):
+            return self.erase_on_connect == other.erase_on_connect
+        return NotImplemented
 
     def __ne__(self, other):
-        return not self == other
+        result = self.__eq__(other)
+        if result is not NotImplemented:
+            return not result
+        return NotImplemented
 
-    def response_for(self, start):
+    def response_for(self, start):  # pylint: disable=R0201
         """Validate that this type of authentication is supported
 
         :param spec.Connection.Start start: Connection.Start method
@@ -112,9 +120,10 @@ class ExternalCredentials(object):
             return None, None
         return ExternalCredentials.TYPE, b''
 
-    def erase_credentials(self):
+    def erase_credentials(self):  # pylint: disable=R0201
         """Called by Connection when it no longer needs the credentials"""
         LOGGER.debug('Not supported by this Credentials type')
+
 
 # Append custom credential types to this list for validation support
 VALID_TYPES = [PlainCredentials, ExternalCredentials]

@@ -3,37 +3,94 @@
 Tests for SelectConnection IOLoops
 
 """
+
+from __future__ import print_function
+
 import errno
+import datetime
 import functools
+import logging
 import os
 import platform
 import select
 import signal
 import socket
+import sys
 import time
 import threading
 import unittest
-
-import mock
+from unittest import mock
 
 import pika
 from pika import compat
 from pika.adapters import select_connection
 
+
 # protected-access
 # pylint: disable=W0212
+
 # missing-docstring
 # pylint: disable=C0111
 
+# invalid-name
+# pylint: disable=C0103
+
+# attribute-defined-outside-init
+# pylint: disable=W0201
+
+
+LOGGER = logging.getLogger(__name__)
 
 EPOLL_SUPPORTED = hasattr(select, 'epoll')
 POLL_SUPPORTED = hasattr(select, 'poll') and hasattr(select.poll(), 'modify')
 KQUEUE_SUPPORTED = hasattr(select, 'kqueue')
 
+POLLIN = getattr(select, 'POLLIN', 0) or 1
+POLLOUT = getattr(select, 'POLLOUT', 0) or 4
+POLLERR = getattr(select, 'POLLERR', 0) or 8
+
+POLLHUP = getattr(select, 'POLLHUP', 0) or 16
+POLLNVAL = getattr(select, 'POLLNVAL', 0) or 32
+POLLPRI = getattr(select, 'POLLPRI', 0) or 2
+
+
+def _trace_stderr(fmt, *args):
+    """Format and output the text to stderr"""
+    print((fmt % args) + "\n", end="", file=sys.stderr)
+
+
+def _fd_events_to_str(events):
+    str_events = '{}: '.format(events)
+
+    if events & POLLIN:
+        str_events += "In."
+    if events & POLLOUT:
+        str_events += "Out."
+    if events & POLLERR:
+        str_events += "Err."
+    if events & POLLHUP:
+        str_events += "Hup."
+    if events & POLLNVAL:
+        str_events += "Inval."
+    if events & POLLPRI:
+        str_events += "Pri."
+
+
+    remainig_events = events & ~(POLLIN |
+                                 POLLOUT |
+                                 POLLERR |
+                                 POLLHUP |
+                                 POLLNVAL |
+                                 POLLPRI)
+    if remainig_events:
+        str_events += '+{}'.format(bin(remainig_events))
+
+    return str_events
+
 
 class IOLoopBaseTest(unittest.TestCase):
     SELECT_POLLER = None
-    TIMEOUT = 1.0
+    TIMEOUT = 1.5
 
     def setUp(self):
         select_type_patch = mock.patch.multiple(
@@ -68,12 +125,12 @@ class IOLoopBaseTest(unittest.TestCase):
         and start polling.
 
         """
-        fail_timer = self.ioloop.add_timeout(self.TIMEOUT, self.on_timeout)
+        fail_timer = self.ioloop.call_later(self.TIMEOUT, self.on_timeout)
         self.addCleanup(self.ioloop.remove_timeout, fail_timer)
         self.ioloop.start()
 
-        self.ioloop._poller.activate_poller.assert_called_once_with()
-        self.ioloop._poller.deactivate_poller.assert_called_once_with()
+        self.ioloop._poller.activate_poller.assert_called_once_with()  # pylint: disable=E1101
+        self.ioloop._poller.deactivate_poller.assert_called_once_with()  # pylint: disable=E1101
 
     def on_timeout(self):
         """Called when stuck waiting for connection to close"""
@@ -91,12 +148,12 @@ class IOLoopCloseClosesSubordinateObjectsTestSelect(IOLoopBaseTest):
                                  _poller=mock.DEFAULT,
                                  _callbacks=mock.DEFAULT) as mocks:
             self.ioloop.close()
-            mocks['_timer'].close.assert_called_once()
-            mocks['_poller'].close.assert_called_once()
-            self.assertIsNone(self.ioloop._callbacks)
+            mocks['_timer'].close.assert_called_once_with()
+            mocks['_poller'].close.assert_called_once_with()
+            self.assertEqual(self.ioloop._callbacks, [])
 
 
-class IOLoopCloseAfterStartReturnsTestSelect(IOLoopBaseTest):
+class IOLoopCloseAfterStartReturnsTest(IOLoopBaseTest):
     """ Test IOLoop.close() after normal return from start(). """
     SELECT_POLLER = 'select'
 
@@ -104,7 +161,28 @@ class IOLoopCloseAfterStartReturnsTestSelect(IOLoopBaseTest):
         self.ioloop.stop() # so start will terminate quickly
         self.start()
         self.ioloop.close()
-        self.assertIsNone(self.ioloop._callbacks)
+        self.assertEqual(self.ioloop._callbacks, [])
+
+
+class IOLoopStartReentrancyNotAllowedTestSelect(IOLoopBaseTest):
+    """ Test calling IOLoop.start() while arleady in start() raises exception. """
+    SELECT_POLLER = 'select'
+
+    def start_test(self):
+        callback_completed = []
+
+        def call_close_from_callback():
+            with self.assertRaises(RuntimeError) as cm:
+                self.ioloop.start()
+
+            self.assertEqual(cm.exception.args[0],
+                             'IOLoop is not reentrant and is already running')
+            self.ioloop.stop()
+            callback_completed.append(1)
+
+        self.ioloop.add_callback_threadsafe(call_close_from_callback)
+        self.start()
+        self.assertEqual(callback_completed, [1])
 
 
 class IOLoopCloseBeforeStartReturnsTestSelect(IOLoopBaseTest):
@@ -142,20 +220,6 @@ class IOLoopThreadStopTestSelect(IOLoopBaseTest):
         self.start() # NOTE: Normal return from `start()` constitutes success
 
 
-class IOLoopThreadStopTestSelect(IOLoopBaseTest):
-    """ Test ioloop being stopped by another Thread. """
-    SELECT_POLLER = 'select'
-
-    def start_test(self):
-        """Starts a thread that stops ioloop after a while and start polling"""
-        timer = threading.Timer(
-            0.1,
-            lambda: self.ioloop.add_callback_threadsafe(self.ioloop.stop))
-        self.addCleanup(timer.cancel)
-        timer.start()
-        self.start() # NOTE: Normal return from `start()` constitutes success
-
-
 @unittest.skipIf(not POLL_SUPPORTED, 'poll not supported')
 class IOLoopThreadStopTestPoll(IOLoopThreadStopTestSelect):
     """Same as IOLoopThreadStopTestSelect but uses 'poll' syscall."""
@@ -174,6 +238,20 @@ class IOLoopThreadStopTestKqueue(IOLoopThreadStopTestSelect):
     SELECT_POLLER = 'kqueue'
 
 
+class IOLoopAddCallbackAfterCloseDoesNotRaiseTestSelect(IOLoopBaseTest):
+    """ Test ioloop add_callback_threadsafe() after ioloop close doesn't raise exception. """
+    SELECT_POLLER = 'select'
+
+    def start_test(self):
+        # Simulate closing after start returns
+        self.ioloop.stop()  # so that start() returns ASAP
+        self.start() # NOTE: Normal return from `start()` constitutes success
+        self.ioloop.close()
+
+        # Expect: add_callback_threadsafe() won't raise after ioloop.close()
+        self.ioloop.add_callback_threadsafe(lambda: None)
+
+
 # TODO FUTURE - fix this flaky test
 @unittest.skipIf(platform.python_implementation() == 'PyPy', 'test is flaky on PyPy')
 class IOLoopTimerTestSelect(IOLoopBaseTest):
@@ -182,7 +260,7 @@ class IOLoopTimerTestSelect(IOLoopBaseTest):
 
     """
     NUM_TIMERS = 5
-    TIMER_INTERVAL = 0.02
+    TIMER_INTERVAL = 0.25
     SELECT_POLLER = 'select'
 
     def set_timers(self):
@@ -193,7 +271,7 @@ class IOLoopTimerTestSelect(IOLoopBaseTest):
         self.timer_stack = list()
         for i in range(self.NUM_TIMERS, 0, -1):
             deadline = i * self.TIMER_INTERVAL
-            self.ioloop.add_timeout(
+            self.ioloop.call_later(
                 deadline, functools.partial(self.on_timer, i))
             self.timer_stack.append(i)
 
@@ -223,7 +301,7 @@ class IOLoopTimerTestSelect(IOLoopBaseTest):
         self.timer_stack = list()
         handle_holder = []
         self.timer_got_fired = False
-        self.handle = self.ioloop.add_timeout(
+        self.handle = self.ioloop.call_later(
             0.1, functools.partial(
                 self._on_timer_delete_itself, handle_holder))
         handle_holder.append(self.handle)
@@ -246,10 +324,10 @@ class IOLoopTimerTestSelect(IOLoopBaseTest):
 
         """
         holder_for_target_timer = []
-        self.ioloop.add_timeout(
+        self.ioloop.call_later(
             0.01, functools.partial(
                 self._on_timer_delete_another, holder_for_target_timer))
-        timer_2 = self.ioloop.add_timeout(0.02, self._on_timer_no_call)
+        timer_2 = self.ioloop.call_later(0.02, self._on_timer_no_call)
         holder_for_target_timer.append(timer_2)
         time.sleep(0.03)  # so that timer_1 and timer_2 fires at the same time.
         self.start()
@@ -275,7 +353,7 @@ class IOLoopTimerTestSelect(IOLoopBaseTest):
             self.assertIsNone(target_timer.callback)
             self.ioloop.stop()
 
-        self.ioloop.add_timeout(0.01, _on_timer_conclude)
+        self.ioloop.call_later(0.01, _on_timer_conclude)
 
     def _on_timer_no_call(self):
         """A timeout handler that is used when it's assumed not be called."""
@@ -359,7 +437,7 @@ class IOLoopSocketBaseSelect(IOLoopBaseTest):
         listen_sock.listen(1)
         fd_ = self.save_sock(listen_sock)
         self.listen_addr = listen_sock.getsockname()
-        self.ioloop.add_handler(fd_, self.do_accept, select_connection.READ)
+        self.ioloop.add_handler(fd_, self.do_accept, self.ioloop.READ)
 
     def create_write_socket(self, on_connected):
         """ Create a pair of socket and setup 'connected' handler """
@@ -369,16 +447,16 @@ class IOLoopSocketBaseSelect(IOLoopBaseTest):
         # NOTE we get errno.EWOULDBLOCK 10035 on Windows
         self.assertIn(err, (errno.EINPROGRESS, errno.EWOULDBLOCK))
         fd_ = self.save_sock(write_sock)
-        self.ioloop.add_handler(fd_, on_connected, select_connection.WRITE)
+        self.ioloop.add_handler(fd_, on_connected, self.ioloop.WRITE)
         return write_sock
 
     def do_accept(self, fd_, events):
         """ Create socket from the given fd_ and setup 'read' handler """
-        self.assertEqual(events, select_connection.READ)
+        self.assertEqual(events, self.ioloop.READ)
         listen_sock = self.sock_map[fd_]
         read_sock, _ = listen_sock.accept()
         fd_ = self.save_sock(read_sock)
-        self.ioloop.add_handler(fd_, self.do_read, select_connection.READ)
+        self.ioloop.add_handler(fd_, self.do_read, self.ioloop.READ)
 
     def connected(self, _fd, _events):
         """ Create socket from given _fd and respond to 'connected'.
@@ -387,7 +465,7 @@ class IOLoopSocketBaseSelect(IOLoopBaseTest):
 
     def do_read(self, fd_, events):
         """ read from fd and check the received content """
-        self.assertEqual(events, select_connection.READ)
+        self.assertEqual(events, self.ioloop.READ)
         # NOTE Use socket.recv instead of os.read for Windows compatibility
         self.verify_message(self.sock_map[fd_].recv(self.READ_SIZE))
 
@@ -433,7 +511,7 @@ class IOLoopSimpleMessageTestCaseSelect(IOLoopSocketBaseSelect):
 
     def connected(self, fd, events):
         """Respond to 'connected' event by writing to the write-side."""
-        self.assertEqual(events, select_connection.WRITE)
+        self.assertEqual(events, self.ioloop.WRITE)
         # NOTE Use socket.send instead of os.write for Windows compatibility
         self.sock_map[fd].send(b'X')
         self.ioloop.update_handler(fd, 0)
@@ -479,7 +557,7 @@ class IOLoopEintrTestCaseSelect(IOLoopBaseTest):
 
     def _eintr_read_handler(self, fileno, events):
         """Read from within poll loop that gets receives eintr error."""
-        self.assertEqual(events, select_connection.READ)
+        self.assertEqual(events, self.ioloop.READ)
 
         sock = socket.fromfd(
             os.dup(fileno), socket.AF_INET, socket.SOCK_STREAM)
@@ -519,9 +597,9 @@ class IOLoopEintrTestCaseSelect(IOLoopBaseTest):
 
         self._eintr_read_handler_is_called = False
         self.poller.add_handler(sockpair[0].fileno(), self._eintr_read_handler,
-                                select_connection.READ)
+                                self.ioloop.READ)
 
-        self.ioloop.add_timeout(self.TIMEOUT, self._eintr_test_fail)
+        self.ioloop.call_later(self.TIMEOUT, self._eintr_test_fail)
 
         original_signal_handler = \
             signal.signal(signal.SIGUSR1, self.signal_handler)
@@ -575,12 +653,12 @@ class SelectPollerTestPollWithoutSockets(unittest.TestCase):
 
         delay = poller._get_wait_seconds()
         self.assertIsNotNone(delay)
-        deadline = time.time() + delay
+        deadline = pika.compat.time_now() + delay
 
         while True:
             poller._process_timeouts()
 
-            if time.time() < deadline:
+            if pika.compat.time_now() < deadline:
                 self.assertEqual(timer_call_container, [])
             else:
                 # One last time in case deadline reached after previous
@@ -632,3 +710,401 @@ class PollerTestCaseEPoll(PollerTestCaseSelect):
 class PollerTestCaseKqueue(PollerTestCaseSelect):
     """Same as PollerTestCaseSelect but uses kqueue syscall"""
     SELECT_POLLER = 'kqueue'
+
+
+class DefaultPollerSocketEventsTestCase(unittest.TestCase):
+    """This test suite outputs diagnostic information usful for debugging the
+    IOLoop poller's fd watcher
+
+    """
+
+    DEFAULT_TEST_TIMEOUT = 15
+
+    IOLOOP_CLS = select_connection.IOLoop
+
+    READ = IOLOOP_CLS.READ
+    WRITE = IOLOOP_CLS.WRITE
+    ERROR = IOLOOP_CLS.ERROR
+
+    def create_ioloop_with_timeout(self):
+        """Create IOLoop with test timeout and schedule cleanup to close it
+
+        """
+        ioloop = select_connection.IOLoop()
+        self.addCleanup(ioloop.close)
+
+        def _on_test_timeout():
+            """Called when test times out"""
+            LOGGER.info('%s TIMED OUT (%s)', datetime.datetime.utcnow(), self)
+            self.fail('Test timed out')
+
+        ioloop.call_later(self.DEFAULT_TEST_TIMEOUT, _on_test_timeout)
+
+        return ioloop
+
+
+    def create_nonblocking_tcp_socket(self):
+        """Create a TCP stream socket and schedule cleanup to close it
+
+        """
+        sock = socket.socket()
+        sock.setblocking(False)
+        self.addCleanup(sock.close)
+        return sock
+
+    def create_nonblocking_socketpair(self):
+        """Creates a non-blocking socket pair and schedules cleanup to close
+        them
+
+        :returns: two-tuple of connected non-blocking sockets
+
+        """
+        pair = pika.compat._nonblocking_socketpair()
+        self.addCleanup(pair[0].close)
+        self.addCleanup(pair[1].close)
+        return pair
+
+    def create_blocking_socketpair(self):
+        """Creates a blocking socket pair and schedules cleanup to close
+        them
+
+        :returns: two-tuple of connected non-blocking sockets
+
+        """
+        pair = self.create_nonblocking_socketpair()
+        pair[0].setblocking(True)  # pylint: disable=E1101
+        pair[1].setblocking(True)
+        return pair
+
+    @staticmethod
+    def safe_connect_nonblocking_socket(sock, addr_pair):
+        """Initiate socket connection, suppressing EINPROGRESS/EWOULDBLOCK
+        :param socket.socket sock
+        :param addr_pair: two tuple of address string and port integer
+        """
+        try:
+            sock.connect(addr_pair)
+        except pika.compat.SOCKET_ERROR as error:
+            # EINPROGRESS for posix and EWOULDBLOCK for windows
+            if error.errno not in (errno.EINPROGRESS, errno.EWOULDBLOCK,):
+                raise
+
+    def get_dead_socket_address(self):
+        """
+
+        :return: socket address pair (ip-addr, port) that will refuse connection
+
+        """
+        s1, s2 = pika.compat._nonblocking_socketpair()
+        s2.close()
+        self.addCleanup(s1.close)
+        return s1.getsockname()  # pylint: disable=E1101
+
+    def which_events_are_set_with_varying_eventmasks(self,
+                                                     sock,
+                                                     requested_eventmasks,
+                                                     msg_prefix):
+        """Common logic for which_events_are_set_* tests. Runs the event loop
+        while varying eventmasks at each socket event callback
+
+        :param ioloop:
+        :param sock:
+        :param requested_eventmasks: a mutable list of eventmasks to apply after
+                                     each socket event callback
+        :param msg_prefix: Message prefix to apply when printing watched vs.
+                           indicated events.
+        """
+        ioloop = self.create_ioloop_with_timeout()
+
+        def handle_socket_events(_fd, in_events):
+            socket_error = sock.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
+            socket_error = 0 if socket_error == 0 else '{} ({})'.format(
+                socket_error,
+                os.strerror(socket_error))
+
+            _trace_stderr('[%s] %s: watching=%s; indicated=%s; sockerr=%s',
+                          ioloop._poller.__class__.__name__,
+                          msg_prefix,
+                          _fd_events_to_str(requested_eventmasks[0]),
+                          _fd_events_to_str(in_events),
+                          socket_error)
+
+            # NOTE ERROR may be added automatically by some pollers
+            #      without being requested.
+            self.assertTrue(
+                in_events & (requested_eventmasks[0] | self.ERROR),
+                'watching={}; indicated={}'.format(
+                    _fd_events_to_str(requested_eventmasks[0]),
+                    _fd_events_to_str(in_events)))
+
+            requested_eventmasks.pop(0)
+
+            if requested_eventmasks:
+                ioloop.update_handler(sock.fileno(), requested_eventmasks[0])
+            else:
+                ioloop.stop()
+
+        ioloop.add_handler(sock.fileno(),
+                           handle_socket_events,
+                           requested_eventmasks[0])
+        ioloop.start()
+
+
+    def test_which_events_are_set_when_failed_to_connect(self):
+
+        msg_prefix = '@ Failed to connect'
+
+        sock = self.create_nonblocking_tcp_socket()
+
+        self.safe_connect_nonblocking_socket(sock,
+                                             self.get_dead_socket_address())
+        requested_eventmasks = [
+            self.READ | self.WRITE | self.ERROR,
+            self.READ | self.WRITE,
+            self.READ,
+            self.WRITE | self.ERROR
+        ]
+
+        # NOTE: on OS X, we just get POLLHUP when requesting WRITE in this case
+        # with PollPoller. It's documented in `man poll` on OS X as mutually
+        # exclusive with POLLOUT; so it looks like PollPoller on OS X needs to
+        # translate POLLHUP TO POLLERR and we need to request ERROR just in
+        # case.
+
+        # NOTE: Unlike POSIX, Windows select doesn't indicate as
+        # readable/writable a socket that failed to connect - it reflects the
+        # failure only via exceptfds.
+        if platform.system() == 'Windows':
+            _trace_stderr(
+                '%s: setting `ERROR` to all event filters on '
+                'Windows, because its `select()` does not indicate a socket '
+                'that failed to connect as readable or writable.', msg_prefix)
+            for i in pika.compat.xrange(len(requested_eventmasks)):
+                requested_eventmasks[i] |= self.ERROR
+
+        self.which_events_are_set_with_varying_eventmasks(
+            sock=sock,
+            requested_eventmasks=requested_eventmasks,
+            msg_prefix=msg_prefix)
+
+    def test_which_events_are_set_after_remote_end_closes(self):
+
+        s1, s2 = self.create_blocking_socketpair()
+
+        s2.close()
+
+        requested_eventmasks = [
+            self.READ | self.WRITE | self.ERROR,
+            self.READ | self.WRITE,
+            self.READ,
+            self.WRITE
+        ]
+
+        self.which_events_are_set_with_varying_eventmasks(
+            sock=s1,
+            requested_eventmasks=requested_eventmasks,
+            msg_prefix='@ Remote closed')
+
+    def test_which_events_are_set_after_remote_end_closes_with_pending_data(self):
+
+        s1, s2 = self.create_blocking_socketpair()
+
+        s2.send(b'abc')
+        s2.close()
+
+        requested_eventmasks = [
+            self.READ | self.WRITE | self.ERROR,
+            self.READ | self.WRITE,
+            self.READ,
+            self.WRITE
+        ]
+
+        self.which_events_are_set_with_varying_eventmasks(
+            sock=s1,
+            requested_eventmasks=requested_eventmasks,
+            msg_prefix='@ Remote closed with pending data')
+
+    def test_which_events_are_set_after_remote_shuts_rd(self):
+
+        s1, s2 = self.create_blocking_socketpair()
+
+        s2.shutdown(socket.SHUT_RD)
+
+        requested_eventmasks = [
+            self.READ | self.WRITE | self.ERROR,
+            self.WRITE
+        ]
+
+        self.which_events_are_set_with_varying_eventmasks(
+            sock=s1,
+            requested_eventmasks=requested_eventmasks,
+            msg_prefix='@ Remote shut RD')
+
+    def test_which_events_are_set_after_remote_shuts_wr(self):
+
+        s1, s2 = self.create_blocking_socketpair()
+
+        s2.shutdown(socket.SHUT_WR)
+
+        requested_eventmasks = [
+            (self.READ | self.WRITE | self.ERROR),
+            self.READ | self.WRITE,
+            self.READ,
+            self.WRITE
+        ]
+
+        self.which_events_are_set_with_varying_eventmasks(
+            sock=s1,
+            requested_eventmasks=requested_eventmasks,
+            msg_prefix='@ Remote shut WR')
+
+    def test_which_events_are_set_after_remote_shuts_wr_with_pending_data(self):
+
+        s1, s2 = self.create_blocking_socketpair()
+
+        s2.send(b'abc')
+        s2.shutdown(socket.SHUT_WR)
+
+        requested_eventmasks = [
+            self.READ | self.WRITE | self.ERROR,
+            self.READ | self.WRITE,
+            self.READ,
+            self.WRITE
+        ]
+
+        self.which_events_are_set_with_varying_eventmasks(
+            sock=s1,
+            requested_eventmasks=requested_eventmasks,
+            msg_prefix='@ Remote shut WR with pending data')
+
+    def test_which_events_are_set_after_remote_shuts_rdwr(self):
+
+        s1, s2 = self.create_blocking_socketpair()
+
+        s2.shutdown(socket.SHUT_RDWR)
+
+        requested_eventmasks = [
+            self.READ | self.WRITE | self.ERROR,
+            self.READ | self.WRITE,
+            self.READ,
+            self.WRITE
+        ]
+
+        self.which_events_are_set_with_varying_eventmasks(
+            sock=s1,
+            requested_eventmasks=requested_eventmasks,
+            msg_prefix='@ Remote shut RDWR')
+
+    def test_which_events_are_set_after_local_shuts_rd(self):
+
+        msg_prefix = '@ Local shut RD'
+
+        s1, _s2 = self.create_blocking_socketpair()
+
+        s1.shutdown(socket.SHUT_RD)  # pylint: disable=E1101
+
+        requested_eventmasks = [
+            self.READ | self.WRITE | self.ERROR,
+            self.READ | self.WRITE,
+            self.READ,
+            self.WRITE
+        ]
+
+        # NOTE: Unlike POSIX, Windows select doesn't indicate as readable socket
+        #  that was shut down locally with SHUT_RD.
+        if platform.system() == 'Windows':
+            _trace_stderr(
+                '%s: removing check for solo READ on Windows, '
+                'because its `select()` does not indicate a socket shut '
+                'locally with SHUT_RD as readable.', msg_prefix)
+            requested_eventmasks.remove(self.READ)
+
+        self.which_events_are_set_with_varying_eventmasks(
+            sock=s1,
+            requested_eventmasks=requested_eventmasks,
+            msg_prefix=msg_prefix)
+
+    def test_which_events_are_set_after_local_shuts_wr(self):
+
+        s1, _s2 = self.create_blocking_socketpair()
+
+        s1.shutdown(socket.SHUT_WR)  # pylint: disable=E1101
+
+        requested_eventmasks = [
+            self.READ | self.WRITE | self.ERROR,
+            self.WRITE | self.ERROR
+        ]
+
+        # NOTE: on OS X, we just get POLLHUP when requesting WRITE in this case
+        # with PollPoller. It's documented in `man poll` on OS X as mutually
+        # exclusive with POLLOUT; so it looks like PollPoller on OS X needs to
+        # translate POLLHUP TO POLLERR and we need to request ERROR just in
+        # case.
+
+        self.which_events_are_set_with_varying_eventmasks(
+            sock=s1,
+            requested_eventmasks=requested_eventmasks,
+            msg_prefix='@ Local shut WR')
+
+    def test_which_events_are_set_after_local_shuts_rdwr(self):
+
+        msg_prefix = '@ Local shut RDWR'
+
+        s1, _s2 = self.create_blocking_socketpair()
+
+        s1.shutdown(socket.SHUT_RDWR)  # pylint: disable=E1101
+
+        requested_eventmasks = [
+            self.READ | self.WRITE | self.ERROR,
+            self.READ | self.WRITE,
+            self.READ,
+            self.WRITE | self.ERROR
+        ]
+        # NOTE: on OS X, we just get POLLHUP when requesting WRITE in this case
+        # with PollPoller. It's documented in `man poll` on OS X as mutually
+        # exclusive with POLLOUT; so it looks like PollPoller on OS X needs to
+        # translate POLLHUP TO POLLERR and we need to request ERROR just in
+        # case.
+
+        # NOTE: Unlike POSIX, Windows select doesn't indicate as readable socket
+        #  that was shut down locally with SHUT_RDWR.
+        if platform.system() == 'Windows':
+            _trace_stderr(
+                '%s: removing check for solo READ on Windows, '
+                'because its `select()` does not indicate a socket shut '
+                'locally with SHUT_RDWR as readable.', msg_prefix)
+            requested_eventmasks.remove(self.READ)
+
+        self.which_events_are_set_with_varying_eventmasks(
+            sock=s1,
+            requested_eventmasks=requested_eventmasks,
+            msg_prefix=msg_prefix)
+
+
+@mock.patch.multiple(select_connection, SELECT_TYPE='select')
+class SelectPollerSocketEventsTestCase(DefaultPollerSocketEventsTestCase):
+    """Runs `DefaultPollerSocketEventsTestCase` tests with forced use of
+    SelectPoller
+    """
+    pass
+
+
+@unittest.skipIf(not POLL_SUPPORTED, 'poll not supported')
+@mock.patch.multiple(select_connection, SELECT_TYPE='poll')
+class PollPollerSocketEventsTestCase(DefaultPollerSocketEventsTestCase):
+    """Same as DefaultPollerSocketEventsTestCase but uses poll syscall"""
+    pass
+
+
+@unittest.skipIf(not EPOLL_SUPPORTED, 'epoll not supported')
+@mock.patch.multiple(select_connection, SELECT_TYPE='epoll')
+class EpollPollerSocketEventsTestCase(DefaultPollerSocketEventsTestCase):
+    """Same as DefaultPollerSocketEventsTestCase but uses epoll syscall"""
+    pass
+
+
+@unittest.skipIf(not KQUEUE_SUPPORTED, 'kqueue not supported')
+@mock.patch.multiple(select_connection, SELECT_TYPE='kqueue')
+class KqueuePollerSocketEventsTestCase(DefaultPollerSocketEventsTestCase):
+    """Same as DefaultPollerSocketEventsTestCase but uses kqueue syscall"""
+    pass

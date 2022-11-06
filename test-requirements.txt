@@ -1,6 +1,8 @@
 coverage
 codecov
-mock
+gevent
 nose
+nose2
 tornado
-twisted<15.4.0
+twisted
+enum34; python_version == '2.7' or (python_version >= '3.0' and python_version <= '3.4')

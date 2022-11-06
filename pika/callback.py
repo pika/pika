@@ -16,8 +16,8 @@ def name_or_value(value):
     """Will take Frame objects, classes, etc and attempt to return a valid
     string identifier for them.
 
-    :param value: The value to sanitize
-    :type value:  pika.amqp_object.AMQPObject|pika.frame.Frame|int|unicode|str
+    :param pika.amqp_object.AMQPObject|pika.frame.Frame|int|str value: The
+        value to sanitize
     :rtype: str
 
     """
@@ -85,7 +85,7 @@ def check_for_prefix_and_key(function):
             key = name_or_value(args[offset])
 
         # Make sure prefix and key are in the stack
-        if prefix not in args[0]._stack or key not in args[0]._stack[prefix]:
+        if prefix not in args[0]._stack or key not in args[0]._stack[prefix]:  # pylint: disable=W0212
             return False
 
         # Execute the method
@@ -94,7 +94,7 @@ def check_for_prefix_and_key(function):
     return wrapper
 
 
-class CallbackManager(object):
+class CallbackManager:
     """CallbackManager is a global callback system designed to be a single place
     where Pika can manage callbacks and process them. It should be referenced
     by the CallbackManager.instance() method instead of constructing new
@@ -113,7 +113,10 @@ class CallbackManager(object):
         self._stack = dict()
 
     @sanitize_prefix
-    def add(self, prefix, key, callback,
+    def add(self,
+            prefix,
+            key,
+            callback,
             one_shot=True,
             only_caller=None,
             arguments=None):
@@ -125,11 +128,9 @@ class CallbackManager(object):
         CallbackManager will restrict processing of the callback to only
         the calling function/object that you specify.
 
-        :param prefix: Categorize the callback
-        :type prefix: str or int
-        :param key: The key for the callback
-        :type key: object or str or dict
-        :param method callback: The callback to call
+        :param str|int prefix: Categorize the callback
+        :param str|dict key: The key for the callback
+        :param callable callback: The callback to call
         :param bool one_shot: Remove this callback after it is called
         :param object only_caller: Only allow one_caller value to call the
                                    event that fires the callback.
@@ -147,8 +148,8 @@ class CallbackManager(object):
         # Check for a duplicate
         for callback_dict in self._stack[prefix][key]:
             if (callback_dict[self.CALLBACK] == callback and
-                callback_dict[self.ARGUMENTS] == arguments and
-                callback_dict[self.ONLY_CALLER] == only_caller):
+                    callback_dict[self.ARGUMENTS] == arguments and
+                    callback_dict[self.ONLY_CALLER] == only_caller):
                 if callback_dict[self.ONE_SHOT] is True:
                     callback_dict[self.CALLS] += 1
                     LOGGER.debug('Incremented callback reference counter: %r',
@@ -188,10 +189,8 @@ class CallbackManager(object):
     def pending(self, prefix, key):
         """Return count of callbacks for a given prefix or key or None
 
-        :param prefix: Categorize the callback
-        :type prefix: str or int
-        :param key: The key for the callback
-        :type key: object or str or dict
+        :param str|int prefix: Categorize the callback
+        :param object|str|dict key: The key for the callback
         :rtype: None or int
 
         """
@@ -207,10 +206,8 @@ class CallbackManager(object):
         require a specific function to call CallbackManager.process will
         not be processed.
 
-        :param prefix: Categorize the callback
-        :type prefix: str or int
-        :param key: The key for the callback
-        :type key: object or str or dict
+        :param str|int prefix: Categorize the callback
+        :param object|str|int key: The key for the callback
         :param object caller: Who is firing the event
         :param list args: Any optional arguments
         :param dict keywords: Optional keyword arguments
@@ -249,7 +246,7 @@ class CallbackManager(object):
 
         :param str or int prefix: The prefix for keeping track of callbacks with
         :param str key: The callback key
-        :param method callback_value: The method defined to call on callback
+        :param callable callback_value: The method defined to call on callback
         :param dict arguments: Optional arguments to check
         :rtype: bool
 
@@ -260,7 +257,7 @@ class CallbackManager(object):
                 callback_dict = self._stack[prefix][key][offset - 1]
 
                 if (callback_dict[self.CALLBACK] == callback_value and
-                    self._arguments_match(callback_dict, [arguments])):
+                        self._arguments_match(callback_dict, [arguments])):
                     offsets_to_remove.append(offset - 1)
 
             for offset in offsets_to_remove:
@@ -302,14 +299,14 @@ class CallbackManager(object):
         if isinstance(args[0], dict):
             return self._dict_arguments_match(args[0],
                                               callback_dict[self.ARGUMENTS])
-        return self._obj_arguments_match(args[0].method
-                                         if hasattr(args[0], 'method') else
-                                         args[0], callback_dict[self.ARGUMENTS])
+        return self._obj_arguments_match(
+            args[0].method if hasattr(args[0], 'method') else args[0],
+            callback_dict[self.ARGUMENTS])
 
     def _callback_dict(self, callback, one_shot, only_caller, arguments):
         """Return the callback dictionary.
 
-        :param method callback: The callback to call
+        :param callable callback: The callback to call
         :param bool one_shot: Remove this callback after it is called
         :param object only_caller: Only allow one_caller value to call the
                                    event that fires the callback.

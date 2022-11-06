@@ -1,11 +1,14 @@
 # -*- coding: utf-8 -*-
+# pylint: disable=C0111,C0103,R0205
 
+import functools
 import logging
-import pika
 import json
+import pika
+from pika.exchange_type import ExchangeType
 
 LOG_FORMAT = ('%(levelname) -10s %(asctime)s %(name) -30s %(funcName) '
-                '-35s %(lineno) -5d: %(message)s')
+              '-35s %(lineno) -5d: %(message)s')
 LOGGER = logging.getLogger(__name__)
 
 
@@ -23,7 +26,7 @@ class ExamplePublisher(object):
 
     """
     EXCHANGE = 'message'
-    EXCHANGE_TYPE = 'topic'
+    EXCHANGE_TYPE = ExchangeType.topic
     PUBLISH_INTERVAL = 1
     QUEUE = 'text'
     ROUTING_KEY = 'example.text'
@@ -49,47 +52,57 @@ class ExamplePublisher(object):
     def connect(self):
         """This method connects to RabbitMQ, returning the connection handle.
         When the connection is established, the on_connection_open method
-        will be invoked by pika. If you want the reconnection to work, make
-        sure you set stop_ioloop_on_close to False, which is not the default
-        behavior of this adapter.
+        will be invoked by pika.
 
         :rtype: pika.SelectConnection
 
         """
         LOGGER.info('Connecting to %s', self._url)
-        return pika.SelectConnection(pika.URLParameters(self._url),
-                                     on_open_callback=self.on_connection_open,
-                                     on_close_callback=self.on_connection_closed,
-                                     stop_ioloop_on_close=False)
+        return pika.SelectConnection(
+            pika.URLParameters(self._url),
+            on_open_callback=self.on_connection_open,
+            on_open_error_callback=self.on_connection_open_error,
+            on_close_callback=self.on_connection_closed)
 
-    def on_connection_open(self, unused_connection):
+    def on_connection_open(self, _unused_connection):
         """This method is called by pika once the connection to RabbitMQ has
         been established. It passes the handle to the connection object in
         case we need it, but in this case, we'll just mark it unused.
 
-        :type unused_connection: pika.SelectConnection
+        :param pika.SelectConnection _unused_connection: The connection
 
         """
         LOGGER.info('Connection opened')
         self.open_channel()
 
-    def on_connection_closed(self, connection, reply_code, reply_text):
+    def on_connection_open_error(self, _unused_connection, err):
+        """This method is called by pika if the connection to RabbitMQ
+        can't be established.
+
+        :param pika.SelectConnection _unused_connection: The connection
+        :param Exception err: The error
+
+        """
+        LOGGER.error('Connection open failed, reopening in 5 seconds: %s', err)
+        self._connection.ioloop.call_later(5, self._connection.ioloop.stop)
+
+    def on_connection_closed(self, _unused_connection, reason):
         """This method is invoked by pika when the connection to RabbitMQ is
         closed unexpectedly. Since it is unexpected, we will reconnect to
         RabbitMQ if it disconnects.
 
         :param pika.connection.Connection connection: The closed connection obj
-        :param int reply_code: The server provided reply_code if given
-        :param str reply_text: The server provided reply_text if given
+        :param Exception reason: exception representing reason for loss of
+            connection.
 
         """
         self._channel = None
         if self._stopping:
             self._connection.ioloop.stop()
         else:
-            LOGGER.warning('Connection closed, reopening in 5 seconds: (%s) %s',
-                           reply_code, reply_text)
-            self._connection.add_timeout(5, self._connection.ioloop.stop)
+            LOGGER.warning('Connection closed, reopening in 5 seconds: %s',
+                           reason)
+            self._connection.ioloop.call_later(5, self._connection.ioloop.stop)
 
     def open_channel(self):
         """This method will open a new channel with RabbitMQ by issuing the
@@ -123,7 +136,7 @@ class ExamplePublisher(object):
         LOGGER.info('Adding channel close callback')
         self._channel.add_on_close_callback(self.on_channel_closed)
 
-    def on_channel_closed(self, channel, reply_code, reply_text):
+    def on_channel_closed(self, channel, reason):
         """Invoked by pika when RabbitMQ unexpectedly closes the channel.
         Channels are usually closed if you attempt to do something that
         violates the protocol, such as re-declare an exchange or queue with
@@ -131,11 +144,10 @@ class ExamplePublisher(object):
         to shutdown the object.
 
         :param pika.channel.Channel channel: The closed channel
-        :param int reply_code: The numeric reason the channel was closed
-        :param str reply_text: The text reason the channel was closed
+        :param Exception reason: why the channel was closed
 
         """
-        LOGGER.warning('Channel was closed: (%s) %s', reply_code, reply_text)
+        LOGGER.warning('Channel %i was closed: %s', channel, reason)
         self._channel = None
         if not self._stopping:
             self._connection.close()
@@ -149,18 +161,23 @@ class ExamplePublisher(object):
 
         """
         LOGGER.info('Declaring exchange %s', exchange_name)
-        self._channel.exchange_declare(self.on_exchange_declareok,
-                                       exchange_name,
-                                       self.EXCHANGE_TYPE)
+        # Note: using functools.partial is not required, it is demonstrating
+        # how arbitrary data can be passed to the callback when it is called
+        cb = functools.partial(self.on_exchange_declareok,
+                               userdata=exchange_name)
+        self._channel.exchange_declare(exchange=exchange_name,
+                                       exchange_type=self.EXCHANGE_TYPE,
+                                       callback=cb)
 
-    def on_exchange_declareok(self, unused_frame):
+    def on_exchange_declareok(self, _unused_frame, userdata):
         """Invoked by pika when RabbitMQ has finished the Exchange.Declare RPC
         command.
 
         :param pika.Frame.Method unused_frame: Exchange.DeclareOk response frame
+        :param str|unicode userdata: Extra user data (exchange name)
 
         """
-        LOGGER.info('Exchange declared')
+        LOGGER.info('Exchange declared: %s', userdata)
         self.setup_queue(self.QUEUE)
 
     def setup_queue(self, queue_name):
@@ -172,9 +189,10 @@ class ExamplePublisher(object):
 
         """
         LOGGER.info('Declaring queue %s', queue_name)
-        self._channel.queue_declare(self.on_queue_declareok, queue_name)
+        self._channel.queue_declare(queue=queue_name,
+                                    callback=self.on_queue_declareok)
 
-    def on_queue_declareok(self, method_frame):
+    def on_queue_declareok(self, _unused_frame):
         """Method invoked by pika when the Queue.Declare RPC call made in
         setup_queue has completed. In this method we will bind the queue
         and exchange together with the routing key by issuing the Queue.Bind
@@ -184,12 +202,14 @@ class ExamplePublisher(object):
         :param pika.frame.Method method_frame: The Queue.DeclareOk frame
 
         """
-        LOGGER.info('Binding %s to %s with %s',
-                    self.EXCHANGE, self.QUEUE, self.ROUTING_KEY)
-        self._channel.queue_bind(self.on_bindok, self.QUEUE,
-                                 self.EXCHANGE, self.ROUTING_KEY)
+        LOGGER.info('Binding %s to %s with %s', self.EXCHANGE, self.QUEUE,
+                    self.ROUTING_KEY)
+        self._channel.queue_bind(self.QUEUE,
+                                 self.EXCHANGE,
+                                 routing_key=self.ROUTING_KEY,
+                                 callback=self.on_bindok)
 
-    def on_bindok(self, unused_frame):
+    def on_bindok(self, _unused_frame):
         """This method is invoked by pika when it receives the Queue.BindOk
         response from RabbitMQ. Since we know we're now setup and bound, it's
         time to start publishing."""
@@ -233,18 +253,33 @@ class ExamplePublisher(object):
 
         """
         confirmation_type = method_frame.method.NAME.split('.')[1].lower()
-        LOGGER.info('Received %s for delivery tag: %i',
-                    confirmation_type,
-                    method_frame.method.delivery_tag)
+        ack_multiple = method_frame.method.multiple
+        delivery_tag = method_frame.method.delivery_tag
+
+        LOGGER.info('Received %s for delivery tag: %i (multiple: %s)',
+                    confirmation_type, delivery_tag, ack_multiple)
+
         if confirmation_type == 'ack':
             self._acked += 1
         elif confirmation_type == 'nack':
             self._nacked += 1
-        self._deliveries.remove(method_frame.method.delivery_tag)
-        LOGGER.info('Published %i messages, %i have yet to be confirmed, '
-                    '%i were acked and %i were nacked',
-                    self._message_number, len(self._deliveries),
-                    self._acked, self._nacked)
+
+        del self._deliveries[delivery_tag]
+
+        if ack_multiple:
+            for tmp_tag in list(self._deliveries.keys()):
+                if tmp_tag <= delivery_tag:
+                    self._acked += 1
+                    del self._deliveries[tmp_tag]
+        """
+        NOTE: at some point you would check self._deliveries for stale
+        entries and decide to attempt re-delivery
+        """
+
+        LOGGER.info(
+            'Published %i messages, %i have yet to be confirmed, '
+            '%i were acked and %i were nacked', self._message_number,
+            len(self._deliveries), self._acked, self._nacked)
 
     def schedule_next_message(self):
         """If we are not closing our connection to RabbitMQ, schedule another
@@ -253,8 +288,8 @@ class ExamplePublisher(object):
         """
         LOGGER.info('Scheduling next message for %0.1f seconds',
                     self.PUBLISH_INTERVAL)
-        self._connection.add_timeout(self.PUBLISH_INTERVAL,
-                                     self.publish_message)
+        self._connection.ioloop.call_later(self.PUBLISH_INTERVAL,
+                                           self.publish_message)
 
     def publish_message(self):
         """If the class is not stopping, publish a message to RabbitMQ,
@@ -272,9 +307,7 @@ class ExamplePublisher(object):
         if self._channel is None or not self._channel.is_open:
             return
 
-        hdrs = {u'مفتاح': u' قيمة',
-                u'键': u'值',
-                u'キー': u'値'}
+        hdrs = {u'مفتاح': u' قيمة', u'键': u'值', u'キー': u'値'}
         properties = pika.BasicProperties(app_id='example-publisher',
                                           content_type='application/json',
                                           headers=hdrs)
@@ -284,7 +317,7 @@ class ExamplePublisher(object):
                                     json.dumps(message, ensure_ascii=False),
                                     properties)
         self._message_number += 1
-        self._deliveries.append(self._message_number)
+        self._deliveries[self._message_number] = True
         LOGGER.info('Published message # %i', self._message_number)
         self.schedule_next_message()
 
@@ -294,7 +327,7 @@ class ExamplePublisher(object):
         """
         while not self._stopping:
             self._connection = None
-            self._deliveries = []
+            self._deliveries = {}
             self._acked = 0
             self._nacked = 0
             self._message_number = 0
@@ -306,7 +339,6 @@ class ExamplePublisher(object):
                 self.stop()
                 if (self._connection is not None and
                         not self._connection.is_closed):
-                    # Finish closing
                     self._connection.ioloop.start()
 
         LOGGER.info('Stopped')
@@ -345,7 +377,9 @@ def main():
     logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT)
 
     # Connect to localhost:5672 as guest with the password guest and virtual host "/" (%2F)
-    example = ExamplePublisher('amqp://guest:guest@localhost:5672/%2F?connection_attempts=3&heartbeat_interval=3600')
+    example = ExamplePublisher(
+        'amqp://guest:guest@localhost:5672/%2F?connection_attempts=3&heartbeat=3600'
+    )
     example.run()
 
 

@@ -1,6 +1,6 @@
 import unittest
 
-from mock import MagicMock
+from unittest.mock import MagicMock
 from pika.frame import Method, Header
 from pika.exceptions import DuplicateGetOkCallback
 from pika.channel import Channel
@@ -14,16 +14,16 @@ class OnlyOneBasicGetTestCase(unittest.TestCase):
         self.callback = MagicMock()
 
     def test_two_basic_get_with_callback(self):
-        self.channel.basic_get(self.callback)
+        self.channel.basic_get('test-queue', self.callback)
         self.channel._on_getok(MagicMock(Method)(), MagicMock(Header)(), '')
-        self.channel.basic_get(self.callback)
+        self.channel.basic_get('test-queue', self.callback)
         self.channel._on_getok(MagicMock(Method)(), MagicMock(Header)(), '')
         self.assertEqual(self.callback.call_count, 2)
 
     def test_two_basic_get_without_callback(self):
-        self.channel.basic_get(self.callback)
+        self.channel.basic_get('test-queue', self.callback)
         with self.assertRaises(DuplicateGetOkCallback):
-            self.channel.basic_get(self.callback)
+            self.channel.basic_get('test-queue', self.callback)
 
 if __name__ == '__main__':
     unittest.main()

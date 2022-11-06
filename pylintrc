@@ -1,4 +1,4 @@
-[MASTER]
+[MAIN]
 
 # Specify a configuration file.
 #rcfile=
@@ -70,7 +70,15 @@ confidence=
 # --enable=similarities". If you want to run only the classes checker, but have
 # no Warning level messages displayed, use"--disable=all --enable=classes
 # --disable=W"
-disable=R1705
+#
+# disable R0205: - Class 'Foo' inherits from object, can be safely removed from bases in python3 (useless-object-inheritance)#
+#
+# disable C0302: too many lines in module
+#
+# disable W0511: TODOs
+#
+# disable R0801: similar lines in files
+disable=R0801,R1705,R0205,C0302,W0511
 
 
 [REPORTS]

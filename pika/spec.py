@@ -15,6 +15,8 @@ import struct
 from pika import amqp_object
 from pika import data
 from pika.compat import str_or_bytes, unicode_type
+from pika.exchange_type import ExchangeType
+from pika.delivery_mode import DeliveryMode
 
 # Python 3 support for str object
 str = bytes
@@ -317,7 +319,7 @@ class Connection(amqp_object.Class):
             data.encode_short_string(pieces, self.capabilities)
             bit_buffer = 0
             if self.insist:
-                bit_buffer = bit_buffer | (1 << 0)
+                bit_buffer |= 1 << 0
             pieces.append(struct.pack('B', bit_buffer))
             return pieces
 
@@ -440,6 +442,62 @@ class Connection(amqp_object.Class):
             pieces = list()
             return pieces
 
+    class UpdateSecret(amqp_object.Method):
+
+        INDEX = 0x000A0046  # 10, 70; 655430
+        NAME = 'Connection.UpdateSecret'
+
+        def __init__(self, new_secret, reason):
+            self.new_secret = new_secret
+            self.reason = reason
+
+        @property
+        def synchronous(self):
+            return True
+
+        def decode(self, encoded, offset=0):
+            length = struct.unpack_from('>I', encoded, offset)[0]
+            offset += 4
+            self.mechanisms = encoded[offset:offset + length]
+            try:
+                self.mechanisms = str(self.mechanisms)
+            except UnicodeEncodeError:
+                pass
+            offset += length
+            self.reason, offset = data.decode_short_string(encoded, offset)
+            return self
+
+        def encode(self):
+            pieces = list()
+            assert isinstance(self.new_secret, str_or_bytes),\
+                'A non-string value was supplied for self.new_secret'
+            value = self.new_secret.encode('utf-8') if isinstance(self.new_secret, unicode_type) else self.new_secret
+            pieces.append(struct.pack('>I', len(value)))
+            pieces.append(value)
+            assert isinstance(self.reason, str_or_bytes),\
+                'A non-string value was supplied for self.reason'
+            data.encode_short_string(pieces, self.reason)
+            return pieces
+
+    class UpdateSecretOk(amqp_object.Method):
+
+        INDEX = 0x000A0047  # 10, 71; 655431
+        NAME = 'Connection.UpdateSecretOk'
+
+        def __init__(self):
+            pass
+
+        @property
+        def synchronous(self):
+            return False
+
+        def decode(self, encoded, offset=0):
+            return self
+
+        def encode(self):
+            pieces = list()
+            return pieces
+
 
 class Channel(amqp_object.Class):
 
@@ -523,7 +581,7 @@ class Channel(amqp_object.Class):
             pieces = list()
             bit_buffer = 0
             if self.active:
-                bit_buffer = bit_buffer | (1 << 0)
+                bit_buffer |= 1 << 0
             pieces.append(struct.pack('B', bit_buffer))
             return pieces
 
@@ -549,7 +607,7 @@ class Channel(amqp_object.Class):
             pieces = list()
             bit_buffer = 0
             if self.active:
-                bit_buffer = bit_buffer | (1 << 0)
+                bit_buffer |= 1 << 0
             pieces.append(struct.pack('B', bit_buffer))
             return pieces
 
@@ -648,15 +706,15 @@ class Access(amqp_object.Class):
             data.encode_short_string(pieces, self.realm)
             bit_buffer = 0
             if self.exclusive:
-                bit_buffer = bit_buffer | (1 << 0)
+                bit_buffer |= 1 << 0
             if self.passive:
-                bit_buffer = bit_buffer | (1 << 1)
+                bit_buffer |= 1 << 1
             if self.active:
-                bit_buffer = bit_buffer | (1 << 2)
+                bit_buffer |= 1 << 2
             if self.write:
-                bit_buffer = bit_buffer | (1 << 3)
+                bit_buffer |= 1 << 3
             if self.read:
-                bit_buffer = bit_buffer | (1 << 4)
+                bit_buffer |= 1 << 4
             pieces.append(struct.pack('B', bit_buffer))
             return pieces
 
@@ -693,7 +751,7 @@ class Exchange(amqp_object.Class):
         INDEX = 0x0028000A  # 40, 10; 2621450
         NAME = 'Exchange.Declare'
 
-        def __init__(self, ticket=0, exchange=None, type='direct', passive=False, durable=False, auto_delete=False, internal=False, nowait=False, arguments={}):
+        def __init__(self, ticket=0, exchange=None, type=ExchangeType.direct, passive=False, durable=False, auto_delete=False, internal=False, nowait=False, arguments=None):
             self.ticket = ticket
             self.exchange = exchange
             self.type = type
@@ -734,15 +792,15 @@ class Exchange(amqp_object.Class):
             data.encode_short_string(pieces, self.type)
             bit_buffer = 0
             if self.passive:
-                bit_buffer = bit_buffer | (1 << 0)
+                bit_buffer |= 1 << 0
             if self.durable:
-                bit_buffer = bit_buffer | (1 << 1)
+                bit_buffer |= 1 << 1
             if self.auto_delete:
-                bit_buffer = bit_buffer | (1 << 2)
+                bit_buffer |= 1 << 2
             if self.internal:
-                bit_buffer = bit_buffer | (1 << 3)
+                bit_buffer |= 1 << 3
             if self.nowait:
-                bit_buffer = bit_buffer | (1 << 4)
+                bit_buffer |= 1 << 4
             pieces.append(struct.pack('B', bit_buffer))
             data.encode_table(pieces, self.arguments)
             return pieces
@@ -799,9 +857,9 @@ class Exchange(amqp_object.Class):
             data.encode_short_string(pieces, self.exchange)
             bit_buffer = 0
             if self.if_unused:
-                bit_buffer = bit_buffer | (1 << 0)
+                bit_buffer |= 1 << 0
             if self.nowait:
-                bit_buffer = bit_buffer | (1 << 1)
+                bit_buffer |= 1 << 1
             pieces.append(struct.pack('B', bit_buffer))
             return pieces
 
@@ -829,7 +887,7 @@ class Exchange(amqp_object.Class):
         INDEX = 0x0028001E  # 40, 30; 2621470
         NAME = 'Exchange.Bind'
 
-        def __init__(self, ticket=0, destination=None, source=None, routing_key='', nowait=False, arguments={}):
+        def __init__(self, ticket=0, destination=None, source=None, routing_key='', nowait=False, arguments=None):
             self.ticket = ticket
             self.destination = destination
             self.source = source
@@ -867,7 +925,7 @@ class Exchange(amqp_object.Class):
             data.encode_short_string(pieces, self.routing_key)
             bit_buffer = 0
             if self.nowait:
-                bit_buffer = bit_buffer | (1 << 0)
+                bit_buffer |= 1 << 0
             pieces.append(struct.pack('B', bit_buffer))
             data.encode_table(pieces, self.arguments)
             return pieces
@@ -896,7 +954,7 @@ class Exchange(amqp_object.Class):
         INDEX = 0x00280028  # 40, 40; 2621480
         NAME = 'Exchange.Unbind'
 
-        def __init__(self, ticket=0, destination=None, source=None, routing_key='', nowait=False, arguments={}):
+        def __init__(self, ticket=0, destination=None, source=None, routing_key='', nowait=False, arguments=None):
             self.ticket = ticket
             self.destination = destination
             self.source = source
@@ -934,7 +992,7 @@ class Exchange(amqp_object.Class):
             data.encode_short_string(pieces, self.routing_key)
             bit_buffer = 0
             if self.nowait:
-                bit_buffer = bit_buffer | (1 << 0)
+                bit_buffer |= 1 << 0
             pieces.append(struct.pack('B', bit_buffer))
             data.encode_table(pieces, self.arguments)
             return pieces
@@ -969,7 +1027,7 @@ class Queue(amqp_object.Class):
         INDEX = 0x0032000A  # 50, 10; 3276810
         NAME = 'Queue.Declare'
 
-        def __init__(self, ticket=0, queue='', passive=False, durable=False, exclusive=False, auto_delete=False, nowait=False, arguments={}):
+        def __init__(self, ticket=0, queue='', passive=False, durable=False, exclusive=False, auto_delete=False, nowait=False, arguments=None):
             self.ticket = ticket
             self.queue = queue
             self.passive = passive
@@ -1005,15 +1063,15 @@ class Queue(amqp_object.Class):
             data.encode_short_string(pieces, self.queue)
             bit_buffer = 0
             if self.passive:
-                bit_buffer = bit_buffer | (1 << 0)
+                bit_buffer |= 1 << 0
             if self.durable:
-                bit_buffer = bit_buffer | (1 << 1)
+                bit_buffer |= 1 << 1
             if self.exclusive:
-                bit_buffer = bit_buffer | (1 << 2)
+                bit_buffer |= 1 << 2
             if self.auto_delete:
-                bit_buffer = bit_buffer | (1 << 3)
+                bit_buffer |= 1 << 3
             if self.nowait:
-                bit_buffer = bit_buffer | (1 << 4)
+                bit_buffer |= 1 << 4
             pieces.append(struct.pack('B', bit_buffer))
             data.encode_table(pieces, self.arguments)
             return pieces
@@ -1054,7 +1112,7 @@ class Queue(amqp_object.Class):
         INDEX = 0x00320014  # 50, 20; 3276820
         NAME = 'Queue.Bind'
 
-        def __init__(self, ticket=0, queue='', exchange=None, routing_key='', nowait=False, arguments={}):
+        def __init__(self, ticket=0, queue='', exchange=None, routing_key='', nowait=False, arguments=None):
             self.ticket = ticket
             self.queue = queue
             self.exchange = exchange
@@ -1092,7 +1150,7 @@ class Queue(amqp_object.Class):
             data.encode_short_string(pieces, self.routing_key)
             bit_buffer = 0
             if self.nowait:
-                bit_buffer = bit_buffer | (1 << 0)
+                bit_buffer |= 1 << 0
             pieces.append(struct.pack('B', bit_buffer))
             data.encode_table(pieces, self.arguments)
             return pieces
@@ -1147,7 +1205,7 @@ class Queue(amqp_object.Class):
             data.encode_short_string(pieces, self.queue)
             bit_buffer = 0
             if self.nowait:
-                bit_buffer = bit_buffer | (1 << 0)
+                bit_buffer |= 1 << 0
             pieces.append(struct.pack('B', bit_buffer))
             return pieces
 
@@ -1208,11 +1266,11 @@ class Queue(amqp_object.Class):
             data.encode_short_string(pieces, self.queue)
             bit_buffer = 0
             if self.if_unused:
-                bit_buffer = bit_buffer | (1 << 0)
+                bit_buffer |= 1 << 0
             if self.if_empty:
-                bit_buffer = bit_buffer | (1 << 1)
+                bit_buffer |= 1 << 1
             if self.nowait:
-                bit_buffer = bit_buffer | (1 << 2)
+                bit_buffer |= 1 << 2
             pieces.append(struct.pack('B', bit_buffer))
             return pieces
 
@@ -1243,7 +1301,7 @@ class Queue(amqp_object.Class):
         INDEX = 0x00320032  # 50, 50; 3276850
         NAME = 'Queue.Unbind'
 
-        def __init__(self, ticket=0, queue='', exchange=None, routing_key='', arguments={}):
+        def __init__(self, ticket=0, queue='', exchange=None, routing_key='', arguments=None):
             self.ticket = ticket
             self.queue = queue
             self.exchange = exchange
@@ -1308,10 +1366,10 @@ class Basic(amqp_object.Class):
         INDEX = 0x003C000A  # 60, 10; 3932170
         NAME = 'Basic.Qos'
 
-        def __init__(self, prefetch_size=0, prefetch_count=0, global_=False):
+        def __init__(self, prefetch_size=0, prefetch_count=0, global_qos=False):
             self.prefetch_size = prefetch_size
             self.prefetch_count = prefetch_count
-            self.global_ = global_
+            self.global_qos = global_qos
 
         @property
         def synchronous(self):
@@ -1324,7 +1382,7 @@ class Basic(amqp_object.Class):
             offset += 2
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            self.global_ = (bit_buffer & (1 << 0)) != 0
+            self.global_qos = (bit_buffer & (1 << 0)) != 0
             return self
 
         def encode(self):
@@ -1332,8 +1390,8 @@ class Basic(amqp_object.Class):
             pieces.append(struct.pack('>I', self.prefetch_size))
             pieces.append(struct.pack('>H', self.prefetch_count))
             bit_buffer = 0
-            if self.global_:
-                bit_buffer = bit_buffer | (1 << 0)
+            if self.global_qos:
+                bit_buffer |= 1 << 0
             pieces.append(struct.pack('B', bit_buffer))
             return pieces
 
@@ -1361,7 +1419,7 @@ class Basic(amqp_object.Class):
         INDEX = 0x003C0014  # 60, 20; 3932180
         NAME = 'Basic.Consume'
 
-        def __init__(self, ticket=0, queue='', consumer_tag='', no_local=False, no_ack=False, exclusive=False, nowait=False, arguments={}):
+        def __init__(self, ticket=0, queue='', consumer_tag='', no_local=False, no_ack=False, exclusive=False, nowait=False, arguments=None):
             self.ticket = ticket
             self.queue = queue
             self.consumer_tag = consumer_tag
@@ -1400,13 +1458,13 @@ class Basic(amqp_object.Class):
             data.encode_short_string(pieces, self.consumer_tag)
             bit_buffer = 0
             if self.no_local:
-                bit_buffer = bit_buffer | (1 << 0)
+                bit_buffer |= 1 << 0
             if self.no_ack:
-                bit_buffer = bit_buffer | (1 << 1)
+                bit_buffer |= 1 << 1
             if self.exclusive:
-                bit_buffer = bit_buffer | (1 << 2)
+                bit_buffer |= 1 << 2
             if self.nowait:
-                bit_buffer = bit_buffer | (1 << 3)
+                bit_buffer |= 1 << 3
             pieces.append(struct.pack('B', bit_buffer))
             data.encode_table(pieces, self.arguments)
             return pieces
@@ -1461,7 +1519,7 @@ class Basic(amqp_object.Class):
             data.encode_short_string(pieces, self.consumer_tag)
             bit_buffer = 0
             if self.nowait:
-                bit_buffer = bit_buffer | (1 << 0)
+                bit_buffer |= 1 << 0
             pieces.append(struct.pack('B', bit_buffer))
             return pieces
 
@@ -1526,9 +1584,9 @@ class Basic(amqp_object.Class):
             data.encode_short_string(pieces, self.routing_key)
             bit_buffer = 0
             if self.mandatory:
-                bit_buffer = bit_buffer | (1 << 0)
+                bit_buffer |= 1 << 0
             if self.immediate:
-                bit_buffer = bit_buffer | (1 << 1)
+                bit_buffer |= 1 << 1
             pieces.append(struct.pack('B', bit_buffer))
             return pieces
 
@@ -1604,7 +1662,7 @@ class Basic(amqp_object.Class):
             pieces.append(struct.pack('>Q', self.delivery_tag))
             bit_buffer = 0
             if self.redelivered:
-                bit_buffer = bit_buffer | (1 << 0)
+                bit_buffer |= 1 << 0
             pieces.append(struct.pack('B', bit_buffer))
             assert isinstance(self.exchange, str_or_bytes),\
                    'A non-string value was supplied for self.exchange'
@@ -1645,7 +1703,7 @@ class Basic(amqp_object.Class):
             data.encode_short_string(pieces, self.queue)
             bit_buffer = 0
             if self.no_ack:
-                bit_buffer = bit_buffer | (1 << 0)
+                bit_buffer |= 1 << 0
             pieces.append(struct.pack('B', bit_buffer))
             return pieces
 
@@ -1682,7 +1740,7 @@ class Basic(amqp_object.Class):
             pieces.append(struct.pack('>Q', self.delivery_tag))
             bit_buffer = 0
             if self.redelivered:
-                bit_buffer = bit_buffer | (1 << 0)
+                bit_buffer |= 1 << 0
             pieces.append(struct.pack('B', bit_buffer))
             assert isinstance(self.exchange, str_or_bytes),\
                    'A non-string value was supplied for self.exchange'
@@ -1742,7 +1800,7 @@ class Basic(amqp_object.Class):
             pieces.append(struct.pack('>Q', self.delivery_tag))
             bit_buffer = 0
             if self.multiple:
-                bit_buffer = bit_buffer | (1 << 0)
+                bit_buffer |= 1 << 0
             pieces.append(struct.pack('B', bit_buffer))
             return pieces
 
@@ -1772,7 +1830,7 @@ class Basic(amqp_object.Class):
             pieces.append(struct.pack('>Q', self.delivery_tag))
             bit_buffer = 0
             if self.requeue:
-                bit_buffer = bit_buffer | (1 << 0)
+                bit_buffer |= 1 << 0
             pieces.append(struct.pack('B', bit_buffer))
             return pieces
 
@@ -1798,7 +1856,7 @@ class Basic(amqp_object.Class):
             pieces = list()
             bit_buffer = 0
             if self.requeue:
-                bit_buffer = bit_buffer | (1 << 0)
+                bit_buffer |= 1 << 0
             pieces.append(struct.pack('B', bit_buffer))
             return pieces
 
@@ -1824,7 +1882,7 @@ class Basic(amqp_object.Class):
             pieces = list()
             bit_buffer = 0
             if self.requeue:
-                bit_buffer = bit_buffer | (1 << 0)
+                bit_buffer |= 1 << 0
             pieces.append(struct.pack('B', bit_buffer))
             return pieces
 
@@ -1875,9 +1933,9 @@ class Basic(amqp_object.Class):
             pieces.append(struct.pack('>Q', self.delivery_tag))
             bit_buffer = 0
             if self.multiple:
-                bit_buffer = bit_buffer | (1 << 0)
+                bit_buffer |= 1 << 0
             if self.requeue:
-                bit_buffer = bit_buffer | (1 << 1)
+                bit_buffer |= 1 << 1
             pieces.append(struct.pack('B', bit_buffer))
             return pieces
 
@@ -2029,7 +2087,7 @@ class Confirm(amqp_object.Class):
             pieces = list()
             bit_buffer = 0
             if self.nowait:
-                bit_buffer = bit_buffer | (1 << 0)
+                bit_buffer |= 1 << 0
             pieces.append(struct.pack('B', bit_buffer))
             return pieces
 
@@ -2078,7 +2136,10 @@ class BasicProperties(amqp_object.Properties):
         self.content_type = content_type
         self.content_encoding = content_encoding
         self.headers = headers
-        self.delivery_mode = delivery_mode
+        if isinstance(delivery_mode, DeliveryMode):
+            self.delivery_mode = delivery_mode.value
+        else:
+            self.delivery_mode = delivery_mode
         self.priority = priority
         self.correlation_id = correlation_id
         self.reply_to = reply_to
@@ -2251,6 +2312,8 @@ methods = {
     0x000A0033: Connection.CloseOk,
     0x000A003C: Connection.Blocked,
     0x000A003D: Connection.Unblocked,
+    0x000A0046: Connection.UpdateSecret,
+    0x000A0047: Connection.UpdateSecretOk,
     0x0014000A: Channel.Open,
     0x0014000B: Channel.OpenOk,
     0x00140014: Channel.Flow,

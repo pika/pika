@@ -1,0 +1,71 @@
+﻿name: pika
+
+on:
+  push:
+    branches:
+      - "*"
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-win32:
+    name: build/test on windows-latest
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        python-version: [3.7, 3.8, 3.9, '3.10']
+        test-tls: [true, false]
+    env:
+      PIKA_TEST_TLS: ${{ matrix.test-tls }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+          cache-dependency-path: test-requirements.txt
+      - name: Cache installers
+        uses: actions/cache@v3
+        with:
+          # Note: the cache path is relative to the workspace directory
+          # https://docs.github.com/en/actions/using-workflows/caching-dependencies-to-speed-up-workflows#using-the-cache-action
+          path: ~/installers
+          key: ${{ runner.os }}-v0-${{ hashFiles('testdata/versions.json') }}
+      - name: Install and start RabbitMQ
+        run: ./testdata/install.ps1
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip wheel
+          pip install -r test-requirements.txt
+      - name: Test with nose2
+        run: |
+          nose2 -v
+  build:
+    name: build/test on ubuntu-latest
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.7, 3.8, 3.9, '3.10']
+    services:
+      rabbitmq:
+        image: rabbitmq
+        ports:
+          - 5672:5672
+          - 5671:5671
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+          cache-dependency-path: test-requirements.txt
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip wheel
+          pip install -r test-requirements.txt
+      - name: Test with nose2
+        run: |
+          nose2 -v

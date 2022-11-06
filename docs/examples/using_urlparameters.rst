@@ -60,7 +60,7 @@ For an information on what the ssl_options can be set to reference the `official
 The following example demonstrates how to generate the ssl_options string with `Python's urllib <http://docs.python.org/2/library/urllib.html>`_::
 
     import urllib
-    urllib.urlencode({'ssl_options': {'certfile': '/etc/ssl/mycert.pem', 'keyfile': '/etc/ssl/mykey.pem'}})
+    urllib.parse.urlencode({'ssl_options': {'certfile': '/etc/ssl/mycert.pem', 'keyfile': '/etc/ssl/mykey.pem'}})
 
 
 .. rubric:: Footnotes

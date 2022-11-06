@@ -15,8 +15,13 @@ Example::
         # Invoked when the connection is open
         pass
 
-    # Create our connection object, passing in the on_open method
-    connection = pika.SelectConnection(on_open_callback=on_open)
+    def on_close(connection, exception):
+        # Invoked when the connection is closed
+        connection.ioloop.stop()
+
+    # Create our connection object,
+    # passing in the on_open and on_close methods
+    connection = pika.SelectConnection(on_open_callback=on_open, on_close_callback=on_close)
 
     try:
         # Loop so we can communicate with RabbitMQ
@@ -24,7 +29,8 @@ Example::
     except KeyboardInterrupt:
         # Gracefully close the connection
         connection.close()
-        # Loop until we're fully closed, will stop on its own
+        # Loop until we're fully closed.
+        # The on_close callback is required to stop the io loop
         connection.ioloop.start()
 
 .. _intro_to_cps:
@@ -58,7 +64,7 @@ Example::
     def on_connected(connection):
         """Called when we are fully connected to RabbitMQ"""
         # Open a channel
-        connection.channel(on_channel_open)
+        connection.channel(on_open_callback=on_channel_open)
 
     # Step #3
     def on_channel_open(new_channel):
@@ -70,16 +76,21 @@ Example::
     # Step #4
     def on_queue_declared(frame):
         """Called when RabbitMQ has told us our Queue has been declared, frame is the response from RabbitMQ"""
-        channel.basic_consume(handle_delivery, queue='test')
+        channel.basic_consume('test', handle_delivery)
 
     # Step #5
     def handle_delivery(channel, method, header, body):
         """Called when we receive a message from RabbitMQ"""
         print(body)
 
+    # Closing
+    def on_close(connection, exception):
+        # Invoked when the connection is closed
+        connection.ioloop.stop()
+
     # Step #1: Connect to RabbitMQ using the default parameters
     parameters = pika.ConnectionParameters()
-    connection = pika.SelectConnection(parameters, on_connected)
+    connection = pika.SelectConnection(on_open_callback=on_connected, on_close_callback=on_close)
 
     try:
         # Loop so we can communicate with RabbitMQ
@@ -87,7 +98,8 @@ Example::
     except KeyboardInterrupt:
         # Gracefully close the connection
         connection.close()
-        # Loop until we're fully closed, will stop on its own
+        # Loop until we're fully closed.
+        # The on_close callback is required to stop the io loop
         connection.ioloop.start()
 
 Credentials
@@ -122,4 +134,4 @@ Example::
 
 .. rubric:: Footnotes
 
-.. [#f1] "more effective flow control mechanism that does not require cooperation from clients and reacts quickly to prevent the broker from exhausing memory - see http://www.rabbitmq.com/extensions.html#memsup" from http://lists.rabbitmq.com/pipermail/rabbitmq-announce/attachments/20100825/2c672695/attachment.txt
+.. [#f1] "more effective flow control mechanism that does not require cooperation from clients and reacts quickly to prevent the broker from exhausting memory - see http://lists.rabbitmq.com/pipermail/rabbitmq-announce/attachments/20100825/2c672695/attachment.txt

@@ -4,6 +4,7 @@ Test `pika.connection.Parameters`, `pika.connection.ConnectionParameters`, and
 
 """
 import copy
+import ssl
 import unittest
 import warnings
 
@@ -11,21 +12,33 @@ import pika
 from pika.compat import urlencode, url_quote, dict_iteritems
 from pika import channel, connection, credentials, spec
 
-
 # disable missing-docstring
 # pylint: disable=C0111
 
 # disable invalid-name
 # pylint: disable=C0103
 
-
 # Unordered sequence of connection.Parameters's property getters
 _ALL_PUBLIC_PARAMETERS_PROPERTIES = tuple(
-    attr for attr in vars(connection.Parameters) if not attr.startswith('_')
-    and issubclass(type(getattr(connection.Parameters, attr)), property))
+    attr for attr in vars(connection.Parameters) if not attr.startswith('_') and
+    issubclass(type(getattr(connection.Parameters, attr)), property))
 
 
-class _ParametersTestsBase(unittest.TestCase):
+class ChildParameters(connection.Parameters):
+
+    def __init__(self, *args, **kwargs):
+        super(ChildParameters, self).__init__(*args, **kwargs)
+        self.extra = 'e'
+
+    def __eq__(self, other):
+        if isinstance(other, ChildParameters):
+            return self.extra == other.extra and super(
+                ChildParameters, self).__eq__(other)
+        return NotImplemented
+
+
+class ParametersTestsBase(unittest.TestCase):
+
     def setUp(self):
         warnings.resetwarnings()
         self.addCleanup(warnings.resetwarnings)
@@ -38,8 +51,6 @@ class _ParametersTestsBase(unittest.TestCase):
         """
         kls = connection.Parameters
         defaults = {
-            'backpressure_detection':
-            kls.DEFAULT_BACKPRESSURE_DETECTION,
             'blocked_connection_timeout':
             kls.DEFAULT_BLOCKED_CONNECTION_TIMEOUT,
             'channel_max':
@@ -65,8 +76,8 @@ class _ParametersTestsBase(unittest.TestCase):
             kls.DEFAULT_RETRY_DELAY,
             'socket_timeout':
             kls.DEFAULT_SOCKET_TIMEOUT,
-            'ssl':
-            kls.DEFAULT_SSL,
+            'stack_timeout':
+            kls.DEFAULT_STACK_TIMEOUT,
             'ssl_options':
             kls.DEFAULT_SSL_OPTIONS,
             'virtual_host':
@@ -85,10 +96,8 @@ class _ParametersTestsBase(unittest.TestCase):
         """Assert that the given parameters object has the default parameter
         values.
 
-        :param params: verify that the given params instance has all default
-           property values
-        :type params: one of the classes based on `pika.connection.Parameters`
-
+        :param pika.connection.Parameters params: Verify that the given params
+            instance has all default property values
         """
         for name, expected_value in dict_iteritems(
                 self.get_default_properties()):
@@ -100,29 +109,92 @@ class _ParametersTestsBase(unittest.TestCase):
                                                     value))
 
 
-class ParametersTests(_ParametersTestsBase):
-    """Test `pika.connection.Parameters`"""
+class ParametersTests(ParametersTestsBase):
+
+    def test_eq(self):
+        params_1 = connection.Parameters()
+        params_2 = connection.Parameters()
+        params_3 = ChildParameters()
+
+        self.assertEqual(params_1, params_2)
+        self.assertEqual(params_2, params_1)
+
+        params_1.host = 'localhost'
+        params_1.port = 5672
+        params_1.virtual_host = '/'
+        params_1.credentials = credentials.PlainCredentials('u', 'p')
+        params_2.host = 'localhost'
+        params_2.port = 5672
+        params_2.virtual_host = '//'
+        params_2.credentials = credentials.PlainCredentials('uu', 'pp')
+        self.assertEqual(params_1, params_2)
+        self.assertEqual(params_2, params_1)
+
+        params_1.host = 'localhost'
+        params_1.port = 5672
+        params_1.virtual_host = '/'
+        params_1.credentials = credentials.PlainCredentials('u', 'p')
+        params_3.host = 'localhost'
+        params_3.port = 5672
+        params_3.virtual_host = '//'
+        params_3.credentials = credentials.PlainCredentials('uu', 'pp')
+        self.assertEqual(params_1, params_3)
+        self.assertEqual(params_3, params_1)
+
+        class Foreign(object):
+
+            def __eq__(self, other):
+                return 'foobar'
+
+        self.assertEqual(params_1 == Foreign(), 'foobar')
+        self.assertEqual(Foreign() == params_1, 'foobar')
+
+    def test_ne(self):
+        params_1 = connection.Parameters()
+        params_2 = connection.Parameters()
+        params_3 = ChildParameters()
+
+        params_1.host = 'localhost'
+        params_1.port = 5672
+        params_2.host = 'myserver.com'
+        params_2.port = 5672
+        self.assertNotEqual(params_1, params_2)
+        self.assertNotEqual(params_2, params_1)
+
+        params_1.host = 'localhost'
+        params_1.port = 5672
+        params_2.host = 'localhost'
+        params_2.port = 5671
+        self.assertNotEqual(params_1, params_2)
+        self.assertNotEqual(params_2, params_1)
+
+        params_1.host = 'localhost'
+        params_1.port = 5672
+        params_3.host = 'myserver.com'
+        params_3.port = 5672
+        self.assertNotEqual(params_1, params_3)
+        self.assertNotEqual(params_3, params_1)
+
+        params_1.host = 'localhost'
+        params_1.port = 5672
+        params_3.host = 'localhost'
+        params_3.port = 5671
+        self.assertNotEqual(params_1, params_3)
+        self.assertNotEqual(params_3, params_1)
+
+        self.assertNotEqual(params_1, dict(host='localhost', port=5672))
+        self.assertNotEqual(dict(host='localhost', port=5672), params_1)
+
+        class Foreign(object):
+
+            def __ne__(self, other):
+                return 'foobar'
+
+        self.assertEqual(params_1 != Foreign(), 'foobar')
+        self.assertEqual(Foreign() != params_1, 'foobar')
 
     def test_default_property_values(self):
         self.assert_default_parameter_values(connection.Parameters())
-
-    def test_backpressure_detection(self):
-        params = connection.Parameters()
-
-        params.backpressure_detection = False
-        self.assertEqual(params.backpressure_detection, False)
-
-        params.backpressure_detection = True
-        self.assertEqual(params.backpressure_detection, True)
-
-        with self.assertRaises(TypeError):
-            params.backpressure_detection = 1
-
-        with self.assertRaises(TypeError):
-            params.backpressure_detection = 'true'
-
-        with self.assertRaises(TypeError):
-            params.backpressure_detection = 'f'
 
     def test_blocked_connection_timeout(self):
         params = connection.Parameters()
@@ -264,11 +336,11 @@ class ParametersTests(_ParametersTestsBase):
         params.host = '127.0.0.1'
         self.assertEqual(params.host, '127.0.0.1')
 
-        params.host = 'my.server.com'
-        self.assertEqual(params.host, 'my.server.com')
+        params.host = 'myserver.com'
+        self.assertEqual(params.host, 'myserver.com')
 
-        params.host = u'my.server.com'
-        self.assertEqual(params.host, u'my.server.com')
+        params.host = u'myserver.com'
+        self.assertEqual(params.host, u'myserver.com')
 
         with self.assertRaises(TypeError):
             params.host = 127
@@ -345,36 +417,18 @@ class ParametersTests(_ParametersTestsBase):
         with self.assertRaises(ValueError):
             params.socket_timeout = 0
 
-    def test_ssl(self):
-        params = connection.Parameters()
-
-        params.ssl = False
-        self.assertEqual(params.ssl, False)
-
-        params.ssl = True
-        self.assertEqual(params.ssl, True)
-
-        with self.assertRaises(TypeError):
-            params.backpressure_detection = 1
-
-        with self.assertRaises(TypeError):
-            params.ssl = 'True'
-
-        with self.assertRaises(TypeError):
-            params.ssl = 'f'
-
     def test_ssl_options(self):
         params = connection.Parameters()
 
-        opt = dict(key='value', key2=2, key3=dict(a=1))
-        params.ssl_options = copy.deepcopy(opt)
-        self.assertEqual(params.ssl_options, opt)
+        ssl_options = connection.SSLOptions(ssl.create_default_context())
+        params.ssl_options = ssl_options
+        self.assertIs(params.ssl_options, ssl_options)
 
         params.ssl_options = None
         self.assertIsNone(params.ssl_options)
 
         with self.assertRaises(TypeError):
-            params.ssl_options = str(opt)
+            params.ssl_options = dict()
 
     def test_virtual_host(self):
         params = connection.Parameters()
@@ -409,38 +463,49 @@ class ParametersTests(_ParametersTestsBase):
             params.tcp_options = str(opt)
 
 
-class ConnectionParametersTests(_ParametersTestsBase):
+class ConnectionParametersTests(ParametersTestsBase):
+
     def test_default_property_values(self):
         self.assert_default_parameter_values(connection.ConnectionParameters())
 
     def test_explicit_ssl_with_default_port(self):
-        params = connection.ConnectionParameters(ssl=True)
+        params = connection.ConnectionParameters(
+            ssl_options=connection.SSLOptions(ssl.create_default_context()))
 
-        self.assertEqual(params.ssl, True)
+        self.assertIsNotNone(params.ssl_options)
         self.assertEqual(params.port, params.DEFAULT_SSL_PORT)
 
     def test_explicit_ssl_with_explict_port(self):
-        params = connection.ConnectionParameters(ssl=True, port=99)
+        params = connection.ConnectionParameters(
+            ssl_options=connection.SSLOptions(ssl.create_default_context()),
+            port=99)
 
-        self.assertEqual(params.ssl, True)
+        self.assertIsNotNone(params.ssl_options)
         self.assertEqual(params.port, 99)
 
     def test_explicit_non_ssl_with_default_port(self):
-        params = connection.ConnectionParameters(ssl=False)
+        params = connection.ConnectionParameters(ssl_options=None)
 
-        self.assertEqual(params.ssl, False)
+        self.assertIsNone(params.ssl_options)
         self.assertEqual(params.port, params.DEFAULT_PORT)
 
     def test_explicit_non_ssl_with_explict_port(self):
-        params = connection.ConnectionParameters(ssl=False, port=100)
+        params = connection.ConnectionParameters(ssl_options=None, port=100)
 
-        self.assertEqual(params.ssl, False)
+        self.assertIsNone(params.ssl_options)
         self.assertEqual(params.port, 100)
+
+    def test_exlicit_none_stack_timeout(self):
+        params = connection.ConnectionParameters(stack_timeout=None)
+        self.assertIsNone(params.stack_timeout)
+
+    def test_exlicit_none_socket_timeout(self):
+        params = connection.ConnectionParameters(socket_timeout=None)
+        self.assertIsNone(params.socket_timeout)
 
     def test_good_connection_parameters(self):
         """make sure connection kwargs get set correctly"""
         kwargs = {
-            'backpressure_detection': False,
             'blocked_connection_timeout': 10.5,
             'channel_max': 3,
             'client_properties': {
@@ -455,10 +520,8 @@ class ConnectionParametersTests(_ParametersTestsBase):
             'port': 5678,
             'retry_delay': 3,
             'socket_timeout': 100.5,
-            'ssl': True,
-            'ssl_options': {
-                'ssl': 'options'
-            },
+            'stack_timeout': 150,
+            'ssl_options': None,
             'virtual_host': u'vvhost',
             'tcp_options': {
                 'TCP_USER_TIMEOUT': 1000
@@ -482,17 +545,6 @@ class ConnectionParametersTests(_ParametersTestsBase):
                 msg='Expected %s=%r, but got %r' %
                 (t_param, expected_values[t_param], value))
 
-    def test_deprecated_heartbeat_interval(self):
-        with warnings.catch_warnings(record=True) as warnings_list:
-            warnings.simplefilter('always')
-
-            params = connection.ConnectionParameters(heartbeat_interval=999)
-            self.assertEqual(params.heartbeat, 999)
-
-            # Check that a warning was generated
-            self.assertEqual(len(warnings_list), 1)
-            self.assertIs(warnings_list[0].category, DeprecationWarning)
-
     def test_callable_heartbeat(self):
         def heartbeat_callback(_connection, _broker_val):
             return 1
@@ -508,28 +560,26 @@ class ConnectionParametersTests(_ParametersTestsBase):
             'channel_max': 3,
             'frame_max': 40000,
             'heartbeat': 7,
-            'backpressure_detection': False,
             'ssl': True,
             'blocked_connection_timeout': 10.5
         }
         # Test Type Errors
-        for bad_field, bad_value in (('host', 15672), ('port', '5672a'),
-                                     ('virtual_host',
-                                      True), ('channel_max',
-                                              '4'), ('frame_max',
-                                                     '5'), ('credentials',
-                                                            'bad'), ('locale',
-                                                                     1),
-                                     ('heartbeat',
-                                      '6'), ('socket_timeout',
-                                             '42'), ('retry_delay', 'two'),
-                                     ('backpressure_detection',
-                                      'true'), ('ssl', {
-                                          'ssl': 'dict'
-                                      }), ('ssl_options', True),
-                                     ('connection_attempts',
-                                      'hello'), ('blocked_connection_timeout',
-                                                 set())):
+        for bad_field, bad_value in (
+                ('host', 15672),
+                ('port', '5672a'),
+                ('virtual_host', True),
+                ('channel_max', '4'),
+                ('frame_max', '5'),
+                ('credentials', 'bad'),
+                ('locale', 1),
+                ('heartbeat', '6'),
+                ('socket_timeout', '42'),
+                ('stack_timeout', '99'),
+                ('retry_delay', 'two'),
+                ('ssl', {'ssl': 'dict'}),
+                ('ssl_options', True),
+                ('connection_attempts', 'hello'),
+                ('blocked_connection_timeout', set())):
 
             bkwargs = copy.deepcopy(kwargs)
 
@@ -555,43 +605,58 @@ class ConnectionParametersTests(_ParametersTestsBase):
         self.assertEqual(parameters.locale, 'en_US')
 
 
-class URLParametersTests(_ParametersTestsBase):
+class URLParametersTests(ParametersTestsBase):
+
     def test_default_property_values(self):
         params = connection.URLParameters('')
         self.assert_default_parameter_values(params)
 
-        self.assertEqual(params.ssl, False)
+        self.assertIsNone(params.ssl_options)
         self.assertEqual(params.port, params.DEFAULT_PORT)
 
     def test_no_ssl(self):
         params = connection.URLParameters('http://')
-        self.assertEqual(params.ssl, False)
+        self.assertIsNone(params.ssl_options)
         self.assertEqual(params.port, params.DEFAULT_PORT)
         self.assert_default_parameter_values(params)
 
         params = connection.URLParameters('amqp://')
-        self.assertEqual(params.ssl, False)
+        self.assertIsNone(params.ssl_options)
         self.assertEqual(params.port, params.DEFAULT_PORT)
         self.assert_default_parameter_values(params)
 
     def test_ssl(self):
         params = connection.URLParameters('https://')
-        self.assertEqual(params.ssl, True)
+        self.assertIsNotNone(params.ssl_options)
         self.assertEqual(params.port, params.DEFAULT_SSL_PORT)
 
         params = connection.URLParameters('amqps://')
-        self.assertEqual(params.ssl, True)
+        self.assertIsNotNone(params.ssl_options)
         self.assertEqual(params.port, params.DEFAULT_SSL_PORT)
 
         # Make sure the other parameters unrelated to SSL have default values
         params = connection.URLParameters('amqps://')
-        params.ssl = False
+        params.ssl_options = None
         params.port = params.DEFAULT_PORT
         self.assert_default_parameter_values(params)
 
+    def test_ssl_default_protocol_version_fallback(self):
+        """
+        This test does not set protocol_version option in ssl_options. Instead,
+        it relies on connection.URLParameters class to setup the default, and
+        then it asserts the protocol is what we expected (auto or TLSv1_2)
+        """
+        params = connection.URLParameters(
+            'amqps://foo.bar/some-vhost?ssl_options=%7B%27ca_certs%27%3A%27testdata%2Fcerts%2Fca_certificate.pem%27%7D'
+        )
+        self.assertTrue(
+            params.ssl_options.context.protocol == ssl.PROTOCOL_TLS_CLIENT or
+            params.ssl_options.context.protocol == ssl.PROTOCOL_TLSv1_2,
+            msg='Expected to fallback to a secure protocol')
+
     def test_no_url_scheme_defaults_to_plaintext(self):
         params = connection.URLParameters('//')
-        self.assertEqual(params.ssl, False)
+        self.assertIsNone(params.ssl_options)
         self.assertEqual(params.port, params.DEFAULT_PORT)
 
     def test_good_parameters(self):
@@ -605,63 +670,41 @@ class URLParametersTests(_ParametersTestsBase):
             'locale': 'en_UK',
             'retry_delay': 3,
             'socket_timeout': 100.5,
-            'ssl_options': {
-                'ssl': 'options'
-            },
+            'ssl_options': None,
             'tcp_options': {
                 'TCP_USER_TIMEOUT': 1000,
                 'TCP_KEEPIDLE': 60
             }
         }
 
-        for backpressure in ('t', 'f'):
-            test_params = copy.deepcopy(query_args)
-            test_params['backpressure_detection'] = backpressure
-            virtual_host = '/'
-            query_string = urlencode(test_params)
-            test_url = ('https://myuser:mypass@www.test.com:5678/%s?%s' % (
-                url_quote(virtual_host, safe=''),
-                query_string,
-            ))
+        test_params = dict(query_args)
+        virtual_host = '/'
+        query_string = urlencode(test_params)
+        test_url = ('amqp://myuser:mypass@www.test.com:5678/%s?%s' % (
+            url_quote(virtual_host, safe=''),
+            query_string,
+        ))
 
-            params = connection.URLParameters(test_url)
+        params = connection.URLParameters(test_url)
 
-            # check all value from query string
+        # check all value from query string
 
-            for t_param in query_args:
-                expected_value = query_args[t_param]
-                actual_value = getattr(params, t_param)
+        for t_param in query_args:
+            expected_value = query_args[t_param]
+            actual_value = getattr(params, t_param)
 
-                self.assertEqual(
-                    actual_value,
-                    expected_value,
-                    msg='Expected %s=%r, but got %r' %
-                    (t_param, expected_value, actual_value))
+            self.assertEqual(
+                actual_value,
+                expected_value,
+                msg='Expected %s=%r, but got %r' %
+                (t_param, expected_value, actual_value))
 
-            self.assertEqual(params.backpressure_detection,
-                             backpressure == 't')
-
-            # check all values from base URL
-            self.assertEqual(params.ssl, True)
-            self.assertEqual(params.credentials.username, 'myuser')
-            self.assertEqual(params.credentials.password, 'mypass')
-            self.assertEqual(params.host, 'www.test.com')
-            self.assertEqual(params.port, 5678)
-            self.assertEqual(params.virtual_host, virtual_host)
-
-    def test_deprecated_heartbeat_interval(self):
-        with warnings.catch_warnings(record=True) as warnings_list:
-            warnings.simplefilter('always')
-
-            params = pika.URLParameters(
-                'amqp://prtfqpeo:oihdglkhcp0@myserver.'
-                'mycompany.com:5672/prtfqpeo?heartbeat_interval=999')
-
-            self.assertEqual(params.heartbeat, 999)
-
-            # Check that a warning was generated
-            self.assertEqual(len(warnings_list), 1)
-            self.assertIs(warnings_list[0].category, DeprecationWarning)
+        # check all values from base URL
+        self.assertEqual(params.credentials.username, 'myuser')
+        self.assertEqual(params.credentials.password, 'mypass')
+        self.assertEqual(params.host, 'www.test.com')
+        self.assertEqual(params.port, 5678)
+        self.assertEqual(params.virtual_host, virtual_host)
 
     def test_accepts_plain_string(self):
         parameters = pika.URLParameters('amqp://prtfqpeo:oihdglkhcp0@myserver.'
