@@ -48,6 +48,8 @@ gevent = ["gevent"]
 tornado = ["tornado"]
 twisted = ["twisted"]
 
+[tool.pyright]
+
 [tool.setuptools]
 zip-safe = true
 include-package-data = false
