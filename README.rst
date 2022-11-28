@@ -163,7 +163,7 @@ Connection recovery
 -------------------
 
 Some RabbitMQ clients (Bunny, Java, .NET, Objective-C, Swift) provide a way to
-automatically recover connection, its channels and topology (e.g. queues,
+automatically recover a connection, its channels and topology (e.g. queues,
 bindings and consumers) after a network failure. Others require connection
 recovery to be performed by the application code and strive to make it a
 straightforward process. Pika falls into the second category.

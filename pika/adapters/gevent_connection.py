@@ -92,7 +92,7 @@ class GeventConnection(BaseConnection):
                           custom_ioloop=None,
                           workflow=None):
         """Implement
-        :py:classmethod:`pika.adapters.BaseConnection.create_connection()`.
+        :py:classmethod::`pika.adapters.BaseConnection.create_connection()`.
         """
         custom_ioloop = (custom_ioloop or
                          _GeventSelectorIOLoop(gevent.get_hub()))

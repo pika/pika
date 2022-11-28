@@ -2,6 +2,8 @@ Twisted Connection Adapter
 ==========================
 .. automodule:: pika.adapters.twisted_connection
 
+Class Reference
+----------------
 .. autoclass:: pika.adapters.twisted_connection.TwistedProtocolConnection
   :members:
   :inherited-members:
