@@ -69,7 +69,7 @@ class AsyncioConnection(base_connection.BaseConnection):
                           custom_ioloop=None,
                           workflow=None):
         """Implement
-        :py:classmethod:`pika.adapters.BaseConnection.create_connection()`.
+        :py:classmethod::`pika.adapters.BaseConnection.create_connection()`.
 
         """
         nbio = _AsyncioIOServicesAdapter(custom_ioloop)

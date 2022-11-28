@@ -670,7 +670,7 @@ class BlockingConnection:
         :param callable callback: Callback to call on Connection.Unblocked`,
             having the signature `callback(connection, pika.frame.Method)`,
             where connection is the `BlockingConnection` instance and the method
-             frame's `method` member is of type `pika.spec.Connection.Unblocked`
+            frame's `method` member is of type `pika.spec.Connection.Unblocked`
 
         """
         self._impl.add_on_connection_unblocked_callback(
@@ -1586,10 +1586,10 @@ class BlockingChannel:
 
         :param callable callback: The method to call on callback with the
             signature callback(channel, method, properties, body), where
-             - channel: pika.Channel
-             - method: pika.spec.Basic.Return
-             - properties: pika.spec.BasicProperties
-             - body: bytes
+            - channel: pika.Channel
+            - method: pika.spec.Basic.Return
+            - properties: pika.spec.BasicProperties
+            - body: bytes
 
         """
         self._impl.add_on_return_callback(
@@ -1622,10 +1622,10 @@ class BlockingChannel:
         :param callable on_message_callback: Required function for dispatching messages
             to user, having the signature:
             on_message_callback(channel, method, properties, body)
-             - channel: BlockingChannel
-             - method: spec.Basic.Deliver
-             - properties: spec.BasicProperties
-             - body: bytes
+            - channel: BlockingChannel
+            - method: spec.Basic.Deliver
+            - properties: spec.BasicProperties
+            - body: bytes
         :param bool auto_ack: if set to True, automatic acknowledgement mode will be used
                               (see http://www.rabbitmq.com/confirms.html). This corresponds
                               with the 'no_ack' parameter in the basic.consume AMQP 0.9.1
@@ -1750,10 +1750,10 @@ class BlockingChannel:
             the cancellation (this is done instead of via consumer's callback in
             order to prevent reentrancy/recursion. Each message is four-tuple:
             (channel, method, properties, body)
-             - channel: BlockingChannel
-             - method: spec.Basic.Deliver
-             - properties: spec.BasicProperties
-             - body: bytes
+            - channel: BlockingChannel
+            - method: spec.Basic.Deliver
+            - properties: spec.BasicProperties
+            - body: bytes
         :rtype: list
         """
         try:

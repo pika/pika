@@ -533,9 +533,7 @@ class Parameters:  # pylint: disable=R0902
 
 class ConnectionParameters(Parameters):
     """Connection parameters object that is passed into the connection adapter
-    upon construction.
-
-    """
+    upon construction."""
 
     # Protect against accidental assignment of an invalid attribute
     __slots__ = ()

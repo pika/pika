@@ -1,5 +1,5 @@
-Asyncio Consumer
-================
+Asyncio consumer example
+=========================
 
 The following example implements a consumer using the :class:`Asyncio adapter
 <pika.adapters.asyncio_connection.AsyncioConnection>` for the `Asyncio library
