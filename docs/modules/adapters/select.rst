@@ -7,7 +7,8 @@ Interacting with Pika from another thread
 -----------------------------------------
  ``pika.SelectConnection``'s I/O loop provides ``add_callback_threadsafe()`` to allow interacting with Pika from another thread.
 
-
+Class Reference
+----------------
 .. automodule:: pika.adapters.select_connection
 
 

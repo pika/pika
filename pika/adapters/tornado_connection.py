@@ -66,7 +66,7 @@ class TornadoConnection(base_connection.BaseConnection):
                           custom_ioloop=None,
                           workflow=None):
         """Implement
-        :py:classmethod:`pika.adapters.BaseConnection.create_connection()`.
+        :py:classmethod::`pika.adapters.BaseConnection.create_connection()`.
 
         """
         nbio = selector_ioloop_adapter.SelectorIOServicesAdapter(

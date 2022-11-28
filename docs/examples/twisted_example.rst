@@ -1,4 +1,4 @@
-Twisted Consumer Example
+Twisted consumer example
 ========================
 Example of writing an application using the :py:class:`Twisted connection adapter <pika.adapters.twisted_connection.TwistedProtocolConnection>`::.
 
