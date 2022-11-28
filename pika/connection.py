@@ -889,8 +889,8 @@ class URLParameters(Parameters):
         if opts is None:
             if self.ssl_options is not None:
                 raise ValueError(
-                    'Specified ssl_options=None URL arg is inconsistent with '
-                    'the specified https URL scheme.')
+                    'Specified ssl_options=None URI arg is inconsistent with '
+                    'the specified amqps URI scheme.')
         else:
             # Older versions of Pika would take the opts dict and pass it
             # directly as kwargs to the deprecated ssl.wrap_socket method.
