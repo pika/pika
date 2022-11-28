@@ -9,6 +9,8 @@ Interacting with Pika from another thread
 ```pika.adapters.tornado_connection.TornadoConnection``'s I/O loop provides
   ``add_callback()`` to allow interacting with Pika from another thread.
 
+Class Reference
+----------------
 .. autoclass:: pika.adapters.tornado_connection.TornadoConnection
   :members:
   :inherited-members:
