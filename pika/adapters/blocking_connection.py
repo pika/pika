@@ -1910,7 +1910,7 @@ class BlockingChannel:
         Example:
         ::
             for method, properties, body in channel.consume('queue'):
-                print body
+                print(body)
                 channel.basic_ack(method.delivery_tag)
 
         You should call `BlockingChannel.cancel()` when you escape out of the
