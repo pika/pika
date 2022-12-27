@@ -3,7 +3,7 @@ Frequently Asked Questions
 
 - Is Pika thread safe?
 
-    Pika does not have any notion of threading in the code. If you want to use Pika with threading, make sure you have a Pika connection per thread, created in that thread. It is not safe to share one Pika connection across threads, with one exception: you may call the connection method `add_callback_threadsafe` from another thread to schedule a callback within an active pika connection.
+    Pika does not have any notion of threading in the code. If you want to use Pika with threading, make sure you have a Pika connection per thread, created in that thread. It is not safe to share one Pika connection across threads, with one exception: you may call the connection method `add_callback_threadsafe` from another thread to schedule a callback within an active pika connection. See :doc:`connection adapter <modules/adapters/index>` for more details
 
 - How do I report a bug with Pika?
 

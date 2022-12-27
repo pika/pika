@@ -9,7 +9,7 @@ Introduction
 Pika is a pure-Python implementation of the AMQP 0-9-1 protocol including
 RabbitMQ's extensions.
 
-- Supports Python 3.4+ (`1.1.0` was the last version to support 2.7)
+- Supports Python 3.7+ (`1.1.0` was the last version to support 2.7)
 - Since threads aren't appropriate to every situation, it doesn't require
   threads. Pika core takes care not to forbid them, either. The same goes for
   greenlets, callbacks, continuations, and generators. An instance of Pika's
@@ -163,7 +163,7 @@ Connection recovery
 -------------------
 
 Some RabbitMQ clients (Bunny, Java, .NET, Objective-C, Swift) provide a way to
-automatically recover connection, its channels and topology (e.g. queues,
+automatically recover a connection, its channels and topology (e.g. queues,
 bindings and consumers) after a network failure. Others require connection
 recovery to be performed by the application code and strive to make it a
 straightforward process. Pika falls into the second category.

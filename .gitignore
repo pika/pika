@@ -19,3 +19,5 @@ docs/_build
 venv*/
 env/
 testdata/*.conf
+# pyright type information
+typings/

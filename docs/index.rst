@@ -27,7 +27,6 @@ Using Pika
    examples
    faq
    contributors
-   version_history
 
 Indices and tables
 ------------------

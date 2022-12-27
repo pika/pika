@@ -113,7 +113,7 @@ class SelectConnection(BaseConnection):
                           custom_ioloop=None,
                           workflow=None):
         """Implement
-        :py:classmethod:`pika.adapters.BaseConnection.create_connection()`.
+        :py:classmethod::`pika.adapters.BaseConnection.create_connection()`.
 
         """
         nbio = SelectorIOServicesAdapter(custom_ioloop or IOLoop())
