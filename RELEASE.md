@@ -12,9 +12,9 @@
     git tag -a -s -u B1B82CC0CF84BA70147EBD05D99DE30E43EAE440 -m 'pika 1.4.0' '1.4.0' && git push --tags
     ```
 * Ensure build is green (if one triggered)
-* Update `CHANGELOG.md`. Be sure to use the `--since-tag 1.3.0` argument:
+* Update `CHANGELOG.md`. Be sure to use the `--since-tag 1.3.1` argument:
     ```
-    github_changelog_generator --token github_pat_MY_TOKEN --user pika --project pika --since-tag 1.3.0
+    github_changelog_generator --token github_pat_MY_TOKEN --user pika --project pika --since-tag 1.3.1
     ```
     Review the generated file for invalid entries
 * Commit changes to `main` branch and push:
