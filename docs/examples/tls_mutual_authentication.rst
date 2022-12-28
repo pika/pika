@@ -1,7 +1,7 @@
 TLS parameters example
 ======================
 
-This example demonstrates a TLS session with RabbitMQ using mutual authentication (server and client authentication). It was tested against RabbitMQ 3.7.4, using Python 3.6.5 and Pika 1.0.0.
+This example demonstrates a TLS session with RabbitMQ using mutual authentication (server and client authentication).
 
 See `the RabbitMQ TLS/SSL documentation <https://www.rabbitmq.com/ssl.html>`_ for certificate generation and RabbitMQ TLS configuration. Please note that the `RabbitMQ TLS (x509 certificate) authentication mechanism <https://github.com/rabbitmq/rabbitmq-auth-mechanism-ssl>`_ must be enabled for these examples to work.
 
@@ -12,8 +12,10 @@ tls_example.py::
     import ssl
 
     logging.basicConfig(level=logging.INFO)
+
     context = ssl.create_default_context(
         cafile="PIKA_DIR/testdata/certs/ca_certificate.pem")
+    context.verify_mode = ssl.CERT_REQUIRED
     context.load_cert_chain("PIKA_DIR/testdata/certs/client_certificate.pem",
                             "PIKA_DIR/testdata/certs/client_key.pem")
     ssl_options = pika.SSLOptions(context, "localhost")
