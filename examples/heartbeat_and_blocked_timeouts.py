@@ -18,7 +18,7 @@ stops reading from that connection's socket, so no commands from the client will
 get through to te broker on that connection until the broker unblocks it. A
 blocked connection may last for an indefinite period of time, stalling the
 connection and possibly resulting in a hang (e.g., in BlockingConnection) until
-the connection is unblocked. Blocked Connectin Timeout is intended to interrupt
+the connection is unblocked. Blocked Connection Timeout is intended to interrupt
 (i.e., drop) a connection that has been blocked longer than the given timeout
 value.
 """
