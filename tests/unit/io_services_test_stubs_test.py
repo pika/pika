@@ -1,7 +1,8 @@
 """
 Test for io_services_test_stubs.py
-
 """
+
+import pika.compat
 
 try:
     import asyncio
@@ -19,14 +20,12 @@ from pika.adapters import select_connection
 
 from tests.stubs.io_services_test_stubs import IOServicesTestStubs
 
-
 # Suppress invalid-name, since our test names are descriptive and quite long
 # pylint: disable=C0103
 
 # Suppress missing-docstring to allow test method names to be printed by our the
 # test runner
 # pylint: disable=C0111
-
 
 # Tornado does some magic that substitutes the class dynamically
 _TORNADO_IO_LOOP = tornado.ioloop.IOLoop()
@@ -40,14 +39,13 @@ _SUPPORTED_LOOP_CLASSES = {
 }
 
 if asyncio is not None:
-    if sys.platform == 'win32':
+    if pika.compat.ON_WINDOWS:
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     _SUPPORTED_LOOP_CLASSES.add(asyncio.get_event_loop().__class__)
 
 
 class TestStartCalledFromOtherThreadAndWithVaryingNativeLoops(
-        unittest.TestCase,
-        IOServicesTestStubs):
+        unittest.TestCase, IOServicesTestStubs):
 
     _native_loop_classes = None
 
@@ -58,7 +56,7 @@ class TestStartCalledFromOtherThreadAndWithVaryingNativeLoops(
     # AssertionError: Expected these 3 native I/O loop classes from IOServicesTestStubs:
     # {<class 'asyncio.windows_events.ProactorEventLoop'>, <class 'tornado.platform.asyncio.AsyncIOLoop'>, <class 'pika.adapters.select_connection.IOLoop'>}
     # but got these 3:
-    # {<class 'asyncio.windows_events._WindowsSelectorEventLoop'>, <class 'tornado.platform.asyncio.AsyncIOLoop'>, <class 'pika.adapters.select_connection.IOLoop'>} 
+    # {<class 'asyncio.windows_events._WindowsSelectorEventLoop'>, <class 'tornado.platform.asyncio.AsyncIOLoop'>, <class 'pika.adapters.select_connection.IOLoop'>}
     @classmethod
     def tearDownClass(cls):
         # Now check against what was made available to us by
@@ -67,10 +65,8 @@ class TestStartCalledFromOtherThreadAndWithVaryingNativeLoops(
             raise AssertionError(
                 'Expected these {} native I/O loop classes from '
                 'IOServicesTestStubs: {!r}, but got these {}: {!r}'.format(
-                    len(_SUPPORTED_LOOP_CLASSES),
-                    _SUPPORTED_LOOP_CLASSES,
-                    len(cls._native_loop_classes),
-                    cls._native_loop_classes))
+                    len(_SUPPORTED_LOOP_CLASSES), _SUPPORTED_LOOP_CLASSES,
+                    len(cls._native_loop_classes), cls._native_loop_classes))
 
     def setUp(self):
         self._runner_thread_id = threading.current_thread().ident

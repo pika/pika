@@ -32,9 +32,7 @@ from tests.wrappers.threaded_test_wrapper import create_run_in_thread_decorator
 # protected-access
 # pylint: disable=W0212
 
-
 TEST_TIMEOUT = 15
-
 
 # Decorator for running our tests in threads with timeout
 # NOTE: we give it a little more time to give our I/O loop-based timeout logic
@@ -53,6 +51,7 @@ def make_stop_on_error_with_self(the_self=None):
         exception otherwise.
 
     """
+
     def stop_on_error_with_self_decorator(fun):
 
         @functools.wraps(fun)
@@ -158,16 +157,17 @@ class AsyncTestCase(unittest.TestCase):
                                        self.on_closed,
                                        custom_ioloop=ioloop_factory())
         try:
-            self.timeout = self.connection._adapter_call_later(self.TIMEOUT,
-                                                               self.on_timeout)
+            self.timeout = self.connection._adapter_call_later(
+                self.TIMEOUT, self.on_timeout)
             self._run_ioloop()
 
             self.assertFalse(self._timed_out)
             self.assertIsNone(self._conn_open_error)
             # Catch unexpected loss of connection
-            self.assertTrue(self._public_stop_requested,
-                            'Unexpected end of test; connection close reason: '
-                            '{!r}'.format(self._conn_closed_reason))
+            self.assertTrue(
+                self._public_stop_requested,
+                'Unexpected end of test; connection close reason: '
+                '{!r}'.format(self._conn_closed_reason))
             if self._public_stop_error_in is not None:
                 raise self._public_stop_error_in  # pylint: disable=E0702
         finally:
@@ -198,7 +198,7 @@ class AsyncTestCase(unittest.TestCase):
         self.logger.info('Stopping test')
         self._public_stop_requested = True
         if self.connection.is_open:
-            self.connection.close() # NOTE: on_closed() will stop the ioloop
+            self.connection.close()  # NOTE: on_closed() will stop the ioloop
         elif self.connection.is_closed:
             self.logger.info(
                 'Connection already closed, so just stopping ioloop')
@@ -244,8 +244,8 @@ class AsyncTestCase(unittest.TestCase):
 
     def on_timeout(self):
         """called when stuck waiting for connection to close"""
-        self.logger.error('%s timed out; on_timeout called at %s',
-                          self, datetime.datetime.utcnow())
+        self.logger.error('%s timed out; on_timeout called at %s', self,
+                          datetime.datetime.utcnow())
         self.timeout = None  # the dispatcher should have removed it
         self._timed_out = True
         # initiate cleanup
@@ -279,7 +279,8 @@ class BoundQueueTestCase(AsyncTestCase):
                                    callback=self.on_queue_declared)
 
     def on_queue_declared(self, frame):  # pylint: disable=W0613
-        self.channel.queue_bind(self.queue, self.exchange,
+        self.channel.queue_bind(self.queue,
+                                self.exchange,
                                 self.routing_key,
                                 callback=self.on_ready)
 
@@ -293,6 +294,7 @@ class BoundQueueTestCase(AsyncTestCase):
 # from the AsyncAdapters class below. This allows you to avoid duplicating the
 # test methods for each adapter in each test class.
 #
+
 
 class AsyncAdapters(object):
 
@@ -324,9 +326,8 @@ class AsyncAdapters(object):
         with mock.patch.multiple(select_connection, SELECT_TYPE='select'):
             self.start(adapters.SelectConnection, select_connection.IOLoop)
 
-    @unittest.skipIf(
-        not hasattr(select, 'poll') or
-        not hasattr(select.poll(), 'modify'), "poll not supported")  # pylint: disable=E1101
+    @unittest.skipIf(not hasattr(select, 'poll') or
+                     not hasattr(select.poll(), 'modify'), "poll not supported")  # pylint: disable=E1101
     @run_test_in_thread_with_timeout
     def test_with_select_poll(self):
         """SelectConnection:poll"""
