@@ -1,5 +1,42 @@
 # Changelog
 
+## [Unreleased](https://github.com/pika/pika/tree/HEAD)
+
+[Full Changelog](https://github.com/pika/pika/compare/1.3.2...HEAD)
+
+**Merged pull requests:**
+
+- Feature \#1363 -- Bump examples python version to 3 [\#1416](https://github.com/pika/pika/pull/1416) ([alfawal](https://github.com/alfawal))
+- Update example to use python3 syntax [\#1408](https://github.com/pika/pika/pull/1408) ([AleksaC](https://github.com/AleksaC))
+- Add more connections to the adapters [\#1405](https://github.com/pika/pika/pull/1405) ([dgoeries](https://github.com/dgoeries))
+- fix typo [\#1404](https://github.com/pika/pika/pull/1404) ([khadkarajesh](https://github.com/khadkarajesh))
+- Documentation improvements [\#1403](https://github.com/pika/pika/pull/1403) ([hcmturner](https://github.com/hcmturner))
+- Add Python 3.11 to various places [\#1399](https://github.com/pika/pika/pull/1399) ([lukebakken](https://github.com/lukebakken))
+- Fix typo in example docstring [\#1396](https://github.com/pika/pika/pull/1396) ([kinoute](https://github.com/kinoute))
+- Fixing pika v1.0.0 breaking change (order of parameters) for the `cha… [\#1393](https://github.com/pika/pika/pull/1393) ([mprinc](https://github.com/mprinc))
+- feat: add python3.10 support and make code python3.7+ [\#1351](https://github.com/pika/pika/pull/1351) ([vinitkumar](https://github.com/vinitkumar))
+- More logical validation of long RpcParameters [\#46](https://github.com/pika/pika/pull/46) ([kmpm](https://github.com/kmpm))
+- Overrode \_adapter\_disconnect\(\) in BlockingConnection & fixed connection.py typos. [\#45](https://github.com/pika/pika/pull/45) ([williamsjj](https://github.com/williamsjj))
+- Changed timeout for poll to be in milliseconds [\#42](https://github.com/pika/pika/pull/42) ([samuel](https://github.com/samuel))
+- BlockingConnection refactored to allow multiple basic\_consumes. [\#38](https://github.com/pika/pika/pull/38) ([williamsjj](https://github.com/williamsjj))
+- Encode bools as 't' type. [\#29](https://github.com/pika/pika/pull/29) ([majek](https://github.com/majek))
+- Fixed various issues with table encoding/decoding [\#27](https://github.com/pika/pika/pull/27) ([majek](https://github.com/majek))
+
+## [1.3.2](https://github.com/pika/pika/tree/1.3.2) (2023-05-05)
+
+[Full Changelog](https://github.com/pika/pika/compare/1.3.1...1.3.2)
+
+**Closed issues:**
+
+- GeventConnection may now work on Windows [\#1407](https://github.com/pika/pika/issues/1407)
+- ExchangeType should be from str type [\#1409](https://github.com/pika/pika/issues/1409)
+
+**Merged pull requests:**
+
+- Attempt to re-enable GeventConnection on Windows [\#1417](https://github.com/pika/pika/pull/1417) ([lukebakken](https://github.com/lukebakken))
+- fix typo [\#1414](https://github.com/pika/pika/pull/1414) ([uwe](https://github.com/uwe))
+- Fix exchange type enum type [\#1410](https://github.com/pika/pika/pull/1410) ([liortct](https://github.com/liortct))
+
 ## [1.3.1](https://github.com/pika/pika/tree/1.3.1) (2022-10-18)
 
 [Full Changelog](https://github.com/pika/pika/compare/1.3.0...1.3.1)
