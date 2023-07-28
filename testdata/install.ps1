@@ -36,6 +36,7 @@ Write-Host "[INFO] Installing Erlang to $erlang_install_dir..."
 
 $rabbitmq_installer_download_url = "https://github.com/rabbitmq/rabbitmq-server/releases/download/v$rabbitmq_ver/rabbitmq-server-$rabbitmq_ver.exe"
 $rabbitmq_installer_path = Join-Path -Path $base_installers_dir -ChildPath "rabbitmq-server-$rabbitmq_ver.exe"
+Write-Host "[INFO] rabbitmq installer path $rabbitmq_installer_path"
 
 $erlang_reg_path = 'HKLM:\SOFTWARE\Ericsson\Erlang'
 if (Test-Path 'HKLM:\SOFTWARE\WOW6432Node\')
@@ -95,13 +96,14 @@ Write-Host '[INFO] Installing and starting RabbitMQ with default config...'
 & $rabbitmq_installer_path '/S' | Out-Null
 (Get-Service -Name RabbitMQ).Status
 
+$rabbitmq_base_path = (Get-ItemProperty -Name Install_Dir -Path 'HKLM:\SOFTWARE\WOW6432Node\VMware, Inc.\RabbitMQ Server').Install_Dir
 $regPath = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\RabbitMQ'
 if (Test-Path 'HKLM:\SOFTWARE\WOW6432Node\')
 {
     $regPath = 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\RabbitMQ'
 }
-$rabbitmq_base_path = Split-Path -Parent (Get-ItemProperty $regPath 'UninstallString').UninstallString
-$rabbitmq_version = (Get-ItemProperty $regPath "DisplayVersion").DisplayVersion
+$rabbitmq_version = (Get-ItemProperty $regPath 'DisplayVersion').DisplayVersion
+Write-Host "[INFO] RabbitMQ version path: $rabbitmq_base_path and version: $rabbitmq_version"
 
 $rabbitmq_home = Join-Path -Path $rabbitmq_base_path -ChildPath "rabbitmq_server-$rabbitmq_version"
 Write-Host "[INFO] Setting RABBITMQ_HOME to '$rabbitmq_home'..."
