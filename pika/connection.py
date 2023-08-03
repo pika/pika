@@ -11,6 +11,7 @@ import math
 import numbers
 import platform
 import ssl
+from urllib.parse import unquote as url_unquote, parse_qs as url_parse_qs, urlparse
 
 import pika.callback
 import pika.channel
@@ -23,7 +24,6 @@ import pika.spec as spec
 import pika.validators as validators
 from pika.compat import (
     xrange,
-    url_unquote,
     dictkeys,
     dict_itervalues,
     dict_iteritems)
@@ -735,7 +735,7 @@ class URLParameters(Parameters):
         if url[0:4].lower() == 'amqp':
             url = 'http' + url[4:]
 
-        parts = pika.compat.urlparse(url)
+        parts = urlparse(url)
 
         if parts.scheme == 'https':
             # Create default context which will get overridden by the
@@ -767,7 +767,7 @@ class URLParameters(Parameters):
             self.virtual_host = url_unquote(parts.path.split('/')[1])
 
         # Handle query string values, validating and assigning them
-        self._all_url_query_values = pika.compat.url_parse_qs(parts.query)
+        self._all_url_query_values = url_parse_qs(parts.query)
 
         for name, value in dict_iteritems(self._all_url_query_values):
             try:

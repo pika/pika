@@ -4,13 +4,12 @@ Tests for threaded_test_wrapper.py
 """
 from __future__ import print_function
 
+from io import StringIO
 import sys
 import threading
 import time
 import unittest
 from unittest import mock
-
-import pika.compat
 
 from tests.wrappers import threaded_test_wrapper
 from tests.wrappers.threaded_test_wrapper import (_ThreadedTestWrapper, run_in_thread_with_timeout)
@@ -47,7 +46,7 @@ class ThreadedTestWrapperSelfChecks(unittest.TestCase):
                 raise SelfCheckExceptionHandling()
 
         # Suppress error output by redirecting to stringio_stderr
-        stringio_stderr = pika.compat.StringIO()
+        stringio_stderr = StringIO()
         try:
             with mock.patch.object(_ThreadedTestWrapper, '_stderr',
                                    stringio_stderr):
@@ -76,7 +75,7 @@ class ThreadedTestWrapperSelfChecks(unittest.TestCase):
 
     def test_handling_of_test_execution_thread_timeout(self):
         # Suppress error output by redirecting to our stringio_stderr object
-        stringio_stderr = pika.compat.StringIO()
+        stringio_stderr = StringIO()
 
         @run_in_thread_with_timeout
         def my_sleeper(*_args, **_kwargs):
