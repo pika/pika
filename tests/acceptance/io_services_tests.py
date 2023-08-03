@@ -7,9 +7,7 @@ import collections
 import errno
 import logging
 import os
-import platform
 import socket
-import time
 import unittest
 
 import pika.compat
@@ -62,7 +60,7 @@ class AsyncServicesTestBase(unittest.TestCase):
         :returns: two-tuple of connected non-blocking sockets
 
         """
-        pair = pika.compat._nonblocking_socketpair()  # pylint: disable=W0212
+        pair = pika.compat.nonblocking_socketpair()
         self.addCleanup(pair[0].close)
         self.addCleanup(pair[1].close)
         return pair
@@ -98,7 +96,7 @@ class AsyncServicesTestBase(unittest.TestCase):
         :return: socket address pair (ip-addr, port) that will refuse connection
 
         """
-        s1, s2 = pika.compat._nonblocking_socketpair()  # pylint: disable=W0212
+        s1, s2 = pika.compat.nonblocking_socketpair()
         s2.close()
         self.addCleanup(s1.close)
         return s1.getsockname()  # pylint: disable=E1101
@@ -755,8 +753,7 @@ class TestStreamConnectorTxRx(StreamingTestBase, IOServicesTestStubs):
     def start(self):
         nbio = self.create_nbio()
 
-        original_data = tuple(
-            os.urandom(1000) for _ in pika.compat.xrange(1000))
+        original_data = tuple(os.urandom(1000) for _ in range(1000))
         original_data_length = sum(len(s) for s in original_data)
 
         my_protocol_bucket = []

@@ -623,7 +623,7 @@ class BlockingConnection:
 
             # Limit dispatch to the number of currently ready events to avoid
             # getting stuck in this loop
-            for _ in compat.xrange(len(self._ready_events)):
+            for _ in range(len(self._ready_events)):
                 try:
                     evt = self._ready_events.popleft()
                 except IndexError:
@@ -2093,7 +2093,7 @@ class BlockingChannel:
                 pending_events = self._queue_consumer_generator.pending_events
                 # NOTE `get_waiting_message_count` adjusts for `Basic.Cancel`
                 #      from the server at the end (if any)
-                for _ in compat.xrange(self.get_waiting_message_count()):
+                for _ in range(self.get_waiting_message_count()):
                     evt = pending_events.popleft()
                     self._impl.basic_reject(
                         evt.method.delivery_tag, requeue=True)

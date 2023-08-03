@@ -22,11 +22,7 @@ import pika.frame as frame
 import pika.heartbeat
 import pika.spec as spec
 import pika.validators as validators
-from pika.compat import (
-    xrange,
-    dictkeys,
-    dict_itervalues,
-    dict_iteritems)
+from pika.compat import (dictkeys, dict_itervalues, dict_iteritems)
 
 PRODUCT = "Pika Python Client Library"
 
@@ -1683,7 +1679,7 @@ class Connection(pika.compat.AbstractBase):
         if len(self._channels) >= limit:
             raise exceptions.NoFreeChannels()
 
-        for num in xrange(1, len(self._channels) + 1):
+        for num in range(1, len(self._channels) + 1):
             if num not in self._channels:
                 return num
         return len(self._channels) + 1
@@ -2275,7 +2271,7 @@ class Connection(pika.compat.AbstractBase):
 
         if content[1]:
             chunks = int(math.ceil(float(length) / self._body_max_length))
-            for chunk in xrange(0, chunks):
+            for chunk in range(0, chunks):
                 start = chunk * self._body_max_length
                 end = start + self._body_max_length
                 if end > length:

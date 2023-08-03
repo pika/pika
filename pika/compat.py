@@ -12,8 +12,6 @@ import socket
 import sys as _sys
 import time
 
-PY2 = _sys.version_info.major == 2
-PY3 = not PY2
 RE_NUM = re.compile(r'(\d+).+')
 
 ON_LINUX = platform.system() == 'Linux'
@@ -23,28 +21,28 @@ ON_WINDOWS = platform.system() == 'Windows'
 # Portable Abstract Base Class
 AbstractBase = abc.ABCMeta('AbstractBase', (object,), {})
 
-if _sys.version_info[:2] < (3, 3):
-    SOCKET_ERROR = socket.error
-else:
-    # socket.error was deprecated and replaced by OSError in python 3.3
-    SOCKET_ERROR = OSError
+SOCKET_ERROR = OSError
 
 try:
     SOL_TCP = socket.SOL_TCP
 except AttributeError:
     SOL_TCP = socket.IPPROTO_TCP
 
+HAVE_SIGNAL = os.name == 'posix'
+
+_LOCALHOST = '127.0.0.1'
+_LOCALHOST_V6 = '::1'
+
 # for assertions that the data is either encoded or non-encoded text
 str_or_bytes = (str, bytes)
 
-# the unicode type is str
-unicode_type = str
 
 def time_now():
     """
     Python 3 supports monotonic time
     """
     return time.monotonic()
+
 
 def dictkeys(dct):
     """
@@ -58,6 +56,7 @@ def dictkeys(dct):
 
     return list(dct.keys())
 
+
 def dictvalues(dct):
     """
     Returns a list of values of a dictionary
@@ -68,6 +67,7 @@ def dictvalues(dct):
     it is modified).
     """
     return list(dct.values())
+
 
 def dict_iteritems(dct):
     """
@@ -80,6 +80,7 @@ def dict_iteritems(dct):
     """
     return dct.items()
 
+
 def dict_itervalues(dct):
     """
     :param dict dct:
@@ -87,6 +88,7 @@ def dict_itervalues(dct):
     :rtype: iterator
     """
     return dct.values()
+
 
 def byte(*args):
     """
@@ -97,6 +99,7 @@ def byte(*args):
     directly to the bytes constructor.
     """
     return bytes(args)
+
 
 class long(int):
     """
@@ -110,6 +113,7 @@ class long(int):
     def __repr__(self):
         return str(self) + 'L'
 
+
 def canonical_str(value):
     """
     Return the canonical str value for the string.
@@ -117,6 +121,7 @@ def canonical_str(value):
     """
 
     return str(value)
+
 
 def is_integer(value):
     """
@@ -152,19 +157,13 @@ def get_linux_version(release_str):
     return tuple(map(to_digit, ver_str.split('.', 3)[:3]))
 
 
-HAVE_SIGNAL = os.name == 'posix'
-
-EINTR_IS_EXPOSED = _sys.version_info[:2] <= (3, 4)
-
 LINUX_VERSION = None
 if platform.system() == 'Linux':
     LINUX_VERSION = get_linux_version(platform.release())
 
-_LOCALHOST = '127.0.0.1'
-_LOCALHOST_V6 = '::1'
 
 
-def _nonblocking_socketpair(family=socket.AF_INET,
+def nonblocking_socketpair(family=socket.AF_INET,
                             socket_type=socket.SOCK_STREAM,
                             proto=0):
     """

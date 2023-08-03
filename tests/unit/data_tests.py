@@ -7,7 +7,6 @@ import datetime
 import decimal
 import unittest
 from collections import OrderedDict
-from pika.compat import PY2, PY3
 
 from pika import data, exceptions
 from pika.compat import long
@@ -33,7 +32,7 @@ class DataTests(unittest.TestCase):
         b'\x07unicodeS\x00\x00\x00\x08utf8=\xe2\x9c\x93'
         )
 
-    FIELD_TBL_ENCODED += b'\x05bytesx\x00\x00\x00\x06foobar' if PY3 else b'\x05bytesS\x00\x00\x00\x06foobar'
+    FIELD_TBL_ENCODED += b'\x05bytesx\x00\x00\x00\x06foobar'
 
     FIELD_TBL_VALUE = OrderedDict(
         [

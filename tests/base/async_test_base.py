@@ -255,7 +255,7 @@ class AsyncTestCase(unittest.TestCase):
 class BoundQueueTestCase(AsyncTestCase):
 
     def start(self, adapter, ioloop_factory):
-        # PY3 compat encoding
+        # Encoding
         self.exchange = 'e-' + self.__class__.__name__ + ':' + uuid.uuid1().hex
         self.queue = 'q-' + self.__class__.__name__ + ':' + uuid.uuid1().hex
         self.routing_key = self.__class__.__name__

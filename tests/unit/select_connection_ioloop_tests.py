@@ -615,10 +615,7 @@ class IOLoopEintrTestCaseSelect(IOLoopBaseTest):
         tmr_w.start()
         self.poller.start()
         self.assertTrue(self._eintr_read_handler_is_called)
-        if pika.compat.EINTR_IS_EXPOSED:
-            self.assertEqual(is_resumable_mock.call_count, 1)
-        else:
-            self.assertEqual(is_resumable_mock.call_count, 0)
+        self.assertEqual(is_resumable_mock.call_count, 0)
 
 
 @unittest.skipIf(not POLL_SUPPORTED, 'poll not supported')
@@ -759,7 +756,7 @@ class DefaultPollerSocketEventsTestCase(unittest.TestCase):
         :returns: two-tuple of connected non-blocking sockets
 
         """
-        pair = pika.compat._nonblocking_socketpair()
+        pair = pika.compat.nonblocking_socketpair()
         self.addCleanup(pair[0].close)
         self.addCleanup(pair[1].close)
         return pair
@@ -795,7 +792,7 @@ class DefaultPollerSocketEventsTestCase(unittest.TestCase):
         :return: socket address pair (ip-addr, port) that will refuse connection
 
         """
-        s1, s2 = pika.compat._nonblocking_socketpair()
+        s1, s2 = pika.compat.nonblocking_socketpair()
         s2.close()
         self.addCleanup(s1.close)
         return s1.getsockname()  # pylint: disable=E1101
@@ -879,7 +876,7 @@ class DefaultPollerSocketEventsTestCase(unittest.TestCase):
                 '%s: setting `ERROR` to all event filters on '
                 'Windows, because its `select()` does not indicate a socket '
                 'that failed to connect as readable or writable.', msg_prefix)
-            for i in pika.compat.xrange(len(requested_eventmasks)):
+            for i in range(len(requested_eventmasks)):
                 requested_eventmasks[i] |= self.ERROR
 
         self.which_events_are_set_with_varying_eventmasks(

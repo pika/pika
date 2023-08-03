@@ -2102,13 +2102,11 @@ class TestTwoBasicConsumersOnSameChannel(BlockingTestCaseBase):
         ch.queue_bind(q2_name, exchange=exg_name, routing_key=q2_routing_key)
 
         # Deposit messages in the queues
-        q1_tx_message_bodies = ['q1_message+%s' % (i,)
-                                for i in pika.compat.xrange(100)]
+        q1_tx_message_bodies = ['q1_message+%s' % (i,) for i in range(100)]
         for message_body in q1_tx_message_bodies:
             ch.basic_publish(exg_name, q1_routing_key, body=message_body, mandatory=True)
 
-        q2_tx_message_bodies = ['q2_message+%s' % (i,)
-                                for i in pika.compat.xrange(150)]
+        q2_tx_message_bodies = ['q2_message+%s' % (i,) for i in range(150)]
         for message_body in q2_tx_message_bodies:
             ch.basic_publish(exg_name, q2_routing_key, body=message_body, mandatory=True)
 
@@ -2693,7 +2691,7 @@ class TestNonPubAckPublishAndConsumeManyMessages(BlockingTestCaseBase):
         ch.queue_declare(q_name, auto_delete=False)
         self.addCleanup(lambda: self._connect().channel().queue_delete(q_name))
 
-        for _ in pika.compat.xrange(num_messages_to_publish):
+        for _ in range(num_messages_to_publish):
             # Publish a message to the queue by way of default exchange
             ch.basic_publish(exchange='', routing_key=q_name, body=body)
 

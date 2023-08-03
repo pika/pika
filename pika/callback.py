@@ -7,7 +7,7 @@ import logging
 
 from pika import frame
 from pika import amqp_object
-from pika.compat import xrange, canonical_str
+from pika.compat import canonical_str
 
 LOGGER = logging.getLogger(__name__)
 
@@ -253,7 +253,7 @@ class CallbackManager:
         """
         if callback_value:
             offsets_to_remove = list()
-            for offset in xrange(len(self._stack[prefix][key]), 0, -1):
+            for offset in range(len(self._stack[prefix][key]), 0, -1):
                 callback_dict = self._stack[prefix][key][offset - 1]
 
                 if (callback_dict[self.CALLBACK] == callback_value and
