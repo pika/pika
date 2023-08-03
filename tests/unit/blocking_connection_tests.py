@@ -284,6 +284,7 @@ class BlockingConnectionTests(unittest.TestCase):
             channel2_mock.close.assert_called_once_with(200, 'text')
         impl_mock.close.assert_called_once_with(200, 'text')
 
+    @unittest.skipIf(sys.version_info < (3, 8), "mock args differ on 3.7 and earlier")
     @patch.object(
         blocking_connection.select_connection,
         'SelectConnection',

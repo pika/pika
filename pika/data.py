@@ -86,7 +86,7 @@ def encode_value(pieces, value): # pylint: disable=R0911
     """
 
     if isinstance(value, str):
-        value = value.encode('utf-8')
+        value = as_bytes(value)
         pieces.append(struct.pack('>cI', b'S', len(value)))
         pieces.append(value)
         return 5 + len(value)
