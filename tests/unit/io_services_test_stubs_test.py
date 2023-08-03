@@ -9,7 +9,6 @@ try:
 except ImportError:
     asyncio = None
 
-import sys
 import threading
 import unittest
 

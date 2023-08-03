@@ -5,9 +5,7 @@ import datetime
 import functools
 import os
 import select
-import sys
 import logging
-import platform
 import unittest
 from unittest import mock
 import uuid
@@ -372,8 +370,6 @@ class AsyncAdapters(object):
         ioloop_factory = tornado.ioloop.IOLoop
         self.start(TornadoConnection, ioloop_factory)
 
-    @unittest.skipIf(sys.version_info < (3, 4),
-                     'Asyncio is available only with Python 3.4+')
     @run_test_in_thread_with_timeout
     def test_with_asyncio(self):
         """AsyncioConnection"""

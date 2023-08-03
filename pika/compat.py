@@ -38,7 +38,7 @@ str_or_bytes = (str, bytes)
 
 def time_now():
     """
-    Python 3 supports monotonic time
+    Returns monotonic time
     """
     return time.monotonic()
 
@@ -46,11 +46,6 @@ def time_now():
 def dictkeys(dct):
     """
     Returns a list of keys of dictionary
-
-    dict.keys returns a view that works like .keys in Python 2
-    *except* any modifications in the dictionary will be visible
-    (and will cause errors if the view is being iterated over while
-    it is modified).
     """
 
     return list(dct.keys())
@@ -59,11 +54,6 @@ def dictkeys(dct):
 def dictvalues(dct):
     """
     Returns a list of values of a dictionary
-
-    dict.values returns a view that works like .values in Python 2
-    *except* any modifications in the dictionary will be visible
-    (and will cause errors if the view is being iterated over while
-    it is modified).
     """
     return list(dct.values())
 
@@ -71,11 +61,6 @@ def dictvalues(dct):
 def dict_iteritems(dct):
     """
     Returns an iterator of items (key/value pairs) of a dictionary
-
-    dict.items returns a view that works like .items in Python 2
-    *except* any modifications in the dictionary will be visible
-    (and will cause errors if the view is being iterated over while
-    it is modified).
     """
     return dct.items()
 
@@ -91,8 +76,6 @@ def dict_itervalues(dct):
 
 def byte(*args):
     """
-    This is the same as Python 2 `chr(n)` for bytes in Python 3
-
     Returns a single byte `bytes` for the given int argument (we
     optimize it a bit here by passing the positional argument tuple
     directly to the bytes constructor.
@@ -116,7 +99,6 @@ class long(int):
 def canonical_str(value):
     """
     Return the canonical str value for the string.
-    In both Python 3 and Python 2 this is str.
     """
 
     return str(value)
