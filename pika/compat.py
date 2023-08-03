@@ -9,7 +9,6 @@ import os
 import platform
 import re
 import socket
-import sys as _sys
 import time
 
 RE_NUM = re.compile(r'(\d+).+')
