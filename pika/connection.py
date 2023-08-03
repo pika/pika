@@ -11,6 +11,7 @@ import math
 import numbers
 import platform
 import ssl
+from urllib.parse import unquote as url_unquote, parse_qs as url_parse_qs, urlparse
 
 import pika.callback
 import pika.channel
@@ -21,12 +22,7 @@ import pika.frame as frame
 import pika.heartbeat
 import pika.spec as spec
 import pika.validators as validators
-from pika.compat import (
-    xrange,
-    url_unquote,
-    dictkeys,
-    dict_itervalues,
-    dict_iteritems)
+from pika.compat import (dictkeys, dict_itervalues, dict_iteritems)
 
 PRODUCT = "Pika Python Client Library"
 
@@ -727,15 +723,10 @@ class URLParameters(Parameters):
         self._all_url_query_values = None
 
         # Handle the Protocol scheme
-        #
-        # Fix up scheme amqp(s) to http(s) so urlparse won't barf on python
-        # prior to 2.7. On Python 2.6.9,
-        # `urlparse('amqp://127.0.0.1/%2f?socket_timeout=1')` produces an
-        # incorrect path='/%2f?socket_timeout=1'
         if url[0:4].lower() == 'amqp':
             url = 'http' + url[4:]
 
-        parts = pika.compat.urlparse(url)
+        parts = urlparse(url)
 
         if parts.scheme == 'https':
             # Create default context which will get overridden by the
@@ -767,7 +758,7 @@ class URLParameters(Parameters):
             self.virtual_host = url_unquote(parts.path.split('/')[1])
 
         # Handle query string values, validating and assigning them
-        self._all_url_query_values = pika.compat.url_parse_qs(parts.query)
+        self._all_url_query_values = url_parse_qs(parts.query)
 
         for name, value in dict_iteritems(self._all_url_query_values):
             try:
@@ -1683,7 +1674,7 @@ class Connection(pika.compat.AbstractBase):
         if len(self._channels) >= limit:
             raise exceptions.NoFreeChannels()
 
-        for num in xrange(1, len(self._channels) + 1):
+        for num in range(1, len(self._channels) + 1):
             if num not in self._channels:
                 return num
         return len(self._channels) + 1
@@ -2275,7 +2266,7 @@ class Connection(pika.compat.AbstractBase):
 
         if content[1]:
             chunks = int(math.ceil(float(length) / self._body_max_length))
-            for chunk in xrange(0, chunks):
+            for chunk in range(0, chunks):
                 start = chunk * self._body_max_length
                 end = start + self._body_max_length
                 if end > length:

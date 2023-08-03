@@ -11,24 +11,17 @@ import multiprocessing
 import os
 import socket
 import struct
+import socketserver
 import sys
 import threading
 import traceback
 
 import pika.compat
 
-if pika.compat.PY3:
 
-    def buffer(object, offset, size):  # pylint: disable=W0622
-        """array etc. have the buffer protocol"""
-        return object[offset:offset + size]
-
-
-try:
-    import SocketServer
-except ImportError:
-    import socketserver as SocketServer  # pylint: disable=F0401
-
+def buffer(object_, offset, size):
+    """array etc. have the buffer protocol"""
+    return object_[offset:offset + size]
 
 def _trace(fmt, *args):
     """Format and output the text to stderr"""
@@ -280,8 +273,8 @@ def _run_server(
     # override some of its class members dynamically
     # NOTE: we add `object` to the base classes because `_ThreadedTCPServer`
     # isn't derived from `object`, which prevents `super` from working properly
-    class _ThreadedTCPServer(SocketServer.ThreadingMixIn,
-                             SocketServer.TCPServer, object):
+    class _ThreadedTCPServer(socketserver.ThreadingMixIn,
+                             socketserver.TCPServer, object):
         """Threaded streaming server for forwarding"""
 
         # Override TCPServer's class members
@@ -313,7 +306,7 @@ def _run_server(
 
 # NOTE: we add `object` to the base classes because `StreamRequestHandler` isn't
 # derived from `object`, which prevents `super` from working properly
-class _TCPHandler(SocketServer.StreamRequestHandler, object):
+class _TCPHandler(socketserver.StreamRequestHandler, object):
     """TCP/IP session handler instantiated by TCPServer upon incoming
     connection. Implements forwarding/echo of the incoming connection.
     """
@@ -375,10 +368,10 @@ class _TCPHandler(SocketServer.StreamRequestHandler, object):
                    remote_dest_sock.getpeername())
         else:
             # Echo set-up
-            # NOTE: Use pika.compat._nonblocking_socketpair() since
+            # NOTE: Use pika.compat.nonblocking_socketpair() since
             # socket.socketpair() isn't available on Windows under python 2 yet.
             remote_dest_sock, remote_src_sock = \
-                    pika.compat._nonblocking_socketpair()
+                    pika.compat.nonblocking_socketpair()
             # We rely on blocking I/O
             remote_dest_sock.setblocking(True)
             remote_src_sock.setblocking(True)

@@ -19,7 +19,6 @@ from unittest import mock
 
 from pika import connection, channel, credentials, exceptions, frame, spec
 import pika
-from pika.compat import xrange
 
 
 def dummy_callback():
@@ -329,7 +328,7 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
 
     def test_next_channel_number_returns_lowest_unused(self):
         """_next_channel_number must return lowest available channel number"""
-        for channel_num in xrange(1, 50):
+        for channel_num in range(1, 50):
             self.connection._channels[channel_num] = True
         expectation = random.randint(5, 49)
         del self.connection._channels[expectation]

@@ -2,8 +2,6 @@
 Common validation functions
 """
 
-from pika.compat import basestring
-
 
 def require_string(value, value_name):
     """Require that value is a string
@@ -11,7 +9,7 @@ def require_string(value, value_name):
     :raises: TypeError
 
     """
-    if not isinstance(value, basestring):
+    if not isinstance(value, str):
         raise TypeError('{} must be a str or unicode str, but got {!r}'.format(
             value_name,
             value,
