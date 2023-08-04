@@ -44,7 +44,7 @@ class DiagnosticUtilsTest(unittest.TestCase):
         self.assertEqual(bucket, [(expected_args, expected_kwargs)])
 
         # Make sure that the original instances were passed through, not copies
-        for i in pika.compat.xrange(len(expected_args)):
+        for i in range(len(expected_args)):
             self.assertIs(bucket[0][0][i], expected_args[i])
 
         for key in pika.compat.dictkeys(expected_kwargs):
@@ -53,7 +53,7 @@ class DiagnosticUtilsTest(unittest.TestCase):
         # Now, repeat without any args/kwargs
         expected_args = tuple()
         expected_kwargs = dict()
-        del bucket[:]  # .clear() doesn't exist in python 2.7
+        bucket.clear()
 
         result = my_func()
 

@@ -13,7 +13,7 @@ rejected.
 import struct
 from pika import amqp_object
 from pika import data
-from pika.compat import str_or_bytes, unicode_type
+from pika.compat import str_or_bytes, as_bytes
 from pika.exchange_type import ExchangeType
 from pika.delivery_mode import DeliveryMode
 
@@ -107,12 +107,12 @@ class Connection(amqp_object.Class):
             data.encode_table(pieces, self.server_properties)
             assert isinstance(self.mechanisms, str_or_bytes),\
                    'A non-string value was supplied for self.mechanisms'
-            value = self.mechanisms.encode('utf-8') if isinstance(self.mechanisms, unicode_type) else self.mechanisms
+            value = as_bytes(self.mechanisms)
             pieces.append(struct.pack('>I', len(value)))
             pieces.append(value)
             assert isinstance(self.locales, str_or_bytes),\
                    'A non-string value was supplied for self.locales'
-            value = self.locales.encode('utf-8') if isinstance(self.locales, unicode_type) else self.locales
+            value = as_bytes(self.locales)
             pieces.append(struct.pack('>I', len(value)))
             pieces.append(value)
             return pieces
@@ -154,7 +154,7 @@ class Connection(amqp_object.Class):
             data.encode_short_string(pieces, self.mechanism)
             assert isinstance(self.response, str_or_bytes),\
                    'A non-string value was supplied for self.response'
-            value = self.response.encode('utf-8') if isinstance(self.response, unicode_type) else self.response
+            value = as_bytes(self.response)
             pieces.append(struct.pack('>I', len(value)))
             pieces.append(value)
             assert isinstance(self.locale, str_or_bytes),\
@@ -189,7 +189,7 @@ class Connection(amqp_object.Class):
             pieces = list()
             assert isinstance(self.challenge, str_or_bytes),\
                    'A non-string value was supplied for self.challenge'
-            value = self.challenge.encode('utf-8') if isinstance(self.challenge, unicode_type) else self.challenge
+            value = as_bytes(self.challenge)
             pieces.append(struct.pack('>I', len(value)))
             pieces.append(value)
             return pieces
@@ -221,7 +221,7 @@ class Connection(amqp_object.Class):
             pieces = list()
             assert isinstance(self.response, str_or_bytes),\
                    'A non-string value was supplied for self.response'
-            value = self.response.encode('utf-8') if isinstance(self.response, unicode_type) else self.response
+            value = as_bytes(self.response)
             pieces.append(struct.pack('>I', len(value)))
             pieces.append(value)
             return pieces
@@ -470,7 +470,7 @@ class Connection(amqp_object.Class):
             pieces = list()
             assert isinstance(self.new_secret, str_or_bytes),\
                 'A non-string value was supplied for self.new_secret'
-            value = self.new_secret.encode('utf-8') if isinstance(self.new_secret, unicode_type) else self.new_secret
+            value = as_bytes(self.new_secret)
             pieces.append(struct.pack('>I', len(value)))
             pieces.append(value)
             assert isinstance(self.reason, str_or_bytes),\
@@ -553,7 +553,7 @@ class Channel(amqp_object.Class):
             pieces = list()
             assert isinstance(self.channel_id, str_or_bytes),\
                    'A non-string value was supplied for self.channel_id'
-            value = self.channel_id.encode('utf-8') if isinstance(self.channel_id, unicode_type) else self.channel_id
+            value = as_bytes(self.channel_id)
             pieces.append(struct.pack('>I', len(value)))
             pieces.append(value)
             return pieces

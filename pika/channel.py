@@ -14,7 +14,7 @@ import pika.frame as frame
 import pika.exceptions as exceptions
 import pika.spec as spec
 import pika.validators as validators
-from pika.compat import unicode_type, dictkeys, is_integer
+from pika.compat import as_bytes, dictkeys, is_integer
 from pika.exchange_type import ExchangeType
 
 LOGGER = logging.getLogger(__name__)
@@ -421,8 +421,7 @@ class Channel:
 
         """
         self._raise_if_not_open()
-        if isinstance(body, unicode_type):
-            body = body.encode('utf-8')
+        body = as_bytes(body)
         properties = properties or spec.BasicProperties()
         self._send_method(
             spec.Basic.Publish(exchange=exchange,
