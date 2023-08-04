@@ -62,16 +62,13 @@ class _CallbackResult:
         self._values = None
 
     def __bool__(self):
-        """ Called by python runtime to implement truth value testing and the
-        built-in operation bool(); NOTE: python 3.x
+        """Called by python runtime to implement truth value testing and the
+        built-in operation bool()
         """
         return self.is_ready()
 
-    # python 2.x version of __bool__
-    __nonzero__ = __bool__
-
     def __enter__(self):
-        """ Entry into context manager that automatically resets the object
+        """Entry into context manager that automatically resets the object
         on exit; this usage pattern helps garbage-collection by eliminating
         potential circular references.
         """
@@ -94,7 +91,7 @@ class _CallbackResult:
         return self._ready
 
     def signal_once(self, *_args, **_kwargs):
-        """ Set as ready
+        """Set as ready
 
         :raises AssertionError: if result was already signalled
         """
@@ -102,7 +99,7 @@ class _CallbackResult:
         self._ready = True
 
     def set_value_once(self, *args, **kwargs):
-        """ Set as ready with value; the value may be retrieved via the `value`
+        """Set as ready with value; the value may be retrieved via the `value`
         property getter
 
         :raises AssertionError: if result was already set

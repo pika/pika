@@ -177,7 +177,7 @@ def decode_value(encoded, offset): # pylint: disable=R0912,R0915
     :raises: pika.exceptions.InvalidFieldTypeException
 
     """
-    # slice to get bytes in Python 3 and str in Python 2
+    # Slice to get bytes
     kind = encoded[offset:offset + 1]
     offset += 1
 

@@ -36,7 +36,7 @@ def name_or_value(value):
     if isinstance(value, amqp_object.AMQPObject):
         return value.NAME
 
-    # Cast the value to a str (python 2 and python 3); encoding as UTF-8 on Python 2
+    # Cast the value to a string
     return canonical_str(value)
 
 

@@ -561,10 +561,9 @@ class _AddressResolver:
 
         """
         try:
-            # NOTE: on python 2.x, can't pass keyword args to getaddrinfo()
-            result = socket.getaddrinfo(self._host, self._port, self._family,
-                                        self._socktype, self._proto,
-                                        self._flags)
+            result = socket.getaddrinfo(host=self._host, port=self._port, family=self._family,
+                                        type=self._socktype, proto=self._proto,
+                                        flags=self._flags)
         except Exception as exc:  # pylint: disable=W0703
             LOGGER.error('Address resolution failed: %r', exc)
             result = exc

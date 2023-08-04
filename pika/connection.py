@@ -723,11 +723,6 @@ class URLParameters(Parameters):
         self._all_url_query_values = None
 
         # Handle the Protocol scheme
-        #
-        # Fix up scheme amqp(s) to http(s) so urlparse won't barf on python
-        # prior to 2.7. On Python 2.6.9,
-        # `urlparse('amqp://127.0.0.1/%2f?socket_timeout=1')` produces an
-        # incorrect path='/%2f?socket_timeout=1'
         if url[0:4].lower() == 'amqp':
             url = 'http' + url[4:]
 

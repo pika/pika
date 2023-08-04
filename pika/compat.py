@@ -1,7 +1,4 @@
-"""The compat module provides various Python 2 / Python 3
-compatibility functions
-
-"""
+"""The compat module provides various compatibility functions"""
 # pylint: disable=C0103
 
 import abc
