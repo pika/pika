@@ -356,11 +356,11 @@ class TestInvalidExchangeTypeRaisesConnectionClosed(BlockingTestCaseBase):
         exg_name = ("TestInvalidExchangeTypeRaisesConnectionClosed_" +
                     uuid.uuid1().hex)
 
-        with self.assertRaises(pika.exceptions.ConnectionClosed) as ex_cm:
+        with self.assertRaises(pika.exceptions.ChannelClosedByBroker) as ex_cm:
             # Attempt to create an exchange with invalid exchange type
             ch.exchange_declare(exg_name, exchange_type='ZZwwInvalid')
 
-        self.assertEqual(ex_cm.exception.args[0], 503)
+        self.assertEqual(ex_cm.exception.args[0], 406)
 
 
 class TestCreateAndCloseConnectionWithChannelAndConsumer(BlockingTestCaseBase):

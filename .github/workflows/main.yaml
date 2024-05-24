@@ -15,20 +15,20 @@ jobs:
     runs-on: windows-latest
     strategy:
       matrix:
-        python-version: [3.7, 3.8, 3.9, '3.10', '3.11']
+        python-version: [ 3.8, 3.9, '3.10', '3.11'] # TODO add 3.12
         test-tls: [true, false]
     env:
       PIKA_TEST_TLS: ${{ matrix.test-tls }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
           cache: 'pip'
           cache-dependency-path: test-requirements.txt
       - name: Cache installers
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           # Note: the cache path is relative to the workspace directory
           # https://docs.github.com/en/actions/using-workflows/caching-dependencies-to-speed-up-workflows#using-the-cache-action
@@ -48,7 +48,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.7, 3.8, 3.9, '3.10', '3.11']
+        python-version: [ 3.8, 3.9, '3.10', '3.11'] # TODO add 3.12
     services:
       rabbitmq:
         image: rabbitmq
@@ -56,9 +56,9 @@ jobs:
           - 5672:5672
           - 5671:5671
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
           cache: 'pip'
