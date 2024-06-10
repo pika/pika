@@ -6,24 +6,23 @@ compatibility functions
 
 import abc
 import os
-import platform
 import re
 import socket
-import sys as _sys
+import sys
 import time
 
-PY2 = _sys.version_info.major == 2
+PY2 = sys.version_info.major == 2
 PY3 = not PY2
 RE_NUM = re.compile(r'(\d+).+')
 
-ON_LINUX = platform.system() == 'Linux'
-ON_OSX = platform.system() == 'Darwin'
-ON_WINDOWS = platform.system() == 'Windows'
+ON_LINUX = sys.platform.startswith("linux")
+ON_OSX = sys.platform == "darwin"
+ON_WINDOWS = sys.platform == "win32"
 
 # Portable Abstract Base Class
 AbstractBase = abc.ABCMeta('AbstractBase', (object,), {})
 
-if _sys.version_info[:2] < (3, 3):
+if sys.version_info[:2] < (3, 3):
     SOCKET_ERROR = socket.error
 else:
     # socket.error was deprecated and replaced by OSError in python 3.3
@@ -207,10 +206,11 @@ def get_linux_version(release_str):
 
 HAVE_SIGNAL = os.name == 'posix'
 
-EINTR_IS_EXPOSED = _sys.version_info[:2] <= (3, 4)
+EINTR_IS_EXPOSED = sys.version_info[:2] <= (3, 4)
 
 LINUX_VERSION = None
-if platform.system() == 'Linux':
+if ON_LINUX:
+    import platform
     LINUX_VERSION = get_linux_version(platform.release())
 
 _LOCALHOST = '127.0.0.1'
