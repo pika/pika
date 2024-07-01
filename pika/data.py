@@ -6,8 +6,7 @@ import calendar
 from datetime import datetime
 
 from pika import exceptions
-from pika.compat import PY2, basestring
-from pika.compat import unicode_type, long, as_bytes
+from pika.compat import long, as_bytes
 
 
 def encode_short_string(pieces, value):
@@ -41,37 +40,18 @@ def encode_short_string(pieces, value):
     return 1 + length
 
 
-if PY2:
-
-    def decode_short_string(encoded, offset):
-        """Decode a short string value from ``encoded`` data at ``offset``.
-        """
-        length = struct.unpack_from('B', encoded, offset)[0]
-        offset += 1
-        # Purely for compatibility with original python2 code. No idea what
-        # and why this does.
-        value = encoded[offset:offset + length]
-        try:
-            value = bytes(value)
-        except UnicodeEncodeError:
-            pass
-        offset += length
-        return value, offset
-
-else:
-
-    def decode_short_string(encoded, offset):
-        """Decode a short string value from ``encoded`` data at ``offset``.
-        """
-        length = struct.unpack_from('B', encoded, offset)[0]
-        offset += 1
-        value = encoded[offset:offset + length]
-        try:
-            value = value.decode('utf8')
-        except UnicodeDecodeError:
-            pass
-        offset += length
-        return value, offset
+def decode_short_string(encoded, offset):
+    """Decode a short string value from ``encoded`` data at ``offset``.
+    """
+    length = struct.unpack_from('B', encoded, offset)[0]
+    offset += 1
+    value = encoded[offset:offset + length]
+    try:
+        value = value.decode('utf8')
+    except UnicodeDecodeError:
+        pass
+    offset += length
+    return value, offset
 
 
 def encode_table(pieces, table):
@@ -105,30 +85,19 @@ def encode_value(pieces, value): # pylint: disable=R0911
 
     """
 
-    if PY2:
-        if isinstance(value, basestring):
-            if isinstance(value, unicode_type):
-                value = value.encode('utf-8')
-            pieces.append(struct.pack('>cI', b'S', len(value)))
-            pieces.append(value)
-            return 5 + len(value)
-    else:
-        # support only str on Python 3
-        if isinstance(value, basestring):
-            value = value.encode('utf-8')
-            pieces.append(struct.pack('>cI', b'S', len(value)))
-            pieces.append(value)
-            return 5 + len(value)
-
-        if isinstance(value, bytes):
-            pieces.append(struct.pack('>cI', b'x', len(value)))
-            pieces.append(value)
-            return 5 + len(value)
-
-    if isinstance(value, bool):
+    if isinstance(value, str):
+        value = as_bytes(value)
+        pieces.append(struct.pack('>cI', b'S', len(value)))
+        pieces.append(value)
+        return 5 + len(value)
+    elif isinstance(value, bytes):
+        pieces.append(struct.pack('>cI', b'x', len(value)))
+        pieces.append(value)
+        return 5 + len(value)
+    elif isinstance(value, bool):
         pieces.append(struct.pack('>cB', b't', int(value)))
         return 2
-    if isinstance(value, long):
+    elif isinstance(value, long):
         if value < 0:
             pieces.append(struct.pack('>cq', b'L', value))
         else:
@@ -208,7 +177,7 @@ def decode_value(encoded, offset): # pylint: disable=R0912,R0915
     :raises: pika.exceptions.InvalidFieldTypeException
 
     """
-    # slice to get bytes in Python 3 and str in Python 2
+    # Slice to get bytes
     kind = encoded[offset:offset + 1]
     offset += 1
 

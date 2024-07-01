@@ -22,7 +22,6 @@ class TestGetNativeIOLoop(unittest.TestCase,
 
 """
 
-import sys
 import unittest
 
 from tests.wrappers.threaded_test_wrapper import run_in_thread_with_timeout
@@ -111,8 +110,6 @@ class IOServicesTestStubs(object):
             nbio_factory=lambda: SelectorIOServicesAdapter(native_loop),
             native_loop=native_loop)
 
-    @unittest.skipIf(sys.version_info < (3, 4),
-                     "Asyncio is available only with Python 3.4+")
     @run_in_thread_with_timeout
     def test_with_asyncio_io_services(self):
         # Test entry point for `asyncio` event loop-based io services

@@ -26,15 +26,12 @@ SELECT_TYPE = None
 # Reason for this unconventional dict initialization is the fact that on some
 # platforms select.error is an aliases for OSError. We don't want the lambda
 # for select.error to win over one for OSError.
-_SELECT_ERROR_CHECKERS = {}
-if pika.compat.PY3:
-    # InterruptedError is undefined in PY2
-    # pylint: disable=E0602
-    _SELECT_ERROR_CHECKERS[InterruptedError] = lambda e: True
-
-_SELECT_ERROR_CHECKERS[select.error] = lambda e: e.args[0] == errno.EINTR
-_SELECT_ERROR_CHECKERS[IOError] = lambda e: e.errno == errno.EINTR
-_SELECT_ERROR_CHECKERS[OSError] = lambda e: e.errno == errno.EINTR
+_SELECT_ERROR_CHECKERS = {
+    InterruptedError: lambda _: True,
+    select.error: lambda e: e.args[0] == errno.EINTR,
+    IOError: lambda e: e.errno == errno.EINTR,
+    OSError: lambda e: e.errno == errno.EINTR,
+}
 
 # We can reduce the number of elements in the list by looking at super-sub
 # class relationship because only the most generic ones needs to be caught.
@@ -489,7 +486,7 @@ class IOLoop(AbstractSelectorIOLoop):
 
         """
         # Avoid I/O starvation by postponing new callbacks to the next iteration
-        for _ in pika.compat.xrange(len(self._callbacks)):
+        for _ in range(len(self._callbacks)):
             callback = self._callbacks.popleft()
             LOGGER.debug('process_timeouts: invoking callback=%r', callback)
             callback()
@@ -913,7 +910,7 @@ class _PollerBase(pika.compat.AbstractBase):  # pylint: disable=R0902
         so use a pair of simple TCP sockets instead. The sockets will be
         closed and garbage collected by python when the ioloop itself is.
         """
-        return pika.compat._nonblocking_socketpair()  # pylint: disable=W0212
+        return pika.compat.nonblocking_socketpair()
 
     def _read_interrupt(self, _interrupt_fd, _events):
         """ Read the interrupt byte(s). We ignore the event mask as we can ony

@@ -7,9 +7,10 @@ import copy
 import ssl
 import unittest
 import warnings
+from urllib.parse import quote as url_quote, urlencode
 
 import pika
-from pika.compat import urlencode, url_quote, dict_iteritems
+from pika.compat import dict_iteritems
 from pika import channel, connection, credentials, spec
 
 # disable missing-docstring
