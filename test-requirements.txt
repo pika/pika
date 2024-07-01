@@ -1,8 +1,7 @@
 coverage
 codecov
 gevent
-nose
-nose2
+pynose
 tornado
 twisted
 enum34; python_version == '2.7' or (python_version >= '3.0' and python_version <= '3.4')
