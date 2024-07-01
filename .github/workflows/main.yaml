@@ -15,7 +15,7 @@ jobs:
     runs-on: windows-latest
     strategy:
       matrix:
-        python-version: [ 3.8, 3.9, '3.10', '3.11'] # TODO add 3.12
+        python-version: [ 3.8, 3.9, '3.10', '3.11', '3.12' ]
         test-tls: [true, false]
     env:
       PIKA_TEST_TLS: ${{ matrix.test-tls }}
@@ -48,7 +48,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [ 3.8, 3.9, '3.10', '3.11'] # TODO add 3.12
+        python-version: [ 3.8, 3.9, '3.10', '3.11', '3.12' ]
     services:
       rabbitmq:
         image: rabbitmq
