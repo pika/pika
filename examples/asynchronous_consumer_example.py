@@ -295,8 +295,7 @@ class ExampleConsumer(object):
         """
         LOGGER.info('Consumer was cancelled remotely, shutting down: %r',
                     method_frame)
-        if self._channel:
-            self._channel.close()
+        self._channel.close()
 
     def on_message(self, _unused_channel, basic_deliver, properties, body):
         """Invoked by pika when a message is delivered from RabbitMQ. The
