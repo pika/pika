@@ -20,3 +20,17 @@ from pika.adapters import BlockingConnection
 from pika.adapters import SelectConnection
 
 from pika.adapters.utils.connection_workflow import AMQPConnectionWorkflow
+
+__all__ = [
+    'adapters',
+    'AMQPConnectionWorkflow',
+    'BaseConnection',
+    'BasicProperties',
+    'BlockingConnection',
+    'ConnectionParameters',
+    'DeliveryMode',
+    'PlainCredentials',
+    'SelectConnection',
+    'SSLOptions',
+    'URLParameters',
+]
