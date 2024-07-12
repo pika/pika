@@ -1,11 +1,26 @@
 # Changelog
 
-## [Unreleased](https://github.com/pika/pika/tree/HEAD)
+## [1.4.0b0](https://github.com/pika/pika/tree/1.4.0b0) (2024-07-12)
 
-[Full Changelog](https://github.com/pika/pika/compare/1.3.2...HEAD)
+[Full Changelog](https://github.com/pika/pika/compare/1.3.2...1.4.0b0)
+
+**Closed issues:**
+
+- SkyPVP [\#1475](https://github.com/pika/pika/issues/1475)
+- Add Python `3.12` to GitHub Actions [\#1470](https://github.com/pika/pika/issues/1470)
+- Error with log files rotation [\#1468](https://github.com/pika/pika/issues/1468)
+- Liquid bandage  [\#1455](https://github.com/pika/pika/issues/1455)
+- ERR NOAUTH Authentication required. [\#1446](https://github.com/pika/pika/issues/1446)
+- isssue with steam and updates [\#1420](https://github.com/pika/pika/issues/1420)
 
 **Merged pull requests:**
 
+- List Python 3.12 as supported [\#1474](https://github.com/pika/pika/pull/1474) ([lukebakken](https://github.com/lukebakken))
+- Use sys.platform instead of platform.system\(\) [\#1467](https://github.com/pika/pika/pull/1467) ([cvijdea-bd](https://github.com/cvijdea-bd))
+- Shrink the compatibility module and remove Python \<3.7 support [\#1441](https://github.com/pika/pika/pull/1441) ([alfawal](https://github.com/alfawal))
+- Misc Windows CI updates [\#1438](https://github.com/pika/pika/pull/1438) ([lukebakken](https://github.com/lukebakken))
+- Add examples of using client\_properties to URLParameters and ConnectionParameters [\#1436](https://github.com/pika/pika/pull/1436) ([johanrhodin](https://github.com/johanrhodin))
+- example: Remove unnecessary guard [\#1435](https://github.com/pika/pika/pull/1435) ([jpmckinney](https://github.com/jpmckinney))
 - Feature \#1363 -- Bump examples python version to 3 [\#1416](https://github.com/pika/pika/pull/1416) ([alfawal](https://github.com/alfawal))
 - Update example to use python3 syntax [\#1408](https://github.com/pika/pika/pull/1408) ([AleksaC](https://github.com/AleksaC))
 - Add more connections to the adapters [\#1405](https://github.com/pika/pika/pull/1405) ([dgoeries](https://github.com/dgoeries))
@@ -15,12 +30,6 @@
 - Fix typo in example docstring [\#1396](https://github.com/pika/pika/pull/1396) ([kinoute](https://github.com/kinoute))
 - Fixing pika v1.0.0 breaking change (order of parameters) for the `cha… [\#1393](https://github.com/pika/pika/pull/1393) ([mprinc](https://github.com/mprinc))
 - feat: add python3.10 support and make code python3.7+ [\#1351](https://github.com/pika/pika/pull/1351) ([vinitkumar](https://github.com/vinitkumar))
-- More logical validation of long RpcParameters [\#46](https://github.com/pika/pika/pull/46) ([kmpm](https://github.com/kmpm))
-- Overrode \_adapter\_disconnect\(\) in BlockingConnection & fixed connection.py typos. [\#45](https://github.com/pika/pika/pull/45) ([williamsjj](https://github.com/williamsjj))
-- Changed timeout for poll to be in milliseconds [\#42](https://github.com/pika/pika/pull/42) ([samuel](https://github.com/samuel))
-- BlockingConnection refactored to allow multiple basic\_consumes. [\#38](https://github.com/pika/pika/pull/38) ([williamsjj](https://github.com/williamsjj))
-- Encode bools as 't' type. [\#29](https://github.com/pika/pika/pull/29) ([majek](https://github.com/majek))
-- Fixed various issues with table encoding/decoding [\#27](https://github.com/pika/pika/pull/27) ([majek](https://github.com/majek))
 
 ## [1.3.2](https://github.com/pika/pika/tree/1.3.2) (2023-05-05)
 
