@@ -7,14 +7,14 @@ on:
 
 jobs:
   call-publish-pypi-prerelease:
-    if: github.event.release.prerelease
+    if: ${{ github.event.release.prerelease }}
     uses: ./.github/workflows/publish-pypi.yaml
     with:
       pypi_repository_url: https://test.pypi.org/legacy/
     secrets:
       pypi_api_token: ${{ secrets.TEST_PYPI_API_TOKEN }}
   call-publish-pypi-release:
-    if: !github.event.release.prerelease
+    if: ${{ !github.event.release.prerelease }}
     uses: ./.github/workflows/publish-pypi.yaml
     with:
       pypi_repository_url: https://upload.pypi.org/legacy/
