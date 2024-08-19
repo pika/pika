@@ -1,7 +1,7 @@
 """Base test classes for async_adapter_tests.py
 
 """
-import datetime
+from datetime import datetime, timezone
 import functools
 import os
 import select
@@ -146,7 +146,7 @@ class AsyncTestCase(unittest.TestCase):
         self.fail("AsyncTestCase.begin_test not extended")
 
     def start(self, adapter, ioloop_factory):
-        self.logger.info('start at %s', datetime.datetime.utcnow())
+        self.logger.info('start at %s', datetime.now(timezone.utc))
         self.adapter = adapter or self.ADAPTER
 
         self.connection = self.adapter(self.parameters,
@@ -243,7 +243,7 @@ class AsyncTestCase(unittest.TestCase):
     def on_timeout(self):
         """called when stuck waiting for connection to close"""
         self.logger.error('%s timed out; on_timeout called at %s', self,
-                          datetime.datetime.utcnow())
+                          datetime.now(timezone.utc))
         self.timeout = None  # the dispatcher should have removed it
         self._timed_out = True
         # initiate cleanup

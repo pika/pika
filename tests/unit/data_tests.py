@@ -47,7 +47,7 @@ class DataTests(unittest.TestCase):
             ('maxLLUINT', long(2**64-1)),
             ('null', None),
             ('strval', 'Test'),
-            ('timestampval', datetime.datetime(2006, 11, 21, 16, 30, 10)),
+            ('timestampval', datetime.datetime(2006, 11, 21, 16, 30, 10, tzinfo=datetime.timezone.utc)),
             ('unicode', u'utf8=✓'),
             ('bytes', b'foobar'),
         ])

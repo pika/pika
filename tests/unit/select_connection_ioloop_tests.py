@@ -7,7 +7,7 @@ Tests for SelectConnection IOLoops
 from __future__ import print_function
 
 import errno
-import datetime
+from datetime import datetime, timezone
 import functools
 import logging
 import os
@@ -732,7 +732,7 @@ class DefaultPollerSocketEventsTestCase(unittest.TestCase):
 
         def _on_test_timeout():
             """Called when test times out"""
-            LOGGER.info('%s TIMED OUT (%s)', datetime.datetime.utcnow(), self)
+            LOGGER.info('%s TIMED OUT (%s)', datetime.now(timezone.utc), self)
             self.fail('Test timed out')
 
         ioloop.call_later(self.DEFAULT_TEST_TIMEOUT, _on_test_timeout)
