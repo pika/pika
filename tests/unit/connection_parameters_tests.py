@@ -10,7 +10,6 @@ import warnings
 from urllib.parse import quote as url_quote, urlencode
 
 import pika
-from pika.compat import dict_iteritems
 from pika import channel, connection, credentials, spec
 
 # disable missing-docstring
@@ -100,8 +99,7 @@ class ParametersTestsBase(unittest.TestCase):
         :param pika.connection.Parameters params: Verify that the given params
             instance has all default property values
         """
-        for name, expected_value in dict_iteritems(
-                self.get_default_properties()):
+        for name, expected_value in self.get_default_properties().items():
             value = getattr(params, name)
             self.assertEqual(
                 value,

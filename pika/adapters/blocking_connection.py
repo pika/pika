@@ -799,7 +799,7 @@ class BlockingConnection:
         LOGGER.info('Closing connection (%s): %s', reply_code, reply_text)
 
         # Close channels that remain opened
-        for impl_channel in compat.dictvalues(self._impl._channels):
+        for impl_channel in list(self._impl._channels.values()):
             channel = impl_channel._get_cookie()
             if channel.is_open:
                 try:
@@ -1324,7 +1324,7 @@ class BlockingChannel:
         :rtype: list
 
         """
-        return compat.dictkeys(self._consumer_infos)
+        return list(self._consumer_infos.keys())
 
     _ALWAYS_READY_WAITERS = ((lambda: True),)
 
@@ -1490,7 +1490,7 @@ class BlockingChannel:
                 self.cancel()
 
             # Cancel consumers created via basic_consume
-            for consumer_tag in compat.dictkeys(self._consumer_infos):
+            for consumer_tag in list(self._consumer_infos.keys()):
                 self.basic_cancel(consumer_tag)
 
     def _dispatch_events(self):
