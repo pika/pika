@@ -562,7 +562,7 @@ class ConnectionParameters(Parameters):
         :param str host: Hostname or IP Address to connect to
         :param int port: TCP port to connect to
         :param str virtual_host: RabbitMQ virtual host to use
-        :param pika.credentials.Credentials credentials: auth credentials
+        :param pika.credentials.PlainCredentials credentials: auth credentials
         :param int channel_max: Maximum number of channels to allow
         :param int frame_max: The maximum byte size for an AMQP frame
         :param int|None|callable heartbeat: Controls AMQP heartbeat timeout negotiation
