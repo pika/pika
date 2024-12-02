@@ -31,8 +31,8 @@ def mock_connection():
 def consumer(mock_connection):
     """Fixture to create a consumer with a mocked connection."""
     with patch(
-        "examples.asynchronous_reconnecting_consumer.pika.SelectConnection",
-        return_value=mock_connection,
+            "examples.asynchronous_reconnecting_consumer.pika.SelectConnection",
+            return_value=mock_connection,
     ):
         amqp_url = "amqp://guest:guest@localhost:5672/%2F"
         return AsyncReconnectingConsumer(amqp_url)
@@ -41,9 +41,9 @@ def consumer(mock_connection):
 def test_connect(consumer, mock_connection):
     """Test that the `connect` method sets up the connection correctly."""
     # Patch the __connect method to use the mock_connection
-    with patch.object(
-        consumer, "_AsyncReconnectingConsumer__connect", return_value=mock_connection
-    ):
+    with patch.object(consumer,
+                      "_AsyncReconnectingConsumer__connect",
+                      return_value=mock_connection):
         consumer.connect()
 
         # Verify that the connect_event was set and cleared
@@ -56,8 +56,7 @@ def test_connect(consumer, mock_connection):
 def test_reconnect(consumer, mock_connection):
     """Test the `reconnect` method behavior."""
     with patch.object(consumer, "stop") as mock_stop, patch.object(
-        consumer, "connect"
-    ) as mock_connect:
+            consumer, "connect") as mock_connect:
         consumer.reconnect()
         # Ensure `stop` and `connect` are called during reconnect
         mock_stop.assert_called_once()
@@ -84,7 +83,9 @@ def test_reconnect_with_retries():
         with patch.object(AsyncReconnectingConsumer, "connect") as mock_connect:
 
             # Configure mock to fail a few times and then succeed
-            mock_connect.side_effect = [Exception("Simulated failure")] * 3 + [None]
+            mock_connect.side_effect = [Exception("Simulated failure")] * 3 + [
+                None
+            ]
 
             # Create consumer instance
             amqp_url = "amqp://guest:guest@localhost:5672/%2F"
