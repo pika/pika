@@ -1,0 +1,60 @@
+[build-system]
+requires = ["setuptools>=61.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pika"
+version = "1.4.0b0"
+maintainers = [
+    {name = "Gavin M. Roy", email = "gavinmroy@gmail.com"},
+    {name = "Luke Bakken", email = "lukerbakken@gmail.com"}
+]
+license = {text = "BSD-3-Clause"}
+description = "Pika Python AMQP Client Library"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: BSD License",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: Jython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Topic :: Communications",
+    "Topic :: Internet",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: System :: Networking",
+]
+dependencies = []
+requires-python = ">=3.7"
+
+[project.readme]
+file = "README.rst"
+content-type = "text/x-rst"
+
+[project.urls]
+Homepage = "https://pika.readthedocs.io"
+Source = "https://github.com/pika/pika"
+
+[project.optional-dependencies]
+gevent = ["gevent"]
+tornado = ["tornado"]
+twisted = ["twisted"]
+
+[tool.pyright]
+
+[tool.setuptools]
+zip-safe = true
+include-package-data = false
+packages = ["pika", "pika.adapters", "pika.adapters.utils"]
+
+[tool.setuptools.package-data]
+"*" = ["LICENSE", "README.rst"]
