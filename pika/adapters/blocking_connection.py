@@ -1861,6 +1861,8 @@ class BlockingChannel:
         pika callback, because dispatching `basic_consume` callbacks from this
         context would constitute recursion.
 
+        :param int time_limit: time limit of the consume operation
+
         :raises pika.exceptions.ReentrancyError: if called from the scope of a
             `BlockingConnection` or `BlockingChannel` callback
         :raises ChannelClosed: when this channel is closed by broker.
