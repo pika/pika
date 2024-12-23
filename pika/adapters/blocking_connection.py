@@ -1853,7 +1853,7 @@ class BlockingChannel:
 
         return unprocessed_messages
 
-    def start_consuming(self):
+    def start_consuming(self, time_limit=None):
         """Processes I/O events and dispatches timers and `basic_consume`
         callbacks until all consumers are cancelled.
 
@@ -1877,7 +1877,7 @@ class BlockingChannel:
         # Process events as long as consumers exist on this channel
         while self._consumer_infos:
             # This will raise ChannelClosed if channel is closed by broker
-            self._process_data_events(time_limit=None)
+            self._process_data_events(time_limit=time_limit)
 
     def stop_consuming(self, consumer_tag=None):
         """ Cancels all consumers, signalling the `start_consuming` loop to
