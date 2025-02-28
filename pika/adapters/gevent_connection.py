@@ -3,6 +3,7 @@
 import functools
 import logging
 import os
+import socket
 import threading
 import weakref
 
@@ -66,9 +67,6 @@ class GeventConnection(BaseConnection):
             establishment which is default; False for externally-managed
             connection workflow via the `create_connection()` factory
         """
-        if pika.compat.ON_WINDOWS:
-            raise RuntimeError('GeventConnection is not supported on Windows.')
-
         custom_ioloop = (custom_ioloop or
                          _GeventSelectorIOLoop(gevent.get_hub()))
 
@@ -127,16 +125,36 @@ class _TSafeCallbackQueue:
         """
         # Thread-safe, blocking queue.
         self._queue = queue.Queue()
-        # PIPE to trigger an event when the queue is ready.
-        self._read_fd, self._write_fd = os.pipe()
-        # Lock around writes to the PIPE in case some platform/implementation
+
+        # Use socket pair for cross-thread communication
+        # This works on both Windows and Unix-like systems
+        if hasattr(socket, 'socketpair'):
+            # Available on Windows in Python 3.5+
+            self._read_sock, self._write_sock = socket.socketpair()
+        else:
+            # Fallback for older Python versions
+            server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            server.bind(('127.0.0.1', 0))
+            server.listen(1)
+
+            self._write_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self._write_sock.connect(server.getsockname())
+
+            self._read_sock, _ = server.accept()
+            server.close()
+
+        # Make non-blocking
+        self._read_sock.setblocking(False)
+        self._write_sock.setblocking(False)
+
+        # Lock around writes to the socket in case some platform/implementation
         # requires this.
         self._write_lock = threading.RLock()
 
     @property
     def fd(self):
         """The file-descriptor to register for READ events in the IO loop."""
-        return self._read_fd
+        return self._read_sock.fileno()
 
     def add_callback_threadsafe(self, callback):
         """Add an item to the queue from any thread. The configured handler
@@ -147,7 +165,12 @@ class _TSafeCallbackQueue:
         self._queue.put(callback)
         with self._write_lock:
             # The value written is not important.
-            os.write(self._write_fd, b'\xFF')
+            try:
+                self._write_sock.send(b'\xFF')
+            except (BlockingIOError, OSError):
+                # Socket buffer might be full, but that's okay
+                # The callback will be processed later when buffer space becomes available
+                pass
 
     def run_next_callback(self):
         """Invoke the next callback from the queue.
@@ -155,8 +178,8 @@ class _TSafeCallbackQueue:
         MUST run in the main thread. If no callback was added to the queue,
         this will block the IO loop.
 
-        Performs a blocking READ on the pipe so must only be called when the
-        pipe is ready for reading.
+        Performs a non-blocking READ on the socket so must only be called when the
+        socket is ready for reading.
         """
         try:
             callback = self._queue.get_nowait()
@@ -164,9 +187,21 @@ class _TSafeCallbackQueue:
             # Should never happen.
             LOGGER.warning("Callback queue was empty.")
         else:
-            # Read the byte from the pipe so the event doesn't re-fire.
-            os.read(self._read_fd, 1)
+            # Read the byte from the socket so the event doesn't re-fire.
+            try:
+                self._read_sock.recv(1)
+            except (BlockingIOError, OSError):
+                # This shouldn't happen since we're only called when data is ready
+                LOGGER.warning("Failed to read from socket in run_next_callback")
             callback()
+
+    def close(self):
+        """Close the socket pair."""
+        try:
+            self._read_sock.close()
+            self._write_sock.close()
+        except (OSError, IOError) as err:
+            LOGGER.warning("Error closing _TSafeCallbackQueue sockets: %r", err)
 
 
 class _GeventSelectorIOLoop(AbstractSelectorIOLoop):
@@ -204,7 +239,16 @@ class _GeventSelectorIOLoop(AbstractSelectorIOLoop):
 
     def close(self):
         """Release the loop's resources."""
-        self._hub.loop.destroy()
+        # Close callback queue sockets
+        self._callback_queue.close()
+
+        # Clean up io watchers
+        for io_watcher in self._io_watchers_by_fd.values():
+            io_watcher.close()
+        self._io_watchers_by_fd.clear()
+
+        if hasattr(self._hub.loop, 'destroy'):
+            self._hub.loop.destroy()
         self._hub = None
 
     def start(self):
@@ -305,9 +349,10 @@ class _GeventSelectorIOLoop(AbstractSelectorIOLoop):
 
         :param int fd: The file descriptor
         """
-        io_watcher = self._io_watchers_by_fd[fd]
-        io_watcher.close()
-        del self._io_watchers_by_fd[fd]
+        if fd in self._io_watchers_by_fd:
+            io_watcher = self._io_watchers_by_fd[fd]
+            io_watcher.close()
+            del self._io_watchers_by_fd[fd]
 
 
 class _GeventSelectorIOServicesAdapter(SelectorIOServicesAdapter):
