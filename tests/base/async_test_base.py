@@ -354,11 +354,9 @@ class AsyncAdapters(object):
         """GeventConnection"""
         import gevent
         from pika.adapters.gevent_connection import GeventConnection
-        from pika.adapters.gevent_connection import _GeventSelectorIOLoop
+        from pika.adapters.gevent_connection import GeventIOServices
 
-        def ioloop_factory():
-            return _GeventSelectorIOLoop(gevent.get_hub())
-
+        ioloop_factory = GeventIOServices
         self.start(GeventConnection, ioloop_factory)
 
     @run_test_in_thread_with_timeout
