@@ -352,6 +352,10 @@ class AsyncAdapters(object):
     @run_test_in_thread_with_timeout
     def test_with_gevent(self):
         """GeventConnection"""
+        if pika.compat.ON_WINDOWS and self.__class__.__name__ == 'TestSocketConnectTimeoutWithTinySocketTimeout':
+            self.skipTest(
+                "Skipping tiny socket timeout test on Windows with GeventConnection because libuv doesn't support very small timeouts")
+
         import gevent
         from pika.adapters.gevent_connection import GeventConnection
         from pika.adapters.gevent_connection import GeventIOServices
