@@ -6,6 +6,29 @@ import random
 import pika
 from pika.exchange_type import ExchangeType
 
+"""
+This module implements a client that connects to multiple RabbitMQ brokers
+distributed across different ports (5672, 5673, 5674) and consumes messages
+from a shared queue.
+
+The process follows these main steps:
+
+1. It randomly selects one of the available RabbitMQ brokers (on ports 5672, 5673, and 5674)
+  to establish a connection.
+2. Declares a `direct` type exchange called 'test_exchange' and a queue named 'standard'.
+3. The 'standard' queue is then bound to the exchange using the routing key 'standard_key'.
+4. Configures the `on_message` function as a callback to process messages received from the queue.
+5. Starts consuming messages, processing them, and acknowledges receipt via `basic_ack`.
+6. If a connection error occurs, the system will attempt to reconnect automatically, except in cases
+  of connection closure by the broker or channel errors.
+
+
+The name of the module, `blocking_consume_recover_multiple_hosts.py`, reflects its key functionalities:
+- "blocking_consume": The client uses a blocking connection to RabbitMQ and consumes messages synchronously.
+- "recover": The module is designed to recover from connection errors by attempting to reconnect.
+- "multiple_hosts": It connects to multiple RabbitMQ brokers distributed across different ports to ensure availability and redundancy.
+"""
+
 
 def on_message(ch, method_frame, _header_frame, body, userdata=None):
     print('Userdata: {} Message body: {}'.format(userdata, body))
