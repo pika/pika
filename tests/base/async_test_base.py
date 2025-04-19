@@ -349,17 +349,18 @@ class AsyncAdapters(object):
         with mock.patch.multiple(select_connection, SELECT_TYPE='kqueue'):
             self.start(adapters.SelectConnection, select_connection.IOLoop)
 
-    @unittest.skipIf(pika.compat.ON_WINDOWS, "Windows not supported")
     @run_test_in_thread_with_timeout
     def test_with_gevent(self):
         """GeventConnection"""
+        if pika.compat.ON_WINDOWS and self.__class__.__name__ == 'TestSocketConnectTimeoutWithTinySocketTimeout':
+            self.skipTest(
+                "Skipping tiny socket timeout test on Windows with GeventConnection because libuv doesn't support very small timeouts")
+
         import gevent
         from pika.adapters.gevent_connection import GeventConnection
-        from pika.adapters.gevent_connection import _GeventSelectorIOLoop
+        from pika.adapters.gevent_connection import GeventIOServices
 
-        def ioloop_factory():
-            return _GeventSelectorIOLoop(gevent.get_hub())
-
+        ioloop_factory = GeventIOServices
         self.start(GeventConnection, ioloop_factory)
 
     @run_test_in_thread_with_timeout
