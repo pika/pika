@@ -45,11 +45,6 @@ DEFAULT_PARAMS = pika.URLParameters(DEFAULT_URL)
 DEFAULT_TIMEOUT = 15
 
 
-
-def setUpModule():
-    logging.basicConfig(level=logging.DEBUG)
-
-
 class BlockingTestCaseBase(unittest.TestCase):
 
     TIMEOUT = DEFAULT_TIMEOUT

@@ -1,4 +1,4 @@
 {
-  "erlang": "26.2.5",
-  "rabbitmq": "3.13.3"
+  "erlang": "27.3",
+  "rabbitmq": "4.0.7"
 }
