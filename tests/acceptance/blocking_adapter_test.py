@@ -1,5 +1,5 @@
 """blocking adapter test"""
-from datetime import datetime
+from datetime import datetime, timezone
 import functools
 import logging
 import socket
@@ -126,7 +126,7 @@ class BlockingTestCaseBase(unittest.TestCase):
 
     def _on_test_timeout(self):
         """Called when test times out"""
-        LOGGER.info('%s TIMED OUT (%s)', datetime.utcnow(), self)
+        LOGGER.info('%s TIMED OUT (%s)', datetime.now(timezone.utc), self)
         self.fail('Test timed out')
 
     @retry_assertion(TIMEOUT/2)
@@ -1041,17 +1041,17 @@ class TestQueueBindAndUnbindAndPurge(BlockingTestCaseBase):
 class TestBasicGet(BlockingTestCaseBase):
 
     def tearDown(self):
-        LOGGER.info('%s TEARING DOWN (%s)', datetime.utcnow(), self)
+        LOGGER.info('%s TEARING DOWN (%s)', datetime.now(timezone.utc), self)
 
     def test(self):
         """BlockingChannel.basic_get"""
-        LOGGER.info('%s STARTED (%s)', datetime.utcnow(), self)
+        LOGGER.info('%s STARTED (%s)', datetime.now(timezone.utc), self)
 
         connection = self._connect()
-        LOGGER.info('%s CONNECTED (%s)', datetime.utcnow(), self)
+        LOGGER.info('%s CONNECTED (%s)', datetime.now(timezone.utc), self)
 
         ch = connection.channel()
-        LOGGER.info('%s CREATED CHANNEL (%s)', datetime.utcnow(), self)
+        LOGGER.info('%s CREATED CHANNEL (%s)', datetime.now(timezone.utc), self)
 
         q_name = 'TestBasicGet_q' + uuid.uuid1().hex
 
@@ -1059,27 +1059,27 @@ class TestBasicGet(BlockingTestCaseBase):
         # may be delivered synchronously to the queue by publishing it with
         # mandatory=True
         ch.confirm_delivery()
-        LOGGER.info('%s ENABLED PUB-ACKS (%s)', datetime.utcnow(), self)
+        LOGGER.info('%s ENABLED PUB-ACKS (%s)', datetime.now(timezone.utc), self)
 
         # Declare a new queue
         ch.queue_declare(q_name, auto_delete=True)
         self.addCleanup(lambda: self._connect().channel().queue_delete(q_name))
-        LOGGER.info('%s DECLARED QUEUE (%s)', datetime.utcnow(), self)
+        LOGGER.info('%s DECLARED QUEUE (%s)', datetime.now(timezone.utc), self)
 
         # Verify result of getting a message from an empty queue
         msg = ch.basic_get(q_name, auto_ack=False)
         self.assertTupleEqual(msg, (None, None, None))
-        LOGGER.info('%s GOT FROM EMPTY QUEUE (%s)', datetime.utcnow(), self)
+        LOGGER.info('%s GOT FROM EMPTY QUEUE (%s)', datetime.now(timezone.utc), self)
 
         body = 'TestBasicGet'
         # Deposit a message in the queue via default exchange
         ch.basic_publish(exchange='', routing_key=q_name,
                          body=body, mandatory=True)
-        LOGGER.info('%s PUBLISHED (%s)', datetime.utcnow(), self)
+        LOGGER.info('%s PUBLISHED (%s)', datetime.now(timezone.utc), self)
 
         # Get the message
         (method, properties, body) = ch.basic_get(q_name, auto_ack=False)
-        LOGGER.info('%s GOT FROM NON-EMPTY QUEUE (%s)', datetime.utcnow(), self)
+        LOGGER.info('%s GOT FROM NON-EMPTY QUEUE (%s)', datetime.now(timezone.utc), self)
         self.assertIsInstance(method, pika.spec.Basic.GetOk)
         self.assertEqual(method.delivery_tag, 1)
         self.assertFalse(method.redelivered)
@@ -1093,7 +1093,7 @@ class TestBasicGet(BlockingTestCaseBase):
 
         # Ack it
         ch.basic_ack(delivery_tag=method.delivery_tag)
-        LOGGER.info('%s ACKED (%s)', datetime.utcnow(), self)
+        LOGGER.info('%s ACKED (%s)', datetime.now(timezone.utc), self)
 
         # Verify that the queue is now empty
         self._assert_exact_message_count_with_retries(channel=ch,

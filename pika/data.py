@@ -3,7 +3,7 @@ import struct
 import decimal
 import calendar
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from pika import exceptions
 from pika.compat import long, as_bytes
@@ -280,8 +280,8 @@ def decode_value(encoded, offset): # pylint: disable=R0912,R0915
 
     # Timestamp
     elif kind == b'T':
-        value = datetime.utcfromtimestamp(
-            struct.unpack_from('>Q', encoded, offset)[0])
+        value = datetime.fromtimestamp(
+            struct.unpack_from('>Q', encoded, offset)[0], timezone.utc)
         offset += 8
 
     # Field Table
