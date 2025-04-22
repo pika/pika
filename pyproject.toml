@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61.2"]
+requires = ["setuptools", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -33,7 +33,9 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: System :: Networking",
 ]
-dependencies = []
+dependencies = [
+    'pamqp'
+]
 requires-python = ">=3.7"
 
 [project.readme]
@@ -53,7 +55,7 @@ twisted = ["twisted"]
 
 [tool.setuptools]
 zip-safe = true
-include-package-data = false
+include-package-data = true
 packages = ["pika", "pika.adapters", "pika.adapters.utils"]
 
 [tool.setuptools.package-data]
