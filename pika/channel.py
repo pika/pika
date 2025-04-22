@@ -14,7 +14,7 @@ import pika.frame as frame
 import pika.exceptions as exceptions
 import pika.spec as spec
 import pika.validators as validators
-from pika.compat import as_bytes, dictkeys, is_integer
+from pika.compat import as_bytes, is_integer
 from pika.exchange_type import ExchangeType
 
 LOGGER = logging.getLogger(__name__)
@@ -540,7 +540,7 @@ class Channel:
         self._closing_reason = exceptions.ChannelClosedByClient(
             reply_code, reply_text)
 
-        for consumer_tag in dictkeys(self._consumers):
+        for consumer_tag in self._consumers.keys():
             if consumer_tag not in self._cancelled:
                 self.basic_cancel(consumer_tag=consumer_tag)
 
@@ -598,7 +598,7 @@ class Channel:
         :rtype: list
 
         """
-        return dictkeys(self._consumers)
+        return list(self._consumers.keys())
 
     def exchange_bind(self,
                       destination,

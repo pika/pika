@@ -40,37 +40,6 @@ def time_now():
     return time.monotonic()
 
 
-def dictkeys(dct):
-    """
-    Returns a list of keys of dictionary
-    """
-
-    return list(dct.keys())
-
-
-def dictvalues(dct):
-    """
-    Returns a list of values of a dictionary
-    """
-    return list(dct.values())
-
-
-def dict_iteritems(dct):
-    """
-    Returns an iterator of items (key/value pairs) of a dictionary
-    """
-    return dct.items()
-
-
-def dict_itervalues(dct):
-    """
-    :param dict dct:
-    :returns: an iterator of the values of a dictionary
-    :rtype: iterator
-    """
-    return dct.values()
-
-
 def byte(*args):
     """
     Returns a single byte `bytes` for the given int argument (we
