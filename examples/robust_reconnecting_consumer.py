@@ -18,18 +18,17 @@ LOGGER = logging.getLogger(__name__)
 
 
 class RobustReconnectingConsumer(object):
-    """This is an example consumer that will handle unexpected interactions
-    with RabbitMQ such as channel and connection closures.
+    """A robust example consumer that handles unexpected RabbitMQ connection and channel closures.
 
-    If RabbitMQ connection is disrupted for any reason, this consumer will
-    re-attempt connecting with progressive exponential backoff delays.
+    If the RabbitMQ connection is disrupted for any reason, this consumer will
+    automatically attempt to reconnect using progressive exponential backoff with jitter.
 
-    This class can be used as a library since it intentionally assumes that
-    there will be other coroutines utilizing the syncIO Event loop and so
-    does not unnecessarily commandeer it (close it/stop it).
+    Unlike simpler consumers, this implementation tracks connection and consumption state
+    using asyncio-compatible Events, allowing integration with other coroutines without
+    blocking the entire event loop or requiring complex retry logic.
 
-    This class utilizes AsyncIO events to track and maintain connection
-    state. So you won't see any boolean or retry loops.
+    This class is suitable as a library component in services that require resilient
+    RabbitMQ connections and want to avoid writing their own backoff/retry mechanisms.
     """
 
     EXCHANGE = "message"
