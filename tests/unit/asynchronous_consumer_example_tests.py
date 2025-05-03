@@ -13,7 +13,7 @@ Tests for reconnecting consumer
 
 from nose.tools import assert_equal, assert_false, assert_raises
 from unittest.mock import MagicMock, patch
-from examples.robust_reconnecting_consumer import RobustReconnectingConsumer
+from examples.asynchronous_consumer_example import RobustReconnectingConsumer
 
 
 def mock_connection():
