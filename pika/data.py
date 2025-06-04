@@ -4,12 +4,13 @@ import decimal
 import calendar
 
 from datetime import datetime
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from pika import exceptions
 from pika.compat import long, as_bytes
 
 
-def encode_short_string(pieces, value):
+def encode_short_string(pieces: List[bytes], value: str) -> int:
     """Encode a string value as short string and append it to pieces list
     returning the size of the encoded value.
 
@@ -40,7 +41,7 @@ def encode_short_string(pieces, value):
     return 1 + length
 
 
-def decode_short_string(encoded, offset):
+def decode_short_string(encoded: bytes, offset: int) -> Tuple[Union[str, bytes], int]:
     """Decode a short string value from ``encoded`` data at ``offset``.
     """
     length = struct.unpack_from('B', encoded, offset)[0]
@@ -54,7 +55,7 @@ def decode_short_string(encoded, offset):
     return value, offset
 
 
-def encode_table(pieces, table):
+def encode_table(pieces: List[bytes], table: Optional[Dict[str, Any]]) -> int:
     """Encode a dict as an AMQP table appending the encded table to the
     pieces list passed in.
 
@@ -65,7 +66,8 @@ def encode_table(pieces, table):
     """
     table = table or {}
     length_index = len(pieces)
-    pieces.append(None)  # placeholder
+    # TODO: check if pieces.append(b'') is safe here
+    pieces.append(None)  # type: ignore[assignment] placeholder
     tablesize = 0
     for (key, value) in table.items():
         tablesize += encode_short_string(pieces, key)
@@ -75,7 +77,7 @@ def encode_table(pieces, table):
     return tablesize + 4
 
 
-def encode_value(pieces, value): # pylint: disable=R0911
+def encode_value(pieces: List[bytes], value: Any) -> int:  # pylint: disable=R0911
     """Encode the value passed in and append it to the pieces list returning
     the the size of the encoded value.
 
@@ -147,7 +149,7 @@ def encode_value(pieces, value): # pylint: disable=R0911
         raise exceptions.UnsupportedAMQPFieldException(pieces, value)
 
 
-def decode_table(encoded, offset):
+def decode_table(encoded: bytes, offset: int) -> Tuple[Dict[str, Any], int]:
     """Decode the AMQP table passed in from the encoded value returning the
     decoded result and the number of bytes read plus the offset.
 
@@ -167,7 +169,7 @@ def decode_table(encoded, offset):
     return result, offset
 
 
-def decode_value(encoded, offset): # pylint: disable=R0912,R0915
+def decode_value(encoded: bytes, offset: int) -> Tuple[Any, int]:  # pylint: disable=R0912,R0915
     """Decode the value passed in returning the decoded value and the number
     of bytes read in addition to the starting offset.
 
