@@ -40,7 +40,11 @@ _SUPPORTED_LOOP_CLASSES = {
 if asyncio is not None:
     if pika.compat.ON_WINDOWS:
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-    _SUPPORTED_LOOP_CLASSES.add(asyncio.get_event_loop().__class__)
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+    _SUPPORTED_LOOP_CLASSES.add(loop.__class__)
 
 
 class TestStartCalledFromOtherThreadAndWithVaryingNativeLoops(
