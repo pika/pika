@@ -7,7 +7,7 @@ import re
 import socket
 import sys
 import time
-from typing import Any, List, TypeVar, Mapping, Tuple, Iterable
+from typing import Any, List, TypeVar, Mapping, Tuple, Iterable, Union
 
 K = TypeVar('K')
 V = TypeVar('V')
@@ -112,7 +112,7 @@ def is_integer(value: Any) -> bool:
     return isinstance(value, int)
 
 
-def as_bytes(value: str) -> bytes:
+def as_bytes(value: Union[str, bytes]) -> bytes:
     """
     Returns value as bytes
     """

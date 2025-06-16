@@ -16,8 +16,15 @@ extend the :class:`~pika.credentials.ExternalCredentials` class implementing
 the required behavior.
 
 """
+from __future__ import annotations
+
 import logging
+from typing import Optional, Tuple, TYPE_CHECKING
+
 from .compat import as_bytes
+
+if TYPE_CHECKING:
+    from pika.spec import Connection
 
 LOGGER = logging.getLogger(__name__)
 
@@ -39,7 +46,7 @@ class PlainCredentials:
     """
     TYPE = 'PLAIN'
 
-    def __init__(self, username, password, erase_on_connect=False):
+    def __init__(self, username: str, password: str, erase_on_connect: bool = False):
         """Create a new instance of PlainCredentials
 
         :param str username: The username to authenticate with
@@ -47,38 +54,38 @@ class PlainCredentials:
         :param bool erase_on_connect: erase credentials on connect.
 
         """
-        self.username = username
-        self.password = password
-        self.erase_on_connect = erase_on_connect
+        self.username: Optional[str] = username
+        self.password: Optional[str] = password
+        self.erase_on_connect: bool = erase_on_connect
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         if isinstance(other, PlainCredentials):
             return (self.username == other.username and
                     self.password == other.password and
                     self.erase_on_connect == other.erase_on_connect)
         return NotImplemented
 
-    def __ne__(self, other):
+    def __ne__(self, other) -> bool:
         result = self.__eq__(other)
         if result is not NotImplemented:
             return not result
         return NotImplemented
 
-    def response_for(self, start):
+    def response_for(self, start: Connection.Start) -> Tuple[Optional[str], Optional[bytes]]:
         """Validate that this type of authentication is supported
 
         :param spec.Connection.Start start: Connection.Start method
-        :rtype: tuple(str|None, str|None)
+        :rtype: tuple(str|None, bytes|None)
 
         """
         if as_bytes(PlainCredentials.TYPE) not in\
-                as_bytes(start.mechanisms).split():
+                as_bytes(start.mechanisms).split():  # type: ignore[union-attr]
             return None, None
         return (
             PlainCredentials.TYPE,
-            b'\0' + as_bytes(self.username) + b'\0' + as_bytes(self.password))
+            b'\0' + as_bytes(self.username) + b'\0' + as_bytes(self.password))  # FIXME: must check for None, if not will as_bytes will raise AttributeError
 
-    def erase_credentials(self):
+    def erase_credentials(self) -> None:
         """Called by Connection when it no longer needs the credentials"""
         if self.erase_on_connect:
             LOGGER.info("Erasing stored credential values")
@@ -93,34 +100,34 @@ class ExternalCredentials:
     """
     TYPE = 'EXTERNAL'
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Create a new instance of ExternalCredentials"""
         self.erase_on_connect = False
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         if isinstance(other, ExternalCredentials):
             return self.erase_on_connect == other.erase_on_connect
         return NotImplemented
 
-    def __ne__(self, other):
+    def __ne__(self, other) -> bool:
         result = self.__eq__(other)
         if result is not NotImplemented:
             return not result
         return NotImplemented
 
-    def response_for(self, start):  # pylint: disable=R0201
+    def response_for(self, start: Connection.Start) -> Tuple[Optional[str], Optional[bytes]]:  # pylint: disable=R0201
         """Validate that this type of authentication is supported
 
         :param spec.Connection.Start start: Connection.Start method
-        :rtype: tuple(str or None, str or None)
+        :rtype: tuple(str|None, bytes|None)
 
         """
         if as_bytes(ExternalCredentials.TYPE) not in\
-                as_bytes(start.mechanisms).split():
+                as_bytes(start.mechanisms).split():  # type: ignore[union-attr]
             return None, None
         return ExternalCredentials.TYPE, b''
 
-    def erase_credentials(self):  # pylint: disable=R0201
+    def erase_credentials(self) -> None:  # pylint: disable=R0201
         """Called by Connection when it no longer needs the credentials"""
         LOGGER.debug('Not supported by this Credentials type')
 
