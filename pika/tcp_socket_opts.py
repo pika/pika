@@ -4,9 +4,12 @@ import logging
 import socket
 import pika.compat
 
+from typing import Dict
+
+
 LOGGER = logging.getLogger(__name__)
 
-_SUPPORTED_TCP_OPTIONS = {}
+_SUPPORTED_TCP_OPTIONS: Dict[str, int] = {}
 
 try:
     _SUPPORTED_TCP_OPTIONS['TCP_USER_TIMEOUT'] = socket.TCP_USER_TIMEOUT
@@ -26,13 +29,13 @@ except AttributeError:
     pass
 
 
-def socket_requires_keepalive(tcp_options):
+def socket_requires_keepalive(tcp_options: Dict[str, int]) -> bool:
     return ('TCP_KEEPIDLE' in tcp_options or
             'TCP_KEEPCNT' in tcp_options or
             'TCP_KEEPINTVL' in tcp_options)
 
 
-def set_sock_opts(tcp_options, sock):
+def set_sock_opts(tcp_options: Dict[str, int], sock: socket.socket) -> None:
     if not tcp_options:
         return
 
