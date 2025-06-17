@@ -2,7 +2,6 @@
 Tests for threaded_test_wrapper.py
 
 """
-from __future__ import print_function
 
 from io import StringIO
 import sys
