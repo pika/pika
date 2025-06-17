@@ -6,7 +6,6 @@ import unittest
 
 import logging
 
-import pika.compat
 from pika import diagnostic_utils
 
 
@@ -47,7 +46,7 @@ class DiagnosticUtilsTest(unittest.TestCase):
         for i in range(len(expected_args)):
             self.assertIs(bucket[0][0][i], expected_args[i])
 
-        for key in pika.compat.dictkeys(expected_kwargs):
+        for key in expected_kwargs.keys():
             self.assertIs(bucket[0][1][key], expected_kwargs[key])
 
         # Now, repeat without any args/kwargs

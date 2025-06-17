@@ -22,7 +22,6 @@ import pika.frame as frame
 import pika.heartbeat
 import pika.spec as spec
 import pika.validators as validators
-from pika.compat import (dictkeys, dict_itervalues, dict_iteritems)
 
 PRODUCT = "Pika Python Client Library"
 
@@ -760,7 +759,7 @@ class URLParameters(Parameters):
         # Handle query string values, validating and assigning them
         self._all_url_query_values = url_parse_qs(parts.query)
 
-        for name, value in dict_iteritems(self._all_url_query_values):
+        for name, value in self._all_url_query_values.items():
             try:
                 set_value = getattr(self, self._SETTER_PREFIX + name)
             except AttributeError:
@@ -1552,7 +1551,7 @@ class Connection(pika.compat.AbstractBase):
         """
         assert self.is_open, str(self)
 
-        for channel_number in dictkeys(self._channels):
+        for channel_number in list(self._channels.keys()):
             chan = self._channels[channel_number]
             if not (chan.is_closing or chan.is_closed):
                 chan.close(reply_code, reply_text)
@@ -1701,7 +1700,7 @@ class Connection(pika.compat.AbstractBase):
                 # should also be in CLOSING state. Deviation from this would
                 # prevent Connection from completing its closing procedure.
                 channels_not_in_closing_state = [
-                    chan for chan in dict_itervalues(self._channels)
+                    chan for chan in self._channels.values()
                     if not chan.is_closing
                 ]
                 if channels_not_in_closing_state:
@@ -2062,7 +2061,7 @@ class Connection(pika.compat.AbstractBase):
         self._set_connection_state(self.CONNECTION_CLOSED)
 
         # Inform our channel proxies, if any are still around
-        for channel in dictkeys(self._channels):
+        for channel in list(self._channels.keys()):
             if channel not in self._channels:
                 continue
             # pylint: disable=W0212
