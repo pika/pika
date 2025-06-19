@@ -1040,11 +1040,11 @@ class Channel:
         :param pika.frame.Method method_frame: The method frame received
 
         """
-        if method_frame.method.consumer_tag in self._cancelled:  # type: ignore
+        if method_frame.method.consumer_tag in self._cancelled: 
             # User-initiated cancel is waiting for Cancel-ok
             return
 
-        self._cleanup_consumer_ref(method_frame.method.consumer_tag)   # type: ignore
+        self._cleanup_consumer_ref(method_frame.method.consumer_tag) 
 
     def _on_cancelok(self, method_frame: frame.Method) -> None:
         """Called in response to a frame from the Broker when the
@@ -1053,7 +1053,7 @@ class Channel:
         :param pika.frame.Method method_frame: The method frame received
 
         """
-        self._cleanup_consumer_ref(method_frame.method.consumer_tag)  # type: ignore
+        self._cleanup_consumer_ref(method_frame.method.consumer_tag)  
 
     def _transition_to_closed(self) -> None:
         """Common logic for transitioning the channel to the CLOSED state:
@@ -1084,8 +1084,8 @@ class Channel:
 
         """
         LOGGER.warning('Received remote Channel.Close (%s): %r on %s',
-                       method_frame.method.reply_code,   # type: ignore
-                       method_frame.method.reply_text, self)   # type: ignore
+                       method_frame.method.reply_code,   
+                       method_frame.method.reply_text, self)   
         # Note, we should not be called when channel is already closed
         assert not self.is_closed
 
@@ -1096,7 +1096,7 @@ class Channel:
         # user-initiated close is pending (in which case they will be provided
         # to user callback when CloseOk arrives).
         self._closing_reason = exceptions.ChannelClosedByBroker(
-            method_frame.method.reply_code, method_frame.method.reply_text)   # type: ignore
+            method_frame.method.reply_code, method_frame.method.reply_text)   
 
         if self.is_closing:
             # Since we may have already put Channel.Close on the wire, we need
@@ -1150,11 +1150,11 @@ class Channel:
         :param bytes body: The body received
 
         """
-        consumer_tag = method_frame.method.consumer_tag   # type: ignore
+        consumer_tag = method_frame.method.consumer_tag   
 
         if consumer_tag in self._cancelled:
             if self.is_open and consumer_tag not in self._consumers_with_noack:
-                self.basic_reject(method_frame.method.delivery_tag)  # type: ignore
+                self.basic_reject(method_frame.method.delivery_tag)  
             return
 
         if consumer_tag not in self._consumers:
@@ -1189,9 +1189,9 @@ class Channel:
         :param pika.frame.Method method_frame: The method frame received
 
         """
-        self.flow_active = method_frame.method.active   # type: ignore
+        self.flow_active = method_frame.method.active   
         if self._on_flowok_callback:
-            self._on_flowok_callback(method_frame.method.active)   # type: ignore
+            self._on_flowok_callback(method_frame.method.active)   
             self._on_flowok_callback = None
         else:
             LOGGER.warning('Channel.FlowOk received with no active callbacks')
@@ -1498,7 +1498,7 @@ class ContentFrameAssembler:
         content = (self._method_frame, self._header_frame,
                    b''.join(self._body_fragments))
         self._reset()
-        return content   # type: ignore
+        return content  # type: ignore[return-value] 
 
     def _handle_body_frame(self, body_frame: frame.Body) -> Optional[Tuple[frame.Method, frame.Header, bytes]]:
         """Receive body frames and append them to the stack. When the body size
@@ -1511,11 +1511,11 @@ class ContentFrameAssembler:
         """
         self._seen_so_far += len(body_frame.fragment)
         self._body_fragments.append(body_frame.fragment)
-        if self._seen_so_far == self._header_frame.body_size:   # type: ignore
+        if self._seen_so_far == self._header_frame.body_size:  # type: ignore   
             return self._finish()
-        elif self._seen_so_far > self._header_frame.body_size:   # type: ignore
+        elif self._seen_so_far > self._header_frame.body_size:  # type: ignore      
             raise exceptions.BodyTooLongError(self._seen_so_far,
-                                              self._header_frame.body_size)   # type: ignore
+                                              self._header_frame.body_size)  # type: ignore      
         return None
 
     def _reset(self) -> None:

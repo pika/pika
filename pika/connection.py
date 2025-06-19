@@ -81,49 +81,49 @@ class Parameters:  # pylint: disable=R0902
         self.blocked_connection_timeout = (
             self.DEFAULT_BLOCKED_CONNECTION_TIMEOUT)
 
-        self._channel_max: Optional[int] = None
+        self._channel_max: int = None  # type: ignore[assignment]
         self.channel_max = self.DEFAULT_CHANNEL_MAX
 
         self._client_properties: Optional[Dict[str, Any]] = None
         self.client_properties = self.DEFAULT_CLIENT_PROPERTIES
 
-        self._connection_attempts: Optional[int] = None
+        self._connection_attempts: int = None  # type: ignore[assignment]
         self.connection_attempts = self.DEFAULT_CONNECTION_ATTEMPTS
 
-        self._credentials: Optional[Union[pika.credentials.PlainCredentials, pika.credentials.ExternalCredentials]] = None
+        self._credentials: Union[pika.credentials.PlainCredentials, pika.credentials.ExternalCredentials] = None  # type: ignore[assignment]
         self.credentials = self.DEFAULT_CREDENTIALS
 
-        self._frame_max: Optional[int] = None
+        self._frame_max: int = None  # type: ignore[assignment]
         self.frame_max = self.DEFAULT_FRAME_MAX
 
         self._heartbeat: Optional[Union[int, Callable[[Connection, float], int]]] = None
         self.heartbeat = self.DEFAULT_HEARTBEAT_TIMEOUT
 
-        self._host: Optional[str] = None
+        self._host: str = None  # type: ignore[assignment]
         self.host = self.DEFAULT_HOST
 
-        self._locale: Optional[str] = None
+        self._locale: str = None  # type: ignore[assignment]
         self.locale = self.DEFAULT_LOCALE
 
-        self._port: Optional[int] = None
+        self._port: int = None  # type: ignore[assignment]
         self.port = self.DEFAULT_PORT
 
-        self._retry_delay: Optional[float] = None
+        self._retry_delay: float = None  # type: ignore[assignment]
         self.retry_delay = self.DEFAULT_RETRY_DELAY
 
-        self._socket_timeout: Optional[float] = None
+        self._socket_timeout: Optional[float] = None  
         self.socket_timeout = self.DEFAULT_SOCKET_TIMEOUT
 
-        self._stack_timeout: Optional[float] = None
+        self._stack_timeout: Optional[float] = None  
         self.stack_timeout = self.DEFAULT_STACK_TIMEOUT
 
         self._ssl_options: Optional[SSLOptions] = None
         self.ssl_options = self.DEFAULT_SSL_OPTIONS
 
-        self._virtual_host: Optional[str] = None
+        self._virtual_host: str = None  # type: ignore[assignment]
         self.virtual_host = self.DEFAULT_VIRTUAL_HOST
 
-        self._tcp_options: Optional[Dict[str, Any]] = None
+        self._tcp_options: Optional[Dict[str, int]] = None
         self.tcp_options = self.DEFAULT_TCP_OPTIONS
 
     def __repr__(self) -> str:
@@ -176,7 +176,7 @@ class Parameters:  # pylint: disable=R0902
         self._blocked_connection_timeout = value
 
     @property
-    def channel_max(self) -> Optional[int]:
+    def channel_max(self) -> int:
         """
         :returns: max preferred number of channels. Defaults to
             `DEFAULT_CHANNEL_MAX`.
@@ -227,7 +227,7 @@ class Parameters:  # pylint: disable=R0902
         self._client_properties = copy.deepcopy(value)
 
     @property
-    def connection_attempts(self) -> Optional[int]:
+    def connection_attempts(self) -> int:
         """
         :returns: number of socket connection attempts. Defaults to
             `DEFAULT_CONNECTION_ATTEMPTS`. See also `retry_delay`.
@@ -251,7 +251,7 @@ class Parameters:  # pylint: disable=R0902
         self._connection_attempts = value
 
     @property
-    def credentials(self) -> Optional[Union[pika.credentials.PlainCredentials, pika.credentials.ExternalCredentials]]:
+    def credentials(self) -> Union[pika.credentials.PlainCredentials, pika.credentials.ExternalCredentials]:
         """
         :rtype: one of the classes from `pika.credentials.VALID_TYPES`. Defaults
             to `DEFAULT_CREDENTIALS`.
@@ -273,7 +273,7 @@ class Parameters:  # pylint: disable=R0902
         self._credentials = copy.deepcopy(value)
 
     @property
-    def frame_max(self) -> Optional[int]:
+    def frame_max(self) -> int:
         """
         :returns: desired maximum AMQP frame size to use. Defaults to
             `DEFAULT_FRAME_MAX`.
@@ -304,7 +304,7 @@ class Parameters:  # pylint: disable=R0902
         self._frame_max = value
 
     @property
-    def heartbeat(self) -> Optional[Union[int, Callable[[Connection, float]], int]]:
+    def heartbeat(self) -> Optional[Union[int, Callable[[Connection, float], int]]]:
         """
         :returns: AMQP connection heartbeat timeout value for negotiation during
             connection tuning or callable which is invoked during connection tuning.
@@ -333,10 +333,10 @@ class Parameters:  # pylint: disable=R0902
                     % (value,))
             if not callable(value) and value < 0:
                 raise ValueError('heartbeat must >= 0, but got {!r}'.format(value))
-        self._heartbeat = value  # type: ignore
+        self._heartbeat = value  # type: ignore[return-value]
 
     @property
-    def host(self) -> Optional[str]:
+    def host(self) -> str:
         """
         :returns: hostname or ip address of broker. Defaults to `DEFAULT_HOST`.
         :rtype: str
@@ -354,7 +354,7 @@ class Parameters:  # pylint: disable=R0902
         self._host = value
 
     @property
-    def locale(self) -> Optional[str]:
+    def locale(self) -> str:
         """
         :returns: locale value to pass to broker; e.g., 'en_US'. Defaults to
             `DEFAULT_LOCALE`.
@@ -373,7 +373,7 @@ class Parameters:  # pylint: disable=R0902
         self._locale = value
 
     @property
-    def port(self) -> Optional[int]:
+    def port(self) -> int:
         """
         :returns: port number of broker's listening socket. Defaults to
             `DEFAULT_PORT`.
@@ -394,7 +394,7 @@ class Parameters:  # pylint: disable=R0902
             raise TypeError('port must be an int, but got {!r}'.format(value))
 
     @property
-    def retry_delay(self) -> Optional[float]:
+    def retry_delay(self) -> float:
         """
         :returns: interval between socket connection attempts; see also
             `connection_attempts`. Defaults to `DEFAULT_RETRY_DELAY`.
@@ -495,7 +495,7 @@ class Parameters:  # pylint: disable=R0902
         self._ssl_options = value
 
     @property
-    def virtual_host(self) -> Optional[str]:
+    def virtual_host(self) -> str:
         """
         :returns: rabbitmq virtual host name. Defaults to
             `DEFAULT_VIRTUAL_HOST`.
@@ -514,7 +514,7 @@ class Parameters:  # pylint: disable=R0902
         self._virtual_host = value
 
     @property
-    def tcp_options(self) -> Optional[Dict[str, Any]]:
+    def tcp_options(self) -> Optional[Dict[str, int]]:
         """
         :returns: None or a dict of options to pass to the underlying socket
         :rtype: dict|None
@@ -522,7 +522,7 @@ class Parameters:  # pylint: disable=R0902
         return self._tcp_options
 
     @tcp_options.setter
-    def tcp_options(self, value: Optional[Dict[str, Any]]) -> None:
+    def tcp_options(self, value: Optional[Dict[str, int]]) -> None:
         """
         :param dict|None value: None or a dict of options to pass to the underlying
             socket. Currently supported are TCP_KEEPIDLE, TCP_KEEPINTVL, TCP_KEEPCNT
@@ -761,7 +761,7 @@ class URLParameters(Parameters):
 
         if parts.username is not None:
             self.credentials = pika.credentials.PlainCredentials(
-                url_unquote(parts.username), url_unquote(parts.password))  # type: ignore
+                url_unquote(parts.username), url_unquote(parts.password))  # type: ignore 
 
         # Get the Virtual Host
         if len(parts.path) > 1:
@@ -930,7 +930,7 @@ class URLParameters(Parameters):
             self.ssl_options = pika.SSLOptions(
                 context=cxt, server_hostname=server_hostname)
 
-    def _set_url_tcp_options(self, value):
+    def _set_url_tcp_options(self, value: str) -> None:
         """Deserialize and apply the corresponding query string arg"""
         self.tcp_options = ast.literal_eval(value)
 
@@ -1061,12 +1061,12 @@ class Connection(pika.compat.AbstractBase):
 
         # Attributes that will be properly initialized by _init_connection_state
         # and/or during connection handshake.
-        self.server_capabilities: Optional[Dict[str, bool]] = None
-        self.server_properties: Optional[Dict[str, Any]] = None
-        self._body_max_length: Optional[int] = None
-        self.known_hosts: Optional[str] = None
-        self._frame_buffer: Optional[bytes] = None
-        self._channels: Optional[Dict[int, Channel]] = None
+        self.server_capabilities: Dict[str, bool] = None  # type: ignore[assignment]
+        self.server_properties: Optional[Dict[str, Any]] = None 
+        self._body_max_length: int = None  # type: ignore[assignment]
+        self.known_hosts: str = None  # type: ignore[assignment]
+        self._frame_buffer: bytes = None  # type: ignore[assignment]
+        self._channels: Dict[int, Channel] = None  # type: ignore[assignment]
 
         self._init_connection_state()
 
@@ -1118,14 +1118,14 @@ class Connection(pika.compat.AbstractBase):
         self._channels = dict()
 
         # Data used for Heartbeat checking and back-pressure detection
-        self.bytes_sent: int = 0
-        self.bytes_received: int = 0
-        self.frames_sent: int = 0
-        self.frames_received: int = 0
-        self._heartbeat_checker: Optional[pika.heartbeat.HeartbeatChecker] = None
+        self.bytes_sent = 0
+        self.bytes_received = 0
+        self.frames_sent = 0
+        self.frames_received = 0
+        self._heartbeat_checker = None
 
         # When closing, holds reason why
-        self._error: Optional[Exception] = None
+        self._error = None
 
         # Our starting point once connected, first frame received
         self._add_connection_start_callback()
@@ -1217,7 +1217,7 @@ class Connection(pika.compat.AbstractBase):
         validators.require_callback(callback)
         self.callbacks.add(0, self.ON_CONNECTION_OPEN_OK, callback, False)
 
-    def add_on_open_error_callback(self, callback: Callable[[Connection, Union[str, Exception]], Any], remove_default: bool = True) -> None:
+    def add_on_open_error_callback(self, callback: Callable[[Connection, Optional[BaseException]], Any], remove_default: bool = True) -> None:
         """Add a callback notification when the connection can not be opened.
 
         The callback method should accept the connection instance that could not
@@ -1257,11 +1257,11 @@ class Connection(pika.compat.AbstractBase):
         if not channel_number:
             channel_number = self._next_channel_number()
 
-        self._channels[channel_number] = self._create_channel(  # type: ignore
+        self._channels[channel_number] = self._create_channel(  
             channel_number, on_open_callback)
         self._add_channel_callbacks(channel_number)
-        self._channels[channel_number].open()  # type: ignore
-        return self._channels[channel_number]  # type: ignore
+        self._channels[channel_number].open()  
+        return self._channels[channel_number]  
 
     def update_secret(self, new_secret: str, reason: str, callback: Optional[Callable[[frame.Method[spec.Connection.UpdateSecretOk]], Any]] = None) -> None:
         """RabbitMQ AMQP extension - This method updates the secret used to authenticate this connection.
@@ -1384,7 +1384,7 @@ class Connection(pika.compat.AbstractBase):
         :rtype: bool
 
         """
-        return self.server_capabilities.get('basic.nack', False)  # type: ignore
+        return self.server_capabilities.get('basic.nack', False)  
 
     @property
     def consumer_cancel_notify(self) -> bool:
@@ -1394,7 +1394,7 @@ class Connection(pika.compat.AbstractBase):
         :rtype: bool
 
         """
-        return self.server_capabilities.get('consumer_cancel_notify', False)  # type: ignore
+        return self.server_capabilities.get('consumer_cancel_notify', False)  
 
     @property
     def exchange_exchange_bindings(self) -> bool:
@@ -1404,7 +1404,7 @@ class Connection(pika.compat.AbstractBase):
         :rtype: bool
 
         """
-        return self.server_capabilities.get('exchange_exchange_bindings', False)  # type: ignore
+        return self.server_capabilities.get('exchange_exchange_bindings', False)  
 
     @property
     def publisher_confirms(self) -> bool:
@@ -1413,7 +1413,7 @@ class Connection(pika.compat.AbstractBase):
         :rtype: bool
 
         """
-        return self.server_capabilities.get('publisher_confirms', False)  # type: ignore
+        return self.server_capabilities.get('publisher_confirms', False)  
 
     @abc.abstractmethod
     def _adapter_call_later(self, delay: Union[int, float], callback: Callable[[], Any]) -> object:
@@ -1501,7 +1501,7 @@ class Connection(pika.compat.AbstractBase):
         # This permits us to garbage-collect our reference to the channel
         # regardless of whether it was closed by client or broker, and do so
         # after all channel-close callbacks.
-        self._channels[channel_number]._add_on_cleanup_callback(  # type: ignore
+        self._channels[channel_number]._add_on_cleanup_callback(  
             self._on_channel_cleanup)
 
     def _add_connection_start_callback(self) -> None:
@@ -1564,8 +1564,8 @@ class Connection(pika.compat.AbstractBase):
         """
         assert self.is_open, str(self)
 
-        for channel_number in dictkeys(self._channels):  # type: ignore
-            chan = self._channels[channel_number]  # type: ignore
+        for channel_number in dictkeys(self._channels):  
+            chan = self._channels[channel_number]  
             if not (chan.is_closing or chan.is_closed):
                 chan.close(reply_code, reply_text)
 
@@ -1589,7 +1589,7 @@ class Connection(pika.compat.AbstractBase):
         :rtype: pika.heartbeat.Heartbeat|None
 
         """
-        if self.params.heartbeat is not None and self.params.heartbeat > 0:  # type: ignore
+        if self.params.heartbeat is not None and self.params.heartbeat > 0:  # type: ignore 
             LOGGER.debug('Creating a HeartbeatChecker: %r',
                          self.params.heartbeat)
             return pika.heartbeat.HeartbeatChecker(self, self.params.heartbeat)
@@ -1610,7 +1610,7 @@ class Connection(pika.compat.AbstractBase):
         :param pika.frame.Method value: The frame to deliver
 
         """
-        if not value.channel_number in self._channels:  # type: ignore
+        if not value.channel_number in self._channels:  
             # This should never happen and would constitute breach of the
             # protocol
             LOGGER.critical(
@@ -1619,7 +1619,7 @@ class Connection(pika.compat.AbstractBase):
             return
 
         # pylint: disable=W0212
-        self._channels[value.channel_number]._handle_content_frame(value)  # type: ignore
+        self._channels[value.channel_number]._handle_content_frame(value)  
 
     def _ensure_closed(self) -> None:
         """If the connection is not closed, close it."""
@@ -1632,7 +1632,7 @@ class Connection(pika.compat.AbstractBase):
         :rtype: int
 
         """
-        return (self.params.frame_max - spec.FRAME_HEADER_SIZE -  # type: ignore
+        return (self.params.frame_max - spec.FRAME_HEADER_SIZE -  
                 spec.FRAME_END_SIZE)
 
     def _get_credentials(self, method_frame: frame.Method[spec.Connection.Start]) -> Tuple[str, Optional[bytes]]:
@@ -1643,10 +1643,10 @@ class Connection(pika.compat.AbstractBase):
 
         """
         (auth_type,
-         response) = self.params.credentials.response_for(method_frame.method)  # type: ignore
+         response) = self.params.credentials.response_for(method_frame.method)  
         if not auth_type:
-            raise exceptions.AuthenticationError(self.params.credentials.TYPE)  # type: ignore
-        self.params.credentials.erase_credentials()  # type: ignore
+            raise exceptions.AuthenticationError(self.params.credentials.TYPE)  
+        self.params.credentials.erase_credentials()  
         return auth_type, response
 
     def _has_pending_callbacks(self, value: frame.Method[amqp_object.Method]) -> Optional[int]:
@@ -1683,13 +1683,13 @@ class Connection(pika.compat.AbstractBase):
 
         """
         limit = self.params.channel_max or pika.channel.MAX_CHANNELS
-        if len(self._channels) >= limit:  # type: ignore
+        if len(self._channels) >= limit:  
             raise exceptions.NoFreeChannels()
 
-        for num in range(1, len(self._channels) + 1):  # type: ignore
-            if num not in self._channels:  # type: ignore
+        for num in range(1, len(self._channels) + 1):  
+            if num not in self._channels:  
                 return num
-        return len(self._channels) + 1  # type: ignore
+        return len(self._channels) + 1  
 
     def _on_channel_cleanup(self, channel: Channel) -> None:
         """Remove the channel from the dict of channels when Channel.CloseOk is
@@ -1700,7 +1700,7 @@ class Connection(pika.compat.AbstractBase):
 
         """
         try:
-            del self._channels[channel.channel_number]  # type: ignore
+            del self._channels[channel.channel_number]  
             LOGGER.debug('Removed channel %s', channel.channel_number)
         except KeyError:
             LOGGER.error('Channel %r not in channels', channel.channel_number)
@@ -1801,7 +1801,7 @@ class Connection(pika.compat.AbstractBase):
         LOGGER.debug('_on_connection_close_from_broker: frame=%s', method_frame)
 
         self._terminate_stream(
-            exceptions.ConnectionClosedByBroker(method_frame.method.reply_code,  # type: ignore
+            exceptions.ConnectionClosedByBroker(method_frame.method.reply_code,  # type: ignore  
                                                 method_frame.method.reply_text))  # type: ignore
 
     def _on_connection_close_ok(self, method_frame: frame.Method[spec.Connection.CloseOk]) -> None:
@@ -1966,7 +1966,7 @@ class Connection(pika.compat.AbstractBase):
         :param str data_in: The data that is available to read
 
         """
-        self._frame_buffer += data_in  # type: ignore
+        self._frame_buffer += data_in  
 
         while self._frame_buffer:
             consumed_count, frame_value = self._read_frame()
@@ -2074,11 +2074,11 @@ class Connection(pika.compat.AbstractBase):
         self._set_connection_state(self.CONNECTION_CLOSED)
 
         # Inform our channel proxies, if any are still around
-        for channel in dictkeys(self._channels):  # type: ignore
-            if channel not in self._channels:  # type: ignore
+        for channel in dictkeys(self._channels):  
+            if channel not in self._channels:  
                 continue
             # pylint: disable=W0212
-            self._channels[channel]._on_close_meta(self._error)  # type: ignore
+            self._channels[channel]._on_close_meta(self._error)  
 
         # Inform interested parties
         if not self._opened:
@@ -2147,7 +2147,7 @@ class Connection(pika.compat.AbstractBase):
         :rtype tuple: (int, pika.frame.Frame)
 
         """
-        return frame.decode_frame(self._frame_buffer)  # type: ignore
+        return frame.decode_frame(self._frame_buffer)  
 
     def _remove_callbacks(self, channel_number: int, method_classes: Sequence[Type[amqp_object.Method]]) -> None:
         """Remove the callbacks for the specified channel number and list of
@@ -2183,7 +2183,7 @@ class Connection(pika.compat.AbstractBase):
         # Validate the callback is callable
         if callback is not None:
             validators.require_callback(callback)
-            for reply in acceptable_replies:  # type: ignore
+            for reply in acceptable_replies:  # type: ignore  
                 self.callbacks.add(channel_number, reply, callback)
 
         # Send the rpc call to RabbitMQ
@@ -2202,7 +2202,7 @@ class Connection(pika.compat.AbstractBase):
     def _send_connection_open(self) -> None:
         """Send a Connection.Open frame"""
         self._rpc(0, spec.Connection.Open(
-            self.params.virtual_host, insist=True), self._on_connection_open_ok,  # type: ignore
+            self.params.virtual_host, insist=True), self._on_connection_open_ok,  
                   [spec.Connection.OpenOk])
 
     def _send_connection_start_ok(self, authentication_type: str, response: Optional[bytes]) -> None:
@@ -2216,14 +2216,14 @@ class Connection(pika.compat.AbstractBase):
             0,
             spec.Connection.StartOk(self._client_properties,
                                     authentication_type, response,
-                                    self.params.locale))  # type: ignore
+                                    self.params.locale))  
 
     def _send_connection_tune_ok(self) -> None:
         """Send a Connection.TuneOk frame"""
         self._send_method(
             0,
-            spec.Connection.TuneOk(self.params.channel_max,  # type: ignore
-                                   self.params.frame_max,  # type: ignore
+            spec.Connection.TuneOk(self.params.channel_max,  
+                                   self.params.frame_max,  
                                    self.params.heartbeat))  # type: ignore
 
     def _send_frame(self, frame_value: Union[frame.Frame, frame.ProtocolHeader]) -> None:
@@ -2277,10 +2277,10 @@ class Connection(pika.compat.AbstractBase):
         marshaled_body_frames.append(frame_header.marshal())
 
         if content[1]:
-            chunks = int(math.ceil(float(length) / self._body_max_length))  # type: ignore
+            chunks = int(math.ceil(float(length) / self._body_max_length))  
             for chunk in range(0, chunks):
-                start = chunk * self._body_max_length  # type: ignore
-                end = start + self._body_max_length  # type: ignore
+                start = chunk * self._body_max_length  
+                end = start + self._body_max_length  
                 if end > length:
                     end = length
                 frame_body = frame.Body(channel_number, content[1][start:end])
@@ -2320,7 +2320,7 @@ class Connection(pika.compat.AbstractBase):
         :param int byte_count: The number of bytes consumed
 
         """
-        self._frame_buffer = self._frame_buffer[byte_count:]  # type: ignore
+        self._frame_buffer = self._frame_buffer[byte_count:]  
         self.bytes_received += byte_count
 
     def _output_marshaled_frames(self, marshaled_frames: Sequence[bytes]) -> None:

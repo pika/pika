@@ -6,15 +6,30 @@ Defines the interface `AbstractAMQPConnectionWorkflow` that facilitates
 implementing custom connection workflows.
 
 """
+from __future__ import annotations
 
 import functools
 import logging
 import socket
+from typing import Any, Callable, Iterator, List, Optional, Sequence, TYPE_CHECKING, Tuple, Union
 
 import pika.compat
+import pika.connection
 import pika.exceptions
 import pika.tcp_socket_opts
 from pika import __version__
+
+if TYPE_CHECKING:
+    from pika.adapters.utils import nbio_interface
+    from pika.adapters.base_connection import BaseConnection
+
+    ADDRESS_INFO = Tuple[socket.AddressFamily, socket.SocketKind, int, str, Union[Tuple[str, int], Tuple[str, int, int, int], Tuple[int, bytes]]]
+
+    # Type alias for a Connection-based adapter
+    ConnectionAdapter = Union[
+        pika.connection.Connection, 
+        nbio_interface.AbstractStreamProtocol
+    ]
 
 _LOG = logging.getLogger(__name__)
 
@@ -42,7 +57,7 @@ class AMQPConnectorPhaseErrorBase(AMQPConnectorException):
 
     """
 
-    def __init__(self, exception, *args):
+    def __init__(self, exception: BaseException, *args: Any):
         """
 
         :param BaseException exception: error that occurred while waiting for a
@@ -85,7 +100,7 @@ class AMQPConnectionWorkflowFailed(AMQPConnectorException):
 
     """
 
-    def __init__(self, exceptions, *args):
+    def __init__(self, exceptions: Sequence[BaseException], *args: Any):
         """
         :param sequence exceptions: Exceptions that occurred during the
             workflow.
@@ -95,7 +110,7 @@ class AMQPConnectionWorkflowFailed(AMQPConnectorException):
         super().__init__(*args)
         self.exceptions = tuple(exceptions)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return ('{}: {} exceptions in all; last exception - {!r}; first '
                 'exception - {!r}').format(
                     self.__class__.__name__, len(self.exceptions),
@@ -116,7 +131,7 @@ class AMQPConnector:
     _STATE_ABORTING = 5  # abort() called - aborting workflow
     _STATE_DONE = 6  # result reported to client
 
-    def __init__(self, conn_factory, nbio):
+    def __init__(self, conn_factory: Callable[[pika.connection.Parameters], ConnectionAdapter], nbio: nbio_interface.AbstractIOServices):
         """
 
         :param callable conn_factory: A function that takes
@@ -127,24 +142,29 @@ class AMQPConnector:
         :param pika.adapters.utils.nbio_interface.AbstractIOServices nbio:
 
         """
-        self._conn_factory = conn_factory
-        self._nbio = nbio
-        self._addr_record = None  # type: tuple
-        self._conn_params = None  # type: pika.connection.Parameters
-        self._on_done = None  # will be provided via start()
+        self._conn_factory: Callable[[pika.connection.Parameters], ConnectionAdapter] = conn_factory
+        self._nbio: nbio_interface.AbstractIOServices = nbio
+        self._addr_record: Optional[Tuple] = None  # type: ignore
+        self._conn_params: pika.connection.Parameters = None  # type: ignore
+        self._on_done: Callable[[Union[ConnectionAdapter, BaseException]], None] = None  # type: ignore - will be provided via start()
         # TCP connection timeout
         # pylint: disable=C0301
-        self._tcp_timeout_ref = None  # type: pika.adapters.utils.nbio_interface.AbstractTimerReference
+        self._tcp_timeout_ref: Optional[nbio_interface.AbstractTimerReference] = None 
         # Overall TCP/[SSL]/AMQP timeout
-        self._stack_timeout_ref = None  # type: pika.adapters.utils.nbio_interface.AbstractTimerReference
+        self._stack_timeout_ref: Optional[nbio_interface.AbstractTimerReference] = None 
         # Current task
-        self._task_ref = None  # type: pika.adapters.utils.nbio_interface.AbstractIOReference
-        self._sock = None  # type: socket.socket
-        self._amqp_conn = None  # type: pika.connection.Connection
+        self._task_ref: Optional[nbio_interface.AbstractIOReference] = None 
+        self._sock: socket.socket = None  # type: ignore
+        self._amqp_conn: Optional[pika.connection.Connection] = None 
 
         self._state = self._STATE_INIT
 
-    def start(self, addr_record, conn_params, on_done):
+    def start(
+            self, 
+            addr_record: Tuple,
+            conn_params: pika.connection.Parameters, 
+            on_done: Callable[[Union[ConnectionAdapter, BaseException]], None]
+    ) -> None:
         """Asynchronously perform a single TCP/[SSL]/AMQP connection attempt.
 
         :param tuple addr_record: a single resolved address record compatible
@@ -171,7 +191,7 @@ class AMQPConnector:
         self._state = self._STATE_TCP
         self._sock = socket.socket(*self._addr_record[:3])
         self._sock.setsockopt(pika.compat.SOL_TCP, socket.TCP_NODELAY, 1)
-        pika.tcp_socket_opts.set_sock_opts(self._conn_params.tcp_options,
+        pika.tcp_socket_opts.set_sock_opts(self._conn_params.tcp_options,  
                                            self._sock)
         self._sock.setblocking(False)
 
@@ -193,7 +213,7 @@ class AMQPConnector:
             self._stack_timeout_ref = self._nbio.call_later(
                 self._conn_params.stack_timeout, self._on_overall_timeout)
 
-    def abort(self):
+    def abort(self) -> None:
         """Abort the workflow asynchronously. The completion callback will be
         called with an instance of AMQPConnectorAborted.
 
@@ -239,7 +259,7 @@ class AMQPConnector:
                     ('Connection is closing, but not in TIMEOUT state; state={}'
                      .format(self._state))
 
-    def _close(self):
+    def _close(self) -> None:
         """Cancel asynchronous tasks and clean up to assist garbage collection.
 
         Transition to STATE_DONE.
@@ -249,16 +269,16 @@ class AMQPConnector:
 
         if self._sock is not None:
             self._sock.close()
-            self._sock = None
+            self._sock = None  # type: ignore
 
-        self._conn_factory = None
-        self._nbio = None
-        self._addr_record = None
-        self._on_done = None
+        self._conn_factory = None  # type: ignore
+        self._nbio = None  # type: ignore
+        self._addr_record = None 
+        self._on_done = None  # type: ignore
 
         self._state = self._STATE_DONE
 
-    def _deactivate(self):
+    def _deactivate(self) -> None:
         """Cancel asynchronous tasks.
 
         """
@@ -281,7 +301,7 @@ class AMQPConnector:
             self._task_ref.cancel()
             self._task_ref = None
 
-    def _report_completion_and_cleanup(self, result):
+    def _report_completion_and_cleanup(self, result: Union[ConnectionAdapter, BaseException]) -> None:
         """Clean up and invoke client's `on_done` callback.
 
         :param pika.connection.Connection | BaseException result: value to pass
@@ -297,7 +317,7 @@ class AMQPConnector:
 
         on_done(result)
 
-    def _on_tcp_connection_timeout(self):
+    def _on_tcp_connection_timeout(self) -> None:
         """Handle TCP connection timeout
 
         Reports AMQPConnectorSocketConnectError with socket.timeout inside.
@@ -310,7 +330,7 @@ class AMQPConnector:
                 self._conn_params.host, self._addr_record)))
         self._report_completion_and_cleanup(error)
 
-    def _on_overall_timeout(self):
+    def _on_overall_timeout(self) -> None:
         """Handle overall TCP/[SSL]/AMQP connection attempt timeout by reporting
         `Timeout` error to the client.
 
@@ -335,10 +355,9 @@ class AMQPConnector:
             # Initiate close of AMQP connection and wait for asynchronous
             # callback from the Connection instance before reporting completion
             # to client
-            assert not self._amqp_conn.is_open, \
-                f'Unexpected open state of {self._amqp_conn!r}'
-            if not self._amqp_conn.is_closing:
-                self._amqp_conn.close(320, msg)
+            assert not self._amqp_conn.is_open, f'Unexpected open state of {self._amqp_conn!r}'  # type: ignore
+            if not self._amqp_conn.is_closing:  # type: ignore
+                self._amqp_conn.close(320, msg)  # type: ignore
             return
 
         if prev_state == self._STATE_TCP:
@@ -356,7 +375,7 @@ class AMQPConnector:
 
         self._report_completion_and_cleanup(error)
 
-    def _on_tcp_connection_done(self, exc):
+    def _on_tcp_connection_done(self, exc: Optional[BaseException]) -> None:
         """Handle completion of asynchronous socket connection attempt.
 
         Reports AMQPConnectorSocketConnectError if TCP socket connection
@@ -392,16 +411,19 @@ class AMQPConnector:
                 server_hostname = self._conn_params.host
 
         self._task_ref = self._nbio.create_streaming_connection(
-            protocol_factory=functools.partial(self._conn_factory,
-                                               self._conn_params),
+            protocol_factory=functools.partial( 
+                self._conn_factory, 
+                self._conn_params
+            ),
             sock=self._sock,
             ssl_context=ssl_context,
             server_hostname=server_hostname,
-            on_done=self._on_transport_establishment_done)
+            on_done=self._on_transport_establishment_done
+        )
 
-        self._sock = None  # create_streaming_connection() takes ownership
+        self._sock = None  # type: ignore - create_streaming_connection() takes ownership
 
-    def _on_transport_establishment_done(self, result):
+    def _on_transport_establishment_done(self, result: Union[Tuple[nbio_interface.AbstractStreamTransport, pika.connection.Connection], BaseException]) -> None:
         """Handle asynchronous completion of
         `AbstractIOServices.create_streaming_connection()`
 
@@ -435,7 +457,7 @@ class AMQPConnector:
             self._on_amqp_handshake_done, remove_default=True)
         self._amqp_conn.add_on_open_callback(self._on_amqp_handshake_done)
 
-    def _on_amqp_handshake_done(self, connection, error=None):
+    def _on_amqp_handshake_done(self, connection: ConnectionAdapter, error: Optional[BaseException] = None) -> None:
         """Handle completion of AMQP connection handshake attempt.
 
         NOTE: we handle two types of callbacks - success with just connection
@@ -494,8 +516,8 @@ class AbstractAMQPConnectionWorkflow(pika.compat.AbstractBase):
 
     """
 
-    def start(self, connection_configs, connector_factory, native_loop,
-              on_done):
+    def start(self, connection_configs: Sequence[pika.connection.Parameters], connector_factory: Callable[..., Any], native_loop,
+              on_done: Callable[[Union[ConnectionAdapter, AMQPConnectorException]], None]) -> None:
         """Asynchronously perform the workflow until success or all retries
         are exhausted. Called by the adapter.
 
@@ -521,7 +543,7 @@ class AbstractAMQPConnectionWorkflow(pika.compat.AbstractBase):
         """
         raise NotImplementedError
 
-    def abort(self):
+    def abort(self) -> None:
         """Abort the workflow asynchronously. The completion callback will be
         called with an instance of AMQPConnectionWorkflowAborted.
 
@@ -560,7 +582,7 @@ class AMQPConnectionWorkflow(AbstractAMQPConnectionWorkflow):
     _STATE_ABORTING = 2
     _STATE_DONE = 3
 
-    def __init__(self, _until_first_amqp_attempt=False):
+    def __init__(self, _until_first_amqp_attempt: bool = False) -> None:
         """
         :param int | float retry_pause: Non-negative number of seconds to wait
             before retrying the config sequence. Meaningful only if retries is
@@ -576,33 +598,33 @@ class AMQPConnectionWorkflow(AbstractAMQPConnectionWorkflow):
         TODO: Would it be useful to implement exponential back-off?
 
         """
-        self._attempts_remaining = None  # supplied by start()
-        self._retry_pause = None  # supplied by start()
+        self._attempts_remaining: int = None  # type: ignore - supplied by start()
+        self._retry_pause: float = None  # type: ignore - supplied by start()
         self._until_first_amqp_attempt = _until_first_amqp_attempt
 
         # Provided by set_io_services()
         # pylint: disable=C0301
-        self._nbio = None  # type: pika.adapters.utils.nbio_interface.AbstractIOServices
+        self._nbio: nbio_interface.AbstractIOServices = None  # type: ignore
 
         # Current index within `_connection_configs`; initialized when
         # starting a new connection sequence.
-        self._current_config_index = None
+        self._current_config_index: int = None  # type: ignore
 
-        self._connection_configs = None  # supplied by start()
-        self._connector_factory = None  # supplied by start()
-        self._on_done = None  # supplied by start()
+        self._connection_configs: Sequence[pika.connection.Parameters] = None  # type: ignore - supplied by start()
+        self._connector_factory: Callable[..., Any] = None  # type: ignore - supplied by start()
+        self._on_done: Callable[[Union[ConnectionAdapter, AMQPConnectorException]], None] = None  # type: ignore - supplied by start()
 
-        self._connector = None  # type: AMQPConnector
+        self._connector: AMQPConnector = None  # type: ignore
 
         self._task_ref = None  # current cancelable asynchronous task or timer
-        self._addrinfo_iter = None
+        self._addrinfo_iter: Iterator[ADDRESS_INFO] = None  # type: ignore
 
         # Exceptions from all failed connection attempts in this workflow
-        self._connection_errors = []
+        self._connection_errors: List[BaseException] = []
 
         self._state = self._STATE_INIT
 
-    def set_io_services(self, nbio):
+    def set_io_services(self, nbio: nbio_interface.AbstractIOServices) -> None:
         """Called by the conneciton adapter only on pika's
         `AMQPConnectionWorkflow` instance to provide it the adapter-specific
         `AbstractIOServices` object before calling the `start()` method.
@@ -618,10 +640,11 @@ class AMQPConnectionWorkflow(AbstractAMQPConnectionWorkflow):
 
     def start(
             self,
-            connection_configs,
-            connector_factory,
+            connection_configs: Sequence[pika.connection.Parameters],
+            connector_factory: Callable[..., Any],
             native_loop,  # pylint: disable=W0613
-            on_done):
+            on_done: Callable[[Union[ConnectionAdapter, AMQPConnectorException]], None]
+        ) -> None:
         """Override `AbstractAMQPConnectionWorkflow.start()`.
 
         NOTE: This implementation uses `connection_attempts` and `retry_delay`
@@ -660,7 +683,7 @@ class AMQPConnectionWorkflow(AbstractAMQPConnectionWorkflow):
         self._task_ref = self._nbio.call_later(
             0, functools.partial(self._start_new_cycle_async, first=True))
 
-    def abort(self):
+    def abort(self) -> None:
         """Override `AbstractAMQPConnectionWorkflow.abort()`.
 
         """
@@ -681,13 +704,13 @@ class AMQPConnectionWorkflow(AbstractAMQPConnectionWorkflow):
                        'scheduling completion report via I/O loop.')
             self._nbio.add_callback_threadsafe(
                 functools.partial(self._report_completion_and_cleanup,
-                                  AMQPConnectionWorkflowAborted()))
+                                  AMQPConnectionWorkflowAborted()))  
         else:
             _LOG.debug('AMQPConnectionWorkflow.abort(): requesting '
                        'connector.abort().')
             self._connector.abort()
 
-    def _close(self):
+    def _close(self) -> None:
         """Cancel asynchronous tasks and clean up to assist garbage collection.
 
         Transition to _STATE_DONE.
@@ -695,17 +718,17 @@ class AMQPConnectionWorkflow(AbstractAMQPConnectionWorkflow):
         """
         self._deactivate()
 
-        self._connection_configs = None
-        self._nbio = None
-        self._connector_factory = None
-        self._on_done = None
-        self._connector = None
-        self._addrinfo_iter = None
-        self._connection_errors = None
+        self._connection_configs = None  # type: ignore
+        self._nbio = None  # type: ignore
+        self._connector_factory = None  # type: ignore
+        self._on_done = None  # type: ignore
+        self._connector = None  # type: ignore
+        self._addrinfo_iter = None  # type: ignore
+        self._connection_errors = None  # type: ignore
 
         self._state = self._STATE_DONE
 
-    def _deactivate(self):
+    def _deactivate(self) -> None:
         """Cancel asynchronous tasks.
 
         """
@@ -713,7 +736,7 @@ class AMQPConnectionWorkflow(AbstractAMQPConnectionWorkflow):
             self._task_ref.cancel()
             self._task_ref = None
 
-    def _report_completion_and_cleanup(self, result):
+    def _report_completion_and_cleanup(self, result: Union[ConnectionAdapter, AMQPConnectorException]) -> None:
         """Clean up and invoke client's `on_done` callback.
 
         :param pika.connection.Connection | AMQPConnectionWorkflowFailed result:
@@ -729,7 +752,7 @@ class AMQPConnectionWorkflow(AbstractAMQPConnectionWorkflow):
 
         on_done(result)
 
-    def _start_new_cycle_async(self, first):
+    def _start_new_cycle_async(self, first: bool) -> None:
         """Start a new workflow cycle (if any more attempts are left) beginning
         with the first Parameters object in self._connection_configs. If out of
         attempts, report `AMQPConnectionWorkflowFailed`.
@@ -752,12 +775,12 @@ class AMQPConnectionWorkflow(AbstractAMQPConnectionWorkflow):
             'Beginning a new AMQP connection workflow cycle; attempts '
             'remaining after this: %s', self._attempts_remaining)
 
-        self._current_config_index = None
+        self._current_config_index = None  # type: ignore
 
         self._task_ref = self._nbio.call_later(
             0 if first else self._retry_pause, self._try_next_config_async)
 
-    def _try_next_config_async(self):
+    def _try_next_config_async(self) -> None:
         """Attempt to connect using the next Parameters config. If there are no
         more configs, start a new cycle.
 
@@ -787,7 +810,7 @@ class AMQPConnectionWorkflow(AbstractAMQPConnectionWorkflow):
             proto=self._IPPROTO,
             on_done=self._on_getaddrinfo_async_done)
 
-    def _on_getaddrinfo_async_done(self, addrinfos_or_exc):
+    def _on_getaddrinfo_async_done(self, addrinfos_or_exc: Union[List[ADDRESS_INFO], BaseException]) -> None:
         """Handles completion callback from asynchronous `getaddrinfo()`.
 
         :param list | BaseException addrinfos_or_exc: resolved address records
@@ -800,13 +823,14 @@ class AMQPConnectionWorkflow(AbstractAMQPConnectionWorkflow):
             self._connection_errors.append(addrinfos_or_exc)
             self._start_new_cycle_async(first=False)
             return
+        
 
         _LOG.debug('getaddrinfo returned %s records', len(addrinfos_or_exc))
         self._addrinfo_iter = iter(addrinfos_or_exc)
 
         self._try_next_resolved_address()
 
-    def _try_next_resolved_address(self):
+    def _try_next_resolved_address(self) -> None:
         """Try connecting using next resolved address. If there aren't any left,
         continue with next Parameters config.
 
@@ -828,14 +852,14 @@ class AMQPConnectionWorkflow(AbstractAMQPConnectionWorkflow):
             conn_params=self._connection_configs[self._current_config_index],
             on_done=self._on_connector_done)
 
-    def _on_connector_done(self, conn_or_exc):
+    def _on_connector_done(self, conn_or_exc: Union[ConnectionAdapter, BaseException]) -> None:
         """Handle completion of connection attempt by `AMQPConnector`.
 
         :param pika.connection.Connection | BaseException conn_or_exc: See
             `AMQPConnector.start()` for exception details.
 
         """
-        self._connector = None
+        self._connector = None  # type: ignore
         _LOG.debug('Connection attempt completed with %r', conn_or_exc)
 
         if isinstance(conn_or_exc, BaseException):
@@ -853,12 +877,12 @@ class AMQPConnectionWorkflow(AbstractAMQPConnectionWorkflow):
                            'AMQP handshake due to _until_first_amqp_attempt.')
                 if isinstance(conn_or_exc.exception,
                               pika.exceptions.ConnectionOpenAborted):
-                    error = AMQPConnectionWorkflowAborted
+                    error = AMQPConnectionWorkflowAborted  
                 else:
                     error = AMQPConnectionWorkflowFailed(
                         self._connection_errors)
 
-                self._report_completion_and_cleanup(error)
+                self._report_completion_and_cleanup(error)  # type: ignore
             else:
                 self._try_next_resolved_address()
         else:
