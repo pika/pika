@@ -121,8 +121,8 @@ class BaseConnection(connection.Connection):
         cls,
         connection_configs: Sequence[connection.Parameters],
         on_done: Callable[[Union[connection.Connection, connection_workflow.AMQPConnectorException]], None],
-        custom_ioloop=None,
-        workflow=None
+        custom_ioloop: Optional[Any] = None,
+        workflow: Optional[connection_workflow.AbstractAMQPConnectionWorkflow] = None
     ) -> connection_workflow.AbstractAMQPConnectionWorkflow:
         """Asynchronously create a connection to an AMQP broker using the given
         configurations. Will attempt to connect using each config in the given

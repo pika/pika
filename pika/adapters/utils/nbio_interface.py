@@ -14,14 +14,13 @@ testing and lessening the maintenance burden.
 from __future__ import annotations
 
 import abc
-from typing import TYPE_CHECKING, Callable, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Callable, Optional, Tuple, Union, Any
 
 import pika.compat
 
 if TYPE_CHECKING:
     import ssl
     import socket
-    from pika.adapters.utils.selector_ioloop_adapter import AbstractSelectorIOLoop
 
 
 class AbstractIOServices(pika.compat.AbstractBase):
@@ -35,7 +34,7 @@ class AbstractIOServices(pika.compat.AbstractBase):
     """
 
     @abc.abstractmethod
-    def get_native_ioloop(self) -> AbstractSelectorIOLoop:
+    def get_native_ioloop(self) -> Any:
         """Returns the native I/O loop instance, such as Twisted reactor,
         asyncio's or tornado's event loop
 

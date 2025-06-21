@@ -1,11 +1,16 @@
 """Use pika with the Asyncio EventLoop"""
+from __future__ import annotations
 
 import asyncio
 import logging
 import sys
+from typing import Any, Awaitable, Callable, Optional, TYPE_CHECKING, Sequence, Union, cast
 
 from pika.adapters import base_connection
-from pika.adapters.utils import nbio_interface, io_services_utils
+from pika.adapters.utils import connection_workflow, nbio_interface, io_services_utils
+
+if TYPE_CHECKING:
+    from pika import connection
 
 LOGGER = logging.getLogger(__name__)
 
@@ -19,13 +24,15 @@ class AsyncioConnection(base_connection.BaseConnection):
 
     """
 
-    def __init__(self,
-                 parameters=None,
-                 on_open_callback=None,
-                 on_open_error_callback=None,
-                 on_close_callback=None,
-                 custom_ioloop=None,
-                 internal_connection_workflow=True):
+    def __init__(
+        self,
+        parameters: Optional[connection.Parameters] = None,
+        on_open_callback: Optional[Callable[[connection.Connection], None]] =None,
+        on_open_error_callback: Optional[Callable[[connection.Connection, BaseException], None]] = None,
+        on_close_callback: Optional[Callable[[connection.Connection, BaseException], None]] = None,
+        custom_ioloop: Optional[Union[asyncio.AbstractEventLoop, nbio_interface.AbstractIOServices]] = None,
+        internal_connection_workflow: bool = True
+    ) -> None:
         """ Create a new instance of the AsyncioConnection class, connecting
         to RabbitMQ automatically
 
@@ -63,11 +70,13 @@ class AsyncioConnection(base_connection.BaseConnection):
             internal_connection_workflow=internal_connection_workflow)
 
     @classmethod
-    def create_connection(cls,
-                          connection_configs,
-                          on_done,
-                          custom_ioloop=None,
-                          workflow=None):
+    def create_connection(
+        cls,
+        connection_configs: Sequence[connection.Parameters],
+        on_done: Callable[[Union[connection.Connection, connection_workflow.AMQPConnectorException]], None],
+        custom_ioloop: Optional[asyncio.AbstractEventLoop] = None,
+        workflow: Optional[connection_workflow.AbstractAMQPConnectionWorkflow] = None
+    ) -> connection_workflow.AbstractAMQPConnectionWorkflow:
         """Implement
         :py:classmethod::`pika.adapters.BaseConnection.create_connection()`.
 
@@ -106,7 +115,7 @@ class _AsyncioIOServicesAdapter(io_services_utils.SocketConnectionMixin,
 
     """
 
-    def __init__(self, loop=None):
+    def __init__(self, loop: Optional[asyncio.AbstractEventLoop] = None):
         """
         :param asyncio.AbstractEventLoop | None loop: If None, gets default
             event loop from asyncio.
@@ -114,54 +123,56 @@ class _AsyncioIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         """
         self._loop = loop or asyncio.get_event_loop()
 
-    def get_native_ioloop(self):
+    def get_native_ioloop(self) -> asyncio.AbstractEventLoop:
         """Implement
         :py:meth:`.utils.nbio_interface.AbstractIOServices.get_native_ioloop()`.
 
         """
         return self._loop
 
-    def close(self):
+    def close(self) -> None:
         """Implement
         :py:meth:`.utils.nbio_interface.AbstractIOServices.close()`.
 
         """
         self._loop.close()
 
-    def run(self):
+    def run(self) -> None:
         """Implement :py:meth:`.utils.nbio_interface.AbstractIOServices.run()`.
 
         """
         self._loop.run_forever()
 
-    def stop(self):
+    def stop(self) -> None:
         """Implement :py:meth:`.utils.nbio_interface.AbstractIOServices.stop()`.
 
         """
         self._loop.stop()
 
-    def add_callback_threadsafe(self, callback):
+    def add_callback_threadsafe(self, callback: Callable[[], None]) -> None:
         """Implement
         :py:meth:`.utils.nbio_interface.AbstractIOServices.add_callback_threadsafe()`.
 
         """
         self._loop.call_soon_threadsafe(callback)
 
-    def call_later(self, delay, callback):
+    def call_later(self, delay: float, callback: Callable[[], None]) -> _TimerHandle:
         """Implement
         :py:meth:`.utils.nbio_interface.AbstractIOServices.call_later()`.
 
         """
         return _TimerHandle(self._loop.call_later(delay, callback))
 
-    def getaddrinfo(self,
-                    host,
-                    port,
-                    on_done,
-                    family=0,
-                    socktype=0,
-                    proto=0,
-                    flags=0):
+    def getaddrinfo(
+        self,
+        host: str,
+        port: int,
+        on_done: Callable[..., None],
+        family: int = 0,
+        socktype: int = 0,
+        proto: int = 0,
+        flags: int = 0
+    ) -> nbio_interface.AbstractIOReference:
         """Implement
         :py:meth:`.utils.nbio_interface.AbstractIOServices.getaddrinfo()`.
 
@@ -175,7 +186,7 @@ class _AsyncioIOServicesAdapter(io_services_utils.SocketConnectionMixin,
                 proto=proto,
                 flags=flags), on_done)
 
-    def set_reader(self, fd, on_readable):
+    def set_reader(self, fd: int, on_readable: Callable[[], None]) -> None:
         """Implement
         :py:meth:`.utils.nbio_interface.AbstractFileDescriptorServices.set_reader()`.
 
@@ -183,7 +194,7 @@ class _AsyncioIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         self._loop.add_reader(fd, on_readable)
         LOGGER.debug('set_reader(%s, _)', fd)
 
-    def remove_reader(self, fd):
+    def remove_reader(self, fd: int) -> bool:
         """Implement
         :py:meth:`.utils.nbio_interface.AbstractFileDescriptorServices.remove_reader()`.
 
@@ -191,7 +202,7 @@ class _AsyncioIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         LOGGER.debug('remove_reader(%s)', fd)
         return self._loop.remove_reader(fd)
 
-    def set_writer(self, fd, on_writable):
+    def set_writer(self, fd: int, on_writable: Callable[[], None]) -> None:
         """Implement
         :py:meth:`.utils.nbio_interface.AbstractFileDescriptorServices.set_writer()`.
 
@@ -199,7 +210,7 @@ class _AsyncioIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         self._loop.add_writer(fd, on_writable)
         LOGGER.debug('set_writer(%s, _)', fd)
 
-    def remove_writer(self, fd):
+    def remove_writer(self, fd: int) -> bool:
         """Implement
         :py:meth:`.utils.nbio_interface.AbstractFileDescriptorServices.remove_writer()`.
 
@@ -207,7 +218,11 @@ class _AsyncioIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         LOGGER.debug('remove_writer(%s)', fd)
         return self._loop.remove_writer(fd)
 
-    def _schedule_and_wrap_in_io_ref(self, coro, on_done):
+    def _schedule_and_wrap_in_io_ref(
+        self, 
+        coro: Awaitable[Any], 
+        on_done: Callable[[Union[base_connection.BaseConnection, BaseException]], None]
+    ) -> _AsyncioIOReference:
         """Schedule the coroutine to run and return _AsyncioIOReference
 
         :param coroutine-obj coro:
@@ -231,14 +246,14 @@ class _TimerHandle(nbio_interface.AbstractTimerReference):
 
     """
 
-    def __init__(self, handle):
+    def __init__(self, handle: asyncio.Handle) -> None:
         """
 
         :param asyncio.Handle handle:
         """
         self._handle = handle
 
-    def cancel(self):
+    def cancel(self) -> None:
         if self._handle is not None:
             self._handle.cancel()
             self._handle = None
@@ -249,7 +264,7 @@ class _AsyncioIOReference(nbio_interface.AbstractIOReference):
 
     """
 
-    def __init__(self, future, on_done):
+    def __init__(self, future: asyncio.Future, on_done: Callable[[Union[base_connection.BaseConnection, BaseException]], None]) -> None:
         """
         :param asyncio.Future future:
         :param callable on_done: user callback that takes the completion result
@@ -263,7 +278,7 @@ class _AsyncioIOReference(nbio_interface.AbstractIOReference):
 
         self._future = future
 
-        def on_done_adapter(future):
+        def on_done_adapter(future: asyncio.Future) -> None:
             """Handle completion callback from the future instance"""
 
             # NOTE: Asyncio schedules callback for cancelled futures, but pika
@@ -273,7 +288,7 @@ class _AsyncioIOReference(nbio_interface.AbstractIOReference):
 
         future.add_done_callback(on_done_adapter)
 
-    def cancel(self):
+    def cancel(self) -> bool:
         """Cancel pending operation
 
         :returns: False if was already done or cancelled; True otherwise
