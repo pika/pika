@@ -21,10 +21,7 @@ import pika.compat
 if TYPE_CHECKING:
     import ssl
     import socket
-    import pika.connection
     from pika.adapters.utils.selector_ioloop_adapter import AbstractSelectorIOLoop
-
-    ConnectionAdapter = Union[pika.connection.Connection, 'AbstractStreamProtocol']
 
 
 class AbstractIOServices(pika.compat.AbstractBase):
@@ -187,9 +184,9 @@ class AbstractIOServices(pika.compat.AbstractBase):
     @abc.abstractmethod
     def create_streaming_connection(
         self,
-        protocol_factory: Callable[[], ConnectionAdapter],
+        protocol_factory: Callable[[], AbstractStreamProtocol],
         sock: socket.socket,
-        on_done: Callable[[Union[BaseException, Tuple[AbstractStreamTransport, pika.connection.Connection]]], None],
+        on_done: Callable[[Union[BaseException, Tuple[AbstractStreamTransport, AbstractStreamProtocol]]], None],
         ssl_context: Optional[ssl.SSLContext] = None,
         server_hostname: Optional[str] = None
     ) -> AbstractIOReference:

@@ -4,10 +4,13 @@ selector-based I/O loop, such as tornado's and our home-grown
 select_connection's I/O loops.
 
 """
+from __future__ import annotations
+
 import abc
 import logging
 import socket
 import threading
+from typing import Any, Callable, Optional, Set
 
 from pika.adapters.utils import nbio_interface, io_services_utils
 from pika.adapters.utils.io_services_utils import (check_callback_arg,
@@ -27,7 +30,7 @@ class AbstractSelectorIOLoop:
 
     @property
     @abc.abstractmethod
-    def READ(self):  # pylint: disable=C0103
+    def READ(self) -> int:  # pylint: disable=C0103
         """The value of the I/O loop's READ flag; READ/WRITE/ERROR may be used
         with bitwise operators as expected.
 
@@ -38,7 +41,7 @@ class AbstractSelectorIOLoop:
 
     @property
     @abc.abstractmethod
-    def WRITE(self):  # pylint: disable=C0103
+    def WRITE(self) -> int:  # pylint: disable=C0103
         """The value of the I/O loop's WRITE flag; READ/WRITE/ERROR may be used
         with bitwise operators as expected
 
@@ -46,14 +49,14 @@ class AbstractSelectorIOLoop:
 
     @property
     @abc.abstractmethod
-    def ERROR(self):  # pylint: disable=C0103
+    def ERROR(self) -> int:  # pylint: disable=C0103
         """The value of the I/O loop's ERROR flag; READ/WRITE/ERROR may be used
         with bitwise operators as expected
 
         """
 
     @abc.abstractmethod
-    def close(self):
+    def close(self) -> None:
         """Release IOLoop's resources.
 
         the `close()` method is intended to be called by the application or test
@@ -63,13 +66,13 @@ class AbstractSelectorIOLoop:
         """
 
     @abc.abstractmethod
-    def start(self):
+    def start(self) -> None:
         """Run the I/O loop. It will loop until requested to exit. See `stop()`.
 
         """
 
     @abc.abstractmethod
-    def stop(self):
+    def stop(self) -> None:
         """Request exit from the ioloop. The loop is NOT guaranteed to
         stop before this method returns.
 
@@ -81,7 +84,7 @@ class AbstractSelectorIOLoop:
         """
 
     @abc.abstractmethod
-    def call_later(self, delay, callback):
+    def call_later(self, delay: float, callback: Callable[..., Any]) -> object:
         """Add the callback to the IOLoop timer to be called after delay seconds
         from the time of call on best-effort basis. Returns a handle to the
         timeout.
@@ -95,7 +98,7 @@ class AbstractSelectorIOLoop:
         """
 
     @abc.abstractmethod
-    def remove_timeout(self, timeout_handle):
+    def remove_timeout(self, timeout_handle: object) -> None:
         """Remove a timeout
 
         :param timeout_handle: Handle of timeout to remove
@@ -103,7 +106,7 @@ class AbstractSelectorIOLoop:
         """
 
     @abc.abstractmethod
-    def add_callback(self, callback):
+    def add_callback(self, callback: Callable[..., Any]) -> None:
         """Requests a call to the given function as soon as possible in the
         context of this IOLoop's thread.
 
@@ -119,7 +122,7 @@ class AbstractSelectorIOLoop:
         """
 
     @abc.abstractmethod
-    def add_handler(self, fd, handler, events):
+    def add_handler(self, fd: int, handler: Callable[[int, int], None], events: int) -> None:
         """Start watching the given file descriptor for events
 
         :param int fd: The file descriptor
@@ -130,7 +133,7 @@ class AbstractSelectorIOLoop:
         """
 
     @abc.abstractmethod
-    def update_handler(self, fd, events):
+    def update_handler(self, fd: int, events: int) -> None:
         """Changes the events we watch for
 
         :param int fd: The file descriptor
@@ -139,7 +142,7 @@ class AbstractSelectorIOLoop:
         """
 
     @abc.abstractmethod
-    def remove_handler(self, fd):
+    def remove_handler(self, fd: int) -> None:
         """Stop watching the given file descriptor for events
 
         :param int fd: The file descriptor
@@ -163,7 +166,7 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
 
     """
 
-    def __init__(self, native_loop):
+    def __init__(self, native_loop: AbstractSelectorIOLoop):
         """
         :param AbstractSelectorIOLoop native_loop: An instance compatible with
             the `AbstractSelectorIOLoop` interface, but not necessarily derived
@@ -183,26 +186,26 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         # become writable when waiting for socket connection to be established.
         self._writable_mask = self._loop.WRITE | self._loop.ERROR
 
-    def get_native_ioloop(self):
+    def get_native_ioloop(self) -> AbstractSelectorIOLoop:
         """Implement
         :py:meth:`.nbio_interface.AbstractIOServices.get_native_ioloop()`.
 
         """
         return self._loop
 
-    def close(self):
+    def close(self) -> None:
         """Implement :py:meth:`.nbio_interface.AbstractIOServices.close()`.
 
         """
         self._loop.close()
 
-    def run(self):
+    def run(self) -> None:
         """Implement :py:meth:`.nbio_interface.AbstractIOServices.run()`.
 
         """
         self._loop.start()
 
-    def stop(self):
+    def stop(self) -> None:
         """Implement :py:meth:`.nbio_interface.AbstractIOServices.stop()`.
 
         """
@@ -215,20 +218,22 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         """
         self._loop.add_callback(callback)
 
-    def call_later(self, delay, callback):
+    def call_later(self, delay, callback: Callable[..., None]) -> _TimerHandle:
         """Implement :py:meth:`.nbio_interface.AbstractIOServices.call_later()`.
 
         """
         return _TimerHandle(self._loop.call_later(delay, callback), self._loop)
 
-    def getaddrinfo(self,
-                    host,
-                    port,
-                    on_done,
-                    family=0,
-                    socktype=0,
-                    proto=0,
-                    flags=0):
+    def getaddrinfo(
+        self,
+        host: str,
+        port: int,
+        on_done:  Callable[..., None],
+        family: int = 0,
+        socktype: int = 0,
+        proto: int = 0,
+        flags: int = 0
+    ) -> _SelectorIOLoopIOHandle:
         """Implement :py:meth:`.nbio_interface.AbstractIOServices.getaddrinfo()`.
 
         """
@@ -243,7 +248,7 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
                 flags=flags,
                 on_done=on_done).start())
 
-    def set_reader(self, fd, on_readable):
+    def set_reader(self, fd: int, on_readable: Callable[[], None]) -> None:
         """Implement
         :py:meth:`.nbio_interface.AbstractFileDescriptorServices.set_reader()`.
 
@@ -272,7 +277,7 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
 
             callbacks.reader = on_readable
 
-    def remove_reader(self, fd):
+    def remove_reader(self, fd: int) -> bool:
         """Implement
         :py:meth:`.nbio_interface.AbstractFileDescriptorServices.remove_reader()`.
 
@@ -304,7 +309,7 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
 
         return True
 
-    def set_writer(self, fd, on_writable):
+    def set_writer(self, fd: int, on_writable: Callable[[], None]) -> None:
         """Implement
         :py:meth:`.nbio_interface.AbstractFileDescriptorServices.set_writer()`.
 
@@ -336,7 +341,7 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
                 LOGGER.debug('set_writer(%s, _) replacing writer', fd)
                 callbacks.writer = on_writable
 
-    def remove_writer(self, fd):
+    def remove_writer(self, fd: int) -> bool:
         """Implement
         :py:meth:`.nbio_interface.AbstractFileDescriptorServices.remove_writer()`.
 
@@ -368,7 +373,7 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
 
         return True
 
-    def _on_reader_writer_fd_events(self, fd, events):
+    def _on_reader_writer_fd_events(self, fd: int, events: int) -> None:
         """Handle indicated file descriptor events requested via `set_reader()`
         and `set_writer()`.
 
@@ -411,7 +416,7 @@ class _FileDescriptorCallbacks:
 
     __slots__ = ('reader', 'writer')
 
-    def __init__(self, reader=None, writer=None):
+    def __init__(self, reader: Optional[Callable[[], None]] = None, writer: Optional[Callable[[], None]] = None):
 
         self.reader = reader
         self.writer = writer
@@ -422,7 +427,7 @@ class _TimerHandle(nbio_interface.AbstractTimerReference):
 
     """
 
-    def __init__(self, handle, loop):
+    def __init__(self, handle: object, loop: AbstractSelectorIOLoop):
         """
 
         :param opaque handle: timer handle from the underlying loop
@@ -445,14 +450,14 @@ class _SelectorIOLoopIOHandle(nbio_interface.AbstractIOReference):
 
     """
 
-    def __init__(self, subject):
+    def __init__(self, subject: Any) -> None:
         """
         :param subject: subject of the reference containing a `cancel()` method
 
         """
         self._cancel = subject.cancel
 
-    def cancel(self):
+    def cancel(self) -> bool:
         """Cancel pending operation
 
         :returns: False if was already done or cancelled; True otherwise
@@ -475,8 +480,17 @@ class _AddressResolver:
     CANCELED = 2
     COMPLETED = 3
 
-    def __init__(self, native_loop, host, port, family, socktype, proto, flags,
-                 on_done):
+    def __init__(
+        self,
+        native_loop: AbstractSelectorIOLoop,
+        host: str,
+        port: int,
+        family: int,
+        socktype: int,
+        proto: int,
+        flags: int,
+        on_done: Callable[..., None]
+    ) -> None:
         """
 
         :param AbstractSelectorIOLoop native_loop:
@@ -507,7 +521,7 @@ class _AddressResolver:
         self._mutex = threading.Lock()
         self._threading_timer = None
 
-    def _cleanup(self):
+    def _cleanup(self) -> None:
         """Release resources
 
         """
@@ -515,7 +529,7 @@ class _AddressResolver:
         self._threading_timer = None
         self._on_done = None
 
-    def start(self):
+    def start(self) -> _SelectorIOLoopIOHandle:
         """Start asynchronous DNS lookup.
 
         :rtype: nbio_interface.AbstractIOReference
@@ -529,7 +543,7 @@ class _AddressResolver:
 
         return _SelectorIOLoopIOHandle(self)
 
-    def cancel(self):
+    def cancel(self) -> bool:
         """Cancel the pending resolver
 
         :returns: False if was already done or cancelled; True otherwise
@@ -544,7 +558,7 @@ class _AddressResolver:
                 self._state = self.CANCELED
 
                 # Attempt to cancel, but not guaranteed
-                self._threading_timer.cancel()
+                self._threading_timer.cancel()  # type: ignore
 
                 self._cleanup()
 
@@ -555,7 +569,7 @@ class _AddressResolver:
                     '(%s:%s); state=%s', self._host, self._port, self._state)
                 return False
 
-    def _resolve(self):
+    def _resolve(self) -> None:
         """Call `socket.getaddrinfo()` and return result via user's callback
         function on the given I/O loop
 
@@ -573,13 +587,13 @@ class _AddressResolver:
         # Schedule result to be returned to user via user's event loop
         with self._mutex:
             if self._state == self.ACTIVE:
-                self._loop.add_callback(self._dispatch_result)
+                self._loop.add_callback(self._dispatch_result)  # type: ignore
             else:
                 LOGGER.debug(
                     'Asynchronous getaddrinfo cancellation detected; '
                     'in thread; host=%r', self._host)
 
-    def _dispatch_result(self):
+    def _dispatch_result(self) -> None:
         """This is called from the user's I/O loop to pass the result to the
          user via the user's on_done callback
 
@@ -590,7 +604,7 @@ class _AddressResolver:
                 LOGGER.debug(
                     'Invoking asynchronous getaddrinfo() completion callback; '
                     'host=%r', self._host)
-                self._on_done(self._result)
+                self._on_done(self._result)  # type: ignore
             finally:
                 self._cleanup()
         else:

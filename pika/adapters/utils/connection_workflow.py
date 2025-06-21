@@ -25,12 +25,6 @@ if TYPE_CHECKING:
 
     ADDRESS_INFO = Tuple[socket.AddressFamily, socket.SocketKind, int, str, Union[Tuple[str, int], Tuple[str, int, int, int], Tuple[int, bytes]]]
 
-    # Type alias for a Connection-based adapter
-    ConnectionAdapter = Union[
-        pika.connection.Connection, 
-        nbio_interface.AbstractStreamProtocol
-    ]
-
 _LOG = logging.getLogger(__name__)
 
 
@@ -131,7 +125,7 @@ class AMQPConnector:
     _STATE_ABORTING = 5  # abort() called - aborting workflow
     _STATE_DONE = 6  # result reported to client
 
-    def __init__(self, conn_factory: Callable[[pika.connection.Parameters], ConnectionAdapter], nbio: nbio_interface.AbstractIOServices):
+    def __init__(self, conn_factory: Callable[[pika.connection.Parameters], nbio_interface.AbstractStreamProtocol], nbio: nbio_interface.AbstractIOServices):
         """
 
         :param callable conn_factory: A function that takes
@@ -142,11 +136,11 @@ class AMQPConnector:
         :param pika.adapters.utils.nbio_interface.AbstractIOServices nbio:
 
         """
-        self._conn_factory: Callable[[pika.connection.Parameters], ConnectionAdapter] = conn_factory
+        self._conn_factory: Callable[[pika.connection.Parameters], nbio_interface.AbstractStreamProtocol] = conn_factory
         self._nbio: nbio_interface.AbstractIOServices = nbio
         self._addr_record: Optional[Tuple] = None  # type: ignore
         self._conn_params: pika.connection.Parameters = None  # type: ignore
-        self._on_done: Callable[[Union[ConnectionAdapter, BaseException]], None] = None  # type: ignore - will be provided via start()
+        self._on_done: Callable[[Union[pika.connection.Connection, BaseException]], None] = None  # type: ignore - will be provided via start()
         # TCP connection timeout
         # pylint: disable=C0301
         self._tcp_timeout_ref: Optional[nbio_interface.AbstractTimerReference] = None 
@@ -162,8 +156,8 @@ class AMQPConnector:
     def start(
             self, 
             addr_record: Tuple,
-            conn_params: pika.connection.Parameters, 
-            on_done: Callable[[Union[ConnectionAdapter, BaseException]], None]
+            conn_params: pika.connection.Parameters,
+            on_done: Callable[[Union[pika.connection.Connection, BaseException]], None]
     ) -> None:
         """Asynchronously perform a single TCP/[SSL]/AMQP connection attempt.
 
@@ -301,7 +295,7 @@ class AMQPConnector:
             self._task_ref.cancel()
             self._task_ref = None
 
-    def _report_completion_and_cleanup(self, result: Union[ConnectionAdapter, BaseException]) -> None:
+    def _report_completion_and_cleanup(self, result: Union[pika.connection.Connection, BaseException]) -> None:
         """Clean up and invoke client's `on_done` callback.
 
         :param pika.connection.Connection | BaseException result: value to pass
@@ -423,7 +417,7 @@ class AMQPConnector:
 
         self._sock = None  # type: ignore - create_streaming_connection() takes ownership
 
-    def _on_transport_establishment_done(self, result: Union[Tuple[nbio_interface.AbstractStreamTransport, pika.connection.Connection], BaseException]) -> None:
+    def _on_transport_establishment_done(self, result: Union[Tuple[nbio_interface.AbstractStreamTransport, nbio_interface.AbstractStreamProtocol], BaseException]) -> None:
         """Handle asynchronous completion of
         `AbstractIOServices.create_streaming_connection()`
 
@@ -448,16 +442,16 @@ class AMQPConnector:
         # We succeeded in setting up the streaming transport!
         # result is a two-tuple (transport, protocol)
         _LOG.info('Streaming transport linked up: %r.', result)
-        _transport, self._amqp_conn = result
+        _transport, self._amqp_conn = result  # type: ignore
 
         # AMQP handshake is in progress - initiated during transport link-up
         self._state = self._STATE_AMQP
         # We explicitly remove default handler because it raises an exception.
-        self._amqp_conn.add_on_open_error_callback(
+        self._amqp_conn.add_on_open_error_callback(  # type: ignore
             self._on_amqp_handshake_done, remove_default=True)
-        self._amqp_conn.add_on_open_callback(self._on_amqp_handshake_done)
+        self._amqp_conn.add_on_open_callback(self._on_amqp_handshake_done)  # type: ignore
 
-    def _on_amqp_handshake_done(self, connection: ConnectionAdapter, error: Optional[BaseException] = None) -> None:
+    def _on_amqp_handshake_done(self, connection: pika.connection.Connection, error: Optional[BaseException] = None) -> None:
         """Handle completion of AMQP connection handshake attempt.
 
         NOTE: we handle two types of callbacks - success with just connection
@@ -517,7 +511,7 @@ class AbstractAMQPConnectionWorkflow(pika.compat.AbstractBase):
     """
 
     def start(self, connection_configs: Sequence[pika.connection.Parameters], connector_factory: Callable[..., Any], native_loop,
-              on_done: Callable[[Union[ConnectionAdapter, AMQPConnectorException]], None]) -> None:
+              on_done: Callable[[Union[pika.connection.Connection, AMQPConnectorException]], None]) -> None:
         """Asynchronously perform the workflow until success or all retries
         are exhausted. Called by the adapter.
 
@@ -612,7 +606,7 @@ class AMQPConnectionWorkflow(AbstractAMQPConnectionWorkflow):
 
         self._connection_configs: Sequence[pika.connection.Parameters] = None  # type: ignore - supplied by start()
         self._connector_factory: Callable[..., Any] = None  # type: ignore - supplied by start()
-        self._on_done: Callable[[Union[ConnectionAdapter, AMQPConnectorException]], None] = None  # type: ignore - supplied by start()
+        self._on_done: Callable[[Union[pika.connection.Connection, AMQPConnectorException]], None] = None  # type: ignore - supplied by start()
 
         self._connector: AMQPConnector = None  # type: ignore
 
@@ -643,7 +637,7 @@ class AMQPConnectionWorkflow(AbstractAMQPConnectionWorkflow):
             connection_configs: Sequence[pika.connection.Parameters],
             connector_factory: Callable[..., Any],
             native_loop,  # pylint: disable=W0613
-            on_done: Callable[[Union[ConnectionAdapter, AMQPConnectorException]], None]
+            on_done: Callable[[Union[pika.connection.Connection, AMQPConnectorException]], None]
         ) -> None:
         """Override `AbstractAMQPConnectionWorkflow.start()`.
 
@@ -736,7 +730,7 @@ class AMQPConnectionWorkflow(AbstractAMQPConnectionWorkflow):
             self._task_ref.cancel()
             self._task_ref = None
 
-    def _report_completion_and_cleanup(self, result: Union[ConnectionAdapter, AMQPConnectorException]) -> None:
+    def _report_completion_and_cleanup(self, result: Union[pika.connection.Connection, AMQPConnectorException]) -> None:
         """Clean up and invoke client's `on_done` callback.
 
         :param pika.connection.Connection | AMQPConnectionWorkflowFailed result:
@@ -852,7 +846,7 @@ class AMQPConnectionWorkflow(AbstractAMQPConnectionWorkflow):
             conn_params=self._connection_configs[self._current_config_index],
             on_done=self._on_connector_done)
 
-    def _on_connector_done(self, conn_or_exc: Union[ConnectionAdapter, BaseException]) -> None:
+    def _on_connector_done(self, conn_or_exc: Union[pika.connection.Connection, BaseException]) -> None:
         """Handle completion of connection attempt by `AMQPConnector`.
 
         :param pika.connection.Connection | BaseException conn_or_exc: See
