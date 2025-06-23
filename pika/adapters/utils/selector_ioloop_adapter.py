@@ -98,7 +98,7 @@ class AbstractSelectorIOLoop:
         """
 
     @abc.abstractmethod
-    def remove_timeout(self, timeout_handle: object) -> None:
+    def remove_timeout(self, timeout_handle: Any) -> None:
         """Remove a timeout
 
         :param timeout_handle: Handle of timeout to remove
@@ -233,7 +233,7 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         socktype: int = 0,
         proto: int = 0,
         flags: int = 0
-    ) -> _SelectorIOLoopIOHandle:
+    ) -> nbio_interface.AbstractIOReference:
         """Implement :py:meth:`.nbio_interface.AbstractIOServices.getaddrinfo()`.
 
         """
