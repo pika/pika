@@ -12,7 +12,8 @@ import logging
 import select
 import time
 import threading
-from typing import Any, Callable, Optional, Sequence, Set, Tuple, Type, Dict, TypedDict, Union, TYPE_CHECKING
+from typing import Any, Callable, Optional, Sequence, Set, Tuple, Type, Dict, Union, TYPE_CHECKING
+from typing_extensions import TypedDict
 
 import pika.compat
 
