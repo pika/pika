@@ -17,14 +17,20 @@ classes.
 # a friend of those instances
 # pylint: disable=W0212
 
+from __future__ import annotations
+
 from collections import namedtuple, deque
 import contextlib
 import functools
 import logging
 import threading
+from typing import Any, Callable, Dict, Generator, Generic, List, Optional, Sequence, Tuple, Type, TypeVar, Union, TYPE_CHECKING
 
+import pika.channel
 import pika.compat as compat
+import pika.connection
 import pika.exceptions as exceptions
+import pika.exceptions
 import pika.spec
 import pika.validators as validators
 from pika.adapters.utils import connection_workflow
@@ -32,6 +38,13 @@ from pika.adapters.utils import connection_workflow
 # NOTE: import SelectConnection after others to avoid circular depenency
 from pika.adapters import select_connection
 from pika.exchange_type import ExchangeType
+
+if TYPE_CHECKING:
+    from traceback import TracebackException
+    from types import TracebackType
+    import pika.frame
+
+    T = TypeVar('T', bound='pika.spec.Connection.Blocked | pika.spec.Connection.Unblocked')
 
 LOGGER = logging.getLogger(__name__)
 
@@ -42,7 +55,7 @@ class _CallbackResult:
     """
     __slots__ = ('_value_class', '_ready', '_values')
 
-    def __init__(self, value_class=None):
+    def __init__(self, value_class: Optional[Callable[..., Any]] = None):
         """
         :param callable value_class: only needed if the CallbackResult
                                      instance will be used with
@@ -52,33 +65,33 @@ class _CallbackResult:
 
         """
         self._value_class = value_class
-        self._ready = None
+        self._ready: bool = None  # type: ignore
         self._values = None
         self.reset()
 
-    def reset(self):
+    def reset(self) -> None:
         """Reset value, but not _value_class"""
         self._ready = False
         self._values = None
 
-    def __bool__(self):
+    def __bool__(self) -> bool:
         """Called by python runtime to implement truth value testing and the
         built-in operation bool()
         """
         return self.is_ready()
 
-    def __enter__(self):
+    def __enter__(self) -> _CallbackResult:
         """Entry into context manager that automatically resets the object
         on exit; this usage pattern helps garbage-collection by eliminating
         potential circular references.
         """
         return self
 
-    def __exit__(self, *args, **kwargs):
+    def __exit__(self, *args: Any, **kwargs: Any) -> None:
         """Reset value"""
         self.reset()
 
-    def is_ready(self):
+    def is_ready(self) -> bool:
         """
         :returns: True if the object is in a signaled state
         :rtype: bool
@@ -86,11 +99,11 @@ class _CallbackResult:
         return self._ready
 
     @property
-    def ready(self):
+    def ready(self) -> bool:
         """True if the object is in a signaled state"""
         return self._ready
 
-    def signal_once(self, *_args, **_kwargs):
+    def signal_once(self, *_args: Any, **_kwargs: Any) -> None:
         """Set as ready
 
         :raises AssertionError: if result was already signalled
@@ -98,7 +111,7 @@ class _CallbackResult:
         assert not self._ready, '_CallbackResult was already set'
         self._ready = True
 
-    def set_value_once(self, *args, **kwargs):
+    def set_value_once(self, *args: Any, **kwargs: Any) -> None:
         """Set as ready with value; the value may be retrieved via the `value`
         property getter
 
@@ -106,21 +119,21 @@ class _CallbackResult:
         """
         self.signal_once()
         try:
-            self._values = (self._value_class(*args, **kwargs),)
+            self._values = (self._value_class(*args, **kwargs),)  # type: ignore
         except Exception:
             LOGGER.error(
                 "set_value_once failed: value_class=%r; args=%r; kwargs=%r",
                 self._value_class, args, kwargs)
             raise
 
-    def append_element(self, *args, **kwargs):
+    def append_element(self, *args: Any, **kwargs: Any) -> None:
         """Append an element to values"""
         assert not self._ready or isinstance(self._values, list), (
             '_CallbackResult state is incompatible with append_element: '
             'ready=%r; values=%r' % (self._ready, self._values))
 
         try:
-            value = self._value_class(*args, **kwargs)
+            value = self._value_class(*args, **kwargs)  # type: ignore
         except Exception:
             LOGGER.error(
                 "append_element failed: value_class=%r; args=%r; kwargs=%r",
@@ -130,12 +143,12 @@ class _CallbackResult:
         if self._values is None:
             self._values = [value]
         else:
-            self._values.append(value)
+            self._values.append(value)  # type: ignore
 
         self._ready = True
 
     @property
-    def value(self):
+    def value(self) -> Any:
         """
         :returns: a reference to the value that was set via `set_value_once`
         :rtype: object
@@ -150,7 +163,7 @@ class _CallbackResult:
         return self._values[0]
 
     @property
-    def elements(self):
+    def elements(self) -> List[Any]:
         """
         :returns: a reference to the list containing one or more elements that
             were added via `append_element`
@@ -171,7 +184,7 @@ class _IoloopTimerContext:
     SelectConnection ioloop-based timer
     """
 
-    def __init__(self, duration, connection):
+    def __init__(self, duration: float, connection: select_connection.SelectConnection) -> None:
         """
         :param float duration: non-negative timer duration in seconds
         :param select_connection.SelectConnection connection:
@@ -182,19 +195,19 @@ class _IoloopTimerContext:
         self._callback_result = _CallbackResult()
         self._timer_handle = None
 
-    def __enter__(self):
+    def __enter__(self) -> _IoloopTimerContext:
         """Register a timer"""
         self._timer_handle = self._connection._adapter_call_later(
             self._duration, self._callback_result.signal_once)
         return self
 
-    def __exit__(self, *_args, **_kwargs):
+    def __exit__(self, *_args: Any, **_kwargs: Any) -> None:
         """Unregister timer if it hasn't fired yet"""
-        if not self._callback_result:
+        if not self._callback_result:  # type: ignore
             self._connection._adapter_remove_timeout(self._timer_handle)
             self._timer_handle = None
 
-    def is_ready(self):
+    def is_ready(self) -> bool:
         """
         :returns: True if timer has fired, False otherwise
         :rtype: bool
@@ -206,7 +219,7 @@ class _TimerEvt:
     """Represents a timer created via `BlockingConnection.call_later`"""
     __slots__ = ('timer_id', '_callback')
 
-    def __init__(self, callback):
+    def __init__(self, callback: Callable[..., None]):
         """
         :param callback: see callback in `BlockingConnection.call_later`
         """
@@ -214,23 +227,27 @@ class _TimerEvt:
 
         # Will be set to timer id returned from the underlying implementation's
         # `_adapter_call_later` method
-        self.timer_id = None
+        self.timer_id: Optional[object] = None
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return '<{} timer_id={} callback={}>'.format(self.__class__.__name__,
                                                  self.timer_id, self._callback)
 
-    def dispatch(self):
+    def dispatch(self) -> None:
         """Dispatch the user's callback method"""
         LOGGER.debug('_TimerEvt.dispatch: invoking callback=%r', self._callback)
         self._callback()
 
 
-class _ConnectionBlockedUnblockedEvtBase:
+class _ConnectionBlockedUnblockedEvtBase(Generic[T]):
     """Base class for `_ConnectionBlockedEvt` and `_ConnectionUnblockedEvt`"""
     __slots__ = ('_callback', '_method_frame')
 
-    def __init__(self, callback, method_frame):
+    def __init__(
+        self, 
+        callback: Callable[[pika.frame.Method[T]], None],
+        method_frame: pika.frame.Method[T]
+    ) -> None:
         """
         :param callback: see callback parameter in
           `BlockingConnection.add_on_connection_blocked_callback` and
@@ -241,11 +258,11 @@ class _ConnectionBlockedUnblockedEvtBase:
         self._callback = callback
         self._method_frame = method_frame
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return '<{} callback={}, frame={}>'.format(
             self.__class__.__name__, self._callback, self._method_frame)
 
-    def dispatch(self):
+    def dispatch(self) -> None:
         """Dispatch the user's callback method"""
         self._callback(self._method_frame)
 
@@ -316,7 +333,11 @@ class BlockingConnection:
     _OnChannelOpenedArgs = namedtuple('BlockingConnection__OnChannelOpenedArgs',
                                       'channel')
 
-    def __init__(self, parameters=None, _impl_class=None):
+    def __init__(
+        self, 
+        parameters: Optional[Union[pika.connection.Parameters, Sequence[pika.connection.Parameters]]] = None, 
+        _impl_class: Optional[select_connection.SelectConnection] = None
+    ) -> None:
         """Create a new instance of the Connection object.
 
         :param None | pika.connection.Parameters | sequence parameters:
@@ -353,23 +374,23 @@ class BlockingConnection:
         self._closed_result = _CallbackResult(self._OnClosedArgs)
 
         # Perform connection workflow
-        self._impl = None  # so that attribute is created in case below raises
+        self._impl: select_connection.SelectConnection = None  # so that attribute is created in case below raises  # type: ignore
         self._impl = self._create_connection(parameters, _impl_class)
         self._impl.add_on_close_callback(self._closed_result.set_value_once)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return '<{} impl={!r}>'.format(self.__class__.__name__, self._impl)
 
-    def __enter__(self):
+    def __enter__(self) -> BlockingConnection:
         # Prepare `with` context
         return self
 
-    def __exit__(self, exc_type, value, traceback):
+    def __exit__(self, exc_type: Exception, value: TracebackException, traceback: TracebackType) -> None:
         # Close connection after `with` context
         if self.is_open:
             self.close()
 
-    def _cleanup(self):
+    def _cleanup(self) -> None:
         """Clean up members that might inhibit garbage collection
 
         """
@@ -380,7 +401,7 @@ class BlockingConnection:
             self._closed_result.reset()
 
     @contextlib.contextmanager
-    def _acquire_event_dispatch(self):
+    def _acquire_event_dispatch(self) -> Generator[bool, Any, None]:
         """ Context manager that controls access to event dispatcher for
         preventing reentrancy.
 
@@ -397,7 +418,11 @@ class BlockingConnection:
             # __exit__ part
             self._event_dispatch_suspend_depth -= 1
 
-    def _create_connection(self, configs, impl_class):
+    def _create_connection(
+        self, 
+        configs: Optional[Union[pika.connection.Parameters, Sequence[pika.connection.Parameters]]] = None, 
+        impl_class: Optional[select_connection.SelectConnection] = None
+    ) -> select_connection.SelectConnection:
         """Run connection workflow, blocking until it completes.
 
         :param None | pika.connection.Parameters | sequence configs: Connection
@@ -427,13 +452,13 @@ class BlockingConnection:
             namedtuple('BlockingConnection_OnConnectionWorkflowDoneArgs',
                        'result'))
 
-        impl_class = impl_class or select_connection.SelectConnection
+        impl_class = impl_class or select_connection.SelectConnection  # type: ignore
 
         ioloop = select_connection.IOLoop()
 
         ioloop.activate_poller()
         try:
-            impl_class.create_connection(
+            impl_class.create_connection(  # type: ignore
                 configs,
                 on_done=on_cw_done_result.set_value_once,
                 custom_ioloop=ioloop)
@@ -457,7 +482,7 @@ class BlockingConnection:
             raise
 
     @staticmethod
-    def _reap_last_connection_workflow_error(error):
+    def _reap_last_connection_workflow_error(error: BaseException) -> BaseException:
         """Extract exception value from the last connection attempt
 
         :param Exception error: error passed by the `AMQPConnectionWorkflow`
@@ -478,7 +503,7 @@ class BlockingConnection:
 
         return error
 
-    def _flush_output(self, *waiters):
+    def _flush_output(self, *waiters: Callable[[], bool]) -> None:
         """ Flush output and process input while waiting for any of the given
         callbacks to return true. The wait is aborted upon connection-close.
         Otherwise, processing continues until the output is flushed AND at least
@@ -502,8 +527,8 @@ class BlockingConnection:
         #   empty outbound buffer and any waiter is ready
         is_done = (lambda:
                    self._closed_result.ready or
-                   ((not self._impl._transport or
-                     self._impl._get_write_buffer_size() == 0) and
+                   ((not self._impl._transport or  
+                     self._impl._get_write_buffer_size() == 0) and 
                     (not waiters or any(ready() for ready in waiters))))
 
         # Process I/O until our completion condition is satisfied
@@ -524,7 +549,7 @@ class BlockingConnection:
             finally:
                 self._cleanup()
 
-    def _request_channel_dispatch(self, channel_number):
+    def _request_channel_dispatch(self, channel_number: int) -> None:
         """Called by BlockingChannel instances to request a call to their
         _dispatch_events method or to terminate `process_data_events`;
         BlockingConnection will honor these requests from a safe context.
@@ -535,7 +560,7 @@ class BlockingConnection:
         """
         self._channels_pending_dispatch.add(channel_number)
 
-    def _dispatch_channel_events(self):
+    def _dispatch_channel_events(self) -> None:
         """Invoke the `_dispatch_events` method on open channels that requested
         it
         """
@@ -561,9 +586,9 @@ class BlockingConnection:
                     continue
 
                 if impl_channel.is_open:
-                    impl_channel._get_cookie()._dispatch_events()
+                    impl_channel._get_cookie()._dispatch_events()  # type: ignore
 
-    def _on_timer_ready(self, evt):
+    def _on_timer_ready(self, evt: _TimerEvt) -> None:
         """Handle expiry of a timer that was registered via
         `_adapter_call_later()`
 
@@ -572,7 +597,7 @@ class BlockingConnection:
         """
         self._ready_events.append(evt)
 
-    def _on_threadsafe_callback(self, user_callback):
+    def _on_threadsafe_callback(self, user_callback: Callable[[], None]) -> None:
         """Handle callback that was registered via
         `self._impl._adapter_add_callback_threadsafe`.
 
@@ -584,7 +609,12 @@ class BlockingConnection:
         # that deals with reentrancy
         self.call_later(0, user_callback)
 
-    def _on_connection_blocked(self, user_callback, _impl, method_frame):
+    def _on_connection_blocked(
+        self, 
+        user_callback: Callable[[pika.frame.Method[pika.spec.Connection.Blocked]], None], 
+        _impl: select_connection.SelectConnection,
+        method_frame: pika.frame.Method[pika.spec.Connection.Blocked]
+    ) -> None:
         """Handle Connection.Blocked notification from RabbitMQ broker
 
         :param callable user_callback: callback passed to
@@ -596,7 +626,11 @@ class BlockingConnection:
         self._ready_events.append(
             _ConnectionBlockedEvt(user_callback, method_frame))
 
-    def _on_connection_unblocked(self, user_callback, _impl, method_frame):
+    def _on_connection_unblocked(self, 
+        user_callback: Callable[[pika.frame.Method[pika.spec.Connection.Unblocked]], None], 
+        _impl: select_connection.SelectConnection,
+        method_frame: pika.frame.Method[pika.spec.Connection.Unblocked]
+    ) -> None:
         """Handle Connection.Unblocked notification from RabbitMQ broker
 
         :param callable user_callback: callback passed to
@@ -608,7 +642,7 @@ class BlockingConnection:
         self._ready_events.append(
             _ConnectionUnblockedEvt(user_callback, method_frame))
 
-    def _dispatch_connection_events(self):
+    def _dispatch_connection_events(self) -> None:
         """Dispatch ready connection events"""
         if not self._ready_events:
             return
@@ -629,7 +663,10 @@ class BlockingConnection:
 
                 evt.dispatch()
 
-    def add_on_connection_blocked_callback(self, callback):
+    def add_on_connection_blocked_callback(
+        self, 
+        callback: Callable[[pika.connection.Connection, pika.frame.Method[pika.spec.Connection.Blocked]], None]
+    ) -> None:
         """RabbitMQ AMQP extension - Add a callback to be notified when the
         connection gets blocked (`Connection.Blocked` received from RabbitMQ)
         due to the broker running low on resources (memory or disk). In this
@@ -657,9 +694,12 @@ class BlockingConnection:
         """
         self._impl.add_on_connection_blocked_callback(
             functools.partial(self._on_connection_blocked,
-                              functools.partial(callback, self)))
+                              functools.partial(callback, self)))  # type: ignore
 
-    def add_on_connection_unblocked_callback(self, callback):
+    def add_on_connection_unblocked_callback(
+        self, 
+        callback: Callable[[pika.connection.Connection, pika.frame.Method[pika.spec.Connection.Unblocked]], None]
+    ) -> None:
         """RabbitMQ AMQP extension - Add a callback to be notified when the
         connection gets unblocked (`Connection.Unblocked` frame is received from
         RabbitMQ) letting publishers know it's ok to start publishing again.
@@ -672,9 +712,9 @@ class BlockingConnection:
         """
         self._impl.add_on_connection_unblocked_callback(
             functools.partial(self._on_connection_unblocked,
-                              functools.partial(callback, self)))
+                              functools.partial(callback, self)))  # type: ignore
 
-    def call_later(self, delay, callback):
+    def call_later(self, delay: float, callback: Callable[[], None]) -> int:
         """Create a single-shot timer to fire after delay seconds. Do not
         confuse with Tornado's timeout where you pass in the time you want to
         have your callback called. Only pass in the seconds until it's to be
@@ -699,9 +739,9 @@ class BlockingConnection:
             delay, functools.partial(self._on_timer_ready, evt))
         evt.timer_id = timer_id
 
-        return timer_id
+        return timer_id  # type: ignore
 
-    def add_callback_threadsafe(self, callback):
+    def add_callback_threadsafe(self, callback: Callable[..., None]) -> None:
         """Requests a call to the given function as soon as possible in the
         context of this connection's thread.
 
@@ -743,7 +783,7 @@ class BlockingConnection:
             self._impl._adapter_add_callback_threadsafe(
                 functools.partial(self._on_threadsafe_callback, callback))
 
-    def remove_timeout(self, timeout_id):
+    def remove_timeout(self, timeout_id: int) -> None:
         """Remove a timer if it's still in the timeout stack
 
         :param timeout_id: The opaque timer id to remove
@@ -763,7 +803,7 @@ class BlockingConnection:
 
         del self._ready_events[index_to_remove]
 
-    def update_secret(self, new_secret, reason):
+    def update_secret(self, new_secret: str, reason: str) -> None:
         """RabbitMQ AMQP extension - This method updates the secret used to authenticate this connection. 
         It is used when secrets have an expiration date and need to be renewed, like OAuth 2 tokens.
 
@@ -778,7 +818,7 @@ class BlockingConnection:
         self._impl.update_secret(new_secret, reason, result.signal_once)
         self._flush_output(result.is_ready)
 
-    def close(self, reply_code=200, reply_text='Normal shutdown'):
+    def close(self, reply_code: int = 200, reply_text: str = 'Normal shutdown') -> None:
         """Disconnect from RabbitMQ. If there are any open channels, it will
         attempt to close them prior to fully disconnecting. Channels which
         have active consumers will attempt to send a Basic.Cancel to RabbitMQ
@@ -815,7 +855,7 @@ class BlockingConnection:
 
         self._flush_output(self._closed_result.is_ready)
 
-    def process_data_events(self, time_limit=0):
+    def process_data_events(self, time_limit: Optional[float] = 0) -> None:
         """Will make sure that data events are processed. Dispatches timer and
         channel callbacks if not called from the scope of BlockingConnection or
         BlockingChannel callback. Your app can block on this method. If your
@@ -847,7 +887,7 @@ class BlockingConnection:
         if self._channels_pending_dispatch:
             self._dispatch_channel_events()
 
-    def sleep(self, duration):
+    def sleep(self, duration: float) -> None:
         """A safer way to sleep than calling time.sleep() directly that would
         keep the adapter from ignoring frames sent from the broker. The
         connection will "sleep" or block the number of seconds specified in
@@ -867,7 +907,7 @@ class BlockingConnection:
             if time_limit <= 0:
                 break
 
-    def channel(self, channel_number=None):
+    def channel(self, channel_number: Optional[int] = None) -> BlockingChannel:
         """Create a new channel with the next available channel number or pass
         in a channel number to use. Must be non-zero if you would like to
         specify but it is recommended that you let Pika manage the channel
@@ -896,14 +936,14 @@ class BlockingConnection:
     #
 
     @property
-    def is_closed(self):
+    def is_closed(self) -> bool:
         """
         Returns a boolean reporting the current connection state.
         """
         return self._impl.is_closed
 
     @property
-    def is_open(self):
+    def is_open(self) -> bool:
         """
         Returns a boolean reporting the current connection state.
         """
@@ -914,7 +954,7 @@ class BlockingConnection:
     #
 
     @property
-    def basic_nack_supported(self):
+    def basic_nack_supported(self) -> bool:
         """Specifies if the server supports basic.nack on the active connection.
 
         :rtype: bool
@@ -923,7 +963,7 @@ class BlockingConnection:
         return self._impl.basic_nack
 
     @property
-    def consumer_cancel_notify_supported(self):
+    def consumer_cancel_notify_supported(self) -> bool:
         """Specifies if the server supports consumer cancel notification on the
         active connection.
 
@@ -933,7 +973,7 @@ class BlockingConnection:
         return self._impl.consumer_cancel_notify
 
     @property
-    def exchange_exchange_bindings_supported(self):
+    def exchange_exchange_bindings_supported(self) -> bool:
         """Specifies if the active connection supports exchange to exchange
         bindings.
 
@@ -943,7 +983,7 @@ class BlockingConnection:
         return self._impl.exchange_exchange_bindings
 
     @property
-    def publisher_confirms_supported(self):
+    def publisher_confirms_supported(self) -> bool:
         """Specifies if the active connection can use publisher confirmations.
 
         :rtype: bool
@@ -969,7 +1009,7 @@ class _ConsumerDeliveryEvt(_ChannelPendingEvt):
 
     __slots__ = ('method', 'properties', 'body')
 
-    def __init__(self, method, properties, body):
+    def __init__(self, method: pika.spec.Basic.Deliver, properties: pika.spec.BasicProperties, body: bytes) -> None:
         """
         :param spec.Basic.Deliver method: NOTE: consumer_tag and delivery_tag
           are valid only within source channel
@@ -990,14 +1030,14 @@ class _ConsumerCancellationEvt(_ChannelPendingEvt):
 
     __slots__ = ('method_frame',)
 
-    def __init__(self, method_frame):
+    def __init__(self, method_frame: pika.frame.Method[pika.spec.Basic.Cancel]) -> None:
         """
         :param pika.frame.Method method_frame: method frame with method of type
             `spec.Basic.Cancel`
         """
         self.method_frame = method_frame
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return '<{} method_frame={!r}>'.format(self.__class__.__name__,
                                          self.method_frame)
 
@@ -1012,7 +1052,14 @@ class _ReturnedMessageEvt(_ChannelPendingEvt):
 
     __slots__ = ('callback', 'channel', 'method', 'properties', 'body')
 
-    def __init__(self, callback, channel, method, properties, body):
+    def __init__(
+        self, 
+        callback: Callable[[BlockingChannel, pika.spec.Basic.Return, pika.spec.BasicProperties, bytes], None], 
+        channel: BlockingChannel,
+        method: pika.spec.Basic.Return, 
+        properties: pika.spec.BasicProperties, 
+        body: bytes
+    ) -> None:
         """
         :param callable callback: user's callback, having the signature
             callback(channel, method, properties, body), where
@@ -1031,13 +1078,13 @@ class _ReturnedMessageEvt(_ChannelPendingEvt):
         self.properties = properties
         self.body = body
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return ('<%s callback=%r channel=%r method=%r properties=%r '
                 'body=%.300r>') % (self.__class__.__name__, self.callback,
                                    self.channel, self.method, self.properties,
                                    self.body)
 
-    def dispatch(self):
+    def dispatch(self) -> None:
         """Dispatch user's callback"""
         self.callback(self.channel, self.method, self.properties, self.body)
 
@@ -1049,7 +1096,7 @@ class ReturnedMessage:
 
     __slots__ = ('method', 'properties', 'body')
 
-    def __init__(self, method, properties, body):
+    def __init__(self, method: pika.spec.Basic.Return, properties: pika.spec.BasicProperties, body: bytes) -> None:
         """
         :param spec.Basic.Return method:
         :param spec.BasicProperties properties: message properties
@@ -1072,11 +1119,13 @@ class _ConsumerInfo:
     TEARING_DOWN = 3
     CANCELLED_BY_BROKER = 4
 
-    def __init__(self,
-                 consumer_tag,
-                 auto_ack,
-                 on_message_callback=None,
-                 alternate_event_sink=None):
+    def __init__(
+        self,
+        consumer_tag: str,
+        auto_ack: bool,
+        on_message_callback: Optional[Callable[[BlockingChannel, pika.spec.Basic.Deliver, pika.spec.BasicProperties, bytes], None]] = None,
+        alternate_event_sink: Optional[Callable[[_ChannelPendingEvt], None]] = None
+    ):
         """
         NOTE: exactly one of callback/alternate_event_sink musts be non-None.
 
@@ -1106,22 +1155,22 @@ class _ConsumerInfo:
         self.state = self.SETTING_UP
 
     @property
-    def setting_up(self):
+    def setting_up(self) -> bool:
         """True if in SETTING_UP state"""
         return self.state == self.SETTING_UP
 
     @property
-    def active(self):
+    def active(self) -> bool:
         """True if in ACTIVE state"""
         return self.state == self.ACTIVE
 
     @property
-    def tearing_down(self):
+    def tearing_down(self) -> bool:
         """True if in TEARING_DOWN state"""
         return self.state == self.TEARING_DOWN
 
     @property
-    def cancelled_by_broker(self):
+    def cancelled_by_broker(self) -> bool:
         """True if in CANCELLED_BY_BROKER state"""
         return self.state == self.CANCELLED_BY_BROKER
 
@@ -1130,7 +1179,7 @@ class _QueueConsumerGeneratorInfo:
     """Container for information about the active queue consumer generator """
     __slots__ = ('params', 'consumer_tag', 'pending_events')
 
-    def __init__(self, params, consumer_tag):
+    def __init__(self, params: Tuple[str, bool, bool], consumer_tag: str) -> None:
         """
         :params tuple params: a three-tuple (queue, auto_ack, exclusive) that were
            used to create the queue consumer
@@ -1144,7 +1193,7 @@ class _QueueConsumerGeneratorInfo:
         # _ConsumerCancellationEvt
         self.pending_events = deque()
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return '<{} params={!r} consumer_tag={!r}>'.format(
             self.__class__.__name__, self.params, self.consumer_tag)
 
@@ -1198,7 +1247,7 @@ class BlockingChannel:
 
     _CONSUMER_CANCELLED_CB_KEY = 'blocking_channel_consumer_cancelled'
 
-    def __init__(self, channel_impl, connection):
+    def __init__(self, channel_impl: pika.channel.Channel, connection: BlockingConnection):
         """Create a new instance of the Channel
 
         :param pika.channel.Channel channel_impl: Channel implementation object
@@ -1214,7 +1263,7 @@ class BlockingChannel:
 
         # Queue consumer generator generator info of type
         # _QueueConsumerGeneratorInfo created by BlockingChannel.consume
-        self._queue_consumer_generator = None
+        self._queue_consumer_generator: Optional[_QueueConsumerGeneratorInfo] = None
 
         # Whether RabbitMQ delivery confirmation has been enabled
         self._delivery_confirmation = False
@@ -1260,7 +1309,7 @@ class BlockingChannel:
 
         LOGGER.info("Created channel=%s", self.channel_number)
 
-    def __int__(self):
+    def __int__(self) -> int:
         """Return the channel object as its channel number
 
         NOTE: inherited from legacy BlockingConnection; might be error-prone;
@@ -1271,35 +1320,35 @@ class BlockingChannel:
         """
         return self.channel_number
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return '<{} impl={!r}>'.format(self.__class__.__name__, self._impl)
 
-    def __enter__(self):
+    def __enter__(self) -> BlockingChannel:
         return self
 
-    def __exit__(self, exc_type, value, traceback):
+    def __exit__(self, exc_type: Exception, value: TracebackException, traceback: TracebackType) -> None:
         if self.is_open:
             self.close()
 
-    def _cleanup(self):
+    def _cleanup(self) -> None:
         """Clean up members that might inhibit garbage collection"""
         self._message_confirmation_result.reset()
         self._pending_events = deque()
         self._consumer_infos = dict()
-        self._queue_consumer_generator = None
+        self._queue_consumer_generator = None  # type: ignore
 
     @property
-    def channel_number(self):
+    def channel_number(self) -> int:
         """Channel number"""
         return self._impl.channel_number
 
     @property
-    def connection(self):
+    def connection(self) -> BlockingConnection:
         """The channel's BlockingConnection instance"""
         return self._connection
 
     @property
-    def is_closed(self):
+    def is_closed(self) -> bool:
         """Returns True if the channel is closed.
 
         :rtype: bool
@@ -1308,7 +1357,7 @@ class BlockingChannel:
         return self._impl.is_closed
 
     @property
-    def is_open(self):
+    def is_open(self) -> bool:
         """Returns True if the channel is open.
 
         :rtype: bool
@@ -1317,7 +1366,7 @@ class BlockingChannel:
         return self._impl.is_open
 
     @property
-    def consumer_tags(self):
+    def consumer_tags(self) -> List[str]:
         """Property method that returns a list of consumer tags for active
         consumers
 
@@ -1328,7 +1377,7 @@ class BlockingChannel:
 
     _ALWAYS_READY_WAITERS = ((lambda: True),)
 
-    def _flush_output(self, *waiters):
+    def _flush_output(self, *waiters: Callable[[], bool]):
         """ Flush output and process input while waiting for any of the given
         callbacks to return true. The wait is aborted upon channel-close or
         connection-close.
@@ -1353,7 +1402,13 @@ class BlockingChannel:
                                          exceptions.ChannelClosedByBroker):
             raise self._closing_reason  # pylint: disable=E0702
 
-    def _on_puback_message_returned(self, channel, method, properties, body):
+    def _on_puback_message_returned(
+        self, 
+        channel: pika.channel.Channel, 
+        method: pika.spec.Basic.Return, 
+        properties: pika.spec.BasicProperties, 
+        body: bytes
+    ) -> None:
         """Called as the result of Basic.Return from broker in
         publisher-acknowledgements mode. Saves the info as a ReturnedMessage
         instance in self._puback_return.
@@ -1378,7 +1433,7 @@ class BlockingChannel:
 
         self._puback_return = ReturnedMessage(method, properties, body)
 
-    def _add_pending_event(self, evt):
+    def _add_pending_event(self, evt: _ChannelPendingEvt):
         """Append an event to the channel's list of events that are ready for
         dispatch to user and signal our connection that this channel is ready
         for event dispatch
@@ -1388,7 +1443,7 @@ class BlockingChannel:
         self._pending_events.append(evt)
         self.connection._request_channel_dispatch(self.channel_number)
 
-    def _on_channel_closed(self, _channel, reason):
+    def _on_channel_closed(self, _channel: pika.channel.Channel, reason: Exception) -> None:
         """Callback from impl notifying us that the channel has been closed.
         This may be as the result of user-, broker-, or internal connection
         clean-up initiated closing or meta-closing of the channel.
@@ -1422,7 +1477,10 @@ class BlockingChannel:
             # it's executing or next time it will execute
             self.connection._request_channel_dispatch(-self.channel_number)
 
-    def _on_consumer_cancelled_by_broker(self, method_frame):
+    def _on_consumer_cancelled_by_broker(
+        self, 
+        method_frame: pika.frame.Method[pika.spec.Basic.Cancel]
+    ) -> None:
         """Called by impl when broker cancels consumer via Basic.Cancel.
 
         This is a RabbitMQ-specific feature. The circumstances include deletion
@@ -1446,7 +1504,13 @@ class BlockingChannel:
         else:
             self._add_pending_event(evt)
 
-    def _on_consumer_message_delivery(self, _channel, method, properties, body):
+    def _on_consumer_message_delivery(
+        self, 
+        _channel: pika.channel.Channel, 
+        method: pika.spec.Basic.Deliver, 
+        properties: pika.spec.BasicProperties, 
+        body: bytes
+    ):
         """Called by impl when a message is delivered for a consumer
 
         :param Channel channel: The implementation channel object
@@ -1463,19 +1527,19 @@ class BlockingChannel:
         else:
             self._add_pending_event(evt)
 
-    def _on_consumer_generator_event(self, evt):
+    def _on_consumer_generator_event(self, evt: _ChannelPendingEvt) -> None:
         """Sink for the queue consumer generator's consumer events; append the
         event to queue consumer generator's pending events buffer.
 
         :param evt: an object of type _ConsumerDeliveryEvt or
           _ConsumerCancellationEvt
         """
-        self._queue_consumer_generator.pending_events.append(evt)
+        self._queue_consumer_generator.pending_events.append(evt)  # type: ignore
         # Schedule termination of connection.process_data_events using a
         # negative channel number
         self.connection._request_channel_dispatch(-self.channel_number)
 
-    def _cancel_all_consumers(self):
+    def _cancel_all_consumers(self) -> None:
         """Cancel all consumers.
 
         NOTE: pending non-ackable messages will be lost; pending ackable
@@ -1493,7 +1557,7 @@ class BlockingChannel:
             for consumer_tag in compat.dictkeys(self._consumer_infos):
                 self.basic_cancel(consumer_tag)
 
-    def _dispatch_events(self):
+    def _dispatch_events(self) -> None:
         """Called by BlockingConnection to dispatch pending events.
 
         `BlockingChannel` schedules this callback via
@@ -1516,7 +1580,7 @@ class BlockingChannel:
             else:
                 evt.dispatch()
 
-    def close(self, reply_code=0, reply_text="Normal shutdown"):
+    def close(self, reply_code: int = 0, reply_text: str = "Normal shutdown") -> None:
         """Will invoke a clean shutdown of the channel with the AMQP Broker.
 
         :param int reply_code: The reply code to close the channel with
@@ -1537,7 +1601,7 @@ class BlockingChannel:
         finally:
             self._cleanup()
 
-    def flow(self, active):
+    def flow(self, active: bool) -> bool:
         """Turn Channel flow control off and on.
 
         NOTE: RabbitMQ doesn't support active=False; per
@@ -1560,7 +1624,9 @@ class BlockingChannel:
             self._flush_output(flow_ok_result.is_ready)
             return flow_ok_result.value.active
 
-    def add_on_cancel_callback(self, callback):
+    def add_on_cancel_callback(
+        self, callback: Callable[[pika.frame.Method[pika.spec.Basic.Cancel]], None]
+    ) -> None:
         """Pass a callback function that will be called when Basic.Cancel
         is sent by the broker. The callback function should receive a method
         frame parameter.
@@ -1577,7 +1643,10 @@ class BlockingChannel:
             callback,
             one_shot=False)
 
-    def add_on_return_callback(self, callback):
+    def add_on_return_callback(
+        self, 
+        callback: Callable[[BlockingChannel, pika.spec.Basic.Return, pika.spec.BasicProperties, bytes], None]
+    ) -> None:
         """Pass a callback function that will be called when a published
         message is rejected and returned by the server via `Basic.Return`.
 
@@ -1595,13 +1664,15 @@ class BlockingChannel:
                     _ReturnedMessageEvt(
                         callback, self, method, properties, body))))
 
-    def basic_consume(self,
-                      queue,
-                      on_message_callback,
-                      auto_ack=False,
-                      exclusive=False,
-                      consumer_tag=None,
-                      arguments=None):
+    def basic_consume(
+        self,
+        queue: str,
+        on_message_callback: Callable[[BlockingChannel, pika.spec.Basic.Deliver, pika.spec.BasicProperties, bytes], None],
+        auto_ack: bool = False,
+        exclusive: bool = False,
+        consumer_tag: Optional[str] = None,
+        arguments: Optional[Dict[str, Any]] = None
+    ):
         """Sends the AMQP command Basic.Consume to the broker and binds messages
         for the consumer_tag to the consumer callback. If you do not pass in
         a consumer_tag, one will be automatically generated for you. Returns
@@ -1647,14 +1718,16 @@ class BlockingChannel:
             consumer_tag=consumer_tag,
             arguments=arguments)
 
-    def _basic_consume_impl(self,
-                            queue,
-                            auto_ack,
-                            exclusive,
-                            consumer_tag,
-                            arguments=None,
-                            on_message_callback=None,
-                            alternate_event_sink=None):
+    def _basic_consume_impl(
+        self,
+        queue: str,
+        auto_ack: bool,
+        exclusive: bool,
+        consumer_tag: Optional[str],
+        arguments:Optional[Dict[str, Any]] = None,
+        on_message_callback: Optional[Callable[[BlockingChannel, pika.spec.Basic.Deliver, pika.spec.BasicProperties, bytes], None]] = None,
+        alternate_event_sink: Optional[Callable[[_ChannelPendingEvt], None]] = None
+    ):
         """The low-level implementation used by `basic_consume` and `consume`.
         See `basic_consume` docstring for more info.
 
@@ -1725,7 +1798,9 @@ class BlockingChannel:
 
         return consumer_tag
 
-    def basic_cancel(self, consumer_tag):
+    def basic_cancel(
+        self, consumer_tag: str
+    ) -> Sequence[Tuple[pika.spec.Basic.Deliver, pika.spec.BasicProperties, bytes]]:
         """This method cancels a consumer. This does not affect already
         delivered messages, but it does mean the server will not send any more
         messages for that consumer. The client may receive an arbitrary number
@@ -1745,9 +1820,8 @@ class BlockingChannel:
             consumer; for a auto_ack=True consumer, returns a (possibly empty)
             sequence of pending messages that arrived before broker confirmed
             the cancellation (this is done instead of via consumer's callback in
-            order to prevent reentrancy/recursion. Each message is four-tuple:
-            (channel, method, properties, body)
-            - channel: BlockingChannel
+            order to prevent reentrancy/recursion. Each message is three-tuple:
+            (method, properties, body)
             - method: spec.Basic.Deliver
             - properties: spec.BasicProperties
             - body: bytes
@@ -1788,7 +1862,7 @@ class BlockingChannel:
                         # to avoid nacking messages already held by our client.
                         for message in pending_messages:
                             self._impl.basic_reject(
-                                message.method.delivery_tag, requeue=True)
+                                message.method.delivery_tag, requeue=True)  # type: ignore
 
                 # Cancel the consumer; impl takes care of rejecting any
                 # additional deliveries that arrive for a auto_ack=False
@@ -1823,7 +1897,7 @@ class BlockingChannel:
                 # negative channel number
                 self.connection._request_channel_dispatch(-self.channel_number)
 
-    def _remove_pending_deliveries(self, consumer_tag):
+    def _remove_pending_deliveries(self, consumer_tag: str) -> Sequence[_ConsumerDeliveryEvt]:
         """Extract _ConsumerDeliveryEvt objects destined for the given consumer
         from pending events, discarding the _ConsumerCancellationEvt, if any
 
@@ -1853,7 +1927,7 @@ class BlockingChannel:
 
         return unprocessed_messages
 
-    def start_consuming(self):
+    def start_consuming(self) -> None:
         """Processes I/O events and dispatches timers and `basic_consume`
         callbacks until all consumers are cancelled.
 
@@ -1879,7 +1953,7 @@ class BlockingChannel:
             # This will raise ChannelClosed if channel is closed by broker
             self._process_data_events(time_limit=None)
 
-    def stop_consuming(self, consumer_tag=None):
+    def stop_consuming(self, consumer_tag: Optional[str] = None) -> None:
         """ Cancels all consumers, signalling the `start_consuming` loop to
         exit.
 
@@ -1892,12 +1966,14 @@ class BlockingChannel:
         else:
             self._cancel_all_consumers()
 
-    def consume(self,
-                queue,
-                auto_ack=False,
-                exclusive=False,
-                arguments=None,
-                inactivity_timeout=None):
+    def consume(
+        self,
+        queue: str,
+        auto_ack: bool = False,
+        exclusive: bool = False,
+        arguments: Optional[Dict[str, Any]] = None,
+        inactivity_timeout: Optional[float] = None
+    ) -> Generator[Tuple[Optional[pika.spec.Basic.Deliver], Optional[pika.spec.BasicProperties], Optional[bytes]], None, None]:
         """Blocking consumption of a queue instead of via a callback. This
         method is a generator that yields each message as a tuple of method,
         properties, and body. The active generator iterator terminates when the
@@ -2019,7 +2095,7 @@ class BlockingChannel:
                     yield (None, None, None)
                     break
 
-    def _process_data_events(self, time_limit):
+    def _process_data_events(self, time_limit: Optional[float]) -> None:
         """Wrapper for `BlockingConnection.process_data_events()` with common
         channel-specific logic that raises ChannelClosed if broker closed this
         channel.
@@ -2045,7 +2121,7 @@ class BlockingChannel:
                          self._closing_reason, self)
             raise self._closing_reason  # pylint: disable=E0702
 
-    def get_waiting_message_count(self):
+    def get_waiting_message_count(self) -> int:
         """Returns the number of messages that may be retrieved from the current
         queue consumer generator via `BlockingChannel.consume` without blocking.
         NEW in pika 0.10.0
@@ -2063,7 +2139,7 @@ class BlockingChannel:
 
         return count
 
-    def cancel(self):
+    def cancel(self) -> int:
         """Cancel the queue consumer created by `BlockingChannel.consume`,
         rejecting all pending ackable messages.
 
@@ -2106,7 +2182,7 @@ class BlockingChannel:
         # never know how many of those were nacked.
         return 0
 
-    def basic_ack(self, delivery_tag=0, multiple=False):
+    def basic_ack(self, delivery_tag: int = 0, multiple: bool = False) -> None:
         """Acknowledge one or more messages. When sent by the client, this
         method acknowledges one or more messages delivered via the Deliver or
         Get-Ok methods. When sent by server, this method acknowledges one or
@@ -2126,7 +2202,7 @@ class BlockingChannel:
         self._impl.basic_ack(delivery_tag=delivery_tag, multiple=multiple)
         self._flush_output()
 
-    def basic_nack(self, delivery_tag=0, multiple=False, requeue=True):
+    def basic_nack(self, delivery_tag: int = 0, multiple: bool = False, requeue: bool = True) -> None:
         """This method allows a client to reject one or more incoming messages.
         It can be used to interrupt and cancel large incoming messages, or
         return untreatable messages to their original queue.
@@ -2149,7 +2225,9 @@ class BlockingChannel:
             delivery_tag=delivery_tag, multiple=multiple, requeue=requeue)
         self._flush_output()
 
-    def basic_get(self, queue, auto_ack=False):
+    def basic_get(
+        self, queue: str, auto_ack: bool = False
+    ) -> Tuple[Optional[pika.spec.Basic.GetOk], Optional[pika.spec.BasicProperties], Optional[bytes]]:
         """Get a single message from the AMQP broker. Returns a sequence with
         the method frame, message properties, and body.
 
@@ -2180,12 +2258,14 @@ class BlockingChannel:
                         "wait completed without GetOk and GetEmpty")
                     return None, None, None
 
-    def basic_publish(self,
-                      exchange,
-                      routing_key,
-                      body,
-                      properties=None,
-                      mandatory=False):
+    def basic_publish(
+        self,
+        exchange: str,
+        routing_key: str,
+        body: bytes,
+        properties: Optional[pika.spec.BasicProperties] = None,
+        mandatory: bool = False
+    ) -> None:
         """Publish to the channel with the given exchange, routing key, and
         body.
 
@@ -2261,7 +2341,12 @@ class BlockingChannel:
                 mandatory=mandatory)
             self._flush_output()
 
-    def basic_qos(self, prefetch_size=0, prefetch_count=0, global_qos=False):
+    def basic_qos(
+        self, 
+        prefetch_size: int = 0, 
+        prefetch_count: int = 0, 
+        global_qos: bool = False
+    ) -> None:
         """Specify quality of service. This method requests a specific quality
         of service. The QoS can be specified for the current channel or for all
         channels on the connection. The client can request that messages be sent
@@ -2298,7 +2383,7 @@ class BlockingChannel:
                 global_qos=global_qos)
             self._flush_output(qos_ok_result.is_ready)
 
-    def basic_recover(self, requeue=False):
+    def basic_recover(self, requeue: bool = False) -> None:
         """This method asks the server to redeliver all unacknowledged messages
         on a specified channel. Zero or more messages may be redelivered. This
         method replaces the asynchronous Recover.
@@ -2314,7 +2399,7 @@ class BlockingChannel:
                 requeue=requeue, callback=recover_ok_result.signal_once)
             self._flush_output(recover_ok_result.is_ready)
 
-    def basic_reject(self, delivery_tag=0, requeue=True):
+    def basic_reject(self, delivery_tag: int = 0, requeue: bool = True) -> None:
         """Reject an incoming message. This method allows a client to reject a
         message. It can be used to interrupt and cancel large incoming messages,
         or return untreatable messages to their original queue.
@@ -2329,7 +2414,7 @@ class BlockingChannel:
         self._impl.basic_reject(delivery_tag=delivery_tag, requeue=requeue)
         self._flush_output()
 
-    def confirm_delivery(self):
+    def confirm_delivery(self) -> None:
         """Turn on RabbitMQ-proprietary Confirm mode in the channel.
 
         For more information see:
@@ -2355,14 +2440,16 @@ class BlockingChannel:
         # of publisher acknowledgments
         self._impl.add_on_return_callback(self._on_puback_message_returned)
 
-    def exchange_declare(self,
-                         exchange,
-                         exchange_type=ExchangeType.direct,
-                         passive=False,
-                         durable=False,
-                         auto_delete=False,
-                         internal=False,
-                         arguments=None):
+    def exchange_declare(
+        self,
+        exchange: str,
+        exchange_type: Union[ExchangeType, str] = ExchangeType.direct,
+        passive: bool = False,
+        durable: bool = False,
+        auto_delete: bool = False,
+        internal: bool = False,
+        arguments: Optional[Dict[str, Any]]=None
+    ) -> None:
         """This method creates an exchange if it does not already exist, and if
         the exchange exists, verifies that it is of the correct and expected
         class.
@@ -2402,7 +2489,11 @@ class BlockingChannel:
             self._flush_output(declare_ok_result.is_ready)
             return declare_ok_result.value.method_frame
 
-    def exchange_delete(self, exchange=None, if_unused=False):
+    def exchange_delete(
+        self, 
+        exchange: Optional[str] = None, 
+        if_unused: bool = False
+    ) -> pika.frame.Method[pika.spec.Exchange.DeleteOk]:
         """Delete the exchange.
 
         :param str exchange: The exchange name
@@ -2422,8 +2513,13 @@ class BlockingChannel:
             self._flush_output(delete_ok_result.is_ready)
             return delete_ok_result.value.method_frame
 
-    def exchange_bind(self, destination, source, routing_key='',
-                      arguments=None):
+    def exchange_bind(
+        self, 
+        destination: str,
+        source: str, 
+        routing_key: str ='',
+        arguments: Optional[Dict[str, Any]] = None
+    ) -> pika.frame.Method[pika.spec.Exchange.BindOk]:
         """Bind an exchange to another exchange.
 
         :param str destination: The destination exchange to bind
@@ -2449,11 +2545,13 @@ class BlockingChannel:
             self._flush_output(bind_ok_result.is_ready)
             return bind_ok_result.value.method_frame
 
-    def exchange_unbind(self,
-                        destination=None,
-                        source=None,
-                        routing_key='',
-                        arguments=None):
+    def exchange_unbind(
+        self,
+        destination: Optional[str] = None,
+        source: Optional[str] = None,
+        routing_key: str = '',
+        arguments: Optional[Dict[str, Any]] = None
+    ) -> pika.frame.Method[pika.spec.Exchange.UnbindOk]:
         """Unbind an exchange from another exchange.
 
         :param str destination: The destination exchange to unbind
@@ -2477,13 +2575,15 @@ class BlockingChannel:
             self._flush_output(unbind_ok_result.is_ready)
             return unbind_ok_result.value.method_frame
 
-    def queue_declare(self,
-                      queue,
-                      passive=False,
-                      durable=False,
-                      exclusive=False,
-                      auto_delete=False,
-                      arguments=None):
+    def queue_declare(
+        self,
+        queue: str,
+        passive: bool = False,
+        durable: bool = False,
+        exclusive: bool = False,
+        auto_delete: bool = False,
+        arguments: Optional[Dict[str, Any]] = None
+    ) -> pika.frame.Method[pika.spec.Queue.DeclareOk]:
         """Declare queue, create if needed. This method creates or checks a
         queue. When creating a new queue the client can specify various
         properties that control the durability of the queue and its contents,
@@ -2521,7 +2621,12 @@ class BlockingChannel:
             self._flush_output(declare_ok_result.is_ready)
             return declare_ok_result.value.method_frame
 
-    def queue_delete(self, queue, if_unused=False, if_empty=False):
+    def queue_delete(
+        self, 
+        queue: str, 
+        if_unused: bool = False, 
+        if_empty: bool = False
+    ) -> pika.frame.Method[pika.spec.Queue.DeleteOk]:
         """Delete a queue from the broker.
 
         :param str queue: The queue to delete
@@ -2543,7 +2648,7 @@ class BlockingChannel:
             self._flush_output(delete_ok_result.is_ready)
             return delete_ok_result.value.method_frame
 
-    def queue_purge(self, queue):
+    def queue_purge(self, queue: str) -> pika.frame.Method[pika.spec.Queue.PurgeOk]:
         """Purge all of the messages from the specified queue
 
         :param str queue: The queue to purge
@@ -2559,7 +2664,13 @@ class BlockingChannel:
             self._flush_output(purge_ok_result.is_ready)
             return purge_ok_result.value.method_frame
 
-    def queue_bind(self, queue, exchange, routing_key=None, arguments=None):
+    def queue_bind(
+        self, 
+        queue: str, 
+        exchange: str, 
+        routing_key: Optional[str] = None, 
+        arguments: Optional[Dict[str, Any]] = None
+    ) -> pika.frame.Method[pika.spec.Queue.BindOk]:
         """Bind the queue to the specified exchange
 
         :param str queue: The queue to bind to the exchange
@@ -2585,11 +2696,13 @@ class BlockingChannel:
             self._flush_output(bind_ok_result.is_ready)
             return bind_ok_result.value.method_frame
 
-    def queue_unbind(self,
-                     queue,
-                     exchange=None,
-                     routing_key=None,
-                     arguments=None):
+    def queue_unbind(
+         self, 
+        queue: str, 
+        exchange: str, 
+        routing_key: Optional[str] = None, 
+        arguments: Optional[Dict[str, Any]] = None
+    ) -> pika.frame.Method[pika.spec.Queue.UnbindOk]:
         """Unbind a queue from an exchange.
 
         :param str queue: The queue to unbind from the exchange
@@ -2613,7 +2726,7 @@ class BlockingChannel:
             self._flush_output(unbind_ok_result.is_ready)
             return unbind_ok_result.value.method_frame
 
-    def tx_select(self):
+    def tx_select(self) -> pika.frame.Method[pika.spec.Tx.SelectOk]:
         """Select standard transaction mode. This method sets the channel to use
         standard transactions. The client must use this method at least once on
         a channel before using the Commit or Rollback methods.
@@ -2630,7 +2743,7 @@ class BlockingChannel:
             self._flush_output(select_ok_result.is_ready)
             return select_ok_result.value.method_frame
 
-    def tx_commit(self):
+    def tx_commit(self) -> pika.frame.Method[pika.spec.Tx.CommitOk]:
         """Commit a transaction.
 
         :returns: Method frame from the Tx.Commit-ok response
@@ -2645,12 +2758,12 @@ class BlockingChannel:
             self._flush_output(commit_ok_result.is_ready)
             return commit_ok_result.value.method_frame
 
-    def tx_rollback(self):
+    def tx_rollback(self) -> pika.frame.Method[pika.spec.Tx.RollbackOk]:
         """Rollback a transaction.
 
-        :returns: Method frame from the Tx.Commit-ok response
+        :returns: Method frame from the Tx.Rollback-ok response
         :rtype: `pika.frame.Method` having `method` attribute of type
-            `spec.Tx.CommitOk`
+            `spec.Tx.RollbackOk`
 
         """
         with _CallbackResult(self._MethodFrameCallbackResultArgs) as \

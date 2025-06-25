@@ -205,7 +205,7 @@ class BaseConnection(connection.Connection):
         return workflow
 
     @property
-    def ioloop(self) -> object:
+    def ioloop(self) -> Any:
         """
         :returns: the native I/O loop instance underlying async services selected
             by user or the default selected by the specialized connection

@@ -113,7 +113,7 @@ class Channel:
             self.__class__.__name__, self.channel_number,
             self._STATE_NAMES[self._state], self.connection)\
 
-    def add_callback(self, callback: Callable[..., Any], replies: List[amqp_object.Method], one_shot: bool = True) -> None:
+    def add_callback(self, callback: Callable[..., Any], replies: List[Type[amqp_object.Method]], one_shot: bool = True) -> None:
         """Pass in a callback handler and a list replies from the
         RabbitMQ broker which you'd like the callback notified of. Callbacks
         should allow for the frame parameter to be passed in.
@@ -997,7 +997,7 @@ class Channel:
         self._consumers.pop(consumer_tag, None)
         self._cancelled.discard(consumer_tag)
 
-    def _get_cookie(self) -> Optional[object]:
+    def _get_cookie(self) -> Any:
         """Used by the wrapper implementation (e.g., `BlockingChannel`) to
         retrieve the cookie that it set via `_set_cookie`
 
