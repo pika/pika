@@ -44,7 +44,7 @@ if TYPE_CHECKING:
     from types import TracebackType
     import pika.frame
 
-    T = TypeVar('T', bound='pika.spec.Connection.Blocked | pika.spec.Connection.Unblocked')
+T = TypeVar('T', bound='pika.spec.Connection.Blocked | pika.spec.Connection.Unblocked')
 
 LOGGER = logging.getLogger(__name__)
 
