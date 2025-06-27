@@ -6,6 +6,7 @@
 .DS_Store
 .python-version
 .pytest_cache/
+.vscode/
 pika.iml
 codegen
 pika.egg-info
