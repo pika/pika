@@ -10,7 +10,7 @@ import abc
 import logging
 import socket
 import threading
-from typing import Any, Callable, Optional, Set
+from typing import Any, Callable, Dict, Optional, Set
 
 from pika.adapters.utils import nbio_interface, io_services_utils
 from pika.adapters.utils.io_services_utils import (check_callback_arg,
@@ -175,7 +175,7 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         self._loop = native_loop
 
         # Active watchers: maps file descriptors to `_FileDescriptorCallbacks`
-        self._watchers = dict()
+        self._watchers: Dict[int, _FileDescriptorCallbacks] = dict()
 
         # Native loop-specific event masks of interest
         self._readable_mask = self._loop.READ
@@ -508,18 +508,18 @@ class _AddressResolver:
         check_callback_arg(on_done, 'on_done')
 
         self._state = self.NOT_STARTED
-        self._result = None
-        self._loop = native_loop
+        self._result: Any = None
+        self._loop: Optional[AbstractSelectorIOLoop] = native_loop
         self._host = host
         self._port = port
         self._family = family
         self._socktype = socktype
         self._proto = proto
         self._flags = flags
-        self._on_done = on_done
+        self._on_done: Optional[Callable[..., None]] = on_done
 
         self._mutex = threading.Lock()
-        self._threading_timer = None
+        self._threading_timer: Optional[threading.Timer] = None
 
     def _cleanup(self) -> None:
         """Release resources
@@ -575,7 +575,7 @@ class _AddressResolver:
 
         """
         try:
-            result = socket.getaddrinfo(host=self._host, port=self._port, family=self._family,
+            result: Any = socket.getaddrinfo(host=self._host, port=self._port, family=self._family,
                                         type=self._socktype, proto=self._proto,
                                         flags=self._flags)
         except Exception as exc:  # pylint: disable=W0703

@@ -251,7 +251,7 @@ class _TimerHandle(nbio_interface.AbstractTimerReference):
 
         :param asyncio.Handle handle:
         """
-        self._handle = handle
+        self._handle: Optional[asyncio.Handle] = handle
 
     def cancel(self) -> None:
         if self._handle is not None:
