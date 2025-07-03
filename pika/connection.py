@@ -1033,7 +1033,7 @@ class Connection(pika.compat.AbstractBase):
 
         # Value to pass to on_open_error_callback or on_close_callback when
         # connection fails to be established or becomes closed
-        self._error: Optional[Exception] = None  # type: Exception
+        self._error: Optional[Exception] = None
 
         # Used to hold timer if configured for Connection.Blocked timeout
         self._blocked_conn_timer = None

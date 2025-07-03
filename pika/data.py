@@ -4,7 +4,7 @@ import decimal
 import calendar
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
 from pika import exceptions
 from pika.compat import long, as_bytes
@@ -48,7 +48,7 @@ def decode_short_string(encoded: bytes, offset: int) -> Tuple[Union[str, bytes],
     offset += 1
     value = encoded[offset:offset + length]
     try:
-        value = value.decode('utf8')
+        value = value.decode('utf8')  # type: ignore[assignment]
     except UnicodeDecodeError:
         pass
     offset += length
@@ -67,7 +67,7 @@ def encode_table(pieces: List[bytes], table: Optional[Dict[str, Any]]) -> int:
     table = table or {}
     length_index = len(pieces)
     # TODO: check if pieces.append(b'') is safe here
-    pieces.append(None)  # type: ignore[assignment] placeholder
+    pieces.append(None)  # type: ignore[arg-type]  # placeholder  
     tablesize = 0
     for (key, value) in table.items():
         tablesize += encode_short_string(pieces, key)
@@ -119,8 +119,8 @@ def encode_value(pieces: List[bytes], value: Any) -> int:  # pylint: disable=R09
             return 9
     elif isinstance(value, decimal.Decimal):
         value = value.normalize()
-        if value.as_tuple().exponent < 0:
-            decimals = -value.as_tuple().exponent
+        if value.as_tuple().exponent < 0:  # type: ignore[operator]
+            decimals = -value.as_tuple().exponent  # type: ignore[operator]
             raw = int(value * (decimal.Decimal(10)**decimals))
             pieces.append(struct.pack('>cBi', b'D', decimals, raw))
         else:
@@ -135,7 +135,7 @@ def encode_value(pieces: List[bytes], value: Any) -> int:  # pylint: disable=R09
         pieces.append(struct.pack('>c', b'F'))
         return 1 + encode_table(pieces, value)
     elif isinstance(value, list):
-        list_pieces = []
+        list_pieces: List[Any] = []
         for val in value:
             encode_value(list_pieces, val)
         piece = b''.join(list_pieces)
@@ -149,7 +149,7 @@ def encode_value(pieces: List[bytes], value: Any) -> int:  # pylint: disable=R09
         raise exceptions.UnsupportedAMQPFieldException(pieces, value)
 
 
-def decode_table(encoded: bytes, offset: int) -> Tuple[Dict[str, Any], int]:
+def decode_table(encoded: bytes, offset: int) -> Tuple[Dict[Union[str, bytes], Any], int]:
     """Decode the AMQP table passed in from the encoded value returning the
     decoded result and the number of bytes read plus the offset.
 

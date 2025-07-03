@@ -6,9 +6,9 @@ import logging
 import os
 import threading
 import weakref
-from typing import Any, Callable, List, Optional, Sequence, Tuple, Union, TYPE_CHECKING
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union, TYPE_CHECKING
 
-import gevent._interfaces
+import gevent._interfaces  # type: ignore[import]
 
 try:
     import queue
@@ -16,8 +16,8 @@ except ImportError:  # Python <= v2.7
     import Queue as queue  # type: ignore
 
 import gevent
-import gevent.hub
-import gevent.socket
+import gevent.hub  # type: ignore[import]
+import gevent.socket  # type: ignore[import]
 
 import pika.compat
 from pika.adapters.base_connection import BaseConnection
@@ -138,7 +138,7 @@ class _TSafeCallbackQueue:
         :param _GeventSelectorIOLoop loop: IO loop to add callbacks to.
         """
         # Thread-safe, blocking queue.
-        self._queue = queue.Queue()
+        self._queue: queue.Queue[Callable[[], None]] = queue.Queue()
         # PIPE to trigger an event when the queue is ready.
         self._read_fd, self._write_fd = os.pipe()
         # Lock around writes to the PIPE in case some platform/implementation
@@ -198,7 +198,7 @@ class _GeventSelectorIOLoop(AbstractSelectorIOLoop):
         :param gevent._interfaces.ILoop gevent_loop:
         """
         self._hub = gevent_hub or gevent.get_hub()
-        self._io_watchers_by_fd = {}
+        self._io_watchers_by_fd: Dict[int, Any] = {}
         # Used to start/stop the loop.
         self._waiter = gevent.hub.Waiter()
 
@@ -414,8 +414,8 @@ class _GeventAddressResolver:
         """
         check_callback_arg(on_done, 'on_done')
 
-        self._loop = native_loop
-        self._on_done = on_done
+        self._loop: Optional[AbstractSelectorIOLoop] = native_loop
+        self._on_done: Optional[Callable[..., None]] = on_done
         # Reference to the greenlet performing `getaddrinfo`.
         self._greenlet = None
         # getaddrinfo(..) args.

@@ -78,16 +78,16 @@ class Channel:
 
         self._content_assembler = ContentFrameAssembler()
 
-        self._blocked = collections.deque(list())
-        self._blocking = None
-        self._has_on_flow_callback = False
-        self._cancelled = set()
-        self._consumers = dict()
-        self._consumers_with_noack = set()
-        self._on_flowok_callback = None
-        self._on_getok_callback = None
-        self._on_openok_callback = on_open_callback
-        self._state = self.CLOSED
+        self._blocked: collections.deque = collections.deque(list())
+        self._blocking: Optional[Any] = None
+        self._has_on_flow_callback: bool = False
+        self._cancelled: set = set()
+        self._consumers: dict = dict()
+        self._consumers_with_noack: set = set()
+        self._on_flowok_callback: Optional[Callable[..., Any]] = None
+        self._on_getok_callback: Optional[Callable[..., Any]] = None
+        self._on_openok_callback: Optional[Callable[..., Any]] = on_open_callback
+        self._state: int = self.CLOSED
 
         # We save the closing reason exception to be passed to on-channel-close
         # callback at closing of the channel. Exception representing the closing
@@ -326,7 +326,7 @@ class Channel:
 
         self._consumers[consumer_tag] = on_message_callback
 
-        rpc_callback = self._on_eventok if callback is None else callback
+        rpc_callback: Optional[Callable[..., Any]] = self._on_eventok if callback is None else callback
 
         self._rpc(
             spec.Basic.Consume(queue=queue,
@@ -1432,7 +1432,7 @@ class Channel:
         :param cookie: an opaque value; typically a proxy channel implementation
             instance (e.g., `BlockingChannel` instance)
         """
-        self._cookie = cookie
+        self._cookie = cookie  # type: ignore[assignment]
 
     def _set_state(self, connection_state: int) -> None:
         """Set the channel connection state to the specified state value.
@@ -1464,7 +1464,7 @@ class ContentFrameAssembler:
         self._method_frame = None
         self._header_frame = None
         self._seen_so_far = 0
-        self._body_fragments = list()
+        self._body_fragments: List[bytes] = list()
 
     def process(self, frame_value: frame.Frame) -> Optional[Tuple[frame.Method, frame.Header, bytes]]:
         """Invoked by the Channel object when passed frames that are not
@@ -1520,7 +1520,7 @@ class ContentFrameAssembler:
 
     def _reset(self) -> None:
         """Reset the values for processing frames"""
-        self._method_frame: Optional[frame.Method] = None
-        self._header_frame: Optional[frame.Header] = None
+        self._method_frame = None
+        self._header_frame = None
         self._seen_so_far = 0
         self._body_fragments = list()
