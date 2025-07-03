@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     import socket
 
 
-class AbstractIOServices(pika.compat.AbstractBase):
+class AbstractIOServices(pika.compat.AbstractBase):  # type: ignore
     """Interface to I/O services required by `pika.adapters.BaseConnection` and
     related utilities.
 
@@ -221,7 +221,7 @@ class AbstractIOServices(pika.compat.AbstractBase):
         raise NotImplementedError
 
 
-class AbstractFileDescriptorServices(pika.compat.AbstractBase):
+class AbstractFileDescriptorServices(pika.compat.AbstractBase):  # type: ignore
     """Interface definition of common non-blocking file descriptor services
     required by some utility implementations.
 
@@ -287,7 +287,7 @@ class AbstractFileDescriptorServices(pika.compat.AbstractBase):
         raise NotImplementedError
 
 
-class AbstractTimerReference(pika.compat.AbstractBase):
+class AbstractTimerReference(pika.compat.AbstractBase):  # type: ignore
     """Reference to asynchronous operation"""
 
     @abc.abstractmethod
@@ -297,7 +297,7 @@ class AbstractTimerReference(pika.compat.AbstractBase):
         raise NotImplementedError
 
 
-class AbstractIOReference(pika.compat.AbstractBase):
+class AbstractIOReference(pika.compat.AbstractBase):  # type: ignore
     """Reference to asynchronous I/O operation"""
 
     @abc.abstractmethod
@@ -310,7 +310,7 @@ class AbstractIOReference(pika.compat.AbstractBase):
         raise NotImplementedError
 
 
-class AbstractStreamProtocol(pika.compat.AbstractBase):
+class AbstractStreamProtocol(pika.compat.AbstractBase):  # type: ignore
     """Stream protocol interface. It's compatible with a subset of
     `asyncio.protocols.Protocol` for compatibility with asyncio-based
     `AbstractIOServices` implementation.
@@ -384,7 +384,7 @@ class AbstractStreamProtocol(pika.compat.AbstractBase):
     #     raise NotImplementedError
 
 
-class AbstractStreamTransport(pika.compat.AbstractBase):
+class AbstractStreamTransport(pika.compat.AbstractBase):  # type: ignore
     """Stream transport interface. It's compatible with a subset of
     `asyncio.transports.Transport` for compatibility with asyncio-based
     `AbstractIOServices` implementation.

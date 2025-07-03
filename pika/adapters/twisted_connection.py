@@ -14,7 +14,7 @@ from __future__ import annotations
 import functools
 import logging
 from collections import namedtuple
-from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING, Type, Union
+from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING, Set, Type, Union
 
 from twisted.internet import (defer, error as twisted_error, reactor, protocol)
 import twisted.internet.base
@@ -51,7 +51,7 @@ class ClosableDeferredQueue(defer.DeferredQueue):
     """
 
     def __init__(self, size: Optional[int] = None, backlog: Optional[int] = None):
-        self.closed = None
+        self.closed: Optional[Exception] = None
         super().__init__(size, backlog)
 
     def put(self, obj: Any) -> Optional[defer.Deferred[Any]]:  # type: ignore[override]
@@ -63,7 +63,7 @@ class ClosableDeferredQueue(defer.DeferredQueue):
         if self.closed:
             LOGGER.error('Impossible to put to the queue, it is closed.')
             return defer.fail(self.closed)
-        return defer.DeferredQueue.put(self, obj)
+        return defer.DeferredQueue.put(self, obj)  # type: ignore[func-returns-value]
 
     def get(self) -> defer.Deferred[Any]:
         """
@@ -115,25 +115,25 @@ class TwistedChannel:
 
     def __init__(self, channel: channel.Channel) -> None:
         self._channel = channel
-        self._closed = None
-        self._calls = set()
-        self._consumers = {}
+        self._closed: Optional[Exception] = None
+        self._calls: Set[defer.Deferred[Any]] = set()
+        self._consumers: Dict[str, ClosableDeferredQueue] = {}
         # Store Basic.Get calls so we can handle GetEmpty replies
-        self._basic_get_deferred = None
+        self._basic_get_deferred: Optional[defer.Deferred[Any]] = None
         self._channel.add_callback(self._on_getempty, [spec.Basic.GetEmpty],
                                    False)
         # We need this mapping to close the ClosableDeferredQueue when a queue
         # is deleted.
-        self._queue_name_to_consumer_tags = {}
+        self._queue_name_to_consumer_tags: Dict[str, Set[str]] = {}
         # Whether RabbitMQ delivery confirmation has been enabled
         self._delivery_confirmation = False
         self._delivery_message_id: int = None  # type: ignore[assignment]
-        self._deliveries = {}
+        self._deliveries: Dict[int, defer.Deferred[Any]] = {}
         # Holds a ReceivedMessage object representing a message received via
         # Basic.Return in publisher-acknowledgments mode.
-        self._puback_return = None
+        self._puback_return: Optional[ReceivedMessage] = None
 
-        self.on_closed = defer.Deferred()
+        self.on_closed: defer.Deferred[Any] = defer.Deferred()
         self._channel.add_on_close_callback(self._on_channel_closed)
         self._channel.add_on_cancel_callback(
             self._on_consumer_cancelled_by_broker)
@@ -390,7 +390,7 @@ class TwistedChannel:
         exclusive: bool = False,
         consumer_tag: Optional[str] = None,
         arguments: Optional[Dict[str, Any]] = None
-    ):
+    ) -> defer.Deferred[Any]:
         """Consume from a server queue.
 
         Sends the AMQP 0-9-1 command Basic.Consume to the broker and binds
@@ -431,7 +431,7 @@ class TwistedChannel:
             return defer.fail(self._closed)
 
         queue_obj = ClosableDeferredQueue()
-        d = defer.Deferred()
+        d: defer.Deferred[Any] = defer.Deferred()
         self._calls.add(d)
 
         def on_consume_ok(frame):
@@ -544,7 +544,7 @@ class TwistedChannel:
 
         """
         return self._channel.basic_nack(
-            delivery_tag=delivery_tag,  # type: ignore  TODO: fix this, it can't be None
+            delivery_tag=delivery_tag,  # type: ignore  # TODO: fix this, it can't be None
             multiple=multiple,
             requeue=requeue,
         )
@@ -586,7 +586,7 @@ class TwistedChannel:
         """
         if self._closed:
             return defer.fail(self._closed)
-        result = self._channel.basic_publish(
+        result = self._channel.basic_publish(  # type: ignore[func-returns-value]
             exchange=exchange,
             routing_key=routing_key,
             body=body,
@@ -748,7 +748,7 @@ class TwistedChannel:
                     "Message was Nack'ed by broker: nack=%r; channel=%s;",
                     method_frame.method, self.channel_number)
                 if self._puback_return is not None:
-                    returned_messages = [self._puback_return]
+                    returned_messages: List[ReceivedMessage] = [self._puback_return]
                     self._puback_return = None
                 else:
                     returned_messages = []
@@ -1108,7 +1108,7 @@ class _TwistedConnectionAdapter(pika.connection.Connection):
             internal_connection_workflow=False)
 
         self._reactor = custom_reactor or reactor
-        self._transport = None  # to be provided by `connection_made()`
+        self._transport: Optional[twisted.internet.interfaces.ITransport] = None  # to be provided by `connection_made()`
 
     def _adapter_call_later(self, delay: float, callback: Callable[..., None]):
         """Implement
@@ -1218,9 +1218,9 @@ class TwistedProtocolConnection(protocol.Protocol):
     """
 
     def __init__(self, parameters: Optional[pika.connection.ConnectionParameters] = None, custom_reactor: Any = None):
-        self.ready = defer.Deferred()
+        self.ready: Optional[defer.Deferred[Any]] = defer.Deferred()
         self.ready.addCallback(lambda _: self.connectionReady())
-        self.closed = None
+        self.closed: Optional[defer.Deferred[Any]] = None
         self._impl = _TwistedConnectionAdapter(
             parameters=parameters,
             on_open_callback=self._on_connection_ready,
@@ -1228,7 +1228,7 @@ class TwistedProtocolConnection(protocol.Protocol):
             on_close_callback=self._on_connection_closed,
             custom_reactor=custom_reactor,
         )
-        self._calls = set()
+        self._calls: Set[defer.Deferred[Any]] = set()
 
     def channel(self, channel_number: Optional[int] = None):  # pylint: disable=W0221
         """Create a new channel with the next available channel number or pass
@@ -1243,7 +1243,7 @@ class TwistedProtocolConnection(protocol.Protocol):
         :rtype: Deferred
 
         """
-        d = defer.Deferred()
+        d: defer.Deferred[Any] = defer.Deferred()
         self._impl.channel(channel_number, d.callback)
         self._calls.add(d)
         d.addCallback(self._clear_call, d)
@@ -1307,7 +1307,7 @@ class TwistedProtocolConnection(protocol.Protocol):
             d.errback(exception)
         self._calls = set()
 
-        d, self.closed = self.closed, None
+        d, self.closed = self.closed, None  # type: ignore[assignment]
         if d:
             if isinstance(exception, Failure):
                 # Calling `callback` with a Failure instance will trigger the
@@ -1330,7 +1330,7 @@ class _TimerHandle(nbio_interface.AbstractTimerReference):
 
         :param twisted.internet.base.DelayedCall handle:
         """
-        self._handle = handle
+        self._handle: Optional[twisted.internet.base.DelayedCall] = handle
 
     def cancel(self) -> None:
         if self._handle is not None:

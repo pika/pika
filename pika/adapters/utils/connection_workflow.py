@@ -140,7 +140,7 @@ class AMQPConnector:
         self._nbio: nbio_interface.AbstractIOServices = nbio
         self._addr_record: Optional[Tuple] = None  # type: ignore
         self._conn_params: pika.connection.Parameters = None  # type: ignore
-        self._on_done: Callable[[Union[pika.connection.Connection, BaseException]], None] = None  # type: ignore - will be provided via start()
+        self._on_done: Callable[[Union[pika.connection.Connection, BaseException]], None] = None  # type: ignore  # will be provided via start()
         # TCP connection timeout
         # pylint: disable=C0301
         self._tcp_timeout_ref: Optional[nbio_interface.AbstractTimerReference] = None 
@@ -415,7 +415,7 @@ class AMQPConnector:
             on_done=self._on_transport_establishment_done
         )
 
-        self._sock = None  # type: ignore - create_streaming_connection() takes ownership
+        self._sock = None  # type: ignore  # create_streaming_connection() takes ownership
 
     def _on_transport_establishment_done(self, result: Union[Tuple[nbio_interface.AbstractStreamTransport, nbio_interface.AbstractStreamProtocol], BaseException]) -> None:
         """Handle asynchronous completion of
@@ -592,8 +592,8 @@ class AMQPConnectionWorkflow(AbstractAMQPConnectionWorkflow):
         TODO: Would it be useful to implement exponential back-off?
 
         """
-        self._attempts_remaining: int = None  # type: ignore - supplied by start()
-        self._retry_pause: float = None  # type: ignore - supplied by start()
+        self._attempts_remaining: int = None  # type: ignore  # supplied by start()
+        self._retry_pause: float = None  # type: ignore  # supplied by start()
         self._until_first_amqp_attempt = _until_first_amqp_attempt
 
         # Provided by set_io_services()
@@ -604,9 +604,9 @@ class AMQPConnectionWorkflow(AbstractAMQPConnectionWorkflow):
         # starting a new connection sequence.
         self._current_config_index: int = None  # type: ignore
 
-        self._connection_configs: Sequence[pika.connection.Parameters] = None  # type: ignore - supplied by start()
-        self._connector_factory: Callable[..., Any] = None  # type: ignore - supplied by start()
-        self._on_done: Callable[[Union[pika.connection.Connection, AMQPConnectorException]], None] = None  # type: ignore - supplied by start()
+        self._connection_configs: Sequence[pika.connection.Parameters] = None  # type: ignore  # supplied by start()
+        self._connector_factory: Callable[..., Any] = None  # type: ignore  # supplied by start()
+        self._on_done: Callable[[Union[pika.connection.Connection, AMQPConnectorException]], None] = None  # type: ignore  # supplied by start()
 
         self._connector: AMQPConnector = None  # type: ignore
 
