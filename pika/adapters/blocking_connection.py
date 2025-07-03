@@ -24,7 +24,7 @@ import contextlib
 import functools
 import logging
 import threading
-from typing import Any, Callable, Dict, Generator, Generic, List, Optional, Sequence, Tuple, Type, TypeVar, Union, TYPE_CHECKING
+from typing import Any, Callable, Dict, Generator, Generic, List, Optional, Sequence, Set, Tuple, Type, TypeVar, Union, TYPE_CHECKING
 
 import pika.channel
 import pika.compat as compat
@@ -66,7 +66,7 @@ class _CallbackResult:
         """
         self._value_class = value_class
         self._ready: bool = None  # type: ignore
-        self._values = None
+        self._values: Optional[List[Any]] = None
         self.reset()
 
     def reset(self) -> None:
@@ -193,7 +193,7 @@ class _IoloopTimerContext:
         self._duration = duration
         self._connection = connection
         self._callback_result = _CallbackResult()
-        self._timer_handle = None
+        self._timer_handle: object = None
 
     def __enter__(self) -> _IoloopTimerContext:
         """Register a timer"""
@@ -326,11 +326,11 @@ class BlockingConnection:
 
     """
     # Connection-closing callback args
-    _OnClosedArgs = namedtuple('BlockingConnection__OnClosedArgs',
+    _OnClosedArgs = namedtuple('BlockingConnection__OnClosedArgs',  # type: ignore
                                'connection error')
 
     # Channel-opened callback args
-    _OnChannelOpenedArgs = namedtuple('BlockingConnection__OnChannelOpenedArgs',
+    _OnChannelOpenedArgs = namedtuple('BlockingConnection__OnChannelOpenedArgs',  # type: ignore
                                       'channel')
 
     def __init__(
@@ -363,18 +363,18 @@ class BlockingConnection:
 
         # Connection-specific events that are ready for dispatch: _TimerEvt,
         # _ConnectionBlockedEvt, _ConnectionUnblockedEvt
-        self._ready_events = deque()
+        self._ready_events: deque[Any] = deque()
 
         # Channel numbers of channels that are requesting a call to their
         # BlockingChannel._dispatch_events method; See
         # `_request_channel_dispatch`
-        self._channels_pending_dispatch = set()
+        self._channels_pending_dispatch: Set[int] = set()
 
         # Receives on_close_callback args from Connection
         self._closed_result = _CallbackResult(self._OnClosedArgs)
 
         # Perform connection workflow
-        self._impl: select_connection.SelectConnection = None  # so that attribute is created in case below raises  # type: ignore
+        self._impl: select_connection.SelectConnection = None  # type: ignore  # so that attribute is created in case below raises  
         self._impl = self._create_connection(parameters, _impl_class)
         self._impl.add_on_close_callback(self._closed_result.set_value_once)
 
@@ -1191,7 +1191,7 @@ class _QueueConsumerGeneratorInfo:
 
         # Holds pending events of types _ConsumerDeliveryEvt and
         # _ConsumerCancellationEvt
-        self.pending_events = deque()
+        self.pending_events: deque[Any] = deque()
 
     def __repr__(self) -> str:
         return '<{} params={!r} consumer_tag={!r}>'.format(
@@ -1219,7 +1219,7 @@ class BlockingChannel:
     """
 
     # Used as value_class with _CallbackResult for receiving Basic.GetOk args
-    _RxMessageArgs = namedtuple(
+    _RxMessageArgs = namedtuple(  # type: ignore
         'BlockingChannel__RxMessageArgs',
         [
             'channel',  # implementation pika.Channel instance
@@ -1230,17 +1230,17 @@ class BlockingChannel:
 
     # For use as value_class with any _CallbackResult that expects method_frame
     # as the only arg
-    _MethodFrameCallbackResultArgs = namedtuple(
+    _MethodFrameCallbackResultArgs = namedtuple(  # type: ignore
         'BlockingChannel__MethodFrameCallbackResultArgs', 'method_frame')
 
     # Broker's basic-ack/basic-nack args when delivery confirmation is enabled;
     # may concern a single or multiple messages
-    _OnMessageConfirmationReportArgs = namedtuple(
+    _OnMessageConfirmationReportArgs = namedtuple(  # type: ignore
         'BlockingChannel__OnMessageConfirmationReportArgs', 'method_frame')
 
     # For use as value_class with _CallbackResult expecting Channel.Flow
     # confirmation.
-    _FlowOkCallbackResultArgs = namedtuple(
+    _FlowOkCallbackResultArgs = namedtuple(  # type: ignore
         'BlockingChannel__FlowOkCallbackResultArgs',
         'active'  # True if broker will start or continue sending; False if not
     )
@@ -1259,7 +1259,7 @@ class BlockingChannel:
         self._connection = connection
 
         # A mapping of consumer tags to _ConsumerInfo for active consumers
-        self._consumer_infos = dict()
+        self._consumer_infos: Dict[Any, Any] = dict()
 
         # Queue consumer generator generator info of type
         # _QueueConsumerGeneratorInfo created by BlockingChannel.consume
@@ -1276,11 +1276,11 @@ class BlockingChannel:
         # deque of pending events: _ConsumerDeliveryEvt and
         # _ConsumerCancellationEvt objects that will be returned by
         # `BlockingChannel.get_event()`
-        self._pending_events = deque()
+        self._pending_events: deque[Any] = deque()
 
         # Holds a ReturnedMessage object representing a message received via
         # Basic.Return in publisher-acknowledgments mode.
-        self._puback_return = None
+        self._puback_return: Optional[ReturnedMessage] = None
 
         # self._on_channel_closed() saves the reason exception here
         self._closing_reason = None  # type: None | Exception
@@ -1907,8 +1907,8 @@ class BlockingChannel:
             for the given consumer tag
         :rtype: list
         """
-        remaining_events = deque()
-        unprocessed_messages = []
+        remaining_events: deque[Any] = deque()
+        unprocessed_messages: List[Any] = []
         while self._pending_events:
             evt = self._pending_events.popleft()
             if type(evt) is _ConsumerDeliveryEvt:  # pylint: disable=C0123
@@ -2316,7 +2316,7 @@ class BlockingChannel:
                         conf_method, self.channel_number, exchange, routing_key,
                         mandatory)
                     if self._puback_return is not None:
-                        returned_messages = [self._puback_return]
+                        returned_messages: List[ReturnedMessage] = [self._puback_return]
                         self._puback_return = None
                     else:
                         returned_messages = []

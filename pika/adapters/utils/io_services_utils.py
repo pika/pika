@@ -429,12 +429,12 @@ class _AsyncStreamConnector:
                 'Expected connected socket, but getpeername() failed: '
                 'error={!r}; {}; '.format(error, sock))
 
-        self._nbio = nbio
-        self._protocol_factory = protocol_factory
-        self._sock = sock
-        self._ssl_context = ssl_context
-        self._server_hostname = server_hostname
-        self._on_done = on_done
+        self._nbio: Optional[Union[nbio_interface.AbstractIOServices, nbio_interface.AbstractFileDescriptorServices]] = nbio
+        self._protocol_factory: Optional[Callable[[], nbio_interface.AbstractStreamProtocol]] = protocol_factory
+        self._sock: Optional[socket.socket] = sock
+        self._ssl_context: Optional[ssl.SSLContext] = ssl_context
+        self._server_hostname: Optional[str] = server_hostname
+        self._on_done: Optional[Callable[[Union[Tuple[nbio_interface.AbstractStreamTransport, nbio_interface.AbstractStreamProtocol], BaseException]], None]] = on_done
 
         self._state = self._STATE_NOT_STARTED
         self._watching_socket = False
@@ -635,9 +635,9 @@ class _AsyncStreamConnector:
             _LOGGER.debug('_linkup(): introduced transport to protocol %r; %r',
                           transport, protocol)
         except Exception as error:  # pylint: disable=W0703
-            result = error
+            result: Union[BaseException, Tuple[nbio_interface.AbstractStreamTransport, nbio_interface.AbstractStreamProtocol]] = error
         else:
-            result = (transport, protocol)
+            result = (transport, protocol)  
 
         self._report_completion(result)
 
@@ -744,7 +744,7 @@ class _AsyncTransportBase(  # pylint: disable=W0223
         self._nbio = nbio
 
         self._state = self._STATE_ACTIVE
-        self._tx_buffers = collections.deque()
+        self._tx_buffers: collections.deque[bytes] = collections.deque()
         self._tx_buffered_byte_count = 0
 
     def abort(self) -> None:

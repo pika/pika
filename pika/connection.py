@@ -777,7 +777,7 @@ class URLParameters(Parameters):
                 raise ValueError('Unknown URL parameter: {!r}'.format(name))
 
             try:
-                (value,) = value
+                (value,) = value  # type: ignore[assignment]
             except ValueError:
                 raise ValueError(
                     'Expected exactly one value for URL parameter '
@@ -959,7 +959,7 @@ class SSLOptions:
         self.server_hostname = server_hostname
 
 
-class Connection(pika.compat.AbstractBase):
+class Connection(pika.compat.AbstractBase):  # type: ignore
     """This is the core class that implements communication with RabbitMQ. This
     class should not be invoked directly but rather through the use of an
     adapter such as SelectConnection or BlockingConnection.
@@ -1036,7 +1036,7 @@ class Connection(pika.compat.AbstractBase):
         self._error: Optional[Exception] = None
 
         # Used to hold timer if configured for Connection.Blocked timeout
-        self._blocked_conn_timer = None
+        self._blocked_conn_timer: object = None
 
         self._heartbeat_checker: Optional[pika.heartbeat.HeartbeatChecker] = None
 
@@ -2306,7 +2306,7 @@ class Connection(pika.compat.AbstractBase):
         :param spec.connection.Start method_frame: The Connection.Start frame
 
         """
-        self.server_properties = method_frame.method.server_properties
+        self.server_properties = method_frame.method.server_properties  # type: ignore
         self.server_capabilities = self.server_properties.get(  # type: ignore
             'capabilities', dict())
         if hasattr(self.server_properties, 'capabilities'):

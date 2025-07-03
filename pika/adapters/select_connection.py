@@ -30,7 +30,7 @@ if TYPE_CHECKING:
     SELECT_ERROR_T = Union[OSError, IOError, InterruptedError, select.error]
 
     class POLLER_PARAMS(TypedDict):
-        get_wait_seconds: Callable[[], Optional[int]]
+        get_wait_seconds: Callable[[], Optional[float]]
         process_timeouts: Callable[[], None]
 
 LOGGER = logging.getLogger(__name__)
@@ -231,8 +231,7 @@ class _Timer:
     _GC_CANCELLATION_THRESHOLD = 1024
 
     def __init__(self) -> None:
-        self._timeout_heap = []
-
+        self._timeout_heap: Optional[list[_Timeout]] = []
         # Number of canceled timeouts on heap; for scheduling garbage
         # collection of canceled timeouts
         self._num_cancellations = 0
@@ -302,7 +301,7 @@ class _Timer:
             timeout.callback = None
             self._num_cancellations += 1
 
-    def get_remaining_interval(self) -> Optional[int]:
+    def get_remaining_interval(self) -> Optional[float]:
         """Get the interval to the next timeout expiration
 
         :returns: non-negative number of seconds until next timer expiration;
@@ -407,7 +406,7 @@ class IOLoop(AbstractSelectorIOLoop):
 
     @staticmethod
     def _get_poller(
-        get_wait_seconds: Callable[[], Optional[int]],
+        get_wait_seconds: Callable[[], Optional[float]],
         process_timeouts: Callable[[], None]
     ) -> _PollerBase:
         """Determine the best poller to use for this environment and instantiate
@@ -515,7 +514,7 @@ class IOLoop(AbstractSelectorIOLoop):
 
         self._timer.process_timeouts()
 
-    def _get_remaining_interval(self) -> Optional[int]:
+    def _get_remaining_interval(self) -> Optional[float]:
         """Get the remaining interval to the next callback or timeout
         expiration.
 
@@ -598,7 +597,7 @@ class IOLoop(AbstractSelectorIOLoop):
         self._poller.poll()
 
 
-class _PollerBase(pika.compat.AbstractBase):  # pylint: disable=R0902
+class _PollerBase(pika.compat.AbstractBase):  # type: ignore  # pylint: disable=R0902
     """Base class for select-based IOLoop implementations"""
 
     # Drop out of the poll loop every _MAX_POLL_TIMEOUT secs as a worst case;
@@ -611,7 +610,7 @@ class _PollerBase(pika.compat.AbstractBase):  # pylint: disable=R0902
 
     def __init__(
         self, 
-        get_wait_seconds: Callable[[], Optional[int]],
+        get_wait_seconds: Callable[[], Optional[float]],
         process_timeouts: Callable[[], None] 
     ) -> None:
         """
@@ -667,9 +666,9 @@ class _PollerBase(pika.compat.AbstractBase):  # pylint: disable=R0902
             if self._w_interrupt is not None:
                 self.remove_handler(self._r_interrupt.fileno())  # pylint: disable=E1101  # type: ignore
                 self._r_interrupt.close()  # type: ignore
-                self._r_interrupt = None
+                self._r_interrupt = None  # type: ignore
                 self._w_interrupt.close()
-                self._w_interrupt = None
+                self._w_interrupt = None  # type: ignore
 
         self.deactivate_poller()
 
@@ -699,12 +698,12 @@ class _PollerBase(pika.compat.AbstractBase):  # pylint: disable=R0902
                 LOGGER.warning("Failed to send interrupt to poller: %s", err)
                 raise
 
-    def _get_max_wait(self) -> int:
+    def _get_max_wait(self) -> float:
         """Get the interval to the next timeout event, or a default interval
 
         :returns: maximum number of self.POLL_TIMEOUT_MULT-scaled time units
                   to wait for IO events
-        :rtype: int
+        :rtype: float
 
         """
         delay = self._get_wait_seconds()
@@ -794,7 +793,7 @@ class _PollerBase(pika.compat.AbstractBase):  # pylint: disable=R0902
         """
         # Activate the underlying poller and register current events
         self._init_poller()
-        fd_to_events = collections.defaultdict(int)
+        fd_to_events: Dict[int, int] = collections.defaultdict(int)
         for event, file_descriptors in self._fd_events.items():
             for fileno in file_descriptors:
                 fd_to_events[fileno] |= event
@@ -984,14 +983,14 @@ class SelectPoller(_PollerBase):
                     time.sleep(self._get_max_wait())
                     read, write, error = [], [], []
                 break
-            except _SELECT_ERRORS as error:
+            except _SELECT_ERRORS as error:  # type: ignore[misc]
                 if _is_resumable(error):
                     continue
                 else:
                     raise
 
         # Build an event bit mask for each fileno we've received an event for
-        fd_event_map = collections.defaultdict(int)
+        fd_event_map: Dict[int, int] = collections.defaultdict(int)
         for fd_set, evt in zip(
                 (read, write, error),
                 (PollEvents.READ, PollEvents.WRITE, PollEvents.ERROR)):
@@ -1046,7 +1045,7 @@ class KQueuePoller(_PollerBase):
 
     """KQueuePoller works on BSD based systems and is faster than select"""
 
-    def __init__(self, get_wait_seconds: Callable[[], Optional[int]], process_timeouts: Callable[[], None]):
+    def __init__(self, get_wait_seconds: Callable[[], Optional[float]], process_timeouts: Callable[[], None]):
         """Create an instance of the KQueuePoller
         """
         self._kqueue = None
@@ -1086,13 +1085,13 @@ class KQueuePoller(_PollerBase):
             try:
                 kevents = self._kqueue.control(None, 1000, self._get_max_wait())  # type: ignore
                 break
-            except _SELECT_ERRORS as error:
+            except _SELECT_ERRORS as error:  # type: ignore[misc]
                 if _is_resumable(error):
                     continue
                 else:
                     raise
 
-        fd_event_map = collections.defaultdict(int)
+        fd_event_map: Dict[int, int] = collections.defaultdict(int)
         for event in kevents:
             fd_event_map[event.ident] |= self._map_event(event)
 
@@ -1182,7 +1181,7 @@ class PollPoller(_PollerBase):
     """
     POLL_TIMEOUT_MULT = 1000
 
-    def __init__(self, get_wait_seconds: Callable[[], Optional[int]], process_timeouts: Callable[[], None]):
+    def __init__(self, get_wait_seconds: Callable[[], Optional[float]], process_timeouts: Callable[[], None]):
         """Create an instance of the KQueuePoller
 
         """
@@ -1206,13 +1205,13 @@ class PollPoller(_PollerBase):
             try:
                 events = self._poll.poll(self._get_max_wait())  # type: ignore
                 break
-            except _SELECT_ERRORS as error:
+            except _SELECT_ERRORS as error:  # type: ignore[misc]
                 if _is_resumable(error):
                     continue
                 else:
                     raise
 
-        fd_event_map = collections.defaultdict(int)
+        fd_event_map: Dict[int, int] = collections.defaultdict(int)
         for fileno, event in events:
             # NOTE: On OS X, when poll() sets POLLHUP, it's mutually-exclusive with
             # POLLOUT and it doesn't seem to set POLLERR along with POLLHUP when
@@ -1229,7 +1228,7 @@ class PollPoller(_PollerBase):
         """Notify the implementation to allocate the poller resource"""
         assert self._poll is None
 
-        self._poll = self._create_poller()
+        self._poll = self._create_poller()  # type: ignore
 
     def _uninit_poller(self) -> None:
         """Notify the implementation to release the poller resource"""

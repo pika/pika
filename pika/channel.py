@@ -835,7 +835,7 @@ class Channel:
         if queue:
             condition = (spec.Queue.DeclareOk, {'queue': queue})
         else:
-            condition = spec.Queue.DeclareOk
+            condition = spec.Queue.DeclareOk  # type: ignore[assignment]
         replies = [condition] if not nowait else []
 
         return self._rpc(
@@ -1461,8 +1461,8 @@ class ContentFrameAssembler:
         """Create a new instance of the conent frame assembler.
 
         """
-        self._method_frame = None
-        self._header_frame = None
+        self._method_frame: Optional[frame.Method] = None
+        self._header_frame: Optional[frame.Header] = None
         self._seen_so_far = 0
         self._body_fragments: List[bytes] = list()
 

@@ -30,13 +30,13 @@ def name_or_value(value: AMQPValue) -> str:
     # Is it subclass of AMQPObject
     try:
         if issubclass(value, amqp_object.AMQPObject):  # type: ignore
-            return value.NAME
+            return value.NAME  # type: ignore
     except TypeError:
         pass
 
     # Is it a Pika frame object?
     if isinstance(value, frame.Method):
-        return value.method.NAME
+        return value.method.NAME  # type: ignore
 
     # Is it a Pika frame object (go after Method since Method extends this)
     if isinstance(value, amqp_object.AMQPObject):
@@ -116,7 +116,7 @@ class CallbackManager:
 
     def __init__(self) -> None:
         """Create an instance of the CallbackManager"""
-        self._stack = dict()
+        self._stack: Dict[Union[str, int], Dict[AMQPValue, List[Dict[str, Any]]]] = dict()
 
     @sanitize_prefix
     def add(self,

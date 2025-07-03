@@ -355,7 +355,7 @@ class AMQPConnector:
             return
 
         if prev_state == self._STATE_TCP:
-            error = AMQPConnectorSocketConnectError(
+            error: Exception = AMQPConnectorSocketConnectError(
                 AMQPConnectorStackTimeout(
                     'Timeout while connecting socket to {!r}/{}'.format(
                         self._conn_params.host, self._addr_record)))
@@ -365,7 +365,7 @@ class AMQPConnector:
                 AMQPConnectorStackTimeout(
                     'Timeout while setting up transport to {!r}/{}; ssl={}'.
                     format(self._conn_params.host, self._addr_record,
-                           bool(self._conn_params.ssl_options))))
+                           bool(self._conn_params.ssl_options))))  # type: ignore[assignment]
 
         self._report_completion_and_cleanup(error)
 
@@ -474,13 +474,13 @@ class AMQPConnector:
 
         if self._state == self._STATE_ABORTING:
             # Client-initiated abort takes precedence over timeout
-            result = AMQPConnectorAborted()
+            result: Union[BaseException, pika.connection.Connection] = AMQPConnectorAborted()
         elif self._state == self._STATE_TIMEOUT:
             result = AMQPConnectorAMQPHandshakeError(
                 AMQPConnectorStackTimeout(
                     'Timeout during AMQP handshake{!r}/{}; ssl={}'.format(
                         self._conn_params.host, self._addr_record,
-                        bool(self._conn_params.ssl_options))))
+                        bool(self._conn_params.ssl_options))))  # type: ignore[assignment]
         elif self._state == self._STATE_AMQP:
             if error is None:
                 _LOG.debug(
@@ -492,7 +492,7 @@ class AMQPConnector:
                     'AMQPConnector: AMQP connection handshake failed for '
                     '%r/%s: %r', self._conn_params.host, self._addr_record,
                     error)
-                result = AMQPConnectorAMQPHandshakeError(error)
+                result = AMQPConnectorAMQPHandshakeError(error)  
         else:
             # We timed out or aborted and initiated closing of the connection,
             # but this callback snuck in
@@ -505,7 +505,7 @@ class AMQPConnector:
         self._report_completion_and_cleanup(result)
 
 
-class AbstractAMQPConnectionWorkflow(pika.compat.AbstractBase):
+class AbstractAMQPConnectionWorkflow(pika.compat.AbstractBase):  # type: ignore[valid-type, misc]
     """Interface for implementing a custom TCP/[SSL]/AMQP connection workflow.
 
     """
@@ -592,8 +592,8 @@ class AMQPConnectionWorkflow(AbstractAMQPConnectionWorkflow):
         TODO: Would it be useful to implement exponential back-off?
 
         """
-        self._attempts_remaining: int = None  # type: ignore  # supplied by start()
-        self._retry_pause: float = None  # type: ignore  # supplied by start()
+        self._attempts_remaining: int = None  # type: ignore[assignment]  # supplied by start()
+        self._retry_pause: float = None  # type: ignore[assignment]  # supplied by start()
         self._until_first_amqp_attempt = _until_first_amqp_attempt
 
         # Provided by set_io_services()
@@ -610,7 +610,7 @@ class AMQPConnectionWorkflow(AbstractAMQPConnectionWorkflow):
 
         self._connector: AMQPConnector = None  # type: ignore
 
-        self._task_ref = None  # current cancelable asynchronous task or timer
+        self._task_ref: Optional[Union[nbio_interface.AbstractTimerReference, nbio_interface.AbstractIOReference]] = None  # current cancelable asynchronous task or timer
         self._addrinfo_iter: Iterator[ADDRESS_INFO] = None  # type: ignore
 
         # Exceptions from all failed connection attempts in this workflow
@@ -839,7 +839,7 @@ class AMQPConnectionWorkflow(AbstractAMQPConnectionWorkflow):
 
         _LOG.debug('Attempting to connect using address record %r', addr_record)
 
-        self._connector = self._connector_factory()  # type: AMQPConnector
+        self._connector = self._connector_factory()  # type: ignore[no-redef]
 
         self._connector.start(
             addr_record=addr_record,
@@ -871,9 +871,9 @@ class AMQPConnectionWorkflow(AbstractAMQPConnectionWorkflow):
                            'AMQP handshake due to _until_first_amqp_attempt.')
                 if isinstance(conn_or_exc.exception,
                               pika.exceptions.ConnectionOpenAborted):
-                    error = AMQPConnectionWorkflowAborted  
+                    error = AMQPConnectionWorkflowAborted  # type: ignore[assignment]
                 else:
-                    error = AMQPConnectionWorkflowFailed(
+                    error = AMQPConnectionWorkflowFailed(  # type: ignore[assignment]
                         self._connection_errors)
 
                 self._report_completion_and_cleanup(error)  # type: ignore

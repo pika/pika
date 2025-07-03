@@ -505,10 +505,10 @@ class _StreamingProtocolShim(nbio_interface.AbstractStreamProtocol):
         """
         self.conn = conn
         # pylint: disable=W0212
-        self.connection_made = conn._proto_connection_made
-        self.connection_lost = conn._proto_connection_lost
-        self.eof_received = conn._proto_eof_received
-        self.data_received = conn._proto_data_received
+        self.connection_made = conn._proto_connection_made  # type: ignore[has-type]
+        self.connection_lost = conn._proto_connection_lost  # type: ignore[has-type]
+        self.eof_received = conn._proto_eof_received  # type: ignore[has-type]
+        self.data_received = conn._proto_data_received  # type: ignore[has-type]
 
     def __getattr__(self, attr: str) -> Any:
         """Proxy inexistent attribute requests to our connection instance
