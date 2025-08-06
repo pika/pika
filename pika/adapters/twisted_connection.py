@@ -358,7 +358,7 @@ class TwistedChannel:
         return self._channel.basic_ack(
             delivery_tag=delivery_tag, multiple=multiple)
 
-    def basic_cancel(self, consumer_tag: str = '') -> defer.Deferred[Any]:
+    def basic_cancel(self, consumer_tag: str = '') -> defer.Deferred[pika.frame.Method[pika.spec.Basic.CancelOk]]:
         """This method cancels a consumer. This does not affect already
         delivered messages, but it does mean the server will not send any more
         messages for that consumer. The client may receive an arbitrary number
@@ -669,7 +669,7 @@ class TwistedChannel:
         """
         return self._wrap_channel_method("basic_recover")(requeue=requeue)
 
-    def close(self, reply_code: int = 0, reply_text: str = "Normal shutdown") -> None:
+    def close(self, reply_code: int = 0, reply_text: str = "Normal shutdown") -> defer.Deferred[Any]:
         """Invoke a graceful shutdown of the channel with the AMQP Broker.
 
         If channel is OPENING, transition to CLOSING and suppress the incoming
@@ -1283,7 +1283,7 @@ class TwistedProtocolConnection(protocol.Protocol):
 
     # Our own methods
 
-    def connectionReady(self) -> TwistedProtocolConnection:
+    def connectionReady(self) -> Union[TwistedProtocolConnection, defer.Deferred[TwistedProtocolConnection]]:
         """This method will be called when the underlying connection is ready.
         """
         return self
