@@ -839,7 +839,7 @@ class BlockingConnection:
         LOGGER.info('Closing connection (%s): %s', reply_code, reply_text)
 
         # Close channels that remain opened
-        for impl_channel in compat.dictvalues(self._impl._channels):
+        for impl_channel in list(self._impl._channels.values()):
             channel = impl_channel._get_cookie()
             if channel.is_open:
                 try:
@@ -1373,7 +1373,7 @@ class BlockingChannel:
         :rtype: list
 
         """
-        return compat.dictkeys(self._consumer_infos)
+        return list(self._consumer_infos.keys())
 
     _ALWAYS_READY_WAITERS = ((lambda: True),)
 
@@ -1554,7 +1554,7 @@ class BlockingChannel:
                 self.cancel()
 
             # Cancel consumers created via basic_consume
-            for consumer_tag in compat.dictkeys(self._consumer_infos):
+            for consumer_tag in list(self._consumer_infos.keys()):
                 self.basic_cancel(consumer_tag)
 
     def _dispatch_events(self) -> None:
@@ -1972,7 +1972,8 @@ class BlockingChannel:
         auto_ack: bool = False,
         exclusive: bool = False,
         arguments: Optional[Dict[str, Any]] = None,
-        inactivity_timeout: Optional[float] = None
+        inactivity_timeout: Optional[float] = None,
+        consumer_tag: Optional[str] = None
     ) -> Generator[Tuple[Optional[pika.spec.Basic.Deliver], Optional[pika.spec.BasicProperties], Optional[bytes]], None, None]:
         """Blocking consumption of a queue instead of via a callback. This
         method is a generator that yields each message as a tuple of method,
@@ -2006,6 +2007,7 @@ class BlockingChannel:
             the next event arrives. NOTE that timing granularity is limited by
             the timer resolution of the underlying implementation.
             NEW in pika 0.10.0.
+        :param str consumer_tag: Specify your own consumer tag
 
         :yields: tuple(spec.Basic.Deliver, spec.BasicProperties, str or unicode)
 
@@ -2032,7 +2034,8 @@ class BlockingChannel:
             # Need a consumer tag to register consumer info before sending
             # request to broker, because I/O might pick up incoming messages
             # in addition to Basic.Consume-ok
-            consumer_tag = self._impl._generate_consumer_tag()
+            if not consumer_tag:
+                consumer_tag = self._impl._generate_consumer_tag()
 
             self._queue_consumer_generator = _QueueConsumerGeneratorInfo(
                 params, consumer_tag)

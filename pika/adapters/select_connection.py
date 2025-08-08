@@ -914,7 +914,7 @@ class _PollerBase(pika.compat.AbstractBase):  # type: ignore  # pylint: disable=
 
         self._processing_fd_event_map = fd_event_map
 
-        for fileno in pika.compat.dictkeys(fd_event_map):
+        for fileno in list(fd_event_map.keys()):
             if fileno not in fd_event_map:
                 # the fileno has been removed from the map under our feet.
                 continue

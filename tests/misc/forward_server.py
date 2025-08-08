@@ -3,7 +3,7 @@
 from __future__ import print_function
 
 import array
-from datetime import datetime
+from datetime import datetime, timezone
 import errno
 from functools import partial
 import logging
@@ -364,7 +364,7 @@ class _TCPHandler(socketserver.StreamRequestHandler, object):
                 type=self._remote_socket_type,
                 proto=socket.IPPROTO_IP)
             remote_dest_sock.connect(self._remote_addr)
-            _trace("%s _TCPHandler connected to remote %s", datetime.utcnow(),
+            _trace("%s _TCPHandler connected to remote %s", datetime.now(timezone.utc),
                    remote_dest_sock.getpeername())
         else:
             # Echo set-up
@@ -406,7 +406,7 @@ class _TCPHandler(socketserver.StreamRequestHandler, object):
         """Forward from src_sock to dest_sock"""
         src_peername = src_sock.getpeername()
 
-        _trace("%s forwarding from %s to %s", datetime.utcnow(), src_peername,
+        _trace("%s forwarding from %s to %s", datetime.now(timezone.utc), src_peername,
                dest_sock.getpeername())
         try:
             # NOTE: python 2.6 doesn't support bytearray with recv_into, so
@@ -424,18 +424,18 @@ class _TCPHandler(socketserver.StreamRequestHandler, object):
                         continue
                     elif exc.errno == errno.ECONNRESET:
                         # Source peer forcibly closed connection
-                        _trace("%s errno.ECONNRESET from %s", datetime.utcnow(),
+                        _trace("%s errno.ECONNRESET from %s", datetime.now(timezone.utc),
                                src_peername)
                         break
                     else:
                         _trace("%s Unexpected errno=%s from %s\n%s",
-                               datetime.utcnow(), exc.errno, src_peername,
+                               datetime.now(timezone.utc), exc.errno, src_peername,
                                "".join(traceback.format_stack()))
                         raise
 
                 if not nbytes:
                     # Source input EOF
-                    _trace("%s EOF on %s", datetime.utcnow(), src_peername)
+                    _trace("%s EOF on %s", datetime.now(timezone.utc), src_peername)
                     break
 
                 try:
@@ -444,18 +444,18 @@ class _TCPHandler(socketserver.StreamRequestHandler, object):
                     if exc.errno == errno.EPIPE:
                         # Destination peer closed its end of the connection
                         _trace("%s Destination peer %s closed its end of "
-                               "the connection: errno.EPIPE", datetime.utcnow(),
+                               "the connection: errno.EPIPE", datetime.now(timezone.utc),
                                dest_sock.getpeername())
                         break
                     elif exc.errno == errno.ECONNRESET:
                         # Destination peer forcibly closed connection
                         _trace("%s Destination peer %s forcibly closed "
                                "connection: errno.ECONNRESET",
-                               datetime.utcnow(), dest_sock.getpeername())
+                               datetime.now(timezone.utc), dest_sock.getpeername())
                         break
                     else:
                         _trace("%s Unexpected errno=%s in sendall to %s\n%s",
-                               datetime.utcnow(), exc.errno,
+                               datetime.now(timezone.utc), exc.errno,
                                dest_sock.getpeername(), "".join(
                                    traceback.format_stack()))
                         raise
@@ -463,7 +463,7 @@ class _TCPHandler(socketserver.StreamRequestHandler, object):
             _trace("forward failed\n%s", "".join(traceback.format_exc()))
             raise
         finally:
-            _trace("%s done forwarding from %s", datetime.utcnow(),
+            _trace("%s done forwarding from %s", datetime.now(timezone.utc),
                    src_peername)
             try:
                 # Let source peer know we're done receiving

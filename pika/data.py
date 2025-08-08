@@ -3,7 +3,7 @@ import struct
 import decimal
 import calendar
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
 from pika import exceptions
@@ -282,8 +282,8 @@ def decode_value(encoded: bytes, offset: int) -> Tuple[Any, int]:  # pylint: dis
 
     # Timestamp
     elif kind == b'T':
-        value = datetime.utcfromtimestamp(
-            struct.unpack_from('>Q', encoded, offset)[0])
+        value = datetime.fromtimestamp(
+            struct.unpack_from('>Q', encoded, offset)[0], timezone.utc)
         offset += 8
 
     # Field Table

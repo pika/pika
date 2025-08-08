@@ -7,10 +7,7 @@ import re
 import socket
 import sys
 import time
-from typing import Any, List, TypeVar, Mapping, Tuple, Iterable, Union
-
-K = TypeVar('K')
-V = TypeVar('V')
+from typing import Any, Tuple, Union
 
 RE_NUM = re.compile(r'(\d+).+')
 
@@ -42,37 +39,6 @@ def time_now() -> float:
     Returns monotonic time
     """
     return time.monotonic()
-
-
-def dictkeys(dct: Mapping[K, V]) -> List[K]:
-    """
-    Returns a list of keys of dictionary
-    """
-
-    return list(dct.keys())
-
-
-def dictvalues(dct: Mapping[K, V]) -> List[V]:
-    """
-    Returns a list of values of a dictionary
-    """
-    return list(dct.values())
-
-
-def dict_iteritems(dct: Mapping[K, V]) -> Iterable[Tuple[K, V]]:
-    """
-    Returns an iterator of items (key/value pairs) of a dictionary
-    """
-    return dct.items()
-
-
-def dict_itervalues(dct: Mapping[K, V]) -> Iterable[V]:
-    """
-    :param dict dct:
-    :returns: an iterator of the values of a dictionary
-    :rtype: iterator
-    """
-    return dct.values()
 
 
 def byte(*args) -> bytes:
