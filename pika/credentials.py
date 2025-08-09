@@ -19,7 +19,7 @@ the required behavior.
 from __future__ import annotations
 
 import logging
-from typing import Optional, Tuple, TYPE_CHECKING
+from typing import List, Optional, Tuple, TYPE_CHECKING, Type, Union
 
 from .compat import as_bytes
 
@@ -79,7 +79,7 @@ class PlainCredentials:
 
         """
         if as_bytes(PlainCredentials.TYPE) not in\
-                as_bytes(start.mechanisms).split():  # type: ignore[union-attr]
+                as_bytes(start.mechanisms).split():
             return None, None
         return (
             PlainCredentials.TYPE,
@@ -124,7 +124,7 @@ class ExternalCredentials:
 
         """
         if as_bytes(ExternalCredentials.TYPE) not in\
-                as_bytes(start.mechanisms).split():  # type: ignore[union-attr]
+                as_bytes(start.mechanisms).split():
             return None, None
         return ExternalCredentials.TYPE, b''
 
@@ -132,6 +132,7 @@ class ExternalCredentials:
         """Called by Connection when it no longer needs the credentials"""
         LOGGER.debug('Not supported by this Credentials type')
 
+_VALID_TYPES = Union[Type[PlainCredentials], Type[ExternalCredentials]]
 
 # Append custom credential types to this list for validation support
-VALID_TYPES = [PlainCredentials, ExternalCredentials]
+VALID_TYPES: List[_VALID_TYPES] = [PlainCredentials, ExternalCredentials]
