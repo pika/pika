@@ -912,9 +912,9 @@ class _AsyncTransportBase(  # pylint: disable=W0223
             except pika.compat.SOCKET_ERROR:
                 pass
             self._sock.close()  # type: ignore
-            self._sock = None
-            self._protocol = None
-            self._nbio = None
+            self._sock = None  # type: ignore
+            self._protocol = None  # type: ignore
+            self._nbio = None  # type: ignore
             self._state = self._STATE_COMPLETED
 
     @_log_exceptions
@@ -1150,7 +1150,12 @@ class _AsyncSSLTransport(_AsyncTransportBase):
 
     """
 
-    def __init__(self, sock, protocol, nbio):
+    def __init__(
+        self, 
+        sock: ssl.SSLSocket, 
+        protocol: nbio_interface.AbstractStreamProtocol, 
+        nbio: nbio_interface.AbstractIOServices | nbio_interface.AbstractFileDescriptorServices
+    ) -> None:
         """
 
         :param ssl.SSLSocket sock: non-blocking connected socket
@@ -1195,7 +1200,7 @@ class _AsyncSSLTransport(_AsyncTransportBase):
         self._buffer_tx_data(data)
 
         if tx_buffer_was_empty and self._ssl_writable_action is None:
-            self._ssl_writable_action = self._produce
+            self._ssl_writable_action = self._produce  # type: ignore
             self._nbio.set_writer(self._sock.fileno(), self._on_socket_writable)  # type: ignore
             _LOGGER.debug('Turned on writability watcher: %s', self._sock)
 
@@ -1204,13 +1209,13 @@ class _AsyncSSLTransport(_AsyncTransportBase):
         """Handle readable socket indication
 
         """
-        if self._state != self._STATE_ACTIVE:
+        if self._state != self._STATE_ACTIVE:  # type: ignore
             _LOGGER.debug(
                 'Ignoring readability notification due to inactive '
                 'state: state=%s; %s', self._state, self._sock)
             return
 
-        if self._ssl_readable_action:
+        if self._ssl_readable_action:  # type: ignore
             try:
                 self._ssl_readable_action()
             except Exception as error:  # pylint: disable=W0703
@@ -1291,7 +1296,7 @@ class _AsyncSSLTransport(_AsyncTransportBase):
 
         # Update consumer registration
         if next_consume_on_readable:
-            if not self._ssl_readable_action:
+            if not self._ssl_readable_action:  # type: ignore
                 self._nbio.set_reader(self._sock.fileno(),  # type: ignore
                                       self._on_socket_readable)
             self._ssl_readable_action = self._consume
@@ -1305,15 +1310,15 @@ class _AsyncSSLTransport(_AsyncTransportBase):
             if not self._ssl_writable_action:
                 self._nbio.set_writer(self._sock.fileno(),  # type: ignore
                                       self._on_socket_writable)
-            self._ssl_writable_action = self._consume
+            self._ssl_writable_action = self._consume  # type: ignore
 
-            if self._ssl_readable_action:
+            if self._ssl_readable_action:    # type: ignore
                 self._nbio.remove_reader(self._sock.fileno())  # type: ignore
-                self._ssl_readable_action = None
+                self._ssl_readable_action = None  # type: ignore
 
         # Update producer registration
         if self._tx_buffers and not self._ssl_writable_action:
-            self._ssl_writable_action = self._produce
+            self._ssl_writable_action = self._produce  # type: ignore
             self._nbio.set_writer(self._sock.fileno(), self._on_socket_writable)  # type: ignore
 
     @_log_exceptions
@@ -1364,12 +1369,12 @@ class _AsyncSSLTransport(_AsyncTransportBase):
                 if not self._ssl_writable_action:
                     self._nbio.set_writer(self._sock.fileno(),  # type: ignore
                                           self._on_socket_writable)
-                self._ssl_writable_action = self._produce
+                self._ssl_writable_action = self._produce  # type: ignore
 
                 # NOTE: can't use identity check, it fails for instance methods
                 if self._ssl_readable_action == self._produce: # pylint: disable=W0143
                     self._nbio.remove_reader(self._sock.fileno())  # type: ignore
-                    self._ssl_readable_action = None
+                    self._ssl_readable_action = None  # type: ignore
             else:
                 # WANT_READ
                 if not self._ssl_readable_action:
@@ -1384,7 +1389,7 @@ class _AsyncSSLTransport(_AsyncTransportBase):
             # NOTE: can't use identity check, it fails for instance methods
             if self._ssl_readable_action == self._produce: # pylint: disable=W0143
                 self._nbio.remove_reader(self._sock.fileno())  # type: ignore
-                self._ssl_readable_action = None
+                self._ssl_readable_action = None  # type: ignore
                 assert self._ssl_writable_action != self._produce, ( # pylint: disable=W0143
                     '_AsyncSSLTransport._produce(): with empty tx_buffers, '
                     'writable_action cannot be _produce when readable is '

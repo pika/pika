@@ -442,7 +442,7 @@ class _TimerHandle(nbio_interface.AbstractTimerReference):
         if self._loop is not None:
             self._loop.remove_timeout(self._handle)
             self._handle = None
-            self._loop = None
+            self._loop = None  # type: ignore
 
 
 class _SelectorIOLoopIOHandle(nbio_interface.AbstractIOReference):
