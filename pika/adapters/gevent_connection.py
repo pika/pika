@@ -8,7 +8,7 @@ import threading
 import weakref
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union, TYPE_CHECKING
 
-import gevent._interfaces  # type: ignore[import]
+import gevent._interfaces  # type: ignore[import-untyped]
 
 try:
     import queue
@@ -16,8 +16,8 @@ except ImportError:  # Python <= v2.7
     import Queue as queue  # type: ignore
 
 import gevent
-import gevent.hub  # type: ignore[import]
-import gevent.socket  # type: ignore[import]
+import gevent.hub  # type: ignore[import-untyped]
+import gevent.socket  # type: ignore[import-untyped]
 
 import pika.compat
 from pika.adapters.base_connection import BaseConnection
@@ -189,10 +189,10 @@ class _GeventSelectorIOLoop(AbstractSelectorIOLoop):
     # Gevent's READ and WRITE masks are defined as 1 and 2 respectively. No
     # ERROR mask is defined.
     # See http://www.gevent.org/api/gevent.hub.html#gevent._interfaces.ILoop.io
-    READ = 1  # type: ignore[assignment]
-    WRITE = 2  # type: ignore[assignment]
-    ERROR = 0  # type: ignore[assignment]
-
+    READ = 1   # pyright: ignore[reportAssignmentType, reportIncompatibleMethodOverride]
+    WRITE = 2   # pyright: ignore[reportAssignmentType, reportIncompatibleMethodOverride]
+    ERROR = 0   # pyright: ignore[reportAssignmentType, reportIncompatibleMethodOverride]
+    
     def __init__(self, gevent_hub: Optional[gevent.hub.Hub] = None) -> None:
         """
         :param gevent._interfaces.ILoop gevent_loop:
@@ -216,7 +216,7 @@ class _GeventSelectorIOLoop(AbstractSelectorIOLoop):
 
     def close(self) -> None:
         """Release the loop's resources."""
-        self._hub.loop.destroy()  # type: ignore
+        self._hub.loop.destroy()  # pyright: ignore[reportOptionalMemberAccess]
         self._hub = None
 
     def start(self) -> None:
@@ -255,13 +255,13 @@ class _GeventSelectorIOLoop(AbstractSelectorIOLoop):
         if gevent.get_hub() == self._hub:
             # We're in the main thread; just add the callback.
             LOGGER.debug("Adding callback from main thread")
-            self._hub.loop.run_callback(callback)  # type: ignore
+            self._hub.loop.run_callback(callback)  # pyright: ignore[reportOptionalMemberAccess]
         else:
             # This isn't the main thread and Gevent's hub/loop don't provide
             # any thread-safety so enqueue the callback for it to be registered
             # in the main thread.
             LOGGER.debug("Adding callback from another thread")
-            callback = functools.partial(self._hub.loop.run_callback, callback)  # type: ignore
+            callback = functools.partial(self._hub.loop.run_callback, callback)  # pyright: ignore[reportAssignmentType, reportOptionalMemberAccess]
             self._callback_queue.add_callback_threadsafe(callback)
 
     def call_later(self, delay: float, callback: Callable[[], None]) -> Any:
@@ -275,7 +275,7 @@ class _GeventSelectorIOLoop(AbstractSelectorIOLoop):
             `remove_timeout()`
         :rtype: object
         """
-        timer = self._hub.loop.timer(delay)  # type: ignore
+        timer = self._hub.loop.timer(delay)  # pyright: ignore[reportOptionalMemberAccess]
         timer.start(callback)
         return timer
 
@@ -294,7 +294,7 @@ class _GeventSelectorIOLoop(AbstractSelectorIOLoop):
             `handler(fd, events)` will be called.
         :param int events: The event mask (READ|WRITE)
         """
-        io_watcher = self._hub.loop.io(fd, events)  # type: ignore
+        io_watcher = self._hub.loop.io(fd, events)  # pyright: ignore[reportOptionalMemberAccess]
         self._io_watchers_by_fd[fd] = io_watcher
         io_watcher.start(handler, fd, events)
 

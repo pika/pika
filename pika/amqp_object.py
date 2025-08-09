@@ -13,8 +13,8 @@ class AMQPObject:
     and methods.
 
     """
-    NAME = 'AMQPObject'
-    INDEX = None
+    NAME: str = 'AMQPObject'
+    INDEX: int | None = None
 
     def __repr__(self) -> str:
         items = list()
@@ -34,13 +34,13 @@ class AMQPObject:
 
 class Class(AMQPObject):
     """Is extended by AMQP classes"""
-    NAME = 'Unextended Class'
+    NAME: str = 'Unextended Class'
 
 
 class Method(AMQPObject):
     """Is extended by AMQP methods"""
-    NAME = 'Unextended Method'
-    synchronous = False
+    NAME: str = 'Unextended Method'
+    synchronous: bool = False
 
     def _set_content(self, properties: Properties, body: bytes) -> None:
         """If the method is a content frame, set the properties and body to
@@ -90,4 +90,4 @@ class Method(AMQPObject):
 
 class Properties(AMQPObject):
     """Class to encompass message properties (AMQP Basic.Properties)"""
-    NAME = 'Unextended Properties'
+    NAME: str = 'Unextended Properties'

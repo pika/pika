@@ -138,7 +138,7 @@ class AMQPConnector:
         """
         self._conn_factory: Callable[[pika.connection.Parameters], nbio_interface.AbstractStreamProtocol] = conn_factory
         self._nbio: nbio_interface.AbstractIOServices = nbio
-        self._addr_record: Optional[Tuple] = None  # type: ignore
+        self._addr_record: Optional[Tuple] = None 
         self._conn_params: pika.connection.Parameters = None  # type: ignore
         self._on_done: Callable[[Union[pika.connection.Connection, BaseException]], None] = None  # type: ignore  # will be provided via start()
         # TCP connection timeout
@@ -365,7 +365,7 @@ class AMQPConnector:
                 AMQPConnectorStackTimeout(
                     'Timeout while setting up transport to {!r}/{}; ssl={}'.
                     format(self._conn_params.host, self._addr_record,
-                           bool(self._conn_params.ssl_options))))  # type: ignore[assignment]
+                           bool(self._conn_params.ssl_options))))  
 
         self._report_completion_and_cleanup(error)
 
@@ -442,14 +442,14 @@ class AMQPConnector:
         # We succeeded in setting up the streaming transport!
         # result is a two-tuple (transport, protocol)
         _LOG.info('Streaming transport linked up: %r.', result)
-        _transport, self._amqp_conn = result  # type: ignore
+        _transport, self._amqp_conn = result   # pyright: ignore[reportAttributeAccessIssue]
 
         # AMQP handshake is in progress - initiated during transport link-up
         self._state = self._STATE_AMQP
         # We explicitly remove default handler because it raises an exception.
-        self._amqp_conn.add_on_open_error_callback(  # type: ignore
+        self._amqp_conn.add_on_open_error_callback(   # pyright: ignore[reportOptionalMemberAccess]
             self._on_amqp_handshake_done, remove_default=True)
-        self._amqp_conn.add_on_open_callback(self._on_amqp_handshake_done)  # type: ignore
+        self._amqp_conn.add_on_open_callback(self._on_amqp_handshake_done)  # pyright: ignore[reportOptionalMemberAccess]
 
     def _on_amqp_handshake_done(self, connection: pika.connection.Connection, error: Optional[BaseException] = None) -> None:
         """Handle completion of AMQP connection handshake attempt.
@@ -480,7 +480,7 @@ class AMQPConnector:
                 AMQPConnectorStackTimeout(
                     'Timeout during AMQP handshake{!r}/{}; ssl={}'.format(
                         self._conn_params.host, self._addr_record,
-                        bool(self._conn_params.ssl_options))))  # type: ignore[assignment]
+                        bool(self._conn_params.ssl_options)))) 
         elif self._state == self._STATE_AMQP:
             if error is None:
                 _LOG.debug(
@@ -839,7 +839,7 @@ class AMQPConnectionWorkflow(AbstractAMQPConnectionWorkflow):
 
         _LOG.debug('Attempting to connect using address record %r', addr_record)
 
-        self._connector = self._connector_factory()  # type: ignore[no-redef]
+        self._connector = self._connector_factory()  
 
         self._connector.start(
             addr_record=addr_record,
@@ -871,10 +871,10 @@ class AMQPConnectionWorkflow(AbstractAMQPConnectionWorkflow):
                            'AMQP handshake due to _until_first_amqp_attempt.')
                 if isinstance(conn_or_exc.exception,
                               pika.exceptions.ConnectionOpenAborted):
-                    error = AMQPConnectionWorkflowAborted  # type: ignore[assignment]
+                    error = AMQPConnectionWorkflowAborted  
                 else:
-                    error = AMQPConnectionWorkflowFailed(  # type: ignore[assignment]
-                        self._connection_errors)
+                    error = AMQPConnectionWorkflowFailed(  
+                        self._connection_errors)  # type: ignore
 
                 self._report_completion_and_cleanup(error)  # type: ignore
             else:

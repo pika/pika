@@ -375,9 +375,9 @@ class IOLoop(AbstractSelectorIOLoop):
 
     """
     # READ/WRITE/ERROR per `AbstractSelectorIOLoop` requirements
-    READ = PollEvents.READ  # type: ignore
-    WRITE = PollEvents.WRITE  # type: ignore
-    ERROR = PollEvents.ERROR  # type: ignore
+    READ = PollEvents.READ   # pyright: ignore[reportIncompatibleMethodOverride, reportAssignmentType]
+    WRITE = PollEvents.WRITE  # pyright: ignore[reportIncompatibleMethodOverride, reportAssignmentType]
+    ERROR = PollEvents.ERROR  # pyright: ignore[reportIncompatibleMethodOverride, reportAssignmentType]
 
     def __init__(self) -> None:
         self._timer = _Timer()
@@ -665,7 +665,7 @@ class _PollerBase(pika.compat.AbstractBase):  # type: ignore  # pylint: disable=
         with self._waking_mutex:
             if self._w_interrupt is not None:
                 self.remove_handler(self._r_interrupt.fileno())  # pylint: disable=E1101  # type: ignore
-                self._r_interrupt.close()  # type: ignore
+                self._r_interrupt.close()   # pyright: ignore[reportOptionalMemberAccess]
                 self._r_interrupt = None  # type: ignore
                 self._w_interrupt.close()
                 self._w_interrupt = None  # type: ignore
@@ -1137,28 +1137,27 @@ class KQueuePoller(_PollerBase):
 
         if events_to_clear & PollEvents.READ:
             kevents.append(
-                select.kevent(  # type: ignore
-                    fileno,
-                    filter=select.KQ_FILTER_READ,  # type: ignore
-                    flags=select.KQ_EV_DELETE))  # type: ignore
-        if events_to_set & PollEvents.READ:
+                select.kevent(  # pyright: ignore[reportAttributeAccessIssue]
+                    filter=select.KQ_FILTER_READ,  # pyright: ignore[reportAttributeAccessIssue]
+                    flags=select.KQ_EV_DELETE))  # pyright: ignore[reportAttributeAccessIssue]
+        if events_to_set & PollEvents.READ:  # pyright: ignore[reportAttributeAccessIssue]
             kevents.append(
-                select.kevent(  # type: ignore
+                select.kevent(  # pyright: ignore[reportAttributeAccessIssue] 
                     fileno,
-                    filter=select.KQ_FILTER_READ,  # type: ignore
-                    flags=select.KQ_EV_ADD))  # type: ignore
+                    filter=select.KQ_FILTER_READ,  # pyright: ignore[reportAttributeAccessIssue]  
+                    flags=select.KQ_EV_ADD))  # pyright: ignore[reportAttributeAccessIssue]  
         if events_to_clear & PollEvents.WRITE:
             kevents.append(
-                select.kevent(  # type: ignore
+                select.kevent(  # pyright: ignore[reportAttributeAccessIssue]  
                     fileno,
-                    filter=select.KQ_FILTER_WRITE,  # type: ignore
-                    flags=select.KQ_EV_DELETE))  # type: ignore
+                    filter=select.KQ_FILTER_WRITE, # pyright: ignore[reportAttributeAccessIssue]
+                    flags=select.KQ_EV_DELETE))   # pyright: ignore[reportAttributeAccessIssue]
         if events_to_set & PollEvents.WRITE:
             kevents.append(
-                select.kevent(  # type: ignore
+                select.kevent(   # pyright: ignore[reportAttributeAccessIssue]
                     fileno,
-                    filter=select.KQ_FILTER_WRITE,  # type: ignore
-                    flags=select.KQ_EV_ADD))  # type: ignore
+                    filter=select.KQ_FILTER_WRITE,  # pyright: ignore[reportAttributeAccessIssue]
+                    flags=select.KQ_EV_ADD))   # pyright: ignore[reportAttributeAccessIssue]
 
         self._kqueue.control(kevents, 0)
 
@@ -1234,7 +1233,7 @@ class PollPoller(_PollerBase):
         """Notify the implementation to release the poller resource"""
         if self._poll is not None:
             if hasattr(self._poll, "close"):
-                self._poll.close()  # type: ignore
+                self._poll.close()   # pyright: ignore[reportAttributeAccessIssue]
 
             self._poll = None
 

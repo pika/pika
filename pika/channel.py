@@ -7,9 +7,10 @@ implementing the methods and behaviors for an AMQP Channel.
 
 from __future__ import annotations
 
-import collections
+from collections import deque
+from collections.abc import Sequence
 import logging
-from typing import Any, Dict, Callable, List, Optional, Sequence, Tuple, Type, TypeVar, TYPE_CHECKING, Union
+from typing import Any, Dict, Callable, List, Optional, Tuple, Type, TYPE_CHECKING, Union
 import uuid
 from enum import Enum
 
@@ -27,6 +28,32 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger(__name__)
 
 MAX_CHANNELS: int = 65535  # per AMQP 0.9.1 spec.
+
+_OnAckNackCallback = Callable[[frame.Method[Union[spec.Basic.Ack, spec.Basic.Nack]]], None]
+_OnConfirmDeliveryCallback = Callable[[frame.Method[spec.Confirm.SelectOk]], None]
+_OnBasicConsumeCallback = Callable[[frame.Method[spec.Basic.ConsumeOk]], None]
+_OnBasicGetCallback = Callable[["Channel", spec.Basic.GetOk, spec.BasicProperties, bytes], None]
+_OnBasicRecoverCallback = Callable[[frame.Method[spec.Basic.RecoverOk]], None]
+_OnBasicQosCallback = Callable[[frame.Method[spec.Basic.QosOk]], None]
+_OnBasicCancelCallback = Callable[[frame.Method[spec.Basic.CancelOk]], None]
+_OnCancelCallback = Callable[[frame.Method[spec.Basic.Cancel]], Any]
+_OnCloseCallback = Callable[["Channel", Exception], None]
+_OnExchangeBindCallback = Callable[[frame.Method[spec.Exchange.BindOk]], None]
+_OnExchangeDeclareCallback = Callable[[frame.Method[spec.Exchange.DeclareOk]], None]
+_OnExchangeDeleteCallback = Callable[[frame.Method[spec.Exchange.DeleteOk]], None]
+_OnExchangeUnbindCallback = Callable[[frame.Method[spec.Exchange.UnbindOk]], None]
+_OnFlowCallback = Callable[[bool], None]
+_OnMessageCallback = Callable[["Channel", spec.Basic.Deliver, spec.BasicProperties, bytes], None]
+_OnOpenCallback = Callable[["Channel"], None]
+_OnQueueBindCallback = Callable[[frame.Method[spec.Queue.BindOk]], None]
+_OnQueueDeclareCallback = Callable[[frame.Method[spec.Queue.DeclareOk]], None]
+_OnQueueDeleteCallback = Callable[[frame.Method[spec.Queue.DeleteOk]], None]
+_OnQueuePurgeCallback = Callable[[frame.Method[spec.Queue.PurgeOk]], None]
+_OnQueueUnbindCallback = Callable[[frame.Method[spec.Queue.UnbindOk]], None]
+_OnReturnCallback = Callable[["Channel", spec.Basic.Return, spec.BasicProperties, bytes], None]
+_OnTxCommitCallback = Callable[[spec.Tx.CommitOk], None]
+_OnTxRollbackCallback = Callable[[spec.Tx.RollbackOk], None]
+_OnTxSelectCallback = Callable[[spec.Tx.SelectOk], None]
 
 
 class Channel:
@@ -54,7 +81,7 @@ class Channel:
 
     _ON_CHANNEL_CLEANUP_CB_KEY = '_on_channel_cleanup'
 
-    def __init__(self, connection: Connection, channel_number: int, on_open_callback: Optional[Callable[..., Any]]) -> None:
+    def __init__(self, connection: Connection, channel_number: int, on_open_callback: Optional[_OnOpenCallback]) -> None:
         """Create a new instance of the Channel
 
         :param pika.connection.Connection connection: The connection
@@ -78,7 +105,7 @@ class Channel:
 
         self._content_assembler = ContentFrameAssembler()
 
-        self._blocked: collections.deque = collections.deque(list())
+        self._blocked: deque = deque(list())
         self._blocking: Optional[Any] = None
         self._has_on_flow_callback: bool = False
         self._cancelled: set = set()
@@ -113,7 +140,7 @@ class Channel:
             self.__class__.__name__, self.channel_number,
             self._STATE_NAMES[self._state], self.connection)\
 
-    def add_callback(self, callback: Callable[..., Any], replies: List[Type[amqp_object.Method]], one_shot: bool = True) -> None:
+    def add_callback(self, callback: Callable[..., Any], replies: Sequence[Type[amqp_object.Method]], one_shot: bool = True) -> None:
         """Pass in a callback handler and a list replies from the
         RabbitMQ broker which you'd like the callback notified of. Callbacks
         should allow for the frame parameter to be passed in.
@@ -126,7 +153,7 @@ class Channel:
         for reply in replies:
             self.callbacks.add(self.channel_number, reply, callback, one_shot)
 
-    def add_on_cancel_callback(self, callback: Callable[..., Any]) -> None:
+    def add_on_cancel_callback(self, callback: _OnCancelCallback) -> None:
         """Pass a callback function that will be called when the basic_cancel
         is sent by the server. The callback function should receive a frame
         parameter.
@@ -138,7 +165,7 @@ class Channel:
         self.callbacks.add(self.channel_number, spec.Basic.Cancel, callback,
                            False)
 
-    def add_on_close_callback(self, callback: Callable[..., Any]) -> None:
+    def add_on_close_callback(self, callback: _OnCloseCallback) -> None:
         """Pass a callback function that will be called when the channel is
         closed. The callback function will receive the channel and an exception
         describing why the channel was closed.
@@ -162,7 +189,7 @@ class Channel:
         self.callbacks.add(self.channel_number, '_on_channel_close', callback,
                            False, self)
 
-    def add_on_flow_callback(self, callback: Callable[..., Any]) -> None:
+    def add_on_flow_callback(self, callback: _OnFlowCallback) -> None:
         """Pass a callback function that will be called when Channel.Flow is
         called by the remote server. Note that newer versions of RabbitMQ
         will not issue this but instead use TCP backpressure
@@ -174,7 +201,7 @@ class Channel:
         self.callbacks.add(self.channel_number, spec.Channel.Flow, callback,
                            False)
 
-    def add_on_return_callback(self, callback: Callable[..., Any]) -> None:
+    def add_on_return_callback(self, callback: _OnReturnCallback) -> None:
         """Pass a callback function that will be called when basic_publish is
         sent a message that has been rejected and returned by the server.
 
@@ -210,7 +237,7 @@ class Channel:
         self._raise_if_not_open()
         return self._send_method(spec.Basic.Ack(delivery_tag, multiple))
 
-    def basic_cancel(self, consumer_tag: str = '', callback: Optional[Callable[..., Any]] = None) -> None:
+    def basic_cancel(self, consumer_tag: str = '', callback: Optional[_OnBasicCancelCallback] = None) -> None:
         """This method cancels a consumer. This does not affect already
         delivered messages, but it does mean the server will not send any more
         messages for that consumer. The client may receive an arbitrary number
@@ -270,12 +297,12 @@ class Channel:
 
     def basic_consume(self,
                       queue: str,
-                      on_message_callback: Callable[..., Any],
+                      on_message_callback: _OnMessageCallback,
                       auto_ack: bool = False,
                       exclusive: bool = False,
                       consumer_tag: Optional[str] = None,
                       arguments: Optional[Dict[str, Any]] = None,
-                      callback: Optional[Callable[..., Any]] = None) -> str:
+                      callback: Optional[_OnBasicConsumeCallback] = None) -> str:
         """Sends the AMQP 0-9-1 command Basic.Consume to the broker and binds messages
         for the consumer_tag to the consumer callback. If you do not pass in
         a consumer_tag, one will be automatically generated for you. Returns
@@ -351,7 +378,7 @@ class Channel:
         """
         return 'ctag%i.%s' % (self.channel_number, uuid.uuid4().hex)
 
-    def basic_get(self, queue: str, callback: Callable[..., Any], auto_ack: bool = False) -> None:
+    def basic_get(self, queue: str, callback: _OnBasicGetCallback, auto_ack: bool = False) -> None:
         """Get a single message from the AMQP broker. If you want to
         be notified of Basic.GetEmpty, use the Channel.add_callback method
         adding your Basic.GetEmpty callback which should expect only one
@@ -439,7 +466,7 @@ class Channel:
                   prefetch_size: int = 0,
                   prefetch_count: int = 0,
                   global_qos: bool = False,
-                  callback: Optional[Callable[..., Any]] = None) -> None:
+                  callback: Optional[_OnBasicQosCallback] = None) -> None:
         """Specify quality of service. This method requests a specific quality
         of service. The client can request that messages be sent in advance
         so that when the client finishes processing a message, the following
@@ -497,7 +524,7 @@ class Channel:
             raise TypeError('delivery_tag must be an integer')
         return self._send_method(spec.Basic.Reject(delivery_tag, requeue))
 
-    def basic_recover(self, requeue: bool = False, callback: Optional[Callable[..., Any]] = None) -> None:
+    def basic_recover(self, requeue: bool = False, callback: Optional[_OnBasicRecoverCallback] = None) -> None:
         """This method asks the server to redeliver all unacknowledged messages
         on a specified channel. Zero or more messages may be redelivered. This
         method replaces the asynchronous Recover.
@@ -558,7 +585,7 @@ class Channel:
         self._rpc(spec.Channel.Close(reply_code, reply_text, 0, 0),
                   self._on_closeok, [spec.Channel.CloseOk])
 
-    def confirm_delivery(self, ack_nack_callback: Callable[..., Any], callback: Optional[Callable[..., Any]] = None) -> None:
+    def confirm_delivery(self, ack_nack_callback: _OnAckNackCallback, callback: Optional[_OnConfirmDeliveryCallback] = None) -> None:
         """Turn on Confirm mode in the channel. Pass in a callback to be
         notified by the Broker when a message has been confirmed as received or
         rejected (Basic.Ack, Basic.Nack) from the broker to the publisher.
@@ -612,7 +639,7 @@ class Channel:
                       source: str,
                       routing_key: str = '',
                       arguments: Optional[Dict[str, Any]] = None,
-                      callback: Optional[Callable[..., Any]] = None) -> None:
+                      callback: Optional[_OnExchangeBindCallback] = None) -> None:
         """Bind an exchange to another exchange.
 
         :param str destination: The destination exchange to bind
@@ -640,7 +667,7 @@ class Channel:
                          auto_delete: bool = False,
                          internal: bool = False,
                          arguments: Optional[Dict[str, Any]] = None,
-                         callback: Optional[Callable[..., Any]] = None) -> None:
+                         callback: Optional[_OnExchangeDeclareCallback] = None) -> None:
         """This method creates an exchange if it does not already exist, and if
         the exchange exists, verifies that it is of the correct and expected
         class.
@@ -669,12 +696,12 @@ class Channel:
         if isinstance(exchange_type, Enum):
             exchange_type = exchange_type.value
         return self._rpc(
-            spec.Exchange.Declare(0, exchange, exchange_type, passive, durable,  # type: ignore
+            spec.Exchange.Declare(0, exchange, exchange_type, passive, durable,   # pyright: ignore[reportArgumentType]
                                   auto_delete, internal, nowait, arguments or
                                   dict()), callback,
             [spec.Exchange.DeclareOk] if not nowait else [])
 
-    def exchange_delete(self, exchange: Optional[str] = None, if_unused: bool = False, callback: Optional[Callable[..., Any]] = None) -> None:
+    def exchange_delete(self, exchange: Optional[str] = None, if_unused: bool = False, callback: Optional[_OnExchangeDeleteCallback] = None) -> None:
         """Delete the exchange.
 
         :param str exchange: The exchange name
@@ -694,7 +721,7 @@ class Channel:
                         source: Optional[str] = None,
                         routing_key: str = '',
                         arguments: Optional[Dict[str, Any]] = None,
-                        callback: Optional[Callable[..., Any]] = None) -> None:
+                        callback: Optional[_OnExchangeUnbindCallback] = None) -> None:
         """Unbind an exchange from another exchange.
 
         :param str destination: The destination exchange to unbind
@@ -712,7 +739,7 @@ class Channel:
                                  arguments), callback,
             [spec.Exchange.UnbindOk] if not nowait else [])
 
-    def flow(self, active: bool, callback: Optional[Callable[..., Any]] = None) -> None:
+    def flow(self, active: bool, callback: Optional[_OnFlowCallback] = None) -> None:
         """Turn Channel flow control off and on. Pass a callback to be notified
         of the response from the server. active is a bool. Callback should
         expect a bool in response indicating channel flow state. For more
@@ -779,7 +806,7 @@ class Channel:
                    exchange: str,
                    routing_key: Optional[str] = None,
                    arguments: Optional[Dict[str, Any]] = None,
-                   callback: Optional[Callable[..., Any]] = None) -> None:
+                   callback: Optional[_OnQueueBindCallback] = None) -> None:
         """Bind the queue to the specified exchange
 
         :param str queue: The queue to bind to the exchange
@@ -808,7 +835,7 @@ class Channel:
                       exclusive: bool = False,
                       auto_delete: bool = False,
                       arguments: Optional[Dict[str, Any]] = None,
-                      callback: Optional[Callable[..., Any]] = None) -> None:
+                      callback: Optional[_OnQueueDeclareCallback] = None) -> None:
         """Declare queue, create if needed. This method creates or checks a
         queue. When creating a new queue the client can specify various
         properties that control the durability of the queue and its contents,
@@ -847,7 +874,7 @@ class Channel:
                      queue: str,
                      if_unused: bool = False,
                      if_empty: bool = False,
-                     callback: Optional[Callable[..., Any]] = None) -> None:
+                     callback: Optional[_OnQueueDeleteCallback] = None) -> None:
         """Delete a queue from the broker.
 
         :param str queue: The queue to delete
@@ -865,7 +892,7 @@ class Channel:
             spec.Queue.Delete(0, queue, if_unused, if_empty, nowait), callback,
             replies)
 
-    def queue_purge(self, queue: str, callback: Optional[Callable[..., Any]] = None) -> None:
+    def queue_purge(self, queue: str, callback: Optional[_OnQueuePurgeCallback] = None) -> None:
         """Purge all of the messages from the specified queue
 
         :param str queue: The queue to purge
@@ -884,7 +911,7 @@ class Channel:
                      exchange: Optional[str] = None,
                      routing_key: Optional[str] = None,
                      arguments: Optional[Dict[str, Any]] = None,
-                     callback: Optional[Callable[..., Any]] = None) -> None:
+                     callback: Optional[_OnQueueUnbindCallback] = None) -> None:
         """Unbind a queue from an exchange.
 
         :param str queue: The queue to unbind from the exchange
@@ -904,7 +931,7 @@ class Channel:
             spec.Queue.Unbind(0, queue, exchange, routing_key, arguments or
                               dict()), callback, [spec.Queue.UnbindOk])
 
-    def tx_commit(self, callback: Optional[Callable[..., Any]] = None) -> None:
+    def tx_commit(self, callback: Optional[_OnTxCommitCallback] = None) -> None:
         """Commit a transaction
 
         :param callable callback: The callback for delivery confirmations
@@ -915,7 +942,7 @@ class Channel:
         validators.rpc_completion_callback(callback)
         return self._rpc(spec.Tx.Commit(), callback, [spec.Tx.CommitOk])
 
-    def tx_rollback(self, callback: Optional[Callable[..., Any]] = None) -> None:
+    def tx_rollback(self, callback: Optional[_OnTxRollbackCallback] = None) -> None:
         """Rollback a transaction.
 
         :param callable callback: The callback for delivery confirmations
@@ -926,7 +953,7 @@ class Channel:
         validators.rpc_completion_callback(callback)
         return self._rpc(spec.Tx.Rollback(), callback, [spec.Tx.RollbackOk])
 
-    def tx_select(self, callback: Optional[Callable[..., Any]] = None) -> None:
+    def tx_select(self, callback: Optional[_OnTxSelectCallback] = None) -> None:
         """Select standard transaction mode. This method sets the channel to use
         standard transactions. The client must use this method at least once on
         a channel before using the Commit or Rollback methods.

@@ -263,7 +263,7 @@ class BaseConnection(connection.Connection):
             [self.params],
             connector_factory=create_connector,
             native_loop=self._nbio.get_native_ioloop(),
-            on_done=functools.partial(self._unshim_connection_workflow_callback,  # type: ignore
+            on_done=functools.partial(self._unshim_connection_workflow_callback,  
                                       self._on_connection_workflow_done))  # type: ignore
 
     @staticmethod
@@ -355,7 +355,7 @@ class BaseConnection(connection.Connection):
                     conn_or_exc = pika.exceptions.AMQPConnectionError(
                         conn_or_exc)
 
-            self._handle_connection_workflow_failure(conn_or_exc)  # type: ignore
+            self._handle_connection_workflow_failure(conn_or_exc)  # pyright: ignore[reportArgumentType]
         else:
             # NOTE: On success, the stack will be up already, so there is no
             #       corresponding callback.
@@ -505,10 +505,10 @@ class _StreamingProtocolShim(nbio_interface.AbstractStreamProtocol):
         """
         self.conn = conn
         # pylint: disable=W0212
-        self.connection_made = conn._proto_connection_made  # type: ignore[has-type]
-        self.connection_lost = conn._proto_connection_lost  # type: ignore[has-type]
-        self.eof_received = conn._proto_eof_received  # type: ignore[has-type]
-        self.data_received = conn._proto_data_received  # type: ignore[has-type]
+        self.connection_made = conn._proto_connection_made  
+        self.connection_lost = conn._proto_connection_lost 
+        self.eof_received = conn._proto_eof_received  
+        self.data_received = conn._proto_data_received  
 
     def __getattr__(self, attr: str) -> Any:
         """Proxy inexistent attribute requests to our connection instance

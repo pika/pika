@@ -119,8 +119,8 @@ def encode_value(pieces: List[bytes], value: Any) -> int:  # pylint: disable=R09
             return 9
     elif isinstance(value, decimal.Decimal):
         value = value.normalize()
-        if value.as_tuple().exponent < 0:  # type: ignore[operator]
-            decimals = -value.as_tuple().exponent  # type: ignore[operator]
+        if value.as_tuple().exponent < 0:  
+            decimals = -value.as_tuple().exponent  
             raw = int(value * (decimal.Decimal(10)**decimals))
             pieces.append(struct.pack('>cBi', b'D', decimals, raw))
         else:

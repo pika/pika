@@ -143,7 +143,7 @@ class _CallbackResult:
         if self._values is None:
             self._values = [value]
         else:
-            self._values.append(value)  # type: ignore
+            self._values.append(value)  
 
         self._ready = True
 
@@ -203,7 +203,7 @@ class _IoloopTimerContext:
 
     def __exit__(self, *_args: Any, **_kwargs: Any) -> None:
         """Unregister timer if it hasn't fired yet"""
-        if not self._callback_result:  # type: ignore
+        if not self._callback_result: 
             self._connection._adapter_remove_timeout(self._timer_handle)
             self._timer_handle = None
 
@@ -586,7 +586,7 @@ class BlockingConnection:
                     continue
 
                 if impl_channel.is_open:
-                    impl_channel._get_cookie()._dispatch_events()  # type: ignore
+                    impl_channel._get_cookie()._dispatch_events()  
 
     def _on_timer_ready(self, evt: _TimerEvt) -> None:
         """Handle expiry of a timer that was registered via
@@ -1335,7 +1335,7 @@ class BlockingChannel:
         self._message_confirmation_result.reset()
         self._pending_events = deque()
         self._consumer_infos = dict()
-        self._queue_consumer_generator = None  # type: ignore
+        self._queue_consumer_generator = None 
 
     @property
     def channel_number(self) -> int:
@@ -1862,7 +1862,7 @@ class BlockingChannel:
                         # to avoid nacking messages already held by our client.
                         for message in pending_messages:
                             self._impl.basic_reject(
-                                message.method.delivery_tag, requeue=True)  # type: ignore
+                                message.method.delivery_tag, requeue=True)   # pyright: ignore[reportArgumentType]
 
                 # Cancel the consumer; impl takes care of rejecting any
                 # additional deliveries that arrive for a auto_ack=False

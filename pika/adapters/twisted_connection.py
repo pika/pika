@@ -1119,14 +1119,14 @@ class _TwistedConnectionAdapter(pika.connection.Connection):
 
         """
         check_callback_arg(callback, 'callback')
-        return _TimerHandle(self._reactor.callLater(delay, callback))  # type: ignore
+        return _TimerHandle(self._reactor.callLater(delay, callback))   # pyright: ignore[reportAttributeAccessIssue]
 
     def _adapter_remove_timeout(self, timeout_id: Any) -> None:
         """Implement
         :py:meth:`pika.connection.Connection._adapter_remove_timeout()`.
 
         """
-        timeout_id.cancel()  # type: ignore
+        timeout_id.cancel() 
 
     def _adapter_add_callback_threadsafe(self, callback: Callable[..., None]) -> None:
         """Implement
@@ -1134,7 +1134,7 @@ class _TwistedConnectionAdapter(pika.connection.Connection):
 
         """
         check_callback_arg(callback, 'callback')
-        self._reactor.callFromThread(callback)  # type: ignore
+        self._reactor.callFromThread(callback)  # pyright: ignore[reportAttributeAccessIssue]
 
     def _adapter_connect_stream(self) -> None:
         """Implement pure virtual

@@ -332,7 +332,7 @@ class Parameters:  # pylint: disable=R0902
                     % (value,))
             if not callable(value) and value < 0:
                 raise ValueError('heartbeat must >= 0, but got {!r}'.format(value))
-        self._heartbeat = value  # type: ignore[return-value]
+        self._heartbeat = value   # pyright: ignore[reportAttributeAccessIssue]
 
     @property
     def host(self) -> str:
@@ -1800,8 +1800,8 @@ class Connection(pika.compat.AbstractBase):  # type: ignore
         LOGGER.debug('_on_connection_close_from_broker: frame=%s', method_frame)
 
         self._terminate_stream(
-            exceptions.ConnectionClosedByBroker(method_frame.method.reply_code,  # type: ignore  
-                                                method_frame.method.reply_text))  # type: ignore
+            exceptions.ConnectionClosedByBroker(method_frame.method.reply_code,   # pyright: ignore[reportArgumentType]
+                                                method_frame.method.reply_text))   # pyright: ignore[reportArgumentType]
 
     def _on_connection_close_ok(self, method_frame: frame.Method[spec.Connection.CloseOk]) -> None:
         """Called when Connection.CloseOk is received from remote.
@@ -1830,7 +1830,7 @@ class Connection(pika.compat.AbstractBase):  # type: ignore
         """
         self._opened = True
 
-        self.known_hosts = method_frame.method.known_hosts  # type: ignore
+        self.known_hosts = method_frame.method.known_hosts   # pyright: ignore[reportAttributeAccessIssue]
 
         # We're now connected at the AMQP level
         self._set_connection_state(self.CONNECTION_OPEN)
@@ -2223,7 +2223,7 @@ class Connection(pika.compat.AbstractBase):  # type: ignore
             0,
             spec.Connection.TuneOk(self.params.channel_max,  
                                    self.params.frame_max,  
-                                   self.params.heartbeat))  # type: ignore
+                                   self.params.heartbeat))   # pyright: ignore[reportArgumentType]
 
     def _send_frame(self, frame_value: Union[frame.Frame, frame.ProtocolHeader]) -> None:
         """This appends the fully generated frame to send to the broker to the
@@ -2305,11 +2305,11 @@ class Connection(pika.compat.AbstractBase):  # type: ignore
         :param spec.connection.Start method_frame: The Connection.Start frame
 
         """
-        self.server_properties = method_frame.method.server_properties  # type: ignore
-        self.server_capabilities = self.server_properties.get(  # type: ignore
+        self.server_properties = method_frame.method.server_properties   # pyright: ignore[reportAttributeAccessIssue]
+        self.server_capabilities = self.server_properties.get(  # pyright: ignore[reportOptionalMemberAccess]
             'capabilities', dict())
         if hasattr(self.server_properties, 'capabilities'):
-            del self.server_properties['capabilities']  # type: ignore
+            del self.server_properties['capabilities']   # pyright: ignore[reportOptionalSubscript]
 
     def _trim_frame_buffer(self, byte_count: int) -> None:
         """Trim the leading N bytes off the frame buffer and increment the
