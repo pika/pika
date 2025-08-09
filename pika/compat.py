@@ -111,12 +111,10 @@ if ON_LINUX:
     LINUX_VERSION = get_linux_version(platform.release())
 
 
-
 def nonblocking_socketpair(
-    family: int = socket.AF_INET,
-    socket_type: int = socket.SOCK_STREAM,
-    proto: int = 0
-) -> Tuple[socket.socket, socket.socket]:
+        family: int = socket.AF_INET,
+        socket_type: int = socket.SOCK_STREAM,
+        proto: int = 0) -> Tuple[socket.socket, socket.socket]:
     """
     Returns a pair of sockets in the manner of socketpair with the additional
     feature that they will be non-blocking. Prior to Python 3.5, socketpair

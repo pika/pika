@@ -68,7 +68,7 @@ class Method(AMQPObject):
 
         """
         return self._body
-    
+
     def encode(self) -> List[bytes]:
         """Encode the method into a binary format.
 
@@ -76,7 +76,7 @@ class Method(AMQPObject):
 
         """
         raise NotImplementedError("Subclasses must implement this method")
-    
+
     def decode(self, encoded: bytes, offset: int = 0) -> Method:
         """Decode the method from a binary format.
 

@@ -46,7 +46,10 @@ class PlainCredentials:
     """
     TYPE = 'PLAIN'
 
-    def __init__(self, username: str, password: str, erase_on_connect: bool = False):
+    def __init__(self,
+                 username: str,
+                 password: str,
+                 erase_on_connect: bool = False):
         """Create a new instance of PlainCredentials
 
         :param str username: The username to authenticate with
@@ -71,7 +74,9 @@ class PlainCredentials:
             return not result
         return NotImplemented
 
-    def response_for(self, start: Connection.Start) -> Tuple[Optional[str], Optional[bytes]]:
+    def response_for(
+            self,
+            start: Connection.Start) -> Tuple[Optional[str], Optional[bytes]]:
         """Validate that this type of authentication is supported
 
         :param spec.Connection.Start start: Connection.Start method
@@ -84,7 +89,8 @@ class PlainCredentials:
         return (
             PlainCredentials.TYPE,
             # FIXME: must check for None, if not will as_bytes will raise AttributeError
-            b'\0' + as_bytes(self.username) + b'\0' + as_bytes(self.password))  # type:ignore 
+            b'\0' + as_bytes(self.username) + b'\0' + as_bytes(self.password)
+        )  # type:ignore
 
     def erase_credentials(self) -> None:
         """Called by Connection when it no longer needs the credentials"""
@@ -116,7 +122,9 @@ class ExternalCredentials:
             return not result
         return NotImplemented
 
-    def response_for(self, start: Connection.Start) -> Tuple[Optional[str], Optional[bytes]]:  # pylint: disable=R0201
+    def response_for(
+        self, start: Connection.Start
+    ) -> Tuple[Optional[str], Optional[bytes]]:  # pylint: disable=R0201
         """Validate that this type of authentication is supported
 
         :param spec.Connection.Start start: Connection.Start method
@@ -131,6 +139,7 @@ class ExternalCredentials:
     def erase_credentials(self) -> None:  # pylint: disable=R0201
         """Called by Connection when it no longer needs the credentials"""
         LOGGER.debug('Not supported by this Credentials type')
+
 
 _VALID_TYPES = Union[Type[PlainCredentials], Type[ExternalCredentials]]
 

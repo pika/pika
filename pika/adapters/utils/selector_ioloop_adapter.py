@@ -122,7 +122,8 @@ class AbstractSelectorIOLoop:
         """
 
     @abc.abstractmethod
-    def add_handler(self, fd: int, handler: Callable[[int, int], None], events: int) -> None:
+    def add_handler(self, fd: int, handler: Callable[[int, int], None],
+                    events: int) -> None:
         """Start watching the given file descriptor for events
 
         :param int fd: The file descriptor
@@ -224,29 +225,26 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         """
         return _TimerHandle(self._loop.call_later(delay, callback), self._loop)
 
-    def getaddrinfo(
-        self,
-        host: str,
-        port: int,
-        on_done:  Callable[..., None],
-        family: int = 0,
-        socktype: int = 0,
-        proto: int = 0,
-        flags: int = 0
-    ) -> nbio_interface.AbstractIOReference:
+    def getaddrinfo(self,
+                    host: str,
+                    port: int,
+                    on_done: Callable[..., None],
+                    family: int = 0,
+                    socktype: int = 0,
+                    proto: int = 0,
+                    flags: int = 0) -> nbio_interface.AbstractIOReference:
         """Implement :py:meth:`.nbio_interface.AbstractIOServices.getaddrinfo()`.
 
         """
         return _SelectorIOLoopIOHandle(
-            _AddressResolver(
-                native_loop=self._loop,
-                host=host,
-                port=port,
-                family=family,
-                socktype=socktype,
-                proto=proto,
-                flags=flags,
-                on_done=on_done).start())
+            _AddressResolver(native_loop=self._loop,
+                             host=host,
+                             port=port,
+                             family=family,
+                             socktype=socktype,
+                             proto=proto,
+                             flags=flags,
+                             on_done=on_done).start())
 
     def set_reader(self, fd: int, on_readable: Callable[[], None]) -> None:
         """Implement
@@ -416,7 +414,9 @@ class _FileDescriptorCallbacks:
 
     __slots__ = ('reader', 'writer')
 
-    def __init__(self, reader: Optional[Callable[[], None]] = None, writer: Optional[Callable[[], None]] = None):
+    def __init__(self,
+                 reader: Optional[Callable[[], None]] = None,
+                 writer: Optional[Callable[[], None]] = None):
 
         self.reader = reader
         self.writer = writer
@@ -480,17 +480,9 @@ class _AddressResolver:
     CANCELED = 2
     COMPLETED = 3
 
-    def __init__(
-        self,
-        native_loop: AbstractSelectorIOLoop,
-        host: str,
-        port: int,
-        family: int,
-        socktype: int,
-        proto: int,
-        flags: int,
-        on_done: Callable[..., None]
-    ) -> None:
+    def __init__(self, native_loop: AbstractSelectorIOLoop, host: str,
+                 port: int, family: int, socktype: int, proto: int, flags: int,
+                 on_done: Callable[..., None]) -> None:
         """
 
         :param AbstractSelectorIOLoop native_loop:
@@ -575,9 +567,12 @@ class _AddressResolver:
 
         """
         try:
-            result: Any = socket.getaddrinfo(host=self._host, port=self._port, family=self._family,
-                                        type=self._socktype, proto=self._proto,
-                                        flags=self._flags)
+            result: Any = socket.getaddrinfo(host=self._host,
+                                             port=self._port,
+                                             family=self._family,
+                                             type=self._socktype,
+                                             proto=self._proto,
+                                             flags=self._flags)
         except Exception as exc:  # pylint: disable=W0703
             LOGGER.error('Address resolution failed: %r', exc)
             result = exc

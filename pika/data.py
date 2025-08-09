@@ -41,7 +41,8 @@ def encode_short_string(pieces: List[bytes], value: str) -> int:
     return 1 + length
 
 
-def decode_short_string(encoded: bytes, offset: int) -> Tuple[Union[str, bytes], int]:
+def decode_short_string(encoded: bytes,
+                        offset: int) -> Tuple[Union[str, bytes], int]:
     """Decode a short string value from ``encoded`` data at ``offset``.
     """
     length = struct.unpack_from('B', encoded, offset)[0]
@@ -67,7 +68,7 @@ def encode_table(pieces: List[bytes], table: Optional[Dict[str, Any]]) -> int:
     table = table or {}
     length_index = len(pieces)
     # TODO: check if pieces.append(b'') is safe here
-    pieces.append(None)  # type: ignore[arg-type]  # placeholder  
+    pieces.append(None)  # type: ignore[arg-type]  # placeholder
     tablesize = 0
     for (key, value) in table.items():
         tablesize += encode_short_string(pieces, key)
@@ -119,8 +120,8 @@ def encode_value(pieces: List[bytes], value: Any) -> int:  # pylint: disable=R09
             return 9
     elif isinstance(value, decimal.Decimal):
         value = value.normalize()
-        if value.as_tuple().exponent < 0:  
-            decimals = -value.as_tuple().exponent  
+        if value.as_tuple().exponent < 0:
+            decimals = -value.as_tuple().exponent
             raw = int(value * (decimal.Decimal(10)**decimals))
             pieces.append(struct.pack('>cBi', b'D', decimals, raw))
         else:
@@ -149,7 +150,8 @@ def encode_value(pieces: List[bytes], value: Any) -> int:  # pylint: disable=R09
         raise exceptions.UnsupportedAMQPFieldException(pieces, value)
 
 
-def decode_table(encoded: bytes, offset: int) -> Tuple[Dict[Union[str, bytes], Any], int]:
+def decode_table(encoded: bytes,
+                 offset: int) -> Tuple[Dict[Union[str, bytes], Any], int]:
     """Decode the AMQP table passed in from the encoded value returning the
     decoded result and the number of bytes read plus the offset.
 

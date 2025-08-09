@@ -6,7 +6,6 @@ import pika.compat
 
 from typing import Dict, Optional
 
-
 LOGGER = logging.getLogger(__name__)
 
 _SUPPORTED_TCP_OPTIONS: Dict[str, int] = {}
@@ -30,12 +29,12 @@ except AttributeError:
 
 
 def socket_requires_keepalive(tcp_options: Dict[str, int]) -> bool:
-    return ('TCP_KEEPIDLE' in tcp_options or
-            'TCP_KEEPCNT' in tcp_options or
+    return ('TCP_KEEPIDLE' in tcp_options or 'TCP_KEEPCNT' in tcp_options or
             'TCP_KEEPINTVL' in tcp_options)
 
 
-def set_sock_opts(tcp_options: Optional[Dict[str, int]], sock: socket.socket) -> None:
+def set_sock_opts(tcp_options: Optional[Dict[str, int]],
+                  sock: socket.socket) -> None:
     if not tcp_options:
         return
 

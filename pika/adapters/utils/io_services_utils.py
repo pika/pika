@@ -68,8 +68,7 @@ def check_fd_arg(fd: int) -> None:
 
     """
     if not isinstance(fd, numbers.Integral):
-        raise TypeError(
-            f'Paramter must be a file descriptor, but got {fd!r}')
+        raise TypeError(f'Paramter must be a file descriptor, but got {fd!r}')
 
 
 def _retry_on_sigint(func):
@@ -102,9 +101,7 @@ class SocketConnectionMixin:
     """
 
     def connect_socket(
-        self, 
-        sock: socket.socket, 
-        resolved_addr: Tuple[str, int],
+        self, sock: socket.socket, resolved_addr: Tuple[str, int],
         on_done: Callable[[Optional[BaseException]], None]
     ) -> _AsyncServiceAsyncHandle:
         """Implement
@@ -112,7 +109,9 @@ class SocketConnectionMixin:
 
         """
         return _AsyncSocketConnector(
-            nbio=self, sock=sock, resolved_addr=resolved_addr,  # type: ignore
+            nbio=self,
+            sock=sock,
+            resolved_addr=resolved_addr,  # type: ignore
             on_done=on_done).start()
 
 
@@ -125,13 +124,17 @@ class StreamingConnectionMixin:
     """
 
     def create_streaming_connection(
-        self,
-        protocol_factory: Callable[[], nbio_interface.AbstractStreamProtocol],
-        sock: socket.socket,
-        on_done:  Callable[[Union[Tuple[nbio_interface.AbstractStreamTransport, nbio_interface.AbstractStreamProtocol], BaseException]], None],
-        ssl_context: Optional[ssl.SSLContext] = None,
-        server_hostname: Optional[str] = None
-    ) -> AbstractIOReference:
+            self,
+            protocol_factory: Callable[[],
+                                       nbio_interface.AbstractStreamProtocol],
+            sock: socket.socket,
+            on_done: Callable[[
+                Union[Tuple[nbio_interface.AbstractStreamTransport,
+                            nbio_interface.AbstractStreamProtocol],
+                      BaseException]
+            ], None],
+            ssl_context: Optional[ssl.SSLContext] = None,
+            server_hostname: Optional[str] = None) -> AbstractIOReference:
         """Implement
         :py:meth:`.nbio_interface.AbstractIOServices.create_streaming_connection()`.
 
@@ -193,13 +196,11 @@ class _AsyncSocketConnector:
     _STATE_CANCELED = 2  # workflow aborted by user's cancel() call
     _STATE_COMPLETED = 3  # workflow completed: succeeded or failed
 
-    def __init__(
-        self, 
-        nbio: Union[nbio_interface.AbstractIOServices, nbio_interface.AbstractFileDescriptorServices], 
-        sock: socket.socket, 
-        resolved_addr: Tuple[str, int], 
-        on_done: Callable[[Optional[BaseException]], None]
-    ):
+    def __init__(self,
+                 nbio: Union[nbio_interface.AbstractIOServices,
+                             nbio_interface.AbstractFileDescriptorServices],
+                 sock: socket.socket, resolved_addr: Tuple[str, int],
+                 on_done: Callable[[Optional[BaseException]], None]):
         """
         :param AbstractIOServices | AbstractFileDescriptorServices nbio:
         :param socket.socket sock: non-blocking socket that needs to be
@@ -242,7 +243,8 @@ class _AsyncSocketConnector:
         """
         if self._watching_socket_events:
             self._watching_socket_events = False
-            self._nbio.remove_writer(self._sock.fileno())   # pyright: ignore[reportAttributeAccessIssue]
+            self._nbio.remove_writer(self._sock.fileno(
+            ))  # pyright: ignore[reportAttributeAccessIssue]
 
     def start(self) -> AbstractIOReference:
         """Start asynchronous connection establishment.
@@ -257,7 +259,8 @@ class _AsyncSocketConnector:
 
         # Continue the rest of the operation on the I/O loop to avoid calling
         # user's completion callback from the scope of user's call
-        self._nbio.add_callback_threadsafe(self._start_async)  # pyright: ignore[reportAttributeAccessIssue]
+        self._nbio.add_callback_threadsafe(
+            self._start_async)  # pyright: ignore[reportAttributeAccessIssue]
 
         return _AsyncServiceAsyncHandle(self)
 
@@ -332,7 +335,8 @@ class _AsyncSocketConnector:
 
         # Get notified when the socket becomes writable
         try:
-            self._nbio.set_writer(self._sock.fileno(), self._on_writable)  # pyright: ignore[reportAttributeAccessIssue]
+            self._nbio.set_writer(self._sock.fileno(
+            ), self._on_writable)  # pyright: ignore[reportAttributeAccessIssue]
         except Exception as error:  # pylint: disable=W0703
             _LOGGER.exception('async.set_writer(%s) failed: %r', self._sock,
                               error)
@@ -385,13 +389,14 @@ class _AsyncStreamConnector:
     _STATE_COMPLETED = 3  # workflow terminated by success or failure
 
     def __init__(
-            self, 
-            nbio: Union[nbio_interface.AbstractIOServices, nbio_interface.AbstractFileDescriptorServices],
-            protocol_factory: Callable[[], nbio_interface.AbstractStreamProtocol],
-            sock: socket.socket,
-            ssl_context: Optional[ssl.SSLContext],
-            server_hostname: Optional[str],
-            on_done: Callable[[Union[Tuple[nbio_interface.AbstractStreamTransport, nbio_interface.AbstractStreamProtocol], BaseException]], None]
+        self, nbio: Union[nbio_interface.AbstractIOServices,
+                          nbio_interface.AbstractFileDescriptorServices],
+        protocol_factory: Callable[[], nbio_interface.AbstractStreamProtocol],
+        sock: socket.socket, ssl_context: Optional[ssl.SSLContext],
+        server_hostname: Optional[str], on_done: Callable[[
+            Union[Tuple[nbio_interface.AbstractStreamTransport,
+                        nbio_interface.AbstractStreamProtocol], BaseException]
+        ], None]
     ) -> None:
         """
         NOTE: We take ownership of the given socket upon successful completion
@@ -429,12 +434,18 @@ class _AsyncStreamConnector:
                 'Expected connected socket, but getpeername() failed: '
                 'error={!r}; {}; '.format(error, sock))
 
-        self._nbio: Optional[Union[nbio_interface.AbstractIOServices, nbio_interface.AbstractFileDescriptorServices]] = nbio
-        self._protocol_factory: Optional[Callable[[], nbio_interface.AbstractStreamProtocol]] = protocol_factory
+        self._nbio: Optional[
+            Union[nbio_interface.AbstractIOServices,
+                  nbio_interface.AbstractFileDescriptorServices]] = nbio
+        self._protocol_factory: Optional[Callable[
+            [], nbio_interface.AbstractStreamProtocol]] = protocol_factory
         self._sock: Optional[socket.socket] = sock
         self._ssl_context: Optional[ssl.SSLContext] = ssl_context
         self._server_hostname: Optional[str] = server_hostname
-        self._on_done: Optional[Callable[[Union[Tuple[nbio_interface.AbstractStreamTransport, nbio_interface.AbstractStreamProtocol], BaseException]], None]] = on_done
+        self._on_done: Optional[Callable[[
+            Union[Tuple[nbio_interface.AbstractStreamTransport,
+                        nbio_interface.AbstractStreamProtocol], BaseException]
+        ], None]] = on_done
 
         self._state = self._STATE_NOT_STARTED
         self._watching_socket = False
@@ -514,7 +525,12 @@ class _AsyncStreamConnector:
         return False
 
     @_log_exceptions
-    def _report_completion(self, result: Optional[Union[BaseException, Tuple[nbio_interface.AbstractStreamTransport, nbio_interface.AbstractStreamProtocol]]]) -> None:
+    def _report_completion(
+        self,
+        result: Optional[Union[BaseException,
+                               Tuple[nbio_interface.AbstractStreamTransport,
+                                     nbio_interface.AbstractStreamProtocol]]]
+    ) -> None:
         """Advance to COMPLETED state, cancel async operation(s), and invoke
         user's completion callback.
 
@@ -614,8 +630,10 @@ class _AsyncStreamConnector:
             else:
                 # Create SSL streaming transport
                 try:
-                    transport = _AsyncSSLTransport(self._sock, protocol,  # type: ignore
-                                                   self._nbio)  # type: ignore
+                    transport = _AsyncSSLTransport(
+                        self._sock,
+                        protocol,  # type: ignore
+                        self._nbio)  # type: ignore
                 except Exception as error:
                     _LOGGER.exception('SSLTransport() failed: error=%r; %s',
                                       error, self._sock)
@@ -625,7 +643,7 @@ class _AsyncStreamConnector:
 
             # Acquaint protocol with its transport
             try:
-                protocol.connection_made(transport)  
+                protocol.connection_made(transport)
             except Exception as error:
                 _LOGGER.exception(
                     'protocol.connection_made(%r) failed: error=%r; %s',
@@ -635,9 +653,11 @@ class _AsyncStreamConnector:
             _LOGGER.debug('_linkup(): introduced transport to protocol %r; %r',
                           transport, protocol)
         except Exception as error:  # pylint: disable=W0703
-            result: Union[BaseException, Tuple[nbio_interface.AbstractStreamTransport, nbio_interface.AbstractStreamProtocol]] = error
+            result: Union[BaseException,
+                          Tuple[nbio_interface.AbstractStreamTransport,
+                                nbio_interface.AbstractStreamProtocol]] = error
         else:
-            result = (transport, protocol)  
+            result = (transport, protocol)
 
         self._report_completion(result)
 
@@ -664,15 +684,19 @@ class _AsyncStreamConnector:
                 if error.errno == ssl.SSL_ERROR_WANT_READ:
                     _LOGGER.debug('SSL handshake wants read; %s.', self._sock)
                     self._watching_socket = True
-                    self._nbio.set_reader(self._sock.fileno(),  # type: ignore
-                                          self._do_ssl_handshake)
-                    self._nbio.remove_writer(self._sock.fileno())  # type: ignore
+                    self._nbio.set_reader(
+                        self._sock.fileno(),  # type: ignore
+                        self._do_ssl_handshake)
+                    self._nbio.remove_writer(
+                        self._sock.fileno())  # type: ignore
                 elif error.errno == ssl.SSL_ERROR_WANT_WRITE:
                     _LOGGER.debug('SSL handshake wants write. %s', self._sock)
                     self._watching_socket = True
-                    self._nbio.set_writer(self._sock.fileno(),  # type: ignore
-                                          self._do_ssl_handshake)
-                    self._nbio.remove_reader(self._sock.fileno())  # type: ignore
+                    self._nbio.set_writer(
+                        self._sock.fileno(),  # type: ignore
+                        self._do_ssl_handshake)
+                    self._nbio.remove_reader(
+                        self._sock.fileno())  # type: ignore
                 else:
                     # Outer catch will report it
                     raise
@@ -725,10 +749,13 @@ class _AsyncTransportBase(  # pylint: disable=W0223
         """
 
         def __init__(self) -> None:
-            super(_AsyncTransportBase.RxEndOfFile, self).__init__(
-                -1, 'End of input stream (EOF)')
+            super(_AsyncTransportBase.RxEndOfFile,
+                  self).__init__(-1, 'End of input stream (EOF)')
 
-    def __init__(self, sock: Union[socket.socket, ssl.SSLSocket], protocol: nbio_interface.AbstractStreamProtocol, nbio: Union[nbio_interface.AbstractIOServices, nbio_interface.AbstractFileDescriptorServices]):
+    def __init__(self, sock: Union[socket.socket, ssl.SSLSocket],
+                 protocol: nbio_interface.AbstractStreamProtocol,
+                 nbio: Union[nbio_interface.AbstractIOServices,
+                             nbio_interface.AbstractFileDescriptorServices]):
         """
 
         :param socket.socket | ssl.SSLSocket sock: connected socket
@@ -766,7 +793,7 @@ class _AsyncTransportBase(  # pylint: disable=W0223
         """
         return self._protocol  # pyright: ignore[reportReturnType]
 
-    def get_write_buffer_size(self ) -> int:
+    def get_write_buffer_size(self) -> int:
         """
         :returns: Current size of output data buffered by the transport
         :rtype: int
@@ -824,7 +851,8 @@ class _AsyncTransportBase(  # pylint: disable=W0223
 
             # Pass the data to the protocol
             try:
-                self._protocol.data_received(data)   # pyright: ignore[reportOptionalMemberAccess]
+                self._protocol.data_received(
+                    data)  # pyright: ignore[reportOptionalMemberAccess]
             except Exception as error:
                 _LOGGER.exception(
                     'protocol.data_received() failed: error=%r; %s', error,
@@ -894,8 +922,12 @@ class _AsyncTransportBase(  # pylint: disable=W0223
         if self._state == self._STATE_ACTIVE:
             _LOGGER.info('Deactivating transport: state=%s; %s', self._state,
                          self._sock)
-            self._nbio.remove_reader(self._sock.fileno())   # pyright: ignore[reportOptionalMemberAccess, reportAttributeAccessIssue]
-            self._nbio.remove_writer(self._sock.fileno())   # pyright: ignore[reportOptionalMemberAccess, reportAttributeAccessIssue]
+            self._nbio.remove_reader(
+                self._sock.fileno()
+            )  # pyright: ignore[reportOptionalMemberAccess, reportAttributeAccessIssue]
+            self._nbio.remove_writer(
+                self._sock.fileno()
+            )  # pyright: ignore[reportOptionalMemberAccess, reportAttributeAccessIssue]
             self._tx_buffers.clear()
 
     @_log_exceptions
@@ -908,10 +940,12 @@ class _AsyncTransportBase(  # pylint: disable=W0223
             _LOGGER.info('Closing transport socket and unlinking: state=%s; %s',
                          self._state, self._sock)
             try:
-                self._sock.shutdown(socket.SHUT_RDWR)  # pyright: ignore[reportOptionalMemberAccess]
+                self._sock.shutdown(
+                    socket.SHUT_RDWR
+                )  # pyright: ignore[reportOptionalMemberAccess]
             except pika.compat.SOCKET_ERROR:
                 pass
-            self._sock.close()   # pyright: ignore[reportOptionalMemberAccess]
+            self._sock.close()  # pyright: ignore[reportOptionalMemberAccess]
             self._sock = None  # type: ignore
             self._protocol = None  # type: ignore
             self._nbio = None  # type: ignore
@@ -971,7 +1005,8 @@ class _AsyncTransportBase(  # pylint: disable=W0223
             functools.partial(self._connection_lost_notify_async, error))
 
     @_log_exceptions
-    def _connection_lost_notify_async(self, error: Optional[BaseException]) -> None:
+    def _connection_lost_notify_async(self,
+                                      error: Optional[BaseException]) -> None:
         """Handle aborting of transport either due to socket error or user-
         initiated `abort()` call. Must be called from an I/O loop callback owned
         by us in order to avoid reentry into user code from user's API call into
@@ -995,7 +1030,8 @@ class _AsyncTransportBase(  # pylint: disable=W0223
 
         # Inform protocol
         try:
-            self._protocol.connection_lost(error)   # pyright: ignore[reportOptionalMemberAccess]
+            self._protocol.connection_lost(
+                error)  # pyright: ignore[reportOptionalMemberAccess]
         except Exception as exc:  # pylint: disable=W0703
             _LOGGER.exception('protocol.connection_lost(%r) failed: exc=%r; %s',
                               error, exc, self._sock)
@@ -1012,7 +1048,10 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
 
     """
 
-    def __init__(self, sock: Union[socket.socket, ssl.SSLSocket], protocol: nbio_interface.AbstractStreamProtocol, nbio: Union[nbio_interface.AbstractIOServices, nbio_interface.AbstractFileDescriptorServices]):
+    def __init__(self, sock: Union[socket.socket, ssl.SSLSocket],
+                 protocol: nbio_interface.AbstractStreamProtocol,
+                 nbio: Union[nbio_interface.AbstractIOServices,
+                             nbio_interface.AbstractFileDescriptorServices]):
         """
 
         :param socket.socket sock: non-blocking connected socket
@@ -1026,7 +1065,9 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
 
         # Request to be notified of incoming data; we'll watch for writability
         # only when our write buffer is non-empty
-        self._nbio.set_reader(self._sock.fileno(), self._on_socket_readable)  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
+        self._nbio.set_reader(
+            self._sock.fileno(), self._on_socket_readable
+        )  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
 
     def write(self, data: bytes) -> None:
         """Buffer the given data until it can be sent asynchronously.
@@ -1046,14 +1087,16 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
 
         # pika/pika#1286
         # NOTE: Modify code to write data to buffer before setting writer.
-        # Otherwise a race condition can occur where ioloop executes writer 
-        # while buffer is still empty. 
+        # Otherwise a race condition can occur where ioloop executes writer
+        # while buffer is still empty.
         tx_buffer_was_empty = self.get_write_buffer_size() == 0
 
         self._buffer_tx_data(data)
 
         if tx_buffer_was_empty:
-            self._nbio.set_writer(self._sock.fileno(), self._on_socket_writable)  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
+            self._nbio.set_writer(
+                self._sock.fileno(), self._on_socket_writable
+            )  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
             _LOGGER.debug('Turned on writability watcher: %s', self._sock)
 
     @_log_exceptions
@@ -1073,7 +1116,8 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
             self._consume()
         except self.RxEndOfFile:
             try:
-                keep_open = self._protocol.eof_received()   # pyright: ignore[reportOptionalMemberAccess]
+                keep_open = self._protocol.eof_received(
+                )  # pyright: ignore[reportOptionalMemberAccess]
             except Exception as error:  # pylint: disable=W0703
                 _LOGGER.exception(
                     'protocol.eof_received() failed: error=%r; %s', error,
@@ -1084,7 +1128,9 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
                     _LOGGER.info(
                         'protocol.eof_received() elected to keep open: %s',
                         self._sock)
-                    self._nbio.remove_reader(self._sock.fileno())  # pyright: ignore[reportOptionalMemberAccess, reportAttributeAccessIssue]
+                    self._nbio.remove_reader(
+                        self._sock.fileno()
+                    )  # pyright: ignore[reportOptionalMemberAccess, reportAttributeAccessIssue]
                 else:
                     _LOGGER.info('protocol.eof_received() elected to close: %s',
                                  self._sock)
@@ -1097,8 +1143,8 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
                 _LOGGER.exception(
                     '_AsyncBaseTransport._consume() failed, aborting '
                     'connection: error=%r; sock=%s; Caller\'s stack:\n%s',
-                    error, self._sock, ''.join(
-                        traceback.format_exception(*sys.exc_info())))
+                    error, self._sock,
+                    ''.join(traceback.format_exception(*sys.exc_info())))
                 self._initiate_abort(error)
         else:
             if self._state != self._STATE_ACTIVE:
@@ -1135,12 +1181,14 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
                 _LOGGER.exception(
                     '_AsyncBaseTransport._produce() failed, aborting '
                     'connection: error=%r; sock=%s; Caller\'s stack:\n%s',
-                    error, self._sock, ''.join(
-                        traceback.format_exception(*sys.exc_info())))
+                    error, self._sock,
+                    ''.join(traceback.format_exception(*sys.exc_info())))
                 self._initiate_abort(error)
         else:
             if not self._tx_buffers:
-                self._nbio.remove_writer(self._sock.fileno())   # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
+                self._nbio.remove_writer(
+                    self._sock.fileno()
+                )  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
                 _LOGGER.debug('Turned off writability watcher: %s', self._sock)
 
 
@@ -1151,10 +1199,10 @@ class _AsyncSSLTransport(_AsyncTransportBase):
     """
 
     def __init__(
-        self, 
-        sock: ssl.SSLSocket, 
-        protocol: nbio_interface.AbstractStreamProtocol, 
-        nbio: nbio_interface.AbstractIOServices | nbio_interface.AbstractFileDescriptorServices
+        self, sock: ssl.SSLSocket,
+        protocol: nbio_interface.AbstractStreamProtocol,
+        nbio: nbio_interface.AbstractIOServices |
+        nbio_interface.AbstractFileDescriptorServices
     ) -> None:
         """
 
@@ -1171,9 +1219,13 @@ class _AsyncSSLTransport(_AsyncTransportBase):
         self._ssl_writable_action = None
 
         # Bootstrap consumer; we'll take care of producer once data is buffered
-        self._nbio.set_reader(self._sock.fileno(), self._on_socket_readable)  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
+        self._nbio.set_reader(
+            self._sock.fileno(), self._on_socket_readable
+        )  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
         # Try reading asap just in case read-ahead caused some
-        self._nbio.add_callback_threadsafe(self._on_socket_readable)  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
+        self._nbio.add_callback_threadsafe(
+            self._on_socket_readable
+        )  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
 
     def write(self, data: bytes) -> None:
         """Buffer the given data until it can be sent asynchronously.
@@ -1188,20 +1240,22 @@ class _AsyncSSLTransport(_AsyncTransportBase):
                 'state=%s; %s', self._state, self._sock)
             return
 
-        assert data, ('_AsyncSSLTransport.write(): empty data from user.',
-                      data, self._state)
+        assert data, ('_AsyncSSLTransport.write(): empty data from user.', data,
+                      self._state)
 
         # pika/pika#1286
         # NOTE: Modify code to write data to buffer before setting writer.
-        # Otherwise a race condition can occur where ioloop executes writer 
-        # while buffer is still empty. 
+        # Otherwise a race condition can occur where ioloop executes writer
+        # while buffer is still empty.
         tx_buffer_was_empty = self.get_write_buffer_size() == 0
 
         self._buffer_tx_data(data)
 
         if tx_buffer_was_empty and self._ssl_writable_action is None:
             self._ssl_writable_action = self._produce  # type: ignore
-            self._nbio.set_writer(self._sock.fileno(), self._on_socket_writable)  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
+            self._nbio.set_writer(
+                self._sock.fileno(), self._on_socket_writable
+            )  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
             _LOGGER.debug('Turned on writability watcher: %s', self._sock)
 
     @_log_exceptions
@@ -1209,7 +1263,7 @@ class _AsyncSSLTransport(_AsyncTransportBase):
         """Handle readable socket indication
 
         """
-        if self._state != self._STATE_ACTIVE:  
+        if self._state != self._STATE_ACTIVE:
             _LOGGER.debug(
                 'Ignoring readability notification due to inactive '
                 'state: state=%s; %s', self._state, self._sock)
@@ -1275,8 +1329,8 @@ class _AsyncSSLTransport(_AsyncTransportBase):
                 _LOGGER.exception(
                     '_AsyncBaseTransport._consume() failed, aborting '
                     'connection: error=%r; sock=%s; Caller\'s stack:\n%s',
-                    error, self._sock, ''.join(
-                        traceback.format_exception(*sys.exc_info())))
+                    error, self._sock,
+                    ''.join(traceback.format_exception(*sys.exc_info())))
                 raise  # let outer catch block abort the transport
         else:
             if self._state != self._STATE_ACTIVE:
@@ -1292,34 +1346,46 @@ class _AsyncSSLTransport(_AsyncTransportBase):
             # can be read without waiting for socket to become readable.
 
             # In case buffered input SSL data records still remain
-            self._nbio.add_callback_threadsafe(self._on_socket_readable)  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
+            self._nbio.add_callback_threadsafe(
+                self._on_socket_readable
+            )  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
 
         # Update consumer registration
         if next_consume_on_readable:
             if not self._ssl_readable_action:  # type: ignore
-                self._nbio.set_reader(self._sock.fileno(),  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
-                                      self._on_socket_readable)
+                self._nbio.set_reader(
+                    self._sock.fileno(
+                    ),  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
+                    self._on_socket_readable)
             self._ssl_readable_action = self._consume
 
             # NOTE: can't use identity check, it fails for instance methods
-            if self._ssl_writable_action == self._consume: # pylint: disable=W0143
-                self._nbio.remove_writer(self._sock.fileno())  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
+            if self._ssl_writable_action == self._consume:  # pylint: disable=W0143
+                self._nbio.remove_writer(
+                    self._sock.fileno()
+                )  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
                 self._ssl_writable_action = None
         else:
             # WANT_WRITE
             if not self._ssl_writable_action:
-                self._nbio.set_writer(self._sock.fileno(),  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
-                                      self._on_socket_writable)
+                self._nbio.set_writer(
+                    self._sock.fileno(
+                    ),  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
+                    self._on_socket_writable)
             self._ssl_writable_action = self._consume  # type: ignore
 
-            if self._ssl_readable_action:    # type: ignore
-                self._nbio.remove_reader(self._sock.fileno())  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
+            if self._ssl_readable_action:  # type: ignore
+                self._nbio.remove_reader(
+                    self._sock.fileno()
+                )  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
                 self._ssl_readable_action = None  # type: ignore
 
         # Update producer registration
         if self._tx_buffers and not self._ssl_writable_action:
             self._ssl_writable_action = self._produce  # type: ignore
-            self._nbio.set_writer(self._sock.fileno(), self._on_socket_writable)  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
+            self._nbio.set_writer(
+                self._sock.fileno(), self._on_socket_writable
+            )  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
 
     @_log_exceptions
     def _produce(self) -> None:
@@ -1349,15 +1415,15 @@ class _AsyncSSLTransport(_AsyncTransportBase):
                 _LOGGER.exception(
                     '_AsyncBaseTransport._produce() failed, aborting '
                     'connection: error=%r; sock=%s; Caller\'s stack:\n%s',
-                    error, self._sock, ''.join(
-                        traceback.format_exception(*sys.exc_info())))
+                    error, self._sock,
+                    ''.join(traceback.format_exception(*sys.exc_info())))
                 raise  # let outer catch block abort the transport
         else:
             # No exception, so everything must have been written to the socket
             assert not self._tx_buffers, (
                 '_AsyncSSLTransport._produce(): no exception from parent '
-                'class, but data remains in _tx_buffers.', len(
-                    self._tx_buffers))
+                'class, but data remains in _tx_buffers.',
+                len(self._tx_buffers))
 
         # Update producer registration
         if self._tx_buffers:
@@ -1367,49 +1433,67 @@ class _AsyncSSLTransport(_AsyncTransportBase):
 
             if next_produce_on_writable:
                 if not self._ssl_writable_action:
-                    self._nbio.set_writer(self._sock.fileno(),  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
-                                          self._on_socket_writable)
+                    self._nbio.set_writer(
+                        self._sock.fileno(
+                        ),  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
+                        self._on_socket_writable)
                 self._ssl_writable_action = self._produce  # type: ignore
 
                 # NOTE: can't use identity check, it fails for instance methods
-                if self._ssl_readable_action == self._produce: # pylint: disable=W0143
-                    self._nbio.remove_reader(self._sock.fileno())  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
+                if self._ssl_readable_action == self._produce:  # pylint: disable=W0143
+                    self._nbio.remove_reader(
+                        self._sock.fileno()
+                    )  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
                     self._ssl_readable_action = None  # type: ignore
             else:
                 # WANT_READ
-                if not self._ssl_readable_action:  # type: ignore  
-                    self._nbio.set_reader(self._sock.fileno(),  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
-                                          self._on_socket_readable)
+                if not self._ssl_readable_action:  # type: ignore
+                    self._nbio.set_reader(
+                        self._sock.fileno(
+                        ),  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
+                        self._on_socket_readable)
                 self._ssl_readable_action = self._produce
 
                 if self._ssl_writable_action:
-                    self._nbio.remove_writer(self._sock.fileno())  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
+                    self._nbio.remove_writer(
+                        self._sock.fileno()
+                    )  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
                     self._ssl_writable_action = None
         else:
             # NOTE: can't use identity check, it fails for instance methods
-            if self._ssl_readable_action == self._produce: # pylint: disable=W0143
-                self._nbio.remove_reader(self._sock.fileno())  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
+            if self._ssl_readable_action == self._produce:  # pylint: disable=W0143
+                self._nbio.remove_reader(
+                    self._sock.fileno()
+                )  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
                 self._ssl_readable_action = None  # type: ignore
-                assert self._ssl_writable_action != self._produce, ( # pylint: disable=W0143
+                assert self._ssl_writable_action != self._produce, (  # pylint: disable=W0143
                     '_AsyncSSLTransport._produce(): with empty tx_buffers, '
                     'writable_action cannot be _produce when readable is '
                     '_produce', self._state)
             else:
                 # NOTE: can't use identity check, it fails for instance methods
-                assert self._ssl_writable_action == self._produce, ( # pylint: disable=W0143
+                assert self._ssl_writable_action == self._produce, (  # pylint: disable=W0143
                     '_AsyncSSLTransport._produce(): with empty tx_buffers, '
                     'expected writable_action as _produce when readable_action '
                     'is not _produce', 'writable_action:',
                     self._ssl_writable_action, 'readable_action:',
                     self._ssl_readable_action, 'state:', self._state)
                 self._ssl_writable_action = None
-                self._nbio.remove_writer(self._sock.fileno())  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
+                self._nbio.remove_writer(
+                    self._sock.fileno()
+                )  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
 
         # Update consumer registration
         if not self._ssl_readable_action:  # type: ignore
             self._ssl_readable_action = self._consume
-            self._nbio.set_reader(self._sock.fileno(), self._on_socket_readable)  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
+            self._nbio.set_reader(
+                self._sock.fileno(), self._on_socket_readable
+            )  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
             # In case input SSL data records have been buffered
-            self._nbio.add_callback_threadsafe(self._on_socket_readable)   # pyright: ignore[reportOptionalMemberAccess, reportAttributeAccessIssue]
+            self._nbio.add_callback_threadsafe(
+                self._on_socket_readable
+            )  # pyright: ignore[reportOptionalMemberAccess, reportAttributeAccessIssue]
         elif self._sock.pending():  # type: ignore
-            self._nbio.add_callback_threadsafe(self._on_socket_readable)   # pyright: ignore[reportOptionalMemberAccess, reportAttributeAccessIssue]
+            self._nbio.add_callback_threadsafe(
+                self._on_socket_readable
+            )  # pyright: ignore[reportOptionalMemberAccess, reportAttributeAccessIssue]
