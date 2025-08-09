@@ -27,15 +27,16 @@ class BaseConnection(connection.Connection):
 
     """
 
-    def __init__(
-            self, 
-            parameters: Optional[connection.Parameters], 
-            on_open_callback: Optional[Callable[[connection.Connection], None]], 
-            on_open_error_callback: Optional[Callable[[connection.Connection, BaseException], None]],
-            on_close_callback: Optional[Callable[[connection.Connection, BaseException], None]], 
-            nbio: nbio_interface.AbstractIOServices, 
-            internal_connection_workflow: bool = True
-    ) -> None:
+    def __init__(self,
+                 parameters: Optional[connection.Parameters],
+                 on_open_callback: Optional[Callable[[connection.Connection],
+                                                     None]],
+                 on_open_error_callback: Optional[Callable[
+                     [connection.Connection, BaseException], None]],
+                 on_close_callback: Optional[Callable[
+                     [connection.Connection, BaseException], None]],
+                 nbio: nbio_interface.AbstractIOServices,
+                 internal_connection_workflow: bool = True) -> None:
         """Create a new instance of the Connection object.
 
         :param None|pika.connection.Parameters parameters: Connection parameters
@@ -64,8 +65,9 @@ class BaseConnection(connection.Connection):
 
         self._nbio: nbio_interface.AbstractIOServices = nbio
 
-        self._connection_workflow: Optional[connection_workflow.AbstractAMQPConnectionWorkflow] = None 
-        self._transport: Optional[nbio_interface.AbstractStreamTransport] = None 
+        self._connection_workflow: Optional[
+            connection_workflow.AbstractAMQPConnectionWorkflow] = None
+        self._transport: Optional[nbio_interface.AbstractStreamTransport] = None
 
         self._got_eof: bool = False  # transport indicated EOF (connection reset)
 
@@ -120,9 +122,13 @@ class BaseConnection(connection.Connection):
     def create_connection(
         cls,
         connection_configs: Sequence[connection.Parameters],
-        on_done: Callable[[Union[connection.Connection, connection_workflow.AMQPConnectorException]], None],
+        on_done: Callable[[
+            Union[connection.Connection,
+                  connection_workflow.AMQPConnectorException]
+        ], None],
         custom_ioloop: Optional[Any] = None,
-        workflow: Optional[connection_workflow.AbstractAMQPConnectionWorkflow] = None
+        workflow: Optional[
+            connection_workflow.AbstractAMQPConnectionWorkflow] = None
     ) -> connection_workflow.AbstractAMQPConnectionWorkflow:
         """Asynchronously create a connection to an AMQP broker using the given
         configurations. Will attempt to connect using each config in the given
@@ -152,12 +158,14 @@ class BaseConnection(connection.Connection):
 
     @classmethod
     def _start_connection_workflow(
-        cls, 
-        connection_configs: Sequence[connection.Parameters],
+        cls, connection_configs: Sequence[connection.Parameters],
         connection_factory: Callable[[connection.Parameters], BaseConnection],
         nbio: nbio_interface.AbstractIOServices,
         workflow: Optional[connection_workflow.AbstractAMQPConnectionWorkflow],
-        on_done: Callable[[Union[connection.Connection, connection_workflow.AMQPConnectorException]], None]
+        on_done: Callable[[
+            Union[connection.Connection,
+                  connection_workflow.AMQPConnectorException]
+        ], None]
     ) -> connection_workflow.AbstractAMQPConnectionWorkflow:
         """Helper function for custom implementations of `create_connection()`.
 
@@ -191,16 +199,15 @@ class BaseConnection(connection.Connection):
         def create_connector() -> connection_workflow.AMQPConnector:
             """`AMQPConnector` factory."""
             return connection_workflow.AMQPConnector(
-                lambda params: _StreamingProtocolShim(
-                    connection_factory(params)),
-                nbio)
+                lambda params: _StreamingProtocolShim(connection_factory(params)
+                                                     ), nbio)
 
-        workflow.start(
-            connection_configs=connection_configs,
-            connector_factory=create_connector,
-            native_loop=nbio.get_native_ioloop(),
-            on_done=functools.partial(cls._unshim_connection_workflow_callback,
-                                      on_done))  # type: ignore
+        workflow.start(connection_configs=connection_configs,
+                       connector_factory=create_connector,
+                       native_loop=nbio.get_native_ioloop(),
+                       on_done=functools.partial(
+                           cls._unshim_connection_workflow_callback,
+                           on_done))  # type: ignore
 
         return workflow
 
@@ -215,7 +222,8 @@ class BaseConnection(connection.Connection):
         """
         return self._nbio.get_native_ioloop()
 
-    def _adapter_call_later(self, delay: Union[int, float], callback: Callable[[], None]) -> object:
+    def _adapter_call_later(self, delay: Union[int, float],
+                            callback: Callable[[], None]) -> object:
         """Implement
         :py:meth:`pika.connection.Connection._adapter_call_later()`.
 
@@ -229,7 +237,8 @@ class BaseConnection(connection.Connection):
         """
         timeout_id.cancel()  # type: ignore
 
-    def _adapter_add_callback_threadsafe(self, callback: Callable[..., Any]) -> None:
+    def _adapter_add_callback_threadsafe(self, callback: Callable[...,
+                                                                  Any]) -> None:
         """Implement
         :py:meth:`pika.connection.Connection._adapter_add_callback_threadsafe()`.
 
@@ -263,14 +272,15 @@ class BaseConnection(connection.Connection):
             [self.params],
             connector_factory=create_connector,
             native_loop=self._nbio.get_native_ioloop(),
-            on_done=functools.partial(self._unshim_connection_workflow_callback,  
-                                      self._on_connection_workflow_done))  # type: ignore
+            on_done=functools.partial(
+                self._unshim_connection_workflow_callback,
+                self._on_connection_workflow_done))  # type: ignore
 
     @staticmethod
     def _unshim_connection_workflow_callback(
-        user_on_done: Callable[[Union[BaseConnection, BaseException]], None], 
-        shim_or_exc: Union[_StreamingProtocolShim, Exception]
-    ) -> None:
+            user_on_done: Callable[[Union[BaseConnection, BaseException]],
+                                   None],
+            shim_or_exc: Union[_StreamingProtocolShim, Exception]) -> None:
         """
 
         :param callable user_on_done: user's `on_done` callback as defined in
@@ -321,7 +331,8 @@ class BaseConnection(connection.Connection):
             # `connection_lost()`
             self._transport.abort()
 
-    def _on_connection_workflow_done(self, conn_or_exc: Union[BaseConnection, Exception]) -> None:
+    def _on_connection_workflow_done(
+            self, conn_or_exc: Union[BaseConnection, Exception]) -> None:
         """`AMQPConnectionWorkflow` completion callback.
 
         :param BaseConnection | Exception conn_or_exc: Our own connection
@@ -350,12 +361,14 @@ class BaseConnection(connection.Connection):
                 if (isinstance(conn_or_exc,
                                connection_workflow.AMQPConnectionWorkflowFailed)
                         and isinstance(
-                            conn_or_exc.exceptions[-1], connection_workflow.
-                            AMQPConnectorSocketConnectError)):
+                            conn_or_exc.exceptions[-1],
+                            connection_workflow.AMQPConnectorSocketConnectError)
+                   ):
                     conn_or_exc = pika.exceptions.AMQPConnectionError(
                         conn_or_exc)
 
-            self._handle_connection_workflow_failure(conn_or_exc)  # pyright: ignore[reportArgumentType]
+            self._handle_connection_workflow_failure(
+                conn_or_exc)  # pyright: ignore[reportArgumentType]
         else:
             # NOTE: On success, the stack will be up already, so there is no
             #       corresponding callback.
@@ -363,7 +376,8 @@ class BaseConnection(connection.Connection):
                 'Expected self conn={!r} from workflow, but got {!r}.'.format(
                     self, conn_or_exc)
 
-    def _handle_connection_workflow_failure(self, error: Union[Exception, None]) -> None:
+    def _handle_connection_workflow_failure(
+            self, error: Union[Exception, None]) -> None:
         """Handle failure of self-initiated stack bring-up and call
         `Connection._on_stream_terminated()` if connection is not in closed state
         yet. Called by adapter layer when the full-stack connection workflow
@@ -406,7 +420,8 @@ class BaseConnection(connection.Connection):
         """
         self._transport.write(data)  # type: ignore
 
-    def _proto_connection_made(self, transport: nbio_interface.AbstractStreamTransport) -> None:
+    def _proto_connection_made(
+            self, transport: nbio_interface.AbstractStreamTransport) -> None:
         """Introduces transport to protocol after transport is connected.
 
         :py:class:`.utils.nbio_interface.AbstractStreamProtocol` implementation.
@@ -505,10 +520,10 @@ class _StreamingProtocolShim(nbio_interface.AbstractStreamProtocol):
         """
         self.conn = conn
         # pylint: disable=W0212
-        self.connection_made = conn._proto_connection_made  
-        self.connection_lost = conn._proto_connection_lost 
-        self.eof_received = conn._proto_eof_received  
-        self.data_received = conn._proto_data_received  
+        self.connection_made = conn._proto_connection_made
+        self.connection_lost = conn._proto_connection_lost
+        self.eof_received = conn._proto_eof_received
+        self.data_received = conn._proto_data_received
 
     def __getattr__(self, attr: str) -> Any:
         """Proxy inexistent attribute requests to our connection instance

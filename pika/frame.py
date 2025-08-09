@@ -12,6 +12,7 @@ LOGGER = logging.getLogger(__name__)
 
 _MethodT = TypeVar('_MethodT', bound=amqp_object.Method)
 
+
 class Frame(amqp_object.AMQPObject):
     """Base Frame object mapping. Defines a behavior for all child classes for
     assignment of core attributes and implementation of the a core _marshal
@@ -84,7 +85,8 @@ class Header(Frame):
     """
     NAME = 'Header'
 
-    def __init__(self, channel_number: int, body_size: int, props: spec.BasicProperties) -> None:
+    def __init__(self, channel_number: int, body_size: int,
+                 props: spec.BasicProperties) -> None:
         """Create a new instance of a AMQP ContentHeader object
 
         :param int channel_number: The channel number for the frame
@@ -155,14 +157,19 @@ class Heartbeat(Frame):
         return self._marshal(list())
 
 
-class ProtocolHeader(Frame):  # TODO: changed from AMQPObject to Frame, check if this is correct
+class ProtocolHeader(
+        Frame
+):  # TODO: changed from AMQPObject to Frame, check if this is correct
     """AMQP Protocol header frame class which provides a pythonic interface
     for creating AMQP Protocol headers
 
     """
     NAME = 'ProtocolHeader'
 
-    def __init__(self, major: Optional[int] = None, minor: Optional[int] = None, revision: Optional[int] = None):
+    def __init__(self,
+                 major: Optional[int] = None,
+                 minor: Optional[int] = None,
+                 revision: Optional[int] = None):
         """Construct a Protocol Header frame object for the specified AMQP
         version
 
@@ -187,7 +194,7 @@ class ProtocolHeader(Frame):  # TODO: changed from AMQPObject to Frame, check if
                                      self.revision)
 
 
-def decode_frame(data_in: bytes) -> Tuple[int, Optional[Frame]]: # pylint: disable=R0911,R0914
+def decode_frame(data_in: bytes) -> Tuple[int, Optional[Frame]]:  # pylint: disable=R0911,R0914
     """Receives raw socket data and attempts to turn it into a frame.
     Returns bytes used to make the frame and the frame
 
@@ -206,8 +213,8 @@ def decode_frame(data_in: bytes) -> Tuple[int, Optional[Frame]]: # pylint: disab
 
     # Get the Frame Type, Channel Number and Frame Size
     try:
-        (frame_type, channel_number, frame_size) = struct.unpack(
-            '>BHL', data_in[0:7])
+        (frame_type, channel_number,
+         frame_size) = struct.unpack('>BHL', data_in[0:7])
     except struct.error:
         return 0, None
 

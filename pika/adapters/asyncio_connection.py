@@ -14,7 +14,6 @@ if TYPE_CHECKING:
 
 LOGGER = logging.getLogger(__name__)
 
-
 if sys.platform == 'win32':
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
@@ -24,15 +23,18 @@ class AsyncioConnection(base_connection.BaseConnection):
 
     """
 
-    def __init__(
-        self,
-        parameters: Optional[connection.Parameters] = None,
-        on_open_callback: Optional[Callable[[connection.Connection], None]] =None,
-        on_open_error_callback: Optional[Callable[[connection.Connection, BaseException], None]] = None,
-        on_close_callback: Optional[Callable[[connection.Connection, BaseException], None]] = None,
-        custom_ioloop: Optional[Union[asyncio.AbstractEventLoop, nbio_interface.AbstractIOServices]] = None,
-        internal_connection_workflow: bool = True
-    ) -> None:
+    def __init__(self,
+                 parameters: Optional[connection.Parameters] = None,
+                 on_open_callback: Optional[Callable[[connection.Connection],
+                                                     None]] = None,
+                 on_open_error_callback: Optional[Callable[
+                     [connection.Connection, BaseException], None]] = None,
+                 on_close_callback: Optional[Callable[
+                     [connection.Connection, BaseException], None]] = None,
+                 custom_ioloop: Optional[
+                     Union[asyncio.AbstractEventLoop,
+                           nbio_interface.AbstractIOServices]] = None,
+                 internal_connection_workflow: bool = True) -> None:
         """ Create a new instance of the AsyncioConnection class, connecting
         to RabbitMQ automatically
 
@@ -73,9 +75,13 @@ class AsyncioConnection(base_connection.BaseConnection):
     def create_connection(
         cls,
         connection_configs: Sequence[connection.Parameters],
-        on_done: Callable[[Union[connection.Connection, connection_workflow.AMQPConnectorException]], None],
+        on_done: Callable[[
+            Union[connection.Connection,
+                  connection_workflow.AMQPConnectorException]
+        ], None],
         custom_ioloop: Optional[asyncio.AbstractEventLoop] = None,
-        workflow: Optional[connection_workflow.AbstractAMQPConnectionWorkflow] = None
+        workflow: Optional[
+            connection_workflow.AbstractAMQPConnectionWorkflow] = None
     ) -> connection_workflow.AbstractAMQPConnectionWorkflow:
         """Implement
         :py:classmethod::`pika.adapters.BaseConnection.create_connection()`.
@@ -88,10 +94,9 @@ class AsyncioConnection(base_connection.BaseConnection):
             if params is None:
                 raise ValueError('Expected pika.connection.Parameters '
                                  'instance, but got None in params arg.')
-            return cls(
-                parameters=params,
-                custom_ioloop=nbio,
-                internal_connection_workflow=False)
+            return cls(parameters=params,
+                       custom_ioloop=nbio,
+                       internal_connection_workflow=False)
 
         return cls._start_connection_workflow(
             connection_configs=connection_configs,
@@ -156,35 +161,33 @@ class _AsyncioIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         """
         self._loop.call_soon_threadsafe(callback)
 
-    def call_later(self, delay: float, callback: Callable[[], None]) -> _TimerHandle:
+    def call_later(self, delay: float,
+                   callback: Callable[[], None]) -> _TimerHandle:
         """Implement
         :py:meth:`.utils.nbio_interface.AbstractIOServices.call_later()`.
 
         """
         return _TimerHandle(self._loop.call_later(delay, callback))
 
-    def getaddrinfo(
-        self,
-        host: str,
-        port: int,
-        on_done: Callable[..., None],
-        family: int = 0,
-        socktype: int = 0,
-        proto: int = 0,
-        flags: int = 0
-    ) -> nbio_interface.AbstractIOReference:
+    def getaddrinfo(self,
+                    host: str,
+                    port: int,
+                    on_done: Callable[..., None],
+                    family: int = 0,
+                    socktype: int = 0,
+                    proto: int = 0,
+                    flags: int = 0) -> nbio_interface.AbstractIOReference:
         """Implement
         :py:meth:`.utils.nbio_interface.AbstractIOServices.getaddrinfo()`.
 
         """
         return self._schedule_and_wrap_in_io_ref(
-            self._loop.getaddrinfo(
-                host,
-                port,
-                family=family,
-                type=socktype,
-                proto=proto,
-                flags=flags), on_done)
+            self._loop.getaddrinfo(host,
+                                   port,
+                                   family=family,
+                                   type=socktype,
+                                   proto=proto,
+                                   flags=flags), on_done)
 
     def set_reader(self, fd: int, on_readable: Callable[[], None]) -> None:
         """Implement
@@ -219,9 +222,8 @@ class _AsyncioIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         return self._loop.remove_writer(fd)
 
     def _schedule_and_wrap_in_io_ref(
-        self, 
-        coro: Awaitable[Any], 
-        on_done: Callable[[Union[base_connection.BaseConnection, BaseException]], None]
+        self, coro: Awaitable[Any], on_done: Callable[
+            [Union[base_connection.BaseConnection, BaseException]], None]
     ) -> _AsyncioIOReference:
         """Schedule the coroutine to run and return _AsyncioIOReference
 
@@ -237,8 +239,8 @@ class _AsyncioIOServicesAdapter(io_services_utils.SocketConnectionMixin,
             raise TypeError(
                 f'on_done arg must be callable, but got {on_done!r}')
 
-        return _AsyncioIOReference(
-            asyncio.ensure_future(coro, loop=self._loop), on_done)
+        return _AsyncioIOReference(asyncio.ensure_future(coro, loop=self._loop),
+                                   on_done)
 
 
 class _TimerHandle(nbio_interface.AbstractTimerReference):
@@ -264,7 +266,10 @@ class _AsyncioIOReference(nbio_interface.AbstractIOReference):
 
     """
 
-    def __init__(self, future: asyncio.Future, on_done: Callable[[Union[base_connection.BaseConnection, BaseException]], None]) -> None:
+    def __init__(
+        self, future: asyncio.Future, on_done: Callable[
+            [Union[base_connection.BaseConnection, BaseException]], None]
+    ) -> None:
         """
         :param asyncio.Future future:
         :param callable on_done: user callback that takes the completion result

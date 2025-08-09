@@ -113,7 +113,8 @@ class AbstractIOServices(pika.compat.AbstractBase):  # type: ignore
         raise NotImplementedError
 
     @abc.abstractmethod
-    def call_later(self, delay: float, callback: Callable[..., None]) -> AbstractTimerReference:
+    def call_later(self, delay: float,
+                   callback: Callable[..., None]) -> AbstractTimerReference:
         """Add the callback to the IOLoop timer to be called after delay seconds
         from the time of call on best-effort basis. Returns a handle to the
         timeout.
@@ -130,16 +131,14 @@ class AbstractIOServices(pika.compat.AbstractBase):  # type: ignore
         raise NotImplementedError
 
     @abc.abstractmethod
-    def getaddrinfo(
-        self,
-        host: str,
-        port: int,
-        on_done: Callable[..., None],
-        family: int = 0,
-        socktype: int = 0,
-        proto: int = 0,
-        flags: int = 0
-    ) -> AbstractIOReference:
+    def getaddrinfo(self,
+                    host: str,
+                    port: int,
+                    on_done: Callable[..., None],
+                    family: int = 0,
+                    socktype: int = 0,
+                    proto: int = 0,
+                    flags: int = 0) -> AbstractIOReference:
         """Perform the equivalent of `socket.getaddrinfo()` asynchronously.
 
         See `socket.getaddrinfo()` for the standard args.
@@ -153,7 +152,10 @@ class AbstractIOServices(pika.compat.AbstractBase):  # type: ignore
         raise NotImplementedError
 
     @abc.abstractmethod
-    def connect_socket(self, sock: socket.socket, resolved_addr: Tuple[str, int], on_done: Callable[[Optional[BaseException]], None]) -> AbstractIOReference:
+    def connect_socket(
+        self, sock: socket.socket, resolved_addr: Tuple[str, int],
+        on_done: Callable[[Optional[BaseException]],
+                          None]) -> AbstractIOReference:
         """Perform the equivalent of `socket.connect()` on a previously-resolved
         address asynchronously.
 
@@ -182,13 +184,15 @@ class AbstractIOServices(pika.compat.AbstractBase):  # type: ignore
 
     @abc.abstractmethod
     def create_streaming_connection(
-        self,
-        protocol_factory: Callable[[], AbstractStreamProtocol],
-        sock: socket.socket,
-        on_done: Callable[[Union[BaseException, Tuple[AbstractStreamTransport, AbstractStreamProtocol]]], None],
-        ssl_context: Optional[ssl.SSLContext] = None,
-        server_hostname: Optional[str] = None
-    ) -> AbstractIOReference:
+            self,
+            protocol_factory: Callable[[], AbstractStreamProtocol],
+            sock: socket.socket,
+            on_done: Callable[[
+                Union[BaseException, Tuple[AbstractStreamTransport,
+                                           AbstractStreamProtocol]]
+            ], None],
+            ssl_context: Optional[ssl.SSLContext] = None,
+            server_hostname: Optional[str] = None) -> AbstractIOReference:
         """Perform SSL session establishment, if requested, on the already-
         connected socket and link the streaming transport/protocol pair.
 
