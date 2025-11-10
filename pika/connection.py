@@ -1530,6 +1530,7 @@ class Connection(pika.compat.AbstractBase):
                 'basic.nack': True,
                 'connection.blocked': True,
                 'consumer_cancel_notify': True,
+                'exchange_exchange_bindings': True,
                 'publisher_confirms': True
             },
             'information': 'See http://pika.rtfd.org',
