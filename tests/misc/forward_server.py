@@ -1,7 +1,5 @@
 """TCP/IP forwarding/echo service for testing."""
 
-from __future__ import print_function
-
 import array
 from datetime import datetime, timezone
 import errno

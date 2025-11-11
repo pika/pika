@@ -14,7 +14,7 @@ import pika.frame as frame
 import pika.exceptions as exceptions
 import pika.spec as spec
 import pika.validators as validators
-from pika.compat import as_bytes, is_integer
+from pika.compat import as_bytes
 from pika.exchange_type import ExchangeType
 
 LOGGER = logging.getLogger(__name__)
@@ -486,7 +486,7 @@ class Channel:
 
         """
         self._raise_if_not_open()
-        if not is_integer(delivery_tag):
+        if not isinstance(delivery_tag, int):
             raise TypeError('delivery_tag must be an integer')
         return self._send_method(spec.Basic.Reject(delivery_tag, requeue))
 
