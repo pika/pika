@@ -5,8 +5,12 @@ implementing the methods and behaviors for an AMQP Channel.
 # disable too-many-lines
 # pylint: disable=C0302
 
-import collections
+from __future__ import annotations
+
+from collections import deque
+from collections.abc import Sequence
 import logging
+from typing import Any, Dict, Callable, List, Optional, Tuple, Type, TYPE_CHECKING, Union
 import uuid
 from enum import Enum
 
@@ -17,9 +21,47 @@ import pika.validators as validators
 from pika.compat import as_bytes, is_integer
 from pika.exchange_type import ExchangeType
 
+if TYPE_CHECKING:
+    from pika.connection import Connection
+    from pika import amqp_object
+
 LOGGER = logging.getLogger(__name__)
 
-MAX_CHANNELS = 65535  # per AMQP 0.9.1 spec.
+MAX_CHANNELS: int = 65535  # per AMQP 0.9.1 spec.
+
+_OnAckNackCallback = Callable[
+    [frame.Method[Union[spec.Basic.Ack, spec.Basic.Nack]]], None]
+_OnConfirmDeliveryCallback = Callable[[frame.Method[spec.Confirm.SelectOk]],
+                                      None]
+_OnBasicConsumeCallback = Callable[[frame.Method[spec.Basic.ConsumeOk]], None]
+_OnBasicGetCallback = Callable[
+    ["Channel", spec.Basic.GetOk, spec.BasicProperties, bytes], None]
+_OnBasicRecoverCallback = Callable[[frame.Method[spec.Basic.RecoverOk]], None]
+_OnBasicQosCallback = Callable[[frame.Method[spec.Basic.QosOk]], None]
+_OnBasicCancelCallback = Callable[[frame.Method[spec.Basic.CancelOk]], None]
+_OnCancelCallback = Callable[[frame.Method[spec.Basic.Cancel]], Any]
+_OnCloseCallback = Callable[["Channel", Exception], None]
+_OnExchangeBindCallback = Callable[[frame.Method[spec.Exchange.BindOk]], None]
+_OnExchangeDeclareCallback = Callable[[frame.Method[spec.Exchange.DeclareOk]],
+                                      None]
+_OnExchangeDeleteCallback = Callable[[frame.Method[spec.Exchange.DeleteOk]],
+                                     None]
+_OnExchangeUnbindCallback = Callable[[frame.Method[spec.Exchange.UnbindOk]],
+                                     None]
+_OnFlowCallback = Callable[[bool], None]
+_OnMessageCallback = Callable[
+    ["Channel", spec.Basic.Deliver, spec.BasicProperties, bytes], None]
+_OnOpenCallback = Callable[["Channel"], None]
+_OnQueueBindCallback = Callable[[frame.Method[spec.Queue.BindOk]], None]
+_OnQueueDeclareCallback = Callable[[frame.Method[spec.Queue.DeclareOk]], None]
+_OnQueueDeleteCallback = Callable[[frame.Method[spec.Queue.DeleteOk]], None]
+_OnQueuePurgeCallback = Callable[[frame.Method[spec.Queue.PurgeOk]], None]
+_OnQueueUnbindCallback = Callable[[frame.Method[spec.Queue.UnbindOk]], None]
+_OnReturnCallback = Callable[
+    ["Channel", spec.Basic.Return, spec.BasicProperties, bytes], None]
+_OnTxCommitCallback = Callable[[spec.Tx.CommitOk], None]
+_OnTxRollbackCallback = Callable[[spec.Tx.RollbackOk], None]
+_OnTxSelectCallback = Callable[[spec.Tx.SelectOk], None]
 
 
 class Channel:
@@ -38,7 +80,7 @@ class Channel:
     OPEN = 2
     CLOSING = 3  # client-initiated close in progress
 
-    _STATE_NAMES = {
+    _STATE_NAMES: Dict[int, str] = {
         CLOSED: 'CLOSED',
         OPENING: 'OPENING',
         OPEN: 'OPEN',
@@ -47,7 +89,8 @@ class Channel:
 
     _ON_CHANNEL_CLEANUP_CB_KEY = '_on_channel_cleanup'
 
-    def __init__(self, connection, channel_number, on_open_callback):
+    def __init__(self, connection: Connection, channel_number: int,
+                 on_open_callback: Optional[_OnOpenCallback]) -> None:
         """Create a new instance of the Channel
 
         :param pika.connection.Connection connection: The connection
@@ -71,16 +114,17 @@ class Channel:
 
         self._content_assembler = ContentFrameAssembler()
 
-        self._blocked = collections.deque(list())
-        self._blocking = None
-        self._has_on_flow_callback = False
-        self._cancelled = set()
-        self._consumers = dict()
-        self._consumers_with_noack = set()
-        self._on_flowok_callback = None
-        self._on_getok_callback = None
-        self._on_openok_callback = on_open_callback
-        self._state = self.CLOSED
+        self._blocked: deque = deque(list())
+        self._blocking: Optional[Any] = None
+        self._has_on_flow_callback: bool = False
+        self._cancelled: set = set()
+        self._consumers: dict = dict()
+        self._consumers_with_noack: set = set()
+        self._on_flowok_callback: Optional[Callable[..., Any]] = None
+        self._on_getok_callback: Optional[Callable[..., Any]] = None
+        self._on_openok_callback: Optional[Callable[...,
+                                                    Any]] = on_open_callback
+        self._state: int = self.CLOSED
 
         # We save the closing reason exception to be passed to on-channel-close
         # callback at closing of the channel. Exception representing the closing
@@ -93,7 +137,7 @@ class Channel:
         # via _set_cookie
         self._cookie = None
 
-    def __int__(self):
+    def __int__(self) -> int:
         """Return the channel object as its channel number
 
         :rtype: int
@@ -101,12 +145,15 @@ class Channel:
         """
         return self.channel_number
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return '<{} number={} {} conn={!r}>'.format(
             self.__class__.__name__, self.channel_number,
-            self._STATE_NAMES[self._state], self.connection)
+            self._STATE_NAMES[self._state], self.connection)\
 
-    def add_callback(self, callback, replies, one_shot=True):
+    def add_callback(self,
+                     callback: Callable[..., Any],
+                     replies: Sequence[Type[amqp_object.Method]],
+                     one_shot: bool = True) -> None:
         """Pass in a callback handler and a list replies from the
         RabbitMQ broker which you'd like the callback notified of. Callbacks
         should allow for the frame parameter to be passed in.
@@ -119,7 +166,7 @@ class Channel:
         for reply in replies:
             self.callbacks.add(self.channel_number, reply, callback, one_shot)
 
-    def add_on_cancel_callback(self, callback):
+    def add_on_cancel_callback(self, callback: _OnCancelCallback) -> None:
         """Pass a callback function that will be called when the basic_cancel
         is sent by the server. The callback function should receive a frame
         parameter.
@@ -131,7 +178,7 @@ class Channel:
         self.callbacks.add(self.channel_number, spec.Basic.Cancel, callback,
                            False)
 
-    def add_on_close_callback(self, callback):
+    def add_on_close_callback(self, callback: _OnCloseCallback) -> None:
         """Pass a callback function that will be called when the channel is
         closed. The callback function will receive the channel and an exception
         describing why the channel was closed.
@@ -155,7 +202,7 @@ class Channel:
         self.callbacks.add(self.channel_number, '_on_channel_close', callback,
                            False, self)
 
-    def add_on_flow_callback(self, callback):
+    def add_on_flow_callback(self, callback: _OnFlowCallback) -> None:
         """Pass a callback function that will be called when Channel.Flow is
         called by the remote server. Note that newer versions of RabbitMQ
         will not issue this but instead use TCP backpressure
@@ -167,7 +214,7 @@ class Channel:
         self.callbacks.add(self.channel_number, spec.Channel.Flow, callback,
                            False)
 
-    def add_on_return_callback(self, callback):
+    def add_on_return_callback(self, callback: _OnReturnCallback) -> None:
         """Pass a callback function that will be called when basic_publish is
         sent a message that has been rejected and returned by the server.
 
@@ -182,7 +229,7 @@ class Channel:
         """
         self.callbacks.add(self.channel_number, '_on_return', callback, False)
 
-    def basic_ack(self, delivery_tag=0, multiple=False):
+    def basic_ack(self, delivery_tag: int = 0, multiple: bool = False) -> None:
         """Acknowledge one or more messages. When sent by the client, this
         method acknowledges one or more messages delivered via the Deliver or
         Get-Ok methods. When sent by server, this method acknowledges one or
@@ -203,7 +250,9 @@ class Channel:
         self._raise_if_not_open()
         return self._send_method(spec.Basic.Ack(delivery_tag, multiple))
 
-    def basic_cancel(self, consumer_tag='', callback=None):
+    def basic_cancel(self,
+                     consumer_tag: str = '',
+                     callback: Optional[_OnBasicCancelCallback] = None) -> None:
         """This method cancels a consumer. This does not affect already
         delivered messages, but it does mean the server will not send any more
         messages for that consumer. The client may receive an arbitrary number
@@ -261,14 +310,15 @@ class Channel:
                       'consumer_tag': consumer_tag
                   })] if not nowait else [])
 
-    def basic_consume(self,
-                      queue,
-                      on_message_callback,
-                      auto_ack=False,
-                      exclusive=False,
-                      consumer_tag=None,
-                      arguments=None,
-                      callback=None):
+    def basic_consume(
+            self,
+            queue: str,
+            on_message_callback: _OnMessageCallback,
+            auto_ack: bool = False,
+            exclusive: bool = False,
+            consumer_tag: Optional[str] = None,
+            arguments: Optional[Dict[str, Any]] = None,
+            callback: Optional[_OnBasicConsumeCallback] = None) -> str:
         """Sends the AMQP 0-9-1 command Basic.Consume to the broker and binds messages
         for the consumer_tag to the consumer callback. If you do not pass in
         a consumer_tag, one will be automatically generated for you. Returns
@@ -319,7 +369,8 @@ class Channel:
 
         self._consumers[consumer_tag] = on_message_callback
 
-        rpc_callback = self._on_eventok if callback is None else callback
+        rpc_callback: Optional[Callable[
+            ..., Any]] = self._on_eventok if callback is None else callback
 
         self._rpc(
             spec.Basic.Consume(queue=queue,
@@ -333,7 +384,7 @@ class Channel:
 
         return consumer_tag
 
-    def _generate_consumer_tag(self):
+    def _generate_consumer_tag(self) -> str:
         """Generate a consumer tag
 
         NOTE: this protected method may be called by derived classes
@@ -344,7 +395,10 @@ class Channel:
         """
         return 'ctag%i.%s' % (self.channel_number, uuid.uuid4().hex)
 
-    def basic_get(self, queue, callback, auto_ack=False):
+    def basic_get(self,
+                  queue: str,
+                  callback: _OnBasicGetCallback,
+                  auto_ack: bool = False) -> None:
         """Get a single message from the AMQP broker. If you want to
         be notified of Basic.GetEmpty, use the Channel.add_callback method
         adding your Basic.GetEmpty callback which should expect only one
@@ -379,7 +433,10 @@ class Channel:
         # frames (or similar)
         self._send_method(spec.Basic.Get(queue=queue, no_ack=auto_ack))
 
-    def basic_nack(self, delivery_tag=0, multiple=False, requeue=True):
+    def basic_nack(self,
+                   delivery_tag: int = 0,
+                   multiple: bool = False,
+                   requeue: bool = True) -> None:
         """This method allows a client to reject one or more incoming messages.
         It can be used to interrupt and cancel large incoming messages, or
         return untreatable messages to their original queue.
@@ -403,11 +460,11 @@ class Channel:
             spec.Basic.Nack(delivery_tag, multiple, requeue))
 
     def basic_publish(self,
-                      exchange,
-                      routing_key,
-                      body,
-                      properties=None,
-                      mandatory=False):
+                      exchange: str,
+                      routing_key: str,
+                      body: bytes,
+                      properties: Optional[spec.BasicProperties] = None,
+                      mandatory: bool = False) -> None:
         """Publish to the channel with the given exchange, routing key and body.
         For more information on basic_publish and what the parameters do, see:
 
@@ -429,10 +486,10 @@ class Channel:
                                mandatory=mandatory), (properties, body))
 
     def basic_qos(self,
-                  prefetch_size=0,
-                  prefetch_count=0,
-                  global_qos=False,
-                  callback=None):
+                  prefetch_size: int = 0,
+                  prefetch_count: int = 0,
+                  global_qos: bool = False,
+                  callback: Optional[_OnBasicQosCallback] = None) -> None:
         """Specify quality of service. This method requests a specific quality
         of service. The client can request that messages be sent in advance
         so that when the client finishes processing a message, the following
@@ -472,7 +529,7 @@ class Channel:
             spec.Basic.Qos(prefetch_size, prefetch_count, global_qos), callback,
             [spec.Basic.QosOk])
 
-    def basic_reject(self, delivery_tag=0, requeue=True):
+    def basic_reject(self, delivery_tag: int = 0, requeue: bool = True) -> None:
         """Reject an incoming message. This method allows a client to reject a
         message. It can be used to interrupt and cancel large incoming messages,
         or return untreatable messages to their original queue.
@@ -490,7 +547,10 @@ class Channel:
             raise TypeError('delivery_tag must be an integer')
         return self._send_method(spec.Basic.Reject(delivery_tag, requeue))
 
-    def basic_recover(self, requeue=False, callback=None):
+    def basic_recover(
+            self,
+            requeue: bool = False,
+            callback: Optional[_OnBasicRecoverCallback] = None) -> None:
         """This method asks the server to redeliver all unacknowledged messages
         on a specified channel. Zero or more messages may be redelivered. This
         method replaces the asynchronous Recover.
@@ -511,7 +571,9 @@ class Channel:
         return self._rpc(spec.Basic.Recover(requeue), callback,
                          [spec.Basic.RecoverOk])
 
-    def close(self, reply_code=0, reply_text="Normal shutdown"):
+    def close(self,
+              reply_code: int = 0,
+              reply_text: str = "Normal shutdown") -> None:
         """Invoke a graceful shutdown of the channel with the AMQP Broker.
 
         If channel is OPENING, transition to CLOSING and suppress the incoming
@@ -551,7 +613,10 @@ class Channel:
         self._rpc(spec.Channel.Close(reply_code, reply_text, 0, 0),
                   self._on_closeok, [spec.Channel.CloseOk])
 
-    def confirm_delivery(self, ack_nack_callback, callback=None):
+    def confirm_delivery(
+            self,
+            ack_nack_callback: _OnAckNackCallback,
+            callback: Optional[_OnConfirmDeliveryCallback] = None) -> None:
         """Turn on Confirm mode in the channel. Pass in a callback to be
         notified by the Broker when a message has been confirmed as received or
         rejected (Basic.Ack, Basic.Nack) from the broker to the publisher.
@@ -592,7 +657,7 @@ class Channel:
                   [spec.Confirm.SelectOk] if not nowait else [])
 
     @property
-    def consumer_tags(self):
+    def consumer_tags(self) -> List[str]:
         """Property method that returns a list of currently active consumers
 
         :rtype: list
@@ -600,12 +665,13 @@ class Channel:
         """
         return list(self._consumers.keys())
 
-    def exchange_bind(self,
-                      destination,
-                      source,
-                      routing_key='',
-                      arguments=None,
-                      callback=None):
+    def exchange_bind(
+            self,
+            destination: str,
+            source: str,
+            routing_key: str = '',
+            arguments: Optional[Dict[str, Any]] = None,
+            callback: Optional[_OnExchangeBindCallback] = None) -> None:
         """Bind an exchange to another exchange.
 
         :param str destination: The destination exchange to bind
@@ -625,15 +691,16 @@ class Channel:
                                arguments or dict()), callback,
             [spec.Exchange.BindOk] if not nowait else [])
 
-    def exchange_declare(self,
-                         exchange,
-                         exchange_type=ExchangeType.direct,
-                         passive=False,
-                         durable=False,
-                         auto_delete=False,
-                         internal=False,
-                         arguments=None,
-                         callback=None):
+    def exchange_declare(
+            self,
+            exchange: str,
+            exchange_type: str = ExchangeType.direct,
+            passive: bool = False,
+            durable: bool = False,
+            auto_delete: bool = False,
+            internal: bool = False,
+            arguments: Optional[Dict[str, Any]] = None,
+            callback: Optional[_OnExchangeDeclareCallback] = None) -> None:
         """This method creates an exchange if it does not already exist, and if
         the exchange exists, verifies that it is of the correct and expected
         class.
@@ -662,12 +729,24 @@ class Channel:
         if isinstance(exchange_type, Enum):
             exchange_type = exchange_type.value
         return self._rpc(
-            spec.Exchange.Declare(0, exchange, exchange_type, passive, durable,
-                                  auto_delete, internal, nowait, arguments or
-                                  dict()), callback,
+            spec.Exchange.Declare(
+                0,
+                exchange,
+                exchange_type,
+                passive,
+                durable,  # pyright: ignore[reportArgumentType]
+                auto_delete,
+                internal,
+                nowait,
+                arguments or dict()),
+            callback,
             [spec.Exchange.DeclareOk] if not nowait else [])
 
-    def exchange_delete(self, exchange=None, if_unused=False, callback=None):
+    def exchange_delete(
+            self,
+            exchange: Optional[str] = None,
+            if_unused: bool = False,
+            callback: Optional[_OnExchangeDeleteCallback] = None) -> None:
         """Delete the exchange.
 
         :param str exchange: The exchange name
@@ -682,12 +761,13 @@ class Channel:
                                               nowait), callback,
                          [spec.Exchange.DeleteOk] if not nowait else [])
 
-    def exchange_unbind(self,
-                        destination=None,
-                        source=None,
-                        routing_key='',
-                        arguments=None,
-                        callback=None):
+    def exchange_unbind(
+            self,
+            destination: Optional[str] = None,
+            source: Optional[str] = None,
+            routing_key: str = '',
+            arguments: Optional[Dict[str, Any]] = None,
+            callback: Optional[_OnExchangeUnbindCallback] = None) -> None:
         """Unbind an exchange from another exchange.
 
         :param str destination: The destination exchange to unbind
@@ -705,7 +785,9 @@ class Channel:
                                  arguments), callback,
             [spec.Exchange.UnbindOk] if not nowait else [])
 
-    def flow(self, active, callback=None):
+    def flow(self,
+             active: bool,
+             callback: Optional[_OnFlowCallback] = None) -> None:
         """Turn Channel flow control off and on. Pass a callback to be notified
         of the response from the server. active is a bool. Callback should
         expect a bool in response indicating channel flow state. For more
@@ -725,7 +807,7 @@ class Channel:
                   [spec.Channel.FlowOk])
 
     @property
-    def is_closed(self):
+    def is_closed(self) -> bool:
         """Returns True if the channel is closed.
 
         :rtype: bool
@@ -734,7 +816,7 @@ class Channel:
         return self._state == self.CLOSED
 
     @property
-    def is_closing(self):
+    def is_closing(self) -> bool:
         """Returns True if client-initiated closing of the channel is in
         progress.
 
@@ -744,7 +826,7 @@ class Channel:
         return self._state == self.CLOSING
 
     @property
-    def is_open(self):
+    def is_open(self) -> bool:
         """Returns True if the channel is open.
 
         :rtype: bool
@@ -753,7 +835,7 @@ class Channel:
         return self._state == self.OPEN
 
     @property
-    def is_opening(self):
+    def is_opening(self) -> bool:
         """Returns True if the channel is opening.
 
         :rtype: bool
@@ -761,18 +843,18 @@ class Channel:
         """
         return self._state == self.OPENING
 
-    def open(self):
+    def open(self) -> None:
         """Open the channel"""
         self._set_state(self.OPENING)
         self._add_callbacks()
         self._rpc(spec.Channel.Open(), self._on_openok, [spec.Channel.OpenOk])
 
     def queue_bind(self,
-                   queue,
-                   exchange,
-                   routing_key=None,
-                   arguments=None,
-                   callback=None):
+                   queue: str,
+                   exchange: str,
+                   routing_key: Optional[str] = None,
+                   arguments: Optional[Dict[str, Any]] = None,
+                   callback: Optional[_OnQueueBindCallback] = None) -> None:
         """Bind the queue to the specified exchange
 
         :param str queue: The queue to bind to the exchange
@@ -794,14 +876,15 @@ class Channel:
                             arguments or dict()), callback,
             [spec.Queue.BindOk] if not nowait else [])
 
-    def queue_declare(self,
-                      queue,
-                      passive=False,
-                      durable=False,
-                      exclusive=False,
-                      auto_delete=False,
-                      arguments=None,
-                      callback=None):
+    def queue_declare(
+            self,
+            queue: str,
+            passive: bool = False,
+            durable: bool = False,
+            exclusive: bool = False,
+            auto_delete: bool = False,
+            arguments: Optional[Dict[str, Any]] = None,
+            callback: Optional[_OnQueueDeclareCallback] = None) -> None:
         """Declare queue, create if needed. This method creates or checks a
         queue. When creating a new queue the client can specify various
         properties that control the durability of the queue and its contents,
@@ -828,7 +911,7 @@ class Channel:
         if queue:
             condition = (spec.Queue.DeclareOk, {'queue': queue})
         else:
-            condition = spec.Queue.DeclareOk
+            condition = spec.Queue.DeclareOk  # type: ignore[assignment]
         replies = [condition] if not nowait else []
 
         return self._rpc(
@@ -837,10 +920,10 @@ class Channel:
             callback, replies)
 
     def queue_delete(self,
-                     queue,
-                     if_unused=False,
-                     if_empty=False,
-                     callback=None):
+                     queue: str,
+                     if_unused: bool = False,
+                     if_empty: bool = False,
+                     callback: Optional[_OnQueueDeleteCallback] = None) -> None:
         """Delete a queue from the broker.
 
         :param str queue: The queue to delete
@@ -858,7 +941,9 @@ class Channel:
             spec.Queue.Delete(0, queue, if_unused, if_empty, nowait), callback,
             replies)
 
-    def queue_purge(self, queue, callback=None):
+    def queue_purge(self,
+                    queue: str,
+                    callback: Optional[_OnQueuePurgeCallback] = None) -> None:
         """Purge all of the messages from the specified queue
 
         :param str queue: The queue to purge
@@ -873,11 +958,11 @@ class Channel:
         return self._rpc(spec.Queue.Purge(0, queue, nowait), callback, replies)
 
     def queue_unbind(self,
-                     queue,
-                     exchange=None,
-                     routing_key=None,
-                     arguments=None,
-                     callback=None):
+                     queue: str,
+                     exchange: Optional[str] = None,
+                     routing_key: Optional[str] = None,
+                     arguments: Optional[Dict[str, Any]] = None,
+                     callback: Optional[_OnQueueUnbindCallback] = None) -> None:
         """Unbind a queue from an exchange.
 
         :param str queue: The queue to unbind from the exchange
@@ -897,7 +982,7 @@ class Channel:
             spec.Queue.Unbind(0, queue, exchange, routing_key, arguments or
                               dict()), callback, [spec.Queue.UnbindOk])
 
-    def tx_commit(self, callback=None):
+    def tx_commit(self, callback: Optional[_OnTxCommitCallback] = None) -> None:
         """Commit a transaction
 
         :param callable callback: The callback for delivery confirmations
@@ -908,7 +993,8 @@ class Channel:
         validators.rpc_completion_callback(callback)
         return self._rpc(spec.Tx.Commit(), callback, [spec.Tx.CommitOk])
 
-    def tx_rollback(self, callback=None):
+    def tx_rollback(self,
+                    callback: Optional[_OnTxRollbackCallback] = None) -> None:
         """Rollback a transaction.
 
         :param callable callback: The callback for delivery confirmations
@@ -919,7 +1005,7 @@ class Channel:
         validators.rpc_completion_callback(callback)
         return self._rpc(spec.Tx.Rollback(), callback, [spec.Tx.RollbackOk])
 
-    def tx_select(self, callback=None):
+    def tx_select(self, callback: Optional[_OnTxSelectCallback] = None) -> None:
         """Select standard transaction mode. This method sets the channel to use
         standard transactions. The client must use this method at least once on
         a channel before using the Commit or Rollback methods.
@@ -934,7 +1020,7 @@ class Channel:
 
     # Internal methods
 
-    def _add_callbacks(self):
+    def _add_callbacks(self) -> None:
         """Callbacks that add the required behavior for a channel when
         connecting and connected to a server.
 
@@ -955,7 +1041,7 @@ class Channel:
         self.callbacks.add(self.channel_number, spec.Channel.Close,
                            self._on_close_from_broker, True)
 
-    def _add_on_cleanup_callback(self, callback):
+    def _add_on_cleanup_callback(self, callback: Callable[..., Any]) -> None:
         """For internal use only (e.g., Connection needs to remove closed
         channels from its channel container). Pass a callback function that will
         be called when the channel is being cleaned up after all channel-close
@@ -971,7 +1057,7 @@ class Channel:
                            one_shot=True,
                            only_caller=self)
 
-    def _cleanup(self):
+    def _cleanup(self) -> None:
         """Remove all consumers and any callbacks for the channel."""
         self.callbacks.process(self.channel_number,
                                self._ON_CHANNEL_CLEANUP_CB_KEY, self, self)
@@ -979,7 +1065,7 @@ class Channel:
         self.callbacks.cleanup(str(self.channel_number))
         self._cookie = None
 
-    def _cleanup_consumer_ref(self, consumer_tag):
+    def _cleanup_consumer_ref(self, consumer_tag: str) -> None:
         """Remove any references to the consumer tag in internal structures
         for consumer state.
 
@@ -990,7 +1076,7 @@ class Channel:
         self._consumers.pop(consumer_tag, None)
         self._cancelled.discard(consumer_tag)
 
-    def _get_cookie(self):
+    def _get_cookie(self) -> Any:
         """Used by the wrapper implementation (e.g., `BlockingChannel`) to
         retrieve the cookie that it set via `_set_cookie`
 
@@ -1000,7 +1086,7 @@ class Channel:
         """
         return self._cookie
 
-    def _handle_content_frame(self, frame_value):
+    def _handle_content_frame(self, frame_value: frame.Frame) -> None:
         """This is invoked by the connection when frames that are not registered
         with the CallbackManager have been found. This should only be the case
         when the frames are related to content delivery.
@@ -1026,7 +1112,7 @@ class Channel:
             elif isinstance(response[0].method, spec.Basic.Return):
                 self._on_return(*response)
 
-    def _on_cancel(self, method_frame):
+    def _on_cancel(self, method_frame: frame.Method) -> None:
         """When the broker cancels a consumer, delete it from our internal
         dictionary.
 
@@ -1039,7 +1125,7 @@ class Channel:
 
         self._cleanup_consumer_ref(method_frame.method.consumer_tag)
 
-    def _on_cancelok(self, method_frame):
+    def _on_cancelok(self, method_frame: frame.Method) -> None:
         """Called in response to a frame from the Broker when the
          client sends Basic.Cancel
 
@@ -1048,7 +1134,7 @@ class Channel:
         """
         self._cleanup_consumer_ref(method_frame.method.consumer_tag)
 
-    def _transition_to_closed(self):
+    def _transition_to_closed(self) -> None:
         """Common logic for transitioning the channel to the CLOSED state:
 
         Set state to CLOSED, dispatch callbacks registered via
@@ -1069,7 +1155,7 @@ class Channel:
         finally:
             self._cleanup()
 
-    def _on_close_from_broker(self, method_frame):
+    def _on_close_from_broker(self, method_frame: frame.Method) -> None:
         """Handle `Channel.Close` from broker.
 
         :param pika.frame.Method method_frame: Method frame with Channel.Close
@@ -1106,7 +1192,7 @@ class Channel:
         else:
             self._transition_to_closed()
 
-    def _on_close_meta(self, reason):
+    def _on_close_meta(self, reason: Optional[Exception]) -> None:
         """Handle meta-close request from either a remote Channel.Close from
         the broker (when a pending Channel.Close method is queued for
         execution) or a Connection's cleanup logic after sudden connection
@@ -1122,7 +1208,7 @@ class Channel:
             self._closing_reason = reason
             self._transition_to_closed()
 
-    def _on_closeok(self, method_frame):
+    def _on_closeok(self, method_frame: frame.Method) -> None:
         """Invoked when RabbitMQ replies to a Channel.Close method
 
         :param pika.frame.Method method_frame: Method frame with Channel.CloseOk
@@ -1133,7 +1219,8 @@ class Channel:
 
         self._transition_to_closed()
 
-    def _on_deliver(self, method_frame, header_frame, body):
+    def _on_deliver(self, method_frame: frame.Method,
+                    header_frame: frame.Header, body: bytes) -> None:
         """Cope with reentrancy. If a particular consumer is still active when
         another delivery appears for it, queue the deliveries up until it
         finally exits.
@@ -1157,7 +1244,7 @@ class Channel:
         self._consumers[consumer_tag](self, method_frame.method,
                                       header_frame.properties, body)
 
-    def _on_eventok(self, method_frame):
+    def _on_eventok(self, method_frame: frame.Method) -> None:
         """Generic events that returned ok that may have internal callbacks.
         We keep a list of what we've yet to implement so that we don't silently
         drain events that we don't support.
@@ -1167,7 +1254,7 @@ class Channel:
         """
         LOGGER.debug('Discarding frame %r', method_frame)
 
-    def _on_flow(self, _method_frame_unused):
+    def _on_flow(self, _method_frame_unused: frame.Method) -> None:
         """Called if the server sends a Channel.Flow frame.
 
         :param pika.frame.Method method_frame_unused: The Channel.Flow frame
@@ -1176,7 +1263,7 @@ class Channel:
         if self._has_on_flow_callback is False:
             LOGGER.warning('Channel.Flow received from server')
 
-    def _on_flowok(self, method_frame):
+    def _on_flowok(self, method_frame: frame.Method) -> None:
         """Called in response to us asking the server to toggle on Channel.Flow
 
         :param pika.frame.Method method_frame: The method frame received
@@ -1189,7 +1276,7 @@ class Channel:
         else:
             LOGGER.warning('Channel.FlowOk received with no active callbacks')
 
-    def _on_getempty(self, method_frame):
+    def _on_getempty(self, method_frame: frame.Method) -> None:
         """When we receive an empty reply do nothing but log it
 
         :param pika.frame.Method method_frame: The method frame received
@@ -1199,7 +1286,8 @@ class Channel:
         if self._on_getok_callback is not None:
             self._on_getok_callback = None
 
-    def _on_getok(self, method_frame, header_frame, body):
+    def _on_getok(self, method_frame: frame.Method, header_frame: frame.Header,
+                  body: bytes) -> None:
         """Called in reply to a Basic.Get when there is a message.
 
         :param pika.frame.Method method_frame: The method frame received
@@ -1214,7 +1302,7 @@ class Channel:
         else:
             LOGGER.error('Basic.GetOk received with no active callback')
 
-    def _on_openok(self, method_frame):
+    def _on_openok(self, method_frame: frame.Method) -> None:
         """Called by our callback handler when we receive a Channel.OpenOk and
         subsequently calls our _on_openok_callback which was passed into the
         Channel constructor. The reason we do this is because we want to make
@@ -1236,7 +1324,8 @@ class Channel:
             if self._on_openok_callback is not None:
                 self._on_openok_callback(self)
 
-    def _on_return(self, method_frame, header_frame, body):
+    def _on_return(self, method_frame: frame.Method, header_frame: frame.Header,
+                   body: bytes) -> None:
         """Called if the server sends a Basic.Return frame.
 
         :param pika.frame.Method method_frame: The Basic.Return frame
@@ -1248,9 +1337,9 @@ class Channel:
                                       self, method_frame.method,
                                       header_frame.properties, body):
             LOGGER.debug('Basic.Return received from server (%r, %r)',
-                          method_frame.method, header_frame.properties)
+                         method_frame.method, header_frame.properties)
 
-    def _on_selectok(self, method_frame):
+    def _on_selectok(self, method_frame: frame.Method) -> None:
         """Called when the broker sends a Confirm.SelectOk frame
 
         :param pika.frame.Method method_frame: The method frame received
@@ -1258,7 +1347,8 @@ class Channel:
         """
         LOGGER.debug("Confirm.SelectOk Received: %r", method_frame)
 
-    def _on_synchronous_complete(self, _method_frame_unused):
+    def _on_synchronous_complete(self,
+                                 _method_frame_unused: frame.Method) -> None:
         """This is called when a synchronous command is completed. It will undo
         the blocking state and send all the frames that stacked up while we
         were in the blocking state.
@@ -1274,7 +1364,7 @@ class Channel:
         while self._blocked and self._blocking is None:
             self._rpc(*self._blocked.popleft())
 
-    def _drain_blocked_methods_on_remote_close(self):
+    def _drain_blocked_methods_on_remote_close(self) -> None:
         """This is called when the broker sends a Channel.Close while the
         client is in CLOSING state. This method checks the blocked method
         queue for a pending client-initiated Channel.Close method and
@@ -1302,7 +1392,14 @@ class Channel:
             else:
                 LOGGER.debug('Ignoring drained blocked method: %s', method)
 
-    def _rpc(self, method, callback=None, acceptable_replies=None):
+    def _rpc(
+        self,
+        method: amqp_object.Method,
+        callback: Optional[Callable[..., Any]] = None,
+        acceptable_replies: Optional[Sequence[Union[
+            Type[amqp_object.Method], Tuple[Type[amqp_object.Method],
+                                            Dict[str, Any]]]]] = None
+    ) -> None:
         """Make a synchronous channel RPC call for a synchronous method frame. If
         the channel is already in the blocking state, then enqueue the request,
         but don't send it at this time; it will be eventually sent by
@@ -1381,7 +1478,7 @@ class Channel:
                                        callback,
                                        arguments=arguments)
 
-    def _raise_if_not_open(self):
+    def _raise_if_not_open(self) -> None:
         """If channel is not in the OPEN state, raises ChannelWrongStateError
         with `reply_code` and `reply_text` corresponding to current state.
 
@@ -1392,7 +1489,8 @@ class Channel:
             return
 
         if self._state == self.OPENING:
-            raise exceptions.ChannelWrongStateError('Channel is opening, but is not usable yet.')
+            raise exceptions.ChannelWrongStateError(
+                'Channel is opening, but is not usable yet.')
 
         if self._state == self.CLOSING:
             raise exceptions.ChannelWrongStateError('Channel is closing.')
@@ -1401,7 +1499,11 @@ class Channel:
         assert self._state == self.CLOSED
         raise exceptions.ChannelWrongStateError('Channel is closed.')
 
-    def _send_method(self, method, content=None):
+    def _send_method(
+            self,
+            method: amqp_object.Method,
+            content: Optional[Tuple[spec.BasicProperties,
+                                    bytes]] = None) -> None:
         """Shortcut wrapper to send a method through our connection, passing in
         the channel number
 
@@ -1413,16 +1515,16 @@ class Channel:
         # pylint: disable=W0212
         self.connection._send_method(self.channel_number, method, content)
 
-    def _set_cookie(self, cookie):
+    def _set_cookie(self, cookie: object) -> None:
         """Used by wrapper layer (e.g., `BlockingConnection`) to link the
         channel implementation back to the proxy. See `_get_cookie`.
 
         :param cookie: an opaque value; typically a proxy channel implementation
             instance (e.g., `BlockingChannel` instance)
         """
-        self._cookie = cookie
+        self._cookie = cookie  # type: ignore[assignment]
 
-    def _set_state(self, connection_state):
+    def _set_state(self, connection_state: int) -> None:
         """Set the channel connection state to the specified state value.
 
         :param int connection_state: The connection_state value
@@ -1430,7 +1532,7 @@ class Channel:
         """
         self._state = connection_state
 
-    def _on_unexpected_frame(self, frame_value):
+    def _on_unexpected_frame(self, frame_value: frame.Frame) -> None:
         """Invoked when a frame is received that is not setup to be processed.
 
         :param pika.frame.Frame frame_value: The frame received
@@ -1445,16 +1547,18 @@ class ContentFrameAssembler:
 
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Create a new instance of the conent frame assembler.
 
         """
-        self._method_frame = None
-        self._header_frame = None
+        self._method_frame: Optional[frame.Method] = None
+        self._header_frame: Optional[frame.Header] = None
         self._seen_so_far = 0
-        self._body_fragments = list()
+        self._body_fragments: List[bytes] = list()
 
-    def process(self, frame_value):
+    def process(
+        self, frame_value: frame.Frame
+    ) -> Optional[Tuple[frame.Method, frame.Header, bytes]]:
         """Invoked by the Channel object when passed frames that are not
         setup in the rpc process and that don't have explicit reply types
         defined. This includes Basic.Publish, Basic.GetOk and Basic.Return
@@ -1477,7 +1581,7 @@ class ContentFrameAssembler:
         else:
             raise exceptions.UnexpectedFrameError(frame_value)
 
-    def _finish(self):
+    def _finish(self) -> Tuple[frame.Method, frame.Header, bytes]:
         """Invoked when all of the message has been received
 
         :rtype: tuple(pika.frame.Method, pika.frame.Header, str)
@@ -1486,9 +1590,11 @@ class ContentFrameAssembler:
         content = (self._method_frame, self._header_frame,
                    b''.join(self._body_fragments))
         self._reset()
-        return content
+        return content  # type: ignore[return-value]
 
-    def _handle_body_frame(self, body_frame):
+    def _handle_body_frame(
+        self, body_frame: frame.Body
+    ) -> Optional[Tuple[frame.Method, frame.Header, bytes]]:
         """Receive body frames and append them to the stack. When the body size
         matches, call the finish method.
 
@@ -1499,14 +1605,14 @@ class ContentFrameAssembler:
         """
         self._seen_so_far += len(body_frame.fragment)
         self._body_fragments.append(body_frame.fragment)
-        if self._seen_so_far == self._header_frame.body_size:
+        if self._seen_so_far == self._header_frame.body_size:  # type: ignore
             return self._finish()
-        elif self._seen_so_far > self._header_frame.body_size:
-            raise exceptions.BodyTooLongError(self._seen_so_far,
-                                              self._header_frame.body_size)
+        elif self._seen_so_far > self._header_frame.body_size:  # type: ignore
+            raise exceptions.BodyTooLongError(
+                self._seen_so_far, self._header_frame.body_size)  # type: ignore
         return None
 
-    def _reset(self):
+    def _reset(self) -> None:
         """Reset the values for processing frames"""
         self._method_frame = None
         self._header_frame = None

@@ -2,6 +2,8 @@
 platform pika is running on.
 
 """
+from __future__ import annotations
+
 import abc
 import collections
 import errno
@@ -10,6 +12,8 @@ import logging
 import select
 import time
 import threading
+from typing import Any, Callable, Optional, Sequence, Set, Tuple, Type, Dict, Union, TYPE_CHECKING
+from typing_extensions import TypedDict
 
 import pika.compat
 
@@ -17,6 +21,18 @@ from pika.adapters.utils import nbio_interface
 from pika.adapters.base_connection import BaseConnection
 from pika.adapters.utils.selector_ioloop_adapter import (
     SelectorIOServicesAdapter, AbstractSelectorIOLoop)
+
+if TYPE_CHECKING:
+    from pika import connection
+    from pika.adapters.utils import connection_workflow
+    import socket
+
+    SELECT_ERROR_T = Union[OSError, IOError, InterruptedError, select.error]
+
+    class POLLER_PARAMS(TypedDict):
+        get_wait_seconds: Callable[[], Optional[float]]
+        process_timeouts: Callable[[], None]
+
 
 LOGGER = logging.getLogger(__name__)
 
@@ -26,12 +42,13 @@ SELECT_TYPE = None
 # Reason for this unconventional dict initialization is the fact that on some
 # platforms select.error is an aliases for OSError. We don't want the lambda
 # for select.error to win over one for OSError.
-_SELECT_ERROR_CHECKERS = {
-    InterruptedError: lambda _: True,
-    select.error: lambda e: e.args[0] == errno.EINTR,
-    IOError: lambda e: e.errno == errno.EINTR,
-    OSError: lambda e: e.errno == errno.EINTR,
-}
+_SELECT_ERROR_CHECKERS: Dict[Type[SELECT_ERROR_T], Callable[
+    [SELECT_ERROR_T], bool]] = {
+        InterruptedError: lambda _: True,
+        select.error: lambda e: e.args[0] == errno.EINTR,
+        IOError: lambda e: e.errno == errno.EINTR,
+        OSError: lambda e: e.errno == errno.EINTR,
+    }
 
 # We can reduce the number of elements in the list by looking at super-sub
 # class relationship because only the most generic ones needs to be caught.
@@ -40,10 +57,11 @@ _SELECT_ERROR_CHECKERS = {
 # _SELECT_ERRORS = tuple(filter(lambda e: not isinstance(e, OSError),
 #                              _SELECT_ERROR_CHECKERS.keys())
 #                       + [OSError])
-_SELECT_ERRORS = tuple(_SELECT_ERROR_CHECKERS.keys())
+_SELECT_ERRORS: Tuple[Type[SELECT_ERROR_T],
+                      ...] = tuple(_SELECT_ERROR_CHECKERS.keys())
 
 
-def _is_resumable(exc):
+def _is_resumable(exc: SELECT_ERROR_T) -> bool:
     """Check if caught exception represents EINTR error.
     :param exc: exception; must be one of classes in _SELECT_ERRORS
 
@@ -63,12 +81,16 @@ class SelectConnection(BaseConnection):
 
     def __init__(
             self,  # pylint: disable=R0913
-            parameters=None,
-            on_open_callback=None,
-            on_open_error_callback=None,
-            on_close_callback=None,
-            custom_ioloop=None,
-            internal_connection_workflow=True):
+            parameters: Optional[connection.Parameters] = None,
+            on_open_callback: Optional[Callable[[connection.Connection],
+                                                None]] = None,
+            on_open_error_callback: Optional[Callable[
+                [connection.Connection, BaseException], None]] = None,
+            on_close_callback: Optional[Callable[
+                [connection.Connection, BaseException], None]] = None,
+            custom_ioloop: Optional[Union[nbio_interface.AbstractIOServices,
+                                          IOLoop]] = None,
+            internal_connection_workflow: bool = True) -> None:
         """Create a new instance of the Connection object.
 
         :param pika.connection.Parameters parameters: Connection parameters
@@ -104,11 +126,17 @@ class SelectConnection(BaseConnection):
             internal_connection_workflow=internal_connection_workflow)
 
     @classmethod
-    def create_connection(cls,
-                          connection_configs,
-                          on_done,
-                          custom_ioloop=None,
-                          workflow=None):
+    def create_connection(
+        cls,
+        connection_configs: Sequence[connection.Parameters],
+        on_done: Callable[[
+            Union[connection.Connection,
+                  connection_workflow.AMQPConnectorException]
+        ], None],
+        custom_ioloop: Optional[Any] = None,
+        workflow: Optional[
+            connection_workflow.AbstractAMQPConnectionWorkflow] = None
+    ) -> connection_workflow.AbstractAMQPConnectionWorkflow:
         """Implement
         :py:classmethod::`pika.adapters.BaseConnection.create_connection()`.
 
@@ -120,10 +148,9 @@ class SelectConnection(BaseConnection):
             if params is None:
                 raise ValueError('Expected pika.connection.Parameters '
                                  'instance, but got None in params arg.')
-            return cls(
-                parameters=params,
-                custom_ioloop=nbio,
-                internal_connection_workflow=False)
+            return cls(parameters=params,
+                       custom_ioloop=nbio,
+                       internal_connection_workflow=False)
 
         return cls._start_connection_workflow(
             connection_configs=connection_configs,
@@ -132,12 +159,12 @@ class SelectConnection(BaseConnection):
             workflow=workflow,
             on_done=on_done)
 
-    def _get_write_buffer_size(self):
+    def _get_write_buffer_size(self) -> int:
         """
         :returns: Current size of output data buffered by the transport
         :rtype: int
         """
-        return self._transport.get_write_buffer_size()
+        return self._transport.get_write_buffer_size()  # type: ignore
 
 
 class _Timeout:
@@ -148,7 +175,7 @@ class _Timeout:
         'callback',
     )
 
-    def __init__(self, deadline, callback):
+    def __init__(self, deadline: float, callback: Callable[[], None]):
         """
         :param float deadline: timer expiration as non-negative epoch number
         :param callable callback: callback to call when timeout expires
@@ -165,40 +192,40 @@ class _Timeout:
                 'callback must be a callable, but got {!r}'.format(callback))
 
         self.deadline = deadline
-        self.callback = callback
+        self.callback: Optional[Callable[[], None]] = callback
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         """NOTE: not supporting sort stability"""
         if isinstance(other, _Timeout):
             return self.deadline == other.deadline
         return NotImplemented
 
-    def __ne__(self, other):
+    def __ne__(self, other: object) -> bool:
         """NOTE: not supporting sort stability"""
         result = self.__eq__(other)
         if result is not NotImplemented:
             return not result
         return NotImplemented
 
-    def __lt__(self, other):
+    def __lt__(self, other: object) -> bool:
         """NOTE: not supporting sort stability"""
         if isinstance(other, _Timeout):
             return self.deadline < other.deadline
         return NotImplemented
 
-    def __gt__(self, other):
+    def __gt__(self, other: object) -> bool:
         """NOTE: not supporting sort stability"""
         if isinstance(other, _Timeout):
             return self.deadline > other.deadline
         return NotImplemented
 
-    def __le__(self, other):
+    def __le__(self, other: object) -> bool:
         """NOTE: not supporting sort stability"""
         if isinstance(other, _Timeout):
             return self.deadline <= other.deadline
         return NotImplemented
 
-    def __ge__(self, other):
+    def __ge__(self, other: object) -> bool:
         """NOTE: not supporting sort stability"""
         if isinstance(other, _Timeout):
             return self.deadline >= other.deadline
@@ -212,14 +239,13 @@ class _Timer:
     # cancelled timers
     _GC_CANCELLATION_THRESHOLD = 1024
 
-    def __init__(self):
-        self._timeout_heap = []
-
+    def __init__(self) -> None:
+        self._timeout_heap: Optional[list[_Timeout]] = []
         # Number of canceled timeouts on heap; for scheduling garbage
         # collection of canceled timeouts
         self._num_cancellations = 0
 
-    def close(self):
+    def close(self) -> None:
         """Release resources. Don't use the `_Timer` instance after closing
         it
         """
@@ -229,7 +255,8 @@ class _Timer:
                 timeout.callback = None
             self._timeout_heap = None
 
-    def call_later(self, delay, callback):
+    def call_later(self, delay: float, callback: Callable[[],
+                                                          None]) -> _Timeout:
         """Schedule a one-shot timeout given delay seconds.
 
         NOTE: you may cancel the timer before dispatch of the callback. Timer
@@ -249,7 +276,8 @@ class _Timer:
 
         if delay < 0:
             raise ValueError(
-                'call_later: delay must be non-negative, but got {!r}'.format(delay))
+                'call_later: delay must be non-negative, but got {!r}'.format(
+                    delay))
 
         now = pika.compat.time_now()
 
@@ -264,7 +292,7 @@ class _Timer:
 
         return timeout
 
-    def remove_timeout(self, timeout):
+    def remove_timeout(self, timeout: _Timeout) -> None:
         """Cancel the timeout
 
         :param _Timeout timeout: The timer to cancel
@@ -284,7 +312,7 @@ class _Timer:
             timeout.callback = None
             self._num_cancellations += 1
 
-    def get_remaining_interval(self):
+    def get_remaining_interval(self) -> Optional[float]:
         """Get the interval to the next timeout expiration
 
         :returns: non-negative number of seconds until next timer expiration;
@@ -300,7 +328,7 @@ class _Timer:
 
         return interval
 
-    def process_timeouts(self):
+    def process_timeouts(self) -> None:
         """Process pending timeouts, invoking callbacks for those whose time has
         come
 
@@ -358,20 +386,21 @@ class IOLoop(AbstractSelectorIOLoop):
 
     """
     # READ/WRITE/ERROR per `AbstractSelectorIOLoop` requirements
-    READ = PollEvents.READ
-    WRITE = PollEvents.WRITE
-    ERROR = PollEvents.ERROR
+    READ = PollEvents.READ  # pyright: ignore[reportIncompatibleMethodOverride, reportAssignmentType]
+    WRITE = PollEvents.WRITE  # pyright: ignore[reportIncompatibleMethodOverride, reportAssignmentType]
+    ERROR = PollEvents.ERROR  # pyright: ignore[reportIncompatibleMethodOverride, reportAssignmentType]
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._timer = _Timer()
 
         # Callbacks requested via `add_callback`
-        self._callbacks = collections.deque()
+        self._callbacks: collections.deque[Callable[
+            [], None]] = collections.deque()
 
         self._poller = self._get_poller(self._get_remaining_interval,
                                         self.process_timeouts)
 
-    def close(self):
+    def close(self) -> None:
         """Release IOLoop's resources.
 
         `IOLoop.close` is intended to be called by the application or test code
@@ -385,10 +414,11 @@ class IOLoop(AbstractSelectorIOLoop):
             # Set _callbacks to empty list rather than None so that race from
             # another thread calling add_callback_threadsafe() won't result in
             # AttributeError
-            self._callbacks = []
+            self._callbacks = []  # type: ignore
 
     @staticmethod
-    def _get_poller(get_wait_seconds, process_timeouts):
+    def _get_poller(get_wait_seconds: Callable[[], Optional[float]],
+                    process_timeouts: Callable[[], None]) -> _PollerBase:
         """Determine the best poller to use for this environment and instantiate
         it.
 
@@ -403,9 +433,10 @@ class IOLoop(AbstractSelectorIOLoop):
 
         poller = None
 
-        kwargs = dict(
-            get_wait_seconds=get_wait_seconds,
-            process_timeouts=process_timeouts)
+        kwargs: POLLER_PARAMS = {
+            "get_wait_seconds": get_wait_seconds,
+            "process_timeouts": process_timeouts
+        }
 
         if hasattr(select, 'epoll'):
             if not SELECT_TYPE or SELECT_TYPE == 'epoll':
@@ -429,7 +460,8 @@ class IOLoop(AbstractSelectorIOLoop):
 
         return poller
 
-    def call_later(self, delay, callback):
+    def call_later(self, delay: float, callback: Callable[[],
+                                                          None]) -> _Timeout:
         """Add the callback to the IOLoop timer to be called after delay seconds
         from the time of call on best-effort basis. Returns a handle to the
         timeout.
@@ -443,7 +475,7 @@ class IOLoop(AbstractSelectorIOLoop):
         """
         return self._timer.call_later(delay, callback)
 
-    def remove_timeout(self, timeout_handle):
+    def remove_timeout(self, timeout_handle: _Timeout) -> None:
         """Remove a timeout
 
         :param timeout_handle: Handle of timeout to remove
@@ -451,7 +483,7 @@ class IOLoop(AbstractSelectorIOLoop):
         """
         self._timer.remove_timeout(timeout_handle)
 
-    def add_callback_threadsafe(self, callback):
+    def add_callback_threadsafe(self, callback: Callable[[], None]) -> None:
         """Requests a call to the given function as soon as possible in the
         context of this IOLoop's thread.
 
@@ -480,7 +512,7 @@ class IOLoop(AbstractSelectorIOLoop):
     # To satisfy `AbstractSelectorIOLoop` requirement
     add_callback = add_callback_threadsafe
 
-    def process_timeouts(self):
+    def process_timeouts(self) -> None:
         """[Extension] Process pending callbacks and timeouts, invoking those
         whose time has come. Internal use only.
 
@@ -493,7 +525,7 @@ class IOLoop(AbstractSelectorIOLoop):
 
         self._timer.process_timeouts()
 
-    def _get_remaining_interval(self):
+    def _get_remaining_interval(self) -> Optional[float]:
         """Get the remaining interval to the next callback or timeout
         expiration.
 
@@ -507,7 +539,8 @@ class IOLoop(AbstractSelectorIOLoop):
 
         return self._timer.get_remaining_interval()
 
-    def add_handler(self, fd, handler, events):
+    def add_handler(self, fd: int, handler: Callable[[int, int], None],
+                    events: int) -> None:
         """Start watching the given file descriptor for events
 
         :param int fd: The file descriptor
@@ -518,7 +551,7 @@ class IOLoop(AbstractSelectorIOLoop):
         """
         self._poller.add_handler(fd, handler, events)
 
-    def update_handler(self, fd, events):
+    def update_handler(self, fd: int, events: int) -> None:
         """Changes the events we watch for
 
         :param int fd: The file descriptor
@@ -527,7 +560,7 @@ class IOLoop(AbstractSelectorIOLoop):
         """
         self._poller.update_handler(fd, events)
 
-    def remove_handler(self, fd):
+    def remove_handler(self, fd: int) -> None:
         """Stop watching the given file descriptor for events
 
         :param int fd: The file descriptor
@@ -535,14 +568,14 @@ class IOLoop(AbstractSelectorIOLoop):
         """
         self._poller.remove_handler(fd)
 
-    def start(self):
+    def start(self) -> None:
         """[API] Start the main poller loop. It will loop until requested to
         exit. See `IOLoop.stop`.
 
         """
         self._poller.start()
 
-    def stop(self):
+    def stop(self) -> None:
         """[API] Request exit from the ioloop. The loop is NOT guaranteed to
         stop before this method returns.
 
@@ -554,19 +587,19 @@ class IOLoop(AbstractSelectorIOLoop):
         """
         self._poller.stop()
 
-    def activate_poller(self):
+    def activate_poller(self) -> None:
         """[Extension] Activate the poller
 
         """
         self._poller.activate_poller()
 
-    def deactivate_poller(self):
+    def deactivate_poller(self) -> None:
         """[Extension] Deactivate the poller
 
         """
         self._poller.deactivate_poller()
 
-    def poll(self):
+    def poll(self) -> None:
         """[Extension] Wait for events of interest on registered file
         descriptors until an event of interest occurs or next timer deadline or
         `_PollerBase._MAX_POLL_TIMEOUT`, whichever is sooner, and dispatch the
@@ -576,7 +609,7 @@ class IOLoop(AbstractSelectorIOLoop):
         self._poller.poll()
 
 
-class _PollerBase(pika.compat.AbstractBase):  # pylint: disable=R0902
+class _PollerBase(pika.compat.AbstractBase):  # type: ignore  # pylint: disable=R0902
     """Base class for select-based IOLoop implementations"""
 
     # Drop out of the poll loop every _MAX_POLL_TIMEOUT secs as a worst case;
@@ -587,7 +620,8 @@ class _PollerBase(pika.compat.AbstractBase):  # pylint: disable=R0902
     # if the poller uses MS override with 1000
     POLL_TIMEOUT_MULT = 1
 
-    def __init__(self, get_wait_seconds, process_timeouts):
+    def __init__(self, get_wait_seconds: Callable[[], Optional[float]],
+                 process_timeouts: Callable[[], None]) -> None:
         """
         :param get_wait_seconds: Function for getting the maximum number of
                                  seconds to wait for IO for use by the poller
@@ -603,16 +637,16 @@ class _PollerBase(pika.compat.AbstractBase):  # pylint: disable=R0902
         self._waking_mutex = threading.Lock()
 
         # fd-to-handler function mappings
-        self._fd_handlers = dict()
+        self._fd_handlers: Dict[int, Callable[..., None]] = dict()
 
         # event-to-fdset mappings
-        self._fd_events = {
+        self._fd_events: Dict[int, Set[int]] = {
             PollEvents.READ: set(),
             PollEvents.WRITE: set(),
             PollEvents.ERROR: set()
         }
 
-        self._processing_fd_event_map = {}
+        self._processing_fd_event_map: Dict[int, int] = {}
 
         # Reentrancy tracker of the `start` method
         self._running = False
@@ -624,7 +658,7 @@ class _PollerBase(pika.compat.AbstractBase):  # pylint: disable=R0902
         self.add_handler(self._r_interrupt.fileno(), self._read_interrupt,
                          PollEvents.READ)
 
-    def close(self):
+    def close(self) -> None:
         """Release poller's resources.
 
         `close()` is intended to be called after the poller's `start()` method
@@ -639,19 +673,20 @@ class _PollerBase(pika.compat.AbstractBase):  # pylint: disable=R0902
 
         with self._waking_mutex:
             if self._w_interrupt is not None:
-                self.remove_handler(self._r_interrupt.fileno())  # pylint: disable=E1101
-                self._r_interrupt.close()
-                self._r_interrupt = None
+                self.remove_handler(self._r_interrupt.fileno())  # pylint: disable=E1101  # type: ignore
+                self._r_interrupt.close(
+                )  # pyright: ignore[reportOptionalMemberAccess]
+                self._r_interrupt = None  # type: ignore
                 self._w_interrupt.close()
-                self._w_interrupt = None
+                self._w_interrupt = None  # type: ignore
 
         self.deactivate_poller()
 
-        self._fd_handlers = None
-        self._fd_events = None
-        self._processing_fd_event_map = None
+        self._fd_handlers = None  # type: ignore
+        self._fd_events = None  # type: ignore
+        self._processing_fd_event_map = None  # type: ignore
 
-    def wake_threadsafe(self):
+    def wake_threadsafe(self) -> None:
         """Wake up the poller as soon as possible. As the name indicates, this
         method is thread-safe.
 
@@ -673,12 +708,12 @@ class _PollerBase(pika.compat.AbstractBase):  # pylint: disable=R0902
                 LOGGER.warning("Failed to send interrupt to poller: %s", err)
                 raise
 
-    def _get_max_wait(self):
+    def _get_max_wait(self) -> float:
         """Get the interval to the next timeout event, or a default interval
 
         :returns: maximum number of self.POLL_TIMEOUT_MULT-scaled time units
                   to wait for IO events
-        :rtype: int
+        :rtype: float
 
         """
         delay = self._get_wait_seconds()
@@ -689,7 +724,8 @@ class _PollerBase(pika.compat.AbstractBase):  # pylint: disable=R0902
 
         return delay * self.POLL_TIMEOUT_MULT
 
-    def add_handler(self, fileno, handler, events):
+    def add_handler(self, fileno: int, handler: Callable[..., None],
+                    events: int) -> None:
         """Add a new fileno to the set to be monitored
 
         :param int fileno: The file descriptor
@@ -703,7 +739,7 @@ class _PollerBase(pika.compat.AbstractBase):  # pylint: disable=R0902
         # Inform the derived class
         self._register_fd(fileno, events)
 
-    def update_handler(self, fileno, events):
+    def update_handler(self, fileno: int, events: int) -> None:
         """Set the events to the current events
 
         :param int fileno: The file descriptor
@@ -714,13 +750,12 @@ class _PollerBase(pika.compat.AbstractBase):  # pylint: disable=R0902
         events_cleared, events_set = self._set_handler_events(fileno, events)
 
         # Inform the derived class
-        self._modify_fd_events(
-            fileno,
-            events=events,
-            events_to_clear=events_cleared,
-            events_to_set=events_set)
+        self._modify_fd_events(fileno,
+                               events=events,
+                               events_to_clear=events_cleared,
+                               events_to_set=events_set)
 
-    def remove_handler(self, fileno):
+    def remove_handler(self, fileno: int) -> None:
         """Remove a file descriptor from the set
 
         :param int fileno: The file descriptor
@@ -737,7 +772,7 @@ class _PollerBase(pika.compat.AbstractBase):  # pylint: disable=R0902
         # Inform the derived class
         self._unregister_fd(fileno, events_to_clear=events_cleared)
 
-    def _set_handler_events(self, fileno, events):
+    def _set_handler_events(self, fileno: int, events: int) -> Tuple[int, int]:
         """Set the handler's events to the given events; internal to
         `_PollerBase`.
 
@@ -762,13 +797,13 @@ class _PollerBase(pika.compat.AbstractBase):  # pylint: disable=R0902
 
         return events_cleared, events_set
 
-    def activate_poller(self):
+    def activate_poller(self) -> None:
         """Activate the poller
 
         """
         # Activate the underlying poller and register current events
         self._init_poller()
-        fd_to_events = collections.defaultdict(int)
+        fd_to_events: Dict[int, int] = collections.defaultdict(int)
         for event, file_descriptors in self._fd_events.items():
             for fileno in file_descriptors:
                 fd_to_events[fileno] |= event
@@ -776,13 +811,13 @@ class _PollerBase(pika.compat.AbstractBase):  # pylint: disable=R0902
         for fileno, events in fd_to_events.items():
             self._register_fd(fileno, events)
 
-    def deactivate_poller(self):
+    def deactivate_poller(self) -> None:
         """Deactivate the poller
 
         """
         self._uninit_poller()
 
-    def start(self):
+    def start(self) -> None:
         """Start the main poller loop. It will loop until requested to exit.
         This method is not reentrant and will raise an error if called
         recursively (pika/pika#1095)
@@ -810,7 +845,7 @@ class _PollerBase(pika.compat.AbstractBase):  # pylint: disable=R0902
                 self._stopping = False
                 self._running = False
 
-    def stop(self):
+    def stop(self) -> None:
         """Request exit from the ioloop. The loop is NOT guaranteed to stop
         before this method returns.
 
@@ -820,23 +855,23 @@ class _PollerBase(pika.compat.AbstractBase):  # pylint: disable=R0902
         self.wake_threadsafe()
 
     @abc.abstractmethod
-    def poll(self):
+    def poll(self) -> None:
         """Wait for events on interested filedescriptors.
         """
         raise NotImplementedError
 
     @abc.abstractmethod
-    def _init_poller(self):
+    def _init_poller(self) -> None:
         """Notify the implementation to allocate the poller resource"""
         raise NotImplementedError
 
     @abc.abstractmethod
-    def _uninit_poller(self):
+    def _uninit_poller(self) -> None:
         """Notify the implementation to release the poller resource"""
         raise NotImplementedError
 
     @abc.abstractmethod
-    def _register_fd(self, fileno, events):
+    def _register_fd(self, fileno: int, events: int) -> None:
         """The base class invokes this method to notify the implementation to
         register the file descriptor with the polling object. The request must
         be ignored if the poller is not activated.
@@ -847,8 +882,9 @@ class _PollerBase(pika.compat.AbstractBase):  # pylint: disable=R0902
         raise NotImplementedError
 
     @abc.abstractmethod
-    def _modify_fd_events(self, fileno, events, events_to_clear, events_to_set):
-        """The base class invoikes this method to notify the implementation to
+    def _modify_fd_events(self, fileno: int, events: int, events_to_clear: int,
+                          events_to_set: int) -> None:
+        """The base class invokes this method to notify the implementation to
         modify an already registered file descriptor. The request must be
         ignored if the poller is not activated.
 
@@ -860,7 +896,7 @@ class _PollerBase(pika.compat.AbstractBase):  # pylint: disable=R0902
         raise NotImplementedError
 
     @abc.abstractmethod
-    def _unregister_fd(self, fileno, events_to_clear):
+    def _unregister_fd(self, fileno: int, events_to_clear: int) -> None:
         """The base class invokes this method to notify the implementation to
         unregister the file descriptor being tracked by the polling object. The
         request must be ignored if the poller is not activated.
@@ -870,7 +906,7 @@ class _PollerBase(pika.compat.AbstractBase):  # pylint: disable=R0902
         """
         raise NotImplementedError
 
-    def _dispatch_fd_events(self, fd_event_map):
+    def _dispatch_fd_events(self, fd_event_map: Dict[int, int]) -> None:
         """ Helper to dispatch callbacks for file descriptors that received
         events.
 
@@ -904,7 +940,7 @@ class _PollerBase(pika.compat.AbstractBase):  # pylint: disable=R0902
                 handler(fileno, events)
 
     @staticmethod
-    def _get_interrupt_pair():
+    def _get_interrupt_pair() -> Tuple[socket.socket, socket.socket]:
         """ Use a socketpair to be able to interrupt the ioloop if called
         from another thread. Socketpair() is not supported on some OS (Win)
         so use a pair of simple TCP sockets instead. The sockets will be
@@ -912,7 +948,7 @@ class _PollerBase(pika.compat.AbstractBase):  # pylint: disable=R0902
         """
         return pika.compat.nonblocking_socketpair()
 
-    def _read_interrupt(self, _interrupt_fd, _events):
+    def _read_interrupt(self, _interrupt_fd: int, _events: int) -> None:
         """ Read the interrupt byte(s). We ignore the event mask as we can ony
         get here if there's data to be read on our fd.
 
@@ -921,7 +957,7 @@ class _PollerBase(pika.compat.AbstractBase):  # pylint: disable=R0902
         """
         try:
             # NOTE Use recv instead of os.read for windows compatibility
-            self._r_interrupt.recv(512)  # pylint: disable=E1101
+            self._r_interrupt.recv(512)  # pylint: disable=E1101  # type: ignore
         except pika.compat.SOCKET_ERROR as err:
             if err.errno != errno.EAGAIN:
                 raise
@@ -936,7 +972,7 @@ class SelectPoller(_PollerBase):
     # if the poller uses MS specify 1000
     POLL_TIMEOUT_MULT = 1
 
-    def poll(self):
+    def poll(self) -> None:
         """Wait for events of interest on registered file descriptors until an
         event of interest occurs or next timer deadline or _MAX_POLL_TIMEOUT,
         whichever is sooner, and dispatch the corresponding event handlers.
@@ -958,31 +994,31 @@ class SelectPoller(_PollerBase):
                     time.sleep(self._get_max_wait())
                     read, write, error = [], [], []
                 break
-            except _SELECT_ERRORS as error:
+            except _SELECT_ERRORS as error:  # type: ignore[misc]
                 if _is_resumable(error):
                     continue
                 else:
                     raise
 
         # Build an event bit mask for each fileno we've received an event for
-        fd_event_map = collections.defaultdict(int)
+        fd_event_map: Dict[int, int] = collections.defaultdict(int)
         for fd_set, evt in zip(
-                (read, write, error),
-                (PollEvents.READ, PollEvents.WRITE, PollEvents.ERROR)):
+            (read, write, error),
+            (PollEvents.READ, PollEvents.WRITE, PollEvents.ERROR)):
             for fileno in fd_set:
                 fd_event_map[fileno] |= evt
 
         self._dispatch_fd_events(fd_event_map)
 
-    def _init_poller(self):
+    def _init_poller(self) -> None:
         """Notify the implementation to allocate the poller resource"""
         # It's a no op in SelectPoller
 
-    def _uninit_poller(self):
+    def _uninit_poller(self) -> None:
         """Notify the implementation to release the poller resource"""
         # It's a no op in SelectPoller
 
-    def _register_fd(self, fileno, events):
+    def _register_fd(self, fileno: int, events: int) -> None:
         """The base class invokes this method to notify the implementation to
         register the file descriptor with the polling object. The request must
         be ignored if the poller is not activated.
@@ -992,8 +1028,9 @@ class SelectPoller(_PollerBase):
         """
         # It's a no op in SelectPoller
 
-    def _modify_fd_events(self, fileno, events, events_to_clear, events_to_set):
-        """The base class invoikes this method to notify the implementation to
+    def _modify_fd_events(self, fileno: int, events: int, events_to_clear: int,
+                          events_to_set: int) -> None:
+        """The base class invokes this method to notify the implementation to
         modify an already registered file descriptor. The request must be
         ignored if the poller is not activated.
 
@@ -1004,7 +1041,7 @@ class SelectPoller(_PollerBase):
         """
         # It's a no op in SelectPoller
 
-    def _unregister_fd(self, fileno, events_to_clear):
+    def _unregister_fd(self, fileno: int, events_to_clear: int) -> None:
         """The base class invokes this method to notify the implementation to
         unregister the file descriptor being tracked by the polling object. The
         request must be ignored if the poller is not activated.
@@ -1017,40 +1054,40 @@ class SelectPoller(_PollerBase):
 
 class KQueuePoller(_PollerBase):
     # pylint: disable=E1101
-
     """KQueuePoller works on BSD based systems and is faster than select"""
 
-    def __init__(self, get_wait_seconds, process_timeouts):
+    def __init__(self, get_wait_seconds: Callable[[], Optional[float]],
+                 process_timeouts: Callable[[], None]):
         """Create an instance of the KQueuePoller
         """
         self._kqueue = None
         super().__init__(get_wait_seconds, process_timeouts)
 
     @staticmethod
-    def _map_event(kevent):
+    def _map_event(kevent: Any) -> int:
         """return the event type associated with a kevent object
 
         :param kevent kevent: a kevent object as returned by kqueue.control()
 
         """
         mask = 0
-        if kevent.filter == select.KQ_FILTER_READ:
+        if kevent.filter == select.KQ_FILTER_READ:  # type: ignore
             mask = PollEvents.READ
-        elif kevent.filter == select.KQ_FILTER_WRITE:
+        elif kevent.filter == select.KQ_FILTER_WRITE:  # type: ignore
             mask = PollEvents.WRITE
-            if kevent.flags & select.KQ_EV_EOF:
+            if kevent.flags & select.KQ_EV_EOF:  # type: ignore
                 # May be set when the peer reader disconnects. We don't check
                 # KQ_EV_EOF for KQ_FILTER_READ because in that case it may be
                 # set before the remaining data is consumed from sockbuf.
                 mask |= PollEvents.ERROR
-        elif kevent.flags & select.KQ_EV_ERROR:
+        elif kevent.flags & select.KQ_EV_ERROR:  # type: ignore
             mask = PollEvents.ERROR
         else:
             LOGGER.critical('Unexpected kevent: %s', kevent)
 
         return mask
 
-    def poll(self):
+    def poll(self) -> None:
         """Wait for events of interest on registered file descriptors until an
         event of interest occurs or next timer deadline or _MAX_POLL_TIMEOUT,
         whichever is sooner, and dispatch the corresponding event handlers.
@@ -1058,33 +1095,34 @@ class KQueuePoller(_PollerBase):
         """
         while True:
             try:
-                kevents = self._kqueue.control(None, 1000, self._get_max_wait())
+                kevents = self._kqueue.control(
+                    None, 1000, self._get_max_wait())  # type: ignore
                 break
-            except _SELECT_ERRORS as error:
+            except _SELECT_ERRORS as error:  # type: ignore[misc]
                 if _is_resumable(error):
                     continue
                 else:
                     raise
 
-        fd_event_map = collections.defaultdict(int)
+        fd_event_map: Dict[int, int] = collections.defaultdict(int)
         for event in kevents:
             fd_event_map[event.ident] |= self._map_event(event)
 
         self._dispatch_fd_events(fd_event_map)
 
-    def _init_poller(self):
+    def _init_poller(self) -> None:
         """Notify the implementation to allocate the poller resource"""
         assert self._kqueue is None
 
-        self._kqueue = select.kqueue()
+        self._kqueue = select.kqueue()  # type: ignore
 
-    def _uninit_poller(self):
+    def _uninit_poller(self) -> None:
         """Notify the implementation to release the poller resource"""
         if self._kqueue is not None:
             self._kqueue.close()
             self._kqueue = None
 
-    def _register_fd(self, fileno, events):
+    def _register_fd(self, fileno: int, events: int) -> None:
         """The base class invokes this method to notify the implementation to
         register the file descriptor with the polling object. The request must
         be ignored if the poller is not activated.
@@ -1092,11 +1130,14 @@ class KQueuePoller(_PollerBase):
         :param int fileno: The file descriptor
         :param int events: The event mask using READ, WRITE, ERROR
         """
-        self._modify_fd_events(
-            fileno, events=events, events_to_clear=0, events_to_set=events)
+        self._modify_fd_events(fileno,
+                               events=events,
+                               events_to_clear=0,
+                               events_to_set=events)
 
-    def _modify_fd_events(self, fileno, events, events_to_clear, events_to_set):
-        """The base class invoikes this method to notify the implementation to
+    def _modify_fd_events(self, fileno: int, events: int, events_to_clear: int,
+                          events_to_set: int) -> None:
+        """The base class invokes this method to notify the implementation to
         modify an already registered file descriptor. The request must be
         ignored if the poller is not activated.
 
@@ -1112,32 +1153,39 @@ class KQueuePoller(_PollerBase):
 
         if events_to_clear & PollEvents.READ:
             kevents.append(
-                select.kevent(
-                    fileno,
-                    filter=select.KQ_FILTER_READ,
-                    flags=select.KQ_EV_DELETE))
-        if events_to_set & PollEvents.READ:
+                select.kevent(  # pyright: ignore[reportAttributeAccessIssue]
+                    filter=select.
+                    KQ_FILTER_READ,  # pyright: ignore[reportAttributeAccessIssue]
+                    flags=select.KQ_EV_DELETE)
+            )  # pyright: ignore[reportAttributeAccessIssue]
+        if events_to_set & PollEvents.READ:  # pyright: ignore[reportAttributeAccessIssue]
             kevents.append(
-                select.kevent(
+                select.kevent(  # pyright: ignore[reportAttributeAccessIssue] 
                     fileno,
-                    filter=select.KQ_FILTER_READ,
-                    flags=select.KQ_EV_ADD))
+                    filter=select.
+                    KQ_FILTER_READ,  # pyright: ignore[reportAttributeAccessIssue]  
+                    flags=select.KQ_EV_ADD)
+            )  # pyright: ignore[reportAttributeAccessIssue]
         if events_to_clear & PollEvents.WRITE:
             kevents.append(
-                select.kevent(
+                select.kevent(  # pyright: ignore[reportAttributeAccessIssue]  
                     fileno,
-                    filter=select.KQ_FILTER_WRITE,
-                    flags=select.KQ_EV_DELETE))
+                    filter=select.
+                    KQ_FILTER_WRITE,  # pyright: ignore[reportAttributeAccessIssue]
+                    flags=select.KQ_EV_DELETE)
+            )  # pyright: ignore[reportAttributeAccessIssue]
         if events_to_set & PollEvents.WRITE:
             kevents.append(
-                select.kevent(
+                select.kevent(  # pyright: ignore[reportAttributeAccessIssue]
                     fileno,
-                    filter=select.KQ_FILTER_WRITE,
-                    flags=select.KQ_EV_ADD))
+                    filter=select.
+                    KQ_FILTER_WRITE,  # pyright: ignore[reportAttributeAccessIssue]
+                    flags=select.KQ_EV_ADD)
+            )  # pyright: ignore[reportAttributeAccessIssue]
 
         self._kqueue.control(kevents, 0)
 
-    def _unregister_fd(self, fileno, events_to_clear):
+    def _unregister_fd(self, fileno: int, events_to_clear: int) -> None:
         """The base class invokes this method to notify the implementation to
         unregister the file descriptor being tracked by the polling object. The
         request must be ignored if the poller is not activated.
@@ -1145,8 +1193,10 @@ class KQueuePoller(_PollerBase):
         :param int fileno: The file descriptor
         :param int events_to_clear: The events to clear (READ, WRITE, ERROR)
         """
-        self._modify_fd_events(
-            fileno, events=0, events_to_clear=events_to_clear, events_to_set=0)
+        self._modify_fd_events(fileno,
+                               events=0,
+                               events_to_clear=events_to_clear,
+                               events_to_set=0)
 
 
 class PollPoller(_PollerBase):
@@ -1156,7 +1206,8 @@ class PollPoller(_PollerBase):
     """
     POLL_TIMEOUT_MULT = 1000
 
-    def __init__(self, get_wait_seconds, process_timeouts):
+    def __init__(self, get_wait_seconds: Callable[[], Optional[float]],
+                 process_timeouts: Callable[[], None]):
         """Create an instance of the KQueuePoller
 
         """
@@ -1164,13 +1215,13 @@ class PollPoller(_PollerBase):
         super().__init__(get_wait_seconds, process_timeouts)
 
     @staticmethod
-    def _create_poller():
+    def _create_poller() -> Union[select.poll, select.epoll]:
         """
         :rtype: `select.poll`
         """
         return select.poll()  # pylint: disable=E1101
 
-    def poll(self):
+    def poll(self) -> None:
         """Wait for events of interest on registered file descriptors until an
         event of interest occurs or next timer deadline or _MAX_POLL_TIMEOUT,
         whichever is sooner, and dispatch the corresponding event handlers.
@@ -1178,15 +1229,15 @@ class PollPoller(_PollerBase):
         """
         while True:
             try:
-                events = self._poll.poll(self._get_max_wait())
+                events = self._poll.poll(self._get_max_wait())  # type: ignore
                 break
-            except _SELECT_ERRORS as error:
+            except _SELECT_ERRORS as error:  # type: ignore[misc]
                 if _is_resumable(error):
                     continue
                 else:
                     raise
 
-        fd_event_map = collections.defaultdict(int)
+        fd_event_map: Dict[int, int] = collections.defaultdict(int)
         for fileno, event in events:
             # NOTE: On OS X, when poll() sets POLLHUP, it's mutually-exclusive with
             # POLLOUT and it doesn't seem to set POLLERR along with POLLHUP when
@@ -1199,21 +1250,22 @@ class PollPoller(_PollerBase):
 
         self._dispatch_fd_events(fd_event_map)
 
-    def _init_poller(self):
+    def _init_poller(self) -> None:
         """Notify the implementation to allocate the poller resource"""
         assert self._poll is None
 
-        self._poll = self._create_poller()
+        self._poll = self._create_poller()  # type: ignore
 
-    def _uninit_poller(self):
+    def _uninit_poller(self) -> None:
         """Notify the implementation to release the poller resource"""
         if self._poll is not None:
             if hasattr(self._poll, "close"):
-                self._poll.close()
+                self._poll.close(
+                )  # pyright: ignore[reportAttributeAccessIssue]
 
             self._poll = None
 
-    def _register_fd(self, fileno, events):
+    def _register_fd(self, fileno: int, events: int) -> None:
         """The base class invokes this method to notify the implementation to
         register the file descriptor with the polling object. The request must
         be ignored if the poller is not activated.
@@ -1224,8 +1276,9 @@ class PollPoller(_PollerBase):
         if self._poll is not None:
             self._poll.register(fileno, events)
 
-    def _modify_fd_events(self, fileno, events, events_to_clear, events_to_set):
-        """The base class invoikes this method to notify the implementation to
+    def _modify_fd_events(self, fileno: int, events: int, events_to_clear: int,
+                          events_to_set: int) -> None:
+        """The base class invokes this method to notify the implementation to
         modify an already registered file descriptor. The request must be
         ignored if the poller is not activated.
 
@@ -1237,7 +1290,7 @@ class PollPoller(_PollerBase):
         if self._poll is not None:
             self._poll.modify(fileno, events)
 
-    def _unregister_fd(self, fileno, events_to_clear):
+    def _unregister_fd(self, fileno: int, events_to_clear: int) -> None:
         """The base class invokes this method to notify the implementation to
         unregister the file descriptor being tracked by the polling object. The
         request must be ignored if the poller is not activated.
@@ -1257,7 +1310,7 @@ class EPollPoller(PollPoller):
     POLL_TIMEOUT_MULT = 1
 
     @staticmethod
-    def _create_poller():
+    def _create_poller() -> select.epoll:
         """
         :rtype: `select.poll`
         """

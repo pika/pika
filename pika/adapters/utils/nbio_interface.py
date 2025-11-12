@@ -11,12 +11,19 @@ is intentional for the sake of reducing complexity of the implementation and
 testing and lessening the maintenance burden.
 
 """
+from __future__ import annotations
+
 import abc
+from typing import TYPE_CHECKING, Callable, Optional, Tuple, Union, Any
 
 import pika.compat
 
+if TYPE_CHECKING:
+    import ssl
+    import socket
 
-class AbstractIOServices(pika.compat.AbstractBase):
+
+class AbstractIOServices(pika.compat.AbstractBase):  # type: ignore
     """Interface to I/O services required by `pika.adapters.BaseConnection` and
     related utilities.
 
@@ -27,7 +34,7 @@ class AbstractIOServices(pika.compat.AbstractBase):
     """
 
     @abc.abstractmethod
-    def get_native_ioloop(self):
+    def get_native_ioloop(self) -> Any:
         """Returns the native I/O loop instance, such as Twisted reactor,
         asyncio's or tornado's event loop
 
@@ -35,7 +42,7 @@ class AbstractIOServices(pika.compat.AbstractBase):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def close(self):
+    def close(self) -> None:
         """Release IOLoop's resources.
 
         the `close()` method is intended to be called by Pika's own test
@@ -51,7 +58,7 @@ class AbstractIOServices(pika.compat.AbstractBase):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def run(self):
+    def run(self) -> None:
         """Run the I/O loop. It will loop until requested to exit. See `stop()`.
 
         NOTE: the outcome or restarting an instance that had been stopped is
@@ -67,7 +74,7 @@ class AbstractIOServices(pika.compat.AbstractBase):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def stop(self):
+    def stop(self) -> None:
         """Request exit from the ioloop. The loop is NOT guaranteed to
         stop before this method returns.
 
@@ -89,7 +96,7 @@ class AbstractIOServices(pika.compat.AbstractBase):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def add_callback_threadsafe(self, callback):
+    def add_callback_threadsafe(self, callback: Callable[..., None]) -> None:
         """Requests a call to the given function as soon as possible. It will be
         called from this IOLoop's thread.
 
@@ -106,7 +113,8 @@ class AbstractIOServices(pika.compat.AbstractBase):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def call_later(self, delay, callback):
+    def call_later(self, delay: float,
+                   callback: Callable[..., None]) -> AbstractTimerReference:
         """Add the callback to the IOLoop timer to be called after delay seconds
         from the time of call on best-effort basis. Returns a handle to the
         timeout.
@@ -124,13 +132,13 @@ class AbstractIOServices(pika.compat.AbstractBase):
 
     @abc.abstractmethod
     def getaddrinfo(self,
-                    host,
-                    port,
-                    on_done,
-                    family=0,
-                    socktype=0,
-                    proto=0,
-                    flags=0):
+                    host: str,
+                    port: int,
+                    on_done: Callable[..., None],
+                    family: int = 0,
+                    socktype: int = 0,
+                    proto: int = 0,
+                    flags: int = 0) -> AbstractIOReference:
         """Perform the equivalent of `socket.getaddrinfo()` asynchronously.
 
         See `socket.getaddrinfo()` for the standard args.
@@ -144,7 +152,10 @@ class AbstractIOServices(pika.compat.AbstractBase):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def connect_socket(self, sock, resolved_addr, on_done):
+    def connect_socket(
+        self, sock: socket.socket, resolved_addr: Tuple[str, int],
+        on_done: Callable[[Optional[BaseException]],
+                          None]) -> AbstractIOReference:
         """Perform the equivalent of `socket.connect()` on a previously-resolved
         address asynchronously.
 
@@ -172,12 +183,16 @@ class AbstractIOServices(pika.compat.AbstractBase):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def create_streaming_connection(self,
-                                    protocol_factory,
-                                    sock,
-                                    on_done,
-                                    ssl_context=None,
-                                    server_hostname=None):
+    def create_streaming_connection(
+            self,
+            protocol_factory: Callable[[], AbstractStreamProtocol],
+            sock: socket.socket,
+            on_done: Callable[[
+                Union[BaseException, Tuple[AbstractStreamTransport,
+                                           AbstractStreamProtocol]]
+            ], None],
+            ssl_context: Optional[ssl.SSLContext] = None,
+            server_hostname: Optional[str] = None) -> AbstractIOReference:
         """Perform SSL session establishment, if requested, on the already-
         connected socket and link the streaming transport/protocol pair.
 
@@ -210,7 +225,7 @@ class AbstractIOServices(pika.compat.AbstractBase):
         raise NotImplementedError
 
 
-class AbstractFileDescriptorServices(pika.compat.AbstractBase):
+class AbstractFileDescriptorServices(pika.compat.AbstractBase):  # type: ignore
     """Interface definition of common non-blocking file descriptor services
     required by some utility implementations.
 
@@ -221,7 +236,7 @@ class AbstractFileDescriptorServices(pika.compat.AbstractBase):
     """
 
     @abc.abstractmethod
-    def set_reader(self, fd, on_readable):
+    def set_reader(self, fd: int, on_readable: Callable[[], None]):
         """Call the given callback when the file descriptor is readable.
         Replace prior reader, if any, for the given file descriptor.
 
@@ -233,7 +248,7 @@ class AbstractFileDescriptorServices(pika.compat.AbstractBase):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def remove_reader(self, fd):
+    def remove_reader(self, fd: int) -> bool:
         """Stop watching the given file descriptor for readability
 
         :param fd: file descriptor
@@ -244,7 +259,7 @@ class AbstractFileDescriptorServices(pika.compat.AbstractBase):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def set_writer(self, fd, on_writable):
+    def set_writer(self, fd: int, on_writable: Callable[[], None]) -> None:
         """Call the given callback whenever the file descriptor is writable.
         Replace prior writer callback, if any, for the given file descriptor.
 
@@ -265,7 +280,7 @@ class AbstractFileDescriptorServices(pika.compat.AbstractBase):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def remove_writer(self, fd):
+    def remove_writer(self, fd: int) -> bool:
         """Stop watching the given file descriptor for writability
 
         :param fd: file descriptor
@@ -276,21 +291,21 @@ class AbstractFileDescriptorServices(pika.compat.AbstractBase):
         raise NotImplementedError
 
 
-class AbstractTimerReference(pika.compat.AbstractBase):
+class AbstractTimerReference(pika.compat.AbstractBase):  # type: ignore
     """Reference to asynchronous operation"""
 
     @abc.abstractmethod
-    def cancel(self):
+    def cancel(self) -> None:
         """Cancel callback. If already cancelled, has no affect.
         """
         raise NotImplementedError
 
 
-class AbstractIOReference(pika.compat.AbstractBase):
+class AbstractIOReference(pika.compat.AbstractBase):  # type: ignore
     """Reference to asynchronous I/O operation"""
 
     @abc.abstractmethod
-    def cancel(self):
+    def cancel(self) -> bool:
         """Cancel pending operation
 
         :returns: False if was already done or cancelled; True otherwise
@@ -299,7 +314,7 @@ class AbstractIOReference(pika.compat.AbstractBase):
         raise NotImplementedError
 
 
-class AbstractStreamProtocol(pika.compat.AbstractBase):
+class AbstractStreamProtocol(pika.compat.AbstractBase):  # type: ignore
     """Stream protocol interface. It's compatible with a subset of
     `asyncio.protocols.Protocol` for compatibility with asyncio-based
     `AbstractIOServices` implementation.
@@ -307,7 +322,7 @@ class AbstractStreamProtocol(pika.compat.AbstractBase):
     """
 
     @abc.abstractmethod
-    def connection_made(self, transport):
+    def connection_made(self, transport: AbstractStreamTransport):
         """Introduces transport to protocol after transport is connected.
 
         :param AbstractStreamTransport transport:
@@ -316,7 +331,7 @@ class AbstractStreamProtocol(pika.compat.AbstractBase):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def connection_lost(self, error):
+    def connection_lost(self, error: Optional[BaseException]) -> None:
         """Called upon loss or closing of connection.
 
         NOTE: `connection_made()` and `connection_lost()` are each called just
@@ -332,7 +347,7 @@ class AbstractStreamProtocol(pika.compat.AbstractBase):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def eof_received(self):
+    def eof_received(self) -> Optional[bool]:
         """Called after the remote peer shuts its write end of the connection.
 
         :returns: A falsy value (including None) will cause the transport to
@@ -345,7 +360,7 @@ class AbstractStreamProtocol(pika.compat.AbstractBase):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def data_received(self, data):
+    def data_received(self, data: bytes) -> None:
         """Called to deliver incoming data to the protocol.
 
         :param data: Non-empty data bytes.
@@ -373,7 +388,7 @@ class AbstractStreamProtocol(pika.compat.AbstractBase):
     #     raise NotImplementedError
 
 
-class AbstractStreamTransport(pika.compat.AbstractBase):
+class AbstractStreamTransport(pika.compat.AbstractBase):  # type: ignore
     """Stream transport interface. It's compatible with a subset of
     `asyncio.transports.Transport` for compatibility with asyncio-based
     `AbstractIOServices` implementation.
@@ -381,7 +396,7 @@ class AbstractStreamTransport(pika.compat.AbstractBase):
     """
 
     @abc.abstractmethod
-    def abort(self):
+    def abort(self) -> None:
         """Close connection abruptly without waiting for pending I/O to
         complete. Will invoke the corresponding protocol's `connection_lost()`
         method asynchronously (not in context of the abort() call).
@@ -391,7 +406,7 @@ class AbstractStreamTransport(pika.compat.AbstractBase):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def get_protocol(self):
+    def get_protocol(self) -> AbstractStreamProtocol:
         """Return the protocol linked to this transport.
 
         :rtype: AbstractStreamProtocol
@@ -400,7 +415,7 @@ class AbstractStreamTransport(pika.compat.AbstractBase):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def write(self, data):
+    def write(self, data: bytes) -> None:
         """Buffer the given data until it can be sent asynchronously.
 
         :param bytes data:
@@ -410,7 +425,7 @@ class AbstractStreamTransport(pika.compat.AbstractBase):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def get_write_buffer_size(self):
+    def get_write_buffer_size(self) -> int:
         """
         :returns: Current size of output data buffered by the transport
         :rtype: int

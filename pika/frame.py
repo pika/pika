@@ -1,6 +1,7 @@
 """Frame objects that do the frame demarshaling and marshaling."""
 import logging
 import struct
+from typing import Generic, List, Optional, Tuple, TypeVar
 
 from pika import amqp_object
 from pika import exceptions
@@ -8,6 +9,8 @@ from pika import spec
 from pika.compat import byte
 
 LOGGER = logging.getLogger(__name__)
+
+_MethodT = TypeVar('_MethodT', bound=amqp_object.Method)
 
 
 class Frame(amqp_object.AMQPObject):
@@ -18,7 +21,7 @@ class Frame(amqp_object.AMQPObject):
     """
     NAME = 'Frame'
 
-    def __init__(self, frame_type, channel_number):
+    def __init__(self, frame_type: int, channel_number: int) -> None:
         """Create a new instance of a frame
 
         :param int frame_type: The frame type
@@ -28,7 +31,7 @@ class Frame(amqp_object.AMQPObject):
         self.frame_type = frame_type
         self.channel_number = channel_number
 
-    def _marshal(self, pieces):
+    def _marshal(self, pieces: List[bytes]) -> bytes:
         """Create the full AMQP wire protocol frame data representation
 
         :rtype: bytes
@@ -38,7 +41,7 @@ class Frame(amqp_object.AMQPObject):
         return struct.pack('>BHI', self.frame_type, self.channel_number,
                            len(payload)) + payload + byte(spec.FRAME_END)
 
-    def marshal(self):
+    def marshal(self) -> bytes:
         """To be ended by child classes
 
         :raises NotImplementedError
@@ -47,14 +50,14 @@ class Frame(amqp_object.AMQPObject):
         raise NotImplementedError
 
 
-class Method(Frame):
+class Method(Frame, Generic[_MethodT]):
     """Base Method frame object mapping. AMQP method frames are mapped on top
     of this class for creating or accessing their data and attributes.
 
     """
     NAME = 'METHOD'
 
-    def __init__(self, channel_number, method):
+    def __init__(self, channel_number: int, method: _MethodT) -> None:
         """Create a new instance of a frame
 
         :param int channel_number: The frame type
@@ -64,10 +67,10 @@ class Method(Frame):
         Frame.__init__(self, spec.FRAME_METHOD, channel_number)
         self.method = method
 
-    def marshal(self):
+    def marshal(self) -> bytes:
         """Return the AMQP binary encoded value of the frame
 
-        :rtype: str
+        :rtype: bytes
 
         """
         pieces = self.method.encode()
@@ -82,7 +85,8 @@ class Header(Frame):
     """
     NAME = 'Header'
 
-    def __init__(self, channel_number, body_size, props):
+    def __init__(self, channel_number: int, body_size: int,
+                 props: spec.BasicProperties) -> None:
         """Create a new instance of a AMQP ContentHeader object
 
         :param int channel_number: The channel number for the frame
@@ -94,10 +98,10 @@ class Header(Frame):
         self.body_size = body_size
         self.properties = props
 
-    def marshal(self):
+    def marshal(self) -> bytes:
         """Return the AMQP binary encoded value of the frame
 
-        :rtype: str
+        :rtype: bytes
 
         """
         pieces = self.properties.encode()
@@ -113,20 +117,20 @@ class Body(Frame):
     """
     NAME = 'Body'
 
-    def __init__(self, channel_number, fragment):
+    def __init__(self, channel_number: int, fragment: bytes) -> None:
         """
         Parameters:
 
         - channel_number: int
-        - fragment: unicode or str
+        - fragment: bytes
         """
         Frame.__init__(self, spec.FRAME_BODY, channel_number)
         self.fragment = fragment
 
-    def marshal(self):
+    def marshal(self) -> bytes:
         """Return the AMQP binary encoded value of the frame
 
-        :rtype: str
+        :rtype: bytes
 
         """
         return self._marshal([self.fragment])
@@ -140,27 +144,32 @@ class Heartbeat(Frame):
     """
     NAME = 'Heartbeat'
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Create a new instance of the Heartbeat frame"""
         Frame.__init__(self, spec.FRAME_HEARTBEAT, 0)
 
-    def marshal(self):
+    def marshal(self) -> bytes:
         """Return the AMQP binary encoded value of the frame
 
-        :rtype: str
+        :rtype: bytes
 
         """
         return self._marshal(list())
 
 
-class ProtocolHeader(amqp_object.AMQPObject):
+class ProtocolHeader(
+        Frame
+):  # TODO: changed from AMQPObject to Frame, check if this is correct
     """AMQP Protocol header frame class which provides a pythonic interface
     for creating AMQP Protocol headers
 
     """
     NAME = 'ProtocolHeader'
 
-    def __init__(self, major=None, minor=None, revision=None):
+    def __init__(self,
+                 major: Optional[int] = None,
+                 minor: Optional[int] = None,
+                 revision: Optional[int] = None):
         """Construct a Protocol Header frame object for the specified AMQP
         version
 
@@ -174,22 +183,22 @@ class ProtocolHeader(amqp_object.AMQPObject):
         self.minor = minor or spec.PROTOCOL_VERSION[1]
         self.revision = revision or spec.PROTOCOL_VERSION[2]
 
-    def marshal(self):
+    def marshal(self) -> bytes:
         """Return the full AMQP wire protocol frame data representation of the
         ProtocolHeader frame
 
-        :rtype: str
+        :rtype: bytes
 
         """
         return b'AMQP' + struct.pack('BBBB', 0, self.major, self.minor,
                                      self.revision)
 
 
-def decode_frame(data_in): # pylint: disable=R0911,R0914
+def decode_frame(data_in: bytes) -> Tuple[int, Optional[Frame]]:  # pylint: disable=R0911,R0914
     """Receives raw socket data and attempts to turn it into a frame.
     Returns bytes used to make the frame and the frame
 
-    :param str data_in: The raw data stream
+    :param bytes data_in: The raw data stream
     :rtype: tuple(bytes consumed, frame)
     :raises: pika.exceptions.InvalidFrameError
 
@@ -204,8 +213,8 @@ def decode_frame(data_in): # pylint: disable=R0911,R0914
 
     # Get the Frame Type, Channel Number and Frame Size
     try:
-        (frame_type, channel_number, frame_size) = struct.unpack(
-            '>BHL', data_in[0:7])
+        (frame_type, channel_number,
+         frame_size) = struct.unpack('>BHL', data_in[0:7])
     except struct.error:
         return 0, None
 
