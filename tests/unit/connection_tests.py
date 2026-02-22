@@ -437,6 +437,7 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
                 'basic.nack': True,
                 'connection.blocked': True,
                 'consumer_cancel_notify': True,
+                'exchange_exchange_bindings': True,
                 'publisher_confirms': True
             },
             'information': 'See http://pika.rtfd.org',
@@ -451,6 +452,7 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
                 'basic.nack': True,
                 'connection.blocked': True,
                 'consumer_cancel_notify': True,
+                'exchange_exchange_bindings': True,
                 'publisher_confirms': True
             }
         }
