@@ -10,8 +10,8 @@ import time
 import pika
 from pika.exchange_type import ExchangeType
 
-LOG_FORMAT = ("%(levelname) -10s %(asctime)s %(name) -30s %(funcName) "
-              "-35s %(lineno) -5d: %(message)s")
+LOG_FORMAT = ('%(levelname) -10s %(asctime)s %(name) -30s %(funcName) '
+              '-35s %(lineno) -5d: %(message)s')
 LOGGER = logging.getLogger(__name__)
 
 
@@ -29,10 +29,10 @@ class RobustReconnectingConsumer(object):
     RabbitMQ connections and want to avoid writing their own backoff/retry mechanisms.
     """
 
-    EXCHANGE = "message"
+    EXCHANGE = 'message'
     EXCHANGE_TYPE = ExchangeType.topic
-    QUEUE = "text"
-    ROUTING_KEY = "example.text"
+    QUEUE = 'text'
+    ROUTING_KEY = 'example.text'
 
     def __init__(self, amqp_url):
         """Create a new instance of the consumer class, passing in the AMQP
@@ -76,20 +76,19 @@ class RobustReconnectingConsumer(object):
         :rtype: pika.SelectConnection
 
         """
-        LOGGER.info("Connecting to %s", self._url)
+        LOGGER.info('Connecting to %s', self._url)
         return pika.SelectConnection(
             parameters=pika.URLParameters(self._url),
             on_open_callback=self.on_connection_open,
             on_open_error_callback=self.on_connection_open_error,
-            on_close_callback=self.on_connection_closed,
-        )
+            on_close_callback=self.on_connection_closed)
 
     def close_connection(self):
         self.consuming_event.clear()
         if self._connection.is_closing or self._connection.is_closed:
-            LOGGER.info("Connection is closing or already closed")
+            LOGGER.info('Connection is closing or already closed')
         else:
-            LOGGER.info("Closing connection")
+            LOGGER.info('Closing connection')
             self._connection.close()
 
     def on_connection_open(self, _unused_connection):
@@ -100,7 +99,7 @@ class RobustReconnectingConsumer(object):
         :param pika.SelectConnection _unused_connection: The connection
 
         """
-        LOGGER.info("Connection opened")
+        LOGGER.info('Connection opened')
         self.open_channel()
         self.connect_event.clear()
 
@@ -112,7 +111,7 @@ class RobustReconnectingConsumer(object):
         :param Exception err: The error
 
         """
-        LOGGER.error("Connection open failed: %s", err)
+        LOGGER.error('Connection open failed: %s', err)
         self.reconnect()
 
     def on_connection_closed(self, _unused_connection, reason):
@@ -127,23 +126,23 @@ class RobustReconnectingConsumer(object):
         """
         self._channel = None
 
-        LOGGER.warning("Connection closed, reconnect necessary: %s", reason)
+        LOGGER.warning('Connection closed, reconnect necessary: %s', reason)
         self.reconnect()
 
     def reconnect(self, retry_count=5):
         """Reconnect with exponential backoff and retry limit."""
-        LOGGER.debug("Reconnecting...")
+        LOGGER.debug('Reconnecting...')
         self.stop()
 
         if retry_count <= 0:
-            LOGGER.error("Max retries reached. Giving up.")
+            LOGGER.error('Max retries reached. Giving up.')
             return
 
         # jitter prevents thundering herd
         wait_time = min(self._backoff_time, self.MAX_BACKOFF)
         jitter = random.uniform(0, 1)
         wait_time += jitter
-        LOGGER.info("Reconnecting in %.2f seconds...", wait_time)
+        LOGGER.info('Reconnecting in %.2f seconds...', wait_time)
 
         time.sleep(wait_time)  # Blocking
 
@@ -151,7 +150,7 @@ class RobustReconnectingConsumer(object):
             self.connect()
             self._backoff_time = 1  # Reset on success
         except Exception as e:
-            LOGGER.error("Reconnect failed: %s", e)
+            LOGGER.error('Reconnect failed: %s', e)
             self._backoff_time = min(self._backoff_time * 2, self.MAX_BACKOFF)
             self.reconnect(retry_count - 1)  # Retry
 
@@ -161,7 +160,7 @@ class RobustReconnectingConsumer(object):
         on_channel_open callback will be invoked by pika.
 
         """
-        LOGGER.info("Creating a new channel")
+        LOGGER.info('Creating a new channel')
         self._connection.channel(on_open_callback=self.on_channel_open)
 
     def on_channel_open(self, channel):
@@ -173,7 +172,7 @@ class RobustReconnectingConsumer(object):
         :param pika.channel.Channel channel: The channel object
 
         """
-        LOGGER.info("Channel opened")
+        LOGGER.info('Channel opened')
         self._channel = channel
         self.add_on_channel_close_callback()
         self.setup_exchange(self.EXCHANGE)
@@ -183,7 +182,7 @@ class RobustReconnectingConsumer(object):
         RabbitMQ unexpectedly closes the channel.
 
         """
-        LOGGER.info("Adding channel close callback")
+        LOGGER.info('Adding channel close callback')
         self._channel.add_on_close_callback(self.on_channel_closed)
 
     def on_channel_closed(self, channel, reason):
@@ -197,7 +196,7 @@ class RobustReconnectingConsumer(object):
         :param Exception reason: why the channel was closed
 
         """
-        LOGGER.warning("Channel %i was closed: %s", channel, reason)
+        LOGGER.warning('Channel %i was closed: %s', channel, reason)
         self.close_connection()
 
     def setup_exchange(self, exchange_name):
@@ -208,14 +207,15 @@ class RobustReconnectingConsumer(object):
         :param str|unicode exchange_name: The name of the exchange to declare
 
         """
-        LOGGER.info("Declaring exchange: %s", exchange_name)
+        LOGGER.info('Declaring exchange: %s', exchange_name)
         # Note: using functools.partial is not required, it is demonstrating
         # how arbitrary data can be passed to the callback when it is called
-        cb = functools.partial(self.on_exchange_declareok,
-                               userdata=exchange_name)
-        self._channel.exchange_declare(exchange=exchange_name,
-                                       exchange_type=self.EXCHANGE_TYPE,
-                                       callback=cb)
+        cb = functools.partial(
+            self.on_exchange_declareok, userdata=exchange_name)
+        self._channel.exchange_declare(
+            exchange=exchange_name,
+            exchange_type=self.EXCHANGE_TYPE,
+            callback=cb)
 
     def on_exchange_declareok(self, _unused_frame, userdata):
         """Invoked by pika when RabbitMQ has finished the Exchange.Declare RPC
@@ -225,7 +225,7 @@ class RobustReconnectingConsumer(object):
         :param str|unicode userdata: Extra user data (exchange name)
 
         """
-        LOGGER.info("Exchange declared: %s", userdata)
+        LOGGER.info('Exchange declared: %s', userdata)
         self.setup_queue(self.QUEUE)
 
     def setup_queue(self, queue_name):
@@ -236,7 +236,7 @@ class RobustReconnectingConsumer(object):
         :param str|unicode queue_name: The name of the queue to declare.
 
         """
-        LOGGER.info("Declaring queue %s", queue_name)
+        LOGGER.info('Declaring queue %s', queue_name)
         cb = functools.partial(self.on_queue_declareok, userdata=queue_name)
         self._channel.queue_declare(queue=queue_name, callback=cb)
 
@@ -252,13 +252,14 @@ class RobustReconnectingConsumer(object):
 
         """
         queue_name = userdata
-        LOGGER.info("Binding %s to %s with %s", self.EXCHANGE, queue_name,
+        LOGGER.info('Binding %s to %s with %s', self.EXCHANGE, queue_name,
                     self.ROUTING_KEY)
         cb = functools.partial(self.on_bindok, userdata=queue_name)
-        self._channel.queue_bind(queue_name,
-                                 self.EXCHANGE,
-                                 routing_key=self.ROUTING_KEY,
-                                 callback=cb)
+        self._channel.queue_bind(
+            queue_name,
+            self.EXCHANGE,
+            routing_key=self.ROUTING_KEY,
+            callback=cb)
 
     def on_bindok(self, _unused_frame, userdata):
         """Invoked by pika when the Queue.Bind method has completed. At this
@@ -268,7 +269,7 @@ class RobustReconnectingConsumer(object):
         :param str|unicode userdata: Extra user data (queue name)
 
         """
-        LOGGER.info("Queue bound: %s", userdata)
+        LOGGER.info('Queue bound: %s', userdata)
         self.set_qos()
 
     def set_qos(self):
@@ -278,8 +279,8 @@ class RobustReconnectingConsumer(object):
         with different prefetch values to achieve desired performance.
 
         """
-        self._channel.basic_qos(prefetch_count=self._prefetch_count,
-                                callback=self.on_basic_qos_ok)
+        self._channel.basic_qos(
+            prefetch_count=self._prefetch_count, callback=self.on_basic_qos_ok)
 
     def on_basic_qos_ok(self, _unused_frame):
         """Invoked by pika when the Basic.QoS method has completed. At this
@@ -289,7 +290,7 @@ class RobustReconnectingConsumer(object):
         :param pika.frame.Method _unused_frame: The Basic.QosOk response frame
 
         """
-        LOGGER.info("QOS set to: %d", self._prefetch_count)
+        LOGGER.info('QOS set to: %d', self._prefetch_count)
         self.start_consuming()
 
     def start_consuming(self):
@@ -302,7 +303,7 @@ class RobustReconnectingConsumer(object):
         will invoke when a message is fully received.
 
         """
-        LOGGER.info("Issuing consumer related RPC commands")
+        LOGGER.info('Issuing consumer related RPC commands')
         self.add_on_cancel_callback()
         self._consumer_tag = self._channel.basic_consume(
             self.QUEUE, self.on_message)
@@ -314,7 +315,7 @@ class RobustReconnectingConsumer(object):
         on_consumer_cancelled will be invoked by pika.
 
         """
-        LOGGER.info("Adding consumer cancellation callback")
+        LOGGER.info('Adding consumer cancellation callback')
         self._channel.add_on_cancel_callback(self.on_consumer_cancelled)
 
     def on_consumer_cancelled(self, method_frame):
@@ -324,7 +325,7 @@ class RobustReconnectingConsumer(object):
         :param pika.frame.Method method_frame: The Basic.Cancel frame
 
         """
-        LOGGER.info("Consumer was cancelled remotely, shutting down: %r",
+        LOGGER.info('Consumer was cancelled remotely, shutting down: %r',
                     method_frame)
         self._channel.close()
 
@@ -342,12 +343,8 @@ class RobustReconnectingConsumer(object):
         :param bytes body: The message body
 
         """
-        LOGGER.info(
-            "Received message # %s from %s: %s",
-            basic_deliver.delivery_tag,
-            properties.app_id,
-            body,
-        )
+        LOGGER.info('Received message # %s from %s: %s',
+                    basic_deliver.delivery_tag, properties.app_id, body)
         self.acknowledge_message(basic_deliver.delivery_tag)
 
     def acknowledge_message(self, delivery_tag):
@@ -357,7 +354,7 @@ class RobustReconnectingConsumer(object):
         :param int delivery_tag: The delivery tag from the Basic.Deliver frame
 
         """
-        LOGGER.info("Acknowledging message %s", delivery_tag)
+        LOGGER.info('Acknowledging message %s', delivery_tag)
         self._channel.basic_ack(delivery_tag)
 
     def stop_consuming(self):
@@ -366,9 +363,9 @@ class RobustReconnectingConsumer(object):
 
         """
         if self._channel:
-            LOGGER.info("Sending a Basic.Cancel RPC command to RabbitMQ")
-            cb = functools.partial(self.on_cancelok,
-                                   userdata=self._consumer_tag)
+            LOGGER.info('Sending a Basic.Cancel RPC command to RabbitMQ')
+            cb = functools.partial(
+                self.on_cancelok, userdata=self._consumer_tag)
             self._channel.basic_cancel(self._consumer_tag, cb)
 
     def on_cancelok(self, _unused_frame, userdata):
@@ -383,7 +380,7 @@ class RobustReconnectingConsumer(object):
         """
         self.consuming_event.clear()
         LOGGER.info(
-            "RabbitMQ acknowledged the cancellation of the consumer: %s",
+            'RabbitMQ acknowledged the cancellation of the consumer: %s',
             userdata)
         self.close_channel()
 
@@ -392,7 +389,7 @@ class RobustReconnectingConsumer(object):
         Channel.Close RPC command.
 
         """
-        LOGGER.info("Closing the channel")
+        LOGGER.info('Closing the channel')
         self._channel.close()
 
     def stop(self):
@@ -407,17 +404,17 @@ class RobustReconnectingConsumer(object):
 
         """
 
-        LOGGER.info("Stopping")
+        LOGGER.info('Stopping')
         self.stop_consuming()
-        LOGGER.info("Stopped")
+        LOGGER.info('Stopped')
 
 
 async def main():
     logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT)
-    amqp_url = "amqp://guest:guest@localhost:5672/%2F"
-    consumer = AsyncReconnectingConsumer(amqp_url)
+    amqp_url = 'amqp://guest:guest@localhost:5672/%2F'
+    consumer = RobustReconnectingConsumer(amqp_url)
     consumer.connect()
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     asyncio.run(main())
