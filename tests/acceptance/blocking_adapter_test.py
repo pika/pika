@@ -45,6 +45,25 @@ DEFAULT_PARAMS = pika.URLParameters(DEFAULT_URL)
 DEFAULT_TIMEOUT = 15
 
 
+def _patch_queue_declare_defaults_for_rabbitmq_43():
+    """Avoid transient non-exclusive queues on RabbitMQ 4.3+."""
+    original_queue_declare = blocking_connection.BlockingChannel.queue_declare
+
+    @functools.wraps(original_queue_declare)
+    def queue_declare_with_compat(self, *args, **kwargs):
+        passive = kwargs.get('passive', False)
+        durable = kwargs.get('durable', False)
+        exclusive = kwargs.get('exclusive', False)
+        if not passive and not durable and not exclusive:
+            kwargs['durable'] = True
+        return original_queue_declare(self, *args, **kwargs)
+
+    blocking_connection.BlockingChannel.queue_declare = queue_declare_with_compat
+
+
+_patch_queue_declare_defaults_for_rabbitmq_43()
+
+
 class BlockingTestCaseBase(unittest.TestCase):
 
     TIMEOUT = DEFAULT_TIMEOUT

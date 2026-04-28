@@ -36,6 +36,30 @@ from tests.base import async_test_base
 from tests.base.async_test_base import (AsyncTestCase, BoundQueueTestCase, AsyncAdapters)
 
 
+def _patch_queue_declare_defaults_for_rabbitmq_43():
+    """Avoid transient non-exclusive queues on RabbitMQ 4.3+.
+
+    RabbitMQ 4.3 disallows queues declared with durable=False and
+    exclusive=False. Many acceptance tests rely on historical defaults and
+    don't explicitly pass either flag.
+    """
+    original_queue_declare = pika.channel.Channel.queue_declare
+
+    @functools.wraps(original_queue_declare)
+    def queue_declare_with_compat(self, *args, **kwargs):
+        passive = kwargs.get('passive', False)
+        durable = kwargs.get('durable', False)
+        exclusive = kwargs.get('exclusive', False)
+        if not passive and not durable and not exclusive:
+            kwargs['durable'] = True
+        return original_queue_declare(self, *args, **kwargs)
+
+    pika.channel.Channel.queue_declare = queue_declare_with_compat
+
+
+_patch_queue_declare_defaults_for_rabbitmq_43()
+
+
 class TestA_Connect(AsyncTestCase, AsyncAdapters):  # pylint: disable=C0103
     DESCRIPTION = "Connect, open channel and disconnect"
 
