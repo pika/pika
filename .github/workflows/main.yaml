@@ -49,7 +49,7 @@ jobs:
         python-version: [ '3.9', '3.10', '3.11', '3.12', '3.13' ]
     services:
       rabbitmq:
-        image: rabbitmq
+        image: rabbitmq:4.2
         ports:
           - 5672:5672
           - 5671:5671
