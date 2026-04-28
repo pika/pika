@@ -3,7 +3,7 @@ name: pika
 on:
   push:
     branches:
-      - "*"
+      - "**"
   pull_request:
     branches:
       - main
@@ -49,7 +49,7 @@ jobs:
         python-version: [ '3.10', '3.11', '3.12', '3.13', '3.14' ]
     services:
       rabbitmq:
-        image: rabbitmq:4.2
+        image: rabbitmq
         ports:
           - 5672:5672
           - 5671:5671
