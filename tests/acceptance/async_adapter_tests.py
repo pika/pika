@@ -36,30 +36,6 @@ from tests.base import async_test_base
 from tests.base.async_test_base import (AsyncTestCase, BoundQueueTestCase, AsyncAdapters)
 
 
-def _patch_queue_declare_defaults_for_rabbitmq_43():
-    """Avoid transient non-exclusive queues on RabbitMQ 4.3+.
-
-    RabbitMQ 4.3 disallows queues declared with durable=False and
-    exclusive=False. Many acceptance tests rely on historical defaults and
-    don't explicitly pass either flag.
-    """
-    original_queue_declare = pika.channel.Channel.queue_declare
-
-    @functools.wraps(original_queue_declare)
-    def queue_declare_with_compat(self, *args, **kwargs):
-        passive = kwargs.get('passive', False)
-        durable = kwargs.get('durable', False)
-        exclusive = kwargs.get('exclusive', False)
-        if not passive and not durable and not exclusive:
-            kwargs['durable'] = True
-        return original_queue_declare(self, *args, **kwargs)
-
-    pika.channel.Channel.queue_declare = queue_declare_with_compat
-
-
-_patch_queue_declare_defaults_for_rabbitmq_43()
-
-
 class TestA_Connect(AsyncTestCase, AsyncAdapters):  # pylint: disable=C0103
     DESCRIPTION = "Connect, open channel and disconnect"
 
@@ -558,6 +534,7 @@ class TestBlockingNonBlockingBlockingRPCWontStall(AsyncTestCase, AsyncAdapters):
         for queue, nowait in self._expected_queue_params:
             cb = self._queue_declare_ok_cb if not nowait else None
             channel.queue_declare(queue=queue,
+                                  exclusive=True,
                                   auto_delete=True,
                                   arguments={'x-expires': self.TIMEOUT * 1000},
                                   callback=cb)
@@ -582,7 +559,9 @@ class TestConsumeCancel(AsyncTestCase, AsyncAdapters):
 
     def begin(self, channel):
         self.queue_name = self.__class__.__name__ + ':' + uuid.uuid1().hex
-        channel.queue_declare(self.queue_name, callback=self.on_queue_declared)
+        channel.queue_declare(self.queue_name,
+                              exclusive=True,
+                              callback=self.on_queue_declared)
 
     def on_queue_declared(self, frame):
         for i in range(0, 100):
