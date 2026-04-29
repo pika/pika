@@ -5,7 +5,6 @@ Tests for SelectConnection _Timer and _Timeout classes
 """
 
 import math
-import time
 import unittest
 from unittest import mock
 
