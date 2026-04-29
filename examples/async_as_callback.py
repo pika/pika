@@ -161,7 +161,7 @@ class BasicMessageReceiver(BasicPikaClient):
         self.channel_tag = None
 
     def decode_message(self, body):
-        if type(body) == bytes:
+        if isinstance(body, bytes):
             return msgpack.unpackb(body)
         else:
             raise NotImplementedError
