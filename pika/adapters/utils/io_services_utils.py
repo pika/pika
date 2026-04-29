@@ -1020,8 +1020,8 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
 
         # pika/pika#1286
         # NOTE: Modify code to write data to buffer before setting writer.
-        # Otherwise a race condition can occur where ioloop executes writer 
-        # while buffer is still empty. 
+        # Otherwise a race condition can occur where ioloop executes writer
+        # while buffer is still empty.
         tx_buffer_was_empty = self.get_write_buffer_size() == 0
 
         self._buffer_tx_data(data)
@@ -1162,8 +1162,8 @@ class _AsyncSSLTransport(_AsyncTransportBase):
 
         # pika/pika#1286
         # NOTE: Modify code to write data to buffer before setting writer.
-        # Otherwise a race condition can occur where ioloop executes writer 
-        # while buffer is still empty. 
+        # Otherwise a race condition can occur where ioloop executes writer
+        # while buffer is still empty.
         tx_buffer_was_empty = self.get_write_buffer_size() == 0
 
         self._buffer_tx_data(data)
