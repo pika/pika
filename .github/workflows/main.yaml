@@ -40,7 +40,14 @@ jobs:
           python -m pip install --upgrade pip wheel
           pip install -r test-requirements.txt
       - name: Test with pytest
-        run: pytest -v
+        run: pytest -v --cov=pika --cov-report=xml
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage.xml
+          flags: windows,py${{ matrix.python-version }},tls-${{ matrix.test-tls }}
+          fail_ci_if_error: false
   build:
     name: build/test on ubuntu-latest
     runs-on: ubuntu-latest
@@ -66,4 +73,11 @@ jobs:
           python -m pip install --upgrade pip wheel
           pip install -r test-requirements.txt
       - name: Test with pytest
-        run: pytest -v
+        run: pytest -v --cov=pika --cov-report=xml
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage.xml
+          flags: linux,py${{ matrix.python-version }}
+          fail_ci_if_error: false
