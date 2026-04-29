@@ -1,4 +1,4 @@
-﻿name: pika
+name: pika
 
 on:
   push:
@@ -19,15 +19,15 @@ jobs:
     env:
       PIKA_TEST_TLS: ${{ matrix.test-tls }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
           cache: 'pip'
           cache-dependency-path: test-requirements.txt
       - name: Cache installers
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           # Note: the cache path is relative to the workspace directory
           # https://docs.github.com/en/actions/using-workflows/caching-dependencies-to-speed-up-workflows#using-the-cache-action
@@ -54,9 +54,9 @@ jobs:
           - 5672:5672
           - 5671:5671
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
           cache: 'pip'
