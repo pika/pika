@@ -197,7 +197,7 @@ class MyConsumer(BasicMessageReceiver):
     @sync
     async def consume(self, channel, method, properties, body):
         body = self.decode_message(body=body)
-        file_content = await self._download_image(img_url=body["url"])
+        _file_content = await self._download_image(img_url=body["url"])
         # consume message logic ...
 
     async def _download_image(self, img_url):
