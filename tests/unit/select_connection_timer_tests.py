@@ -51,7 +51,8 @@ class TimeoutClassTests(unittest.TestCase):
 
     def test_properties(self):
         now = _now()
-        cb = lambda: None
+        def cb():
+            return None
         timeout = select_connection._Timeout(now + 5.3, cb)
         self.assertIs(timeout.callback, cb)
         self.assertEqual(timeout.deadline, now + 5.3)
