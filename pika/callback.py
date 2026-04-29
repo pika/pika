@@ -194,7 +194,7 @@ class CallbackManager:
         :rtype: None or int
 
         """
-        if not prefix in self._stack or not key in self._stack[prefix]:
+        if prefix not in self._stack or key not in self._stack[prefix]:
             return None
         return len(self._stack[prefix][key])
 

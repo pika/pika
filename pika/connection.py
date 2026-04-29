@@ -1598,7 +1598,7 @@ class Connection(pika.compat.AbstractBase):
         :param pika.frame.Method value: The frame to deliver
 
         """
-        if not value.channel_number in self._channels:
+        if value.channel_number not in self._channels:
             # This should never happen and would constitute breach of the
             # protocol
             LOGGER.critical(

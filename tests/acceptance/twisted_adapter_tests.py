@@ -20,7 +20,7 @@ from twisted.internet import defer, error as twisted_error
 from twisted.python.failure import Failure
 
 from pika.adapters.twisted_connection import (
-    ClosableDeferredQueue, ReceivedMessage, TwistedChannel,
+    ClosableDeferredQueue, TwistedChannel,
     _TwistedConnectionAdapter, TwistedProtocolConnection, _TimerHandle)
 from pika import spec
 from pika.exceptions import (
