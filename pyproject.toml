@@ -51,6 +51,11 @@ twisted = ["twisted"]
 
 [tool.pyright]
 
+[tool.ruff]
+line-length = 100
+target-version = "py37"
+extend-exclude = ["pika/spec.py"]
+
 [tool.setuptools]
 zip-safe = true
 include-package-data = false
