@@ -51,7 +51,7 @@ def create_log_exception_decorator(logger):
             """
             try:
                 return func(*args, **kwargs)
-            except:
+            except Exception:
                 logger.exception(
                     'Wrapped func exited with exception. Caller\'s stack:\n%s',
                     ''.join(traceback.format_exception(*sys.exc_info())))
