@@ -6,6 +6,7 @@ import logging
 logging.getLogger(__name__).addHandler(logging.NullHandler())
 
 # pylint: disable=C0413
+# ruff: noqa: E402
 
 from pika.connection import ConnectionParameters
 from pika.connection import URLParameters
