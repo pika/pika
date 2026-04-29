@@ -172,9 +172,10 @@ class ForwardServer(object):  # pylint: disable=R0902
 
         :returns: self
         """
-        queue = multiprocessing.Queue()
+        mp_ctx = multiprocessing.get_context("spawn")
+        queue = mp_ctx.Queue()
 
-        self._subproc = multiprocessing.Process(
+        self._subproc = mp_ctx.Process(
             target=_run_server,
             kwargs=dict(
                 local_addr=self._server_addr,
