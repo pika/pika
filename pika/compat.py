@@ -63,21 +63,6 @@ class long(int):
         return str(self) + 'L'
 
 
-def canonical_str(value: Any) -> str:
-    """
-    Return the canonical str value for the string.
-    """
-
-    return str(value)
-
-
-def is_integer(value: Any) -> bool:
-    """
-    Is value an integer?
-    """
-    return isinstance(value, int)
-
-
 def as_bytes(value: Union[str, bytes]) -> bytes:
     """
     Returns value as bytes

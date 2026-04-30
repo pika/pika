@@ -10,7 +10,6 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union, Type, cast
 
 from pika import frame
 from pika import amqp_object
-from pika.compat import canonical_str
 
 _Prefix = Union[str, int]
 _Caller = object
@@ -47,7 +46,7 @@ def name_or_value(value: AMQPValue) -> str:
         return value.NAME
 
     # Cast the value to a string
-    return canonical_str(value)
+    return str(value)
 
 
 def sanitize_prefix(function: _Callback) -> _Callback:

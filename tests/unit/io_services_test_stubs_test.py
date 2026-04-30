@@ -47,6 +47,7 @@ _SUPPORTED_LOOP_CLASSES = {
 if asyncio is not None:
     assert loop is not None
     _SUPPORTED_LOOP_CLASSES.add(loop.__class__)
+    loop.close()
 
 
 class TestStartCalledFromOtherThreadAndWithVaryingNativeLoops(
