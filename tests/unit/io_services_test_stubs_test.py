@@ -66,7 +66,6 @@ class TestStartCalledFromOtherThreadAndWithVaryingNativeLoops(
     def tearDownClass(cls):
         # Now check against what was made available to us by
         # IOServicesTestStubs
-        assert cls._native_loop_classes is not None
         if cls._native_loop_classes != _SUPPORTED_LOOP_CLASSES:
             raise AssertionError(
                 'Expected these {} native I/O loop classes from '
@@ -82,7 +81,6 @@ class TestStartCalledFromOtherThreadAndWithVaryingNativeLoops(
         native_loop = nbio.get_native_ioloop()
         self.assertIsNotNone(self._native_loop)
         self.assertIs(native_loop, self._native_loop)
-        assert self._native_loop_classes is not None
 
         self._native_loop_classes.add(native_loop.__class__)
 

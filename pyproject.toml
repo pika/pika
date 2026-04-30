@@ -80,6 +80,3 @@ addopts = [
     "--strict-config",
     "--tb=short",
 ]
-markers = [
-    "twisted: marks tests that use twisted reactor (deselect with '-m \"not twisted\"')",
-]
