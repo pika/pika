@@ -5,7 +5,6 @@ Tests for pika.adapters.asyncio_connection
 import asyncio
 import threading
 import unittest
-from unittest import mock
 
 from pika.adapters.asyncio_connection import _AsyncioIOServicesAdapter
 
@@ -54,21 +53,6 @@ class AsyncioIOServicesAdapterLoopInitTests(unittest.TestCase):
 
     def test_no_loop_creates_new_loop_when_none_running(self):
         results = []
-
-        def _thread_target():
-            adapter = _AsyncioIOServicesAdapter()
-            results.append(adapter.get_native_ioloop())
-            adapter.get_native_ioloop().close()
-
-        t = threading.Thread(target=_thread_target)
-        t.start()
-        t.join()
-
-        self.assertEqual(len(results), 1)
-        self.assertIsInstance(results[0], asyncio.AbstractEventLoop)
-
-    def test_no_loop_no_running_loop_does_not_raise(self):
-        results = []
         errors = []
 
         def _thread_target():
@@ -85,3 +69,4 @@ class AsyncioIOServicesAdapterLoopInitTests(unittest.TestCase):
 
         self.assertEqual(errors, [])
         self.assertEqual(len(results), 1)
+        self.assertIsInstance(results[0], asyncio.AbstractEventLoop)
