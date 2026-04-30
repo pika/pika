@@ -82,7 +82,7 @@ class Method(AMQPObject):
 
         :param bytes encoded: The encoded method data
         :param int offset: The offset to start decoding from
-        
+
         :rtype: Method
         """
         raise NotImplementedError("Subclasses must implement this method")

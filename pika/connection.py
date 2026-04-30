@@ -1624,8 +1624,8 @@ class Connection(pika.compat.AbstractBase):  # type: ignore
         """
         assert self.is_open, str(self)
 
-        for channel_number in list(self._channels.keys()):  
-            chan = self._channels[channel_number]  
+        for channel_number in list(self._channels.keys()):
+            chan = self._channels[channel_number]
             if not (chan.is_closing or chan.is_closed):
                 chan.close(reply_code, reply_text)
 
@@ -1673,7 +1673,7 @@ class Connection(pika.compat.AbstractBase):  # type: ignore
         :param pika.frame.Method value: The frame to deliver
 
         """
-        if value.channel_number not in self._channels:  
+        if value.channel_number not in self._channels:
             # This should never happen and would constitute breach of the
             # protocol
             LOGGER.critical(
@@ -2157,8 +2157,8 @@ class Connection(pika.compat.AbstractBase):  # type: ignore
         self._set_connection_state(self.CONNECTION_CLOSED)
 
         # Inform our channel proxies, if any are still around
-        for channel in list(self._channels.keys()):  
-            if channel not in self._channels:  
+        for channel in list(self._channels.keys()):
+            if channel not in self._channels:
                 continue
             # pylint: disable=W0212
             self._channels[channel]._on_close_meta(self._error)

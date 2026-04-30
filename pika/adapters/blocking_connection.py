@@ -821,7 +821,7 @@ class BlockingConnection:
         del self._ready_events[index_to_remove]
 
     def update_secret(self, new_secret: str, reason: str) -> None:
-        """RabbitMQ AMQP extension - This method updates the secret used to authenticate this connection. 
+        """RabbitMQ AMQP extension - This method updates the secret used to authenticate this connection.
         It is used when secrets have an expiration date and need to be renewed, like OAuth 2 tokens.
 
         :param string new_secret: The new secret
