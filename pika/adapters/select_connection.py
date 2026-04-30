@@ -20,6 +20,12 @@ from pika.adapters.utils.selector_ioloop_adapter import (
 
 LOGGER = logging.getLogger(__name__)
 
+# Non-blocking socket read/send returns one of these errnos when no data is
+# available or the operation would block. On POSIX systems EAGAIN and
+# EWOULDBLOCK have the same value; on Windows they differ (EWOULDBLOCK is
+# WSAEWOULDBLOCK / 10035), so both must be checked for portable handling.
+_TRY_IO_AGAIN_SOCK_ERROR_CODES = (errno.EAGAIN, errno.EWOULDBLOCK)
+
 # One of select, epoll, kqueue or poll
 SELECT_TYPE = None
 
@@ -665,7 +671,7 @@ class _PollerBase(pika.compat.AbstractBase):  # pylint: disable=R0902
                 # os.write for Windows compatibility
                 self._w_interrupt.send(b'X')
             except pika.compat.SOCKET_ERROR as err:
-                if err.errno != errno.EWOULDBLOCK:
+                if err.errno not in _TRY_IO_AGAIN_SOCK_ERROR_CODES:
                     raise
             except Exception as err:
                 # There's nothing sensible to do here, we'll exit the interrupt
@@ -923,7 +929,7 @@ class _PollerBase(pika.compat.AbstractBase):  # pylint: disable=R0902
             # NOTE Use recv instead of os.read for windows compatibility
             self._r_interrupt.recv(512)  # pylint: disable=E1101
         except pika.compat.SOCKET_ERROR as err:
-            if err.errno != errno.EAGAIN:
+            if err.errno not in _TRY_IO_AGAIN_SOCK_ERROR_CODES:
                 raise
 
 

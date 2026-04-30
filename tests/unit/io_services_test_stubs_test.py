@@ -25,6 +25,14 @@ from tests.stubs.io_services_test_stubs import IOServicesTestStubs
 # test runner
 # pylint: disable=C0111
 
+if asyncio is not None:
+    if pika.compat.ON_WINDOWS:
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+else:
+    loop = None
+
 # Tornado does some magic that substitutes the class dynamically
 _TORNADO_IO_LOOP = tornado.ioloop.IOLoop()
 _TORNADO_IOLOOP_CLASS = _TORNADO_IO_LOOP.__class__
@@ -37,9 +45,7 @@ _SUPPORTED_LOOP_CLASSES = {
 }
 
 if asyncio is not None:
-    if pika.compat.ON_WINDOWS:
-        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-    loop = asyncio.new_event_loop()
+    assert loop is not None
     _SUPPORTED_LOOP_CLASSES.add(loop.__class__)
     loop.close()
 
@@ -47,7 +53,7 @@ if asyncio is not None:
 class TestStartCalledFromOtherThreadAndWithVaryingNativeLoops(
         unittest.TestCase, IOServicesTestStubs):
 
-    _native_loop_classes = None
+    _native_loop_classes = set()
 
     @classmethod
     def setUpClass(cls):
