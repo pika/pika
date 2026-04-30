@@ -43,7 +43,8 @@ class AsyncioConnection(base_connection.BaseConnection):
             of connection failure.
         :param None | asyncio.AbstractEventLoop |
             nbio_interface.AbstractIOServices custom_ioloop:
-                Defaults to asyncio.get_event_loop().
+                Defaults to the running event loop, or a new event loop when
+                none is running.
         :param bool internal_connection_workflow: True for autonomous connection
             establishment which is default; False for externally-managed
             connection workflow via the `create_connection()` factory.
@@ -108,11 +109,18 @@ class _AsyncioIOServicesAdapter(io_services_utils.SocketConnectionMixin,
 
     def __init__(self, loop=None):
         """
-        :param asyncio.AbstractEventLoop | None loop: If None, gets default
-            event loop from asyncio.
+        :param asyncio.AbstractEventLoop | None loop: If None, uses the
+            running event loop via asyncio.get_running_loop(), or creates
+            a new one via asyncio.new_event_loop() when no loop is running
+            (e.g. when called from a non-async thread).
 
         """
-        self._loop = loop or asyncio.get_event_loop()
+        if loop is None:
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+        self._loop = loop
 
     def get_native_ioloop(self):
         """Implement
