@@ -460,7 +460,7 @@ class _TCPHandler(socketserver.StreamRequestHandler, object):
                                dest_sock.getpeername(), "".join(
                                    traceback.format_stack()))
                         raise
-        except:
+        except Exception:
             _trace("forward failed\n%s", "".join(traceback.format_exc()))
             raise
         finally:

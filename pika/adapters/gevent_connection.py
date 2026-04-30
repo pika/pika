@@ -4,7 +4,6 @@ import functools
 import logging
 import os
 import threading
-import weakref
 
 try:
     import queue

@@ -10,7 +10,6 @@ python2 ./codegen.py ../../rabbitmq-codegen
 """
 from __future__ import nested_scopes
 
-import os
 import re
 import sys
 

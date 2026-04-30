@@ -161,7 +161,7 @@ class BasicMessageReceiver(BasicPikaClient):
         self.channel_tag = None
 
     def decode_message(self, body):
-        if type(body) == bytes:
+        if isinstance(body, bytes):
             return msgpack.unpackb(body)
         else:
             raise NotImplementedError
@@ -197,7 +197,7 @@ class MyConsumer(BasicMessageReceiver):
     @sync
     async def consume(self, channel, method, properties, body):
         body = self.decode_message(body=body)
-        file_content = await self._download_image(img_url=body["url"])
+        _file_content = await self._download_image(img_url=body["url"])
         # consume message logic ...
 
     async def _download_image(self, img_url):

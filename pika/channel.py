@@ -461,6 +461,8 @@ class Channel:
         :param bool global_qos:    Should the QoS be shared across all
                                    consumers on the channel.
         :param callable callback: The callback to call for Basic.QosOk response
+        :returns: ``None``. Method frame from the Basic.Qos-ok response is delivered
+            to ``callback`` when provided.
         :raises ValueError:
 
         """
@@ -499,10 +501,10 @@ class Channel:
                              original recipient. If True, the server will
                              attempt to requeue the message, potentially then
                              delivering it to an alternative subscriber.
-        :param callable callback: Callback to call when receiving
-            Basic.RecoverOk
         :param callable callback: callback(pika.frame.Method) for method
             Basic.RecoverOk
+        :returns: ``None``. Method frame from the Basic.Recover-ok response is
+            delivered to ``callback`` when provided.
         :raises ValueError:
 
         """
@@ -613,6 +615,9 @@ class Channel:
         :param str routing_key: The routing key to bind on
         :param dict arguments: Custom key/value pair arguments for the binding
         :param callable callback: callback(pika.frame.Method) for method Exchange.BindOk
+        :returns: ``None``. Method frame from the Exchange.Bind-ok response is
+            delivered to ``callback`` when synchronous (no ok frame in nowait
+            mode).
         :raises ValueError:
 
         """
@@ -653,6 +658,9 @@ class Channel:
         :param bool internal: Can only be published to by other exchanges
         :param dict arguments: Custom key/value pair arguments for the exchange
         :param callable callback: callback(pika.frame.Method) for method Exchange.DeclareOk
+        :returns: ``None``. Method frame from the Exchange.Declare-ok response is
+            delivered to ``callback`` when synchronous (no ok frame in nowait
+            mode).
         :raises ValueError:
 
         """
@@ -673,6 +681,9 @@ class Channel:
         :param str exchange: The exchange name
         :param bool if_unused: only delete if the exchange is unused
         :param callable callback: callback(pika.frame.Method) for method Exchange.DeleteOk
+        :returns: ``None``. Method frame from the Exchange.Delete-ok response is
+            delivered to ``callback`` when synchronous (no ok frame in nowait
+            mode).
         :raises ValueError:
 
         """
@@ -695,6 +706,9 @@ class Channel:
         :param str routing_key: The routing key to unbind
         :param dict arguments: Custom key/value pair arguments for the binding
         :param callable callback: callback(pika.frame.Method) for method Exchange.UnbindOk
+        :returns: ``None``. Method frame from the Exchange.Unbind-ok response is
+            delivered to ``callback`` when synchronous (no ok frame in nowait
+            mode).
         :raises ValueError:
 
         """
@@ -780,6 +794,8 @@ class Channel:
         :param str routing_key: The routing key to bind on
         :param dict arguments: Custom key/value pair arguments for the binding
         :param callable callback: callback(pika.frame.Method) for method Queue.BindOk
+        :returns: ``None``. Method frame from the Queue.Bind-ok response is delivered
+            to ``callback`` when synchronous (no ok frame in nowait mode).
         :raises ValueError:
 
         """
@@ -818,6 +834,9 @@ class Channel:
         :param bool auto_delete: Delete after consumer cancels or disconnects
         :param dict arguments: Custom key/value arguments for the queue
         :param callable callback: callback(pika.frame.Method) for method Queue.DeclareOk
+        :returns: ``None``. Method frame from the Queue.Declare-ok response is
+            delivered to ``callback`` when synchronous (no ok frame in nowait
+            mode).
         :raises ValueError:
 
         """
@@ -847,6 +866,9 @@ class Channel:
         :param bool if_unused: only delete if it's unused
         :param bool if_empty: only delete if the queue is empty
         :param callable callback: callback(pika.frame.Method) for method Queue.DeleteOk
+        :returns: ``None``. Method frame from the Queue.Delete-ok response is
+            delivered to ``callback`` when synchronous (no ok frame in nowait
+            mode).
         :raises ValueError:
 
         """
@@ -863,6 +885,9 @@ class Channel:
 
         :param str queue: The queue to purge
         :param callable callback: callback(pika.frame.Method) for method Queue.PurgeOk
+        :returns: ``None``. Method frame from the Queue.Purge-ok response is
+            delivered to ``callback`` when synchronous (no ok frame in nowait
+            mode).
         :raises ValueError:
 
         """
@@ -885,6 +910,8 @@ class Channel:
         :param str routing_key: The routing key to unbind
         :param dict arguments: Custom key/value pair arguments for the binding
         :param callable callback: callback(pika.frame.Method) for method Queue.UnbindOk
+        :returns: ``None``. Method frame from the Queue.Unbind-ok response is
+            delivered to ``callback`` when provided.
         :raises ValueError:
 
         """
@@ -900,7 +927,9 @@ class Channel:
     def tx_commit(self, callback=None):
         """Commit a transaction
 
-        :param callable callback: The callback for delivery confirmations
+        :param callable callback: callback(pika.frame.Method) for method Tx.CommitOk
+        :returns: ``None``. Method frame from the Tx.Commit-ok response is delivered
+            to ``callback`` when provided.
         :raises ValueError:
 
         """
@@ -911,7 +940,9 @@ class Channel:
     def tx_rollback(self, callback=None):
         """Rollback a transaction.
 
-        :param callable callback: The callback for delivery confirmations
+        :param callable callback: callback(pika.frame.Method) for method Tx.RollbackOk
+        :returns: ``None``. Method frame from the Tx.Rollback-ok response is delivered
+            to ``callback`` when provided.
         :raises ValueError:
 
         """
@@ -924,7 +955,9 @@ class Channel:
         standard transactions. The client must use this method at least once on
         a channel before using the Commit or Rollback methods.
 
-        :param callable callback: The callback for delivery confirmations
+        :param callable callback: callback(pika.frame.Method) for method Tx.SelectOk
+        :returns: ``None``. Method frame from the Tx.Select-ok response is delivered
+            to ``callback`` when provided.
         :raises ValueError:
 
         """

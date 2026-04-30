@@ -534,7 +534,6 @@ class TestBlockingNonBlockingBlockingRPCWontStall(AsyncTestCase, AsyncAdapters):
             cb = self._queue_declare_ok_cb if not nowait else None
             channel.queue_declare(queue=queue,
                                   exclusive=True,
-                                  auto_delete=True,
                                   arguments={'x-expires': self.TIMEOUT * 1000},
                                   callback=cb)
 
