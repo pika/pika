@@ -21,7 +21,6 @@ from pika import __version__
 
 if TYPE_CHECKING:
     from pika.adapters.utils import nbio_interface
-    from pika.adapters.base_connection import BaseConnection
 
     ADDRESS_INFO = Tuple[socket.AddressFamily, socket.SocketKind, int, str,
                          Union[Tuple[str, int], Tuple[str, int, int, int],

@@ -7,10 +7,7 @@ import re
 import socket
 import sys
 import time
-from typing import Any, List, TypeVar, Mapping, Tuple, Iterable, Union
-
-K = TypeVar('K')
-V = TypeVar('V')
+from typing import Any, Tuple, Union
 
 RE_NUM = re.compile(r'(\d+).+')
 

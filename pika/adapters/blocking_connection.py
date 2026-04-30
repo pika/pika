@@ -24,7 +24,7 @@ import contextlib
 import functools
 import logging
 import threading
-from typing import Any, Callable, Dict, Generator, Generic, List, Optional, Sequence, Set, Tuple, Type, TypeVar, Union, TYPE_CHECKING
+from typing import Any, Callable, Dict, Generator, Generic, List, Optional, Sequence, Set, Tuple, TypeVar, Union, TYPE_CHECKING
 
 import pika.channel
 import pika.compat as compat

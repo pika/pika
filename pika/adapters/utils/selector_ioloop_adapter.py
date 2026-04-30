@@ -10,7 +10,7 @@ import abc
 import logging
 import socket
 import threading
-from typing import Any, Callable, Dict, Optional, Set
+from typing import Any, Callable, Dict, Optional
 
 from pika.adapters.utils import nbio_interface, io_services_utils
 from pika.adapters.utils.io_services_utils import (check_callback_arg,

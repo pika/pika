@@ -13,7 +13,7 @@ import math
 import numbers
 import platform
 import ssl
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Type, TypeVar, Union, Callable, cast, TYPE_CHECKING
+from typing import Any, Dict, Optional, Sequence, Tuple, Type, TypeVar, Union, Callable, cast, TYPE_CHECKING
 from urllib.parse import unquote as url_unquote, parse_qs as url_parse_qs, urlparse
 
 import pika.callback

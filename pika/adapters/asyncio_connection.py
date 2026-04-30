@@ -4,7 +4,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import sys
-from typing import Any, Awaitable, Callable, Optional, TYPE_CHECKING, Sequence, Union, cast
+from typing import Any, Awaitable, Callable, Optional, TYPE_CHECKING, Sequence, Union
 
 from pika.adapters import base_connection
 from pika.adapters.utils import connection_workflow, nbio_interface, io_services_utils
