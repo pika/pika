@@ -13,7 +13,6 @@ import threading
 import unittest
 
 import tornado.ioloop
-import twisted.internet.reactor
 
 from pika.adapters import select_connection
 

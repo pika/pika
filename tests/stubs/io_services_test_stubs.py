@@ -22,7 +22,6 @@ class TestGetNativeIOLoop(unittest.TestCase,
 
 """
 
-import unittest
 
 from tests.wrappers.threaded_test_wrapper import run_in_thread_with_timeout
 

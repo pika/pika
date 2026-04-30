@@ -246,7 +246,7 @@ def decode_frame(data_in): # pylint: disable=R0911,R0914
         properties = spec.props[class_id]()
 
         # Decode the properties
-        out = properties.decode(frame_data[12:])
+        properties.decode(frame_data[12:])
 
         # Return a Header frame
         return frame_end, Header(channel_number, body_size, properties)
