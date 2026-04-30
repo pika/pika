@@ -88,9 +88,8 @@ class PlainCredentials:
             return None, None
         return (
             PlainCredentials.TYPE,
-            # FIXME: must check for None, if not will as_bytes will raise AttributeError
-            b'\0' + as_bytes(self.username) + b'\0' + as_bytes(self.password)
-        )  # type:ignore
+            b'\0' + as_bytes(self.username) + b'\0' + as_bytes(self.password)  # type: ignore[arg-type]
+        )
 
     def erase_credentials(self) -> None:
         """Called by Connection when it no longer needs the credentials"""

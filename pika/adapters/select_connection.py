@@ -1101,8 +1101,8 @@ class KQueuePoller(_PollerBase):
         """
         while True:
             try:
-                kevents = self._kqueue.control(
-                    None, 1000, self._get_max_wait())  # type: ignore
+                kevents = self._kqueue.control(  # type: ignore[attr-defined]
+                    None, 1000, self._get_max_wait())
                 break
             except _SELECT_ERRORS as error:  # type: ignore[misc]
                 if _is_resumable(error):

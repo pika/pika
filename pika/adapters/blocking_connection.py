@@ -327,13 +327,13 @@ class BlockingConnection:
 
     """
     # Connection-closing callback args
-    _OnClosedArgs = namedtuple(
-        'BlockingConnection__OnClosedArgs',  # type: ignore
+    _OnClosedArgs = namedtuple(  # type: ignore[name-match]
+        'BlockingConnection__OnClosedArgs',
         'connection error')
 
     # Channel-opened callback args
-    _OnChannelOpenedArgs = namedtuple(
-        'BlockingConnection__OnChannelOpenedArgs',  # type: ignore
+    _OnChannelOpenedArgs = namedtuple(  # type: ignore[name-match]
+        'BlockingConnection__OnChannelOpenedArgs',
         'channel')
 
     def __init__(
@@ -1553,8 +1553,8 @@ class BlockingChannel:
         :param evt: an object of type _ConsumerDeliveryEvt or
           _ConsumerCancellationEvt
         """
-        self._queue_consumer_generator.pending_events.append(
-            evt)  # type: ignore
+        self._queue_consumer_generator.pending_events.append(  # type: ignore[union-attr]
+            evt)
         # Schedule termination of connection.process_data_events using a
         # negative channel number
         self.connection._request_channel_dispatch(-self.channel_number)

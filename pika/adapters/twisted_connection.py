@@ -56,8 +56,8 @@ class ClosableDeferredQueue(defer.DeferredQueue):
         self.closed: Optional[Exception] = None
         super().__init__(size, backlog)
 
-    def put(self, obj: Any) -> Optional[
-            defer.Deferred[Any]]:  # type: ignore[override]
+    def put(self, obj: Any) -> Optional[  # type: ignore[override]
+            defer.Deferred[Any]]:
         """
         Like the original :meth:`DeferredQueue.put` method, but returns an
         errback if the queue is closed.

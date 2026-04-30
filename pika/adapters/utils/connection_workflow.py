@@ -524,8 +524,8 @@ class AMQPConnector:
         self._report_completion_and_cleanup(result)
 
 
-class AbstractAMQPConnectionWorkflow(pika.compat.AbstractBase
-                                    ):  # type: ignore[valid-type, misc]
+class AbstractAMQPConnectionWorkflow(pika.compat.AbstractBase  # type: ignore[valid-type, misc]
+                                    ):
     """Interface for implementing a custom TCP/[SSL]/AMQP connection workflow.
 
     """

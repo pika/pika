@@ -109,9 +109,9 @@ class SocketConnectionMixin:
 
         """
         return _AsyncSocketConnector(
-            nbio=self,
+            nbio=self,  # type: ignore[arg-type]
             sock=sock,
-            resolved_addr=resolved_addr,  # type: ignore
+            resolved_addr=resolved_addr,
             on_done=on_done).start()
 
 
@@ -631,9 +631,9 @@ class _AsyncStreamConnector:
                 # Create SSL streaming transport
                 try:
                     transport = _AsyncSSLTransport(
-                        self._sock,
-                        protocol,  # type: ignore
-                        self._nbio)  # type: ignore
+                        self._sock,  # type: ignore[arg-type]
+                        protocol,
+                        self._nbio)  # type: ignore[arg-type]
                 except Exception as error:
                     _LOGGER.exception('SSLTransport() failed: error=%r; %s',
                                       error, self._sock)
@@ -674,6 +674,8 @@ class _AsyncStreamConnector:
                 'to inactive state transition; state=%s; %s; .', self._state,
                 self._sock)
             return
+
+        assert self._nbio is not None
 
         done = False
 
