@@ -1,8 +1,9 @@
 coverage
 codecov
 gevent
-pynose
+pytest>=7.0.0
+pytest-cov
+pytest-timeout
 tornado
 twisted
-enum34; python_version == '2.7' or (python_version >= '3.0' and python_version <= '3.4')
 mypy>=1.20

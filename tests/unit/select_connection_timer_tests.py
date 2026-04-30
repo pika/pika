@@ -22,7 +22,7 @@ from pika.adapters import select_connection
 # pylint: disable=C0103
 
 
-def test_now():
+def _now():
     # pika/pika#1184
     # Note that time is a float, and these tests depend
     # on exact math. Round up the value to ensure that
@@ -49,7 +49,7 @@ class TimeoutClassTests(unittest.TestCase):
     """Test select_connection._Timeout class"""
 
     def test_properties(self):
-        now = test_now()
+        now = _now()
         def cb():
             pass
         timeout = select_connection._Timeout(now + 5.3, cb)
@@ -281,7 +281,7 @@ class TimerClassTests(unittest.TestCase):
         self.assertIsNone(timer.get_remaining_interval())
 
     def test_call_later_non_negative_delay_check(self):
-        now = test_now()
+        now = _now()
 
         # 0 delay is okay
         with mock.patch('pika.compat.time_now', return_value=now):
@@ -305,7 +305,7 @@ class TimerClassTests(unittest.TestCase):
                       cm.exception.args[0])
 
     def test_call_later_single_timer_expires(self):
-        now = test_now()
+        now = _now()
 
         with mock.patch('pika.compat.time_now', return_value=now):
             bucket = []
@@ -326,7 +326,7 @@ class TimerClassTests(unittest.TestCase):
             self.assertIsNone(timer.get_remaining_interval())
 
     def test_call_later_multiple_timers(self):
-        now = test_now()
+        now = _now()
 
         bucket = []
         timer = select_connection._Timer()
@@ -359,7 +359,7 @@ class TimerClassTests(unittest.TestCase):
             self.assertIsNone(timer.get_remaining_interval())
 
     def test_add_and_remove_timeout(self):
-        now = test_now()
+        now = _now()
 
         bucket = []
         timer = select_connection._Timer()
@@ -408,7 +408,7 @@ class TimerClassTests(unittest.TestCase):
             self.assertIsNone(timer.get_remaining_interval())
 
     def test_gc_of_unexpired_timeouts(self):
-        now = test_now()
+        now = _now()
         bucket = []
         timer = select_connection._Timer()
 
@@ -441,7 +441,7 @@ class TimerClassTests(unittest.TestCase):
                 self.assertEqual(timer._num_cancellations, 0)
 
     def test_add_timeout_from_another_timeout(self):
-        now = test_now()
+        now = _now()
         bucket = []
         timer = select_connection._Timer()
 
@@ -470,7 +470,7 @@ class TimerClassTests(unittest.TestCase):
             self.assertEqual(timer.get_remaining_interval(), None)
 
     def test_cancel_unexpired_timeout_from_another_timeout(self):
-        now = test_now()
+        now = _now()
         bucket = []
         timer = select_connection._Timer()
 
@@ -500,7 +500,7 @@ class TimerClassTests(unittest.TestCase):
 
 
     def test_cancel_expired_timeout_from_another_timeout(self):
-        now = test_now()
+        now = _now()
         bucket = []
         timer = select_connection._Timer()
 

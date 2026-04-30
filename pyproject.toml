@@ -66,3 +66,17 @@ packages = ["pika", "pika.adapters", "pika.adapters.utils"]
 
 [tool.setuptools.package-data]
 "*" = ["LICENSE", "README.rst"]
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+pythonpath = ["."]
+python_files = ["*_test.py", "*_tests.py", "test_*.py"]
+python_classes = ["Test*", "*Test", "*Tests", "*TestCase"]
+python_functions = ["test_*"]
+addopts = [
+    "-v",
+    "--strict-markers",
+    "--strict-config",
+    "--tb=short",
+]
