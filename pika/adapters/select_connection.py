@@ -1000,7 +1000,7 @@ class SelectPoller(_PollerBase):
                     time.sleep(self._get_max_wait())
                     read, write, error = [], [], []
                 break
-            except _SELECT_ERRORS as error:  # type: ignore[misc]
+            except _SELECT_ERRORS as error:
                 if _is_resumable(error):
                     continue
                 else:
@@ -1104,7 +1104,7 @@ class KQueuePoller(_PollerBase):
                 kevents = self._kqueue.control(  # type: ignore[attr-defined]
                     None, 1000, self._get_max_wait())
                 break
-            except _SELECT_ERRORS as error:  # type: ignore[misc]
+            except _SELECT_ERRORS as error:
                 if _is_resumable(error):
                     continue
                 else:
@@ -1237,7 +1237,7 @@ class PollPoller(_PollerBase):
             try:
                 events = self._poll.poll(self._get_max_wait())  # type: ignore
                 break
-            except _SELECT_ERRORS as error:  # type: ignore[misc]
+            except _SELECT_ERRORS as error:
                 if _is_resumable(error):
                     continue
                 else:
