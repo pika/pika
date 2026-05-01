@@ -18,7 +18,7 @@ def require_string(value: Any, value_name: str) -> None:
 
 
 def require_callback(callback: Callable[..., Any],
-                     callback_name: str = 'callback'):
+                     callback_name: str = 'callback') -> None:
     """Require that callback is callable and is not None
 
     :raises: TypeError

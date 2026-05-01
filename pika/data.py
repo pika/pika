@@ -67,8 +67,8 @@ def encode_table(pieces: List[bytes], table: Optional[Dict[str, Any]]) -> int:
     """
     table = table or {}
     length_index = len(pieces)
-    # TODO: check if pieces.append(b'') is safe here
-    pieces.append(None)  # type: ignore[arg-type]  # placeholder
+    # placeholder overwritten by pieces[length_index] below
+    pieces.append(None)  # type: ignore[arg-type]
     tablesize = 0
     for (key, value) in table.items():
         tablesize += encode_short_string(pieces, key)

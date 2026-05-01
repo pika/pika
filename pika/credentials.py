@@ -140,7 +140,7 @@ class ExternalCredentials:
         LOGGER.debug('Not supported by this Credentials type')
 
 
-_VALID_TYPES = Union[Type[PlainCredentials], Type[ExternalCredentials]]
+_CredentialType = Union[Type[PlainCredentials], Type[ExternalCredentials]]
 
 # Append custom credential types to this list for validation support
-VALID_TYPES: List[_VALID_TYPES] = [PlainCredentials, ExternalCredentials]
+VALID_TYPES: List[_CredentialType] = [PlainCredentials, ExternalCredentials]

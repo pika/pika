@@ -541,7 +541,7 @@ class TwistedChannel:
         return d
 
     def basic_nack(self,
-                   delivery_tag: Optional[int] = None,
+                   delivery_tag: int = 0,
                    multiple: bool = False,
                    requeue: bool = True) -> None:
         """This method allows a client to reject one or more incoming messages.
@@ -563,8 +563,7 @@ class TwistedChannel:
 
         """
         return self._channel.basic_nack(
-            delivery_tag=
-            delivery_tag,  # type: ignore  # TODO: fix this, it can't be None
+            delivery_tag=delivery_tag,
             multiple=multiple,
             requeue=requeue,
         )
