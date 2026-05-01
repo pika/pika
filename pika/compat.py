@@ -7,7 +7,7 @@ import re
 import socket
 import sys
 import time
-from typing import Any, Tuple, Union
+from typing import Tuple, Union
 
 RE_NUM = re.compile(r'(\d+).+')
 
