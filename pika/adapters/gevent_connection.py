@@ -1,4 +1,5 @@
 """Use pika with the Gevent IOLoop."""
+from __future__ import annotations
 
 import functools
 import logging
