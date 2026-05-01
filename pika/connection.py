@@ -2206,8 +2206,8 @@ class Connection(pika.compat.AbstractBase):  # type: ignore
             return
 
         # ProtocolHeader (frame_type == -1) is handled above; narrow
-        # the type so mypy knows only Frame remains.
-        assert isinstance(frame_value, frame.Frame)
+        # the type for mypy.
+        assert not isinstance(frame_value, frame.ProtocolHeader)
 
         # Keep track of how many frames have been read
         self.frames_received += 1
