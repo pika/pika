@@ -1,5 +1,4 @@
 """Use pika with the Gevent IOLoop."""
-from __future__ import annotations
 
 import functools
 import logging
@@ -9,10 +8,7 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union, 
 
 import gevent._interfaces  # type: ignore[import-untyped]
 
-try:
-    import queue
-except ImportError:  # Python <= v2.7
-    import Queue as queue  # type: ignore
+import queue
 
 import gevent
 import gevent.hub  # type: ignore[import-untyped]
@@ -467,7 +463,6 @@ class _GeventAddressResolver:
         function on the configured IO loop.
         """
         try:
-            # NOTE(JG): Can't use kwargs with getaddrinfo on Python <= v2.7.
             result = gevent.socket.getaddrinfo(self._ga_host, self._ga_port,
                                                self._ga_family,
                                                self._ga_socktype,
