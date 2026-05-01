@@ -4,12 +4,8 @@ import functools
 import logging
 import os
 import threading
-import weakref
 
-try:
-    import queue
-except ImportError:  # Python <= v2.7
-    import Queue as queue
+import queue
 
 import gevent
 import gevent.hub
@@ -443,7 +439,6 @@ class _GeventAddressResolver:
         function on the configured IO loop.
         """
         try:
-            # NOTE(JG): Can't use kwargs with getaddrinfo on Python <= v2.7.
             result = gevent.socket.getaddrinfo(self._ga_host, self._ga_port,
                                                self._ga_family,
                                                self._ga_socktype,

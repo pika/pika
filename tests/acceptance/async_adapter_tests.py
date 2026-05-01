@@ -27,7 +27,6 @@ import pika
 from pika.adapters.utils import connection_workflow
 from pika import spec
 from pika.compat import as_bytes, time_now
-import pika.connection
 import pika.exceptions
 from pika.exchange_type import ExchangeType
 import pika.frame
@@ -534,7 +533,7 @@ class TestBlockingNonBlockingBlockingRPCWontStall(AsyncTestCase, AsyncAdapters):
         for queue, nowait in self._expected_queue_params:
             cb = self._queue_declare_ok_cb if not nowait else None
             channel.queue_declare(queue=queue,
-                                  auto_delete=True,
+                                  exclusive=True,
                                   arguments={'x-expires': self.TIMEOUT * 1000},
                                   callback=cb)
 
@@ -558,7 +557,9 @@ class TestConsumeCancel(AsyncTestCase, AsyncAdapters):
 
     def begin(self, channel):
         self.queue_name = self.__class__.__name__ + ':' + uuid.uuid1().hex
-        channel.queue_declare(self.queue_name, callback=self.on_queue_declared)
+        channel.queue_declare(self.queue_name,
+                              exclusive=True,
+                              callback=self.on_queue_declared)
 
     def on_queue_declared(self, frame):
         for i in range(0, 100):

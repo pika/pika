@@ -9,7 +9,9 @@ Introduction
 Pika is a pure-Python implementation of the AMQP 0-9-1 protocol including
 RabbitMQ's extensions.
 
-- Supports Python 3.7+ (`1.1.0` was the last version to support 2.7)
+- Supports Python 3.7+ (CPython and PyPy; versions are listed on
+  `PyPI <https://pypi.org/project/pika/>`_). Pika 1.1.0 was the last release
+  that supported Python 2.7.
 - Since threads aren't appropriate to every situation, it doesn't require
   threads. Pika core takes care not to forbid them, either. The same goes for
   greenlets, callbacks, continuations, and generators. An instance of Pika's

@@ -500,11 +500,12 @@ class BlockingConnection:
         #   empty outbound buffer and no waiters
         #         OR
         #   empty outbound buffer and any waiter is ready
-        is_done = (lambda:
-                   self._closed_result.ready or
-                   ((not self._impl._transport or
-                     self._impl._get_write_buffer_size() == 0) and
-                    (not waiters or any(ready() for ready in waiters))))
+        def is_done():
+            return (
+                self._closed_result.ready or
+                ((not self._impl._transport or
+                  self._impl._get_write_buffer_size() == 0) and
+                 (not waiters or any(ready() for ready in waiters))))
 
         # Process I/O until our completion condition is satisfied
         while not is_done():
@@ -764,7 +765,7 @@ class BlockingConnection:
         del self._ready_events[index_to_remove]
 
     def update_secret(self, new_secret, reason):
-        """RabbitMQ AMQP extension - This method updates the secret used to authenticate this connection. 
+        """RabbitMQ AMQP extension - This method updates the secret used to authenticate this connection.
         It is used when secrets have an expiration date and need to be renewed, like OAuth 2 tokens.
 
         :param string new_secret: The new secret
@@ -832,9 +833,10 @@ class BlockingConnection:
         """
         with self._acquire_event_dispatch() as dispatch_acquired:
             # Check if we can actually process pending events
-            common_terminator = lambda: bool(dispatch_acquired and
-                                             (self._channels_pending_dispatch or
-                                              self._ready_events))
+            def common_terminator():
+                return bool(dispatch_acquired and
+                            (self._channels_pending_dispatch or
+                             self._ready_events))
             if time_limit is None:
                 self._flush_output(common_terminator)
             else:

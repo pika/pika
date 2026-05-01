@@ -4,8 +4,6 @@ deadlock.
 
 """
 
-from __future__ import print_function
-
 import functools
 import os
 import sys
@@ -143,7 +141,7 @@ class _ThreadedTestWrapper(object):
         """
         try:
             self._fun_result = self._fun()
-        except:  # pylint: disable=W0702
+        except Exception:
             self._exc_info = sys.exc_info()
             del self._fun_result  # to force exception on inadvertent access
             if not isinstance(self._exc_info[1], unittest.SkipTest):

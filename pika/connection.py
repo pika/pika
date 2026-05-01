@@ -1251,7 +1251,7 @@ class Connection(pika.compat.AbstractBase):
         return self._channels[channel_number]
 
     def update_secret(self, new_secret, reason, callback=None):
-        """RabbitMQ AMQP extension - This method updates the secret used to authenticate this connection. 
+        """RabbitMQ AMQP extension - This method updates the secret used to authenticate this connection.
         It is used when secrets have an expiration date and need to be renewed, like OAuth 2 tokens.
         Pass a callback to be notified of the response from the server.
 
@@ -1598,7 +1598,7 @@ class Connection(pika.compat.AbstractBase):
         :param pika.frame.Method value: The frame to deliver
 
         """
-        if not value.channel_number in self._channels:
+        if value.channel_number not in self._channels:
             # This should never happen and would constitute breach of the
             # protocol
             LOGGER.critical(

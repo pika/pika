@@ -1,7 +1,5 @@
 """TCP/IP forwarding/echo service for testing."""
 
-from __future__ import print_function
-
 import array
 from datetime import datetime, timezone
 import errno
@@ -172,9 +170,10 @@ class ForwardServer(object):  # pylint: disable=R0902
 
         :returns: self
         """
-        queue = multiprocessing.Queue()
+        mp_ctx = multiprocessing.get_context("spawn")
+        queue = mp_ctx.Queue()
 
-        self._subproc = multiprocessing.Process(
+        self._subproc = mp_ctx.Process(
             target=_run_server,
             kwargs=dict(
                 local_addr=self._server_addr,
@@ -459,7 +458,7 @@ class _TCPHandler(socketserver.StreamRequestHandler, object):
                                dest_sock.getpeername(), "".join(
                                    traceback.format_stack()))
                         raise
-        except:
+        except Exception:
             _trace("forward failed\n%s", "".join(traceback.format_exc()))
             raise
         finally:

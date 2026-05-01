@@ -4,8 +4,6 @@ Tests for SelectConnection IOLoops
 
 """
 
-from __future__ import print_function
-
 import errno
 from datetime import datetime, timezone
 import functools
