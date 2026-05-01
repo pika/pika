@@ -1,7 +1,7 @@
 """Frame objects that do the frame demarshaling and marshaling."""
 import logging
 import struct
-from typing import Generic, List, Optional, Tuple, TypeVar
+from typing import Generic, List, Optional, Tuple, TypeVar, Union
 
 from pika import amqp_object
 from pika import exceptions
@@ -158,8 +158,8 @@ class Heartbeat(Frame):
 
 
 class ProtocolHeader(
-        Frame
-):  # TODO: changed from AMQPObject to Frame, check if this is correct
+        amqp_object.AMQPObject
+):
     """AMQP Protocol header frame class which provides a pythonic interface
     for creating AMQP Protocol headers
 
@@ -194,7 +194,7 @@ class ProtocolHeader(
                                      self.revision)
 
 
-def decode_frame(data_in: bytes) -> Tuple[int, Optional[Frame]]:  # pylint: disable=R0911,R0914
+def decode_frame(data_in: bytes) -> Tuple[int, Optional[Union[Frame, ProtocolHeader]]]:  # pylint: disable=R0911,R0914
     """Receives raw socket data and attempts to turn it into a frame.
     Returns bytes used to make the frame and the frame
 

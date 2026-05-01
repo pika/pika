@@ -2194,7 +2194,7 @@ class Connection(pika.compat.AbstractBase):  # type: ignore
             return True
         return False
 
-    def _process_frame(self, frame_value: frame.Frame) -> None:
+    def _process_frame(self, frame_value: Union[frame.Frame, frame.ProtocolHeader]) -> None:
         """Process an inbound frame from the socket.
 
         :param pika.frame.Frame|pika.frame.Method frame_value: The frame to
@@ -2204,6 +2204,10 @@ class Connection(pika.compat.AbstractBase):  # type: ignore
         # Will receive a frame type of -1 if protocol version mismatch
         if frame_value.frame_type < 0:
             return
+
+        # ProtocolHeader (frame_type == -1) is handled above; narrow
+        # the type so mypy knows only Frame remains.
+        assert isinstance(frame_value, frame.Frame)
 
         # Keep track of how many frames have been read
         self.frames_received += 1
@@ -2224,7 +2228,7 @@ class Connection(pika.compat.AbstractBase):  # type: ignore
         elif frame_value.channel_number > 0:
             self._deliver_frame_to_channel(frame_value)
 
-    def _read_frame(self) -> Tuple[int, Optional[frame.Frame]]:
+    def _read_frame(self) -> Tuple[int, Optional[Union[frame.Frame, frame.ProtocolHeader]]]:
         """Try and read from the frame buffer and decode a frame.
 
         :rtype tuple: (int, pika.frame.Frame)
