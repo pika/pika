@@ -27,8 +27,7 @@ except AttributeError:
 
 
 def socket_requires_keepalive(tcp_options):
-    return ('TCP_KEEPIDLE' in tcp_options or
-            'TCP_KEEPCNT' in tcp_options or
+    return ('TCP_KEEPIDLE' in tcp_options or 'TCP_KEEPCNT' in tcp_options or
             'TCP_KEEPINTVL' in tcp_options)
 
 

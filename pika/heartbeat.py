@@ -185,8 +185,7 @@ class HeartbeatChecker:
     def _start_send_timer(self):
         """Start a new heartbeat send timer."""
         self._send_timer = self._connection._adapter_call_later(  # pylint: disable=W0212
-            self._send_interval,
-            self._send_heartbeat)
+            self._send_interval, self._send_heartbeat)
 
     def _start_check_timer(self):
         """Start a new heartbeat check timer."""
@@ -197,8 +196,7 @@ class HeartbeatChecker:
         self._update_counters()
 
         self._check_timer = self._connection._adapter_call_later(  # pylint: disable=W0212
-            self._check_interval,
-            self._check_heartbeat)
+            self._check_interval, self._check_heartbeat)
 
     def _update_counters(self):
         """Update the internal counters for bytes sent and received and the

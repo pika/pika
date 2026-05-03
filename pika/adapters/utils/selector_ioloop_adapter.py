@@ -233,15 +233,14 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
 
         """
         return _SelectorIOLoopIOHandle(
-            _AddressResolver(
-                native_loop=self._loop,
-                host=host,
-                port=port,
-                family=family,
-                socktype=socktype,
-                proto=proto,
-                flags=flags,
-                on_done=on_done).start())
+            _AddressResolver(native_loop=self._loop,
+                             host=host,
+                             port=port,
+                             family=family,
+                             socktype=socktype,
+                             proto=proto,
+                             flags=flags,
+                             on_done=on_done).start())
 
     def set_reader(self, fd, on_readable):
         """Implement
@@ -561,8 +560,11 @@ class _AddressResolver:
 
         """
         try:
-            result = socket.getaddrinfo(host=self._host, port=self._port, family=self._family,
-                                        type=self._socktype, proto=self._proto,
+            result = socket.getaddrinfo(host=self._host,
+                                        port=self._port,
+                                        family=self._family,
+                                        type=self._socktype,
+                                        proto=self._proto,
                                         flags=self._flags)
         except Exception as exc:  # pylint: disable=W0703
             LOGGER.error('Address resolution failed: %r', exc)

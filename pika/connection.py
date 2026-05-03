@@ -185,7 +185,8 @@ class Parameters:  # pylint: disable=R0902
 
         """
         if not isinstance(value, numbers.Integral):
-            raise TypeError('channel_max must be an int, but got {!r}'.format(value))
+            raise TypeError(
+                'channel_max must be an int, but got {!r}'.format(value))
         if value < 1 or value > pika.channel.MAX_CHANNELS:
             raise ValueError('channel_max must be <= %i and > 0, but got %r' %
                              (pika.channel.MAX_CHANNELS, value))
@@ -282,7 +283,8 @@ class Parameters:  # pylint: disable=R0902
 
         """
         if not isinstance(value, numbers.Integral):
-            raise TypeError('frame_max must be an int, but got {!r}'.format(value))
+            raise TypeError(
+                'frame_max must be an int, but got {!r}'.format(value))
         if value < spec.FRAME_MIN_SIZE:
             raise ValueError('Min AMQP 0.9.1 Frame Size is %i, but got %r' % (
                 spec.FRAME_MIN_SIZE,
@@ -324,7 +326,8 @@ class Parameters:  # pylint: disable=R0902
                     'heartbeat must be an int or a callable function, but got %r'
                     % (value,))
             if not callable(value) and value < 0:
-                raise ValueError('heartbeat must >= 0, but got {!r}'.format(value))
+                raise ValueError(
+                    'heartbeat must >= 0, but got {!r}'.format(value))
         self._heartbeat = value
 
     @property
@@ -404,7 +407,8 @@ class Parameters:  # pylint: disable=R0902
         """
         if not isinstance(value, numbers.Real):
             raise TypeError(
-                'retry_delay must be a float or int, but got {!r}'.format(value))
+                'retry_delay must be a float or int, but got {!r}'.format(
+                    value))
         self._retry_delay = value
 
     @property
@@ -483,7 +487,8 @@ class Parameters:  # pylint: disable=R0902
         """
         if not isinstance(value, (SSLOptions, type(None))):
             raise TypeError(
-                'ssl_options must be None or SSLOptions but got {!r}'.format(value))
+                'ssl_options must be None or SSLOptions but got {!r}'.format(
+                    value))
         self._ssl_options = value
 
     @property
@@ -522,7 +527,8 @@ class Parameters:  # pylint: disable=R0902
         """
         if not isinstance(value, (dict, type(None))):
             raise TypeError(
-                'tcp_options must be a dict or None, but got {!r}'.format(value))
+                'tcp_options must be a dict or None, but got {!r}'.format(
+                    value))
         self._tcp_options = value
 
 
@@ -536,7 +542,7 @@ class ConnectionParameters(Parameters):
     class _DEFAULT:
         """Designates default parameter value; internal use"""
 
-    def __init__( # pylint: disable=R0913,R0914
+    def __init__(  # pylint: disable=R0913,R0914
             self,
             host=_DEFAULT,
             port=_DEFAULT,
@@ -768,9 +774,9 @@ class URLParameters(Parameters):
             try:
                 (value,) = value
             except ValueError:
-                raise ValueError(
-                    'Expected exactly one value for URL parameter '
-                    '%s, but got %i values: %s' % (name, len(value), value))
+                raise ValueError('Expected exactly one value for URL parameter '
+                                 '%s, but got %i values: %s' %
+                                 (name, len(value), value))
 
             set_value(value)
 
@@ -806,10 +812,11 @@ class URLParameters(Parameters):
         try:
             connection_attempts = int(value)
         except ValueError as exc:
-            raise ValueError('Invalid connection_attempts value {!r}: {!r}'.format(
-                value,
-                exc,
-            ))
+            raise ValueError(
+                'Invalid connection_attempts value {!r}: {!r}'.format(
+                    value,
+                    exc,
+                ))
         self.connection_attempts = connection_attempts
 
     def _set_url_frame_max(self, value):
@@ -916,8 +923,8 @@ class URLParameters(Parameters):
                 cxt.set_ciphers(opt_ciphers)
 
             server_hostname = opts.get('server_hostname')
-            self.ssl_options = pika.SSLOptions(
-                context=cxt, server_hostname=server_hostname)
+            self.ssl_options = pika.SSLOptions(context=cxt,
+                                               server_hostname=server_hostname)
 
     def _set_url_tcp_options(self, value):
         """Deserialize and apply the corresponding query string arg"""
@@ -1170,11 +1177,10 @@ class Connection(pika.compat.AbstractBase):
 
         """
         validators.require_callback(callback)
-        self.callbacks.add(
-            0,
-            spec.Connection.Blocked,
-            functools.partial(callback, self),
-            one_shot=False)
+        self.callbacks.add(0,
+                           spec.Connection.Blocked,
+                           functools.partial(callback, self),
+                           one_shot=False)
 
     def add_on_connection_unblocked_callback(self, callback):
         """RabbitMQ AMQP extension - Add a callback to be notified when the
@@ -1188,11 +1194,10 @@ class Connection(pika.compat.AbstractBase):
 
         """
         validators.require_callback(callback)
-        self.callbacks.add(
-            0,
-            spec.Connection.Unblocked,
-            functools.partial(callback, self),
-            one_shot=False)
+        self.callbacks.add(0,
+                           spec.Connection.Unblocked,
+                           functools.partial(callback, self),
+                           one_shot=False)
 
     def add_on_open_callback(self, callback):
         """Add a callback notification when the connection has opened. The
@@ -1270,8 +1275,8 @@ class Connection(pika.compat.AbstractBase):
                 'Secret update requires an open connection: %s' % self)
 
         validators.rpc_completion_callback(callback)
-        self._rpc(0, spec.Connection.UpdateSecret(new_secret, reason),
-                  callback, [spec.Connection.UpdateSecretOk])
+        self._rpc(0, spec.Connection.UpdateSecret(new_secret, reason), callback,
+                  [spec.Connection.UpdateSecretOk])
 
     def close(self, reply_code=200, reply_text='Normal shutdown'):
         """Disconnect from RabbitMQ. If there are any open channels, it will
@@ -1510,8 +1515,8 @@ class Connection(pika.compat.AbstractBase):
         :raises: ProtocolVersionMismatch
 
         """
-        if ((value.method.version_major, value.method.version_minor) !=
-                spec.PROTOCOL_VERSION[0:2]):
+        if ((value.method.version_major, value.method.version_minor)
+                != spec.PROTOCOL_VERSION[0:2]):
             raise exceptions.ProtocolVersionMismatch(frame.ProtocolHeader(),
                                                      value)
 
@@ -2007,8 +2012,8 @@ class Connection(pika.compat.AbstractBase):
         """
         LOGGER.info(
             'AMQP stack terminated, failed to connect, or aborted: '
-            'opened=%r, error-arg=%r; pending-error=%r',
-            self._opened, error, self._error)
+            'opened=%r, error-arg=%r; pending-error=%r', self._opened, error,
+            self._error)
 
         if error is not None:
             if self._error is not None:
@@ -2029,11 +2034,12 @@ class Connection(pika.compat.AbstractBase):
                                [spec.Connection.Close, spec.Connection.Start])
 
         if self.params.blocked_connection_timeout is not None:
-            self._remove_callbacks(0,
-                    [spec.Connection.Blocked, spec.Connection.Unblocked])
+            self._remove_callbacks(
+                0, [spec.Connection.Blocked, spec.Connection.Unblocked])
 
-        if not self._opened and isinstance(self._error,
-                (exceptions.StreamLostError, exceptions.ConnectionClosedByBroker)):
+        if not self._opened and isinstance(
+                self._error,
+            (exceptions.StreamLostError, exceptions.ConnectionClosedByBroker)):
             # Heuristically deduce error based on connection state
             if self.connection_state == self.CONNECTION_PROTOCOL:
                 LOGGER.error('Probably incompatible Protocol Versions')
@@ -2189,9 +2195,9 @@ class Connection(pika.compat.AbstractBase):
 
     def _send_connection_open(self):
         """Send a Connection.Open frame"""
-        self._rpc(0, spec.Connection.Open(
-            self.params.virtual_host, insist=True), self._on_connection_open_ok,
-                  [spec.Connection.OpenOk])
+        self._rpc(0, spec.Connection.Open(self.params.virtual_host,
+                                          insist=True),
+                  self._on_connection_open_ok, [spec.Connection.OpenOk])
 
     def _send_connection_start_ok(self, authentication_type, response):
         """Send a Connection.StartOk frame

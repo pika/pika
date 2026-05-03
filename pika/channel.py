@@ -1281,7 +1281,7 @@ class Channel:
                                       self, method_frame.method,
                                       header_frame.properties, body):
             LOGGER.debug('Basic.Return received from server (%r, %r)',
-                          method_frame.method, header_frame.properties)
+                         method_frame.method, header_frame.properties)
 
     def _on_selectok(self, method_frame):
         """Called when the broker sends a Confirm.SelectOk frame
@@ -1425,7 +1425,8 @@ class Channel:
             return
 
         if self._state == self.OPENING:
-            raise exceptions.ChannelWrongStateError('Channel is opening, but is not usable yet.')
+            raise exceptions.ChannelWrongStateError(
+                'Channel is opening, but is not usable yet.')
 
         if self._state == self.CLOSING:
             raise exceptions.ChannelWrongStateError('Channel is closing.')

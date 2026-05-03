@@ -62,8 +62,7 @@ def check_fd_arg(fd):
 
     """
     if not isinstance(fd, numbers.Integral):
-        raise TypeError(
-            f'Paramter must be a file descriptor, but got {fd!r}')
+        raise TypeError(f'Paramter must be a file descriptor, but got {fd!r}')
 
 
 def _retry_on_sigint(func):
@@ -100,9 +99,10 @@ class SocketConnectionMixin:
         :py:meth:`.nbio_interface.AbstractIOServices.connect_socket()`.
 
         """
-        return _AsyncSocketConnector(
-            nbio=self, sock=sock, resolved_addr=resolved_addr,
-            on_done=on_done).start()
+        return _AsyncSocketConnector(nbio=self,
+                                     sock=sock,
+                                     resolved_addr=resolved_addr,
+                                     on_done=on_done).start()
 
 
 class StreamingConnectionMixin:
@@ -124,13 +124,12 @@ class StreamingConnectionMixin:
 
         """
         try:
-            return _AsyncStreamConnector(
-                nbio=self,
-                protocol_factory=protocol_factory,
-                sock=sock,
-                ssl_context=ssl_context,
-                server_hostname=server_hostname,
-                on_done=on_done).start()
+            return _AsyncStreamConnector(nbio=self,
+                                         protocol_factory=protocol_factory,
+                                         sock=sock,
+                                         ssl_context=ssl_context,
+                                         server_hostname=server_hostname,
+                                         on_done=on_done).start()
         except Exception as error:
             _LOGGER.error('create_streaming_connection(%s) failed: %r', sock,
                           error)
@@ -699,8 +698,8 @@ class _AsyncTransportBase(  # pylint: disable=W0223
         """
 
         def __init__(self):
-            super(_AsyncTransportBase.RxEndOfFile, self).__init__(
-                -1, 'End of input stream (EOF)')
+            super(_AsyncTransportBase.RxEndOfFile,
+                  self).__init__(-1, 'End of input stream (EOF)')
 
     def __init__(self, sock, protocol, nbio):
         """
@@ -1071,8 +1070,8 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
                 _LOGGER.exception(
                     '_AsyncBaseTransport._consume() failed, aborting '
                     'connection: error=%r; sock=%s; Caller\'s stack:\n%s',
-                    error, self._sock, ''.join(
-                        traceback.format_exception(*sys.exc_info())))
+                    error, self._sock,
+                    ''.join(traceback.format_exception(*sys.exc_info())))
                 self._initiate_abort(error)
         else:
             if self._state != self._STATE_ACTIVE:
@@ -1109,8 +1108,8 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
                 _LOGGER.exception(
                     '_AsyncBaseTransport._produce() failed, aborting '
                     'connection: error=%r; sock=%s; Caller\'s stack:\n%s',
-                    error, self._sock, ''.join(
-                        traceback.format_exception(*sys.exc_info())))
+                    error, self._sock,
+                    ''.join(traceback.format_exception(*sys.exc_info())))
                 self._initiate_abort(error)
         else:
             if not self._tx_buffers:
@@ -1157,8 +1156,8 @@ class _AsyncSSLTransport(_AsyncTransportBase):
                 'state=%s; %s', self._state, self._sock)
             return
 
-        assert data, ('_AsyncSSLTransport.write(): empty data from user.',
-                      data, self._state)
+        assert data, ('_AsyncSSLTransport.write(): empty data from user.', data,
+                      self._state)
 
         # pika/pika#1286
         # NOTE: Modify code to write data to buffer before setting writer.
@@ -1244,8 +1243,8 @@ class _AsyncSSLTransport(_AsyncTransportBase):
                 _LOGGER.exception(
                     '_AsyncBaseTransport._consume() failed, aborting '
                     'connection: error=%r; sock=%s; Caller\'s stack:\n%s',
-                    error, self._sock, ''.join(
-                        traceback.format_exception(*sys.exc_info())))
+                    error, self._sock,
+                    ''.join(traceback.format_exception(*sys.exc_info())))
                 raise  # let outer catch block abort the transport
         else:
             if self._state != self._STATE_ACTIVE:
@@ -1271,7 +1270,7 @@ class _AsyncSSLTransport(_AsyncTransportBase):
             self._ssl_readable_action = self._consume
 
             # NOTE: can't use identity check, it fails for instance methods
-            if self._ssl_writable_action == self._consume: # pylint: disable=W0143
+            if self._ssl_writable_action == self._consume:  # pylint: disable=W0143
                 self._nbio.remove_writer(self._sock.fileno())
                 self._ssl_writable_action = None
         else:
@@ -1318,15 +1317,15 @@ class _AsyncSSLTransport(_AsyncTransportBase):
                 _LOGGER.exception(
                     '_AsyncBaseTransport._produce() failed, aborting '
                     'connection: error=%r; sock=%s; Caller\'s stack:\n%s',
-                    error, self._sock, ''.join(
-                        traceback.format_exception(*sys.exc_info())))
+                    error, self._sock,
+                    ''.join(traceback.format_exception(*sys.exc_info())))
                 raise  # let outer catch block abort the transport
         else:
             # No exception, so everything must have been written to the socket
             assert not self._tx_buffers, (
                 '_AsyncSSLTransport._produce(): no exception from parent '
-                'class, but data remains in _tx_buffers.', len(
-                    self._tx_buffers))
+                'class, but data remains in _tx_buffers.',
+                len(self._tx_buffers))
 
         # Update producer registration
         if self._tx_buffers:
@@ -1341,7 +1340,7 @@ class _AsyncSSLTransport(_AsyncTransportBase):
                 self._ssl_writable_action = self._produce
 
                 # NOTE: can't use identity check, it fails for instance methods
-                if self._ssl_readable_action == self._produce: # pylint: disable=W0143
+                if self._ssl_readable_action == self._produce:  # pylint: disable=W0143
                     self._nbio.remove_reader(self._sock.fileno())
                     self._ssl_readable_action = None
             else:
@@ -1356,16 +1355,16 @@ class _AsyncSSLTransport(_AsyncTransportBase):
                     self._ssl_writable_action = None
         else:
             # NOTE: can't use identity check, it fails for instance methods
-            if self._ssl_readable_action == self._produce: # pylint: disable=W0143
+            if self._ssl_readable_action == self._produce:  # pylint: disable=W0143
                 self._nbio.remove_reader(self._sock.fileno())
                 self._ssl_readable_action = None
-                assert self._ssl_writable_action != self._produce, ( # pylint: disable=W0143
+                assert self._ssl_writable_action != self._produce, (  # pylint: disable=W0143
                     '_AsyncSSLTransport._produce(): with empty tx_buffers, '
                     'writable_action cannot be _produce when readable is '
                     '_produce', self._state)
             else:
                 # NOTE: can't use identity check, it fails for instance methods
-                assert self._ssl_writable_action == self._produce, ( # pylint: disable=W0143
+                assert self._ssl_writable_action == self._produce, (  # pylint: disable=W0143
                     '_AsyncSSLTransport._produce(): with empty tx_buffers, '
                     'expected writable_action as _produce when readable_action '
                     'is not _produce', 'writable_action:',

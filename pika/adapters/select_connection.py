@@ -126,10 +126,9 @@ class SelectConnection(BaseConnection):
             if params is None:
                 raise ValueError('Expected pika.connection.Parameters '
                                  'instance, but got None in params arg.')
-            return cls(
-                parameters=params,
-                custom_ioloop=nbio,
-                internal_connection_workflow=False)
+            return cls(parameters=params,
+                       custom_ioloop=nbio,
+                       internal_connection_workflow=False)
 
         return cls._start_connection_workflow(
             connection_configs=connection_configs,
@@ -255,7 +254,8 @@ class _Timer:
 
         if delay < 0:
             raise ValueError(
-                'call_later: delay must be non-negative, but got {!r}'.format(delay))
+                'call_later: delay must be non-negative, but got {!r}'.format(
+                    delay))
 
         now = pika.compat.time_now()
 
@@ -409,9 +409,8 @@ class IOLoop(AbstractSelectorIOLoop):
 
         poller = None
 
-        kwargs = dict(
-            get_wait_seconds=get_wait_seconds,
-            process_timeouts=process_timeouts)
+        kwargs = dict(get_wait_seconds=get_wait_seconds,
+                      process_timeouts=process_timeouts)
 
         if hasattr(select, 'epoll'):
             if not SELECT_TYPE or SELECT_TYPE == 'epoll':
@@ -720,11 +719,10 @@ class _PollerBase(pika.compat.AbstractBase):  # pylint: disable=R0902
         events_cleared, events_set = self._set_handler_events(fileno, events)
 
         # Inform the derived class
-        self._modify_fd_events(
-            fileno,
-            events=events,
-            events_to_clear=events_cleared,
-            events_to_set=events_set)
+        self._modify_fd_events(fileno,
+                               events=events,
+                               events_to_clear=events_cleared,
+                               events_to_set=events_set)
 
     def remove_handler(self, fileno):
         """Remove a file descriptor from the set
@@ -973,8 +971,8 @@ class SelectPoller(_PollerBase):
         # Build an event bit mask for each fileno we've received an event for
         fd_event_map = collections.defaultdict(int)
         for fd_set, evt in zip(
-                (read, write, error),
-                (PollEvents.READ, PollEvents.WRITE, PollEvents.ERROR)):
+            (read, write, error),
+            (PollEvents.READ, PollEvents.WRITE, PollEvents.ERROR)):
             for fileno in fd_set:
                 fd_event_map[fileno] |= evt
 
@@ -1023,7 +1021,6 @@ class SelectPoller(_PollerBase):
 
 class KQueuePoller(_PollerBase):
     # pylint: disable=E1101
-
     """KQueuePoller works on BSD based systems and is faster than select"""
 
     def __init__(self, get_wait_seconds, process_timeouts):
@@ -1098,8 +1095,10 @@ class KQueuePoller(_PollerBase):
         :param int fileno: The file descriptor
         :param int events: The event mask using READ, WRITE, ERROR
         """
-        self._modify_fd_events(
-            fileno, events=events, events_to_clear=0, events_to_set=events)
+        self._modify_fd_events(fileno,
+                               events=events,
+                               events_to_clear=0,
+                               events_to_set=events)
 
     def _modify_fd_events(self, fileno, events, events_to_clear, events_to_set):
         """The base class invoikes this method to notify the implementation to
@@ -1118,28 +1117,24 @@ class KQueuePoller(_PollerBase):
 
         if events_to_clear & PollEvents.READ:
             kevents.append(
-                select.kevent(
-                    fileno,
-                    filter=select.KQ_FILTER_READ,
-                    flags=select.KQ_EV_DELETE))
+                select.kevent(fileno,
+                              filter=select.KQ_FILTER_READ,
+                              flags=select.KQ_EV_DELETE))
         if events_to_set & PollEvents.READ:
             kevents.append(
-                select.kevent(
-                    fileno,
-                    filter=select.KQ_FILTER_READ,
-                    flags=select.KQ_EV_ADD))
+                select.kevent(fileno,
+                              filter=select.KQ_FILTER_READ,
+                              flags=select.KQ_EV_ADD))
         if events_to_clear & PollEvents.WRITE:
             kevents.append(
-                select.kevent(
-                    fileno,
-                    filter=select.KQ_FILTER_WRITE,
-                    flags=select.KQ_EV_DELETE))
+                select.kevent(fileno,
+                              filter=select.KQ_FILTER_WRITE,
+                              flags=select.KQ_EV_DELETE))
         if events_to_set & PollEvents.WRITE:
             kevents.append(
-                select.kevent(
-                    fileno,
-                    filter=select.KQ_FILTER_WRITE,
-                    flags=select.KQ_EV_ADD))
+                select.kevent(fileno,
+                              filter=select.KQ_FILTER_WRITE,
+                              flags=select.KQ_EV_ADD))
 
         self._kqueue.control(kevents, 0)
 
@@ -1151,8 +1146,10 @@ class KQueuePoller(_PollerBase):
         :param int fileno: The file descriptor
         :param int events_to_clear: The events to clear (READ, WRITE, ERROR)
         """
-        self._modify_fd_events(
-            fileno, events=0, events_to_clear=events_to_clear, events_to_set=0)
+        self._modify_fd_events(fileno,
+                               events=0,
+                               events_to_clear=events_to_clear,
+                               events_to_set=0)
 
 
 class PollPoller(_PollerBase):

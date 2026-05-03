@@ -126,8 +126,8 @@ class TwistedChannel:
             self._on_consumer_cancelled_by_broker)
 
     def __repr__(self):
-        return '<{cls} channel={chan!r}>'.format(
-            cls=self.__class__.__name__, chan=self._channel)
+        return '<{cls} channel={chan!r}>'.format(cls=self.__class__.__name__,
+                                                 chan=self._channel)
 
     def _on_channel_closed(self, _channel, reason):
         # enter the closed state
@@ -316,9 +316,7 @@ class TwistedChannel:
                     method=method,
                     properties=properties,
                     body=body,
-                )
-            )
-        )
+                )))
 
     def basic_ack(self, delivery_tag=0, multiple=False):
         """Acknowledge one or more messages. When sent by the client, this
@@ -338,8 +336,8 @@ class TwistedChannel:
                               acknowledgement of all outstanding messages.
 
         """
-        return self._channel.basic_ack(
-            delivery_tag=delivery_tag, multiple=multiple)
+        return self._channel.basic_ack(delivery_tag=delivery_tag,
+                                       multiple=multiple)
 
     def basic_cancel(self, consumer_tag=''):
         """This method cancels a consumer. This does not affect already
@@ -498,8 +496,8 @@ class TwistedChannel:
             self._basic_get_deferred = None
             return result
 
-        d = self._wrap_channel_method("basic_get")(
-            queue=queue, auto_ack=auto_ack)
+        d = self._wrap_channel_method("basic_get")(queue=queue,
+                                                   auto_ack=auto_ack)
         d.addCallback(create_namedtuple)
         d.addBoth(cleanup_attribute)
         self._basic_get_deferred = d
@@ -565,12 +563,11 @@ class TwistedChannel:
         """
         if self._closed:
             return defer.fail(self._closed)
-        result = self._channel.basic_publish(
-            exchange=exchange,
-            routing_key=routing_key,
-            body=body,
-            properties=properties,
-            mandatory=mandatory)
+        result = self._channel.basic_publish(exchange=exchange,
+                                             routing_key=routing_key,
+                                             body=body,
+                                             properties=properties,
+                                             mandatory=mandatory)
         if not self._delivery_confirmation:
             return defer.succeed(result)
         else:
@@ -630,8 +627,8 @@ class TwistedChannel:
         :raises: TypeError
 
         """
-        return self._channel.basic_reject(
-            delivery_tag=delivery_tag, requeue=requeue)
+        return self._channel.basic_reject(delivery_tag=delivery_tag,
+                                          requeue=requeue)
 
     def basic_recover(self, requeue=False):
         """This method asks the server to redeliver all unacknowledged messages
@@ -762,9 +759,14 @@ class TwistedChannel:
             len(body) if body is not None else None, body)
 
         self._puback_return = ReceivedMessage(channel=self,
-                method=method, properties=properties, body=body)
+                                              method=method,
+                                              properties=properties,
+                                              body=body)
 
-    def exchange_bind(self, destination, source, routing_key='',
+    def exchange_bind(self,
+                      destination,
+                      source,
+                      routing_key='',
                       arguments=None):
         """Bind an exchange to another exchange.
 
@@ -962,8 +964,8 @@ class TwistedChannel:
             for consumer_tag in list(
                     self._queue_name_to_consumer_tags.get(queue_name, set())):
                 self._consumers[consumer_tag].close(
-                    exceptions.ConsumerCancelled(
-                        "Queue %s was deleted." % queue_name))
+                    exceptions.ConsumerCancelled("Queue %s was deleted." %
+                                                 queue_name))
                 del self._consumers[consumer_tag]
                 self._queue_name_to_consumer_tags[queue_name].remove(
                     consumer_tag)
@@ -1050,12 +1052,11 @@ class _TwistedConnectionAdapter(pika.connection.Connection):
 
     def __init__(self, parameters, on_open_callback, on_open_error_callback,
                  on_close_callback, custom_reactor):
-        super().__init__(
-            parameters=parameters,
-            on_open_callback=on_open_callback,
-            on_open_error_callback=on_open_error_callback,
-            on_close_callback=on_close_callback,
-            internal_connection_workflow=False)
+        super().__init__(parameters=parameters,
+                         on_open_callback=on_open_callback,
+                         on_open_error_callback=on_open_error_callback,
+                         on_close_callback=on_close_callback,
+                         internal_connection_workflow=False)
 
         self._reactor = custom_reactor or reactor
         self._transport = None  # to be provided by `connection_made()`

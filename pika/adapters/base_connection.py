@@ -173,16 +173,14 @@ class BaseConnection(connection.Connection):
         def create_connector():
             """`AMQPConnector` factory."""
             return connection_workflow.AMQPConnector(
-                lambda params: _StreamingProtocolShim(
-                    connection_factory(params)),
-                nbio)
+                lambda params: _StreamingProtocolShim(connection_factory(params)
+                                                     ), nbio)
 
-        workflow.start(
-            connection_configs=connection_configs,
-            connector_factory=create_connector,
-            native_loop=nbio.get_native_ioloop(),
-            on_done=functools.partial(cls._unshim_connection_workflow_callback,
-                                      on_done))
+        workflow.start(connection_configs=connection_configs,
+                       connector_factory=create_connector,
+                       native_loop=nbio.get_native_ioloop(),
+                       on_done=functools.partial(
+                           cls._unshim_connection_workflow_callback, on_done))
 
         return workflow
 
@@ -329,8 +327,9 @@ class BaseConnection(connection.Connection):
                 if (isinstance(conn_or_exc,
                                connection_workflow.AMQPConnectionWorkflowFailed)
                         and isinstance(
-                            conn_or_exc.exceptions[-1], connection_workflow.
-                            AMQPConnectorSocketConnectError)):
+                            conn_or_exc.exceptions[-1],
+                            connection_workflow.AMQPConnectorSocketConnectError)
+                   ):
                     conn_or_exc = pika.exceptions.AMQPConnectionError(
                         conn_or_exc)
 

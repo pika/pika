@@ -185,7 +185,7 @@ class ProtocolHeader(amqp_object.AMQPObject):
                                      self.revision)
 
 
-def decode_frame(data_in): # pylint: disable=R0911,R0914
+def decode_frame(data_in):  # pylint: disable=R0911,R0914
     """Receives raw socket data and attempts to turn it into a frame.
     Returns bytes used to make the frame and the frame
 
@@ -204,8 +204,8 @@ def decode_frame(data_in): # pylint: disable=R0911,R0914
 
     # Get the Frame Type, Channel Number and Frame Size
     try:
-        (frame_type, channel_number, frame_size) = struct.unpack(
-            '>BHL', data_in[0:7])
+        (frame_type, channel_number,
+         frame_size) = struct.unpack('>BHL', data_in[0:7])
     except struct.error:
         return 0, None
 

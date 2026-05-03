@@ -95,10 +95,9 @@ if ON_LINUX:
     LINUX_VERSION = get_linux_version(platform.release())
 
 
-
 def nonblocking_socketpair(family=socket.AF_INET,
-                            socket_type=socket.SOCK_STREAM,
-                            proto=0):
+                           socket_type=socket.SOCK_STREAM,
+                           proto=0):
     """
     Returns a pair of sockets in the manner of socketpair with the additional
     feature that they will be non-blocking. Prior to Python 3.5, socketpair

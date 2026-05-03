@@ -75,7 +75,7 @@ def encode_table(pieces, table):
     return tablesize + 4
 
 
-def encode_value(pieces, value): # pylint: disable=R0911
+def encode_value(pieces, value):  # pylint: disable=R0911
     """Encode the value passed in and append it to the pieces list returning
     the the size of the encoded value.
 
@@ -167,7 +167,7 @@ def decode_table(encoded, offset):
     return result, offset
 
 
-def decode_value(encoded, offset): # pylint: disable=R0912,R0915
+def decode_value(encoded, offset):  # pylint: disable=R0912,R0915
     """Decode the value passed in returning the decoded value and the number
     of bytes read in addition to the starting offset.
 

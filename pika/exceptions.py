@@ -30,19 +30,19 @@ class StreamLostError(AMQPConnectionError):
 class IncompatibleProtocolError(AMQPConnectionError):
 
     def __repr__(self):
-        return (
-            '{}: The protocol returned by the server is not supported: {}'.format(
-                self.__class__.__name__,
-                self.args,
-            ))
+        return ('{}: The protocol returned by the server is not supported: {}'.
+                format(
+                    self.__class__.__name__,
+                    self.args,
+                ))
 
 
 class AuthenticationError(AMQPConnectionError):
 
     def __repr__(self):
         return ('%s: Server and client could not negotiate use of the %s '
-                'authentication mechanism' % (self.__class__.__name__,
-                                              self.args[0]))
+                'authentication mechanism' %
+                (self.__class__.__name__, self.args[0]))
 
 
 class ProbableAuthenticationError(AMQPConnectionError):
@@ -232,8 +232,7 @@ class UnroutableError(AMQPChannelError):
         :param sequence(blocking_connection.ReturnedMessage) messages: Sequence
             of returned unroutable messages
         """
-        super().__init__(
-            "%s unroutable message(s) returned" % (len(messages)))
+        super().__init__("%s unroutable message(s) returned" % (len(messages)))
 
         self.messages = messages
 
@@ -295,29 +294,29 @@ class BodyTooLongError(ProtocolSyntaxError):
 
     def __repr__(self):
         return ('%s: Received too many bytes for a message delivery: '
-                'Received %i, expected %i' % (self.__class__.__name__,
-                                              self.args[0], self.args[1]))
+                'Received %i, expected %i' %
+                (self.__class__.__name__, self.args[0], self.args[1]))
 
 
 class InvalidFrameError(ProtocolSyntaxError):
 
     def __repr__(self):
-        return '{}: Invalid frame received: {!r}'.format(self.__class__.__name__,
-                                                   self.args[0])
+        return '{}: Invalid frame received: {!r}'.format(
+            self.__class__.__name__, self.args[0])
 
 
 class InvalidFieldTypeException(ProtocolSyntaxError):
 
     def __repr__(self):
         return '{}: Unsupported field kind {}'.format(self.__class__.__name__,
-                                                  self.args[0])
+                                                      self.args[0])
 
 
 class UnsupportedAMQPFieldException(ProtocolSyntaxError):
 
     def __repr__(self):
         return '{}: Unsupported field kind {}'.format(self.__class__.__name__,
-                                                  type(self.args[1]))
+                                                      type(self.args[1]))
 
 
 class MethodNotImplemented(AMQPError):
