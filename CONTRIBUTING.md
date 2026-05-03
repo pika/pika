@@ -70,9 +70,13 @@ To build the documentation locally, use
 
     mkdocs build --strict
 
-To preview the documentation with live reload, use
+To preview the documentation, use
 
     mkdocs serve
+
+Or with live reload:
+
+    mkdocs serve --livereload
 
 Versioned documentation is managed with `mike` and deployed from the `main`
 branch by the Docs GitHub Actions workflow.
