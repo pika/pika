@@ -1,4 +1,4 @@
-name: pika
+﻿name: pika
 
 on:
   push:
@@ -16,8 +16,6 @@ jobs:
       matrix:
         python-version: [ '3.10', '3.11', '3.12', '3.13', '3.14' ]
         test-tls: [true, false]
-    env:
-      PIKA_TEST_TLS: ${{ matrix.test-tls }}
     steps:
       - uses: actions/checkout@v6
       - name: Set up Python ${{ matrix.python-version }}
@@ -40,7 +38,7 @@ jobs:
           python -m pip install --upgrade pip wheel
           pip install -r test-requirements.txt
       - name: Test with pytest
-        run: pytest -v --cov=pika --cov-report=xml
+        run: pytest -v --cov=pika --cov-report=xml ${{ matrix.test-tls && '--use-tls' || '' }}
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v6
         with:
