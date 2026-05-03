@@ -218,7 +218,8 @@ class _TimerEvt:
 
     def __repr__(self):
         return '<{} timer_id={} callback={}>'.format(self.__class__.__name__,
-                                                 self.timer_id, self._callback)
+                                                     self.timer_id,
+                                                     self._callback)
 
     def dispatch(self):
         """Dispatch the user's callback method"""
@@ -242,8 +243,9 @@ class _ConnectionBlockedUnblockedEvtBase:
         self._method_frame = method_frame
 
     def __repr__(self):
-        return '<{} callback={}, frame={}>'.format(
-            self.__class__.__name__, self._callback, self._method_frame)
+        return '<{} callback={}, frame={}>'.format(self.__class__.__name__,
+                                                   self._callback,
+                                                   self._method_frame)
 
     def dispatch(self):
         """Dispatch the user's callback method"""
@@ -501,11 +503,10 @@ class BlockingConnection:
         #         OR
         #   empty outbound buffer and any waiter is ready
         def is_done():
-            return (
-                self._closed_result.ready or
-                ((not self._impl._transport or
-                  self._impl._get_write_buffer_size() == 0) and
-                 (not waiters or any(ready() for ready in waiters))))
+            return (self._closed_result.ready or
+                    ((not self._impl._transport or
+                      self._impl._get_write_buffer_size() == 0) and
+                     (not waiters or any(ready() for ready in waiters))))
 
         # Process I/O until our completion condition is satisfied
         while not is_done():
@@ -834,9 +835,10 @@ class BlockingConnection:
         with self._acquire_event_dispatch() as dispatch_acquired:
             # Check if we can actually process pending events
             def common_terminator():
-                return bool(dispatch_acquired and
-                            (self._channels_pending_dispatch or
-                             self._ready_events))
+                return bool(
+                    dispatch_acquired and
+                    (self._channels_pending_dispatch or self._ready_events))
+
             if time_limit is None:
                 self._flush_output(common_terminator)
             else:
@@ -1001,7 +1003,7 @@ class _ConsumerCancellationEvt(_ChannelPendingEvt):
 
     def __repr__(self):
         return '<{} method_frame={!r}>'.format(self.__class__.__name__,
-                                         self.method_frame)
+                                               self.method_frame)
 
     @property
     def method(self):
@@ -1248,17 +1250,15 @@ class BlockingChannel:
 
         self._impl.add_on_cancel_callback(self._on_consumer_cancelled_by_broker)
 
-        self._impl.add_callback(
-            self._basic_consume_ok_result.signal_once,
-            replies=[pika.spec.Basic.ConsumeOk],
-            one_shot=False)
+        self._impl.add_callback(self._basic_consume_ok_result.signal_once,
+                                replies=[pika.spec.Basic.ConsumeOk],
+                                one_shot=False)
 
         self._impl.add_on_close_callback(self._on_channel_closed)
 
-        self._impl.add_callback(
-            self._basic_getempty_result.set_value_once,
-            replies=[pika.spec.Basic.GetEmpty],
-            one_shot=False)
+        self._impl.add_callback(self._basic_getempty_result.set_value_once,
+                                replies=[pika.spec.Basic.GetEmpty],
+                                one_shot=False)
 
         LOGGER.info("Created channel=%s", self.channel_number)
 
@@ -1557,8 +1557,8 @@ class BlockingChannel:
 
         """
         with _CallbackResult(self._FlowOkCallbackResultArgs) as flow_ok_result:
-            self._impl.flow(
-                active=active, callback=flow_ok_result.set_value_once)
+            self._impl.flow(active=active,
+                            callback=flow_ok_result.set_value_once)
             self._flush_output(flow_ok_result.is_ready)
             return flow_ok_result.value.active
 
@@ -1573,11 +1573,10 @@ class BlockingChannel:
             type `spec.Basic.Cancel`
 
         """
-        self._impl.callbacks.add(
-            self.channel_number,
-            self._CONSUMER_CANCELLED_CB_KEY,
-            callback,
-            one_shot=False)
+        self._impl.callbacks.add(self.channel_number,
+                                 self._CONSUMER_CANCELLED_CB_KEY,
+                                 callback,
+                                 one_shot=False)
 
     def add_on_return_callback(self, callback):
         """Pass a callback function that will be called when a published
@@ -1592,10 +1591,8 @@ class BlockingChannel:
 
         """
         self._impl.add_on_return_callback(
-            lambda _channel, method, properties, body: (
-                self._add_pending_event(
-                    _ReturnedMessageEvt(
-                        callback, self, method, properties, body))))
+            lambda _channel, method, properties, body: (self._add_pending_event(
+                _ReturnedMessageEvt(callback, self, method, properties, body))))
 
     def basic_consume(self,
                       queue,
@@ -1641,13 +1638,12 @@ class BlockingChannel:
         """
         validators.require_string(queue, 'queue')
         validators.require_callback(on_message_callback, 'on_message_callback')
-        return self._basic_consume_impl(
-            queue=queue,
-            on_message_callback=on_message_callback,
-            auto_ack=auto_ack,
-            exclusive=exclusive,
-            consumer_tag=consumer_tag,
-            arguments=arguments)
+        return self._basic_consume_impl(queue=queue,
+                                        on_message_callback=on_message_callback,
+                                        auto_ack=auto_ack,
+                                        exclusive=exclusive,
+                                        consumer_tag=consumer_tag,
+                                        arguments=arguments)
 
     def _basic_consume_impl(self,
                             queue,
@@ -1789,15 +1785,14 @@ class BlockingChannel:
                         # NOTE: we can't use basic_nack with the multiple option
                         # to avoid nacking messages already held by our client.
                         for message in pending_messages:
-                            self._impl.basic_reject(
-                                message.method.delivery_tag, requeue=True)
+                            self._impl.basic_reject(message.method.delivery_tag,
+                                                    requeue=True)
 
                 # Cancel the consumer; impl takes care of rejecting any
                 # additional deliveries that arrive for a auto_ack=False
                 # consumer
-                self._impl.basic_cancel(
-                    consumer_tag=consumer_tag,
-                    callback=cancel_ok_result.signal_once)
+                self._impl.basic_cancel(consumer_tag=consumer_tag,
+                                        callback=cancel_ok_result.signal_once)
 
                 # Flush output and wait for Basic.Cancel-ok or
                 # broker-initiated Basic.Cancel
@@ -2097,8 +2092,8 @@ class BlockingChannel:
                 #      from the server at the end (if any)
                 for _ in range(self.get_waiting_message_count()):
                     evt = pending_events.popleft()
-                    self._impl.basic_reject(
-                        evt.method.delivery_tag, requeue=True)
+                    self._impl.basic_reject(evt.method.delivery_tag,
+                                            requeue=True)
 
             self.basic_cancel(self._queue_consumer_generator.consumer_tag)
         finally:
@@ -2150,8 +2145,9 @@ class BlockingChannel:
                              dead-lettered.
 
         """
-        self._impl.basic_nack(
-            delivery_tag=delivery_tag, multiple=multiple, requeue=requeue)
+        self._impl.basic_nack(delivery_tag=delivery_tag,
+                              multiple=multiple,
+                              requeue=requeue)
         self._flush_output()
 
     def basic_get(self, queue, auto_ack=False):
@@ -2171,10 +2167,9 @@ class BlockingChannel:
         # NOTE: nested with for python 2.6 compatibility
         with _CallbackResult(self._RxMessageArgs) as get_ok_result:
             with self._basic_getempty_result:
-                self._impl.basic_get(
-                    queue=queue,
-                    auto_ack=auto_ack,
-                    callback=get_ok_result.set_value_once)
+                self._impl.basic_get(queue=queue,
+                                     auto_ack=auto_ack,
+                                     callback=get_ok_result.set_value_once)
                 self._flush_output(get_ok_result.is_ready,
                                    self._basic_getempty_result.is_ready)
                 if get_ok_result:
@@ -2221,12 +2216,11 @@ class BlockingChannel:
         if self._delivery_confirmation:
             # In publisher-acknowledgments mode
             with self._message_confirmation_result:
-                self._impl.basic_publish(
-                    exchange=exchange,
-                    routing_key=routing_key,
-                    body=body,
-                    properties=properties,
-                    mandatory=mandatory)
+                self._impl.basic_publish(exchange=exchange,
+                                         routing_key=routing_key,
+                                         body=body,
+                                         properties=properties,
+                                         mandatory=mandatory)
 
                 self._flush_output(self._message_confirmation_result.is_ready)
                 conf_method = (
@@ -2258,12 +2252,11 @@ class BlockingChannel:
                         raise exceptions.UnroutableError(messages)
         else:
             # In non-publisher-acknowledgments mode
-            self._impl.basic_publish(
-                exchange=exchange,
-                routing_key=routing_key,
-                body=body,
-                properties=properties,
-                mandatory=mandatory)
+            self._impl.basic_publish(exchange=exchange,
+                                     routing_key=routing_key,
+                                     body=body,
+                                     properties=properties,
+                                     mandatory=mandatory)
             self._flush_output()
 
     def basic_qos(self, prefetch_size=0, prefetch_count=0, global_qos=False):
@@ -2296,11 +2289,10 @@ class BlockingChannel:
 
         """
         with _CallbackResult() as qos_ok_result:
-            self._impl.basic_qos(
-                callback=qos_ok_result.signal_once,
-                prefetch_size=prefetch_size,
-                prefetch_count=prefetch_count,
-                global_qos=global_qos)
+            self._impl.basic_qos(callback=qos_ok_result.signal_once,
+                                 prefetch_size=prefetch_size,
+                                 prefetch_count=prefetch_count,
+                                 global_qos=global_qos)
             self._flush_output(qos_ok_result.is_ready)
 
     def basic_recover(self, requeue=False):
@@ -2315,8 +2307,8 @@ class BlockingChannel:
 
         """
         with _CallbackResult() as recover_ok_result:
-            self._impl.basic_recover(
-                requeue=requeue, callback=recover_ok_result.signal_once)
+            self._impl.basic_recover(requeue=requeue,
+                                     callback=recover_ok_result.signal_once)
             self._flush_output(recover_ok_result.is_ready)
 
     def basic_reject(self, delivery_tag=0, requeue=True):
@@ -2419,15 +2411,17 @@ class BlockingChannel:
         """
         with _CallbackResult(
                 self._MethodFrameCallbackResultArgs) as delete_ok_result:
-            self._impl.exchange_delete(
-                exchange=exchange,
-                if_unused=if_unused,
-                callback=delete_ok_result.set_value_once)
+            self._impl.exchange_delete(exchange=exchange,
+                                       if_unused=if_unused,
+                                       callback=delete_ok_result.set_value_once)
 
             self._flush_output(delete_ok_result.is_ready)
             return delete_ok_result.value.method_frame
 
-    def exchange_bind(self, destination, source, routing_key='',
+    def exchange_bind(self,
+                      destination,
+                      source,
+                      routing_key='',
                       arguments=None):
         """Bind an exchange to another exchange.
 
@@ -2444,12 +2438,11 @@ class BlockingChannel:
         validators.require_string(source, 'source')
         with _CallbackResult(self._MethodFrameCallbackResultArgs) as \
                 bind_ok_result:
-            self._impl.exchange_bind(
-                destination=destination,
-                source=source,
-                routing_key=routing_key,
-                arguments=arguments,
-                callback=bind_ok_result.set_value_once)
+            self._impl.exchange_bind(destination=destination,
+                                     source=source,
+                                     routing_key=routing_key,
+                                     arguments=arguments,
+                                     callback=bind_ok_result.set_value_once)
 
             self._flush_output(bind_ok_result.is_ready)
             return bind_ok_result.value.method_frame
@@ -2472,12 +2465,11 @@ class BlockingChannel:
         """
         with _CallbackResult(
                 self._MethodFrameCallbackResultArgs) as unbind_ok_result:
-            self._impl.exchange_unbind(
-                destination=destination,
-                source=source,
-                routing_key=routing_key,
-                arguments=arguments,
-                callback=unbind_ok_result.set_value_once)
+            self._impl.exchange_unbind(destination=destination,
+                                       source=source,
+                                       routing_key=routing_key,
+                                       arguments=arguments,
+                                       callback=unbind_ok_result.set_value_once)
 
             self._flush_output(unbind_ok_result.is_ready)
             return unbind_ok_result.value.method_frame
@@ -2514,14 +2506,13 @@ class BlockingChannel:
         validators.require_string(queue, 'queue')
         with _CallbackResult(self._MethodFrameCallbackResultArgs) as \
                 declare_ok_result:
-            self._impl.queue_declare(
-                queue=queue,
-                passive=passive,
-                durable=durable,
-                exclusive=exclusive,
-                auto_delete=auto_delete,
-                arguments=arguments,
-                callback=declare_ok_result.set_value_once)
+            self._impl.queue_declare(queue=queue,
+                                     passive=passive,
+                                     durable=durable,
+                                     exclusive=exclusive,
+                                     auto_delete=auto_delete,
+                                     arguments=arguments,
+                                     callback=declare_ok_result.set_value_once)
 
             self._flush_output(declare_ok_result.is_ready)
             return declare_ok_result.value.method_frame
@@ -2539,11 +2530,10 @@ class BlockingChannel:
         """
         with _CallbackResult(self._MethodFrameCallbackResultArgs) as \
                 delete_ok_result:
-            self._impl.queue_delete(
-                queue=queue,
-                if_unused=if_unused,
-                if_empty=if_empty,
-                callback=delete_ok_result.set_value_once)
+            self._impl.queue_delete(queue=queue,
+                                    if_unused=if_unused,
+                                    if_empty=if_empty,
+                                    callback=delete_ok_result.set_value_once)
 
             self._flush_output(delete_ok_result.is_ready)
             return delete_ok_result.value.method_frame
@@ -2559,8 +2549,8 @@ class BlockingChannel:
         """
         with _CallbackResult(self._MethodFrameCallbackResultArgs) as \
                 purge_ok_result:
-            self._impl.queue_purge(
-                queue=queue, callback=purge_ok_result.set_value_once)
+            self._impl.queue_purge(queue=queue,
+                                   callback=purge_ok_result.set_value_once)
             self._flush_output(purge_ok_result.is_ready)
             return purge_ok_result.value.method_frame
 
@@ -2581,12 +2571,11 @@ class BlockingChannel:
         validators.require_string(exchange, 'exchange')
         with _CallbackResult(
                 self._MethodFrameCallbackResultArgs) as bind_ok_result:
-            self._impl.queue_bind(
-                queue=queue,
-                exchange=exchange,
-                routing_key=routing_key,
-                arguments=arguments,
-                callback=bind_ok_result.set_value_once)
+            self._impl.queue_bind(queue=queue,
+                                  exchange=exchange,
+                                  routing_key=routing_key,
+                                  arguments=arguments,
+                                  callback=bind_ok_result.set_value_once)
             self._flush_output(bind_ok_result.is_ready)
             return bind_ok_result.value.method_frame
 
@@ -2609,12 +2598,11 @@ class BlockingChannel:
         """
         with _CallbackResult(self._MethodFrameCallbackResultArgs) as \
                 unbind_ok_result:
-            self._impl.queue_unbind(
-                queue=queue,
-                exchange=exchange,
-                routing_key=routing_key,
-                arguments=arguments,
-                callback=unbind_ok_result.set_value_once)
+            self._impl.queue_unbind(queue=queue,
+                                    exchange=exchange,
+                                    routing_key=routing_key,
+                                    arguments=arguments,
+                                    callback=unbind_ok_result.set_value_once)
             self._flush_output(unbind_ok_result.is_ready)
             return unbind_ok_result.value.method_frame
 

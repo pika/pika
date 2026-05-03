@@ -207,7 +207,8 @@ class AMQPConnector:
             raise AMQPConnectorWrongState('Cannot abort before starting.')
 
         if self._state == self._STATE_DONE:
-            raise AMQPConnectorWrongState('Cannot abort after completion was reported')
+            raise AMQPConnectorWrongState(
+                'Cannot abort after completion was reported')
 
         self._state = self._STATE_ABORTING
         self._deactivate()
@@ -431,8 +432,8 @@ class AMQPConnector:
         # AMQP handshake is in progress - initiated during transport link-up
         self._state = self._STATE_AMQP
         # We explicitly remove default handler because it raises an exception.
-        self._amqp_conn.add_on_open_error_callback(
-            self._on_amqp_handshake_done, remove_default=True)
+        self._amqp_conn.add_on_open_error_callback(self._on_amqp_handshake_done,
+                                                   remove_default=True)
         self._amqp_conn.add_on_open_callback(self._on_amqp_handshake_done)
 
     def _on_amqp_handshake_done(self, connection, error=None):
