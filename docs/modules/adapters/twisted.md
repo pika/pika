@@ -1,17 +1,20 @@
-Twisted Connection Adapter
-==========================
-.. automodule:: pika.adapters.twisted_connection
+# Twisted Connection Adapter
 
-Class Reference
-----------------
-.. autoclass:: pika.adapters.twisted_connection.TwistedProtocolConnection
-  :members:
-  :inherited-members:
+::: pika.adapters.twisted_connection
 
-.. autoclass:: pika.adapters.twisted_connection.TwistedChannel
-  :members:
-  :inherited-members:
+## Class Reference
 
-.. autoclass:: pika.adapters.twisted_connection.ClosableDeferredQueue
-  :members:
-  :inherited-members:
+::: pika.adapters.twisted_connection.TwistedProtocolConnection
+    options:
+      members: true
+      inherited_members: true
+
+::: pika.adapters.twisted_connection.TwistedChannel
+    options:
+      members: true
+      inherited_members: true
+
+::: pika.adapters.twisted_connection.ClosableDeferredQueue
+    options:
+      members: true
+      inherited_members: true

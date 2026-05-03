@@ -1,5 +1,4 @@
-Contributors
-============
+# Contributors
 The following people have directly contributed code by way of new features and/or bug fixes to Pika:
 
  - Gavin M. Roy

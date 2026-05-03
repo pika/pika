@@ -1,5 +1,6 @@
-Exceptions
-==========
-.. automodule:: pika.exceptions
-   :members:
-   :undoc-members:
+# Exceptions
+
+::: pika.exceptions
+    options:
+      members: true
+      show_if_no_docstring: true

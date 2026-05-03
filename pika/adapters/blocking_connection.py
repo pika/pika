@@ -343,11 +343,12 @@ class BlockingConnection:
     ) -> None:
         """Create a new instance of the Connection object.
 
-        :param None | pika.connection.Parameters | sequence parameters:
+        :param parameters:
             Connection parameters instance or non-empty sequence of them. If
             None, a `pika.connection.Parameters` instance will be created with
             default settings. See `pika.AMQPConnectionWorkflow` for more
             details about multiple parameter configurations and retries.
+        :type parameters: None | pika.connection.Parameters | sequence
         :param _impl_class: for tests/debugging only; implementation class;
             None=default
 
@@ -430,14 +431,16 @@ class BlockingConnection:
     ) -> select_connection.SelectConnection:
         """Run connection workflow, blocking until it completes.
 
-        :param None | pika.connection.Parameters | sequence configs: Connection
+        :param configs: Connection
             parameters instance or non-empty sequence of them.
-        :param None | SelectConnection impl_class: for tests/debugging only;
-            implementation class;
+        :type configs: None | pika.connection.Parameters | sequence
+        :param impl_class: for tests/debugging only; implementation class.
+        :type impl_class: None | SelectConnection
 
+        :returns: impl_class
         :rtype: impl_class
 
-        :raises: exception on failure
+        :raises Exception: on failure
         """
 
         if configs is None:
@@ -519,7 +522,7 @@ class BlockingConnection:
         :param waiters: sequence of zero or more callables taking no args and
                         returning true when it's time to stop processing.
                         Their results are OR'ed together.
-        :raises: exceptions passed by impl if opening of connection fails or
+        :raises Exception: exceptions passed by impl if opening of connection fails or
             connection closes.
         """
         if self.is_closed:
@@ -931,6 +934,7 @@ class BlockingConnection:
         specify but it is recommended that you let Pika manage the channel
         numbers.
 
+        :returns: pika.adapters.blocking_connection.BlockingChannel
         :rtype: pika.adapters.blocking_connection.BlockingChannel
         """
         with _CallbackResult(self._OnChannelOpenedArgs) as opened_args:
@@ -975,6 +979,7 @@ class BlockingConnection:
     def basic_nack_supported(self) -> bool:
         """Specifies if the server supports basic.nack on the active connection.
 
+        :returns: bool
         :rtype: bool
 
         """
@@ -985,6 +990,7 @@ class BlockingConnection:
         """Specifies if the server supports consumer cancel notification on the
         active connection.
 
+        :returns: bool
         :rtype: bool
 
         """
@@ -995,6 +1001,7 @@ class BlockingConnection:
         """Specifies if the active connection supports exchange to exchange
         bindings.
 
+        :returns: bool
         :rtype: bool
 
         """
@@ -1004,6 +1011,7 @@ class BlockingConnection:
     def publisher_confirms_supported(self) -> bool:
         """Specifies if the active connection can use publisher confirmations.
 
+        :returns: bool
         :rtype: bool
 
         """
@@ -1337,6 +1345,7 @@ class BlockingChannel:
         NOTE: inherited from legacy BlockingConnection; might be error-prone;
         use `channel_number` property instead.
 
+        :returns: int
         :rtype: int
 
         """
@@ -1374,6 +1383,7 @@ class BlockingChannel:
     def is_closed(self) -> bool:
         """Returns True if the channel is closed.
 
+        :returns: bool
         :rtype: bool
 
         """
@@ -1383,6 +1393,7 @@ class BlockingChannel:
     def is_open(self) -> bool:
         """Returns True if the channel is open.
 
+        :returns: bool
         :rtype: bool
 
         """
@@ -1393,6 +1404,7 @@ class BlockingChannel:
         """Property method that returns a list of consumer tags for active
         consumers
 
+        :returns: list
         :rtype: list
 
         """
@@ -1530,7 +1542,7 @@ class BlockingChannel:
                                       body: bytes):
         """Called by impl when a message is delivered for a consumer
 
-        :param Channel channel: The implementation channel object
+        :param Channel _channel: The implementation channel object
         :param spec.Basic.Deliver method:
         :param pika.spec.BasicProperties properties: message properties
         :param bytes body: delivered message body; empty string if no body

@@ -1,8 +1,8 @@
-pika.spec
-=========
+# pika.spec
 
-.. automodule:: pika.spec
-   :members:
-   :inherited-members:
-   :member-order: bysource
-   :undoc-members:
+::: pika.spec
+    options:
+      members: true
+      inherited_members: true
+      show_if_no_docstring: true
+      members_order: source

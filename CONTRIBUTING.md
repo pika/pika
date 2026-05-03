@@ -23,7 +23,7 @@ To install the dependencies needed to run Pika tests, use
 
     pip install -r test-requirements.txt
 
-If your environment uses the ``pip3`` command name, run ``pip3 install -r test-requirements.txt`` instead.
+If your environment uses the `pip3` command name, run `pip3 install -r test-requirements.txt` instead.
 
 
 ## Running Tests
@@ -58,9 +58,29 @@ If you would like to run TLS/SSL tests, use the following procedure:
     ```
 
 
+## Building Documentation
+
+Pika documentation is built with MkDocs and Material for MkDocs.
+
+To install the documentation dependencies, use
+
+    pip install -r docs/requirements.txt
+
+To build the documentation locally, use
+
+    mkdocs build --strict
+
+To preview the documentation with live reload, use
+
+    mkdocs serve
+
+Versioned documentation is managed with `mike` and deployed from the `main`
+branch by the Docs GitHub Actions workflow.
+
+
 ## Code Formatting
 
 Please format your code using [yapf](http://pypi.python.org/pypi/yapf)
-with ``google`` style prior to issuing your pull request. *Note: only format those
+with `google` style prior to issuing your pull request. *Note: only format those
 lines that you have changed in your pull request. If you format an entire file and
 change code outside of the scope of your PR, it will likely be rejected.*

@@ -41,19 +41,21 @@ class AsyncioConnection(base_connection.BaseConnection):
         :param pika.connection.Parameters parameters: Connection parameters
         :param callable on_open_callback: The method to call when the connection
             is open
-        :param None | method on_open_error_callback: Called if the connection
+        :param on_open_error_callback: Called if the connection
             can't be established or connection establishment is interrupted by
             `Connection.close()`: on_open_error_callback(Connection, exception).
-        :param None | method on_close_callback: Called when a previously fully
+        :type on_open_error_callback: None | method
+        :param on_close_callback: Called when a previously fully
             open connection is closed:
             `on_close_callback(Connection, exception)`, where `exception` is
             either an instance of `exceptions.ConnectionClosed` if closed by
             user or broker or exception of another type that describes the cause
             of connection failure.
-        :param None | asyncio.AbstractEventLoop |
-            nbio_interface.AbstractIOServices custom_ioloop:
-                Defaults to the running event loop, or a new event loop when
-                none is running.
+        :type on_close_callback: None | method
+        :param custom_ioloop: Defaults to the running event loop, or a new event
+            loop when none is running.
+        :type custom_ioloop: None | asyncio.AbstractEventLoop |
+            nbio_interface.AbstractIOServices
         :param bool internal_connection_workflow: True for autonomous connection
             establishment which is default; False for externally-managed
             connection workflow via the `create_connection()` factory.
@@ -239,6 +241,7 @@ class _AsyncioIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         :param callable on_done: user callback that takes the completion result
             or exception as its only arg. It will not be called if the operation
             was cancelled.
+        :returns: _AsyncioIOReference which is derived from
         :rtype: _AsyncioIOReference which is derived from
             nbio_interface.AbstractIOReference
 

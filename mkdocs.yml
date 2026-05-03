@@ -1,0 +1,86 @@
+site_name: Pika
+site_description: Pika Python AMQP 0-9-1 Client Library
+site_url: https://pika.github.io/pika/
+repo_name: pika/pika
+repo_url: https://github.com/pika/pika
+
+docs_dir: docs
+site_dir: site
+
+theme:
+  name: material
+  features:
+    - content.code.copy
+    - navigation.indexes
+    - navigation.sections
+    - search.highlight
+    - search.suggest
+
+plugins:
+  - search
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          paths:
+            - .
+          options:
+            docstring_style: sphinx
+            show_root_full_path: false
+            show_source: true
+
+markdown_extensions:
+  - admonition
+  - footnotes
+  - toc:
+      permalink: true
+  - pymdownx.highlight
+  - pymdownx.snippets:
+      base_path: .
+  - pymdownx.superfences
+
+extra:
+  version:
+    provider: mike
+
+nav:
+  - Home: index.md
+  - Introduction: intro.md
+  - API Reference:
+      - Overview: modules/index.md
+      - Connection Adapters:
+          - Overview: modules/adapters/index.md
+          - Blocking: modules/adapters/blocking.md
+          - Select: modules/adapters/select.md
+          - Asyncio: modules/adapters/asyncio.md
+          - Tornado: modules/adapters/tornado.md
+          - Twisted: modules/adapters/twisted.md
+          - Gevent: modules/adapters/gevent.md
+      - Channel: modules/channel.md
+      - Connection: modules/connection.md
+      - Credentials: modules/credentials.md
+      - Exceptions: modules/exceptions.md
+      - Parameters: modules/parameters.md
+      - Specification: modules/spec.md
+  - Examples:
+      - Overview: examples.md
+      - URLParameters: examples/using_urlparameters.md
+      - Connecting Asynchronously: examples/connecting_async.md
+      - Blocking Basic Get: examples/blocking_basic_get.md
+      - Blocking Consume: examples/blocking_consume.md
+      - Blocking Consume With Multiple Hosts: examples/blocking_consume_recover_multiple_hosts.md
+      - Blocking Consumer Generator: examples/blocking_consumer_generator.md
+      - Publishing: examples/comparing_publishing_sync_async.md
+      - Delivery Confirmations: examples/blocking_delivery_confirmations.md
+      - Mandatory Publishing: examples/blocking_publish_mandatory.md
+      - Asynchronous Consumer: examples/asynchronous_consumer_example.md
+      - Asynchronous Publisher: examples/asynchronous_publisher_example.md
+      - Asyncio Consumer: examples/asyncio_consumer.md
+      - Twisted Consumer: examples/twisted_example.md
+      - Tornado Consumer: examples/tornado_consumer.md
+      - TLS Mutual Authentication: examples/tls_mutual_authentication.md
+      - TLS Server Authentication: examples/tls_server_authentication.md
+      - Heartbeat and Blocked Timeouts: examples/heartbeat_and_blocked_timeouts.md
+      - Direct Reply-To: examples/direct_reply_to.md
+  - FAQ: faq.md
+  - Contributors: contributors.md

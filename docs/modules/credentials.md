@@ -1,18 +1,17 @@
-Authentication Credentials
-==========================
-.. automodule:: pika.credentials
+# Authentication Credentials
 
-PlainCredentials
-----------------
-.. autoclass:: PlainCredentials
-   :members:
-   :inherited-members:
-   :noindex:
+::: pika.credentials
 
-ExternalCredentials
--------------------
-.. autoclass:: ExternalCredentials
-   :members:
-   :inherited-members:
-   :noindex:
+## PlainCredentials
 
+::: pika.credentials.PlainCredentials
+    options:
+      members: true
+      inherited_members: true
+
+## ExternalCredentials
+
+::: pika.credentials.ExternalCredentials
+    options:
+      members: true
+      inherited_members: true

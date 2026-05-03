@@ -1,10 +1,11 @@
-Channel
-=======
-.. automodule:: pika.channel
+# Channel
 
-Channel
--------
-.. autoclass:: Channel
-   :members:
-   :inherited-members:
-   :member-order: bysource
+::: pika.channel
+
+## Channel
+
+::: pika.channel.Channel
+    options:
+      members: true
+      inherited_members: true
+      members_order: source

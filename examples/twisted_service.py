@@ -7,7 +7,7 @@
 #  - Post by Brian Chandler
 #    https://groups.google.com/forum/#!topic/pika-python/o_deVmGondk
 #  - Pika Documentation
-#    https://pika.readthedocs.io/en/latest/examples/twisted_example.html
+#    https://pika.github.io/pika/latest/examples/twisted_example/
 
 
 Fire up this test application via `twistd -ny twisted_service.py`

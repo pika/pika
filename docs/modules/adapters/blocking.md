@@ -1,20 +1,21 @@
-Blocking Connection Adapter
-.. automodule:: pika.adapters.blocking_connection
+# Blocking Connection Adapter
 
-Be sure to check out examples in :doc:`/examples`.
+::: pika.adapters.blocking_connection
 
-Interacting with Pika from another thread
------------------------------------------
+Be sure to check out examples in [examples](../../examples.md).
 
-``pika.BlockingConnection`` abstracts its I/O loop from the application and thus exposes ``pika.BlockingConnection.add_callback_threadsafe()``  to allow interacting with Pika from another thread.
+## Interacting with Pika from another thread
 
-Class Reference
-----------------
+`pika.BlockingConnection` abstracts its I/O loop from the application and thus exposes `pika.BlockingConnection.add_callback_threadsafe()`  to allow interacting with Pika from another thread.
 
-.. autoclass:: pika.adapters.blocking_connection.BlockingConnection
-  :members:
-  :inherited-members:
+## Class Reference
 
-.. autoclass:: pika.adapters.blocking_connection.BlockingChannel
-  :members:
-  :inherited-members:
+::: pika.adapters.blocking_connection.BlockingConnection
+    options:
+      members: true
+      inherited_members: true
+
+::: pika.adapters.blocking_connection.BlockingChannel
+    options:
+      members: true
+      inherited_members: true

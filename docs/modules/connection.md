@@ -1,7 +1,7 @@
-Connection
-----------
-The :class:`~pika.connection.Connection` class implements the base behavior
+## Connection
+The `Connection` class implements the base behavior
 that all connection adapters extend.
 
-.. autoclass:: pika.connection.Connection
-   :members:
+::: pika.connection.Connection
+    options:
+      members: true

@@ -140,6 +140,7 @@ class Channel:
     def __int__(self) -> int:
         """Return the channel object as its channel number
 
+        :returns: int
         :rtype: int
 
         """
@@ -541,7 +542,7 @@ class Channel:
                              requeue the message. If requeue is false or the
                              requeue attempt fails the messages are discarded or
                              dead-lettered.
-        :raises: TypeError
+        :raises TypeError:
 
         """
         self._raise_if_not_open()
@@ -662,6 +663,7 @@ class Channel:
     def consumer_tags(self) -> List[str]:
         """Property method that returns a list of currently active consumers
 
+        :returns: list
         :rtype: list
 
         """
@@ -824,6 +826,7 @@ class Channel:
     def is_closed(self) -> bool:
         """Returns True if the channel is closed.
 
+        :returns: bool
         :rtype: bool
 
         """
@@ -834,6 +837,7 @@ class Channel:
         """Returns True if client-initiated closing of the channel is in
         progress.
 
+        :returns: bool
         :rtype: bool
 
         """
@@ -843,6 +847,7 @@ class Channel:
     def is_open(self) -> bool:
         """Returns True if the channel is open.
 
+        :returns: bool
         :rtype: bool
 
         """
@@ -852,6 +857,7 @@ class Channel:
     def is_opening(self) -> bool:
         """Returns True if the channel is opening.
 
+        :returns: bool
         :rtype: bool
 
         """
@@ -1290,7 +1296,7 @@ class Channel:
     def _on_flow(self, _method_frame_unused: frame.Method) -> None:
         """Called if the server sends a Channel.Flow frame.
 
-        :param pika.frame.Method method_frame_unused: The Channel.Flow frame
+        :param pika.frame.Method _method_frame_unused: The Channel.Flow frame
 
         """
         if self._has_on_flow_callback is False:
@@ -1386,7 +1392,7 @@ class Channel:
         the blocking state and send all the frames that stacked up while we
         were in the blocking state.
 
-        :param pika.frame.Method method_frame_unused: The method frame received
+        :param pika.frame.Method _method_frame_unused: The method frame received
 
         """
         LOGGER.debug('%i blocked frames', len(self._blocked))
@@ -1617,6 +1623,7 @@ class ContentFrameAssembler:
     def _finish(self) -> Tuple[frame.Method, frame.Header, bytes]:
         """Invoked when all of the message has been received
 
+        :returns: tuple(pika.frame.Method, pika.frame.Header, str)
         :rtype: tuple(pika.frame.Method, pika.frame.Header, str)
 
         """
@@ -1633,6 +1640,7 @@ class ContentFrameAssembler:
 
         :param Body body_frame: The body frame
         :raises: pika.exceptions.BodyTooLongError
+        :returns: tuple(pika.frame.Method, pika.frame.Header, str)|None
         :rtype: tuple(pika.frame.Method, pika.frame.Header, str)|None
 
         """

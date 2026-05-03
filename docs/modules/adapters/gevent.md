@@ -1,12 +1,14 @@
-Gevent Connection Adapter
-==========================
-.. automodule:: pika.adapters.gevent_connection
+# Gevent Connection Adapter
 
-Be sure to check out the :doc:`asynchronous examples </examples>`.
+::: pika.adapters.gevent_connection
+
+Be sure to check out the [asynchronous examples](../../examples.md).
+
 There is no specific Gevent example yet.
 
-Class Reference
-----------------
-.. autoclass:: pika.adapters.gevent_connection.GeventConnection
-  :members:
-  :inherited-members:
+## Class Reference
+
+::: pika.adapters.gevent_connection.GeventConnection
+    options:
+      members: true
+      inherited_members: true
