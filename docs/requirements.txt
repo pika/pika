@@ -1,7 +1,7 @@
-mkdocs>=1.6
-mkdocs-material>=9.5
-mkdocstrings[python]>=0.25
-mike>=2.1
+mkdocs
+mkdocs-material
+mkdocstrings[python]
+mike
 gevent
 tornado
 twisted
