@@ -82,5 +82,6 @@ nav:
       - TLS Server Authentication: examples/tls_server_authentication.md
       - Heartbeat and Blocked Timeouts: examples/heartbeat_and_blocked_timeouts.md
       - Direct Reply-To: examples/direct_reply_to.md
-  - FAQ: faq.md
-  - Contributors: contributors.md
+  - Misc:
+    - FAQ: faq.md
+    - Contributors: contributors.md

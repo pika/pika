@@ -1,7 +1,7 @@
 # Direct reply-to example
-The following example demonstrates the use of the RabbitMQ "Direct reply-to" feature via `pika.BlockingConnection`. See https://www.rabbitmq.com/direct-reply-to.html for more info about this feature.
+The following example demonstrates the use of the RabbitMQ "Direct reply-to" feature via `pika.BlockingConnection`. See [RabbitMQ Direct Reply-To](https://www.rabbitmq.com/direct-reply-to.html) for more info about this feature.
 
-direct_reply_to.py:
+[direct_reply_to.py](https://github.com/pika/pika/blob/main/examples/direct_reply_to.py):
 
 ```python
 # -*- coding: utf-8 -*-
