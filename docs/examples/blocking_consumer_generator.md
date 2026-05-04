@@ -9,38 +9,11 @@ When you escape out of the loop, be sure to call consumer.cancel() to return any
 Example of consuming messages and acknowledging them:
 
 ```python
-    import pika
-
-    connection = pika.BlockingConnection()
-    channel = connection.channel()
-
-    # Get ten messages and break out
-    for method_frame, properties, body in channel.consume('test'):
-
-        # Display the message parts
-        print(method_frame)
-        print(properties)
-        print(body)
-
-        # Acknowledge the message
-        channel.basic_ack(method_frame.delivery_tag)
-
-        # Escape out of the loop after 10 messages
-        if method_frame.delivery_tag == 10:
-            break
-
-    # Cancel the consumer and return any pending messages
-    requeued_messages = channel.cancel()
-    print('Requeued %i messages' % requeued_messages)
-
-    # Close the channel and the connection
-    channel.close()
-    connection.close()
-
+--8<-- "examples/blocking_consumer_generator.py"
 ```
 If you have pending messages in the test queue, your output should look something like:
 
-```python
+```text
     (pika)gmr-0x02:pika gmr$ python blocking_nack.py
     <Basic.Deliver(['consumer_tag=ctag1.0', 'redelivered=True', 'routing_key=test', 'delivery_tag=1', 'exchange=test'])>
     <BasicProperties(['delivery_mode=1', 'content_type=text/plain'])>

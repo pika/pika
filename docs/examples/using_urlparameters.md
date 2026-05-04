@@ -50,8 +50,8 @@ Options that are available as query string values:
 - channel_max: Alter the default channel maximum by passing in a 32-bit integer value here.
 - client_properties: A dictionary of client properties to override:
 
-```python
-amqps://www-data:rabbit_pwd@rabbit1/web_messages?client_properties=%7B%27connection_name%27%3A+%27My+Unique+Connection+Name%27%7D'
+```text
+amqps://www-data:rabbit_pwd@rabbit1/web_messages?client_properties=%7B%27connection_name%27%3A+%27My+Unique+Connection+Name%27%7D
 ```
 - connection_attempts: Alter the default of 1 connection attempt by passing in an integer value here.
 - frame_max: Alter the default frame maximum size value by passing in a long integer value [^f1].
@@ -75,10 +75,7 @@ amqp://www-data:rabbit_pwd@rabbit1/web_messages?heartbeat=30&ssl_options=%7B%27k
 The following example demonstrates how to generate the ssl_options string with [Python's urllib](http://docs.python.org/3/library/urllib.html):
 
 ```python
-from urllib.parse import urlencode
-urlencode({'ssl_options': {'certfile': '/etc/ssl/mycert.pem', 'keyfile': '/etc/ssl/mykey.pem'}})
-
-
+--8<-- "examples/using_urlparameters.py"
 ```
 ## Footnotes
 

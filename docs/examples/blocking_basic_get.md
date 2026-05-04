@@ -11,14 +11,5 @@ If the server did not return a message a tuple of None, None, None will be retur
 Example of getting a message and acknowledging it:
 
 ```python
-    import pika
-
-    connection = pika.BlockingConnection()
-    channel = connection.channel()
-    method_frame, header_frame, body = channel.basic_get('test')
-    if method_frame:
-        print(method_frame, header_frame, body)
-        channel.basic_ack(method_frame.delivery_tag)
-    else:
-        print('No message returned')
+--8<-- "examples/blocking_basic_get.py"
 ```

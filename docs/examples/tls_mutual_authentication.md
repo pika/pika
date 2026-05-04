@@ -4,34 +4,14 @@ This example demonstrates a TLS session with RabbitMQ using mutual authenticatio
 
 See [the RabbitMQ TLS/SSL documentation](https://www.rabbitmq.com/ssl.html) for certificate generation and RabbitMQ TLS configuration. Please note that the [RabbitMQ TLS (x509 certificate) authentication mechanism](https://github.com/rabbitmq/rabbitmq-auth-mechanism-ssl) must be enabled for these examples to work.
 
-tls_example.py:
+`examples/tls_mutual_authentication.py`:
 
 ```python
-import logging
-import pika
-import ssl
-
-logging.basicConfig(level=logging.INFO)
-
-context = ssl.create_default_context(
-    cafile="PIKA_DIR/testdata/certs/ca_certificate.pem")
-context.verify_mode = ssl.CERT_REQUIRED
-context.load_cert_chain("PIKA_DIR/testdata/certs/client_certificate.pem",
-                        "PIKA_DIR/testdata/certs/client_key.pem")
-ssl_options = pika.SSLOptions(context, "localhost")
-conn_params = pika.ConnectionParameters(port=5671,
-                                        ssl_options=ssl_options)
-
-with pika.BlockingConnection(conn_params) as conn:
-    ch = conn.channel()
-    ch.queue_declare("foobar")
-    ch.basic_publish("", "foobar", "Hello, world!")
-    print(ch.basic_get("foobar"))
-
+--8<-- "examples/tls_mutual_authentication.py"
 ```
 rabbitmq.config:
 
-```python
+```text
 # Enable AMQPS
 listeners.ssl.default = 5671
 ssl_options.cacertfile = PIKA_DIR/testdata/certs/ca_certificate.pem
@@ -52,47 +32,5 @@ management.listener.ssl_opts.keyfile = PIKA_DIR/testdata/certs/server_key.pem
 To perform mutual authentication with a Twisted connection:
 
 ```python
-from pika import ConnectionParameters
-from pika.adapters import twisted_connection
-from pika.credentials import ExternalCredentials
-
-from twisted.internet import defer, protocol, ssl, reactor
-
-@defer.inlineCallbacks
-def publish(connection):
-    channel = yield connection.channel()
-    yield channel.basic_publish(
-        exchange='amq.topic',
-        routing_key='hello.world',
-        body='Hello World!',
-    )
-    print("published")
-
-def connection_ready(conn):
-    conn.ready.addCallback(lambda _ :conn)
-    return conn.ready
-
-# Load the CA certificate to validate the server's identity
-with open("PIKA_DIR/testdata/certs/ca_certificate.pem") as fd:
-    ca_cert = ssl.Certificate.loadPEM(fd.read())
-
-# Load the client certificate and key to authenticate with the server
-with open("PIKA_DIR/testdata/certs/client_key.pem") as fd:
-    client_key = fd.read()
-with open("PIKA_DIR/testdata/certs/client_certificate.pem") as fd:
-    client_cert = fd.read()
-client_keypair = ssl.PrivateCertificate.loadPEM(client_key + client_cert)
-
-context_factory = ssl.optionsForClientTLS(
-    "localhost",
-    trustRoot=ca_cert,
-    clientCertificate=client_keypair,
-)
-params = ConnectionParameters(credentials=ExternalCredentials())
-cc = protocol.ClientCreator(
-    reactor, twisted_connection.TwistedProtocolConnection, params)
-deferred = cc.connectSSL("localhost", 5671, context_factory)
-deferred.addCallback(connection_ready)
-deferred.addCallback(publish)
-reactor.run()
+--8<-- "examples/tls_mutual_authentication_twisted.py"
 ```

@@ -6,4 +6,7 @@ connection and will shutdown if RabbitMQ cancels the consumer or closes the
 channel. While it may look intimidating, each method is very short and
 represents a individual actions that a consumer can do.
 
-[Asynchronous Consumer Example](https://github.com/pika/pika/blob/master/examples/asynchronous_consumer_example.py)
+
+```python
+--8<-- "examples/asynchronous_consumer_example.py"
+```
