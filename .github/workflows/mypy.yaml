@@ -9,7 +9,7 @@ on:
       - main
 
 jobs:
-  mypy
+  mypy:
     name: mypy type check
     runs-on: ${{ matrix.os }}
     strategy:
