@@ -6,3 +6,4 @@ pytest-cov
 pytest-timeout
 tornado
 twisted
+mypy>=1.20

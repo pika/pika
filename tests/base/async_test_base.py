@@ -3,8 +3,8 @@
 """
 from datetime import datetime, timezone
 import functools
-import os
 import select
+import sys
 import logging
 import unittest
 from unittest import mock
@@ -82,10 +82,7 @@ stop_on_error_in_async_test_case_method = make_stop_on_error_with_self()
 
 
 def enable_tls():
-    if 'PIKA_TEST_TLS' in os.environ and \
-            os.environ['PIKA_TEST_TLS'].lower() == 'true':
-        return True
-    return False
+    return '--use-tls' in sys.argv
 
 
 class AsyncTestCase(unittest.TestCase):
