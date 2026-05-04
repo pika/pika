@@ -1,7 +1,7 @@
 # Pika
 Pika is a RabbitMQ (AMQP 0-9-1) client library for Python.
 
-[![Version](https://img.shields.io/pypi/v/pika.svg?)](http://badge.fury.io/py/pika) [![Python versions](https://img.shields.io/pypi/pyversions/pika.svg)](https://pypi.python.org/pypi/pika) [![Actions Status](https://github.com/pika/pika/actions/workflows/main.yaml/badge.svg)](https://github.com/pika/pika/actions/workflows/main.yaml) [![Coverage](https://img.shields.io/codecov/c/github/pika/pika/main.svg)](https://codecov.io/github/pika/pika?branch=main) [![License](https://img.shields.io/pypi/l/pika.svg?)](https://pika.github.io/pika/) [![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://pika.github.io/pika/)
+[![Version](https://img.shields.io/pypi/v/pika.svg?)](http://badge.fury.io/py/pika) [![Python versions](https://img.shields.io/pypi/pyversions/pika.svg)](https://pypi.python.org/pypi/pika) [![Actions Status](https://github.com/pika/pika/actions/workflows/main.yaml/badge.svg)](https://github.com/pika/pika/actions/workflows/main.yaml) [![Coverage](https://img.shields.io/codecov/c/github/pika/pika/main.svg)](https://codecov.io/github/pika/pika?branch=main) [![License](https://img.shields.io/pypi/l/pika.svg?)](https://github.com/pika/pika/blob/main/LICENSE) [![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://pika.github.io/pika/)
 
 ## Introduction
 Pika is a pure-Python implementation of the AMQP 0-9-1 protocol including
