@@ -88,8 +88,8 @@ class PlainCredentials:
             return None, None
         return (
             PlainCredentials.TYPE,
-            b'\0' + as_bytes(self.username) + b'\0' +
-            as_bytes(self.password)  # type: ignore[arg-type]
+            b'\0' + as_bytes(self.username or '') + b'\0' +
+            as_bytes(self.password or '')
         )
 
     def erase_credentials(self) -> None:

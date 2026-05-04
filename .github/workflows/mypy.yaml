@@ -9,16 +9,16 @@ on:
       - main
 
 jobs:
-  mypy:
+  mypy
     name: mypy type check
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-      - name: Install dependencies
-        run: pip install mypy tornado twisted
-      - name: Run mypy
-        run: python -m mypy
+      - run: pip install mypy tornado twisted
+      - run: python -m mypy
