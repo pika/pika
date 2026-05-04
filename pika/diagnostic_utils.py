@@ -2,12 +2,21 @@
 Diagnostic utilities
 """
 
+from __future__ import annotations
+
 import functools
 import sys
 import traceback
+from typing import Any, Callable, TypeVar, cast, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import logging  # pragma: no cover
+
+# TypeVar for the function being decorated
+F = TypeVar('F', bound=Callable[..., Any])
 
 
-def create_log_exception_decorator(logger):
+def create_log_exception_decorator(logger: logging.Logger) -> Callable[[F], F]:
     """Create a decorator that logs and reraises any exceptions that escape
     the decorated function
 
@@ -29,7 +38,7 @@ def create_log_exception_decorator(logger):
 
     """
 
-    def log_exception(func):
+    def log_exception(func: F) -> F:
         """The decorator returned by the parent function
 
         :param func: function to be wrapped
@@ -38,7 +47,7 @@ def create_log_exception_decorator(logger):
         """
 
         @functools.wraps(func)
-        def log_exception_func_wrap(*args, **kwargs):
+        def log_exception_func_wrap(*args: Any, **kwargs: Any) -> Any:
             """The wrapper function returned by the decorator. Invokes the
             function with the given args/kwargs and returns the function's
             return value. If the function exits with an exception, logs the
@@ -57,6 +66,6 @@ def create_log_exception_decorator(logger):
                     ''.join(traceback.format_exception(*sys.exc_info())))
                 raise
 
-        return log_exception_func_wrap
+        return cast(F, log_exception_func_wrap)
 
     return log_exception
