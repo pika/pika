@@ -140,14 +140,6 @@ class StreamingConnectionMixin:
 
         """
         try:
-<<<<<<< HEAD
-            return _AsyncStreamConnector(nbio=self,
-                                         protocol_factory=protocol_factory,
-                                         sock=sock,
-                                         ssl_context=ssl_context,
-                                         server_hostname=server_hostname,
-                                         on_done=on_done).start()
-=======
             return _AsyncStreamConnector(
                 nbio=self,  # type: ignore
                 protocol_factory=protocol_factory,
@@ -155,7 +147,6 @@ class StreamingConnectionMixin:
                 ssl_context=ssl_context,
                 server_hostname=server_hostname,
                 on_done=on_done).start()
->>>>>>> main
         except Exception as error:
             _LOGGER.error('create_streaming_connection(%s) failed: %r', sock,
                           error)
@@ -759,11 +750,7 @@ class _AsyncTransportBase(  # pylint: disable=W0223
 
         """
 
-<<<<<<< HEAD
-        def __init__(self):
-=======
         def __init__(self) -> None:
->>>>>>> main
             super(_AsyncTransportBase.RxEndOfFile,
                   self).__init__(-1, 'End of input stream (EOF)')
 
@@ -1376,13 +1363,9 @@ class _AsyncSSLTransport(_AsyncTransportBase):
 
             # NOTE: can't use identity check, it fails for instance methods
             if self._ssl_writable_action == self._consume:  # pylint: disable=W0143
-<<<<<<< HEAD
-                self._nbio.remove_writer(self._sock.fileno())
-=======
                 self._nbio.remove_writer(
                     self._sock.fileno()
                 )  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
->>>>>>> main
                 self._ssl_writable_action = None
         else:
             # WANT_WRITE
@@ -1460,15 +1443,10 @@ class _AsyncSSLTransport(_AsyncTransportBase):
 
                 # NOTE: can't use identity check, it fails for instance methods
                 if self._ssl_readable_action == self._produce:  # pylint: disable=W0143
-<<<<<<< HEAD
-                    self._nbio.remove_reader(self._sock.fileno())
-                    self._ssl_readable_action = None
-=======
                     self._nbio.remove_reader(
                         self._sock.fileno()
                     )  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
                     self._ssl_readable_action = None  # type: ignore
->>>>>>> main
             else:
                 # WANT_READ
                 if not self._ssl_readable_action:  # type: ignore
@@ -1486,15 +1464,10 @@ class _AsyncSSLTransport(_AsyncTransportBase):
         else:
             # NOTE: can't use identity check, it fails for instance methods
             if self._ssl_readable_action == self._produce:  # pylint: disable=W0143
-<<<<<<< HEAD
-                self._nbio.remove_reader(self._sock.fileno())
-                self._ssl_readable_action = None
-=======
                 self._nbio.remove_reader(
                     self._sock.fileno()
                 )  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
                 self._ssl_readable_action = None  # type: ignore
->>>>>>> main
                 assert self._ssl_writable_action != self._produce, (  # pylint: disable=W0143
                     '_AsyncSSLTransport._produce(): with empty tx_buffers, '
                     'writable_action cannot be _produce when readable is '

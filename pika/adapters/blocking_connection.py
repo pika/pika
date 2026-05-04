@@ -328,13 +328,11 @@ class BlockingConnection:
     """
     # Connection-closing callback args
     _OnClosedArgs = namedtuple(  # type: ignore[name-match]
-        'BlockingConnection__OnClosedArgs',
-        'connection error')
+        'BlockingConnection__OnClosedArgs', 'connection error')
 
     # Channel-opened callback args
     _OnChannelOpenedArgs = namedtuple(  # type: ignore[name-match]
-        'BlockingConnection__OnChannelOpenedArgs',
-        'channel')
+        'BlockingConnection__OnChannelOpenedArgs', 'channel')
 
     def __init__(
         self,
@@ -2543,13 +2541,6 @@ class BlockingChannel:
             self._flush_output(delete_ok_result.is_ready)
             return delete_ok_result.value.method_frame
 
-<<<<<<< HEAD
-    def exchange_bind(self,
-                      destination,
-                      source,
-                      routing_key='',
-                      arguments=None):
-=======
     def exchange_bind(
         self,
         destination: str,
@@ -2557,7 +2548,6 @@ class BlockingChannel:
         routing_key: str = '',
         arguments: Optional[Dict[str, Any]] = None
     ) -> pika.frame.Method[pika.spec.Exchange.BindOk]:
->>>>>>> main
         """Bind an exchange to another exchange.
 
         :param str destination: The destination exchange to bind
