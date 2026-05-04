@@ -7,6 +7,11 @@ repo_url: https://github.com/pika/pika
 docs_dir: docs
 site_dir: site
 
+# Snippets pull README.md and CONTRIBUTING.md from the repo root; MkDocs only
+# watches docs_dir by default, so add the project root for live reload on those.
+watch:
+  - .
+
 theme:
   name: material
 
