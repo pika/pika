@@ -89,5 +89,26 @@ Or with live reload:
 
     mkdocs serve --livereload
 
-Versioned documentation is managed with `mike` and deployed from the `main`
-branch by the Docs GitHub Actions workflow.
+`mkdocs serve` always serves **one** build. The site header version menu (Material
+`extra.version.provider: mike`) only appears when several versions exist in a
+**mike** layout (`versions.json` on the `gh-pages` branch), not in a plain
+`site/` output.
+
+To preview **multiple versions** locally:
+
+1. Install deps (includes `mike`).
+
+2. Deploy the current tree as one or more version labels on your **local**
+   `gh-pages` branch (omit `--push` to stay offline):
+
+        mike deploy 1.3.2
+        mike deploy --update-aliases 1.4.0b0 dev latest
+        mike set-default latest
+
+3. Serve that branch:
+
+        mike serve
+
+4. Open the URL it prints (default `http://127.0.0.1:8000`) and use the version
+   selector. `mike list` shows what is installed; `mike delete VERSION` removes
+   one version.
