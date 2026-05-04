@@ -380,6 +380,7 @@ class PollEvents:
     READ = getattr(select, 'POLLIN', 0x01)  # available for read
     WRITE = getattr(select, 'POLLOUT', 0x04)  # available for write
     ERROR = getattr(select, 'POLLERR', 0x08)  # error on associated fd
+    HANGUP = getattr(select, 'POLLHUP', 0x10)  # hangup on associated fd
 
 
 class IOLoop(AbstractSelectorIOLoop):
@@ -1217,15 +1218,15 @@ class PollPoller(_PollerBase):
         """Create an instance of the KQueuePoller
 
         """
-        self._poll = None
+        self._poll: Any = None
         super().__init__(get_wait_seconds, process_timeouts)
 
     @staticmethod
-    def _create_poller() -> Union[select.poll, select.epoll]:
+    def _create_poller() -> Any:
         """
         :rtype: `select.poll`
         """
-        return select.poll()  # pylint: disable=E1101
+        return getattr(select, 'poll')()  # pylint: disable=E1101
 
     def poll(self) -> None:
         """Wait for events of interest on registered file descriptors until an
@@ -1235,7 +1236,7 @@ class PollPoller(_PollerBase):
         """
         while True:
             try:
-                events = self._poll.poll(self._get_max_wait())  # type: ignore
+                events = self._poll.poll(self._get_max_wait())
                 break
             except _SELECT_ERRORS as error:
                 if _is_resumable(error):
@@ -1249,8 +1250,8 @@ class PollPoller(_PollerBase):
             # POLLOUT and it doesn't seem to set POLLERR along with POLLHUP when
             # socket connection fails, for example. So, we need to at least add
             # POLLERR when we see POLLHUP
-            if (event & select.POLLHUP) and pika.compat.ON_OSX:
-                event |= select.POLLERR
+            if (event & PollEvents.HANGUP) and pika.compat.ON_OSX:
+                event |= PollEvents.ERROR
 
             fd_event_map[fileno] |= event
 
@@ -1260,7 +1261,7 @@ class PollPoller(_PollerBase):
         """Notify the implementation to allocate the poller resource"""
         assert self._poll is None
 
-        self._poll = self._create_poller()  # type: ignore
+        self._poll = self._create_poller()
 
     def _uninit_poller(self) -> None:
         """Notify the implementation to release the poller resource"""
@@ -1316,8 +1317,8 @@ class EPollPoller(PollPoller):
     POLL_TIMEOUT_MULT = 1
 
     @staticmethod
-    def _create_poller() -> select.epoll:
+    def _create_poller() -> Any:
         """
         :rtype: `select.poll`
         """
-        return select.epoll()  # pylint: disable=E1101
+        return getattr(select, 'epoll')()  # pylint: disable=E1101

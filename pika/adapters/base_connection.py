@@ -206,7 +206,8 @@ class BaseConnection(connection.Connection):
                        connector_factory=create_connector,
                        native_loop=nbio.get_native_ioloop(),
                        on_done=functools.partial(
-                           cls._unshim_connection_workflow_callback, on_done))
+                           cls._unshim_connection_workflow_callback,
+                           on_done))  # type: ignore[arg-type]
 
         return workflow
 
