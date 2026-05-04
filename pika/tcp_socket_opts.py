@@ -12,9 +12,11 @@ _SUPPORTED_TCP_OPTIONS: Dict[str, int] = {}
 
 if hasattr(socket, 'TCP_USER_TIMEOUT'):
     try:
-        _SUPPORTED_TCP_OPTIONS['TCP_USER_TIMEOUT'] = getattr(socket, 'TCP_USER_TIMEOUT')
+        _SUPPORTED_TCP_OPTIONS['TCP_USER_TIMEOUT'] = getattr(
+            socket, 'TCP_USER_TIMEOUT')
     except AttributeError:
-        if pika.compat.LINUX_VERSION and pika.compat.LINUX_VERSION >= (2, 6, 37):
+        if pika.compat.LINUX_VERSION and pika.compat.LINUX_VERSION >= (2, 6,
+                                                                       37):
             # this is not the timeout value, but the number corresponding
             # to the constant in tcp.h
             # https://github.com/torvalds/linux/blob/master/include/uapi/linux/tcp.h#
