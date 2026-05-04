@@ -101,10 +101,7 @@ def encode_value(pieces: List[bytes], value: Any) -> int:  # pylint: disable=R09
         pieces.append(struct.pack('>cB', b't', int(value)))
         return 2
     elif isinstance(value, long):
-        if value < 0:
-            pieces.append(struct.pack('>cq', b'L', value))
-        else:
-            pieces.append(struct.pack('>cQ', b'l', value))
+        pieces.append(struct.pack('>cq', b'l', value))
         return 9
     elif isinstance(value, int):
         try:
@@ -112,11 +109,7 @@ def encode_value(pieces: List[bytes], value: Any) -> int:  # pylint: disable=R09
             pieces.append(packed)
             return 5
         except struct.error:
-            if value < 0:
-                packed = struct.pack('>cq', b'L', long(value))
-            else:
-                packed = struct.pack('>cQ', b'l', long(value))
-            pieces.append(packed)
+            pieces.append(struct.pack('>cq', b'l', long(value)))
             return 9
     elif isinstance(value, decimal.Decimal):
         value = value.normalize()
@@ -193,12 +186,12 @@ def decode_value(encoded: bytes, offset: int) -> Tuple[Any, int]:  # pylint: dis
 
     # Short-Short Int
     elif kind == b'b':
-        value = struct.unpack_from('>B', encoded, offset)[0]
+        value = struct.unpack_from('>b', encoded, offset)[0]
         offset += 1
 
     # Short-Short Unsigned Int
     elif kind == b'B':
-        value = struct.unpack_from('>b', encoded, offset)[0]
+        value = struct.unpack_from('>B', encoded, offset)[0]
         offset += 1
 
     # Short Int
@@ -226,9 +219,10 @@ def decode_value(encoded: bytes, offset: int) -> Tuple[Any, int]:  # pylint: dis
         value = long(struct.unpack_from('>q', encoded, offset)[0])
         offset += 8
 
-    # Long-Long Unsigned Int
+    # Long-Long Int (both 'l' and 'L' are signed per RabbitMQ and the
+    # AMQP 0-9-1 errata; see rabbitmq/rabbitmq-server#1093)
     elif kind == b'l':
-        value = long(struct.unpack_from('>Q', encoded, offset)[0])
+        value = long(struct.unpack_from('>q', encoded, offset)[0])
         offset += 8
 
     # Float
