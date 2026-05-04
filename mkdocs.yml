@@ -71,7 +71,6 @@ plugins:
             show_signature_annotations: true
             separate_signature: true
             show_root_heading: true
-            # Colored class / function / method badges (FastAPI-style API pages)
             show_symbol_type_heading: true
             show_symbol_type_toc: true
             signature_crossrefs: true
@@ -85,7 +84,8 @@ markdown_extensions:
       line_spans: __span
       linenums_style: pymdownx-inline
   - pymdownx.snippets:
-      base_path: .
+      # Repo root so index/contributing can include README.md and CONTRIBUTING.md
+      base_path: ["."]
   - pymdownx.superfences
 
 extra_css:
@@ -137,6 +137,7 @@ nav:
       - TLS Server Authentication: examples/tls_server_authentication.md
       - Heartbeat and Blocked Timeouts: examples/heartbeat_and_blocked_timeouts.md
       - Direct Reply-To: examples/direct_reply_to.md
+  - Contributing: contributing.md
   - Misc:
       - FAQ: faq.md
       - Contributors: contributors.md

@@ -2,11 +2,22 @@
 
 ## Test Coverage
 
-To contribute to Pika, please make sure that any new features or changes
-to existing functionality **include test coverage**.
+To contribute to Pika, please make sure that any new features or changes to
+existing functionality **include test coverage**.
 
-*Pull requests that add or change code without coverage have a much lower chance
-of being accepted.*
+Pull requests that add or change code without adequate test coverage will be
+rejected.
+
+## Code Formatting
+
+Please format your code using [yapf](http://pypi.python.org/pypi/yapf) with
+`google` style prior to issuing your pull request.
+
+!!! note
+
+    Only format those lines that you have changed in your pull request. If you
+    format an entire file and change code outside of the scope of your PR, it
+    will likely be rejected.
 
 
 ## Prerequisites
@@ -80,11 +91,3 @@ Or with live reload:
 
 Versioned documentation is managed with `mike` and deployed from the `main`
 branch by the Docs GitHub Actions workflow.
-
-
-## Code Formatting
-
-Please format your code using [yapf](http://pypi.python.org/pypi/yapf)
-with `google` style prior to issuing your pull request. *Note: only format those
-lines that you have changed in your pull request. If you format an entire file and
-change code outside of the scope of your PR, it will likely be rejected.*

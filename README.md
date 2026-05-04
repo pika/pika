@@ -225,17 +225,9 @@ An example of recovery using `on_close_callback` can be found in
 `examples/asynchronous_consumer_example.py`.
 
 ## Contributing
-To contribute to Pika, please make sure that any new features or changes to
-existing functionality **include test coverage**.
 
-*Pull requests that add or change code without adequate test coverage will be
-rejected.*
-
-Additionally, please format your code using
-[Yapf](http://pypi.python.org/pypi/yapf) with `google` style prior to
-issuing your pull request. *Note: only format those lines that you have changed
-in your pull request. If you format an entire file and change code outside of
-the scope of your PR, it will likely be rejected.*
+See the [Contributing guide](https://pika.github.io/pika/contributing/) for test
+setup, documentation builds, code formatting, and pull request expectations.
 
 ## Extending to support additional I/O frameworks
 New non-blocking adapters may be implemented in either of the following ways:
