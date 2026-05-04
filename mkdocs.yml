@@ -9,9 +9,34 @@ site_dir: site
 
 theme:
   name: material
+
+  # Added modern visuals
+  favicon: assets/favicon.png
+  icon:
+    repo: fontawesome/brands/github
+
+  palette:
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/lightbulb-auto
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: teal
+      accent: amber
+      toggle:
+        icon: material/lightbulb
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: teal
+      accent: amber
+      toggle:
+        icon: material/lightbulb-outline
+        name: Switch to system preference
+
   features:
     - content.code.copy
-    - navigation.sections
     - content.code.annotate
     - content.footnote.tooltips
     - content.tabs.link
@@ -22,6 +47,7 @@ theme:
     - navigation.instant.prefetch
     - navigation.instant.progress
     - navigation.path
+    # removed navigation.sections for cleaner FastAPI-style nav
     - navigation.tabs
     - navigation.tabs.sticky
     - navigation.top
@@ -34,29 +60,43 @@ theme:
 plugins:
   - search
   - mkdocstrings:
-      default_handler: python
       handlers:
         python:
-          paths:
-            - .
           options:
             docstring_style: sphinx
-            show_root_full_path: false
+            docstring_section_style: spacy
             show_source: true
+            show_root_full_path: false
+            show_bases: true
+            show_signature_annotations: true
+            separate_signature: true
+            show_root_heading: true
+            # Colored class / function / method badges (FastAPI-style API pages)
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            signature_crossrefs: true
 
 markdown_extensions:
   - admonition
   - footnotes
   - toc:
       permalink: true
-  - pymdownx.highlight
+  - pymdownx.highlight:
+      line_spans: __span
+      linenums_style: pymdownx-inline
   - pymdownx.snippets:
       base_path: .
   - pymdownx.superfences
 
+extra_css:
+  - css/mkdocstrings.css
+
 extra:
   version:
     provider: mike
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/pika/pika
 
 nav:
   - Home: index.md
@@ -98,5 +138,5 @@ nav:
       - Heartbeat and Blocked Timeouts: examples/heartbeat_and_blocked_timeouts.md
       - Direct Reply-To: examples/direct_reply_to.md
   - Misc:
-    - FAQ: faq.md
-    - Contributors: contributors.md
+      - FAQ: faq.md
+      - Contributors: contributors.md
