@@ -188,7 +188,8 @@ while True:
         continue
 
 ```
-This example can be found in `examples/consume_recover.py`.
+This example can be found in
+[`examples/consume_recover.py`](https://github.com/pika/pika/blob/main/examples/consume_recover.py).
 
 Generic operation retry libraries such as
 [retry](https://github.com/invl/retry) can be used. Decorators make it
@@ -215,14 +216,15 @@ def consume():
 consume()
 
 ```
-This example can be found in `examples/consume_recover_retry.py`.
+This example can be found in
+[`examples/consume_recover_retry.py`](https://github.com/pika/pika/blob/main/examples/consume_recover_retry.py).
 
 For asynchronous adapters, use `on_close_callback` to react to connection
 failure events. This callback can be used to clean up and recover the
 connection.
 
 An example of recovery using `on_close_callback` can be found in
-`examples/asynchronous_consumer_example.py`.
+[`examples/asynchronous_consumer_example.py`](https://github.com/pika/pika/blob/main/examples/asynchronous_consumer_example.py).
 
 ## Contributing
 
