@@ -20,7 +20,7 @@ RabbitMQ's extensions.
   adapting it to a new environment as simple as possible.
 
 ## Documentation
-Pika's documentation can be found at https://pika.github.io/pika/.
+Pika's documentation can be found [here](https://pika.github.io/pika/).
 
 ## Example
 Here is the most simple example of use, sending a message with the
