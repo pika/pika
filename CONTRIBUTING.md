@@ -19,6 +19,13 @@ Please format your code using [yapf](http://pypi.python.org/pypi/yapf) with
     format an entire file and change code outside of the scope of your PR, it
     will likely be rejected.
 
+To **see what formatting changes are required** by yapf, run the following command from the repository root:
+
+    yapf --diff --style google --recursive --exclude 'pika/spec.py' pika/ tests/ examples/
+
+To **automatically apply formatting changes** to your code, run:
+
+    yapf -i --style google --recursive --exclude 'pika/spec.py' pika/ tests/ examples/
 
 ## Prerequisites
 
