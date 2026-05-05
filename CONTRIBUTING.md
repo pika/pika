@@ -24,7 +24,6 @@ To install the dependencies needed to run Pika tests, use
     pip install -r test-requirements.txt
 
 
-
 ## Running Tests
 
 To run all test suites, use
