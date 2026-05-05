@@ -101,19 +101,19 @@ class SelectConnection(BaseConnection):
 
         :param pika.connection.Parameters parameters: Connection parameters
         :param callable on_open_callback: Method to call on connection open
-        :param on_open_error_callback: Called if the connection
+        :param on_open_error_callback: Callback (or None) with signature
+            ``(Connection, BaseException) -> None``; called if the connection
             can't be established or connection establishment is interrupted by
             `Connection.close()`: on_open_error_callback(Connection, exception).
-        :type on_open_error_callback: None | method
-        :param on_close_callback: Called when a previously fully
+        :param on_close_callback: Callback (or None) with signature
+            ``(Connection, BaseException) -> None``; called when a previously fully
             open connection is closed:
             `on_close_callback(Connection, exception)`, where `exception` is
             either an instance of `exceptions.ConnectionClosed` if closed by
             user or broker or exception of another type that describes the cause
             of connection failure.
-        :type on_close_callback: None | method
         :param custom_ioloop: Provide a custom I/O Loop object.
-        :type custom_ioloop: None | IOLoop | nbio_interface.AbstractIOServices
+            Type: `None | IOLoop | nbio_interface.AbstractIOServices`.
         :param bool internal_connection_workflow: True for autonomous connection
             establishment which is default; False for externally-managed
             connection workflow via the `create_connection()` factory.

@@ -348,7 +348,7 @@ class BlockingConnection:
             None, a `pika.connection.Parameters` instance will be created with
             default settings. See `pika.AMQPConnectionWorkflow` for more
             details about multiple parameter configurations and retries.
-        :type parameters: None | pika.connection.Parameters | sequence
+            Type: `None | pika.connection.Parameters | sequence`.
         :param _impl_class: for tests/debugging only; implementation class;
             None=default
 
@@ -433,9 +433,9 @@ class BlockingConnection:
 
         :param configs: Connection
             parameters instance or non-empty sequence of them.
-        :type configs: None | pika.connection.Parameters | sequence
+            Type: `None | pika.connection.Parameters | sequence`.
         :param impl_class: for tests/debugging only; implementation class.
-        :type impl_class: None | SelectConnection
+            Type: `None | SelectConnection`.
 
         :returns: impl_class
         :rtype: impl_class

@@ -69,8 +69,7 @@ class GeventConnection(BaseConnection):
             user or broker or exception of another type that describes the
             cause of connection failure
         :param custom_ioloop: Use a custom Gevent ILoop.
-        :type custom_ioloop: gevent._interfaces.ILoop |
-            nbio_interface.AbstractIOServices | None
+            Type: `gevent._interfaces.ILoop | nbio_interface.AbstractIOServices | None`.
         :param bool internal_connection_workflow: True for autonomous connection
             establishment which is default; False for externally-managed
             connection workflow via the `create_connection()` factory

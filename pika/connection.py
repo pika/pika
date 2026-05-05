@@ -1042,17 +1042,17 @@ class Connection(pika.compat.AbstractBase):  # type: ignore
             parameters.
         :param callable on_open_callback: Called when the connection is opened:
             on_open_callback(connection)
-        :param on_open_error_callback: Called if the connection
+        :param on_open_error_callback: Callback (or None) with signature
+            ``(Connection, Exception) -> Any``; called if the connection
             can't be established or connection establishment is interrupted by
             `Connection.close()`: on_open_error_callback(Connection, exception).
-        :type on_open_error_callback: None | method
-        :param on_close_callback: Called when a previously fully
+        :param on_close_callback: Callback (or None) with signature
+            ``(Connection, Exception) -> Any``; called when a previously fully
             open connection is closed:
             `on_close_callback(Connection, exception)`, where `exception` is
             either an instance of `exceptions.ConnectionClosed` if closed by
             user or broker or exception of another type that describes the cause
             of connection failure.
-        :type on_close_callback: None | method
         :param bool internal_connection_workflow: True for autonomous connection
             establishment which is default; False for externally-managed
             connection workflow via the `create_connection()` factory.
@@ -2080,10 +2080,9 @@ class Connection(pika.compat.AbstractBase):  # type: ignore
         When connection terminates, the appropriate user callback will be
         invoked with the given error: "on open error" or "on connection closed".
 
-        :param error: exception instance describing the reason
+        :param error: Exception (or None) describing the reason
             for termination; None for normal closing, such as upon receipt of
             Connection.CloseOk.
-        :type error: Exception | None
 
         """
         assert isinstance(error, (type(None), Exception)), \
@@ -2110,11 +2109,10 @@ class Connection(pika.compat.AbstractBase):  # type: ignore
         ON_CONNECTION_CLOSED callbacks, depending on whether the connection
         was opening or open.
 
-        :param error: None means that the transport was aborted
+        :param error: Exception (or None). None means that the transport was aborted
             internally and exception in `self._error` represents the cause.
             Otherwise it's an exception object that describes the unexpected
             loss of connection.
-        :type error: Exception | None
 
         """
         LOGGER.info(

@@ -148,9 +148,8 @@ class BaseConnection(connection.Connection):
             Pass an instance of an implementation of the
             `connection_workflow.AbstractAMQPConnectionWorkflow` interface;
             defaults to a `connection_workflow.AMQPConnectionWorkflow` instance
-            with default values for optional args.
-        :type workflow: connection_workflow.AbstractAMQPConnectionWorkflow |
-            None
+            with default values for optional args. Type:
+            `connection_workflow.AbstractAMQPConnectionWorkflow | None`.
         :returns: Connection workflow instance in use. The user should limit
             their interaction with this object only to it's `abort()` method.
         :rtype: connection_workflow.AbstractAMQPConnectionWorkflow
@@ -183,9 +182,8 @@ class BaseConnection(connection.Connection):
             Pass an instance of an implementation of the
             `connection_workflow.AbstractAMQPConnectionWorkflow` interface;
             defaults to a `connection_workflow.AMQPConnectionWorkflow` instance
-            with default values for optional args.
-        :type workflow: connection_workflow.AbstractAMQPConnectionWorkflow |
-            None
+            with default values for optional args. Type:
+            `connection_workflow.AbstractAMQPConnectionWorkflow | None`.
         :param callable on_done: as defined in
             :py:meth:`connection_workflow.AbstractAMQPConnectionWorkflow.start()`.
         :returns: Connection workflow instance in use. The user should limit
@@ -289,8 +287,7 @@ class BaseConnection(connection.Connection):
 
         :param callable user_on_done: user's `on_done` callback as defined in
             :py:meth:`connection_workflow.AbstractAMQPConnectionWorkflow.start()`.
-        :param shim_or_exc:
-        :type shim_or_exc: _StreamingProtocolShim | Exception
+        :param shim_or_exc: `_StreamingProtocolShim | Exception`
         """
         result = shim_or_exc
         if isinstance(result, _StreamingProtocolShim):
@@ -343,7 +340,7 @@ class BaseConnection(connection.Connection):
         :param conn_or_exc: Our own connection
             instance on success; exception on failure. See
             `AbstractAMQPConnectionWorkflow.start()` for details.
-        :type conn_or_exc: BaseConnection | Exception
+            Type: `BaseConnection | Exception`.
 
         """
         LOGGER.debug('Full-stack connection workflow completed: %r',
@@ -389,9 +386,8 @@ class BaseConnection(connection.Connection):
         yet. Called by adapter layer when the full-stack connection workflow
         fails.
 
-        :param error: exception instance describing the reason
+        :param error: Exception (or None) describing the reason
             for failure or None if the connection workflow was aborted.
-        :type error: Exception | None
         """
         if error is None:
             LOGGER.info('Self-initiated stack bring-up aborted.')
@@ -454,7 +450,7 @@ class BaseConnection(connection.Connection):
             `BaseException`) indicates connection failure. None indicates that
             connection was closed on this side, such as when it's aborted or
             when `AbstractStreamProtocol.eof_received()` returns a falsy result.
-        :type error: BaseException | None
+            Type: `BaseException | None`.
         :raises Exception: Exception-based exception on error
 
         """
