@@ -117,21 +117,3 @@ Example::
 Connection Parameters
 ---------------------
 There are two types of connection parameter classes in Pika to allow you to pass the connection information into a connection adapter, :class:`ConnectionParameters <pika.connection.ConnectionParameters>` and :class:`URLParameters <pika.connection.URLParameters>`. Both classes share the same default connection values.
-
-
-.. _intro_to_backpressure:
-
-TCP Backpressure
-----------------
-
-As of RabbitMQ 2.0, client side `Channel.Flow <http://www.rabbitmq.com/amqp-0-9-1-quickref.html#channel.flow>`_ has been removed [#f1]_. Instead, the RabbitMQ broker uses TCP Backpressure to slow your client if it is delivering messages too fast. If you pass in backpressure_detection into your connection parameters, Pika attempts to help you handle this situation by providing a mechanism by which you may be notified if Pika has noticed too many frames have yet to be delivered. By registering a callback function with the :py:meth:`add_backpressure_callback <pika.connection.Connection.add_backpressure_callback>` method of any connection adapter, your function will be called when Pika sees that a backlog of 10 times the average frame size you have been sending has been exceeded. You may tweak the notification multiplier value by calling the :py:meth:`set_backpressure_multiplier <pika.connection.Connection.set_backpressure_multiplier>` method passing any integer value.
-
-Example::
-
-    import pika
-
-    parameters = pika.URLParameters('amqp://guest:guest@rabbit-server1:5672/%2F?backpressure_detection=t')
-
-.. rubric:: Footnotes
-
-.. [#f1] "more effective flow control mechanism that does not require cooperation from clients and reacts quickly to prevent the broker from exhausting memory - see http://lists.rabbitmq.com/pipermail/rabbitmq-announce/attachments/20100825/2c672695/attachment.txt
