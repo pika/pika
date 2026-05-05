@@ -23,7 +23,6 @@ To install the dependencies needed to run Pika tests, use
 
     pip install -r test-requirements.txt
 
-If your environment uses the ``pip3`` command name, run ``pip3 install -r test-requirements.txt`` instead.
 
 
 ## Running Tests
@@ -58,9 +57,12 @@ If you would like to run TLS/SSL tests, use the following procedure:
     ```
 
 
-## Code Formatting
+## Code Formatting and Linting
 
 Please format your code using [yapf](https://pypi.python.org/pypi/yapf)
 with ``google`` style prior to issuing your pull request. *Note: only format those
 lines that you have changed in your pull request. If you format an entire file and
 change code outside of the scope of your PR, it will likely be rejected.*
+
+Please also ensure your code passes [ruff](https://docs.astral.sh/ruff/) linting.
+Both checks run in CI on every push and pull request.
