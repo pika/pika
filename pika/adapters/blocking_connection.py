@@ -328,13 +328,11 @@ class BlockingConnection:
     """
     # Connection-closing callback args
     _OnClosedArgs = namedtuple(  # type: ignore[name-match]
-        'BlockingConnection__OnClosedArgs',
-        'connection error')
+        'BlockingConnection__OnClosedArgs', 'connection error')
 
     # Channel-opened callback args
     _OnChannelOpenedArgs = namedtuple(  # type: ignore[name-match]
-        'BlockingConnection__OnChannelOpenedArgs',
-        'channel')
+        'BlockingConnection__OnChannelOpenedArgs', 'channel')
 
     def __init__(
         self,
@@ -534,11 +532,10 @@ class BlockingConnection:
         #         OR
         #   empty outbound buffer and any waiter is ready
         def is_done():
-            return (
-                self._closed_result.ready or
-                ((not self._impl._transport or
-                  self._impl._get_write_buffer_size() == 0) and
-                 (not waiters or any(ready() for ready in waiters))))
+            return (self._closed_result.ready or
+                    ((not self._impl._transport or
+                      self._impl._get_write_buffer_size() == 0) and
+                     (not waiters or any(ready() for ready in waiters))))
 
         # Process I/O until our completion condition is satisfied
         while not is_done():
@@ -892,9 +889,10 @@ class BlockingConnection:
         with self._acquire_event_dispatch() as dispatch_acquired:
             # Check if we can actually process pending events
             def common_terminator():
-                return bool(dispatch_acquired and
-                            (self._channels_pending_dispatch or
-                             self._ready_events))
+                return bool(
+                    dispatch_acquired and
+                    (self._channels_pending_dispatch or self._ready_events))
+
             if time_limit is None:
                 self._flush_output(common_terminator)
             else:

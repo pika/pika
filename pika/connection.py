@@ -2194,7 +2194,9 @@ class Connection(pika.compat.AbstractBase):  # type: ignore
             return True
         return False
 
-    def _process_frame(self, frame_value: Union[frame.Frame, frame.ProtocolHeader]) -> None:
+    def _process_frame(
+            self, frame_value: Union[frame.Frame,
+                                     frame.ProtocolHeader]) -> None:
         """Process an inbound frame from the socket.
 
         :param pika.frame.Frame|pika.frame.Method frame_value: The frame to
@@ -2228,7 +2230,9 @@ class Connection(pika.compat.AbstractBase):  # type: ignore
         elif frame_value.channel_number > 0:
             self._deliver_frame_to_channel(frame_value)
 
-    def _read_frame(self) -> Tuple[int, Optional[Union[frame.Frame, frame.ProtocolHeader]]]:
+    def _read_frame(
+            self
+    ) -> Tuple[int, Optional[Union[frame.Frame, frame.ProtocolHeader]]]:
         """Try and read from the frame buffer and decode a frame.
 
         :rtype tuple: (int, pika.frame.Frame)

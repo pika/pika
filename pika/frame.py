@@ -157,9 +157,7 @@ class Heartbeat(Frame):
         return self._marshal(list())
 
 
-class ProtocolHeader(
-        amqp_object.AMQPObject
-):
+class ProtocolHeader(amqp_object.AMQPObject):
     """AMQP Protocol header frame class which provides a pythonic interface
     for creating AMQP Protocol headers
 
@@ -194,7 +192,9 @@ class ProtocolHeader(
                                      self.revision)
 
 
-def decode_frame(data_in: bytes) -> Tuple[int, Optional[Union[Frame, ProtocolHeader]]]:  # pylint: disable=R0911,R0914
+def decode_frame(
+    data_in: bytes
+) -> Tuple[int, Optional[Union[Frame, ProtocolHeader]]]:  # pylint: disable=R0911,R0914
     """Receives raw socket data and attempts to turn it into a frame.
     Returns bytes used to make the frame and the frame
 
