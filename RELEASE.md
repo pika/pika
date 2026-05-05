@@ -12,9 +12,9 @@
     git tag -a -s -u B1B82CC0CF84BA70147EBD05D99DE30E43EAE440 -m 'pika 1.4.0' '1.4.0' && git push --tags
     ```
 * Ensure build is green (if one triggered)
-* Update `CHANGELOG.md`. Be sure to use the `--since-tag 1.3.1` argument:
+* Update `CHANGELOG.md`. Be sure to use the `--since-tag 1.3.2` argument:
     ```
-    github_changelog_generator --token github_pat_MY_TOKEN --user pika --project pika --since-tag 1.3.1
+    github_changelog_generator --token github_pat_MY_TOKEN --user pika --project pika --since-tag 1.3.2
     ```
     Review the generated file for invalid entries
 * Commit changes to `main` branch and push:
@@ -27,14 +27,14 @@
     python -m build --sdist --wheel --outdir dist/ .
 
     # This creates the release on GitHub:
-    gh release create '1.4.0' --notes 'https://pypi.org/project/pika/1.4.0/ | [GitHub milestone](https://github.com/pika/pika/milestone/20?closed=1)' ./dist/*
+    gh release create '1.4.0' --notes 'https://pypi.org/project/pika/1.4.0/ | [GitHub milestone](https://github.com/pika/pika/milestone/23?closed=1)' ./dist/*
     ```
 * Ensure the publish build succeeded. Example success output looks like this:
     ```
-    Checking dist/pika-1.4.0-py2.py3-none-any.whl: PASSED
+    Checking dist/pika-1.4.0-py3-none-any.whl: PASSED
     Checking dist/pika-1.4.0.tar.gz: PASSED
     Uploading distributions to https://upload.pypi.org/legacy/
-    Uploading pika-1.4.0-py2.py3-none-any.whl
+    Uploading pika-1.4.0-py3-none-any.whl
     ...
     ...
     ...
@@ -46,7 +46,7 @@
 * Ensure the release works!
   * Start RabbitMQ
     ```
-    docker run --pull --detach --rm --publish 5672:5672 --publish 15672:15672 rabbitmq:3-management-alpine
+    docker run --pull --detach --rm --publish 5672:5672 --publish 15672:15672 rabbitmq:4-management-alpine
     ```
   * Run example Pika program
     ```
