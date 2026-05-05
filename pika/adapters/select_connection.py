@@ -13,7 +13,6 @@ import select
 import time
 import threading
 from typing import Any, Callable, Optional, Sequence, Set, Tuple, Type, Dict, Union, TYPE_CHECKING
-from typing_extensions import TypedDict
 
 import pika.compat
 
@@ -23,6 +22,7 @@ from pika.adapters.utils.selector_ioloop_adapter import (
     SelectorIOServicesAdapter, AbstractSelectorIOLoop)
 
 if TYPE_CHECKING:
+    from typing_extensions import TypedDict
     from pika import connection
     from pika.adapters.utils import connection_workflow
     import socket
