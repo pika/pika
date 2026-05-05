@@ -27,7 +27,7 @@ examples/               # usage examples
 ## Code style
 
 - **Formatter:** [yapf](https://pypi.org/project/yapf/) with Google style.
-  Run `yapf --diff --style google --recursive pika/` to check.
+  Run `yapf --diff --style google --recursive --exclude 'pika/spec.py' pika/` to check.
 - **Linter:** [ruff](https://docs.astral.sh/ruff/). Configuration is in
   `pyproject.toml` under `[tool.ruff]`. Run `ruff check pika/ tests/ examples/`.
 - **Type checking:** [mypy](https://mypy-lang.org/). Configuration is in
