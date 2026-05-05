@@ -27,9 +27,9 @@ examples/               # usage examples
 ## Code style
 
 - **Formatter:** [yapf](https://pypi.org/project/yapf/) with Google style.
-  Run `yapf --diff --style google --recursive pika/` to check.
+  Run `yapf --diff --style google --recursive --exclude 'pika/spec.py' pika/` to check.
 - **Linter:** [ruff](https://docs.astral.sh/ruff/). Configuration is in
-  `pyproject.toml` under `[tool.ruff]`. Run `ruff check pika/ tests/ examples/`.
+  `pyproject.toml` under `[tool.ruff]`. Run `ruff check pika/ tests/ examples/ utils/`.
 - **Type checking:** [mypy](https://mypy-lang.org/). Configuration is in
   `mypy.ini`. Run `python -m mypy`.
 - Use single quotes for strings unless the string contains a single quote.
@@ -61,27 +61,27 @@ without corresponding `utils/codegen.py` changes will be rejected.
 
 ## CI workflows
 
+- **Format** (`.github/workflows/yapf.yaml`): runs `yapf` check on every push and pull request.
 - **Lint** (`.github/workflows/lint.yaml`): runs `ruff check` on every push
   and pull request.
 - **Type check** (`.github/workflows/mypy.yaml`): runs `mypy` on every push
   and pull request. Requires `tornado` and `twisted` to be installed so mypy
   can resolve optional-dependency types.
 - **Tests** (`.github/workflows/main.yaml`): runs the full test suite with
-  `pynose` across the Python version matrix. Acceptance tests require a
-  RabbitMQ server (started via Docker in CI). The Windows job runs unit
-  tests only.
+  `pytest` across the Python version matrix. Acceptance tests require a
+  RabbitMQ server (started via Docker in CI).
 
 ## Running tests locally
 
 ```bash
 # Unit tests only (no RabbitMQ needed)
-pynose tests/unit/
+pytest tests/unit/
 
 # All tests (requires RabbitMQ running on localhost)
-pynose
+pytest
 
 # Single test file
-pynose tests/unit/select_connection_interrupt_tests.py -v
+pytest tests/unit/select_connection_interrupt_tests.py -v
 ```
 
 ## PR conventions
