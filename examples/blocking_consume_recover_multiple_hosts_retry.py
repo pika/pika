@@ -24,7 +24,7 @@ def consume():
     channel = connection.channel()
     channel.basic_qos(prefetch_count=1)
 
-    ## This queue is intentionally non-durable. See http://www.rabbitmq.com/ha.html#non-mirrored-queue-behavior-on-node-failure
+    ## This queue is intentionally non-durable. See https://www.rabbitmq.com/ha.html#non-mirrored-queue-behavior-on-node-failure
     ## to learn more.
     channel.queue_declare('recovery-example', durable=False, auto_delete=True)
     channel.basic_consume('recovery-example', on_message)

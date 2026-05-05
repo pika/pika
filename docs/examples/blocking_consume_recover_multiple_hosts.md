@@ -2,7 +2,7 @@
 
 <a id="example_blocking_basic_consume_recover_multiple_hosts"></a>
 
-RabbitMQ nodes can be [clustered](http://www.rabbitmq.com/clustering.html).
+RabbitMQ nodes can be [clustered](https://www.rabbitmq.com/clustering.html).
 In the absence of failure clients can connect to any node and perform any operation.
 In case a node fails, stops, or becomes unavailable, clients should be able to
 connect to another node and continue.

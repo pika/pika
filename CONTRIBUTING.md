@@ -10,7 +10,7 @@ rejected.
 
 ## Code Formatting
 
-Please format your code using [yapf](http://pypi.python.org/pypi/yapf) with
+Please format your code using [yapf](https://pypi.python.org/pypi/yapf) with
 `google` style prior to issuing your pull request.
 
 !!! note

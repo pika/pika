@@ -66,13 +66,13 @@ amqps://www-data:rabbit_pwd@rabbit1/web_messages?client_properties=%7B%27connect
    - keyfile
    - ssl_version
 
-For information on what the ssl_options can be set to reference the [official Python documentation](http://docs.python.org/3/library/ssl.html). Here is an example of setting the client certificate and key:
+For information on what the ssl_options can be set to reference the [official Python documentation](https://docs.python.org/3/library/ssl.html). Here is an example of setting the client certificate and key:
 
 ```text
 amqp://www-data:rabbit_pwd@rabbit1/web_messages?heartbeat=30&ssl_options=%7B%27keyfile%27%3A+%27%2Fetc%2Fssl%2Fmykey.pem%27%2C+%27certfile%27%3A+%27%2Fetc%2Fssl%2Fmycert.pem%27%7D
 ```
 
-The following example demonstrates how to generate the ssl_options string with [Python's urllib](http://docs.python.org/3/library/urllib.html):
+The following example demonstrates how to generate the ssl_options string with [Python's urllib](https://docs.python.org/3/library/urllib.html):
 
 ```python
 --8<-- "examples/using_urlparameters.py"

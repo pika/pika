@@ -442,7 +442,7 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
                 'exchange_exchange_bindings': True,
                 'publisher_confirms': True
             },
-            'information': 'See http://pika.rtfd.org',
+            'information': 'See https://pika.rtfd.org',
             'version': pika.__version__
         }
         self.assertDictEqual(self.connection._client_properties, expectation)

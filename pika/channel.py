@@ -326,9 +326,9 @@ class Channel:
         the consumer tag.
 
         For more information on basic_consume, see:
-        Tutorial 2 at http://www.rabbitmq.com/getstarted.html
-        http://www.rabbitmq.com/confirms.html
-        http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.consume
+        Tutorial 2 at https://www.rabbitmq.com/getstarted.html
+        https://www.rabbitmq.com/confirms.html
+        https://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.consume
 
         :param str queue: The queue to consume from. Use the empty string to
             specify the most recent server-named queue for this channel
@@ -340,7 +340,7 @@ class Channel:
             - properties: pika.spec.BasicProperties
             - body: bytes
         :param bool auto_ack: if set to True, automatic acknowledgement mode
-            will be used (see http://www.rabbitmq.com/confirms.html).
+            will be used (see https://www.rabbitmq.com/confirms.html).
             This corresponds with the 'no_ack' parameter in the basic.consume
             AMQP 0.9.1 method
         :param bool exclusive: Don't allow other consumers on the queue
@@ -407,7 +407,7 @@ class Channel:
         a second time until the callback is executed.  For more information on
         basic_get and its parameters, see:
 
-        http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.get
+        https://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.get
 
         :param str queue: The queue from which to get a message. Use the empty
             string to specify the most recent server-named queue for this
@@ -469,7 +469,7 @@ class Channel:
         """Publish to the channel with the given exchange, routing key and body.
         For more information on basic_publish and what the parameters do, see:
 
-        http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.publish
+        https://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.publish
 
         :param str exchange: The exchange to publish to
         :param str routing_key: The routing key to bind on
@@ -809,7 +809,7 @@ class Channel:
         expect a bool in response indicating channel flow state. For more
         information, please reference:
 
-        http://www.rabbitmq.com/amqp-0-9-1-reference.html#channel.flow
+        https://www.rabbitmq.com/amqp-0-9-1-reference.html#channel.flow
 
         :param bool active: Turn flow on or off
         :param callable callback: callback(bool) upon completion

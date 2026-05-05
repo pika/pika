@@ -308,7 +308,7 @@ class BlockingConnection:
     connection when client makes a resource-consuming request on that connection
     or its channel (e.g., `Basic.Publish`); subsequently, RabbitMQ suspsends
     processing requests from that connection until the affected resources are
-    restored. See http://www.rabbitmq.com/connection-blocked.html. This
+    restored. See https://www.rabbitmq.com/connection-blocked.html. This
     may impact `BlockingConnection` and `BlockingChannel` operations in a
     way that users might not be expecting. For example, if the user dispatches
     `BlockingChannel.basic_publish` in non-publisher-confirmation mode while
@@ -1321,7 +1321,7 @@ class BlockingChannel:
         self._basic_consume_ok_result = _CallbackResult()
 
         # Receives args from Basic.GetEmpty response
-        #  http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.get
+        #  https://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.get
         self._basic_getempty_result = _CallbackResult(
             self._MethodFrameCallbackResultArgs)
 
@@ -1643,7 +1643,7 @@ class BlockingChannel:
 
         For more information, please reference:
 
-        http://www.rabbitmq.com/amqp-0-9-1-reference.html#channel.flow
+        https://www.rabbitmq.com/amqp-0-9-1-reference.html#channel.flow
 
         :param bool active: Turn flow on (True) or off (False)
         :returns: True if broker will start or continue sending; False if not
@@ -1717,7 +1717,7 @@ class BlockingChannel:
         `BlockingChannel.start_consuming`.
 
         For more information about Basic.Consume, see:
-        http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.consume
+        https://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.consume
 
         :param str queue: The queue from which to consume
         :param callable on_message_callback: Required function for dispatching messages
@@ -1728,7 +1728,7 @@ class BlockingChannel:
             - properties: spec.BasicProperties
             - body: bytes
         :param bool auto_ack: if set to True, automatic acknowledgement mode will be used
-                              (see http://www.rabbitmq.com/confirms.html). This corresponds
+                              (see https://www.rabbitmq.com/confirms.html). This corresponds
                               with the 'no_ack' parameter in the basic.consume AMQP 0.9.1
                               method
         :param bool exclusive: Don't allow other consumers on the queue
@@ -2317,7 +2317,7 @@ class BlockingChannel:
 
         For more information on basic_publish and what the parameters do, see:
 
-            http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.publish
+            https://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.publish
 
         NOTE: mandatory may be enabled even without delivery
           confirmation, but in the absence of delivery confirmation the
