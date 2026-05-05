@@ -1161,6 +1161,7 @@ class KQueuePoller(_PollerBase):
         if events_to_clear & PollEvents.READ:
             kevents.append(
                 select.kevent(  # pyright: ignore[reportAttributeAccessIssue]
+                    fileno,
                     filter=select.
                     KQ_FILTER_READ,  # pyright: ignore[reportAttributeAccessIssue]
                     flags=select.KQ_EV_DELETE)
