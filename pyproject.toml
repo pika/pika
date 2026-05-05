@@ -94,7 +94,7 @@ lint = "ruff check pika/ tests/ examples/ utils/"
 typecheck = "python -m mypy"
 unit = "pytest tests/unit/"
 test = "pytest"
-rabbitmq = "docker run --pull always --detach --rm --publish 5672:5672 --publish 15672:15672 rabbitmq:management-alpine"
+rabbitmq = "docker run --name pika-rabbitmq --pull always --detach --rm --publish 5672:5672 --publish 15672:15672 rabbitmq:management-alpine"
 
 [tool.pytest.ini_options]
 minversion = "7.0"
