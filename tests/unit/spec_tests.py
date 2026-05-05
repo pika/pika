@@ -10,6 +10,7 @@ from pika.compat import long
 
 
 class BasicPropertiesTests(unittest.TestCase):
+
     def test_equality(self):
         a = spec.BasicProperties(content_type='text/plain')
         self.assertEqual(a, a)
@@ -29,6 +30,6 @@ class BasicPropertiesTests(unittest.TestCase):
     def test_headers_repr(self):
         hdr = 'timestamp_in_ms'
         v = long(912598613)
-        h = { hdr : v }
+        h = {hdr: v}
         p = spec.BasicProperties(content_type='text/plain', headers=h)
         self.assertEqual(repr(p.headers[hdr]), '912598613L')

@@ -11,7 +11,6 @@ from unittest import mock
 import pika.compat
 from pika.adapters import select_connection
 
-
 # Suppress protected-access
 # pylint: disable=W0212
 
@@ -40,8 +39,8 @@ class ChildTimeout(select_connection._Timeout):
 
     def __eq__(self, other):
         if isinstance(other, ChildTimeout):
-            return self.extra == other.extra and super(
-                ChildTimeout, self).__eq__(other)
+            return self.extra == other.extra and super(ChildTimeout,
+                                                       self).__eq__(other)
         return NotImplemented
 
 
@@ -50,8 +49,10 @@ class TimeoutClassTests(unittest.TestCase):
 
     def test_properties(self):
         now = _now()
+
         def cb():
             pass
+
         timeout = select_connection._Timeout(now + 5.3, cb)
         self.assertIs(timeout.callback, cb)
         self.assertEqual(timeout.deadline, now + 5.3)
@@ -81,19 +82,15 @@ class TimeoutClassTests(unittest.TestCase):
 
     def test_eq(self):
         # Comparison should be by deadline only
-        self.assertEqual(
-            select_connection._Timeout(5, lambda: None),
-            select_connection._Timeout(5, lambda: 5))
-        self.assertEqual(
-            select_connection._Timeout(5, lambda: 5),
-            select_connection._Timeout(5, lambda: None))
+        self.assertEqual(select_connection._Timeout(5, lambda: None),
+                         select_connection._Timeout(5, lambda: 5))
+        self.assertEqual(select_connection._Timeout(5, lambda: 5),
+                         select_connection._Timeout(5, lambda: None))
 
-        self.assertEqual(
-            select_connection._Timeout(5, lambda: None),
-            ChildTimeout(5, lambda: 5))
-        self.assertEqual(
-            ChildTimeout(5, lambda: 5),
-            select_connection._Timeout(5, lambda: None))
+        self.assertEqual(select_connection._Timeout(5, lambda: None),
+                         ChildTimeout(5, lambda: 5))
+        self.assertEqual(ChildTimeout(5, lambda: 5),
+                         select_connection._Timeout(5, lambda: None))
 
         class Foreign(object):
 
@@ -101,34 +98,26 @@ class TimeoutClassTests(unittest.TestCase):
                 return 'foobar'
 
         self.assertEqual(
-            select_connection._Timeout(5, lambda: None) == Foreign(),
-            'foobar')
+            select_connection._Timeout(5, lambda: None) == Foreign(), 'foobar')
         self.assertEqual(
-            Foreign() == select_connection._Timeout(5, lambda: None),
-            'foobar')
+            Foreign() == select_connection._Timeout(5, lambda: None), 'foobar')
 
     def test_ne(self):
         # Comparison should be by deadline only
-        self.assertNotEqual(
-            select_connection._Timeout(5, lambda: None),
-            select_connection._Timeout(10, lambda: None))
-        self.assertNotEqual(
-            select_connection._Timeout(10, lambda: None),
-            select_connection._Timeout(5, lambda: None))
+        self.assertNotEqual(select_connection._Timeout(5, lambda: None),
+                            select_connection._Timeout(10, lambda: None))
+        self.assertNotEqual(select_connection._Timeout(10, lambda: None),
+                            select_connection._Timeout(5, lambda: None))
 
-        self.assertNotEqual(
-            select_connection._Timeout(5, lambda: None),
-            ChildTimeout(10, lambda: None))
-        self.assertNotEqual(
-            ChildTimeout(10, lambda: None),
-            select_connection._Timeout(5, lambda: None))
+        self.assertNotEqual(select_connection._Timeout(5, lambda: None),
+                            ChildTimeout(10, lambda: None))
+        self.assertNotEqual(ChildTimeout(10, lambda: None),
+                            select_connection._Timeout(5, lambda: None))
 
-        self.assertNotEqual(
-            select_connection._Timeout(5, lambda: None),
-            dict(deadline=5, callback=lambda: None))
-        self.assertNotEqual(
-            dict(deadline=5, callback=lambda: None),
-            select_connection._Timeout(5, lambda: None))
+        self.assertNotEqual(select_connection._Timeout(5, lambda: None),
+                            dict(deadline=5, callback=lambda: None))
+        self.assertNotEqual(dict(deadline=5, callback=lambda: None),
+                            select_connection._Timeout(5, lambda: None))
 
         class Foreign(object):
 
@@ -136,21 +125,17 @@ class TimeoutClassTests(unittest.TestCase):
                 return 'foobar'
 
         self.assertEqual(
-            select_connection._Timeout(5, lambda: None) != Foreign(),
-            'foobar')
+            select_connection._Timeout(5, lambda: None) != Foreign(), 'foobar')
         self.assertEqual(
-            Foreign() != select_connection._Timeout(5, lambda: None),
-            'foobar')
+            Foreign() != select_connection._Timeout(5, lambda: None), 'foobar')
 
     def test_lt(self):
         # Comparison should be by deadline only
-        self.assertLess(
-            select_connection._Timeout(5, lambda: None),
-            select_connection._Timeout(10, lambda: None))
+        self.assertLess(select_connection._Timeout(5, lambda: None),
+                        select_connection._Timeout(10, lambda: None))
 
-        self.assertLess(
-            select_connection._Timeout(5, lambda: None),
-            ChildTimeout(10, lambda: None))
+        self.assertLess(select_connection._Timeout(5, lambda: None),
+                        ChildTimeout(10, lambda: None))
 
         class Foreign(object):
 
@@ -158,26 +143,23 @@ class TimeoutClassTests(unittest.TestCase):
                 return 'foobar'
 
         self.assertEqual(
-            select_connection._Timeout(5, lambda: None) < Foreign(),
-            'foobar')
+            select_connection._Timeout(5, lambda: None) < Foreign(), 'foobar')
 
         self.assertFalse(
-            select_connection._Timeout(5, lambda: None)
-            < select_connection._Timeout(5, lambda: None))
+            select_connection._Timeout(5, lambda: None) <
+            select_connection._Timeout(5, lambda: None))
 
         self.assertFalse(
-            select_connection._Timeout(5, lambda: None)
-            < select_connection._Timeout(1, lambda: None))
+            select_connection._Timeout(5, lambda: None) <
+            select_connection._Timeout(1, lambda: None))
 
     def test_gt(self):
         # Comparison should be by deadline only
-        self.assertGreater(
-            select_connection._Timeout(10, lambda: None),
-            select_connection._Timeout(5, lambda: None))
+        self.assertGreater(select_connection._Timeout(10, lambda: None),
+                           select_connection._Timeout(5, lambda: None))
 
-        self.assertGreater(
-            select_connection._Timeout(10, lambda: None),
-            ChildTimeout(5, lambda: None))
+        self.assertGreater(select_connection._Timeout(10, lambda: None),
+                           ChildTimeout(5, lambda: None))
 
         class Foreign(object):
 
@@ -185,34 +167,29 @@ class TimeoutClassTests(unittest.TestCase):
                 return 'foobar'
 
         self.assertEqual(
-            select_connection._Timeout(5, lambda: None) > Foreign(),
-            'foobar')
+            select_connection._Timeout(5, lambda: None) > Foreign(), 'foobar')
 
         self.assertFalse(
-            select_connection._Timeout(5, lambda: None)
-            > select_connection._Timeout(5, lambda: None))
+            select_connection._Timeout(5, lambda: None) >
+            select_connection._Timeout(5, lambda: None))
 
         self.assertFalse(
-            select_connection._Timeout(1, lambda: None)
-            > select_connection._Timeout(5, lambda: None))
+            select_connection._Timeout(1, lambda: None) >
+            select_connection._Timeout(5, lambda: None))
 
     def test_le(self):
         # Comparison should be by deadline only
-        self.assertLessEqual(
-            select_connection._Timeout(5, lambda: None),
-            select_connection._Timeout(10, lambda: None))
+        self.assertLessEqual(select_connection._Timeout(5, lambda: None),
+                             select_connection._Timeout(10, lambda: None))
 
-        self.assertLessEqual(
-            select_connection._Timeout(5, lambda: None),
-            select_connection._Timeout(5, lambda: None))
+        self.assertLessEqual(select_connection._Timeout(5, lambda: None),
+                             select_connection._Timeout(5, lambda: None))
 
-        self.assertLessEqual(
-            select_connection._Timeout(5, lambda: None),
-            ChildTimeout(10, lambda: None))
+        self.assertLessEqual(select_connection._Timeout(5, lambda: None),
+                             ChildTimeout(10, lambda: None))
 
-        self.assertLessEqual(
-            select_connection._Timeout(5, lambda: None),
-            ChildTimeout(5, lambda: None))
+        self.assertLessEqual(select_connection._Timeout(5, lambda: None),
+                             ChildTimeout(5, lambda: None))
 
         class Foreign(object):
 
@@ -220,30 +197,25 @@ class TimeoutClassTests(unittest.TestCase):
                 return 'foobar'
 
         self.assertEqual(
-            select_connection._Timeout(5, lambda: None) <= Foreign(),
-            'foobar')
+            select_connection._Timeout(5, lambda: None) <= Foreign(), 'foobar')
 
         self.assertFalse(
-            select_connection._Timeout(5, lambda: None)
-            <= select_connection._Timeout(1, lambda: None))
+            select_connection._Timeout(5, lambda: None) <=
+            select_connection._Timeout(1, lambda: None))
 
     def test_ge(self):
         # Comparison should be by deadline only
-        self.assertGreaterEqual(
-            select_connection._Timeout(10, lambda: None),
-            select_connection._Timeout(5, lambda: None))
+        self.assertGreaterEqual(select_connection._Timeout(10, lambda: None),
+                                select_connection._Timeout(5, lambda: None))
 
-        self.assertGreaterEqual(
-            select_connection._Timeout(5, lambda: None),
-            select_connection._Timeout(5, lambda: None))
+        self.assertGreaterEqual(select_connection._Timeout(5, lambda: None),
+                                select_connection._Timeout(5, lambda: None))
 
-        self.assertGreaterEqual(
-            select_connection._Timeout(10, lambda: None),
-            ChildTimeout(5, lambda: None))
+        self.assertGreaterEqual(select_connection._Timeout(10, lambda: None),
+                                ChildTimeout(5, lambda: None))
 
-        self.assertGreaterEqual(
-            select_connection._Timeout(5, lambda: None),
-            ChildTimeout(5, lambda: None))
+        self.assertGreaterEqual(select_connection._Timeout(5, lambda: None),
+                                ChildTimeout(5, lambda: None))
 
         class Foreign(object):
 
@@ -251,12 +223,11 @@ class TimeoutClassTests(unittest.TestCase):
                 return 'foobar'
 
         self.assertEqual(
-            select_connection._Timeout(5, lambda: None) >= Foreign(),
-            'foobar')
+            select_connection._Timeout(5, lambda: None) >= Foreign(), 'foobar')
 
         self.assertFalse(
-            select_connection._Timeout(1, lambda: None)
-            >= select_connection._Timeout(5, lambda: None))
+            select_connection._Timeout(1, lambda: None) >=
+            select_connection._Timeout(5, lambda: None))
 
 
 class TimerClassTests(unittest.TestCase):
@@ -365,7 +336,7 @@ class TimerClassTests(unittest.TestCase):
         timer = select_connection._Timer()
 
         with mock.patch('pika.compat.time_now', return_value=now):
-            timer.call_later(10, lambda: bucket.append(3)) # t3
+            timer.call_later(10, lambda: bucket.append(3))  # t3
             t2 = timer.call_later(6, lambda: bucket.append(2))
             t1 = timer.call_later(5, lambda: bucket.append(1))
 
@@ -447,8 +418,7 @@ class TimerClassTests(unittest.TestCase):
 
         with mock.patch('pika.compat.time_now', return_value=now):
             t1 = timer.call_later(
-                5,
-                lambda: bucket.append(
+                5, lambda: bucket.append(
                     timer.call_later(0, lambda: bucket.append(2))))
 
         # Advance time by 10 seconds and verify that t1 fires and creates t2,
@@ -498,7 +468,6 @@ class TimerClassTests(unittest.TestCase):
             self.assertEqual(len(timer._timeout_heap), 0)
             self.assertEqual(timer._num_cancellations, 0)
 
-
     def test_cancel_expired_timeout_from_another_timeout(self):
         now = _now()
         bucket = []
@@ -507,9 +476,8 @@ class TimerClassTests(unittest.TestCase):
         with mock.patch('pika.compat.time_now', return_value=now):
             t2 = timer.call_later(10, lambda: bucket.append(2))
             t1 = timer.call_later(
-                5,
-                lambda: (self.assertEqual(timer._num_cancellations, 0),
-                         timer.remove_timeout(t2)))
+                5, lambda: (self.assertEqual(timer._num_cancellations, 0),
+                            timer.remove_timeout(t2)))
 
             self.assertIs(t1, timer._timeout_heap[0])
 

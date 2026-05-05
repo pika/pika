@@ -81,7 +81,7 @@ class ExampleConsumer(object):
             self._connection.ioloop.stop()
         else:
             LOGGER.warning('Connection closed, reopening in 5 seconds: %s',
-                        reason)
+                           reason)
             self._connection.ioloop.call_later(5, self.reconnect)
 
     def on_connection_open(self, unused_connection):
@@ -191,8 +191,8 @@ class ExampleConsumer(object):
         :param pika.frame.Method method_frame: The Queue.DeclareOk frame
 
         """
-        LOGGER.info('Binding %s to %s with %s',
-                    self.EXCHANGE, self.QUEUE, self.ROUTING_KEY)
+        LOGGER.info('Binding %s to %s with %s', self.EXCHANGE, self.QUEUE,
+                    self.ROUTING_KEY)
         self._channel.queue_bind(
             queue=self.QUEUE,
             exchange=self.EXCHANGE,

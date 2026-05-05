@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 # pylint: disable=C0111,C0103,R0205
-
 """
 This example demonstrates explicit setting of heartbeat and blocked connection
 timeouts.
@@ -29,8 +28,8 @@ import pika
 def main():
 
     # NOTE: These paramerers work with all Pika connection types
-    params = pika.ConnectionParameters(
-        heartbeat=600, blocked_connection_timeout=300)
+    params = pika.ConnectionParameters(heartbeat=600,
+                                       blocked_connection_timeout=300)
 
     conn = pika.BlockingConnection(params)
 

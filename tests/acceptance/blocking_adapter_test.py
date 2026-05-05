@@ -34,7 +34,6 @@ from tests.misc.test_utils import retry_assertion
 # Disable warning Invalid variable name
 # pylint: disable=C0103
 
-
 LOGGER = logging.getLogger(__name__)
 
 PARAMS_URL_TEMPLATE = (
@@ -54,9 +53,7 @@ class BlockingTestCaseBase(unittest.TestCase):
                  impl_class=None):
         parameters = pika.URLParameters(url)
 
-        return self._connect_params(parameters,
-                                    connection_class,
-                                    impl_class)
+        return self._connect_params(parameters, connection_class, impl_class)
 
     def _connect_params(self,
                         parameters,
@@ -69,8 +66,9 @@ class BlockingTestCaseBase(unittest.TestCase):
 
         # We use impl's timer directly in order to get a callback regardless
         # of BlockingConnection's event dispatch modality
-        connection._impl._adapter_call_later(self.TIMEOUT, # pylint: disable=E1101
-                                             self._on_test_timeout)
+        connection._impl._adapter_call_later(
+            self.TIMEOUT,  # pylint: disable=E1101
+            self._on_test_timeout)
 
         # Patch calls into I/O loop to fail test if exceptions are
         # leaked back through SelectConnection or the I/O loop.
@@ -92,6 +90,7 @@ class BlockingTestCaseBase(unittest.TestCase):
         # Patch calls into I/O loop to fail test if exceptions are
         # leaked back through SelectConnection or the I/O loop.
         real_poll = connection._impl.ioloop.poll
+
         def my_poll(*args, **kwargs):
             try:
                 return real_poll(*args, **kwargs)
@@ -103,6 +102,7 @@ class BlockingTestCaseBase(unittest.TestCase):
         self.addCleanup(setattr, connection._impl.ioloop, 'poll', real_poll)
 
         real_process_timeouts = connection._impl.ioloop.process_timeouts
+
         def my_process_timeouts(*args, **kwargs):
             try:
                 return real_process_timeouts(*args, **kwargs)
@@ -123,10 +123,8 @@ class BlockingTestCaseBase(unittest.TestCase):
         LOGGER.info('%s TIMED OUT (%s)', datetime.now(timezone.utc), self)
         self.fail('Test timed out')
 
-    @retry_assertion(TIMEOUT/2)
-    def _assert_exact_message_count_with_retries(self,
-                                                 channel,
-                                                 queue,
+    @retry_assertion(TIMEOUT / 2)
+    def _assert_exact_message_count_with_retries(self, channel, queue,
                                                  expected_count):
         frame = channel.queue_declare(queue, passive=True)
         self.assertEqual(frame.method.message_count, expected_count)
@@ -229,6 +227,7 @@ class TestMultiCloseConnectionRaisesWrongState(BlockingTestCaseBase):
 
 
 class TestConnectionContextManagerClosesConnection(BlockingTestCaseBase):
+
     def test(self):
         """BlockingConnection: connection context manager closes connection"""
         with self._connect() as connection:
@@ -238,7 +237,9 @@ class TestConnectionContextManagerClosesConnection(BlockingTestCaseBase):
         self.assertTrue(connection.is_closed)
 
 
-class TestConnectionContextManagerExitSurvivesClosedConnection(BlockingTestCaseBase):
+class TestConnectionContextManagerExitSurvivesClosedConnection(
+        BlockingTestCaseBase):
+
     def test(self):
         """BlockingConnection: connection context manager exit survives closed connection"""
         with self._connect() as connection:
@@ -249,9 +250,12 @@ class TestConnectionContextManagerExitSurvivesClosedConnection(BlockingTestCaseB
         self.assertTrue(connection.is_closed)
 
 
-class TestConnectionContextManagerClosesConnectionAndPassesOriginalException(BlockingTestCaseBase):
+class TestConnectionContextManagerClosesConnectionAndPassesOriginalException(
+        BlockingTestCaseBase):
+
     def test(self):
         """BlockingConnection: connection context manager closes connection and passes original exception"""  # pylint: disable=C0301
+
         class MyException(Exception):
             pass
 
@@ -264,7 +268,9 @@ class TestConnectionContextManagerClosesConnectionAndPassesOriginalException(Blo
         self.assertTrue(connection.is_closed)
 
 
-class TestConnectionContextManagerClosesConnectionAndPassesSystemException(BlockingTestCaseBase):
+class TestConnectionContextManagerClosesConnectionAndPassesSystemException(
+        BlockingTestCaseBase):
+
     def test(self):
         """BlockingConnection: connection context manager closes connection and passes system exception"""  # pylint: disable=C0301
         with self.assertRaises(SystemExit):
@@ -275,7 +281,9 @@ class TestConnectionContextManagerClosesConnectionAndPassesSystemException(Block
         self.assertTrue(connection.is_closed)
 
 
-class TestLostConnectionResultsInIsClosedConnectionAndChannel(BlockingTestCaseBase):
+class TestLostConnectionResultsInIsClosedConnectionAndChannel(
+        BlockingTestCaseBase):
+
     def test(self):
         connection = self._connect()
         channel = connection.channel()
@@ -295,6 +303,7 @@ class TestLostConnectionResultsInIsClosedConnectionAndChannel(BlockingTestCaseBa
 
 
 class TestUpdateSecret(BlockingTestCaseBase):
+
     def test(self):
         connection = self._connect()
         channel = connection.channel()
@@ -310,6 +319,7 @@ class TestUpdateSecret(BlockingTestCaseBase):
 
 
 class TestUpdateSecretOnClosedRaisesWrongState(BlockingTestCaseBase):
+
     def test(self):
         connection = self._connect()
 
@@ -326,6 +336,7 @@ class TestUpdateSecretOnClosedRaisesWrongState(BlockingTestCaseBase):
 
 
 class TestUpdateSecretExpectsStrings(BlockingTestCaseBase):
+
     def test(self):
         connection = self._connect()
 
@@ -339,6 +350,7 @@ class TestUpdateSecretExpectsStrings(BlockingTestCaseBase):
 
 
 class TestInvalidExchangeTypeRaisesConnectionClosed(BlockingTestCaseBase):
+
     def test(self):
         """BlockingConnection: ConnectionClosed raised when creating exchange with invalid type"""  # pylint: disable=C0301
         # This test exploits behavior specific to RabbitMQ whereby the broker
@@ -365,9 +377,8 @@ class TestCreateAndCloseConnectionWithChannelAndConsumer(BlockingTestCaseBase):
 
         ch = connection.channel()
 
-        q_name = (
-            'TestCreateAndCloseConnectionWithChannelAndConsumer_q' +
-            uuid.uuid1().hex)
+        q_name = ('TestCreateAndCloseConnectionWithChannelAndConsumer_q' +
+                  uuid.uuid1().hex)
 
         body1 = 'a' * 1024
 
@@ -378,8 +389,11 @@ class TestCreateAndCloseConnectionWithChannelAndConsumer(BlockingTestCaseBase):
         ch.basic_publish(exchange='', routing_key=q_name, body=body1)
 
         # Create a consumer that uses automatic ack mode
-        ch.basic_consume(q_name, lambda *x: None, auto_ack=True,
-                         exclusive=False, arguments=None)
+        ch.basic_consume(q_name,
+                         lambda *x: None,
+                         auto_ack=True,
+                         exclusive=False,
+                         arguments=None)
 
         connection.close()
         self.assertTrue(connection.is_closed)
@@ -393,6 +407,7 @@ class TestCreateAndCloseConnectionWithChannelAndConsumer(BlockingTestCaseBase):
 
 
 class TestUsingInvalidQueueArgument(BlockingTestCaseBase):
+
     def test(self):
         """BlockingConnection raises expected exception when invalid queue parameter is used
         """
@@ -407,11 +422,12 @@ class TestSuddenBrokerDisconnectBeforeChannel(BlockingTestCaseBase):
     def test(self):
         """BlockingConnection resets properly on TCP/IP drop during channel()
         """
-        with ForwardServer(remote_addr=(DEFAULT_PARAMS.host, DEFAULT_PARAMS.port),
+        with ForwardServer(remote_addr=(DEFAULT_PARAMS.host,
+                                        DEFAULT_PARAMS.port),
                            local_linger_args=(1, 0)) as fwd:
 
-            self.connection = self._connect(
-                PARAMS_URL_TEMPLATE % {"port": fwd.server_address[1]})
+            self.connection = self._connect(PARAMS_URL_TEMPLATE %
+                                            {"port": fwd.server_address[1]})
 
         # Once outside the context, the connection is broken
 
@@ -429,11 +445,12 @@ class TestNoAccessToConnectionAfterConnectionLost(BlockingTestCaseBase):
     def test(self):
         """BlockingConnection no access file descriptor after StreamLostError
         """
-        with ForwardServer(remote_addr=(DEFAULT_PARAMS.host, DEFAULT_PARAMS.port),
+        with ForwardServer(remote_addr=(DEFAULT_PARAMS.host,
+                                        DEFAULT_PARAMS.port),
                            local_linger_args=(1, 0)) as fwd:
 
-            self.connection = self._connect(
-                PARAMS_URL_TEMPLATE % {"port": fwd.server_address[1]})
+            self.connection = self._connect(PARAMS_URL_TEMPLATE %
+                                            {"port": fwd.server_address[1]})
 
         # Once outside the context, the connection is broken
 
@@ -467,8 +484,8 @@ class TestConnectWithDownedBroker(BlockingTestCaseBase):
         sock.close()
 
         with self.assertRaises(pika.exceptions.AMQPConnectionError):
-            self.connection = self._connect(
-                PARAMS_URL_TEMPLATE % {"port": port})
+            self.connection = self._connect(PARAMS_URL_TEMPLATE %
+                                            {"port": port})
 
 
 class TestDisconnectDuringConnectionStart(BlockingTestCaseBase):
@@ -476,9 +493,9 @@ class TestDisconnectDuringConnectionStart(BlockingTestCaseBase):
     def test(self):
         """ BlockingConnection TCP/IP connection loss in CONNECTION_START
         """
-        fwd = ForwardServer(
-            remote_addr=(DEFAULT_PARAMS.host, DEFAULT_PARAMS.port),
-            local_linger_args=(1, 0))
+        fwd = ForwardServer(remote_addr=(DEFAULT_PARAMS.host,
+                                         DEFAULT_PARAMS.port),
+                            local_linger_args=(1, 0))
 
         fwd.start()
         self.addCleanup(lambda: fwd.stop() if fwd.running else None)
@@ -488,13 +505,12 @@ class TestDisconnectDuringConnectionStart(BlockingTestCaseBase):
 
             def _on_connection_start(self, *args, **kwargs):  # pylint: disable=W0221
                 fwd.stop()
-                return super(MySelectConnection, self)._on_connection_start(
-                    *args, **kwargs)
+                return super(MySelectConnection,
+                             self)._on_connection_start(*args, **kwargs)
 
         with self.assertRaises(pika.exceptions.ProbableAuthenticationError):
-            self._connect(
-                PARAMS_URL_TEMPLATE % {"port": fwd.server_address[1]},
-                impl_class=MySelectConnection)
+            self._connect(PARAMS_URL_TEMPLATE % {"port": fwd.server_address[1]},
+                          impl_class=MySelectConnection)
 
 
 class TestDisconnectDuringConnectionTune(BlockingTestCaseBase):
@@ -502,9 +518,9 @@ class TestDisconnectDuringConnectionTune(BlockingTestCaseBase):
     def test(self):
         """ BlockingConnection TCP/IP connection loss in CONNECTION_TUNE
         """
-        fwd = ForwardServer(
-            remote_addr=(DEFAULT_PARAMS.host, DEFAULT_PARAMS.port),
-            local_linger_args=(1, 0))
+        fwd = ForwardServer(remote_addr=(DEFAULT_PARAMS.host,
+                                         DEFAULT_PARAMS.port),
+                            local_linger_args=(1, 0))
         fwd.start()
         self.addCleanup(lambda: fwd.stop() if fwd.running else None)
 
@@ -513,13 +529,12 @@ class TestDisconnectDuringConnectionTune(BlockingTestCaseBase):
 
             def _on_connection_tune(self, *args, **kwargs):  # pylint: disable=W0221
                 fwd.stop()
-                return super(MySelectConnection, self)._on_connection_tune(
-                    *args, **kwargs)
+                return super(MySelectConnection,
+                             self)._on_connection_tune(*args, **kwargs)
 
         with self.assertRaises(pika.exceptions.ProbableAccessDeniedError):
-            self._connect(
-                PARAMS_URL_TEMPLATE % {"port": fwd.server_address[1]},
-                impl_class=MySelectConnection)
+            self._connect(PARAMS_URL_TEMPLATE % {"port": fwd.server_address[1]},
+                          impl_class=MySelectConnection)
 
 
 class TestDisconnectDuringConnectionProtocol(BlockingTestCaseBase):
@@ -527,9 +542,9 @@ class TestDisconnectDuringConnectionProtocol(BlockingTestCaseBase):
     def test(self):
         """ BlockingConnection TCP/IP connection loss in CONNECTION_PROTOCOL
         """
-        fwd = ForwardServer(
-            remote_addr=(DEFAULT_PARAMS.host, DEFAULT_PARAMS.port),
-            local_linger_args=(1, 0))
+        fwd = ForwardServer(remote_addr=(DEFAULT_PARAMS.host,
+                                         DEFAULT_PARAMS.port),
+                            local_linger_args=(1, 0))
 
         fwd.start()
         self.addCleanup(lambda: fwd.stop() if fwd.running else None)
@@ -539,8 +554,8 @@ class TestDisconnectDuringConnectionProtocol(BlockingTestCaseBase):
 
             def _on_stream_connected(self, *args, **kwargs):  # pylint: disable=W0221
                 fwd.stop()
-                return super(MySelectConnection, self)._on_stream_connected(
-                    *args, **kwargs)
+                return super(MySelectConnection,
+                             self)._on_stream_connected(*args, **kwargs)
 
         with self.assertRaises(pika.exceptions.IncompatibleProtocolError):
             self._connect(PARAMS_URL_TEMPLATE % {"port": fwd.server_address[1]},
@@ -583,10 +598,9 @@ class TestConnectionRegisterForBlockAndUnblock(BlockingTestCaseBase):
             lambda conn, frame: blocked_buffer.append((conn, frame)))
         # Simulate dispatch of blocked connection
         blocked_frame = pika.frame.Method(
-            0,
-            pika.spec.Connection.Blocked('reason'))
+            0, pika.spec.Connection.Blocked('reason'))
         connection._impl._process_frame(blocked_frame)
-        connection.sleep(0) # facilitate dispatch of pending events
+        connection.sleep(0)  # facilitate dispatch of pending events
         self.assertEqual(len(blocked_buffer), 1)
         conn, frame = blocked_buffer[0]
         self.assertIs(conn, connection)
@@ -598,7 +612,7 @@ class TestConnectionRegisterForBlockAndUnblock(BlockingTestCaseBase):
         # Simulate dispatch of unblocked connection
         unblocked_frame = pika.frame.Method(0, pika.spec.Connection.Unblocked())
         connection._impl._process_frame(unblocked_frame)
-        connection.sleep(0) # facilitate dispatch of pending events
+        connection.sleep(0)  # facilitate dispatch of pending events
         self.assertEqual(len(unblocked_buffer), 1)
         conn, frame = unblocked_buffer[0]
         self.assertIs(conn, connection)
@@ -692,9 +706,8 @@ class TestAddTimeoutRemoveTimeout(BlockingTestCaseBase):
         # Test timer completion
         start_time = time_now()
         rx_callback = []
-        timer_id = connection.call_later(
-            0.005,
-            lambda: rx_callback.append(time_now()))
+        timer_id = connection.call_later(0.005,
+                                         lambda: rx_callback.append(time_now()))
         while not rx_callback:
             connection.process_data_events(time_limit=None)
 
@@ -705,12 +718,10 @@ class TestAddTimeoutRemoveTimeout(BlockingTestCaseBase):
         # Test removing triggered timeout
         connection.remove_timeout(timer_id)
 
-
         # Test aborted timer
         rx_callback = []
-        timer_id = connection.call_later(
-            0.001,
-            lambda: rx_callback.append(time_now()))
+        timer_id = connection.call_later(0.001,
+                                         lambda: rx_callback.append(time_now()))
         connection.remove_timeout(timer_id)
         connection.process_data_events(time_limit=0.1)
         self.assertFalse(rx_callback)
@@ -720,7 +731,8 @@ class TestAddTimeoutRemoveTimeout(BlockingTestCaseBase):
         repr(evt)
 
 
-class TestViabilityOfMultipleTimeoutsWithSameDeadlineAndCallback(BlockingTestCaseBase):
+class TestViabilityOfMultipleTimeoutsWithSameDeadlineAndCallback(
+        BlockingTestCaseBase):
 
     def test(self):
         """BlockingConnection viability of multiple timeouts with same deadline and callback"""
@@ -753,9 +765,10 @@ class TestRemoveTimeoutFromTimeoutCallback(BlockingTestCaseBase):
         connection = self._connect()
 
         # Test timer completion
-        timer_id1 = connection.call_later(5, lambda: 0/0)
+        timer_id1 = connection.call_later(5, lambda: 0 / 0)
 
         rx_timer2 = []
+
         def on_timer2():
             connection.remove_timeout(timer_id1)
             connection.remove_timeout(timer_id2)
@@ -808,7 +821,6 @@ class TestConnectionProperties(BlockingTestCaseBase):
         self.assertFalse(connection.is_open)
         self.assertFalse(connection._impl.is_closing)
         self.assertTrue(connection.is_closed)
-
 
 
 class TestCreateAndCloseChannel(BlockingTestCaseBase):
@@ -896,12 +908,15 @@ class TestExchangeBindAndUnbind(BlockingTestCaseBase):
             ch.basic_publish(src_exg_name, routing_key, body='', mandatory=True)
 
         # Bind the exchanges
-        frame = ch.exchange_bind(destination=dest_exg_name, source=src_exg_name,
+        frame = ch.exchange_bind(destination=dest_exg_name,
+                                 source=src_exg_name,
                                  routing_key=routing_key)
         self.assertIsInstance(frame.method, pika.spec.Exchange.BindOk)
 
         # Publish a message via the source exchange
-        ch.basic_publish(src_exg_name, routing_key, body='TestExchangeBindAndUnbind',
+        ch.basic_publish(src_exg_name,
+                         routing_key,
+                         body='TestExchangeBindAndUnbind',
                          mandatory=True)
 
         # Check that the queue now has one message
@@ -952,13 +967,15 @@ class TestQueueDeclareAndDelete(BlockingTestCaseBase):
 
 class TestPassiveQueueDeclareOfUnknownQueueRaisesChannelClosed(
         BlockingTestCaseBase):
+
     def test(self):
         """BlockingChannel: ChannelClosed raised when passive-declaring unknown queue"""  # pylint: disable=C0301
         connection = self._connect()
         ch = connection.channel()
 
-        q_name = ("TestPassiveQueueDeclareOfUnknownQueueRaisesChannelClosed_q_"
-                  + uuid.uuid1().hex)
+        q_name = (
+            "TestPassiveQueueDeclareOfUnknownQueueRaisesChannelClosed_q_" +
+            uuid.uuid1().hex)
 
         with self.assertRaises(pika.exceptions.ChannelClosedByBroker) as ex_cm:
             ch.queue_declare(q_name, passive=True)
@@ -991,7 +1008,8 @@ class TestQueueBindAndUnbindAndPurge(BlockingTestCaseBase):
         ch.queue_declare(q_name, exclusive=True)
 
         # Bind the queue to the exchange using routing key
-        frame = ch.queue_bind(q_name, exchange=exg_name,
+        frame = ch.queue_bind(q_name,
+                              exchange=exg_name,
                               routing_key=routing_key)
         self.assertIsInstance(frame.method, pika.spec.Queue.BindOk)
 
@@ -1000,7 +1018,9 @@ class TestQueueBindAndUnbindAndPurge(BlockingTestCaseBase):
         self.assertEqual(frame.method.message_count, 0)
 
         # Deposit a message in the queue
-        ch.basic_publish(exg_name, routing_key, body='TestQueueBindAndUnbindAndPurge',
+        ch.basic_publish(exg_name,
+                         routing_key,
+                         body='TestQueueBindAndUnbindAndPurge',
                          mandatory=True)
 
         # Check that the queue now has one message
@@ -1008,13 +1028,15 @@ class TestQueueBindAndUnbindAndPurge(BlockingTestCaseBase):
         self.assertEqual(frame.method.message_count, 1)
 
         # Unbind the queue
-        frame = ch.queue_unbind(queue=q_name, exchange=exg_name,
+        frame = ch.queue_unbind(queue=q_name,
+                                exchange=exg_name,
                                 routing_key=routing_key)
         self.assertIsInstance(frame.method, pika.spec.Queue.UnbindOk)
 
         # Verify that the queue is now unreachable via that binding
         with self.assertRaises(pika.exceptions.UnroutableError):
-            ch.basic_publish(exg_name, routing_key,
+            ch.basic_publish(exg_name,
+                             routing_key,
                              body='TestQueueBindAndUnbindAndPurge-2',
                              mandatory=True)
 
@@ -1049,7 +1071,8 @@ class TestBasicGet(BlockingTestCaseBase):
         # may be delivered synchronously to the queue by publishing it with
         # mandatory=True
         ch.confirm_delivery()
-        LOGGER.info('%s ENABLED PUB-ACKS (%s)', datetime.now(timezone.utc), self)
+        LOGGER.info('%s ENABLED PUB-ACKS (%s)', datetime.now(timezone.utc),
+                    self)
 
         # Declare a new queue
         ch.queue_declare(q_name, exclusive=True)
@@ -1058,17 +1081,21 @@ class TestBasicGet(BlockingTestCaseBase):
         # Verify result of getting a message from an empty queue
         msg = ch.basic_get(q_name, auto_ack=False)
         self.assertTupleEqual(msg, (None, None, None))
-        LOGGER.info('%s GOT FROM EMPTY QUEUE (%s)', datetime.now(timezone.utc), self)
+        LOGGER.info('%s GOT FROM EMPTY QUEUE (%s)', datetime.now(timezone.utc),
+                    self)
 
         body = 'TestBasicGet'
         # Deposit a message in the queue via default exchange
-        ch.basic_publish(exchange='', routing_key=q_name,
-                         body=body, mandatory=True)
+        ch.basic_publish(exchange='',
+                         routing_key=q_name,
+                         body=body,
+                         mandatory=True)
         LOGGER.info('%s PUBLISHED (%s)', datetime.now(timezone.utc), self)
 
         # Get the message
         (method, properties, body) = ch.basic_get(q_name, auto_ack=False)
-        LOGGER.info('%s GOT FROM NON-EMPTY QUEUE (%s)', datetime.now(timezone.utc), self)
+        LOGGER.info('%s GOT FROM NON-EMPTY QUEUE (%s)',
+                    datetime.now(timezone.utc), self)
         self.assertIsInstance(method, pika.spec.Basic.GetOk)
         self.assertEqual(method.delivery_tag, 1)
         self.assertFalse(method.redelivered)
@@ -1109,10 +1136,14 @@ class TestBasicReject(BlockingTestCaseBase):
         ch.queue_declare(q_name, exclusive=True)
 
         # Deposit two messages in the queue via default exchange
-        ch.basic_publish(exchange='', routing_key=q_name,
-                         body='TestBasicReject1', mandatory=True)
-        ch.basic_publish(exchange='', routing_key=q_name,
-                         body='TestBasicReject2', mandatory=True)
+        ch.basic_publish(exchange='',
+                         routing_key=q_name,
+                         body='TestBasicReject1',
+                         mandatory=True)
+        ch.basic_publish(exchange='',
+                         routing_key=q_name,
+                         body='TestBasicReject2',
+                         mandatory=True)
 
         # Get the messages
         (rx_method, _, rx_body) = ch.basic_get(q_name, auto_ack=False)
@@ -1152,19 +1183,21 @@ class TestBasicRejectNoRequeue(BlockingTestCaseBase):
         ch.queue_declare(q_name, exclusive=True)
 
         # Deposit two messages in the queue via default exchange
-        ch.basic_publish(exchange='', routing_key=q_name,
-                         body='TestBasicRejectNoRequeue1', mandatory=True)
-        ch.basic_publish(exchange='', routing_key=q_name,
-                         body='TestBasicRejectNoRequeue2', mandatory=True)
+        ch.basic_publish(exchange='',
+                         routing_key=q_name,
+                         body='TestBasicRejectNoRequeue1',
+                         mandatory=True)
+        ch.basic_publish(exchange='',
+                         routing_key=q_name,
+                         body='TestBasicRejectNoRequeue2',
+                         mandatory=True)
 
         # Get the messages
         (rx_method, _, rx_body) = ch.basic_get(q_name, auto_ack=False)
-        self.assertEqual(rx_body,
-                         as_bytes('TestBasicRejectNoRequeue1'))
+        self.assertEqual(rx_body, as_bytes('TestBasicRejectNoRequeue1'))
 
         (rx_method, _, rx_body) = ch.basic_get(q_name, auto_ack=False)
-        self.assertEqual(rx_body,
-                         as_bytes('TestBasicRejectNoRequeue2'))
+        self.assertEqual(rx_body, as_bytes('TestBasicRejectNoRequeue2'))
 
         # Nack the second message
         ch.basic_reject(rx_method.delivery_tag, requeue=False)
@@ -1194,10 +1227,14 @@ class TestBasicNack(BlockingTestCaseBase):
         ch.queue_declare(q_name, exclusive=True)
 
         # Deposit two messages in the queue via default exchange
-        ch.basic_publish(exchange='', routing_key=q_name,
-                         body='TestBasicNack1', mandatory=True)
-        ch.basic_publish(exchange='', routing_key=q_name,
-                         body='TestBasicNack2', mandatory=True)
+        ch.basic_publish(exchange='',
+                         routing_key=q_name,
+                         body='TestBasicNack1',
+                         mandatory=True)
+        ch.basic_publish(exchange='',
+                         routing_key=q_name,
+                         body='TestBasicNack2',
+                         mandatory=True)
 
         # Get the messages
         (rx_method, _, rx_body) = ch.basic_get(q_name, auto_ack=False)
@@ -1237,19 +1274,21 @@ class TestBasicNackNoRequeue(BlockingTestCaseBase):
         ch.queue_declare(q_name, exclusive=True)
 
         # Deposit two messages in the queue via default exchange
-        ch.basic_publish(exchange='', routing_key=q_name,
-                         body='TestBasicNackNoRequeue1', mandatory=True)
-        ch.basic_publish(exchange='', routing_key=q_name,
-                         body='TestBasicNackNoRequeue2', mandatory=True)
+        ch.basic_publish(exchange='',
+                         routing_key=q_name,
+                         body='TestBasicNackNoRequeue1',
+                         mandatory=True)
+        ch.basic_publish(exchange='',
+                         routing_key=q_name,
+                         body='TestBasicNackNoRequeue2',
+                         mandatory=True)
 
         # Get the messages
         (rx_method, _, rx_body) = ch.basic_get(q_name, auto_ack=False)
-        self.assertEqual(rx_body,
-                         as_bytes('TestBasicNackNoRequeue1'))
+        self.assertEqual(rx_body, as_bytes('TestBasicNackNoRequeue1'))
 
         (rx_method, _, rx_body) = ch.basic_get(q_name, auto_ack=False)
-        self.assertEqual(rx_body,
-                         as_bytes('TestBasicNackNoRequeue2'))
+        self.assertEqual(rx_body, as_bytes('TestBasicNackNoRequeue2'))
 
         # Nack the second message
         ch.basic_nack(rx_method.delivery_tag, requeue=False)
@@ -1279,19 +1318,21 @@ class TestBasicNackMultiple(BlockingTestCaseBase):
         ch.queue_declare(q_name, exclusive=True)
 
         # Deposit two messages in the queue via default exchange
-        ch.basic_publish(exchange='', routing_key=q_name,
-                         body='TestBasicNackMultiple1', mandatory=True)
-        ch.basic_publish(exchange='', routing_key=q_name,
-                         body='TestBasicNackMultiple2', mandatory=True)
+        ch.basic_publish(exchange='',
+                         routing_key=q_name,
+                         body='TestBasicNackMultiple1',
+                         mandatory=True)
+        ch.basic_publish(exchange='',
+                         routing_key=q_name,
+                         body='TestBasicNackMultiple2',
+                         mandatory=True)
 
         # Get the messages
         (rx_method, _, rx_body) = ch.basic_get(q_name, auto_ack=False)
-        self.assertEqual(rx_body,
-                         as_bytes('TestBasicNackMultiple1'))
+        self.assertEqual(rx_body, as_bytes('TestBasicNackMultiple1'))
 
         (rx_method, _, rx_body) = ch.basic_get(q_name, auto_ack=False)
-        self.assertEqual(rx_body,
-                         as_bytes('TestBasicNackMultiple2'))
+        self.assertEqual(rx_body, as_bytes('TestBasicNackMultiple2'))
 
         # Nack both messages via the "multiple" option
         ch.basic_nack(rx_method.delivery_tag, multiple=True, requeue=True)
@@ -1301,11 +1342,9 @@ class TestBasicNackMultiple(BlockingTestCaseBase):
                                                       queue=q_name,
                                                       expected_count=2)
         (rx_method, _, rx_body) = ch.basic_get(q_name, auto_ack=False)
-        self.assertEqual(rx_body,
-                         as_bytes('TestBasicNackMultiple1'))
+        self.assertEqual(rx_body, as_bytes('TestBasicNackMultiple1'))
         (rx_method, _, rx_body) = ch.basic_get(q_name, auto_ack=False)
-        self.assertEqual(rx_body,
-                         as_bytes('TestBasicNackMultiple2'))
+        self.assertEqual(rx_body, as_bytes('TestBasicNackMultiple2'))
 
 
 class TestBasicRecoverWithRequeue(BlockingTestCaseBase):
@@ -1320,8 +1359,7 @@ class TestBasicRecoverWithRequeue(BlockingTestCaseBase):
 
         ch = connection.channel()
 
-        q_name = (
-            'TestBasicRecoverWithRequeue_q' + uuid.uuid1().hex)
+        q_name = ('TestBasicRecoverWithRequeue_q' + uuid.uuid1().hex)
 
         # Place channel in publisher-acknowledgments mode so that the message
         # may be delivered synchronously to the queue by publishing it with
@@ -1332,10 +1370,14 @@ class TestBasicRecoverWithRequeue(BlockingTestCaseBase):
         ch.queue_declare(q_name, exclusive=True)
 
         # Deposit two messages in the queue via default exchange
-        ch.basic_publish(exchange='', routing_key=q_name,
-                         body='TestBasicRecoverWithRequeue1', mandatory=True)
-        ch.basic_publish(exchange='', routing_key=q_name,
-                         body='TestBasicRecoverWithRequeue2', mandatory=True)
+        ch.basic_publish(exchange='',
+                         routing_key=q_name,
+                         body='TestBasicRecoverWithRequeue1',
+                         mandatory=True)
+        ch.basic_publish(exchange='',
+                         routing_key=q_name,
+                         body='TestBasicRecoverWithRequeue2',
+                         mandatory=True)
 
         rx_messages = []
         num_messages = 0
@@ -1355,12 +1397,10 @@ class TestBasicRecoverWithRequeue(BlockingTestCaseBase):
 
         # Get the messages
         (_, _, rx_body) = rx_messages[0]
-        self.assertEqual(rx_body,
-                         as_bytes('TestBasicRecoverWithRequeue1'))
+        self.assertEqual(rx_body, as_bytes('TestBasicRecoverWithRequeue1'))
 
         (_, _, rx_body) = rx_messages[1]
-        self.assertEqual(rx_body,
-                         as_bytes('TestBasicRecoverWithRequeue2'))
+        self.assertEqual(rx_body, as_bytes('TestBasicRecoverWithRequeue2'))
 
 
 class TestTxCommit(BlockingTestCaseBase):
@@ -1381,8 +1421,10 @@ class TestTxCommit(BlockingTestCaseBase):
         self.assertIsInstance(frame.method, pika.spec.Tx.SelectOk)
 
         # Deposit a message in the queue via default exchange
-        ch.basic_publish(exchange='', routing_key=q_name,
-                         body='TestTxCommit1', mandatory=True)
+        ch.basic_publish(exchange='',
+                         routing_key=q_name,
+                         body='TestTxCommit1',
+                         mandatory=True)
 
         # Verify that queue is still empty
         frame = ch.queue_declare(q_name, passive=True)
@@ -1417,8 +1459,10 @@ class TestTxRollback(BlockingTestCaseBase):
         self.assertIsInstance(frame.method, pika.spec.Tx.SelectOk)
 
         # Deposit a message in the queue via default exchange
-        ch.basic_publish(exchange='', routing_key=q_name,
-                         body='TestTxRollback1', mandatory=True)
+        ch.basic_publish(exchange='',
+                         routing_key=q_name,
+                         body='TestTxRollback1',
+                         mandatory=True)
 
         # Verify that queue is still empty
         frame = ch.queue_declare(q_name, passive=True)
@@ -1433,6 +1477,7 @@ class TestTxRollback(BlockingTestCaseBase):
 
 
 class TestBasicConsumeFromUnknownQueueRaisesChannelClosed(BlockingTestCaseBase):
+
     def test(self):
         """ChannelClosed raised when consuming from unknown queue"""
         connection = self._connect()
@@ -1473,8 +1518,11 @@ class TestPublishAndBasicPublishWithPubacksUnroutable(BlockingTestCaseBase):
             test_name='TestPublishAndBasicPublishWithPubacksUnroutable')
         msg2_properties = pika.spec.BasicProperties(headers=msg2_headers)
         with self.assertRaises(pika.exceptions.UnroutableError) as cm:
-            ch.basic_publish(exg_name, routing_key=routing_key, body='',
-                             properties=msg2_properties, mandatory=True)
+            ch.basic_publish(exg_name,
+                             routing_key=routing_key,
+                             body='',
+                             properties=msg2_properties,
+                             mandatory=True)
         (msg,) = cm.exception.messages
         self.assertIsInstance(msg, blocking_connection.ReturnedMessage)
         self.assertIsInstance(msg.method, pika.spec.Basic.Return)
@@ -1507,7 +1555,10 @@ class TestConfirmDeliveryAfterUnroutableMessage(BlockingTestCaseBase):
         ch.add_on_return_callback(lambda *args: returned_messages.append(args))
 
         # Emit unroutable message without pubacks
-        ch.basic_publish(exg_name, routing_key=routing_key, body='', mandatory=True)
+        ch.basic_publish(exg_name,
+                         routing_key=routing_key,
+                         body='',
+                         mandatory=True)
 
         # Select delivery confirmations
         ch.confirm_delivery()
@@ -1525,7 +1576,12 @@ class TestConfirmDeliveryAfterUnroutableMessage(BlockingTestCaseBase):
         self.assertEqual(len(ch._pending_events), 0)
 
         # Verify that unroutable message was dispatched
-        ((channel, method, properties, body,),) = returned_messages  # pylint: disable=E0632
+        ((
+            channel,
+            method,
+            properties,
+            body,
+        ),) = returned_messages  # pylint: disable=E0632
         self.assertIs(channel, ch)
         self.assertIsInstance(method, pika.spec.Basic.Return)
         self.assertEqual(method.reply_code, 312)
@@ -1543,9 +1599,8 @@ class TestUnroutableMessagesReturnedInNonPubackMode(BlockingTestCaseBase):
 
         ch = connection.channel()
 
-        exg_name = (
-            'TestUnroutableMessageReturnedInNonPubackMode_exg_'
-            + uuid.uuid1().hex)
+        exg_name = ('TestUnroutableMessageReturnedInNonPubackMode_exg_' +
+                    uuid.uuid1().hex)
         routing_key = 'TestUnroutableMessageReturnedInNonPubackMode'
 
         # Declare a new exchange
@@ -1554,12 +1609,17 @@ class TestUnroutableMessagesReturnedInNonPubackMode(BlockingTestCaseBase):
 
         # Register on-return callback
         returned_messages = []
-        ch.add_on_return_callback(
-            lambda *args: returned_messages.append(args))
+        ch.add_on_return_callback(lambda *args: returned_messages.append(args))
 
         # Emit unroutable messages without pubacks
-        ch.basic_publish(exg_name, routing_key=routing_key, body='msg1', mandatory=True)
-        ch.basic_publish(exg_name, routing_key=routing_key, body='msg2', mandatory=True)
+        ch.basic_publish(exg_name,
+                         routing_key=routing_key,
+                         body='msg1',
+                         mandatory=True)
+        ch.basic_publish(exg_name,
+                         routing_key=routing_key,
+                         body='msg2',
+                         mandatory=True)
 
         # Process I/O until Basic.Return are dispatched
         while len(returned_messages) < 2:
@@ -1570,7 +1630,12 @@ class TestUnroutableMessagesReturnedInNonPubackMode(BlockingTestCaseBase):
         self.assertEqual(len(ch._pending_events), 0)
 
         # Verify returned messages
-        (channel, method, properties, body,) = returned_messages[0]
+        (
+            channel,
+            method,
+            properties,
+            body,
+        ) = returned_messages[0]
         self.assertIs(channel, ch)
         self.assertIsInstance(method, pika.spec.Basic.Return)
         self.assertEqual(method.reply_code, 312)
@@ -1579,7 +1644,12 @@ class TestUnroutableMessagesReturnedInNonPubackMode(BlockingTestCaseBase):
         self.assertIsInstance(properties, pika.BasicProperties)
         self.assertEqual(body, as_bytes('msg1'))
 
-        (channel, method, properties, body,) = returned_messages[1]
+        (
+            channel,
+            method,
+            properties,
+            body,
+        ) = returned_messages[1]
         self.assertIs(channel, ch)
         self.assertIsInstance(method, pika.spec.Basic.Return)
         self.assertEqual(method.reply_code, 312)
@@ -1597,9 +1667,8 @@ class TestUnroutableMessageReturnedInPubackMode(BlockingTestCaseBase):
 
         ch = connection.channel()
 
-        exg_name = (
-            'TestUnroutableMessageReturnedInPubackMode_exg_'
-            + uuid.uuid1().hex)
+        exg_name = ('TestUnroutableMessageReturnedInPubackMode_exg_' +
+                    uuid.uuid1().hex)
         routing_key = 'TestUnroutableMessageReturnedInPubackMode'
 
         # Declare a new exchange
@@ -1611,15 +1680,18 @@ class TestUnroutableMessageReturnedInPubackMode(BlockingTestCaseBase):
 
         # Register on-return callback
         returned_messages = []
-        ch.add_on_return_callback(
-            lambda *args: returned_messages.append(args))
+        ch.add_on_return_callback(lambda *args: returned_messages.append(args))
 
         # Emit unroutable messages with pubacks
         with self.assertRaises(pika.exceptions.UnroutableError):
-            ch.basic_publish(exg_name, routing_key=routing_key, body='msg1',
+            ch.basic_publish(exg_name,
+                             routing_key=routing_key,
+                             body='msg1',
                              mandatory=True)
         with self.assertRaises(pika.exceptions.UnroutableError):
-            ch.basic_publish(exg_name, routing_key=routing_key, body='msg2',
+            ch.basic_publish(exg_name,
+                             routing_key=routing_key,
+                             body='msg2',
                              mandatory=True)
 
         # Verify that unroutable messages are already in pending events
@@ -1638,7 +1710,12 @@ class TestUnroutableMessageReturnedInPubackMode(BlockingTestCaseBase):
         self.assertEqual(len(ch._pending_events), 0)
 
         # Verify returned messages
-        (channel, method, properties, body,) = returned_messages[0]
+        (
+            channel,
+            method,
+            properties,
+            body,
+        ) = returned_messages[0]
         self.assertIs(channel, ch)
         self.assertIsInstance(method, pika.spec.Basic.Return)
         self.assertEqual(method.reply_code, 312)
@@ -1647,7 +1724,12 @@ class TestUnroutableMessageReturnedInPubackMode(BlockingTestCaseBase):
         self.assertIsInstance(properties, pika.BasicProperties)
         self.assertEqual(body, as_bytes('msg1'))
 
-        (channel, method, properties, body,) = returned_messages[1]
+        (
+            channel,
+            method,
+            properties,
+            body,
+        ) = returned_messages[1]
         self.assertIs(channel, ch)
         self.assertIsInstance(method, pika.spec.Basic.Return)
         self.assertEqual(method.reply_code, 312)
@@ -1682,7 +1764,8 @@ class TestBasicPublishDeliveredWhenPendingUnroutable(BlockingTestCaseBase):
         ch.queue_bind(q_name, exchange=exg_name, routing_key=routing_key)
 
         # Attempt to send an unroutable message in the queue via basic_publish
-        ch.basic_publish(exg_name, routing_key='',
+        ch.basic_publish(exg_name,
+                         routing_key='',
                          body='unroutable-message',
                          mandatory=True)
 
@@ -1690,7 +1773,8 @@ class TestBasicPublishDeliveredWhenPendingUnroutable(BlockingTestCaseBase):
         connection.channel().close()
 
         # Deposit a routable message in the queue
-        ch.basic_publish(exg_name, routing_key=routing_key,
+        ch.basic_publish(exg_name,
+                         routing_key=routing_key,
                          body='routable-message',
                          mandatory=True)
 
@@ -1758,13 +1842,16 @@ class TestPublishAndConsumeWithPubacksAndQosOfOne(BlockingTestCaseBase):
         msg1_headers = dict(
             test_name='TestPublishAndConsumeWithPubacksAndQosOfOne')
         msg1_properties = pika.spec.BasicProperties(headers=msg1_headers)
-        ch.basic_publish(exg_name, routing_key=routing_key,
+        ch.basic_publish(exg_name,
+                         routing_key=routing_key,
                          body='via-basic_publish',
                          properties=msg1_properties,
                          mandatory=True)
 
         # Deposit another message in the queue
-        ch.basic_publish(exg_name, routing_key, body='via-publish',
+        ch.basic_publish(exg_name,
+                         routing_key,
+                         body='via-publish',
                          mandatory=True)
 
         # Check that the queue now has two messages
@@ -1776,12 +1863,11 @@ class TestPublishAndConsumeWithPubacksAndQosOfOne(BlockingTestCaseBase):
 
         # Create a consumer
         rx_messages = []
-        consumer_tag = ch.basic_consume(
-            q_name,
-            lambda *args: rx_messages.append(args),
-            auto_ack=False,
-            exclusive=False,
-            arguments=None)
+        consumer_tag = ch.basic_consume(q_name,
+                                        lambda *args: rx_messages.append(args),
+                                        auto_ack=False,
+                                        exclusive=False,
+                                        arguments=None)
 
         # Wait for first message to arrive
         while not rx_messages:
@@ -1901,13 +1987,14 @@ class TestBasicConsumeWithAckFromAnotherThread(BlockingTestCaseBase):
 
         # Create a consumer
         rx_messages = []
-        def ackAndEnqueueMessageViaAnotherThread(rx_ch,
-                                                 rx_method,
-                                                 rx_properties, # pylint: disable=W0613
-                                                 rx_body):
-            LOGGER.debug(
-                '%s: Got message body=%r; delivery-tag=%r',
-                datetime.now(), rx_body, rx_method.delivery_tag)
+
+        def ackAndEnqueueMessageViaAnotherThread(
+                rx_ch,
+                rx_method,
+                rx_properties,  # pylint: disable=W0613
+                rx_body):
+            LOGGER.debug('%s: Got message body=%r; delivery-tag=%r',
+                         datetime.now(), rx_body, rx_method.delivery_tag)
 
             # Request ACK dispatch via add_callback_threadsafe from other
             # thread; if last message, cancel consumer so that start_consuming
@@ -1915,9 +2002,7 @@ class TestBasicConsumeWithAckFromAnotherThread(BlockingTestCaseBase):
 
             def processOnConnectionThread():
                 LOGGER.debug('%s: ACKing message body=%r; delivery-tag=%r',
-                             datetime.now(),
-                             rx_body,
-                             rx_method.delivery_tag)
+                             datetime.now(), rx_body, rx_method.delivery_tag)
                 ch.basic_ack(delivery_tag=rx_method.delivery_tag,
                              multiple=False)
                 rx_messages.append(rx_body)
@@ -1925,32 +2010,28 @@ class TestBasicConsumeWithAckFromAnotherThread(BlockingTestCaseBase):
                 # NOTE on python3, `b'last-msg' != 'last-msg'`
                 if rx_body == b'last-msg':
                     LOGGER.debug('%s: Canceling consumer consumer-tag=%r',
-                                 datetime.now(),
-                                 rx_method.consumer_tag)
+                                 datetime.now(), rx_method.consumer_tag)
                     rx_ch.basic_cancel(rx_method.consumer_tag)
 
             # Spawn a thread to initiate ACKing
-            timer = threading.Timer(0,
-                                    lambda: connection.add_callback_threadsafe(
-                                        processOnConnectionThread))
+            timer = threading.Timer(
+                0, lambda: connection.add_callback_threadsafe(
+                    processOnConnectionThread))
             self.addCleanup(timer.cancel)
             timer.start()
 
-        consumer_tag = ch.basic_consume(
-            q_name,
-            ackAndEnqueueMessageViaAnotherThread,
-            auto_ack=False,
-            exclusive=False,
-            arguments=None)
+        consumer_tag = ch.basic_consume(q_name,
+                                        ackAndEnqueueMessageViaAnotherThread,
+                                        auto_ack=False,
+                                        exclusive=False,
+                                        arguments=None)
 
         # Wait for both messages
         LOGGER.debug('%s: calling start_consuming(); consumer tag=%r',
-                     datetime.now(),
-                     consumer_tag)
+                     datetime.now(), consumer_tag)
         ch.start_consuming()
         LOGGER.debug('%s: Returned from start_consuming(); consumer tag=%r',
-                     datetime.now(),
-                     consumer_tag)
+                     datetime.now(), consumer_tag)
 
         self.assertEqual(len(rx_messages), 2)
         self.assertEqual(rx_messages[0], b'msg1')
@@ -1998,13 +2079,14 @@ class TestConsumeGeneratorWithAckFromAnotherThread(BlockingTestCaseBase):
 
         # Create a consumer
         rx_messages = []
-        def ackAndEnqueueMessageViaAnotherThread(rx_ch,
-                                                 rx_method,
-                                                 rx_properties, # pylint: disable=W0613
-                                                 rx_body):
-            LOGGER.debug(
-                '%s: Got message body=%r; delivery-tag=%r',
-                datetime.now(), rx_body, rx_method.delivery_tag)
+
+        def ackAndEnqueueMessageViaAnotherThread(
+                rx_ch,
+                rx_method,
+                rx_properties,  # pylint: disable=W0613
+                rx_body):
+            LOGGER.debug('%s: Got message body=%r; delivery-tag=%r',
+                         datetime.now(), rx_body, rx_method.delivery_tag)
 
             # Request ACK dispatch via add_callback_threadsafe from other
             # thread; if last message, cancel consumer so that consumer
@@ -2012,9 +2094,7 @@ class TestConsumeGeneratorWithAckFromAnotherThread(BlockingTestCaseBase):
 
             def processOnConnectionThread():
                 LOGGER.debug('%s: ACKing message body=%r; delivery-tag=%r',
-                             datetime.now(),
-                             rx_body,
-                             rx_method.delivery_tag)
+                             datetime.now(), rx_body, rx_method.delivery_tag)
                 ch.basic_ack(delivery_tag=rx_method.delivery_tag,
                              multiple=False)
                 rx_messages.append(rx_body)
@@ -2022,16 +2102,15 @@ class TestConsumeGeneratorWithAckFromAnotherThread(BlockingTestCaseBase):
                 # NOTE on python3, `b'last-msg' != 'last-msg'`
                 if rx_body == b'last-msg':
                     LOGGER.debug('%s: Canceling consumer consumer-tag=%r',
-                                 datetime.now(),
-                                 rx_method.consumer_tag)
+                                 datetime.now(), rx_method.consumer_tag)
                     # NOTE Need to use cancel() for the consumer generator
                     # instead of basic_cancel()
                     rx_ch.cancel()
 
             # Spawn a thread to initiate ACKing
-            timer = threading.Timer(0,
-                                    lambda: connection.add_callback_threadsafe(
-                                        processOnConnectionThread))
+            timer = threading.Timer(
+                0, lambda: connection.add_callback_threadsafe(
+                    processOnConnectionThread))
             self.addCleanup(timer.cancel)
             timer.start()
 
@@ -2079,11 +2158,17 @@ class TestTwoBasicConsumersOnSameChannel(BlockingTestCaseBase):
         # Deposit messages in the queues
         q1_tx_message_bodies = ['q1_message+%s' % (i,) for i in range(100)]
         for message_body in q1_tx_message_bodies:
-            ch.basic_publish(exg_name, q1_routing_key, body=message_body, mandatory=True)
+            ch.basic_publish(exg_name,
+                             q1_routing_key,
+                             body=message_body,
+                             mandatory=True)
 
         q2_tx_message_bodies = ['q2_message+%s' % (i,) for i in range(150)]
         for message_body in q2_tx_message_bodies:
-            ch.basic_publish(exg_name, q2_routing_key, body=message_body, mandatory=True)
+            ch.basic_publish(exg_name,
+                             q2_routing_key,
+                             body=message_body,
+                             mandatory=True)
 
         # Create the consumers
         q1_rx_messages = []
@@ -2110,9 +2195,7 @@ class TestTwoBasicConsumersOnSameChannel(BlockingTestCaseBase):
         self.assertEqual(len(q2_rx_messages), len(q2_tx_message_bodies))
 
         # Verify the messages
-        def validate_messages(rx_messages,
-                              routing_key,
-                              consumer_tag,
+        def validate_messages(rx_messages, routing_key, consumer_tag,
                               tx_message_bodies):
             self.assertEqual(len(rx_messages), len(tx_message_bodies))
 
@@ -2148,7 +2231,7 @@ class TestTwoBasicConsumersOnSameChannel(BlockingTestCaseBase):
 class TestBasicCancelPurgesPendingConsumerCancellationEvt(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingChannel.basic_cancel purges pending _ConsumerCancellationEvt""" # pylint: disable=C0301
+        """BlockingChannel.basic_cancel purges pending _ConsumerCancellationEvt"""  # pylint: disable=C0301
         connection = self._connect()
 
         ch = connection.channel()
@@ -2158,14 +2241,16 @@ class TestBasicCancelPurgesPendingConsumerCancellationEvt(BlockingTestCaseBase):
 
         ch.queue_declare(q_name, exclusive=True)
 
-        ch.basic_publish('', routing_key=q_name, body='via-publish', mandatory=True)
+        ch.basic_publish('',
+                         routing_key=q_name,
+                         body='via-publish',
+                         mandatory=True)
 
         # Create a consumer. Not passing a 'callback' to test client-generated
         # consumer tags
         rx_messages = []
-        consumer_tag = ch.basic_consume(
-            q_name,
-            lambda *args: rx_messages.append(args))
+        consumer_tag = ch.basic_consume(q_name,
+                                        lambda *args: rx_messages.append(args))
 
         # Wait for the published message to arrive, but don't consume it
         while not ch._pending_events:
@@ -2217,16 +2302,17 @@ class TestBasicPublishWithoutPubacks(BlockingTestCaseBase):
         ch.queue_bind(q_name, exchange=exg_name, routing_key=routing_key)
 
         # Deposit a message in the queue with mandatory=True
-        msg1_headers = dict(
-            test_name='TestBasicPublishWithoutPubacks')
+        msg1_headers = dict(test_name='TestBasicPublishWithoutPubacks')
         msg1_properties = pika.spec.BasicProperties(headers=msg1_headers)
-        ch.basic_publish(exg_name, routing_key=routing_key,
+        ch.basic_publish(exg_name,
+                         routing_key=routing_key,
                          body='via-basic_publish_mandatory=True',
                          properties=msg1_properties,
                          mandatory=True)
 
         # Deposit a message in the queue with mandatory=False
-        ch.basic_publish(exg_name, routing_key=routing_key,
+        ch.basic_publish(exg_name,
+                         routing_key=routing_key,
                          body='via-basic_publish_mandatory=False',
                          mandatory=False)
 
@@ -2238,12 +2324,11 @@ class TestBasicPublishWithoutPubacks(BlockingTestCaseBase):
         # Create a consumer. Not passing a 'callback' to test client-generated
         # consumer tags
         rx_messages = []
-        consumer_tag = ch.basic_consume(
-            q_name,
-            lambda *args: rx_messages.append(args),
-            auto_ack=False,
-            exclusive=False,
-            arguments=None)
+        consumer_tag = ch.basic_consume(q_name,
+                                        lambda *args: rx_messages.append(args),
+                                        auto_ack=False,
+                                        exclusive=False,
+                                        arguments=None)
 
         # Wait for first message to arrive
         while not rx_messages:
@@ -2318,10 +2403,10 @@ class TestPublishFromBasicConsumeCallback(BlockingTestCaseBase):
 
         ch = connection.channel()
 
-        src_q_name = (
-            'TestPublishFromBasicConsumeCallback_src_q' + uuid.uuid1().hex)
-        dest_q_name = (
-            'TestPublishFromBasicConsumeCallback_dest_q' + uuid.uuid1().hex)
+        src_q_name = ('TestPublishFromBasicConsumeCallback_src_q' +
+                      uuid.uuid1().hex)
+        dest_q_name = ('TestPublishFromBasicConsumeCallback_dest_q' +
+                       uuid.uuid1().hex)
 
         # Place channel in publisher-acknowledgments mode so that publishing
         # with mandatory=True will be synchronous
@@ -2339,9 +2424,11 @@ class TestPublishFromBasicConsumeCallback(BlockingTestCaseBase):
 
         # Create a consumer
         def on_consume(channel, method, props, body):
-            channel.basic_publish(
-                '', routing_key=dest_q_name, body=body,
-                properties=props, mandatory=True)
+            channel.basic_publish('',
+                                  routing_key=dest_q_name,
+                                  body=body,
+                                  properties=props,
+                                  mandatory=True)
             channel.basic_ack(method.delivery_tag)
 
         ch.basic_consume(src_q_name,
@@ -2367,8 +2454,8 @@ class TestStopConsumingFromBasicConsumeCallback(BlockingTestCaseBase):
 
         ch = connection.channel()
 
-        q_name = (
-            'TestStopConsumingFromBasicConsumeCallback_q' + uuid.uuid1().hex)
+        q_name = ('TestStopConsumingFromBasicConsumeCallback_q' +
+                  uuid.uuid1().hex)
 
         # Place channel in publisher-acknowledgments mode so that publishing
         # with mandatory=True will be synchronous
@@ -2422,8 +2509,8 @@ class TestCloseChannelFromBasicConsumeCallback(BlockingTestCaseBase):
 
         ch = connection.channel()
 
-        q_name = (
-            'TestCloseChannelFromBasicConsumeCallback_q' + uuid.uuid1().hex)
+        q_name = ('TestCloseChannelFromBasicConsumeCallback_q' +
+                  uuid.uuid1().hex)
 
         # Place channel in publisher-acknowledgments mode so that publishing
         # with mandatory=True will be synchronous
@@ -2457,7 +2544,6 @@ class TestCloseChannelFromBasicConsumeCallback(BlockingTestCaseBase):
 
         self.assertTrue(ch.is_closed)
 
-
         # Verify that both messages are present in the queue
         ch = connection.channel()
         _, _, rx_body = ch.basic_get(q_name)
@@ -2475,8 +2561,8 @@ class TestCloseConnectionFromBasicConsumeCallback(BlockingTestCaseBase):
 
         ch = connection.channel()
 
-        q_name = (
-            'TestCloseConnectionFromBasicConsumeCallback_q' + uuid.uuid1().hex)
+        q_name = ('TestCloseConnectionFromBasicConsumeCallback_q' +
+                  uuid.uuid1().hex)
 
         # Place channel in publisher-acknowledgments mode so that publishing
         # with mandatory=True will be synchronous
@@ -2512,7 +2598,6 @@ class TestCloseConnectionFromBasicConsumeCallback(BlockingTestCaseBase):
         self.assertTrue(ch.is_closed)
         self.assertTrue(connection.is_closed)
 
-
         # Verify that both messages are present in the queue
         ch = self._connect().channel()
         _, _, rx_body = ch.basic_get(q_name)
@@ -2521,7 +2606,8 @@ class TestCloseConnectionFromBasicConsumeCallback(BlockingTestCaseBase):
         self.assertEqual(rx_body, as_bytes('via-publish2'))
 
 
-class TestStartConsumingRaisesChannelClosedOnSameChannelFailure(BlockingTestCaseBase):
+class TestStartConsumingRaisesChannelClosedOnSameChannelFailure(
+        BlockingTestCaseBase):
 
     def test(self):
         """start_consuming() exits with ChannelClosed exception on same channel failure
@@ -2549,11 +2635,8 @@ class TestStartConsumingRaisesChannelClosedOnSameChannelFailure(BlockingTestCase
         # Schedule a callback that will cause a channel error on the consumer's
         # channel by publishing to an unknown exchange. This will cause the
         # broker to close our channel.
-        connection.add_callback_threadsafe(
-            lambda: ch.basic_publish(
-                exchange=q_name,
-                routing_key='123',
-                body=b'Nope this is wrong'))
+        connection.add_callback_threadsafe(lambda: ch.basic_publish(
+            exchange=q_name, routing_key='123', body=b'Nope this is wrong'))
 
         with self.assertRaises(pika.exceptions.ChannelClosedByBroker):
             ch.start_consuming()
@@ -2568,8 +2651,8 @@ class TestStartConsumingReturnsAfterCancelFromBroker(BlockingTestCaseBase):
 
         ch = connection.channel()
 
-        q_name = (
-            'TestStartConsumingExitsOnCancelFromBroker_q' + uuid.uuid1().hex)
+        q_name = ('TestStartConsumingExitsOnCancelFromBroker_q' +
+                  uuid.uuid1().hex)
 
         # Declare the queue
         ch.queue_declare(q_name, exclusive=True)
@@ -2610,7 +2693,8 @@ class TestNonPubAckPublishAndConsumeHugeMessage(BlockingTestCaseBase):
         LOGGER.info('Published message body size=%s', len(body))
 
         # Consume the message
-        for rx_method, rx_props, rx_body in ch.consume(q_name, auto_ack=False,
+        for rx_method, rx_props, rx_body in ch.consume(q_name,
+                                                       auto_ack=False,
                                                        exclusive=False,
                                                        arguments=None):
             self.assertIsInstance(rx_method, pika.spec.Basic.Deliver)
@@ -2703,8 +2787,7 @@ class TestBasicCancelWithNonAckableConsumer(BlockingTestCaseBase):
 
         ch = connection.channel()
 
-        q_name = (
-            'TestBasicCancelWithNonAckableConsumer_q' + uuid.uuid1().hex)
+        q_name = ('TestBasicCancelWithNonAckableConsumer_q' + uuid.uuid1().hex)
 
         body1 = 'a' * 1024
         body2 = 'b' * 2048
@@ -2722,8 +2805,11 @@ class TestBasicCancelWithNonAckableConsumer(BlockingTestCaseBase):
                                                       expected_count=2)
 
         # Create a consumer that uses automatic ack mode
-        consumer_tag = ch.basic_consume(q_name, lambda *x: None, auto_ack=True,
-                                        exclusive=False, arguments=None)
+        consumer_tag = ch.basic_consume(q_name,
+                                        lambda *x: None,
+                                        auto_ack=True,
+                                        exclusive=False,
+                                        arguments=None)
 
         # Wait for all messages to be sent by broker to client
         self._assert_exact_message_count_with_retries(channel=ch,
@@ -2759,8 +2845,7 @@ class TestBasicCancelWithAckableConsumer(BlockingTestCaseBase):
 
         ch = connection.channel()
 
-        q_name = (
-            'TestBasicCancelWithAckableConsumer_q' + uuid.uuid1().hex)
+        q_name = ('TestBasicCancelWithAckableConsumer_q' + uuid.uuid1().hex)
 
         body1 = 'a' * 1024
         body2 = 'b' * 2048
@@ -2778,8 +2863,11 @@ class TestBasicCancelWithAckableConsumer(BlockingTestCaseBase):
                                                       expected_count=2)
 
         # Create an ackable consumer
-        consumer_tag = ch.basic_consume(q_name, lambda *x: None, auto_ack=False,
-                                        exclusive=False, arguments=None)
+        consumer_tag = ch.basic_consume(q_name,
+                                        lambda *x: None,
+                                        auto_ack=False,
+                                        exclusive=False,
+                                        arguments=None)
 
         # Wait for all messages to be sent by broker to client
         self._assert_exact_message_count_with_retries(channel=ch,
@@ -2825,8 +2913,11 @@ class TestUnackedMessageAutoRestoredToQueueOnChannelClose(BlockingTestCaseBase):
 
         # Consume the events, but don't ack
         rx_messages = []
-        ch.basic_consume(q_name, lambda *args: rx_messages.append(args),
-                         auto_ack=False, exclusive=False, arguments=None)
+        ch.basic_consume(q_name,
+                         lambda *args: rx_messages.append(args),
+                         auto_ack=False,
+                         exclusive=False,
+                         arguments=None)
         while len(rx_messages) != 2:
             connection.process_data_events(time_limit=None)
 
@@ -2871,7 +2962,9 @@ class TestNoAckMessageNotRestoredToQueueOnChannelClose(BlockingTestCaseBase):
 
         # Consume, but don't ack
         num_messages = 0
-        for rx_method, _, _ in ch.consume(q_name, auto_ack=True, exclusive=False):
+        for rx_method, _, _ in ch.consume(q_name,
+                                          auto_ack=True,
+                                          exclusive=False):
             num_messages += 1
 
             self.assertEqual(rx_method.delivery_tag, num_messages)
@@ -2942,7 +3035,8 @@ class TestConsumeGeneratorInterruptedByCancelFromBroker(BlockingTestCaseBase):
         self.assertIsNone(ch._queue_consumer_generator)
 
 
-class TestConsumeGeneratorCancelEncountersCancelFromBroker(BlockingTestCaseBase):
+class TestConsumeGeneratorCancelEncountersCancelFromBroker(
+        BlockingTestCaseBase):
 
     def test(self):
         """BlockingChannel consume generator cancel called when broker's Cancel is enqueued """
@@ -2967,8 +3061,9 @@ class TestConsumeGeneratorCancelEncountersCancelFromBroker(BlockingTestCaseBase)
                 connection.process_data_events()
 
             # Confirm it's Basic.Cancel
-            self.assertIsInstance(ch._queue_consumer_generator.pending_events[0],
-                                  blocking_connection._ConsumerCancellationEvt)
+            self.assertIsInstance(
+                ch._queue_consumer_generator.pending_events[0],
+                blocking_connection._ConsumerCancellationEvt)
 
             # Now attempt to cancel the consumer generator
             ch.cancel()
@@ -2976,7 +3071,8 @@ class TestConsumeGeneratorCancelEncountersCancelFromBroker(BlockingTestCaseBase)
             self.assertIsNone(ch._queue_consumer_generator)
 
 
-class TestConsumeGeneratorPassesChannelClosedOnSameChannelFailure(BlockingTestCaseBase):
+class TestConsumeGeneratorPassesChannelClosedOnSameChannelFailure(
+        BlockingTestCaseBase):
 
     def test(self):
         """consume() exits with ChannelClosed exception on same channel failure
@@ -2998,11 +3094,8 @@ class TestConsumeGeneratorPassesChannelClosedOnSameChannelFailure(BlockingTestCa
         # Schedule a callback that will cause a channel error on the consumer's
         # channel by publishing to an unknown exchange. This will cause the
         # broker to close our channel.
-        connection.add_callback_threadsafe(
-            lambda: ch.basic_publish(
-                exchange=q_name,
-                routing_key='123',
-                body=b'Nope this is wrong'))
+        connection.add_callback_threadsafe(lambda: ch.basic_publish(
+            exchange=q_name, routing_key='123', body=b'Nope this is wrong'))
 
         with self.assertRaises(pika.exceptions.ChannelClosedByBroker):
             for _ in ch.consume(q_name):
@@ -3042,7 +3135,9 @@ class TestChannelFlow(BlockingTestCaseBase):
         self.assertEqual(frame.method.consumer_count, 1)
 
 
-class TestChannelRaisesWrongStateWhenDeclaringQueueOnClosedChannel(BlockingTestCaseBase):
+class TestChannelRaisesWrongStateWhenDeclaringQueueOnClosedChannel(
+        BlockingTestCaseBase):
+
     def test(self):
         """BlockingConnection: Declaring queue on closed channel raises ChannelWrongStateError"""
         q_name = (
@@ -3056,6 +3151,7 @@ class TestChannelRaisesWrongStateWhenDeclaringQueueOnClosedChannel(BlockingTestC
 
 
 class TestChannelRaisesWrongStateWhenClosingClosedChannel(BlockingTestCaseBase):
+
     def test(self):
         """BlockingConnection: Closing closed channel raises ChannelWrongStateError"""
         channel = self._connect().channel()
@@ -3065,6 +3161,7 @@ class TestChannelRaisesWrongStateWhenClosingClosedChannel(BlockingTestCaseBase):
 
 
 class TestChannelContextManagerClosesChannel(BlockingTestCaseBase):
+
     def test(self):
         """BlockingConnection: chanel context manager exit survives closed channel"""
         with self._connect().channel() as channel:
@@ -3074,6 +3171,7 @@ class TestChannelContextManagerClosesChannel(BlockingTestCaseBase):
 
 
 class TestChannelContextManagerExitSurvivesClosedChannel(BlockingTestCaseBase):
+
     def test(self):
         """BlockingConnection: chanel context manager exit survives closed channel"""
         with self._connect().channel() as channel:
@@ -3086,6 +3184,7 @@ class TestChannelContextManagerExitSurvivesClosedChannel(BlockingTestCaseBase):
 
 class TestChannelContextManagerDoesNotSuppressChannelClosedByBroker(
         BlockingTestCaseBase):
+
     def test(self):
         """BlockingConnection: chanel context manager doesn't suppress ChannelClosedByBroker exception"""
 

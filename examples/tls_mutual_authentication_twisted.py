@@ -4,6 +4,7 @@ from pika.credentials import ExternalCredentials
 
 from twisted.internet import defer, protocol, ssl, reactor
 
+
 @defer.inlineCallbacks
 def publish(connection):
     channel = yield connection.channel()
@@ -14,9 +15,11 @@ def publish(connection):
     )
     print("published")
 
+
 def connection_ready(conn):
-    conn.ready.addCallback(lambda _ :conn)
+    conn.ready.addCallback(lambda _: conn)
     return conn.ready
+
 
 # Load the CA certificate to validate the server's identity
 with open("PIKA_DIR/testdata/certs/ca_certificate.pem") as fd:
@@ -35,8 +38,9 @@ context_factory = ssl.optionsForClientTLS(
     clientCertificate=client_keypair,
 )
 params = ConnectionParameters(credentials=ExternalCredentials())
-cc = protocol.ClientCreator(
-    reactor, twisted_connection.TwistedProtocolConnection, params)
+cc = protocol.ClientCreator(reactor,
+                            twisted_connection.TwistedProtocolConnection,
+                            params)
 deferred = cc.connectSSL("localhost", 5671, context_factory)
 deferred.addCallback(connection_ready)
 deferred.addCallback(publish)

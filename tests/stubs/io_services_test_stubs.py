@@ -114,8 +114,7 @@ class IOServicesTestStubs(object):
         # implementation.
 
         import asyncio
-        from pika.adapters.asyncio_connection import (
-            _AsyncioIOServicesAdapter)
+        from pika.adapters.asyncio_connection import (_AsyncioIOServicesAdapter)
 
         native_loop = asyncio.new_event_loop()
         self._run_start(
