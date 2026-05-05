@@ -1,6 +1,5 @@
 import logging
 import pika
-from pika import adapters
 from pika.adapters.tornado_connection import TornadoConnection
 from pika.exchange_type import ExchangeType
 
