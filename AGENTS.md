@@ -79,8 +79,7 @@ Install [Hatch](https://hatch.pypa.io/) if you do not have it:
 pipx install hatch
 ```
 
-Run tests with Hatch (it creates the environment and installs dependencies
-automatically):
+Run tests with Hatch (it creates the environment and installs dependencies automatically):
 
 ```bash
 # Unit tests only (no RabbitMQ needed)
