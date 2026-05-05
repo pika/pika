@@ -72,6 +72,30 @@ packages = ["pika", "pika.adapters", "pika.adapters.utils"]
 [tool.setuptools.package-data]
 "*" = ["LICENSE", "README.rst"]
 
+[tool.hatch.envs.default]
+dependencies = [
+    "coverage",
+    "codecov",
+    "gevent",
+    "pytest>=7.0.0",
+    "pytest-cov",
+    "pytest-timeout",
+    "tornado",
+    "twisted",
+    "mypy>=1.20; python_version >= '3.10'",
+    "ruff",
+    "yapf",
+]
+
+[tool.hatch.envs.default.scripts]
+fmt = "yapf --in-place --style google --recursive --exclude 'pika/spec.py' pika/"
+fmt-check = "yapf --diff --style google --recursive --exclude 'pika/spec.py' pika/"
+lint = "ruff check pika/ tests/ examples/ utils/"
+typecheck = "python -m mypy"
+unit = "pytest tests/unit/"
+test = "pytest"
+rabbitmq = "docker run --pull always --detach --rm --publish 5672:5672 --publish 15672:15672 rabbitmq:management-alpine"
+
 [tool.pytest.ini_options]
 minversion = "7.0"
 testpaths = ["tests"]
