@@ -1,14 +1,11 @@
 name: Docs
 
 on:
-  push:
-    branches:
-      - main
   pull_request:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: docs-${{ github.ref }}
@@ -19,11 +16,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
@@ -33,15 +30,3 @@ jobs:
 
       - name: Build documentation
         run: mkdocs build --strict
-
-      - name: Configure Git author
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: |
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-
-      - name: Deploy versioned documentation
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: |
-          mike deploy --push --update-aliases dev latest
-          mike set-default --push latest
