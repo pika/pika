@@ -196,7 +196,7 @@ for connection errors. Here is a very basic example:
         except pika.exceptions.AMQPConnectionError:
             continue
 
-This example can be found in `examples/consume_recover.py`.
+A similar example can be found in `examples/blocking_consume_recover_multiple_hosts.py`.
 
 Generic operation retry libraries such as
 `retry <https://github.com/invl/retry>`_ can be used. Decorators make it
@@ -223,7 +223,6 @@ retries and limiting the number of retries:
 
     consume()
 
-This example can be found in `examples/consume_recover_retry.py`.
 
 For asynchronous adapters, use ``on_close_callback`` to react to connection
 failure events. This callback can be used to clean up and recover the
