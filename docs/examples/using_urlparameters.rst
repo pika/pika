@@ -38,7 +38,6 @@ If you're looking to tweak other parameters, such as enabling heartbeats, simply
 
 Options that are available as query string values:
 
-- backpressure_detection: Pass in a value of *t* to enable backpressure detection, it is disabled by default.
 - channel_max: Alter the default channel maximum by passing in a 32-bit integer value here.
 - client_properties: A dictionary of client properties to override::
 
