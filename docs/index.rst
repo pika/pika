@@ -6,15 +6,13 @@ If you have not developed with Pika or RabbitMQ before, the :doc:`intro` documen
 
 Installing Pika
 ---------------
-Pika is available for download via PyPI and may be installed using easy_install or pip::
+Pika is available for download via PyPI and may be installed using pip::
 
     pip install pika
 
-or::
+To install from source::
 
-    easy_install pika
-
-To install from source, run "python setup.py install" in the root source directory.
+    pip install .
 
 Using Pika
 ----------
