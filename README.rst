@@ -74,11 +74,11 @@ Pika provides the following adapters
 - ``pika.SelectConnection`` - asynchronous adapter without third-party
   dependencies.
 - ``pika.adapters.gevent_connection.GeventConnection`` - asynchronous adapter
-  for use with `Gevent <http://www.gevent.org>`_'s I/O loop.
+  for use with `Gevent <https://www.gevent.org>`_'s I/O loop.
 - ``pika.adapters.tornado_connection.TornadoConnection`` - asynchronous adapter
-  for use with `Tornado <http://tornadoweb.org>`_'s I/O loop.
+  for use with `Tornado <https://tornadoweb.org>`_'s I/O loop.
 - ``pika.adapters.twisted_connection.TwistedProtocolConnection`` - asynchronous
-  adapter for use with `Twisted <http://twistedmatrix.com>`_'s I/O loop.
+  adapter for use with `Twisted <https://twistedmatrix.com>`_'s I/O loop.
 
 Multiple connection parameters
 ------------------------------
@@ -240,7 +240,7 @@ existing functionality **include test coverage**.
 rejected.*
 
 Additionally, please format your code using
-`Yapf <http://pypi.python.org/pypi/yapf>`_ with ``google`` style prior to
+`Yapf <https://pypi.python.org/pypi/yapf>`_ with ``google`` style prior to
 issuing your pull request. *Note: only format those lines that you have changed
 in your pull request. If you format an entire file and change code outside of
 the scope of your PR, it will likely be rejected.*
@@ -265,7 +265,7 @@ New non-blocking adapters may be implemented in either of the following ways:
   ``pika.adapters.twisted_connection.TwistedProtocolConnection``.
 
 .. |Version| image:: https://img.shields.io/pypi/v/pika.svg?
-   :target: http://badge.fury.io/py/pika
+   :target: https://badge.fury.io/py/pika
 
 .. |Python versions| image:: https://img.shields.io/pypi/pyversions/pika.svg
     :target: https://pypi.python.org/pypi/pika
