@@ -59,7 +59,9 @@ print('Requeued %i messages' % requeued_messages)
 connection.close()
 
 ```
-## Pika provides the following adapters
+## Adapters
+
+Pika provides the following adapters:
 
 - `pika.adapters.asyncio_connection.AsyncioConnection` - asynchronous adapter
   for Python 3 [AsyncIO](https://docs.python.org/3/library/asyncio.html)'s
