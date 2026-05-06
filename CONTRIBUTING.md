@@ -59,7 +59,7 @@ If you would like to run TLS/SSL tests, use the following procedure:
 * Run the tests indicating that TLS/SSL connections should be used:
 
     ```
-    pytest --use-tls
+    hatch run test -- --use-tls
     ```
 
 
