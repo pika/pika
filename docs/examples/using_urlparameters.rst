@@ -38,7 +38,6 @@ If you're looking to tweak other parameters, such as enabling heartbeats, simply
 
 Options that are available as query string values:
 
-- backpressure_detection: Pass in a value of *t* to enable backpressure detection, it is disabled by default.
 - channel_max: Alter the default channel maximum by passing in a 32-bit integer value here.
 - client_properties: A dictionary of client properties to override::
 
@@ -56,11 +55,11 @@ Options that are available as query string values:
    - keyfile
    - ssl_version
 
-For information on what the ssl_options can be set to reference the `official Python documentation <http://docs.python.org/3/library/ssl.html>`_. Here is an example of setting the client certificate and key::
+For information on what the ssl_options can be set to reference the `official Python documentation <https://docs.python.org/3/library/ssl.html>`_. Here is an example of setting the client certificate and key::
 
   amqp://www-data:rabbit_pwd@rabbit1/web_messages?heartbeat=30&ssl_options=%7B%27keyfile%27%3A+%27%2Fetc%2Fssl%2Fmykey.pem%27%2C+%27certfile%27%3A+%27%2Fetc%2Fssl%2Fmycert.pem%27%7D
 
-The following example demonstrates how to generate the ssl_options string with `Python's urllib <http://docs.python.org/3/library/urllib.html>`_::
+The following example demonstrates how to generate the ssl_options string with `Python's urllib <https://docs.python.org/3/library/urllib.html>`_::
 
     from urllib.parse import urlencode
     urlencode({'ssl_options': {'certfile': '/etc/ssl/mycert.pem', 'keyfile': '/etc/ssl/mykey.pem'}})

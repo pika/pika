@@ -1605,7 +1605,7 @@ class Connection(pika.compat.AbstractBase):  # type: ignore
                 'exchange_exchange_bindings': True,
                 'publisher_confirms': True
             },
-            'information': 'See http://pika.rtfd.org',
+            'information': 'See https://pika.rtfd.org',
             'version': pika.__version__
         }
 

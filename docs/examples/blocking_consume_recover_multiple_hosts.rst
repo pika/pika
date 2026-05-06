@@ -3,7 +3,7 @@ Using the Blocking Connection with connection recovery with multiple hosts
 
 .. _example_blocking_basic_consume_recover_multiple_hosts:
 
-RabbitMQ nodes can be `clustered <http://www.rabbitmq.com/clustering.html>`_.
+RabbitMQ nodes can be `clustered <https://www.rabbitmq.com/clustering.html>`_.
 In the absence of failure clients can connect to any node and perform any operation.
 In case a node fails, stops, or becomes unavailable, clients should be able to
 connect to another node and continue.
@@ -38,8 +38,7 @@ connection errors::
             connection = pika.BlockingConnection(all_endpoints)
             channel = connection.channel()
             channel.basic_qos(prefetch_count=1)
-            ## This queue is intentionally non-durable. See http://www.rabbitmq.com/ha.html#non-mirrored-queue-behavior-on-node-failure
-            ## to learn more.
+            ## This queue is intentionally non-durable.
             channel.queue_declare('recovery-example', durable = False, auto_delete = True)
             channel.basic_consume('recovery-example', on_message)
             try:
@@ -94,8 +93,7 @@ In this example the `retry` decorator is used to set up recovery with delay::
         channel = connection.channel()
         channel.basic_qos(prefetch_count=1)
 
-        ## This queue is intentionally non-durable. See http://www.rabbitmq.com/ha.html#non-mirrored-queue-behavior-on-node-failure
-        ## to learn more.
+        ## This queue is intentionally non-durable.
         channel.queue_declare('recovery-example', durable = False, auto_delete = True)
         channel.basic_consume('recovery-example', on_message)
 

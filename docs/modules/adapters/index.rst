@@ -67,8 +67,8 @@ adapter's thread.
 Connection recovery
 -------------------
 
-The Pika library requires connection recovery to be performed by the application 
-code and strive to make it a straightforward process. Pika falls into the second category.
+Pika requires connection recovery to be performed by the application code and
+strives to make it a straightforward process.
 
 Different connection adapters take different approaches to connection recovery.
 
@@ -95,7 +95,7 @@ for connection errors. Here is a very basic example:
         except pika.exceptions.AMQPConnectionError:
             continue
 
-This example can be found in `examples/consume_recover.py`.
+A similar example can be found in `examples/blocking_consume_recover_multiple_hosts.py`.
 
 Generic operation retry libraries such as
 `retry <https://github.com/invl/retry>`_ can be used. Decorators make it
@@ -122,7 +122,6 @@ retries and limiting the number of retries:
 
     consume()
 
-This example can be found in `examples/consume_recover_retry.py`.
 
 For asynchronous adapters, use ``on_close_callback`` to react to connection
 failure events. This callback can be used to clean up and recover the

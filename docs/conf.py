@@ -8,8 +8,8 @@ extensions = ['sphinx.ext.autodoc', 'sphinx.ext.viewcode',
 
 intersphinx_mapping = {'python': ('https://docs.python.org/3/',
                                   'https://docs.python.org/3/objects.inv'),
-                       'tornado': ('http://www.tornadoweb.org/en/stable/',
-                                   'http://www.tornadoweb.org/en/stable/objects.inv')}
+                       'tornado': ('https://www.tornadoweb.org/en/stable/',
+                                   'https://www.tornadoweb.org/en/stable/objects.inv')}
 
 templates_path = ['_templates']
 
@@ -17,7 +17,7 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 project = 'pika'
-copyright = '2009-2017, Tony Garnock-Jones, Gavin M. Roy, Pivotal Software, Inc and contributors.'
+copyright = '2009-2026, Tony Garnock-Jones, Gavin M. Roy, Pivotal Software, Inc and contributors.'
 
 import pika
 release = pika.__version__
@@ -29,6 +29,6 @@ add_module_names = True
 show_authors = True
 pygments_style = 'sphinx'
 modindex_common_prefix = ['pika']
-html_theme = 'default'
+html_theme = 'alabaster'
 html_static_path = ['_static']
 htmlhelp_basename = 'pikadoc'

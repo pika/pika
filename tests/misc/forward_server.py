@@ -413,7 +413,7 @@ class _TCPHandler(socketserver.StreamRequestHandler, object):
             # NOTE: python 2.6 doesn't support bytearray with recv_into, so
             # we use array.array instead; this is only okay as long as the
             # array instance isn't shared across threads. See
-            # http://bugs.python.org/issue7827 and
+            # https://bugs.python.org/issue7827 and
             # groups.google.com/forum/#!topic/comp.lang.python/M6Pqr-KUjQw
             rx_buf = array.array("B", [0] * self._SOCK_RX_BUF_SIZE)
 

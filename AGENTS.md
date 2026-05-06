@@ -61,15 +61,17 @@ without corresponding `utils/codegen.py` changes will be rejected.
 
 ## CI workflows
 
+- **Format** (`.github/workflows/yapf.yaml`): runs `yapf` check on every push and pull request.
 - **Lint** (`.github/workflows/lint.yaml`): runs `ruff check` on every push
   and pull request.
 - **Type check** (`.github/workflows/mypy.yaml`): runs `mypy` on every push
   and pull request. Requires `tornado` and `twisted` to be installed so mypy
   can resolve optional-dependency types.
 - **Tests** (`.github/workflows/main.yaml`): runs the full test suite with
-  `pynose` across the Python version matrix. Acceptance tests require a
-  RabbitMQ server (started via Docker in CI). The Windows job runs unit
-  tests only.
+  `pytest` on Python 3.10-3.14. Acceptance tests require a RabbitMQ server
+  (started via Docker in CI).
+- **Legacy tests** (`.github/workflows/legacy-python.yaml`): same as above,
+  but for Python 3.7-3.9.
 
 ## Running tests locally
 

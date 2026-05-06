@@ -74,11 +74,11 @@ Pika provides the following adapters
 - ``pika.SelectConnection`` - asynchronous adapter without third-party
   dependencies.
 - ``pika.adapters.gevent_connection.GeventConnection`` - asynchronous adapter
-  for use with `Gevent <http://www.gevent.org>`_'s I/O loop.
+  for use with `Gevent <https://www.gevent.org>`_'s I/O loop.
 - ``pika.adapters.tornado_connection.TornadoConnection`` - asynchronous adapter
-  for use with `Tornado <http://tornadoweb.org>`_'s I/O loop.
+  for use with `Tornado <https://tornadoweb.org>`_'s I/O loop.
 - ``pika.adapters.twisted_connection.TwistedProtocolConnection`` - asynchronous
-  adapter for use with `Twisted <http://twistedmatrix.com>`_'s I/O loop.
+  adapter for use with `Twisted <https://twistedmatrix.com>`_'s I/O loop.
 
 Multiple connection parameters
 ------------------------------
@@ -196,7 +196,7 @@ for connection errors. Here is a very basic example:
         except pika.exceptions.AMQPConnectionError:
             continue
 
-This example can be found in `examples/consume_recover.py`.
+A similar example can be found in `examples/blocking_consume_recover_multiple_hosts.py`.
 
 Generic operation retry libraries such as
 `retry <https://github.com/invl/retry>`_ can be used. Decorators make it
@@ -223,7 +223,6 @@ retries and limiting the number of retries:
 
     consume()
 
-This example can be found in `examples/consume_recover_retry.py`.
 
 For asynchronous adapters, use ``on_close_callback`` to react to connection
 failure events. This callback can be used to clean up and recover the
@@ -241,7 +240,7 @@ existing functionality **include test coverage**.
 rejected.*
 
 Additionally, please format your code using
-`Yapf <http://pypi.python.org/pypi/yapf>`_ with ``google`` style prior to
+`Yapf <https://pypi.org/project/yapf>`_ with ``google`` style prior to
 issuing your pull request. *Note: only format those lines that you have changed
 in your pull request. If you format an entire file and change code outside of
 the scope of your PR, it will likely be rejected.*
@@ -266,10 +265,10 @@ New non-blocking adapters may be implemented in either of the following ways:
   ``pika.adapters.twisted_connection.TwistedProtocolConnection``.
 
 .. |Version| image:: https://img.shields.io/pypi/v/pika.svg?
-   :target: http://badge.fury.io/py/pika
+   :target: https://badge.fury.io/py/pika
 
 .. |Python versions| image:: https://img.shields.io/pypi/pyversions/pika.svg
-    :target: https://pypi.python.org/pypi/pika
+    :target: https://pypi.org/project/pika
 
 .. |Actions Status| image:: https://github.com/pika/pika/actions/workflows/main.yaml/badge.svg
    :target: https://github.com/pika/pika/actions/workflows/main.yaml
