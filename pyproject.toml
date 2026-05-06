@@ -88,8 +88,8 @@ dependencies = [
 ]
 
 [tool.hatch.envs.default.scripts]
-fmt = "yapf --in-place --style google --recursive --exclude 'pika/spec.py' pika/"
-fmt-check = "yapf --diff --style google --recursive --exclude 'pika/spec.py' pika/"
+fmt = "yapf --in-place --style google --recursive --exclude 'pika/spec.py' pika/ tests/ examples/ utils/"
+fmt-check = "yapf --diff --style google --recursive --exclude 'pika/spec.py' pika/ tests/ examples/ utils/"
 lint = "ruff check pika/ tests/ examples/ utils/"
 typecheck = "python -m mypy"
 unit = "pytest tests/unit/"
