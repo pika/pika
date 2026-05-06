@@ -17,7 +17,7 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 project = 'pika'
-copyright = '2009-2025, Tony Garnock-Jones, Gavin M. Roy, Pivotal Software, Inc and contributors.'
+copyright = '2009-2026, Tony Garnock-Jones, Gavin M. Roy, Pivotal Software, Inc and contributors.'
 
 import pika
 release = pika.__version__
