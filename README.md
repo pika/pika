@@ -4,8 +4,7 @@ Pika is a RabbitMQ (AMQP 0-9-1) client library for Python.
 [![Version](https://img.shields.io/pypi/v/pika.svg?)](http://badge.fury.io/py/pika) [![Python versions](https://img.shields.io/pypi/pyversions/pika.svg)](https://pypi.python.org/pypi/pika) [![Downloads](https://img.shields.io/pypi/dm/pika.svg)](https://pypi.python.org/pypi/pika) [![Actions Status](https://github.com/pika/pika/actions/workflows/main.yaml/badge.svg)](https://github.com/pika/pika/actions/workflows/main.yaml) [![Coverage](https://img.shields.io/codecov/c/github/pika/pika/main.svg)](https://codecov.io/github/pika/pika?branch=main) [![License](https://img.shields.io/pypi/l/pika.svg?)](https://github.com/pika/pika/blob/main/LICENSE) [![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://pika.github.io/pika/)
 
 ## Introduction
-Pika is a pure-Python implementation of the AMQP 0-9-1 protocol including
-RabbitMQ's extensions.
+Pika is a pure-Python implementation of the AMQP 0-9-1 protocol including RabbitMQ's extensions.
 
 - Supports Python 3.7+ (CPython and PyPy; versions are listed on
   [PyPI](https://pypi.org/project/pika/)). Pika 1.1.0 was the last release
@@ -23,8 +22,7 @@ RabbitMQ's extensions.
 Pika's documentation can be found [here](https://pika.github.io/pika/).
 
 ## Example
-Here is the most simple example of use, sending a message with the
-`pika.BlockingConnection` adapter:
+Here is the most simple example of use, sending a message with the `pika.BlockingConnection` adapter:
 
 ```python
 import pika
@@ -78,12 +76,7 @@ Pika provides the following adapters:
   adapter for use with [Twisted](http://twistedmatrix.com)'s I/O loop.
 
 ## Multiple connection parameters
-You can also pass multiple `pika.ConnectionParameters` instances for
-fault-tolerance as in the code snippet below (host names are just examples, of
-course). To enable retries, set `connection_attempts` and `retry_delay` as
-needed in the last `pika.ConnectionParameters` element of the sequence.
-Retries occur after connection attempts using all of the given connection
-parameters fail.
+You can also pass multiple `pika.ConnectionParameters` instances for fault-tolerance as in the code snippet below (host names are just examples, of course). To enable retries, set `connection_attempts` and `retry_delay` as needed in the last `pika.ConnectionParameters` element of the sequence. Retries occur after connection attempts using all of the given connection parameters fail.
 
 ```python
 import pika
@@ -95,26 +88,12 @@ parameters = (
 connection = pika.BlockingConnection(parameters)
 
 ```
-With non-blocking adapters, such as `pika.SelectConnection` and
-`pika.adapters.asyncio_connection.AsyncioConnection`, you can request a
-connection using multiple connection parameter instances via the connection
-adapter's `create_connection()` class method.
+With non-blocking adapters, such as `pika.SelectConnection` and `pika.adapters.asyncio_connection.AsyncioConnection`, you can request a connection using multiple connection parameter instances via the connection adapter's `create_connection()` class method.
 
 ## Requesting message acknowledgements from another thread
-The single-threaded usage constraint of an individual Pika connection adapter
-instance may result in a dropped AMQP/stream connection due to AMQP heartbeat
-timeout in consumers that take a long time to process an incoming message. A
-common solution is to delegate processing of the incoming messages to another
-thread, while the connection adapter's thread continues to service its I/O
-loop's message pump, permitting AMQP heartbeats and other I/O to be serviced in
-a timely fashion.
+The single-threaded usage constraint of an individual Pika connection adapter instance may result in a dropped AMQP/stream connection due to AMQP heartbeat timeout in consumers that take a long time to process an incoming message. A common solution is to delegate processing of the incoming messages to another thread, while the connection adapter's thread continues to service its I/O loop's message pump, permitting AMQP heartbeats and other I/O to be serviced in a timely fashion.
 
-Messages processed in another thread may not be acknowledged directly from that
-thread, since all accesses to the connection adapter instance must be from a
-single thread, which is the thread running the adapter's I/O loop. This is
-accomplished by requesting a callback to be executed in the adapter's
-I/O loop thread. For example, the callback function's implementation might look
-like this:
+Messages processed in another thread may not be acknowledged directly from that thread, since all accesses to the connection adapter instance must be from a single thread, which is the thread running the adapter's I/O loop. This is accomplished by requesting a callback to be executed in the adapter's I/O loop thread. For example, the callback function's implementation might look like this:
 
 ```python
 def ack_message(channel, delivery_tag):
@@ -129,9 +108,7 @@ def ack_message(channel, delivery_tag):
         pass
 
 ```
-The code running in the other thread may request the `ack_message()` function
-to be executed in the connection adapter's I/O loop thread using an
-adapter-specific mechanism:
+The code running in the other thread may request the `ack_message()` function to be executed in the connection adapter's I/O loop thread using an adapter-specific mechanism:
 
 - `pika.BlockingConnection` abstracts its I/O loop from the application and
   thus exposes `pika.BlockingConnection.add_callback_threadsafe()`. Refer to
@@ -152,23 +129,15 @@ connection.add_callback_threadsafe(functools.partial(ack_message, channel, deliv
   `pika.adapters.asyncio_connection.AsyncioConnection`'s I/O loop exposes
   `call_soon_threadsafe()`.
 
-This threadsafe callback request mechanism may also be used to delegate
-publishing of messages, etc., from a background thread to the connection
-adapter's thread.
+This threadsafe callback request mechanism may also be used to delegate publishing of messages, etc., from a background thread to the connection adapter's thread.
 
 ## Connection recovery
 
-Some RabbitMQ clients (Bunny, Java, .NET, Objective-C, Swift) provide a way to
-automatically recover a connection, its channels and topology (e.g. queues,
-bindings and consumers) after a network failure. Others require connection
-recovery to be performed by the application code and strive to make it a
-straightforward process. Pika falls into the second category.
+Some RabbitMQ clients (Bunny, Java, .NET, Objective-C, Swift) provide a way to automatically recover a connection, its channels and topology (e.g. queues, bindings and consumers) after a network failure. Others require connection recovery to be performed by the application code and strive to make it a straightforward process. Pika falls into the second category.
 
-Pika supports multiple connection adapters. They take different approaches to
-connection recovery.
+Pika supports multiple connection adapters. They take different approaches to connection recovery.
 
-For `pika.BlockingConnection` adapter exception handling can be used to check
-for connection errors. Here is a very basic example:
+For `pika.BlockingConnection` adapter exception handling can be used to check for connection errors. Here is a very basic example:
 
 ```python
 import pika
@@ -190,13 +159,9 @@ while True:
         continue
 
 ```
-This example can be found in
-[`examples/consume_recover.py`](https://github.com/pika/pika/blob/main/examples/consume_recover.py).
+This example can be found in [`examples/consume_recover.py`](https://github.com/pika/pika/blob/main/examples/consume_recover.py).
 
-Generic operation retry libraries such as
-[retry](https://github.com/invl/retry) can be used. Decorators make it
-possible to configure some additional recovery behaviours, like delays between
-retries and limiting the number of retries:
+Generic operation retry libraries such as [retry](https://github.com/invl/retry) can be used. Decorators make it possible to configure some additional recovery behaviours, like delays between retries and limiting the number of retries:
 
 ```python
 from retry import retry
@@ -218,20 +183,15 @@ def consume():
 consume()
 
 ```
-This example can be found in
-[`examples/consume_recover_retry.py`](https://github.com/pika/pika/blob/main/examples/consume_recover_retry.py).
+This example can be found in [`examples/consume_recover_retry.py`](https://github.com/pika/pika/blob/main/examples/consume_recover_retry.py).
 
-For asynchronous adapters, use `on_close_callback` to react to connection
-failure events. This callback can be used to clean up and recover the
-connection.
+For asynchronous adapters, use `on_close_callback` to react to connection failure events. This callback can be used to clean up and recover the connection.
 
-An example of recovery using `on_close_callback` can be found in
-[`examples/asynchronous_consumer_example.py`](https://github.com/pika/pika/blob/main/examples/asynchronous_consumer_example.py).
+An example of recovery using `on_close_callback` can be found in [`examples/asynchronous_consumer_example.py`](https://github.com/pika/pika/blob/main/examples/asynchronous_consumer_example.py).
 
 ## Contributing
 
-See the [Contributing guide](https://pika.github.io/pika/contributing/) for test
-setup, documentation builds, code formatting, and pull request expectations.
+See the [Contributing guide](https://pika.github.io/pika/contributing/) for test setup, documentation builds, code formatting, and pull request expectations.
 
 ## Extending to support additional I/O frameworks
 New non-blocking adapters may be implemented in either of the following ways:

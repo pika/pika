@@ -8,7 +8,6 @@ In the following example, a connection is made to RabbitMQ listening to port *56
 --8<-- "examples/comparing_publishing_sync.py"
 ```
 
-
 In contrast, using `pika.adapters.select_connection.SelectConnection` and the other asynchronous adapters is more complicated and less pythonic, but when used with other asynchronous services can have tremendous performance improvements. In the following code example, all of the same parameters and values are used as were used in the previous example:
 
 ```python

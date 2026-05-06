@@ -1,10 +1,6 @@
 # Connecting to RabbitMQ with Callback-Passing Style
 
-When you connect to RabbitMQ with an asynchronous adapter, you are writing event
-oriented code. The connection adapter will block on the IOLoop that is watching
-to see when pika should read data from and write data to RabbitMQ. Because you're
-now blocking on the IOLoop, you will receive callback notifications when specific
-events happen.
+When you connect to RabbitMQ with an asynchronous adapter, you are writing event oriented code. The connection adapter will block on the IOLoop that is watching to see when pika should read data from and write data to RabbitMQ. Because you're now blocking on the IOLoop, you will receive callback notifications when specific events happen.
 
 ## Example Code
 In the example, there are three steps that take place:

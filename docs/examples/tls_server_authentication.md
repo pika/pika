@@ -1,11 +1,9 @@
 # TLS parameters example
 This examples demonstrates a TLS session with RabbitMQ using server authentication.
 
-Note the use of `ssl.PROTOCOL_TLSv1_2`. The recent versions of RabbitMQ disable older versions of
-SSL due to security vulnerabilities.
+Note the use of `ssl.PROTOCOL_TLSv1_2`. The recent versions of RabbitMQ disable older versions of SSL due to security vulnerabilities.
 
 See [TLS Support](https://www.rabbitmq.com/ssl.html) for certificate creation and rabbitmq SSL configuration instructions.
-
 
 `examples/tls_server_authentication.py`:
 

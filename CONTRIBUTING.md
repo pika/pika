@@ -2,16 +2,13 @@
 
 ## Test Coverage
 
-To contribute to Pika, please make sure that any new features or changes to
-existing functionality **include test coverage**.
+To contribute to Pika, please make sure that any new features or changes to existing functionality **include test coverage**.
 
-Pull requests that add or change code without adequate test coverage will be
-rejected.
+Pull requests that add or change code without adequate test coverage will be rejected.
 
 ## Code Formatting
 
-Please format your code using [yapf](https://pypi.python.org/pypi/yapf) with
-`google` style prior to issuing your pull request.
+Please format your code using [yapf](https://pypi.python.org/pypi/yapf) with `google` style prior to issuing your pull request.
 
 !!! note
 
@@ -34,7 +31,6 @@ Pika test suite has a couple of requirements:
  * Dependencies from `test-requirements.txt` are installed
  * A RabbitMQ node with all defaults is running on `localhost:5672`
 
-
 ## Installing Dependencies
 
 To install the dependencies needed to run Pika tests, use
@@ -43,16 +39,13 @@ To install the dependencies needed to run Pika tests, use
 
 If your environment uses the `pip3` command name, run `pip3 install -r test-requirements.txt` instead.
 
-
 ## Running Tests
 
 To run all test suites, use
 
     pytest
 
-Note that some tests are OS-specific (e.g. epoll on Linux
-or kqueue on MacOS and BSD). Those will be skipped
-automatically.
+Note that some tests are OS-specific (e.g. epoll on Linux or kqueue on MacOS and BSD). Those will be skipped automatically.
 
 If you would like to run TLS/SSL tests, use the following procedure:
 
@@ -75,7 +68,6 @@ If you would like to run TLS/SSL tests, use the following procedure:
     pytest --use-tls
     ```
 
-
 ## Building Documentation
 
 Pika documentation is built with MkDocs and Material for MkDocs.
@@ -96,10 +88,7 @@ Or with live reload:
 
     mkdocs serve --livereload
 
-`mkdocs serve` always serves **one** build. The site header version menu (Material
-`extra.version.provider: mike`) only appears when several versions exist in a
-**mike** layout (`versions.json` on the `gh-pages` branch), not in a plain
-`site/` output.
+`mkdocs serve` always serves **one** build. The site header version menu (Material `extra.version.provider: mike`) only appears when several versions exist in a **mike** layout (`versions.json` on the `gh-pages` branch), not in a plain `site/` output.
 
 To preview **multiple versions** locally:
 

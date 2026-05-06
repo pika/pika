@@ -119,7 +119,6 @@ parameters = pika.ConnectionParameters(credentials=credentials)
 ## Connection Parameters
 There are two types of connection parameter classes in Pika to allow you to pass the connection information into a connection adapter, `ConnectionParameters` and `URLParameters`. Both classes share the same default connection values.
 
-
 <a id="intro_to_backpressure"></a>
 
 ## TCP Backpressure

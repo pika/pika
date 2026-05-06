@@ -1,13 +1,10 @@
 # Using URLParameters
-Pika has two methods of encapsulating the data that lets it know how to connect
-to RabbitMQ, `pika.connection.ConnectionParameters` and `pika.connection.URLParameters`.
+Pika has two methods of encapsulating the data that lets it know how to connect to RabbitMQ, `pika.connection.ConnectionParameters` and `pika.connection.URLParameters`.
 
 !!! note
     If you're connecting to RabbitMQ on localhost on port 5672, with the default virtual host of */* and the default username and password of *guest* and *guest*, you do not need to specify connection parameters when connecting.
 
-Using `pika.connection.URLParameters` is an easy way to minimize the
-variables required to connect to RabbitMQ and supports all of the directives
-that `pika.connection.ConnectionParameters` supports.
+Using `pika.connection.URLParameters` is an easy way to minimize the variables required to connect to RabbitMQ and supports all of the directives that `pika.connection.ConnectionParameters` supports.
 
 The following is the format for the URLParameters connection value:
 
@@ -42,7 +39,6 @@ If you're looking to tweak other parameters, such as enabling heartbeats, simply
 ```text
 amqps://www-data:rabbit_pwd@rabbit1/web_messages?heartbeat=30
 ```
-
 
 Options that are available as query string values:
 
