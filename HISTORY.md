@@ -1,6 +1,6 @@
 # Version History
 
-[pika]{.title-ref} uses \[Semantic Versioning\](<https://semver.org>)
+Pika uses [Semantic Versioning](https://semver.org).
 
 ## 1.3.0 2022-06-29
 

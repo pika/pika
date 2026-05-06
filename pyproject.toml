@@ -39,11 +39,12 @@ dependencies = []
 requires-python = ">=3.7"
 
 [project.readme]
-file = "README.rst"
-content-type = "text/x-rst"
+file = "README.md"
+content-type = "text/markdown"
 
 [project.urls]
-Homepage = "https://pika.readthedocs.io"
+Homepage = "https://pika.github.io/pika/"
+Documentation = "https://pika.github.io/pika/"
 Source = "https://github.com/pika/pika"
 
 [project.optional-dependencies]
@@ -70,7 +71,7 @@ include-package-data = false
 packages = ["pika", "pika.adapters", "pika.adapters.utils"]
 
 [tool.setuptools.package-data]
-"*" = ["LICENSE", "README.rst"]
+"*" = ["LICENSE", "README.md"]
 
 [tool.pytest.ini_options]
 minversion = "7.0"

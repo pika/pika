@@ -308,7 +308,7 @@ class BlockingConnection:
     connection when client makes a resource-consuming request on that connection
     or its channel (e.g., `Basic.Publish`); subsequently, RabbitMQ suspsends
     processing requests from that connection until the affected resources are
-    restored. See http://www.rabbitmq.com/connection-blocked.html. This
+    restored. See https://www.rabbitmq.com/connection-blocked.html. This
     may impact `BlockingConnection` and `BlockingChannel` operations in a
     way that users might not be expecting. For example, if the user dispatches
     `BlockingChannel.basic_publish` in non-publisher-confirmation mode while
@@ -343,11 +343,12 @@ class BlockingConnection:
     ) -> None:
         """Create a new instance of the Connection object.
 
-        :param None | pika.connection.Parameters | sequence parameters:
+        :param parameters:
             Connection parameters instance or non-empty sequence of them. If
             None, a `pika.connection.Parameters` instance will be created with
             default settings. See `pika.AMQPConnectionWorkflow` for more
             details about multiple parameter configurations and retries.
+            Type: `None | pika.connection.Parameters | sequence`.
         :param _impl_class: for tests/debugging only; implementation class;
             None=default
 
@@ -430,14 +431,16 @@ class BlockingConnection:
     ) -> select_connection.SelectConnection:
         """Run connection workflow, blocking until it completes.
 
-        :param None | pika.connection.Parameters | sequence configs: Connection
+        :param configs: Connection
             parameters instance or non-empty sequence of them.
-        :param None | SelectConnection impl_class: for tests/debugging only;
-            implementation class;
+            Type: `None | pika.connection.Parameters | sequence`.
+        :param impl_class: for tests/debugging only; implementation class.
+            Type: `None | SelectConnection`.
 
+        :returns: impl_class
         :rtype: impl_class
 
-        :raises: exception on failure
+        :raises Exception: on failure
         """
 
         if configs is None:
@@ -519,7 +522,7 @@ class BlockingConnection:
         :param waiters: sequence of zero or more callables taking no args and
                         returning true when it's time to stop processing.
                         Their results are OR'ed together.
-        :raises: exceptions passed by impl if opening of connection fails or
+        :raises Exception: exceptions passed by impl if opening of connection fails or
             connection closes.
         """
         if self.is_closed:
@@ -931,6 +934,7 @@ class BlockingConnection:
         specify but it is recommended that you let Pika manage the channel
         numbers.
 
+        :returns: pika.adapters.blocking_connection.BlockingChannel
         :rtype: pika.adapters.blocking_connection.BlockingChannel
         """
         with _CallbackResult(self._OnChannelOpenedArgs) as opened_args:
@@ -975,6 +979,7 @@ class BlockingConnection:
     def basic_nack_supported(self) -> bool:
         """Specifies if the server supports basic.nack on the active connection.
 
+        :returns: bool
         :rtype: bool
 
         """
@@ -985,6 +990,7 @@ class BlockingConnection:
         """Specifies if the server supports consumer cancel notification on the
         active connection.
 
+        :returns: bool
         :rtype: bool
 
         """
@@ -995,6 +1001,7 @@ class BlockingConnection:
         """Specifies if the active connection supports exchange to exchange
         bindings.
 
+        :returns: bool
         :rtype: bool
 
         """
@@ -1004,6 +1011,7 @@ class BlockingConnection:
     def publisher_confirms_supported(self) -> bool:
         """Specifies if the active connection can use publisher confirmations.
 
+        :returns: bool
         :rtype: bool
 
         """
@@ -1313,7 +1321,7 @@ class BlockingChannel:
         self._basic_consume_ok_result = _CallbackResult()
 
         # Receives args from Basic.GetEmpty response
-        #  http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.get
+        #  https://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.get
         self._basic_getempty_result = _CallbackResult(
             self._MethodFrameCallbackResultArgs)
 
@@ -1337,6 +1345,7 @@ class BlockingChannel:
         NOTE: inherited from legacy BlockingConnection; might be error-prone;
         use `channel_number` property instead.
 
+        :returns: int
         :rtype: int
 
         """
@@ -1374,6 +1383,7 @@ class BlockingChannel:
     def is_closed(self) -> bool:
         """Returns True if the channel is closed.
 
+        :returns: bool
         :rtype: bool
 
         """
@@ -1383,6 +1393,7 @@ class BlockingChannel:
     def is_open(self) -> bool:
         """Returns True if the channel is open.
 
+        :returns: bool
         :rtype: bool
 
         """
@@ -1393,6 +1404,7 @@ class BlockingChannel:
         """Property method that returns a list of consumer tags for active
         consumers
 
+        :returns: list
         :rtype: list
 
         """
@@ -1530,7 +1542,7 @@ class BlockingChannel:
                                       body: bytes):
         """Called by impl when a message is delivered for a consumer
 
-        :param Channel channel: The implementation channel object
+        :param Channel _channel: The implementation channel object
         :param spec.Basic.Deliver method:
         :param pika.spec.BasicProperties properties: message properties
         :param bytes body: delivered message body; empty string if no body
@@ -1631,7 +1643,7 @@ class BlockingChannel:
 
         For more information, please reference:
 
-        http://www.rabbitmq.com/amqp-0-9-1-reference.html#channel.flow
+        https://www.rabbitmq.com/amqp-0-9-1-reference.html#channel.flow
 
         :param bool active: Turn flow on (True) or off (False)
         :returns: True if broker will start or continue sending; False if not
@@ -1705,7 +1717,7 @@ class BlockingChannel:
         `BlockingChannel.start_consuming`.
 
         For more information about Basic.Consume, see:
-        http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.consume
+        https://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.consume
 
         :param str queue: The queue from which to consume
         :param callable on_message_callback: Required function for dispatching messages
@@ -1716,7 +1728,7 @@ class BlockingChannel:
             - properties: spec.BasicProperties
             - body: bytes
         :param bool auto_ack: if set to True, automatic acknowledgement mode will be used
-                              (see http://www.rabbitmq.com/confirms.html). This corresponds
+                              (see https://www.rabbitmq.com/confirms.html). This corresponds
                               with the 'no_ack' parameter in the basic.consume AMQP 0.9.1
                               method
         :param bool exclusive: Don't allow other consumers on the queue
@@ -2305,7 +2317,7 @@ class BlockingChannel:
 
         For more information on basic_publish and what the parameters do, see:
 
-            http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.publish
+            https://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.publish
 
         NOTE: mandatory may be enabled even without delivery
           confirmation, but in the absence of delivery confirmation the

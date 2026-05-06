@@ -278,6 +278,7 @@ class TwistedChannel:
     def is_closed(self) -> bool:
         """Returns True if the channel is closed.
 
+        :returns: bool
         :rtype: bool
 
         """
@@ -288,6 +289,7 @@ class TwistedChannel:
         """Returns True if client-initiated closing of the channel is in
         progress.
 
+        :returns: bool
         :rtype: bool
 
         """
@@ -297,6 +299,7 @@ class TwistedChannel:
     def is_open(self) -> bool:
         """Returns True if the channel is open.
 
+        :returns: bool
         :rtype: bool
 
         """
@@ -413,14 +416,14 @@ class TwistedChannel:
         consumer_tag, one will be automatically generated for you.
 
         For more information on basic_consume, see:
-        Tutorial 2 at http://www.rabbitmq.com/getstarted.html
-        http://www.rabbitmq.com/confirms.html
-        http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.consume
+        Tutorial 2 at https://www.rabbitmq.com/getstarted.html
+        https://www.rabbitmq.com/confirms.html
+        https://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.consume
 
         :param str queue: The queue to consume from. Use the empty string to
             specify the most recent server-named queue for this channel.
         :param bool auto_ack: if set to True, automatic acknowledgement mode
-            will be used (see http://www.rabbitmq.com/confirms.html). This
+            will be used (see https://www.rabbitmq.com/confirms.html). This
             corresponds with the 'no_ack' parameter in the basic.consume AMQP
             0.9.1 method
         :param bool exclusive: Don't allow other consumers on the queue
@@ -496,7 +499,7 @@ class TwistedChannel:
         a second time until the callback is executed.  For more information on
         basic_get and its parameters, see:
 
-        http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.get
+        https://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.get
 
         This method wraps :meth:`Channel.basic_get
         <pika.channel.Channel.basic_get>`.
@@ -582,7 +585,7 @@ class TwistedChannel:
 
         For more information on basic_publish and what the parameters do, see:
 
-        http://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.publish
+        https://www.rabbitmq.com/amqp-0-9-1-reference.html#basic.publish
 
         :param str exchange: The exchange to publish to
         :param str routing_key: The routing key to bind on
@@ -612,7 +615,7 @@ class TwistedChannel:
         if not self._delivery_confirmation:
             return defer.succeed(result)
         else:
-            # See http://www.rabbitmq.com/confirms.html#publisher-confirms
+            # See https://www.rabbitmq.com/confirms.html#publisher-confirms
             self._delivery_message_id += 1
             self._deliveries[self._delivery_message_id] = defer.Deferred()
             return self._deliveries[self._delivery_message_id]
@@ -668,7 +671,7 @@ class TwistedChannel:
                              requeue the message. If requeue is false or the
                              requeue attempt fails the messages are discarded
                              or dead-lettered.
-        :raises: TypeError
+        :raises TypeError:
 
         """
         return self._channel.basic_reject(delivery_tag=delivery_tag,
@@ -711,7 +714,7 @@ class TwistedChannel:
         rejected (Basic.Ack, Basic.Nack) from the broker to the publisher.
 
         For more information see:
-            http://www.rabbitmq.com/confirms.html#publisher-confirms
+            https://www.rabbitmq.com/confirms.html#publisher-confirms
 
         :returns: Deferred that fires on the Confirm.SelectOk response
         :rtype: Deferred
@@ -933,7 +936,7 @@ class TwistedChannel:
         Returns a Deferred that will fire with a bool indicating the channel
         flow state. For more information, please reference:
 
-        http://www.rabbitmq.com/amqp-0-9-1-reference.html#channel.flow
+        https://www.rabbitmq.com/amqp-0-9-1-reference.html#channel.flow
 
         :param bool active: Turn flow on or off
         :returns: Deferred that fires with the channel flow state

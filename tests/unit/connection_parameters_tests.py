@@ -32,8 +32,8 @@ class ChildParameters(connection.Parameters):
 
     def __eq__(self, other):
         if isinstance(other, ChildParameters):
-            return self.extra == other.extra and super(
-                ChildParameters, self).__eq__(other)
+            return self.extra == other.extra and super(ChildParameters,
+                                                       self).__eq__(other)
         return NotImplemented
 
 
@@ -52,43 +52,43 @@ class ParametersTestsBase(unittest.TestCase):
         kls = connection.Parameters
         defaults = {
             'blocked_connection_timeout':
-            kls.DEFAULT_BLOCKED_CONNECTION_TIMEOUT,
+                kls.DEFAULT_BLOCKED_CONNECTION_TIMEOUT,
             'channel_max':
-            kls.DEFAULT_CHANNEL_MAX,
+                kls.DEFAULT_CHANNEL_MAX,
             'client_properties':
-            kls.DEFAULT_CLIENT_PROPERTIES,
+                kls.DEFAULT_CLIENT_PROPERTIES,
             'connection_attempts':
-            kls.DEFAULT_CONNECTION_ATTEMPTS,
+                kls.DEFAULT_CONNECTION_ATTEMPTS,
             'credentials':
-            credentials.PlainCredentials(kls.DEFAULT_USERNAME,
-                                         kls.DEFAULT_PASSWORD),
+                credentials.PlainCredentials(kls.DEFAULT_USERNAME,
+                                             kls.DEFAULT_PASSWORD),
             'frame_max':
-            kls.DEFAULT_FRAME_MAX,
+                kls.DEFAULT_FRAME_MAX,
             'heartbeat':
-            kls.DEFAULT_HEARTBEAT_TIMEOUT,
+                kls.DEFAULT_HEARTBEAT_TIMEOUT,
             'host':
-            kls.DEFAULT_HOST,
+                kls.DEFAULT_HOST,
             'locale':
-            kls.DEFAULT_LOCALE,
+                kls.DEFAULT_LOCALE,
             'port':
-            kls.DEFAULT_PORT,
+                kls.DEFAULT_PORT,
             'retry_delay':
-            kls.DEFAULT_RETRY_DELAY,
+                kls.DEFAULT_RETRY_DELAY,
             'socket_timeout':
-            kls.DEFAULT_SOCKET_TIMEOUT,
+                kls.DEFAULT_SOCKET_TIMEOUT,
             'stack_timeout':
-            kls.DEFAULT_STACK_TIMEOUT,
+                kls.DEFAULT_STACK_TIMEOUT,
             'ssl_options':
-            kls.DEFAULT_SSL_OPTIONS,
+                kls.DEFAULT_SSL_OPTIONS,
             'virtual_host':
-            kls.DEFAULT_VIRTUAL_HOST,
+                kls.DEFAULT_VIRTUAL_HOST,
             'tcp_options':
-            kls.DEFAULT_TCP_OPTIONS
+                kls.DEFAULT_TCP_OPTIONS
         }
 
         # Make sure we didn't miss anything
-        self.assertSequenceEqual(
-            sorted(defaults), sorted(_ALL_PUBLIC_PARAMETERS_PROPERTIES))
+        self.assertSequenceEqual(sorted(defaults),
+                                 sorted(_ALL_PUBLIC_PARAMETERS_PROPERTIES))
 
         return defaults
 
@@ -101,11 +101,10 @@ class ParametersTestsBase(unittest.TestCase):
         """
         for name, expected_value in self.get_default_properties().items():
             value = getattr(params, name)
-            self.assertEqual(
-                value,
-                expected_value,
-                msg='Expected %s=%r, but got %r' % (name, expected_value,
-                                                    value))
+            self.assertEqual(value,
+                             expected_value,
+                             msg='Expected %s=%r, but got %r' %
+                             (name, expected_value, value))
 
 
 class ParametersTests(ParametersTestsBase):
@@ -325,6 +324,7 @@ class ParametersTests(ParametersTestsBase):
 
         def heartbeat_callback(_conn, _val):
             return 1
+
         params.heartbeat = heartbeat_callback
         self.assertTrue(callable(params.heartbeat))
         self.assertIs(params.heartbeat, heartbeat_callback)
@@ -447,11 +447,10 @@ class ParametersTests(ParametersTestsBase):
     def test_tcp_options(self):
         params = connection.Parameters()
 
-        opt = dict(
-            TCP_KEEPIDLE=60,
-            TCP_KEEPINTVL=2,
-            TCP_KEEPCNT=1,
-            TCP_USER_TIMEOUT=1000)
+        opt = dict(TCP_KEEPIDLE=60,
+                   TCP_KEEPINTVL=2,
+                   TCP_KEEPCNT=1,
+                   TCP_USER_TIMEOUT=1000)
         params.tcp_options = copy.deepcopy(opt)
         self.assertEqual(params.tcp_options, opt)
 
@@ -533,20 +532,21 @@ class ConnectionParametersTests(ParametersTestsBase):
         expected_values = copy.copy(kwargs)
 
         # Make sure we're testing all public properties
-        self.assertSequenceEqual(
-            sorted(expected_values), sorted(_ALL_PUBLIC_PARAMETERS_PROPERTIES))
+        self.assertSequenceEqual(sorted(expected_values),
+                                 sorted(_ALL_PUBLIC_PARAMETERS_PROPERTIES))
         # Check property values
         for t_param in expected_values:
             value = getattr(params, t_param)
-            self.assertEqual(
-                expected_values[t_param],
-                value,
-                msg='Expected %s=%r, but got %r' %
-                (t_param, expected_values[t_param], value))
+            self.assertEqual(expected_values[t_param],
+                             value,
+                             msg='Expected %s=%r, but got %r' %
+                             (t_param, expected_values[t_param], value))
 
     def test_callable_heartbeat(self):
+
         def heartbeat_callback(_connection, _broker_val):
             return 1
+
         parameters = pika.ConnectionParameters(heartbeat=heartbeat_callback)
         self.assertIs(parameters.heartbeat, heartbeat_callback)
 
@@ -563,22 +563,20 @@ class ConnectionParametersTests(ParametersTestsBase):
             'blocked_connection_timeout': 10.5
         }
         # Test Type Errors
-        for bad_field, bad_value in (
-                ('host', 15672),
-                ('port', '5672a'),
-                ('virtual_host', True),
-                ('channel_max', '4'),
-                ('frame_max', '5'),
-                ('credentials', 'bad'),
-                ('locale', 1),
-                ('heartbeat', '6'),
-                ('socket_timeout', '42'),
-                ('stack_timeout', '99'),
-                ('retry_delay', 'two'),
-                ('ssl', {'ssl': 'dict'}),
-                ('ssl_options', True),
-                ('connection_attempts', 'hello'),
-                ('blocked_connection_timeout', set())):
+        for bad_field, bad_value in (('host', 15672), ('port', '5672a'),
+                                     ('virtual_host', True), ('channel_max',
+                                                              '4'),
+                                     ('frame_max', '5'), ('credentials', 'bad'),
+                                     ('locale', 1), ('heartbeat', '6'),
+                                     ('socket_timeout',
+                                      '42'), ('stack_timeout',
+                                              '99'), ('retry_delay',
+                                                      'two'), ('ssl', {
+                                                          'ssl': 'dict'
+                                                      }), ('ssl_options', True),
+                                     ('connection_attempts',
+                                      'hello'), ('blocked_connection_timeout',
+                                                 set())):
 
             bkwargs = copy.deepcopy(kwargs)
 
@@ -692,11 +690,10 @@ class URLParametersTests(ParametersTestsBase):
             expected_value = query_args[t_param]
             actual_value = getattr(params, t_param)
 
-            self.assertEqual(
-                actual_value,
-                expected_value,
-                msg='Expected %s=%r, but got %r' %
-                (t_param, expected_value, actual_value))
+            self.assertEqual(actual_value,
+                             expected_value,
+                             msg='Expected %s=%r, but got %r' %
+                             (t_param, expected_value, actual_value))
 
         # check all values from base URL
         self.assertEqual(params.credentials.username, 'myuser')
@@ -749,12 +746,14 @@ class URLParametersTests(ParametersTestsBase):
         self.assertEqual(parameters.virtual_host,
                          pika.URLParameters.DEFAULT_VIRTUAL_HOST)
 
-    def test_uses_default_virtual_host_via_encoded_slash_upcase_ending_with_slash(self):
+    def test_uses_default_virtual_host_via_encoded_slash_upcase_ending_with_slash(
+            self):
         parameters = pika.URLParameters('amqp://myserver.mycompany.com/%2F/')
         self.assertEqual(parameters.virtual_host,
                          pika.URLParameters.DEFAULT_VIRTUAL_HOST)
 
-    def test_uses_default_virtual_host_via_encoded_slash_downcase_ending_with_slash(self):
+    def test_uses_default_virtual_host_via_encoded_slash_downcase_ending_with_slash(
+            self):
         parameters = pika.URLParameters('amqp://myserver.mycompany.com/%2f/')
         self.assertEqual(parameters.virtual_host,
                          pika.URLParameters.DEFAULT_VIRTUAL_HOST)

@@ -17,7 +17,6 @@ import unittest
 
 from pika.adapters import select_connection
 
-
 # protected-access
 # pylint: disable=W0212
 
@@ -33,8 +32,7 @@ class ReadInterruptHandlesEmptySocket(unittest.TestCase):
 
     def setUp(self):
         self._poller = select_connection.SelectPoller(
-            get_wait_seconds=lambda: 0,
-            process_timeouts=lambda: None)
+            get_wait_seconds=lambda: 0, process_timeouts=lambda: None)
 
     def tearDown(self):
         self._poller.close()

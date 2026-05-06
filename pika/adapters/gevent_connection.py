@@ -68,8 +68,8 @@ class GeventConnection(BaseConnection):
             either an instance of `exceptions.ConnectionClosed` if closed by
             user or broker or exception of another type that describes the
             cause of connection failure
-        :param gevent._interfaces.ILoop|nbio_interface.AbstractIOServices|None
-            custom_ioloop: Use a custom Gevent ILoop.
+        :param custom_ioloop: Use a custom Gevent ILoop.
+            Type: `gevent._interfaces.ILoop | nbio_interface.AbstractIOServices | None`.
         :param bool internal_connection_workflow: True for autonomous connection
             establishment which is default; False for externally-managed
             connection workflow via the `create_connection()` factory
@@ -190,7 +190,7 @@ class _GeventSelectorIOLoop(AbstractSelectorIOLoop):
     """
     # Gevent's READ and WRITE masks are defined as 1 and 2 respectively. No
     # ERROR mask is defined.
-    # See http://www.gevent.org/api/gevent.hub.html#gevent._interfaces.ILoop.io
+    # See https://www.gevent.org/api/gevent.hub.html#gevent._interfaces.ILoop.io
     READ = 1  # pyright: ignore[reportAssignmentType, reportIncompatibleMethodOverride]
     WRITE = 2  # pyright: ignore[reportAssignmentType, reportIncompatibleMethodOverride]
     ERROR = 0  # pyright: ignore[reportAssignmentType, reportIncompatibleMethodOverride]
@@ -381,7 +381,7 @@ class _GeventAddressResolver:
     """Performs getaddrinfo asynchronously Gevent's configured resolver in a
     separate greenlet and invoking the provided callback with the result.
 
-    See: http://www.gevent.org/dns.html
+    See: https://www.gevent.org/dns.html
     """
     __slots__ = (
         '_loop',

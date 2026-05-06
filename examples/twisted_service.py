@@ -7,7 +7,7 @@
 #  - Post by Brian Chandler
 #    https://groups.google.com/forum/#!topic/pika-python/o_deVmGondk
 #  - Pika Documentation
-#    https://pika.readthedocs.io/en/latest/examples/twisted_example.html
+#    https://pika.github.io/pika/latest/examples/twisted_example/
 
 
 Fire up this test application via `twistd -ny twisted_service.py`
@@ -58,18 +58,18 @@ class PikaService(service.MultiService):
         f = PikaFactory(self.parameters)
         if self.parameters.ssl_options:
             s = ssl.ClientContextFactory()
-            serv = internet.SSLClient( # pylint: disable=E1101
+            serv = internet.SSLClient(  # pylint: disable=E1101
                 host=self.parameters.host,
                 port=self.parameters.port,
                 factory=f,
                 contextFactory=s)
         else:
-            serv = internet.TCPClient( # pylint: disable=E1101
+            serv = internet.TCPClient(  # pylint: disable=E1101
                 host=self.parameters.host,
                 port=self.parameters.port,
                 factory=f)
         serv.factory = f
-        f.service = serv # pylint: disable=W0201
+        f.service = serv  # pylint: disable=W0201
         name = '%s%s:%d' % ('ssl:' if self.parameters.ssl_options else '',
                             self.parameters.host, self.parameters.port)
         serv.__repr__ = lambda: '<AMQP Connection to %s>' % name
@@ -119,14 +119,14 @@ class PikaProtocol(twisted_connection.TwistedProtocolConnection):
         yield self._channel.queue_declare(queue=routing_key, durable=True)
         if exchange:
             yield self._channel.queue_bind(queue=routing_key, exchange=exchange)
-            yield self._channel.queue_bind(
-                queue=routing_key, exchange=exchange, routing_key=routing_key)
+            yield self._channel.queue_bind(queue=routing_key,
+                                           exchange=exchange,
+                                           routing_key=routing_key)
 
         (
             queue,
             _consumer_tag,
-        ) = yield self._channel.basic_consume(
-            queue=routing_key, auto_ack=False)
+        ) = yield self._channel.basic_consume(queue=routing_key, auto_ack=False)
         d = queue.get()
         d.addCallback(self._read_item, queue, callback)
         d.addErrback(self._read_item_err)
@@ -143,9 +143,9 @@ class PikaProtocol(twisted_connection.TwistedProtocolConnection):
             msg,
         ) = item
 
-        log.msg(
-            '%s (%s): %s' % (deliver.exchange, deliver.routing_key, repr(msg)),
-            system='Pika:<=')
+        log.msg('%s (%s): %s' %
+                (deliver.exchange, deliver.routing_key, repr(msg)),
+                system='Pika:<=')
         d = defer.maybeDeferred(callback, item)
         d.addCallbacks(lambda _: channel.basic_ack(deliver.delivery_tag),
                        lambda _: channel.basic_nack(deliver.delivery_tag))
@@ -168,21 +168,18 @@ class PikaProtocol(twisted_connection.TwistedProtocolConnection):
     @inlineCallbacks
     def send_message(self, exchange, routing_key, msg):
         """Send a single message."""
-        log.msg(
-            '%s (%s): %s' % (exchange, routing_key, repr(msg)),
-            system='Pika:=>')
-        yield self._channel.exchange_declare(
-            exchange=exchange,
-            exchange_type=ExchangeType.topic,
-            durable=True,
-            auto_delete=False)
+        log.msg('%s (%s): %s' % (exchange, routing_key, repr(msg)),
+                system='Pika:=>')
+        yield self._channel.exchange_declare(exchange=exchange,
+                                             exchange_type=ExchangeType.topic,
+                                             durable=True,
+                                             auto_delete=False)
         prop = spec.BasicProperties(delivery_mode=DeliveryMode.Persistent)
         try:
-            yield self._channel.basic_publish(
-                exchange=exchange,
-                routing_key=routing_key,
-                body=msg,
-                properties=prop)
+            yield self._channel.basic_publish(exchange=exchange,
+                                              routing_key=routing_key,
+                                              body=msg,
+                                              properties=prop)
         except Exception as error:  # pylint: disable=W0703
             log.msg('Error while sending message: %s' % error, system=self.name)
 
@@ -205,14 +202,14 @@ class PikaFactory(protocol.ReconnectingClientFactory):
         self.client = PikaProtocol(self, self.parameters)
         return self.client
 
-    def clientConnectionLost(self, connector, reason): # pylint: disable=W0221
+    def clientConnectionLost(self, connector, reason):  # pylint: disable=W0221
         log.msg('Lost connection.  Reason: %s' % reason.value, system=self.name)
         protocol.ReconnectingClientFactory.clientConnectionLost(
             self, connector, reason)
 
     def clientConnectionFailed(self, connector, reason):
-        log.msg(
-            'Connection failed. Reason: %s' % reason.value, system=self.name)
+        log.msg('Connection failed. Reason: %s' % reason.value,
+                system=self.name)
         protocol.ReconnectingClientFactory.clientConnectionFailed(
             self, connector, reason)
 
@@ -231,10 +228,10 @@ class PikaFactory(protocol.ReconnectingClientFactory):
 application = service.Application("pikaapplication")
 
 ps = PikaService(
-    pika.ConnectionParameters(
-        host="localhost",
-        virtual_host="/",
-        credentials=pika.PlainCredentials("guest", "guest")))
+    pika.ConnectionParameters(host="localhost",
+                              virtual_host="/",
+                              credentials=pika.PlainCredentials(
+                                  "guest", "guest")))
 ps.setServiceParent(application)
 
 
@@ -244,7 +241,7 @@ class TestService(service.Service):
         super().__init__()
         self.amqp = None
 
-    def task(self, _msg): # pylint: disable=R0201
+    def task(self, _msg):  # pylint: disable=R0201
         """
         Method for a time consuming task.
 
@@ -259,7 +256,7 @@ class TestService(service.Service):
         self.amqp.send_message('foobar', 'response', msg[3])
 
     def startService(self):
-        amqp_service = self.parent.getServiceNamed("amqp") # pylint: disable=E1111,E1121
+        amqp_service = self.parent.getServiceNamed("amqp")  # pylint: disable=E1111,E1121
         self.amqp = amqp_service.getFactory()
         self.amqp.read_messages("foobar", "request1", self.respond)
         self.amqp.read_messages("foobar", "request2", self.respond)

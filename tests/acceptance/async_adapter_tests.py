@@ -1,4 +1,3 @@
-
 # too-many-lines
 # pylint: disable=C0302
 
@@ -17,7 +16,6 @@
 # invalid-name
 # pylint: disable=C0103
 
-
 import functools
 import socket
 import threading
@@ -32,7 +30,8 @@ from pika.exchange_type import ExchangeType
 import pika.frame
 
 from tests.base import async_test_base
-from tests.base.async_test_base import (AsyncTestCase, BoundQueueTestCase, AsyncAdapters)
+from tests.base.async_test_base import (AsyncTestCase, BoundQueueTestCase,
+                                        AsyncAdapters)
 
 
 class TestA_Connect(AsyncTestCase, AsyncAdapters):  # pylint: disable=C0103
@@ -42,8 +41,7 @@ class TestA_Connect(AsyncTestCase, AsyncAdapters):  # pylint: disable=C0103
         self.stop()
 
 
-class TestConstructAndImmediatelyCloseConnection(AsyncTestCase,
-                                                 AsyncAdapters):
+class TestConstructAndImmediatelyCloseConnection(AsyncTestCase, AsyncAdapters):
     DESCRIPTION = "Construct and immediately close connection."
 
     @async_test_base.stop_on_error_in_async_test_case_method
@@ -59,8 +57,7 @@ class TestConstructAndImmediatelyCloseConnection(AsyncTestCase,
 
         @async_test_base.make_stop_on_error_with_self(self)
         def on_open_error(connection, error):
-            self.assertIsInstance(error,
-                                  pika.exceptions.ConnectionOpenAborted)
+            self.assertIsInstance(error, pika.exceptions.ConnectionOpenAborted)
             self.stop()
 
         conn = connection_class(params,
@@ -79,7 +76,6 @@ class TestCloseConnectionDuringAMQPHandshake(AsyncTestCase, AsyncAdapters):
 
         params = self.new_connection_params()
 
-
         class MyConnectionClass(base_class):
             # Cause an exception if _on_stream_connected doesn't exist
             base_class._on_stream_connected  # pylint: disable=W0104
@@ -90,10 +86,8 @@ class TestCloseConnectionDuringAMQPHandshake(AsyncTestCase, AsyncAdapters):
                 # of the connection
                 self._nbio.add_callback_threadsafe(self.close)
 
-                return super(MyConnectionClass, self)._on_stream_connected(
-                    *args,
-                    **kwargs)
-
+                return super(MyConnectionClass,
+                             self)._on_stream_connected(*args, **kwargs)
 
         @async_test_base.make_stop_on_error_with_self(self)
         def on_opened(connection):
@@ -132,18 +126,17 @@ class TestSocketConnectTimeoutWithTinySocketTimeout(AsyncTestCase,
 
         @async_test_base.make_stop_on_error_with_self(self)
         def on_open_error(connection, error):
-            self.assertIsInstance(error,
-                                  pika.exceptions.AMQPConnectionError)
+            self.assertIsInstance(error, pika.exceptions.AMQPConnectionError)
             self.stop()
 
-        connection_class(
-            params,
-            on_open_callback=on_opened,
-            on_open_error_callback=on_open_error,
-            custom_ioloop=self.connection.ioloop)
+        connection_class(params,
+                         on_open_callback=on_opened,
+                         on_open_error_callback=on_open_error,
+                         custom_ioloop=self.connection.ioloop)
 
 
-class TestStackConnectionTimeoutWithTinyStackTimeout(AsyncTestCase, AsyncAdapters):
+class TestStackConnectionTimeoutWithTinyStackTimeout(AsyncTestCase,
+                                                     AsyncAdapters):
     DESCRIPTION = "Force stack bring-up timeout with very tiny stack_timeout."
 
     @async_test_base.stop_on_error_in_async_test_case_method
@@ -168,11 +161,10 @@ class TestStackConnectionTimeoutWithTinyStackTimeout(AsyncTestCase, AsyncAdapter
                         exception))
             self.stop(error)
 
-        connection_class(
-            params,
-            on_open_callback=on_opened,
-            on_open_error_callback=on_open_error,
-            custom_ioloop=self.connection.ioloop)
+        connection_class(params,
+                         on_open_callback=on_opened,
+                         on_open_error_callback=on_open_error,
+                         custom_ioloop=self.connection.ioloop)
 
 
 class TestCreateConnectionViaDefaultConnectionWorkflow(AsyncTestCase,
@@ -196,12 +188,10 @@ class TestCreateConnectionViaDefaultConnectionWorkflow(AsyncTestCase,
                                   pika.exceptions.ConnectionClosedByClient)
             self.stop()
 
-        workflow = connection_class.create_connection(configs,
-                                                      on_done,
+        workflow = connection_class.create_connection(configs, on_done,
                                                       self.connection.ioloop)
         self.assertIsInstance(
-            workflow,
-            connection_workflow.AbstractAMQPConnectionWorkflow)
+            workflow, connection_workflow.AbstractAMQPConnectionWorkflow)
 
 
 class TestCreateConnectionViaCustomConnectionWorkflow(AsyncTestCase,
@@ -238,7 +228,6 @@ class TestCreateConnectionViaCustomConnectionWorkflow(AsyncTestCase,
                 result.i_was_here = MyWorkflow
                 super(MyWorkflow, self)._report_completion_and_cleanup(result)
 
-
         original_workflow = MyWorkflow()
         workflow = connection_class.create_connection(
             configs,
@@ -250,8 +239,7 @@ class TestCreateConnectionViaCustomConnectionWorkflow(AsyncTestCase,
 
 
 class TestCreateConnectionMultipleConfigsDefaultConnectionWorkflow(
-        AsyncTestCase,
-        AsyncAdapters):
+        AsyncTestCase, AsyncAdapters):
     DESCRIPTION = "Connect via adapter's create_connection() method with multiple configs."
 
     @async_test_base.stop_on_error_in_async_test_case_method
@@ -288,13 +276,11 @@ class TestCreateConnectionMultipleConfigsDefaultConnectionWorkflow(
                                                       on_done,
                                                       self.connection.ioloop)
         self.assertIsInstance(
-            workflow,
-            connection_workflow.AbstractAMQPConnectionWorkflow)
+            workflow, connection_workflow.AbstractAMQPConnectionWorkflow)
 
 
 class TestCreateConnectionRetriesWithDefaultConnectionWorkflow(
-        AsyncTestCase,
-        AsyncAdapters):
+        AsyncTestCase, AsyncAdapters):
     DESCRIPTION = "Connect via adapter's create_connection() method with multiple retries."
 
     @async_test_base.stop_on_error_in_async_test_case_method
@@ -337,8 +323,7 @@ class TestCreateConnectionRetriesWithDefaultConnectionWorkflow(
 
                 logger.info('Start of retry cycle detected.')
 
-                super(MyConnectionClass, self).__init__(parameters,
-                                                        *args,
+                super(MyConnectionClass, self).__init__(parameters, *args,
                                                         **kwargs)
 
         @async_test_base.make_stop_on_error_with_self(self)
@@ -357,13 +342,11 @@ class TestCreateConnectionRetriesWithDefaultConnectionWorkflow(
             self.stop()
 
         MyConnectionClass.create_connection([first_config, second_config],
-                                            on_done,
-                                            self.connection.ioloop)
+                                            on_done, self.connection.ioloop)
 
 
 class TestCreateConnectionConnectionWorkflowSocketConnectionFailure(
-        AsyncTestCase,
-        AsyncAdapters):
+        AsyncTestCase, AsyncAdapters):
     DESCRIPTION = "Connect via adapter's create_connection() fails to connect socket."
 
     @async_test_base.stop_on_error_in_async_test_case_method
@@ -381,20 +364,19 @@ class TestCreateConnectionConnectionWorkflowSocketConnectionFailure(
         @async_test_base.make_stop_on_error_with_self(self)
         def on_done(exc):
             self.assertIsInstance(
-                exc,
-                connection_workflow.AMQPConnectionWorkflowFailed)
+                exc, connection_workflow.AMQPConnectionWorkflowFailed)
             self.assertIsInstance(
                 exc.exceptions[-1],
                 connection_workflow.AMQPConnectorSocketConnectError)
             self.stop()
 
-        connection_class.create_connection([bad_params,],
-                                           on_done,
-                                           self.connection.ioloop)
+        connection_class.create_connection([
+            bad_params,
+        ], on_done, self.connection.ioloop)
 
 
-class TestCreateConnectionAMQPHandshakeTimesOutDefaultWorkflow(AsyncTestCase,
-                                                               AsyncAdapters):
+class TestCreateConnectionAMQPHandshakeTimesOutDefaultWorkflow(
+        AsyncTestCase, AsyncAdapters):
     DESCRIPTION = "AMQP handshake timeout handling in adapter's create_connection()."
 
     @async_test_base.stop_on_error_in_async_test_case_method
@@ -416,35 +398,29 @@ class TestCreateConnectionAMQPHandshakeTimesOutDefaultWorkflow(AsyncTestCase,
                 connector = workflow._connector  # type: connection_workflow.AMQPConnector
                 connector._stack_timeout_ref.cancel()
                 connector._stack_timeout_ref = connector._nbio.call_later(
-                    0,
-                    connector._on_overall_timeout)
+                    0, connector._on_overall_timeout)
 
-                return super(MyConnectionClass, self)._on_stream_connected(
-                    *args,
-                    **kwargs)
+                return super(MyConnectionClass,
+                             self)._on_stream_connected(*args, **kwargs)
 
         @async_test_base.make_stop_on_error_with_self(self)
         def on_done(error):
             self.assertIsInstance(
-                error,
-                connection_workflow.AMQPConnectionWorkflowFailed)
+                error, connection_workflow.AMQPConnectionWorkflowFailed)
             self.assertIsInstance(
                 error.exceptions[-1],
                 connection_workflow.AMQPConnectorAMQPHandshakeError)
-            self.assertIsInstance(
-                error.exceptions[-1].exception,
-                connection_workflow.AMQPConnectorStackTimeout)
+            self.assertIsInstance(error.exceptions[-1].exception,
+                                  connection_workflow.AMQPConnectorStackTimeout)
 
             self.stop()
 
-        workflow = MyConnectionClass.create_connection([params],
-                                                       on_done,
+        workflow = MyConnectionClass.create_connection([params], on_done,
                                                        self.connection.ioloop)
 
 
 class TestCreateConnectionAndImmediatelyAbortDefaultConnectionWorkflow(
-        AsyncTestCase,
-        AsyncAdapters):
+        AsyncTestCase, AsyncAdapters):
     DESCRIPTION = "Immediately abort workflow initiated via adapter's create_connection()."
 
     @async_test_base.stop_on_error_in_async_test_case_method
@@ -455,19 +431,16 @@ class TestCreateConnectionAndImmediatelyAbortDefaultConnectionWorkflow(
         @async_test_base.make_stop_on_error_with_self(self)
         def on_done(exc):
             self.assertIsInstance(
-                exc,
-                connection_workflow.AMQPConnectionWorkflowAborted)
+                exc, connection_workflow.AMQPConnectionWorkflowAborted)
             self.stop()
 
-        workflow = connection_class.create_connection(configs,
-                                                      on_done,
+        workflow = connection_class.create_connection(configs, on_done,
                                                       self.connection.ioloop)
         workflow.abort()
 
 
 class TestCreateConnectionAndAsynchronouslyAbortDefaultConnectionWorkflow(
-        AsyncTestCase,
-        AsyncAdapters):
+        AsyncTestCase, AsyncAdapters):
     DESCRIPTION = "Asyncrhonously abort workflow initiated via adapter's create_connection()."
 
     @async_test_base.stop_on_error_in_async_test_case_method
@@ -478,12 +451,10 @@ class TestCreateConnectionAndAsynchronouslyAbortDefaultConnectionWorkflow(
         @async_test_base.make_stop_on_error_with_self(self)
         def on_done(exc):
             self.assertIsInstance(
-                exc,
-                connection_workflow.AMQPConnectionWorkflowAborted)
+                exc, connection_workflow.AMQPConnectionWorkflowAborted)
             self.stop()
 
-        workflow = connection_class.create_connection(configs,
-                                                      on_done,
+        workflow = connection_class.create_connection(configs, on_done,
                                                       self.connection.ioloop)
         self.connection._nbio.add_callback_threadsafe(workflow.abort)
 
@@ -492,8 +463,8 @@ class TestUpdateSecret(AsyncTestCase, AsyncAdapters):
     DESCRIPTION = "Update secret and receive confirmation"
 
     def begin(self, channel):
-        self.connection.update_secret(
-            "new_secret", "reason", self.on_secret_update)
+        self.connection.update_secret("new_secret", "reason",
+                                      self.on_secret_update)
 
     def on_secret_update(self, frame):
         self.assertIsInstance(frame.method, spec.Connection.UpdateSecretOk)
@@ -522,11 +493,12 @@ class TestBlockingNonBlockingBlockingRPCWontStall(AsyncTestCase, AsyncAdapters):
 
     def begin(self, channel):
         # Queue declaration params table: queue name, nowait value
-        self._expected_queue_params = (
-            ("blocking-non-blocking-stall-check-" + uuid.uuid1().hex, False),
-            ("blocking-non-blocking-stall-check-" + uuid.uuid1().hex, True),
-            ("blocking-non-blocking-stall-check-" + uuid.uuid1().hex, False)
-        )
+        self._expected_queue_params = (("blocking-non-blocking-stall-check-" +
+                                        uuid.uuid1().hex, False),
+                                       ("blocking-non-blocking-stall-check-" +
+                                        uuid.uuid1().hex, True),
+                                       ("blocking-non-blocking-stall-check-" +
+                                        uuid.uuid1().hex, False))
 
         self._declared_queue_names = []
 
@@ -563,8 +535,7 @@ class TestConsumeCancel(AsyncTestCase, AsyncAdapters):
 
     def on_queue_declared(self, frame):
         for i in range(0, 100):
-            msg_body = '{}:{}:{}'.format(self.__class__.__name__, i,
-                                         time_now())
+            msg_body = '{}:{}:{}'.format(self.__class__.__name__, i, time_now())
             self.channel.basic_publish('', self.queue_name, msg_body)
         self.ctag = self.channel.basic_consume(self.queue_name,
                                                self.on_message,
@@ -596,7 +567,8 @@ class TestExchangeDeclareAndDelete(AsyncTestCase, AsyncAdapters):
 
     def on_exchange_declared(self, frame):
         self.assertIsInstance(frame.method, spec.Exchange.DeclareOk)
-        self.channel.exchange_delete(self.name, callback=self.on_exchange_delete)
+        self.channel.exchange_delete(self.name,
+                                     callback=self.on_exchange_delete)
 
     def on_exchange_delete(self, frame):
         self.assertIsInstance(frame.method, spec.Exchange.DeleteOk)
@@ -673,8 +645,8 @@ class TestNoDeadlockWhenClosingChannelWithPendingBlockedRequestsAndConcurrentCha
         self.fail("Should not have received an Exchange.DeclareOk")
 
 
-class TestClosingAChannelPermitsBlockedRequestToComplete(AsyncTestCase,
-                                                         AsyncAdapters):
+class TestClosingAChannelPermitsBlockedRequestToComplete(
+        AsyncTestCase, AsyncAdapters):
     DESCRIPTION = "Closing a channel permits blocked requests to complete."
 
     @async_test_base.stop_on_error_in_async_test_case_method
@@ -725,7 +697,8 @@ class TestQueueUnnamedDeclareAndDelete(AsyncTestCase, AsyncAdapters):
     @async_test_base.stop_on_error_in_async_test_case_method
     def on_queue_declared(self, frame):
         self.assertIsInstance(frame.method, spec.Queue.DeclareOk)
-        self.channel.queue_delete(frame.method.queue, callback=self.on_queue_delete)
+        self.channel.queue_delete(frame.method.queue,
+                                  callback=self.on_queue_delete)
 
     @async_test_base.stop_on_error_in_async_test_case_method
     def on_queue_delete(self, frame):
@@ -750,7 +723,8 @@ class TestQueueNamedDeclareAndDelete(AsyncTestCase, AsyncAdapters):
         self.assertIsInstance(frame.method, spec.Queue.DeclareOk)
         # Frame's method's queue is encoded (impl detail)
         self.assertEqual(frame.method.queue, self._q_name)
-        self.channel.queue_delete(frame.method.queue, callback=self.on_queue_delete)
+        self.channel.queue_delete(frame.method.queue,
+                                  callback=self.on_queue_delete)
 
     def on_queue_delete(self, frame):
         self.assertIsInstance(frame.method, spec.Queue.DeleteOk)
@@ -786,7 +760,6 @@ class TestQueueRedeclareWithDifferentValues(AsyncTestCase, AsyncAdapters):
     def on_bad_result(self, frame):
         self.channel.queue_delete(self._q_name)
         raise AssertionError("Should not have received a Queue.DeclareOk")
-
 
 
 class TestTX1_Select(AsyncTestCase, AsyncAdapters):  # pylint: disable=C0103
@@ -957,9 +930,9 @@ class TestBlockedConnectionTimesOut(AsyncTestCase, AsyncAdapters):  # pylint: di
         # Simulate Connection.Blocked
         channel.connection._on_connection_blocked(
             channel.connection,
-            pika.frame.Method(0,
-                              spec.Connection.Blocked(
-                                  'Testing blocked connection timeout')))
+            pika.frame.Method(
+                0,
+                spec.Connection.Blocked('Testing blocked connection timeout')))
 
     def on_closed(self, connection, error):
         """called when the connection has finished closing"""
@@ -986,14 +959,14 @@ class TestBlockedConnectionUnblocks(AsyncTestCase, AsyncAdapters):  # pylint: di
         # Simulate Connection.Blocked
         channel.connection._on_connection_blocked(
             channel.connection,
-            pika.frame.Method(0,
-                              spec.Connection.Blocked(
-                                  'Testing blocked connection unblocks')))
+            pika.frame.Method(
+                0,
+                spec.Connection.Blocked('Testing blocked connection unblocks')))
 
         # Simulate Connection.Unblocked
         channel.connection._on_connection_unblocked(
-            channel.connection,
-            pika.frame.Method(0, spec.Connection.Unblocked()))
+            channel.connection, pika.frame.Method(0,
+                                                  spec.Connection.Unblocked()))
 
         # Schedule shutdown after blocked connection timeout would expire
         channel.connection._adapter_call_later(0.005, self.on_cleanup_timer)
@@ -1007,7 +980,8 @@ class TestBlockedConnectionUnblocks(AsyncTestCase, AsyncAdapters):  # pylint: di
         super(TestBlockedConnectionUnblocks, self).on_closed(connection, error)
 
 
-class TestAddCallbackThreadsafeRequestBeforeIOLoopStarts(AsyncTestCase, AsyncAdapters):
+class TestAddCallbackThreadsafeRequestBeforeIOLoopStarts(
+        AsyncTestCase, AsyncAdapters):
     DESCRIPTION = (
         "Test _adapter_add_callback_threadsafe request before ioloop starts.")
 
@@ -1021,15 +995,15 @@ class TestAddCallbackThreadsafeRequestBeforeIOLoopStarts(AsyncTestCase, AsyncAda
         self.connection._adapter_add_callback_threadsafe(
             self.on_requested_callback)
 
-        return super(
-            TestAddCallbackThreadsafeRequestBeforeIOLoopStarts, self)._run_ioloop(
-                *args, **kwargs)
+        return super(TestAddCallbackThreadsafeRequestBeforeIOLoopStarts,
+                     self)._run_ioloop(*args, **kwargs)
 
     def start(self, *args, **kwargs):  # pylint: disable=W0221
         self.loop_thread_ident = threading.current_thread().ident
         self.my_start_time = None
         self.got_callback = False
-        super(TestAddCallbackThreadsafeRequestBeforeIOLoopStarts, self).start(*args, **kwargs)
+        super(TestAddCallbackThreadsafeRequestBeforeIOLoopStarts,
+              self).start(*args, **kwargs)
         self.assertTrue(self.got_callback)
 
     def begin(self, channel):
@@ -1050,7 +1024,8 @@ class TestAddCallbackThreadsafeFromIOLoopThread(AsyncTestCase, AsyncAdapters):
         self.loop_thread_ident = threading.current_thread().ident
         self.my_start_time = None
         self.got_callback = False
-        super(TestAddCallbackThreadsafeFromIOLoopThread, self).start(*args, **kwargs)
+        super(TestAddCallbackThreadsafeFromIOLoopThread,
+              self).start(*args, **kwargs)
         self.assertTrue(self.got_callback)
 
     def begin(self, channel):
@@ -1075,15 +1050,15 @@ class TestAddCallbackThreadsafeFromAnotherThread(AsyncTestCase, AsyncAdapters):
         self.loop_thread_ident = threading.current_thread().ident
         self.my_start_time = None
         self.got_callback = False
-        super(TestAddCallbackThreadsafeFromAnotherThread, self).start(*args, **kwargs)
+        super(TestAddCallbackThreadsafeFromAnotherThread,
+              self).start(*args, **kwargs)
         self.assertTrue(self.got_callback)
 
     def begin(self, channel):
         self.my_start_time = time_now()
         # Request a callback from ioloop while executing in another thread
         timer = threading.Timer(
-            0,
-            lambda: channel.connection._adapter_add_callback_threadsafe(
+            0, lambda: channel.connection._adapter_add_callback_threadsafe(
                 self.on_requested_callback))
         self.addCleanup(timer.cancel)
         timer.start()
@@ -1107,22 +1082,23 @@ class TestIOLoopStopBeforeIOLoopStarts(AsyncTestCase, AsyncAdapters):
         my_start_time = time_now()
         self.stop_ioloop_only()
 
-        super(
-            TestIOLoopStopBeforeIOLoopStarts, self)._run_ioloop(*args, **kwargs)
+        super(TestIOLoopStopBeforeIOLoopStarts,
+              self)._run_ioloop(*args, **kwargs)
 
         self.assertLess(time_now() - my_start_time, 0.25)
 
         # Resume I/O loop to facilitate normal course of events and closure
         # of connection in order to prevent reporting of a socket resource leak
         # from an unclosed connection.
-        super(
-            TestIOLoopStopBeforeIOLoopStarts, self)._run_ioloop(*args, **kwargs)
+        super(TestIOLoopStopBeforeIOLoopStarts,
+              self)._run_ioloop(*args, **kwargs)
 
     def begin(self, channel):
         self.stop()
 
 
-class TestViabilityOfMultipleTimeoutsWithSameDeadlineAndCallback(AsyncTestCase, AsyncAdapters):  # pylint: disable=C0103
+class TestViabilityOfMultipleTimeoutsWithSameDeadlineAndCallback(
+        AsyncTestCase, AsyncAdapters):  # pylint: disable=C0103
     DESCRIPTION = "Test viability of multiple timeouts with same deadline and callback"
 
     def begin(self, channel):

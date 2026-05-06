@@ -11,7 +11,6 @@ import threading
 import traceback
 import unittest
 
-
 MODULE_PID = os.getpid()
 
 DEFAULT_TEST_TIMEOUT = 15
@@ -52,8 +51,7 @@ def create_run_in_thread_decorator(test_timeout=None):
                 times out
             """
             runner = _ThreadedTestWrapper(
-                functools.partial(fun, *args, **kwargs),
-                test_timeout)
+                functools.partial(fun, *args, **kwargs), test_timeout)
             return runner.kick_off()
 
         return run_in_thread_with_timeout_wrapper
@@ -145,12 +143,10 @@ class _ThreadedTestWrapper(object):
             self._exc_info = sys.exc_info()
             del self._fun_result  # to force exception on inadvertent access
             if not isinstance(self._exc_info[1], unittest.SkipTest):
-                print(
-                    'ERROR start() of test {} failed:\n{}'.format(
-                        self,
-                        self._exc_info_to_str(self._exc_info)),
-                    end='',
-                    file=self._stderr)
+                print('ERROR start() of test {} failed:\n{}'.format(
+                    self, self._exc_info_to_str(self._exc_info)),
+                      end='',
+                      file=self._stderr)
 
     @staticmethod
     def _exc_info_to_str(exc_info):
