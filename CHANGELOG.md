@@ -1,6 +1,81 @@
 # Changelog
 
-## [1.4.0b0](https://github.com/pika/pika/tree/1.4.0b0) (2024-07-12)
+## [1.4.0](https://github.com/pika/pika/tree/1.4.0) (2026-05-06)
+
+[Full Changelog](https://github.com/pika/pika/compare/1.4.0b0...1.4.0)
+
+**Implemented enhancements:**
+
+- Enforce yapf/google formatting in CI [\#1558](https://github.com/pika/pika/issues/1558)
+- Add Hatch dev environment and scripts [\#1579](https://github.com/pika/pika/pull/1579) ([lukebakken](https://github.com/lukebakken))
+- Drop more Python 2 compatibility code [\#1561](https://github.com/pika/pika/pull/1561) ([lukebakken](https://github.com/lukebakken))
+
+**Closed issues:**
+
+- Add Hatch scripts to standardize developer commands [\#1578](https://github.com/pika/pika/issues/1578)
+- Fix outdated and broken documentation across the project [\#1568](https://github.com/pika/pika/issues/1568)
+- Update Codecov default branch and badge [\#1563](https://github.com/pika/pika/issues/1563)
+- GitHub actions workflows and test code need updates for RabbitMQ 4.3 [\#1547](https://github.com/pika/pika/issues/1547)
+- datetime.datetime.utcfromtimestamp\(\) is deprecated [\#1539](https://github.com/pika/pika/issues/1539)
+- URLParameters这个类有bug [\#1533](https://github.com/pika/pika/issues/1533)
+- Custom transport [\#1532](https://github.com/pika/pika/issues/1532)
+- x-delay value is being returned in the header as a UINT64 and not a SINT16 [\#1531](https://github.com/pika/pika/issues/1531)
+- Pika should advertise the `exchange_exchange_bindings` client capability [\#1530](https://github.com/pika/pika/issues/1530)
+- Missing type annotations [\#1523](https://github.com/pika/pika/issues/1523)
+- There is no info about return type of queue\_declare\(\) method of pika.channel [\#1522](https://github.com/pika/pika/issues/1522)
+- Getting the user who sent the message [\#1510](https://github.com/pika/pika/issues/1510)
+- Where is examples/consume\_recover\_retry.py ? [\#1499](https://github.com/pika/pika/issues/1499)
+- Type Hint Issue with arguments parameter in queue\_declare method of BlockingChannel Class - \(expected "DeclareOk | None"  \[arg-type\]\) [\#1482](https://github.com/pika/pika/issues/1482)
+- queue\_declare does not receive the callback at random times [\#1480](https://github.com/pika/pika/issues/1480)
+- There is no current event loop in thread [\#1479](https://github.com/pika/pika/issues/1479)
+- Cannot find reference 'exceptions' in '\_\_init\_\_.pyi'  [\#1473](https://github.com/pika/pika/issues/1473)
+- Convert to `pytest` [\#1469](https://github.com/pika/pika/issues/1469)
+- Add a CI lint check using `ruff` and fix all findings [\#1371](https://github.com/pika/pika/issues/1371)
+- Add support for proxy configuration \(Socks5\) [\#1359](https://github.com/pika/pika/issues/1359)
+- BlockingIOError: \[WinError 10035\] A non-blocking socket operation could not be completed immediately [\#1314](https://github.com/pika/pika/issues/1314)
+
+**Merged pull requests:**
+
+- Update outdated documentation across the pika project [\#1577](https://github.com/pika/pika/pull/1577) ([suchitd](https://github.com/suchitd))
+- Fix TypeError in select\_connection [\#1575](https://github.com/pika/pika/pull/1575) ([suchitd](https://github.com/suchitd))
+- Support Python 3.7+ in CI and fix `typing_extensions` import [\#1574](https://github.com/pika/pika/pull/1574) ([lukebakken](https://github.com/lukebakken))
+- Add `yapf` formatter enforcement [\#1573](https://github.com/pika/pika/pull/1573) ([alonfaraj](https://github.com/alonfaraj))
+- Replace `PIKA_TEST_TLS` env with pytest flag [\#1572](https://github.com/pika/pika/pull/1572) ([alonfaraj](https://github.com/alonfaraj))
+- Fix field table type decoding to match RabbitMQ wire format [\#1566](https://github.com/pika/pika/pull/1566) ([lukebakken](https://github.com/lukebakken))
+- Legacy file fixes [\#1562](https://github.com/pika/pika/pull/1562) ([alonfaraj](https://github.com/alonfaraj))
+- Add AGENTS.md with AI agent guidelines [\#1560](https://github.com/pika/pika/pull/1560) ([lukebakken](https://github.com/lukebakken))
+- Bump the github-actions group with 2 updates [\#1557](https://github.com/pika/pika/pull/1557) ([dependabot[bot]](https://github.com/apps/dependabot))
+- Align Python versions metadata and docs  [\#1556](https://github.com/pika/pika/pull/1556) ([alonfaraj](https://github.com/alonfaraj))
+- Docs: Add return value documentation for Channel methods \(\#1522\) [\#1555](https://github.com/pika/pika/pull/1555) ([suchitd](https://github.com/suchitd))
+- Fix `BlockingIOError` from `_read_interrupt` on Windows \(GH-1314\) [\#1554](https://github.com/pika/pika/pull/1554) ([lukebakken](https://github.com/lukebakken))
+- Remove dead Code Climate config files [\#1553](https://github.com/pika/pika/pull/1553) ([lukebakken](https://github.com/lukebakken))
+- Bump the github-actions group with 4 updates [\#1552](https://github.com/pika/pika/pull/1552) ([dependabot[bot]](https://github.com/apps/dependabot))
+- Add `ruff` lint check to CI \(GH-1371\) [\#1551](https://github.com/pika/pika/pull/1551) ([lukebakken](https://github.com/lukebakken))
+- Migrate to pytest [\#1550](https://github.com/pika/pika/pull/1550) ([alonfaraj](https://github.com/alonfaraj))
+- Add python 3.14 to CI and drop 3.9 [\#1549](https://github.com/pika/pika/pull/1549) ([alonfaraj](https://github.com/alonfaraj))
+- Implement tests compatibility patch for RabbitMQ 4.3  [\#1548](https://github.com/pika/pika/pull/1548) ([alonfaraj](https://github.com/alonfaraj))
+- Jpaluska/add threadsafe publisher example [\#1546](https://github.com/pika/pika/pull/1546) ([jpaluska](https://github.com/jpaluska))
+- fix: replace 3 bare except clauses with except Exception [\#1545](https://github.com/pika/pika/pull/1545) ([haosenwang1018](https://github.com/haosenwang1018))
+- Fix asyncio.get\_event\_loop\(\) deprecation in \_AsyncioIOServicesAdapter [\#1544](https://github.com/pika/pika/pull/1544) ([geomarceau](https://github.com/geomarceau))
+- Fix Issue \# 1530: advertise exchange\_exchange\_bindings  [\#1540](https://github.com/pika/pika/pull/1540) ([kenliao94](https://github.com/kenliao94))
+- Add type annotations [\#1529](https://github.com/pika/pika/pull/1529) ([dadodimauro](https://github.com/dadodimauro))
+- Fix tests with Python 3.14, except RuntimeError from asyncio.get\_event\_loop [\#1524](https://github.com/pika/pika/pull/1524) ([hroncok](https://github.com/hroncok))
+- Update versions [\#1514](https://github.com/pika/pika/pull/1514) ([lukebakken](https://github.com/lukebakken))
+- Add description for the example blocking\_consume\_recover\_multiple\_hosts [\#1512](https://github.com/pika/pika/pull/1512) ([federicsp](https://github.com/federicsp))
+- Fix `basic_consumer_threaded` example [\#1507](https://github.com/pika/pika/pull/1507) ([leogallot](https://github.com/leogallot))
+- Update ConnectionParameters doc [\#1494](https://github.com/pika/pika/pull/1494) ([ryoung9550](https://github.com/ryoung9550))
+- removal of pika.compat.dictkeys\(\) [\#1492](https://github.com/pika/pika/pull/1492) ([a-detiste](https://github.com/a-detiste))
+- specify your own consumer\_tag when using consume\(\) method of BlockingChannel [\#1485](https://github.com/pika/pika/pull/1485) ([ivan-eguidazu](https://github.com/ivan-eguidazu))
+- Convert utcnow\(\) and utcfromtimestamp\(\) [\#1484](https://github.com/pika/pika/pull/1484) ([mh21](https://github.com/mh21))
+- Add all public APIs to `__all__` [\#1476](https://github.com/pika/pika/pull/1476) ([augustelalande](https://github.com/augustelalande))
+- More logical validation of long RpcParameters [\#46](https://github.com/pika/pika/pull/46) ([kmpm](https://github.com/kmpm))
+- Overrode \_adapter\_disconnect\(\) in BlockingConnection & fixed connection.py typos. [\#45](https://github.com/pika/pika/pull/45) ([williamsjj](https://github.com/williamsjj))
+- Changed timeout for poll to be in milliseconds [\#42](https://github.com/pika/pika/pull/42) ([samuel](https://github.com/samuel))
+- BlockingConnection refactored to allow multiple basic\_consumes. [\#38](https://github.com/pika/pika/pull/38) ([williamsjj](https://github.com/williamsjj))
+- Encode bools as 't' type. [\#29](https://github.com/pika/pika/pull/29) ([majek](https://github.com/majek))
+- Fixed various issues with table encoding/decoding [\#27](https://github.com/pika/pika/pull/27) ([majek](https://github.com/majek))
+
+## [1.4.0b0](https://github.com/pika/pika/tree/1.4.0b0) (2024-07-22)
 
 [Full Changelog](https://github.com/pika/pika/compare/1.3.2...1.4.0b0)
 
