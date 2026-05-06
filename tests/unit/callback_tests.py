@@ -51,16 +51,15 @@ class CallbackTests(unittest.TestCase):
         self.assertEqual(callback.name_or_value(value), self.PREFIX)
 
     def test_name_or_value_basic_consume_object(self):
-        self.assertEqual(
-            callback.name_or_value(spec.Basic.Consume()), self.PREFIX)
+        self.assertEqual(callback.name_or_value(spec.Basic.Consume()),
+                         self.PREFIX)
 
     def test_name_or_value_amqpobject_class(self):
-        self.assertEqual(
-            callback.name_or_value(self.PREFIX_CLASS), self.PREFIX)
+        self.assertEqual(callback.name_or_value(self.PREFIX_CLASS), self.PREFIX)
 
     def test_name_or_value_protocol_header(self):
-        self.assertEqual(
-            callback.name_or_value(frame.ProtocolHeader()), 'ProtocolHeader')
+        self.assertEqual(callback.name_or_value(frame.ProtocolHeader()),
+                         'ProtocolHeader')
 
     def test_name_or_value_method_frame(self):
         value = frame.Method(1, self.PREFIX_CLASS())
@@ -126,8 +125,8 @@ class CallbackTests(unittest.TestCase):
             self.obj._stack[self.PREFIX][self.KEY][0][self.ONLY_CALLER])
 
     def test_add_returns_prefix_value_and_key(self):
-        self.assertEqual(
-            self.obj.add(self.PREFIX, self.KEY, None), (self.PREFIX, self.KEY))
+        self.assertEqual(self.obj.add(self.PREFIX, self.KEY, None),
+                         (self.PREFIX, self.KEY))
 
     def test_add_duplicate_callback(self):
         mock_callback = mock.Mock()
@@ -140,13 +139,13 @@ class CallbackTests(unittest.TestCase):
             add_callback()
             add_callback()
             logger.warning.assert_called_once_with(
-                callback.CallbackManager.DUPLICATE_WARNING,
-                self.PREFIX, self.KEY)
+                callback.CallbackManager.DUPLICATE_WARNING, self.PREFIX,
+                self.KEY)
 
     def test_add_duplicate_callback_returns_prefix_value_and_key(self):
         self.obj.add(self.PREFIX, self.KEY, None)
-        self.assertEqual(
-            self.obj.add(self.PREFIX, self.KEY, None), (self.PREFIX, self.KEY))
+        self.assertEqual(self.obj.add(self.PREFIX, self.KEY, None),
+                         (self.PREFIX, self.KEY))
 
     def test_clear(self):
         self.obj.add(self.PREFIX, self.KEY, None)
@@ -228,20 +227,18 @@ class CallbackTests(unittest.TestCase):
             self.callback_mock)
 
     def test_process_only_caller_fails(self):
-        self.obj.add(
-            self.PREFIX_CLASS,
-            self.KEY,
-            self.callback_mock,
-            only_caller=self.mock_caller)
+        self.obj.add(self.PREFIX_CLASS,
+                     self.KEY,
+                     self.callback_mock,
+                     only_caller=self.mock_caller)
         self.obj.process(self.PREFIX_CLASS, self.KEY, self)
         self.assertFalse(self.callback_mock.called)
 
     def test_process_only_caller_fails_no_removal(self):
-        self.obj.add(
-            self.PREFIX_CLASS,
-            self.KEY,
-            self.callback_mock,
-            only_caller=self.mock_caller)
+        self.obj.add(self.PREFIX_CLASS,
+                     self.KEY,
+                     self.callback_mock,
+                     only_caller=self.mock_caller)
         self.obj.process(self.PREFIX_CLASS, self.KEY, self)
         self.assertEqual(
             self.obj._stack[self.PREFIX][self.KEY][0][self.CALLBACK],
@@ -264,10 +261,9 @@ class CallbackTests(unittest.TestCase):
 
     def test_remove_with_callback_true_empty_stack(self):
         self.obj.add(self.PREFIX_CLASS, self.KEY, self.callback_mock)
-        self.obj.remove(
-            prefix=self.PREFIX,
-            key=self.KEY,
-            callback_value=self.callback_mock)
+        self.obj.remove(prefix=self.PREFIX,
+                        key=self.KEY,
+                        callback_value=self.callback_mock)
         self.assertDictEqual(self.obj._stack, dict())
 
     def test_remove_with_callback_true_non_empty_stack(self):
@@ -288,8 +284,9 @@ class CallbackTests(unittest.TestCase):
     def test_remove_prefix_key_with_other_key_remains(self):
         other_key = 'Other Key'
         self.obj.add(self.PREFIX_CLASS, self.KEY, self.callback_mock)
-        self.obj.add(
-            prefix=self.PREFIX_CLASS, key=other_key, callback=self.mock_caller)
+        self.obj.add(prefix=self.PREFIX_CLASS,
+                     key=other_key,
+                     callback=self.mock_caller)
         self.obj.remove(self.PREFIX, self.KEY)
         self.assertIn(other_key, self.obj._stack[self.PREFIX])
 
@@ -315,13 +312,10 @@ class CallbackTests(unittest.TestCase):
 
     def test_should_process_callback_false_argument_fail(self):
         self.obj.clear()
-        self.obj.add(
-            self.PREFIX_CLASS,
-            self.KEY,
-            self.callback_mock,
-            arguments={
-                'foo': 'baz'
-            })
+        self.obj.add(self.PREFIX_CLASS,
+                     self.KEY,
+                     self.callback_mock,
+                     arguments={'foo': 'baz'})
         self.assertFalse(
             self.obj._should_process_callback(self._callback_dict,
                                               self.mock_caller, [{
@@ -358,6 +352,7 @@ class CallbackTests(unittest.TestCase):
             }]))
 
     def test_arguments_match_obj_argument(self):
+
         class TestObj(object):
             foo = 'bar'
 
@@ -366,6 +361,7 @@ class CallbackTests(unittest.TestCase):
             self.obj._arguments_match(self._callback_dict, [test_instance]))
 
     def test_arguments_match_obj_no_attribute(self):
+
         class TestObj(object):
             qux = 'bar'
 
@@ -374,6 +370,7 @@ class CallbackTests(unittest.TestCase):
             self.obj._arguments_match(self._callback_dict, [test_instance]))
 
     def test_arguments_match_obj_argument_no_match(self):
+
         class TestObj(object):
             foo = 'baz'
 
@@ -382,6 +379,7 @@ class CallbackTests(unittest.TestCase):
             self.obj._arguments_match(self._callback_dict, [test_instance]))
 
     def test_arguments_match_obj_argument_with_method(self):
+
         class TestFrame(object):
             method = None
 
@@ -394,6 +392,7 @@ class CallbackTests(unittest.TestCase):
             self.obj._arguments_match(self._callback_dict, [test_instance]))
 
     def test_arguments_match_obj_argument_with_method_no_match(self):
+
         class TestFrame(object):
             method = None
 

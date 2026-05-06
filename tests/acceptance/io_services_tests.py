@@ -87,7 +87,10 @@ class AsyncServicesTestBase(unittest.TestCase):
             sock.connect(addr_pair)
         except pika.compat.SOCKET_ERROR as error:
             # EINPROGRESS for posix and EWOULDBLOCK for windows
-            if error.errno not in (errno.EINPROGRESS, errno.EWOULDBLOCK,):
+            if error.errno not in (
+                    errno.EINPROGRESS,
+                    errno.EWOULDBLOCK,
+            ):
                 raise
 
     def get_dead_socket_address(self):
@@ -102,8 +105,7 @@ class AsyncServicesTestBase(unittest.TestCase):
         return s1.getsockname()  # pylint: disable=E1101
 
 
-class TestGetNativeIOLoop(AsyncServicesTestBase,
-                          IOServicesTestStubs):
+class TestGetNativeIOLoop(AsyncServicesTestBase, IOServicesTestStubs):
 
     def start(self):
         native_loop = self.create_nbio().get_native_ioloop()
@@ -144,7 +146,8 @@ class TestCallLaterDoesNotCallAheadOfTime(AsyncServicesTestBase,
         start_time = pika.compat.time_now()
         loop.call_later(0.1, callback)
         loop.run()
-        self.assertGreaterEqual(round(pika.compat.time_now() - start_time, 3), 0.1)
+        self.assertGreaterEqual(round(pika.compat.time_now() - start_time, 3),
+                                0.1)
         self.assertEqual(bucket, ['I was here'])
 
 
@@ -174,8 +177,7 @@ class TestCallLaterCancelTwiceFromOwnCallback(AsyncServicesTestBase,
         self.assertEqual(bucket, ['I was here'])
 
 
-class TestCallLaterCallInOrder(AsyncServicesTestBase,
-                               IOServicesTestStubs):
+class TestCallLaterCallInOrder(AsyncServicesTestBase, IOServicesTestStubs):
 
     def start(self):
         loop = self.create_nbio()
@@ -204,10 +206,8 @@ class TestCallLaterCancelledDoesNotCallBack(AsyncServicesTestBase,
 
 class SocketWatcherTestBase(AsyncServicesTestBase):
 
-    WatcherActivity = collections.namedtuple(
-        "io_services_test_WatcherActivity",
-        ['readable', 'writable'])
-
+    WatcherActivity = collections.namedtuple("io_services_test_WatcherActivity",
+                                             ['readable', 'writable'])
 
     def _check_socket_watchers_fired(self, sock, expected):  # pylint: disable=R0914
         """Registers reader and writer for the given socket, runs the event loop
@@ -221,24 +221,28 @@ class SocketWatcherTestBase(AsyncServicesTestBase):
         nbio = self.create_nbio()  # pylint: disable=E1101
 
         stops_requested = []
+
         def stop_loop():
             if not stops_requested:
                 nbio.stop()
             stops_requested.append(1)
 
         reader_bucket = [False]
+
         def on_readable():
             self.logger.debug('on_readable() called.')
             reader_bucket.append(True)
             stop_loop()
 
         writer_bucket = [False]
+
         def on_writable():
             self.logger.debug('on_writable() called.')
             writer_bucket.append(True)
             stop_loop()
 
         timeout_bucket = []
+
         def on_timeout():
             timeout_bucket.append(True)
             stop_loop()
@@ -263,16 +267,12 @@ class SocketWatcherTestBase(AsyncServicesTestBase):
         if readable != expected.readable:
             raise AssertionError(
                 'Expected readable={!r}, but got {!r} (writable={!r})'.format(
-                    expected.readable,
-                    readable,
-                    writable))
+                    expected.readable, readable, writable))
 
         if writable != expected.writable:
             raise AssertionError(
                 'Expected writable={!r}, but got {!r} (readable={!r})'.format(
-                    expected.writable,
-                    writable,
-                    readable))
+                    expected.writable, writable, readable))
 
 
 class TestSocketWatchersUponConnectionAndNoIncomingData(SocketWatcherTestBase,
@@ -285,9 +285,8 @@ class TestSocketWatchersUponConnectionAndNoIncomingData(SocketWatcherTestBase,
         self._check_socket_watchers_fired(s1, expected)
 
 
-class TestSocketWatchersUponConnectionAndIncomingData(
-        SocketWatcherTestBase,
-        IOServicesTestStubs):
+class TestSocketWatchersUponConnectionAndIncomingData(SocketWatcherTestBase,
+                                                      IOServicesTestStubs):
 
     def start(self):
         s1, s2 = self.create_blocking_socketpair()
@@ -299,6 +298,7 @@ class TestSocketWatchersUponConnectionAndIncomingData(
 
 class TestSocketWatchersWhenFailsToConnect(SocketWatcherTestBase,
                                            IOServicesTestStubs):
+
     def start(self):
         sock = self.create_nonblocking_tcp_socket()
 
@@ -326,8 +326,7 @@ class TestSocketWatchersAfterRemotePeerCloses(SocketWatcherTestBase,
 
 
 class TestSocketWatchersAfterRemotePeerClosesWithIncomingData(
-        SocketWatcherTestBase,
-        IOServicesTestStubs):
+        SocketWatcherTestBase, IOServicesTestStubs):
 
     def start(self):
         s1, s2 = self.create_blocking_socketpair()
@@ -361,8 +360,7 @@ class TestSocketWatchersAfterRemotePeerShutsWrite(SocketWatcherTestBase,
 
 
 class TestSocketWatchersAfterRemotePeerShutsWriteWithIncomingData(
-        SocketWatcherTestBase,
-        IOServicesTestStubs):
+        SocketWatcherTestBase, IOServicesTestStubs):
 
     def start(self):
         s1, s2 = self.create_blocking_socketpair()
@@ -431,11 +429,13 @@ class TestGetaddrinfoWWWGoogleDotComPort80(AsyncServicesTestBase,
         nbio = self.create_nbio()
 
         result_bucket = []
+
         def on_done(result):
             result_bucket.append(result)
             nbio.stop()
 
-        ref = nbio.getaddrinfo('www.google.com', 80,
+        ref = nbio.getaddrinfo('www.google.com',
+                               80,
                                socktype=socket.SOCK_STREAM,
                                on_done=on_done)
 
@@ -474,13 +474,16 @@ class TestGetaddrinfoNonExistentHost(AsyncServicesTestBase,
         nbio = self.create_nbio()
 
         result_bucket = []
+
         def on_done(result):
             result_bucket.append(result)
             nbio.stop()
 
-        ref = nbio.getaddrinfo('www.google.comSSS', 80,
+        ref = nbio.getaddrinfo('www.google.comSSS',
+                               80,
                                socktype=socket.SOCK_STREAM,
-                               proto=socket.IPPROTO_TCP, on_done=on_done)
+                               proto=socket.IPPROTO_TCP,
+                               on_done=on_done)
 
         nbio.run()
 
@@ -506,10 +509,12 @@ class TestGetaddrinfoCancelBeforeLoopRun(AsyncServicesTestBase,
         nbio = self.create_nbio()
 
         on_done_bucket = []
+
         def on_done(result):
             on_done_bucket.append(result)
 
-        ref = nbio.getaddrinfo('www.google.com', 80,
+        ref = nbio.getaddrinfo('www.google.com',
+                               80,
                                socktype=socket.SOCK_STREAM,
                                on_done=on_done)
 
@@ -535,6 +540,7 @@ class TestGetaddrinfoCancelAfterLoopRun(AsyncServicesTestBase,
         nbio = self.create_nbio()
 
         on_done_bucket = []
+
         def on_done(result):
             self.logger.error(
                 'Unexpected completion of cancelled getaddrinfo()')
@@ -546,6 +552,7 @@ class TestGetaddrinfoCancelAfterLoopRun(AsyncServicesTestBase,
         # avoid the race condition wehreby it invokes our completion callback
         # before we had a chance to cancel it.
         cancel_result_bucket = []
+
         def cancel_and_stop_from_loop():
             self.logger.debug('Cancelling getaddrinfo() from loop callback.')
             cancel_result_bucket.append(getaddr_ref.cancel())
@@ -553,7 +560,8 @@ class TestGetaddrinfoCancelAfterLoopRun(AsyncServicesTestBase,
 
         nbio.add_callback_threadsafe(cancel_and_stop_from_loop)
 
-        getaddr_ref = nbio.getaddrinfo('www.google.com', 80,
+        getaddr_ref = nbio.getaddrinfo('www.google.com',
+                                       80,
                                        socktype=socket.SOCK_STREAM,
                                        on_done=on_done)
 
@@ -578,8 +586,8 @@ class SocketConnectorTestBase(AsyncServicesTestBase):
         # Create listener
         lsock = socket.socket(family, socket.SOCK_STREAM)
         self.addCleanup(lsock.close)
-        ipaddr = (pika.compat._LOCALHOST_V6 if family == socket.AF_INET6
-                  else pika.compat._LOCALHOST)
+        ipaddr = (pika.compat._LOCALHOST_V6
+                  if family == socket.AF_INET6 else pika.compat._LOCALHOST)
         lsock.bind((ipaddr, 0))
         lsock.listen(1)
         # NOTE: don't even need to accept for this test, connection completes
@@ -592,7 +600,6 @@ class SocketConnectorTestBase(AsyncServicesTestBase):
 
         return lsock, csock
 
-
     def check_successful_connect(self, family):
         """
         :param IOServicesTestStubs | SocketConnectorTestBase self:
@@ -604,6 +611,7 @@ class SocketConnectorTestBase(AsyncServicesTestBase):
 
         # Initiate connection
         on_done_result_bucket = []
+
         def on_done(result):
             on_done_result_bucket.append(result)
             nbio.stop()
@@ -632,6 +640,7 @@ class SocketConnectorTestBase(AsyncServicesTestBase):
 
         # Initiate connection
         on_done_result_bucket = []
+
         def on_done(result):
             on_done_result_bucket.append(result)
             nbio.stop()
@@ -657,6 +666,7 @@ class SocketConnectorTestBase(AsyncServicesTestBase):
 
         # Initiate connection
         on_done_result_bucket = []
+
         def on_done(result):
             on_done_result_bucket.append(result)
             self.fail('Got done callacks on cancelled connection request.')
@@ -683,8 +693,7 @@ class TestConnectSocketIPv4Success(SocketConnectorTestBase,
         self.check_successful_connect(family=socket.AF_INET)
 
 
-class TestConnectSocketIPv4Fail(SocketConnectorTestBase,
-                                IOServicesTestStubs):
+class TestConnectSocketIPv4Fail(SocketConnectorTestBase, IOServicesTestStubs):
 
     def start(self):
         self.check_failed_connect(socket.AF_INET)
@@ -692,6 +701,7 @@ class TestConnectSocketIPv4Fail(SocketConnectorTestBase,
 
 class TestConnectSocketToDisconnectedPeer(SocketConnectorTestBase,
                                           IOServicesTestStubs):
+
     def start(self):
         """Differs from `TestConnectSocketIPV4Fail` in that this test attempts
         to connect to the address of a socket whose peer had disconnected from
@@ -709,6 +719,7 @@ class TestConnectSocketToDisconnectedPeer(SocketConnectorTestBase,
 
         # Initiate connection
         on_done_result_bucket = []
+
         def on_done(result):
             on_done_result_bucket.append(result)
             nbio.stop()
@@ -724,8 +735,7 @@ class TestConnectSocketToDisconnectedPeer(SocketConnectorTestBase,
         self.assertEqual(connect_ref.cancel(), False)
 
 
-class TestConnectSocketIPv4Cancel(SocketConnectorTestBase,
-                                  IOServicesTestStubs):
+class TestConnectSocketIPv4Cancel(SocketConnectorTestBase, IOServicesTestStubs):
 
     def start(self):
         self.check_cancel_connect(socket.AF_INET)
@@ -814,22 +824,20 @@ class TestStreamConnectorTxRx(StreamingTestBase, IOServicesTestStubs):
                 socket_connect_done_result_bucket.append(result)
 
                 nbio.create_streaming_connection(
-                    TestStreamConnectorTxRxStreamProtocol,
-                    sock,
+                    TestStreamConnectorTxRxStreamProtocol, sock,
                     on_streaming_creation_done)
 
-            nbio.connect_socket(sock,
-                                echo.server_address,
+            nbio.connect_socket(sock, echo.server_address,
                                 on_socket_connect_done)
 
             nbio.run()
 
         self.assertEqual(socket_connect_done_result_bucket, [None])
 
-        my_proto = my_protocol_bucket[0]  # type: TestStreamConnectorTxRxStreamProtocol
+        my_proto = my_protocol_bucket[
+            0]  # type: TestStreamConnectorTxRxStreamProtocol
         transport, protocol = streaming_connection_result_bucket[0]
-        self.assertIsInstance(transport,
-                              nbio_interface.AbstractStreamTransport)
+        self.assertIsInstance(transport, nbio_interface.AbstractStreamTransport)
         self.assertIs(protocol, my_proto)
         self.assertIs(transport, my_proto.transport)
 
@@ -842,8 +850,7 @@ class TestStreamConnectorTxRx(StreamingTestBase, IOServicesTestStubs):
 
 
 class TestStreamConnectorRaisesValueErrorFromUnconnectedSocket(
-        StreamingTestBase,
-        IOServicesTestStubs):
+        StreamingTestBase, IOServicesTestStubs):
 
     def start(self):
         nbio = self.create_nbio()
@@ -934,19 +941,17 @@ class TestStreamConnectorBrokenPipe(StreamingTestBase, IOServicesTestStubs):
             socket_connect_done_result_bucket.append(result)
 
             nbio.create_streaming_connection(
-                TestStreamConnectorTxRxStreamProtocol,
-                sock,
+                TestStreamConnectorTxRxStreamProtocol, sock,
                 on_streaming_creation_done)
 
-        nbio.connect_socket(sock,
-                            echo.server_address,
-                            on_socket_connect_done)
+        nbio.connect_socket(sock, echo.server_address, on_socket_connect_done)
 
         nbio.run()
 
         self.assertEqual(socket_connect_done_result_bucket, [None])
 
-        my_proto = my_protocol_bucket[0]  # type: TestStreamConnectorTxRxStreamProtocol
+        my_proto = my_protocol_bucket[
+            0]  # type: TestStreamConnectorTxRxStreamProtocol
 
         error = my_proto.connection_lost_error_bucket[0]
         self.assertIsInstance(error, pika.compat.SOCKET_ERROR)
@@ -1005,8 +1010,8 @@ class TestStreamConnectorEOFReceived(StreamingTestBase, IOServicesTestStubs):
         local_sock, remote_sock = self.create_nonblocking_socketpair()
         remote_sock.settimeout(10)
 
-        logger.info('created local_sock=%s, remote_sock=%s',
-                    local_sock, remote_sock)
+        logger.info('created local_sock=%s, remote_sock=%s', local_sock,
+                    remote_sock)
 
         def on_streaming_creation_done(result):
             logger.info('on_streaming_creation_done(%r)', result)
@@ -1015,14 +1020,13 @@ class TestStreamConnectorEOFReceived(StreamingTestBase, IOServicesTestStubs):
             # Simulate EOF
             remote_sock.shutdown(socket.SHUT_WR)
 
-        nbio.create_streaming_connection(
-            TestStreamConnectorTxRxStreamProtocol,
-            local_sock,
-            on_streaming_creation_done)
+        nbio.create_streaming_connection(TestStreamConnectorTxRxStreamProtocol,
+                                         local_sock, on_streaming_creation_done)
 
         nbio.run()
 
-        my_proto = my_protocol_bucket[0]  # type: TestStreamConnectorTxRxStreamProtocol
+        my_proto = my_protocol_bucket[
+            0]  # type: TestStreamConnectorTxRxStreamProtocol
 
         self.assertTrue(my_proto.eof_rx)
         self.assertEqual(my_proto.connection_lost_error_bucket, [None])
@@ -1031,6 +1035,7 @@ class TestStreamConnectorEOFReceived(StreamingTestBase, IOServicesTestStubs):
         # First, purge remote sock in case some or all sent data was delivered
         remote_sock.recv(sum(len(chunk) for chunk in original_data))
         self.assertEqual(remote_sock.recv(1), b'')
+
 
 class TestStreamConnectorProtocolInterfaceFailsBase(StreamingTestBase):
     """Base test class for streaming protocol method fails"""
@@ -1063,8 +1068,8 @@ class TestStreamConnectorProtocolInterfaceFailsBase(StreamingTestBase):
         """
         logger = self.logger
 
-        class TestStreamConnectorProtocol(
-                nbio_interface.AbstractStreamProtocol):
+        class TestStreamConnectorProtocol(nbio_interface.AbstractStreamProtocol
+                                         ):
 
             def __init__(self):
                 self.transport = None  # type: nbio_interface.AbstractStreamTransport
@@ -1112,15 +1117,12 @@ class TestStreamConnectorProtocolInterfaceFailsBase(StreamingTestBase):
                                 proto_data_received_exc)
                     raise proto_data_received_exc  # pylint: disable=E0702
 
-        return nbio.create_streaming_connection(
-            TestStreamConnectorProtocol,
-            sock,
-            on_create_done)
+        return nbio.create_streaming_connection(TestStreamConnectorProtocol,
+                                                sock, on_create_done)
 
 
 class TestStreamConnectorProtocolConstructorFails(
-        TestStreamConnectorProtocolInterfaceFailsBase,
-        IOServicesTestStubs):
+        TestStreamConnectorProtocolInterfaceFailsBase, IOServicesTestStubs):
 
     def start(self):
         nbio = self.create_nbio()
@@ -1152,8 +1154,7 @@ class TestStreamConnectorProtocolConstructorFails(
 
 
 class TestStreamConnectorConnectionMadeFails(
-        TestStreamConnectorProtocolInterfaceFailsBase,
-        IOServicesTestStubs):
+        TestStreamConnectorProtocolInterfaceFailsBase, IOServicesTestStubs):
 
     def start(self):
         nbio = self.create_nbio()
@@ -1185,8 +1186,7 @@ class TestStreamConnectorConnectionMadeFails(
 
 
 class TestStreamConnectorEOFReceivedFails(
-        TestStreamConnectorProtocolInterfaceFailsBase,
-        IOServicesTestStubs):
+        TestStreamConnectorProtocolInterfaceFailsBase, IOServicesTestStubs):
 
     def start(self):
         nbio = self.create_nbio()
@@ -1204,7 +1204,6 @@ class TestStreamConnectorEOFReceivedFails(
 
             # Simulate EOF
             remote_sock.shutdown(socket.SHUT_WR)
-
 
         self.linkup_streaming_connection(
             nbio,
@@ -1225,8 +1224,7 @@ class TestStreamConnectorEOFReceivedFails(
 
 
 class TestStreamConnectorDataReceivedFails(
-        TestStreamConnectorProtocolInterfaceFailsBase,
-        IOServicesTestStubs):
+        TestStreamConnectorProtocolInterfaceFailsBase, IOServicesTestStubs):
 
     def start(self):
         nbio = self.create_nbio()
@@ -1244,7 +1242,6 @@ class TestStreamConnectorDataReceivedFails(
 
             # Simulate EOF
             remote_sock.shutdown(socket.SHUT_WR)
-
 
         self.linkup_streaming_connection(
             nbio,
@@ -1267,8 +1264,7 @@ class TestStreamConnectorDataReceivedFails(
 
 
 class TestStreamConnectorAbortTransport(
-        TestStreamConnectorProtocolInterfaceFailsBase,
-        IOServicesTestStubs):
+        TestStreamConnectorProtocolInterfaceFailsBase, IOServicesTestStubs):
 
     def start(self):
         nbio = self.create_nbio()
@@ -1284,10 +1280,7 @@ class TestStreamConnectorAbortTransport(
             # Abort the transport
             result[0].abort()
 
-
-        self.linkup_streaming_connection(nbio,
-                                         local_sock,
-                                         on_linkup_completed)
+        self.linkup_streaming_connection(nbio, local_sock, on_linkup_completed)
 
         nbio.run()
 
@@ -1301,8 +1294,7 @@ class TestStreamConnectorAbortTransport(
 
 
 class TestStreamConnectorCancelLinkup(
-        TestStreamConnectorProtocolInterfaceFailsBase,
-        IOServicesTestStubs):
+        TestStreamConnectorProtocolInterfaceFailsBase, IOServicesTestStubs):
 
     def start(self):
         nbio = self.create_nbio()
@@ -1315,9 +1307,7 @@ class TestStreamConnectorCancelLinkup(
         def on_linkup_completed(result):
             linkup_result_bucket.append(result)
 
-
-        ref = self.linkup_streaming_connection(nbio,
-                                               local_sock,
+        ref = self.linkup_streaming_connection(nbio, local_sock,
                                                on_linkup_completed)
 
         # NOTE: cancel() completes without callback

@@ -29,44 +29,47 @@ class DataTests(unittest.TestCase):
         b'\x04nullV'
         b'\x06strvalS\x00\x00\x00\x04Test'
         b'\x0ctimestampvalT\x00\x00\x00\x00Ec)\x92'
-        b'\x07unicodeS\x00\x00\x00\x08utf8=\xe2\x9c\x93'
-        )
+        b'\x07unicodeS\x00\x00\x00\x08utf8=\xe2\x9c\x93')
 
     FIELD_TBL_ENCODED += b'\x05bytesx\x00\x00\x00\x06foobar'
 
-    FIELD_TBL_VALUE = OrderedDict(
-        [
-            ('array', [1, 2, 3]),
-            ('boolval', True),
-            ('decimal', decimal.Decimal('3.14')),
-            ('decimal_too', decimal.Decimal('100')),
-            ('dictval', { 'foo': 'bar' }),
-            ('intval', 1),
-            ('bigint', 2592000000),
-            ('longval', long(912598613)),
-            ('neglong', long(-1)),
-            ('null', None),
-            ('strval', 'Test'),
-            ('timestampval', datetime.datetime(2006, 11, 21, 16, 30, 10, tzinfo=datetime.timezone.utc)),
-            ('unicode', u'utf8=✓'),
-            ('bytes', b'foobar'),
-        ])
+    FIELD_TBL_VALUE = OrderedDict([
+        ('array', [1, 2, 3]),
+        ('boolval', True),
+        ('decimal', decimal.Decimal('3.14')),
+        ('decimal_too', decimal.Decimal('100')),
+        ('dictval', {
+            'foo': 'bar'
+        }),
+        ('intval', 1),
+        ('bigint', 2592000000),
+        ('longval', long(912598613)),
+        ('neglong', long(-1)),
+        ('null', None),
+        ('strval', 'Test'),
+        ('timestampval',
+         datetime.datetime(2006,
+                           11,
+                           21,
+                           16,
+                           30,
+                           10,
+                           tzinfo=datetime.timezone.utc)),
+        ('unicode', u'utf8=✓'),
+        ('bytes', b'foobar'),
+    ])
 
     def test_decode_bytes(self):
-        input = (
-                b'\x00\x00\x00\x01'
-                b'\x05bytesx\x00\x00\x00\x06foobar'
-            )
+        input = (b'\x00\x00\x00\x01'
+                 b'\x05bytesx\x00\x00\x00\x06foobar')
         result = data.decode_table(input, 0)
         self.assertEqual(result, ({'bytes': b'foobar'}, 21))
 
     # b'\x08shortints\x04\xd2'
     # ('shortint', 1234),
     def test_decode_shortint(self):
-        input = (
-                b'\x00\x00\x00\x01'
-                b'\x08shortints\x04\xd2'
-            )
+        input = (b'\x00\x00\x00\x01'
+                 b'\x08shortints\x04\xd2')
         result = data.decode_table(input, 0)
         self.assertEqual(result, ({'shortint': 1234}, 16))
 
@@ -95,10 +98,8 @@ class DataTests(unittest.TestCase):
         with type tag 'l' and signed 64-bit representation.
         """
         # Table with x-delay = -30000 encoded as signed 64-bit 'l'
-        input = (
-            b'\x00\x00\x00\x10'
-            b'\x07x-delayl\xff\xff\xff\xff\xff\xff\x8a\xd0'
-        )
+        input = (b'\x00\x00\x00\x10'
+                 b'\x07x-delayl\xff\xff\xff\xff\xff\xff\x8a\xd0')
         result, _ = data.decode_table(input, 0)
         self.assertEqual(result, {'x-delay': long(-30000)})
 

@@ -74,7 +74,8 @@ def camel(s):
     return normalize_separators(s).title().replace('_', '')
 
 
-amqp_codegen.AmqpMethod.structName = lambda m: camel(m.klass.name) + '.' + camel(m.name)
+amqp_codegen.AmqpMethod.structName = lambda m: camel(m.klass.name
+                                                    ) + '.' + camel(m.name)
 amqp_codegen.AmqpClass.structName = lambda c: camel(c.name) + "Properties"
 
 
@@ -215,8 +216,8 @@ def generate(specPath):
         print("            flagword_index += 1")
         for f in c.fields:
             if spec.resolveDomain(f.domain) == 'bit':
-                print("        self.%s = (flags & %s) != 0" % (pyize(f.name),
-                                                               flagName(c, f)))
+                print("        self.%s = (flags & %s) != 0" %
+                      (pyize(f.name), flagName(c, f)))
             else:
                 print("        if flags & %s:" % (flagName(c, f),))
                 genSingleDecode("            ", "self.%s" % (pyize(f.name),),
@@ -262,8 +263,8 @@ def generate(specPath):
         print("        flags = 0")
         for f in c.fields:
             if spec.resolveDomain(f.domain) == 'bit':
-                print("        if self.%s: flags = flags | %s" % (pyize(
-                    f.name), flagName(c, f)))
+                print("        if self.%s: flags = flags | %s" %
+                      (pyize(f.name), flagName(c, f)))
             else:
                 print("        if self.%s is not None:" % (pyize(f.name),))
                 print("            flags = flags | %s" % (flagName(c, f),))
@@ -318,8 +319,8 @@ from pika.compat import str_or_bytes, unicode_type
 str = bytes
 """)
 
-    print("PROTOCOL_VERSION = (%d, %d, %d)" % (spec.major, spec.minor,
-                                               spec.revision))
+    print("PROTOCOL_VERSION = (%d, %d, %d)" %
+          (spec.major, spec.minor, spec.revision))
     print("PORT = %d" % spec.port)
     print('')
 
@@ -354,8 +355,8 @@ str = bytes
                   (methodid, m.klass.index, m.index, methodid))
             print("        NAME = %s" % (fieldvalue(m.structName(),)))
             print('')
-            print(
-                "        def __init__(self%s):" % (fieldDeclList(m.arguments),))
+            print("        def __init__(self%s):" %
+                  (fieldDeclList(m.arguments),))
             print(fieldInitList('            ', m.arguments))
             print("        @property")
             print("        def synchronous(self):")

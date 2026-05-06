@@ -8,7 +8,6 @@ from unittest import mock
 from pika import connection, frame, heartbeat
 import pika.exceptions
 
-
 # protected-access
 # pylint: disable=W0212
 
@@ -24,6 +23,7 @@ class ConstructableConnection(connection.Connection):
     that we can instantiate and test it.
 
     """
+
     def _adapter_connect_stream(self):
         pass
 
@@ -48,6 +48,7 @@ class ConstructableConnection(connection.Connection):
     def _adapter_remove_timeout(self, timeout_id):
         raise NotImplementedError
 
+
 class HeartbeatTests(unittest.TestCase):
 
     INTERVAL = 60
@@ -58,7 +59,8 @@ class HeartbeatTests(unittest.TestCase):
         self.mock_conn = mock.Mock(spec_set=ConstructableConnection())
         self.mock_conn.bytes_received = 100
         self.mock_conn.bytes_sent = 100
-        self.mock_conn._heartbeat_checker = mock.Mock(spec=heartbeat.HeartbeatChecker)
+        self.mock_conn._heartbeat_checker = mock.Mock(
+            spec=heartbeat.HeartbeatChecker)
         self.obj = heartbeat.HeartbeatChecker(self.mock_conn, self.INTERVAL)
 
     def tearDown(self):
@@ -83,8 +85,7 @@ class HeartbeatTests(unittest.TestCase):
         # Note: _bytes_received is initialized by calls
         # to _start_check_timer which calls _update_counters
         # which reads the initial values from the connection
-        self.assertEqual(self.obj._bytes_sent,
-                         self.mock_conn.bytes_sent)
+        self.assertEqual(self.obj._bytes_sent, self.mock_conn.bytes_sent)
 
     def test_constructor_initial_heartbeat_frames_received(self):
         self.assertEqual(self.obj._heartbeat_frames_received, 0)
@@ -183,8 +184,7 @@ class HeartbeatTests(unittest.TestCase):
         self.assertIsInstance(self.mock_conn._terminate_stream.call_args[0][0],
                               pika.exceptions.AMQPHeartbeatTimeout)
         self.assertEqual(
-            self.mock_conn._terminate_stream.call_args[0][0].args[0],
-            reason)
+            self.mock_conn._terminate_stream.call_args[0][0].args[0], reason)
 
     def test_has_received_data_false(self):
         self.obj._bytes_received = 100
@@ -210,8 +210,10 @@ class HeartbeatTests(unittest.TestCase):
         self.assertEqual(self.obj._heartbeat_frames_sent, 1)
 
     def test_start_send_timer_called(self):
-        want = [mock.call(self.SEND_INTERVAL, self.obj._send_heartbeat),
-                mock.call(self.CHECK_INTERVAL, self.obj._check_heartbeat)]
+        want = [
+            mock.call(self.SEND_INTERVAL, self.obj._send_heartbeat),
+            mock.call(self.CHECK_INTERVAL, self.obj._check_heartbeat)
+        ]
         got = self.mock_conn._adapter_call_later.call_args_list
         self.assertEqual(got, want)
 

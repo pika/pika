@@ -177,12 +177,11 @@ class ExampleConsumer(object):
         LOGGER.info('Declaring exchange: %s', exchange_name)
         # Note: using functools.partial is not required, it is demonstrating
         # how arbitrary data can be passed to the callback when it is called
-        cb = functools.partial(
-            self.on_exchange_declareok, userdata=exchange_name)
-        self._channel.exchange_declare(
-            exchange=exchange_name,
-            exchange_type=self.EXCHANGE_TYPE,
-            callback=cb)
+        cb = functools.partial(self.on_exchange_declareok,
+                               userdata=exchange_name)
+        self._channel.exchange_declare(exchange=exchange_name,
+                                       exchange_type=self.EXCHANGE_TYPE,
+                                       callback=cb)
 
     def on_exchange_declareok(self, _unused_frame, userdata):
         """Invoked by pika when RabbitMQ has finished the Exchange.Declare RPC
@@ -222,11 +221,10 @@ class ExampleConsumer(object):
         LOGGER.info('Binding %s to %s with %s', self.EXCHANGE, queue_name,
                     self.ROUTING_KEY)
         cb = functools.partial(self.on_bindok, userdata=queue_name)
-        self._channel.queue_bind(
-            queue_name,
-            self.EXCHANGE,
-            routing_key=self.ROUTING_KEY,
-            callback=cb)
+        self._channel.queue_bind(queue_name,
+                                 self.EXCHANGE,
+                                 routing_key=self.ROUTING_KEY,
+                                 callback=cb)
 
     def on_bindok(self, _unused_frame, userdata):
         """Invoked by pika when the Queue.Bind method has completed. At this
@@ -246,8 +244,8 @@ class ExampleConsumer(object):
         with different prefetch values to achieve desired performance.
 
         """
-        self._channel.basic_qos(
-            prefetch_count=self._prefetch_count, callback=self.on_basic_qos_ok)
+        self._channel.basic_qos(prefetch_count=self._prefetch_count,
+                                callback=self.on_basic_qos_ok)
 
     def on_basic_qos_ok(self, _unused_frame):
         """Invoked by pika when the Basic.QoS method has completed. At this
@@ -332,8 +330,8 @@ class ExampleConsumer(object):
         """
         if self._channel:
             LOGGER.info('Sending a Basic.Cancel RPC command to RabbitMQ')
-            cb = functools.partial(
-                self.on_cancelok, userdata=self._consumer_tag)
+            cb = functools.partial(self.on_cancelok,
+                                   userdata=self._consumer_tag)
             self._channel.basic_cancel(self._consumer_tag, cb)
 
     def on_cancelok(self, _unused_frame, userdata):

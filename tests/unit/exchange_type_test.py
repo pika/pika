@@ -6,7 +6,6 @@ import unittest
 
 from pika.exchange_type import ExchangeType
 
-
 # missing-docstring
 # pylint: disable=C0111
 
@@ -15,6 +14,7 @@ from pika.exchange_type import ExchangeType
 
 
 class ExchangeTypeTests(unittest.TestCase):
+
     def test_exchange_type_direct(self):
         self.assertEqual(ExchangeType.direct.value, 'direct')
 

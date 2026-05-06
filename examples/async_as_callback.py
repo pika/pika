@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 def sync(f):
+
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
         return asyncio.get_event_loop().run_until_complete(f(*args, **kwargs))
@@ -49,6 +50,7 @@ class RabbitMQConfig(BaseModel):
 
 
 class BasicPikaClient:
+
     def __init__(self):
         self.username = "username"
         self.password = "password"
@@ -95,9 +97,10 @@ class BasicPikaClient:
         self.channel.close()
         self.connection.close()
 
-    def declare_queue(
-        self, queue_name, exclusive: bool = False, max_priority: int = 10
-    ):
+    def declare_queue(self,
+                      queue_name,
+                      exclusive: bool = False,
+                      max_priority: int = 10):
         self.check_connection()
         logger.debug(f"Trying to declare queue({queue_name})...")
         self.channel.queue_declare(
@@ -107,25 +110,28 @@ class BasicPikaClient:
             arguments={"x-max-priority": max_priority},
         )
 
-    def declare_exchange(self, exchange_name: str, exchange_type: str = "direct"):
+    def declare_exchange(self,
+                         exchange_name: str,
+                         exchange_type: str = "direct"):
         self.check_connection()
-        self.channel.exchange_declare(
-            exchange=exchange_name, exchange_type=exchange_type
-        )
+        self.channel.exchange_declare(exchange=exchange_name,
+                                      exchange_type=exchange_type)
 
     def bind_queue(self, exchange_name: str, queue_name: str, routing_key: str):
         self.check_connection()
-        self.channel.queue_bind(
-            exchange=exchange_name, queue=queue_name, routing_key=routing_key
-        )
+        self.channel.queue_bind(exchange=exchange_name,
+                                queue=queue_name,
+                                routing_key=routing_key)
 
-    def unbind_queue(self, exchange_name: str, queue_name: str, routing_key: str):
-        self.channel.queue_unbind(
-            queue=queue_name, exchange=exchange_name, routing_key=routing_key
-        )
+    def unbind_queue(self, exchange_name: str, queue_name: str,
+                     routing_key: str):
+        self.channel.queue_unbind(queue=queue_name,
+                                  exchange=exchange_name,
+                                  routing_key=routing_key)
 
 
 class BasicMessageSender(BasicPikaClient):
+
     def encode_message(self, body: Dict, encoding_type: str = "bytes"):
         if encoding_type == "bytes":
             return msgpack.packb(body)
@@ -156,6 +162,7 @@ class BasicMessageSender(BasicPikaClient):
 
 
 class BasicMessageReceiver(BasicPikaClient):
+
     def __init__(self):
         super().__init__()
         self.channel_tag = None
@@ -168,8 +175,7 @@ class BasicMessageReceiver(BasicPikaClient):
 
     def get_message(self, queue_name: str, auto_ack: bool = False):
         method_frame, header_frame, body = self.channel.basic_get(
-            queue=queue_name, auto_ack=auto_ack
-        )
+            queue=queue_name, auto_ack=auto_ack)
         if method_frame:
             logger.debug(f"{method_frame}, {header_frame}, {body}")
             return method_frame, header_frame, body
@@ -180,8 +186,7 @@ class BasicMessageReceiver(BasicPikaClient):
     def consume_messages(self, queue, callback):
         self.check_connection()
         self.channel_tag = self.channel.basic_consume(
-            queue=queue, on_message_callback=callback, auto_ack=True
-        )
+            queue=queue, on_message_callback=callback, auto_ack=True)
         logger.debug(" [*] Waiting for messages. To exit press CTRL+C")
         self.channel.start_consuming()
 
@@ -194,6 +199,7 @@ class BasicMessageReceiver(BasicPikaClient):
 
 
 class MyConsumer(BasicMessageReceiver):
+
     @sync
     async def consume(self, channel, method, properties, body):
         body = self.decode_message(body=body)
@@ -209,9 +215,9 @@ def create_consumer():
     worker = MyConsumer()
     worker.declare_queue(queue_name="myqueue")
     worker.declare_exchange(exchange_name="myexchange")
-    worker.bind_queue(
-        exchange_name="myexchange", queue_name="myqueue", routing_key="randomkey"
-    )
+    worker.bind_queue(exchange_name="myexchange",
+                      queue_name="myqueue",
+                      routing_key="randomkey")
     worker.consume_messages(queue="myqueue", callback=worker.consume)
 
 

@@ -8,6 +8,7 @@ from pika.connection import Connection
 
 
 class OnlyOneBasicGetTestCase(unittest.TestCase):
+
     def setUp(self):
         self.channel = Channel(MagicMock(Connection)(), 0, None)
         self.channel._state = Channel.OPEN
@@ -24,6 +25,7 @@ class OnlyOneBasicGetTestCase(unittest.TestCase):
         self.channel.basic_get('test-queue', self.callback)
         with self.assertRaises(DuplicateGetOkCallback):
             self.channel.basic_get('test-queue', self.callback)
+
 
 if __name__ == '__main__':
     unittest.main()
