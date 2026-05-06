@@ -14,11 +14,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - name: Set up Python
-        uses: actions/setup-python@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.10'
-      - name: Install hatch
-        run: pip install hatch
-      - name: Run yapf
-        run: hatch run fmt-check
+      - run: |
+          python -m pip install --upgrade pip hatch
+          hatch run fmt-check
