@@ -8,7 +8,6 @@ import logging
 
 from pika import diagnostic_utils
 
-
 # Suppress invalid-name, since our test names are descriptive and quite long
 # pylint: disable=C0103
 

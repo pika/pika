@@ -4,6 +4,7 @@ from pika import amqp_object
 
 
 class AMQPObjectTests(unittest.TestCase):
+
     def test_base_name(self):
         self.assertEqual(amqp_object.AMQPObject().NAME, 'AMQPObject')
 
@@ -30,6 +31,7 @@ class AMQPObjectTests(unittest.TestCase):
 
 
 class ClassTests(unittest.TestCase):
+
     def test_base_name(self):
         self.assertEqual(amqp_object.Class().NAME, 'Unextended Class')
 
@@ -40,6 +42,7 @@ class ClassTests(unittest.TestCase):
 
 
 class MethodTests(unittest.TestCase):
+
     def test_base_name(self):
         self.assertEqual(amqp_object.Method().NAME, 'Unextended Method')
 
@@ -73,6 +76,6 @@ class MethodTests(unittest.TestCase):
 
 
 class PropertiesTests(unittest.TestCase):
+
     def test_base_name(self):
-        self.assertEqual(amqp_object.Properties().NAME,
-                         'Unextended Properties')
+        self.assertEqual(amqp_object.Properties().NAME, 'Unextended Properties')

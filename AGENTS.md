@@ -27,11 +27,11 @@ examples/               # usage examples
 ## Code style
 
 - **Formatter:** [yapf](https://pypi.org/project/yapf/) with Google style.
-  Run `yapf --diff --style google --recursive --exclude 'pika/spec.py' pika/` to check.
+  Run `hatch run fmt-check` to check, `hatch run fmt` to format in place.
 - **Linter:** [ruff](https://docs.astral.sh/ruff/). Configuration is in
-  `pyproject.toml` under `[tool.ruff]`. Run `ruff check pika/ tests/ examples/ utils/`.
+  `pyproject.toml` under `[tool.ruff]`. Run `hatch run lint`.
 - **Type checking:** [mypy](https://mypy-lang.org/). Configuration is in
-  `mypy.ini`. Run `python -m mypy`.
+  `mypy.ini`. Run `hatch run typecheck`.
 - Use single quotes for strings unless the string contains a single quote.
 - No trailing whitespace. Check before committing.
 
@@ -73,15 +73,23 @@ without corresponding `utils/codegen.py` changes will be rejected.
 
 ## Running tests locally
 
+Install [Hatch](https://hatch.pypa.io/) if you do not have it:
+
+```bash
+pipx install hatch
+```
+
+Run tests with Hatch (it creates the environment and installs dependencies automatically):
+
 ```bash
 # Unit tests only (no RabbitMQ needed)
-pytest tests/unit/
+hatch run unit
 
 # All tests (requires RabbitMQ running on localhost)
-pytest
+hatch run test
 
-# Single test file
-pytest tests/unit/select_connection_interrupt_tests.py -v
+# Start RabbitMQ via Docker
+hatch run rabbitmq
 ```
 
 ## PR conventions
