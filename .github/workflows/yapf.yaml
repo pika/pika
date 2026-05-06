@@ -18,7 +18,7 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: '3.10'
-      - name: Install yapf
-        run: pip install yapf
+      - name: Install hatch
+        run: pip install hatch
       - name: Run yapf
-        run: yapf --diff --style google --recursive --exclude 'pika/spec.py' pika/
+        run: hatch run fmt-check
