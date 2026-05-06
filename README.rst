@@ -240,7 +240,7 @@ existing functionality **include test coverage**.
 rejected.*
 
 Additionally, please format your code using
-`Yapf <https://pypi.python.org/pypi/yapf>`_ with ``google`` style prior to
+`Yapf <https://pypi.org/project/yapf>`_ with ``google`` style prior to
 issuing your pull request. *Note: only format those lines that you have changed
 in your pull request. If you format an entire file and change code outside of
 the scope of your PR, it will likely be rejected.*
@@ -268,7 +268,7 @@ New non-blocking adapters may be implemented in either of the following ways:
    :target: https://badge.fury.io/py/pika
 
 .. |Python versions| image:: https://img.shields.io/pypi/pyversions/pika.svg
-    :target: https://pypi.python.org/pypi/pika
+    :target: https://pypi.org/project/pika
 
 .. |Actions Status| image:: https://github.com/pika/pika/actions/workflows/main.yaml/badge.svg
    :target: https://github.com/pika/pika/actions/workflows/main.yaml
