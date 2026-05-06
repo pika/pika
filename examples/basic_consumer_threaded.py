@@ -48,20 +48,21 @@ def on_message(ch, method_frame, _header_frame, body, args):
 credentials = pika.PlainCredentials('guest', 'guest')
 # Note: sending a short heartbeat to prove that heartbeats are still
 # sent even though the worker simulates long-running work
-parameters = pika.ConnectionParameters(
-    'localhost', credentials=credentials, heartbeat=5)
+parameters = pika.ConnectionParameters('localhost',
+                                       credentials=credentials,
+                                       heartbeat=5)
 connection = pika.BlockingConnection(parameters)
 
 channel = connection.channel()
-channel.exchange_declare(
-    exchange="test_exchange",
-    exchange_type=ExchangeType.direct,
-    passive=False,
-    durable=True,
-    auto_delete=False)
+channel.exchange_declare(exchange="test_exchange",
+                         exchange_type=ExchangeType.direct,
+                         passive=False,
+                         durable=True,
+                         auto_delete=False)
 channel.queue_declare(queue="standard", auto_delete=True)
-channel.queue_bind(
-    queue="standard", exchange="test_exchange", routing_key="standard_key")
+channel.queue_bind(queue="standard",
+                   exchange="test_exchange",
+                   routing_key="standard_key")
 # Note: prefetch is set to 1 here as an example only and to keep the number of threads created
 # to a reasonable amount. In production you will want to test with different prefetch values
 # to find which one provides the best performance and usability for your solution

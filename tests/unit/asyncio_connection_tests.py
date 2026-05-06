@@ -8,7 +8,6 @@ import unittest
 
 from pika.adapters.asyncio_connection import _AsyncioIOServicesAdapter
 
-
 # missing-docstring
 # pylint: disable=C0111
 

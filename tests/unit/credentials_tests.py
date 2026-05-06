@@ -7,8 +7,8 @@ from unittest import mock
 
 from pika import credentials, spec
 
-
 # pylint: disable=C0111,W0212,C0103
+
 
 class ChildPlainCredentials(credentials.PlainCredentials):
 
@@ -18,8 +18,8 @@ class ChildPlainCredentials(credentials.PlainCredentials):
 
     def __eq__(self, other):
         if isinstance(other, ChildPlainCredentials):
-            return self.extra == other.extra and super(
-                ChildPlainCredentials, self).__eq__(other)
+            return self.extra == other.extra and super(ChildPlainCredentials,
+                                                       self).__eq__(other)
         return NotImplemented
 
 
@@ -31,8 +31,8 @@ class ChildExternalCredentials(credentials.ExternalCredentials):
 
     def __eq__(self, other):
         if isinstance(other, ChildExternalCredentials):
-            return self.extra == other.extra and super(
-                ChildExternalCredentials, self).__eq__(other)
+            return self.extra == other.extra and super(ChildExternalCredentials,
+                                                       self).__eq__(other)
         return NotImplemented
 
 
@@ -41,25 +41,20 @@ class PlainCredentialsTests(unittest.TestCase):
     CREDENTIALS = 'guest', 'guest'
 
     def test_eq(self):
-        self.assertEqual(
-            credentials.PlainCredentials('u', 'p'),
-            credentials.PlainCredentials('u', 'p'))
+        self.assertEqual(credentials.PlainCredentials('u', 'p'),
+                         credentials.PlainCredentials('u', 'p'))
 
-        self.assertEqual(
-            credentials.PlainCredentials('u', 'p', True),
-            credentials.PlainCredentials('u', 'p', True))
+        self.assertEqual(credentials.PlainCredentials('u', 'p', True),
+                         credentials.PlainCredentials('u', 'p', True))
 
-        self.assertEqual(
-            credentials.PlainCredentials('u', 'p', False),
-            credentials.PlainCredentials('u', 'p', False))
+        self.assertEqual(credentials.PlainCredentials('u', 'p', False),
+                         credentials.PlainCredentials('u', 'p', False))
 
-        self.assertEqual(
-            credentials.PlainCredentials('u', 'p', False),
-            ChildPlainCredentials('u', 'p', False))
+        self.assertEqual(credentials.PlainCredentials('u', 'p', False),
+                         ChildPlainCredentials('u', 'p', False))
 
-        self.assertEqual(
-            ChildPlainCredentials('u', 'p', False),
-            credentials.PlainCredentials('u', 'p', False))
+        self.assertEqual(ChildPlainCredentials('u', 'p', False),
+                         credentials.PlainCredentials('u', 'p', False))
 
         class Foreign(object):
 
@@ -74,37 +69,29 @@ class PlainCredentialsTests(unittest.TestCase):
             'foobar')
 
     def test_ne(self):
-        self.assertNotEqual(
-            credentials.PlainCredentials('uu', 'p', False),
-            credentials.PlainCredentials('u', 'p', False))
+        self.assertNotEqual(credentials.PlainCredentials('uu', 'p', False),
+                            credentials.PlainCredentials('u', 'p', False))
 
-        self.assertNotEqual(
-            credentials.PlainCredentials('u', 'p', False),
-            credentials.PlainCredentials('uu', 'p', False))
+        self.assertNotEqual(credentials.PlainCredentials('u', 'p', False),
+                            credentials.PlainCredentials('uu', 'p', False))
 
-        self.assertNotEqual(
-            credentials.PlainCredentials('u', 'pp', False),
-            credentials.PlainCredentials('u', 'p', False))
+        self.assertNotEqual(credentials.PlainCredentials('u', 'pp', False),
+                            credentials.PlainCredentials('u', 'p', False))
 
-        self.assertNotEqual(
-            credentials.PlainCredentials('u', 'p', False),
-            credentials.PlainCredentials('u', 'pp', False))
+        self.assertNotEqual(credentials.PlainCredentials('u', 'p', False),
+                            credentials.PlainCredentials('u', 'pp', False))
 
-        self.assertNotEqual(
-            credentials.PlainCredentials('u', 'p', True),
-            credentials.PlainCredentials('u', 'p', False))
+        self.assertNotEqual(credentials.PlainCredentials('u', 'p', True),
+                            credentials.PlainCredentials('u', 'p', False))
 
-        self.assertNotEqual(
-            credentials.PlainCredentials('u', 'p', False),
-            credentials.PlainCredentials('u', 'p', True))
+        self.assertNotEqual(credentials.PlainCredentials('u', 'p', False),
+                            credentials.PlainCredentials('u', 'p', True))
 
-        self.assertNotEqual(
-            credentials.PlainCredentials('uu', 'p', False),
-            ChildPlainCredentials('u', 'p', False))
+        self.assertNotEqual(credentials.PlainCredentials('uu', 'p', False),
+                            ChildPlainCredentials('u', 'p', False))
 
-        self.assertNotEqual(
-            ChildPlainCredentials('u', 'pp', False),
-            credentials.PlainCredentials('u', 'p', False))
+        self.assertNotEqual(ChildPlainCredentials('u', 'pp', False),
+                            credentials.PlainCredentials('u', 'p', False))
 
         self.assertNotEqual(
             credentials.PlainCredentials('u', 'p', False),
@@ -129,8 +116,8 @@ class PlainCredentialsTests(unittest.TestCase):
     def test_response_for(self):
         cred = credentials.PlainCredentials(*self.CREDENTIALS)
         start = spec.Connection.Start()
-        self.assertEqual(
-            cred.response_for(start), ('PLAIN', b'\x00guest\x00guest'))
+        self.assertEqual(cred.response_for(start),
+                         ('PLAIN', b'\x00guest\x00guest'))
 
     def test_erase_response_for_no_mechanism_match(self):
         cred = credentials.PlainCredentials(*self.CREDENTIALS)
@@ -180,12 +167,10 @@ class ExternalCredentialsTest(unittest.TestCase):
             def __eq__(self, other):
                 return 'foobar'
 
-        self.assertEqual(
-            credentials.ExternalCredentials() == Foreign(),
-            'foobar')
-        self.assertEqual(
-            Foreign() == credentials.ExternalCredentials(),
-            'foobar')
+        self.assertEqual(credentials.ExternalCredentials() == Foreign(),
+                         'foobar')
+        self.assertEqual(Foreign() == credentials.ExternalCredentials(),
+                         'foobar')
 
     def test_ne(self):
         cred_1 = credentials.ExternalCredentials()
@@ -210,12 +195,10 @@ class ExternalCredentialsTest(unittest.TestCase):
             def __ne__(self, other):
                 return 'foobar'
 
-        self.assertEqual(
-            credentials.ExternalCredentials() != Foreign(),
-            'foobar')
-        self.assertEqual(
-            Foreign() != credentials.ExternalCredentials(),
-            'foobar')
+        self.assertEqual(credentials.ExternalCredentials() != Foreign(),
+                         'foobar')
+        self.assertEqual(Foreign() != credentials.ExternalCredentials(),
+                         'foobar')
 
     def test_response_for(self):
         cred = credentials.ExternalCredentials()

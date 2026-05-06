@@ -10,6 +10,7 @@ from pika import channel, exceptions, frame, spec
 
 
 class ContentFrameAssemblerTests(unittest.TestCase):
+
     def setUp(self):
         self.obj = channel.ContentFrameAssembler()
 

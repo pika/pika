@@ -6,7 +6,6 @@ import unittest
 
 from pika import exceptions
 
-
 # missing-docstring
 # pylint: disable=C0111
 
@@ -15,15 +14,14 @@ from pika import exceptions
 
 
 class ExceptionTests(unittest.TestCase):
+
     def test_amqp_connection_error_one_param_repr(self):
-        self.assertEqual(
-            repr(exceptions.AMQPConnectionError(10)),
-            'AMQPConnectionError: (10,)')
+        self.assertEqual(repr(exceptions.AMQPConnectionError(10)),
+                         'AMQPConnectionError: (10,)')
 
     def test_amqp_connection_error_two_params_repr(self):
-        self.assertEqual(
-            repr(exceptions.AMQPConnectionError(1, 'Test')),
-            'AMQPConnectionError: (1) Test')
+        self.assertEqual(repr(exceptions.AMQPConnectionError(1, 'Test')),
+                         'AMQPConnectionError: (1) Test')
 
     def test_authentication_error_repr(self):
         self.assertEqual(

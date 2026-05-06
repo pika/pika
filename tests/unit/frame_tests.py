@@ -9,9 +9,8 @@ from pika import exceptions, frame, spec, DeliveryMode
 
 class FrameTests(unittest.TestCase):
 
-    BASIC_ACK = (
-        b'\x01\x00\x01\x00\x00\x00\r\x00<\x00P\x00\x00\x00\x00\x00\x00'
-        b'\x00d\x00\xce')
+    BASIC_ACK = (b'\x01\x00\x01\x00\x00\x00\r\x00<\x00P\x00\x00\x00\x00\x00\x00'
+                 b'\x00d\x00\xce')
     BODY_FRAME = b'\x03\x00\x01\x00\x00\x00\x14I like it that sound\xce'
     BODY_FRAME_VALUE = b'I like it that sound'
     CONTENT_HEADER = (b'\x02\x00\x01\x00\x00\x00\x0f\x00<\x00\x00\x00'
@@ -29,8 +28,7 @@ class FrameTests(unittest.TestCase):
 
     def headers_marshal_test(self):
         header = frame.Header(
-            1, 100,
-            spec.BasicProperties(delivery_mode=DeliveryMode.Persistent))
+            1, 100, spec.BasicProperties(delivery_mode=DeliveryMode.Persistent))
         self.assertEqual(header.marshal(), self.CONTENT_HEADER)
 
     def body_marshal_test(self):

@@ -7,6 +7,7 @@ from pika import ConnectionParameters, BlockingConnection, PlainCredentials
 
 
 class Publisher(threading.Thread):
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.daemon = True

@@ -11,7 +11,8 @@ import unittest
 from unittest import mock
 
 from tests.wrappers import threaded_test_wrapper
-from tests.wrappers.threaded_test_wrapper import (_ThreadedTestWrapper, run_in_thread_with_timeout)
+from tests.wrappers.threaded_test_wrapper import (_ThreadedTestWrapper,
+                                                  run_in_thread_with_timeout)
 
 # Suppress invalid-name, since our test names are descriptive and quite long
 # pylint: disable=C0103
@@ -34,6 +35,7 @@ class ThreadedTestWrapperSelfChecks(unittest.TestCase):
         raise NotImplementedError
 
     def test_propagation_of_failure_from_test_execution_thread(self):
+
         class SelfCheckExceptionHandling(Exception):
             pass
 
@@ -86,8 +88,7 @@ class ThreadedTestWrapperSelfChecks(unittest.TestCase):
             # Patch DEFAULT_TEST_TIMEOUT to much smaller value than sleep in
             # my_start()
             with mock.patch.object(threaded_test_wrapper,
-                                   'DEFAULT_TEST_TIMEOUT',
-                                   0.01):
+                                   'DEFAULT_TEST_TIMEOUT', 0.01):
                 # Redirect start() call from thread to our own my_start()
                 with self.assertRaises(AssertionError) as exc_ctx:
                     my_sleeper()
@@ -124,7 +125,6 @@ class ThreadedTestWrapperSelfChecks(unittest.TestCase):
         self.assertEqual(len(kwargs_ut), 1, repr(kwargs_ut))
         self.assertIn('kwarg0', kwargs_ut, repr(kwargs_ut))
         self.assertIs(kwargs_ut['kwarg0'], kwarg0)
-
 
     def test_skip_test_is_passed_through(self):
 
