@@ -20,7 +20,7 @@ Install [Hatch](https://hatch.pypa.io/), which manages the development environme
 
     pipx install hatch
 
-If you do not have ``pipx``, you can use ``pip install hatch`` instead. Hatch will install all required dependencies when you first run a script, so no separate ``pip install -r test-requirements.txt`` step is needed.
+If you do not have ``pipx``, you can use ``pip install hatch`` instead. Hatch will install all required dependencies when you first run a script.
 
 
 ## Running Tests
