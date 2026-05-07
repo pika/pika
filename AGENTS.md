@@ -24,11 +24,11 @@ examples/               # usage examples
 ## Code style
 
 - **Formatter:** [yapf](https://pypi.org/project/yapf/) with Google style.
-  Run `yapf --diff --style google --recursive --exclude 'pika/spec.py' pika/ tests/ examples/` to check.
+  Run `hatch run fmt-check` to check, `hatch run fmt` to format in place.
 - **Linter:** [ruff](https://docs.astral.sh/ruff/). Configuration is in
-  `pyproject.toml` under `[tool.ruff]`. Run `ruff check pika/ tests/ examples/`.
+  `pyproject.toml` under `[tool.ruff]`. Run `hatch run lint`.
 - **Type checking:** [mypy](https://mypy-lang.org/). Configuration is in
-  `mypy.ini`. Run `python -m mypy`.
+  `mypy.ini`. Run `hatch run typecheck`.
 - Use single quotes for strings unless the string contains a single quote.
 - No trailing whitespace. Check before committing.
 
@@ -55,27 +55,37 @@ examples/               # usage examples
 
 ## CI workflows
 
+- **Format** (`.github/workflows/yapf.yaml`): runs `yapf` check on every push and pull request.
 - **Lint** (`.github/workflows/lint.yaml`): runs `ruff check` on every push
   and pull request.
 - **Type check** (`.github/workflows/mypy.yaml`): runs `mypy` on every push
   and pull request. Requires `tornado` and `twisted` to be installed so mypy
   can resolve optional-dependency types.
 - **Tests** (`.github/workflows/main.yaml`): runs the full test suite with
-  `pynose` across the Python version matrix. Acceptance tests require a
-  RabbitMQ server (started via Docker in CI). The Windows job runs unit
-  tests only.
+  `pytest` on Python 3.10-3.14. Acceptance tests require a RabbitMQ server
+  (started via Docker in CI).
+- **Legacy tests** (`.github/workflows/legacy-python.yaml`): same as above,
+  but for Python 3.7-3.9.
 
 ## Running tests locally
 
+Install [Hatch](https://hatch.pypa.io/) if you do not have it:
+
+```bash
+pipx install hatch
+```
+
+Run tests with Hatch (it creates the environment and installs dependencies automatically):
+
 ```bash
 # Unit tests only (no RabbitMQ needed)
-pynose tests/unit/
+hatch run unit
 
 # All tests (requires RabbitMQ running on localhost)
-pynose
+hatch run test
 
-# Single test file
-pynose tests/unit/select_connection_interrupt_tests.py -v
+# Start RabbitMQ via Docker
+hatch run rabbitmq
 ```
 
 ## PR conventions

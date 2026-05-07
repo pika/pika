@@ -6,44 +6,32 @@ To contribute to Pika, please make sure that any new features or changes to exis
 
 Pull requests that add or change code without adequate test coverage will be rejected.
 
-## Code Formatting
-
-Please format your code using [yapf](https://pypi.python.org/pypi/yapf) with `google` style prior to issuing your pull request.
-
-!!! note
-
-    Only format those lines that you have changed in your pull request. If you
-    format an entire file and change code outside of the scope of your PR, it
-    will likely be rejected.
-
-To **see what formatting changes are required** by yapf, run the following command from the repository root:
-
-    yapf --diff --style google --recursive --exclude 'pika/spec.py' pika/ tests/ examples/
-
-To **automatically apply formatting changes** to your code, run:
-
-    yapf -i --style google --recursive --exclude 'pika/spec.py' pika/ tests/ examples/
-
 ## Prerequisites
 
-Pika test suite has a couple of requirements:
-
- * Dependencies from `test-requirements.txt` are installed
- * A RabbitMQ node with all defaults is running on `localhost:5672`
+To run the full test suite, a RabbitMQ node with all defaults must be running on `localhost:5672`. Use `hatch run rabbitmq` to start one via Docker, or provide your own.
 
 ## Installing Dependencies
 
-To install the dependencies needed to run Pika tests, use
+Install [Hatch](https://hatch.pypa.io/), which manages the development environment and dependencies automatically:
 
-    pip install -r test-requirements.txt
+    pipx install hatch
 
-If your environment uses the `pip3` command name, run `pip3 install -r test-requirements.txt` instead.
+If you do not have ``pipx``, you can use ``pip install hatch`` instead. Hatch will install all required dependencies when you first run a script.
+
 
 ## Running Tests
 
 To run all test suites, use
 
-    pytest
+    hatch run test
+
+To run unit tests only (no RabbitMQ required), use
+
+    hatch run unit
+
+To start RabbitMQ via Docker for acceptance tests, use
+
+    hatch run rabbitmq
 
 Note that some tests are OS-specific (e.g. epoll on Linux or kqueue on MacOS and BSD). Those will be skipped automatically.
 
@@ -65,7 +53,7 @@ If you would like to run TLS/SSL tests, use the following procedure:
 * Run the tests indicating that TLS/SSL connections should be used:
 
     ```
-    pytest --use-tls
+    hatch run test -- --use-tls
     ```
 
 ## Building Documentation
@@ -108,3 +96,22 @@ To preview **multiple versions** locally:
 4. Open the URL it prints (default `http://127.0.0.1:8000`) and use the version
    selector. `mike list` shows what is installed; `mike delete VERSION` removes
    one version.
+   
+## Code Formatting and Linting
+
+Please format your code using [yapf](https://pypi.org/project/yapf/)
+with ``google`` style prior to issuing your pull request. *Note: only format those
+lines that you have changed in your pull request. If you format an entire file and
+change code outside of the scope of your PR, it will likely be rejected.*
+
+    hatch run fmt
+
+To verify formatting without modifying files (mirrors CI), use
+
+    hatch run fmt-check
+
+Please also ensure your code passes [ruff](https://docs.astral.sh/ruff/) linting:
+
+    hatch run lint
+
+Both checks run in CI on every push and pull request.
