@@ -308,7 +308,6 @@ rejected.
 import struct
 from pika import amqp_object
 from pika import data
-from pika._utils import as_bytes
 
 """)
 
