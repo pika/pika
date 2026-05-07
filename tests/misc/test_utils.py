@@ -4,7 +4,7 @@ import functools
 import logging
 import time
 import traceback
-import pika.compat
+import pika._utils
 
 
 def retry_assertion(timeout_sec, retry_interval_sec=0.1):
@@ -37,7 +37,7 @@ def retry_assertion(timeout_sec, retry_interval_sec=0.1):
             """The wrapper"""
 
             num_attempts = 0
-            start_time = pika.compat.time_now()
+            start_time = pika._utils.time_now()
 
             while True:
                 num_attempts += 1
@@ -46,7 +46,7 @@ def retry_assertion(timeout_sec, retry_interval_sec=0.1):
                     result = func(*args, **kwargs)
                 except AssertionError:
 
-                    now = pika.compat.time_now()
+                    now = pika._utils.time_now()
                     # Compensate for time adjustment
                     if now < start_time:
                         start_time = now

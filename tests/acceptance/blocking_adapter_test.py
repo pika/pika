@@ -9,7 +9,7 @@ import uuid
 
 import pika
 from pika.adapters import blocking_connection
-from pika.compat import as_bytes, time_now
+from pika._utils import as_bytes, time_now
 import pika.exceptions
 from pika.exchange_type import ExchangeType
 

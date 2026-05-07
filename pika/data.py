@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from pika import exceptions
-from pika.compat import long, as_bytes
+from pika._utils import as_bytes
 
 
 def encode_short_string(pieces: List[bytes], value: str) -> int:
@@ -100,16 +100,13 @@ def encode_value(pieces: List[bytes], value: Any) -> int:  # pylint: disable=R09
     elif isinstance(value, bool):
         pieces.append(struct.pack('>cB', b't', int(value)))
         return 2
-    elif isinstance(value, long):
-        pieces.append(struct.pack('>cq', b'l', value))
-        return 9
     elif isinstance(value, int):
         try:
             packed = struct.pack('>ci', b'I', value)
             pieces.append(packed)
             return 5
         except struct.error:
-            pieces.append(struct.pack('>cq', b'l', long(value)))
+            pieces.append(struct.pack('>cq', b'l', value))
             return 9
     elif isinstance(value, decimal.Decimal):
         value = value.normalize()
@@ -216,23 +213,23 @@ def decode_value(encoded: bytes, offset: int) -> Tuple[Any, int]:  # pylint: dis
 
     # Long-Long Int
     elif kind == b'L':
-        value = long(struct.unpack_from('>q', encoded, offset)[0])
+        value = struct.unpack_from('>q', encoded, offset)[0]
         offset += 8
 
     # Long-Long Int (both 'l' and 'L' are signed per RabbitMQ and the
     # AMQP 0-9-1 errata; see rabbitmq/rabbitmq-server#1093)
     elif kind == b'l':
-        value = long(struct.unpack_from('>q', encoded, offset)[0])
+        value = struct.unpack_from('>q', encoded, offset)[0]
         offset += 8
 
     # Float
     elif kind == b'f':
-        value = long(struct.unpack_from('>f', encoded, offset)[0])
+        value = struct.unpack_from('>f', encoded, offset)[0]
         offset += 4
 
     # Double
     elif kind == b'd':
-        value = long(struct.unpack_from('>d', encoded, offset)[0])
+        value = struct.unpack_from('>d', encoded, offset)[0]
         offset += 8
 
     # Decimal

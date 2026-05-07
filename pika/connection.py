@@ -18,7 +18,7 @@ from urllib.parse import unquote as url_unquote, parse_qs as url_parse_qs, urlpa
 
 import pika.callback
 import pika.channel
-import pika.compat
+import pika._utils
 import pika.credentials
 import pika.exceptions as exceptions
 import pika.frame as frame
@@ -990,7 +990,7 @@ class SSLOptions:
         self.server_hostname = server_hostname
 
 
-class Connection(pika.compat.AbstractBase):  # type: ignore
+class Connection(pika._utils.AbstractBase):  # type: ignore
     """This is the core class that implements communication with RabbitMQ. This
     class should not be invoked directly but rather through the use of an
     adapter such as SelectConnection or BlockingConnection.

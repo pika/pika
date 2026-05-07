@@ -2,7 +2,7 @@
 Test for io_services_test_stubs.py
 """
 
-import pika.compat
+import pika._utils
 
 try:
     import asyncio
@@ -26,7 +26,7 @@ from tests.stubs.io_services_test_stubs import IOServicesTestStubs
 # pylint: disable=C0111
 
 if asyncio is not None:
-    if pika.compat.ON_WINDOWS:
+    if pika._utils.ON_WINDOWS:
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)

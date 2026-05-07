@@ -20,7 +20,7 @@ import unittest
 from unittest import mock
 
 import pika
-from pika import compat
+import pika._utils
 from pika.adapters import select_connection
 
 # protected-access
@@ -565,7 +565,7 @@ class IOLoopEintrTestCaseSelect(IOLoopBaseTest):
         self.poller.stop()
         self.fail('Eintr-test timed out')
 
-    @unittest.skipUnless(compat.HAVE_SIGNAL,
+    @unittest.skipUnless(pika._utils.HAVE_SIGNAL,
                          "This platform doesn't support posix signals")
     @mock.patch('pika.adapters.select_connection._is_resumable')
     def test_eintr(
@@ -641,12 +641,12 @@ class SelectPollerTestPollWithoutSockets(unittest.TestCase):
 
         delay = poller._get_wait_seconds()
         self.assertIsNotNone(delay)
-        deadline = pika.compat.time_now() + delay
+        deadline = pika._utils.time_now() + delay
 
         while True:
             poller._process_timeouts()
 
-            if pika.compat.time_now() < deadline:
+            if pika._utils.time_now() < deadline:
                 self.assertEqual(timer_call_container, [])
             else:
                 # One last time in case deadline reached after previous
@@ -745,7 +745,7 @@ class DefaultPollerSocketEventsTestCase(unittest.TestCase):
         :returns: two-tuple of connected non-blocking sockets
 
         """
-        pair = pika.compat.nonblocking_socketpair()
+        pair = pika._utils.nonblocking_socketpair()
         self.addCleanup(pair[0].close)
         self.addCleanup(pair[1].close)
         return pair
@@ -770,7 +770,7 @@ class DefaultPollerSocketEventsTestCase(unittest.TestCase):
         """
         try:
             sock.connect(addr_pair)
-        except pika.compat.SOCKET_ERROR as error:
+        except pika._utils.SOCKET_ERROR as error:
             # EINPROGRESS for posix and EWOULDBLOCK for windows
             if error.errno not in (
                     errno.EINPROGRESS,
@@ -784,7 +784,7 @@ class DefaultPollerSocketEventsTestCase(unittest.TestCase):
         :return: socket address pair (ip-addr, port) that will refuse connection
 
         """
-        s1, s2 = pika.compat.nonblocking_socketpair()
+        s1, s2 = pika._utils.nonblocking_socketpair()
         s2.close()
         self.addCleanup(s1.close)
         return s1.getsockname()  # pylint: disable=E1101

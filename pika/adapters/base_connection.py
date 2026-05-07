@@ -10,9 +10,7 @@ import functools
 import logging
 from typing import Any, Callable, Optional, Sequence, Union
 
-import pika.compat
 import pika.exceptions
-import pika.tcp_socket_opts
 
 from pika.adapters.utils import connection_workflow, nbio_interface
 from pika import connection
@@ -101,13 +99,13 @@ class BaseConnection(connection.Connection):
         #     peername = None
         #     try:
         #         sockname = sock.getsockname()
-        #     except pika.compat.SOCKET_ERROR:
+        #     except pika._utils.SOCKET_ERROR:
         #         # closed?
         #         pass
         #     else:
         #         try:
         #             peername = sock.getpeername()
-        #         except pika.compat.SOCKET_ERROR:
+        #         except pika._utils.SOCKET_ERROR:
         #             # not connected?
         #             pass
         #

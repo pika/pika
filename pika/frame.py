@@ -6,7 +6,6 @@ from typing import Generic, List, Optional, Tuple, TypeVar, Union
 from pika import amqp_object
 from pika import exceptions
 from pika import spec
-from pika.compat import byte
 
 LOGGER = logging.getLogger(__name__)
 
@@ -39,7 +38,7 @@ class Frame(amqp_object.AMQPObject):
         """
         payload = b''.join(pieces)
         return struct.pack('>BHI', self.frame_type, self.channel_number,
-                           len(payload)) + payload + byte(spec.FRAME_END)
+                           len(payload)) + payload + bytes((spec.FRAME_END,))
 
     def marshal(self) -> bytes:
         """To be ended by child classes
@@ -226,7 +225,7 @@ def decode_frame(
         return 0, None
 
     # The Frame termination chr is wrong
-    if data_in[frame_end - 1:frame_end] != byte(spec.FRAME_END):
+    if data_in[frame_end - 1:frame_end] != bytes((spec.FRAME_END,)):
         raise exceptions.InvalidFrameError("Invalid FRAME_END marker")
 
     # Get the raw frame data

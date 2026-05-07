@@ -14,7 +14,7 @@ import time
 import threading
 from typing import Any, Callable, Optional, Sequence, Set, Tuple, Type, Dict, Union, TYPE_CHECKING
 
-import pika.compat
+import pika._utils
 
 from pika.adapters.utils import nbio_interface
 from pika.adapters.base_connection import BaseConnection
@@ -285,7 +285,7 @@ class _Timer:
                 'call_later: delay must be non-negative, but got {!r}'.format(
                     delay))
 
-        now = pika.compat.time_now()
+        now = pika._utils.time_now()
 
         timeout = _Timeout(now + delay, callback)
 
@@ -327,7 +327,7 @@ class _Timer:
 
         """
         if self._timeout_heap:
-            now = pika.compat.time_now()
+            now = pika._utils.time_now()
             interval = max(0, self._timeout_heap[0].deadline - now)
         else:
             interval = None
@@ -340,7 +340,7 @@ class _Timer:
 
         """
         if self._timeout_heap:
-            now = pika.compat.time_now()
+            now = pika._utils.time_now()
 
             # Remove ready timeouts from the heap now to prevent IO starvation
             # from timeouts added during callback processing
@@ -616,7 +616,7 @@ class IOLoop(AbstractSelectorIOLoop):
         self._poller.poll()
 
 
-class _PollerBase(pika.compat.AbstractBase):  # type: ignore  # pylint: disable=R0902
+class _PollerBase(pika._utils.AbstractBase):  # type: ignore  # pylint: disable=R0902
     """Base class for select-based IOLoop implementations"""
 
     # Drop out of the poll loop every _MAX_POLL_TIMEOUT secs as a worst case;
@@ -706,7 +706,7 @@ class _PollerBase(pika.compat.AbstractBase):  # type: ignore  # pylint: disable=
                 # Send byte to interrupt the poll loop, use send() instead of
                 # os.write for Windows compatibility
                 self._w_interrupt.send(b'X')
-            except pika.compat.SOCKET_ERROR as err:
+            except pika._utils.SOCKET_ERROR as err:
                 if err.errno not in _TRY_IO_AGAIN_SOCK_ERROR_CODES:
                     raise
             except Exception as err:
@@ -953,7 +953,7 @@ class _PollerBase(pika.compat.AbstractBase):  # type: ignore  # pylint: disable=
         so use a pair of simple TCP sockets instead. The sockets will be
         closed and garbage collected by python when the ioloop itself is.
         """
-        return pika.compat.nonblocking_socketpair()
+        return pika._utils.nonblocking_socketpair()
 
     def _read_interrupt(self, _interrupt_fd: int, _events: int) -> None:
         """ Read the interrupt byte(s). We ignore the event mask as we can ony
@@ -965,7 +965,7 @@ class _PollerBase(pika.compat.AbstractBase):  # type: ignore  # pylint: disable=
         try:
             # NOTE Use recv instead of os.read for windows compatibility
             self._r_interrupt.recv(512)  # pylint: disable=E1101  # type: ignore
-        except pika.compat.SOCKET_ERROR as err:
+        except pika._utils.SOCKET_ERROR as err:
             if err.errno not in _TRY_IO_AGAIN_SOCK_ERROR_CODES:
                 raise
 
@@ -1251,7 +1251,7 @@ class PollPoller(_PollerBase):
             # POLLOUT and it doesn't seem to set POLLERR along with POLLHUP when
             # socket connection fails, for example. So, we need to at least add
             # POLLERR when we see POLLHUP
-            if (event & PollEvents.HANGUP) and pika.compat.ON_OSX:
+            if (event & PollEvents.HANGUP) and pika._utils.ON_OSX:
                 event |= PollEvents.ERROR
 
             fd_event_map[fileno] |= event

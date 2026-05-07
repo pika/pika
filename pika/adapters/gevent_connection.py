@@ -15,7 +15,7 @@ import gevent
 import gevent.hub  # type: ignore[import-untyped]
 import gevent.socket  # type: ignore[import-untyped]
 
-import pika.compat
+import pika._utils
 from pika.adapters.base_connection import BaseConnection
 from pika.adapters.utils.io_services_utils import check_callback_arg
 from pika.adapters.utils.nbio_interface import (
@@ -74,7 +74,7 @@ class GeventConnection(BaseConnection):
             establishment which is default; False for externally-managed
             connection workflow via the `create_connection()` factory
         """
-        if pika.compat.ON_WINDOWS:
+        if pika._utils.ON_WINDOWS:
             raise RuntimeError('GeventConnection is not supported on Windows.')
 
         custom_ioloop = (custom_ioloop or

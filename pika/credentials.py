@@ -21,7 +21,7 @@ from __future__ import annotations
 import logging
 from typing import List, Optional, Tuple, TYPE_CHECKING, Type, Union
 
-from .compat import as_bytes
+from ._utils import as_bytes
 
 if TYPE_CHECKING:
     from pika.spec import Connection

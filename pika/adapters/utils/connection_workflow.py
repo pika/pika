@@ -13,7 +13,7 @@ import logging
 import socket
 from typing import Any, Callable, Iterator, List, Optional, Sequence, TYPE_CHECKING, Tuple, Union
 
-import pika.compat
+import pika._utils
 import pika.connection
 import pika.exceptions
 import pika.tcp_socket_opts
@@ -193,7 +193,7 @@ class AMQPConnector:
         # Create socket and initiate TCP/IP connection
         self._state = self._STATE_TCP
         self._sock = socket.socket(*self._addr_record[:3])
-        self._sock.setsockopt(pika.compat.SOL_TCP, socket.TCP_NODELAY, 1)
+        self._sock.setsockopt(pika._utils.SOL_TCP, socket.TCP_NODELAY, 1)
         pika.tcp_socket_opts.set_sock_opts(self._conn_params.tcp_options,
                                            self._sock)
         self._sock.setblocking(False)
@@ -525,7 +525,7 @@ class AMQPConnector:
 
 
 class AbstractAMQPConnectionWorkflow(
-        pika.compat.AbstractBase  # type: ignore[valid-type, misc]
+        pika._utils.AbstractBase  # type: ignore[valid-type, misc]
 ):
     """Interface for implementing a custom TCP/[SSL]/AMQP connection workflow.
 

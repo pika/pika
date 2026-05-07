@@ -6,14 +6,11 @@ https://github.com/rabbitmq/rabbitmq-codegen
 .
 
 After cloning it run the following to generate a spec.py file:
-python2 ./codegen.py ../../rabbitmq-codegen
+python ./codegen.py ../../rabbitmq-codegen
 """
 import os
 import re
 import sys
-
-if sys.version_info.major != 2:
-    sys.exit('Python 2 is required at this time')
 
 RABBITMQ_CODEGEN_PATH = sys.argv[1]
 PIKA_SPEC = '../pika/spec.py'
@@ -45,7 +42,7 @@ DRIVER_METHODS = {
 
 
 def fieldvalue(v):
-    if isinstance(v, unicode):
+    if isinstance(v, str):
         return repr(v.encode('ascii'))
     elif isinstance(v, dict):
         return repr(None)
@@ -144,18 +141,17 @@ def generate(specPath):
         if type == 'shortstr':
             print(
                 prefix +
-                "assert isinstance(%s, str_or_bytes),\\\n%s       'A non-string value was supplied for %s'"
+                "assert isinstance(%s, (str, bytes)),\\\n%s       'A non-string value was supplied for %s'"
                 % (cValue, prefix, cValue))
             print(prefix + "data.encode_short_string(pieces, %s)" % cValue)
         elif type == 'longstr':
             print(
                 prefix +
-                "assert isinstance(%s, str_or_bytes),\\\n%s       'A non-string value was supplied for %s'"
+                "assert isinstance(%s, (str, bytes)),\\\n%s       'A non-string value was supplied for %s'"
                 % (cValue, prefix, cValue))
-            print(
-                prefix +
-                "value = %s.encode('utf-8') if isinstance(%s, unicode_type) else %s"
-                % (cValue, cValue, cValue))
+            print(prefix +
+                  "value = %s.encode('utf-8') if isinstance(%s, str) else %s" %
+                  (cValue, cValue, cValue))
             print(prefix + "pieces.append(struct.pack('>I', len(value)))")
             print(prefix + "pieces.append(value)")
         elif type == 'octet':
@@ -313,10 +309,8 @@ rejected.
 import struct
 from pika import amqp_object
 from pika import data
-from pika.compat import str_or_bytes, unicode_type
+from pika._utils import as_bytes
 
-# Python 3 support for str object
-str = bytes
 """)
 
     print("PROTOCOL_VERSION = (%d, %d, %d)" %
@@ -380,7 +374,7 @@ str = bytes
                 for f in c.fields:
                     if index % 16 == 15:
                         index += 1
-                    shortnum = index / 16
+                    shortnum = index // 16
                     partialindex = 15 - (index % 16)
                     bitindex = shortnum * 16 + partialindex
                     print('    %s = (1 << %d)' % (flagName(None, f), bitindex))

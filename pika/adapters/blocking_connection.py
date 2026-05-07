@@ -27,10 +27,9 @@ import threading
 from typing import Any, Callable, Dict, Generator, Generic, List, Optional, Sequence, Set, Tuple, TypeVar, Union, TYPE_CHECKING
 
 import pika.channel
-import pika.compat as compat
+import pika._utils
 import pika.connection
 import pika.exceptions as exceptions
-import pika.exceptions
 import pika.spec
 import pika.validators as validators
 from pika.adapters.utils import connection_workflow
@@ -916,12 +915,12 @@ class BlockingConnection:
         """
         assert duration >= 0, duration
 
-        deadline = compat.time_now() + duration
+        deadline = pika._utils.time_now() + duration
         time_limit = duration
         # Process events at least once
         while True:
             self.process_data_events(time_limit)
-            time_limit = deadline - compat.time_now()
+            time_limit = deadline - pika._utils.time_now()
             if time_limit <= 0:
                 break
 
@@ -2102,7 +2101,7 @@ class BlockingChannel:
                 continue
 
             # Wait with inactivity timeout
-            wait_start_time = compat.time_now()
+            wait_start_time = pika._utils.time_now()
             wait_deadline = wait_start_time + inactivity_timeout
             delta = inactivity_timeout
 
@@ -2119,7 +2118,7 @@ class BlockingChannel:
                     # Got message(s)
                     break
 
-                delta = wait_deadline - compat.time_now()
+                delta = wait_deadline - pika._utils.time_now()
                 if delta <= 0.0:
                     # Signal inactivity timeout
                     yield (None, None, None)
