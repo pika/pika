@@ -1,7 +1,24 @@
-# Pika
-Pika is a RabbitMQ (AMQP 0-9-1) client library for Python.
+<h1 align='center'>pika</h1>
 
-[![Version](https://img.shields.io/pypi/v/pika.svg?)](http://badge.fury.io/py/pika) [![Python versions](https://img.shields.io/pypi/pyversions/pika.svg)](https://pypi.python.org/pypi/pika) [![Downloads](https://img.shields.io/pypi/dm/pika.svg)](https://pypi.python.org/pypi/pika) [![Actions Status](https://github.com/pika/pika/actions/workflows/main.yaml/badge.svg)](https://github.com/pika/pika/actions/workflows/main.yaml) [![Coverage](https://img.shields.io/codecov/c/github/pika/pika/main.svg)](https://codecov.io/github/pika/pika?branch=main) [![License](https://img.shields.io/pypi/l/pika.svg?)](https://github.com/pika/pika/blob/main/LICENSE) [![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://pika.github.io/pika/)
+<p align='center'>RabbitMQ (AMQP 0-9-1) client library for Python.</p>
+
+<p align='center'>
+  <a href='http://badge.fury.io/py/pika'><img src='https://img.shields.io/pypi/v/pika.svg?' alt='Version'></a>
+  <a href='https://pypi.python.org/pypi/pika'><img src='https://img.shields.io/pypi/pyversions/pika.svg' alt='Python versions'></a>
+  <a href='https://pypi.python.org/pypi/pika'><img src='https://img.shields.io/pypi/dm/pika.svg' alt='Downloads'></a>
+  <a href='https://github.com/pika/pika/actions/workflows/main.yaml'><img src='https://github.com/pika/pika/actions/workflows/main.yaml/badge.svg' alt='Actions Status'></a>
+  <a href='https://codecov.io/github/pika/pika?branch=main'><img src='https://img.shields.io/codecov/c/github/pika/pika/main.svg' alt='Coverage'></a>
+  <a href='https://github.com/pika/pika/blob/main/LICENSE'><img src='https://img.shields.io/pypi/l/pika.svg?' alt='License'></a>
+  <a href='https://pika.github.io/pika/'><img src='https://img.shields.io/badge/docs-GitHub%20Pages-blue' alt='Docs'></a>
+</p>
+
+<p align='center'>
+  <a href='#introduction'><strong>Introduction</strong></a> ·
+  <a href='#documentation'><strong>Documentation</strong></a> ·
+  <a href='#example'><strong>Example</strong></a> ·
+  <a href='#adapters'><strong>Adapters</strong></a> ·
+  <a href='#contributing'><strong>Contributing</strong></a>
+</p>
 
 ## Introduction
 Pika is a pure-Python implementation of the AMQP 0-9-1 protocol including RabbitMQ's extensions.
