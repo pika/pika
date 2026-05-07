@@ -60,10 +60,6 @@ If you would like to run TLS/SSL tests, use the following procedure:
 
 Pika documentation is built with MkDocs and Material for MkDocs.
 
-To install the documentation dependencies, use
-
-    hatch env create docs
-
 To build the documentation locally, use
 
     hatch run docs:build
