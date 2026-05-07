@@ -2,17 +2,20 @@
 codegen.py generates pika/spec.py
 
 The required spec json file can be found at
-https://github.com/rabbitmq/rabbitmq-codegen
+https://github.com/rabbitmq/rabbitmq-server
 .
 
 After cloning it run the following to generate a spec.py file:
-python ./codegen.py ../../rabbitmq-codegen
+python ./utils/codegen.py ../rabbitmq-server
 """
+
+import os
 import re
 import sys
 
-RABBITMQ_CODEGEN_PATH = sys.argv[1]
-PIKA_SPEC = '../pika/spec.py'
+RABBITMQ_CODEGEN_PATH = os.path.join(sys.argv[1], 'deps', 'rabbitmq_codegen')
+
+PIKA_SPEC = './pika/spec.py'
 print('codegen-path: %s' % RABBITMQ_CODEGEN_PATH)
 sys.path.append(RABBITMQ_CODEGEN_PATH)
 
@@ -42,7 +45,7 @@ DRIVER_METHODS = {
 
 def fieldvalue(v):
     if isinstance(v, str):
-        return repr(v.encode('ascii'))
+        return repr(v)
     elif isinstance(v, dict):
         return repr(None)
     elif isinstance(v, list):
@@ -100,10 +103,6 @@ def generate(specPath):
                   "length = struct.unpack_from('>I', encoded, offset)[0]")
             print(prefix + "offset += 4")
             print(prefix + "%s = encoded[offset:offset + length]" % cLvalue)
-            print(prefix + "try:")
-            print(prefix + "    %s = str(%s)" % (cLvalue, cLvalue))
-            print(prefix + "except UnicodeEncodeError:")
-            print(prefix + "    pass")
             print(prefix + "offset += length")
         elif type == 'octet':
             print(prefix +
