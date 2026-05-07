@@ -27,7 +27,7 @@ jobs:
           cache: pip
 
       - name: Install documentation dependencies
-        run: python -m pip install -r docs/requirements.txt
+        run: python -m pip install hatch
 
       - name: Build documentation
-        run: mkdocs build --strict
+        run: hatch run docs:build

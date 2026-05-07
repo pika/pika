@@ -1,8 +1,0 @@
-mkdocs
-mkdocs-material
-mkdocstrings[python]
-mike
-gevent
-tornado
-twisted
-ruff

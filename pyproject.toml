@@ -97,6 +97,23 @@ unit = "pytest tests/unit/"
 test = "pytest"
 rabbitmq = "docker run --name pika-rabbitmq --pull always --detach --rm --publish 5672:5672 --publish 15672:15672 rabbitmq:management-alpine"
 
+[tool.hatch.envs.docs]
+dependencies = [
+    "mkdocs",
+    "mkdocs-material",
+    "mkdocstrings[python]",
+    "mike",
+    "gevent",
+    "tornado",
+    "twisted",
+    "ruff",
+]
+
+[tool.hatch.envs.docs.scripts]
+build = "mkdocs build --strict"
+serve = "mkdocs serve"
+serve-live = "mkdocs serve --livereload"
+
 [tool.pytest.ini_options]
 minversion = "7.0"
 testpaths = ["tests"]

@@ -62,21 +62,21 @@ Pika documentation is built with MkDocs and Material for MkDocs.
 
 To install the documentation dependencies, use
 
-    pip install -r docs/requirements.txt
+    hatch env create docs
 
 To build the documentation locally, use
 
-    mkdocs build --strict
+    hatch run docs:build
 
 To preview the documentation, use
 
-    mkdocs serve
+    hatch run docs:serve
 
 Or with live reload:
 
-    mkdocs serve --livereload
+    hatch run docs:serve-live
 
-`mkdocs serve` always serves **one** build. The site header version menu (Material `extra.version.provider: mike`) only appears when several versions exist in a **mike** layout (`versions.json` on the `gh-pages` branch), not in a plain `site/` output.
+`hatch run docs:serve` always serves **one** build. The site header version menu (Material `extra.version.provider: mike`) only appears when several versions exist in a **mike** layout (`versions.json` on the `gh-pages` branch), not in a plain `site/` output.
 
 To preview **multiple versions** locally:
 
@@ -85,13 +85,13 @@ To preview **multiple versions** locally:
 2. Deploy the current tree as one or more version labels on your **local**
    `gh-pages` branch (omit `--push` to stay offline):
 
-        mike deploy 1.3.2
-        mike deploy --update-aliases 1.4.0b0 dev latest
-        mike set-default latest
+        hatch run docs:mike deploy 1.3.2
+        hatch run docs:mike deploy --update-aliases 1.4.0b0 dev latest
+        hatch run docs:mike set-default latest
 
 3. Serve that branch:
 
-        mike serve
+        hatch run docs:mike serve
 
 4. Open the URL it prints (default `http://127.0.0.1:8000`) and use the version
    selector. `mike list` shows what is installed; `mike delete VERSION` removes
