@@ -1,6 +1,6 @@
 <h1 align='center'>Pika</h1>
 
-<p align='center'>RabbitMQ (AMQP 0-9-1) client library for Python.</p>
+<p align='center'><I>RabbitMQ (AMQP 0-9-1) client library for Python</I></p>
 
 <p align='center'>
   <a href='http://badge.fury.io/py/pika'><img src='https://img.shields.io/pypi/v/pika.svg?' alt='Version'></a>
