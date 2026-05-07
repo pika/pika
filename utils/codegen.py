@@ -8,7 +8,6 @@ https://github.com/rabbitmq/rabbitmq-codegen
 After cloning it run the following to generate a spec.py file:
 python ./codegen.py ../../rabbitmq-codegen
 """
-import os
 import re
 import sys
 
