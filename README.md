@@ -1,4 +1,4 @@
-<h1 align='center'>pika</h1>
+<h1 align='center'>Pika</h1>
 
 <p align='center'>RabbitMQ (AMQP 0-9-1) client library for Python.</p>
 
