@@ -5,7 +5,7 @@
 <p align='center'>
   <a href='http://badge.fury.io/py/pika'><img src='https://img.shields.io/pypi/v/pika.svg?' alt='Version'></a>
   <a href='https://pypi.python.org/pypi/pika'><img src='https://img.shields.io/pypi/pyversions/pika.svg' alt='Python versions'></a>
-  <a href='https://pypi.python.org/pypi/pika'><img src='https://img.shields.io/pypi/dm/pika.svg' alt='Downloads'></a>
+  <a href='https://pypi.python.org/pypi/pika'><img src='https://img.shields.io/pypi/dm/pika.svg?maxAge=25920' alt='Downloads'></a>
   <a href='https://github.com/pika/pika/actions/workflows/main.yaml'><img src='https://github.com/pika/pika/actions/workflows/main.yaml/badge.svg' alt='Actions Status'></a>
   <a href='https://codecov.io/github/pika/pika?branch=main'><img src='https://img.shields.io/codecov/c/github/pika/pika/main.svg' alt='Coverage'></a>
   <a href='https://github.com/pika/pika/blob/main/LICENSE'><img src='https://img.shields.io/pypi/l/pika.svg?' alt='License'></a>
