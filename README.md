@@ -69,11 +69,11 @@ Pika provides the following adapters:
 - `pika.SelectConnection` - asynchronous adapter without third-party
   dependencies.
 - `pika.adapters.gevent_connection.GeventConnection` - asynchronous adapter
-  for use with [Gevent](http://www.gevent.org)'s I/O loop.
+  for use with [Gevent](https://www.gevent.org)'s I/O loop.
 - `pika.adapters.tornado_connection.TornadoConnection` - asynchronous adapter
-  for use with [Tornado](http://tornadoweb.org)'s I/O loop.
+  for use with [Tornado](https://tornadoweb.org)'s I/O loop.
 - `pika.adapters.twisted_connection.TwistedProtocolConnection` - asynchronous
-  adapter for use with [Twisted](http://twistedmatrix.com)'s I/O loop.
+  adapter for use with [Twisted](https://twistedmatrix.com)'s I/O loop.
 
 ## Multiple connection parameters
 You can also pass multiple `pika.ConnectionParameters` instances for fault-tolerance as in the code snippet below (host names are just examples, of course). To enable retries, set `connection_attempts` and `retry_delay` as needed in the last `pika.ConnectionParameters` element of the sequence. Retries occur after connection attempts using all of the given connection parameters fail.
