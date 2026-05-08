@@ -1,0 +1,199 @@
+"""Thread-safe connection wrapper for pika.
+
+Runs SelectConnection's IOLoop in a dedicated background thread so that
+all socket I/O — including writes to _tx_buffers — stays confined to one
+thread.  External threads publish by scheduling callbacks via
+add_callback_threadsafe, which uses an atomic deque append + a wakeup
+signal to hand work to the IOLoop thread without a lock.
+
+This eliminates the ``IndexError: pop from an empty deque`` race seen when
+multiple threads call basic_publish() on a shared connection directly
+(issues #1144 and #511).
+"""
+import functools
+import logging
+import threading
+
+from pika.adapters.select_connection import SelectConnection
+
+LOGGER = logging.getLogger(__name__)
+
+
+class ThreadSafeChannel:
+    """Thread-safe wrapper around :class:`pika.channel.Channel`.
+
+    Every write operation is routed through the parent connection's
+    ``add_callback_threadsafe`` so that ``_tx_buffers`` is only ever
+    touched from the IOLoop thread.
+    """
+
+    def __init__(self, channel, connection):
+        self._channel = channel
+        self._connection = connection
+
+    def basic_publish(self,
+                      exchange,
+                      routing_key,
+                      body,
+                      properties=None,
+                      mandatory=False):
+        """Schedule a publish in the IOLoop thread (fire-and-forget).
+
+        Safe to call from any thread simultaneously.
+        """
+        self._connection.add_callback_threadsafe(
+            functools.partial(
+                self._channel.basic_publish,
+                exchange=exchange,
+                routing_key=routing_key,
+                body=body,
+                properties=properties,
+                mandatory=mandatory,
+            ))
+
+    @property
+    def channel_number(self):
+        return self._channel.channel_number
+
+    @property
+    def is_open(self):
+        return self._channel.is_open
+
+    @property
+    def is_closed(self):
+        return self._channel.is_closed
+
+
+class ThreadSafeConnection:
+    """Pika connection that is safe to use from multiple threads.
+
+    Internally wraps :class:`~pika.adapters.SelectConnection` and runs its
+    IOLoop in a single dedicated background thread (the *IOLoop thread*).
+    All channel operations submitted from external threads are routed
+    through :meth:`add_callback_threadsafe` so that ``_tx_buffers`` has
+    exactly one owner — the IOLoop thread.
+
+    Usage::
+
+        conn = ThreadSafeConnection(pika.ConnectionParameters('localhost'))
+        ch = conn.channel()
+
+        # safe to call from any number of threads simultaneously
+        threading.Thread(target=ch.basic_publish,
+                         kwargs=dict(exchange='', routing_key='q',
+                                     body='hello')).start()
+
+        conn.close()
+
+    :param parameters: Connection parameters.
+    :type parameters: pika.connection.Parameters
+    :param callable | None on_open_error_callback:
+        Called in the IOLoop thread if the connection cannot be established.
+        Signature: ``on_open_error_callback(connection, exception)``
+    :param callable | None on_close_callback:
+        Called in the IOLoop thread when the connection is closed.
+        Signature: ``on_close_callback(connection, reason)``
+    :raises: Exception forwarded from ``on_open_error_callback`` when the
+        connection cannot be established.
+    """
+
+    def __init__(self,
+                 parameters,
+                 on_open_error_callback=None,
+                 on_close_callback=None):
+        self._user_on_open_error_callback = on_open_error_callback
+        self._user_on_close_callback = on_close_callback
+
+        self._connect_error = None
+        self._connected_event = threading.Event()
+
+        self._connection = SelectConnection(
+            parameters=parameters,
+            on_open_callback=self._on_connection_open,
+            on_open_error_callback=self._on_connection_open_error,
+            on_close_callback=self._on_connection_closed,
+        )
+
+        self._ioloop_thread = threading.Thread(
+            target=self._connection.ioloop.start,
+            name='pika-ioloop',
+            daemon=True,
+        )
+        self._ioloop_thread.start()
+
+        # Block the calling thread until the connection is open or fails.
+        self._connected_event.wait()
+        if self._connect_error is not None:
+            raise self._connect_error
+
+    # ------------------------------------------------------------------
+    # IOLoop-thread callbacks
+    # ------------------------------------------------------------------
+
+    def _on_connection_open(self, _connection):
+        self._connected_event.set()
+
+    def _on_connection_open_error(self, _connection, error):
+        self._connect_error = error
+        # Stop the IOLoop so the background thread can exit cleanly.
+        self._connection.ioloop.stop()
+        self._connected_event.set()
+        if self._user_on_open_error_callback:
+            self._user_on_open_error_callback(_connection, error)
+
+    def _on_connection_closed(self, _connection, reason):
+        # Connection is gone — stop the IOLoop so the thread exits.
+        self._connection.ioloop.stop()
+        if self._user_on_close_callback:
+            self._user_on_close_callback(_connection, reason)
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+
+    def channel(self):
+        """Open a new channel and return a :class:`ThreadSafeChannel`.
+
+        Blocks the calling thread until the channel is open.  The returned
+        channel's methods are safe to call from any thread.
+
+        :rtype: ThreadSafeChannel
+        """
+        ready = threading.Event()
+        result = [None]
+
+        def _open():
+
+            def _on_open(ch):
+                result[0] = ch
+                ready.set()
+
+            self._connection.channel(on_open_callback=_on_open)
+
+        self._connection.add_callback_threadsafe(_open)
+        ready.wait()
+        return ThreadSafeChannel(result[0], self._connection)
+
+    def close(self):
+        """Close the connection and block until the IOLoop thread exits."""
+        self._connection.add_callback_threadsafe(self._connection.close)
+        self._ioloop_thread.join()
+
+    def add_callback_threadsafe(self, callback):
+        """Schedule *callback* to run in the IOLoop thread.
+
+        The only thread-safe method on the underlying connection — exposed
+        here so callers can schedule arbitrary work (e.g. queue_declare)
+        without going through the wrapper.
+
+        :param callable callback: Zero-argument callable.
+        """
+        self._connection.add_callback_threadsafe(callback)
+
+    @property
+    def is_open(self):
+        return self._connection.is_open
+
+    @property
+    def is_closed(self):
+        return self._connection.is_closed
