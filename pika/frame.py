@@ -44,6 +44,7 @@ class Frame(amqp_object.AMQPObject):
         """To be ended by child classes
 
         :raises NotImplementedError
+        :rtype: bytes
 
         """
         raise NotImplementedError
@@ -59,7 +60,7 @@ class Method(Frame, Generic[_MethodT]):
     def __init__(self, channel_number: int, method: _MethodT) -> None:
         """Create a new instance of a frame
 
-        :param int channel_number: The frame type
+        :param int channel_number: The channel number for the frame
         :param pika.Spec.Class.Method method: The AMQP Class.Method
 
         """
@@ -193,10 +194,10 @@ class ProtocolHeader(amqp_object.AMQPObject):
 
 def decode_frame(data_in: bytes) -> tuple[int, Frame | ProtocolHeader | None]:  # pylint: disable=R0911,R0914
     """Receives raw socket data and attempts to turn it into a frame.
-    Returns bytes used to make the frame and the frame
+    Returns the number of bytes consumed from the stream and the frame.
 
     :param bytes data_in: The raw data stream
-    :rtype: tuple(bytes consumed, frame)
+    :rtype: tuple(int, Frame|ProtocolHeader)
     :raises: pika.exceptions.InvalidFrameError
 
     """

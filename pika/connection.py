@@ -1128,7 +1128,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
         # Dict of open channels
         self._channels = {}
 
-        # Data used for Heartbeat checking and back-pressure detection
+        # Data used for Heartbeat checking
         self.bytes_sent = 0
         self.bytes_received = 0
         self.frames_sent = 0

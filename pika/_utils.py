@@ -1,5 +1,4 @@
 """Internal utility helpers for platform and socket compatibility."""
-# pylint: disable=C0103
 from __future__ import annotations
 
 import abc
@@ -32,19 +31,30 @@ _LOCALHOST_V6 = '::1'
 
 
 def time_now() -> float:
-    """Returns monotonic time."""
+    """Returns monotonic time.
+
+    :rtype: float
+    """
     return time.monotonic()
 
 
 def as_bytes(value: str | bytes) -> bytes:
-    """Returns value as bytes."""
+    """Returns value as bytes.
+
+    :param value: string or bytes value to convert
+    :rtype: bytes
+    """
     if not isinstance(value, bytes):
         return value.encode('UTF-8')
     return value
 
 
 def to_digit(value: str) -> int:
-    """Returns value as integer."""
+    """Returns value as an integer.
+
+    :param value: string containing digits
+    :rtype: int
+    """
     if value.isdigit():
         return int(value)
     match = RE_NUM.match(value)
@@ -52,7 +62,11 @@ def to_digit(value: str) -> int:
 
 
 def get_linux_version(release_str: str) -> tuple[int, ...]:
-    """Gets linux version."""
+    """Gets linux version.
+
+    :param release_str: kernel release string
+    :rtype: tuple[int, ...]
+    """
     ver_str = release_str.split('-')[0]
     return tuple(map(to_digit, ver_str.split('.', 3)[:3]))
 
@@ -67,7 +81,17 @@ def nonblocking_socketpair(
         family: int = socket.AF_INET,
         socket_type: int = socket.SOCK_STREAM,
         proto: int = 0) -> tuple[socket.socket, socket.socket]:
-    """Returns a pair of non-blocking connected sockets."""
+    """Non-blocking socket pair for use with pika's I/O loop.
+
+    Returns a pair of sockets in the manner of socketpair with the additional
+    feature that they will be non-blocking.
+
+    :param int family: socket family (default AF_INET)
+    :param int socket_type: socket type (default SOCK_STREAM)
+    :param int proto: socket protocol (default 0)
+    :returns: a pair of connected non-blocking sockets
+    :rtype: tuple[socket.socket, socket.socket]
+    """
     if family == socket.AF_INET:
         host = _LOCALHOST
     elif family == socket.AF_INET6:

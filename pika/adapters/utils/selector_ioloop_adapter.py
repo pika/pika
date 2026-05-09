@@ -416,7 +416,12 @@ class _FileDescriptorCallbacks:
     def __init__(self,
                  reader: Callable[[], None] | None = None,
                  writer: Callable[[], None] | None = None):
+        """Initialize file descriptor callbacks.
 
+        :param reader: Read callback.
+        :param writer: Write callback.
+        :rtype: None
+        """
         self.reader = reader
         self.writer = writer
 
@@ -437,7 +442,7 @@ class _TimerHandle(nbio_interface.AbstractTimerReference):
         self._handle = handle
         self._loop = loop
 
-    def cancel(self):
+    def cancel(self) -> None:
         if self._loop is not None:
             self._loop.remove_timeout(self._handle)
             self._handle = None

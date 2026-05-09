@@ -1247,7 +1247,7 @@ class BlockingChannel:
             'channel',  # implementation pika.Channel instance
             'method',  # Basic.GetOk
             'properties',  # pika.spec.BasicProperties
-            'body'  # str, unicode, or bytes (python 3.x)
+            'body'  # bytes
         ])
 
     # For use as value_class with any _CallbackResult that expects method_frame
@@ -2035,7 +2035,7 @@ class BlockingChannel:
             NEW in pika 0.10.0.
         :param str consumer_tag: Specify your own consumer tag
 
-        :yields: tuple(spec.Basic.Deliver, spec.BasicProperties, str or unicode)
+        :yields: tuple(spec.Basic.Deliver, spec.BasicProperties, bytes)
 
         :raises ValueError: if consumer-creation parameters don't match those
             of the existing queue consumer generator, if any.
@@ -2276,7 +2276,6 @@ class BlockingChannel:
 
         validators.require_string(queue, 'queue')
 
-        # NOTE: nested with for python 2.6 compatibility
         with _CallbackResult(self._RxMessageArgs) as get_ok_result:
             with self._basic_getempty_result:
                 self._impl.basic_get(queue=queue,

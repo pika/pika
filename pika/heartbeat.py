@@ -16,15 +16,15 @@ class HeartbeatChecker:
     """
     _STALE_CONNECTION = "No activity or too many missed heartbeats in the last %i seconds"
 
-    def __init__(self, connection, timeout):
+    def __init__(self, connection, timeout) -> None:
         """Create an object that will check for activity on the provided
         connection as well as receive heartbeat frames from the broker. The
         timeout parameter defines a window within which this activity must
         happen. If not, the connection is considered dead and closed.
 
-        The value passed for timeout is also used to calculate an interval
-        at which a heartbeat frame is sent to the broker. The interval is
-        equal to the timeout value divided by two.
+        The value must be >= 1. The value passed for timeout is also used to
+        calculate an interval at which a heartbeat frame is sent to the broker.
+        The interval is equal to the timeout value divided by two.
 
         :param pika.connection.Connection: Connection object
         :param int timeout: Connection idle timeout. If no activity occurs on the
@@ -32,10 +32,11 @@ class HeartbeatChecker:
                             timeout window the connection will be closed. The
                             interval used to send heartbeats is calculated from
                             this value by dividing it by two.
+        :rtype: None
 
         """
         if timeout < 1:
-            raise ValueError(f'timeout must >= 0, but got {timeout!r}')
+            raise ValueError(f'timeout must >= 1, but got {timeout!r}')
 
         self._connection = connection
 
@@ -80,28 +81,30 @@ class HeartbeatChecker:
         self._start_check_timer()
 
     @property
-    def bytes_received_on_connection(self):
+    def bytes_received_on_connection(self) -> int:
         """Return the number of bytes received by the connection bytes object.
 
-        :rtype int
+        :rtype: int
 
         """
         return self._connection.bytes_received
 
     @property
-    def connection_is_idle(self):
+    def connection_is_idle(self) -> bool:
         """Returns true if the byte count hasn't changed in enough intervals
         to trip the max idle threshold.
+
+        :rtype: bool
 
         """
         return self._idle_byte_intervals > 0
 
-    def received(self):
+    def received(self) -> None:
         """Called when a heartbeat is received"""
         LOGGER.debug('Received heartbeat frame')
         self._heartbeat_frames_received += 1
 
-    def _send_heartbeat(self):
+    def _send_heartbeat(self) -> None:
         """Invoked by a timer to send a heartbeat when we need to.
 
         """
@@ -109,7 +112,7 @@ class HeartbeatChecker:
         self._send_heartbeat_frame()
         self._start_send_timer()
 
-    def _check_heartbeat(self):
+    def _check_heartbeat(self) -> None:
         """Invoked by a timer to check for broker heartbeats. Checks to see
         if we've missed any heartbeats and disconnect our connection if it's
         been idle too long.
@@ -132,7 +135,7 @@ class HeartbeatChecker:
 
         self._start_check_timer()
 
-    def stop(self):
+    def stop(self) -> None:
         """Stop the heartbeat checker"""
         if self._send_timer:
             LOGGER.debug('Removing timer for next heartbeat send interval')
@@ -143,7 +146,7 @@ class HeartbeatChecker:
             self._connection._adapter_remove_timeout(self._check_timer)  # pylint: disable=W0212
             self._check_timer = None
 
-    def _close_connection(self):
+    def _close_connection(self) -> None:
         """Close the connection with the AMQP Connection-Forced value."""
         LOGGER.info('Connection is idle, %i stale byte intervals',
                     self._idle_byte_intervals)
@@ -156,7 +159,7 @@ class HeartbeatChecker:
             pika.exceptions.AMQPHeartbeatTimeout(text))
 
     @property
-    def _has_received_data(self):
+    def _has_received_data(self) -> bool:
         """Returns True if the connection has received data.
 
         :rtype: bool
@@ -165,15 +168,15 @@ class HeartbeatChecker:
         return self._bytes_received != self.bytes_received_on_connection
 
     @staticmethod
-    def _new_heartbeat_frame():
+    def _new_heartbeat_frame() -> frame.Heartbeat:
         """Return a new heartbeat frame.
 
-        :rtype pika.frame.Heartbeat
+        :rtype: pika.frame.Heartbeat
 
         """
         return frame.Heartbeat()
 
-    def _send_heartbeat_frame(self):
+    def _send_heartbeat_frame(self) -> None:
         """Send a heartbeat frame on the connection.
 
         """
@@ -182,12 +185,12 @@ class HeartbeatChecker:
             self._new_heartbeat_frame())
         self._heartbeat_frames_sent += 1
 
-    def _start_send_timer(self):
+    def _start_send_timer(self) -> None:
         """Start a new heartbeat send timer."""
         self._send_timer = self._connection._adapter_call_later(  # pylint: disable=W0212
             self._send_interval, self._send_heartbeat)
 
-    def _start_check_timer(self):
+    def _start_check_timer(self) -> None:
         """Start a new heartbeat check timer."""
         # Note: update counters now to get current values
         # at the start of the timeout window. Values will be
@@ -198,7 +201,7 @@ class HeartbeatChecker:
         self._check_timer = self._connection._adapter_call_later(  # pylint: disable=W0212
             self._check_interval, self._check_heartbeat)
 
-    def _update_counters(self):
+    def _update_counters(self) -> None:
         """Update the internal counters for bytes sent and received and the
         number of frames received
 

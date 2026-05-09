@@ -43,7 +43,7 @@ _CONNECTION_IN_PROGRESS_SOCK_ERROR_CODES = (
 _LOGGER = logging.getLogger(__name__)
 
 # Decorator that logs exceptions escaping from the decorated function
-_log_exceptions = pika.diagnostic_utils.create_log_exception_decorator(_LOGGER)  # pylint: disable=C0103
+_log_exceptions = pika.diagnostic_utils.create_log_exception_decorator(_LOGGER)
 
 
 def check_callback_arg(callback: Any, name: str) -> None:
@@ -52,6 +52,7 @@ def check_callback_arg(callback: Any, name: str) -> None:
     :param callback: callback to check
     :param name: Name to include in exception text
     :raises TypeError:
+    :rtype: None
 
     """
     if not callable(callback):
@@ -63,6 +64,7 @@ def check_fd_arg(fd: int) -> None:
 
     :param fd: file descriptor
     :raises TypeError:
+    :rtype: None
 
     """
     if not isinstance(fd, numbers.Integral):
@@ -105,6 +107,11 @@ class SocketConnectionMixin:
         """Implement
         :py:meth:`.nbio_interface.AbstractIOServices.connect_socket()`.
 
+        :param socket.socket sock: non-blocking socket to connect
+        :param tuple resolved_addr: resolved destination address/port two-tuple
+        :param callable on_done: user callback called upon completion
+        :rtype: _AsyncServiceAsyncHandle
+
         """
         return _AsyncSocketConnector(
             nbio=self,  # type: ignore[arg-type]
@@ -133,6 +140,13 @@ class StreamingConnectionMixin:
             server_hostname: str | None = None) -> AbstractIOReference:
         """Implement
         :py:meth:`.nbio_interface.AbstractIOServices.create_streaming_connection()`.
+
+        :param callable protocol_factory: factory to create protocol instance
+        :param socket.socket sock: connected socket
+        :param callable on_done: completion callback
+        :param ssl.SSLContext | None ssl_context: SSL context (optional)
+        :param str | None server_hostname: server hostname for SSL (optional)
+        :rtype: AbstractIOReference
 
         """
         try:
@@ -163,7 +177,7 @@ class _AsyncServiceAsyncHandle(AbstractIOReference):
 
     """
 
-    def __init__(self, subject):
+    def __init__(self, subject: Any):
         """
         :param subject: subject of the reference containing a `cancel()` method
 
@@ -881,7 +895,8 @@ class _AsyncTransportBase(  # pylint: disable=W0223
 
     @staticmethod
     @_retry_on_sigint
-    def _sigint_safe_recv(sock, max_bytes: int) -> bytes:
+    def _sigint_safe_recv(sock: Union[socket.socket, ssl.SSLSocket],
+                          max_bytes: int) -> bytes:
         """Receive data from socket, retrying on SIGINT.
 
         :param sock: stream or SSL socket
@@ -896,7 +911,8 @@ class _AsyncTransportBase(  # pylint: disable=W0223
 
     @staticmethod
     @_retry_on_sigint
-    def _sigint_safe_send(sock, data: bytes) -> int:
+    def _sigint_safe_send(sock: Union[socket.socket, ssl.SSLSocket],
+                          data: bytes) -> int:
         """Send data to socket, retrying on SIGINT.
 
         :param sock: stream or SSL socket
@@ -910,7 +926,7 @@ class _AsyncTransportBase(  # pylint: disable=W0223
         return sock.send(data)
 
     @_log_exceptions
-    def _deactivate(self):
+    def _deactivate(self) -> None:
         """Unregister the transport from I/O events
 
         """
@@ -926,7 +942,7 @@ class _AsyncTransportBase(  # pylint: disable=W0223
             self._tx_buffers.clear()
 
     @_log_exceptions
-    def _close_and_finalize(self):
+    def _close_and_finalize(self) -> None:
         """Close the transport's socket and unlink the transport it from
         references to other assets (protocol, etc.)
 

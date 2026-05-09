@@ -658,7 +658,7 @@ class Channel:
     def consumer_tags(self) -> list[str]:
         """Property method that returns a list of currently active consumers
 
-        :rtype: list
+        :rtype: list[str]
 
         """
         return list(self._consumers.keys())
@@ -1611,7 +1611,7 @@ class ContentFrameAssembler:
     def _finish(self) -> tuple[frame.Method, frame.Header, bytes]:
         """Invoked when all of the message has been received
 
-        :rtype: tuple(pika.frame.Method, pika.frame.Header, str)
+        :rtype: tuple(pika.frame.Method, pika.frame.Header, bytes)
 
         """
         content = (self._method_frame, self._header_frame,
@@ -1627,7 +1627,7 @@ class ContentFrameAssembler:
 
         :param Body body_frame: The body frame
         :raises: pika.exceptions.BodyTooLongError
-        :rtype: tuple(pika.frame.Method, pika.frame.Header, str)|None
+        :rtype: tuple(pika.frame.Method, pika.frame.Header, bytes)|None
 
         """
         self._seen_so_far += len(body_frame.fragment)

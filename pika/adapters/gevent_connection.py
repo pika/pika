@@ -134,8 +134,9 @@ class _TSafeCallbackQueue:
     """
 
     def __init__(self) -> None:
-        """
-        :param _GeventSelectorIOLoop loop: IO loop to add callbacks to.
+        """Initialize the callback queue.
+
+        :rtype: None
         """
         # Thread-safe, blocking queue.
         self._queue: queue.Queue[Callable[[], None]] = queue.Queue()
@@ -151,10 +152,11 @@ class _TSafeCallbackQueue:
         return self._read_fd
 
     def add_callback_threadsafe(self, callback: Callable[[], None]) -> None:
-        """Add an item to the queue from any thread. The configured handler
-        will be invoked with the item in the main thread.
+        """Add a callback to the queue from any thread. The configured handler
+        will be invoked with the callback in the main thread.
 
-        :param item: Object to add to the queue.
+        :param callback: Callback to add to the queue.
+        :rtype: None
         """
         self._queue.put(callback)
         with self._write_lock:
@@ -195,7 +197,7 @@ class _GeventSelectorIOLoop(AbstractSelectorIOLoop):
 
     def __init__(self, gevent_hub: gevent.hub.Hub | None = None) -> None:
         """
-        :param gevent._interfaces.ILoop gevent_loop:
+        :param gevent.hub.Hub gevent_hub: Gevent hub to use.
         """
         self._hub = gevent_hub or gevent.get_hub()
         self._io_watchers_by_fd: dict[int, Any] = {}
@@ -432,7 +434,10 @@ class _GeventAddressResolver:
             LOGGER.warning("_GeventAddressResolver already started")
 
     def cancel(self) -> bool:
-        """Cancel the pending resolver."""
+        """Cancel the pending resolver.
+
+        :rtype: bool
+        """
         changed = False
 
         if self._greenlet is not None:

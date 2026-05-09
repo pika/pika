@@ -11,8 +11,7 @@ def require_string(value: Any, value_name: str) -> None:
 
     """
     if not isinstance(value, str):
-        raise TypeError(
-            f'{value_name} must be a str or unicode str, but got {value!r}')
+        raise TypeError(f'{value_name} must be a str, but got {value!r}')
 
 
 def require_callback(callback: Callable[..., Any],

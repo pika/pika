@@ -1075,6 +1075,7 @@ class KQueuePoller(_PollerBase):
         """return the event type associated with a kevent object
 
         :param kevent kevent: a kevent object as returned by kqueue.control()
+        :rtype: int
 
         """
         mask = 0
@@ -1221,7 +1222,7 @@ class PollPoller(_PollerBase):
 
     def __init__(self, get_wait_seconds: Callable[[], float | None],
                  process_timeouts: Callable[[], None]):
-        """Create an instance of the KQueuePoller
+        """Create an instance of the PollPoller
 
         """
         self._poll: Any = None

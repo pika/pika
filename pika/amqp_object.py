@@ -62,7 +62,7 @@ class Method(AMQPObject):
     def get_body(self) -> bytes:
         """Return the message body if it is set.
 
-        :rtype: str|unicode
+        :rtype: bytes
 
         """
         return self._body

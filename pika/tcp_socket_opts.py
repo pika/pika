@@ -1,5 +1,3 @@
-# pylint: disable=C0111
-
 import logging
 import socket
 from typing import Dict, Optional

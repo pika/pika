@@ -44,6 +44,11 @@ def encode_short_string(pieces: list[bytes], value: str) -> int:
 
 def decode_short_string(encoded: bytes, offset: int) -> tuple[str | bytes, int]:
     """Decode a short string value from ``encoded`` data at ``offset``.
+
+    :param bytes encoded: encoded data
+    :param int offset: starting offset in the encoded data
+    :returns: tuple of (decoded value, new offset)
+    :rtype: tuple[Union[str, bytes], int]
     """
     length = struct.unpack_from('B', encoded, offset)[0]
     offset += 1
@@ -145,7 +150,7 @@ def decode_table(encoded: bytes,
     """Decode the AMQP table passed in from the encoded value returning the
     decoded result and the number of bytes read plus the offset.
 
-    :param str encoded: The binary encoded data to decode
+    :param bytes encoded: The binary encoded data to decode
     :param int offset: The starting byte offset
     :rtype: tuple
 
@@ -165,7 +170,7 @@ def decode_value(encoded: bytes, offset: int) -> tuple[Any, int]:  # pylint: dis
     """Decode the value passed in returning the decoded value and the number
     of bytes read in addition to the starting offset.
 
-    :param str encoded: The binary encoded data to decode
+    :param bytes encoded: The binary encoded data to decode
     :param int offset: The starting byte offset
     :rtype: tuple
     :raises: pika.exceptions.InvalidFieldTypeException

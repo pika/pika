@@ -1,5 +1,5 @@
 """Pika specific exceptions"""
-# pylint: disable=C0111,E1136
+# pylint: disable=E1136
 
 from __future__ import annotations
 
@@ -165,7 +165,7 @@ class ChannelClosed(AMQPChannelError):
         return f'{self.__class__.__name__}: ({self.reply_code}) {self.reply_text!r}'
 
     @property
-    def reply_code(self):
+    def reply_code(self) -> int:
         """ NEW in v1.0.0
         :rtype: int
 
@@ -173,7 +173,7 @@ class ChannelClosed(AMQPChannelError):
         return self.args[0]
 
     @property
-    def reply_text(self):
+    def reply_text(self) -> str:
         """ NEW in v1.0.0
         :rtype: str
 
