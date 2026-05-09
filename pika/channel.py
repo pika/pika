@@ -2,8 +2,6 @@
 implementing the methods and behaviors for an AMQP Channel.
 
 """
-# disable too-many-lines
-# pylint: disable=C0302
 
 from __future__ import annotations
 
@@ -71,9 +69,6 @@ class Channel:
     calling the active connection's channel() method.
 
     """
-
-    # Disable pylint messages concerning "method could be a function"
-    # pylint: disable=R0201
 
     CLOSED = 0
     OPENING = 1
@@ -424,7 +419,6 @@ class Channel:
             raise exceptions.DuplicateGetOkCallback()
         self._on_getok_callback = callback
 
-        # pylint: disable=W0511
         # TODO Strangely, not using _rpc for the synchronous Basic.Get. Would
         # need to extend _rpc to handle Basic.GetOk method, header, and body
         # frames (or similar)
@@ -1539,7 +1533,7 @@ class Channel:
                               properties and body.
 
         """
-        # pylint: disable=W0212
+
         self.connection._send_method(self.channel_number, method, content)
 
     def _set_cookie(self, cookie: object) -> None:

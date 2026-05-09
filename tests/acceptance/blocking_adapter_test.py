@@ -15,24 +15,6 @@ from pika.exchange_type import ExchangeType
 from tests.misc.forward_server import ForwardServer
 from tests.misc.test_utils import retry_assertion
 
-# too-many-lines
-# pylint: disable=C0302
-
-# Disable warning about access to protected member
-# pylint: disable=W0212
-
-# Disable warning Attribute defined outside __init__
-# pylint: disable=W0201
-
-# Disable warning Missing docstring
-# pylint: disable=C0111
-
-# Disable warning Too many public methods
-# pylint: disable=R0904
-
-# Disable warning Invalid variable name
-# pylint: disable=C0103
-
 LOGGER = logging.getLogger(__name__)
 
 PARAMS_URL_TEMPLATE = (
@@ -65,9 +47,8 @@ class BlockingTestCaseBase(unittest.TestCase):
 
         # We use impl's timer directly in order to get a callback regardless
         # of BlockingConnection's event dispatch modality
-        connection._impl._adapter_call_later(
-            self.TIMEOUT,  # pylint: disable=E1101
-            self._on_test_timeout)
+        connection._impl._adapter_call_later(self.TIMEOUT,
+                                             self._on_test_timeout)
 
         # Patch calls into I/O loop to fail test if exceptions are
         # leaked back through SelectConnection or the I/O loop.
@@ -253,7 +234,7 @@ class TestConnectionContextManagerClosesConnectionAndPassesOriginalException(
         BlockingTestCaseBase):
 
     def test(self):
-        """BlockingConnection: connection context manager closes connection and passes original exception"""  # pylint: disable=C0301
+        """BlockingConnection: connection context manager closes connection and passes original exception"""
 
         class MyException(Exception):
             pass
@@ -271,7 +252,7 @@ class TestConnectionContextManagerClosesConnectionAndPassesSystemException(
         BlockingTestCaseBase):
 
     def test(self):
-        """BlockingConnection: connection context manager closes connection and passes system exception"""  # pylint: disable=C0301
+        """BlockingConnection: connection context manager closes connection and passes system exception"""
         with self.assertRaises(SystemExit):
             with self._connect() as connection:
                 self.assertTrue(connection.is_open)
@@ -351,7 +332,7 @@ class TestUpdateSecretExpectsStrings(BlockingTestCaseBase):
 class TestInvalidExchangeTypeRaisesConnectionClosed(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingConnection: ConnectionClosed raised when creating exchange with invalid type"""  # pylint: disable=C0301
+        """BlockingConnection: ConnectionClosed raised when creating exchange with invalid type"""
         # This test exploits behavior specific to RabbitMQ whereby the broker
         # closes the connection if an attempt is made to declare an exchange
         # with an invalid exchange type
@@ -371,7 +352,7 @@ class TestInvalidExchangeTypeRaisesConnectionClosed(BlockingTestCaseBase):
 class TestCreateAndCloseConnectionWithChannelAndConsumer(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingConnection: Create and close connection with channel and consumer"""  # pylint: disable=C0301
+        """BlockingConnection: Create and close connection with channel and consumer"""
         connection = self._connect()
 
         ch = connection.channel()
@@ -502,7 +483,7 @@ class TestDisconnectDuringConnectionStart(BlockingTestCaseBase):
         class MySelectConnection(pika.SelectConnection):
             assert hasattr(pika.SelectConnection, '_on_connection_start')
 
-            def _on_connection_start(self, *args, **kwargs):  # pylint: disable=W0221
+            def _on_connection_start(self, *args, **kwargs):
                 fwd.stop()
                 return super()._on_connection_start(*args, **kwargs)
 
@@ -525,7 +506,7 @@ class TestDisconnectDuringConnectionTune(BlockingTestCaseBase):
         class MySelectConnection(pika.SelectConnection):
             assert hasattr(pika.SelectConnection, '_on_connection_tune')
 
-            def _on_connection_tune(self, *args, **kwargs):  # pylint: disable=W0221
+            def _on_connection_tune(self, *args, **kwargs):
                 fwd.stop()
                 return super()._on_connection_tune(*args, **kwargs)
 
@@ -549,7 +530,7 @@ class TestDisconnectDuringConnectionProtocol(BlockingTestCaseBase):
         class MySelectConnection(pika.SelectConnection):
             assert hasattr(pika.SelectConnection, '_on_stream_connected')
 
-            def _on_stream_connected(self, *args, **kwargs):  # pylint: disable=W0221
+            def _on_stream_connected(self, *args, **kwargs):
                 fwd.stop()
                 return super()._on_stream_connected(*args, **kwargs)
 
@@ -965,7 +946,7 @@ class TestPassiveQueueDeclareOfUnknownQueueRaisesChannelClosed(
         BlockingTestCaseBase):
 
     def test(self):
-        """BlockingChannel: ChannelClosed raised when passive-declaring unknown queue"""  # pylint: disable=C0301
+        """BlockingChannel: ChannelClosed raised when passive-declaring unknown queue"""
         connection = self._connect()
         ch = connection.channel()
 
@@ -1490,8 +1471,8 @@ class TestBasicConsumeFromUnknownQueueRaisesChannelClosed(BlockingTestCaseBase):
 
 class TestPublishAndBasicPublishWithPubacksUnroutable(BlockingTestCaseBase):
 
-    def test(self):  # pylint: disable=R0914
-        """BlockingChannel.publish amd basic_publish unroutable message with pubacks"""  # pylint: disable=C0301
+    def test(self):
+        """BlockingChannel.publish amd basic_publish unroutable message with pubacks"""
         connection = self._connect()
 
         ch = connection.channel()
@@ -1533,7 +1514,7 @@ class TestPublishAndBasicPublishWithPubacksUnroutable(BlockingTestCaseBase):
 
 class TestConfirmDeliveryAfterUnroutableMessage(BlockingTestCaseBase):
 
-    def test(self):  # pylint: disable=R0914
+    def test(self):
         """BlockingChannel.confirm_delivery following unroutable message"""
         connection = self._connect()
 
@@ -1578,7 +1559,7 @@ class TestConfirmDeliveryAfterUnroutableMessage(BlockingTestCaseBase):
             method,
             properties,
             body,
-        ),) = returned_messages  # pylint: disable=E0632
+        ),) = returned_messages
         self.assertIs(channel, ch)
         self.assertIsInstance(method, pika.spec.Basic.Return)
         self.assertEqual(method.reply_code, 312)
@@ -1590,8 +1571,8 @@ class TestConfirmDeliveryAfterUnroutableMessage(BlockingTestCaseBase):
 
 class TestUnroutableMessagesReturnedInNonPubackMode(BlockingTestCaseBase):
 
-    def test(self):  # pylint: disable=R0914
-        """BlockingChannel: unroutable messages is returned in non-puback mode"""  # pylint: disable=C0301
+    def test(self):
+        """BlockingChannel: unroutable messages is returned in non-puback mode"""
         connection = self._connect()
 
         ch = connection.channel()
@@ -1658,7 +1639,7 @@ class TestUnroutableMessagesReturnedInNonPubackMode(BlockingTestCaseBase):
 
 class TestUnroutableMessageReturnedInPubackMode(BlockingTestCaseBase):
 
-    def test(self):  # pylint: disable=R0914
+    def test(self):
         """BlockingChannel: unroutable messages is returned in puback mode"""
         connection = self._connect()
 
@@ -1738,8 +1719,8 @@ class TestUnroutableMessageReturnedInPubackMode(BlockingTestCaseBase):
 
 class TestBasicPublishDeliveredWhenPendingUnroutable(BlockingTestCaseBase):
 
-    def test(self):  # pylint: disable=R0914
-        """BlockingChannel.basic_publish msg delivered despite pending unroutable message"""  # pylint: disable=C0301
+    def test(self):
+        """BlockingChannel.basic_publish msg delivered despite pending unroutable message"""
         connection = self._connect()
 
         ch = connection.channel()
@@ -1808,7 +1789,7 @@ class TestBasicPublishDeliveredWhenPendingUnroutable(BlockingTestCaseBase):
 
 class TestPublishAndConsumeWithPubacksAndQosOfOne(BlockingTestCaseBase):
 
-    def test(self):  # pylint: disable=R0914,R0915
+    def test(self):
         """BlockingChannel.basic_publish, publish, basic_consume, QoS, \
         Basic.Cancel from broker
         """
@@ -1937,13 +1918,13 @@ class TestPublishAndConsumeWithPubacksAndQosOfOne(BlockingTestCaseBase):
         ch.start_consuming()
 
         self.assertEqual(len(rx_cancellations), 1)
-        frame, = rx_cancellations  # pylint: disable=E0632
+        frame, = rx_cancellations
         self.assertEqual(frame.method.consumer_tag, consumer_tag)
 
 
 class TestBasicConsumeWithAckFromAnotherThread(BlockingTestCaseBase):
 
-    def test(self):  # pylint: disable=R0914,R0915
+    def test(self):
         """BlockingChannel.basic_consume with ack from another thread and \
         requesting basic_ack via add_callback_threadsafe
         """
@@ -1986,11 +1967,8 @@ class TestBasicConsumeWithAckFromAnotherThread(BlockingTestCaseBase):
         # Create a consumer
         rx_messages = []
 
-        def ackAndEnqueueMessageViaAnotherThread(
-                rx_ch,
-                rx_method,
-                rx_properties,  # pylint: disable=W0613
-                rx_body):
+        def ackAndEnqueueMessageViaAnotherThread(rx_ch, rx_method,
+                                                 rx_properties, rx_body):
             LOGGER.debug('%s: Got message body=%r; delivery-tag=%r',
                          datetime.now(), rx_body, rx_method.delivery_tag)
 
@@ -2038,7 +2016,7 @@ class TestBasicConsumeWithAckFromAnotherThread(BlockingTestCaseBase):
 
 class TestConsumeGeneratorWithAckFromAnotherThread(BlockingTestCaseBase):
 
-    def test(self):  # pylint: disable=R0914,R0915
+    def test(self):
         """BlockingChannel.consume and requesting basic_ack from another \
         thread via add_callback_threadsafe
         """
@@ -2078,11 +2056,8 @@ class TestConsumeGeneratorWithAckFromAnotherThread(BlockingTestCaseBase):
         # Create a consumer
         rx_messages = []
 
-        def ackAndEnqueueMessageViaAnotherThread(
-                rx_ch,
-                rx_method,
-                rx_properties,  # pylint: disable=W0613
-                rx_body):
+        def ackAndEnqueueMessageViaAnotherThread(rx_ch, rx_method,
+                                                 rx_properties, rx_body):
             LOGGER.debug('%s: Got message body=%r; delivery-tag=%r',
                          datetime.now(), rx_body, rx_method.delivery_tag)
 
@@ -2125,7 +2100,7 @@ class TestConsumeGeneratorWithAckFromAnotherThread(BlockingTestCaseBase):
 
 class TestTwoBasicConsumersOnSameChannel(BlockingTestCaseBase):
 
-    def test(self):  # pylint: disable=R0914
+    def test(self):
         """BlockingChannel: two basic_consume consumers on same channel
         """
         connection = self._connect()
@@ -2229,7 +2204,7 @@ class TestTwoBasicConsumersOnSameChannel(BlockingTestCaseBase):
 class TestBasicCancelPurgesPendingConsumerCancellationEvt(BlockingTestCaseBase):
 
     def test(self):
-        """BlockingChannel.basic_cancel purges pending _ConsumerCancellationEvt"""  # pylint: disable=C0301
+        """BlockingChannel.basic_cancel purges pending _ConsumerCancellationEvt"""
         connection = self._connect()
 
         ch = connection.channel()
@@ -2279,7 +2254,7 @@ class TestBasicCancelPurgesPendingConsumerCancellationEvt(BlockingTestCaseBase):
 
 class TestBasicPublishWithoutPubacks(BlockingTestCaseBase):
 
-    def test(self):  # pylint: disable=R0914,R0915
+    def test(self):
         """BlockingChannel.basic_publish without pubacks"""
         connection = self._connect()
 
@@ -2474,7 +2449,7 @@ class TestStopConsumingFromBasicConsumeCallback(BlockingTestCaseBase):
                          mandatory=True)
 
         # Create a consumer
-        def on_consume(channel, method, props, body):  # pylint: disable=W0613
+        def on_consume(channel, method, props, body):
             channel.stop_consuming()
             channel.basic_ack(method.delivery_tag)
 
@@ -2529,7 +2504,7 @@ class TestCloseChannelFromBasicConsumeCallback(BlockingTestCaseBase):
                          mandatory=True)
 
         # Create a consumer
-        def on_consume(channel, method, props, body):  # pylint: disable=W0613
+        def on_consume(channel, method, props, body):
             channel.close()
 
         ch.basic_consume(q_name,
@@ -2582,7 +2557,7 @@ class TestCloseConnectionFromBasicConsumeCallback(BlockingTestCaseBase):
                          mandatory=True)
 
         # Create a consumer
-        def on_consume(channel, method, props, body):  # pylint: disable=W0613
+        def on_consume(channel, method, props, body):
             connection.close()
 
         ch.basic_consume(q_name,

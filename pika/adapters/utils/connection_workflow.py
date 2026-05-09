@@ -149,7 +149,6 @@ class AMQPConnector:
             [pika.connection.Connection | BaseException],
             None] = None  # type: ignore  # will be provided via start()
         # TCP connection timeout
-        # pylint: disable=C0301
         self._tcp_timeout_ref: None | (
             nbio_interface.AbstractTimerReference) = None
         # Overall TCP/[SSL]/AMQP timeout
@@ -617,7 +616,6 @@ class AMQPConnectionWorkflow(AbstractAMQPConnectionWorkflow):
         self._until_first_amqp_attempt = _until_first_amqp_attempt
 
         # Provided by set_io_services()
-        # pylint: disable=C0301
         self._nbio: nbio_interface.AbstractIOServices = None  # type: ignore
 
         # Current index within `_connection_configs`; initialized when

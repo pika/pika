@@ -8,12 +8,6 @@ import unittest
 
 from pika.adapters.asyncio_connection import _AsyncioIOServicesAdapter
 
-# missing-docstring
-# pylint: disable=C0111
-
-# invalid-name
-# pylint: disable=C0103
-
 
 class AsyncioIOServicesAdapterLoopInitTests(unittest.TestCase):
     """Tests for _AsyncioIOServicesAdapter loop initialisation logic."""
@@ -59,7 +53,7 @@ class AsyncioIOServicesAdapterLoopInitTests(unittest.TestCase):
                 adapter = _AsyncioIOServicesAdapter()
                 results.append(adapter.get_native_ioloop())
                 adapter.get_native_ioloop().close()
-            except Exception as exc:  # pylint: disable=broad-except
+            except Exception as exc:
                 errors.append(exc)
 
         t = threading.Thread(target=_thread_target)

@@ -8,15 +8,6 @@ from unittest import mock
 import pika.exceptions
 from pika import connection, frame, heartbeat
 
-# protected-access
-# pylint: disable=W0212
-
-# missing-docstring
-# pylint: disable=C0111
-
-# invalid-name
-# pylint: disable=C0103
-
 
 class ConstructableConnection(connection.Connection):
     """Adds dummy overrides for `Connection`'s abstract methods so

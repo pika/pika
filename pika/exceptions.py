@@ -1,5 +1,4 @@
 """Pika specific exceptions"""
-# pylint: disable=E1136
 
 from __future__ import annotations
 

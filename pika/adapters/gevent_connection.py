@@ -471,7 +471,7 @@ class _GeventAddressResolver:
                                                self._ga_family,
                                                self._ga_socktype,
                                                self._ga_proto, self._ga_flags)
-        except Exception as exc:  # pylint: disable=broad-except
+        except Exception as exc:
             LOGGER.error('Address resolution failed: %r', exc)
             result = exc
 

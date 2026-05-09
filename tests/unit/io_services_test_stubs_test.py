@@ -17,13 +17,6 @@ import tornado.ioloop
 from pika.adapters import select_connection
 from tests.stubs.io_services_test_stubs import IOServicesTestStubs
 
-# Suppress invalid-name, since our test names are descriptive and quite long
-# pylint: disable=C0103
-
-# Suppress missing-docstring to allow test method names to be printed by our the
-# test runner
-# pylint: disable=C0111
-
 if asyncio is not None:
     if pika._utils.ON_WINDOWS:
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())

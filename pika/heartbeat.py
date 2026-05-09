@@ -139,11 +139,11 @@ class HeartbeatChecker:
         """Stop the heartbeat checker"""
         if self._send_timer:
             LOGGER.debug('Removing timer for next heartbeat send interval')
-            self._connection._adapter_remove_timeout(self._send_timer)  # pylint: disable=W0212
+            self._connection._adapter_remove_timeout(self._send_timer)
             self._send_timer = None
         if self._check_timer:
             LOGGER.debug('Removing timer for next heartbeat check interval')
-            self._connection._adapter_remove_timeout(self._check_timer)  # pylint: disable=W0212
+            self._connection._adapter_remove_timeout(self._check_timer)
             self._check_timer = None
 
     def _close_connection(self) -> None:
@@ -155,7 +155,7 @@ class HeartbeatChecker:
         # Abort the stream connection. There is no point trying to gracefully
         # close the AMQP connection since lack of heartbeat suggests that the
         # stream is dead.
-        self._connection._terminate_stream(  # pylint: disable=W0212
+        self._connection._terminate_stream(
             pika.exceptions.AMQPHeartbeatTimeout(text))
 
     @property
@@ -181,13 +181,12 @@ class HeartbeatChecker:
 
         """
         LOGGER.debug('Sending heartbeat frame')
-        self._connection._send_frame(  # pylint: disable=W0212
-            self._new_heartbeat_frame())
+        self._connection._send_frame(self._new_heartbeat_frame())
         self._heartbeat_frames_sent += 1
 
     def _start_send_timer(self) -> None:
         """Start a new heartbeat send timer."""
-        self._send_timer = self._connection._adapter_call_later(  # pylint: disable=W0212
+        self._send_timer = self._connection._adapter_call_later(
             self._send_interval, self._send_heartbeat)
 
     def _start_check_timer(self) -> None:
@@ -198,7 +197,7 @@ class HeartbeatChecker:
         # end of the window
         self._update_counters()
 
-        self._check_timer = self._connection._adapter_call_later(  # pylint: disable=W0212
+        self._check_timer = self._connection._adapter_call_later(
             self._check_interval, self._check_heartbeat)
 
     def _update_counters(self) -> None:

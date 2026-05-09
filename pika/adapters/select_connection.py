@@ -88,18 +88,19 @@ class SelectConnection(BaseConnection):
 
     """
 
-    def __init__(
-            self,  # pylint: disable=R0913
-            parameters: connection.Parameters | None = None,
-            on_open_callback: None |
-        (Callable[[connection.Connection], None]) = None,
-            on_open_error_callback: None |
-        (Callable[[connection.Connection, BaseException], None]) = None,
-            on_close_callback: None |
-        (Callable[[connection.Connection, BaseException], None]) = None,
-            custom_ioloop: None |
-        (nbio_interface.AbstractIOServices | IOLoop) = None,
-            internal_connection_workflow: bool = True) -> None:
+    def __init__(self,
+                 parameters: connection.Parameters | None = None,
+                 on_open_callback: None |
+                 (Callable[[connection.Connection], None]) = None,
+                 on_open_error_callback: None |
+                 (Callable[[connection.Connection, BaseException],
+                           None]) = None,
+                 on_close_callback: None |
+                 (Callable[[connection.Connection, BaseException],
+                           None]) = None,
+                 custom_ioloop: None |
+                 (nbio_interface.AbstractIOServices | IOLoop) = None,
+                 internal_connection_workflow: bool = True) -> None:
         """Create a new instance of the Connection object.
 
         :param pika.connection.Parameters parameters: Connection parameters
@@ -456,7 +457,7 @@ class IOLoop(AbstractSelectorIOLoop):
                 poller = KQueuePoller(**kwargs)
 
         if (not poller and hasattr(select, 'poll') and
-                hasattr(select.poll(), 'modify')):  # pylint: disable=E1101
+                hasattr(select.poll(), 'modify')):
             if not SELECT_TYPE or SELECT_TYPE == 'poll':
                 LOGGER.debug('Using PollPoller')
                 poller = PollPoller(**kwargs)
@@ -616,7 +617,7 @@ class IOLoop(AbstractSelectorIOLoop):
         self._poller.poll()
 
 
-class _PollerBase(pika._utils.AbstractBase):  # type: ignore  # pylint: disable=R0902
+class _PollerBase(pika._utils.AbstractBase):  # type: ignore
     """Base class for select-based IOLoop implementations"""
 
     # Drop out of the poll loop every _MAX_POLL_TIMEOUT secs as a worst case;
@@ -680,7 +681,7 @@ class _PollerBase(pika._utils.AbstractBase):  # type: ignore  # pylint: disable=
 
         with self._waking_mutex:
             if self._w_interrupt is not None:
-                self.remove_handler(self._r_interrupt.fileno())  # pylint: disable=E1101  # type: ignore
+                self.remove_handler(self._r_interrupt.fileno())
                 self._r_interrupt.close(
                 )  # pyright: ignore[reportOptionalMemberAccess]
                 self._r_interrupt = None  # type: ignore
@@ -964,7 +965,7 @@ class _PollerBase(pika._utils.AbstractBase):  # type: ignore  # pylint: disable=
         """
         try:
             # NOTE Use recv instead of os.read for windows compatibility
-            self._r_interrupt.recv(512)  # pylint: disable=E1101  # type: ignore
+            self._r_interrupt.recv(512)
         except pika._utils.SOCKET_ERROR as err:
             if err.errno not in _TRY_IO_AGAIN_SOCK_ERROR_CODES:
                 raise
@@ -1060,7 +1061,6 @@ class SelectPoller(_PollerBase):
 
 
 class KQueuePoller(_PollerBase):
-    # pylint: disable=E1101
     """KQueuePoller works on BSD based systems and is faster than select"""
 
     def __init__(self, get_wait_seconds: Callable[[], float | None],
@@ -1233,7 +1233,7 @@ class PollPoller(_PollerBase):
         """
         :rtype: `select.poll`
         """
-        return getattr(select, 'poll')()  # pylint: disable=E1101
+        return getattr(select, 'poll')()
 
     def poll(self) -> None:
         """Wait for events of interest on registered file descriptors until an
@@ -1328,4 +1328,4 @@ class EPollPoller(PollPoller):
         """
         :rtype: `select.poll`
         """
-        return getattr(select, 'epoll')()  # pylint: disable=E1101
+        return getattr(select, 'epoll')()

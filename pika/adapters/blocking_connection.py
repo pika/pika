@@ -11,11 +11,9 @@ classes.
 
 """
 # Suppress too-many-lines
-# pylint: disable=C0302
 
 # Disable "access to protected member warnings: this wrapper implementation is
 # a friend of those instances
-# pylint: disable=W0212
 
 from __future__ import annotations
 
@@ -1423,7 +1421,7 @@ class BlockingChannel:
 
         if self.is_closed and isinstance(self._closing_reason,
                                          exceptions.ChannelClosedByBroker):
-            raise self._closing_reason  # pylint: disable=E0702
+            raise self._closing_reason
 
     def _on_puback_message_returned(self, channel: pika.channel.Channel,
                                     method: pika.spec.Basic.Return,
@@ -1585,12 +1583,12 @@ class BlockingChannel:
         while self._pending_events:
             evt = self._pending_events.popleft()
 
-            if type(evt) is _ConsumerDeliveryEvt:  # pylint: disable=C0123
+            if type(evt) is _ConsumerDeliveryEvt:
                 consumer_info = self._consumer_infos[evt.method.consumer_tag]
                 consumer_info.on_message_callback(self, evt.method,
                                                   evt.properties, evt.body)
 
-            elif type(evt) is _ConsumerCancellationEvt:  # pylint: disable=C0123
+            elif type(evt) is _ConsumerCancellationEvt:
                 del self._consumer_infos[evt.method_frame.method.consumer_tag]
 
                 self._impl.callbacks.process(self.channel_number,
@@ -1936,11 +1934,11 @@ class BlockingChannel:
         unprocessed_messages: list[Any] = []
         while self._pending_events:
             evt = self._pending_events.popleft()
-            if type(evt) is _ConsumerDeliveryEvt:  # pylint: disable=C0123
+            if type(evt) is _ConsumerDeliveryEvt:
                 if evt.method.consumer_tag == consumer_tag:
                     unprocessed_messages.append(evt)
                     continue
-            if type(evt) is _ConsumerCancellationEvt:  # pylint: disable=C0123
+            if type(evt) is _ConsumerCancellationEvt:
                 if evt.method_frame.method.consumer_tag == consumer_tag:
                     # A broker-initiated Basic.Cancel must have arrived
                     # before our cancel request completed
@@ -2084,7 +2082,7 @@ class BlockingChannel:
             # Process pending events
             if self._queue_consumer_generator.pending_events:
                 evt = self._queue_consumer_generator.pending_events.popleft()
-                if type(evt) is _ConsumerCancellationEvt:  # pylint: disable=C0123
+                if type(evt) is _ConsumerCancellationEvt:
                     # Consumer was cancelled by broker
                     self._queue_consumer_generator = None
                     break
@@ -2147,7 +2145,7 @@ class BlockingChannel:
                                          exceptions.ChannelClosedByBroker):
             LOGGER.debug('Channel close by broker detected, raising %r; %r',
                          self._closing_reason, self)
-            raise self._closing_reason  # pylint: disable=E0702
+            raise self._closing_reason
 
     def get_waiting_message_count(self) -> int:
         """Returns the number of messages that may be retrieved from the current
@@ -2160,7 +2158,7 @@ class BlockingChannel:
         if self._queue_consumer_generator is not None:
             pending_events = self._queue_consumer_generator.pending_events
             count = len(pending_events)
-            if count and type(pending_events[-1]) is _ConsumerCancellationEvt:  # pylint: disable=C0123
+            if count and type(pending_events[-1]) is _ConsumerCancellationEvt:
                 count -= 1
         else:
             count = 0

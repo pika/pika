@@ -462,7 +462,7 @@ class BaseConnection(connection.Connection):
 
         self._on_stream_terminated(error)
 
-    def _proto_eof_received(self) -> bool:  # pylint: disable=R0201
+    def _proto_eof_received(self) -> bool:
         """Called after the remote peer shuts its write end of the connection.
         :py:class:`.utils.nbio_interface.AbstractStreamProtocol` implementation.
 
@@ -515,7 +515,7 @@ class _StreamingProtocolShim(nbio_interface.AbstractStreamProtocol):
         :param BaseConnection conn:
         """
         self.conn = conn
-        # pylint: disable=W0212
+
         self.connection_made = conn._proto_connection_made
         self.connection_lost = conn._proto_connection_lost
         self.eof_received = conn._proto_eof_received

@@ -27,7 +27,7 @@ def _trace(fmt, *args):
     print((fmt % args) + "\n", end="", file=sys.stderr)
 
 
-class ForwardServer:  # pylint: disable=R0902
+class ForwardServer:
     """ Implement a TCP/IP forwarding/echo service for testing. Listens for
     an incoming TCP/IP connection, accepts it, then connects to the given
     remote address and forwards data back and forth between the two
@@ -73,15 +73,14 @@ class ForwardServer:  # pylint: disable=R0902
     # Amount of time, in seconds, we're willing to wait for the subprocess
     _SUBPROC_TIMEOUT = 10
 
-    def __init__(
-            self,  # pylint: disable=R0913
-            remote_addr,
-            remote_addr_family=socket.AF_INET,
-            remote_socket_type=socket.SOCK_STREAM,
-            server_addr=("127.0.0.1", 0),
-            server_addr_family=socket.AF_INET,
-            server_socket_type=socket.SOCK_STREAM,
-            local_linger_args=None):
+    def __init__(self,
+                 remote_addr,
+                 remote_addr_family=socket.AF_INET,
+                 remote_socket_type=socket.SOCK_STREAM,
+                 server_addr=("127.0.0.1", 0),
+                 server_addr_family=socket.AF_INET,
+                 server_socket_type=socket.SOCK_STREAM,
+                 local_linger_args=None):
         """
         :param tuple remote_addr: remote server's IP address, whose structure
           depends on remote_addr_family; pair (host-or-ip-addr, port-number).
@@ -194,7 +193,7 @@ class ForwardServer:  # pylint: disable=R0902
             self._server_addr_family, self._server_addr = queue.get(
                 block=True, timeout=self._SUBPROC_TIMEOUT)
             queue.close()
-        except Exception:  # pylint: disable=W0703
+        except Exception:
             try:
                 self._logger.exception(
                     "Failed while waiting for local socket info")
@@ -204,7 +203,7 @@ class ForwardServer:  # pylint: disable=R0902
                 # Clean up
                 try:
                     self.stop()
-                except Exception:  # pylint: disable=W0703
+                except Exception:
                     # Suppress secondary exception in favor of the primary
                     self._logger.exception(
                         "Emergency subprocess shutdown failed")
@@ -239,15 +238,9 @@ class ForwardServer:  # pylint: disable=R0902
             self._subproc = None
 
 
-def _run_server(
-        local_addr,
-        local_addr_family,
-        local_socket_type,  # pylint: disable=R0913
-        local_linger_args,
-        remote_addr,
-        remote_addr_family,
-        remote_socket_type,
-        queue):
+def _run_server(local_addr, local_addr_family, local_socket_type,
+                local_linger_args, remote_addr, remote_addr_family,
+                remote_socket_type, queue):
     """ Run the server; executed in the subprocess
 
     :param local_addr: listening address
@@ -315,15 +308,8 @@ class _TCPHandler(socketserver.StreamRequestHandler):
 
     _SOCK_RX_BUF_SIZE = 16 * 1024
 
-    def __init__(
-            self,  # pylint: disable=R0913
-            request,
-            client_address,
-            server,
-            local_linger_args,
-            remote_addr,
-            remote_addr_family,
-            remote_socket_type):
+    def __init__(self, request, client_address, server, local_linger_args,
+                 remote_addr, remote_addr_family, remote_socket_type):
         """
         :param request: for super
         :param client_address: for super
@@ -350,7 +336,7 @@ class _TCPHandler(socketserver.StreamRequestHandler):
                          client_address=client_address,
                          server=server)
 
-    def handle(self):  # pylint: disable=R0912
+    def handle(self):
         """Connect to remote and forward data between local and remote"""
         local_sock = self.connection
 
@@ -405,7 +391,7 @@ class _TCPHandler(socketserver.StreamRequestHandler):
                 if remote_src_sock is not remote_dest_sock:
                     remote_src_sock.close()
 
-    def _forward(self, src_sock, dest_sock):  # pylint: disable=R0912
+    def _forward(self, src_sock, dest_sock):
         """Forward from src_sock to dest_sock"""
         src_peername = src_sock.getpeername()
 
@@ -503,7 +489,7 @@ def echo(port=0):
         _trace("Connection from peer=%s", remote_addr)
         while True:
             try:
-                data = sock.recv(4 * 1024)  # pylint: disable=E1101
+                data = sock.recv(4 * 1024)
             except pika._utils.SOCKET_ERROR as exc:
                 if exc.errno == errno.EINTR:
                     continue
@@ -513,7 +499,7 @@ def echo(port=0):
             if not data:
                 break
 
-            sock.sendall(data)  # pylint: disable=E1101
+            sock.sendall(data)
     finally:
         try:
             _safe_shutdown_socket(sock, socket.SHUT_RDWR)

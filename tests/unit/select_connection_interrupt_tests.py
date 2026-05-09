@@ -17,9 +17,6 @@ import unittest
 
 from pika.adapters import select_connection
 
-# protected-access
-# pylint: disable=W0212
-
 
 class ReadInterruptHandlesEmptySocket(unittest.TestCase):
     """`_read_interrupt` must return cleanly when the interrupt fd is empty.

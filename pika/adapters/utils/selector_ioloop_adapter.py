@@ -29,7 +29,7 @@ class AbstractSelectorIOLoop:
 
     @property
     @abc.abstractmethod
-    def READ(self) -> int:  # pylint: disable=C0103
+    def READ(self) -> int:
         """The value of the I/O loop's READ flag; READ/WRITE/ERROR may be used
         with bitwise operators as expected.
 
@@ -40,7 +40,7 @@ class AbstractSelectorIOLoop:
 
     @property
     @abc.abstractmethod
-    def WRITE(self) -> int:  # pylint: disable=C0103
+    def WRITE(self) -> int:
         """The value of the I/O loop's WRITE flag; READ/WRITE/ERROR may be used
         with bitwise operators as expected
 
@@ -48,7 +48,7 @@ class AbstractSelectorIOLoop:
 
     @property
     @abc.abstractmethod
-    def ERROR(self) -> int:  # pylint: disable=C0103
+    def ERROR(self) -> int:
         """The value of the I/O loop's ERROR flag; READ/WRITE/ERROR may be used
         with bitwise operators as expected
 
@@ -577,7 +577,7 @@ class _AddressResolver:
                                              type=self._socktype,
                                              proto=self._proto,
                                              flags=self._flags)
-        except Exception as exc:  # pylint: disable=W0703
+        except Exception as exc:
             LOGGER.error('Address resolution failed: %r', exc)
             result = exc
 

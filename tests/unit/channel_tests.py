@@ -10,10 +10,6 @@ from unittest import mock
 
 from pika import channel, connection, exceptions, frame, spec
 
-# Disable protected-access, missing-docstring, and invalid-name,
-# too-many-public-methods, too-many-lines
-# pylint: disable=W0212,C0111,C0103,R0904,C0302
-
 
 class ConnectionTemplate(connection.Connection):
     """Template for using as mock spec_set for the pika Connection class. It
@@ -22,8 +18,6 @@ class ConnectionTemplate(connection.Connection):
     """
     callbacks = None
 
-    # Suppress pylint warnings about specific abstract methods not being
-    # overridden
     _adapter_connect_stream = connection.Connection._adapter_connect_stream
     _adapter_disconnect_stream = connection.Connection._adapter_disconnect_stream
     _adapter_emit_data = connection.Connection._adapter_emit_data

@@ -1,4 +1,3 @@
-# pylint: disable=C0111,C0103,R0205
 """
 # based on:
 #  - txamqp-helpers by Dan Siemon <dan@coverfire.com> (March 2010)
@@ -54,18 +53,16 @@ class PikaService(service.MultiService):
         f = PikaFactory(self.parameters)
         if self.parameters.ssl_options:
             s = ssl.ClientContextFactory()
-            serv = internet.SSLClient(  # pylint: disable=E1101
-                host=self.parameters.host,
-                port=self.parameters.port,
-                factory=f,
-                contextFactory=s)
+            serv = internet.SSLClient(host=self.parameters.host,
+                                      port=self.parameters.port,
+                                      factory=f,
+                                      contextFactory=s)
         else:
-            serv = internet.TCPClient(  # pylint: disable=E1101
-                host=self.parameters.host,
-                port=self.parameters.port,
-                factory=f)
+            serv = internet.TCPClient(host=self.parameters.host,
+                                      port=self.parameters.port,
+                                      factory=f)
         serv.factory = f
-        f.service = serv  # pylint: disable=W0201
+        f.service = serv
         name = f'{("ssl:" if self.parameters.ssl_options else "")}{self.parameters.host}:{self.parameters.port}'
         serv.__repr__ = lambda: f'<AMQP Connection to {name}>'
         serv.setName(name)
@@ -173,7 +170,7 @@ class PikaProtocol(twisted_connection.TwistedProtocolConnection):
                                               routing_key=routing_key,
                                               body=msg,
                                               properties=prop)
-        except Exception as error:  # pylint: disable=W0703
+        except Exception as error:
             log.msg(f'Error while sending message: {error}', system=self.name)
 
 
@@ -195,7 +192,7 @@ class PikaFactory(protocol.ReconnectingClientFactory):
         self.client = PikaProtocol(self, self.parameters)
         return self.client
 
-    def clientConnectionLost(self, connector, reason):  # pylint: disable=W0221
+    def clientConnectionLost(self, connector, reason):
         log.msg(f'Lost connection.  Reason: {reason.value}', system=self.name)
         protocol.ReconnectingClientFactory.clientConnectionLost(
             self, connector, reason)
@@ -233,7 +230,7 @@ class TestService(service.Service):
         super().__init__()
         self.amqp = None
 
-    def task(self, _msg):  # pylint: disable=R0201
+    def task(self, _msg):
         """
         Method for a time consuming task.
 
@@ -248,7 +245,7 @@ class TestService(service.Service):
         self.amqp.send_message('foobar', 'response', msg[3])
 
     def startService(self):
-        amqp_service = self.parent.getServiceNamed("amqp")  # pylint: disable=E1111,E1121
+        amqp_service = self.parent.getServiceNamed("amqp")
         self.amqp = amqp_service.getFactory()
         self.amqp.read_messages("foobar", "request1", self.respond)
         self.amqp.read_messages("foobar", "request2", self.respond)

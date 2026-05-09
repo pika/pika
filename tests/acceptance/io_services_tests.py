@@ -15,22 +15,6 @@ from pika.adapters.utils import nbio_interface
 from tests.misc.forward_server import ForwardServer
 from tests.stubs.io_services_test_stubs import IOServicesTestStubs
 
-# too-many-lines
-# pylint: disable=C0302
-
-# Suppress missing-docstring to allow test method names to be printed by our the
-# test runner
-# pylint: disable=C0111
-
-# invalid-name
-# pylint: disable=C0103
-
-# protected-access
-# pylint: disable=W0212
-
-# too-many-locals
-# pylint: disable=R0914
-
 
 class AsyncServicesTestBase(unittest.TestCase):
 
@@ -71,7 +55,7 @@ class AsyncServicesTestBase(unittest.TestCase):
 
         """
         pair = self.create_nonblocking_socketpair()
-        pair[0].setblocking(True)  # pylint: disable=E1101
+        pair[0].setblocking(True)
         pair[1].setblocking(True)
         return pair
 
@@ -100,7 +84,7 @@ class AsyncServicesTestBase(unittest.TestCase):
         s1, s2 = pika._utils.nonblocking_socketpair()
         s2.close()
         self.addCleanup(s1.close)
-        return s1.getsockname()  # pylint: disable=E1101
+        return s1.getsockname()
 
 
 class TestGetNativeIOLoop(AsyncServicesTestBase, IOServicesTestStubs):
@@ -207,7 +191,7 @@ class SocketWatcherTestBase(AsyncServicesTestBase):
     WatcherActivity = collections.namedtuple("io_services_test_WatcherActivity",
                                              ['readable', 'writable'])
 
-    def _check_socket_watchers_fired(self, sock, expected):  # pylint: disable=R0914
+    def _check_socket_watchers_fired(self, sock, expected):
         """Registers reader and writer for the given socket, runs the event loop
         until either one fires and asserts against expectation.
 
@@ -216,7 +200,7 @@ class SocketWatcherTestBase(AsyncServicesTestBase):
         :param WatcherActivity expected: What's expected by caller
         """
         # provided by IOServicesTestStubs mixin
-        nbio = self.create_nbio()  # pylint: disable=E1101
+        nbio = self.create_nbio()
 
         stops_requested = []
 
@@ -395,7 +379,7 @@ class TestSocketWatchersAfterLocalPeerShutsRead(SocketWatcherTestBase,
 
     def start(self):
         s1, _s2 = self.create_blocking_socketpair()
-        s1.shutdown(socket.SHUT_RD)  # pylint: disable=E1101
+        s1.shutdown(socket.SHUT_RD)
 
         # NOTE: Unlike POSIX, Windows select doesn't indicate as readable socket
         #  that was shut down locally with SHUT_RD.
@@ -409,7 +393,7 @@ class TestSocketWatchersAfterLocalPeerShutsWrite(SocketWatcherTestBase,
 
     def start(self):
         s1, _s2 = self.create_blocking_socketpair()
-        s1.shutdown(socket.SHUT_WR)  # pylint: disable=E1101
+        s1.shutdown(socket.SHUT_WR)
 
         expected = self.WatcherActivity(readable=False, writable=True)
         self._check_socket_watchers_fired(s1, expected)
@@ -420,7 +404,7 @@ class TestSocketWatchersAfterLocalPeerShutsReadWrite(SocketWatcherTestBase,
 
     def start(self):
         s1, _s2 = self.create_blocking_socketpair()
-        s1.shutdown(socket.SHUT_RDWR)  # pylint: disable=E1101
+        s1.shutdown(socket.SHUT_RDWR)
 
         # NOTE: Unlike POSIX, Windows select doesn't indicate as readable socket
         #  that was shut down locally with SHUT_RDWR.
@@ -613,7 +597,7 @@ class SocketConnectorTestBase(AsyncServicesTestBase):
         :param IOServicesTestStubs | SocketConnectorTestBase self:
         """
         # provided by IOServicesTestStubs mixin
-        nbio = self.create_nbio()  # pylint: disable=E1101
+        nbio = self.create_nbio()
 
         lsock, csock = self.set_up_sockets_for_connect(family)
 
@@ -637,7 +621,7 @@ class SocketConnectorTestBase(AsyncServicesTestBase):
         :param IOServicesTestStubs | SocketConnectorTestBase self:
         """
         # provided by IOServicesTestStubs mixin
-        nbio = self.create_nbio()  # pylint: disable=E1101
+        nbio = self.create_nbio()
 
         lsock, csock = self.set_up_sockets_for_connect(family)
 
@@ -668,7 +652,7 @@ class SocketConnectorTestBase(AsyncServicesTestBase):
         :param IOServicesTestStubs | SocketConnectorTestBase self:
         """
         # provided by IOServicesTestStubs mixin
-        nbio = self.create_nbio()  # pylint: disable=E1101
+        nbio = self.create_nbio()
 
         lsock, csock = self.set_up_sockets_for_connect(family)
 
@@ -1088,7 +1072,7 @@ class TestStreamConnectorProtocolInterfaceFailsBase(StreamingTestBase):
                 if proto_constructor_exc is not None:
                     logger.info('Raising proto_constructor_exc=%r',
                                 proto_constructor_exc)
-                    raise proto_constructor_exc  # pylint: disable=E0702
+                    raise proto_constructor_exc
 
             def connection_made(self, transport):
                 logger.info('connection_made(%r)', transport)
@@ -1097,7 +1081,7 @@ class TestStreamConnectorProtocolInterfaceFailsBase(StreamingTestBase):
                 if proto_connection_made_exc is not None:
                     logger.info('Raising proto_connection_made_exc=%r',
                                 proto_connection_made_exc)
-                    raise proto_connection_made_exc  # pylint: disable=E0702
+                    raise proto_connection_made_exc
 
             def connection_lost(self, error):
                 logger.info('connection_lost(%r), stopping ioloop', error)
@@ -1111,7 +1095,7 @@ class TestStreamConnectorProtocolInterfaceFailsBase(StreamingTestBase):
                 if proto_eof_received_exc is not None:
                     logger.info('Raising proto_eof_received_exc=%r',
                                 proto_eof_received_exc)
-                    raise proto_eof_received_exc  # pylint: disable=E0702
+                    raise proto_eof_received_exc
 
                 # False tells transport to close the sock and call
                 # connection_lost(None)
@@ -1123,7 +1107,7 @@ class TestStreamConnectorProtocolInterfaceFailsBase(StreamingTestBase):
                 if proto_data_received_exc is not None:
                     logger.info('Raising proto_data_received_exc=%r',
                                 proto_data_received_exc)
-                    raise proto_data_received_exc  # pylint: disable=E0702
+                    raise proto_data_received_exc
 
         return nbio.create_streaming_connection(TestStreamConnectorProtocol,
                                                 sock, on_create_done)

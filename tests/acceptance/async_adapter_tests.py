@@ -1,21 +1,3 @@
-# too-many-lines
-# pylint: disable=C0302
-
-# Suppress pylint messages concerning missing class and method docstrings
-# pylint: disable=C0111
-
-# Suppress pylint warning about attribute defined outside __init__
-# pylint: disable=W0201
-
-# Suppress pylint warning about access to protected member
-# pylint: disable=W0212
-
-# Suppress pylint warning about unused argument
-# pylint: disable=W0613
-
-# invalid-name
-# pylint: disable=C0103
-
 import functools
 import socket
 import threading
@@ -32,7 +14,7 @@ from tests.base import async_test_base
 from tests.base.async_test_base import AsyncAdapters, AsyncTestCase, BoundQueueTestCase
 
 
-class TestA_Connect(AsyncTestCase, AsyncAdapters):  # pylint: disable=C0103
+class TestA_Connect(AsyncTestCase, AsyncAdapters):
     DESCRIPTION = "Connect, open channel and disconnect"
 
     def begin(self, channel):
@@ -76,7 +58,7 @@ class TestCloseConnectionDuringAMQPHandshake(AsyncTestCase, AsyncAdapters):
 
         class MyConnectionClass(base_class):
             # Cause an exception if _on_stream_connected doesn't exist
-            base_class._on_stream_connected  # pylint: disable=W0104
+            base_class._on_stream_connected
 
             @async_test_base.make_stop_on_error_with_self(self)
             def _on_stream_connected(self, *args, **kwargs):
@@ -384,7 +366,7 @@ class TestCreateConnectionAMQPHandshakeTimesOutDefaultWorkflow(
 
         class MyConnectionClass(base_class):
             # Cause an exception if _on_stream_connected doesn't exist
-            base_class._on_stream_connected  # pylint: disable=W0104
+            base_class._on_stream_connected
 
             @async_test_base.make_stop_on_error_with_self(self)
             def _on_stream_connected(self, *args, **kwargs):
@@ -756,7 +738,7 @@ class TestQueueRedeclareWithDifferentValues(AsyncTestCase, AsyncAdapters):
         raise AssertionError("Should not have received a Queue.DeclareOk")
 
 
-class TestTX1_Select(AsyncTestCase, AsyncAdapters):  # pylint: disable=C0103
+class TestTX1_Select(AsyncTestCase, AsyncAdapters):
     DESCRIPTION = "Receive confirmation of Tx.Select"
 
     def begin(self, channel):
@@ -767,7 +749,7 @@ class TestTX1_Select(AsyncTestCase, AsyncAdapters):  # pylint: disable=C0103
         self.stop()
 
 
-class TestTX2_Commit(AsyncTestCase, AsyncAdapters):  # pylint: disable=C0103
+class TestTX2_Commit(AsyncTestCase, AsyncAdapters):
     DESCRIPTION = "Start a transaction, and commit it"
 
     def begin(self, channel):
@@ -782,7 +764,7 @@ class TestTX2_Commit(AsyncTestCase, AsyncAdapters):  # pylint: disable=C0103
         self.stop()
 
 
-class TestTX2_CommitFailure(AsyncTestCase, AsyncAdapters):  # pylint: disable=C0103
+class TestTX2_CommitFailure(AsyncTestCase, AsyncAdapters):
     DESCRIPTION = "Close the channel: commit without a TX"
 
     def begin(self, channel):
@@ -800,7 +782,7 @@ class TestTX2_CommitFailure(AsyncTestCase, AsyncAdapters):  # pylint: disable=C0
         raise AssertionError("Should not have received a Tx.CommitOk")
 
 
-class TestTX3_Rollback(AsyncTestCase, AsyncAdapters):  # pylint: disable=C0103
+class TestTX3_Rollback(AsyncTestCase, AsyncAdapters):
     DESCRIPTION = "Start a transaction, then rollback"
 
     def begin(self, channel):
@@ -815,7 +797,7 @@ class TestTX3_Rollback(AsyncTestCase, AsyncAdapters):  # pylint: disable=C0103
         self.stop()
 
 
-class TestTX3_RollbackFailure(AsyncTestCase, AsyncAdapters):  # pylint: disable=C0103
+class TestTX3_RollbackFailure(AsyncTestCase, AsyncAdapters):
     DESCRIPTION = "Close the channel: rollback without a TX"
 
     def begin(self, channel):
@@ -830,7 +812,7 @@ class TestTX3_RollbackFailure(AsyncTestCase, AsyncAdapters):  # pylint: disable=
         raise AssertionError("Should not have received a Tx.RollbackOk")
 
 
-class TestZ_PublishAndConsume(BoundQueueTestCase, AsyncAdapters):  # pylint: disable=C0103
+class TestZ_PublishAndConsume(BoundQueueTestCase, AsyncAdapters):
     DESCRIPTION = "Publish a message and consume it"
 
     def on_ready(self, frame):
@@ -850,7 +832,7 @@ class TestZ_PublishAndConsume(BoundQueueTestCase, AsyncAdapters):  # pylint: dis
         self.channel.basic_cancel(self.ctag, callback=self.on_cancelled)
 
 
-class TestZ_PublishAndConsumeBig(BoundQueueTestCase, AsyncAdapters):  # pylint: disable=C0103
+class TestZ_PublishAndConsumeBig(BoundQueueTestCase, AsyncAdapters):
     DESCRIPTION = "Publish a big message and consume it"
 
     @staticmethod
@@ -874,7 +856,7 @@ class TestZ_PublishAndConsumeBig(BoundQueueTestCase, AsyncAdapters):  # pylint: 
         self.channel.basic_cancel(self.ctag, callback=self.on_cancelled)
 
 
-class TestZ_PublishAndGet(BoundQueueTestCase, AsyncAdapters):  # pylint: disable=C0103
+class TestZ_PublishAndGet(BoundQueueTestCase, AsyncAdapters):
     DESCRIPTION = "Publish a message and get it"
 
     def on_ready(self, frame):
@@ -890,10 +872,10 @@ class TestZ_PublishAndGet(BoundQueueTestCase, AsyncAdapters):  # pylint: disable
         self.stop()
 
 
-class TestZ_AccessDenied(AsyncTestCase, AsyncAdapters):  # pylint: disable=C0103
+class TestZ_AccessDenied(AsyncTestCase, AsyncAdapters):
     DESCRIPTION = "Unknown vhost results in ProbableAccessDeniedError."
 
-    def start(self, *args, **kwargs):  # pylint: disable=W0221
+    def start(self, *args, **kwargs):
         self.parameters.virtual_host = str(uuid.uuid4())
         self.error_captured = None
         super().start(*args, **kwargs)
@@ -909,10 +891,10 @@ class TestZ_AccessDenied(AsyncTestCase, AsyncAdapters):  # pylint: disable=C0103
         self.stop()
 
 
-class TestBlockedConnectionTimesOut(AsyncTestCase, AsyncAdapters):  # pylint: disable=C0103
+class TestBlockedConnectionTimesOut(AsyncTestCase, AsyncAdapters):
     DESCRIPTION = "Verify that blocked connection terminates on timeout"
 
-    def start(self, *args, **kwargs):  # pylint: disable=W0221
+    def start(self, *args, **kwargs):
         self.parameters.blocked_connection_timeout = 0.001
         self.on_closed_error = None
         super().start(*args, **kwargs)
@@ -935,10 +917,10 @@ class TestBlockedConnectionTimesOut(AsyncTestCase, AsyncAdapters):  # pylint: di
         super().on_closed(connection, error)
 
 
-class TestBlockedConnectionUnblocks(AsyncTestCase, AsyncAdapters):  # pylint: disable=C0103
+class TestBlockedConnectionUnblocks(AsyncTestCase, AsyncAdapters):
     DESCRIPTION = "Verify that blocked-unblocked connection closes normally"
 
-    def start(self, *args, **kwargs):  # pylint: disable=W0221
+    def start(self, *args, **kwargs):
         self.parameters.blocked_connection_timeout = 0.001
         self.on_closed_error = None
         super().start(*args, **kwargs)
@@ -979,7 +961,7 @@ class TestAddCallbackThreadsafeRequestBeforeIOLoopStarts(
     DESCRIPTION = (
         "Test _adapter_add_callback_threadsafe request before ioloop starts.")
 
-    def _run_ioloop(self, *args, **kwargs):  # pylint: disable=W0221
+    def _run_ioloop(self, *args, **kwargs):
         """We intercept this method from AsyncTestCase in order to call
         _adapter_add_callback_threadsafe before AsyncTestCase starts the ioloop.
 
@@ -991,7 +973,7 @@ class TestAddCallbackThreadsafeRequestBeforeIOLoopStarts(
 
         return super()._run_ioloop(*args, **kwargs)
 
-    def start(self, *args, **kwargs):  # pylint: disable=W0221
+    def start(self, *args, **kwargs):
         self.loop_thread_ident = threading.current_thread().ident
         self.my_start_time = None
         self.got_callback = False
@@ -1012,7 +994,7 @@ class TestAddCallbackThreadsafeFromIOLoopThread(AsyncTestCase, AsyncAdapters):
     DESCRIPTION = (
         "Test _adapter_add_callback_threadsafe request from same thread.")
 
-    def start(self, *args, **kwargs):  # pylint: disable=W0221
+    def start(self, *args, **kwargs):
         self.loop_thread_ident = threading.current_thread().ident
         self.my_start_time = None
         self.got_callback = False
@@ -1037,7 +1019,7 @@ class TestAddCallbackThreadsafeFromAnotherThread(AsyncTestCase, AsyncAdapters):
     DESCRIPTION = (
         "Test _adapter_add_callback_threadsafe request from another thread.")
 
-    def start(self, *args, **kwargs):  # pylint: disable=W0221
+    def start(self, *args, **kwargs):
         self.loop_thread_ident = threading.current_thread().ident
         self.my_start_time = None
         self.got_callback = False
@@ -1064,7 +1046,7 @@ class TestAddCallbackThreadsafeFromAnotherThread(AsyncTestCase, AsyncAdapters):
 class TestIOLoopStopBeforeIOLoopStarts(AsyncTestCase, AsyncAdapters):
     DESCRIPTION = "Test ioloop.stop() before ioloop starts causes ioloop to exit quickly."
 
-    def _run_ioloop(self, *args, **kwargs):  # pylint: disable=W0221
+    def _run_ioloop(self, *args, **kwargs):
         """We intercept this method from AsyncTestCase in order to call
         ioloop.stop() before AsyncTestCase starts the ioloop.
         """
@@ -1086,7 +1068,7 @@ class TestIOLoopStopBeforeIOLoopStarts(AsyncTestCase, AsyncAdapters):
 
 
 class TestViabilityOfMultipleTimeoutsWithSameDeadlineAndCallback(
-        AsyncTestCase, AsyncAdapters):  # pylint: disable=C0103
+        AsyncTestCase, AsyncAdapters):
     DESCRIPTION = "Test viability of multiple timeouts with same deadline and callback"
 
     def begin(self, channel):

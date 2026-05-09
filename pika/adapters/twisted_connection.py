@@ -36,11 +36,6 @@ if TYPE_CHECKING:
 
     from pika import amqp_object, channel
 
-# Twistisms
-# pylint: disable=C0111,C0103
-# Other
-# pylint: disable=too-many-lines
-
 LOGGER = logging.getLogger(__name__)
 
 
@@ -252,7 +247,7 @@ class TwistedChannel:
 
             try:
                 method(*args, **kwargs)
-            except Exception:  # pylint: disable=W0703
+            except Exception:
                 return defer.fail()
             return d
 
@@ -476,7 +471,7 @@ class TwistedChannel:
                 arguments=arguments,
                 callback=on_consume_ok,
             )
-        except Exception:  # pylint: disable=W0703
+        except Exception:
             return defer.fail()
 
         return d
@@ -1266,7 +1261,7 @@ class TwistedProtocolConnection(protocol.Protocol):
         )
         self._calls: set[defer.Deferred[Any]] = set()
 
-    def channel(self, channel_number: int | None = None):  # pylint: disable=W0221
+    def channel(self, channel_number: int | None = None):
         """Create a new channel with the next available channel number or pass
         in a channel number to use. Must be non-zero if you would like to
         specify but it is recommended that you let Pika manage the channel

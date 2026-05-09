@@ -83,7 +83,7 @@ def encode_table(pieces: list[bytes], table: dict[str, Any] | None) -> int:
     return tablesize + 4
 
 
-def encode_value(pieces: list[bytes], value: Any) -> int:  # pylint: disable=R0911
+def encode_value(pieces: list[bytes], value: Any) -> int:
     """Encode the value passed in and append it to the pieces list returning
     the the size of the encoded value.
 
@@ -166,7 +166,7 @@ def decode_table(encoded: bytes,
     return result, offset
 
 
-def decode_value(encoded: bytes, offset: int) -> tuple[Any, int]:  # pylint: disable=R0912,R0915
+def decode_value(encoded: bytes, offset: int) -> tuple[Any, int]:
     """Decode the value passed in returning the decoded value and the number
     of bytes read in addition to the starting offset.
 

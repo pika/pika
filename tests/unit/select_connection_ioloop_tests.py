@@ -22,18 +22,6 @@ import pika
 import pika._utils
 from pika.adapters import select_connection
 
-# protected-access
-# pylint: disable=W0212
-
-# missing-docstring
-# pylint: disable=C0111
-
-# invalid-name
-# pylint: disable=C0103
-
-# attribute-defined-outside-init
-# pylint: disable=W0201
-
 LOGGER = logging.getLogger(__name__)
 
 EPOLL_SUPPORTED = hasattr(select, 'epoll')
@@ -119,8 +107,8 @@ class IOLoopBaseTest(unittest.TestCase):
         self.addCleanup(self.ioloop.remove_timeout, fail_timer)
         self.ioloop.start()
 
-        self.ioloop._poller.activate_poller.assert_called_once_with()  # pylint: disable=E1101
-        self.ioloop._poller.deactivate_poller.assert_called_once_with()  # pylint: disable=E1101
+        self.ioloop._poller.activate_poller.assert_called_once_with()
+        self.ioloop._poller.deactivate_poller.assert_called_once_with()
 
     def on_timeout(self):
         """Called when stuck waiting for connection to close"""
@@ -757,7 +745,7 @@ class DefaultPollerSocketEventsTestCase(unittest.TestCase):
 
         """
         pair = self.create_nonblocking_socketpair()
-        pair[0].setblocking(True)  # pylint: disable=E1101
+        pair[0].setblocking(True)
         pair[1].setblocking(True)
         return pair
 
@@ -786,7 +774,7 @@ class DefaultPollerSocketEventsTestCase(unittest.TestCase):
         s1, s2 = pika._utils.nonblocking_socketpair()
         s2.close()
         self.addCleanup(s1.close)
-        return s1.getsockname()  # pylint: disable=E1101
+        return s1.getsockname()
 
     def which_events_are_set_with_varying_eventmasks(self, sock,
                                                      requested_eventmasks,
@@ -965,7 +953,7 @@ class DefaultPollerSocketEventsTestCase(unittest.TestCase):
 
         s1, _s2 = self.create_blocking_socketpair()
 
-        s1.shutdown(socket.SHUT_RD)  # pylint: disable=E1101
+        s1.shutdown(socket.SHUT_RD)
 
         requested_eventmasks = [
             self.READ | self.WRITE | self.ERROR, self.READ | self.WRITE,
@@ -990,7 +978,7 @@ class DefaultPollerSocketEventsTestCase(unittest.TestCase):
 
         s1, _s2 = self.create_blocking_socketpair()
 
-        s1.shutdown(socket.SHUT_WR)  # pylint: disable=E1101
+        s1.shutdown(socket.SHUT_WR)
 
         requested_eventmasks = [
             self.READ | self.WRITE | self.ERROR, self.WRITE | self.ERROR
@@ -1013,7 +1001,7 @@ class DefaultPollerSocketEventsTestCase(unittest.TestCase):
 
         s1, _s2 = self.create_blocking_socketpair()
 
-        s1.shutdown(socket.SHUT_RDWR)  # pylint: disable=E1101
+        s1.shutdown(socket.SHUT_RDWR)
 
         requested_eventmasks = [
             self.READ | self.WRITE | self.ERROR, self.READ | self.WRITE,

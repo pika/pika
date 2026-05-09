@@ -24,13 +24,6 @@ class TestGetNativeIOLoop(unittest.TestCase,
 
 from tests.wrappers.threaded_test_wrapper import run_in_thread_with_timeout
 
-# Suppress missing-docstring to allow test method names to be printed by our the
-# test runner
-# pylint: disable=C0111
-
-# invalid-name
-# pylint: disable=C0103
-
 
 class IOServicesTestStubs:
     """Provides a stub test method for each combination of parameters we wish to
@@ -58,7 +51,7 @@ class IOServicesTestStubs:
 
         """
         nbio = self._nbio_factory()
-        self.addCleanup(nbio.close)  # pylint: disable=E1101
+        self.addCleanup(nbio.close)
         return nbio
 
     def _run_start(self, nbio_factory, native_loop, use_ssl=False):
@@ -79,7 +72,6 @@ class IOServicesTestStubs:
 
     # Suppress missing-docstring to allow test method names to be printed by our
     # test runner
-    # pylint: disable=C0111
 
     @run_in_thread_with_timeout
     def test_with_select_connection_io_services(self):
