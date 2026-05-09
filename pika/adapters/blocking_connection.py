@@ -899,6 +899,14 @@ class BlockingConnection:
         if self._channels_pending_dispatch:
             self._dispatch_channel_events()
 
+        for impl_channel in self._impl._channels.values():
+            channel = impl_channel._get_cookie()
+            if channel.is_closed and isinstance(
+                    channel._closing_reason, exceptions.ChannelClosedByBroker):
+                LOGGER.debug('Channel %d closed by broker: %r',
+                             channel.channel_number, channel._closing_reason)
+                raise channel._closing_reason
+
     def sleep(self, duration: float) -> None:
         """A safer way to sleep than calling time.sleep() directly that would
         keep the adapter from ignoring frames sent from the broker. The

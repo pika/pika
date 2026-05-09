@@ -356,3 +356,31 @@ class BlockingConnectionTests(unittest.TestCase):
         evt.dispatch()
         self.assertEqual(len(unblocked_buffer), 1)
         self.assertIs(unblocked_buffer[0], frame)
+
+    @patch.object(blocking_connection.select_connection,
+                  'SelectConnection',
+                  spec_set=SelectConnectionTemplate)
+    def test_process_data_events_raises_on_channel_closed_by_broker(
+            self, select_connection_class_mock):
+        impl_mock = select_connection_class_mock.return_value
+        impl_mock.is_closed = False
+
+        with mock.patch.object(blocking_connection.BlockingConnection,
+                               '_create_connection',
+                               return_value=impl_mock):
+            connection = blocking_connection.BlockingConnection('params')
+
+        exc = pika.exceptions.ChannelClosedByBroker(406, 'consumer_timeout')
+        channel_mock = mock.Mock(is_closed=True,
+                                 _closing_reason=exc,
+                                 channel_number=1)
+        impl_channel_mock = mock.Mock(_get_cookie=mock.Mock(
+            return_value=channel_mock))
+        impl_mock._channels = {1: impl_channel_mock}
+
+        with mock.patch.object(connection, '_flush_output'):
+            with self.assertRaises(pika.exceptions.ChannelClosedByBroker) as cm:
+                connection.process_data_events(time_limit=0)
+
+            self.assertEqual(cm.exception.reply_code, 406)
+            self.assertEqual(cm.exception.reply_text, 'consumer_timeout')
