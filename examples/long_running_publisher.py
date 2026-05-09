@@ -19,7 +19,7 @@ class Publisher(threading.Thread):
         parameters = ConnectionParameters("localhost", credentials=credentials)
         self.connection = BlockingConnection(parameters)
         self.channel = self.connection.channel()
-        self.channel.queue_declare(queue=self.queue, auto_delete=True)
+        self.channel.queue_declare(queue=self.queue, durable=True, auto_delete=True)
 
     def run(self):
         while self.is_running:
