@@ -2,12 +2,40 @@
 
 set -euo pipefail
 
-echo '[INFO] Installing RabbitMQ...'
-brew install rabbitmq
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+versions_path="${script_dir}/versions.json"
+rabbitmq_ver="$(
+    python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["rabbitmq"])' \
+        "${versions_path}"
+)"
 
-rabbitmq_sbin="$(brew --prefix rabbitmq)/sbin"
+install_dir="${HOME}/rabbitmq"
+archive_name="rabbitmq-server-generic-unix-${rabbitmq_ver}.tar.xz"
+archive_path="${RUNNER_TEMP:-/tmp}/${archive_name}"
+download_url="https://github.com/rabbitmq/rabbitmq-server/releases/download/v${rabbitmq_ver}/${archive_name}"
+rabbitmq_home="${install_dir}/rabbitmq_server-${rabbitmq_ver}"
+
+echo '[INFO] Installing Erlang...'
+brew install erlang
+
+if [ ! -d "${rabbitmq_home}" ]; then
+    echo "[INFO] Downloading RabbitMQ ${rabbitmq_ver}..."
+    mkdir -p "${install_dir}"
+    curl --fail --location --retry 3 --output "${archive_path}" \
+        "${download_url}"
+    tar -xJf "${archive_path}" -C "${install_dir}"
+else
+    echo "[INFO] Found RabbitMQ ${rabbitmq_ver} in ${rabbitmq_home}"
+fi
+
+rabbitmq_sbin="${rabbitmq_home}/sbin"
 export PATH="${rabbitmq_sbin}:${PATH}"
 export RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS='-rabbitmq_stream advertised_host localhost'
+
+if [ ! -x "${rabbitmq_sbin}/rabbitmq-server" ]; then
+    echo "[ERROR] RabbitMQ executable not found in ${rabbitmq_sbin}"
+    exit 1
+fi
 
 echo '[INFO] Starting RabbitMQ...'
 rabbitmq-server -detached
