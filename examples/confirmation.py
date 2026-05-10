@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # pylint: disable=C0111,C0103,R0205,W0603
 
 import logging

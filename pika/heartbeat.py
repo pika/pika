@@ -35,7 +35,7 @@ class HeartbeatChecker:
 
         """
         if timeout < 1:
-            raise ValueError('timeout must >= 0, but got {!r}'.format(timeout))
+            raise ValueError(f'timeout must >= 0, but got {timeout!r}')
 
         self._connection = connection
 

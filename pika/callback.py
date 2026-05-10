@@ -119,7 +119,7 @@ class CallbackManager:
 
     def __init__(self) -> None:
         """Create an instance of the CallbackManager"""
-        self._stack: Dict[_Prefix, Dict[AMQPValue, List[Dict[str,
+        self._stack: dict[_Prefix, dict[AMQPValue, list[dict[str,
                                                              Any]]]] = dict()
 
     @sanitize_prefix
@@ -128,8 +128,8 @@ class CallbackManager:
             key: AMQPValue,
             callback: Callable[..., Any],
             one_shot: bool = True,
-            only_caller: Optional[_Caller] = None,
-            arguments: Optional[Dict[str, Any]] = None) -> Tuple[_Prefix, Any]:
+            only_caller: _Caller | None = None,
+            arguments: dict[str, Any] | None = None) -> tuple[_Prefix, Any]:
         """Add a callback to the stack for the specified key. If the call is
         specified as one_shot, it will be removed after being fired
 
@@ -196,7 +196,7 @@ class CallbackManager:
         return True
 
     @sanitize_prefix
-    def pending(self, prefix: _Prefix, key: AMQPValue) -> Optional[int]:
+    def pending(self, prefix: _Prefix, key: AMQPValue) -> int | None:
         """Return count of callbacks for a given prefix or key or None
 
         :param str|int prefix: Categorize the callback
@@ -253,8 +253,8 @@ class CallbackManager:
     def remove(self,
                prefix: _Prefix,
                key: AMQPValue,
-               callback_value: Optional[Callable[..., Any]] = None,
-               arguments: Optional[Dict[str, Any]] = None) -> bool:
+               callback_value: Callable[..., Any] | None = None,
+               arguments: dict[str, Any] | None = None) -> bool:
         """Remove a callback from the stack by prefix, key and optionally
         the callback itself. If you only pass in prefix and key, all
         callbacks for that prefix and key will be removed.
@@ -298,8 +298,8 @@ class CallbackManager:
         del self._stack[prefix][key]
         self._cleanup_callback_dict(prefix, key)
 
-    def _arguments_match(self, callback_dict: Dict[str, Any],
-                         args: List[Any]) -> bool:
+    def _arguments_match(self, callback_dict: dict[str, Any],
+                         args: list[Any]) -> bool:
         """Validate if the arguments passed in match the expected arguments in
         the callback_dict. We expect this to be a frame passed in to *args for
         process or passed in as a list from remove.
@@ -321,7 +321,7 @@ class CallbackManager:
 
     def _callback_dict(self, callback: Callable[..., Any], one_shot: bool,
                        only_caller: _Caller,
-                       arguments: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+                       arguments: dict[str, Any] | None) -> dict[str, Any]:
         """Return the callback dictionary.
 
         :param callable callback: The callback to call
@@ -343,7 +343,7 @@ class CallbackManager:
 
     def _cleanup_callback_dict(self,
                                prefix: _Prefix,
-                               key: Optional[AMQPValue] = None) -> None:
+                               key: AMQPValue | None = None) -> None:
         """Remove empty dict nodes in the callback stack.
 
         :param str or int prefix: The prefix for keeping track of callbacks with
@@ -356,8 +356,8 @@ class CallbackManager:
             del self._stack[prefix]
 
     @staticmethod
-    def _dict_arguments_match(value: Dict[str, Any],
-                              expectation: Dict[str, Any]) -> bool:
+    def _dict_arguments_match(value: dict[str, Any],
+                              expectation: dict[str, Any]) -> bool:
         """Checks an dict to see if it has attributes that meet the expectation.
 
         :param dict value: The dict to evaluate
@@ -373,7 +373,7 @@ class CallbackManager:
         return True
 
     @staticmethod
-    def _obj_arguments_match(value: object, expectation: Dict[str,
+    def _obj_arguments_match(value: object, expectation: dict[str,
                                                               Any]) -> bool:
         """Checks an object to see if it has attributes that meet the
         expectation.
@@ -394,8 +394,8 @@ class CallbackManager:
                 return False
         return True
 
-    def _should_process_callback(self, callback_dict: Dict[str, Any],
-                                 caller: _Caller, args: List[Any]) -> bool:
+    def _should_process_callback(self, callback_dict: dict[str, Any],
+                                 caller: _Caller, args: list[Any]) -> bool:
         """Returns True if the callback should be processed.
 
         :param dict callback_dict: The callback configuration
@@ -413,7 +413,7 @@ class CallbackManager:
                  callback_dict[self.ONLY_CALLER] == caller))
 
     def _use_one_shot_callback(self, prefix: _Prefix, key: AMQPValue,
-                               callback_dict: Dict[str, Any]) -> None:
+                               callback_dict: dict[str, Any]) -> None:
         """Process the one-shot callback, decrementing the use counter and
         removing it from the stack if it's now been fully used.
 

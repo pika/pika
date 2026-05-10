@@ -57,8 +57,8 @@ class PlainCredentials:
         :param bool erase_on_connect: erase credentials on connect.
 
         """
-        self.username: Optional[str] = username
-        self.password: Optional[str] = password
+        self.username: str | None = username
+        self.password: str | None = password
         self.erase_on_connect: bool = erase_on_connect
 
     def __eq__(self, other) -> bool:
@@ -76,7 +76,7 @@ class PlainCredentials:
 
     def response_for(
             self,
-            start: Connection.Start) -> Tuple[Optional[str], Optional[bytes]]:
+            start: Connection.Start) -> tuple[str | None, bytes | None]:
         """Validate that this type of authentication is supported
 
         :param spec.Connection.Start start: Connection.Start method
@@ -121,7 +121,7 @@ class ExternalCredentials:
 
     def response_for(
         self, start: Connection.Start
-    ) -> Tuple[Optional[str], Optional[bytes]]:  # pylint: disable=R0201
+    ) -> tuple[str | None, bytes | None]:  # pylint: disable=R0201
         """Validate that this type of authentication is supported
 
         :param spec.Connection.Start start: Connection.Start method
@@ -141,4 +141,4 @@ class ExternalCredentials:
 _CredentialType = Union[Type[PlainCredentials], Type[ExternalCredentials]]
 
 # Append custom credential types to this list for validation support
-VALID_TYPES: List[_CredentialType] = [PlainCredentials, ExternalCredentials]
+VALID_TYPES: list[_CredentialType] = [PlainCredentials, ExternalCredentials]

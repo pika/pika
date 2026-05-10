@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # pylint: disable=C0111,C0103,R0205
 
 import functools
@@ -12,7 +11,7 @@ LOG_FORMAT = ('%(levelname) -10s %(asctime)s %(name) -30s %(funcName) '
 LOGGER = logging.getLogger(__name__)
 
 
-class ExampleConsumer(object):
+class ExampleConsumer:
     """This is an example consumer that will handle unexpected interactions
     with RabbitMQ such as channel and connection closures.
 
@@ -388,7 +387,7 @@ class ExampleConsumer(object):
             LOGGER.info('Stopped')
 
 
-class ReconnectingExampleConsumer(object):
+class ReconnectingExampleConsumer:
     """This is an example consumer that will reconnect if the nested
     ExampleConsumer indicates that a reconnect is necessary.
 
