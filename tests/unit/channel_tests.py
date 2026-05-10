@@ -1253,9 +1253,8 @@ class ChannelTests(unittest.TestCase):
                                     spec.Channel.Close(400, 'error'))
         self.obj._on_close_from_broker(method_frame)
 
-        self.assertTrue(
-            self.obj.is_closed,
-            f'Channel was not closed; state={self.obj._state}')
+        self.assertTrue(self.obj.is_closed,
+                        f'Channel was not closed; state={self.obj._state}')
 
         self.obj._send_method.assert_called_once_with(spec.Channel.CloseOk())
 
@@ -1278,9 +1277,8 @@ class ChannelTests(unittest.TestCase):
         self.obj._on_close_from_broker(method_frame)
 
         # Verify didn't alter state (will wait for CloseOk)
-        self.assertTrue(
-            self.obj.is_closing,
-            f'Channel was not closed; state={self.obj._state}')
+        self.assertTrue(self.obj.is_closing,
+                        f'Channel was not closed; state={self.obj._state}')
 
         self.assertIsInstance(self.obj._closing_reason,
                               exceptions.ChannelClosedByBroker)
@@ -1371,9 +1369,8 @@ class ChannelTests(unittest.TestCase):
         self.obj._on_closeok(
             frame.Method(self.obj.channel_number, spec.Channel.CloseOk()))
 
-        self.assertTrue(
-            self.obj.is_closed,
-            f'Channel was not closed; state={self.obj._state}')
+        self.assertTrue(self.obj.is_closed,
+                        f'Channel was not closed; state={self.obj._state}')
 
         self.obj.callbacks.process.assert_any_call(self.obj.channel_number,
                                                    '_on_channel_close',
@@ -1411,9 +1408,8 @@ class ChannelTests(unittest.TestCase):
             frame.Method(self.obj.channel_number, spec.Channel.CloseOk()))
 
         # Verify this completes closing of the channel
-        self.assertTrue(
-            self.obj.is_closed,
-            f'Channel was not closed; state={self.obj._state}')
+        self.assertTrue(self.obj.is_closed,
+                        f'Channel was not closed; state={self.obj._state}')
 
         self.assertEqual(self.obj.callbacks.process.call_count, 2)
 
