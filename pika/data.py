@@ -41,8 +41,7 @@ def encode_short_string(pieces: list[bytes], value: str) -> int:
     return 1 + length
 
 
-def decode_short_string(encoded: bytes,
-                        offset: int) -> tuple[str | bytes, int]:
+def decode_short_string(encoded: bytes, offset: int) -> tuple[str | bytes, int]:
     """Decode a short string value from ``encoded`` data at ``offset``.
     """
     length = struct.unpack_from('B', encoded, offset)[0]

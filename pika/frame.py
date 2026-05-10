@@ -192,9 +192,7 @@ class ProtocolHeader(amqp_object.AMQPObject):
                                      self.revision)
 
 
-def decode_frame(
-    data_in: bytes
-) -> tuple[int, Frame | ProtocolHeader | None]:  # pylint: disable=R0911,R0914
+def decode_frame(data_in: bytes) -> tuple[int, Frame | ProtocolHeader | None]:  # pylint: disable=R0911,R0914
     """Receives raw socket data and attempts to turn it into a frame.
     Returns bytes used to make the frame and the frame
 

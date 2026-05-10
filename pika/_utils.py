@@ -1,13 +1,12 @@
 """Internal utility helpers for platform and socket compatibility."""
 # pylint: disable=C0103
-
+from __future__ import annotations
 import abc
 import os
 import re
 import socket
 import sys
 import time
-from typing import Tuple, Union
 
 RE_NUM = re.compile(r'(\d+).+')
 
@@ -36,7 +35,7 @@ def time_now() -> float:
     return time.monotonic()
 
 
-def as_bytes(value: Union[str, bytes]) -> bytes:
+def as_bytes(value: str | bytes) -> bytes:
     """Returns value as bytes."""
     if not isinstance(value, bytes):
         return value.encode('UTF-8')
@@ -51,7 +50,7 @@ def to_digit(value: str) -> int:
     return int(match.groups()[0]) if match else 0
 
 
-def get_linux_version(release_str: str) -> Tuple[int, ...]:
+def get_linux_version(release_str: str) -> tuple[int, ...]:
     """Gets linux version."""
     ver_str = release_str.split('-')[0]
     return tuple(map(to_digit, ver_str.split('.', 3)[:3]))
@@ -66,7 +65,7 @@ if ON_LINUX:
 def nonblocking_socketpair(
         family: int = socket.AF_INET,
         socket_type: int = socket.SOCK_STREAM,
-        proto: int = 0) -> Tuple[socket.socket, socket.socket]:
+        proto: int = 0) -> tuple[socket.socket, socket.socket]:
     """Returns a pair of non-blocking connected sockets."""
     if family == socket.AF_INET:
         host = _LOCALHOST

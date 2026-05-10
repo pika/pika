@@ -10,7 +10,7 @@ from __future__ import annotations
 from collections import deque
 from collections.abc import Sequence
 import logging
-from typing import Any, Callable, TYPE_CHECKING, Union
+from typing import Any, Callable, TYPE_CHECKING
 import uuid
 from enum import Enum
 
@@ -29,8 +29,8 @@ LOGGER = logging.getLogger(__name__)
 
 MAX_CHANNELS: int = 65535  # per AMQP 0.9.1 spec.
 
-_OnAckNackCallback = Callable[
-    [frame.Method[Union[spec.Basic.Ack, spec.Basic.Nack]]], None]
+_OnAckNackCallback = Callable[[frame.Method[spec.Basic.Ack | spec.Basic.Nack]],
+                              None]
 _OnConfirmDeliveryCallback = Callable[[frame.Method[spec.Confirm.SelectOk]],
                                       None]
 _OnBasicConsumeCallback = Callable[[frame.Method[spec.Basic.ConsumeOk]], None]
