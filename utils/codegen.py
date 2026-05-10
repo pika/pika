@@ -188,7 +188,7 @@ def generate(specPath):
                 bitindex += 1
             else:
                 bitindex = None
-                genSingleDecode("            ", "self.{}".format(pyize(f.name)),
+                genSingleDecode("            ", f"self.{pyize(f.name)}",
                                 f.domain)
         print("            return self")
         print('')
@@ -213,11 +213,11 @@ def generate(specPath):
                 print("        self.%s = (flags & %s) != 0" %
                       (pyize(f.name), flagName(c, f)))
             else:
-                print("        if flags & {}:".format(flagName(c, f)))
-                genSingleDecode("            ", "self.{}".format(pyize(f.name)),
+                print(f"        if flags & {flagName(c, f)}:")
+                genSingleDecode("            ", f"self.{pyize(f.name)}",
                                 f.domain)
                 print("        else:")
-                print("            self.{} = None".format(pyize(f.name)))
+                print(f"            self.{pyize(f.name)} = None")
         print("        return self")
         print('')
 
@@ -245,7 +245,7 @@ def generate(specPath):
             else:
                 finishBits()
                 bitindex = None
-                genSingleEncode("            ", "self.{}".format(pyize(f.name)),
+                genSingleEncode("            ", f"self.{pyize(f.name)}",
                                 f.domain)
         finishBits()
         print("            return pieces")
@@ -260,9 +260,9 @@ def generate(specPath):
                 print("        if self.%s: flags = flags | %s" %
                       (pyize(f.name), flagName(c, f)))
             else:
-                print("        if self.{} is not None:".format(pyize(f.name)))
-                print("            flags = flags | {}".format(flagName(c, f)))
-                genSingleEncode("            ", "self.{}".format(pyize(f.name)),
+                print(f"        if self.{pyize(f.name)} is not None:")
+                print(f"            flags = flags | {flagName(c, f)}")
+                genSingleEncode("            ", f"self.{pyize(f.name)}",
                                 f.domain)
         print("        flag_pieces = list()")
         print("        while True:")
@@ -280,16 +280,16 @@ def generate(specPath):
 
     def fieldDeclList(fields):
         return ''.join([
-            ", {}={}".format(pyize(f.name), fieldvalue(f.defaultvalue))
+            f", {pyize(f.name)}={fieldvalue(f.defaultvalue)}"
             for f in fields
         ])
 
     def fieldInitList(prefix, fields):
         if fields:
-            return ''.join(["{}self.{} = {}\n".format(prefix, pyize(f.name), pyize(f.name)) \
+            return ''.join([f"{prefix}self.{pyize(f.name)} = {pyize(f.name)}\n" \
                             for f in fields])
         else:
-            return '{}pass\n'.format(prefix)
+            return f'{prefix}pass\n'
 
     print("""\"\"\"
 AMQP Specification
@@ -327,19 +327,19 @@ from pika import data
         constants[constantName(c)] = v
 
     for key in sorted(constants.keys()):
-        print("{} = {}".format(key, constants[key]))
+        print(f"{key} = {constants[key]}")
     print('')
 
     for c in spec.allClasses():
         print('')
-        print('class {}(amqp_object.Class):'.format(camel(c.name)))
+        print(f'class {camel(c.name)}(amqp_object.Class):')
         print('')
         print("    INDEX = 0x%.04X  # %d" % (c.index, c.index))
-        print("    NAME = {}".format(fieldvalue(camel(c.name))))
+        print(f"    NAME = {fieldvalue(camel(c.name))}")
         print('')
 
         for m in c.allMethods():
-            print('    class {}(amqp_object.Method):'.format(camel(m.name)))
+            print(f'    class {camel(m.name)}(amqp_object.Method):')
             print('')
             methodid = m.klass.index << 16 | m.index
             print("        INDEX = 0x%.08X  # %d, %d; %d" %
@@ -359,9 +359,9 @@ from pika import data
     for c in spec.allClasses():
         if c.fields:
             print('')
-            print('class {}(amqp_object.Properties):'.format(c.structName()))
+            print(f'class {c.structName()}(amqp_object.Properties):')
             print('')
-            print("    CLASS = {}".format(camel(c.name)))
+            print(f"    CLASS = {camel(c.name)}")
             print("    INDEX = 0x%.04X  # %d" % (c.index, c.index))
             print("    NAME = %s" % (fieldvalue(c.structName(),)))
             print('')
@@ -378,14 +378,14 @@ from pika import data
                     index += 1
                 print('')
 
-            print("    def __init__(self{}):".format(fieldDeclList(c.fields)))
+            print(f"    def __init__(self{fieldDeclList(c.fields)}):")
             print(fieldInitList('        ', c.fields))
             genDecodeProperties(c)
             genEncodeProperties(c)
 
     print("methods = {")
     print(',\n'.join([
-        "    0x{:08X}: {}".format(m.klass.index << 16 | m.index, m.structName())
+        f"    0x{m.klass.index << 16 | m.index:08X}: {m.structName()}"
         for m in spec.allMethods()
     ]))
     print("}")
@@ -393,7 +393,7 @@ from pika import data
 
     print("props = {")
     print(',\n'.join([
-        "    0x{:04X}: {}".format(c.index, c.structName())
+        f"    0x{c.index:04X}: {c.structName()}"
         for c in spec.allClasses()
         if c.fields
     ]))

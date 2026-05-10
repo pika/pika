@@ -167,7 +167,7 @@ class PikaProtocol(twisted_connection.TwistedProtocolConnection):
     @inlineCallbacks
     def send_message(self, exchange, routing_key, msg):
         """Send a single message."""
-        log.msg('{} ({}): {}'.format(exchange, routing_key, repr(msg)),
+        log.msg(f'{exchange} ({routing_key}): {repr(msg)}',
                 system='Pika:=>')
         yield self._channel.exchange_declare(exchange=exchange,
                                              exchange_type=ExchangeType.topic,
