@@ -14,7 +14,8 @@ rabbitmq-server -detached
 
 echo '[INFO] Waiting for RabbitMQ to start...'
 for _ in {1..30}; do
-    if rabbitmq-diagnostics -q ping; then
+    if rabbitmq-diagnostics -q check_running &&
+        rabbitmq-diagnostics -q check_port_listener 5672; then
         echo '[INFO] RabbitMQ is running!'
         rabbitmqctl status
         exit 0
@@ -23,4 +24,4 @@ for _ in {1..30}; do
 done
 
 echo '[ERROR] RabbitMQ did not start in time.'
-rabbitmq-diagnostics -q ping
+rabbitmq-diagnostics -q check_running
