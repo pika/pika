@@ -228,18 +228,28 @@ class SocketWatcherTestBase(AsyncServicesTestBase):
             stops_requested.append(1)
 
         reader_bucket = [False]
+        writer_bucket = [False]
+
+        def maybe_stop_loop():
+            readable = reader_bucket[-1]
+            writable = writer_bucket[-1]
+
+            if readable != expected.readable and readable:
+                stop_loop()
+            elif writable != expected.writable and writable:
+                stop_loop()
+            elif readable == expected.readable and writable == expected.writable:
+                stop_loop()
 
         def on_readable():
             self.logger.debug('on_readable() called.')
             reader_bucket.append(True)
-            stop_loop()
-
-        writer_bucket = [False]
+            maybe_stop_loop()
 
         def on_writable():
             self.logger.debug('on_writable() called.')
             writer_bucket.append(True)
-            stop_loop()
+            maybe_stop_loop()
 
         timeout_bucket = []
 

@@ -1078,16 +1078,21 @@ class KQueuePoller(_PollerBase):
 
         """
         mask = 0
-        if kevent.filter == select.KQ_FILTER_READ:  # type: ignore
+        kq_filter_read = getattr(select, 'KQ_FILTER_READ')
+        kq_filter_write = getattr(select, 'KQ_FILTER_WRITE')
+        kq_ev_eof = getattr(select, 'KQ_EV_EOF')
+        kq_ev_error = getattr(select, 'KQ_EV_ERROR')
+
+        if kevent.filter == kq_filter_read:
             mask = PollEvents.READ
-        elif kevent.filter == select.KQ_FILTER_WRITE:  # type: ignore
+        elif kevent.filter == kq_filter_write:
             mask = PollEvents.WRITE
-            if kevent.flags & select.KQ_EV_EOF:  # type: ignore
+            if kevent.flags & kq_ev_eof:
                 # May be set when the peer reader disconnects. We don't check
                 # KQ_EV_EOF for KQ_FILTER_READ because in that case it may be
                 # set before the remaining data is consumed from sockbuf.
                 mask |= PollEvents.ERROR
-        elif kevent.flags & select.KQ_EV_ERROR:  # type: ignore
+        elif kevent.flags & kq_ev_error:
             mask = PollEvents.ERROR
         else:
             LOGGER.critical('Unexpected kevent: %s', kevent)
