@@ -122,8 +122,7 @@ class Channel:
         self._consumers_with_noack: set = set()
         self._on_flowok_callback: Callable[..., Any] | None = None
         self._on_getok_callback: Callable[..., Any] | None = None
-        self._on_openok_callback: None | (Callable[...,
-                                                    Any]) = on_open_callback
+        self._on_openok_callback: None | (Callable[..., Any]) = on_open_callback
         self._state: int = self.CLOSED
 
         # We save the closing reason exception to be passed to on-channel-close
@@ -310,15 +309,14 @@ class Channel:
                       'consumer_tag': consumer_tag
                   })] if not nowait else [])
 
-    def basic_consume(
-            self,
-            queue: str,
-            on_message_callback: _OnMessageCallback,
-            auto_ack: bool = False,
-            exclusive: bool = False,
-            consumer_tag: str | None = None,
-            arguments: dict[str, Any] | None = None,
-            callback: _OnBasicConsumeCallback | None = None) -> str:
+    def basic_consume(self,
+                      queue: str,
+                      on_message_callback: _OnMessageCallback,
+                      auto_ack: bool = False,
+                      exclusive: bool = False,
+                      consumer_tag: str | None = None,
+                      arguments: dict[str, Any] | None = None,
+                      callback: _OnBasicConsumeCallback | None = None) -> str:
         """Sends the AMQP 0-9-1 command Basic.Consume to the broker and binds messages
         for the consumer_tag to the consumer callback. If you do not pass in
         a consumer_tag, one will be automatically generated for you. Returns
@@ -369,8 +367,9 @@ class Channel:
 
         self._consumers[consumer_tag] = on_message_callback
 
-        rpc_callback: None | (Callable[
-            ..., Any]) = self._on_eventok if callback is None else callback
+        rpc_callback: None | (
+            Callable[...,
+                     Any]) = self._on_eventok if callback is None else callback
 
         self._rpc(
             spec.Basic.Consume(queue=queue,
@@ -549,10 +548,9 @@ class Channel:
             raise TypeError('delivery_tag must be an integer')
         return self._send_method(spec.Basic.Reject(delivery_tag, requeue))
 
-    def basic_recover(
-            self,
-            requeue: bool = False,
-            callback: _OnBasicRecoverCallback | None = None) -> None:
+    def basic_recover(self,
+                      requeue: bool = False,
+                      callback: _OnBasicRecoverCallback | None = None) -> None:
         """This method asks the server to redeliver all unacknowledged messages
         on a specified channel. Zero or more messages may be redelivered. This
         method replaces the asynchronous Recover.
@@ -667,13 +665,12 @@ class Channel:
         """
         return list(self._consumers.keys())
 
-    def exchange_bind(
-            self,
-            destination: str,
-            source: str,
-            routing_key: str = '',
-            arguments: dict[str, Any] | None = None,
-            callback: _OnExchangeBindCallback | None = None) -> None:
+    def exchange_bind(self,
+                      destination: str,
+                      source: str,
+                      routing_key: str = '',
+                      arguments: dict[str, Any] | None = None,
+                      callback: _OnExchangeBindCallback | None = None) -> None:
         """Bind an exchange to another exchange.
 
         :param str destination: The destination exchange to bind
@@ -892,15 +889,14 @@ class Channel:
                             arguments or dict()), callback,
             [spec.Queue.BindOk] if not nowait else [])
 
-    def queue_declare(
-            self,
-            queue: str,
-            passive: bool = False,
-            durable: bool = False,
-            exclusive: bool = False,
-            auto_delete: bool = False,
-            arguments: dict[str, Any] | None = None,
-            callback: _OnQueueDeclareCallback | None = None) -> None:
+    def queue_declare(self,
+                      queue: str,
+                      passive: bool = False,
+                      durable: bool = False,
+                      exclusive: bool = False,
+                      auto_delete: bool = False,
+                      arguments: dict[str, Any] | None = None,
+                      callback: _OnQueueDeclareCallback | None = None) -> None:
         """Declare queue, create if needed. This method creates or checks a
         queue. When creating a new queue the client can specify various
         properties that control the durability of the queue and its contents,
@@ -1429,9 +1425,9 @@ class Channel:
         self,
         method: amqp_object.Method,
         callback: Callable[..., Any] | None = None,
-        acceptable_replies: None | (Sequence[(
-            type[amqp_object.Method] | tuple[type[amqp_object.Method],
-                                            dict[str, Any]])]) = None
+        acceptable_replies: None |
+        (Sequence[(type[amqp_object.Method] |
+                   tuple[type[amqp_object.Method], dict[str, Any]])]) = None
     ) -> None:
         """Make a synchronous channel RPC call for a synchronous method frame. If
         the channel is already in the blocking state, then enqueue the request,
@@ -1535,8 +1531,8 @@ class Channel:
     def _send_method(
             self,
             method: amqp_object.Method,
-            content: None | (tuple[spec.BasicProperties,
-                                    bytes]) = None) -> None:
+            content: None | (tuple[spec.BasicProperties, bytes]) = None
+    ) -> None:
         """Shortcut wrapper to send a method through our connection, passing in
         the channel number
 

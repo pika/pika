@@ -381,7 +381,7 @@ class BlockingConnection:
         self._impl.add_on_close_callback(self._closed_result.set_value_once)
 
     def __repr__(self) -> str:
-        return '<{} impl={!r}>'.format(self.__class__.__name__, self._impl)
+        return f'<{self.__class__.__name__} impl={self._impl!r}>'
 
     def __enter__(self) -> BlockingConnection:
         # Prepare `with` context
@@ -1342,7 +1342,7 @@ class BlockingChannel:
         return self.channel_number
 
     def __repr__(self) -> str:
-        return '<{} impl={!r}>'.format(self.__class__.__name__, self._impl)
+        return f'<{self.__class__.__name__} impl={self._impl!r}>'
 
     def __enter__(self) -> BlockingChannel:
         return self

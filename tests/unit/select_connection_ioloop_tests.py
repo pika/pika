@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Tests for SelectConnection IOLoops
 
@@ -56,7 +55,7 @@ def _trace_stderr(fmt, *args):
 
 
 def _fd_events_to_str(events):
-    str_events = '{}: '.format(events)
+    str_events = f'{events}: '
 
     if events & POLLIN:
         str_events += "In."
@@ -74,7 +73,7 @@ def _fd_events_to_str(events):
     remainig_events = events & ~(POLLIN | POLLOUT | POLLERR | POLLHUP |
                                  POLLNVAL | POLLPRI)
     if remainig_events:
-        str_events += '+{}'.format(bin(remainig_events))
+        str_events += f'+{bin(remainig_events)}'
 
     return str_events
 
@@ -108,8 +107,8 @@ class IOLoopBaseTest(unittest.TestCase):
         self.addCleanup(deactivate_poller_patch.stop)
 
     def shortDescription(self):
-        method_desc = super(IOLoopBaseTest, self).shortDescription()
-        return '%s (%s)' % (method_desc, self.SELECT_POLLER)
+        method_desc = super().shortDescription()
+        return f'{method_desc} ({self.SELECT_POLLER})'
 
     def start(self):
         """Setup timeout handler for detecting 'no-activity'
@@ -410,7 +409,7 @@ class IOLoopSocketBaseSelect(IOLoopBaseTest):
         return fd_
 
     def setUp(self):
-        super(IOLoopSocketBaseSelect, self).setUp()
+        super().setUp()
         self.sock_map = dict()
         self.create_accept_socket()
 
@@ -418,7 +417,7 @@ class IOLoopSocketBaseSelect(IOLoopBaseTest):
         for fd_ in self.sock_map:
             self.ioloop.remove_handler(fd_)
             self.sock_map[fd_].close()
-        super(IOLoopSocketBaseSelect, self).tearDown()
+        super().tearDown()
 
     def create_accept_socket(self):
         """Create a socket and setup 'accept' handler"""
@@ -499,7 +498,7 @@ class IOLoopSimpleMessageTestCaseSelect(IOLoopSocketBaseSelect):
     def start(self):
         """Create a pair of sockets and poll"""
         self.create_write_socket(self.connected)
-        super(IOLoopSimpleMessageTestCaseSelect, self).start()
+        super().start()
 
     def connected(self, fd, events):
         """Respond to 'connected' event by writing to the write-side."""

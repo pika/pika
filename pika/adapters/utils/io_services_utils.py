@@ -751,8 +751,7 @@ class _AsyncTransportBase(  # pylint: disable=W0223
         """
 
         def __init__(self) -> None:
-            super(_AsyncTransportBase.RxEndOfFile,
-                  self).__init__(-1, 'End of input stream (EOF)')
+            super().__init__(-1, 'End of input stream (EOF)')
 
     def __init__(self, sock: Union[socket.socket, ssl.SSLSocket],
                  protocol: nbio_interface.AbstractStreamProtocol,

@@ -279,10 +279,8 @@ def generate(specPath):
         print('')
 
     def fieldDeclList(fields):
-        return ''.join([
-            f", {pyize(f.name)}={fieldvalue(f.defaultvalue)}"
-            for f in fields
-        ])
+        return ''.join(
+            [f", {pyize(f.name)}={fieldvalue(f.defaultvalue)}" for f in fields])
 
     def fieldInitList(prefix, fields):
         if fields:
@@ -393,8 +391,7 @@ from pika import data
 
     print("props = {")
     print(',\n'.join([
-        f"    0x{c.index:04X}: {c.structName()}"
-        for c in spec.allClasses()
+        f"    0x{c.index:04X}: {c.structName()}" for c in spec.allClasses()
         if c.fields
     ]))
     print("}")

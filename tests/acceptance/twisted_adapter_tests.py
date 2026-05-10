@@ -46,7 +46,7 @@ class TestCase(unittest.TestCase):
 
         def _cb(ignore):
             raise self.failureException(
-                "did not catch an error, instead got %r" % (ignore,))
+                f"did not catch an error, instead got {ignore!r}")
 
         def _eb(failure):
             if failure.check(*expectedFailures):
@@ -221,8 +221,9 @@ class TwistedChannelTestCase(TestCase):
         self.channel._consumers = {
             "test-delivery-tag": queue_obj,
         }
-        self.channel._queue_name_to_consumer_tags["testqueue"] = set(
-            ["test-delivery-tag"])
+        self.channel._queue_name_to_consumer_tags["testqueue"] = {
+            "test-delivery-tag"
+        }
         self.channel._calls = set()
         self.pika_channel.queue_delete.__name__ = "queue_delete"
         d = self.channel.queue_delete(queue="testqueue")
@@ -309,7 +310,7 @@ class TwistedChannelTestCase(TestCase):
             "consumer_tags",
         )
         for name in attributes:
-            value = "testvalue-{}".format(name)
+            value = f"testvalue-{name}"
             setattr(self.pika_channel, name, value)
             self.assertEqual(getattr(self.channel, name), value)
 
@@ -342,8 +343,8 @@ class TwistedChannelTestCase(TestCase):
         self.channel._consumers["test-consumer"] = queue_obj
         self.channel._consumers["test-consumer-2"] = queue_obj_2
         self.channel._queue_name_to_consumer_tags.update({
-            "testqueue": set(["test-consumer"]),
-            "testqueue-2": set(["test-consumer-2"]),
+            "testqueue": {"test-consumer"},
+            "testqueue-2": {"test-consumer-2"},
         })
         d = self.channel.basic_cancel("test-consumer")
 
@@ -383,8 +384,9 @@ class TwistedChannelTestCase(TestCase):
             self.channel._on_consumer_cancelled_by_broker)
         queue_obj = mock.Mock()
         self.channel._consumers["test-consumer"] = queue_obj
-        self.channel._queue_name_to_consumer_tags["testqueue"] = set(
-            ["test-consumer"])
+        self.channel._queue_name_to_consumer_tags["testqueue"] = {
+            "test-consumer"
+        }
         self.channel._on_consumer_cancelled_by_broker(
             Method(1, spec.Basic.Cancel(consumer_tag="test-consumer")))
         queue_obj.close.assert_called_once()
@@ -464,9 +466,11 @@ class TwistedChannelTestCase(TestCase):
 
     def _test_wrapped_func(self, func, kwargs, do_callback=False):
         func.assert_called_once()
-        call_kw = dict((key, value)
-                       for key, value in func.call_args[1].items()
-                       if key != "callback")
+        call_kw = {
+            key: value
+            for key, value in func.call_args[1].items()
+            if key != "callback"
+        }
         self.assertEqual(kwargs, call_kw)
         if do_callback:
             func.call_args[1]["callback"](do_callback)

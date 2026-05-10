@@ -89,16 +89,16 @@ class Parameters:  # pylint: disable=R0902
         self._connection_attempts: int = None  # type: ignore[assignment]
         self.connection_attempts = self.DEFAULT_CONNECTION_ATTEMPTS
 
-        self._credentials: (
-            pika.credentials.PlainCredentials | pika.credentials.
-            ExternalCredentials) = None  # type: ignore[assignment]
+        self._credentials: (pika.credentials.PlainCredentials |
+                            pika.credentials.ExternalCredentials
+                           ) = None  # type: ignore[assignment]
         self.credentials = self.DEFAULT_CREDENTIALS
 
         self._frame_max: int = None  # type: ignore[assignment]
         self.frame_max = self.DEFAULT_FRAME_MAX
 
-        self._heartbeat: None | (int | Callable[[Connection, float],
-                                                      int]) = None
+        self._heartbeat: None | (int |
+                                 Callable[[Connection, float], int]) = None
         self.heartbeat = self.DEFAULT_HEARTBEAT_TIMEOUT
 
         self._host: str = None  # type: ignore[assignment]
@@ -195,8 +195,7 @@ class Parameters:  # pylint: disable=R0902
 
         """
         if not isinstance(value, numbers.Integral):
-            raise TypeError(
-                f'channel_max must be an int, but got {value!r}')
+            raise TypeError(f'channel_max must be an int, but got {value!r}')
         if value < 1 or value > pika.channel.MAX_CHANNELS:
             raise ValueError('channel_max must be <= %i and > 0, but got %r' %
                              (pika.channel.MAX_CHANNELS, value))
@@ -257,7 +256,7 @@ class Parameters:  # pylint: disable=R0902
     def credentials(
         self
     ) -> (pika.credentials.PlainCredentials |
-               pika.credentials.ExternalCredentials):
+          pika.credentials.ExternalCredentials):
         """
         :rtype: one of the classes from `pika.credentials.VALID_TYPES`. Defaults
             to `DEFAULT_CREDENTIALS`.
@@ -268,7 +267,7 @@ class Parameters:  # pylint: disable=R0902
     @credentials.setter
     def credentials(
         self, value: (pika.credentials.PlainCredentials |
-                           pika.credentials.ExternalCredentials)
+                      pika.credentials.ExternalCredentials)
     ) -> None:
         """
         :param value: authentication credential object of one of the classes
@@ -299,8 +298,7 @@ class Parameters:  # pylint: disable=R0902
 
         """
         if not isinstance(value, numbers.Integral):
-            raise TypeError(
-                f'frame_max must be an int, but got {value!r}')
+            raise TypeError(f'frame_max must be an int, but got {value!r}')
         if value < spec.FRAME_MIN_SIZE:
             raise ValueError('Min AMQP 0.9.1 Frame Size is %i, but got %r' % (
                 spec.FRAME_MIN_SIZE,
@@ -314,8 +312,7 @@ class Parameters:  # pylint: disable=R0902
         self._frame_max = value
 
     @property
-    def heartbeat(
-            self) -> int | Callable[[Connection, float], int] | None:
+    def heartbeat(self) -> int | Callable[[Connection, float], int] | None:
         """
         :returns: AMQP connection heartbeat timeout value for negotiation during
             connection tuning or callable which is invoked during connection tuning.
@@ -328,8 +325,7 @@ class Parameters:  # pylint: disable=R0902
 
     @heartbeat.setter
     def heartbeat(
-        self, value: None | (int | Callable[[Connection, float],
-                                                  int])) -> None:
+        self, value: None | (int | Callable[[Connection, float], int])) -> None:
         """
         :param int|None|callable value: Controls AMQP heartbeat timeout negotiation
             during connection tuning. An integer value always overrides the value
@@ -345,8 +341,7 @@ class Parameters:  # pylint: disable=R0902
                     'heartbeat must be an int or a callable function, but got %r'
                     % (value,))
             if not callable(value) and value < 0:
-                raise ValueError(
-                    f'heartbeat must >= 0, but got {value!r}')
+                raise ValueError(f'heartbeat must >= 0, but got {value!r}')
         self._heartbeat = value  # pyright: ignore[reportAttributeAccessIssue]
 
     @property
@@ -564,29 +559,27 @@ class ConnectionParameters(Parameters):
     T = TypeVar('T')
     DefaultT = Union[T, Type[_DEFAULT]]
 
-    def __init__(
-            self,
-            host: DefaultT[str] = _DEFAULT,
-            port: DefaultT[int] = _DEFAULT,
-            virtual_host: DefaultT[str] = _DEFAULT,
-            credentials: DefaultT[
-                (pika.credentials.PlainCredentials |
-                      pika.credentials.ExternalCredentials)] = _DEFAULT,
-            channel_max: DefaultT[int] = _DEFAULT,
-            frame_max: DefaultT[int] = _DEFAULT,
-            heartbeat: DefaultT[None | (int |
-                                               Callable[[Connection, float],
-                                                        int])] = _DEFAULT,
-            ssl_options: DefaultT[SSLOptions | None] = _DEFAULT,
-            connection_attempts: DefaultT[int] = _DEFAULT,
-            retry_delay: DefaultT[float] = _DEFAULT,
-            socket_timeout: DefaultT[float | None] = _DEFAULT,
-            stack_timeout: DefaultT[float | None] = _DEFAULT,
-            locale: DefaultT[str] = _DEFAULT,
-            blocked_connection_timeout: DefaultT[float | None] = _DEFAULT,
-            client_properties: DefaultT[dict[str, Any] | None] = _DEFAULT,
-            tcp_options: DefaultT[dict[str, Any] | None] = _DEFAULT,
-            **kwargs: Any) -> None:
+    def __init__(self,
+                 host: DefaultT[str] = _DEFAULT,
+                 port: DefaultT[int] = _DEFAULT,
+                 virtual_host: DefaultT[str] = _DEFAULT,
+                 credentials: DefaultT[(
+                     pika.credentials.PlainCredentials |
+                     pika.credentials.ExternalCredentials)] = _DEFAULT,
+                 channel_max: DefaultT[int] = _DEFAULT,
+                 frame_max: DefaultT[int] = _DEFAULT,
+                 heartbeat: DefaultT[None | (int | Callable[[Connection, float],
+                                                            int])] = _DEFAULT,
+                 ssl_options: DefaultT[SSLOptions | None] = _DEFAULT,
+                 connection_attempts: DefaultT[int] = _DEFAULT,
+                 retry_delay: DefaultT[float] = _DEFAULT,
+                 socket_timeout: DefaultT[float | None] = _DEFAULT,
+                 stack_timeout: DefaultT[float | None] = _DEFAULT,
+                 locale: DefaultT[str] = _DEFAULT,
+                 blocked_connection_timeout: DefaultT[float | None] = _DEFAULT,
+                 client_properties: DefaultT[dict[str, Any] | None] = _DEFAULT,
+                 tcp_options: DefaultT[dict[str, Any] | None] = _DEFAULT,
+                 **kwargs: Any) -> None:
         """Create a new ConnectionParameters instance. See `Parameters` for
         default values.
 
@@ -1024,10 +1017,10 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
     def __init__(self,
                  parameters: Parameters | None = None,
                  on_open_callback: Callable[[Connection], Any] | None = None,
-                 on_open_error_callback: None | (Callable[
-                     [Connection, Exception], Any]) = None,
-                 on_close_callback: None | (Callable[[Connection, Exception],
-                                                      Any]) = None,
+                 on_open_error_callback: None |
+                 (Callable[[Connection, Exception], Any]) = None,
+                 on_close_callback: None |
+                 (Callable[[Connection, Exception], Any]) = None,
                  internal_connection_workflow: bool = True) -> None:
         """Connection initialization expects an object that has implemented the
          Parameters class and a callback function to notify when we have
@@ -1069,8 +1062,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
         # Used to hold timer if configured for Connection.Blocked timeout
         self._blocked_conn_timer: object = None
 
-        self._heartbeat_checker: None | (
-            pika.heartbeat.HeartbeatChecker) = None
+        self._heartbeat_checker: None | (pika.heartbeat.HeartbeatChecker) = None
 
         # Set our configuration options
         if parameters is not None:
@@ -1259,8 +1251,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
 
     def add_on_open_error_callback(self,
                                    callback: Callable[
-                                       [Connection, BaseException | None],
-                                       Any],
+                                       [Connection, BaseException | None], Any],
                                    remove_default: bool = True) -> None:
         """Add a callback notification when the connection can not be opened.
 
@@ -1281,8 +1272,8 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
     def channel(
             self,
             channel_number: int | None = None,
-            on_open_callback: None | (Callable[[Channel],
-                                                Any]) = None) -> Channel:
+            on_open_callback: None | (Callable[[Channel], Any]) = None
+    ) -> Channel:
         """Create a new channel with the next available channel number or pass
         in a channel number to use. Must be non-zero if you would like to
         specify but it is recommended that you let Pika manage the channel
@@ -1315,8 +1306,8 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
         self,
         new_secret: str,
         reason: str,
-        callback: None | (Callable[
-            [frame.Method[spec.Connection.UpdateSecretOk]], Any]) = None
+        callback: None |
+        (Callable[[frame.Method[spec.Connection.UpdateSecretOk]], Any]) = None
     ) -> None:
         """RabbitMQ AMQP extension - This method updates the secret used to authenticate this connection.
         It is used when secrets have an expiration date and need to be renewed, like OAuth 2 tokens.
@@ -2195,8 +2186,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
         return False
 
     def _process_frame(
-            self, frame_value: (frame.Frame |
-                                     frame.ProtocolHeader)) -> None:
+        self, frame_value: (frame.Frame | frame.ProtocolHeader)) -> None:
         """Process an inbound frame from the socket.
 
         :param pika.frame.Frame|pika.frame.Method frame_value: The frame to
@@ -2231,8 +2221,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
             self._deliver_frame_to_channel(frame_value)
 
     def _read_frame(
-            self
-    ) -> tuple[int, frame.Frame | frame.ProtocolHeader | None]:
+            self) -> tuple[int, frame.Frame | frame.ProtocolHeader | None]:
         """Try and read from the frame buffer and decode a frame.
 
         :rtype tuple: (int, pika.frame.Frame)
@@ -2258,8 +2247,8 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
              channel_number: int,
              method: amqp_object.Method,
              callback: Callable[..., Any] | None = None,
-             acceptable_replies: None | (Sequence[type[
-                 amqp_object.Method]]) = None):
+             acceptable_replies: None |
+             (Sequence[type[amqp_object.Method]]) = None):
         """Make an RPC call for the given callback, channel number and method.
         acceptable_replies lists out what responses we'll process from the
         server with the specified callback.
@@ -2322,8 +2311,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
                 self.params.heartbeat))  # pyright: ignore[reportArgumentType]
 
     def _send_frame(
-            self, frame_value: (frame.Frame |
-                                     frame.ProtocolHeader)) -> None:
+        self, frame_value: (frame.Frame | frame.ProtocolHeader)) -> None:
         """This appends the fully generated frame to send to the broker to the
         output buffer which will be then sent via the connection adapter.
 
@@ -2344,8 +2332,8 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
             self,
             channel_number: int,
             method: amqp_object.Method,
-            content: None | (tuple[spec.BasicProperties,
-                                    bytes]) = None) -> None:
+            content: None | (tuple[spec.BasicProperties, bytes]) = None
+    ) -> None:
         """Constructs a RPC method frame and then sends it to the broker.
 
         :param int channel_number: The channel number for the frame

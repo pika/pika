@@ -1,4 +1,3 @@
-# -*- encoding: utf-8 -*-
 """
 Tests for pika.channel.ContentFrameAssembler
 

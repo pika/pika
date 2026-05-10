@@ -195,7 +195,7 @@ class _Timeout:
 
         if not callable(callback):
             raise TypeError(
-                'callback must be a callable, but got {!r}'.format(callback))
+                f'callback must be a callable, but got {callback!r}')
 
         self.deadline = deadline
         self.callback: Optional[Callable[[], None]] = callback
@@ -506,7 +506,7 @@ class IOLoop(AbstractSelectorIOLoop):
         """
         if not callable(callback):
             raise TypeError(
-                'callback must be a callable, but got {!r}'.format(callback))
+                f'callback must be a callable, but got {callback!r}')
 
         # NOTE: `deque.append` is atomic
         self._callbacks.append(callback)

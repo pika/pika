@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Tests for pika.adapters.blocking_connection.BlockingConnection
 

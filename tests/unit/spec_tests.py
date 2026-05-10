@@ -1,4 +1,3 @@
-# -*- coding: utf8 -*-
 """
 Tests for pika.spec
 

@@ -505,8 +505,7 @@ class TestDisconnectDuringConnectionStart(BlockingTestCaseBase):
 
             def _on_connection_start(self, *args, **kwargs):  # pylint: disable=W0221
                 fwd.stop()
-                return super(MySelectConnection,
-                             self)._on_connection_start(*args, **kwargs)
+                return super()._on_connection_start(*args, **kwargs)
 
         with self.assertRaises(pika.exceptions.ProbableAuthenticationError):
             self._connect(PARAMS_URL_TEMPLATE % {"port": fwd.server_address[1]},
@@ -529,8 +528,7 @@ class TestDisconnectDuringConnectionTune(BlockingTestCaseBase):
 
             def _on_connection_tune(self, *args, **kwargs):  # pylint: disable=W0221
                 fwd.stop()
-                return super(MySelectConnection,
-                             self)._on_connection_tune(*args, **kwargs)
+                return super()._on_connection_tune(*args, **kwargs)
 
         with self.assertRaises(pika.exceptions.ProbableAccessDeniedError):
             self._connect(PARAMS_URL_TEMPLATE % {"port": fwd.server_address[1]},
@@ -554,8 +552,7 @@ class TestDisconnectDuringConnectionProtocol(BlockingTestCaseBase):
 
             def _on_stream_connected(self, *args, **kwargs):  # pylint: disable=W0221
                 fwd.stop()
-                return super(MySelectConnection,
-                             self)._on_stream_connected(*args, **kwargs)
+                return super()._on_stream_connected(*args, **kwargs)
 
         with self.assertRaises(pika.exceptions.IncompatibleProtocolError):
             self._connect(PARAMS_URL_TEMPLATE % {"port": fwd.server_address[1]},
@@ -2156,14 +2153,14 @@ class TestTwoBasicConsumersOnSameChannel(BlockingTestCaseBase):
         ch.queue_bind(q2_name, exchange=exg_name, routing_key=q2_routing_key)
 
         # Deposit messages in the queues
-        q1_tx_message_bodies = ['q1_message+%s' % (i,) for i in range(100)]
+        q1_tx_message_bodies = [f'q1_message+{i}' for i in range(100)]
         for message_body in q1_tx_message_bodies:
             ch.basic_publish(exg_name,
                              q1_routing_key,
                              body=message_body,
                              mandatory=True)
 
-        q2_tx_message_bodies = ['q2_message+%s' % (i,) for i in range(150)]
+        q2_tx_message_bodies = [f'q2_message+{i}' for i in range(150)]
         for message_body in q2_tx_message_bodies:
             ch.basic_publish(exg_name,
                              q2_routing_key,

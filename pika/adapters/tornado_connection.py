@@ -90,7 +90,7 @@ class TornadoConnection(base_connection.BaseConnection):
             custom_ioloop or ioloop.IOLoop.instance())  # type: ignore
 
         def connection_factory(
-                params: Optional[connection.Parameters]) -> 'TornadoConnection':
+                params: Optional[connection.Parameters]) -> TornadoConnection:
             """Connection factory."""
             if params is None:
                 raise ValueError('Expected pika.connection.Parameters '

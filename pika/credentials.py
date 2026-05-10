@@ -75,8 +75,7 @@ class PlainCredentials:
         return NotImplemented
 
     def response_for(
-            self,
-            start: Connection.Start) -> tuple[str | None, bytes | None]:
+            self, start: Connection.Start) -> tuple[str | None, bytes | None]:
         """Validate that this type of authentication is supported
 
         :param spec.Connection.Start start: Connection.Start method

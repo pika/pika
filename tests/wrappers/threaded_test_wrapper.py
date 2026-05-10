@@ -62,7 +62,7 @@ def create_run_in_thread_decorator(test_timeout=None):
 run_in_thread_with_timeout = create_run_in_thread_decorator()  # pylint: disable=C0103
 
 
-class _ThreadedTestWrapper(object):
+class _ThreadedTestWrapper:
     """Runs user's function in a thread. Then wait on the
     thread to terminate up to the given `test_timeout` seconds, raising
     `AssertionError` if user's function exits with exception or times out.

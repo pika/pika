@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Tests for SelectConnection _Timer and _Timeout classes
 
@@ -34,13 +33,12 @@ def _now():
 class ChildTimeout(select_connection._Timeout):
 
     def __init__(self, *args, **kwargs):
-        super(ChildTimeout, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.extra = 'e'
 
     def __eq__(self, other):
         if isinstance(other, ChildTimeout):
-            return self.extra == other.extra and super(ChildTimeout,
-                                                       self).__eq__(other)
+            return self.extra == other.extra and super().__eq__(other)
         return NotImplemented
 
 
@@ -92,7 +90,7 @@ class TimeoutClassTests(unittest.TestCase):
         self.assertEqual(ChildTimeout(5, lambda: 5),
                          select_connection._Timeout(5, lambda: None))
 
-        class Foreign(object):
+        class Foreign:
 
             def __eq__(self, other):
                 return 'foobar'
@@ -119,7 +117,7 @@ class TimeoutClassTests(unittest.TestCase):
         self.assertNotEqual(dict(deadline=5, callback=lambda: None),
                             select_connection._Timeout(5, lambda: None))
 
-        class Foreign(object):
+        class Foreign:
 
             def __ne__(self, other):
                 return 'foobar'
@@ -137,7 +135,7 @@ class TimeoutClassTests(unittest.TestCase):
         self.assertLess(select_connection._Timeout(5, lambda: None),
                         ChildTimeout(10, lambda: None))
 
-        class Foreign(object):
+        class Foreign:
 
             def __gt__(self, other):
                 return 'foobar'
@@ -161,7 +159,7 @@ class TimeoutClassTests(unittest.TestCase):
         self.assertGreater(select_connection._Timeout(10, lambda: None),
                            ChildTimeout(5, lambda: None))
 
-        class Foreign(object):
+        class Foreign:
 
             def __lt__(self, other):
                 return 'foobar'
@@ -191,7 +189,7 @@ class TimeoutClassTests(unittest.TestCase):
         self.assertLessEqual(select_connection._Timeout(5, lambda: None),
                              ChildTimeout(5, lambda: None))
 
-        class Foreign(object):
+        class Foreign:
 
             def __ge__(self, other):
                 return 'foobar'
@@ -217,7 +215,7 @@ class TimeoutClassTests(unittest.TestCase):
         self.assertGreaterEqual(select_connection._Timeout(5, lambda: None),
                                 ChildTimeout(5, lambda: None))
 
-        class Foreign(object):
+        class Foreign:
 
             def __le__(self, other):
                 return 'foobar'

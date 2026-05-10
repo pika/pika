@@ -59,7 +59,7 @@ class BaseConnection(connection.Connection):
         """
         if parameters and not isinstance(parameters, connection.Parameters):
             raise ValueError(
-                'Expected instance of Parameters, not {!r}'.format(parameters))
+                f'Expected instance of Parameters, not {parameters!r}')
 
         self._nbio: nbio_interface.AbstractIOServices = nbio
 
@@ -243,7 +243,7 @@ class BaseConnection(connection.Connection):
         """
         if not callable(callback):
             raise TypeError(
-                'callback must be a callable, but got {!r}'.format(callback))
+                f'callback must be a callable, but got {callback!r}')
 
         self._nbio.add_callback_threadsafe(callback)
 

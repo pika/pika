@@ -27,7 +27,7 @@ def _trace(fmt, *args):
     print((fmt % args) + "\n", end="", file=sys.stderr)
 
 
-class ForwardServer(object):  # pylint: disable=R0902
+class ForwardServer:  # pylint: disable=R0902
     """ Implement a TCP/IP forwarding/echo service for testing. Listens for
     an incoming TCP/IP connection, accepts it, then connects to the given
     remote address and forwards data back and forth between the two
@@ -273,7 +273,7 @@ def _run_server(
     # NOTE: we add `object` to the base classes because `_ThreadedTCPServer`
     # isn't derived from `object`, which prevents `super` from working properly
     class _ThreadedTCPServer(socketserver.ThreadingMixIn,
-                             socketserver.TCPServer, object):
+                             socketserver.TCPServer):
         """Threaded streaming server for forwarding"""
 
         # Override TCPServer's class members
@@ -290,9 +290,9 @@ def _run_server(
                 remote_addr_family=remote_addr_family,
                 remote_socket_type=remote_socket_type)
 
-            super(_ThreadedTCPServer, self).__init__(local_addr,
-                                                     handler_class_factory,
-                                                     bind_and_activate=True)
+            super().__init__(local_addr,
+                             handler_class_factory,
+                             bind_and_activate=True)
 
     server = _ThreadedTCPServer()
 
@@ -306,7 +306,7 @@ def _run_server(
 
 # NOTE: we add `object` to the base classes because `StreamRequestHandler` isn't
 # derived from `object`, which prevents `super` from working properly
-class _TCPHandler(socketserver.StreamRequestHandler, object):
+class _TCPHandler(socketserver.StreamRequestHandler):
     """TCP/IP session handler instantiated by TCPServer upon incoming
     connection. Implements forwarding/echo of the incoming connection.
     """
@@ -344,9 +344,9 @@ class _TCPHandler(socketserver.StreamRequestHandler, object):
         self._remote_addr_family = remote_addr_family
         self._remote_socket_type = remote_socket_type
 
-        super(_TCPHandler, self).__init__(request=request,
-                                          client_address=client_address,
-                                          server=server)
+        super().__init__(request=request,
+                         client_address=client_address,
+                         server=server)
 
     def handle(self):  # pylint: disable=R0912
         """Connect to remote and forward data between local and remote"""

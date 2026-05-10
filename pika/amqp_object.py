@@ -6,7 +6,6 @@ AMQP classes and methods.
 from __future__ import annotations
 
 
-
 class AMQPObject:
     """Base object that is extended by AMQP low level frames and AMQP classes
     and methods.

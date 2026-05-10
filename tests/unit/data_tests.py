@@ -1,4 +1,3 @@
-# -*- encoding: utf-8 -*-
 """
 pika.data tests
 
@@ -54,7 +53,7 @@ class DataTests(unittest.TestCase):
                            30,
                            10,
                            tzinfo=datetime.timezone.utc)),
-        ('unicode', u'utf8=✓'),
+        ('unicode', 'utf8=✓'),
         ('bytes', b'foobar'),
     ])
 
