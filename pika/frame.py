@@ -1,7 +1,8 @@
 """Frame objects that do the frame demarshaling and marshaling."""
+from __future__ import annotations
 import logging
 import struct
-from typing import Generic, List, Optional, Tuple, TypeVar, Union
+from typing import Generic, TypeVar
 
 from pika import amqp_object
 from pika import exceptions
@@ -30,7 +31,7 @@ class Frame(amqp_object.AMQPObject):
         self.frame_type = frame_type
         self.channel_number = channel_number
 
-    def _marshal(self, pieces: List[bytes]) -> bytes:
+    def _marshal(self, pieces: list[bytes]) -> bytes:
         """Create the full AMQP wire protocol frame data representation
 
         :rtype: bytes
@@ -164,9 +165,9 @@ class ProtocolHeader(amqp_object.AMQPObject):
     NAME = 'ProtocolHeader'
 
     def __init__(self,
-                 major: Optional[int] = None,
-                 minor: Optional[int] = None,
-                 revision: Optional[int] = None):
+                 major: int | None = None,
+                 minor: int | None = None,
+                 revision: int | None = None):
         """Construct a Protocol Header frame object for the specified AMQP
         version
 
@@ -193,7 +194,7 @@ class ProtocolHeader(amqp_object.AMQPObject):
 
 def decode_frame(
     data_in: bytes
-) -> Tuple[int, Optional[Union[Frame, ProtocolHeader]]]:  # pylint: disable=R0911,R0914
+) -> tuple[int, Frame | ProtocolHeader | None]:  # pylint: disable=R0911,R0914
     """Receives raw socket data and attempts to turn it into a frame.
     Returns bytes used to make the frame and the frame
 

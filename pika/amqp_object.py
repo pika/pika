@@ -70,7 +70,7 @@ class Method(AMQPObject):
     def encode(self) -> list[bytes]:
         """Encode the method into a binary format.
 
-        :rtype: List[bytes]
+        :rtype: list[bytes]
 
         """
         raise NotImplementedError("Subclasses must implement this method")
