@@ -29,9 +29,8 @@ LOGGER = logging.getLogger(__name__)
 
 MAX_CHANNELS: int = 65535  # per AMQP 0.9.1 spec.
 
-_OnAckNackCallback = Callable[[frame.Method[Union[spec.Basic.Ack,
-                                                    spec.Basic.Nack]]],
-                              None]
+_OnAckNackCallback = Callable[
+    [frame.Method[Union[spec.Basic.Ack, spec.Basic.Nack]]], None]
 _OnConfirmDeliveryCallback = Callable[[frame.Method[spec.Confirm.SelectOk]],
                                       None]
 _OnBasicConsumeCallback = Callable[[frame.Method[spec.Basic.ConsumeOk]], None]
