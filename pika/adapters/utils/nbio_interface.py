@@ -14,7 +14,7 @@ testing and lessening the maintenance burden.
 from __future__ import annotations
 
 import abc
-from typing import TYPE_CHECKING, Callable, Optional, Tuple, Union, Any
+from typing import TYPE_CHECKING, Callable, Any
 
 import pika._utils
 
@@ -153,9 +153,9 @@ class AbstractIOServices(pika._utils.AbstractBase):  # type: ignore
 
     @abc.abstractmethod
     def connect_socket(
-        self, sock: socket.socket, resolved_addr: Tuple[str, int],
-        on_done: Callable[[Optional[BaseException]],
-                          None]) -> AbstractIOReference:
+            self, sock: socket.socket, resolved_addr: tuple[str, int],
+            on_done: Callable[[BaseException | None],
+                              None]) -> AbstractIOReference:
         """Perform the equivalent of `socket.connect()` on a previously-resolved
         address asynchronously.
 
@@ -187,12 +187,11 @@ class AbstractIOServices(pika._utils.AbstractBase):  # type: ignore
             self,
             protocol_factory: Callable[[], AbstractStreamProtocol],
             sock: socket.socket,
-            on_done: Callable[[
-                Union[BaseException, Tuple[AbstractStreamTransport,
-                                           AbstractStreamProtocol]]
-            ], None],
-            ssl_context: Optional[ssl.SSLContext] = None,
-            server_hostname: Optional[str] = None) -> AbstractIOReference:
+            on_done: Callable[[(BaseException | tuple[AbstractStreamTransport,
+                                                      AbstractStreamProtocol])],
+                              None],
+            ssl_context: ssl.SSLContext | None = None,
+            server_hostname: str | None = None) -> AbstractIOReference:
         """Perform SSL session establishment, if requested, on the already-
         connected socket and link the streaming transport/protocol pair.
 
@@ -331,7 +330,7 @@ class AbstractStreamProtocol(pika._utils.AbstractBase):  # type: ignore
         raise NotImplementedError
 
     @abc.abstractmethod
-    def connection_lost(self, error: Optional[BaseException]) -> None:
+    def connection_lost(self, error: BaseException | None) -> None:
         """Called upon loss or closing of connection.
 
         NOTE: `connection_made()` and `connection_lost()` are each called just
@@ -347,7 +346,7 @@ class AbstractStreamProtocol(pika._utils.AbstractBase):  # type: ignore
         raise NotImplementedError
 
     @abc.abstractmethod
-    def eof_received(self) -> Optional[bool]:
+    def eof_received(self) -> bool | None:
         """Called after the remote peer shuts its write end of the connection.
 
         :returns: A falsy value (including None) will cause the transport to

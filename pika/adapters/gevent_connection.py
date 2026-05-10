@@ -5,7 +5,7 @@ import functools
 import logging
 import os
 import threading
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union, TYPE_CHECKING
+from typing import Any, Callable, Sequence, TYPE_CHECKING
 
 import gevent._interfaces  # type: ignore[import-untyped]
 
@@ -41,15 +41,17 @@ class GeventConnection(BaseConnection):
     """
 
     def __init__(self,
-                 parameters: Optional[connection.Parameters] = None,
-                 on_open_callback: Optional[Callable[[connection.Connection],
-                                                     None]] = None,
-                 on_open_error_callback: Optional[Callable[
-                     [connection.Connection, BaseException], None]] = None,
-                 on_close_callback: Optional[Callable[
-                     [connection.Connection, BaseException], None]] = None,
-                 custom_ioloop: Optional[Union[gevent._interfaces.ILoop,
-                                               AbstractIOServices]] = None,
+                 parameters: connection.Parameters | None = None,
+                 on_open_callback: None |
+                 (Callable[[connection.Connection], None]) = None,
+                 on_open_error_callback: None |
+                 (Callable[[connection.Connection, BaseException],
+                           None]) = None,
+                 on_close_callback: None |
+                 (Callable[[connection.Connection, BaseException],
+                           None]) = None,
+                 custom_ioloop: None |
+                 (gevent._interfaces.ILoop | AbstractIOServices) = None,
                  internal_connection_workflow: bool = True) -> None:
         """Create a new GeventConnection instance and connect to RabbitMQ on
         Gevent's event-loop.
@@ -97,13 +99,11 @@ class GeventConnection(BaseConnection):
     def create_connection(
         cls,
         connection_configs: Sequence[connection.Parameters],
-        on_done: Callable[[
-            Union[connection.Connection,
-                  connection_workflow.AMQPConnectorException]
-        ], None],
-        custom_ioloop: Optional[gevent._interfaces.ILoop] = None,
-        workflow: Optional[
-            connection_workflow.AbstractAMQPConnectionWorkflow] = None
+        on_done: Callable[[(connection.Connection |
+                            connection_workflow.AMQPConnectorException)], None],
+        custom_ioloop: gevent._interfaces.ILoop | None = None,
+        workflow: None |
+        (connection_workflow.AbstractAMQPConnectionWorkflow) = None
     ) -> connection_workflow.AbstractAMQPConnectionWorkflow:
         """Implement
         :py:classmethod::`pika.adapters.BaseConnection.create_connection()`.
@@ -195,12 +195,12 @@ class _GeventSelectorIOLoop(AbstractSelectorIOLoop):
     WRITE = 2  # pyright: ignore[reportAssignmentType, reportIncompatibleMethodOverride]
     ERROR = 0  # pyright: ignore[reportAssignmentType, reportIncompatibleMethodOverride]
 
-    def __init__(self, gevent_hub: Optional[gevent.hub.Hub] = None) -> None:
+    def __init__(self, gevent_hub: gevent.hub.Hub | None = None) -> None:
         """
         :param gevent._interfaces.ILoop gevent_loop:
         """
         self._hub = gevent_hub or gevent.get_hub()
-        self._io_watchers_by_fd: Dict[int, Any] = {}
+        self._io_watchers_by_fd: dict[int, Any] = {}
         # Used to start/stop the loop.
         self._waiter = gevent.hub.Waiter()
 
@@ -414,8 +414,8 @@ class _GeventAddressResolver:
         """
         check_callback_arg(on_done, 'on_done')
 
-        self._loop: Optional[AbstractSelectorIOLoop] = native_loop
-        self._on_done: Optional[Callable[..., None]] = on_done
+        self._loop: AbstractSelectorIOLoop | None = native_loop
+        self._on_done: Callable[..., None] | None = on_done
         # Reference to the greenlet performing `getaddrinfo`.
         self._greenlet = None
         # getaddrinfo(..) args.
@@ -476,10 +476,9 @@ class _GeventAddressResolver:
         self._loop.add_callback(callback)  # type: ignore
 
     def _dispatch_callback(
-        self, result: Union[List[Tuple[Any, Any, int, str,
-                                       Union[Tuple[str, int], Tuple[str, int,
-                                                                    int, int],
-                                             Tuple[int, bytes]]]], Exception]
+        self, result: (list[tuple[Any, Any, int, str,
+                                  (tuple[str, int] | tuple[str, int, int, int] |
+                                   tuple[int, bytes])]] | Exception)
     ) -> None:
         """Invoke the configured completion callback and any subsequent cleanup.
 

@@ -8,7 +8,7 @@ from __future__ import annotations
 import abc
 import functools
 import logging
-from typing import Any, Callable, Optional, Sequence, Union
+from typing import Any, Callable, Sequence
 
 import pika.exceptions
 
@@ -26,13 +26,13 @@ class BaseConnection(connection.Connection):
     """
 
     def __init__(self,
-                 parameters: Optional[connection.Parameters],
-                 on_open_callback: Optional[Callable[[connection.Connection],
-                                                     None]],
-                 on_open_error_callback: Optional[Callable[
-                     [connection.Connection, BaseException], None]],
-                 on_close_callback: Optional[Callable[
-                     [connection.Connection, BaseException], None]],
+                 parameters: connection.Parameters | None,
+                 on_open_callback: None |
+                 (Callable[[connection.Connection], None]),
+                 on_open_error_callback: None |
+                 (Callable[[connection.Connection, BaseException], None]),
+                 on_close_callback: None |
+                 (Callable[[connection.Connection, BaseException], None]),
                  nbio: nbio_interface.AbstractIOServices,
                  internal_connection_workflow: bool = True) -> None:
         """Create a new instance of the Connection object.
@@ -63,9 +63,9 @@ class BaseConnection(connection.Connection):
 
         self._nbio: nbio_interface.AbstractIOServices = nbio
 
-        self._connection_workflow: Optional[
-            connection_workflow.AbstractAMQPConnectionWorkflow] = None
-        self._transport: Optional[nbio_interface.AbstractStreamTransport] = None
+        self._connection_workflow: None | (
+            connection_workflow.AbstractAMQPConnectionWorkflow) = None
+        self._transport: nbio_interface.AbstractStreamTransport | None = None
 
         self._got_eof: bool = False  # transport indicated EOF (connection reset)
 
@@ -120,13 +120,11 @@ class BaseConnection(connection.Connection):
     def create_connection(
         cls,
         connection_configs: Sequence[connection.Parameters],
-        on_done: Callable[[
-            Union[connection.Connection,
-                  connection_workflow.AMQPConnectorException]
-        ], None],
-        custom_ioloop: Optional[Any] = None,
-        workflow: Optional[
-            connection_workflow.AbstractAMQPConnectionWorkflow] = None
+        on_done: Callable[[(connection.Connection |
+                            connection_workflow.AMQPConnectorException)], None],
+        custom_ioloop: Any | None = None,
+        workflow: None |
+        (connection_workflow.AbstractAMQPConnectionWorkflow) = None
     ) -> connection_workflow.AbstractAMQPConnectionWorkflow:
         """Asynchronously create a connection to an AMQP broker using the given
         configurations. Will attempt to connect using each config in the given
@@ -159,11 +157,9 @@ class BaseConnection(connection.Connection):
         cls, connection_configs: Sequence[connection.Parameters],
         connection_factory: Callable[[connection.Parameters], BaseConnection],
         nbio: nbio_interface.AbstractIOServices,
-        workflow: Optional[connection_workflow.AbstractAMQPConnectionWorkflow],
-        on_done: Callable[[
-            Union[connection.Connection,
-                  connection_workflow.AMQPConnectorException]
-        ], None]
+        workflow: connection_workflow.AbstractAMQPConnectionWorkflow | None,
+        on_done: Callable[[(connection.Connection |
+                            connection_workflow.AMQPConnectorException)], None]
     ) -> connection_workflow.AbstractAMQPConnectionWorkflow:
         """Helper function for custom implementations of `create_connection()`.
 
@@ -220,7 +216,7 @@ class BaseConnection(connection.Connection):
         """
         return self._nbio.get_native_ioloop()
 
-    def _adapter_call_later(self, delay: Union[int, float],
+    def _adapter_call_later(self, delay: int | float,
                             callback: Callable[[], None]) -> object:
         """Implement
         :py:meth:`pika.connection.Connection._adapter_call_later()`.
@@ -276,9 +272,8 @@ class BaseConnection(connection.Connection):
 
     @staticmethod
     def _unshim_connection_workflow_callback(
-            user_on_done: Callable[[Union[BaseConnection, BaseException]],
-                                   None],
-            shim_or_exc: Union[_StreamingProtocolShim, Exception]) -> None:
+            user_on_done: Callable[[BaseConnection | BaseException], None],
+            shim_or_exc: _StreamingProtocolShim | Exception) -> None:
         """
 
         :param callable user_on_done: user's `on_done` callback as defined in
@@ -330,7 +325,7 @@ class BaseConnection(connection.Connection):
             self._transport.abort()
 
     def _on_connection_workflow_done(
-            self, conn_or_exc: Union[BaseConnection, Exception]) -> None:
+            self, conn_or_exc: BaseConnection | Exception) -> None:
         """`AMQPConnectionWorkflow` completion callback.
 
         :param BaseConnection | Exception conn_or_exc: Our own connection
@@ -374,8 +369,8 @@ class BaseConnection(connection.Connection):
                 'Expected self conn={!r} from workflow, but got {!r}.'.format(
                     self, conn_or_exc)
 
-    def _handle_connection_workflow_failure(
-            self, error: Union[Exception, None]) -> None:
+    def _handle_connection_workflow_failure(self,
+                                            error: Exception | None) -> None:
         """Handle failure of self-initiated stack bring-up and call
         `Connection._on_stream_terminated()` if connection is not in closed state
         yet. Called by adapter layer when the full-stack connection workflow
@@ -433,7 +428,7 @@ class BaseConnection(connection.Connection):
         # Let connection know that stream is available
         self._on_stream_connected()
 
-    def _proto_connection_lost(self, error: Union[BaseException, None]) -> None:
+    def _proto_connection_lost(self, error: BaseException | None) -> None:
         """Called upon loss or closing of TCP connection.
 
         :py:class:`.utils.nbio_interface.AbstractStreamProtocol` implementation.

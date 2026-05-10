@@ -14,7 +14,7 @@ import socket
 import ssl
 import sys
 import traceback
-from typing import Any, Callable, TYPE_CHECKING, Optional, Tuple, Union
+from typing import Any, Callable, TYPE_CHECKING
 
 from pika.adapters.utils.nbio_interface import (AbstractIOReference,
                                                 AbstractStreamTransport)
@@ -101,8 +101,8 @@ class SocketConnectionMixin:
     """
 
     def connect_socket(
-        self, sock: socket.socket, resolved_addr: Tuple[str, int],
-        on_done: Callable[[Optional[BaseException]], None]
+        self, sock: socket.socket, resolved_addr: tuple[str, int],
+        on_done: Callable[[BaseException | None], None]
     ) -> _AsyncServiceAsyncHandle:
         """Implement
         :py:meth:`.nbio_interface.AbstractIOServices.connect_socket()`.
@@ -128,13 +128,11 @@ class StreamingConnectionMixin:
             protocol_factory: Callable[[],
                                        nbio_interface.AbstractStreamProtocol],
             sock: socket.socket,
-            on_done: Callable[[
-                Union[Tuple[nbio_interface.AbstractStreamTransport,
-                            nbio_interface.AbstractStreamProtocol],
-                      BaseException]
-            ], None],
-            ssl_context: Optional[ssl.SSLContext] = None,
-            server_hostname: Optional[str] = None) -> AbstractIOReference:
+            on_done: Callable[[(tuple[nbio_interface.AbstractStreamTransport,
+                                      nbio_interface.AbstractStreamProtocol] |
+                                BaseException)], None],
+            ssl_context: ssl.SSLContext | None = None,
+            server_hostname: str | None = None) -> AbstractIOReference:
         """Implement
         :py:meth:`.nbio_interface.AbstractIOServices.create_streaming_connection()`.
 
@@ -196,11 +194,10 @@ class _AsyncSocketConnector:
     _STATE_CANCELED = 2  # workflow aborted by user's cancel() call
     _STATE_COMPLETED = 3  # workflow completed: succeeded or failed
 
-    def __init__(self,
-                 nbio: Union[nbio_interface.AbstractIOServices,
-                             nbio_interface.AbstractFileDescriptorServices],
-                 sock: socket.socket, resolved_addr: Tuple[str, int],
-                 on_done: Callable[[Optional[BaseException]], None]):
+    def __init__(self, nbio: (nbio_interface.AbstractIOServices |
+                              nbio_interface.AbstractFileDescriptorServices),
+                 sock: socket.socket, resolved_addr: tuple[str, int],
+                 on_done: Callable[[BaseException | None], None]):
         """
         :param AbstractIOServices | AbstractFileDescriptorServices nbio:
         :param socket.socket sock: non-blocking socket that needs to be
@@ -285,7 +282,7 @@ class _AsyncSocketConnector:
         return False
 
     @_log_exceptions
-    def _report_completion(self, result: Optional[BaseException]) -> None:
+    def _report_completion(self, result: BaseException | None) -> None:
         """Advance to COMPLETED state, remove socket watcher, and invoke user's
         completion callback.
 
@@ -389,14 +386,14 @@ class _AsyncStreamConnector:
     _STATE_COMPLETED = 3  # workflow terminated by success or failure
 
     def __init__(
-        self, nbio: Union[nbio_interface.AbstractIOServices,
-                          nbio_interface.AbstractFileDescriptorServices],
+        self, nbio: (nbio_interface.AbstractIOServices |
+                     nbio_interface.AbstractFileDescriptorServices),
         protocol_factory: Callable[[], nbio_interface.AbstractStreamProtocol],
-        sock: socket.socket, ssl_context: Optional[ssl.SSLContext],
-        server_hostname: Optional[str], on_done: Callable[[
-            Union[Tuple[nbio_interface.AbstractStreamTransport,
-                        nbio_interface.AbstractStreamProtocol], BaseException]
-        ], None]
+        sock: socket.socket, ssl_context: ssl.SSLContext | None,
+        server_hostname: str | None,
+        on_done: Callable[[(tuple[nbio_interface.AbstractStreamTransport,
+                                  nbio_interface.AbstractStreamProtocol] |
+                            BaseException)], None]
     ) -> None:
         """
         NOTE: We take ownership of the given socket upon successful completion
@@ -434,18 +431,19 @@ class _AsyncStreamConnector:
                 'Expected connected socket, but getpeername() failed: '
                 'error={!r}; {}; '.format(error, sock))
 
-        self._nbio: Optional[
-            Union[nbio_interface.AbstractIOServices,
-                  nbio_interface.AbstractFileDescriptorServices]] = nbio
-        self._protocol_factory: Optional[Callable[
-            [], nbio_interface.AbstractStreamProtocol]] = protocol_factory
-        self._sock: Optional[socket.socket] = sock
-        self._ssl_context: Optional[ssl.SSLContext] = ssl_context
-        self._server_hostname: Optional[str] = server_hostname
-        self._on_done: Optional[Callable[[
-            Union[Tuple[nbio_interface.AbstractStreamTransport,
-                        nbio_interface.AbstractStreamProtocol], BaseException]
-        ], None]] = on_done
+        self._nbio: None | (
+            nbio_interface.AbstractIOServices |
+            nbio_interface.AbstractFileDescriptorServices) = nbio
+        self._protocol_factory: None | (
+            Callable[[],
+                     nbio_interface.AbstractStreamProtocol]) = protocol_factory
+        self._sock: socket.socket | None = sock
+        self._ssl_context: ssl.SSLContext | None = ssl_context
+        self._server_hostname: str | None = server_hostname
+        self._on_done: None | (Callable[[(
+            tuple[nbio_interface.AbstractStreamTransport,
+                  nbio_interface.AbstractStreamProtocol] | BaseException)],
+                                        None]) = on_done
 
         self._state = self._STATE_NOT_STARTED
         self._watching_socket = False
@@ -526,10 +524,9 @@ class _AsyncStreamConnector:
 
     @_log_exceptions
     def _report_completion(
-        self,
-        result: Optional[Union[BaseException,
-                               Tuple[nbio_interface.AbstractStreamTransport,
-                                     nbio_interface.AbstractStreamProtocol]]]
+        self, result: None |
+        (BaseException | tuple[nbio_interface.AbstractStreamTransport,
+                               nbio_interface.AbstractStreamProtocol])
     ) -> None:
         """Advance to COMPLETED state, cancel async operation(s), and invoke
         user's completion callback.
@@ -653,9 +650,9 @@ class _AsyncStreamConnector:
             _LOGGER.debug('_linkup(): introduced transport to protocol %r; %r',
                           transport, protocol)
         except Exception as error:  # pylint: disable=W0703
-            result: Union[BaseException,
-                          Tuple[nbio_interface.AbstractStreamTransport,
-                                nbio_interface.AbstractStreamProtocol]] = error
+            result: (BaseException |
+                     tuple[nbio_interface.AbstractStreamTransport,
+                           nbio_interface.AbstractStreamProtocol]) = error
         else:
             result = (transport, protocol)
 
@@ -753,10 +750,10 @@ class _AsyncTransportBase(  # pylint: disable=W0223
         def __init__(self) -> None:
             super().__init__(-1, 'End of input stream (EOF)')
 
-    def __init__(self, sock: Union[socket.socket, ssl.SSLSocket],
+    def __init__(self, sock: socket.socket | ssl.SSLSocket,
                  protocol: nbio_interface.AbstractStreamProtocol,
-                 nbio: Union[nbio_interface.AbstractIOServices,
-                             nbio_interface.AbstractFileDescriptorServices]):
+                 nbio: (nbio_interface.AbstractIOServices |
+                        nbio_interface.AbstractFileDescriptorServices)):
         """
 
         :param socket.socket | ssl.SSLSocket sock: connected socket
@@ -953,7 +950,7 @@ class _AsyncTransportBase(  # pylint: disable=W0223
             self._state = self._STATE_COMPLETED
 
     @_log_exceptions
-    def _initiate_abort(self, error: Optional[BaseException]) -> None:
+    def _initiate_abort(self, error: BaseException | None) -> None:
         """Initiate asynchronous abort of the transport that concludes with a
         call to the protocol's `connection_lost()` method. No flushing of
         output buffers will take place.
@@ -1007,7 +1004,7 @@ class _AsyncTransportBase(  # pylint: disable=W0223
 
     @_log_exceptions
     def _connection_lost_notify_async(self,
-                                      error: Optional[BaseException]) -> None:
+                                      error: BaseException | None) -> None:
         """Handle aborting of transport either due to socket error or user-
         initiated `abort()` call. Must be called from an I/O loop callback owned
         by us in order to avoid reentry into user code from user's API call into
@@ -1049,10 +1046,10 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
 
     """
 
-    def __init__(self, sock: Union[socket.socket, ssl.SSLSocket],
+    def __init__(self, sock: socket.socket | ssl.SSLSocket,
                  protocol: nbio_interface.AbstractStreamProtocol,
-                 nbio: Union[nbio_interface.AbstractIOServices,
-                             nbio_interface.AbstractFileDescriptorServices]):
+                 nbio: (nbio_interface.AbstractIOServices |
+                        nbio_interface.AbstractFileDescriptorServices)):
         """
 
         :param socket.socket sock: non-blocking connected socket

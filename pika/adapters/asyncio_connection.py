@@ -4,7 +4,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import sys
-from typing import Any, Awaitable, Callable, Optional, TYPE_CHECKING, Sequence, Union
+from typing import Any, Awaitable, Callable, TYPE_CHECKING, Sequence
 
 from pika.adapters import base_connection
 from pika.adapters.utils import connection_workflow, nbio_interface, io_services_utils
@@ -23,18 +23,18 @@ class AsyncioConnection(base_connection.BaseConnection):
 
     """
 
-    def __init__(self,
-                 parameters: Optional[connection.Parameters] = None,
-                 on_open_callback: Optional[Callable[[connection.Connection],
-                                                     None]] = None,
-                 on_open_error_callback: Optional[Callable[
-                     [connection.Connection, BaseException], None]] = None,
-                 on_close_callback: Optional[Callable[
-                     [connection.Connection, BaseException], None]] = None,
-                 custom_ioloop: Optional[
-                     Union[asyncio.AbstractEventLoop,
-                           nbio_interface.AbstractIOServices]] = None,
-                 internal_connection_workflow: bool = True) -> None:
+    def __init__(
+            self,
+            parameters: connection.Parameters | None = None,
+            on_open_callback: None |
+        (Callable[[connection.Connection], None]) = None,
+            on_open_error_callback: None |
+        (Callable[[connection.Connection, BaseException], None]) = None,
+            on_close_callback: None |
+        (Callable[[connection.Connection, BaseException], None]) = None,
+            custom_ioloop: None |
+        (asyncio.AbstractEventLoop | nbio_interface.AbstractIOServices) = None,
+            internal_connection_workflow: bool = True) -> None:
         """ Create a new instance of the AsyncioConnection class, connecting
         to RabbitMQ automatically
 
@@ -76,13 +76,11 @@ class AsyncioConnection(base_connection.BaseConnection):
     def create_connection(
         cls,
         connection_configs: Sequence[connection.Parameters],
-        on_done: Callable[[
-            Union[connection.Connection,
-                  connection_workflow.AMQPConnectorException]
-        ], None],
-        custom_ioloop: Optional[asyncio.AbstractEventLoop] = None,
-        workflow: Optional[
-            connection_workflow.AbstractAMQPConnectionWorkflow] = None
+        on_done: Callable[[(connection.Connection |
+                            connection_workflow.AMQPConnectorException)], None],
+        custom_ioloop: asyncio.AbstractEventLoop | None = None,
+        workflow: None |
+        (connection_workflow.AbstractAMQPConnectionWorkflow) = None
     ) -> connection_workflow.AbstractAMQPConnectionWorkflow:
         """Implement
         :py:classmethod::`pika.adapters.BaseConnection.create_connection()`.
@@ -121,7 +119,7 @@ class _AsyncioIOServicesAdapter(io_services_utils.SocketConnectionMixin,
 
     """
 
-    def __init__(self, loop: Optional[asyncio.AbstractEventLoop] = None):
+    def __init__(self, loop: asyncio.AbstractEventLoop | None = None):
         """
         :param asyncio.AbstractEventLoop | None loop: If None, uses the
             running event loop via asyncio.get_running_loop(), or creates
@@ -230,8 +228,9 @@ class _AsyncioIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         return self._loop.remove_writer(fd)
 
     def _schedule_and_wrap_in_io_ref(
-        self, coro: Awaitable[Any], on_done: Callable[
-            [Union[base_connection.BaseConnection, BaseException]], None]
+        self, coro: Awaitable[Any],
+        on_done: Callable[[base_connection.BaseConnection | BaseException],
+                          None]
     ) -> _AsyncioIOReference:
         """Schedule the coroutine to run and return _AsyncioIOReference
 
@@ -261,7 +260,7 @@ class _TimerHandle(nbio_interface.AbstractTimerReference):
 
         :param asyncio.Handle handle:
         """
-        self._handle: Optional[asyncio.Handle] = handle
+        self._handle: asyncio.Handle | None = handle
 
     def cancel(self) -> None:
         if self._handle is not None:
@@ -275,8 +274,9 @@ class _AsyncioIOReference(nbio_interface.AbstractIOReference):
     """
 
     def __init__(
-        self, future: asyncio.Future, on_done: Callable[
-            [Union[base_connection.BaseConnection, BaseException]], None]
+        self, future: asyncio.Future,
+        on_done: Callable[[base_connection.BaseConnection | BaseException],
+                          None]
     ) -> None:
         """
         :param asyncio.Future future:
