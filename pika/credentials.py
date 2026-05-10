@@ -19,7 +19,7 @@ the required behavior.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Type
+from typing import TYPE_CHECKING, Type, Union
 
 from ._utils import as_bytes
 
@@ -137,7 +137,7 @@ class ExternalCredentials:
         LOGGER.debug('Not supported by this Credentials type')
 
 
-_CredentialType = Type[PlainCredentials] | Type[ExternalCredentials]
+_CredentialType = Union[Type[PlainCredentials], Type[ExternalCredentials]]
 
 # Append custom credential types to this list for validation support
 VALID_TYPES: list[_CredentialType] = [PlainCredentials, ExternalCredentials]
