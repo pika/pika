@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import functools
 import logging
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union, Type, cast
+from typing import Any, Callable, Union, Type, cast
 
 from pika import frame
 from pika import amqp_object

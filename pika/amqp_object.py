@@ -5,7 +5,6 @@ AMQP classes and methods.
 
 from __future__ import annotations
 
-from typing import List
 
 
 class AMQPObject:

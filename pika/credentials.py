@@ -19,7 +19,7 @@ the required behavior.
 from __future__ import annotations
 
 import logging
-from typing import List, Optional, Tuple, TYPE_CHECKING, Type, Union
+from typing import TYPE_CHECKING, Type, Union
 
 from ._utils import as_bytes
 
