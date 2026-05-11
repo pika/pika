@@ -20,7 +20,7 @@ class Publisher(threading.Thread):
         self.connection = BlockingConnection(parameters)
         self.channel = self.connection.channel()
         self.channel.queue_declare(queue=self.queue,
-                                   durable=True,
+                                   exclusive=True,
                                    auto_delete=True)
 
     def run(self):

@@ -190,7 +190,7 @@ class ExamplePublisher(object):
         """
         LOGGER.info('Declaring queue %s', queue_name)
         self._channel.queue_declare(queue=queue_name,
-                                    durable=True,
+                                    exclusive=True,
                                     callback=self.on_queue_declareok)
 
     def on_queue_declareok(self, _unused_frame):

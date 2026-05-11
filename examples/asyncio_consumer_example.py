@@ -208,7 +208,7 @@ class ExampleConsumer(object):
         """
         LOGGER.info('Declaring queue %s', queue_name)
         cb = functools.partial(self.on_queue_declareok, userdata=queue_name)
-        self._channel.queue_declare(queue=queue_name, durable=True, callback=cb)
+        self._channel.queue_declare(queue=queue_name, exclusive=True, callback=cb)
 
     def on_queue_declareok(self, _unused_frame, userdata):
         """Method invoked by pika when the Queue.Declare RPC call made in
