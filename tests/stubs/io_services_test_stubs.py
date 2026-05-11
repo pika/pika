@@ -30,13 +30,14 @@ class IOServicesTestStubs:
     test
 
     """
+
     # Overridden by framework-specific test methods
     _nbio_factory = None
     _native_loop = None
     _use_ssl = None
 
     def start(self):
-        """ Subclasses must override to run the test. This method is called
+        """Subclasses must override to run the test. This method is called
         from a thread.
 
         """
@@ -70,9 +71,6 @@ class IOServicesTestStubs:
 
         self.start()
 
-    # Suppress missing-docstring to allow test method names to be printed by our
-    # test runner
-
     @run_in_thread_with_timeout
     def test_with_select_connection_io_services(self):
         # Test entry point for `select_connection.IOLoop`-based async services
@@ -80,6 +78,7 @@ class IOServicesTestStubs:
 
         from pika.adapters.select_connection import IOLoop
         from pika.adapters.utils.selector_ioloop_adapter import SelectorIOServicesAdapter
+
         native_loop = IOLoop()
         self._run_start(
             nbio_factory=lambda: SelectorIOServicesAdapter(native_loop),
