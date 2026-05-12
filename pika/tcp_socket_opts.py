@@ -24,11 +24,15 @@ if hasattr(socket, 'TCP_USER_TIMEOUT'):
             _SUPPORTED_TCP_OPTIONS['TCP_USER_TIMEOUT'] = 18
 
 try:
-    _SUPPORTED_TCP_OPTIONS['TCP_KEEPIDLE'] = socket.TCP_KEEPIDLE
-    _SUPPORTED_TCP_OPTIONS['TCP_KEEPCNT'] = socket.TCP_KEEPCNT
-    _SUPPORTED_TCP_OPTIONS['TCP_KEEPINTVL'] = socket.TCP_KEEPINTVL
+    tcp_keepidle = getattr(socket, 'TCP_KEEPIDLE')
+    tcp_keepcnt = getattr(socket, 'TCP_KEEPCNT')
+    tcp_keepintvl = getattr(socket, 'TCP_KEEPINTVL')
 except AttributeError:
     pass
+else:
+    _SUPPORTED_TCP_OPTIONS['TCP_KEEPIDLE'] = tcp_keepidle
+    _SUPPORTED_TCP_OPTIONS['TCP_KEEPCNT'] = tcp_keepcnt
+    _SUPPORTED_TCP_OPTIONS['TCP_KEEPINTVL'] = tcp_keepintvl
 
 
 def socket_requires_keepalive(tcp_options: Dict[str, int]) -> bool:

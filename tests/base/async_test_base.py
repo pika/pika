@@ -126,7 +126,7 @@ class AsyncTestCase(unittest.TestCase):
         :rtype: pika.ConnectionParameters
 
         """
-        return pika.ConnectionParameters(host='localhost', port=5672)
+        return pika.ConnectionParameters(host='127.0.0.1', port=5672)
 
     def tearDown(self):
         self._stop()
