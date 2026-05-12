@@ -88,7 +88,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install and start RabbitMQ
-        run: ./testdata/install_macos.sh
+        run: ./testdata/install-macos.sh
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip wheel
