@@ -51,5 +51,13 @@ fi
 echo '[INFO] Starting RabbitMQ...'
 "$rabbitmq_server_cmd" -detached
 
+declare -i count=12
+while (( count > 0 )) && ! epmd -names | grep -F 'name rabbit'
+do
+    echo '[WARNING] epmd is not reporting rabbit name just yet...'
+    sleep 5
+    (( count-- ))
+done
+
 echo '[INFO] Waiting for RabbitMQ to start...'
 "$rabbitmqctl_cmd" await_startup
