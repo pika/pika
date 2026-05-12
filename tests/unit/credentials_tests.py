@@ -13,26 +13,24 @@ from pika import credentials, spec
 class ChildPlainCredentials(credentials.PlainCredentials):
 
     def __init__(self, *args, **kwargs):
-        super(ChildPlainCredentials, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.extra = 'e'
 
     def __eq__(self, other):
         if isinstance(other, ChildPlainCredentials):
-            return self.extra == other.extra and super(ChildPlainCredentials,
-                                                       self).__eq__(other)
+            return self.extra == other.extra and super().__eq__(other)
         return NotImplemented
 
 
 class ChildExternalCredentials(credentials.ExternalCredentials):
 
     def __init__(self, *args, **kwargs):
-        super(ChildExternalCredentials, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.extra = 'e'
 
     def __eq__(self, other):
         if isinstance(other, ChildExternalCredentials):
-            return self.extra == other.extra and super(ChildExternalCredentials,
-                                                       self).__eq__(other)
+            return self.extra == other.extra and super().__eq__(other)
         return NotImplemented
 
 
@@ -56,7 +54,7 @@ class PlainCredentialsTests(unittest.TestCase):
         self.assertEqual(ChildPlainCredentials('u', 'p', False),
                          credentials.PlainCredentials('u', 'p', False))
 
-        class Foreign(object):
+        class Foreign:
 
             def __eq__(self, other):
                 return 'foobar'
@@ -101,7 +99,7 @@ class PlainCredentialsTests(unittest.TestCase):
             dict(username='u', password='p', erase_on_connect=False),
             credentials.PlainCredentials('u', 'p', False))
 
-        class Foreign(object):
+        class Foreign:
 
             def __ne__(self, other):
                 return 'foobar'
@@ -162,7 +160,7 @@ class ExternalCredentialsTest(unittest.TestCase):
         self.assertEqual(cred_1, cred_3)
         self.assertEqual(cred_3, cred_1)
 
-        class Foreign(object):
+        class Foreign:
 
             def __eq__(self, other):
                 return 'foobar'
@@ -190,7 +188,7 @@ class ExternalCredentialsTest(unittest.TestCase):
         self.assertNotEqual(cred_1, dict(erase_on_connect=False))
         self.assertNotEqual(dict(erase_on_connect=False), cred_1)
 
-        class Foreign(object):
+        class Foreign:
 
             def __ne__(self, other):
                 return 'foobar'

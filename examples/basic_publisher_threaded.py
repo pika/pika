@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # pylint: disable=C0111,C0103,R0205
 
 import functools
@@ -15,7 +14,7 @@ LOGGER = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT)
 
 
-class ExampleThreadSafePublisher(object):
+class ExampleThreadSafePublisher:
     """This is an example of a publisher that uses
     a dedicated connection thread and the
     `add_callback_threadsafe` method to safely publish

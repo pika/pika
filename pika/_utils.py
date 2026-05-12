@@ -1,19 +1,18 @@
-"""The compat module provides various compatibility functions"""
+"""Internal utility helpers for platform and socket compatibility."""
 # pylint: disable=C0103
-
+from __future__ import annotations
 import abc
 import os
 import re
 import socket
 import sys
 import time
-from typing import Tuple, Union
 
 RE_NUM = re.compile(r'(\d+).+')
 
-ON_LINUX = sys.platform.startswith("linux")
-ON_OSX = sys.platform == "darwin"
-ON_WINDOWS = sys.platform == "win32"
+ON_LINUX = sys.platform.startswith('linux')
+ON_OSX = sys.platform == 'darwin'
+ON_WINDOWS = sys.platform == 'win32'
 
 # Portable Abstract Base Class
 AbstractBase = abc.ABCMeta('AbstractBase', (object,), {})
@@ -30,62 +29,29 @@ HAVE_SIGNAL = os.name == 'posix'
 _LOCALHOST = '127.0.0.1'
 _LOCALHOST_V6 = '::1'
 
-# for assertions that the data is either encoded or non-encoded text
-str_or_bytes = (str, bytes)
-
 
 def time_now() -> float:
-    """
-    Returns monotonic time
-    """
+    """Returns monotonic time."""
     return time.monotonic()
 
 
-def byte(*args) -> bytes:
-    """
-    Returns a single byte `bytes` for the given int argument (we
-    optimize it a bit here by passing the positional argument tuple
-    directly to the bytes constructor.
-    """
-    return bytes(args)
-
-
-class long(int):
-    """
-    A marker class that signifies that the integer value should be
-    serialized as `l` instead of `I`
-    """
-
-    def __str__(self) -> str:
-        return str(int(self))
-
-    def __repr__(self) -> str:
-        return str(self) + 'L'
-
-
-def as_bytes(value: Union[str, bytes]) -> bytes:
-    """
-    Returns value as bytes
-    """
+def as_bytes(value: str | bytes) -> bytes:
+    """Returns value as bytes."""
     if not isinstance(value, bytes):
         return value.encode('UTF-8')
     return value
 
 
 def to_digit(value: str) -> int:
-    """
-    Returns value as in integer
-    """
+    """Returns value as integer."""
     if value.isdigit():
         return int(value)
     match = RE_NUM.match(value)
     return int(match.groups()[0]) if match else 0
 
 
-def get_linux_version(release_str: str) -> Tuple[int, ...]:
-    """
-    Gets linux version
-    """
+def get_linux_version(release_str: str) -> tuple[int, ...]:
+    """Gets linux version."""
     ver_str = release_str.split('-')[0]
     return tuple(map(to_digit, ver_str.split('.', 3)[:3]))
 
@@ -99,12 +65,8 @@ if ON_LINUX:
 def nonblocking_socketpair(
         family: int = socket.AF_INET,
         socket_type: int = socket.SOCK_STREAM,
-        proto: int = 0) -> Tuple[socket.socket, socket.socket]:
-    """
-    Returns a pair of sockets in the manner of socketpair with the additional
-    feature that they will be non-blocking. Prior to Python 3.5, socketpair
-    did not exist on Windows at all.
-    """
+        proto: int = 0) -> tuple[socket.socket, socket.socket]:
+    """Returns a pair of non-blocking connected sockets."""
     if family == socket.AF_INET:
         host = _LOCALHOST
     elif family == socket.AF_INET6:
@@ -133,8 +95,6 @@ def nonblocking_socketpair(
     finally:
         lsock.close()
 
-    # Make sockets non-blocking to prevent deadlocks
-    # See https://github.com/pika/pika/issues/917
     csock.setblocking(False)
     ssock.setblocking(False)
 

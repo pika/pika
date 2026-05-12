@@ -14,7 +14,7 @@ from __future__ import annotations
 import functools
 import logging
 from collections import namedtuple
-from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING, Set, Type, Union
+from typing import Any, Callable, TYPE_CHECKING
 
 from twisted.internet import (defer, error as twisted_error, reactor, protocol)
 import twisted.internet.base
@@ -50,14 +50,12 @@ class ClosableDeferredQueue(defer.DeferredQueue):
     to call get() or put() return a Failure wrapping that exception.
     """
 
-    def __init__(self,
-                 size: Optional[int] = None,
-                 backlog: Optional[int] = None):
-        self.closed: Optional[Exception] = None
+    def __init__(self, size: int | None = None, backlog: int | None = None):
+        self.closed: Exception | None = None
         super().__init__(size, backlog)
 
-    def put(self, obj: Any) -> Optional[  # type: ignore[override]
-            defer.Deferred[Any]]:
+    def put(self, obj: Any) -> None | (  # type: ignore[override]
+            defer.Deferred[Any]):
         """
         Like the original :meth:`DeferredQueue.put` method, but returns an
         errback if the queue is closed.
@@ -85,7 +83,7 @@ class ClosableDeferredQueue(defer.DeferredQueue):
             return defer.fail(self.closed)
         return defer.DeferredQueue.get(self)
 
-    def close(self, reason: Optional[Exception]) -> None:
+    def close(self, reason: Exception | None) -> None:
         """Closes the queue.
 
         Errback the pending calls to :meth:`get()`.
@@ -119,23 +117,23 @@ class TwistedChannel:
 
     def __init__(self, channel: channel.Channel) -> None:
         self._channel = channel
-        self._closed: Optional[Exception] = None
-        self._calls: Set[defer.Deferred[Any]] = set()
-        self._consumers: Dict[str, ClosableDeferredQueue] = {}
+        self._closed: Exception | None = None
+        self._calls: set[defer.Deferred[Any]] = set()
+        self._consumers: dict[str, ClosableDeferredQueue] = {}
         # Store Basic.Get calls so we can handle GetEmpty replies
-        self._basic_get_deferred: Optional[defer.Deferred[Any]] = None
+        self._basic_get_deferred: defer.Deferred[Any] | None = None
         self._channel.add_callback(self._on_getempty, [spec.Basic.GetEmpty],
                                    False)
         # We need this mapping to close the ClosableDeferredQueue when a queue
         # is deleted.
-        self._queue_name_to_consumer_tags: Dict[str, Set[str]] = {}
+        self._queue_name_to_consumer_tags: dict[str, set[str]] = {}
         # Whether RabbitMQ delivery confirmation has been enabled
         self._delivery_confirmation = False
         self._delivery_message_id: int = None  # type: ignore[assignment]
-        self._deliveries: Dict[int, defer.Deferred[Any]] = {}
+        self._deliveries: dict[int, defer.Deferred[Any]] = {}
         # Holds a ReceivedMessage object representing a message received via
         # Basic.Return in publisher-acknowledgments mode.
-        self._puback_return: Optional[ReceivedMessage] = None
+        self._puback_return: ReceivedMessage | None = None
 
         self.on_closed: defer.Deferred[Any] = defer.Deferred()
         self._channel.add_on_close_callback(self._on_channel_closed)
@@ -147,7 +145,7 @@ class TwistedChannel:
                                                  chan=self._channel)
 
     def _on_channel_closed(self, _channel: channel.Channel,
-                           reason: Optional[Exception]) -> None:
+                           reason: Exception | None) -> None:
         # enter the closed state
         self._closed = reason
         # errback all pending calls
@@ -167,8 +165,8 @@ class TwistedChannel:
 
     def _on_consumer_cancelled_by_broker(
         self, method_frame: pika.frame.Method[pika.spec.Basic.Cancel]
-    ) -> Union[pika.frame.Method[pika.spec.Basic.Cancel],
-               pika.frame.Method[pika.spec.Basic.CancelOk]]:
+    ) -> (pika.frame.Method[pika.spec.Basic.Cancel] |
+          pika.frame.Method[pika.spec.Basic.CancelOk]):
         """Called by impl when broker cancels consumer via Basic.Cancel.
 
         This is a RabbitMQ-specific feature. The circumstances include deletion
@@ -182,10 +180,10 @@ class TwistedChannel:
         return self._on_consumer_cancelled(method_frame)
 
     def _on_consumer_cancelled(
-        self, frame: Union[pika.frame.Method[pika.spec.Basic.Cancel],
-                           pika.frame.Method[pika.spec.Basic.CancelOk]]
-    ) -> Union[pika.frame.Method[pika.spec.Basic.Cancel],
-               pika.frame.Method[pika.spec.Basic.CancelOk]]:
+        self, frame: (pika.frame.Method[pika.spec.Basic.Cancel] |
+                      pika.frame.Method[pika.spec.Basic.CancelOk])
+    ) -> (pika.frame.Method[pika.spec.Basic.Cancel] |
+          pika.frame.Method[pika.spec.Basic.CancelOk]):
         """Called when the broker cancels a consumer via Basic.Cancel or when
         the broker responds to a Basic.Cancel request by Basic.CancelOk.
 
@@ -307,13 +305,13 @@ class TwistedChannel:
         return self._channel.flow_active
 
     @property
-    def consumer_tags(self) -> List[str]:
+    def consumer_tags(self) -> list[str]:
         return self._channel.consumer_tags
 
     # Deferred-equivalents of public Channel methods
 
     def callback_deferred(self, deferred: defer.Deferred[Any],
-                          replies: List[Type[amqp_object.Method]]) -> None:
+                          replies: list[type[amqp_object.Method]]) -> None:
         """Pass in a Deferred and a list replies from the RabbitMQ broker which
         you'd like the Deferred to be callbacked on with the frame as callback
         value.
@@ -372,8 +370,8 @@ class TwistedChannel:
     def basic_cancel(
         self,
         consumer_tag: str = ''
-    ) -> defer.Deferred[Union[pika.frame.Method[pika.spec.Basic.CancelOk],
-                              pika.frame.Method[pika.spec.Basic.Cancel]]]:
+    ) -> defer.Deferred[(pika.frame.Method[pika.spec.Basic.CancelOk] |
+                         pika.frame.Method[pika.spec.Basic.Cancel])]:
         """This method cancels a consumer. This does not affect already
         delivered messages, but it does mean the server will not send any more
         messages for that consumer. The client may receive an arbitrary number
@@ -403,8 +401,8 @@ class TwistedChannel:
             queue: str,
             auto_ack: bool = False,
             exclusive: bool = False,
-            consumer_tag: Optional[str] = None,
-            arguments: Optional[Dict[str, Any]] = None) -> defer.Deferred[Any]:
+            consumer_tag: str | None = None,
+            arguments: dict[str, Any] | None = None) -> defer.Deferred[Any]:
         """Consume from a server queue.
 
         Sends the AMQP 0-9-1 command Basic.Consume to the broker and binds
@@ -572,7 +570,7 @@ class TwistedChannel:
                       exchange: str,
                       routing_key: str,
                       body: bytes,
-                      properties: Optional[spec.BasicProperties] = None,
+                      properties: spec.BasicProperties | None = None,
                       mandatory: bool = False) -> defer.Deferred[Any]:
         """Publish to the channel with the given exchange, routing key and body.
 
@@ -736,8 +734,8 @@ class TwistedChannel:
         return d
 
     def _on_delivery_confirmation(
-        self, method_frame: Union[pika.frame.Method[pika.spec.Basic.Ack],
-                                  pika.frame.Method[pika.spec.Basic.Nack]]
+        self, method_frame: (pika.frame.Method[pika.spec.Basic.Ack] |
+                             pika.frame.Method[pika.spec.Basic.Nack])
     ) -> None:
         """Invoked by pika when RabbitMQ responds to a Basic.Publish RPC
         command, passing in either a Basic.Ack or Basic.Nack frame with
@@ -771,7 +769,7 @@ class TwistedChannel:
                     "Message was Nack'ed by broker: nack=%r; channel=%s;",
                     method_frame.method, self.channel_number)
                 if self._puback_return is not None:
-                    returned_messages: List[ReceivedMessage] = [
+                    returned_messages: list[ReceivedMessage] = [
                         self._puback_return
                     ]
                     self._puback_return = None
@@ -824,7 +822,7 @@ class TwistedChannel:
             destination: str,
             source: str,
             routing_key: str = '',
-            arguments: Optional[Dict[str, Any]] = None) -> defer.Deferred[Any]:
+            arguments: dict[str, Any] | None = None) -> defer.Deferred[Any]:
         """Bind an exchange to another exchange.
 
         :param str destination: The destination exchange to bind
@@ -846,12 +844,12 @@ class TwistedChannel:
     def exchange_declare(
             self,
             exchange: str,
-            exchange_type: Union[str, ExchangeType] = ExchangeType.direct,
+            exchange_type: str | ExchangeType = ExchangeType.direct,
             passive: bool = False,
             durable: bool = False,
             auto_delete: bool = False,
             internal: bool = False,
-            arguments: Optional[Dict[str, Any]] = None) -> defer.Deferred[Any]:
+            arguments: dict[str, Any] | None = None) -> defer.Deferred[Any]:
         """This method creates an exchange if it does not already exist, and if
         the exchange exists, verifies that it is of the correct and expected
         class.
@@ -887,7 +885,7 @@ class TwistedChannel:
         )
 
     def exchange_delete(self,
-                        exchange: Optional[str] = None,
+                        exchange: str | None = None,
                         if_unused: bool = False) -> defer.Deferred[Any]:
         """Delete the exchange.
 
@@ -908,7 +906,7 @@ class TwistedChannel:
             destination: str,
             source: str,
             routing_key: str = '',
-            arguments: Optional[Dict[str, Any]] = None) -> defer.Deferred[Any]:
+            arguments: dict[str, Any] | None = None) -> defer.Deferred[Any]:
         """Unbind an exchange from another exchange.
 
         :param str destination: The destination exchange to unbind
@@ -951,8 +949,8 @@ class TwistedChannel:
             self,
             queue: str,
             exchange: str,
-            routing_key: Optional[str] = None,
-            arguments: Optional[Dict[str, Any]] = None) -> defer.Deferred[Any]:
+            routing_key: str | None = None,
+            arguments: dict[str, Any] | None = None) -> defer.Deferred[Any]:
         """Bind the queue to the specified exchange
 
         :param str queue: The queue to bind to the exchange
@@ -978,7 +976,7 @@ class TwistedChannel:
             durable: bool = False,
             exclusive: bool = False,
             auto_delete: bool = False,
-            arguments: Optional[Dict[str, Any]] = None) -> defer.Deferred[Any]:
+            arguments: dict[str, Any] | None = None) -> defer.Deferred[Any]:
         """Declare queue, create if needed. This method creates or checks a
         queue. When creating a new queue the client can specify various
         properties that control the durability of the queue and its contents,
@@ -1057,9 +1055,9 @@ class TwistedChannel:
     def queue_unbind(
             self,
             queue: str,
-            exchange: Optional[str],
-            routing_key: Optional[str] = None,
-            arguments: Optional[Dict[str, Any]] = None) -> defer.Deferred[Any]:
+            exchange: str | None,
+            routing_key: str | None = None,
+            arguments: dict[str, Any] | None = None) -> defer.Deferred[Any]:
         """Unbind a queue from an exchange.
 
         :param str queue: The queue to unbind from the exchange
@@ -1121,16 +1119,15 @@ class _TwistedConnectionAdapter(pika.connection.Connection):
 
     """
 
-    def __init__(
-            self,
-            parameters: Optional[pika.connection.Parameters],
-            on_open_callback: Optional[Callable[[pika.connection.Connection],
-                                                Any]],
-            on_open_error_callback: Optional[Callable[
-                [pika.connection.Connection, Exception], Any]],
-            on_close_callback: Optional[Callable[
-                [pika.connection.Connection, Exception], Any]],
-            custom_reactor: Any = None):
+    def __init__(self,
+                 parameters: pika.connection.Parameters | None,
+                 on_open_callback: None |
+                 (Callable[[pika.connection.Connection], Any]),
+                 on_open_error_callback: None |
+                 (Callable[[pika.connection.Connection, Exception], Any]),
+                 on_close_callback: None |
+                 (Callable[[pika.connection.Connection, Exception], Any]),
+                 custom_reactor: Any = None):
         super().__init__(parameters=parameters,
                          on_open_callback=on_open_callback,
                          on_open_error_callback=on_open_error_callback,
@@ -1138,9 +1135,9 @@ class _TwistedConnectionAdapter(pika.connection.Connection):
                          internal_connection_workflow=False)
 
         self._reactor = custom_reactor or reactor
-        self._transport: Optional[
-            twisted.internet.interfaces.
-            ITransport] = None  # to be provided by `connection_made()`
+        self._transport: None | (
+            twisted.internet.interfaces.ITransport
+        ) = None  # to be provided by `connection_made()`
 
     def _adapter_call_later(self, delay: float, callback: Callable[..., None]):
         """Implement
@@ -1254,13 +1251,12 @@ class TwistedProtocolConnection(protocol.Protocol):
 
     """
 
-    def __init__(
-            self,
-            parameters: Optional[pika.connection.ConnectionParameters] = None,
-            custom_reactor: Any = None):
-        self.ready: Optional[defer.Deferred[Any]] = defer.Deferred()
+    def __init__(self,
+                 parameters: pika.connection.ConnectionParameters | None = None,
+                 custom_reactor: Any = None):
+        self.ready: defer.Deferred[Any] | None = defer.Deferred()
         self.ready.addCallback(lambda _: self.connectionReady())
-        self.closed: Optional[defer.Deferred[Any]] = None
+        self.closed: defer.Deferred[Any] | None = None
         self._impl = _TwistedConnectionAdapter(
             parameters=parameters,
             on_open_callback=self._on_connection_ready,
@@ -1268,9 +1264,9 @@ class TwistedProtocolConnection(protocol.Protocol):
             on_close_callback=self._on_connection_closed,
             custom_reactor=custom_reactor,
         )
-        self._calls: Set[defer.Deferred[Any]] = set()
+        self._calls: set[defer.Deferred[Any]] = set()
 
-    def channel(self, channel_number: Optional[int] = None):  # pylint: disable=W0221
+    def channel(self, channel_number: int | None = None):  # pylint: disable=W0221
         """Create a new channel with the next available channel number or pass
         in a channel number to use. Must be non-zero if you would like to
         specify but it is recommended that you let Pika manage the channel
@@ -1302,8 +1298,7 @@ class TwistedProtocolConnection(protocol.Protocol):
     def close(
             self,
             reply_code: int = 200,
-            reply_text: str = 'Normal shutdown'
-    ) -> Optional[defer.Deferred[Any]]:
+            reply_text: str = 'Normal shutdown') -> defer.Deferred[Any] | None:
         if not self._impl.is_closed:
             self._impl.close(reply_code, reply_text)
         return self.closed
@@ -1333,8 +1328,8 @@ class TwistedProtocolConnection(protocol.Protocol):
 
     def connectionReady(
         self
-    ) -> Union[TwistedProtocolConnection,
-               defer.Deferred[TwistedProtocolConnection]]:
+    ) -> (TwistedProtocolConnection | defer.Deferred[TwistedProtocolConnection]
+         ):
         """This method will be called when the underlying connection is ready.
         """
         return self
@@ -1346,10 +1341,9 @@ class TwistedProtocolConnection(protocol.Protocol):
             self.closed = defer.Deferred()
             d.callback(None)
 
-    def _on_connection_failed(
-            self,
-            _connection: pika.connection.Connection,
-            _error_message: Optional[Exception] = None) -> None:
+    def _on_connection_failed(self,
+                              _connection: pika.connection.Connection,
+                              _error_message: Exception | None = None) -> None:
         d, self.ready = self.ready, None
         if d:
             attempts = self._impl.params.connection_attempts
@@ -1386,7 +1380,7 @@ class _TimerHandle(nbio_interface.AbstractTimerReference):
 
         :param twisted.internet.base.DelayedCall handle:
         """
-        self._handle: Optional[twisted.internet.base.DelayedCall] = handle
+        self._handle: twisted.internet.base.DelayedCall | None = handle
 
     def cancel(self) -> None:
         if self._handle is not None:

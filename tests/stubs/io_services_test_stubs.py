@@ -32,7 +32,7 @@ from tests.wrappers.threaded_test_wrapper import run_in_thread_with_timeout
 # pylint: disable=C0103
 
 
-class IOServicesTestStubs(object):
+class IOServicesTestStubs:
     """Provides a stub test method for each combination of parameters we wish to
     test
 

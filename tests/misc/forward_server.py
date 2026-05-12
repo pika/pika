@@ -14,7 +14,7 @@ import sys
 import threading
 import traceback
 
-import pika.compat
+import pika._utils
 
 
 def buffer(object_, offset, size):
@@ -27,7 +27,7 @@ def _trace(fmt, *args):
     print((fmt % args) + "\n", end="", file=sys.stderr)
 
 
-class ForwardServer(object):  # pylint: disable=R0902
+class ForwardServer:  # pylint: disable=R0902
     """ Implement a TCP/IP forwarding/echo service for testing. Listens for
     an incoming TCP/IP connection, accepts it, then connects to the given
     remote address and forwards data back and forth between the two
@@ -273,7 +273,7 @@ def _run_server(
     # NOTE: we add `object` to the base classes because `_ThreadedTCPServer`
     # isn't derived from `object`, which prevents `super` from working properly
     class _ThreadedTCPServer(socketserver.ThreadingMixIn,
-                             socketserver.TCPServer, object):
+                             socketserver.TCPServer):
         """Threaded streaming server for forwarding"""
 
         # Override TCPServer's class members
@@ -290,9 +290,9 @@ def _run_server(
                 remote_addr_family=remote_addr_family,
                 remote_socket_type=remote_socket_type)
 
-            super(_ThreadedTCPServer, self).__init__(local_addr,
-                                                     handler_class_factory,
-                                                     bind_and_activate=True)
+            super().__init__(local_addr,
+                             handler_class_factory,
+                             bind_and_activate=True)
 
     server = _ThreadedTCPServer()
 
@@ -306,7 +306,7 @@ def _run_server(
 
 # NOTE: we add `object` to the base classes because `StreamRequestHandler` isn't
 # derived from `object`, which prevents `super` from working properly
-class _TCPHandler(socketserver.StreamRequestHandler, object):
+class _TCPHandler(socketserver.StreamRequestHandler):
     """TCP/IP session handler instantiated by TCPServer upon incoming
     connection. Implements forwarding/echo of the incoming connection.
     """
@@ -344,9 +344,9 @@ class _TCPHandler(socketserver.StreamRequestHandler, object):
         self._remote_addr_family = remote_addr_family
         self._remote_socket_type = remote_socket_type
 
-        super(_TCPHandler, self).__init__(request=request,
-                                          client_address=client_address,
-                                          server=server)
+        super().__init__(request=request,
+                         client_address=client_address,
+                         server=server)
 
     def handle(self):  # pylint: disable=R0912
         """Connect to remote and forward data between local and remote"""
@@ -369,10 +369,10 @@ class _TCPHandler(socketserver.StreamRequestHandler, object):
                    datetime.now(timezone.utc), remote_dest_sock.getpeername())
         else:
             # Echo set-up
-            # NOTE: Use pika.compat.nonblocking_socketpair() since
+            # NOTE: Use pika._utils.nonblocking_socketpair() since
             # socket.socketpair() isn't available on Windows under python 2 yet.
             remote_dest_sock, remote_src_sock = \
-                    pika.compat.nonblocking_socketpair()
+                    pika._utils.nonblocking_socketpair()
             # We rely on blocking I/O
             remote_dest_sock.setblocking(True)
             remote_src_sock.setblocking(True)
@@ -420,7 +420,7 @@ class _TCPHandler(socketserver.StreamRequestHandler, object):
             while True:
                 try:
                     nbytes = src_sock.recv_into(rx_buf)
-                except pika.compat.SOCKET_ERROR as exc:
+                except pika._utils.SOCKET_ERROR as exc:
                     if exc.errno == errno.EINTR:
                         continue
                     elif exc.errno == errno.ECONNRESET:
@@ -442,7 +442,7 @@ class _TCPHandler(socketserver.StreamRequestHandler, object):
 
                 try:
                     dest_sock.sendall(buffer(rx_buf, 0, nbytes))
-                except pika.compat.SOCKET_ERROR as exc:
+                except pika._utils.SOCKET_ERROR as exc:
                     if exc.errno == errno.EPIPE:
                         # Destination peer closed its end of the connection
                         _trace(
@@ -502,7 +502,7 @@ def echo(port=0):
         while True:
             try:
                 data = sock.recv(4 * 1024)  # pylint: disable=E1101
-            except pika.compat.SOCKET_ERROR as exc:
+            except pika._utils.SOCKET_ERROR as exc:
                 if exc.errno == errno.EINTR:
                     continue
                 else:
@@ -524,6 +524,6 @@ def _safe_shutdown_socket(sock, how=socket.SHUT_RDWR):
     """
     try:
         sock.shutdown(how)
-    except pika.compat.SOCKET_ERROR as exc:
+    except pika._utils.SOCKET_ERROR as exc:
         if exc.errno != errno.ENOTCONN:
             raise

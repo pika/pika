@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Tests for SelectConnection IOLoops
 
@@ -20,7 +19,7 @@ import unittest
 from unittest import mock
 
 import pika
-from pika import compat
+import pika._utils
 from pika.adapters import select_connection
 
 # protected-access
@@ -56,7 +55,7 @@ def _trace_stderr(fmt, *args):
 
 
 def _fd_events_to_str(events):
-    str_events = '{}: '.format(events)
+    str_events = f'{events}: '
 
     if events & POLLIN:
         str_events += "In."
@@ -74,7 +73,7 @@ def _fd_events_to_str(events):
     remainig_events = events & ~(POLLIN | POLLOUT | POLLERR | POLLHUP |
                                  POLLNVAL | POLLPRI)
     if remainig_events:
-        str_events += '+{}'.format(bin(remainig_events))
+        str_events += f'+{bin(remainig_events)}'
 
     return str_events
 
@@ -108,8 +107,8 @@ class IOLoopBaseTest(unittest.TestCase):
         self.addCleanup(deactivate_poller_patch.stop)
 
     def shortDescription(self):
-        method_desc = super(IOLoopBaseTest, self).shortDescription()
-        return '%s (%s)' % (method_desc, self.SELECT_POLLER)
+        method_desc = super().shortDescription()
+        return f'{method_desc} ({self.SELECT_POLLER})'
 
     def start(self):
         """Setup timeout handler for detecting 'no-activity'
@@ -410,7 +409,7 @@ class IOLoopSocketBaseSelect(IOLoopBaseTest):
         return fd_
 
     def setUp(self):
-        super(IOLoopSocketBaseSelect, self).setUp()
+        super().setUp()
         self.sock_map = dict()
         self.create_accept_socket()
 
@@ -418,7 +417,7 @@ class IOLoopSocketBaseSelect(IOLoopBaseTest):
         for fd_ in self.sock_map:
             self.ioloop.remove_handler(fd_)
             self.sock_map[fd_].close()
-        super(IOLoopSocketBaseSelect, self).tearDown()
+        super().tearDown()
 
     def create_accept_socket(self):
         """Create a socket and setup 'accept' handler"""
@@ -499,7 +498,7 @@ class IOLoopSimpleMessageTestCaseSelect(IOLoopSocketBaseSelect):
     def start(self):
         """Create a pair of sockets and poll"""
         self.create_write_socket(self.connected)
-        super(IOLoopSimpleMessageTestCaseSelect, self).start()
+        super().start()
 
     def connected(self, fd, events):
         """Respond to 'connected' event by writing to the write-side."""
@@ -565,7 +564,7 @@ class IOLoopEintrTestCaseSelect(IOLoopBaseTest):
         self.poller.stop()
         self.fail('Eintr-test timed out')
 
-    @unittest.skipUnless(compat.HAVE_SIGNAL,
+    @unittest.skipUnless(pika._utils.HAVE_SIGNAL,
                          "This platform doesn't support posix signals")
     @mock.patch('pika.adapters.select_connection._is_resumable')
     def test_eintr(
@@ -641,12 +640,12 @@ class SelectPollerTestPollWithoutSockets(unittest.TestCase):
 
         delay = poller._get_wait_seconds()
         self.assertIsNotNone(delay)
-        deadline = pika.compat.time_now() + delay
+        deadline = pika._utils.time_now() + delay
 
         while True:
             poller._process_timeouts()
 
-            if pika.compat.time_now() < deadline:
+            if pika._utils.time_now() < deadline:
                 self.assertEqual(timer_call_container, [])
             else:
                 # One last time in case deadline reached after previous
@@ -745,7 +744,7 @@ class DefaultPollerSocketEventsTestCase(unittest.TestCase):
         :returns: two-tuple of connected non-blocking sockets
 
         """
-        pair = pika.compat.nonblocking_socketpair()
+        pair = pika._utils.nonblocking_socketpair()
         self.addCleanup(pair[0].close)
         self.addCleanup(pair[1].close)
         return pair
@@ -770,7 +769,7 @@ class DefaultPollerSocketEventsTestCase(unittest.TestCase):
         """
         try:
             sock.connect(addr_pair)
-        except pika.compat.SOCKET_ERROR as error:
+        except pika._utils.SOCKET_ERROR as error:
             # EINPROGRESS for posix and EWOULDBLOCK for windows
             if error.errno not in (
                     errno.EINPROGRESS,
@@ -784,7 +783,7 @@ class DefaultPollerSocketEventsTestCase(unittest.TestCase):
         :return: socket address pair (ip-addr, port) that will refuse connection
 
         """
-        s1, s2 = pika.compat.nonblocking_socketpair()
+        s1, s2 = pika._utils.nonblocking_socketpair()
         s2.close()
         self.addCleanup(s1.close)
         return s1.getsockname()  # pylint: disable=E1101

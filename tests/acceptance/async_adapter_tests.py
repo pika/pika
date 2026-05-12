@@ -24,7 +24,7 @@ import uuid
 import pika
 from pika.adapters.utils import connection_workflow
 from pika import spec
-from pika.compat import as_bytes, time_now
+from pika._utils import as_bytes, time_now
 import pika.exceptions
 from pika.exchange_type import ExchangeType
 import pika.frame
@@ -86,8 +86,7 @@ class TestCloseConnectionDuringAMQPHandshake(AsyncTestCase, AsyncAdapters):
                 # of the connection
                 self._nbio.add_callback_threadsafe(self.close)
 
-                return super(MyConnectionClass,
-                             self)._on_stream_connected(*args, **kwargs)
+                return super()._on_stream_connected(*args, **kwargs)
 
         @async_test_base.make_stop_on_error_with_self(self)
         def on_opened(connection):
@@ -226,7 +225,7 @@ class TestCreateConnectionViaCustomConnectionWorkflow(AsyncTestCase,
             def _report_completion_and_cleanup(self, result):
                 """Override implementation to tag the presumed connection"""
                 result.i_was_here = MyWorkflow
-                super(MyWorkflow, self)._report_completion_and_cleanup(result)
+                super()._report_completion_and_cleanup(result)
 
         original_workflow = MyWorkflow()
         workflow = connection_class.create_connection(
@@ -323,8 +322,7 @@ class TestCreateConnectionRetriesWithDefaultConnectionWorkflow(
 
                 logger.info('Start of retry cycle detected.')
 
-                super(MyConnectionClass, self).__init__(parameters, *args,
-                                                        **kwargs)
+                super().__init__(parameters, *args, **kwargs)
 
         @async_test_base.make_stop_on_error_with_self(self)
         def on_done(conn):
@@ -400,8 +398,7 @@ class TestCreateConnectionAMQPHandshakeTimesOutDefaultWorkflow(
                 connector._stack_timeout_ref = connector._nbio.call_later(
                     0, connector._on_overall_timeout)
 
-                return super(MyConnectionClass,
-                             self)._on_stream_connected(*args, **kwargs)
+                return super()._on_stream_connected(*args, **kwargs)
 
         @async_test_base.make_stop_on_error_with_self(self)
         def on_done(error):
@@ -535,7 +532,7 @@ class TestConsumeCancel(AsyncTestCase, AsyncAdapters):
 
     def on_queue_declared(self, frame):
         for i in range(0, 100):
-            msg_body = '{}:{}:{}'.format(self.__class__.__name__, i, time_now())
+            msg_body = f'{self.__class__.__name__}:{i}:{time_now()}'
             self.channel.basic_publish('', self.queue_name, msg_body)
         self.ctag = self.channel.basic_consume(self.queue_name,
                                                self.on_message,
@@ -902,7 +899,7 @@ class TestZ_AccessDenied(AsyncTestCase, AsyncAdapters):  # pylint: disable=C0103
     def start(self, *args, **kwargs):  # pylint: disable=W0221
         self.parameters.virtual_host = str(uuid.uuid4())
         self.error_captured = None
-        super(TestZ_AccessDenied, self).start(*args, **kwargs)
+        super().start(*args, **kwargs)
         self.assertIsInstance(self.error_captured,
                               pika.exceptions.ProbableAccessDeniedError)
 
@@ -911,7 +908,7 @@ class TestZ_AccessDenied(AsyncTestCase, AsyncAdapters):  # pylint: disable=C0103
         self.stop()
 
     def on_open(self, connection):
-        super(TestZ_AccessDenied, self).on_open(connection)
+        super().on_open(connection)
         self.stop()
 
 
@@ -921,7 +918,7 @@ class TestBlockedConnectionTimesOut(AsyncTestCase, AsyncAdapters):  # pylint: di
     def start(self, *args, **kwargs):  # pylint: disable=W0221
         self.parameters.blocked_connection_timeout = 0.001
         self.on_closed_error = None
-        super(TestBlockedConnectionTimesOut, self).start(*args, **kwargs)
+        super().start(*args, **kwargs)
         self.assertIsInstance(self.on_closed_error,
                               pika.exceptions.ConnectionBlockedTimeout)
 
@@ -938,7 +935,7 @@ class TestBlockedConnectionTimesOut(AsyncTestCase, AsyncAdapters):  # pylint: di
         """called when the connection has finished closing"""
         self.on_closed_error = error
         self.stop()  # acknowledge that closed connection is expected
-        super(TestBlockedConnectionTimesOut, self).on_closed(connection, error)
+        super().on_closed(connection, error)
 
 
 class TestBlockedConnectionUnblocks(AsyncTestCase, AsyncAdapters):  # pylint: disable=C0103
@@ -947,7 +944,7 @@ class TestBlockedConnectionUnblocks(AsyncTestCase, AsyncAdapters):  # pylint: di
     def start(self, *args, **kwargs):  # pylint: disable=W0221
         self.parameters.blocked_connection_timeout = 0.001
         self.on_closed_error = None
-        super(TestBlockedConnectionUnblocks, self).start(*args, **kwargs)
+        super().start(*args, **kwargs)
         self.assertIsInstance(self.on_closed_error,
                               pika.exceptions.ConnectionClosedByClient)
         self.assertEqual(
@@ -977,7 +974,7 @@ class TestBlockedConnectionUnblocks(AsyncTestCase, AsyncAdapters):  # pylint: di
     def on_closed(self, connection, error):
         """called when the connection has finished closing"""
         self.on_closed_error = error
-        super(TestBlockedConnectionUnblocks, self).on_closed(connection, error)
+        super().on_closed(connection, error)
 
 
 class TestAddCallbackThreadsafeRequestBeforeIOLoopStarts(
@@ -995,15 +992,13 @@ class TestAddCallbackThreadsafeRequestBeforeIOLoopStarts(
         self.connection._adapter_add_callback_threadsafe(
             self.on_requested_callback)
 
-        return super(TestAddCallbackThreadsafeRequestBeforeIOLoopStarts,
-                     self)._run_ioloop(*args, **kwargs)
+        return super()._run_ioloop(*args, **kwargs)
 
     def start(self, *args, **kwargs):  # pylint: disable=W0221
         self.loop_thread_ident = threading.current_thread().ident
         self.my_start_time = None
         self.got_callback = False
-        super(TestAddCallbackThreadsafeRequestBeforeIOLoopStarts,
-              self).start(*args, **kwargs)
+        super().start(*args, **kwargs)
         self.assertTrue(self.got_callback)
 
     def begin(self, channel):
@@ -1024,8 +1019,7 @@ class TestAddCallbackThreadsafeFromIOLoopThread(AsyncTestCase, AsyncAdapters):
         self.loop_thread_ident = threading.current_thread().ident
         self.my_start_time = None
         self.got_callback = False
-        super(TestAddCallbackThreadsafeFromIOLoopThread,
-              self).start(*args, **kwargs)
+        super().start(*args, **kwargs)
         self.assertTrue(self.got_callback)
 
     def begin(self, channel):
@@ -1050,8 +1044,7 @@ class TestAddCallbackThreadsafeFromAnotherThread(AsyncTestCase, AsyncAdapters):
         self.loop_thread_ident = threading.current_thread().ident
         self.my_start_time = None
         self.got_callback = False
-        super(TestAddCallbackThreadsafeFromAnotherThread,
-              self).start(*args, **kwargs)
+        super().start(*args, **kwargs)
         self.assertTrue(self.got_callback)
 
     def begin(self, channel):
@@ -1082,16 +1075,14 @@ class TestIOLoopStopBeforeIOLoopStarts(AsyncTestCase, AsyncAdapters):
         my_start_time = time_now()
         self.stop_ioloop_only()
 
-        super(TestIOLoopStopBeforeIOLoopStarts,
-              self)._run_ioloop(*args, **kwargs)
+        super()._run_ioloop(*args, **kwargs)
 
         self.assertLess(time_now() - my_start_time, 0.25)
 
         # Resume I/O loop to facilitate normal course of events and closure
         # of connection in order to prevent reporting of a socket resource leak
         # from an unclosed connection.
-        super(TestIOLoopStopBeforeIOLoopStarts,
-              self)._run_ioloop(*args, **kwargs)
+        super()._run_ioloop(*args, **kwargs)
 
     def begin(self, channel):
         self.stop()

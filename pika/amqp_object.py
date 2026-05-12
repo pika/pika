@@ -5,8 +5,6 @@ AMQP classes and methods.
 
 from __future__ import annotations
 
-from typing import List
-
 
 class AMQPObject:
     """Base object that is extended by AMQP low level frames and AMQP classes
@@ -20,10 +18,10 @@ class AMQPObject:
         items = list()
         for key, value in self.__dict__.items():
             if getattr(self.__class__, key, None) != value:
-                items.append('{}={}'.format(key, value))
+                items.append(f'{key}={value}')
         if not items:
             return "<%s>" % self.NAME
-        return "<{}({})>".format(self.NAME, sorted(items))
+        return f"<{self.NAME}({sorted(items)})>"
 
     def __eq__(self, other: object) -> bool:
         if other is not None:
@@ -69,10 +67,10 @@ class Method(AMQPObject):
         """
         return self._body
 
-    def encode(self) -> List[bytes]:
+    def encode(self) -> list[bytes]:
         """Encode the method into a binary format.
 
-        :rtype: List[bytes]
+        :rtype: list[bytes]
 
         """
         raise NotImplementedError("Subclasses must implement this method")

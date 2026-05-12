@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # pylint: disable=C0111,C0103,R0205
 
 import functools
@@ -12,7 +11,7 @@ LOG_FORMAT = ('%(levelname) -10s %(asctime)s %(name) -30s %(funcName) '
 LOGGER = logging.getLogger(__name__)
 
 
-class ExamplePublisher(object):
+class ExamplePublisher:
     """This is an example publisher that will handle unexpected interactions
     with RabbitMQ such as channel and connection closures.
 
@@ -308,12 +307,12 @@ class ExamplePublisher(object):
         if self._channel is None or not self._channel.is_open:
             return
 
-        hdrs = {u'مفتاح': u' قيمة', u'键': u'值', u'キー': u'値'}
+        hdrs = {'مفتاح': ' قيمة', '键': '值', 'キー': '値'}
         properties = pika.BasicProperties(app_id='example-publisher',
                                           content_type='application/json',
                                           headers=hdrs)
 
-        message = u'مفتاح قيمة 键 值 キー 値'
+        message = 'مفتاح قيمة 键 值 キー 値'
         self._channel.basic_publish(self.EXCHANGE, self.ROUTING_KEY,
                                     json.dumps(message, ensure_ascii=False),
                                     properties)
