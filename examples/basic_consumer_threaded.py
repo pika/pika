@@ -59,7 +59,7 @@ channel.exchange_declare(exchange="test_exchange",
                          passive=False,
                          durable=True,
                          auto_delete=False)
-channel.queue_declare(queue="standard", exclusive=True, auto_delete=True)
+channel.queue_declare(queue="standard", exclusive=True)
 channel.queue_bind(queue="standard",
                    exchange="test_exchange",
                    routing_key="standard_key")
