@@ -58,7 +58,7 @@ while True:
                                  passive=False,
                                  durable=True,
                                  auto_delete=False)
-        channel.queue_declare(queue='standard', exclusive=True, auto_delete=True)
+        channel.queue_declare(queue='standard', durable=True, auto_delete=True)
         channel.queue_bind(queue='standard',
                            exchange='test_exchange',
                            routing_key='standard_key')
