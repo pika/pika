@@ -61,9 +61,12 @@ extend-exclude = [
     "utils/codegen.py",   # code generation helper script
 ]
 
+[tool.ruff.format]
+quote-style = "single"
+
 [tool.ruff.lint]
-select = ["E4", "E7", "E9", "W", "F", "I"]
-ignore = []
+select = ["E", "W", "F", "I", "UP"]
+ignore = ["E501"]
 
 [tool.yapf]
 based_on_style = "google"
@@ -94,7 +97,7 @@ dependencies = [
 [tool.hatch.envs.default.scripts]
 fmt = "yapf --in-place --style google --recursive --exclude 'pika/spec.py' pika/ tests/ examples/ utils/"
 fmt-check = "yapf --diff --style google --recursive --exclude 'pika/spec.py' pika/ tests/ examples/ utils/"
-lint = "ruff check pika/ tests/ examples/ utils/ --fix"
+lint = "ruff check pika/ tests/ examples/ utils/ --fix --unsafe-fixes"
 lint-check = "ruff check pika/ tests/ examples/ utils/"
 typecheck = "python -m mypy"
 unit = "pytest tests/unit/"
