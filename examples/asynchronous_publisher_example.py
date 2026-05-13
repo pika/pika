@@ -1,8 +1,9 @@
 # pylint: disable=C0111,C0103,R0205
 
 import functools
-import logging
 import json
+import logging
+
 import pika
 from pika.exchange_type import ExchangeType
 

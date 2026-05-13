@@ -11,7 +11,6 @@ import socket
 import unittest
 
 import pika._utils
-
 from pika.adapters.utils import nbio_interface
 from tests.misc.forward_server import ForwardServer
 from tests.stubs.io_services_test_stubs import IOServicesTestStubs

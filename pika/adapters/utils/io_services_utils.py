@@ -14,16 +14,15 @@ import socket
 import ssl
 import sys
 import traceback
-from typing import Any, Callable, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable
 
-from pika.adapters.utils.nbio_interface import (AbstractIOReference,
-                                                AbstractStreamTransport)
 import pika._utils
 import pika.diagnostic_utils
+from pika.adapters.utils.nbio_interface import AbstractIOReference, AbstractStreamTransport
 
 if TYPE_CHECKING:
-    from pika.adapters.utils import nbio_interface
     import pika.connection
+    from pika.adapters.utils import nbio_interface
 
 # "Try again" error codes for non-blocking socket I/O - send()/recv().
 # NOTE: POSIX.1 allows either error to be returned for this case and doesn't require

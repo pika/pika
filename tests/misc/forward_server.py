@@ -1,18 +1,18 @@
 """TCP/IP forwarding/echo service for testing."""
 
 import array
-from datetime import datetime, timezone
 import errno
-from functools import partial
 import logging
 import multiprocessing
 import os
 import socket
-import struct
 import socketserver
+import struct
 import sys
 import threading
 import traceback
+from datetime import datetime, timezone
+from functools import partial
 
 import pika._utils
 

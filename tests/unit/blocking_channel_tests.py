@@ -2,12 +2,12 @@
 Tests for pika.adapters.blocking_connection.BlockingChannel
 
 """
-from collections import deque
 import unittest
+from collections import deque
 from unittest import mock
 
-from pika.adapters import blocking_connection
 from pika import channel
+from pika.adapters import blocking_connection
 
 BLOCKING_CHANNEL = 'pika.adapters.blocking_connection.BlockingChannel'
 BLOCKING_CONNECTION = 'pika.adapters.blocking_connection.BlockingConnection'

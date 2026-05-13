@@ -15,7 +15,6 @@ import unittest
 import tornado.ioloop
 
 from pika.adapters import select_connection
-
 from tests.stubs.io_services_test_stubs import IOServicesTestStubs
 
 # Suppress invalid-name, since our test names are descriptive and quite long

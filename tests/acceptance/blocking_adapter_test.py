@@ -1,18 +1,17 @@
 """blocking adapter test"""
-from datetime import datetime, timezone
 import functools
 import logging
 import socket
 import threading
 import unittest
 import uuid
+from datetime import datetime, timezone
 
 import pika
-from pika.adapters import blocking_connection
-from pika._utils import as_bytes, time_now
 import pika.exceptions
+from pika._utils import as_bytes, time_now
+from pika.adapters import blocking_connection
 from pika.exchange_type import ExchangeType
-
 from tests.misc.forward_server import ForwardServer
 from tests.misc.test_utils import retry_assertion
 

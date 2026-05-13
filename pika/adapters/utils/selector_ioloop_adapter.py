@@ -12,9 +12,8 @@ import socket
 import threading
 from typing import Any, Callable
 
-from pika.adapters.utils import nbio_interface, io_services_utils
-from pika.adapters.utils.io_services_utils import (check_callback_arg,
-                                                   check_fd_arg)
+from pika.adapters.utils import io_services_utils, nbio_interface
+from pika.adapters.utils.io_services_utils import check_callback_arg, check_fd_arg
 
 LOGGER = logging.getLogger(__name__)
 

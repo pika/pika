@@ -13,12 +13,25 @@ import math
 import numbers
 import platform
 import ssl
-from typing import Any, Dict, Optional, Sequence, Type, TypeVar, Union, Callable, cast, TYPE_CHECKING
-from urllib.parse import unquote as url_unquote, parse_qs as url_parse_qs, urlparse
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    Optional,
+    Sequence,
+    Type,
+    TypeVar,
+    Union,
+    cast,
+)
+from urllib.parse import parse_qs as url_parse_qs
+from urllib.parse import unquote as url_unquote
+from urllib.parse import urlparse
 
+import pika._utils
 import pika.callback
 import pika.channel
-import pika._utils
 import pika.credentials
 import pika.exceptions as exceptions
 import pika.frame as frame
@@ -27,8 +40,8 @@ import pika.spec as spec
 import pika.validators as validators
 
 if TYPE_CHECKING:
-    from pika.channel import Channel
     from pika import amqp_object
+    from pika.channel import Channel
 
 PRODUCT = "Pika Python Client Library"
 

@@ -2,8 +2,10 @@
 
 import functools
 import random
+
 import pika
 from pika.exchange_type import ExchangeType
+
 """
 This module implements a client that connects to multiple RabbitMQ brokers
 distributed across different ports (5672, 5673, 5674) and consumes messages

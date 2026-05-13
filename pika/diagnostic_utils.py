@@ -7,7 +7,7 @@ from __future__ import annotations
 import functools
 import sys
 import traceback
-from typing import Any, Callable, TypeVar, cast, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, TypeVar, cast
 
 if TYPE_CHECKING:
     import logging  # pragma: no cover

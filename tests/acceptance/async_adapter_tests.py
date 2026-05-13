@@ -22,16 +22,14 @@ import threading
 import uuid
 
 import pika
-from pika.adapters.utils import connection_workflow
+import pika.exceptions
+import pika.frame
 from pika import spec
 from pika._utils import as_bytes, time_now
-import pika.exceptions
+from pika.adapters.utils import connection_workflow
 from pika.exchange_type import ExchangeType
-import pika.frame
-
 from tests.base import async_test_base
-from tests.base.async_test_base import (AsyncTestCase, BoundQueueTestCase,
-                                        AsyncAdapters)
+from tests.base.async_test_base import AsyncAdapters, AsyncTestCase, BoundQueueTestCase
 
 
 class TestA_Connect(AsyncTestCase, AsyncAdapters):  # pylint: disable=C0103

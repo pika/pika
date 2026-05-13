@@ -14,26 +14,27 @@ from __future__ import annotations
 import functools
 import logging
 from collections import namedtuple
-from typing import Any, Callable, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable
 
-from twisted.internet import (defer, error as twisted_error, reactor, protocol)
 import twisted.internet.base
 import twisted.python
-from twisted.python.failure import Failure
 import twisted.python.failure
+from twisted.internet import defer, protocol, reactor
+from twisted.internet import error as twisted_error
+from twisted.python.failure import Failure
 
 import pika.connection
+import pika.frame
+import pika.spec
 from pika import exceptions, spec
 from pika.adapters.utils import nbio_interface
 from pika.adapters.utils.io_services_utils import check_callback_arg
 from pika.exchange_type import ExchangeType
-import pika.frame
-import pika.spec
 
 if TYPE_CHECKING:
-    from pika import channel
-    from pika import amqp_object
     import twisted.internet.interfaces
+
+    from pika import amqp_object, channel
 
 # Twistisms
 # pylint: disable=C0111,C0103

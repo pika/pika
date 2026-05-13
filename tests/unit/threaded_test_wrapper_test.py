@@ -3,16 +3,15 @@ Tests for threaded_test_wrapper.py
 
 """
 
-from io import StringIO
 import sys
 import threading
 import time
 import unittest
+from io import StringIO
 from unittest import mock
 
 from tests.wrappers import threaded_test_wrapper
-from tests.wrappers.threaded_test_wrapper import (_ThreadedTestWrapper,
-                                                  run_in_thread_with_timeout)
+from tests.wrappers.threaded_test_wrapper import _ThreadedTestWrapper, run_in_thread_with_timeout
 
 # Suppress invalid-name, since our test names are descriptive and quite long
 # pylint: disable=C0103

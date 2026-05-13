@@ -6,10 +6,9 @@ from __future__ import annotations
 
 import functools
 import logging
-from typing import Any, Callable, Union, Type, cast
+from typing import Any, Callable, Type, Union, cast
 
-from pika import frame
-from pika import amqp_object
+from pika import amqp_object, frame
 
 _Prefix = Union[str, int]
 _Caller = object

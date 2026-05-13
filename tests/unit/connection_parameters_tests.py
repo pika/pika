@@ -7,7 +7,8 @@ import copy
 import ssl
 import unittest
 import warnings
-from urllib.parse import quote as url_quote, urlencode
+from urllib.parse import quote as url_quote
+from urllib.parse import urlencode
 
 import pika
 from pika import channel, connection, credentials, spec

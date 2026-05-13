@@ -10,22 +10,25 @@ import errno
 import heapq
 import logging
 import select
-import time
 import threading
-from typing import Any, Callable, Sequence, Union, TYPE_CHECKING
+import time
+from typing import TYPE_CHECKING, Any, Callable, Sequence, Union
 
 import pika._utils
-
-from pika.adapters.utils import nbio_interface
 from pika.adapters.base_connection import BaseConnection
+from pika.adapters.utils import nbio_interface
 from pika.adapters.utils.selector_ioloop_adapter import (
-    SelectorIOServicesAdapter, AbstractSelectorIOLoop)
+    AbstractSelectorIOLoop,
+    SelectorIOServicesAdapter,
+)
 
 if TYPE_CHECKING:
+    import socket
+
     from typing_extensions import TypedDict
+
     from pika import connection
     from pika.adapters.utils import connection_workflow
-    import socket
 
     SELECT_ERROR_T = Union[OSError, IOError, InterruptedError, select.error]
 

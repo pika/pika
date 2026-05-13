@@ -11,7 +11,7 @@ from __future__ import annotations
 import functools
 import logging
 import socket
-from typing import Any, Callable, Iterator, Sequence, TYPE_CHECKING, Tuple, Union
+from typing import TYPE_CHECKING, Any, Callable, Iterator, Sequence, Tuple, Union
 
 import pika._utils
 import pika.connection

@@ -2,7 +2,8 @@
 
 import threading
 from time import sleep
-from pika import ConnectionParameters, BlockingConnection, PlainCredentials
+
+from pika import BlockingConnection, ConnectionParameters, PlainCredentials
 
 
 class Publisher(threading.Thread):

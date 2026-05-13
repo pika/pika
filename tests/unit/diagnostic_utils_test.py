@@ -2,9 +2,8 @@
 Test of `pika.diagnostic_utils`
 """
 
-import unittest
-
 import logging
+import unittest
 
 from pika import diagnostic_utils
 

@@ -2,6 +2,7 @@
 
 import json
 import threading
+
 import pika
 from pika.exchange_type import ExchangeType
 

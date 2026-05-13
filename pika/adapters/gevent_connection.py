@@ -4,14 +4,12 @@ from __future__ import annotations
 import functools
 import logging
 import os
-import threading
-from typing import Any, Callable, Sequence, TYPE_CHECKING
-
-import gevent._interfaces  # type: ignore[import-untyped]
-
 import queue
+import threading
+from typing import TYPE_CHECKING, Any, Callable, Sequence
 
 import gevent
+import gevent._interfaces  # type: ignore[import-untyped]
 import gevent.hub  # type: ignore[import-untyped]
 import gevent.socket  # type: ignore[import-untyped]
 

@@ -7,23 +7,23 @@ implementing the methods and behaviors for an AMQP Channel.
 
 from __future__ import annotations
 
+import logging
+import uuid
 from collections import deque
 from collections.abc import Sequence
-import logging
-from typing import Any, Callable, TYPE_CHECKING, Union
-import uuid
 from enum import Enum
+from typing import TYPE_CHECKING, Any, Callable, Union
 
-import pika.frame as frame
 import pika.exceptions as exceptions
+import pika.frame as frame
 import pika.spec as spec
 import pika.validators as validators
 from pika._utils import as_bytes
 from pika.exchange_type import ExchangeType
 
 if TYPE_CHECKING:
-    from pika.connection import Connection
     from pika import amqp_object
+    from pika.connection import Connection
 
 LOGGER = logging.getLogger(__name__)
 

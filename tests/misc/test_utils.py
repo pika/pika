@@ -4,6 +4,7 @@ import functools
 import logging
 import time
 import traceback
+
 import pika._utils
 
 

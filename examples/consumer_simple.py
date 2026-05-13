@@ -2,6 +2,7 @@
 
 import json
 import logging
+
 import pika
 from pika.exchange_type import ExchangeType
 

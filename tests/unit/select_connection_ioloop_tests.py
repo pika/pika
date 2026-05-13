@@ -4,7 +4,6 @@ Tests for SelectConnection IOLoops
 """
 
 import errno
-from datetime import datetime, timezone
 import functools
 import logging
 import os
@@ -13,9 +12,10 @@ import select
 import signal
 import socket
 import sys
-import time
 import threading
+import time
 import unittest
+from datetime import datetime, timezone
 from unittest import mock
 
 import pika

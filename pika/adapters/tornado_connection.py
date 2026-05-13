@@ -4,12 +4,12 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable, Sequence, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, Sequence
 
 from tornado import ioloop
 
-from pika.adapters.utils import nbio_interface, selector_ioloop_adapter
 from pika.adapters import base_connection
+from pika.adapters.utils import nbio_interface, selector_ioloop_adapter
 
 if TYPE_CHECKING:
     from pika import connection

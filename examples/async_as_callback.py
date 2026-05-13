@@ -4,8 +4,7 @@ import logging
 import ssl
 import time
 from enum import Enum
-from typing import Dict
-from typing import Optional
+from typing import Dict, Optional
 
 import msgpack
 from pydantic import BaseModel, validator

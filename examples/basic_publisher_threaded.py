@@ -2,10 +2,11 @@
 
 import functools
 import logging
-import threading
-import pika
-import queue
 import pprint
+import queue
+import threading
+
+import pika
 
 LOG_FORMAT = ("%(levelname) -10s %(asctime)s %(name) -30s %(funcName) "
               "-35s %(lineno) -5d: %(message)s")

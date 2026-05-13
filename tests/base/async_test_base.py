@@ -1,21 +1,20 @@
 """Base test classes for async_adapter_tests.py
 
 """
-from datetime import datetime, timezone
 import functools
+import logging
 import select
 import sys
-import logging
 import unittest
-from unittest import mock
 import uuid
+from datetime import datetime, timezone
+from unittest import mock
 
 import pika
 import pika._utils
 from pika import adapters
 from pika.adapters import select_connection
 from pika.exchange_type import ExchangeType
-
 from tests.wrappers.threaded_test_wrapper import create_run_in_thread_decorator
 
 # invalid-name
@@ -351,8 +350,8 @@ class AsyncAdapters:
     def test_with_gevent(self):
         """GeventConnection"""
         import gevent
-        from pika.adapters.gevent_connection import GeventConnection
-        from pika.adapters.gevent_connection import _GeventSelectorIOLoop
+
+        from pika.adapters.gevent_connection import GeventConnection, _GeventSelectorIOLoop
 
         def ioloop_factory():
             return _GeventSelectorIOLoop(gevent.get_hub())
@@ -363,6 +362,7 @@ class AsyncAdapters:
     def test_with_tornado(self):
         """TornadoConnection"""
         import tornado.ioloop
+
         from pika.adapters.tornado_connection import TornadoConnection
         ioloop_factory = tornado.ioloop.IOLoop
         self.start(TornadoConnection, ioloop_factory)
@@ -371,6 +371,7 @@ class AsyncAdapters:
     def test_with_asyncio(self):
         """AsyncioConnection"""
         import asyncio
+
         from pika.adapters.asyncio_connection import AsyncioConnection
         ioloop_factory = asyncio.new_event_loop
         self.start(AsyncioConnection, ioloop_factory)

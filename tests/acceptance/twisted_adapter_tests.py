@@ -12,21 +12,29 @@
 """twisted adapter test"""
 import functools
 import unittest
-
 from unittest import mock
+
 import pytest
-from twisted.internet import defer, error as twisted_error, reactor
+from twisted.internet import defer, reactor
+from twisted.internet import error as twisted_error
 from twisted.python.failure import Failure
 
-from pika.adapters.twisted_connection import (ClosableDeferredQueue,
-                                              TwistedChannel,
-                                              _TwistedConnectionAdapter,
-                                              TwistedProtocolConnection,
-                                              _TimerHandle)
 from pika import spec
-from pika.exceptions import (AMQPConnectionError, ConsumerCancelled,
-                             DuplicateGetOkCallback, NackError, UnroutableError,
-                             ChannelClosedByBroker)
+from pika.adapters.twisted_connection import (
+    ClosableDeferredQueue,
+    TwistedChannel,
+    TwistedProtocolConnection,
+    _TimerHandle,
+    _TwistedConnectionAdapter,
+)
+from pika.exceptions import (
+    AMQPConnectionError,
+    ChannelClosedByBroker,
+    ConsumerCancelled,
+    DuplicateGetOkCallback,
+    NackError,
+    UnroutableError,
+)
 from pika.frame import Method
 
 

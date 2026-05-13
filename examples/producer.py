@@ -2,6 +2,7 @@
 
 import json
 import random
+
 import pika
 from pika.exchange_type import ExchangeType
 

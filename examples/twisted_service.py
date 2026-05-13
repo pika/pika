@@ -23,16 +23,13 @@ as defined by PREFETCH_COUNT
 import logging
 import sys
 
-from twisted.internet import protocol
-from twisted.application import internet
-from twisted.application import service
+from twisted.application import internet, service
+from twisted.internet import defer, protocol, reactor, ssl, task
 from twisted.internet.defer import inlineCallbacks
-from twisted.internet import ssl, defer, task
 from twisted.python import log
-from twisted.internet import reactor
 
 import pika
-from pika import spec, DeliveryMode
+from pika import DeliveryMode, spec
 from pika.adapters import twisted_connection
 from pika.exchange_type import ExchangeType
 

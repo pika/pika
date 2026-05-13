@@ -12,13 +12,13 @@ Tests for pika.connection.Connection
 # Suppress pylint messages concerning invalid method name
 # pylint: disable=C0103
 
-import random
 import platform
+import random
 import unittest
 from unittest import mock
 
-from pika import connection, channel, credentials, exceptions, frame, spec
 import pika
+from pika import channel, connection, credentials, exceptions, frame, spec
 
 
 def dummy_callback():

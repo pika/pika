@@ -11,9 +11,8 @@ import logging
 from typing import Any, Callable, Sequence
 
 import pika.exceptions
-
-from pika.adapters.utils import connection_workflow, nbio_interface
 from pika import connection
+from pika.adapters.utils import connection_workflow, nbio_interface
 
 LOGGER = logging.getLogger(__name__)
 

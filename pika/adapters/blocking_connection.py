@@ -19,28 +19,29 @@ classes.
 
 from __future__ import annotations
 
-from collections import namedtuple, deque
 import contextlib
 import functools
 import logging
 import threading
-from typing import Any, Callable, Generator, Generic, Sequence, TypeVar, TYPE_CHECKING
+from collections import deque, namedtuple
+from typing import TYPE_CHECKING, Any, Callable, Generator, Generic, Sequence, TypeVar
 
-import pika.channel
 import pika._utils
+import pika.channel
 import pika.connection
 import pika.exceptions as exceptions
 import pika.spec
 import pika.validators as validators
-from pika.adapters.utils import connection_workflow
 
 # NOTE: import SelectConnection after others to avoid circular depenency
 from pika.adapters import select_connection
+from pika.adapters.utils import connection_workflow
 from pika.exchange_type import ExchangeType
 
 if TYPE_CHECKING:
     from traceback import TracebackException
     from types import TracebackType
+
     import pika.frame
 
 T = TypeVar(

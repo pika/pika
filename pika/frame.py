@@ -1,12 +1,11 @@
 """Frame objects that do the frame demarshaling and marshaling."""
 from __future__ import annotations
+
 import logging
 import struct
 from typing import Generic, TypeVar
 
-from pika import amqp_object
-from pika import exceptions
-from pika import spec
+from pika import amqp_object, exceptions, spec
 
 LOGGER = logging.getLogger(__name__)
 
