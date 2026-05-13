@@ -8,7 +8,7 @@ import queue
 import threading
 from typing import TYPE_CHECKING, Any, Callable, Sequence
 
-import gevent # type: ignore[import-untyped]
+import gevent  # type: ignore[import-untyped]
 import gevent._interfaces  # type: ignore[import-untyped]
 import gevent.hub  # type: ignore[import-untyped]
 import gevent.socket  # type: ignore[import-untyped]
