@@ -175,7 +175,7 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         self._loop = native_loop
 
         # Active watchers: maps file descriptors to `_FileDescriptorCallbacks`
-        self._watchers: dict[int, _FileDescriptorCallbacks] = dict()
+        self._watchers: dict[int, _FileDescriptorCallbacks] = {}
 
         # Native loop-specific event masks of interest
         self._readable_mask = self._loop.READ

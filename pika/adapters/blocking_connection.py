@@ -1271,7 +1271,7 @@ class BlockingChannel:
         self._connection = connection
 
         # A mapping of consumer tags to _ConsumerInfo for active consumers
-        self._consumer_infos: dict[Any, Any] = dict()
+        self._consumer_infos: dict[Any, Any] = {}
 
         # Queue consumer generator generator info of type
         # _QueueConsumerGeneratorInfo created by BlockingChannel.consume
@@ -1346,7 +1346,7 @@ class BlockingChannel:
         """Clean up members that might inhibit garbage collection"""
         self._message_confirmation_result.reset()
         self._pending_events = deque()
-        self._consumer_infos = dict()
+        self._consumer_infos = {}
         self._queue_consumer_generator = None
 
     @property

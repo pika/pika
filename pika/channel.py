@@ -114,11 +114,11 @@ class Channel:
 
         self._content_assembler = ContentFrameAssembler()
 
-        self._blocked: deque = deque(list())
+        self._blocked: deque = deque([])
         self._blocking: Any | None = None
         self._has_on_flow_callback: bool = False
         self._cancelled: set = set()
-        self._consumers: dict = dict()
+        self._consumers: dict = {}
         self._consumers_with_noack: set = set()
         self._on_flowok_callback: Callable[..., Any] | None = None
         self._on_getok_callback: Callable[..., Any] | None = None
@@ -374,7 +374,7 @@ class Channel:
                                consumer_tag=consumer_tag,
                                no_ack=auto_ack,
                                exclusive=exclusive,
-                               arguments=arguments or dict()), rpc_callback,
+                               arguments=arguments or {}), rpc_callback,
             [(spec.Basic.ConsumeOk, {
                 'consumer_tag': consumer_tag
             })])
@@ -688,7 +688,7 @@ class Channel:
         nowait = validators.rpc_completion_callback(callback)
         return self._rpc(
             spec.Exchange.Bind(0, destination, source, routing_key, nowait,
-                               arguments or dict()), callback,
+                               arguments or {}), callback,
             [spec.Exchange.BindOk] if not nowait else [])
 
     def exchange_declare(
@@ -741,7 +741,7 @@ class Channel:
                 auto_delete,
                 internal,
                 nowait,
-                arguments or dict()),
+                arguments or {}),
             callback,
             [spec.Exchange.DeclareOk] if not nowait else [])
 
@@ -884,7 +884,7 @@ class Channel:
             routing_key = queue
         return self._rpc(
             spec.Queue.Bind(0, queue, exchange, routing_key, nowait,
-                            arguments or dict()), callback,
+                            arguments or {}), callback,
             [spec.Queue.BindOk] if not nowait else [])
 
     def queue_declare(self,
@@ -929,8 +929,8 @@ class Channel:
 
         return self._rpc(
             spec.Queue.Declare(0, queue, passive, durable, exclusive,
-                               auto_delete, nowait, arguments or dict()),
-            callback, replies)
+                               auto_delete, nowait, arguments or {}), callback,
+            replies)
 
     def queue_delete(self,
                      queue: str,
@@ -1000,8 +1000,8 @@ class Channel:
         if routing_key is None:
             routing_key = queue
         return self._rpc(
-            spec.Queue.Unbind(0, queue, exchange, routing_key, arguments or
-                              dict()), callback, [spec.Queue.UnbindOk])
+            spec.Queue.Unbind(0, queue, exchange, routing_key, arguments or {}),
+            callback, [spec.Queue.UnbindOk])
 
     def tx_commit(self, callback: _OnTxCommitCallback | None = None) -> None:
         """Commit a transaction
@@ -1088,7 +1088,7 @@ class Channel:
         """Remove all consumers and any callbacks for the channel."""
         self.callbacks.process(self.channel_number,
                                self._ON_CHANNEL_CLEANUP_CB_KEY, self, self)
-        self._consumers = dict()
+        self._consumers = {}
         self.callbacks.cleanup(str(self.channel_number))
         self._cookie = None
 
@@ -1581,7 +1581,7 @@ class ContentFrameAssembler:
         self._method_frame: frame.Method | None = None
         self._header_frame: frame.Header | None = None
         self._seen_so_far = 0
-        self._body_fragments: list[bytes] = list()
+        self._body_fragments: list[bytes] = []
 
     def process(
         self, frame_value: frame.Frame
@@ -1644,4 +1644,4 @@ class ContentFrameAssembler:
         self._method_frame = None
         self._header_frame = None
         self._seen_so_far = 0
-        self._body_fragments = list()
+        self._body_fragments = []

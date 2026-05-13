@@ -91,7 +91,7 @@ class ChannelTests(unittest.TestCase):
         self.assertIsInstance(self.obj._cancelled, set)
 
     def test_init_consumers(self):
-        self.assertEqual(self.obj._consumers, dict())
+        self.assertEqual(self.obj._consumers, {})
 
     def test_init_flow(self):
         self.assertEqual(self.obj.flow_active, True)

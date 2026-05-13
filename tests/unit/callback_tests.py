@@ -149,7 +149,7 @@ class CallbackTests(unittest.TestCase):
     def test_clear(self):
         self.obj.add(self.PREFIX, self.KEY, None)
         self.obj.clear()
-        self.assertDictEqual(self.obj._stack, dict())
+        self.assertDictEqual(self.obj._stack, {})
 
     def test_cleanup_removes_prefix(self):
         other_prefix = 'Foo'
@@ -185,7 +185,7 @@ class CallbackTests(unittest.TestCase):
         self.assertEqual(self.obj.pending(self.PREFIX_CLASS, self.KEY), 2)
 
     def test_process_callback_false(self):
-        self.obj._stack = dict()
+        self.obj._stack = {}
         self.assertFalse(
             self.obj.process('FAIL', 'False', 'Empty', self.mock_caller, []))
 
@@ -263,7 +263,7 @@ class CallbackTests(unittest.TestCase):
         self.obj.remove(prefix=self.PREFIX,
                         key=self.KEY,
                         callback_value=self.callback_mock)
-        self.assertDictEqual(self.obj._stack, dict())
+        self.assertDictEqual(self.obj._stack, {})
 
     def test_remove_with_callback_true_non_empty_stack(self):
         self.obj.add(self.PREFIX_CLASS, self.KEY, self.callback_mock)

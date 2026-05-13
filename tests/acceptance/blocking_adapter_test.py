@@ -1510,8 +1510,9 @@ class TestPublishAndBasicPublishWithPubacksUnroutable(BlockingTestCaseBase):
         self.addCleanup(connection.channel().exchange_delete, exg_name)
 
         # Verify unroutable message handling using basic_publish
-        msg2_headers = dict(
-            test_name='TestPublishAndBasicPublishWithPubacksUnroutable')
+        msg2_headers = {
+            'test_name': 'TestPublishAndBasicPublishWithPubacksUnroutable'
+        }
         msg2_properties = pika.spec.BasicProperties(headers=msg2_headers)
         with self.assertRaises(pika.exceptions.UnroutableError) as cm:
             ch.basic_publish(exg_name,
@@ -1835,8 +1836,9 @@ class TestPublishAndConsumeWithPubacksAndQosOfOne(BlockingTestCaseBase):
         ch.queue_bind(q_name, exchange=exg_name, routing_key=routing_key)
 
         # Deposit a message in the queue
-        msg1_headers = dict(
-            test_name='TestPublishAndConsumeWithPubacksAndQosOfOne')
+        msg1_headers = {
+            'test_name': 'TestPublishAndConsumeWithPubacksAndQosOfOne'
+        }
         msg1_properties = pika.spec.BasicProperties(headers=msg1_headers)
         ch.basic_publish(exg_name,
                          routing_key=routing_key,
@@ -2298,7 +2300,7 @@ class TestBasicPublishWithoutPubacks(BlockingTestCaseBase):
         ch.queue_bind(q_name, exchange=exg_name, routing_key=routing_key)
 
         # Deposit a message in the queue with mandatory=True
-        msg1_headers = dict(test_name='TestBasicPublishWithoutPubacks')
+        msg1_headers = {'test_name': 'TestBasicPublishWithoutPubacks'}
         msg1_properties = pika.spec.BasicProperties(headers=msg1_headers)
         ch.basic_publish(exg_name,
                          routing_key=routing_key,

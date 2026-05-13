@@ -176,14 +176,16 @@ class ForwardServer:  # pylint: disable=R0902
 
         self._subproc = mp_ctx.Process(
             target=_run_server,
-            kwargs=dict(local_addr=self._server_addr,
-                        local_addr_family=self._server_addr_family,
-                        local_socket_type=self._server_socket_type,
-                        local_linger_args=self._local_linger_args,
-                        remote_addr=self._remote_addr,
-                        remote_addr_family=self._remote_addr_family,
-                        remote_socket_type=self._remote_socket_type,
-                        queue=queue))
+            kwargs={
+                "local_addr": self._server_addr,
+                "local_addr_family": self._server_addr_family,
+                "local_socket_type": self._server_socket_type,
+                "local_linger_args": self._local_linger_args,
+                "remote_addr": self._remote_addr,
+                "remote_addr_family": self._remote_addr_family,
+                "remote_socket_type": self._remote_socket_type,
+                "queue": queue
+            })
         self._subproc.daemon = True
         self._subproc.start()
 

@@ -79,7 +79,7 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
     @mock.patch('pika.connection.Connection._on_close_ready')
     def test_close_calls_on_close_ready_when_no_channels(
             self, on_close_ready_mock):
-        self.connection._channels = dict()
+        self.connection._channels = {}
         self.connection.close()
         self.assertTrue(on_close_ready_mock.called,
                         'on_close_ready_mock should have been called')

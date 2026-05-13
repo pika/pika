@@ -180,8 +180,8 @@ class ParametersTests(ParametersTestsBase):
         self.assertNotEqual(params_1, params_3)
         self.assertNotEqual(params_3, params_1)
 
-        self.assertNotEqual(params_1, dict(host='localhost', port=5672))
-        self.assertNotEqual(dict(host='localhost', port=5672), params_1)
+        self.assertNotEqual(params_1, {'host': 'localhost', 'port': 5672})
+        self.assertNotEqual({'host': 'localhost', 'port': 5672}, params_1)
 
         class Foreign:
 
@@ -427,7 +427,7 @@ class ParametersTests(ParametersTestsBase):
         self.assertIsNone(params.ssl_options)
 
         with self.assertRaises(TypeError):
-            params.ssl_options = dict()
+            params.ssl_options = {}
 
     def test_virtual_host(self):
         params = connection.Parameters()
@@ -447,10 +447,12 @@ class ParametersTests(ParametersTestsBase):
     def test_tcp_options(self):
         params = connection.Parameters()
 
-        opt = dict(TCP_KEEPIDLE=60,
-                   TCP_KEEPINTVL=2,
-                   TCP_KEEPCNT=1,
-                   TCP_USER_TIMEOUT=1000)
+        opt = {
+            'TCP_KEEPIDLE': 60,
+            'TCP_KEEPINTVL': 2,
+            'TCP_KEEPCNT': 1,
+            'TCP_USER_TIMEOUT': 1000
+        }
         params.tcp_options = copy.deepcopy(opt)
         self.assertEqual(params.tcp_options, opt)
 

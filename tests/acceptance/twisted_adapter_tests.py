@@ -450,14 +450,13 @@ class TwistedChannelTestCase(TestCase):
         args = [object()]
         kwargs = {"routing_key": object(), "body": object()}
         d = self.channel.basic_publish(*args, **kwargs)
-        kwargs.update(
-            dict(
-                # Args are converted to kwargs
-                exchange=args[0],
-                # Defaults
-                mandatory=False,
-                properties=None,
-            ))
+        kwargs.update({
+            # Args are converted to kwargs
+            "exchange": args[0],
+            # Defaults
+            "mandatory": False,
+            "properties": None,
+        })
         self.pika_channel.basic_publish.assert_called_once_with(**kwargs)
         assert d.called
 
@@ -489,7 +488,7 @@ class TwistedChannelTestCase(TestCase):
         kwargs = {"prefetch_size": 2}
         d = self.channel.basic_qos(**kwargs)
         # Defaults
-        kwargs.update(dict(prefetch_count=0, global_qos=False))
+        kwargs.update({"prefetch_count": 0, "global_qos": False})
         self._test_wrapped_func(self.pika_channel.basic_qos, kwargs, True)
         assert d.called
 

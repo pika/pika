@@ -644,7 +644,7 @@ class _PollerBase(pika._utils.AbstractBase):  # type: ignore  # pylint: disable=
         self._waking_mutex = threading.Lock()
 
         # fd-to-handler function mappings
-        self._fd_handlers: dict[int, Callable[..., None]] = dict()
+        self._fd_handlers: dict[int, Callable[..., None]] = {}
 
         # event-to-fdset mappings
         self._fd_events: dict[int, set[int]] = {
@@ -1161,7 +1161,7 @@ class KQueuePoller(_PollerBase):
         if self._kqueue is None:
             return
 
-        kevents = list()
+        kevents = []
 
         if events_to_clear & PollEvents.READ:
             kevents.append(

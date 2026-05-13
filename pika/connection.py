@@ -1126,7 +1126,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
         self._frame_buffer = b''
 
         # Dict of open channels
-        self._channels = dict()
+        self._channels = {}
 
         # Data used for Heartbeat checking and back-pressure detection
         self.bytes_sent = 0
@@ -2386,7 +2386,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
         """
         self.server_properties = method_frame.method.server_properties  # pyright: ignore[reportAttributeAccessIssue]
         self.server_capabilities = self.server_properties.get(  # pyright: ignore[reportOptionalMemberAccess]
-            'capabilities', dict())
+            'capabilities', {})
         if hasattr(self.server_properties, 'capabilities'):
             del self.server_properties[
                 'capabilities']  # pyright: ignore[reportOptionalSubscript]

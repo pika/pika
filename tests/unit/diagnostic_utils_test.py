@@ -33,7 +33,11 @@ class DiagnosticUtilsTest(unittest.TestCase):
 
         # Test with args and kwargs
         expected_args = ('a', 2, 'B', Exception('oh-oh'))
-        expected_kwargs = dict(hello='world', bye='hello', error=RuntimeError())
+        expected_kwargs = {
+            'hello': 'world',
+            'bye': 'hello',
+            'error': RuntimeError()
+        }
 
         result = my_func(*expected_args, **expected_kwargs)
 
@@ -48,8 +52,8 @@ class DiagnosticUtilsTest(unittest.TestCase):
             self.assertIs(bucket[0][1][key], expected_kwargs[key])
 
         # Now, repeat without any args/kwargs
-        expected_args = tuple()
-        expected_kwargs = dict()
+        expected_args = ()
+        expected_kwargs = {}
         bucket.clear()
 
         result = my_func()
