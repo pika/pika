@@ -1,11 +1,4 @@
 # pylint: disable=C0111,C0103,R0205
-
-import functools
-import random
-
-import pika
-from pika.exchange_type import ExchangeType
-
 """
 This module implements a client that connects to multiple RabbitMQ brokers
 distributed across different ports (5672, 5673, 5674) and consumes messages
@@ -28,6 +21,12 @@ The name of the module, `blocking_consume_recover_multiple_hosts.py`, reflects i
 - "recover": The module is designed to recover from connection errors by attempting to reconnect.
 - "multiple_hosts": It connects to multiple RabbitMQ brokers distributed across different ports to ensure availability and redundancy.
 """
+
+import functools
+import random
+
+import pika
+from pika.exchange_type import ExchangeType
 
 
 def on_message(ch, method_frame, _header_frame, body, userdata=None):
