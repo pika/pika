@@ -65,8 +65,8 @@ extend-exclude = [
 quote-style = "single"
 
 [tool.ruff.lint]
-select = ["E", "W", "F", "I", "UP"]
-ignore = ["E501"]
+select = ["E", "W", "F", "I", "UP", "C"]
+ignore = ["E501", "C901"]
 
 [tool.yapf]
 based_on_style = "google"
