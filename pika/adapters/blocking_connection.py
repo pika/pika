@@ -131,7 +131,7 @@ class _CallbackResult:
         """Append an element to values"""
         assert not self._ready or isinstance(self._values, list), (
             '_CallbackResult state is incompatible with append_element: '
-            'ready=%r; values=%r' % (self._ready, self._values))
+            f'ready={self._ready!r}; values={self._values!r}')
 
         try:
             value = self._value_class(*args, **kwargs)  # type: ignore
@@ -158,8 +158,8 @@ class _CallbackResult:
         """
         assert self._ready, '_CallbackResult was not set'
         assert isinstance(self._values, tuple) and len(self._values) == 1, (
-            '_CallbackResult value is incompatible with set_value_once: %r' %
-            (self._values,))
+            f'_CallbackResult value is incompatible with set_value_once: {self._values!r}'
+        )
 
         return self._values[0]
 
@@ -174,8 +174,8 @@ class _CallbackResult:
         """
         assert self._ready, '_CallbackResult was not set'
         assert isinstance(self._values, list) and self._values, (
-            '_CallbackResult value is incompatible with append_element: %r' %
-            (self._values,))
+            f'_CallbackResult value is incompatible with append_element: {self._values!r}'
+        )
 
         return self._values
 
@@ -232,9 +232,7 @@ class _TimerEvt:
         self.timer_id: object | None = None
 
     def __repr__(self) -> str:
-        return '<{} timer_id={} callback={}>'.format(self.__class__.__name__,
-                                                     self.timer_id,
-                                                     self._callback)
+        return f'<{self.__class__.__name__} timer_id={self.timer_id} callback={self._callback}>'
 
     def dispatch(self) -> None:
         """Dispatch the user's callback method"""
@@ -259,9 +257,7 @@ class _ConnectionBlockedUnblockedEvtBase(Generic[T]):
         self._method_frame = method_frame
 
     def __repr__(self) -> str:
-        return '<{} callback={}, frame={}>'.format(self.__class__.__name__,
-                                                   self._callback,
-                                                   self._method_frame)
+        return f'<{self.__class__.__name__} callback={self._callback}, frame={self._method_frame}>'
 
     def dispatch(self) -> None:
         """Dispatch the user's callback method"""
@@ -447,7 +443,7 @@ class BlockingConnection:
 
         if not configs:
             raise ValueError('Expected a non-empty sequence of connection '
-                             'parameters, but got {!r}.'.format(configs))
+                             f'parameters, but got {configs!r}.')
 
         # Connection workflow completion args
         #   `result` may be an instance of connection on success or exception on
@@ -846,8 +842,7 @@ class BlockingConnection:
             connection (NEW in v1.0.0)
         """
         if not self.is_open:
-            msg = '{}.close({}, {!r}) called on closed connection.'.format(
-                self.__class__.__name__, reply_code, reply_text)
+            msg = f'{self.__class__.__name__}.close({reply_code}, {reply_text!r}) called on closed connection.'
             LOGGER.error(msg)
             raise exceptions.ConnectionWrongStateError(msg)
 
@@ -1058,8 +1053,7 @@ class _ConsumerCancellationEvt(_ChannelPendingEvt):
         self.method_frame = method_frame
 
     def __repr__(self) -> str:
-        return '<{} method_frame={!r}>'.format(self.__class__.__name__,
-                                               self.method_frame)
+        return f'<{self.__class__.__name__} method_frame={self.method_frame!r}>'
 
     @property
     def method(self):
@@ -1096,10 +1090,7 @@ class _ReturnedMessageEvt(_ChannelPendingEvt):
         self.body = body
 
     def __repr__(self) -> str:
-        return ('<%s callback=%r channel=%r method=%r properties=%r '
-                'body=%.300r>') % (self.__class__.__name__, self.callback,
-                                   self.channel, self.method, self.properties,
-                                   self.body)
+        return f'<{self.__class__.__name__} callback={self.callback!r} channel={self.channel!r} method={self.method!r} properties={self.properties!r} body={self.body[:300]!r}>'
 
     def dispatch(self) -> None:
         """Dispatch user's callback"""
@@ -1215,8 +1206,7 @@ class _QueueConsumerGeneratorInfo:
         self.pending_events: deque[Any] = deque()
 
     def __repr__(self) -> str:
-        return '<{} params={!r} consumer_tag={!r}>'.format(
-            self.__class__.__name__, self.params, self.consumer_tag)
+        return f'<{self.__class__.__name__} params={self.params!r} consumer_tag={self.consumer_tag!r}>'
 
 
 class BlockingChannel:
@@ -2049,9 +2039,8 @@ class BlockingChannel:
             if params != self._queue_consumer_generator.params:
                 raise ValueError(
                     'Consume with different params not allowed on existing '
-                    'queue consumer generator; previous params: %r; '
-                    'new params: %r' % (self._queue_consumer_generator.params,
-                                        (queue, auto_ack, exclusive)))
+                    f'queue consumer generator; previous params: {self._queue_consumer_generator.params!r}; '
+                    f'new params: {(queue, auto_ack, exclusive)!r}')
         else:
             LOGGER.debug('Creating new queue consumer generator; params: %r',
                          params)

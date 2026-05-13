@@ -20,7 +20,7 @@ class AMQPObject:
             if getattr(self.__class__, key, None) != value:
                 items.append(f'{key}={value}')
         if not items:
-            return "<%s>" % self.NAME
+            return f"<{self.NAME}>"
         return f"<{self.NAME}({sorted(items)})>"
 
     def __eq__(self, other: object) -> bool:

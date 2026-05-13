@@ -9,7 +9,7 @@ from pika.exchange_type import ExchangeType
 body_buffer = []
 lock = threading.Lock()
 
-print('pika version: %s' % pika.__version__)
+print(f'pika version: {pika.__version__}')
 
 connection = pika.BlockingConnection(
     pika.ConnectionParameters(host='localhost'))
@@ -45,11 +45,11 @@ def process_buffer():
             if not ticker:
                 continue
 
-            print('got ticker %s, gonna bind it...' % ticker)
+            print(f'got ticker {ticker}, gonna bind it...')
             bind_channel.queue_bind(exchange='com.micex.lasttrades',
                                     queue=queue_tickers,
                                     routing_key=str(ticker))
-            print('ticker %s binded ok' % ticker)
+            print(f'ticker {ticker} binded ok')
     finally:
         lock.release()
 

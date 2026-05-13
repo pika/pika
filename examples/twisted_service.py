@@ -66,9 +66,8 @@ class PikaService(service.MultiService):
                 factory=f)
         serv.factory = f
         f.service = serv  # pylint: disable=W0201
-        name = '%s%s:%d' % ('ssl:' if self.parameters.ssl_options else '',
-                            self.parameters.host, self.parameters.port)
-        serv.__repr__ = lambda: '<AMQP Connection to %s>' % name
+        name = f'{("ssl:" if self.parameters.ssl_options else "")}{self.parameters.host}:{self.parameters.port}'
+        serv.__repr__ = lambda: f'<AMQP Connection to {name}>'
         serv.setName(name)
         serv.setServiceParent(self)
 
@@ -139,8 +138,7 @@ class PikaProtocol(twisted_connection.TwistedProtocolConnection):
             msg,
         ) = item
 
-        log.msg('%s (%s): %s' %
-                (deliver.exchange, deliver.routing_key, repr(msg)),
+        log.msg(f'{deliver.exchange} ({deliver.routing_key}): {repr(msg)}',
                 system='Pika:<=')
         d = defer.maybeDeferred(callback, item)
         d.addCallbacks(lambda _: channel.basic_ack(deliver.delivery_tag),
@@ -176,7 +174,7 @@ class PikaProtocol(twisted_connection.TwistedProtocolConnection):
                                               body=msg,
                                               properties=prop)
         except Exception as error:  # pylint: disable=W0703
-            log.msg('Error while sending message: %s' % error, system=self.name)
+            log.msg(f'Error while sending message: {error}', system=self.name)
 
 
 class PikaFactory(protocol.ReconnectingClientFactory):
@@ -198,13 +196,12 @@ class PikaFactory(protocol.ReconnectingClientFactory):
         return self.client
 
     def clientConnectionLost(self, connector, reason):  # pylint: disable=W0221
-        log.msg('Lost connection.  Reason: %s' % reason.value, system=self.name)
+        log.msg(f'Lost connection.  Reason: {reason.value}', system=self.name)
         protocol.ReconnectingClientFactory.clientConnectionLost(
             self, connector, reason)
 
     def clientConnectionFailed(self, connector, reason):
-        log.msg('Connection failed. Reason: %s' % reason.value,
-                system=self.name)
+        log.msg(f'Connection failed. Reason: {reason.value}', system=self.name)
         protocol.ReconnectingClientFactory.clientConnectionFailed(
             self, connector, reason)
 

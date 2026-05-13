@@ -143,10 +143,10 @@ class _ThreadedTestWrapper:
             self._exc_info = sys.exc_info()
             del self._fun_result  # to force exception on inadvertent access
             if not isinstance(self._exc_info[1], unittest.SkipTest):
-                print('ERROR start() of test {} failed:\n{}'.format(
-                    self, self._exc_info_to_str(self._exc_info)),
-                      end='',
-                      file=self._stderr)
+                print(
+                    f'ERROR start() of test {self} failed:\n{self._exc_info_to_str(self._exc_info)}',
+                    end='',
+                    file=self._stderr)
 
     @staticmethod
     def _exc_info_to_str(exc_info):

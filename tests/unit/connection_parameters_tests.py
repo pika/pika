@@ -101,10 +101,10 @@ class ParametersTestsBase(unittest.TestCase):
         """
         for name, expected_value in self.get_default_properties().items():
             value = getattr(params, name)
-            self.assertEqual(value,
-                             expected_value,
-                             msg='Expected %s=%r, but got %r' %
-                             (name, expected_value, value))
+            self.assertEqual(
+                value,
+                expected_value,
+                msg=f'Expected {name}={expected_value!r}, but got {value!r}')
 
 
 class ParametersTests(ParametersTestsBase):
@@ -537,10 +537,12 @@ class ConnectionParametersTests(ParametersTestsBase):
         # Check property values
         for t_param in expected_values:
             value = getattr(params, t_param)
-            self.assertEqual(expected_values[t_param],
-                             value,
-                             msg='Expected %s=%r, but got %r' %
-                             (t_param, expected_values[t_param], value))
+            self.assertEqual(
+                expected_values[t_param],
+                value,
+                msg=
+                f'Expected {t_param}={expected_values[t_param]!r}, but got {value!r}'
+            )
 
     def test_callable_heartbeat(self):
 
@@ -690,10 +692,12 @@ class URLParametersTests(ParametersTestsBase):
             expected_value = query_args[t_param]
             actual_value = getattr(params, t_param)
 
-            self.assertEqual(actual_value,
-                             expected_value,
-                             msg='Expected %s=%r, but got %r' %
-                             (t_param, expected_value, actual_value))
+            self.assertEqual(
+                actual_value,
+                expected_value,
+                msg=
+                f'Expected {t_param}={expected_value!r}, but got {actual_value!r}'
+            )
 
         # check all values from base URL
         self.assertEqual(params.credentials.username, 'myuser')

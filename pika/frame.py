@@ -267,4 +267,4 @@ def decode_frame(data_in: bytes) -> tuple[int, Frame | ProtocolHeader | None]:  
         # Return the amount of data and a Heartbeat frame
         return frame_end, Heartbeat()
 
-    raise exceptions.InvalidFrameError("Unknown frame type: %i" % frame_type)
+    raise exceptions.InvalidFrameError(f"Unknown frame type: {frame_type}")

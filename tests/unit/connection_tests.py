@@ -428,12 +428,12 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
         for required_key in ('product', 'platform', 'capabilities',
                              'information', 'version'):
             self.assertTrue(required_key in client_props,
-                            '%s missing' % required_key)
+                            f'{required_key} missing')
 
     def test_client_properties_default(self):
         expectation = {
             'product': connection.PRODUCT,
-            'platform': 'Python %s' % platform.python_version(),
+            'platform': f'Python {platform.python_version()}',
             'capabilities': {
                 'authentication_failure_close': True,
                 'basic.nack': True,

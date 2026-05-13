@@ -95,7 +95,7 @@ class BlockingTestCaseBase(unittest.TestCase):
                 return real_poll(*args, **kwargs)
             except BaseException as exc:
                 self.fail('Unwanted exception leaked into asynchronous layer '
-                          'via ioloop.poll(): {!r}'.format(exc))
+                          f'via ioloop.poll(): {exc!r}')
 
         connection._impl.ioloop.poll = my_poll
         self.addCleanup(setattr, connection._impl.ioloop, 'poll', real_poll)
@@ -111,7 +111,7 @@ class BlockingTestCaseBase(unittest.TestCase):
                 raise
             except BaseException as exc:
                 self.fail('Unwanted exception leaked into asynchronous layer '
-                          'via ioloop.process_timeouts(): {!r}'.format(exc))
+                          f'via ioloop.process_timeouts(): {exc!r}')
 
         connection._impl.ioloop.process_timeouts = my_process_timeouts
         self.addCleanup(setattr, connection._impl.ioloop, 'process_timeouts',
@@ -2968,7 +2968,7 @@ class TestNoAckMessageNotRestoredToQueueOnChannelClose(BlockingTestCaseBase):
             if num_messages == 2:
                 break
         else:
-            self.fail('expected 2 messages, but consumed %i' % (num_messages,))
+            self.fail(f'expected 2 messages, but consumed {num_messages}')
 
         # Verify no more ready messages in queue
         frame = ch.queue_declare(q_name, passive=True)

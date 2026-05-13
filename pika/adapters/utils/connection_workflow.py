@@ -106,11 +106,10 @@ class AMQPConnectionWorkflowFailed(AMQPConnectorException):
         self.exceptions = tuple(exceptions)
 
     def __repr__(self) -> str:
-        return ('{}: {} exceptions in all; last exception - {!r}; first '
-                'exception - {!r}').format(
-                    self.__class__.__name__, len(self.exceptions),
-                    self.exceptions[-1],
-                    self.exceptions[0] if len(self.exceptions) > 1 else None)
+        return (
+            f'{self.__class__.__name__}: {len(self.exceptions)} exceptions in all; last exception - {self.exceptions[-1]!r}; first '
+            f'exception - {self.exceptions[0] if len(self.exceptions) > 1 else None!r}'
+        )
 
 
 class AMQPConnector:
@@ -259,8 +258,8 @@ class AMQPConnector:
                 _LOG.debug('AMQPConnector.abort(): closing of Connection was '
                            'already initiated.')
                 assert self._state == self._STATE_TIMEOUT, \
-                    ('Connection is closing, but not in TIMEOUT state; state={}'
-                     .format(self._state))
+                    (f'Connection is closing, but not in TIMEOUT state; state={self._state}'
+                     )
 
     def _close(self) -> None:
         """Cancel asynchronous tasks and clean up to assist garbage collection.
@@ -289,8 +288,7 @@ class AMQPConnector:
         # synchronous closing. We special-case it elsewhere in the code where
         # needed.
         assert self._amqp_conn is None, \
-            '_deactivate called with self._amqp_conn not None; state={}'.format(
-                self._state)
+            f'_deactivate called with self._amqp_conn not None; state={self._state}'
 
         if self._tcp_timeout_ref is not None:
             self._tcp_timeout_ref.cancel()
@@ -330,8 +328,9 @@ class AMQPConnector:
         self._tcp_timeout_ref = None
 
         error = AMQPConnectorSocketConnectError(
-            socket.timeout('TCP connection attempt timed out: {!r}/{}'.format(
-                self._conn_params.host, self._addr_record)))
+            socket.timeout(
+                f'TCP connection attempt timed out: {self._conn_params.host!r}/{self._addr_record}'
+            ))
         self._report_completion_and_cleanup(error)
 
     def _on_overall_timeout(self) -> None:
@@ -352,9 +351,9 @@ class AMQPConnector:
         self._state = self._STATE_TIMEOUT
 
         if prev_state == self._STATE_AMQP:
-            msg = ('Timeout while setting up AMQP to {!r}/{}; ssl={}'.format(
-                self._conn_params.host, self._addr_record,
-                bool(self._conn_params.ssl_options)))
+            msg = (
+                f'Timeout while setting up AMQP to {self._conn_params.host!r}/{self._addr_record}; ssl={bool(self._conn_params.ssl_options)}'
+            )
             _LOG.error(msg)
             # Initiate close of AMQP connection and wait for asynchronous
             # callback from the Connection instance before reporting completion
@@ -367,15 +366,14 @@ class AMQPConnector:
         if prev_state == self._STATE_TCP:
             error: Exception = AMQPConnectorSocketConnectError(
                 AMQPConnectorStackTimeout(
-                    'Timeout while connecting socket to {!r}/{}'.format(
-                        self._conn_params.host, self._addr_record)))
+                    f'Timeout while connecting socket to {self._conn_params.host!r}/{self._addr_record}'
+                ))
         else:
             assert prev_state == self._STATE_TRANSPORT
             error = AMQPConnectorTransportSetupError(
                 AMQPConnectorStackTimeout(
-                    'Timeout while setting up transport to {!r}/{}; ssl={}'.
-                    format(self._conn_params.host, self._addr_record,
-                           bool(self._conn_params.ssl_options))))
+                    f'Timeout while setting up transport to {self._conn_params.host!r}/{self._addr_record}; ssl={bool(self._conn_params.ssl_options)}'
+                ))
 
         self._report_completion_and_cleanup(error)
 
@@ -495,9 +493,8 @@ class AMQPConnector:
         elif self._state == self._STATE_TIMEOUT:
             result = AMQPConnectorAMQPHandshakeError(
                 AMQPConnectorStackTimeout(
-                    'Timeout during AMQP handshake{!r}/{}; ssl={}'.format(
-                        self._conn_params.host, self._addr_record,
-                        bool(self._conn_params.ssl_options))))
+                    f'Timeout during AMQP handshake{self._conn_params.host!r}/{self._addr_record}; ssl={bool(self._conn_params.ssl_options)}'
+                ))
         elif self._state == self._STATE_AMQP:
             if error is None:
                 _LOG.debug(
@@ -687,8 +684,7 @@ class AMQPConnectionWorkflow(AbstractAMQPConnectionWorkflow):
             iter(connection_configs)
         except Exception as error:
             raise TypeError(
-                'connection_configs does not support iteration: {!r}'.format(
-                    error))
+                f'connection_configs does not support iteration: {error!r}')
         if not connection_configs:
             raise ValueError(
                 f'connection_configs is empty: {connection_configs!r}.')

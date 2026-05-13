@@ -142,8 +142,7 @@ class TwistedChannel:
             self._on_consumer_cancelled_by_broker)
 
     def __repr__(self) -> str:
-        return '<{cls} channel={chan!r}>'.format(cls=self.__class__.__name__,
-                                                 chan=self._channel)
+        return f'<{self.__class__.__name__} channel={self._channel!r}>'
 
     def _on_channel_closed(self, _channel: channel.Channel,
                            reason: Exception | None) -> None:
@@ -1033,8 +1032,8 @@ class TwistedChannel:
             for consumer_tag in list(
                     self._queue_name_to_consumer_tags.get(queue_name, set())):
                 self._consumers[consumer_tag].close(
-                    exceptions.ConsumerCancelled("Queue %s was deleted." %
-                                                 queue_name))
+                    exceptions.ConsumerCancelled(
+                        f"Queue {queue_name} was deleted."))
                 del self._consumers[consumer_tag]
                 self._queue_name_to_consumer_tags[queue_name].remove(
                     consumer_tag)

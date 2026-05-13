@@ -54,7 +54,7 @@ def main():
 
 
 def on_server_rx_rpc_request(ch, method_frame, properties, body):
-    print('RPC Server got request: %s' % body)
+    print(f'RPC Server got request: {body}')
 
     ch.basic_publish('', routing_key=properties.reply_to, body='Polo')
 
@@ -64,7 +64,7 @@ def on_server_rx_rpc_request(ch, method_frame, properties, body):
 
 
 def on_client_rx_reply_from_server(ch, _method_frame, _properties, body):
-    print('RPC Client got reply: %s' % body)
+    print(f'RPC Client got reply: {body}')
 
     # NOTE A real client might want to make additional RPC requests, but in this
     # simple example we're closing the channel after getting our first reply

@@ -58,7 +58,7 @@ def make_stop_on_error_with_self(the_self=None):
                 this = args[0]
             if not isinstance(this, AsyncTestCase):
                 raise AssertionError('Decorated method is not an AsyncTestCase '
-                                     'instance method: {!r}'.format(fun))
+                                     f'instance method: {fun!r}')
             try:
                 return fun(*args, **kwargs)
             except Exception as error:  # pylint: disable=W0703
@@ -161,7 +161,7 @@ class AsyncTestCase(unittest.TestCase):
             self.assertTrue(
                 self._public_stop_requested,
                 'Unexpected end of test; connection close reason: '
-                '{!r}'.format(self._conn_closed_reason))
+                f'{self._conn_closed_reason!r}')
             if self._public_stop_error_in is not None:
                 raise self._public_stop_error_in  # pylint: disable=E0702
         finally:

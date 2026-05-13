@@ -805,8 +805,7 @@ class DefaultPollerSocketEventsTestCase(unittest.TestCase):
 
         def handle_socket_events(_fd, in_events):
             socket_error = sock.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
-            socket_error = 0 if socket_error == 0 else '{} ({})'.format(
-                socket_error, os.strerror(socket_error))
+            socket_error = 0 if socket_error == 0 else f'{socket_error} ({os.strerror(socket_error)})'
 
             _trace_stderr('[%s] %s: watching=%s; indicated=%s; sockerr=%s',
                           ioloop._poller.__class__.__name__, msg_prefix,
@@ -817,9 +816,8 @@ class DefaultPollerSocketEventsTestCase(unittest.TestCase):
             #      without being requested.
             self.assertTrue(
                 in_events & (requested_eventmasks[0] | self.ERROR),
-                'watching={}; indicated={}'.format(
-                    _fd_events_to_str(requested_eventmasks[0]),
-                    _fd_events_to_str(in_events)))
+                f'watching={_fd_events_to_str(requested_eventmasks[0])}; indicated={_fd_events_to_str(in_events)}'
+            )
 
             requested_eventmasks.pop(0)
 

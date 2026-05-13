@@ -11,10 +11,8 @@ def require_string(value: Any, value_name: str) -> None:
 
     """
     if not isinstance(value, str):
-        raise TypeError('{} must be a str or unicode str, but got {!r}'.format(
-            value_name,
-            value,
-        ))
+        raise TypeError(
+            f'{value_name} must be a str or unicode str, but got {value!r}')
 
 
 def require_callback(callback: Callable[..., Any],
@@ -25,10 +23,8 @@ def require_callback(callback: Callable[..., Any],
 
     """
     if not callable(callback):
-        raise TypeError('callback {} must be callable, but got {!r}'.format(
-            callback_name,
-            callback,
-        ))
+        raise TypeError(
+            f'callback {callback_name} must be callable, but got {callback!r}')
 
 
 def rpc_completion_callback(callback: Optional[Callable[..., Any]]) -> bool:

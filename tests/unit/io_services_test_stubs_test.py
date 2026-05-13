@@ -68,10 +68,9 @@ class TestStartCalledFromOtherThreadAndWithVaryingNativeLoops(
         # IOServicesTestStubs
         if cls._native_loop_classes != _SUPPORTED_LOOP_CLASSES:
             raise AssertionError(
-                'Expected these {} native I/O loop classes from '
-                'IOServicesTestStubs: {!r}, but got these {}: {!r}'.format(
-                    len(_SUPPORTED_LOOP_CLASSES), _SUPPORTED_LOOP_CLASSES,
-                    len(cls._native_loop_classes), cls._native_loop_classes))
+                f'Expected these {len(_SUPPORTED_LOOP_CLASSES)} native I/O loop classes from '
+                f'IOServicesTestStubs: {_SUPPORTED_LOOP_CLASSES!r}, but got these {len(cls._native_loop_classes)}: {cls._native_loop_classes!r}'
+            )
 
     def setUp(self):
         self._runner_thread_id = threading.current_thread().ident

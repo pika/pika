@@ -191,8 +191,8 @@ class _Timeout:
 
         if deadline < 0:
             raise ValueError(
-                'deadline must be non-negative epoch number, but got %r' %
-                (deadline,))
+                f'deadline must be non-negative epoch number, but got {deadline!r}'
+            )
 
         if not callable(callback):
             raise TypeError(
@@ -283,8 +283,7 @@ class _Timer:
 
         if delay < 0:
             raise ValueError(
-                'call_later: delay must be non-negative, but got {!r}'.format(
-                    delay))
+                f'call_later: delay must be non-negative, but got {delay!r}')
 
         now = pika._utils.time_now()
 

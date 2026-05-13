@@ -391,7 +391,7 @@ class ChannelTests(unittest.TestCase):
         self.obj._set_state(self.obj.OPEN)
         expectation = 'ctag1.'
         mock_on_msg_callback = mock.Mock()
-        for ctag in ['ctag1.%i' % ii for ii in range(11)]:
+        for ctag in [f'ctag1.{ii}' for ii in range(11)]:
             self.obj._cancelled.add(ctag)
         self.assertEqual(
             self.obj.basic_consume('test-queue', mock_on_msg_callback)[:6],

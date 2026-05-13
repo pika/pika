@@ -145,9 +145,7 @@ class Channel:
         return self.channel_number
 
     def __repr__(self) -> str:
-        return '<{} number={} {} conn={!r}>'.format(
-            self.__class__.__name__, self.channel_number,
-            self._STATE_NAMES[self._state], self.connection)\
+        return f'<{self.__class__.__name__} number={self.channel_number} {self._STATE_NAMES[self._state]} conn={self.connection!r}>'\
 
     def add_callback(self,
                      callback: Callable[..., Any],
@@ -392,7 +390,7 @@ class Channel:
         :rtype: str
 
         """
-        return 'ctag%i.%s' % (self.channel_number, uuid.uuid4().hex)
+        return f'ctag{self.channel_number}.{uuid.uuid4().hex}'
 
     def basic_get(self,
                   queue: str,
@@ -1447,8 +1445,8 @@ class Channel:
 
         """
         assert method.synchronous, (
-            'Only synchronous-capable methods may be used with _rpc: %r' %
-            (method,))
+            f'Only synchronous-capable methods may be used with _rpc: {method!r}'
+        )
 
         # Validate we got None or a list of acceptable_replies
         if not isinstance(acceptable_replies, (type(None), list)):
