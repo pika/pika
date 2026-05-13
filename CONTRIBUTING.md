@@ -65,8 +65,8 @@ If you would like to run TLS/SSL tests, use the following procedure:
 
 ## Code Formatting and Linting
 
-Please format your code using [yapf](https://pypi.org/project/yapf/) with ``google`` style prior to issuing your pull request. 
-*Note: only format those lines that you have changed in your pull request. 
+Please format your code using [yapf](https://pypi.org/project/yapf/) with ``google`` style prior to issuing your pull request.
+*Note: only format those lines that you have changed in your pull request.
 If you format an entire file and change code outside of the scope of your PR, it will likely be rejected.*
 
     hatch run fmt

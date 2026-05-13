@@ -145,7 +145,7 @@ class Channel:
         return self.channel_number
 
     def __repr__(self) -> str:
-        return f'<{self.__class__.__name__} number={self.channel_number} {self._STATE_NAMES[self._state]} conn={self.connection!r}>'\
+        return f'<{self.__class__.__name__} number={self.channel_number} {self._STATE_NAMES[self._state]} conn={self.connection!r}>'
 
     def add_callback(self,
                      callback: Callable[..., Any],

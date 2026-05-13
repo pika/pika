@@ -1090,7 +1090,10 @@ class _ReturnedMessageEvt(_ChannelPendingEvt):
         self.body = body
 
     def __repr__(self) -> str:
-        return f'<{self.__class__.__name__} callback={self.callback!r} channel={self.channel!r} method={self.method!r} properties={self.properties!r} body={self.body[:300]!r}>'
+        return (
+            f'<{self.__class__.__name__} callback={self.callback!r} channel={self.channel!r}'
+            f' method={self.method!r} properties={self.properties!r}'
+            f' body={self.body!r:.300}>')
 
     def dispatch(self) -> None:
         """Dispatch user's callback"""

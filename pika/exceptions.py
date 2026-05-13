@@ -331,7 +331,7 @@ class ShortStringTooLong(AMQPError):
     def __repr__(self) -> str:
         return (
             f'{self.__class__.__name__}: AMQP Short String can contain up to 255 bytes: '
-            f'{self.args[0]:.300}')
+            f'{self.args[0]!s:.300}')
 
 
 class DuplicateGetOkCallback(ChannelError):
