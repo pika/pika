@@ -65,7 +65,7 @@ extend-exclude = [
 quote-style = "single"
 
 [tool.ruff.lint]
-select = ["E", "W", "F", "I", "UP", "C"]
+select = ["E", "W", "F", "I", "UP", "C", "PTH"]
 ignore = ["E501", "C901"]
 
 [tool.yapf]
