@@ -61,6 +61,10 @@ extend-exclude = [
     "utils/codegen.py",   # code generation helper script
 ]
 
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]
+ignore = []
+
 [tool.yapf]
 based_on_style = "google"
 
