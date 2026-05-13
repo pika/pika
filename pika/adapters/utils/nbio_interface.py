@@ -14,16 +14,16 @@ testing and lessening the maintenance burden.
 from __future__ import annotations
 
 import abc
-from typing import TYPE_CHECKING, Callable, Optional, Tuple, Union, Any
+from typing import TYPE_CHECKING, Callable, Any
 
-import pika.compat
+import pika._utils
 
 if TYPE_CHECKING:
     import ssl
     import socket
 
 
-class AbstractIOServices(pika.compat.AbstractBase):  # type: ignore
+class AbstractIOServices(pika._utils.AbstractBase):  # type: ignore
     """Interface to I/O services required by `pika.adapters.BaseConnection` and
     related utilities.
 
@@ -153,9 +153,9 @@ class AbstractIOServices(pika.compat.AbstractBase):  # type: ignore
 
     @abc.abstractmethod
     def connect_socket(
-        self, sock: socket.socket, resolved_addr: Tuple[str, int],
-        on_done: Callable[[Optional[BaseException]],
-                          None]) -> AbstractIOReference:
+            self, sock: socket.socket, resolved_addr: tuple[str, int],
+            on_done: Callable[[BaseException | None],
+                              None]) -> AbstractIOReference:
         """Perform the equivalent of `socket.connect()` on a previously-resolved
         address asynchronously.
 
@@ -187,12 +187,11 @@ class AbstractIOServices(pika.compat.AbstractBase):  # type: ignore
             self,
             protocol_factory: Callable[[], AbstractStreamProtocol],
             sock: socket.socket,
-            on_done: Callable[[
-                Union[BaseException, Tuple[AbstractStreamTransport,
-                                           AbstractStreamProtocol]]
-            ], None],
-            ssl_context: Optional[ssl.SSLContext] = None,
-            server_hostname: Optional[str] = None) -> AbstractIOReference:
+            on_done: Callable[[(BaseException | tuple[AbstractStreamTransport,
+                                                      AbstractStreamProtocol])],
+                              None],
+            ssl_context: ssl.SSLContext | None = None,
+            server_hostname: str | None = None) -> AbstractIOReference:
         """Perform SSL session establishment, if requested, on the already-
         connected socket and link the streaming transport/protocol pair.
 
@@ -225,7 +224,7 @@ class AbstractIOServices(pika.compat.AbstractBase):  # type: ignore
         raise NotImplementedError
 
 
-class AbstractFileDescriptorServices(pika.compat.AbstractBase):  # type: ignore
+class AbstractFileDescriptorServices(pika._utils.AbstractBase):  # type: ignore
     """Interface definition of common non-blocking file descriptor services
     required by some utility implementations.
 
@@ -291,7 +290,7 @@ class AbstractFileDescriptorServices(pika.compat.AbstractBase):  # type: ignore
         raise NotImplementedError
 
 
-class AbstractTimerReference(pika.compat.AbstractBase):  # type: ignore
+class AbstractTimerReference(pika._utils.AbstractBase):  # type: ignore
     """Reference to asynchronous operation"""
 
     @abc.abstractmethod
@@ -301,7 +300,7 @@ class AbstractTimerReference(pika.compat.AbstractBase):  # type: ignore
         raise NotImplementedError
 
 
-class AbstractIOReference(pika.compat.AbstractBase):  # type: ignore
+class AbstractIOReference(pika._utils.AbstractBase):  # type: ignore
     """Reference to asynchronous I/O operation"""
 
     @abc.abstractmethod
@@ -314,7 +313,7 @@ class AbstractIOReference(pika.compat.AbstractBase):  # type: ignore
         raise NotImplementedError
 
 
-class AbstractStreamProtocol(pika.compat.AbstractBase):  # type: ignore
+class AbstractStreamProtocol(pika._utils.AbstractBase):  # type: ignore
     """Stream protocol interface. It's compatible with a subset of
     `asyncio.protocols.Protocol` for compatibility with asyncio-based
     `AbstractIOServices` implementation.
@@ -331,7 +330,7 @@ class AbstractStreamProtocol(pika.compat.AbstractBase):  # type: ignore
         raise NotImplementedError
 
     @abc.abstractmethod
-    def connection_lost(self, error: Optional[BaseException]) -> None:
+    def connection_lost(self, error: BaseException | None) -> None:
         """Called upon loss or closing of connection.
 
         NOTE: `connection_made()` and `connection_lost()` are each called just
@@ -347,7 +346,7 @@ class AbstractStreamProtocol(pika.compat.AbstractBase):  # type: ignore
         raise NotImplementedError
 
     @abc.abstractmethod
-    def eof_received(self) -> Optional[bool]:
+    def eof_received(self) -> bool | None:
         """Called after the remote peer shuts its write end of the connection.
 
         :returns: A falsy value (including None) will cause the transport to
@@ -388,7 +387,7 @@ class AbstractStreamProtocol(pika.compat.AbstractBase):  # type: ignore
     #     raise NotImplementedError
 
 
-class AbstractStreamTransport(pika.compat.AbstractBase):  # type: ignore
+class AbstractStreamTransport(pika._utils.AbstractBase):  # type: ignore
     """Stream transport interface. It's compatible with a subset of
     `asyncio.transports.Transport` for compatibility with asyncio-based
     `AbstractIOServices` implementation.

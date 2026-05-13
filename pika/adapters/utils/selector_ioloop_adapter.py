@@ -10,7 +10,7 @@ import abc
 import logging
 import socket
 import threading
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable
 
 from pika.adapters.utils import nbio_interface, io_services_utils
 from pika.adapters.utils.io_services_utils import (check_callback_arg,
@@ -176,7 +176,7 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         self._loop = native_loop
 
         # Active watchers: maps file descriptors to `_FileDescriptorCallbacks`
-        self._watchers: Dict[int, _FileDescriptorCallbacks] = dict()
+        self._watchers: dict[int, _FileDescriptorCallbacks] = dict()
 
         # Native loop-specific event masks of interest
         self._readable_mask = self._loop.READ
@@ -415,8 +415,8 @@ class _FileDescriptorCallbacks:
     __slots__ = ('reader', 'writer')
 
     def __init__(self,
-                 reader: Optional[Callable[[], None]] = None,
-                 writer: Optional[Callable[[], None]] = None):
+                 reader: Callable[[], None] | None = None,
+                 writer: Callable[[], None] | None = None):
 
         self.reader = reader
         self.writer = writer
@@ -501,17 +501,17 @@ class _AddressResolver:
 
         self._state = self.NOT_STARTED
         self._result: Any = None
-        self._loop: Optional[AbstractSelectorIOLoop] = native_loop
+        self._loop: AbstractSelectorIOLoop | None = native_loop
         self._host = host
         self._port = port
         self._family = family
         self._socktype = socktype
         self._proto = proto
         self._flags = flags
-        self._on_done: Optional[Callable[..., None]] = on_done
+        self._on_done: Callable[..., None] | None = on_done
 
         self._mutex = threading.Lock()
-        self._threading_timer: Optional[threading.Timer] = None
+        self._threading_timer: threading.Timer | None = None
 
     def _cleanup(self) -> None:
         """Release resources

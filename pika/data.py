@@ -1,16 +1,16 @@
 """AMQP Table Encoding/Decoding"""
+from __future__ import annotations
 import struct
 import decimal
 import calendar
-
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 from pika import exceptions
-from pika.compat import long, as_bytes
+from pika._utils import as_bytes
 
 
-def encode_short_string(pieces: List[bytes], value: str) -> int:
+def encode_short_string(pieces: list[bytes], value: str) -> int:
     """Encode a string value as short string and append it to pieces list
     returning the size of the encoded value.
 
@@ -41,8 +41,7 @@ def encode_short_string(pieces: List[bytes], value: str) -> int:
     return 1 + length
 
 
-def decode_short_string(encoded: bytes,
-                        offset: int) -> Tuple[Union[str, bytes], int]:
+def decode_short_string(encoded: bytes, offset: int) -> tuple[str | bytes, int]:
     """Decode a short string value from ``encoded`` data at ``offset``.
     """
     length = struct.unpack_from('B', encoded, offset)[0]
@@ -56,7 +55,7 @@ def decode_short_string(encoded: bytes,
     return value, offset
 
 
-def encode_table(pieces: List[bytes], table: Optional[Dict[str, Any]]) -> int:
+def encode_table(pieces: list[bytes], table: dict[str, Any] | None) -> int:
     """Encode a dict as an AMQP table appending the encded table to the
     pieces list passed in.
 
@@ -78,7 +77,7 @@ def encode_table(pieces: List[bytes], table: Optional[Dict[str, Any]]) -> int:
     return tablesize + 4
 
 
-def encode_value(pieces: List[bytes], value: Any) -> int:  # pylint: disable=R0911
+def encode_value(pieces: list[bytes], value: Any) -> int:  # pylint: disable=R0911
     """Encode the value passed in and append it to the pieces list returning
     the the size of the encoded value.
 
@@ -100,16 +99,13 @@ def encode_value(pieces: List[bytes], value: Any) -> int:  # pylint: disable=R09
     elif isinstance(value, bool):
         pieces.append(struct.pack('>cB', b't', int(value)))
         return 2
-    elif isinstance(value, long):
-        pieces.append(struct.pack('>cq', b'l', value))
-        return 9
     elif isinstance(value, int):
         try:
             packed = struct.pack('>ci', b'I', value)
             pieces.append(packed)
             return 5
         except struct.error:
-            pieces.append(struct.pack('>cq', b'l', long(value)))
+            pieces.append(struct.pack('>cq', b'l', value))
             return 9
     elif isinstance(value, decimal.Decimal):
         value = value.normalize()
@@ -129,7 +125,7 @@ def encode_value(pieces: List[bytes], value: Any) -> int:  # pylint: disable=R09
         pieces.append(struct.pack('>c', b'F'))
         return 1 + encode_table(pieces, value)
     elif isinstance(value, list):
-        list_pieces: List[Any] = []
+        list_pieces: list[Any] = []
         for val in value:
             encode_value(list_pieces, val)
         piece = b''.join(list_pieces)
@@ -144,7 +140,7 @@ def encode_value(pieces: List[bytes], value: Any) -> int:  # pylint: disable=R09
 
 
 def decode_table(encoded: bytes,
-                 offset: int) -> Tuple[Dict[Union[str, bytes], Any], int]:
+                 offset: int) -> tuple[dict[str | bytes, Any], int]:
     """Decode the AMQP table passed in from the encoded value returning the
     decoded result and the number of bytes read plus the offset.
 
@@ -164,7 +160,7 @@ def decode_table(encoded: bytes,
     return result, offset
 
 
-def decode_value(encoded: bytes, offset: int) -> Tuple[Any, int]:  # pylint: disable=R0912,R0915
+def decode_value(encoded: bytes, offset: int) -> tuple[Any, int]:  # pylint: disable=R0912,R0915
     """Decode the value passed in returning the decoded value and the number
     of bytes read in addition to the starting offset.
 
@@ -216,23 +212,23 @@ def decode_value(encoded: bytes, offset: int) -> Tuple[Any, int]:  # pylint: dis
 
     # Long-Long Int
     elif kind == b'L':
-        value = long(struct.unpack_from('>q', encoded, offset)[0])
+        value = struct.unpack_from('>q', encoded, offset)[0]
         offset += 8
 
     # Long-Long Int (both 'l' and 'L' are signed per RabbitMQ and the
     # AMQP 0-9-1 errata; see rabbitmq/rabbitmq-server#1093)
     elif kind == b'l':
-        value = long(struct.unpack_from('>q', encoded, offset)[0])
+        value = struct.unpack_from('>q', encoded, offset)[0]
         offset += 8
 
     # Float
     elif kind == b'f':
-        value = long(struct.unpack_from('>f', encoded, offset)[0])
+        value = struct.unpack_from('>f', encoded, offset)[0]
         offset += 4
 
     # Double
     elif kind == b'd':
-        value = long(struct.unpack_from('>d', encoded, offset)[0])
+        value = struct.unpack_from('>d', encoded, offset)[0]
         offset += 8
 
     # Decimal

@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable, Optional, Sequence, Union, TYPE_CHECKING
+from typing import Any, Callable, Sequence, TYPE_CHECKING
 
 from tornado import ioloop
 
@@ -22,17 +22,18 @@ class TornadoConnection(base_connection.BaseConnection):
     """The TornadoConnection runs on the Tornado IOLoop.
     """
 
-    def __init__(self,
-                 parameters: Optional[connection.Parameters] = None,
-                 on_open_callback: Optional[Callable[[connection.Connection],
-                                                     None]] = None,
-                 on_open_error_callback: Optional[Callable[
-                     [connection.Connection, BaseException], None]] = None,
-                 on_close_callback: Optional[Callable[
-                     [connection.Connection, BaseException], None]] = None,
-                 custom_ioloop: Optional[Union[
-                     ioloop.IOLoop, nbio_interface.AbstractIOServices]] = None,
-                 internal_connection_workflow: bool = True):
+    def __init__(
+            self,
+            parameters: connection.Parameters | None = None,
+            on_open_callback: None |
+        (Callable[[connection.Connection], None]) = None,
+            on_open_error_callback: None |
+        (Callable[[connection.Connection, BaseException], None]) = None,
+            on_close_callback: None |
+        (Callable[[connection.Connection, BaseException], None]) = None,
+            custom_ioloop: None |
+        (ioloop.IOLoop | nbio_interface.AbstractIOServices) = None,
+            internal_connection_workflow: bool = True):
         """Create a new instance of the TornadoConnection class, connecting
         to RabbitMQ automatically.
 
@@ -74,13 +75,11 @@ class TornadoConnection(base_connection.BaseConnection):
     def create_connection(
         cls,
         connection_configs: Sequence[connection.Parameters],
-        on_done: Callable[[
-            Union[connection.Connection,
-                  connection_workflow.AMQPConnectorException]
-        ], None],
-        custom_ioloop: Optional[Any] = None,
-        workflow: Optional[
-            connection_workflow.AbstractAMQPConnectionWorkflow] = None
+        on_done: Callable[[(connection.Connection |
+                            connection_workflow.AMQPConnectorException)], None],
+        custom_ioloop: Any | None = None,
+        workflow: None |
+        (connection_workflow.AbstractAMQPConnectionWorkflow) = None
     ) -> connection_workflow.AbstractAMQPConnectionWorkflow:
         """Implement
         :py:classmethod::`pika.adapters.BaseConnection.create_connection()`.
@@ -90,7 +89,7 @@ class TornadoConnection(base_connection.BaseConnection):
             custom_ioloop or ioloop.IOLoop.instance())  # type: ignore
 
         def connection_factory(
-                params: Optional[connection.Parameters]) -> 'TornadoConnection':
+                params: connection.Parameters | None) -> TornadoConnection:
             """Connection factory."""
             if params is None:
                 raise ValueError('Expected pika.connection.Parameters '

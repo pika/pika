@@ -12,9 +12,9 @@ import logging
 import select
 import time
 import threading
-from typing import Any, Callable, Optional, Sequence, Set, Tuple, Type, Dict, Union, TYPE_CHECKING
+from typing import Any, Callable, Sequence, Union, TYPE_CHECKING
 
-import pika.compat
+import pika._utils
 
 from pika.adapters.utils import nbio_interface
 from pika.adapters.base_connection import BaseConnection
@@ -30,7 +30,7 @@ if TYPE_CHECKING:
     SELECT_ERROR_T = Union[OSError, IOError, InterruptedError, select.error]
 
     class POLLER_PARAMS(TypedDict):
-        get_wait_seconds: Callable[[], Optional[float]]
+        get_wait_seconds: Callable[[], float | None]
         process_timeouts: Callable[[], None]
 
 
@@ -48,7 +48,7 @@ SELECT_TYPE = None
 # Reason for this unconventional dict initialization is the fact that on some
 # platforms select.error is an aliases for OSError. We don't want the lambda
 # for select.error to win over one for OSError.
-_SELECT_ERROR_CHECKERS: Dict[Type[SELECT_ERROR_T], Callable[
+_SELECT_ERROR_CHECKERS: dict[type[SELECT_ERROR_T], Callable[
     [SELECT_ERROR_T], bool]] = {
         InterruptedError: lambda _: True,
         select.error: lambda e: e.args[0] == errno.EINTR,
@@ -63,7 +63,7 @@ _SELECT_ERROR_CHECKERS: Dict[Type[SELECT_ERROR_T], Callable[
 # _SELECT_ERRORS = tuple(filter(lambda e: not isinstance(e, OSError),
 #                              _SELECT_ERROR_CHECKERS.keys())
 #                       + [OSError])
-_SELECT_ERRORS: Tuple[Type[SELECT_ERROR_T],
+_SELECT_ERRORS: tuple[type[SELECT_ERROR_T],
                       ...] = tuple(_SELECT_ERROR_CHECKERS.keys())
 
 
@@ -87,15 +87,15 @@ class SelectConnection(BaseConnection):
 
     def __init__(
             self,  # pylint: disable=R0913
-            parameters: Optional[connection.Parameters] = None,
-            on_open_callback: Optional[Callable[[connection.Connection],
-                                                None]] = None,
-            on_open_error_callback: Optional[Callable[
-                [connection.Connection, BaseException], None]] = None,
-            on_close_callback: Optional[Callable[
-                [connection.Connection, BaseException], None]] = None,
-            custom_ioloop: Optional[Union[nbio_interface.AbstractIOServices,
-                                          IOLoop]] = None,
+            parameters: connection.Parameters | None = None,
+            on_open_callback: None |
+        (Callable[[connection.Connection], None]) = None,
+            on_open_error_callback: None |
+        (Callable[[connection.Connection, BaseException], None]) = None,
+            on_close_callback: None |
+        (Callable[[connection.Connection, BaseException], None]) = None,
+            custom_ioloop: None |
+        (nbio_interface.AbstractIOServices | IOLoop) = None,
             internal_connection_workflow: bool = True) -> None:
         """Create a new instance of the Connection object.
 
@@ -137,13 +137,11 @@ class SelectConnection(BaseConnection):
     def create_connection(
         cls,
         connection_configs: Sequence[connection.Parameters],
-        on_done: Callable[[
-            Union[connection.Connection,
-                  connection_workflow.AMQPConnectorException]
-        ], None],
-        custom_ioloop: Optional[Any] = None,
-        workflow: Optional[
-            connection_workflow.AbstractAMQPConnectionWorkflow] = None
+        on_done: Callable[[(connection.Connection |
+                            connection_workflow.AMQPConnectorException)], None],
+        custom_ioloop: Any | None = None,
+        workflow: None |
+        (connection_workflow.AbstractAMQPConnectionWorkflow) = None
     ) -> connection_workflow.AbstractAMQPConnectionWorkflow:
         """Implement
         :py:classmethod::`pika.adapters.BaseConnection.create_connection()`.
@@ -197,10 +195,10 @@ class _Timeout:
 
         if not callable(callback):
             raise TypeError(
-                'callback must be a callable, but got {!r}'.format(callback))
+                f'callback must be a callable, but got {callback!r}')
 
         self.deadline = deadline
-        self.callback: Optional[Callable[[], None]] = callback
+        self.callback: Callable[[], None] | None = callback
 
     def __eq__(self, other: object) -> bool:
         """NOTE: not supporting sort stability"""
@@ -248,7 +246,7 @@ class _Timer:
     _GC_CANCELLATION_THRESHOLD = 1024
 
     def __init__(self) -> None:
-        self._timeout_heap: Optional[list[_Timeout]] = []
+        self._timeout_heap: list[_Timeout] | None = []
         # Number of canceled timeouts on heap; for scheduling garbage
         # collection of canceled timeouts
         self._num_cancellations = 0
@@ -288,7 +286,7 @@ class _Timer:
                 'call_later: delay must be non-negative, but got {!r}'.format(
                     delay))
 
-        now = pika.compat.time_now()
+        now = pika._utils.time_now()
 
         timeout = _Timeout(now + delay, callback)
 
@@ -321,7 +319,7 @@ class _Timer:
             timeout.callback = None
             self._num_cancellations += 1
 
-    def get_remaining_interval(self) -> Optional[float]:
+    def get_remaining_interval(self) -> float | None:
         """Get the interval to the next timeout expiration
 
         :returns: non-negative number of seconds until next timer expiration;
@@ -330,7 +328,7 @@ class _Timer:
 
         """
         if self._timeout_heap:
-            now = pika.compat.time_now()
+            now = pika._utils.time_now()
             interval = max(0, self._timeout_heap[0].deadline - now)
         else:
             interval = None
@@ -343,7 +341,7 @@ class _Timer:
 
         """
         if self._timeout_heap:
-            now = pika.compat.time_now()
+            now = pika._utils.time_now()
 
             # Remove ready timeouts from the heap now to prevent IO starvation
             # from timeouts added during callback processing
@@ -427,7 +425,7 @@ class IOLoop(AbstractSelectorIOLoop):
             self._callbacks = []  # type: ignore
 
     @staticmethod
-    def _get_poller(get_wait_seconds: Callable[[], Optional[float]],
+    def _get_poller(get_wait_seconds: Callable[[], float | None],
                     process_timeouts: Callable[[], None]) -> _PollerBase:
         """Determine the best poller to use for this environment and instantiate
         it.
@@ -509,7 +507,7 @@ class IOLoop(AbstractSelectorIOLoop):
         """
         if not callable(callback):
             raise TypeError(
-                'callback must be a callable, but got {!r}'.format(callback))
+                f'callback must be a callable, but got {callback!r}')
 
         # NOTE: `deque.append` is atomic
         self._callbacks.append(callback)
@@ -535,7 +533,7 @@ class IOLoop(AbstractSelectorIOLoop):
 
         self._timer.process_timeouts()
 
-    def _get_remaining_interval(self) -> Optional[float]:
+    def _get_remaining_interval(self) -> float | None:
         """Get the remaining interval to the next callback or timeout
         expiration.
 
@@ -619,7 +617,7 @@ class IOLoop(AbstractSelectorIOLoop):
         self._poller.poll()
 
 
-class _PollerBase(pika.compat.AbstractBase):  # type: ignore  # pylint: disable=R0902
+class _PollerBase(pika._utils.AbstractBase):  # type: ignore  # pylint: disable=R0902
     """Base class for select-based IOLoop implementations"""
 
     # Drop out of the poll loop every _MAX_POLL_TIMEOUT secs as a worst case;
@@ -630,7 +628,7 @@ class _PollerBase(pika.compat.AbstractBase):  # type: ignore  # pylint: disable=
     # if the poller uses MS override with 1000
     POLL_TIMEOUT_MULT = 1
 
-    def __init__(self, get_wait_seconds: Callable[[], Optional[float]],
+    def __init__(self, get_wait_seconds: Callable[[], float | None],
                  process_timeouts: Callable[[], None]) -> None:
         """
         :param get_wait_seconds: Function for getting the maximum number of
@@ -647,16 +645,16 @@ class _PollerBase(pika.compat.AbstractBase):  # type: ignore  # pylint: disable=
         self._waking_mutex = threading.Lock()
 
         # fd-to-handler function mappings
-        self._fd_handlers: Dict[int, Callable[..., None]] = dict()
+        self._fd_handlers: dict[int, Callable[..., None]] = dict()
 
         # event-to-fdset mappings
-        self._fd_events: Dict[int, Set[int]] = {
+        self._fd_events: dict[int, set[int]] = {
             PollEvents.READ: set(),
             PollEvents.WRITE: set(),
             PollEvents.ERROR: set()
         }
 
-        self._processing_fd_event_map: Dict[int, int] = {}
+        self._processing_fd_event_map: dict[int, int] = {}
 
         # Reentrancy tracker of the `start` method
         self._running = False
@@ -709,7 +707,7 @@ class _PollerBase(pika.compat.AbstractBase):  # type: ignore  # pylint: disable=
                 # Send byte to interrupt the poll loop, use send() instead of
                 # os.write for Windows compatibility
                 self._w_interrupt.send(b'X')
-            except pika.compat.SOCKET_ERROR as err:
+            except pika._utils.SOCKET_ERROR as err:
                 if err.errno not in _TRY_IO_AGAIN_SOCK_ERROR_CODES:
                     raise
             except Exception as err:
@@ -782,7 +780,7 @@ class _PollerBase(pika.compat.AbstractBase):  # type: ignore  # pylint: disable=
         # Inform the derived class
         self._unregister_fd(fileno, events_to_clear=events_cleared)
 
-    def _set_handler_events(self, fileno: int, events: int) -> Tuple[int, int]:
+    def _set_handler_events(self, fileno: int, events: int) -> tuple[int, int]:
         """Set the handler's events to the given events; internal to
         `_PollerBase`.
 
@@ -813,7 +811,7 @@ class _PollerBase(pika.compat.AbstractBase):  # type: ignore  # pylint: disable=
         """
         # Activate the underlying poller and register current events
         self._init_poller()
-        fd_to_events: Dict[int, int] = collections.defaultdict(int)
+        fd_to_events: dict[int, int] = collections.defaultdict(int)
         for event, file_descriptors in self._fd_events.items():
             for fileno in file_descriptors:
                 fd_to_events[fileno] |= event
@@ -916,7 +914,7 @@ class _PollerBase(pika.compat.AbstractBase):  # type: ignore  # pylint: disable=
         """
         raise NotImplementedError
 
-    def _dispatch_fd_events(self, fd_event_map: Dict[int, int]) -> None:
+    def _dispatch_fd_events(self, fd_event_map: dict[int, int]) -> None:
         """ Helper to dispatch callbacks for file descriptors that received
         events.
 
@@ -950,13 +948,13 @@ class _PollerBase(pika.compat.AbstractBase):  # type: ignore  # pylint: disable=
                 handler(fileno, events)
 
     @staticmethod
-    def _get_interrupt_pair() -> Tuple[socket.socket, socket.socket]:
+    def _get_interrupt_pair() -> tuple[socket.socket, socket.socket]:
         """ Use a socketpair to be able to interrupt the ioloop if called
         from another thread. Socketpair() is not supported on some OS (Win)
         so use a pair of simple TCP sockets instead. The sockets will be
         closed and garbage collected by python when the ioloop itself is.
         """
-        return pika.compat.nonblocking_socketpair()
+        return pika._utils.nonblocking_socketpair()
 
     def _read_interrupt(self, _interrupt_fd: int, _events: int) -> None:
         """ Read the interrupt byte(s). We ignore the event mask as we can ony
@@ -968,7 +966,7 @@ class _PollerBase(pika.compat.AbstractBase):  # type: ignore  # pylint: disable=
         try:
             # NOTE Use recv instead of os.read for windows compatibility
             self._r_interrupt.recv(512)  # pylint: disable=E1101  # type: ignore
-        except pika.compat.SOCKET_ERROR as err:
+        except pika._utils.SOCKET_ERROR as err:
             if err.errno not in _TRY_IO_AGAIN_SOCK_ERROR_CODES:
                 raise
 
@@ -1011,7 +1009,7 @@ class SelectPoller(_PollerBase):
                     raise
 
         # Build an event bit mask for each fileno we've received an event for
-        fd_event_map: Dict[int, int] = collections.defaultdict(int)
+        fd_event_map: dict[int, int] = collections.defaultdict(int)
         for fd_set, evt in zip(
             (read, write, error),
             (PollEvents.READ, PollEvents.WRITE, PollEvents.ERROR)):
@@ -1066,7 +1064,7 @@ class KQueuePoller(_PollerBase):
     # pylint: disable=E1101
     """KQueuePoller works on BSD based systems and is faster than select"""
 
-    def __init__(self, get_wait_seconds: Callable[[], Optional[float]],
+    def __init__(self, get_wait_seconds: Callable[[], float | None],
                  process_timeouts: Callable[[], None]):
         """Create an instance of the KQueuePoller
         """
@@ -1081,16 +1079,21 @@ class KQueuePoller(_PollerBase):
 
         """
         mask = 0
-        if kevent.filter == select.KQ_FILTER_READ:  # type: ignore
+        kq_filter_read = getattr(select, 'KQ_FILTER_READ')
+        kq_filter_write = getattr(select, 'KQ_FILTER_WRITE')
+        kq_ev_eof = getattr(select, 'KQ_EV_EOF')
+        kq_ev_error = getattr(select, 'KQ_EV_ERROR')
+
+        if kevent.filter == kq_filter_read:
             mask = PollEvents.READ
-        elif kevent.filter == select.KQ_FILTER_WRITE:  # type: ignore
+        elif kevent.filter == kq_filter_write:
             mask = PollEvents.WRITE
-            if kevent.flags & select.KQ_EV_EOF:  # type: ignore
+            if kevent.flags & kq_ev_eof:
                 # May be set when the peer reader disconnects. We don't check
                 # KQ_EV_EOF for KQ_FILTER_READ because in that case it may be
                 # set before the remaining data is consumed from sockbuf.
                 mask |= PollEvents.ERROR
-        elif kevent.flags & select.KQ_EV_ERROR:  # type: ignore
+        elif kevent.flags & kq_ev_error:
             mask = PollEvents.ERROR
         else:
             LOGGER.critical('Unexpected kevent: %s', kevent)
@@ -1114,7 +1117,7 @@ class KQueuePoller(_PollerBase):
                 else:
                     raise
 
-        fd_event_map: Dict[int, int] = collections.defaultdict(int)
+        fd_event_map: dict[int, int] = collections.defaultdict(int)
         for event in kevents:
             fd_event_map[event.ident] |= self._map_event(event)
 
@@ -1217,7 +1220,7 @@ class PollPoller(_PollerBase):
     """
     POLL_TIMEOUT_MULT = 1000
 
-    def __init__(self, get_wait_seconds: Callable[[], Optional[float]],
+    def __init__(self, get_wait_seconds: Callable[[], float | None],
                  process_timeouts: Callable[[], None]):
         """Create an instance of the KQueuePoller
 
@@ -1249,13 +1252,13 @@ class PollPoller(_PollerBase):
                 else:
                     raise
 
-        fd_event_map: Dict[int, int] = collections.defaultdict(int)
+        fd_event_map: dict[int, int] = collections.defaultdict(int)
         for fileno, event in events:
             # NOTE: On OS X, when poll() sets POLLHUP, it's mutually-exclusive with
             # POLLOUT and it doesn't seem to set POLLERR along with POLLHUP when
             # socket connection fails, for example. So, we need to at least add
             # POLLERR when we see POLLHUP
-            if (event & PollEvents.HANGUP) and pika.compat.ON_OSX:
+            if (event & PollEvents.HANGUP) and pika._utils.ON_OSX:
                 event |= PollEvents.ERROR
 
             fd_event_map[fileno] |= event

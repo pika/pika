@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Tests for pika.callback
 
@@ -71,7 +70,7 @@ class CallbackTests(unittest.TestCase):
         self.assertEqual(callback.name_or_value(value), expectation)
 
     def test_name_or_value_unicode(self):
-        value = u'Это тест значения'
+        value = 'Это тест значения'
         expectation = 'Это тест значения'
         self.assertEqual(callback.name_or_value(value), expectation)
 
@@ -353,7 +352,7 @@ class CallbackTests(unittest.TestCase):
 
     def test_arguments_match_obj_argument(self):
 
-        class TestObj(object):
+        class TestObj:
             foo = 'bar'
 
         test_instance = TestObj()
@@ -362,7 +361,7 @@ class CallbackTests(unittest.TestCase):
 
     def test_arguments_match_obj_no_attribute(self):
 
-        class TestObj(object):
+        class TestObj:
             qux = 'bar'
 
         test_instance = TestObj()
@@ -371,7 +370,7 @@ class CallbackTests(unittest.TestCase):
 
     def test_arguments_match_obj_argument_no_match(self):
 
-        class TestObj(object):
+        class TestObj:
             foo = 'baz'
 
         test_instance = TestObj()
@@ -380,10 +379,10 @@ class CallbackTests(unittest.TestCase):
 
     def test_arguments_match_obj_argument_with_method(self):
 
-        class TestFrame(object):
+        class TestFrame:
             method = None
 
-        class MethodObj(object):
+        class MethodObj:
             foo = 'bar'
 
         test_instance = TestFrame()
@@ -393,10 +392,10 @@ class CallbackTests(unittest.TestCase):
 
     def test_arguments_match_obj_argument_with_method_no_match(self):
 
-        class TestFrame(object):
+        class TestFrame:
             method = None
 
-        class MethodObj(object):
+        class MethodObj:
             foo = 'baz'
 
         test_instance = TestFrame()

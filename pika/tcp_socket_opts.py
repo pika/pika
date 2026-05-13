@@ -2,7 +2,7 @@
 
 import logging
 import socket
-import pika.compat
+import pika._utils
 
 from typing import Dict, Optional
 
@@ -15,7 +15,7 @@ if hasattr(socket, 'TCP_USER_TIMEOUT'):
         _SUPPORTED_TCP_OPTIONS['TCP_USER_TIMEOUT'] = getattr(
             socket, 'TCP_USER_TIMEOUT')
     except AttributeError:
-        if pika.compat.LINUX_VERSION and pika.compat.LINUX_VERSION >= (2, 6,
+        if pika._utils.LINUX_VERSION and pika._utils.LINUX_VERSION >= (2, 6,
                                                                        37):
             # this is not the timeout value, but the number corresponding
             # to the constant in tcp.h
@@ -24,11 +24,15 @@ if hasattr(socket, 'TCP_USER_TIMEOUT'):
             _SUPPORTED_TCP_OPTIONS['TCP_USER_TIMEOUT'] = 18
 
 try:
-    _SUPPORTED_TCP_OPTIONS['TCP_KEEPIDLE'] = socket.TCP_KEEPIDLE
-    _SUPPORTED_TCP_OPTIONS['TCP_KEEPCNT'] = socket.TCP_KEEPCNT
-    _SUPPORTED_TCP_OPTIONS['TCP_KEEPINTVL'] = socket.TCP_KEEPINTVL
+    tcp_keepidle = getattr(socket, 'TCP_KEEPIDLE')
+    tcp_keepcnt = getattr(socket, 'TCP_KEEPCNT')
+    tcp_keepintvl = getattr(socket, 'TCP_KEEPINTVL')
 except AttributeError:
     pass
+else:
+    _SUPPORTED_TCP_OPTIONS['TCP_KEEPIDLE'] = tcp_keepidle
+    _SUPPORTED_TCP_OPTIONS['TCP_KEEPCNT'] = tcp_keepcnt
+    _SUPPORTED_TCP_OPTIONS['TCP_KEEPINTVL'] = tcp_keepintvl
 
 
 def socket_requires_keepalive(tcp_options: Dict[str, int]) -> bool:
@@ -47,6 +51,6 @@ def set_sock_opts(tcp_options: Optional[Dict[str, int]],
     for key, value in tcp_options.items():
         option = _SUPPORTED_TCP_OPTIONS.get(key)
         if option:
-            sock.setsockopt(pika.compat.SOL_TCP, option, value)
+            sock.setsockopt(pika._utils.SOL_TCP, option, value)
         else:
             LOGGER.warning('Unsupported TCP option %s:%s', key, value)

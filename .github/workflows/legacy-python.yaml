@@ -9,7 +9,7 @@ on:
       - main
 
 jobs:
-  build-win32:
+  build-windows:
     name: build/test on windows-latest
     runs-on: windows-latest
     strategy:
@@ -44,7 +44,7 @@ jobs:
           files: ./coverage.xml
           flags: windows,py${{ matrix.python-version }},tls-${{ matrix.test-tls }}
           fail_ci_if_error: false
-  build:
+  build-linux:
     name: build/test on ubuntu-22.04
     runs-on: ubuntu-22.04
     strategy:
@@ -74,4 +74,32 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage.xml
           flags: linux,py${{ matrix.python-version }}
+          fail_ci_if_error: false
+  build-macos:
+    name: build/test on macos-15-intel
+    runs-on: macos-15-intel
+    strategy:
+      matrix:
+        python-version: [ '3.7', '3.8', '3.9' ]
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+          architecture: x64
+      - name: Install and start RabbitMQ
+        run: ./testdata/install-macos.sh
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip wheel
+          python -m pip install hatch "virtualenv<21.0.0"
+      - name: Test with pytest
+        run: hatch run test -- -v --cov=pika --cov-report=xml
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v6
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage.xml
+          flags: macos,py${{ matrix.python-version }}
           fail_ci_if_error: false

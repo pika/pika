@@ -11,7 +11,7 @@ from unittest import mock
 import uuid
 
 import pika
-import pika.compat
+import pika._utils
 from pika import adapters
 from pika.adapters import select_connection
 from pika.exchange_type import ExchangeType
@@ -98,7 +98,7 @@ class AsyncTestCase(unittest.TestCase):
         self._public_stop_requested = False
         self._conn_closed_reason = None
         self._public_stop_error_in = None  # exception passed to our stop()
-        super(AsyncTestCase, self).setUp()
+        super().setUp()
 
     def new_connection_params(self):
         """
@@ -126,15 +126,15 @@ class AsyncTestCase(unittest.TestCase):
         :rtype: pika.ConnectionParameters
 
         """
-        return pika.ConnectionParameters(host='localhost', port=5672)
+        return pika.ConnectionParameters(host='127.0.0.1', port=5672)
 
     def tearDown(self):
         self._stop()
 
     def shortDescription(self):
-        method_desc = super(AsyncTestCase, self).shortDescription()
+        method_desc = super().shortDescription()
         if self.DESCRIPTION:
-            return "%s (%s)" % (self.DESCRIPTION, method_desc)
+            return f"{self.DESCRIPTION} ({method_desc})"
         else:
             return method_desc
 
@@ -254,7 +254,7 @@ class BoundQueueTestCase(AsyncTestCase):
         self.exchange = 'e-' + self.__class__.__name__ + ':' + uuid.uuid1().hex
         self.queue = 'q-' + self.__class__.__name__ + ':' + uuid.uuid1().hex
         self.routing_key = self.__class__.__name__
-        super(BoundQueueTestCase, self).start(adapter, ioloop_factory)
+        super().start(adapter, ioloop_factory)
 
     def begin(self, channel):
         self.channel.exchange_declare(self.exchange,
@@ -291,7 +291,7 @@ class BoundQueueTestCase(AsyncTestCase):
 #
 
 
-class AsyncAdapters(object):
+class AsyncAdapters:
 
     def start(self, adapter_class, ioloop_factory):
         """
@@ -346,7 +346,7 @@ class AsyncAdapters(object):
         with mock.patch.multiple(select_connection, SELECT_TYPE='kqueue'):
             self.start(adapters.SelectConnection, select_connection.IOLoop)
 
-    @unittest.skipIf(pika.compat.ON_WINDOWS, "Windows not supported")
+    @unittest.skipIf(pika._utils.ON_WINDOWS, "Windows not supported")
     @run_test_in_thread_with_timeout
     def test_with_gevent(self):
         """GeventConnection"""

@@ -102,9 +102,8 @@ hatch run rabbitmq
 
 ## Key technical details
 
-- `pika/compat.py` contains Python compatibility utilities. A cleanup
-  effort is tracked in issue #1559 to remove Python 2 remnants and
-  rename this module.
+- `pika/_utils.py` contains internal platform and socket utilities
+ used across adapters and connection internals.
 - The interrupt socket pair in `select_connection.py` uses
   `_TRY_IO_AGAIN_SOCK_ERROR_CODES = (errno.EAGAIN, errno.EWOULDBLOCK)`
   to handle platform differences between POSIX and Windows. Both errno

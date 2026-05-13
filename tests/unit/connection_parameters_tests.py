@@ -27,13 +27,12 @@ _ALL_PUBLIC_PARAMETERS_PROPERTIES = tuple(
 class ChildParameters(connection.Parameters):
 
     def __init__(self, *args, **kwargs):
-        super(ChildParameters, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.extra = 'e'
 
     def __eq__(self, other):
         if isinstance(other, ChildParameters):
-            return self.extra == other.extra and super(ChildParameters,
-                                                       self).__eq__(other)
+            return self.extra == other.extra and super().__eq__(other)
         return NotImplemented
 
 
@@ -139,7 +138,7 @@ class ParametersTests(ParametersTestsBase):
         self.assertEqual(params_1, params_3)
         self.assertEqual(params_3, params_1)
 
-        class Foreign(object):
+        class Foreign:
 
             def __eq__(self, other):
                 return 'foobar'
@@ -183,7 +182,7 @@ class ParametersTests(ParametersTestsBase):
         self.assertNotEqual(params_1, dict(host='localhost', port=5672))
         self.assertNotEqual(dict(host='localhost', port=5672), params_1)
 
-        class Foreign(object):
+        class Foreign:
 
             def __ne__(self, other):
                 return 'foobar'
@@ -338,8 +337,8 @@ class ParametersTests(ParametersTestsBase):
         params.host = 'myserver.com'
         self.assertEqual(params.host, 'myserver.com')
 
-        params.host = u'myserver.com'
-        self.assertEqual(params.host, u'myserver.com')
+        params.host = 'myserver.com'
+        self.assertEqual(params.host, 'myserver.com')
 
         with self.assertRaises(TypeError):
             params.host = 127
@@ -353,8 +352,8 @@ class ParametersTests(ParametersTestsBase):
         params.locale = 'en_UK'
         self.assertEqual(params.locale, 'en_UK')
 
-        params.locale = u'en_UK'
-        self.assertEqual(params.locale, u'en_UK')
+        params.locale = 'en_UK'
+        self.assertEqual(params.locale, 'en_UK')
 
         with self.assertRaises(TypeError):
             params.locale = 127
@@ -435,8 +434,8 @@ class ParametersTests(ParametersTestsBase):
         params.virtual_host = '/'
         self.assertEqual(params.virtual_host, '/')
 
-        params.virtual_host = u'/'
-        self.assertEqual(params.virtual_host, u'/')
+        params.virtual_host = '/'
+        self.assertEqual(params.virtual_host, '/')
 
         params.virtual_host = 'test-vhost'
         self.assertEqual(params.virtual_host, 'test-vhost')
@@ -520,7 +519,7 @@ class ConnectionParametersTests(ParametersTestsBase):
             'socket_timeout': 100.5,
             'stack_timeout': 150,
             'ssl_options': None,
-            'virtual_host': u'vvhost',
+            'virtual_host': 'vvhost',
             'tcp_options': {
                 'TCP_USER_TIMEOUT': 1000
             }
@@ -590,7 +589,7 @@ class ConnectionParametersTests(ParametersTestsBase):
         self.assertEqual(parameters.virtual_host, 'prtfqpeo')
 
     def test_parameters_accepts_unicode_string_virtualhost(self):
-        parameters = pika.ConnectionParameters(virtual_host=u'prtfqpeo')
+        parameters = pika.ConnectionParameters(virtual_host='prtfqpeo')
         self.assertEqual(parameters.virtual_host, 'prtfqpeo')
 
     def test_parameters_accept_plain_string_locale(self):
@@ -598,7 +597,7 @@ class ConnectionParametersTests(ParametersTestsBase):
         self.assertEqual(parameters.locale, 'en_US')
 
     def test_parameters_accept_unicode_locale(self):
-        parameters = pika.ConnectionParameters(locale=u'en_US')
+        parameters = pika.ConnectionParameters(locale='en_US')
         self.assertEqual(parameters.locale, 'en_US')
 
 
@@ -677,7 +676,7 @@ class URLParametersTests(ParametersTestsBase):
         test_params = dict(query_args)
         virtual_host = '/'
         query_string = urlencode(test_params)
-        test_url = ('amqp://myuser:mypass@www.test.com:5678/%s?%s' % (
+        test_url = ('amqp://myuser:mypass@www.test.com:5678/{}?{}'.format(
             url_quote(virtual_host, safe=''),
             query_string,
         ))
@@ -713,9 +712,9 @@ class URLParametersTests(ParametersTestsBase):
         self.assertEqual(parameters.locale, 'en_US')
 
     def test_accepts_unicode_string(self):
-        parameters = pika.URLParameters(u'amqp://prtfqpeo:oihdglkhcp0@myserver'
-                                        u'.mycompany.com:5672/prtfqpeo?locale='
-                                        u'en_US')
+        parameters = pika.URLParameters('amqp://prtfqpeo:oihdglkhcp0@myserver'
+                                        '.mycompany.com:5672/prtfqpeo?locale='
+                                        'en_US')
         self.assertEqual(parameters.port, 5672)
         self.assertEqual(parameters.virtual_host, 'prtfqpeo')
         self.assertEqual(parameters.credentials.password, 'oihdglkhcp0')

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # pylint: disable=C0111,C0103,R0205
 
 import functools
@@ -59,7 +58,7 @@ channel.exchange_declare(exchange="test_exchange",
                          passive=False,
                          durable=True,
                          auto_delete=False)
-channel.queue_declare(queue="standard", auto_delete=True)
+channel.queue_declare(queue="standard", exclusive=True)
 channel.queue_bind(queue="standard",
                    exchange="test_exchange",
                    routing_key="standard_key")

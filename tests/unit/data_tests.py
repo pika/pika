@@ -1,4 +1,3 @@
-# -*- encoding: utf-8 -*-
 """
 pika.data tests
 
@@ -9,13 +8,12 @@ import unittest
 from collections import OrderedDict
 
 from pika import data, exceptions
-from pika.compat import long
 
 
 class DataTests(unittest.TestCase):
 
     FIELD_TBL_ENCODED = (
-        b'\x00\x00\x00\xed'
+        b'\x00\x00\x00\xe5'
         b'\x05arrayA\x00\x00\x00\x0fI\x00\x00\x00\x01I'
         b'\x00\x00\x00\x02I\x00\x00\x00\x03'
         b'\x07boolvalt\x01'
@@ -23,9 +21,9 @@ class DataTests(unittest.TestCase):
         b'\x0bdecimal_tooD\x00\x00\x00\x00d'
         b'\x07dictvalF\x00\x00\x00\x0c\x03fooS\x00\x00\x00\x03bar'
         b'\x06intvalI\x00\x00\x00\x01'
-        b'\x06bigint\x6c\x00\x00\x00\x00\x9a\x7e\xc8\x00'
-        b'\x07longval\x6c\x00\x00\x00\x00\x36\x65\x26\x55'
-        b'\x07neglongl\xff\xff\xff\xff\xff\xff\xff\xff'
+        b'\x06bigintl\x00\x00\x00\x00\x9a\x7e\xc8\x00'
+        b'\x07longvalI\x36\x65\x26\x55'
+        b'\x07neglongI\xff\xff\xff\xff'
         b'\x04nullV'
         b'\x06strvalS\x00\x00\x00\x04Test'
         b'\x0ctimestampvalT\x00\x00\x00\x00Ec)\x92'
@@ -43,8 +41,8 @@ class DataTests(unittest.TestCase):
         }),
         ('intval', 1),
         ('bigint', 2592000000),
-        ('longval', long(912598613)),
-        ('neglong', long(-1)),
+        ('longval', 912598613),
+        ('neglong', -1),
         ('null', None),
         ('strval', 'Test'),
         ('timestampval',
@@ -55,7 +53,7 @@ class DataTests(unittest.TestCase):
                            30,
                            10,
                            tzinfo=datetime.timezone.utc)),
-        ('unicode', u'utf8=✓'),
+        ('unicode', 'utf8=✓'),
         ('bytes', b'foobar'),
     ])
 
@@ -81,7 +79,7 @@ class DataTests(unittest.TestCase):
     def test_encode_table_bytes(self):
         result = []
         byte_count = data.encode_table(result, self.FIELD_TBL_VALUE)
-        self.assertEqual(byte_count, 241)
+        self.assertEqual(byte_count, 233)
 
     def test_decode_table(self):
         value, byte_count = data.decode_table(self.FIELD_TBL_ENCODED, 0)
@@ -89,7 +87,7 @@ class DataTests(unittest.TestCase):
 
     def test_decode_table_bytes(self):
         value, byte_count = data.decode_table(self.FIELD_TBL_ENCODED, 0)
-        self.assertEqual(byte_count, 241)
+        self.assertEqual(byte_count, 233)
 
     def test_decode_signed_long_negative(self):
         """Verify that type tag 'l' decodes as signed 64-bit (fixes #1531).
@@ -101,11 +99,11 @@ class DataTests(unittest.TestCase):
         input = (b'\x00\x00\x00\x10'
                  b'\x07x-delayl\xff\xff\xff\xff\xff\xff\x8a\xd0')
         result, _ = data.decode_table(input, 0)
-        self.assertEqual(result, {'x-delay': long(-30000)})
+        self.assertEqual(result, {'x-delay': -30000})
 
     def test_encode_decode_negative_long_roundtrip(self):
         """Verify negative long values round-trip correctly."""
-        table = {'x-delay': long(-30000)}
+        table = {'x-delay': -30000}
         pieces = []
         data.encode_table(pieces, table)
         encoded = b''.join(pieces)
@@ -122,5 +120,5 @@ class DataTests(unittest.TestCase):
                           b'\x00\x00\x00\t\x03fooZ\x00\x00\x04\xd2', 0)
 
     def test_long_repr(self):
-        value = long(912598613)
-        self.assertEqual(repr(value), '912598613L')
+        value = 912598613
+        self.assertEqual(repr(value), '912598613')

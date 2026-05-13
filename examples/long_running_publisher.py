@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # pylint: disable=C0111,C0103,R0205
 
 import threading
@@ -19,7 +18,7 @@ class Publisher(threading.Thread):
         parameters = ConnectionParameters("localhost", credentials=credentials)
         self.connection = BlockingConnection(parameters)
         self.channel = self.connection.channel()
-        self.channel.queue_declare(queue=self.queue, auto_delete=True)
+        self.channel.queue_declare(queue=self.queue, exclusive=True)
 
     def run(self):
         while self.is_running:
