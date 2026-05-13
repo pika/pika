@@ -7,23 +7,23 @@ implementing the methods and behaviors for an AMQP Channel.
 
 from __future__ import annotations
 
+import logging
+import uuid
 from collections import deque
 from collections.abc import Sequence
-import logging
-from typing import Any, Callable, TYPE_CHECKING, Union
-import uuid
 from enum import Enum
+from typing import TYPE_CHECKING, Any, Callable, Union
 
-import pika.frame as frame
 import pika.exceptions as exceptions
+import pika.frame as frame
 import pika.spec as spec
 import pika.validators as validators
 from pika._utils import as_bytes
 from pika.exchange_type import ExchangeType
 
 if TYPE_CHECKING:
-    from pika.connection import Connection
     from pika import amqp_object
+    from pika.connection import Connection
 
 LOGGER = logging.getLogger(__name__)
 
@@ -114,11 +114,11 @@ class Channel:
 
         self._content_assembler = ContentFrameAssembler()
 
-        self._blocked: deque = deque(list())
+        self._blocked: deque = deque([])
         self._blocking: Any | None = None
         self._has_on_flow_callback: bool = False
         self._cancelled: set = set()
-        self._consumers: dict = dict()
+        self._consumers: dict = {}
         self._consumers_with_noack: set = set()
         self._on_flowok_callback: Callable[..., Any] | None = None
         self._on_getok_callback: Callable[..., Any] | None = None
@@ -145,9 +145,7 @@ class Channel:
         return self.channel_number
 
     def __repr__(self) -> str:
-        return '<{} number={} {} conn={!r}>'.format(
-            self.__class__.__name__, self.channel_number,
-            self._STATE_NAMES[self._state], self.connection)\
+        return f'<{self.__class__.__name__} number={self.channel_number} {self._STATE_NAMES[self._state]} conn={self.connection!r}>'
 
     def add_callback(self,
                      callback: Callable[..., Any],
@@ -376,7 +374,7 @@ class Channel:
                                consumer_tag=consumer_tag,
                                no_ack=auto_ack,
                                exclusive=exclusive,
-                               arguments=arguments or dict()), rpc_callback,
+                               arguments=arguments or {}), rpc_callback,
             [(spec.Basic.ConsumeOk, {
                 'consumer_tag': consumer_tag
             })])
@@ -392,7 +390,7 @@ class Channel:
         :rtype: str
 
         """
-        return 'ctag%i.%s' % (self.channel_number, uuid.uuid4().hex)
+        return f'ctag{self.channel_number}.{uuid.uuid4().hex}'
 
     def basic_get(self,
                   queue: str,
@@ -690,7 +688,7 @@ class Channel:
         nowait = validators.rpc_completion_callback(callback)
         return self._rpc(
             spec.Exchange.Bind(0, destination, source, routing_key, nowait,
-                               arguments or dict()), callback,
+                               arguments or {}), callback,
             [spec.Exchange.BindOk] if not nowait else [])
 
     def exchange_declare(
@@ -743,7 +741,7 @@ class Channel:
                 auto_delete,
                 internal,
                 nowait,
-                arguments or dict()),
+                arguments or {}),
             callback,
             [spec.Exchange.DeclareOk] if not nowait else [])
 
@@ -886,7 +884,7 @@ class Channel:
             routing_key = queue
         return self._rpc(
             spec.Queue.Bind(0, queue, exchange, routing_key, nowait,
-                            arguments or dict()), callback,
+                            arguments or {}), callback,
             [spec.Queue.BindOk] if not nowait else [])
 
     def queue_declare(self,
@@ -931,8 +929,8 @@ class Channel:
 
         return self._rpc(
             spec.Queue.Declare(0, queue, passive, durable, exclusive,
-                               auto_delete, nowait, arguments or dict()),
-            callback, replies)
+                               auto_delete, nowait, arguments or {}), callback,
+            replies)
 
     def queue_delete(self,
                      queue: str,
@@ -1002,8 +1000,8 @@ class Channel:
         if routing_key is None:
             routing_key = queue
         return self._rpc(
-            spec.Queue.Unbind(0, queue, exchange, routing_key, arguments or
-                              dict()), callback, [spec.Queue.UnbindOk])
+            spec.Queue.Unbind(0, queue, exchange, routing_key, arguments or {}),
+            callback, [spec.Queue.UnbindOk])
 
     def tx_commit(self, callback: _OnTxCommitCallback | None = None) -> None:
         """Commit a transaction
@@ -1090,7 +1088,7 @@ class Channel:
         """Remove all consumers and any callbacks for the channel."""
         self.callbacks.process(self.channel_number,
                                self._ON_CHANNEL_CLEANUP_CB_KEY, self, self)
-        self._consumers = dict()
+        self._consumers = {}
         self.callbacks.cleanup(str(self.channel_number))
         self._cookie = None
 
@@ -1447,8 +1445,8 @@ class Channel:
 
         """
         assert method.synchronous, (
-            'Only synchronous-capable methods may be used with _rpc: %r' %
-            (method,))
+            f'Only synchronous-capable methods may be used with _rpc: {method!r}'
+        )
 
         # Validate we got None or a list of acceptable_replies
         if not isinstance(acceptable_replies, (type(None), list)):
@@ -1583,7 +1581,7 @@ class ContentFrameAssembler:
         self._method_frame: frame.Method | None = None
         self._header_frame: frame.Header | None = None
         self._seen_so_far = 0
-        self._body_fragments: list[bytes] = list()
+        self._body_fragments: list[bytes] = []
 
     def process(
         self, frame_value: frame.Frame
@@ -1646,4 +1644,4 @@ class ContentFrameAssembler:
         self._method_frame = None
         self._header_frame = None
         self._seen_so_far = 0
-        self._body_fragments = list()
+        self._body_fragments = []

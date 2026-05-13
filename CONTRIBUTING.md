@@ -65,10 +65,9 @@ If you would like to run TLS/SSL tests, use the following procedure:
 
 ## Code Formatting and Linting
 
-Please format your code using [yapf](https://pypi.org/project/yapf/)
-with ``google`` style prior to issuing your pull request. *Note: only format those
-lines that you have changed in your pull request. If you format an entire file and
-change code outside of the scope of your PR, it will likely be rejected.*
+Please format your code using [yapf](https://pypi.org/project/yapf/) with ``google`` style prior to issuing your pull request.
+*Note: only format those lines that you have changed in your pull request.
+If you format an entire file and change code outside of the scope of your PR, it will likely be rejected.*
 
     hatch run fmt
 
@@ -76,8 +75,12 @@ To verify formatting without modifying files (mirrors CI), use
 
     hatch run fmt-check
 
-Please also ensure your code passes [ruff](https://docs.astral.sh/ruff/) linting:
+Please also lint your code using [ruff](https://docs.astral.sh/ruff/):
 
     hatch run lint
+
+To verify linting without modifying files (mirrors CI), use
+
+    hatch run lint-check
 
 Both checks run in CI on every push and pull request.

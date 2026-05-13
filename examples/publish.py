@@ -1,6 +1,7 @@
 # pylint: disable=C0111,C0103,R0205
 
 import logging
+
 import pika
 from pika import DeliveryMode
 from pika.exchange_type import ExchangeType

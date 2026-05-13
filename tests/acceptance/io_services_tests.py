@@ -11,7 +11,6 @@ import socket
 import unittest
 
 import pika._utils
-
 from pika.adapters.utils import nbio_interface
 from tests.misc.forward_server import ForwardServer
 from tests.stubs.io_services_test_stubs import IOServicesTestStubs
@@ -275,13 +274,13 @@ class SocketWatcherTestBase(AsyncServicesTestBase):
 
         if readable != expected.readable:
             raise AssertionError(
-                'Expected readable={!r}, but got {!r} (writable={!r})'.format(
-                    expected.readable, readable, writable))
+                f'Expected readable={expected.readable!r}, but got {readable!r} (writable={writable!r})'
+            )
 
         if writable != expected.writable:
             raise AssertionError(
-                'Expected writable={!r}, but got {!r} (readable={!r})'.format(
-                    expected.writable, writable, readable))
+                f'Expected writable={expected.writable!r}, but got {writable!r} (readable={readable!r})'
+            )
 
 
 class TestSocketWatchersUponConnectionAndNoIncomingData(SocketWatcherTestBase,

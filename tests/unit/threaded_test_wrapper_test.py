@@ -3,16 +3,15 @@ Tests for threaded_test_wrapper.py
 
 """
 
-from io import StringIO
 import sys
 import threading
 import time
 import unittest
+from io import StringIO
 from unittest import mock
 
 from tests.wrappers import threaded_test_wrapper
-from tests.wrappers.threaded_test_wrapper import (_ThreadedTestWrapper,
-                                                  run_in_thread_with_timeout)
+from tests.wrappers.threaded_test_wrapper import _ThreadedTestWrapper, run_in_thread_with_timeout
 
 # Suppress invalid-name, since our test names are descriptive and quite long
 # pylint: disable=C0103
@@ -99,7 +98,7 @@ class ThreadedTestWrapperSelfChecks(unittest.TestCase):
     def test_integrity_of_args_and_return_value(self):
         args_bucket = []
         kwargs_bucket = []
-        value_to_return = dict()
+        value_to_return = {}
 
         @run_in_thread_with_timeout
         def my_guinea_pig(*args, **kwargs):
@@ -107,10 +106,10 @@ class ThreadedTestWrapperSelfChecks(unittest.TestCase):
             kwargs_bucket.append(kwargs)
             return value_to_return
 
-        arg0 = dict()
-        arg1 = tuple()
+        arg0 = {}
+        arg1 = ()
 
-        kwarg0 = list()
+        kwarg0 = []
 
         result = my_guinea_pig(arg0, arg1, kwarg0=kwarg0)
 

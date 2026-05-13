@@ -14,26 +14,27 @@ from __future__ import annotations
 import functools
 import logging
 from collections import namedtuple
-from typing import Any, Callable, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable
 
-from twisted.internet import (defer, error as twisted_error, reactor, protocol)
 import twisted.internet.base
 import twisted.python
-from twisted.python.failure import Failure
 import twisted.python.failure
+from twisted.internet import defer, protocol, reactor
+from twisted.internet import error as twisted_error
+from twisted.python.failure import Failure
 
 import pika.connection
+import pika.frame
+import pika.spec
 from pika import exceptions, spec
 from pika.adapters.utils import nbio_interface
 from pika.adapters.utils.io_services_utils import check_callback_arg
 from pika.exchange_type import ExchangeType
-import pika.frame
-import pika.spec
 
 if TYPE_CHECKING:
-    from pika import channel
-    from pika import amqp_object
     import twisted.internet.interfaces
+
+    from pika import amqp_object, channel
 
 # Twistisms
 # pylint: disable=C0111,C0103
@@ -141,8 +142,7 @@ class TwistedChannel:
             self._on_consumer_cancelled_by_broker)
 
     def __repr__(self) -> str:
-        return '<{cls} channel={chan!r}>'.format(cls=self.__class__.__name__,
-                                                 chan=self._channel)
+        return f'<{self.__class__.__name__} channel={self._channel!r}>'
 
     def _on_channel_closed(self, _channel: channel.Channel,
                            reason: Exception | None) -> None:
@@ -1032,8 +1032,8 @@ class TwistedChannel:
             for consumer_tag in list(
                     self._queue_name_to_consumer_tags.get(queue_name, set())):
                 self._consumers[consumer_tag].close(
-                    exceptions.ConsumerCancelled("Queue %s was deleted." %
-                                                 queue_name))
+                    exceptions.ConsumerCancelled(
+                        f"Queue {queue_name} was deleted."))
                 del self._consumers[consumer_tag]
                 self._queue_name_to_consumer_tags[queue_name].remove(
                     consumer_tag)

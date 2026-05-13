@@ -1,10 +1,10 @@
 import unittest
-
 from unittest.mock import MagicMock
-from pika.frame import Method, Header
-from pika.exceptions import DuplicateGetOkCallback
+
 from pika.channel import Channel
 from pika.connection import Connection
+from pika.exceptions import DuplicateGetOkCallback
+from pika.frame import Header, Method
 
 
 class OnlyOneBasicGetTestCase(unittest.TestCase):

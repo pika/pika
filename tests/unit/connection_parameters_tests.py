@@ -7,7 +7,8 @@ import copy
 import ssl
 import unittest
 import warnings
-from urllib.parse import quote as url_quote, urlencode
+from urllib.parse import quote as url_quote
+from urllib.parse import urlencode
 
 import pika
 from pika import channel, connection, credentials, spec
@@ -100,10 +101,10 @@ class ParametersTestsBase(unittest.TestCase):
         """
         for name, expected_value in self.get_default_properties().items():
             value = getattr(params, name)
-            self.assertEqual(value,
-                             expected_value,
-                             msg='Expected %s=%r, but got %r' %
-                             (name, expected_value, value))
+            self.assertEqual(
+                value,
+                expected_value,
+                msg=f'Expected {name}={expected_value!r}, but got {value!r}')
 
 
 class ParametersTests(ParametersTestsBase):
@@ -179,8 +180,8 @@ class ParametersTests(ParametersTestsBase):
         self.assertNotEqual(params_1, params_3)
         self.assertNotEqual(params_3, params_1)
 
-        self.assertNotEqual(params_1, dict(host='localhost', port=5672))
-        self.assertNotEqual(dict(host='localhost', port=5672), params_1)
+        self.assertNotEqual(params_1, {'host': 'localhost', 'port': 5672})
+        self.assertNotEqual({'host': 'localhost', 'port': 5672}, params_1)
 
         class Foreign:
 
@@ -426,7 +427,7 @@ class ParametersTests(ParametersTestsBase):
         self.assertIsNone(params.ssl_options)
 
         with self.assertRaises(TypeError):
-            params.ssl_options = dict()
+            params.ssl_options = {}
 
     def test_virtual_host(self):
         params = connection.Parameters()
@@ -446,10 +447,12 @@ class ParametersTests(ParametersTestsBase):
     def test_tcp_options(self):
         params = connection.Parameters()
 
-        opt = dict(TCP_KEEPIDLE=60,
-                   TCP_KEEPINTVL=2,
-                   TCP_KEEPCNT=1,
-                   TCP_USER_TIMEOUT=1000)
+        opt = {
+            'TCP_KEEPIDLE': 60,
+            'TCP_KEEPINTVL': 2,
+            'TCP_KEEPCNT': 1,
+            'TCP_USER_TIMEOUT': 1000
+        }
         params.tcp_options = copy.deepcopy(opt)
         self.assertEqual(params.tcp_options, opt)
 
@@ -536,10 +539,12 @@ class ConnectionParametersTests(ParametersTestsBase):
         # Check property values
         for t_param in expected_values:
             value = getattr(params, t_param)
-            self.assertEqual(expected_values[t_param],
-                             value,
-                             msg='Expected %s=%r, but got %r' %
-                             (t_param, expected_values[t_param], value))
+            self.assertEqual(
+                expected_values[t_param],
+                value,
+                msg=
+                f'Expected {t_param}={expected_values[t_param]!r}, but got {value!r}'
+            )
 
     def test_callable_heartbeat(self):
 
@@ -689,10 +694,12 @@ class URLParametersTests(ParametersTestsBase):
             expected_value = query_args[t_param]
             actual_value = getattr(params, t_param)
 
-            self.assertEqual(actual_value,
-                             expected_value,
-                             msg='Expected %s=%r, but got %r' %
-                             (t_param, expected_value, actual_value))
+            self.assertEqual(
+                actual_value,
+                expected_value,
+                msg=
+                f'Expected {t_param}={expected_value!r}, but got {actual_value!r}'
+            )
 
         # check all values from base URL
         self.assertEqual(params.credentials.username, 'myuser')

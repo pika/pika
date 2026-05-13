@@ -1,8 +1,9 @@
 # pylint: disable=C0111,C0103,R0205,W0603
 
 import logging
+
 import pika
-from pika import spec, DeliveryMode
+from pika import DeliveryMode, spec
 
 ITERATIONS = 100
 

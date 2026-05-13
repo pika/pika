@@ -12,21 +12,29 @@
 """twisted adapter test"""
 import functools
 import unittest
-
 from unittest import mock
+
 import pytest
-from twisted.internet import defer, error as twisted_error, reactor
+from twisted.internet import defer, reactor
+from twisted.internet import error as twisted_error
 from twisted.python.failure import Failure
 
-from pika.adapters.twisted_connection import (ClosableDeferredQueue,
-                                              TwistedChannel,
-                                              _TwistedConnectionAdapter,
-                                              TwistedProtocolConnection,
-                                              _TimerHandle)
 from pika import spec
-from pika.exceptions import (AMQPConnectionError, ConsumerCancelled,
-                             DuplicateGetOkCallback, NackError, UnroutableError,
-                             ChannelClosedByBroker)
+from pika.adapters.twisted_connection import (
+    ClosableDeferredQueue,
+    TwistedChannel,
+    TwistedProtocolConnection,
+    _TimerHandle,
+    _TwistedConnectionAdapter,
+)
+from pika.exceptions import (
+    AMQPConnectionError,
+    ChannelClosedByBroker,
+    ConsumerCancelled,
+    DuplicateGetOkCallback,
+    NackError,
+    UnroutableError,
+)
 from pika.frame import Method
 
 
@@ -52,8 +60,8 @@ class TestCase(unittest.TestCase):
             if failure.check(*expectedFailures):
                 return failure.value
             else:
-                output = ('\nExpected: %r\nGot:\n%s' %
-                          (expectedFailures, str(failure)))
+                output = (
+                    f'\nExpected: {expectedFailures!r}\nGot:\n{str(failure)}')
                 raise self.failureException(output)
 
         return d.addCallbacks(_cb, _eb)
@@ -442,14 +450,13 @@ class TwistedChannelTestCase(TestCase):
         args = [object()]
         kwargs = {"routing_key": object(), "body": object()}
         d = self.channel.basic_publish(*args, **kwargs)
-        kwargs.update(
-            dict(
-                # Args are converted to kwargs
-                exchange=args[0],
-                # Defaults
-                mandatory=False,
-                properties=None,
-            ))
+        kwargs.update({
+            # Args are converted to kwargs
+            "exchange": args[0],
+            # Defaults
+            "mandatory": False,
+            "properties": None,
+        })
         self.pika_channel.basic_publish.assert_called_once_with(**kwargs)
         assert d.called
 
@@ -481,7 +488,7 @@ class TwistedChannelTestCase(TestCase):
         kwargs = {"prefetch_size": 2}
         d = self.channel.basic_qos(**kwargs)
         # Defaults
-        kwargs.update(dict(prefetch_count=0, global_qos=False))
+        kwargs.update({"prefetch_count": 0, "global_qos": False})
         self._test_wrapped_func(self.pika_channel.basic_qos, kwargs, True)
         assert d.called
 

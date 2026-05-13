@@ -2,9 +2,9 @@
 
 import logging
 import socket
-import pika._utils
-
 from typing import Dict, Optional
+
+import pika._utils
 
 LOGGER = logging.getLogger(__name__)
 

@@ -11,9 +11,8 @@ import logging
 from typing import Any, Callable, Sequence
 
 import pika.exceptions
-
-from pika.adapters.utils import connection_workflow, nbio_interface
 from pika import connection
+from pika.adapters.utils import connection_workflow, nbio_interface
 
 LOGGER = logging.getLogger(__name__)
 
@@ -111,9 +110,9 @@ class BaseConnection(connection.Connection):
         #
         #     return '%s->%s' % (sockname, peername)
         # TODO need helpful __repr__ in transports
-        return ('<{} {} transport={} params={}>'.format(
-            self.__class__.__name__, self._STATE_NAMES[self.connection_state],
-            self._transport, self.params))
+        return (
+            f'<{self.__class__.__name__} {self._STATE_NAMES[self.connection_state]} transport={self._transport} params={self.params}>'
+        )
 
     @classmethod
     @abc.abstractmethod
@@ -366,8 +365,7 @@ class BaseConnection(connection.Connection):
             # NOTE: On success, the stack will be up already, so there is no
             #       corresponding callback.
             assert conn_or_exc is self, \
-                'Expected self conn={!r} from workflow, but got {!r}.'.format(
-                    self, conn_or_exc)
+                f'Expected self conn={self!r} from workflow, but got {conn_or_exc!r}.'
 
     def _handle_connection_workflow_failure(self,
                                             error: Exception | None) -> None:

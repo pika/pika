@@ -12,13 +12,13 @@ Tests for pika.connection.Connection
 # Suppress pylint messages concerning invalid method name
 # pylint: disable=C0103
 
-import random
 import platform
+import random
 import unittest
 from unittest import mock
 
-from pika import connection, channel, credentials, exceptions, frame, spec
 import pika
+from pika import channel, connection, credentials, exceptions, frame, spec
 
 
 def dummy_callback():
@@ -79,7 +79,7 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
     @mock.patch('pika.connection.Connection._on_close_ready')
     def test_close_calls_on_close_ready_when_no_channels(
             self, on_close_ready_mock):
-        self.connection._channels = dict()
+        self.connection._channels = {}
         self.connection.close()
         self.assertTrue(on_close_ready_mock.called,
                         'on_close_ready_mock should have been called')
@@ -428,12 +428,12 @@ class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
         for required_key in ('product', 'platform', 'capabilities',
                              'information', 'version'):
             self.assertTrue(required_key in client_props,
-                            '%s missing' % required_key)
+                            f'{required_key} missing')
 
     def test_client_properties_default(self):
         expectation = {
             'product': connection.PRODUCT,
-            'platform': 'Python %s' % platform.python_version(),
+            'platform': f'Python {platform.python_version()}',
             'capabilities': {
                 'authentication_failure_close': True,
                 'basic.nack': True,

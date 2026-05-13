@@ -12,9 +12,8 @@ import socket
 import threading
 from typing import Any, Callable
 
-from pika.adapters.utils import nbio_interface, io_services_utils
-from pika.adapters.utils.io_services_utils import (check_callback_arg,
-                                                   check_fd_arg)
+from pika.adapters.utils import io_services_utils, nbio_interface
+from pika.adapters.utils.io_services_utils import check_callback_arg, check_fd_arg
 
 LOGGER = logging.getLogger(__name__)
 
@@ -176,7 +175,7 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         self._loop = native_loop
 
         # Active watchers: maps file descriptors to `_FileDescriptorCallbacks`
-        self._watchers: dict[int, _FileDescriptorCallbacks] = dict()
+        self._watchers: dict[int, _FileDescriptorCallbacks] = {}
 
         # Native loop-specific event masks of interest
         self._readable_mask = self._loop.READ

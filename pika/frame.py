@@ -1,12 +1,11 @@
 """Frame objects that do the frame demarshaling and marshaling."""
 from __future__ import annotations
+
 import logging
 import struct
 from typing import Generic, TypeVar
 
-from pika import amqp_object
-from pika import exceptions
-from pika import spec
+from pika import amqp_object, exceptions, spec
 
 LOGGER = logging.getLogger(__name__)
 
@@ -154,7 +153,7 @@ class Heartbeat(Frame):
         :rtype: bytes
 
         """
-        return self._marshal(list())
+        return self._marshal([])
 
 
 class ProtocolHeader(amqp_object.AMQPObject):
@@ -268,4 +267,4 @@ def decode_frame(data_in: bytes) -> tuple[int, Frame | ProtocolHeader | None]:  
         # Return the amount of data and a Heartbeat frame
         return frame_end, Heartbeat()
 
-    raise exceptions.InvalidFrameError("Unknown frame type: %i" % frame_type)
+    raise exceptions.InvalidFrameError(f"Unknown frame type: {frame_type}")

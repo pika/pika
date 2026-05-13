@@ -14,13 +14,13 @@ testing and lessening the maintenance burden.
 from __future__ import annotations
 
 import abc
-from typing import TYPE_CHECKING, Callable, Any
+from typing import TYPE_CHECKING, Any, Callable
 
 import pika._utils
 
 if TYPE_CHECKING:
-    import ssl
     import socket
+    import ssl
 
 
 class AbstractIOServices(pika._utils.AbstractBase):  # type: ignore

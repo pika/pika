@@ -12,16 +12,14 @@ if TYPE_CHECKING:
 class AMQPError(Exception):
 
     def __repr__(self) -> str:
-        return '{}: An unspecified AMQP error has occurred; {}'.format(
-            self.__class__.__name__, self.args)
+        return f'{self.__class__.__name__}: An unspecified AMQP error has occurred; {self.args}'
 
 
 class AMQPConnectionError(AMQPError):
 
     def __repr__(self) -> str:
         if len(self.args) == 2:
-            return '{}: ({}) {}'.format(self.__class__.__name__, self.args[0],
-                                        self.args[1])
+            return f'{self.__class__.__name__}: ({self.args[0]}) {self.args[1]}'
         else:
             return f'{self.__class__.__name__}: {self.args}'
 
@@ -37,48 +35,40 @@ class StreamLostError(AMQPConnectionError):
 class IncompatibleProtocolError(AMQPConnectionError):
 
     def __repr__(self) -> str:
-        return ('{}: The protocol returned by the server is not supported: {}'.
-                format(
-                    self.__class__.__name__,
-                    self.args,
-                ))
+        return (
+            f'{self.__class__.__name__}: The protocol returned by the server is not supported: {self.args}'
+        )
 
 
 class AuthenticationError(AMQPConnectionError):
 
     def __repr__(self) -> str:
-        return ('%s: Server and client could not negotiate use of the %s '
-                'authentication mechanism' %
-                (self.__class__.__name__, self.args[0]))
+        return (
+            f'{self.__class__.__name__}: Server and client could not negotiate use of the {self.args[0]} '
+            'authentication mechanism')
 
 
 class ProbableAuthenticationError(AMQPConnectionError):
 
     def __repr__(self) -> str:
         return (
-            '%s: Client was disconnected at a connection stage indicating a '
-            'probable authentication error: %s' % (
-                self.__class__.__name__,
-                self.args,
-            ))
+            f'{self.__class__.__name__}: Client was disconnected at a connection stage indicating a '
+            f'probable authentication error: {self.args}')
 
 
 class ProbableAccessDeniedError(AMQPConnectionError):
 
     def __repr__(self) -> str:
         return (
-            '%s: Client was disconnected at a connection stage indicating a '
-            'probable denial of access to the specified virtual host: %s' % (
-                self.__class__.__name__,
-                self.args,
-            ))
+            f'{self.__class__.__name__}: Client was disconnected at a connection stage indicating a '
+            f'probable denial of access to the specified virtual host: {self.args}'
+        )
 
 
 class NoFreeChannels(AMQPConnectionError):
 
     def __repr__(self) -> str:
-        return '%s: The connection has run out of free channels' % (
-            self.__class__.__name__)
+        return f'{self.__class__.__name__}: The connection has run out of free channels'
 
 
 class ConnectionWrongStateError(AMQPConnectionError):
@@ -88,8 +78,9 @@ class ConnectionWrongStateError(AMQPConnectionError):
         if self.args:
             return super().__repr__()
         else:
-            return ('%s: The connection is in wrong state for the requested '
-                    'operation.' % self.__class__.__name__)
+            return (
+                f'{self.__class__.__name__}: The connection is in wrong state for the requested '
+                'operation.')
 
 
 class ConnectionClosed(AMQPConnectionError):
@@ -106,8 +97,7 @@ class ConnectionClosed(AMQPConnectionError):
         super().__init__(int(reply_code), str(reply_text))
 
     def __repr__(self) -> str:
-        return '{}: ({}) {!r}'.format(self.__class__.__name__, self.reply_code,
-                                      self.reply_text)
+        return f'{self.__class__.__name__}: ({self.reply_code}) {self.reply_text!r}'
 
     @property
     def reply_code(self) -> int:
@@ -172,8 +162,7 @@ class ChannelClosed(AMQPChannelError):
         super().__init__(int(reply_code), str(reply_text))
 
     def __repr__(self) -> str:
-        return '{}: ({}) {!r}'.format(self.__class__.__name__, self.reply_code,
-                                      self.reply_text)
+        return f'{self.__class__.__name__}: ({self.reply_code}) {self.reply_text!r}'
 
     @property
     def reply_code(self):
@@ -213,14 +202,15 @@ class ChannelClosedByClient(ChannelClosed):
 class DuplicateConsumerTag(AMQPChannelError):
 
     def __repr__(self) -> str:
-        return ('%s: The consumer tag specified already exists for this '
-                'channel: %s' % (self.__class__.__name__, self.args[0]))
+        return (
+            f'{self.__class__.__name__}: The consumer tag specified already exists for this '
+            f'channel: {self.args[0]}')
 
 
 class ConsumerCancelled(AMQPChannelError):
 
     def __repr__(self) -> str:
-        return '%s: Server cancelled consumer' % self.__class__.__name__
+        return f'{self.__class__.__name__}: Server cancelled consumer'
 
 
 class UnroutableError(AMQPChannelError):
@@ -239,13 +229,12 @@ class UnroutableError(AMQPChannelError):
         :param sequence(blocking_connection.ReturnedMessage) messages: Sequence
             of returned unroutable messages
         """
-        super().__init__("%s unroutable message(s) returned" % (len(messages)))
+        super().__init__(f"{len(messages)} unroutable message(s) returned")
 
         self.messages = messages
 
     def __repr__(self) -> str:
-        return '%s: %i unroutable messages returned by broker' % (
-            self.__class__.__name__, len(self.messages))
+        return f'{self.__class__.__name__}: {len(self.messages)} unroutable messages returned by broker'
 
 
 class NackError(AMQPChannelError):
@@ -260,70 +249,62 @@ class NackError(AMQPChannelError):
         :param sequence(blocking_connection.ReturnedMessage) messages: Sequence
             of returned unroutable messages
         """
-        super().__init__("%s message(s) NACKed" % (len(messages)))
+        super().__init__(f"{len(messages)} message(s) NACKed")
 
         self.messages = messages
 
     def __repr__(self) -> str:
-        return '%s: %i unroutable messages returned by broker' % (
-            self.__class__.__name__, len(self.messages))
+        return f'{self.__class__.__name__}: {len(self.messages)} unroutable messages returned by broker'
 
 
 class InvalidChannelNumber(AMQPError):
 
     def __repr__(self) -> str:
-        return '{}: An invalid channel number has been specified: {}'.format(
-            self.__class__.__name__, self.args[0])
+        return f'{self.__class__.__name__}: An invalid channel number has been specified: {self.args[0]}'
 
 
 class ProtocolSyntaxError(AMQPError):
 
     def __repr__(self) -> str:
-        return '%s: An unspecified protocol syntax error occurred' % (
-            self.__class__.__name__)
+        return f'{self.__class__.__name__}: An unspecified protocol syntax error occurred'
 
 
 class UnexpectedFrameError(ProtocolSyntaxError):
 
     def __repr__(self) -> str:
-        return '{}: Received a frame out of sequence: {!r}'.format(
-            self.__class__.__name__, self.args[0])
+        return f'{self.__class__.__name__}: Received a frame out of sequence: {self.args[0]!r}'
 
 
 class ProtocolVersionMismatch(ProtocolSyntaxError):
 
     def __repr__(self) -> str:
-        return '{}: Protocol versions did not match: {!r} vs {!r}'.format(
-            self.__class__.__name__, self.args[0], self.args[1])
+        return f'{self.__class__.__name__}: Protocol versions did not match: {self.args[0]!r} vs {self.args[1]!r}'
 
 
 class BodyTooLongError(ProtocolSyntaxError):
 
     def __repr__(self) -> str:
-        return ('%s: Received too many bytes for a message delivery: '
-                'Received %i, expected %i' %
-                (self.__class__.__name__, self.args[0], self.args[1]))
+        return (
+            f'{self.__class__.__name__}: Received too many bytes for a message delivery: '
+            f'Received {self.args[0]}, expected {self.args[1]}')
 
 
 class InvalidFrameError(ProtocolSyntaxError):
 
     def __repr__(self) -> str:
-        return '{}: Invalid frame received: {!r}'.format(
-            self.__class__.__name__, self.args[0])
+        return f'{self.__class__.__name__}: Invalid frame received: {self.args[0]!r}'
 
 
 class InvalidFieldTypeException(ProtocolSyntaxError):
 
     def __repr__(self) -> str:
-        return '{}: Unsupported field kind {}'.format(self.__class__.__name__,
-                                                      self.args[0])
+        return f'{self.__class__.__name__}: Unsupported field kind {self.args[0]}'
 
 
 class UnsupportedAMQPFieldException(ProtocolSyntaxError):
 
     def __repr__(self) -> str:
-        return '{}: Unsupported field kind {}'.format(self.__class__.__name__,
-                                                      type(self.args[1]))
+        return f'{self.__class__.__name__}: Unsupported field kind {type(self.args[1])}'
 
 
 class MethodNotImplemented(AMQPError):
@@ -333,8 +314,7 @@ class MethodNotImplemented(AMQPError):
 class ChannelError(Exception):
 
     def __repr__(self) -> str:
-        return '%s: An unspecified error occurred with the Channel' % (
-            self.__class__.__name__)
+        return f'{self.__class__.__name__}: An unspecified error occurred with the Channel'
 
 
 class ReentrancyError(Exception):
@@ -349,12 +329,14 @@ class ReentrancyError(Exception):
 class ShortStringTooLong(AMQPError):
 
     def __repr__(self) -> str:
-        return ('%s: AMQP Short String can contain up to 255 bytes: '
-                '%.300s' % (self.__class__.__name__, self.args[0]))
+        return (
+            f'{self.__class__.__name__}: AMQP Short String can contain up to 255 bytes: '
+            f'{self.args[0]!s:.300}')
 
 
 class DuplicateGetOkCallback(ChannelError):
 
     def __repr__(self) -> str:
-        return ('%s: basic_get can only be called again after the callback for '
-                'the previous basic_get is executed' % self.__class__.__name__)
+        return (
+            f'{self.__class__.__name__}: basic_get can only be called again after the callback for '
+            'the previous basic_get is executed')

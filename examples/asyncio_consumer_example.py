@@ -3,8 +3,8 @@
 import functools
 import logging
 import time
-import pika
 
+import pika
 from pika.adapters.asyncio_connection import AsyncioConnection
 from pika.exchange_type import ExchangeType
 

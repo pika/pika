@@ -57,7 +57,7 @@ class BaseConnectionTests(unittest.TestCase):
 
     def test_tcp_options_with_dict_tcp_options(self):
 
-        tcp_options = dict(TCP_KEEPIDLE=60)
+        tcp_options = {'TCP_KEEPIDLE': 60}
         params = pika.ConnectionParameters(tcp_options=tcp_options)
         self.assertEqual(params.tcp_options, tcp_options)
 
@@ -74,7 +74,7 @@ class BaseConnectionTests(unittest.TestCase):
 
     def test_tcp_options_with_invalid_tcp_options(self):
 
-        tcp_options = dict(TCP_EVIL_OPTION=1234)
+        tcp_options = {'TCP_EVIL_OPTION': 1234}
         params = pika.ConnectionParameters(tcp_options=tcp_options)
         self.assertEqual(params.tcp_options, tcp_options)
 
