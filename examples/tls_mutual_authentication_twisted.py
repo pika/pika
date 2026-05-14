@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from twisted.internet import defer, protocol, reactor, ssl
 
 from pika import ConnectionParameters
@@ -21,14 +23,15 @@ def connection_ready(conn):
     return conn.ready
 
 
+_certs = Path('PIKA_DIR/testdata/certs')
 # Load the CA certificate to validate the server's identity
-with open("PIKA_DIR/testdata/certs/ca_certificate.pem") as fd:
+with _certs.joinpath('ca_certificate.pem').open() as fd:
     ca_cert = ssl.Certificate.loadPEM(fd.read())
 
 # Load the client certificate and key to authenticate with the server
-with open("PIKA_DIR/testdata/certs/client_key.pem") as fd:
+with _certs.joinpath('client_key.pem').open() as fd:
     client_key = fd.read()
-with open("PIKA_DIR/testdata/certs/client_certificate.pem") as fd:
+with _certs.joinpath('client_certificate.pem').open() as fd:
     client_cert = fd.read()
 client_keypair = ssl.PrivateCertificate.loadPEM(client_key + client_cert)
 
