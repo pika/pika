@@ -20,8 +20,7 @@ Pika provides multiple adapters to connect to RabbitMQ:
 from pika.adapters.asyncio_connection import AsyncioConnection
 from pika.adapters.base_connection import BaseConnection
 from pika.adapters.blocking_connection import BlockingConnection
-from pika.adapters.select_connection import SelectConnection
-from pika.adapters.select_connection import IOLoop
+from pika.adapters.select_connection import IOLoop, SelectConnection
 
 __all__ = [
     'AsyncioConnection',

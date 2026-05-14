@@ -73,7 +73,7 @@ class TimeoutClassTests(unittest.TestCase):
                       cm.exception.args[0])
 
         with self.assertRaises(TypeError) as cm:
-            select_connection._Timeout(5, dict())
+            select_connection._Timeout(5, {})
 
         self.assertIn('callback must be a callable, but got',
                       cm.exception.args[0])
@@ -112,10 +112,14 @@ class TimeoutClassTests(unittest.TestCase):
         self.assertNotEqual(ChildTimeout(10, lambda: None),
                             select_connection._Timeout(5, lambda: None))
 
-        self.assertNotEqual(select_connection._Timeout(5, lambda: None),
-                            dict(deadline=5, callback=lambda: None))
-        self.assertNotEqual(dict(deadline=5, callback=lambda: None),
-                            select_connection._Timeout(5, lambda: None))
+        self.assertNotEqual(select_connection._Timeout(5, lambda: None), {
+            'deadline': 5,
+            'callback': lambda: None
+        })
+        self.assertNotEqual({
+            'deadline': 5,
+            'callback': lambda: None
+        }, select_connection._Timeout(5, lambda: None))
 
         class Foreign:
 

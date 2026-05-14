@@ -14,16 +14,15 @@ import socket
 import ssl
 import sys
 import traceback
-from typing import Any, Callable, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable
 
-from pika.adapters.utils.nbio_interface import (AbstractIOReference,
-                                                AbstractStreamTransport)
 import pika._utils
 import pika.diagnostic_utils
+from pika.adapters.utils.nbio_interface import AbstractIOReference, AbstractStreamTransport
 
 if TYPE_CHECKING:
-    from pika.adapters.utils import nbio_interface
     import pika.connection
+    from pika.adapters.utils import nbio_interface
 
 # "Try again" error codes for non-blocking socket I/O - send()/recv().
 # NOTE: POSIX.1 allows either error to be returned for this case and doesn't require
@@ -56,8 +55,7 @@ def check_callback_arg(callback: Any, name: str) -> None:
 
     """
     if not callable(callback):
-        raise TypeError('{} must be callable, but got {!r}'.format(
-            name, callback))
+        raise TypeError(f'{name} must be callable, but got {callback!r}')
 
 
 def check_fd_arg(fd: int) -> None:
@@ -221,8 +219,7 @@ class _AsyncSocketConnector:
                     'Unable to check resolved address: no socket.inet_pton().')
             else:
                 msg = ('Invalid or unresolved IP address '
-                       '{!r} for socket {}: {!r}').format(
-                           resolved_addr, sock, error)
+                       f'{resolved_addr!r} for socket {sock}: {error!r}')
                 _LOGGER.error(msg)
                 raise ValueError(msg)
 
@@ -415,7 +412,7 @@ class _AsyncStreamConnector:
 
         if not isinstance(ssl_context, (type(None), ssl.SSLContext)):
             raise ValueError('Expected ssl_context=None | ssl.SSLContext, but '
-                             'got {!r}'.format(ssl_context))
+                             f'got {ssl_context!r}')
 
         if server_hostname is not None and ssl_context is None:
             raise ValueError('Non-None server_hostname must not be passed '
@@ -429,7 +426,7 @@ class _AsyncStreamConnector:
         except Exception as error:
             raise ValueError(
                 'Expected connected socket, but getpeername() failed: '
-                'error={!r}; {}; '.format(error, sock))
+                f'error={error!r}; {sock}; ')
 
         self._nbio: None | (
             nbio_interface.AbstractIOServices |

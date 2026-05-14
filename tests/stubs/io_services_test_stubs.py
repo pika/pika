@@ -87,8 +87,7 @@ class IOServicesTestStubs:
         # implementation.
 
         from pika.adapters.select_connection import IOLoop
-        from pika.adapters.utils.selector_ioloop_adapter import (
-            SelectorIOServicesAdapter)
+        from pika.adapters.utils.selector_ioloop_adapter import SelectorIOServicesAdapter
         native_loop = IOLoop()
         self._run_start(
             nbio_factory=lambda: SelectorIOServicesAdapter(native_loop),
@@ -100,8 +99,8 @@ class IOServicesTestStubs:
         # implementation.
 
         from tornado.ioloop import IOLoop
-        from pika.adapters.utils.selector_ioloop_adapter import (
-            SelectorIOServicesAdapter)
+
+        from pika.adapters.utils.selector_ioloop_adapter import SelectorIOServicesAdapter
 
         native_loop = IOLoop()
         self._run_start(
@@ -114,7 +113,8 @@ class IOServicesTestStubs:
         # implementation.
 
         import asyncio
-        from pika.adapters.asyncio_connection import (_AsyncioIOServicesAdapter)
+
+        from pika.adapters.asyncio_connection import _AsyncioIOServicesAdapter
 
         native_loop = asyncio.new_event_loop()
         self._run_start(

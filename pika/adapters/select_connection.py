@@ -10,22 +10,25 @@ import errno
 import heapq
 import logging
 import select
-import time
 import threading
-from typing import Any, Callable, Sequence, Union, TYPE_CHECKING
+import time
+from typing import TYPE_CHECKING, Any, Callable, Sequence, Union
 
 import pika._utils
-
-from pika.adapters.utils import nbio_interface
 from pika.adapters.base_connection import BaseConnection
+from pika.adapters.utils import nbio_interface
 from pika.adapters.utils.selector_ioloop_adapter import (
-    SelectorIOServicesAdapter, AbstractSelectorIOLoop)
+    AbstractSelectorIOLoop,
+    SelectorIOServicesAdapter,
+)
 
 if TYPE_CHECKING:
+    import socket
+
     from typing_extensions import TypedDict
+
     from pika import connection
     from pika.adapters.utils import connection_workflow
-    import socket
 
     SELECT_ERROR_T = Union[OSError, IOError, InterruptedError, select.error]
 
@@ -190,8 +193,8 @@ class _Timeout:
 
         if deadline < 0:
             raise ValueError(
-                'deadline must be non-negative epoch number, but got %r' %
-                (deadline,))
+                f'deadline must be non-negative epoch number, but got {deadline!r}'
+            )
 
         if not callable(callback):
             raise TypeError(
@@ -283,8 +286,7 @@ class _Timer:
 
         if delay < 0:
             raise ValueError(
-                'call_later: delay must be non-negative, but got {!r}'.format(
-                    delay))
+                f'call_later: delay must be non-negative, but got {delay!r}')
 
         now = pika._utils.time_now()
 
@@ -645,7 +647,7 @@ class _PollerBase(pika._utils.AbstractBase):  # type: ignore  # pylint: disable=
         self._waking_mutex = threading.Lock()
 
         # fd-to-handler function mappings
-        self._fd_handlers: dict[int, Callable[..., None]] = dict()
+        self._fd_handlers: dict[int, Callable[..., None]] = {}
 
         # event-to-fdset mappings
         self._fd_events: dict[int, set[int]] = {
@@ -1162,7 +1164,7 @@ class KQueuePoller(_PollerBase):
         if self._kqueue is None:
             return
 
-        kevents = list()
+        kevents = []
 
         if events_to_clear & PollEvents.READ:
             kevents.append(

@@ -3,6 +3,7 @@
 import functools
 import logging
 import time
+
 import pika
 from pika.exchange_type import ExchangeType
 

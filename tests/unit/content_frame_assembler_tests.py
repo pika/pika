@@ -23,7 +23,7 @@ class ContentFrameAssemblerTests(unittest.TestCase):
         self.assertEqual(self.obj._seen_so_far, 0)
 
     def test_init_body_fragments(self):
-        self.assertEqual(self.obj._body_fragments, list())
+        self.assertEqual(self.obj._body_fragments, [])
 
     def test_process_with_basic_deliver(self):
         value = frame.Method(1, spec.Basic.Deliver())
@@ -114,7 +114,7 @@ class ContentFrameAssemblerTests(unittest.TestCase):
         body_frame = frame.Body(1, b'abc123')
         self.obj.process(body_frame)
         self.obj._reset()
-        self.assertEqual(self.obj._body_fragments, list())
+        self.assertEqual(self.obj._body_fragments, [])
 
     def test_ascii_bytes_body_instance(self):
         method_frame = frame.Method(1, spec.Basic.Deliver())

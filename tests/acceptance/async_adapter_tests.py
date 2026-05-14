@@ -22,16 +22,14 @@ import threading
 import uuid
 
 import pika
-from pika.adapters.utils import connection_workflow
+import pika.exceptions
+import pika.frame
 from pika import spec
 from pika._utils import as_bytes, time_now
-import pika.exceptions
+from pika.adapters.utils import connection_workflow
 from pika.exchange_type import ExchangeType
-import pika.frame
-
 from tests.base import async_test_base
-from tests.base.async_test_base import (AsyncTestCase, BoundQueueTestCase,
-                                        AsyncAdapters)
+from tests.base.async_test_base import AsyncAdapters, AsyncTestCase, BoundQueueTestCase
 
 
 class TestA_Connect(AsyncTestCase, AsyncAdapters):  # pylint: disable=C0103
@@ -53,7 +51,7 @@ class TestConstructAndImmediatelyCloseConnection(AsyncTestCase, AsyncAdapters):
         @async_test_base.make_stop_on_error_with_self(self)
         def on_opened(connection):
             self.fail('Connection should have aborted, but got '
-                      'on_opened({!r})'.format(connection))
+                      f'on_opened({connection!r})')
 
         @async_test_base.make_stop_on_error_with_self(self)
         def on_open_error(connection, error):
@@ -91,7 +89,7 @@ class TestCloseConnectionDuringAMQPHandshake(AsyncTestCase, AsyncAdapters):
         @async_test_base.make_stop_on_error_with_self(self)
         def on_opened(connection):
             self.fail('Connection should have aborted, but got '
-                      'on_opened({!r})'.format(connection))
+                      f'on_opened({connection!r})')
 
         @async_test_base.make_stop_on_error_with_self(self)
         def on_open_error(connection, error):
@@ -121,7 +119,7 @@ class TestSocketConnectTimeoutWithTinySocketTimeout(AsyncTestCase,
         @async_test_base.make_stop_on_error_with_self(self)
         def on_opened(connection):
             self.fail('Socket connection should have timed out, but got '
-                      'on_opened({!r})'.format(connection))
+                      f'on_opened({connection!r})')
 
         @async_test_base.make_stop_on_error_with_self(self)
         def on_open_error(connection, error):
@@ -150,14 +148,13 @@ class TestStackConnectionTimeoutWithTinyStackTimeout(AsyncTestCase,
         @async_test_base.make_stop_on_error_with_self(self)
         def on_opened(connection):
             self.fail('Stack connection should have timed out, but got '
-                      'on_opened({!r})'.format(connection))
+                      f'on_opened({connection!r})')
 
         def on_open_error(connection, exception):
             error = None
             if not isinstance(exception, pika.exceptions.AMQPConnectionError):
                 error = AssertionError(
-                    'Expected AMQPConnectionError, but got {!r}'.format(
-                        exception))
+                    f'Expected AMQPConnectionError, but got {exception!r}')
             self.stop(error)
 
         connection_class(params,
@@ -838,7 +835,7 @@ class TestZ_PublishAndConsume(BoundQueueTestCase, AsyncAdapters):  # pylint: dis
 
     def on_ready(self, frame):
         self.ctag = self.channel.basic_consume(self.queue, self.on_message)
-        self.msg_body = "%s: %i" % (self.__class__.__name__, time_now())
+        self.msg_body = f"{self.__class__.__name__}: {time_now()}"
         self.channel.basic_publish(self.exchange, self.routing_key,
                                    self.msg_body)
 
@@ -858,7 +855,7 @@ class TestZ_PublishAndConsumeBig(BoundQueueTestCase, AsyncAdapters):  # pylint: 
 
     @staticmethod
     def _get_msg_body():
-        return '\n'.join(["%s" % i for i in range(0, 2097152)])
+        return '\n'.join([f"{i}" for i in range(0, 2097152)])
 
     def on_ready(self, frame):
         self.ctag = self.channel.basic_consume(self.queue, self.on_message)
@@ -881,7 +878,7 @@ class TestZ_PublishAndGet(BoundQueueTestCase, AsyncAdapters):  # pylint: disable
     DESCRIPTION = "Publish a message and get it"
 
     def on_ready(self, frame):
-        self.msg_body = "%s: %i" % (self.__class__.__name__, time_now())
+        self.msg_body = f"{self.__class__.__name__}: {time_now()}"
         self.channel.basic_publish(self.exchange, self.routing_key,
                                    self.msg_body)
         self.channel.basic_get(self.queue, self.on_get)

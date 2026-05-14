@@ -2,10 +2,11 @@
 
 import json
 import random
+
 import pika
 from pika.exchange_type import ExchangeType
 
-print('pika version: %s' % pika.__version__)
+print(f'pika version: {pika.__version__}')
 
 connection = pika.BlockingConnection(
     pika.ConnectionParameters(host='localhost'))
@@ -50,6 +51,6 @@ for i in range(0, _COUNT_):
         routing_key='order.stop.create',
         body=json.dumps(msg),
         properties=pika.BasicProperties(content_type='application/json'))
-    print('send ticker %s' % ticker)
+    print(f'send ticker {ticker}')
 
 connection.close()

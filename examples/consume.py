@@ -1,6 +1,7 @@
 """Basic message consumer example"""
 import functools
 import logging
+
 import pika
 from pika.exchange_type import ExchangeType
 

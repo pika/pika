@@ -13,12 +13,25 @@ import math
 import numbers
 import platform
 import ssl
-from typing import Any, Dict, Optional, Sequence, Type, TypeVar, Union, Callable, cast, TYPE_CHECKING
-from urllib.parse import unquote as url_unquote, parse_qs as url_parse_qs, urlparse
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    Optional,
+    Sequence,
+    Type,
+    TypeVar,
+    Union,
+    cast,
+)
+from urllib.parse import parse_qs as url_parse_qs
+from urllib.parse import unquote as url_unquote
+from urllib.parse import urlparse
 
+import pika._utils
 import pika.callback
 import pika.channel
-import pika._utils
 import pika.credentials
 import pika.exceptions as exceptions
 import pika.frame as frame
@@ -27,8 +40,8 @@ import pika.spec as spec
 import pika.validators as validators
 
 if TYPE_CHECKING:
-    from pika.channel import Channel
     from pika import amqp_object
+    from pika.channel import Channel
 
 PRODUCT = "Pika Python Client Library"
 
@@ -135,9 +148,9 @@ class Parameters:  # pylint: disable=R0902
         :rtype: str
 
         """
-        return ('<%s host=%s port=%s virtual_host=%s ssl=%s>' %
-                (self.__class__.__name__, self.host, self.port,
-                 self.virtual_host, bool(self.ssl_options)))
+        return (
+            f'<{self.__class__.__name__} host={self.host} port={self.port} virtual_host={self.virtual_host} ssl={bool(self.ssl_options)}>'
+        )
 
     def __eq__(self, other) -> bool:
         if isinstance(other, Parameters):
@@ -172,10 +185,10 @@ class Parameters:  # pylint: disable=R0902
         if value is not None:
             if not isinstance(value, numbers.Real):
                 raise TypeError('blocked_connection_timeout must be a Real '
-                                'number, but got %r' % (value,))
+                                f'number, but got {value!r}')
             if value < 0:
                 raise ValueError('blocked_connection_timeout must be >= 0, but '
-                                 'got %r' % (value,))
+                                 f'got {value!r}')
         self._blocked_connection_timeout = value
 
     @property
@@ -198,8 +211,9 @@ class Parameters:  # pylint: disable=R0902
         if not isinstance(value, numbers.Integral):
             raise TypeError(f'channel_max must be an int, but got {value!r}')
         if value < 1 or value > pika.channel.MAX_CHANNELS:
-            raise ValueError('channel_max must be <= %i and > 0, but got %r' %
-                             (pika.channel.MAX_CHANNELS, value))
+            raise ValueError(
+                f'channel_max must be <= {pika.channel.MAX_CHANNELS} and > 0, but got {value!r}'
+            )
         self._channel_max = value
 
     @property
@@ -225,7 +239,7 @@ class Parameters:  # pylint: disable=R0902
                 type(None),
         )):
             raise TypeError('client_properties must be dict or None, '
-                            'but got %r' % (value,))
+                            f'but got {value!r}')
         # Copy the mutable object to avoid accidental side-effects
         self._client_properties = copy.deepcopy(value)
 
@@ -277,8 +291,9 @@ class Parameters:  # pylint: disable=R0902
 
         """
         if not isinstance(value, tuple(pika.credentials.VALID_TYPES)):
-            raise TypeError('credentials must be an object of type: %r, but '
-                            'got %r' % (pika.credentials.VALID_TYPES, value))
+            raise TypeError(
+                f'credentials must be an object of type: {pika.credentials.VALID_TYPES!r}, but '
+                f'got {value!r}')
         # Copy the mutable object to avoid accidental side-effects
         self._credentials = copy.deepcopy(value)
 
@@ -302,15 +317,13 @@ class Parameters:  # pylint: disable=R0902
         if not isinstance(value, numbers.Integral):
             raise TypeError(f'frame_max must be an int, but got {value!r}')
         if value < spec.FRAME_MIN_SIZE:
-            raise ValueError('Min AMQP 0.9.1 Frame Size is %i, but got %r' % (
-                spec.FRAME_MIN_SIZE,
-                value,
-            ))
+            raise ValueError(
+                f'Min AMQP 0.9.1 Frame Size is {spec.FRAME_MIN_SIZE}, but got {value!r}'
+            )
         elif value > spec.FRAME_MAX_SIZE:
-            raise ValueError('Max AMQP 0.9.1 Frame Size is %i, but got %r' % (
-                spec.FRAME_MAX_SIZE,
-                value,
-            ))
+            raise ValueError(
+                f'Max AMQP 0.9.1 Frame Size is {spec.FRAME_MAX_SIZE}, but got {value!r}'
+            )
         self._frame_max = value
 
     @property
@@ -340,8 +353,8 @@ class Parameters:  # pylint: disable=R0902
         if value is not None:
             if not isinstance(value, numbers.Integral) and not callable(value):
                 raise TypeError(
-                    'heartbeat must be an int or a callable function, but got %r'
-                    % (value,))
+                    f'heartbeat must be an int or a callable function, but got {value!r}'
+                )
             if not callable(value) and value < 0:
                 raise ValueError(f'heartbeat must >= 0, but got {value!r}')
         self._heartbeat = value  # pyright: ignore[reportAttributeAccessIssue]
@@ -423,8 +436,7 @@ class Parameters:  # pylint: disable=R0902
         """
         if not isinstance(value, numbers.Real):
             raise TypeError(
-                'retry_delay must be a float or int, but got {!r}'.format(
-                    value))
+                f'retry_delay must be a float or int, but got {value!r}')
         self._retry_delay = value
 
     @property
@@ -447,7 +459,7 @@ class Parameters:  # pylint: disable=R0902
         if value is not None:
             if not isinstance(value, numbers.Real):
                 raise TypeError('socket_timeout must be a float or int, '
-                                'but got %r' % (value,))
+                                f'but got {value!r}')
             if value <= 0:
                 raise ValueError(
                     f'socket_timeout must be > 0, but got {value!r}')
@@ -478,7 +490,7 @@ class Parameters:  # pylint: disable=R0902
         if value is not None:
             if not isinstance(value, numbers.Real):
                 raise TypeError('stack_timeout must be a float or int, '
-                                'but got %r' % (value,))
+                                f'but got {value!r}')
             if value <= 0:
                 raise ValueError(
                     f'stack_timeout must be > 0, but got {value!r}')
@@ -503,8 +515,7 @@ class Parameters:  # pylint: disable=R0902
         """
         if not isinstance(value, (SSLOptions, type(None))):
             raise TypeError(
-                'ssl_options must be None or SSLOptions but got {!r}'.format(
-                    value))
+                f'ssl_options must be None or SSLOptions but got {value!r}')
         self._ssl_options = value
 
     @property
@@ -543,8 +554,7 @@ class Parameters:  # pylint: disable=R0902
         """
         if not isinstance(value, (dict, type(None))):
             raise TypeError(
-                'tcp_options must be a dict or None, but got {!r}'.format(
-                    value))
+                f'tcp_options must be a dict or None, but got {value!r}')
         self._tcp_options = value
 
 
@@ -768,8 +778,9 @@ class URLParameters(Parameters):
         elif parts.scheme == 'http':
             self.ssl_options = None
         elif parts.scheme:
-            raise ValueError('Unexpected URL scheme %r; supported scheme '
-                             'values: amqp, amqps' % (parts.scheme,))
+            raise ValueError(
+                f'Unexpected URL scheme {parts.scheme!r}; supported scheme '
+                'values: amqp, amqps')
 
         if parts.hostname is not None:
             self.host = parts.hostname
@@ -802,9 +813,9 @@ class URLParameters(Parameters):
             try:
                 (value,) = value  # type: ignore[assignment]
             except ValueError:
-                raise ValueError('Expected exactly one value for URL parameter '
-                                 '%s, but got %i values: %s' %
-                                 (name, len(value), value))
+                raise ValueError(
+                    f'Expected exactly one value for URL parameter '
+                    f'{name}, but got {len(value)} values: {value}')
 
             set_value(value)
 
@@ -814,10 +825,7 @@ class URLParameters(Parameters):
             blocked_connection_timeout = float(value)
         except ValueError as exc:
             raise ValueError(
-                'Invalid blocked_connection_timeout value {!r}: {!r}'.format(
-                    value,
-                    exc,
-                ))
+                f'Invalid blocked_connection_timeout value {value!r}: {exc!r}')
         self.blocked_connection_timeout = blocked_connection_timeout
 
     def _set_url_channel_max(self, value: int) -> None:
@@ -825,10 +833,7 @@ class URLParameters(Parameters):
         try:
             channel_max = int(value)
         except ValueError as exc:
-            raise ValueError('Invalid channel_max value {!r}: {!r}'.format(
-                value,
-                exc,
-            ))
+            raise ValueError(f'Invalid channel_max value {value!r}: {exc!r}')
         self.channel_max = channel_max
 
     def _set_url_client_properties(self, value: str) -> None:
@@ -841,10 +846,7 @@ class URLParameters(Parameters):
             connection_attempts = int(value)
         except ValueError as exc:
             raise ValueError(
-                'Invalid connection_attempts value {!r}: {!r}'.format(
-                    value,
-                    exc,
-                ))
+                f'Invalid connection_attempts value {value!r}: {exc!r}')
         self.connection_attempts = connection_attempts
 
     def _set_url_frame_max(self, value: int) -> None:
@@ -852,10 +854,7 @@ class URLParameters(Parameters):
         try:
             frame_max = int(value)
         except ValueError as exc:
-            raise ValueError('Invalid frame_max value {!r}: {!r}'.format(
-                value,
-                exc,
-            ))
+            raise ValueError(f'Invalid frame_max value {value!r}: {exc!r}')
         self.frame_max = frame_max
 
     def _set_url_heartbeat(self, value: int) -> None:
@@ -863,10 +862,7 @@ class URLParameters(Parameters):
         try:
             heartbeat_timeout = int(value)
         except ValueError as exc:
-            raise ValueError('Invalid heartbeat value {!r}: {!r}'.format(
-                value,
-                exc,
-            ))
+            raise ValueError(f'Invalid heartbeat value {value!r}: {exc!r}')
         self.heartbeat = heartbeat_timeout
 
     def _set_url_locale(self, value: str) -> None:
@@ -878,10 +874,7 @@ class URLParameters(Parameters):
         try:
             retry_delay = float(value)
         except ValueError as exc:
-            raise ValueError('Invalid retry_delay value {!r}: {!r}'.format(
-                value,
-                exc,
-            ))
+            raise ValueError(f'Invalid retry_delay value {value!r}: {exc!r}')
         self.retry_delay = retry_delay
 
     def _set_url_socket_timeout(self, value: float) -> None:
@@ -889,10 +882,7 @@ class URLParameters(Parameters):
         try:
             socket_timeout = float(value)
         except ValueError as exc:
-            raise ValueError('Invalid socket_timeout value {!r}: {!r}'.format(
-                value,
-                exc,
-            ))
+            raise ValueError(f'Invalid socket_timeout value {value!r}: {exc!r}')
         self.socket_timeout = socket_timeout
 
     def _set_url_stack_timeout(self, value: float) -> None:
@@ -900,10 +890,7 @@ class URLParameters(Parameters):
         try:
             stack_timeout = float(value)
         except ValueError as exc:
-            raise ValueError('Invalid stack_timeout value {!r}: {!r}'.format(
-                value,
-                exc,
-            ))
+            raise ValueError(f'Invalid stack_timeout value {value!r}: {exc!r}')
         self.stack_timeout = stack_timeout
 
     def _set_url_ssl_options(self, value: str) -> None:
@@ -978,8 +965,7 @@ class SSLOptions:
         """
         if not isinstance(context, ssl.SSLContext):
             raise TypeError(
-                'context must be of ssl.SSLContext type, but got {!r}'.format(
-                    context))
+                f'context must be of ssl.SSLContext type, but got {context!r}')
 
         self.context = context
         self.server_hostname = server_hostname
@@ -1144,7 +1130,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
         self._frame_buffer = b''
 
         # Dict of open channels
-        self._channels = dict()
+        self._channels = {}
 
         # Data used for Heartbeat checking and back-pressure detection
         self.bytes_sent = 0
@@ -1294,7 +1280,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
         """
         if not self.is_open:
             raise exceptions.ConnectionWrongStateError(
-                'Channel allocation requires an open connection: %s' % self)
+                f'Channel allocation requires an open connection: {self}')
 
         validators.rpc_completion_callback(on_open_callback)
 
@@ -1330,7 +1316,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
         """
         if not self.is_open:
             raise exceptions.ConnectionWrongStateError(
-                'Secret update requires an open connection: %s' % self)
+                f'Secret update requires an open connection: {self}')
 
         validators.rpc_completion_callback(callback)
         self._rpc(0, spec.Connection.UpdateSecret(new_secret, reason), callback,
@@ -1351,10 +1337,10 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
             closed or closing.
         """
         if self.is_closing or self.is_closed:
-            msg = ('Illegal close({}, {!r}) request on {} because it '
-                   'was called while connection state={}.'.format(
-                       reply_code, reply_text, self,
-                       self._STATE_NAMES[self.connection_state]))
+            msg = (
+                f'Illegal close({reply_code}, {reply_text!r}) request on {self} because it '
+                f'was called while connection state={self._STATE_NAMES[self.connection_state]}.'
+            )
             LOGGER.error(msg)
             raise exceptions.ConnectionWrongStateError(msg)
 
@@ -1379,8 +1365,8 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
 
             error = exceptions.ConnectionOpenAborted(
                 'Connection.close() called before connection '
-                'finished opening: prev_state={} ({}): {!r}'.format(
-                    self._STATE_NAMES[prev_state], reply_code, reply_text))
+                f'finished opening: prev_state={self._STATE_NAMES[prev_state]} ({reply_code}): {reply_text!r}'
+            )
             self._terminate_stream(error)
 
         else:
@@ -1597,7 +1583,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
         """
         properties = {
             'product': PRODUCT,
-            'platform': 'Python %s' % platform.python_version(),
+            'platform': f'Python {platform.python_version()}',
             'capabilities': {
                 'authentication_failure_close': True,
                 'basic.nack': True,
@@ -2026,7 +2012,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
             if ret_heartbeat is None or callable(ret_heartbeat):
                 # Enforce callback-specific restrictions on callback's return value
                 raise TypeError('heartbeat callback must not return None '
-                                'or callable, but got %r' % (ret_heartbeat,))
+                                f'or callable, but got {ret_heartbeat!r}')
 
             # Leave it to hearbeat setter deal with the rest of the validation
             self.params.heartbeat = ret_heartbeat
@@ -2077,8 +2063,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
 
         """
         assert isinstance(error, (type(None), Exception)), \
-            'error arg is neither None nor instance of Exception: {!r}.'.format(
-                error)
+            f'error arg is neither None nor instance of Exception: {error!r}.'
 
         if error is not None:
             # Save the exception for user callback once the stream closes
@@ -2418,7 +2403,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
         """
         self.server_properties = method_frame.method.server_properties  # pyright: ignore[reportAttributeAccessIssue]
         self.server_capabilities = self.server_properties.get(  # pyright: ignore[reportOptionalMemberAccess]
-            'capabilities', dict())
+            'capabilities', {})
         if hasattr(self.server_properties, 'capabilities'):
             del self.server_properties[
                 'capabilities']  # pyright: ignore[reportOptionalSubscript]

@@ -1,8 +1,9 @@
 """AMQP Table Encoding/Decoding"""
 from __future__ import annotations
-import struct
-import decimal
+
 import calendar
+import decimal
+import struct
 from datetime import datetime, timezone
 from typing import Any
 

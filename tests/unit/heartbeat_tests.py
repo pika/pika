@@ -5,8 +5,8 @@ Tests for pika.heartbeat
 import unittest
 from unittest import mock
 
-from pika import connection, frame, heartbeat
 import pika.exceptions
+from pika import connection, frame, heartbeat
 
 # protected-access
 # pylint: disable=W0212

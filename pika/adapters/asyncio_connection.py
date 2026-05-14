@@ -4,10 +4,10 @@ from __future__ import annotations
 import asyncio
 import logging
 import sys
-from typing import Any, Awaitable, Callable, TYPE_CHECKING, Sequence
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Sequence
 
 from pika.adapters import base_connection
-from pika.adapters.utils import connection_workflow, nbio_interface, io_services_utils
+from pika.adapters.utils import connection_workflow, io_services_utils, nbio_interface
 
 if TYPE_CHECKING:
     from pika import connection

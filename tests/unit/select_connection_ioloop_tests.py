@@ -4,7 +4,6 @@ Tests for SelectConnection IOLoops
 """
 
 import errno
-from datetime import datetime, timezone
 import functools
 import logging
 import os
@@ -13,9 +12,10 @@ import select
 import signal
 import socket
 import sys
-import time
 import threading
+import time
 import unittest
+from datetime import datetime, timezone
 from unittest import mock
 
 import pika
@@ -258,7 +258,7 @@ class IOLoopTimerTestSelect(IOLoopBaseTest):
         interval.
 
         """
-        self.timer_stack = list()
+        self.timer_stack = []
         for i in range(self.NUM_TIMERS, 0, -1):
             deadline = i * self.TIMER_INTERVAL
             self.ioloop.call_later(deadline,
@@ -288,7 +288,7 @@ class IOLoopTimerTestSelect(IOLoopBaseTest):
         corresponding handler generates no exceptions.
 
         """
-        self.timer_stack = list()
+        self.timer_stack = []
         handle_holder = []
         self.timer_got_fired = False
         self.handle = self.ioloop.call_later(
@@ -410,7 +410,7 @@ class IOLoopSocketBaseSelect(IOLoopBaseTest):
 
     def setUp(self):
         super().setUp()
-        self.sock_map = dict()
+        self.sock_map = {}
         self.create_accept_socket()
 
     def tearDown(self):
@@ -805,8 +805,7 @@ class DefaultPollerSocketEventsTestCase(unittest.TestCase):
 
         def handle_socket_events(_fd, in_events):
             socket_error = sock.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
-            socket_error = 0 if socket_error == 0 else '{} ({})'.format(
-                socket_error, os.strerror(socket_error))
+            socket_error = 0 if socket_error == 0 else f'{socket_error} ({os.strerror(socket_error)})'
 
             _trace_stderr('[%s] %s: watching=%s; indicated=%s; sockerr=%s',
                           ioloop._poller.__class__.__name__, msg_prefix,
@@ -817,9 +816,8 @@ class DefaultPollerSocketEventsTestCase(unittest.TestCase):
             #      without being requested.
             self.assertTrue(
                 in_events & (requested_eventmasks[0] | self.ERROR),
-                'watching={}; indicated={}'.format(
-                    _fd_events_to_str(requested_eventmasks[0]),
-                    _fd_events_to_str(in_events)))
+                f'watching={_fd_events_to_str(requested_eventmasks[0])}; indicated={_fd_events_to_str(in_events)}'
+            )
 
             requested_eventmasks.pop(0)
 

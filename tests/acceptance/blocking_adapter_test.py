@@ -1,18 +1,17 @@
 """blocking adapter test"""
-from datetime import datetime, timezone
 import functools
 import logging
 import socket
 import threading
 import unittest
 import uuid
+from datetime import datetime, timezone
 
 import pika
-from pika.adapters import blocking_connection
-from pika._utils import as_bytes, time_now
 import pika.exceptions
+from pika._utils import as_bytes, time_now
+from pika.adapters import blocking_connection
 from pika.exchange_type import ExchangeType
-
 from tests.misc.forward_server import ForwardServer
 from tests.misc.test_utils import retry_assertion
 
@@ -96,7 +95,7 @@ class BlockingTestCaseBase(unittest.TestCase):
                 return real_poll(*args, **kwargs)
             except BaseException as exc:
                 self.fail('Unwanted exception leaked into asynchronous layer '
-                          'via ioloop.poll(): {!r}'.format(exc))
+                          f'via ioloop.poll(): {exc!r}')
 
         connection._impl.ioloop.poll = my_poll
         self.addCleanup(setattr, connection._impl.ioloop, 'poll', real_poll)
@@ -112,7 +111,7 @@ class BlockingTestCaseBase(unittest.TestCase):
                 raise
             except BaseException as exc:
                 self.fail('Unwanted exception leaked into asynchronous layer '
-                          'via ioloop.process_timeouts(): {!r}'.format(exc))
+                          f'via ioloop.process_timeouts(): {exc!r}')
 
         connection._impl.ioloop.process_timeouts = my_process_timeouts
         self.addCleanup(setattr, connection._impl.ioloop, 'process_timeouts',
@@ -1511,8 +1510,9 @@ class TestPublishAndBasicPublishWithPubacksUnroutable(BlockingTestCaseBase):
         self.addCleanup(connection.channel().exchange_delete, exg_name)
 
         # Verify unroutable message handling using basic_publish
-        msg2_headers = dict(
-            test_name='TestPublishAndBasicPublishWithPubacksUnroutable')
+        msg2_headers = {
+            'test_name': 'TestPublishAndBasicPublishWithPubacksUnroutable'
+        }
         msg2_properties = pika.spec.BasicProperties(headers=msg2_headers)
         with self.assertRaises(pika.exceptions.UnroutableError) as cm:
             ch.basic_publish(exg_name,
@@ -1836,8 +1836,9 @@ class TestPublishAndConsumeWithPubacksAndQosOfOne(BlockingTestCaseBase):
         ch.queue_bind(q_name, exchange=exg_name, routing_key=routing_key)
 
         # Deposit a message in the queue
-        msg1_headers = dict(
-            test_name='TestPublishAndConsumeWithPubacksAndQosOfOne')
+        msg1_headers = {
+            'test_name': 'TestPublishAndConsumeWithPubacksAndQosOfOne'
+        }
         msg1_properties = pika.spec.BasicProperties(headers=msg1_headers)
         ch.basic_publish(exg_name,
                          routing_key=routing_key,
@@ -2299,7 +2300,7 @@ class TestBasicPublishWithoutPubacks(BlockingTestCaseBase):
         ch.queue_bind(q_name, exchange=exg_name, routing_key=routing_key)
 
         # Deposit a message in the queue with mandatory=True
-        msg1_headers = dict(test_name='TestBasicPublishWithoutPubacks')
+        msg1_headers = {'test_name': 'TestBasicPublishWithoutPubacks'}
         msg1_properties = pika.spec.BasicProperties(headers=msg1_headers)
         ch.basic_publish(exg_name,
                          routing_key=routing_key,
@@ -2969,7 +2970,7 @@ class TestNoAckMessageNotRestoredToQueueOnChannelClose(BlockingTestCaseBase):
             if num_messages == 2:
                 break
         else:
-            self.fail('expected 2 messages, but consumed %i' % (num_messages,))
+            self.fail(f'expected 2 messages, but consumed {num_messages}')
 
         # Verify no more ready messages in queue
         frame = ch.queue_declare(q_name, passive=True)

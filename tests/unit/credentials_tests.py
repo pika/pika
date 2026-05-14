@@ -91,13 +91,18 @@ class PlainCredentialsTests(unittest.TestCase):
         self.assertNotEqual(ChildPlainCredentials('u', 'pp', False),
                             credentials.PlainCredentials('u', 'p', False))
 
-        self.assertNotEqual(
-            credentials.PlainCredentials('u', 'p', False),
-            dict(username='u', password='p', erase_on_connect=False))
+        self.assertNotEqual(credentials.PlainCredentials('u', 'p', False), {
+            'username': 'u',
+            'password': 'p',
+            'erase_on_connect': False
+        })
 
         self.assertNotEqual(
-            dict(username='u', password='p', erase_on_connect=False),
-            credentials.PlainCredentials('u', 'p', False))
+            {
+                'username': 'u',
+                'password': 'p',
+                'erase_on_connect': False
+            }, credentials.PlainCredentials('u', 'p', False))
 
         class Foreign:
 
@@ -185,8 +190,8 @@ class ExternalCredentialsTest(unittest.TestCase):
         self.assertNotEqual(cred_1, cred_3)
         self.assertNotEqual(cred_3, cred_1)
 
-        self.assertNotEqual(cred_1, dict(erase_on_connect=False))
-        self.assertNotEqual(dict(erase_on_connect=False), cred_1)
+        self.assertNotEqual(cred_1, {'erase_on_connect': False})
+        self.assertNotEqual({'erase_on_connect': False}, cred_1)
 
         class Foreign:
 

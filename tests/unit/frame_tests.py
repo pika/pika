@@ -4,7 +4,7 @@ Tests for pika.frame
 """
 import unittest
 
-from pika import exceptions, frame, spec, DeliveryMode
+from pika import DeliveryMode, exceptions, frame, spec
 
 
 class FrameTests(unittest.TestCase):

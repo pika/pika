@@ -8,10 +8,10 @@ from unittest import mock
 from unittest.mock import patch
 
 import pika
-from pika.adapters import blocking_connection
-from pika.adapters.utils import nbio_interface
 import pika.channel
 import pika.exceptions
+from pika.adapters import blocking_connection
+from pika.adapters.utils import nbio_interface
 
 # Disable protected-access
 # pylint: disable=W0212

@@ -6,10 +6,9 @@ from __future__ import annotations
 
 import functools
 import logging
-from typing import Any, Callable, Union, Type, cast
+from typing import Any, Callable, Type, Union, cast
 
-from pika import frame
-from pika import amqp_object
+from pika import amqp_object, frame
 
 _Prefix = Union[str, int]
 _Caller = object
@@ -119,8 +118,7 @@ class CallbackManager:
 
     def __init__(self) -> None:
         """Create an instance of the CallbackManager"""
-        self._stack: dict[_Prefix, dict[AMQPValue, list[dict[str,
-                                                             Any]]]] = dict()
+        self._stack: dict[_Prefix, dict[AMQPValue, list[dict[str, Any]]]] = {}
 
     @sanitize_prefix
     def add(self,
@@ -150,10 +148,10 @@ class CallbackManager:
         """
         # Prep the stack
         if prefix not in self._stack:
-            self._stack[prefix] = dict()
+            self._stack[prefix] = {}
 
         if key not in self._stack[prefix]:
-            self._stack[prefix][key] = list()
+            self._stack[prefix][key] = []
 
         # Check for a duplicate
         for callback_dict in self._stack[prefix][key]:
@@ -177,7 +175,7 @@ class CallbackManager:
 
     def clear(self) -> None:
         """Clear all the callbacks if there are any defined."""
-        self._stack = dict()
+        self._stack = {}
         LOGGER.debug('Callbacks cleared')
 
     @sanitize_prefix
@@ -229,7 +227,7 @@ class CallbackManager:
         if prefix not in self._stack or key not in self._stack[prefix]:
             return False
 
-        callbacks = list()
+        callbacks = []
         # Check each callback, append it to the list if it should be called
         for callback_dict in list(self._stack[prefix][key]):
             if self._should_process_callback(callback_dict, caller, list(args)):
@@ -267,7 +265,7 @@ class CallbackManager:
 
         """
         if callback_value:
-            offsets_to_remove = list()
+            offsets_to_remove = []
             for offset in range(len(self._stack[prefix][key]), 0, -1):
                 callback_dict = self._stack[prefix][key][offset - 1]
 

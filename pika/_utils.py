@@ -1,6 +1,7 @@
 """Internal utility helpers for platform and socket compatibility."""
 # pylint: disable=C0103
 from __future__ import annotations
+
 import abc
 import os
 import re
