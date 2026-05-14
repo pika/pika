@@ -1,6 +1,7 @@
-import ssl
-import pika
 import logging
+import ssl
+
+import pika
 
 logging.basicConfig(level=logging.INFO)
 

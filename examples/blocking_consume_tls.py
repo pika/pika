@@ -1,5 +1,6 @@
-import pika
 import ssl
+
+import pika
 
 context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
 context.check_hostname = False

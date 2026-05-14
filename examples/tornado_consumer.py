@@ -1,4 +1,5 @@
 import logging
+
 import pika
 from pika.adapters.tornado_connection import TornadoConnection
 from pika.exchange_type import ExchangeType
@@ -8,7 +9,7 @@ LOG_FORMAT = ('%(levelname) -10s %(asctime)s %(name) -30s %(funcName) '
 LOGGER = logging.getLogger(__name__)
 
 
-class ExampleConsumer(object):
+class ExampleConsumer:
     """This is an example consumer that will handle unexpected interactions
     with RabbitMQ such as channel and connection closures.
 

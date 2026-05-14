@@ -1,6 +1,8 @@
-import pika
 import random
+
 from retry import retry
+
+import pika
 
 
 def on_message(channel, method_frame, header_frame, body):

@@ -1,8 +1,8 @@
+from twisted.internet import defer, protocol, reactor, ssl
+
 from pika import ConnectionParameters
 from pika.adapters import twisted_connection
 from pika.credentials import ExternalCredentials
-
-from twisted.internet import defer, protocol, ssl, reactor
 
 
 @defer.inlineCallbacks
