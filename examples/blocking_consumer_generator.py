@@ -20,7 +20,7 @@ for method_frame, properties, body in channel.consume('test'):
 
 # Cancel the consumer and return any pending messages
 requeued_messages = channel.cancel()
-print('Requeued %i messages' % requeued_messages)
+print(f'Requeued {requeued_messages} messages')
 
 # Close the channel and the connection
 channel.close()
