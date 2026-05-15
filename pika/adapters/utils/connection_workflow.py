@@ -659,10 +659,8 @@ class AMQPConnectionWorkflow(AbstractAMQPConnectionWorkflow):
         self._nbio = nbio
 
     def start(
-        self,
-        connection_configs: Sequence[pika.connection.Parameters],
-        connector_factory: Callable[..., Any],
-        native_loop,  # pylint: disable=W0613
+        self, connection_configs: Sequence[pika.connection.Parameters],
+        connector_factory: Callable[..., Any], native_loop,
         on_done: Callable[[pika.connection.Connection | AMQPConnectorException],
                           None]
     ) -> None:
