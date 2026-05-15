@@ -51,6 +51,43 @@ class ThreadSafeChannel:
                 mandatory=mandatory,
             ))
 
+    def basic_ack(self, delivery_tag=0, multiple=False):
+        """Schedule an acknowledgement in the IOLoop thread (fire-and-forget).
+
+        Safe to call from any thread simultaneously.
+        """
+        self._connection.add_callback_threadsafe(
+            functools.partial(
+                self._channel.basic_ack,
+                delivery_tag=delivery_tag,
+                multiple=multiple,
+            ))
+
+    def basic_nack(self, delivery_tag=0, multiple=False, requeue=True):
+        """Schedule a negative acknowledgement in the IOLoop thread (fire-and-forget).
+
+        Safe to call from any thread simultaneously.
+        """
+        self._connection.add_callback_threadsafe(
+            functools.partial(
+                self._channel.basic_nack,
+                delivery_tag=delivery_tag,
+                multiple=multiple,
+                requeue=requeue,
+            ))
+
+    def basic_reject(self, delivery_tag=0, requeue=True):
+        """Schedule a rejection in the IOLoop thread (fire-and-forget).
+
+        Safe to call from any thread simultaneously.
+        """
+        self._connection.add_callback_threadsafe(
+            functools.partial(
+                self._channel.basic_reject,
+                delivery_tag=delivery_tag,
+                requeue=requeue,
+            ))
+
     @property
     def channel_number(self):
         return self._channel.channel_number

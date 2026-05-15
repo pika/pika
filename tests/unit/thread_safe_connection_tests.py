@@ -46,6 +46,48 @@ class ThreadSafeChannelTests(unittest.TestCase):
             mandatory=True,
         )
 
+    def test_basic_ack_routes_through_add_callback_threadsafe(self):
+        ch, raw_ch, conn = self._make_channel()
+        ch.basic_ack(delivery_tag=42, multiple=True)
+        conn.add_callback_threadsafe.assert_called_once()
+        raw_ch.basic_ack.assert_not_called()
+
+    def test_basic_ack_callback_calls_raw_channel(self):
+        ch, raw_ch, conn = self._make_channel()
+        ch.basic_ack(delivery_tag=42, multiple=True)
+        scheduled_cb = conn.add_callback_threadsafe.call_args[0][0]
+        scheduled_cb()
+        raw_ch.basic_ack.assert_called_once_with(delivery_tag=42, multiple=True)
+
+    def test_basic_nack_routes_through_add_callback_threadsafe(self):
+        ch, raw_ch, conn = self._make_channel()
+        ch.basic_nack(delivery_tag=7, multiple=False, requeue=False)
+        conn.add_callback_threadsafe.assert_called_once()
+        raw_ch.basic_nack.assert_not_called()
+
+    def test_basic_nack_callback_calls_raw_channel(self):
+        ch, raw_ch, conn = self._make_channel()
+        ch.basic_nack(delivery_tag=7, multiple=False, requeue=False)
+        scheduled_cb = conn.add_callback_threadsafe.call_args[0][0]
+        scheduled_cb()
+        raw_ch.basic_nack.assert_called_once_with(delivery_tag=7,
+                                                  multiple=False,
+                                                  requeue=False)
+
+    def test_basic_reject_routes_through_add_callback_threadsafe(self):
+        ch, raw_ch, conn = self._make_channel()
+        ch.basic_reject(delivery_tag=3, requeue=False)
+        conn.add_callback_threadsafe.assert_called_once()
+        raw_ch.basic_reject.assert_not_called()
+
+    def test_basic_reject_callback_calls_raw_channel(self):
+        ch, raw_ch, conn = self._make_channel()
+        ch.basic_reject(delivery_tag=3, requeue=False)
+        scheduled_cb = conn.add_callback_threadsafe.call_args[0][0]
+        scheduled_cb()
+        raw_ch.basic_reject.assert_called_once_with(delivery_tag=3,
+                                                    requeue=False)
+
     def test_properties_delegate_to_raw_channel(self):
         ch, raw_ch, conn = self._make_channel()
         self.assertEqual(ch.channel_number, raw_ch.channel_number)
