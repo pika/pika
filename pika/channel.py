@@ -2,8 +2,6 @@
 implementing the methods and behaviors for an AMQP Channel.
 
 """
-# disable too-many-lines
-# pylint: disable=C0302
 
 from __future__ import annotations
 
@@ -71,9 +69,6 @@ class Channel:
     calling the active connection's channel() method.
 
     """
-
-    # Disable pylint messages concerning "method could be a function"
-    # pylint: disable=R0201
 
     CLOSED = 0
     OPENING = 1
@@ -424,7 +419,6 @@ class Channel:
             raise exceptions.DuplicateGetOkCallback()
         self._on_getok_callback = callback
 
-        # pylint: disable=W0511
         # TODO Strangely, not using _rpc for the synchronous Basic.Get. Would
         # need to extend _rpc to handle Basic.GetOk method, header, and body
         # frames (or similar)
@@ -658,7 +652,7 @@ class Channel:
     def consumer_tags(self) -> list[str]:
         """Property method that returns a list of currently active consumers
 
-        :rtype: list
+        :rtype: list[str]
 
         """
         return list(self._consumers.keys())
@@ -1539,7 +1533,7 @@ class Channel:
                               properties and body.
 
         """
-        # pylint: disable=W0212
+
         self.connection._send_method(self.channel_number, method, content)
 
     def _set_cookie(self, cookie: object) -> None:
@@ -1611,7 +1605,7 @@ class ContentFrameAssembler:
     def _finish(self) -> tuple[frame.Method, frame.Header, bytes]:
         """Invoked when all of the message has been received
 
-        :rtype: tuple(pika.frame.Method, pika.frame.Header, str)
+        :rtype: tuple(pika.frame.Method, pika.frame.Header, bytes)
 
         """
         content = (self._method_frame, self._header_frame,
@@ -1627,7 +1621,7 @@ class ContentFrameAssembler:
 
         :param Body body_frame: The body frame
         :raises: pika.exceptions.BodyTooLongError
-        :rtype: tuple(pika.frame.Method, pika.frame.Header, str)|None
+        :rtype: tuple(pika.frame.Method, pika.frame.Header, bytes)|None
 
         """
         self._seen_so_far += len(body_frame.fragment)

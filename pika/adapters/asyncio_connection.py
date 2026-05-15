@@ -234,8 +234,8 @@ class _AsyncioIOServicesAdapter(io_services_utils.SocketConnectionMixin,
     ) -> _AsyncioIOReference:
         """Schedule the coroutine to run and return _AsyncioIOReference
 
-        :param coroutine-obj coro:
-        :param callable on_done: user callback that takes the completion result
+        :param coro: Coroutine to schedule.
+        :param on_done: User callback that takes the completion result
             or exception as its only arg. It will not be called if the operation
             was cancelled.
         :rtype: _AsyncioIOReference which is derived from
@@ -263,6 +263,10 @@ class _TimerHandle(nbio_interface.AbstractTimerReference):
         self._handle: asyncio.Handle | None = handle
 
     def cancel(self) -> None:
+        """Cancel the timer handle.
+
+        :rtype: None
+        """
         if self._handle is not None:
             self._handle.cancel()
             self._handle = None

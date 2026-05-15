@@ -43,7 +43,7 @@ _CONNECTION_IN_PROGRESS_SOCK_ERROR_CODES = (
 _LOGGER = logging.getLogger(__name__)
 
 # Decorator that logs exceptions escaping from the decorated function
-_log_exceptions = pika.diagnostic_utils.create_log_exception_decorator(_LOGGER)  # pylint: disable=C0103
+_log_exceptions = pika.diagnostic_utils.create_log_exception_decorator(_LOGGER)
 
 
 def check_callback_arg(callback: Any, name: str) -> None:
@@ -52,6 +52,7 @@ def check_callback_arg(callback: Any, name: str) -> None:
     :param callback: callback to check
     :param name: Name to include in exception text
     :raises TypeError:
+    :rtype: None
 
     """
     if not callable(callback):
@@ -63,6 +64,7 @@ def check_fd_arg(fd: int) -> None:
 
     :param fd: file descriptor
     :raises TypeError:
+    :rtype: None
 
     """
     if not isinstance(fd, numbers.Integral):
@@ -105,6 +107,11 @@ class SocketConnectionMixin:
         """Implement
         :py:meth:`.nbio_interface.AbstractIOServices.connect_socket()`.
 
+        :param socket.socket sock: non-blocking socket to connect
+        :param tuple resolved_addr: resolved destination address/port two-tuple
+        :param callable on_done: user callback called upon completion
+        :rtype: _AsyncServiceAsyncHandle
+
         """
         return _AsyncSocketConnector(
             nbio=self,  # type: ignore[arg-type]
@@ -134,6 +141,13 @@ class StreamingConnectionMixin:
         """Implement
         :py:meth:`.nbio_interface.AbstractIOServices.create_streaming_connection()`.
 
+        :param callable protocol_factory: factory to create protocol instance
+        :param socket.socket sock: connected socket
+        :param callable on_done: completion callback
+        :param ssl.SSLContext | None ssl_context: SSL context (optional)
+        :param str | None server_hostname: server hostname for SSL (optional)
+        :rtype: AbstractIOReference
+
         """
         try:
             return _AsyncStreamConnector(
@@ -149,7 +163,7 @@ class StreamingConnectionMixin:
             # Close the socket since this function takes ownership
             try:
                 sock.close()
-            except Exception as error:  # pylint: disable=W0703
+            except Exception as error:
                 # We log and suppress the exception from sock.close() so that
                 # the original error from _AsyncStreamConnector constructor will
                 # percolate
@@ -163,7 +177,7 @@ class _AsyncServiceAsyncHandle(AbstractIOReference):
 
     """
 
-    def __init__(self, subject):
+    def __init__(self, subject: Any):
         """
         :param subject: subject of the reference containing a `cancel()` method
 
@@ -213,7 +227,7 @@ class _AsyncSocketConnector:
 
         try:
             socket.inet_pton(sock.family, resolved_addr[0])
-        except Exception as error:  # pylint: disable=W0703
+        except Exception as error:
             if not hasattr(socket, 'inet_pton'):
                 _LOGGER.debug(
                     'Unable to check resolved address: no socket.inet_pton().')
@@ -316,7 +330,7 @@ class _AsyncSocketConnector:
 
         try:
             self._sock.connect(self._addr)
-        except (Exception, pika._utils.SOCKET_ERROR) as error:  # pylint: disable=W0703
+        except (Exception, pika._utils.SOCKET_ERROR) as error:
             if (isinstance(error, pika._utils.SOCKET_ERROR) and
                     error.errno in _CONNECTION_IN_PROGRESS_SOCK_ERROR_CODES):
                 # Connection establishment is pending
@@ -331,7 +345,7 @@ class _AsyncSocketConnector:
         try:
             self._nbio.set_writer(self._sock.fileno(
             ), self._on_writable)  # pyright: ignore[reportAttributeAccessIssue]
-        except Exception as error:  # pylint: disable=W0703
+        except Exception as error:
             _LOGGER.exception('async.set_writer(%s) failed: %r', self._sock,
                               error)
             self._report_completion(error)
@@ -468,7 +482,7 @@ class _AsyncStreamConnector:
                     close, self._sock)
                 try:
                     self._sock.close()  # type: ignore
-                except Exception as error:  # pylint: disable=W0703
+                except Exception as error:
                     _LOGGER.exception('_sock.close() failed: error=%r; %s',
                                       error, self._sock)
                     raise
@@ -585,7 +599,7 @@ class _AsyncStreamConnector:
                     do_handshake_on_connect=False,
                     suppress_ragged_eofs=False,  # False = error on incoming EOF
                     server_hostname=self._server_hostname)
-            except Exception as error:  # pylint: disable=W0703
+            except Exception as error:
                 _LOGGER.exception('SSL wrap_socket(%s) failed: %r', self._sock,
                                   error)
                 self._report_completion(error)
@@ -646,7 +660,7 @@ class _AsyncStreamConnector:
 
             _LOGGER.debug('_linkup(): introduced transport to protocol %r; %r',
                           transport, protocol)
-        except Exception as error:  # pylint: disable=W0703
+        except Exception as error:
             result: (BaseException |
                      tuple[nbio_interface.AbstractStreamTransport,
                            nbio_interface.AbstractStreamProtocol]) = error
@@ -700,7 +714,7 @@ class _AsyncStreamConnector:
                 done = True
                 _LOGGER.info('SSL handshake completed successfully: %s',
                              self._sock)
-        except Exception as error:  # pylint: disable=W0703
+        except Exception as error:
             _LOGGER.exception('SSL do_handshake failed: error=%r; %s', error,
                               self._sock)
             self._report_completion(error)
@@ -723,8 +737,7 @@ class _AsyncStreamConnector:
             self._linkup()
 
 
-class _AsyncTransportBase(  # pylint: disable=W0223
-        AbstractStreamTransport):
+class _AsyncTransportBase(AbstractStreamTransport):
     """Base class for `_AsyncPlaintextTransport` and `_AsyncSSLTransport`.
 
     """
@@ -881,7 +894,8 @@ class _AsyncTransportBase(  # pylint: disable=W0223
 
     @staticmethod
     @_retry_on_sigint
-    def _sigint_safe_recv(sock, max_bytes: int) -> bytes:
+    def _sigint_safe_recv(sock: socket.socket | ssl.SSLSocket,
+                          max_bytes: int) -> bytes:
         """Receive data from socket, retrying on SIGINT.
 
         :param sock: stream or SSL socket
@@ -896,7 +910,8 @@ class _AsyncTransportBase(  # pylint: disable=W0223
 
     @staticmethod
     @_retry_on_sigint
-    def _sigint_safe_send(sock, data: bytes) -> int:
+    def _sigint_safe_send(sock: socket.socket | ssl.SSLSocket,
+                          data: bytes) -> int:
         """Send data to socket, retrying on SIGINT.
 
         :param sock: stream or SSL socket
@@ -910,7 +925,7 @@ class _AsyncTransportBase(  # pylint: disable=W0223
         return sock.send(data)
 
     @_log_exceptions
-    def _deactivate(self):
+    def _deactivate(self) -> None:
         """Unregister the transport from I/O events
 
         """
@@ -926,7 +941,7 @@ class _AsyncTransportBase(  # pylint: disable=W0223
             self._tx_buffers.clear()
 
     @_log_exceptions
-    def _close_and_finalize(self):
+    def _close_and_finalize(self) -> None:
         """Close the transport's socket and unlink the transport it from
         references to other assets (protocol, etc.)
 
@@ -1027,7 +1042,7 @@ class _AsyncTransportBase(  # pylint: disable=W0223
         try:
             self._protocol.connection_lost(
                 error)  # pyright: ignore[reportOptionalMemberAccess]
-        except Exception as exc:  # pylint: disable=W0703
+        except Exception as exc:
             _LOGGER.exception('protocol.connection_lost(%r) failed: exc=%r; %s',
                               error, exc, self._sock)
             # Re-raise, since we've exhausted our normal failure notification
@@ -1113,7 +1128,7 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
             try:
                 keep_open = self._protocol.eof_received(
                 )  # pyright: ignore[reportOptionalMemberAccess]
-            except Exception as error:  # pylint: disable=W0703
+            except Exception as error:
                 _LOGGER.exception(
                     'protocol.eof_received() failed: error=%r; %s', error,
                     self._sock)
@@ -1130,7 +1145,7 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
                     _LOGGER.info('protocol.eof_received() elected to close: %s',
                                  self._sock)
                     self._initiate_abort(None)
-        except (Exception, pika._utils.SOCKET_ERROR) as error:  # pylint: disable=W0703
+        except (Exception, pika._utils.SOCKET_ERROR) as error:
             if (isinstance(error, pika._utils.SOCKET_ERROR) and
                     error.errno in _TRY_IO_AGAIN_SOCK_ERROR_CODES):
                 _LOGGER.debug('Recv would block on %s', self._sock)
@@ -1168,7 +1183,7 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
         try:
             # Transmit buffered data to remote socket
             self._produce()
-        except (Exception, pika._utils.SOCKET_ERROR) as error:  # pylint: disable=W0703
+        except (Exception, pika._utils.SOCKET_ERROR) as error:
             if (isinstance(error, pika._utils.SOCKET_ERROR) and
                     error.errno in _TRY_IO_AGAIN_SOCK_ERROR_CODES):
                 _LOGGER.debug('Send would block on %s', self._sock)
@@ -1267,7 +1282,7 @@ class _AsyncSSLTransport(_AsyncTransportBase):
         if self._ssl_readable_action:  # type: ignore
             try:
                 self._ssl_readable_action()
-            except Exception as error:  # pylint: disable=W0703
+            except Exception as error:
                 self._initiate_abort(error)
         else:
             _LOGGER.debug(
@@ -1289,7 +1304,7 @@ class _AsyncSSLTransport(_AsyncTransportBase):
         if self._ssl_writable_action:
             try:
                 self._ssl_writable_action()
-            except Exception as error:  # pylint: disable=W0703
+            except Exception as error:
                 self._initiate_abort(error)
         else:
             _LOGGER.debug(
@@ -1355,7 +1370,7 @@ class _AsyncSSLTransport(_AsyncTransportBase):
             self._ssl_readable_action = self._consume
 
             # NOTE: can't use identity check, it fails for instance methods
-            if self._ssl_writable_action == self._consume:  # pylint: disable=W0143
+            if self._ssl_writable_action == self._consume:
                 self._nbio.remove_writer(
                     self._sock.fileno()
                 )  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
@@ -1435,7 +1450,7 @@ class _AsyncSSLTransport(_AsyncTransportBase):
                 self._ssl_writable_action = self._produce  # type: ignore
 
                 # NOTE: can't use identity check, it fails for instance methods
-                if self._ssl_readable_action == self._produce:  # pylint: disable=W0143
+                if self._ssl_readable_action == self._produce:
                     self._nbio.remove_reader(
                         self._sock.fileno()
                     )  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
@@ -1456,18 +1471,18 @@ class _AsyncSSLTransport(_AsyncTransportBase):
                     self._ssl_writable_action = None
         else:
             # NOTE: can't use identity check, it fails for instance methods
-            if self._ssl_readable_action == self._produce:  # pylint: disable=W0143
+            if self._ssl_readable_action == self._produce:
                 self._nbio.remove_reader(
                     self._sock.fileno()
                 )  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
                 self._ssl_readable_action = None  # type: ignore
-                assert self._ssl_writable_action != self._produce, (  # pylint: disable=W0143
+                assert self._ssl_writable_action != self._produce, (
                     '_AsyncSSLTransport._produce(): with empty tx_buffers, '
                     'writable_action cannot be _produce when readable is '
                     '_produce', self._state)
             else:
                 # NOTE: can't use identity check, it fails for instance methods
-                assert self._ssl_writable_action == self._produce, (  # pylint: disable=W0143
+                assert self._ssl_writable_action == self._produce, (
                     '_AsyncSSLTransport._produce(): with empty tx_buffers, '
                     'expected writable_action as _produce when readable_action '
                     'is not _produce', 'writable_action:',

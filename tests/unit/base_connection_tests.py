@@ -11,8 +11,6 @@ import pika
 import pika.tcp_socket_opts
 from pika.adapters import base_connection
 
-# pylint: disable=C0111,W0212,C0103
-
 # If this is missing, set it manually. We need it to test tcp opt setting.
 try:
     TCP_KEEPIDLE = socket.TCP_KEEPIDLE
@@ -27,7 +25,7 @@ class ConstructibleBaseConnection(base_connection.BaseConnection):
     """
 
     @classmethod
-    def create_connection(cls, *args, **kwargs):  # pylint: disable=W0221
+    def create_connection(cls, *args, **kwargs):
         raise NotImplementedError
 
 

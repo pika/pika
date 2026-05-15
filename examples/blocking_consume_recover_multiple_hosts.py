@@ -1,4 +1,3 @@
-# pylint: disable=C0111,C0103,R0205
 """
 This module implements a client that connects to multiple RabbitMQ brokers
 distributed across different ports (5672, 5673, 5674) and consumes messages

@@ -1,6 +1,4 @@
 """Core connection objects"""
-# disable too-many-lines
-# pylint: disable=C0302
 
 from __future__ import annotations
 
@@ -48,7 +46,7 @@ PRODUCT = "Pika Python Client Library"
 LOGGER = logging.getLogger(__name__)
 
 
-class Parameters:  # pylint: disable=R0902
+class Parameters:
     """Base connection parameters class definition
 
     """
@@ -153,7 +151,7 @@ class Parameters:  # pylint: disable=R0902
 
     def __eq__(self, other) -> bool:
         if isinstance(other, Parameters):
-            return self._host == other._host and self._port == other._port  # pylint: disable=W0212
+            return self._host == other._host and self._port == other._port
         return NotImplemented
 
     def __ne__(self, other) -> bool:
@@ -976,9 +974,6 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
 
     """
 
-    # Disable pylint messages concerning "method could be a function"
-    # pylint: disable=R0201
-
     ON_CONNECTION_CLOSED = '_on_connection_closed'
     ON_CONNECTION_ERROR = '_on_connection_error'
     ON_CONNECTION_OPEN_OK = '_on_connection_open_ok'
@@ -1128,7 +1123,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
         # Dict of open channels
         self._channels = {}
 
-        # Data used for Heartbeat checking and back-pressure detection
+        # Data used for Heartbeat checking
         self.bytes_sent = 0
         self.bytes_received = 0
         self.frames_sent = 0
@@ -1531,7 +1526,6 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
         :param int channel_number: The channel number for the callbacks
 
         """
-        # pylint: disable=W0212
 
         # This permits us to garbage-collect our reference to the channel
         # regardless of whether it was closed by client or broker, and do so
@@ -1658,7 +1652,6 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
                 value.NAME, value.channel_number, self)
             return
 
-        # pylint: disable=W0212
         self._channels[value.channel_number]._handle_content_frame(value)
 
     def _ensure_closed(self) -> None:
@@ -1912,7 +1905,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
             self._set_server_information(method_frame)
             self._add_connection_tune_callback()
             self._send_connection_start_ok(*self._get_credentials(method_frame))
-        except Exception as error:  # pylint: disable=W0703
+        except Exception as error:
             LOGGER.exception('Error processing Connection.Start.')
             self._terminate_stream(error)
 
@@ -2136,7 +2129,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
         for channel in list(self._channels.keys()):
             if channel not in self._channels:
                 continue
-            # pylint: disable=W0212
+
             self._channels[channel]._on_close_meta(self._error)
 
         # Inform interested parties

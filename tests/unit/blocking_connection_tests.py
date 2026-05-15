@@ -13,18 +13,6 @@ import pika.exceptions
 from pika.adapters import blocking_connection
 from pika.adapters.utils import nbio_interface
 
-# Disable protected-access
-# pylint: disable=W0212
-
-# Disable missing-docstring
-# pylint: disable=C0111
-
-# Disable invalid-name
-# pylint: disable=C0103
-
-# Disable no-self-use
-# pylint: disable=R0201
-
 
 class BlockingConnectionMockTemplate(blocking_connection.BlockingConnection):
     pass
@@ -307,10 +295,8 @@ class BlockingConnectionTests(unittest.TestCase):
     @patch.object(blocking_connection,
                   'BlockingChannel',
                   spec_set=blocking_connection.BlockingChannel)
-    def test_channel(
-        self,
-        blocking_channel_class_mock,  # pylint: disable=W0613
-        select_connection_class_mock):  # pylint: disable=W0613
+    def test_channel(self, blocking_channel_class_mock,
+                     select_connection_class_mock):
 
         impl_mock = select_connection_class_mock.return_value
 
@@ -327,7 +313,7 @@ class BlockingConnectionTests(unittest.TestCase):
     @patch.object(blocking_connection.select_connection,
                   'SelectConnection',
                   spec_set=SelectConnectionTemplate)
-    def test_sleep(self, select_connection_class_mock):  # pylint: disable=W0613
+    def test_sleep(self, select_connection_class_mock):
         with mock.patch.object(blocking_connection.BlockingConnection,
                                '_create_connection'):
             connection = blocking_connection.BlockingConnection('params')

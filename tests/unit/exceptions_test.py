@@ -6,12 +6,6 @@ import unittest
 
 from pika import exceptions
 
-# missing-docstring
-# pylint: disable=C0111
-
-# invalid-name - our tests use long, descriptive names
-# pylint: disable=C0103
-
 
 class ExceptionTests(unittest.TestCase):
 

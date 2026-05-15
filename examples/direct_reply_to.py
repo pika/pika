@@ -1,4 +1,3 @@
-# pylint: disable=C0111,C0103,R0205
 """
 This example demonstrates RabbitMQ's "Direct reply-to" usage via
 `pika.BlockingConnection`. See https://www.rabbitmq.com/direct-reply-to.html

@@ -13,12 +13,6 @@ from urllib.parse import urlencode
 import pika
 from pika import channel, connection, credentials, spec
 
-# disable missing-docstring
-# pylint: disable=C0111
-
-# disable invalid-name
-# pylint: disable=C0103
-
 # Unordered sequence of connection.Parameters's property getters
 _ALL_PUBLIC_PARAMETERS_PROPERTIES = tuple(
     attr for attr in vars(connection.Parameters) if not attr.startswith('_') and
