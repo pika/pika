@@ -11,6 +11,7 @@ multiple threads call basic_publish() on a shared connection directly
 (issues #1144 and #511).
 """
 import functools
+import itertools
 import logging
 import threading
 
@@ -104,6 +105,11 @@ class ThreadSafeChannel:
 class ThreadSafeConnection:
     """Pika connection that is safe to use from multiple threads.
 
+    .. note:: Each instance starts a background thread named
+        ``pika-ioloop-N`` (where *N* is a per-process sequence number)
+        so that multiple connections are distinguishable in stack traces
+        and thread listings.
+
     Internally wraps :class:`~pika.adapters.SelectConnection` and runs its
     IOLoop in a single dedicated background thread (the *IOLoop thread*).
     All channel operations submitted from external threads are routed
@@ -133,6 +139,8 @@ class ThreadSafeConnection:
     :raises Exception: if the connection cannot be established.
     """
 
+    _instance_counter = itertools.count(1)
+
     def __init__(self,
                  parameters,
                  on_open_error_callback=None,
@@ -156,7 +164,7 @@ class ThreadSafeConnection:
 
         self._ioloop_thread = threading.Thread(
             target=self._connection.ioloop.start,
-            name='pika-ioloop',
+            name=f'pika-ioloop-{next(self._instance_counter)}',
             daemon=True,
         )
         self._ioloop_thread.start()
