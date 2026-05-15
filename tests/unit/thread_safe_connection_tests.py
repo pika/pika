@@ -152,9 +152,8 @@ class ThreadSafeConnectionTests(unittest.TestCase):
         return conn, mock_conn, mock_ioloop
 
     def test_ioloop_thread_is_started(self):
-        conn, _, _ = self._make_connection()
-        # Thread may have already exited (mocked ioloop.start returns instantly)
-        self.assertIsNotNone(conn._ioloop_thread)
+        conn, _, mock_ioloop = self._make_connection()
+        mock_ioloop.start.assert_called_once()
 
     def test_is_open_delegates_to_inner_connection(self):
         conn, mock_conn, _ = self._make_connection()
