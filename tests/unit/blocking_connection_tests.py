@@ -356,3 +356,67 @@ class BlockingConnectionTests(unittest.TestCase):
         evt.dispatch()
         self.assertEqual(len(unblocked_buffer), 1)
         self.assertIs(unblocked_buffer[0], frame)
+
+    @patch.object(blocking_connection.select_connection,
+                  "SelectConnection",
+                  spec_set=SelectConnectionTemplate)
+    def test_process_data_events_raises_on_channel_closed_by_broker(
+            self, select_connection_class_mock):
+        impl_mock = select_connection_class_mock.return_value
+        impl_mock.is_closed = False
+
+        with mock.patch.object(blocking_connection.BlockingConnection,
+                               "_create_connection",
+                               return_value=impl_mock):
+            connection = blocking_connection.BlockingConnection("params")
+
+        exc = pika.exceptions.ChannelClosedByBroker(406, "consumer_timeout")
+
+        impl_channel_mock = mock.Mock()
+        impl_channel_mock.channel_number = 1
+        channel = blocking_connection.BlockingChannel(impl_channel_mock,
+                                                      connection)
+
+        with mock.patch.object(channel, "_cleanup"):
+            channel._on_channel_closed(impl_channel_mock, exc)
+
+        with mock.patch.object(connection, "_flush_output"):
+            with self.assertRaises(pika.exceptions.ChannelClosedByBroker) as cm:
+                connection.process_data_events(time_limit=0)
+
+            self.assertEqual(cm.exception.reply_code, 406)
+            self.assertEqual(cm.exception.reply_text, "consumer_timeout")
+
+    @patch.object(blocking_connection.select_connection,
+                  "SelectConnection",
+                  spec_set=SelectConnectionTemplate)
+    def test_process_data_events_raises_after_full_channel_cleanup(
+            self, select_connection_class_mock):
+        impl_mock = select_connection_class_mock.return_value
+        impl_mock.is_closed = False
+        impl_mock._channels = {}
+
+        with mock.patch.object(blocking_connection.BlockingConnection,
+                               "_create_connection",
+                               return_value=impl_mock):
+            connection = blocking_connection.BlockingConnection("params")
+
+        exc = pika.exceptions.ChannelClosedByBroker(406, "consumer_timeout")
+
+        impl_channel_mock = mock.Mock()
+        impl_channel_mock.channel_number = 1
+        channel = blocking_connection.BlockingChannel(impl_channel_mock,
+                                                      connection)
+
+        with mock.patch.object(channel, "_cleanup"):
+            channel._on_channel_closed(impl_channel_mock, exc)
+
+        impl_mock._channels.pop(1, None)
+        impl_channel_mock._cookie = None
+
+        with mock.patch.object(connection, "_flush_output"):
+            with self.assertRaises(pika.exceptions.ChannelClosedByBroker) as cm:
+                connection.process_data_events(time_limit=0)
+
+            self.assertEqual(cm.exception.reply_code, 406)
+            self.assertEqual(cm.exception.reply_text, "consumer_timeout")

@@ -371,6 +371,9 @@ class BlockingConnection:
         # Receives on_close_callback args from Connection
         self._closed_result = _CallbackResult(self._OnClosedArgs)
 
+        # Store exceptions for server-initiated channel closures
+        self._server_channel_closures: deque[Exception] = deque()
+
         # Perform connection workflow
         self._impl: select_connection.SelectConnection = None  # type: ignore  # so that attribute is created in case below raises
         self._impl = self._create_connection(parameters, _impl_class)
@@ -898,6 +901,11 @@ class BlockingConnection:
 
         if self._channels_pending_dispatch:
             self._dispatch_channel_events()
+
+        if self._server_channel_closures:
+            exc = self._server_channel_closures.popleft()
+            LOGGER.debug('Channel closed by broker: %r', exc)
+            raise exc
 
     def sleep(self, duration: float) -> None:
         """A safer way to sleep than calling time.sleep() directly that would
@@ -1484,6 +1492,7 @@ class BlockingChannel:
         self._closing_reason = reason
 
         if isinstance(reason, exceptions.ChannelClosedByBroker):
+            self.connection._server_channel_closures.append(reason)
             self._cleanup()
 
             # Request urgent termination of `process_data_events()`, in case
