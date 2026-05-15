@@ -238,10 +238,26 @@ class ThreadSafeConnection:
 
         return ThreadSafeChannel(result[0], self._connection)
 
-    def close(self):
-        """Close the connection and block until the IOLoop thread exits."""
+    def close(self, timeout=10):
+        """Close the connection and block until the IOLoop thread exits.
+
+        Schedules a clean Connection.Close handshake and waits up to
+        *timeout* seconds for the IOLoop thread to finish.  If the thread
+        is still alive after the timeout (e.g. the broker never sends
+        Connection.CloseOk), the IOLoop is force-stopped via
+        ``add_callback_threadsafe`` and joined once more.
+
+        :param float | None timeout: Seconds to wait for a clean close before
+            force-stopping the IOLoop. Defaults to 10 seconds, which is
+            sufficient for a healthy broker on any reasonable network.
+            Pass ``None`` to wait indefinitely.
+        """
         self._connection.add_callback_threadsafe(self._connection.close)
-        self._ioloop_thread.join()
+        self._ioloop_thread.join(timeout=timeout)
+        if self._ioloop_thread.is_alive():
+            self._connection.add_callback_threadsafe(
+                self._connection.ioloop.stop)
+            self._ioloop_thread.join()
 
     def add_callback_threadsafe(self, callback):
         """Schedule *callback* to run in the IOLoop thread.
