@@ -150,6 +150,31 @@ class ThreadSafeConnectionTests(unittest.TestCase):
         ch = conn.channel()
         self.assertIsInstance(ch, ThreadSafeChannel)
 
+    def test_channel_raises_when_connection_already_closed(self):
+        conn, mock_conn, _ = self._make_connection()
+        reason = Exception('already closed')
+        conn._closed_reason = reason
+
+        with self.assertRaises(Exception) as ctx:
+            conn.channel()
+
+        self.assertIs(ctx.exception, reason)
+
+    def test_channel_raises_when_connection_closes_while_waiting(self):
+        conn, mock_conn, _ = self._make_connection()
+        reason = Exception('connection lost')
+
+        def close_while_waiting(cb):
+            # Simulate the connection closing instead of the channel opening
+            conn._on_connection_closed(mock_conn, reason)
+
+        mock_conn.add_callback_threadsafe.side_effect = close_while_waiting
+
+        with self.assertRaises(Exception) as ctx:
+            conn.channel()
+
+        self.assertIs(ctx.exception, reason)
+
     def test_on_connection_open_error_sets_event_and_stops_ioloop(self):
         error = Exception('refused')
         captured = {}

@@ -107,6 +107,10 @@ class ThreadSafeConnection:
         self._connect_error = None
         self._connected_event = threading.Event()
 
+        self._channel_waiters_lock = threading.Lock()
+        self._closed_reason = None
+        self._pending_channel_waiters = []
+
         self._connection = SelectConnection(
             parameters=parameters,
             on_open_callback=self._on_connection_open,
@@ -144,6 +148,12 @@ class ThreadSafeConnection:
     def _on_connection_closed(self, _connection, reason):
         # Connection is gone — stop the IOLoop so the thread exits.
         self._connection.ioloop.stop()
+        with self._channel_waiters_lock:
+            self._closed_reason = reason
+            for evt, err in self._pending_channel_waiters:
+                err[0] = reason
+                evt.set()
+            self._pending_channel_waiters.clear()
         if self._user_on_close_callback:
             self._user_on_close_callback(_connection, reason)
 
@@ -158,9 +168,16 @@ class ThreadSafeConnection:
         channel's methods are safe to call from any thread.
 
         :rtype: ThreadSafeChannel
+        :raises Exception: if the connection is closed before the channel opens.
         """
         ready = threading.Event()
         result = [None]
+        error = [None]
+
+        with self._channel_waiters_lock:
+            if self._closed_reason is not None:
+                raise self._closed_reason
+            self._pending_channel_waiters.append((ready, error))
 
         def _open():
 
@@ -172,6 +189,16 @@ class ThreadSafeConnection:
 
         self._connection.add_callback_threadsafe(_open)
         ready.wait()
+
+        with self._channel_waiters_lock:
+            try:
+                self._pending_channel_waiters.remove((ready, error))
+            except ValueError:
+                pass
+
+        if error[0] is not None:
+            raise error[0]
+
         return ThreadSafeChannel(result[0], self._connection)
 
     def close(self):
