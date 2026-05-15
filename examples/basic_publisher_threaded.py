@@ -7,6 +7,7 @@ IOLoop thread, eliminating the IndexError race seen in issues #1144 and #511.
 """
 import logging
 import pprint
+import queue
 import threading
 
 import pika
@@ -33,8 +34,7 @@ def main():
 
     # queue_declare must run in the IOLoop thread; use add_callback_threadsafe
     # and a Queue to get the result back.
-    import queue as _queue
-    result_q = _queue.Queue(1)
+    result_q = queue.Queue(1)
 
     def _declare():
 
