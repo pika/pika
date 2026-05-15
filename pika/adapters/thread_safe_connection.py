@@ -130,8 +130,7 @@ class ThreadSafeConnection:
     :param callable | None on_close_callback:
         Called in the IOLoop thread when the connection is closed.
         Signature: ``on_close_callback(connection, reason)``
-    :raises: Exception forwarded from ``on_open_error_callback`` when the
-        connection cannot be established.
+    :raises Exception: if the connection cannot be established.
     """
 
     def __init__(self,
