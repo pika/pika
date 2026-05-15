@@ -263,7 +263,8 @@ class ThreadSafeConnectionTests(unittest.TestCase):
         conn._ioloop_thread = MagicMock()
         conn._ioloop_thread.is_alive.return_value = False
         conn.close()
-        mock_conn.add_callback_threadsafe.assert_called_once_with(mock_conn.close)
+        mock_conn.add_callback_threadsafe.assert_called_once_with(
+            mock_conn.close)
         conn._ioloop_thread.join.assert_called_once_with(timeout=10)
 
     def test_close_force_stops_ioloop_after_timeout(self):
