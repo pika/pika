@@ -894,7 +894,7 @@ class _AsyncTransportBase(AbstractStreamTransport):
 
     @staticmethod
     @_retry_on_sigint
-    def _sigint_safe_recv(sock: Union[socket.socket, ssl.SSLSocket],
+    def _sigint_safe_recv(sock: socket.socket | ssl.SSLSocket,
                           max_bytes: int) -> bytes:
         """Receive data from socket, retrying on SIGINT.
 
@@ -910,7 +910,7 @@ class _AsyncTransportBase(AbstractStreamTransport):
 
     @staticmethod
     @_retry_on_sigint
-    def _sigint_safe_send(sock: Union[socket.socket, ssl.SSLSocket],
+    def _sigint_safe_send(sock: socket.socket | ssl.SSLSocket,
                           data: bytes) -> int:
         """Send data to socket, retrying on SIGINT.
 
