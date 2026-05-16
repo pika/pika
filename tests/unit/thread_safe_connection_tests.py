@@ -150,6 +150,144 @@ class ThreadSafeChannelTests(unittest.TestCase):
 
         self.assertIs(ctx.exception, reason)
 
+    def test_basic_qos_blocks_and_returns_result(self):
+        ch, raw_ch, wrapper = self._make_channel()
+        mock_frame = MagicMock()
+
+        def execute_and_fire(cb):
+
+            def fake_qos(prefetch_size, prefetch_count, global_qos, callback):
+                callback(mock_frame)
+
+            raw_ch.basic_qos.side_effect = fake_qos
+            cb()
+
+        wrapper.add_callback_threadsafe.side_effect = execute_and_fire
+
+        result = ch.basic_qos(prefetch_count=10)
+
+        self.assertIs(result, mock_frame)
+        raw_ch.basic_qos.assert_called_once_with(
+            prefetch_size=0,
+            prefetch_count=10,
+            global_qos=False,
+            callback=unittest.mock.ANY,
+        )
+
+    def test_basic_qos_raises_when_connection_already_closed(self):
+        ch, raw_ch, wrapper = self._make_channel()
+        reason = Exception('closed')
+        wrapper._closed_reason = reason
+
+        with self.assertRaises(Exception) as ctx:
+            ch.basic_qos()
+
+        self.assertIs(ctx.exception, reason)
+
+    def test_basic_consume_blocks_and_returns_consumer_tag(self):
+        ch, raw_ch, wrapper = self._make_channel()
+        mock_frame = MagicMock()
+        mock_frame.method.consumer_tag = 'ctag1'
+
+        def execute_and_fire(cb):
+
+            def fake_consume(queue, on_message_callback, auto_ack, exclusive,
+                             consumer_tag, arguments, callback):
+                callback(mock_frame)
+
+            raw_ch.basic_consume.side_effect = fake_consume
+            cb()
+
+        wrapper.add_callback_threadsafe.side_effect = execute_and_fire
+
+        tag = ch.basic_consume(queue='q', on_message_callback=MagicMock())
+
+        self.assertEqual(tag, 'ctag1')
+
+    def test_basic_consume_raises_when_connection_already_closed(self):
+        ch, raw_ch, wrapper = self._make_channel()
+        reason = Exception('closed')
+        wrapper._closed_reason = reason
+
+        with self.assertRaises(Exception) as ctx:
+            ch.basic_consume(queue='q', on_message_callback=MagicMock())
+
+        self.assertIs(ctx.exception, reason)
+
+    def test_basic_cancel_blocks_and_returns_result(self):
+        ch, raw_ch, wrapper = self._make_channel()
+        mock_frame = MagicMock()
+
+        def execute_and_fire(cb):
+
+            def fake_cancel(consumer_tag, callback):
+                callback(mock_frame)
+
+            raw_ch.basic_cancel.side_effect = fake_cancel
+            cb()
+
+        wrapper.add_callback_threadsafe.side_effect = execute_and_fire
+
+        result = ch.basic_cancel('ctag1')
+
+        self.assertIs(result, mock_frame)
+        raw_ch.basic_cancel.assert_called_once_with(
+            consumer_tag='ctag1',
+            callback=unittest.mock.ANY,
+        )
+
+    def test_basic_cancel_raises_when_connection_already_closed(self):
+        ch, raw_ch, wrapper = self._make_channel()
+        reason = Exception('closed')
+        wrapper._closed_reason = reason
+
+        with self.assertRaises(Exception) as ctx:
+            ch.basic_cancel('ctag1')
+
+        self.assertIs(ctx.exception, reason)
+
+    def test_channel_close_blocks_until_closed(self):
+        from pika.exceptions import ChannelClosedByClient
+        ch, raw_ch, wrapper = self._make_channel()
+        raw_ch.is_closed = False
+        raw_ch.is_closing = False
+
+        def execute_and_fire(cb):
+            close_callbacks = []
+            raw_ch.add_on_close_callback.side_effect = close_callbacks.append
+            raw_ch.close.side_effect = lambda reply_code, reply_text: \
+                close_callbacks[0](raw_ch, ChannelClosedByClient(reply_code, reply_text))
+            cb()
+
+        wrapper.add_callback_threadsafe.side_effect = execute_and_fire
+
+        ch.close()  # must not raise
+
+        raw_ch.close.assert_called_once_with(reply_code=0, reply_text='Normal shutdown')
+
+    def test_channel_close_raises_when_connection_already_closed(self):
+        ch, raw_ch, wrapper = self._make_channel()
+        reason = Exception('connection closed')
+        wrapper._closed_reason = reason
+
+        with self.assertRaises(Exception) as ctx:
+            ch.close()
+
+        self.assertIs(ctx.exception, reason)
+
+    def test_channel_close_is_noop_when_channel_already_closed(self):
+        ch, raw_ch, wrapper = self._make_channel()
+        raw_ch.is_closed = True
+
+        def execute_immediately(cb):
+            cb()
+
+        wrapper.add_callback_threadsafe.side_effect = execute_immediately
+
+        ch.close()  # must not raise; channel is already closed
+
+        raw_ch.close.assert_not_called()
+
     def test_properties_delegate_to_raw_channel(self):
         ch, raw_ch, wrapper = self._make_channel()
         self.assertEqual(ch.channel_number, raw_ch.channel_number)

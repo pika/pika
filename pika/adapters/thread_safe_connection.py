@@ -89,6 +89,162 @@ class ThreadSafeChannel:
                 requeue=requeue,
             ))
 
+    def basic_qos(self, prefetch_size=0, prefetch_count=0, global_qos=False):
+        """Set channel QoS and block until Basic.QosOk arrives.
+
+        Safe to call from any thread.
+
+        :param int prefetch_size: Prefetch window in octets (0 = no limit).
+        :param int prefetch_count: Prefetch window in whole messages (0 = no limit).
+        :param bool global_qos: Apply QoS to all consumers on the channel.
+        :returns: The Basic.QosOk method frame.
+        :rtype: pika.frame.Method
+        :raises Exception: if the connection is closed before the response arrives.
+        """
+        ready = threading.Event()
+        result = [None]
+        error = [None]
+
+        with self._wrapper._channel_waiters_lock:
+            if self._wrapper._closed_reason is not None:
+                raise self._wrapper._closed_reason
+            self._wrapper._blocking_waiters.append((ready, error))
+
+        def _qos():
+
+            def _on_qos_ok(method_frame):
+                result[0] = method_frame
+                ready.set()
+
+            self._channel.basic_qos(
+                prefetch_size=prefetch_size,
+                prefetch_count=prefetch_count,
+                global_qos=global_qos,
+                callback=_on_qos_ok,
+            )
+
+        self._wrapper.add_callback_threadsafe(_qos)
+        ready.wait()
+
+        with self._wrapper._channel_waiters_lock:
+            try:
+                self._wrapper._blocking_waiters.remove((ready, error))
+            except ValueError:
+                pass
+
+        if error[0] is not None:
+            raise error[0]
+        return result[0]
+
+    def basic_consume(self,
+                      queue,
+                      on_message_callback,
+                      auto_ack=False,
+                      exclusive=False,
+                      consumer_tag=None,
+                      arguments=None):
+        """Register a consumer and block until Basic.ConsumeOk arrives.
+
+        The *on_message_callback* is invoked in the IOLoop thread each time
+        the broker delivers a message.  Acknowledgements from inside that
+        callback are safe because they are already in the IOLoop thread; from
+        any other thread use :meth:`basic_ack`, :meth:`basic_nack`, or
+        :meth:`basic_reject` which route through ``add_callback_threadsafe``.
+
+        Safe to call from any thread.
+
+        :param str queue: Queue to consume from.
+        :param callable on_message_callback:
+            ``callback(channel, method, properties, body)``
+        :param bool auto_ack: Disable manual acknowledgement.
+        :param bool exclusive: Request exclusive consumer access.
+        :param str | None consumer_tag: Client-provided tag; generated if omitted.
+        :param dict | None arguments: Additional AMQP arguments.
+        :returns: The consumer tag assigned by the broker.
+        :rtype: str
+        :raises Exception: if the connection is closed before the response arrives.
+        """
+        ready = threading.Event()
+        result = [None]
+        error = [None]
+
+        with self._wrapper._channel_waiters_lock:
+            if self._wrapper._closed_reason is not None:
+                raise self._wrapper._closed_reason
+            self._wrapper._blocking_waiters.append((ready, error))
+
+        def _consume():
+
+            def _on_consume_ok(method_frame):
+                result[0] = method_frame.method.consumer_tag
+                ready.set()
+
+            self._channel.basic_consume(
+                queue=queue,
+                on_message_callback=on_message_callback,
+                auto_ack=auto_ack,
+                exclusive=exclusive,
+                consumer_tag=consumer_tag,
+                arguments=arguments,
+                callback=_on_consume_ok,
+            )
+
+        self._wrapper.add_callback_threadsafe(_consume)
+        ready.wait()
+
+        with self._wrapper._channel_waiters_lock:
+            try:
+                self._wrapper._blocking_waiters.remove((ready, error))
+            except ValueError:
+                pass
+
+        if error[0] is not None:
+            raise error[0]
+        return result[0]
+
+    def basic_cancel(self, consumer_tag):
+        """Cancel a consumer and block until Basic.CancelOk arrives.
+
+        Safe to call from any thread.
+
+        :param str consumer_tag: Tag returned by :meth:`basic_consume`.
+        :returns: The Basic.CancelOk method frame.
+        :rtype: pika.frame.Method
+        :raises Exception: if the connection is closed before the response arrives.
+        """
+        ready = threading.Event()
+        result = [None]
+        error = [None]
+
+        with self._wrapper._channel_waiters_lock:
+            if self._wrapper._closed_reason is not None:
+                raise self._wrapper._closed_reason
+            self._wrapper._blocking_waiters.append((ready, error))
+
+        def _cancel():
+
+            def _on_cancel_ok(method_frame):
+                result[0] = method_frame
+                ready.set()
+
+            self._channel.basic_cancel(
+                consumer_tag=consumer_tag,
+                callback=_on_cancel_ok,
+            )
+
+        self._wrapper.add_callback_threadsafe(_cancel)
+        ready.wait()
+
+        with self._wrapper._channel_waiters_lock:
+            try:
+                self._wrapper._blocking_waiters.remove((ready, error))
+            except ValueError:
+                pass
+
+        if error[0] is not None:
+            raise error[0]
+        return result[0]
+
     def queue_declare(self,
                       queue,
                       passive=False,
@@ -141,6 +297,51 @@ class ThreadSafeChannel:
         if error[0] is not None:
             raise error[0]
         return result[0]
+
+    def close(self, reply_code=0, reply_text='Normal shutdown'):
+        """Close the channel and block until the Channel.CloseOk arrives.
+
+        If the channel is already closed or closing, returns immediately.
+        Safe to call from any thread.
+
+        :param int reply_code: Close reason code to send to the broker.
+        :param str reply_text: Close reason text to send to the broker.
+        :raises Exception: if the connection is closed or the channel is closed
+            by the broker rather than by this client.
+        """
+        ready = threading.Event()
+        error = [None]
+
+        with self._wrapper._channel_waiters_lock:
+            if self._wrapper._closed_reason is not None:
+                raise self._wrapper._closed_reason
+            self._wrapper._blocking_waiters.append((ready, error))
+
+        def _close():
+            if self._channel.is_closed or self._channel.is_closing:
+                ready.set()
+                return
+
+            def _on_channel_close(channel, reason):
+                from pika.exceptions import ChannelClosedByClient
+                if not isinstance(reason, ChannelClosedByClient):
+                    error[0] = reason
+                ready.set()
+
+            self._channel.add_on_close_callback(_on_channel_close)
+            self._channel.close(reply_code=reply_code, reply_text=reply_text)
+
+        self._wrapper.add_callback_threadsafe(_close)
+        ready.wait()
+
+        with self._wrapper._channel_waiters_lock:
+            try:
+                self._wrapper._blocking_waiters.remove((ready, error))
+            except ValueError:
+                pass
+
+        if error[0] is not None:
+            raise error[0]
 
     @property
     def channel_number(self):
