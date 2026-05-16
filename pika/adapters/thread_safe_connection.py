@@ -331,7 +331,16 @@ class ThreadSafeConnection:
         with self._channel_waiters_lock:
             if self._closed_reason is not None:
                 return
-        self._connection.add_callback_threadsafe(self._connection.close)
+
+        def _safe_close():
+            try:
+                self._connection.close()
+            except Exception:
+                # Already closing or closed — _on_connection_closed will wake waiters.
+                LOGGER.debug('connection.close() raised (already closing or closed)',
+                             exc_info=True)
+
+        self._connection.add_callback_threadsafe(_safe_close)
         self._ioloop_thread.join(timeout=timeout)
         if self._ioloop_thread.is_alive():
             self._connection.add_callback_threadsafe(

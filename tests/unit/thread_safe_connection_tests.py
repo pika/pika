@@ -343,8 +343,10 @@ class ThreadSafeConnectionTests(unittest.TestCase):
         conn._ioloop_thread = MagicMock()
         conn._ioloop_thread.is_alive.return_value = False
         conn.close()
-        mock_conn.add_callback_threadsafe.assert_called_once_with(
-            mock_conn.close)
+        mock_conn.add_callback_threadsafe.assert_called_once()
+        # The scheduled callback must delegate to the inner connection's close.
+        mock_conn.add_callback_threadsafe.call_args[0][0]()
+        mock_conn.close.assert_called_once()
         conn._ioloop_thread.join.assert_called_once_with(timeout=10)
 
     def test_close_force_stops_ioloop_after_timeout(self):
@@ -352,10 +354,30 @@ class ThreadSafeConnectionTests(unittest.TestCase):
         conn._ioloop_thread = MagicMock()
         conn._ioloop_thread.is_alive.return_value = True
         conn.close(timeout=0.1)
-        calls = mock_conn.add_callback_threadsafe.call_args_list
-        self.assertEqual(calls[0][0][0], mock_conn.close)
-        self.assertEqual(calls[1][0][0], mock_ioloop.stop)
+        self.assertEqual(mock_conn.add_callback_threadsafe.call_count, 2)
+        # First call: graceful close wrapper
+        mock_conn.add_callback_threadsafe.call_args_list[0][0][0]()
+        mock_conn.close.assert_called_once()
+        # Second call: force-stop the IOLoop
+        self.assertIs(mock_conn.add_callback_threadsafe.call_args_list[1][0][0],
+                      mock_ioloop.stop)
         self.assertEqual(conn._ioloop_thread.join.call_count, 2)
+
+    def test_close_safe_close_suppresses_connection_wrong_state_error(self):
+        """_safe_close must swallow ConnectionWrongStateError so it does not
+        propagate through the IOLoop and crash the IOLoop thread."""
+        from pika.exceptions import ConnectionWrongStateError
+        conn, mock_conn, _ = self._make_connection()
+        conn._ioloop_thread = MagicMock()
+        conn._ioloop_thread.is_alive.return_value = False
+        mock_conn.close.side_effect = ConnectionWrongStateError('already closing')
+
+        def run_callback_inline(cb):
+            cb()  # execute synchronously — must not raise
+
+        mock_conn.add_callback_threadsafe.side_effect = run_callback_inline
+        conn.close()  # must not raise
+        mock_conn.close.assert_called_once()
 
     def test_close_is_noop_when_already_closed(self):
         conn, mock_conn, _ = self._make_connection()
@@ -379,8 +401,9 @@ class ThreadSafeConnectionTests(unittest.TestCase):
         conn._ioloop_thread.is_alive.return_value = False
         with conn as c:
             self.assertIs(c, conn)
-        mock_conn.add_callback_threadsafe.assert_called_once_with(
-            mock_conn.close)
+        mock_conn.add_callback_threadsafe.assert_called_once()
+        mock_conn.add_callback_threadsafe.call_args[0][0]()
+        mock_conn.close.assert_called_once()
 
 
 if __name__ == '__main__':
