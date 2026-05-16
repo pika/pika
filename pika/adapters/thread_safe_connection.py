@@ -10,7 +10,6 @@ This eliminates the ``IndexError: pop from an empty deque`` race seen when
 multiple threads call basic_publish() on a shared connection directly
 (issues #1144 and #511).
 """
-import functools
 import itertools
 import logging
 import threading
@@ -143,7 +142,7 @@ class ThreadSafeChannel:
         """
         ready = threading.Event()
         result = [None]
-        error = [None]
+        error: list[BaseException | None] = [None]
 
         with self._wrapper._channel_waiters_lock:
             if self._wrapper._closed_reason is not None:
@@ -206,7 +205,7 @@ class ThreadSafeChannel:
         """
         ready = threading.Event()
         result = [None]
-        error = [None]
+        error: list[BaseException | None] = [None]
 
         with self._wrapper._channel_waiters_lock:
             if self._wrapper._closed_reason is not None:
@@ -254,7 +253,7 @@ class ThreadSafeChannel:
         """
         ready = threading.Event()
         result = [None]
-        error = [None]
+        error: list[BaseException | None] = [None]
 
         with self._wrapper._channel_waiters_lock:
             if self._wrapper._closed_reason is not None:
@@ -302,7 +301,7 @@ class ThreadSafeChannel:
         """
         ready = threading.Event()
         result = [None]
-        error = [None]
+        error: list[BaseException | None] = [None]
 
         with self._wrapper._channel_waiters_lock:
             if self._wrapper._closed_reason is not None:
@@ -350,7 +349,7 @@ class ThreadSafeChannel:
             by the broker rather than by this client.
         """
         ready = threading.Event()
-        error = [None]
+        error: list[BaseException | None] = [None]
 
         with self._wrapper._channel_waiters_lock:
             if self._wrapper._closed_reason is not None:
@@ -453,7 +452,7 @@ class ThreadSafeConnection:
 
         self._channel_waiters_lock = threading.Lock()
         self._closed_reason = None
-        self._blocking_waiters = []
+        self._blocking_waiters: list[tuple[threading.Event, list[BaseException | None]]] = []
 
         self._connection = SelectConnection(
             parameters=parameters,
@@ -532,7 +531,7 @@ class ThreadSafeConnection:
         """
         ready = threading.Event()
         result = [None]
-        error = [None]
+        error: list[BaseException | None] = [None]
 
         with self._channel_waiters_lock:
             if self._closed_reason is not None:
@@ -594,8 +593,9 @@ class ThreadSafeConnection:
                 self._connection.close()
             except Exception:
                 # Already closing or closed — _on_connection_closed will wake waiters.
-                LOGGER.debug('connection.close() raised (already closing or closed)',
-                             exc_info=True)
+                LOGGER.debug(
+                    'connection.close() raised (already closing or closed)',
+                    exc_info=True)
 
         self._connection.add_callback_threadsafe(_safe_close)
         self._ioloop_thread.join(timeout=timeout)
