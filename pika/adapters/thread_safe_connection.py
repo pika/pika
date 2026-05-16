@@ -221,8 +221,24 @@ class ThreadSafeConnection:
             on_close_callback=self._on_connection_closed,
         )
 
+        def _run_ioloop():
+            try:
+                self._connection.ioloop.start()
+            except Exception as exc:
+                # An unhandled exception in a callback killed the IOLoop.
+                # Wake every blocked caller so they do not hang forever.
+                LOGGER.exception('IOLoop thread crashed: %r', exc)
+                with self._channel_waiters_lock:
+                    if self._closed_reason is None:
+                        self._closed_reason = exc
+                    for evt, err in self._blocking_waiters:
+                        if err[0] is None:
+                            err[0] = self._closed_reason
+                        evt.set()
+                    self._blocking_waiters.clear()
+
         self._ioloop_thread = threading.Thread(
-            target=self._connection.ioloop.start,
+            target=_run_ioloop,
             name=f'pika-ioloop-{next(self._instance_counter)}',
             daemon=True,
         )

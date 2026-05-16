@@ -296,6 +296,56 @@ class ThreadSafeConnectionTests(unittest.TestCase):
 
         self.assertIs(ctx.exception, reason)
 
+    def test_ioloop_crash_wakes_blocked_channel_waiter(self):
+        """A thread blocked in channel() must be unblocked if the IOLoop crashes."""
+        crash = RuntimeError('simulated IOLoop crash')
+        gate = threading.Event()
+
+        with patch('pika.adapters.thread_safe_connection.SelectConnection'
+                  ) as MockSelectConn:
+            mock_conn = MagicMock()
+            mock_ioloop = MagicMock()
+            mock_conn.ioloop = mock_ioloop
+            mock_conn.is_open = True
+            mock_conn.is_closed = False
+            mock_conn.is_closing = False
+
+            def fake_init(parameters, on_open_callback, on_open_error_callback,
+                          on_close_callback):
+                on_open_callback(mock_conn)
+                return mock_conn
+
+            MockSelectConn.side_effect = fake_init
+            MockSelectConn.return_value = mock_conn
+
+            # ioloop.start() blocks until gate is set, then crashes.
+            def ioloop_start():
+                gate.wait(timeout=5)
+                raise crash
+
+            mock_ioloop.start.side_effect = ioloop_start
+
+            conn = ThreadSafeConnection(parameters='params')
+
+        exc_holder = [None]
+
+        def try_channel():
+            try:
+                conn.channel()
+            except Exception as exc:
+                exc_holder[0] = exc
+
+        t = threading.Thread(target=try_channel)
+        t.start()
+        # Give the thread time to enter channel() and register its waiter.
+        import time
+        time.sleep(0.05)
+        gate.set()
+        t.join(timeout=2)
+
+        self.assertFalse(t.is_alive(), 'channel() thread must not hang after IOLoop crash')
+        self.assertIs(exc_holder[0], crash)
+
     def test_on_connection_open_error_sets_event_and_stops_ioloop(self):
         error = Exception('refused')
         captured = {}
