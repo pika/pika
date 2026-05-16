@@ -15,28 +15,31 @@ class ThreadSafeChannelTests(unittest.TestCase):
         raw_ch.channel_number = 1
         raw_ch.is_open = True
         raw_ch.is_closed = False
-        conn = MagicMock()
-        return ThreadSafeChannel(raw_ch, conn), raw_ch, conn
+        wrapper = MagicMock()
+        wrapper._closed_reason = None
+        wrapper._channel_waiters_lock = threading.Lock()
+        wrapper._blocking_waiters = []
+        return ThreadSafeChannel(raw_ch, wrapper), raw_ch, wrapper
 
     def test_basic_publish_routes_through_add_callback_threadsafe(self):
-        ch, raw_ch, conn = self._make_channel()
+        ch, raw_ch, wrapper = self._make_channel()
         ch.basic_publish(exchange='ex', routing_key='rk', body=b'hello')
-        conn.add_callback_threadsafe.assert_called_once()
+        wrapper.add_callback_threadsafe.assert_called_once()
 
     def test_basic_publish_does_not_call_raw_channel_directly(self):
-        ch, raw_ch, conn = self._make_channel()
+        ch, raw_ch, wrapper = self._make_channel()
         ch.basic_publish(exchange='ex', routing_key='rk', body=b'hello')
         raw_ch.basic_publish.assert_not_called()
 
     def test_basic_publish_callback_calls_raw_channel(self):
-        ch, raw_ch, conn = self._make_channel()
+        ch, raw_ch, wrapper = self._make_channel()
         ch.basic_publish(exchange='ex',
                          routing_key='rk',
                          body=b'msg',
                          properties='props',
                          mandatory=True)
         # Extract and invoke the scheduled callback manually
-        scheduled_cb = conn.add_callback_threadsafe.call_args[0][0]
+        scheduled_cb = wrapper.add_callback_threadsafe.call_args[0][0]
         scheduled_cb()
         raw_ch.basic_publish.assert_called_once_with(
             exchange='ex',
@@ -47,52 +50,53 @@ class ThreadSafeChannelTests(unittest.TestCase):
         )
 
     def test_basic_ack_routes_through_add_callback_threadsafe(self):
-        ch, raw_ch, conn = self._make_channel()
+        ch, raw_ch, wrapper = self._make_channel()
         ch.basic_ack(delivery_tag=42, multiple=True)
-        conn.add_callback_threadsafe.assert_called_once()
+        wrapper.add_callback_threadsafe.assert_called_once()
         raw_ch.basic_ack.assert_not_called()
 
     def test_basic_ack_callback_calls_raw_channel(self):
-        ch, raw_ch, conn = self._make_channel()
+        ch, raw_ch, wrapper = self._make_channel()
         ch.basic_ack(delivery_tag=42, multiple=True)
-        scheduled_cb = conn.add_callback_threadsafe.call_args[0][0]
+        scheduled_cb = wrapper.add_callback_threadsafe.call_args[0][0]
         scheduled_cb()
         raw_ch.basic_ack.assert_called_once_with(delivery_tag=42, multiple=True)
 
     def test_basic_nack_routes_through_add_callback_threadsafe(self):
-        ch, raw_ch, conn = self._make_channel()
+        ch, raw_ch, wrapper = self._make_channel()
         ch.basic_nack(delivery_tag=7, multiple=False, requeue=False)
-        conn.add_callback_threadsafe.assert_called_once()
+        wrapper.add_callback_threadsafe.assert_called_once()
         raw_ch.basic_nack.assert_not_called()
 
     def test_basic_nack_callback_calls_raw_channel(self):
-        ch, raw_ch, conn = self._make_channel()
+        ch, raw_ch, wrapper = self._make_channel()
         ch.basic_nack(delivery_tag=7, multiple=False, requeue=False)
-        scheduled_cb = conn.add_callback_threadsafe.call_args[0][0]
+        scheduled_cb = wrapper.add_callback_threadsafe.call_args[0][0]
         scheduled_cb()
         raw_ch.basic_nack.assert_called_once_with(delivery_tag=7,
                                                   multiple=False,
                                                   requeue=False)
 
     def test_basic_reject_routes_through_add_callback_threadsafe(self):
-        ch, raw_ch, conn = self._make_channel()
+        ch, raw_ch, wrapper = self._make_channel()
         ch.basic_reject(delivery_tag=3, requeue=False)
-        conn.add_callback_threadsafe.assert_called_once()
+        wrapper.add_callback_threadsafe.assert_called_once()
         raw_ch.basic_reject.assert_not_called()
 
     def test_basic_reject_callback_calls_raw_channel(self):
-        ch, raw_ch, conn = self._make_channel()
+        ch, raw_ch, wrapper = self._make_channel()
         ch.basic_reject(delivery_tag=3, requeue=False)
-        scheduled_cb = conn.add_callback_threadsafe.call_args[0][0]
+        scheduled_cb = wrapper.add_callback_threadsafe.call_args[0][0]
         scheduled_cb()
         raw_ch.basic_reject.assert_called_once_with(delivery_tag=3,
                                                     requeue=False)
 
     def test_queue_declare_blocks_and_returns_result(self):
-        ch, raw_ch, conn = self._make_channel()
+        ch, raw_ch, wrapper = self._make_channel()
         mock_frame = MagicMock()
 
         def execute_and_fire(cb):
+
             def fake_queue_declare(queue, passive, durable, exclusive,
                                    auto_delete, arguments, callback):
                 callback(mock_frame)
@@ -100,7 +104,7 @@ class ThreadSafeChannelTests(unittest.TestCase):
             raw_ch.queue_declare.side_effect = fake_queue_declare
             cb()
 
-        conn.add_callback_threadsafe.side_effect = execute_and_fire
+        wrapper.add_callback_threadsafe.side_effect = execute_and_fire
 
         result = ch.queue_declare(queue='my_queue', durable=True)
 
@@ -115,15 +119,46 @@ class ThreadSafeChannelTests(unittest.TestCase):
             callback=unittest.mock.ANY,
         )
 
+    def test_queue_declare_raises_when_connection_already_closed(self):
+        ch, raw_ch, wrapper = self._make_channel()
+        reason = Exception('connection closed')
+        wrapper._closed_reason = reason
+
+        with self.assertRaises(Exception) as ctx:
+            ch.queue_declare(queue='my_queue')
+
+        self.assertIs(ctx.exception, reason)
+        wrapper.add_callback_threadsafe.assert_not_called()
+
+    def test_queue_declare_raises_when_connection_closes_while_waiting(self):
+        ch, raw_ch, wrapper = self._make_channel()
+        reason = Exception('connection lost')
+
+        def close_while_waiting(cb):
+            # Simulate the connection closing instead of Queue.DeclareOk arriving
+            with wrapper._channel_waiters_lock:
+                wrapper._closed_reason = reason
+                for evt, err in wrapper._blocking_waiters:
+                    err[0] = reason
+                    evt.set()
+                wrapper._blocking_waiters.clear()
+
+        wrapper.add_callback_threadsafe.side_effect = close_while_waiting
+
+        with self.assertRaises(Exception) as ctx:
+            ch.queue_declare(queue='my_queue')
+
+        self.assertIs(ctx.exception, reason)
+
     def test_properties_delegate_to_raw_channel(self):
-        ch, raw_ch, conn = self._make_channel()
+        ch, raw_ch, wrapper = self._make_channel()
         self.assertEqual(ch.channel_number, raw_ch.channel_number)
         self.assertEqual(ch.is_open, raw_ch.is_open)
         self.assertEqual(ch.is_closed, raw_ch.is_closed)
 
     def test_concurrent_publishes_all_scheduled(self):
         """All publishes from N threads must each schedule exactly one callback."""
-        ch, raw_ch, conn = self._make_channel()
+        ch, raw_ch, wrapper = self._make_channel()
         n = 20
         barrier = threading.Barrier(n)
 
@@ -137,7 +172,7 @@ class ThreadSafeChannelTests(unittest.TestCase):
         for t in threads:
             t.join()
 
-        self.assertEqual(conn.add_callback_threadsafe.call_count, n)
+        self.assertEqual(wrapper.add_callback_threadsafe.call_count, n)
 
 
 class ThreadSafeConnectionTests(unittest.TestCase):
@@ -157,6 +192,7 @@ class ThreadSafeConnectionTests(unittest.TestCase):
             mock_conn.ioloop = mock_ioloop
             mock_conn.is_open = True
             mock_conn.is_closed = False
+            mock_conn.is_closing = False
 
             # Capture the on_open_callback passed to SelectConnection
             # and call it immediately so _connected_event gets set.
@@ -217,6 +253,23 @@ class ThreadSafeConnectionTests(unittest.TestCase):
 
         ch = conn.channel()
         self.assertIsInstance(ch, ThreadSafeChannel)
+
+    def test_channel_wraps_self_not_inner_connection(self):
+        conn, mock_conn, _ = self._make_connection()
+
+        def execute_scheduled(cb):
+            mock_raw_ch = MagicMock()
+
+            def fake_channel(on_open_callback):
+                on_open_callback(mock_raw_ch)
+
+            mock_conn.channel.side_effect = fake_channel
+            cb()
+
+        mock_conn.add_callback_threadsafe.side_effect = execute_scheduled
+
+        ch = conn.channel()
+        self.assertIs(ch._wrapper, conn)
 
     def test_channel_raises_when_connection_already_closed(self):
         conn, mock_conn, _ = self._make_connection()
@@ -303,6 +356,31 @@ class ThreadSafeConnectionTests(unittest.TestCase):
         self.assertEqual(calls[0][0][0], mock_conn.close)
         self.assertEqual(calls[1][0][0], mock_ioloop.stop)
         self.assertEqual(conn._ioloop_thread.join.call_count, 2)
+
+    def test_close_is_noop_when_already_closed(self):
+        conn, mock_conn, _ = self._make_connection()
+        conn._closed_reason = Exception('already closed')
+        conn._ioloop_thread = MagicMock()
+        conn.close()
+        mock_conn.add_callback_threadsafe.assert_not_called()
+        conn._ioloop_thread.join.assert_not_called()
+
+    def test_close_from_ioloop_thread_calls_connection_close_directly(self):
+        conn, mock_conn, _ = self._make_connection()
+        # Simulate close() being called from within the IOLoop thread itself
+        conn._ioloop_thread = threading.current_thread()
+        conn.close()
+        mock_conn.close.assert_called_once()
+        mock_conn.add_callback_threadsafe.assert_not_called()
+
+    def test_context_manager(self):
+        conn, mock_conn, _ = self._make_connection()
+        conn._ioloop_thread = MagicMock()
+        conn._ioloop_thread.is_alive.return_value = False
+        with conn as c:
+            self.assertIs(c, conn)
+        mock_conn.add_callback_threadsafe.assert_called_once_with(
+            mock_conn.close)
 
 
 if __name__ == '__main__':

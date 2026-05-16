@@ -28,9 +28,9 @@ class ThreadSafeChannel:
     touched from the IOLoop thread.
     """
 
-    def __init__(self, channel, connection):
+    def __init__(self, channel, wrapper):
         self._channel = channel
-        self._connection = connection
+        self._wrapper = wrapper
 
     def basic_publish(self,
                       exchange,
@@ -42,7 +42,7 @@ class ThreadSafeChannel:
 
         Safe to call from any thread simultaneously.
         """
-        self._connection.add_callback_threadsafe(
+        self._wrapper.add_callback_threadsafe(
             functools.partial(
                 self._channel.basic_publish,
                 exchange=exchange,
@@ -57,7 +57,7 @@ class ThreadSafeChannel:
 
         Safe to call from any thread simultaneously.
         """
-        self._connection.add_callback_threadsafe(
+        self._wrapper.add_callback_threadsafe(
             functools.partial(
                 self._channel.basic_ack,
                 delivery_tag=delivery_tag,
@@ -69,7 +69,7 @@ class ThreadSafeChannel:
 
         Safe to call from any thread simultaneously.
         """
-        self._connection.add_callback_threadsafe(
+        self._wrapper.add_callback_threadsafe(
             functools.partial(
                 self._channel.basic_nack,
                 delivery_tag=delivery_tag,
@@ -82,7 +82,7 @@ class ThreadSafeChannel:
 
         Safe to call from any thread simultaneously.
         """
-        self._connection.add_callback_threadsafe(
+        self._wrapper.add_callback_threadsafe(
             functools.partial(
                 self._channel.basic_reject,
                 delivery_tag=delivery_tag,
@@ -102,9 +102,16 @@ class ThreadSafeChannel:
 
         :returns: The Queue.DeclareOk method frame.
         :rtype: pika.frame.Method
+        :raises Exception: if the connection is closed before the response arrives.
         """
         ready = threading.Event()
         result = [None]
+        error = [None]
+
+        with self._wrapper._channel_waiters_lock:
+            if self._wrapper._closed_reason is not None:
+                raise self._wrapper._closed_reason
+            self._wrapper._blocking_waiters.append((ready, error))
 
         def _declare():
 
@@ -122,8 +129,17 @@ class ThreadSafeChannel:
                 callback=_on_declare,
             )
 
-        self._connection.add_callback_threadsafe(_declare)
+        self._wrapper.add_callback_threadsafe(_declare)
         ready.wait()
+
+        with self._wrapper._channel_waiters_lock:
+            try:
+                self._wrapper._blocking_waiters.remove((ready, error))
+            except ValueError:
+                pass
+
+        if error[0] is not None:
+            raise error[0]
         return result[0]
 
     @property
@@ -165,6 +181,12 @@ class ThreadSafeConnection:
 
         conn.close()
 
+    Can also be used as a context manager::
+
+        with ThreadSafeConnection(pika.ConnectionParameters('localhost')) as conn:
+            ch = conn.channel()
+            ch.basic_publish(exchange='', routing_key='q', body='hello')
+
     :param parameters: Connection parameters.
     :type parameters: pika.connection.Parameters
     :param callable | None on_open_error_callback:
@@ -190,7 +212,7 @@ class ThreadSafeConnection:
 
         self._channel_waiters_lock = threading.Lock()
         self._closed_reason = None
-        self._pending_channel_waiters = []
+        self._blocking_waiters = []
 
         self._connection = SelectConnection(
             parameters=parameters,
@@ -231,10 +253,10 @@ class ThreadSafeConnection:
         self._connection.ioloop.stop()
         with self._channel_waiters_lock:
             self._closed_reason = reason
-            for evt, err in self._pending_channel_waiters:
+            for evt, err in self._blocking_waiters:
                 err[0] = reason
                 evt.set()
-            self._pending_channel_waiters.clear()
+            self._blocking_waiters.clear()
         if self._user_on_close_callback:
             self._user_on_close_callback(_connection, reason)
 
@@ -258,7 +280,7 @@ class ThreadSafeConnection:
         with self._channel_waiters_lock:
             if self._closed_reason is not None:
                 raise self._closed_reason
-            self._pending_channel_waiters.append((ready, error))
+            self._blocking_waiters.append((ready, error))
 
         def _open():
 
@@ -273,14 +295,14 @@ class ThreadSafeConnection:
 
         with self._channel_waiters_lock:
             try:
-                self._pending_channel_waiters.remove((ready, error))
+                self._blocking_waiters.remove((ready, error))
             except ValueError:
                 pass
 
         if error[0] is not None:
             raise error[0]
 
-        return ThreadSafeChannel(result[0], self._connection)
+        return ThreadSafeChannel(result[0], self)
 
     def close(self, timeout=10):
         """Close the connection and block until the IOLoop thread exits.
@@ -291,11 +313,24 @@ class ThreadSafeConnection:
         Connection.CloseOk), the IOLoop is force-stopped via
         ``add_callback_threadsafe`` and joined once more.
 
+        Safe to call from any thread including the IOLoop thread itself
+        (e.g. from within a channel callback).  When called from the IOLoop
+        thread the close is initiated synchronously and the method returns
+        immediately without joining.
+
+        Calling ``close()`` on an already-closed connection is a no-op.
+
         :param float | None timeout: Seconds to wait for a clean close before
             force-stopping the IOLoop. Defaults to 10 seconds, which is
             sufficient for a healthy broker on any reasonable network.
             Pass ``None`` to wait indefinitely.
         """
+        if threading.current_thread() is self._ioloop_thread:
+            self._connection.close()
+            return
+        with self._channel_waiters_lock:
+            if self._closed_reason is not None:
+                return
         self._connection.add_callback_threadsafe(self._connection.close)
         self._ioloop_thread.join(timeout=timeout)
         if self._ioloop_thread.is_alive():
@@ -303,12 +338,18 @@ class ThreadSafeConnection:
                 self._connection.ioloop.stop)
             self._ioloop_thread.join()
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+        return False
+
     def add_callback_threadsafe(self, callback):
         """Schedule *callback* to run in the IOLoop thread.
 
-        The only thread-safe method on the underlying connection — exposed
-        here so callers can schedule arbitrary work (e.g. queue_declare)
-        without going through the wrapper.
+        Safe to call from any thread.  Exposed so callers can schedule
+        arbitrary work without going through the wrapper methods.
 
         :param callable callback: Zero-argument callable.
         """
