@@ -185,10 +185,25 @@ class ThreadSafeChannel:
         """Register a consumer and block until Basic.ConsumeOk arrives.
 
         The *on_message_callback* is invoked in the IOLoop thread each time
-        the broker delivers a message.  Acknowledgements from inside that
-        callback are safe because they are already in the IOLoop thread; from
-        any other thread use :meth:`basic_ack`, :meth:`basic_nack`, or
-        :meth:`basic_reject` which route through ``add_callback_threadsafe``.
+        the broker delivers a message.
+
+        **The callback must return quickly.**  The IOLoop thread drives all
+        socket I/O and heartbeat responses; blocking it causes heartbeat
+        starvation and broker-side connection teardown.  Hand off slow work
+        to a worker thread (e.g. via :class:`queue.Queue`) and acknowledge
+        from that thread using :meth:`basic_ack`, :meth:`basic_nack`, or
+        :meth:`basic_reject`, which are safe to call from any thread.
+
+        **Never call blocking** :class:`ThreadSafeChannel` **methods**
+        (``queue_declare``, ``basic_qos``, ``basic_consume``, ``basic_cancel``,
+        ``close``) **from inside the callback.**  Those methods block the
+        calling thread waiting for a broker response that the IOLoop must
+        receive and dispatch — calling them from the IOLoop thread itself
+        will deadlock immediately and permanently.
+
+        Calling :meth:`basic_ack`, :meth:`basic_nack`, or :meth:`basic_reject`
+        from inside the callback is safe: they schedule work via
+        ``add_callback_threadsafe`` and return immediately without blocking.
 
         Safe to call from any thread.
 

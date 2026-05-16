@@ -67,14 +67,14 @@ class TestBasicLifecycle(ThreadSafeTestCaseBase):
         done = threading.Event()
 
         def _get():
+
             def _on_get(ch_, method, props, body):
                 received.append(body)
                 done.set()
 
-            conn.add_callback_threadsafe(
-                lambda: conn._connection.channel(
-                    on_open_callback=lambda raw_ch: raw_ch.basic_get(
-                        queue=queue, callback=_on_get, auto_ack=True)))
+            conn.add_callback_threadsafe(lambda: conn._connection.channel(
+                on_open_callback=lambda raw_ch: raw_ch.basic_get(
+                    queue=queue, callback=_on_get, auto_ack=True)))
 
         # Give basic_publish time to deliver, then poll via passive declare.
         @retry_assertion(timeout_sec=5)
@@ -116,14 +116,17 @@ class TestConcurrentPublishing(ThreadSafeTestCaseBase):
             except Exception as exc:
                 errors.append(exc)
 
-        threads = [threading.Thread(target=publish, args=(i,)) for i in range(n)]
+        threads = [
+            threading.Thread(target=publish, args=(i,)) for i in range(n)
+        ]
         for t in threads:
             t.start()
         for t in threads:
             t.join(timeout=BLOCKING_CALL_TIMEOUT)
             self.assertFalse(t.is_alive(), 'publish thread did not finish')
 
-        self.assertEqual([], errors, f'exceptions from publish threads: {errors}')
+        self.assertEqual([], errors,
+                         f'exceptions from publish threads: {errors}')
 
         @retry_assertion(timeout_sec=10)
         def assert_all_arrived():
@@ -310,10 +313,12 @@ class TestBrokerDropBlockedInQueueDeclare(ThreadSafeTestCaseBase):
         conn._connection.ioloop.add_callback_threadsafe = real_act
 
         t.join(timeout=BLOCKING_CALL_TIMEOUT)
-        self.assertFalse(t.is_alive(),
-                         'queue_declare() blocked forever after broker disconnect')
-        self.assertIsNotNone(exc_holder[0],
-                             'queue_declare() should have raised after disconnect')
+        self.assertFalse(
+            t.is_alive(),
+            'queue_declare() blocked forever after broker disconnect')
+        self.assertIsNotNone(
+            exc_holder[0],
+            'queue_declare() should have raised after disconnect')
 
 
 class TestConcurrentClose(ThreadSafeTestCaseBase):

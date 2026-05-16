@@ -630,8 +630,9 @@ class ThreadSafeConnectionTests(unittest.TestCase):
         mock_ioloop.add_callback_threadsafe.call_args_list[0][0][0]()
         mock_conn.close.assert_called_once()
         # Second call: force-stop the IOLoop
-        self.assertIs(mock_ioloop.add_callback_threadsafe.call_args_list[1][0][0],
-                      mock_ioloop.stop)
+        self.assertIs(
+            mock_ioloop.add_callback_threadsafe.call_args_list[1][0][0],
+            mock_ioloop.stop)
         self.assertEqual(conn._ioloop_thread.join.call_count, 2)
 
     def test_close_safe_close_suppresses_connection_wrong_state_error(self):
