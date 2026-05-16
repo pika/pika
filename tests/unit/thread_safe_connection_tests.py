@@ -49,6 +49,41 @@ class ThreadSafeChannelTests(unittest.TestCase):
             mandatory=True,
         )
 
+    def test_basic_publish_callback_swallows_channel_wrong_state_error(self):
+        """ChannelWrongStateError inside the scheduled callback must not
+        propagate to the IOLoop — that would crash the IOLoop thread."""
+        from pika.exceptions import ChannelWrongStateError
+        ch, raw_ch, wrapper = self._make_channel()
+        raw_ch.basic_publish.side_effect = ChannelWrongStateError('channel closed')
+        ch.basic_publish(exchange='ex', routing_key='rk', body=b'x')
+        scheduled_cb = wrapper.add_callback_threadsafe.call_args[0][0]
+        scheduled_cb()  # must not raise
+        raw_ch.basic_publish.assert_called_once()
+
+    def test_basic_ack_callback_swallows_channel_wrong_state_error(self):
+        from pika.exceptions import ChannelWrongStateError
+        ch, raw_ch, wrapper = self._make_channel()
+        raw_ch.basic_ack.side_effect = ChannelWrongStateError('channel closed')
+        ch.basic_ack(delivery_tag=1)
+        wrapper.add_callback_threadsafe.call_args[0][0]()  # must not raise
+        raw_ch.basic_ack.assert_called_once()
+
+    def test_basic_nack_callback_swallows_channel_wrong_state_error(self):
+        from pika.exceptions import ChannelWrongStateError
+        ch, raw_ch, wrapper = self._make_channel()
+        raw_ch.basic_nack.side_effect = ChannelWrongStateError('channel closed')
+        ch.basic_nack(delivery_tag=1)
+        wrapper.add_callback_threadsafe.call_args[0][0]()  # must not raise
+        raw_ch.basic_nack.assert_called_once()
+
+    def test_basic_reject_callback_swallows_channel_wrong_state_error(self):
+        from pika.exceptions import ChannelWrongStateError
+        ch, raw_ch, wrapper = self._make_channel()
+        raw_ch.basic_reject.side_effect = ChannelWrongStateError('channel closed')
+        ch.basic_reject(delivery_tag=1)
+        wrapper.add_callback_threadsafe.call_args[0][0]()  # must not raise
+        raw_ch.basic_reject.assert_called_once()
+
     def test_basic_publish_raises_when_connection_already_closed(self):
         ch, raw_ch, wrapper = self._make_channel()
         reason = Exception('closed')

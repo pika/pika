@@ -55,15 +55,21 @@ class ThreadSafeChannel:
         :raises Exception: if the connection is already closed.
         """
         self._check_not_closed()
-        self._wrapper.add_callback_threadsafe(
-            functools.partial(
-                self._channel.basic_publish,
-                exchange=exchange,
-                routing_key=routing_key,
-                body=body,
-                properties=properties,
-                mandatory=mandatory,
-            ))
+
+        def _publish():
+            try:
+                self._channel.basic_publish(
+                    exchange=exchange,
+                    routing_key=routing_key,
+                    body=body,
+                    properties=properties,
+                    mandatory=mandatory,
+                )
+            except Exception:
+                LOGGER.warning('basic_publish failed (channel may have closed)',
+                               exc_info=True)
+
+        self._wrapper.add_callback_threadsafe(_publish)
 
     def basic_ack(self, delivery_tag=0, multiple=False):
         """Schedule an acknowledgement in the IOLoop thread (fire-and-forget).
@@ -73,12 +79,16 @@ class ThreadSafeChannel:
         :raises Exception: if the connection is already closed.
         """
         self._check_not_closed()
-        self._wrapper.add_callback_threadsafe(
-            functools.partial(
-                self._channel.basic_ack,
-                delivery_tag=delivery_tag,
-                multiple=multiple,
-            ))
+
+        def _ack():
+            try:
+                self._channel.basic_ack(delivery_tag=delivery_tag,
+                                        multiple=multiple)
+            except Exception:
+                LOGGER.warning('basic_ack failed (channel may have closed)',
+                               exc_info=True)
+
+        self._wrapper.add_callback_threadsafe(_ack)
 
     def basic_nack(self, delivery_tag=0, multiple=False, requeue=True):
         """Schedule a negative acknowledgement in the IOLoop thread (fire-and-forget).
@@ -88,13 +98,17 @@ class ThreadSafeChannel:
         :raises Exception: if the connection is already closed.
         """
         self._check_not_closed()
-        self._wrapper.add_callback_threadsafe(
-            functools.partial(
-                self._channel.basic_nack,
-                delivery_tag=delivery_tag,
-                multiple=multiple,
-                requeue=requeue,
-            ))
+
+        def _nack():
+            try:
+                self._channel.basic_nack(delivery_tag=delivery_tag,
+                                         multiple=multiple,
+                                         requeue=requeue)
+            except Exception:
+                LOGGER.warning('basic_nack failed (channel may have closed)',
+                               exc_info=True)
+
+        self._wrapper.add_callback_threadsafe(_nack)
 
     def basic_reject(self, delivery_tag=0, requeue=True):
         """Schedule a rejection in the IOLoop thread (fire-and-forget).
@@ -104,12 +118,16 @@ class ThreadSafeChannel:
         :raises Exception: if the connection is already closed.
         """
         self._check_not_closed()
-        self._wrapper.add_callback_threadsafe(
-            functools.partial(
-                self._channel.basic_reject,
-                delivery_tag=delivery_tag,
-                requeue=requeue,
-            ))
+
+        def _reject():
+            try:
+                self._channel.basic_reject(delivery_tag=delivery_tag,
+                                           requeue=requeue)
+            except Exception:
+                LOGGER.warning('basic_reject failed (channel may have closed)',
+                               exc_info=True)
+
+        self._wrapper.add_callback_threadsafe(_reject)
 
     def basic_qos(self, prefetch_size=0, prefetch_count=0, global_qos=False):
         """Set channel QoS and block until Basic.QosOk arrives.
