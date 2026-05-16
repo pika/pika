@@ -547,7 +547,7 @@ class ThreadSafeConnection:
 
             self._connection.channel(on_open_callback=_on_open)
 
-        self._connection.add_callback_threadsafe(_open)
+        self._connection.ioloop.add_callback_threadsafe(_open)
         ready.wait()
 
         with self._channel_waiters_lock:
@@ -598,10 +598,10 @@ class ThreadSafeConnection:
                     'connection.close() raised (already closing or closed)',
                     exc_info=True)
 
-        self._connection.add_callback_threadsafe(_safe_close)
+        self._connection.ioloop.add_callback_threadsafe(_safe_close)
         self._ioloop_thread.join(timeout=timeout)
         if self._ioloop_thread.is_alive():
-            self._connection.add_callback_threadsafe(
+            self._connection.ioloop.add_callback_threadsafe(
                 self._connection.ioloop.stop)
             self._ioloop_thread.join()
 
@@ -620,7 +620,7 @@ class ThreadSafeConnection:
 
         :param callable callback: Zero-argument callable.
         """
-        self._connection.add_callback_threadsafe(callback)
+        self._connection.ioloop.add_callback_threadsafe(callback)
 
     @property
     def is_open(self):

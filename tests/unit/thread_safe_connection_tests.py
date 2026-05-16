@@ -449,13 +449,13 @@ class ThreadSafeConnectionTests(unittest.TestCase):
         self.assertTrue(conn.is_closed)
 
     def test_add_callback_threadsafe_delegates(self):
-        conn, mock_conn, _ = self._make_connection()
+        conn, mock_conn, mock_ioloop = self._make_connection()
         cb = MagicMock()
         conn.add_callback_threadsafe(cb)
-        mock_conn.add_callback_threadsafe.assert_called_once_with(cb)
+        mock_ioloop.add_callback_threadsafe.assert_called_once_with(cb)
 
     def test_channel_schedules_open_via_add_callback_threadsafe(self):
-        conn, mock_conn, _ = self._make_connection()
+        conn, mock_conn, mock_ioloop = self._make_connection()
 
         # Simulate the IOLoop executing the scheduled callback synchronously
         def execute_scheduled(cb):
@@ -469,13 +469,13 @@ class ThreadSafeConnectionTests(unittest.TestCase):
             mock_conn.channel.side_effect = fake_channel
             cb()
 
-        mock_conn.add_callback_threadsafe.side_effect = execute_scheduled
+        mock_ioloop.add_callback_threadsafe.side_effect = execute_scheduled
 
         ch = conn.channel()
         self.assertIsInstance(ch, ThreadSafeChannel)
 
     def test_channel_wraps_self_not_inner_connection(self):
-        conn, mock_conn, _ = self._make_connection()
+        conn, mock_conn, mock_ioloop = self._make_connection()
 
         def execute_scheduled(cb):
             mock_raw_ch = MagicMock()
@@ -486,7 +486,7 @@ class ThreadSafeConnectionTests(unittest.TestCase):
             mock_conn.channel.side_effect = fake_channel
             cb()
 
-        mock_conn.add_callback_threadsafe.side_effect = execute_scheduled
+        mock_ioloop.add_callback_threadsafe.side_effect = execute_scheduled
 
         ch = conn.channel()
         self.assertIs(ch._wrapper, conn)
@@ -509,7 +509,7 @@ class ThreadSafeConnectionTests(unittest.TestCase):
             # Simulate the connection closing instead of the channel opening
             conn._on_connection_closed(mock_conn, reason)
 
-        mock_conn.add_callback_threadsafe.side_effect = close_while_waiting
+        mock_conn.ioloop.add_callback_threadsafe.side_effect = close_while_waiting
 
         with self.assertRaises(Exception) as ctx:
             conn.channel()
@@ -610,13 +610,13 @@ class ThreadSafeConnectionTests(unittest.TestCase):
         user_cb.assert_called_once_with(mock_conn, 'reason')
 
     def test_close_schedules_close_and_joins_thread(self):
-        conn, mock_conn, _ = self._make_connection()
+        conn, mock_conn, mock_ioloop = self._make_connection()
         conn._ioloop_thread = MagicMock()
         conn._ioloop_thread.is_alive.return_value = False
         conn.close()
-        mock_conn.add_callback_threadsafe.assert_called_once()
+        mock_ioloop.add_callback_threadsafe.assert_called_once()
         # The scheduled callback must delegate to the inner connection's close.
-        mock_conn.add_callback_threadsafe.call_args[0][0]()
+        mock_ioloop.add_callback_threadsafe.call_args[0][0]()
         mock_conn.close.assert_called_once()
         conn._ioloop_thread.join.assert_called_once_with(timeout=10)
 
@@ -625,12 +625,12 @@ class ThreadSafeConnectionTests(unittest.TestCase):
         conn._ioloop_thread = MagicMock()
         conn._ioloop_thread.is_alive.return_value = True
         conn.close(timeout=0.1)
-        self.assertEqual(mock_conn.add_callback_threadsafe.call_count, 2)
+        self.assertEqual(mock_ioloop.add_callback_threadsafe.call_count, 2)
         # First call: graceful close wrapper
-        mock_conn.add_callback_threadsafe.call_args_list[0][0][0]()
+        mock_ioloop.add_callback_threadsafe.call_args_list[0][0][0]()
         mock_conn.close.assert_called_once()
         # Second call: force-stop the IOLoop
-        self.assertIs(mock_conn.add_callback_threadsafe.call_args_list[1][0][0],
+        self.assertIs(mock_ioloop.add_callback_threadsafe.call_args_list[1][0][0],
                       mock_ioloop.stop)
         self.assertEqual(conn._ioloop_thread.join.call_count, 2)
 
@@ -647,34 +647,34 @@ class ThreadSafeConnectionTests(unittest.TestCase):
         def run_callback_inline(cb):
             cb()  # execute synchronously — must not raise
 
-        mock_conn.add_callback_threadsafe.side_effect = run_callback_inline
+        mock_conn.ioloop.add_callback_threadsafe.side_effect = run_callback_inline
         conn.close()  # must not raise
         mock_conn.close.assert_called_once()
 
     def test_close_is_noop_when_already_closed(self):
-        conn, mock_conn, _ = self._make_connection()
+        conn, mock_conn, mock_ioloop = self._make_connection()
         conn._closed_reason = Exception('already closed')
         conn._ioloop_thread = MagicMock()
         conn.close()
-        mock_conn.add_callback_threadsafe.assert_not_called()
+        mock_ioloop.add_callback_threadsafe.assert_not_called()
         conn._ioloop_thread.join.assert_not_called()
 
     def test_close_from_ioloop_thread_calls_connection_close_directly(self):
-        conn, mock_conn, _ = self._make_connection()
+        conn, mock_conn, mock_ioloop = self._make_connection()
         # Simulate close() being called from within the IOLoop thread itself
         conn._ioloop_thread = threading.current_thread()
         conn.close()
         mock_conn.close.assert_called_once()
-        mock_conn.add_callback_threadsafe.assert_not_called()
+        mock_ioloop.add_callback_threadsafe.assert_not_called()
 
     def test_context_manager(self):
-        conn, mock_conn, _ = self._make_connection()
+        conn, mock_conn, mock_ioloop = self._make_connection()
         conn._ioloop_thread = MagicMock()
         conn._ioloop_thread.is_alive.return_value = False
         with conn as c:
             self.assertIs(c, conn)
-        mock_conn.add_callback_threadsafe.assert_called_once()
-        mock_conn.add_callback_threadsafe.call_args[0][0]()
+        mock_ioloop.add_callback_threadsafe.assert_called_once()
+        mock_ioloop.add_callback_threadsafe.call_args[0][0]()
         mock_conn.close.assert_called_once()
 
 
