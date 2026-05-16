@@ -7,7 +7,6 @@ IOLoop thread, eliminating the IndexError race seen in issues #1144 and #511.
 """
 import logging
 import pprint
-import queue
 import threading
 
 import pika
@@ -32,23 +31,7 @@ def main():
     # channel() blocks until the channel is open.
     ch = conn.channel()
 
-    # queue_declare must run in the IOLoop thread; use add_callback_threadsafe
-    # and a Queue to get the result back.
-    result_q = queue.Queue(1)
-
-    def _declare():
-
-        def _on_declare(method_frame):
-            result_q.put(method_frame.method)
-
-        ch._channel.queue_declare(
-            queue=QUEUE_NAME,
-            durable=True,
-            callback=_on_declare,
-        )
-
-    conn.add_callback_threadsafe(_declare)
-    declare_result = result_q.get()
+    declare_result = ch.queue_declare(queue=QUEUE_NAME, durable=True)
     LOGGER.info('Queue declared: %s', pprint.pformat(declare_result))
 
     # Publish from 5 threads simultaneously — safe with ThreadSafeConnection.

@@ -89,6 +89,43 @@ class ThreadSafeChannel:
                 requeue=requeue,
             ))
 
+    def queue_declare(self,
+                      queue,
+                      passive=False,
+                      durable=False,
+                      exclusive=False,
+                      auto_delete=False,
+                      arguments=None):
+        """Declare a queue and block the calling thread until Queue.DeclareOk arrives.
+
+        Safe to call from any thread.
+
+        :returns: The Queue.DeclareOk method frame.
+        :rtype: pika.frame.Method
+        """
+        ready = threading.Event()
+        result = [None]
+
+        def _declare():
+
+            def _on_declare(method_frame):
+                result[0] = method_frame
+                ready.set()
+
+            self._channel.queue_declare(
+                queue=queue,
+                passive=passive,
+                durable=durable,
+                exclusive=exclusive,
+                auto_delete=auto_delete,
+                arguments=arguments,
+                callback=_on_declare,
+            )
+
+        self._connection.add_callback_threadsafe(_declare)
+        ready.wait()
+        return result[0]
+
     @property
     def channel_number(self):
         return self._channel.channel_number

@@ -88,6 +88,33 @@ class ThreadSafeChannelTests(unittest.TestCase):
         raw_ch.basic_reject.assert_called_once_with(delivery_tag=3,
                                                     requeue=False)
 
+    def test_queue_declare_blocks_and_returns_result(self):
+        ch, raw_ch, conn = self._make_channel()
+        mock_frame = MagicMock()
+
+        def execute_and_fire(cb):
+            def fake_queue_declare(queue, passive, durable, exclusive,
+                                   auto_delete, arguments, callback):
+                callback(mock_frame)
+
+            raw_ch.queue_declare.side_effect = fake_queue_declare
+            cb()
+
+        conn.add_callback_threadsafe.side_effect = execute_and_fire
+
+        result = ch.queue_declare(queue='my_queue', durable=True)
+
+        self.assertIs(result, mock_frame)
+        raw_ch.queue_declare.assert_called_once_with(
+            queue='my_queue',
+            passive=False,
+            durable=True,
+            exclusive=False,
+            auto_delete=False,
+            arguments=None,
+            callback=unittest.mock.ANY,
+        )
+
     def test_properties_delegate_to_raw_channel(self):
         ch, raw_ch, conn = self._make_channel()
         self.assertEqual(ch.channel_number, raw_ch.channel_number)
