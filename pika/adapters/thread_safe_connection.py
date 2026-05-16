@@ -32,6 +32,16 @@ class ThreadSafeChannel:
         self._channel = channel
         self._wrapper = wrapper
 
+    def _check_not_closed(self):
+        """Raise if the connection is known to be closed.
+
+        Called from fire-and-forget methods to prevent silently dropping
+        work when the connection is already gone.
+        """
+        with self._wrapper._channel_waiters_lock:
+            if self._wrapper._closed_reason is not None:
+                raise self._wrapper._closed_reason
+
     def basic_publish(self,
                       exchange,
                       routing_key,
@@ -41,7 +51,10 @@ class ThreadSafeChannel:
         """Schedule a publish in the IOLoop thread (fire-and-forget).
 
         Safe to call from any thread simultaneously.
+
+        :raises Exception: if the connection is already closed.
         """
+        self._check_not_closed()
         self._wrapper.add_callback_threadsafe(
             functools.partial(
                 self._channel.basic_publish,
@@ -56,7 +69,10 @@ class ThreadSafeChannel:
         """Schedule an acknowledgement in the IOLoop thread (fire-and-forget).
 
         Safe to call from any thread simultaneously.
+
+        :raises Exception: if the connection is already closed.
         """
+        self._check_not_closed()
         self._wrapper.add_callback_threadsafe(
             functools.partial(
                 self._channel.basic_ack,
@@ -68,7 +84,10 @@ class ThreadSafeChannel:
         """Schedule a negative acknowledgement in the IOLoop thread (fire-and-forget).
 
         Safe to call from any thread simultaneously.
+
+        :raises Exception: if the connection is already closed.
         """
+        self._check_not_closed()
         self._wrapper.add_callback_threadsafe(
             functools.partial(
                 self._channel.basic_nack,
@@ -81,7 +100,10 @@ class ThreadSafeChannel:
         """Schedule a rejection in the IOLoop thread (fire-and-forget).
 
         Safe to call from any thread simultaneously.
+
+        :raises Exception: if the connection is already closed.
         """
+        self._check_not_closed()
         self._wrapper.add_callback_threadsafe(
             functools.partial(
                 self._channel.basic_reject,

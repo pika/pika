@@ -49,6 +49,50 @@ class ThreadSafeChannelTests(unittest.TestCase):
             mandatory=True,
         )
 
+    def test_basic_publish_raises_when_connection_already_closed(self):
+        ch, raw_ch, wrapper = self._make_channel()
+        reason = Exception('closed')
+        wrapper._closed_reason = reason
+
+        with self.assertRaises(Exception) as ctx:
+            ch.basic_publish(exchange='ex', routing_key='rk', body=b'x')
+
+        self.assertIs(ctx.exception, reason)
+        wrapper.add_callback_threadsafe.assert_not_called()
+
+    def test_basic_ack_raises_when_connection_already_closed(self):
+        ch, raw_ch, wrapper = self._make_channel()
+        reason = Exception('closed')
+        wrapper._closed_reason = reason
+
+        with self.assertRaises(Exception) as ctx:
+            ch.basic_ack(delivery_tag=1)
+
+        self.assertIs(ctx.exception, reason)
+        wrapper.add_callback_threadsafe.assert_not_called()
+
+    def test_basic_nack_raises_when_connection_already_closed(self):
+        ch, raw_ch, wrapper = self._make_channel()
+        reason = Exception('closed')
+        wrapper._closed_reason = reason
+
+        with self.assertRaises(Exception) as ctx:
+            ch.basic_nack(delivery_tag=1)
+
+        self.assertIs(ctx.exception, reason)
+        wrapper.add_callback_threadsafe.assert_not_called()
+
+    def test_basic_reject_raises_when_connection_already_closed(self):
+        ch, raw_ch, wrapper = self._make_channel()
+        reason = Exception('closed')
+        wrapper._closed_reason = reason
+
+        with self.assertRaises(Exception) as ctx:
+            ch.basic_reject(delivery_tag=1)
+
+        self.assertIs(ctx.exception, reason)
+        wrapper.add_callback_threadsafe.assert_not_called()
+
     def test_basic_ack_routes_through_add_callback_threadsafe(self):
         ch, raw_ch, wrapper = self._make_channel()
         ch.basic_ack(delivery_tag=42, multiple=True)
