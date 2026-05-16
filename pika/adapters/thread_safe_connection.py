@@ -492,6 +492,10 @@ class ThreadSafeConnection:
                             err[0] = self._closed_reason
                         evt.set()
                     self._blocking_waiters.clear()
+                # Wake __init__ if it crashed before the connection opened.
+                if not self._connected_event.is_set():
+                    self._connect_error = exc
+                    self._connected_event.set()
 
         self._ioloop_thread = threading.Thread(
             target=_run_ioloop,
