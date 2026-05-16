@@ -452,7 +452,8 @@ class ThreadSafeConnection:
 
         self._channel_waiters_lock = threading.Lock()
         self._closed_reason = None
-        self._blocking_waiters: list[tuple[threading.Event, list[BaseException | None]]] = []
+        self._blocking_waiters: list[tuple[threading.Event,
+                                           list[BaseException | None]]] = []
 
         self._connection = SelectConnection(
             parameters=parameters,

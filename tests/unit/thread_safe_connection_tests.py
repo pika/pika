@@ -54,7 +54,8 @@ class ThreadSafeChannelTests(unittest.TestCase):
         propagate to the IOLoop — that would crash the IOLoop thread."""
         from pika.exceptions import ChannelWrongStateError
         ch, raw_ch, wrapper = self._make_channel()
-        raw_ch.basic_publish.side_effect = ChannelWrongStateError('channel closed')
+        raw_ch.basic_publish.side_effect = ChannelWrongStateError(
+            'channel closed')
         ch.basic_publish(exchange='ex', routing_key='rk', body=b'x')
         scheduled_cb = wrapper.add_callback_threadsafe.call_args[0][0]
         scheduled_cb()  # must not raise
@@ -79,7 +80,8 @@ class ThreadSafeChannelTests(unittest.TestCase):
     def test_basic_reject_callback_swallows_channel_wrong_state_error(self):
         from pika.exceptions import ChannelWrongStateError
         ch, raw_ch, wrapper = self._make_channel()
-        raw_ch.basic_reject.side_effect = ChannelWrongStateError('channel closed')
+        raw_ch.basic_reject.side_effect = ChannelWrongStateError(
+            'channel closed')
         ch.basic_reject(delivery_tag=1)
         wrapper.add_callback_threadsafe.call_args[0][0]()  # must not raise
         raw_ch.basic_reject.assert_called_once()
@@ -342,7 +344,8 @@ class ThreadSafeChannelTests(unittest.TestCase):
 
         ch.close()  # must not raise
 
-        raw_ch.close.assert_called_once_with(reply_code=0, reply_text='Normal shutdown')
+        raw_ch.close.assert_called_once_with(reply_code=0,
+                                             reply_text='Normal shutdown')
 
     def test_channel_close_raises_when_connection_already_closed(self):
         ch, raw_ch, wrapper = self._make_channel()
@@ -560,7 +563,8 @@ class ThreadSafeConnectionTests(unittest.TestCase):
         gate.set()
         t.join(timeout=2)
 
-        self.assertFalse(t.is_alive(), 'channel() thread must not hang after IOLoop crash')
+        self.assertFalse(t.is_alive(),
+                         'channel() thread must not hang after IOLoop crash')
         self.assertIs(exc_holder[0], crash)
 
     def test_on_connection_open_error_sets_event_and_stops_ioloop(self):
@@ -637,7 +641,8 @@ class ThreadSafeConnectionTests(unittest.TestCase):
         conn, mock_conn, _ = self._make_connection()
         conn._ioloop_thread = MagicMock()
         conn._ioloop_thread.is_alive.return_value = False
-        mock_conn.close.side_effect = ConnectionWrongStateError('already closing')
+        mock_conn.close.side_effect = ConnectionWrongStateError(
+            'already closing')
 
         def run_callback_inline(cb):
             cb()  # execute synchronously — must not raise
