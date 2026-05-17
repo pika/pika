@@ -59,7 +59,7 @@ def create_run_in_thread_decorator(test_timeout=None):
     return run_in_thread_with_timeout_decorator
 
 
-run_in_thread_with_timeout = create_run_in_thread_decorator()  # pylint: disable=C0103
+run_in_thread_with_timeout = create_run_in_thread_decorator()
 
 
 class _ThreadedTestWrapper:

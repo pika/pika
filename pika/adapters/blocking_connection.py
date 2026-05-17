@@ -11,11 +11,9 @@ classes.
 
 """
 # Suppress too-many-lines
-# pylint: disable=C0302
 
 # Disable "access to protected member warnings: this wrapper implementation is
 # a friend of those instances
-# pylint: disable=W0212
 
 from __future__ import annotations
 
@@ -371,6 +369,9 @@ class BlockingConnection:
 
         # Receives on_close_callback args from Connection
         self._closed_result = _CallbackResult(self._OnClosedArgs)
+
+        # Store exceptions for server-initiated channel closures
+        self._server_channel_closures: deque[Exception] = deque()
 
         # Perform connection workflow
         self._impl: select_connection.SelectConnection = None  # type: ignore  # so that attribute is created in case below raises
@@ -902,6 +903,11 @@ class BlockingConnection:
         if self._channels_pending_dispatch:
             self._dispatch_channel_events()
 
+        if self._server_channel_closures:
+            exc = self._server_channel_closures.popleft()
+            LOGGER.debug('Channel closed by broker: %r', exc)
+            raise exc
+
     def sleep(self, duration: float) -> None:
         """A safer way to sleep than calling time.sleep() directly that would
         keep the adapter from ignoring frames sent from the broker. The
@@ -1247,7 +1253,7 @@ class BlockingChannel:
             'channel',  # implementation pika.Channel instance
             'method',  # Basic.GetOk
             'properties',  # pika.spec.BasicProperties
-            'body'  # str, unicode, or bytes (python 3.x)
+            'body'  # bytes
         ])
 
     # For use as value_class with any _CallbackResult that expects method_frame
@@ -1427,7 +1433,7 @@ class BlockingChannel:
 
         if self.is_closed and isinstance(self._closing_reason,
                                          exceptions.ChannelClosedByBroker):
-            raise self._closing_reason  # pylint: disable=E0702
+            raise self._closing_reason
 
     def _on_puback_message_returned(self, channel: pika.channel.Channel,
                                     method: pika.spec.Basic.Return,
@@ -1496,6 +1502,7 @@ class BlockingChannel:
         self._closing_reason = reason
 
         if isinstance(reason, exceptions.ChannelClosedByBroker):
+            self.connection._server_channel_closures.append(reason)
             self._cleanup()
 
             # Request urgent termination of `process_data_events()`, in case
@@ -1588,12 +1595,12 @@ class BlockingChannel:
         while self._pending_events:
             evt = self._pending_events.popleft()
 
-            if type(evt) is _ConsumerDeliveryEvt:  # pylint: disable=C0123
+            if type(evt) is _ConsumerDeliveryEvt:
                 consumer_info = self._consumer_infos[evt.method.consumer_tag]
                 consumer_info.on_message_callback(self, evt.method,
                                                   evt.properties, evt.body)
 
-            elif type(evt) is _ConsumerCancellationEvt:  # pylint: disable=C0123
+            elif type(evt) is _ConsumerCancellationEvt:
                 del self._consumer_infos[evt.method_frame.method.consumer_tag]
 
                 self._impl.callbacks.process(self.channel_number,
@@ -1939,11 +1946,11 @@ class BlockingChannel:
         unprocessed_messages: list[Any] = []
         while self._pending_events:
             evt = self._pending_events.popleft()
-            if type(evt) is _ConsumerDeliveryEvt:  # pylint: disable=C0123
+            if type(evt) is _ConsumerDeliveryEvt:
                 if evt.method.consumer_tag == consumer_tag:
                     unprocessed_messages.append(evt)
                     continue
-            if type(evt) is _ConsumerCancellationEvt:  # pylint: disable=C0123
+            if type(evt) is _ConsumerCancellationEvt:
                 if evt.method_frame.method.consumer_tag == consumer_tag:
                     # A broker-initiated Basic.Cancel must have arrived
                     # before our cancel request completed
@@ -2038,7 +2045,7 @@ class BlockingChannel:
             NEW in pika 0.10.0.
         :param str consumer_tag: Specify your own consumer tag
 
-        :yields: tuple(spec.Basic.Deliver, spec.BasicProperties, str or unicode)
+        :yields: tuple(spec.Basic.Deliver, spec.BasicProperties, bytes)
 
         :raises ValueError: if consumer-creation parameters don't match those
             of the existing queue consumer generator, if any.
@@ -2087,7 +2094,7 @@ class BlockingChannel:
             # Process pending events
             if self._queue_consumer_generator.pending_events:
                 evt = self._queue_consumer_generator.pending_events.popleft()
-                if type(evt) is _ConsumerCancellationEvt:  # pylint: disable=C0123
+                if type(evt) is _ConsumerCancellationEvt:
                     # Consumer was cancelled by broker
                     self._queue_consumer_generator = None
                     break
@@ -2150,7 +2157,7 @@ class BlockingChannel:
                                          exceptions.ChannelClosedByBroker):
             LOGGER.debug('Channel close by broker detected, raising %r; %r',
                          self._closing_reason, self)
-            raise self._closing_reason  # pylint: disable=E0702
+            raise self._closing_reason
 
     def get_waiting_message_count(self) -> int:
         """Returns the number of messages that may be retrieved from the current
@@ -2163,7 +2170,7 @@ class BlockingChannel:
         if self._queue_consumer_generator is not None:
             pending_events = self._queue_consumer_generator.pending_events
             count = len(pending_events)
-            if count and type(pending_events[-1]) is _ConsumerCancellationEvt:  # pylint: disable=C0123
+            if count and type(pending_events[-1]) is _ConsumerCancellationEvt:
                 count -= 1
         else:
             count = 0
@@ -2279,7 +2286,6 @@ class BlockingChannel:
 
         validators.require_string(queue, 'queue')
 
-        # NOTE: nested with for python 2.6 compatibility
         with _CallbackResult(self._RxMessageArgs) as get_ok_result:
             with self._basic_getempty_result:
                 self._impl.basic_get(queue=queue,

@@ -3,15 +3,6 @@ Tests for pika.connection.Connection
 
 """
 
-# Suppress pylint warnings concerning access to protected member
-# pylint: disable=W0212
-
-# Suppress pylint messages concerning missing docstrings
-# pylint: disable=C0111
-
-# Suppress pylint messages concerning invalid method name
-# pylint: disable=C0103
-
 import platform
 import random
 import unittest
@@ -51,7 +42,7 @@ class ConstructibleConnection(connection.Connection):
         raise NotImplementedError
 
 
-class ConnectionTests(unittest.TestCase):  # pylint: disable=R0904
+class ConnectionTests(unittest.TestCase):
 
     def setUp(self):
 

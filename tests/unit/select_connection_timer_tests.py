@@ -10,15 +10,6 @@ from unittest import mock
 import pika._utils
 from pika.adapters import select_connection
 
-# Suppress protected-access
-# pylint: disable=W0212
-
-# Suppress missing-docstring
-# pylint: disable=C0111
-
-# Suppress invalid-name
-# pylint: disable=C0103
-
 
 def _now():
     # pika/pika#1184

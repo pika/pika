@@ -367,7 +367,6 @@ class AbstractStreamProtocol(pika._utils.AbstractBase):  # type: ignore
         """
         raise NotImplementedError
 
-    # pylint: disable=W0511
     # TODO Undecided whether we need write flow-control yet, although it seems
     #      like a good idea.
     # @abc.abstractmethod
@@ -431,7 +430,6 @@ class AbstractStreamTransport(pika._utils.AbstractBase):  # type: ignore
         """
         raise NotImplementedError
 
-    # pylint: disable=W0511
     # TODO Udecided whether we need write flow-control yet, although it seems
     #      like a good idea.
     # @abc.abstractmethod

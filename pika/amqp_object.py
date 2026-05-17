@@ -48,8 +48,8 @@ class Method(AMQPObject):
         :param bytes body: The message body
 
         """
-        self._properties = properties  # pylint: disable=W0201
-        self._body = body  # pylint: disable=W0201
+        self._properties = properties
+        self._body = body
 
     def get_properties(self) -> Properties:
         """Return the properties if they are set.
@@ -62,7 +62,7 @@ class Method(AMQPObject):
     def get_body(self) -> bytes:
         """Return the message body if it is set.
 
-        :rtype: str|unicode
+        :rtype: bytes
 
         """
         return self._body

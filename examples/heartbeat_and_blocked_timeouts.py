@@ -1,4 +1,3 @@
-# pylint: disable=C0111,C0103,R0205
 """
 This example demonstrates explicit setting of heartbeat and blocked connection
 timeouts.

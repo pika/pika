@@ -13,13 +13,6 @@ from unittest import mock
 from tests.wrappers import threaded_test_wrapper
 from tests.wrappers.threaded_test_wrapper import _ThreadedTestWrapper, run_in_thread_with_timeout
 
-# Suppress invalid-name, since our test names are descriptive and quite long
-# pylint: disable=C0103
-
-# Suppress missing-docstring to allow test method names to be printed by our the
-# test runner
-# pylint: disable=C0111
-
 
 class ThreadedTestWrapperSelfChecks(unittest.TestCase):
     """Tests for threaded_test_wrapper.py.
@@ -68,7 +61,7 @@ class ThreadedTestWrapperSelfChecks(unittest.TestCase):
                 print('This stderr was captured from our thread wrapper:\n',
                       stringio_stderr.getvalue(),
                       file=sys.stderr)
-            except Exception:  # pylint: disable=W0703
+            except Exception:
                 pass
 
             raise

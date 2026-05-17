@@ -1,14 +1,3 @@
-# Disable warning Missing docstring
-# pylint: disable=C0111
-
-# Disable warning Invalid variable name
-# pylint: disable=C0103
-
-# Suppress pylint warning about access to protected member
-# pylint: disable=W0212
-
-# Suppress no-member: Twisted's reactor methods are not easily discoverable
-# pylint: disable=E1101
 """twisted adapter test"""
 import functools
 import unittest

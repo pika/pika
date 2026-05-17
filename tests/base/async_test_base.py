@@ -17,25 +17,13 @@ from pika.adapters import select_connection
 from pika.exchange_type import ExchangeType
 from tests.wrappers.threaded_test_wrapper import create_run_in_thread_decorator
 
-# invalid-name
-# pylint: disable=C0103
-
-# Suppress pylint warnings concerning attribute defined outside __init__
-# pylint: disable=W0201
-
-# Suppress pylint messages concerning missing docstrings
-# pylint: disable=C0111
-
-# protected-access
-# pylint: disable=W0212
-
 TEST_TIMEOUT = 15
 
 # Decorator for running our tests in threads with timeout
 # NOTE: we give it a little more time to give our I/O loop-based timeout logic
 # sufficient time to mop up.
-run_test_in_thread_with_timeout = create_run_in_thread_decorator(  # pylint: disable=C0103
-    TEST_TIMEOUT * 1.1)
+run_test_in_thread_with_timeout = create_run_in_thread_decorator(TEST_TIMEOUT *
+                                                                 1.1)
 
 
 def make_stop_on_error_with_self(the_self=None):
@@ -61,7 +49,7 @@ def make_stop_on_error_with_self(the_self=None):
                                      f'instance method: {fun!r}')
             try:
                 return fun(*args, **kwargs)
-            except Exception as error:  # pylint: disable=W0703
+            except Exception as error:
                 this.logger.exception('Stopping test due to failure in %r: %r',
                                       fun, error)
                 this.stop(error)
@@ -137,7 +125,7 @@ class AsyncTestCase(unittest.TestCase):
         else:
             return method_desc
 
-    def begin(self, channel):  # pylint: disable=R0201,W0613
+    def begin(self, channel):
         """Extend to start the actual tests on the channel"""
         self.fail("AsyncTestCase.begin_test not extended")
 
@@ -163,7 +151,7 @@ class AsyncTestCase(unittest.TestCase):
                 'Unexpected end of test; connection close reason: '
                 f'{self._conn_closed_reason!r}')
             if self._public_stop_error_in is not None:
-                raise self._public_stop_error_in  # pylint: disable=E0702
+                raise self._public_stop_error_in
         finally:
             self.connection._nbio.close()
             self.connection = None
@@ -263,7 +251,7 @@ class BoundQueueTestCase(AsyncTestCase):
                                       auto_delete=True,
                                       callback=self.on_exchange_declared)
 
-    def on_exchange_declared(self, frame):  # pylint: disable=W0613
+    def on_exchange_declared(self, frame):
         self.channel.queue_declare(self.queue,
                                    passive=False,
                                    durable=False,
@@ -272,7 +260,7 @@ class BoundQueueTestCase(AsyncTestCase):
                                    arguments={'x-expires': self.TIMEOUT * 1000},
                                    callback=self.on_queue_declared)
 
-    def on_queue_declared(self, frame):  # pylint: disable=W0613
+    def on_queue_declared(self, frame):
         self.channel.queue_bind(self.queue,
                                 self.exchange,
                                 self.routing_key,
@@ -320,8 +308,9 @@ class AsyncAdapters:
         with mock.patch.multiple(select_connection, SELECT_TYPE='select'):
             self.start(adapters.SelectConnection, select_connection.IOLoop)
 
-    @unittest.skipIf(not hasattr(select, 'poll') or
-                     not hasattr(select.poll(), 'modify'), "poll not supported")  # pylint: disable=E1101
+    @unittest.skipIf(
+        not hasattr(select, 'poll') or not hasattr(select.poll(), 'modify'),
+        "poll not supported")
     @run_test_in_thread_with_timeout
     def test_with_select_poll(self):
         """SelectConnection:poll"""

@@ -1,5 +1,3 @@
-# pylint: disable=C0111,C0103,R0205
-
 import json
 import threading
 

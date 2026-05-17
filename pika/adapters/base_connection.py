@@ -219,24 +219,29 @@ class BaseConnection(connection.Connection):
 
     def _adapter_call_later(self, delay: int | float,
                             callback: Callable[[], None]) -> object:
-        """Implement
-        :py:meth:`pika.connection.Connection._adapter_call_later()`.
+        """Schedule a callback to be called after a delay.
 
+        :param delay: Delay in seconds.
+        :param callback: Callback to call.
+        :returns: Timeout handle that can be used to cancel.
+        :rtype: object
         """
         return self._nbio.call_later(delay, callback)
 
     def _adapter_remove_timeout(self, timeout_id: object) -> None:
-        """Implement
-        :py:meth:`pika.connection.Connection._adapter_remove_timeout()`.
+        """Remove a scheduled timeout.
 
+        :param timeout_id: Timeout handle to cancel.
+        :rtype: None
         """
         timeout_id.cancel()  # type: ignore
 
     def _adapter_add_callback_threadsafe(self, callback: Callable[...,
                                                                   Any]) -> None:
-        """Implement
-        :py:meth:`pika.connection.Connection._adapter_add_callback_threadsafe()`.
+        """Add a callback to be called from the I/O loop thread.
 
+        :param callback: Callback to call.
+        :rtype: None
         """
         if not callable(callback):
             raise TypeError(
@@ -461,7 +466,7 @@ class BaseConnection(connection.Connection):
 
         self._on_stream_terminated(error)
 
-    def _proto_eof_received(self) -> bool:  # pylint: disable=R0201
+    def _proto_eof_received(self) -> bool:
         """Called after the remote peer shuts its write end of the connection.
         :py:class:`.utils.nbio_interface.AbstractStreamProtocol` implementation.
 
@@ -514,7 +519,7 @@ class _StreamingProtocolShim(nbio_interface.AbstractStreamProtocol):
         :param BaseConnection conn:
         """
         self.conn = conn
-        # pylint: disable=W0212
+
         self.connection_made = conn._proto_connection_made
         self.connection_lost = conn._proto_connection_lost
         self.eof_received = conn._proto_eof_received
@@ -525,6 +530,8 @@ class _StreamingProtocolShim(nbio_interface.AbstractStreamProtocol):
         so that AMQPConnectionWorkflow/AMQPConnector may treat the shim as an
         actual connection.
 
+        :param attr: Attribute name.
+        :returns: Attribute value from connection.
         """
         return getattr(self.conn, attr)
 

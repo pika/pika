@@ -7,8 +7,6 @@ from unittest import mock
 
 from pika import credentials, spec
 
-# pylint: disable=C0111,W0212,C0103
-
 
 class ChildPlainCredentials(credentials.PlainCredentials):
 
@@ -215,7 +213,6 @@ class ExternalCredentialsTest(unittest.TestCase):
         start.mechanisms = 'FOO BAR BAZ'
         self.assertEqual(cred.response_for(start), (None, None))
 
-    # pylint: disable=R0201
     def test_erase_credentials(self):
         with mock.patch('pika.credentials.LOGGER', autospec=True) as logger:
             cred = credentials.ExternalCredentials()

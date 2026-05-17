@@ -49,7 +49,11 @@ def name_or_value(value: AMQPValue) -> str:
 
 
 def sanitize_prefix(function: _Callback) -> _Callback:
-    """Automatically call name_or_value on the prefix passed in."""
+    """Automatically call name_or_value on the prefix passed in.
+
+    :param _Callback function: The function to wrap
+    :rtype: _Callback
+    """
 
     @functools.wraps(function)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
@@ -74,6 +78,8 @@ def check_for_prefix_and_key(function: _Callback) -> _Callback:
     """Automatically return false if the key or prefix is not in the callbacks
     for the instance.
 
+    :rtype: _Callback
+
     """
 
     @functools.wraps(function)
@@ -93,7 +99,7 @@ def check_for_prefix_and_key(function: _Callback) -> _Callback:
             key = name_or_value(args[offset])
 
         # Make sure prefix and key are in the stack
-        if prefix not in args[0]._stack or key not in args[0]._stack[prefix]:  # pylint: disable=W0212
+        if prefix not in args[0]._stack or key not in args[0]._stack[prefix]:
             return False
 
         # Execute the method

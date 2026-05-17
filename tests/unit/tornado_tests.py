@@ -8,12 +8,6 @@ from unittest import mock
 from pika.adapters import tornado_connection
 from pika.adapters.utils import selector_ioloop_adapter
 
-# missing-docstring
-# pylint: disable=C0111
-
-# invalid-name
-# pylint: disable=C0103
-
 
 class TornadoConnectionTests(unittest.TestCase):
 

@@ -5,7 +5,6 @@ import logging
 # Add NullHandler before importing Pika modules to prevent logging warnings
 logging.getLogger(__name__).addHandler(logging.NullHandler())
 
-# pylint: disable=C0413
 # ruff: noqa: E402
 
 from pika import adapters

@@ -119,8 +119,7 @@ class ExternalCredentials:
         return NotImplemented
 
     def response_for(
-        self, start: Connection.Start
-    ) -> tuple[str | None, bytes | None]:  # pylint: disable=R0201
+            self, start: Connection.Start) -> tuple[str | None, bytes | None]:
         """Validate that this type of authentication is supported
 
         :param spec.Connection.Start start: Connection.Start method
@@ -132,7 +131,7 @@ class ExternalCredentials:
             return None, None
         return ExternalCredentials.TYPE, b''
 
-    def erase_credentials(self) -> None:  # pylint: disable=R0201
+    def erase_credentials(self) -> None:
         """Called by Connection when it no longer needs the credentials"""
         LOGGER.debug('Not supported by this Credentials type')
 
