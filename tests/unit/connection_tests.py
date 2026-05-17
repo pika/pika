@@ -14,7 +14,6 @@ from pika import channel, connection, credentials, exceptions, frame, spec
 
 def dummy_callback():
     """Callback method to use in tests"""
-    pass
 
 
 class ConstructibleConnection(connection.Connection):

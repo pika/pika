@@ -316,7 +316,7 @@ class Parameters:
             raise ValueError(
                 f'Min AMQP 0.9.1 Frame Size is {spec.FRAME_MIN_SIZE}, but got {value!r}'
             )
-        elif value > spec.FRAME_MAX_SIZE:
+        if value > spec.FRAME_MAX_SIZE:
             raise ValueError(
                 f'Max AMQP 0.9.1 Frame Size is {spec.FRAME_MAX_SIZE}, but got {value!r}'
             )
@@ -2348,7 +2348,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
 
         if content[1]:
             chunks = int(math.ceil(float(length) / self._body_max_length))
-            for chunk in range(0, chunks):
+            for chunk in range(chunks):
                 start = chunk * self._body_max_length
                 end = start + self._body_max_length
                 if end > length:

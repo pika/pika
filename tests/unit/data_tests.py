@@ -82,11 +82,11 @@ class DataTests(unittest.TestCase):
         self.assertEqual(byte_count, 233)
 
     def test_decode_table(self):
-        value, byte_count = data.decode_table(self.FIELD_TBL_ENCODED, 0)
+        value, _byte_count = data.decode_table(self.FIELD_TBL_ENCODED, 0)
         self.assertDictEqual(value, self.FIELD_TBL_VALUE)
 
     def test_decode_table_bytes(self):
-        value, byte_count = data.decode_table(self.FIELD_TBL_ENCODED, 0)
+        _value, byte_count = data.decode_table(self.FIELD_TBL_ENCODED, 0)
         self.assertEqual(byte_count, 233)
 
     def test_decode_signed_long_negative(self):

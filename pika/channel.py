@@ -1591,16 +1591,14 @@ class ContentFrameAssembler:
                 spec.has_content(frame_value.method.INDEX)):
             self._method_frame = frame_value
             return None
-        elif isinstance(frame_value, frame.Header):
+        if isinstance(frame_value, frame.Header):
             self._header_frame = frame_value
             if frame_value.body_size == 0:
                 return self._finish()
-            else:
-                return None
-        elif isinstance(frame_value, frame.Body):
+            return None
+        if isinstance(frame_value, frame.Body):
             return self._handle_body_frame(frame_value)
-        else:
-            raise exceptions.UnexpectedFrameError(frame_value)
+        raise exceptions.UnexpectedFrameError(frame_value)
 
     def _finish(self) -> tuple[frame.Method, frame.Header, bytes]:
         """Invoked when all of the message has been received
@@ -1628,7 +1626,7 @@ class ContentFrameAssembler:
         self._body_fragments.append(body_frame.fragment)
         if self._seen_so_far == self._header_frame.body_size:  # type: ignore
             return self._finish()
-        elif self._seen_so_far > self._header_frame.body_size:  # type: ignore
+        if self._seen_so_far > self._header_frame.body_size:  # type: ignore
             raise exceptions.BodyTooLongError(
                 self._seen_so_far, self._header_frame.body_size)  # type: ignore
         return None

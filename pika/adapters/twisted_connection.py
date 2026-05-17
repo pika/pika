@@ -603,11 +603,10 @@ class TwistedChannel:
             mandatory=mandatory)
         if not self._delivery_confirmation:
             return defer.succeed(result)
-        else:
-            # See https://www.rabbitmq.com/confirms.html#publisher-confirms
-            self._delivery_message_id += 1
-            self._deliveries[self._delivery_message_id] = defer.Deferred()
-            return self._deliveries[self._delivery_message_id]
+        # See https://www.rabbitmq.com/confirms.html#publisher-confirms
+        self._delivery_message_id += 1
+        self._deliveries[self._delivery_message_id] = defer.Deferred()
+        return self._deliveries[self._delivery_message_id]
 
     def basic_qos(self,
                   prefetch_size: int = 0,

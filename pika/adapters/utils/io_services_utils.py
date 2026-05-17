@@ -84,8 +84,7 @@ def _retry_on_sigint(func):
             except pika._utils.SOCKET_ERROR as error:
                 if error.errno == errno.EINTR:
                     continue
-                else:
-                    raise
+                raise
 
     return retry_sigint_wrap
 

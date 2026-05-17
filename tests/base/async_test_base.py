@@ -94,8 +94,7 @@ class AsyncTestCase(unittest.TestCase):
         """
         if enable_tls():
             return self._new_tls_connection_params()
-        else:
-            return self._new_plaintext_connection_params()
+        return self._new_plaintext_connection_params()
 
     def _new_tls_connection_params(self):
         """
@@ -122,8 +121,7 @@ class AsyncTestCase(unittest.TestCase):
         method_desc = super().shortDescription()
         if self.DESCRIPTION:
             return f"{self.DESCRIPTION} ({method_desc})"
-        else:
-            return method_desc
+        return method_desc
 
     def begin(self, channel):
         """Extend to start the actual tests on the channel"""
