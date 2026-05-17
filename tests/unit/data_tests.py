@@ -36,7 +36,7 @@ class DataTests(unittest.TestCase):
         ('array', [1, 2, 3]),
         ('boolval', True),
         ('decimal', decimal.Decimal('3.14')),
-        ('decimal_too', decimal.Decimal('100')),
+        ('decimal_too', decimal.Decimal(100)),
         ('dictval', {
             'foo': 'bar'
         }),

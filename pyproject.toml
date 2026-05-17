@@ -75,11 +75,12 @@ select = [
     "PTH",  # prefer pathlib over os.path
     "D417", # missing documented parameters in docstrings
     "RET",  # return statement cleanup and consistency
-    "PIE",  # miscellaneous code improvements
+    "PIE",  # flake8 pie
     "PERF", # performance anti-patterns
     "PLE",  # Pylint error rules
     "PLC",  # Pylint convention rules
-    "RUF"   # Ruff-specific rules
+    "RUF",  # Ruff-specific rules
+    "FURB", # refurb  
 ]
 
 ignore = [
