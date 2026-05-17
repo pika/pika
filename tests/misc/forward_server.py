@@ -417,8 +417,8 @@ class _TCPHandler(socketserver.StreamRequestHandler):
                                datetime.now(timezone.utc), src_peername)
                         break
                     _trace("%s Unexpected errno=%s from %s\n%s",
-                           datetime.now(timezone.utc), exc.errno,
-                           src_peername, "".join(traceback.format_stack()))
+                           datetime.now(timezone.utc), exc.errno, src_peername,
+                           "".join(traceback.format_stack()))
                     raise
 
                 if not nbytes:

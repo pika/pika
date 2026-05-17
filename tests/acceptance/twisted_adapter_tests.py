@@ -48,8 +48,7 @@ class TestCase(unittest.TestCase):
         def _eb(failure):
             if failure.check(*expectedFailures):
                 return failure.value
-            output = (
-                f'\nExpected: {expectedFailures!r}\nGot:\n{str(failure)}')
+            output = (f'\nExpected: {expectedFailures!r}\nGot:\n{str(failure)}')
             raise self.failureException(output)
 
         return d.addCallbacks(_cb, _eb)
