@@ -76,15 +76,17 @@ select = [
     "D417", # missing documented parameters in docstrings
     "RET",  # return statement cleanup and consistency
     "PIE",  # miscellaneous code improvements
-    #"PERF", # performance anti-patterns
+    "PERF", # performance anti-patterns
     "PLE",  # Pylint error rules
     "PLC",  # Pylint convention rules
+    "RUF"   # Ruff-specific rules
 ]
 
 ignore = [
     "E501",    # line too long
     "C901",    # function is too complex
     "PLC0415", # import should be at the top level of a file
+    "PERF203", # `try`-`except` within a loop incurs performance overhead
 ]
 
 [tool.yapf]
