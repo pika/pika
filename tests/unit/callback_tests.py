@@ -2,6 +2,8 @@
 Tests for pika.callback
 
 """
+from __future__ import annotations
+
 import logging
 import unittest
 from typing import ClassVar
