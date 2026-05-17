@@ -80,7 +80,7 @@ select = [
     "PLE",  # Pylint error rules
     "PLC",  # Pylint convention rules
     "RUF",  # Ruff-specific rules
-    "FURB", # refurb  
+    "FURB", # refurbishing and modernizing codebase
 ]
 
 ignore = [
