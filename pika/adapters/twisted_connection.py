@@ -17,7 +17,6 @@ from collections import namedtuple
 from typing import TYPE_CHECKING, Any, Callable
 
 import twisted.internet.base
-import twisted.python
 import twisted.python.failure
 from twisted.internet import defer, protocol, reactor
 from twisted.internet import error as twisted_error
@@ -1204,7 +1203,7 @@ class _TwistedConnectionAdapter(pika.connection.Connection):
         NOTE: `connection_made()` and `connection_lost()` are each called just
         once and in that order. All other callbacks are called between them.
 
-        :param Failure: A Twisted Failure instance wrapping an exception.
+        :param Failure error: A Twisted Failure instance wrapping an exception.
 
         """
         self._transport = None

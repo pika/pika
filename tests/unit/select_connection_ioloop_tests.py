@@ -782,8 +782,7 @@ class DefaultPollerSocketEventsTestCase(unittest.TestCase):
         """Common logic for which_events_are_set_* tests. Runs the event loop
         while varying eventmasks at each socket event callback
 
-        :param ioloop:
-        :param sock:
+        :param sock: socket to watch for events
         :param requested_eventmasks: a mutable list of eventmasks to apply after
                                      each socket event callback
         :param msg_prefix: Message prefix to apply when printing watched vs.

@@ -1208,7 +1208,7 @@ class _QueueConsumerGeneratorInfo:
         """
         self.params = params
         self.consumer_tag = consumer_tag
-        #self.messages = deque()
+        # self.messages = deque()
 
         # Holds pending events of types _ConsumerDeliveryEvt and
         # _ConsumerCancellationEvt

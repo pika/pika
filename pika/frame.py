@@ -119,10 +119,8 @@ class Body(Frame):
 
     def __init__(self, channel_number: int, fragment: bytes) -> None:
         """
-        Parameters:
-
-        - channel_number: int
-        - fragment: bytes
+        :param int channel_number: The channel number for the frame
+        :param bytes fragment: The fragment of the body
         """
         Frame.__init__(self, spec.FRAME_BODY, channel_number)
         self.fragment = fragment
