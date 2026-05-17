@@ -11,6 +11,7 @@ except ImportError:
 
 import threading
 import unittest
+from typing import ClassVar
 
 import tornado.ioloop
 
@@ -45,7 +46,7 @@ if asyncio is not None:
 class TestStartCalledFromOtherThreadAndWithVaryingNativeLoops(
         unittest.TestCase, IOServicesTestStubs):
 
-    _native_loop_classes = set()
+    _native_loop_classes: ClassVar[set[type]] = set()
 
     @classmethod
     def setUpClass(cls):

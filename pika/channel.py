@@ -10,7 +10,7 @@ import uuid
 from collections import deque
 from collections.abc import Sequence
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Callable, Union
+from typing import TYPE_CHECKING, Any, Callable, ClassVar, Union
 
 import pika.exceptions as exceptions
 import pika.frame as frame
@@ -75,7 +75,7 @@ class Channel:
     OPEN = 2
     CLOSING = 3  # client-initiated close in progress
 
-    _STATE_NAMES: dict[int, str] = {
+    _STATE_NAMES: ClassVar[dict[int, str]] = {
         CLOSED: 'CLOSED',
         OPENING: 'OPENING',
         OPEN: 'OPEN',
@@ -109,7 +109,7 @@ class Channel:
 
         self._content_assembler = ContentFrameAssembler()
 
-        self._blocked: deque = deque([])
+        self._blocked: deque = deque()
         self._blocking: Any | None = None
         self._has_on_flow_callback: bool = False
         self._cancelled: set = set()

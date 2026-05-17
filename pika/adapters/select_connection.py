@@ -178,8 +178,8 @@ class _Timeout:
     """Represents a timeout"""
 
     __slots__ = (
-        'deadline',
         'callback',
+        'deadline',
     )
 
     def __init__(self, deadline: float, callback: Callable[[], None]):

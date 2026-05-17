@@ -52,7 +52,7 @@ class _CallbackResult:
     """ CallbackResult is a non-thread-safe implementation for receiving
     callback results; INTERNAL USE ONLY!
     """
-    __slots__ = ('_value_class', '_ready', '_values')
+    __slots__ = ('_ready', '_value_class', '_values')
 
     def __init__(self, value_class: Callable[..., Any] | None = None):
         """
@@ -217,7 +217,7 @@ class _IoloopTimerContext:
 
 class _TimerEvt:
     """Represents a timer created via `BlockingConnection.call_later`"""
-    __slots__ = ('timer_id', '_callback')
+    __slots__ = ('_callback', 'timer_id')
 
     def __init__(self, callback: Callable[..., None]):
         """
@@ -1023,7 +1023,7 @@ class _ConsumerDeliveryEvt(_ChannelPendingEvt):
     contains method, properties, and body of the delivered message.
     """
 
-    __slots__ = ('method', 'properties', 'body')
+    __slots__ = ('body', 'method', 'properties')
 
     def __init__(self, method: pika.spec.Basic.Deliver,
                  properties: pika.spec.BasicProperties, body: bytes) -> None:
@@ -1068,7 +1068,7 @@ class _ConsumerCancellationEvt(_ChannelPendingEvt):
 class _ReturnedMessageEvt(_ChannelPendingEvt):
     """This event represents a message returned by broker via `Basic.Return`"""
 
-    __slots__ = ('callback', 'channel', 'method', 'properties', 'body')
+    __slots__ = ('body', 'callback', 'channel', 'method', 'properties')
 
     def __init__(self, callback: Callable[[
         BlockingChannel, pika.spec.Basic.Return, pika.spec.
@@ -1109,7 +1109,7 @@ class ReturnedMessage:
     mode
     """
 
-    __slots__ = ('method', 'properties', 'body')
+    __slots__ = ('body', 'method', 'properties')
 
     def __init__(self, method: pika.spec.Basic.Return,
                  properties: pika.spec.BasicProperties, body: bytes) -> None:
@@ -1126,8 +1126,13 @@ class ReturnedMessage:
 class _ConsumerInfo:
     """Information about an active consumer"""
 
-    __slots__ = ('consumer_tag', 'auto_ack', 'on_message_callback',
-                 'alternate_event_sink', 'state')
+    __slots__ = (
+        'alternate_event_sink',
+        'auto_ack',
+        'consumer_tag',
+        'on_message_callback',
+        'state',
+    )
 
     # Consumer states
     SETTING_UP = 1
@@ -1195,7 +1200,7 @@ class _ConsumerInfo:
 
 class _QueueConsumerGeneratorInfo:
     """Container for information about the active queue consumer generator """
-    __slots__ = ('params', 'consumer_tag', 'pending_events')
+    __slots__ = ('consumer_tag', 'params', 'pending_events')
 
     def __init__(self, params: tuple[str, bool, bool],
                  consumer_tag: str) -> None:

@@ -6,6 +6,7 @@ import datetime
 import decimal
 import unittest
 from collections import OrderedDict
+from typing import ClassVar
 
 from pika import data, exceptions
 
@@ -31,7 +32,7 @@ class DataTests(unittest.TestCase):
 
     FIELD_TBL_ENCODED += b'\x05bytesx\x00\x00\x00\x06foobar'
 
-    FIELD_TBL_VALUE = OrderedDict([
+    FIELD_TBL_VALUE: ClassVar[OrderedDict] = OrderedDict([
         ('array', [1, 2, 3]),
         ('boolval', True),
         ('decimal', decimal.Decimal('3.14')),

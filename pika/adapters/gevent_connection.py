@@ -384,16 +384,17 @@ class _GeventAddressResolver:
     See: https://www.gevent.org/dns.html
     """
     __slots__ = (
-        '_loop',
-        '_on_done',
-        '_greenlet',
+        '_ga_family',
+        '_ga_flags',
         # getaddrinfo(..) args:
         '_ga_host',
         '_ga_port',
-        '_ga_family',
-        '_ga_socktype',
         '_ga_proto',
-        '_ga_flags')
+        '_ga_socktype',
+        '_greenlet',
+        '_loop',
+        '_on_done',
+    )
 
     def __init__(self, native_loop: AbstractSelectorIOLoop, host: str,
                  port: int, family: int, socktype: int, proto: int, flags: int,
