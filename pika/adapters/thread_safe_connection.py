@@ -155,12 +155,22 @@ class ThreadSafeChannel:
                 result[0] = method_frame
                 ready.set()
 
-            self._channel.basic_qos(
-                prefetch_size=prefetch_size,
-                prefetch_count=prefetch_count,
-                global_qos=global_qos,
-                callback=_on_qos_ok,
-            )
+            def _on_chan_close(ch, reason):
+                if error[0] is None:
+                    error[0] = reason
+                ready.set()
+
+            try:
+                self._channel.add_on_close_callback(_on_chan_close)
+                self._channel.basic_qos(
+                    prefetch_size=prefetch_size,
+                    prefetch_count=prefetch_count,
+                    global_qos=global_qos,
+                    callback=_on_qos_ok,
+                )
+            except Exception as exc:
+                error[0] = exc
+                ready.set()
 
         self._wrapper.add_callback_threadsafe(_qos)
         ready.wait()
@@ -233,15 +243,25 @@ class ThreadSafeChannel:
                 result[0] = method_frame.method.consumer_tag
                 ready.set()
 
-            self._channel.basic_consume(
-                queue=queue,
-                on_message_callback=on_message_callback,
-                auto_ack=auto_ack,
-                exclusive=exclusive,
-                consumer_tag=consumer_tag,
-                arguments=arguments,
-                callback=_on_consume_ok,
-            )
+            def _on_chan_close(ch, reason):
+                if error[0] is None:
+                    error[0] = reason
+                ready.set()
+
+            try:
+                self._channel.add_on_close_callback(_on_chan_close)
+                self._channel.basic_consume(
+                    queue=queue,
+                    on_message_callback=on_message_callback,
+                    auto_ack=auto_ack,
+                    exclusive=exclusive,
+                    consumer_tag=consumer_tag,
+                    arguments=arguments,
+                    callback=_on_consume_ok,
+                )
+            except Exception as exc:
+                error[0] = exc
+                ready.set()
 
         self._wrapper.add_callback_threadsafe(_consume)
         ready.wait()
@@ -281,10 +301,20 @@ class ThreadSafeChannel:
                 result[0] = method_frame
                 ready.set()
 
-            self._channel.basic_cancel(
-                consumer_tag=consumer_tag,
-                callback=_on_cancel_ok,
-            )
+            def _on_chan_close(ch, reason):
+                if error[0] is None:
+                    error[0] = reason
+                ready.set()
+
+            try:
+                self._channel.add_on_close_callback(_on_chan_close)
+                self._channel.basic_cancel(
+                    consumer_tag=consumer_tag,
+                    callback=_on_cancel_ok,
+                )
+            except Exception as exc:
+                error[0] = exc
+                ready.set()
 
         self._wrapper.add_callback_threadsafe(_cancel)
         ready.wait()
@@ -329,15 +359,25 @@ class ThreadSafeChannel:
                 result[0] = method_frame
                 ready.set()
 
-            self._channel.queue_declare(
-                queue=queue,
-                passive=passive,
-                durable=durable,
-                exclusive=exclusive,
-                auto_delete=auto_delete,
-                arguments=arguments,
-                callback=_on_declare,
-            )
+            def _on_chan_close(ch, reason):
+                if error[0] is None:
+                    error[0] = reason
+                ready.set()
+
+            try:
+                self._channel.add_on_close_callback(_on_chan_close)
+                self._channel.queue_declare(
+                    queue=queue,
+                    passive=passive,
+                    durable=durable,
+                    exclusive=exclusive,
+                    auto_delete=auto_delete,
+                    arguments=arguments,
+                    callback=_on_declare,
+                )
+            except Exception as exc:
+                error[0] = exc
+                ready.set()
 
         self._wrapper.add_callback_threadsafe(_declare)
         ready.wait()
@@ -382,8 +422,13 @@ class ThreadSafeChannel:
                     error[0] = reason
                 ready.set()
 
-            self._channel.add_on_close_callback(_on_channel_close)
-            self._channel.close(reply_code=reply_code, reply_text=reply_text)
+            try:
+                self._channel.add_on_close_callback(_on_channel_close)
+                self._channel.close(reply_code=reply_code,
+                                    reply_text=reply_text)
+            except Exception as exc:
+                error[0] = exc
+                ready.set()
 
         self._wrapper.add_callback_threadsafe(_close)
         ready.wait()
@@ -564,7 +609,11 @@ class ThreadSafeConnection:
                 result[0] = ch
                 ready.set()
 
-            self._connection.channel(on_open_callback=_on_open)
+            try:
+                self._connection.channel(on_open_callback=_on_open)
+            except Exception as exc:
+                error[0] = exc
+                ready.set()
 
         self._connection.ioloop.add_callback_threadsafe(_open)
         ready.wait()
@@ -602,7 +651,11 @@ class ThreadSafeConnection:
             Pass ``None`` to wait indefinitely.
         """
         if threading.current_thread() is self._ioloop_thread:
-            self._connection.close()
+            try:
+                self._connection.close()
+            except Exception:
+                LOGGER.debug('connection.close() raised from IOLoop thread',
+                             exc_info=True)
             return
         with self._channel_waiters_lock:
             if self._closed_reason is not None:
