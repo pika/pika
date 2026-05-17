@@ -16,6 +16,7 @@ For the end user, Pika is organized into a small set of objects for all communic
    channel
    connection
    credentials
+   delivery_mode
    exceptions
    parameters
    spec
