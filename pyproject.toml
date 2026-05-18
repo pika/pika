@@ -100,8 +100,8 @@ fmt-check = "yapf --diff --style google --recursive --exclude 'pika/spec.py' pik
 lint = "ruff check pika/ tests/ examples/ utils/ --fix"
 lint-check = "ruff check pika/ tests/ examples/ utils/"
 typecheck = "python -m mypy"
-unit = "pytest tests/unit/"
-test = "pytest"
+unit = "pytest tests/unit/ {args}"
+test = "pytest {args}"
 rabbitmq = "docker run --name pika-rabbitmq --pull always --detach --rm --publish 5672:5672 --publish 15672:15672 rabbitmq:management-alpine"
 
 [tool.pytest.ini_options]

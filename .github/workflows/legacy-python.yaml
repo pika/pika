@@ -36,7 +36,7 @@ jobs:
           python -m pip install --upgrade pip wheel
           python -m pip install hatch "virtualenv<21.0.0"
       - name: Test with pytest
-        run: hatch run test -- -v --cov=pika --cov-report=xml:coverage.xml ${{ matrix.test-tls && '--use-tls' || '' }}
+        run: hatch run test -v --cov=pika --cov-report=xml:coverage.xml ${{ matrix.test-tls && '--use-tls' || '' }}
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v6
         with:
@@ -68,7 +68,7 @@ jobs:
           python -m pip install --upgrade pip wheel
           python -m pip install hatch "virtualenv<21.0.0"
       - name: Test with pytest
-        run: hatch run test -- -v --cov=pika --cov-report=xml:coverage.xml
+        run: hatch run test -v --cov=pika --cov-report=xml:coverage.xml
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v6
         with:
@@ -97,7 +97,7 @@ jobs:
           python -m pip install --upgrade pip wheel
           python -m pip install hatch "virtualenv<21.0.0"
       - name: Test with pytest
-        run: hatch run test -- -v --cov=pika --cov-report=xml:coverage.xml
+        run: hatch run test -v --cov=pika --cov-report=xml:coverage.xml
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v6
         with:
