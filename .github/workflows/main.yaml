@@ -42,6 +42,7 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage.xml
+          disable_search: true
           flags: windows-py${{ matrix.python-version }}-tls-${{ matrix.test-tls }}
           fail_ci_if_error: false
   build-linux:
@@ -73,6 +74,7 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage.xml
+          disable_search: true
           flags: linux-py${{ matrix.python-version }}
           fail_ci_if_error: false
   build-macos:
@@ -100,5 +102,6 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage.xml
+          disable_search: true
           flags: macos-py${{ matrix.python-version }}
           fail_ci_if_error: false
