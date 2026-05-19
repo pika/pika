@@ -28,7 +28,8 @@ class FrameTests(unittest.TestCase):
 
     def test_headers_marshal(self):
         header = frame.Header(
-            1, 100, spec.BasicProperties(delivery_mode=DeliveryMode.Persistent.value))
+            1, 100,
+            spec.BasicProperties(delivery_mode=DeliveryMode.Persistent.value))
         self.assertEqual(header.marshal(), self.CONTENT_HEADER)
 
     def test_body_marshal(self):
