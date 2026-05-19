@@ -4,6 +4,7 @@ pika.data tests
 """
 import datetime
 import decimal
+import struct
 import unittest
 from collections import OrderedDict
 from typing import ClassVar
@@ -123,3 +124,70 @@ class DataTests(unittest.TestCase):
     def test_long_repr(self):
         value = 912598613
         self.assertEqual(repr(value), '912598613')
+
+    def test_encode_short_string_too_long(self):
+        self.assertRaises(exceptions.ShortStringTooLong,
+                          data.encode_short_string, [], 'a' * 256)
+
+    def test_decode_short_string_invalid_utf8(self):
+        encoded = b'\x02\xff\xfe'
+        value, offset = data.decode_short_string(encoded, 0)
+        self.assertIsInstance(value, bytes)
+        self.assertEqual(value, b'\xff\xfe')
+        self.assertEqual(offset, 3)
+
+    def test_decode_value_short_short_int(self):
+        # b'b' = signed byte
+        encoded = b'\x00\x00\x00\x04\x01kb\xff'
+        result, _ = data.decode_table(encoded, 0)
+        self.assertEqual(result, {'k': -1})
+
+    def test_decode_value_short_short_uint(self):
+        # b'B' = unsigned byte
+        encoded = b'\x00\x00\x00\x04\x01kB\xff'
+        result, _ = data.decode_table(encoded, 0)
+        self.assertEqual(result, {'k': 255})
+
+    def test_decode_value_short_int(self):
+        # b'U' = signed short
+        encoded = b'\x00\x00\x00\x05\x01kU' + struct.pack('>h', -1000)
+        result, _ = data.decode_table(encoded, 0)
+        self.assertEqual(result, {'k': -1000})
+
+    def test_decode_value_short_uint(self):
+        # b'u' = unsigned short
+        encoded = b'\x00\x00\x00\x05\x01ku' + struct.pack('>H', 1000)
+        result, _ = data.decode_table(encoded, 0)
+        self.assertEqual(result, {'k': 1000})
+
+    def test_decode_value_long_uint(self):
+        # b'i' = unsigned long
+        encoded = b'\x00\x00\x00\x07\x01ki' + struct.pack('>I', 4294967295)
+        result, _ = data.decode_table(encoded, 0)
+        self.assertEqual(result, {'k': 4294967295})
+
+    def test_decode_value_long_long_int_uppercase(self):
+        # b'L' = signed 64-bit int
+        encoded = b'\x00\x00\x00\x0b\x01kL' + struct.pack('>q', -30000)
+        result, _ = data.decode_table(encoded, 0)
+        self.assertEqual(result, {'k': -30000})
+
+    def test_decode_value_float(self):
+        # b'f' = 32-bit float
+        encoded = b'\x00\x00\x00\x07\x01kf' + struct.pack('>f', 1.5)
+        result, _ = data.decode_table(encoded, 0)
+        self.assertAlmostEqual(result['k'], 1.5, places=5)
+
+    def test_decode_value_double(self):
+        # b'd' = 64-bit double
+        encoded = b'\x00\x00\x00\x0b\x01kd' + struct.pack('>d', 3.14)
+        result, _ = data.decode_table(encoded, 0)
+        self.assertAlmostEqual(result['k'], 3.14, places=10)
+
+    def test_decode_value_long_string_invalid_utf8(self):
+        # b'S' with non-UTF-8 content stays as bytes
+        raw = b'\xff\xfe'
+        encoded = b'\x00\x00\x00\x09\x01kS' + struct.pack('>I', len(raw)) + raw
+        result, _ = data.decode_table(encoded, 0)
+        self.assertIsInstance(result['k'], bytes)
+        self.assertEqual(result['k'], raw)
