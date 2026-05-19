@@ -65,8 +65,30 @@ extend-exclude = [
 quote-style = "single"
 
 [tool.ruff.lint]
-select = ["E", "W", "F", "I", "UP", "C", "PTH"]
-ignore = ["E501", "C901"]
+select = [
+    "E",    # pycodestyle errors
+    "F",    # Pyflakes checks, including unused imports and unused variables
+    "W",    # pycodestyle warnings
+    "I",    # isort import sorting
+    "UP",   # modern Python syntax suggestions
+    "C",    # complexity and comprehension-related checks
+    "PTH",  # prefer pathlib over os.path
+    "D417", # missing documented parameters in docstrings
+    "RET",  # return statement cleanup and consistency
+    "PIE",  # flake8 pie
+    "PERF", # performance anti-patterns
+    "PLE",  # Pylint error rules
+    "PLC",  # Pylint convention rules
+    "RUF",  # Ruff-specific rules
+    "FURB", # refurbishing and modernizing codebase
+]
+
+ignore = [
+    "E501",    # line too long
+    "C901",    # function is too complex
+    "PLC0415", # import should be at the top level of a file
+    "PERF203", # `try`-`except` within a loop incurs performance overhead
+]
 
 [tool.yapf]
 based_on_style = "google"

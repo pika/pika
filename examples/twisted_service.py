@@ -135,7 +135,7 @@ class PikaProtocol(twisted_connection.TwistedProtocolConnection):
             msg,
         ) = item
 
-        log.msg(f'{deliver.exchange} ({deliver.routing_key}): {repr(msg)}',
+        log.msg(f'{deliver.exchange} ({deliver.routing_key}): {msg!r}',
                 system='Pika:<=')
         d = defer.maybeDeferred(callback, item)
         d.addCallbacks(lambda _: channel.basic_ack(deliver.delivery_tag),
@@ -159,7 +159,7 @@ class PikaProtocol(twisted_connection.TwistedProtocolConnection):
     @inlineCallbacks
     def send_message(self, exchange, routing_key, msg):
         """Send a single message."""
-        log.msg(f'{exchange} ({routing_key}): {repr(msg)}', system='Pika:=>')
+        log.msg(f'{exchange} ({routing_key}): {msg!r}', system='Pika:=>')
         yield self._channel.exchange_declare(exchange=exchange,
                                              exchange_type=ExchangeType.topic,
                                              durable=True,

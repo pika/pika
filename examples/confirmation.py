@@ -19,7 +19,7 @@ def on_open(conn):
 def on_channel_open(channel):
     global published
     channel.confirm_delivery(ack_nack_callback=on_delivery_confirmation)
-    for _iteration in range(0, ITERATIONS):
+    for _iteration in range(ITERATIONS):
         channel.basic_publish(
             'test', 'test.confirm', 'message body value',
             pika.BasicProperties(content_type='text/plain',

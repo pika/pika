@@ -78,8 +78,7 @@ def _is_resumable(exc: SELECT_ERROR_T) -> bool:
     checker = _SELECT_ERROR_CHECKERS.get(exc.__class__, None)
     if checker is not None:
         return checker(exc)
-    else:
-        return False
+    return False
 
 
 class SelectConnection(BaseConnection):
@@ -179,8 +178,8 @@ class _Timeout:
     """Represents a timeout"""
 
     __slots__ = (
-        'deadline',
         'callback',
+        'deadline',
     )
 
     def __init__(self, deadline: float, callback: Callable[[], None]):
@@ -1005,8 +1004,7 @@ class SelectPoller(_PollerBase):
             except _SELECT_ERRORS as error:
                 if _is_resumable(error):
                     continue
-                else:
-                    raise
+                raise
 
         # Build an event bit mask for each fileno we've received an event for
         fd_event_map: dict[int, int] = collections.defaultdict(int)
@@ -1114,8 +1112,7 @@ class KQueuePoller(_PollerBase):
             except _SELECT_ERRORS as error:
                 if _is_resumable(error):
                     continue
-                else:
-                    raise
+                raise
 
         fd_event_map: dict[int, int] = collections.defaultdict(int)
         for event in kevents:
@@ -1248,8 +1245,7 @@ class PollPoller(_PollerBase):
             except _SELECT_ERRORS as error:
                 if _is_resumable(error):
                     continue
-                else:
-                    raise
+                raise
 
         fd_event_map: dict[int, int] = collections.defaultdict(int)
         for fileno, event in events:

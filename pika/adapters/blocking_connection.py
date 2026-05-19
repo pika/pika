@@ -52,7 +52,7 @@ class _CallbackResult:
     """ CallbackResult is a non-thread-safe implementation for receiving
     callback results; INTERNAL USE ONLY!
     """
-    __slots__ = ('_value_class', '_ready', '_values')
+    __slots__ = ('_ready', '_value_class', '_values')
 
     def __init__(self, value_class: Callable[..., Any] | None = None):
         """
@@ -217,7 +217,7 @@ class _IoloopTimerContext:
 
 class _TimerEvt:
     """Represents a timer created via `BlockingConnection.call_later`"""
-    __slots__ = ('timer_id', '_callback')
+    __slots__ = ('_callback', 'timer_id')
 
     def __init__(self, callback: Callable[..., None]):
         """
@@ -472,10 +472,9 @@ class BlockingConnection:
                 error = on_cw_done_result.value.result
                 LOGGER.error('Connection workflow failed: %r', error)
                 raise self._reap_last_connection_workflow_error(error)
-            else:
-                LOGGER.info('Connection workflow succeeded: %r',
-                            on_cw_done_result.value.result)
-                return on_cw_done_result.value.result
+            LOGGER.info('Connection workflow succeeded: %r',
+                        on_cw_done_result.value.result)
+            return on_cw_done_result.value.result
         except Exception:
             LOGGER.exception('Error in _create_connection().')
             ioloop.close()
@@ -545,9 +544,8 @@ class BlockingConnection:
                     LOGGER.error('Unexpected connection close detected: %r',
                                  self._closed_result.value.error)
                     raise self._closed_result.value.error
-                else:
-                    LOGGER.info('User-initiated close: result=%r',
-                                self._closed_result.value)
+                LOGGER.info('User-initiated close: result=%r',
+                            self._closed_result.value)
             finally:
                 self._cleanup()
 
@@ -1025,7 +1023,7 @@ class _ConsumerDeliveryEvt(_ChannelPendingEvt):
     contains method, properties, and body of the delivered message.
     """
 
-    __slots__ = ('method', 'properties', 'body')
+    __slots__ = ('body', 'method', 'properties')
 
     def __init__(self, method: pika.spec.Basic.Deliver,
                  properties: pika.spec.BasicProperties, body: bytes) -> None:
@@ -1070,7 +1068,7 @@ class _ConsumerCancellationEvt(_ChannelPendingEvt):
 class _ReturnedMessageEvt(_ChannelPendingEvt):
     """This event represents a message returned by broker via `Basic.Return`"""
 
-    __slots__ = ('callback', 'channel', 'method', 'properties', 'body')
+    __slots__ = ('body', 'callback', 'channel', 'method', 'properties')
 
     def __init__(self, callback: Callable[[
         BlockingChannel, pika.spec.Basic.Return, pika.spec.
@@ -1111,7 +1109,7 @@ class ReturnedMessage:
     mode
     """
 
-    __slots__ = ('method', 'properties', 'body')
+    __slots__ = ('body', 'method', 'properties')
 
     def __init__(self, method: pika.spec.Basic.Return,
                  properties: pika.spec.BasicProperties, body: bytes) -> None:
@@ -1128,8 +1126,13 @@ class ReturnedMessage:
 class _ConsumerInfo:
     """Information about an active consumer"""
 
-    __slots__ = ('consumer_tag', 'auto_ack', 'on_message_callback',
-                 'alternate_event_sink', 'state')
+    __slots__ = (
+        'alternate_event_sink',
+        'auto_ack',
+        'consumer_tag',
+        'on_message_callback',
+        'state',
+    )
 
     # Consumer states
     SETTING_UP = 1
@@ -1197,7 +1200,7 @@ class _ConsumerInfo:
 
 class _QueueConsumerGeneratorInfo:
     """Container for information about the active queue consumer generator """
-    __slots__ = ('params', 'consumer_tag', 'pending_events')
+    __slots__ = ('consumer_tag', 'params', 'pending_events')
 
     def __init__(self, params: tuple[str, bool, bool],
                  consumer_tag: str) -> None:
@@ -1208,7 +1211,7 @@ class _QueueConsumerGeneratorInfo:
         """
         self.params = params
         self.consumer_tag = consumer_tag
-        #self.messages = deque()
+        # self.messages = deque()
 
         # Holds pending events of types _ConsumerDeliveryEvt and
         # _ConsumerCancellationEvt
@@ -1904,13 +1907,12 @@ class BlockingChannel:
                 return [(evt.method, evt.properties, evt.body)
                         for evt in self._remove_pending_deliveries(consumer_tag)
                        ]
-            else:
-                # impl takes care of rejecting any incoming deliveries during
-                # cancellation
-                messages = self._remove_pending_deliveries(consumer_tag)
-                assert not messages, messages
+            # impl takes care of rejecting any incoming deliveries during
+            # cancellation
+            messages = self._remove_pending_deliveries(consumer_tag)
+            assert not messages, messages
 
-                return []
+            return []
         finally:
             # NOTE: The entry could be purged if channel or connection closes
             if consumer_tag in self._consumer_infos:
@@ -2284,10 +2286,9 @@ class BlockingChannel:
                 if get_ok_result:
                     evt = get_ok_result.value
                     return evt.method, evt.properties, evt.body
-                else:
-                    assert self._basic_getempty_result, (
-                        "wait completed without GetOk and GetEmpty")
-                    return None, None, None
+                assert self._basic_getempty_result, (
+                    "wait completed without GetOk and GetEmpty")
+                return None, None, None
 
     def basic_publish(self,
                       exchange: str,
@@ -2352,15 +2353,14 @@ class BlockingChannel:
                         returned_messages = []
                     raise exceptions.NackError(returned_messages)
 
-                else:
-                    assert isinstance(conf_method,
-                                      pika.spec.Basic.Ack), (conf_method)
+                assert isinstance(conf_method,
+                                  pika.spec.Basic.Ack), (conf_method)
 
-                    if self._puback_return is not None:
-                        # Unroutable message was returned
-                        messages = [self._puback_return]
-                        self._puback_return = None
-                        raise exceptions.UnroutableError(messages)
+                if self._puback_return is not None:
+                    # Unroutable message was returned
+                    messages = [self._puback_return]
+                    self._puback_return = None
+                    raise exceptions.UnroutableError(messages)
         else:
             # In non-publisher-acknowledgments mode
             self._impl.basic_publish(exchange=exchange,

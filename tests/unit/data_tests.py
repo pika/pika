@@ -6,6 +6,7 @@ import datetime
 import decimal
 import unittest
 from collections import OrderedDict
+from typing import ClassVar
 
 from pika import data, exceptions
 
@@ -31,11 +32,11 @@ class DataTests(unittest.TestCase):
 
     FIELD_TBL_ENCODED += b'\x05bytesx\x00\x00\x00\x06foobar'
 
-    FIELD_TBL_VALUE = OrderedDict([
+    FIELD_TBL_VALUE: ClassVar[OrderedDict] = OrderedDict([
         ('array', [1, 2, 3]),
         ('boolval', True),
         ('decimal', decimal.Decimal('3.14')),
-        ('decimal_too', decimal.Decimal('100')),
+        ('decimal_too', decimal.Decimal(100)),
         ('dictval', {
             'foo': 'bar'
         }),
@@ -82,11 +83,11 @@ class DataTests(unittest.TestCase):
         self.assertEqual(byte_count, 233)
 
     def test_decode_table(self):
-        value, byte_count = data.decode_table(self.FIELD_TBL_ENCODED, 0)
+        value, _byte_count = data.decode_table(self.FIELD_TBL_ENCODED, 0)
         self.assertDictEqual(value, self.FIELD_TBL_VALUE)
 
     def test_decode_table_bytes(self):
-        value, byte_count = data.decode_table(self.FIELD_TBL_ENCODED, 0)
+        _value, byte_count = data.decode_table(self.FIELD_TBL_ENCODED, 0)
         self.assertEqual(byte_count, 233)
 
     def test_decode_signed_long_negative(self):

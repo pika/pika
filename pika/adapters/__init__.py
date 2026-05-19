@@ -26,6 +26,6 @@ __all__ = [
     'AsyncioConnection',
     'BaseConnection',
     'BlockingConnection',
-    'SelectConnection',
     'IOLoop',
+    'SelectConnection',
 ]

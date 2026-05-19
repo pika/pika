@@ -532,7 +532,6 @@ class IOLoopEintrTestCaseSelect(IOLoopBaseTest):
     def signal_handler(signum, interrupted_stack):
         """A signal handler that gets called in response to
            os.kill(signal.SIGUSR1)."""
-        pass
 
     def _eintr_read_handler(self, fileno, events):
         """Read from within poll loop that gets receives eintr error."""
@@ -782,8 +781,7 @@ class DefaultPollerSocketEventsTestCase(unittest.TestCase):
         """Common logic for which_events_are_set_* tests. Runs the event loop
         while varying eventmasks at each socket event callback
 
-        :param ioloop:
-        :param sock:
+        :param sock: socket to watch for events
         :param requested_eventmasks: a mutable list of eventmasks to apply after
                                      each socket event callback
         :param msg_prefix: Message prefix to apply when printing watched vs.
@@ -1033,25 +1031,21 @@ class SelectPollerSocketEventsTestCase(DefaultPollerSocketEventsTestCase):
     """Runs `DefaultPollerSocketEventsTestCase` tests with forced use of
     SelectPoller
     """
-    pass
 
 
 @unittest.skipIf(not POLL_SUPPORTED, 'poll not supported')
 @mock.patch.multiple(select_connection, SELECT_TYPE='poll')
 class PollPollerSocketEventsTestCase(DefaultPollerSocketEventsTestCase):
     """Same as DefaultPollerSocketEventsTestCase but uses poll syscall"""
-    pass
 
 
 @unittest.skipIf(not EPOLL_SUPPORTED, 'epoll not supported')
 @mock.patch.multiple(select_connection, SELECT_TYPE='epoll')
 class EpollPollerSocketEventsTestCase(DefaultPollerSocketEventsTestCase):
     """Same as DefaultPollerSocketEventsTestCase but uses epoll syscall"""
-    pass
 
 
 @unittest.skipIf(not KQUEUE_SUPPORTED, 'kqueue not supported')
 @mock.patch.multiple(select_connection, SELECT_TYPE='kqueue')
 class KqueuePollerSocketEventsTestCase(DefaultPollerSocketEventsTestCase):
     """Same as DefaultPollerSocketEventsTestCase but uses kqueue syscall"""
-    pass

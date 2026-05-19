@@ -84,12 +84,12 @@ class ExamplePublisher:
         LOGGER.error('Connection open failed, reopening in 5 seconds: %s', err)
         self._connection.ioloop.call_later(5, self._connection.ioloop.stop)
 
-    def on_connection_closed(self, _unused_connection, reason):
+    def on_connection_closed(self, _connection, reason):
         """This method is invoked by pika when the connection to RabbitMQ is
         closed unexpectedly. Since it is unexpected, we will reconnect to
         RabbitMQ if it disconnects.
 
-        :param pika.connection.Connection connection: The closed connection obj
+        :param pika.connection.Connection _connection: The closed connection obj
         :param Exception reason: exception representing reason for loss of
             connection.
 
@@ -167,11 +167,11 @@ class ExamplePublisher:
                                        exchange_type=self.EXCHANGE_TYPE,
                                        callback=cb)
 
-    def on_exchange_declareok(self, _unused_frame, userdata):
+    def on_exchange_declareok(self, _frame, userdata):
         """Invoked by pika when RabbitMQ has finished the Exchange.Declare RPC
         command.
 
-        :param pika.Frame.Method unused_frame: Exchange.DeclareOk response frame
+        :param pika.Frame.Method _frame: Exchange.DeclareOk response frame
         :param str|unicode userdata: Extra user data (exchange name)
 
         """
@@ -191,14 +191,14 @@ class ExamplePublisher:
                                     durable=True,
                                     callback=self.on_queue_declareok)
 
-    def on_queue_declareok(self, _unused_frame):
+    def on_queue_declareok(self, _frame):
         """Method invoked by pika when the Queue.Declare RPC call made in
         setup_queue has completed. In this method we will bind the queue
         and exchange together with the routing key by issuing the Queue.Bind
         RPC command. When this command is complete, the on_bindok method will
         be invoked by pika.
 
-        :param pika.frame.Method method_frame: The Queue.DeclareOk frame
+        :param pika.frame.Method _frame: The Queue.DeclareOk frame
 
         """
         LOGGER.info('Binding %s to %s with %s', self.EXCHANGE, self.QUEUE,

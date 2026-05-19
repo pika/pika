@@ -19,8 +19,7 @@ class AMQPConnectionError(AMQPError):
     def __repr__(self) -> str:
         if len(self.args) == 2:
             return f'{self.__class__.__name__}: ({self.args[0]}) {self.args[1]}'
-        else:
-            return f'{self.__class__.__name__}: {self.args}'
+        return f'{self.__class__.__name__}: {self.args}'
 
 
 class ConnectionOpenAborted(AMQPConnectionError):
@@ -76,10 +75,9 @@ class ConnectionWrongStateError(AMQPConnectionError):
     def __repr__(self) -> str:
         if self.args:
             return super().__repr__()
-        else:
-            return (
-                f'{self.__class__.__name__}: The connection is in wrong state for the requested '
-                'operation.')
+        return (
+            f'{self.__class__.__name__}: The connection is in wrong state for the requested '
+            'operation.')
 
 
 class ConnectionClosed(AMQPConnectionError):

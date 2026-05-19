@@ -707,7 +707,7 @@ class AMQPConnectionWorkflow(AbstractAMQPConnectionWorkflow):
         """
         if self._state == self._STATE_INIT:
             raise AMQPConnectorWrongState('Cannot abort before starting.')
-        elif self._state == self._STATE_DONE:
+        if self._state == self._STATE_DONE:
             raise AMQPConnectorWrongState(
                 'Cannot abort after completion was reported')
 

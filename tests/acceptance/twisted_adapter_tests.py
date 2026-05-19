@@ -48,10 +48,8 @@ class TestCase(unittest.TestCase):
         def _eb(failure):
             if failure.check(*expectedFailures):
                 return failure.value
-            else:
-                output = (
-                    f'\nExpected: {expectedFailures!r}\nGot:\n{str(failure)}')
-                raise self.failureException(output)
+            output = (f'\nExpected: {expectedFailures!r}\nGot:\n{failure!s}')
+            raise self.failureException(output)
 
         return d.addCallbacks(_cb, _eb)
 
@@ -238,7 +236,7 @@ class TwistedChannelTestCase(TestCase):
         d.addCallback(check)
         # Simulate a server response
         self.assertEqual(len(self.channel._calls), 1)
-        list(self.channel._calls)[0].callback(None)
+        next(iter(self.channel._calls)).callback(None)
         assert d.called
 
     @pytest.mark.timeout(5)

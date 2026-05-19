@@ -14,7 +14,6 @@ from pika import channel, connection, credentials, exceptions, frame, spec
 
 def dummy_callback():
     """Callback method to use in tests"""
-    pass
 
 
 class ConstructibleConnection(connection.Connection):
@@ -349,7 +348,7 @@ class ConnectionTests(unittest.TestCase):
     def test_add_on_open_error_callback(self):
         """make sure the add on open error callback is added"""
         self.connection.callbacks = mock.Mock(spec=self.connection.callbacks)
-        #Test with remove default first (also checks default is True)
+        # Test with remove default first (also checks default is True)
         self.connection.add_on_open_error_callback(dummy_callback)
         self.connection.callbacks.remove.assert_called_once_with(
             0, self.connection.ON_CONNECTION_ERROR,
@@ -522,8 +521,8 @@ class ConnectionTests(unittest.TestCase):
         method_frame.method.mechanisms = str(credentials.PlainCredentials.TYPE)
         method_frame.method.version_major = 0
         method_frame.method.version_minor = 9
-        #This may be incorrectly mocked, or the code is wrong
-        #TODO: Code does hasattr check, should this be a has_key/in check?
+        # This may be incorrectly mocked, or the code is wrong
+        # TODO: Code does hasattr check, should this be a has_key/in check?
         method_frame.method.server_properties = {
             'capabilities': {
                 'basic.nack': True,
@@ -531,7 +530,7 @@ class ConnectionTests(unittest.TestCase):
                 'exchange_exchange_bindings': False
             }
         }
-        #This will be called, but should not be implmented here, just mock it
+        # This will be called, but should not be implmented here, just mock it
         self.connection._flush_outbound = mock.Mock()
         self.connection._adapter_emit_data = mock.Mock()
         self.connection._on_connection_start(method_frame)
@@ -552,7 +551,7 @@ class ConnectionTests(unittest.TestCase):
         self.connection._flush_outbound = mock.Mock()
         marshal = mock.Mock(return_value='ab')
         method.return_value = mock.Mock(marshal=marshal)
-        #may be good to test this here, but i don't want to test too much
+        # may be good to test this here, but i don't want to test too much
         self.connection._rpc = mock.Mock()
 
         method_frame = mock.Mock()
@@ -565,10 +564,10 @@ class ConnectionTests(unittest.TestCase):
         self.connection.params.frame_max = 20000
         self.connection.params.heartbeat = 20
 
-        #Test
+        # Test
         self.connection._on_connection_tune(method_frame)
 
-        #verfy
+        # verfy
         self.assertEqual(self.connection.CONNECTION_TUNE,
                          self.connection.connection_state)
         self.assertEqual(20, self.connection.params.channel_max)
@@ -586,49 +585,49 @@ class ConnectionTests(unittest.TestCase):
         # Both client and server values set. Pick client value
         method_frame.method.heartbeat = 60
         self.connection.params.heartbeat = 20
-        #Test
+        # Test
         self.connection._on_connection_tune(method_frame)
-        #verfy
+        # verfy
         self.assertEqual(20, self.connection.params.heartbeat)
 
         # Client value is None, use the server's
         method_frame.method.heartbeat = 500
         self.connection.params.heartbeat = None
-        #Test
+        # Test
         self.connection._on_connection_tune(method_frame)
-        #verfy
+        # verfy
         self.assertEqual(500, self.connection.params.heartbeat)
 
         # Client value is 0, use it
         method_frame.method.heartbeat = 60
         self.connection.params.heartbeat = 0
-        #Test
+        # Test
         self.connection._on_connection_tune(method_frame)
-        #verfy
+        # verfy
         self.assertEqual(0, self.connection.params.heartbeat)
 
         # Server value is 0, client value is None
         method_frame.method.heartbeat = 0
         self.connection.params.heartbeat = None
-        #Test
+        # Test
         self.connection._on_connection_tune(method_frame)
-        #verfy
+        # verfy
         self.assertEqual(0, self.connection.params.heartbeat)
 
         # Both client and server values are 0
         method_frame.method.heartbeat = 0
         self.connection.params.heartbeat = 0
-        #Test
+        # Test
         self.connection._on_connection_tune(method_frame)
-        #verfy
+        # verfy
         self.assertEqual(0, self.connection.params.heartbeat)
 
         # Server value is 0, use the client's
         method_frame.method.heartbeat = 0
         self.connection.params.heartbeat = 60
-        #Test
+        # Test
         self.connection._on_connection_tune(method_frame)
-        #verfy
+        # verfy
         self.assertEqual(60, self.connection.params.heartbeat)
 
         # Server value is 10, client passes a heartbeat function that
@@ -640,9 +639,9 @@ class ConnectionTests(unittest.TestCase):
 
         method_frame.method.heartbeat = 10
         self.connection.params.heartbeat = choose_max
-        #Test
+        # Test
         self.connection._on_connection_tune(method_frame)
-        #verfy
+        # verfy
         self.assertEqual(60, self.connection.params.heartbeat)
 
     def test_on_connection_close_from_broker_passes_correct_exception(self):
@@ -654,7 +653,7 @@ class ConnectionTests(unittest.TestCase):
         self.connection._terminate_stream = mock.Mock()
         self.connection._on_connection_close_from_broker(method_frame)
 
-        #Check
+        # Check
         self.connection._terminate_stream.assert_called_once_with(mock.ANY)
 
         exc = self.connection._terminate_stream.call_args[0][0]
@@ -671,7 +670,7 @@ class ConnectionTests(unittest.TestCase):
 
         self.connection._on_connection_close_ok(method_frame)
 
-        #Check
+        # Check
         self.connection._terminate_stream.assert_called_once_with(None)
 
     @mock.patch('pika.frame.decode_frame')
@@ -689,7 +688,7 @@ class ConnectionTests(unittest.TestCase):
             self.connection.frames_received = 0
             decode_frame.return_value = (2, frame_value)
             self.connection._on_data_available(data_in)
-            #test value
+            # test value
             self.assertListEqual([], self.connection._frame_buffer)
             self.assertEqual(2, self.connection.bytes_received)
             self.assertEqual(1, self.connection.frames_received)

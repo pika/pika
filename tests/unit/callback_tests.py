@@ -2,8 +2,11 @@
 Tests for pika.callback
 
 """
+from __future__ import annotations
+
 import logging
 import unittest
+from typing import ClassVar
 from unittest import mock
 
 from pika import callback, frame, spec
@@ -19,7 +22,7 @@ class CallbackTests(unittest.TestCase):
     ONLY_CALLER = callback.CallbackManager.ONLY_CALLER
     PREFIX_CLASS = spec.Basic.Consume
     PREFIX = 'Basic.Consume'
-    ARGUMENTS_VALUE = {'foo': 'bar'}
+    ARGUMENTS_VALUE: ClassVar[dict[str, str]] = {'foo': 'bar'}
 
     @property
     def _callback_dict(self):

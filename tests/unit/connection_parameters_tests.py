@@ -684,8 +684,7 @@ class URLParametersTests(ParametersTestsBase):
 
         # check all value from query string
 
-        for t_param in query_args:
-            expected_value = query_args[t_param]
+        for t_param, expected_value in query_args.items():
             actual_value = getattr(params, t_param)
 
             self.assertEqual(

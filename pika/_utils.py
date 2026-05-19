@@ -67,7 +67,7 @@ def get_linux_version(release_str: str) -> tuple[int, ...]:
     :param release_str: kernel release string
     :rtype: tuple[int, ...]
     """
-    ver_str = release_str.split('-')[0]
+    ver_str = release_str.split('-', 1)[0]
     return tuple(map(to_digit, ver_str.split('.', 3)[:3]))
 
 
