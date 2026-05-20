@@ -370,8 +370,8 @@ class CallbackManager:
 
         """
         LOGGER.debug('Comparing %r to %r', value, expectation)
-        for key in expectation:
-            if value.get(key) != expectation[key]:
+        for key, expected in expectation.items():
+            if value.get(key) != expected:
                 LOGGER.debug('Values in dict do not match for %s', key)
                 return False
         return True
@@ -387,12 +387,12 @@ class CallbackManager:
         :rtype: bool
 
         """
-        for key in expectation:
+        for key, expected in expectation.items():
             if not hasattr(value, key):
                 LOGGER.debug('%r does not have required attribute: %s',
                              type(value), key)
                 return False
-            if getattr(value, key) != expectation[key]:
+            if getattr(value, key) != expected:
                 LOGGER.debug('Values in %s do not match for %s', type(value),
                              key)
                 return False

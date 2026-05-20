@@ -411,16 +411,15 @@ class _TCPHandler(socketserver.StreamRequestHandler):
                 except pika._utils.SOCKET_ERROR as exc:
                     if exc.errno == errno.EINTR:
                         continue
-                    elif exc.errno == errno.ECONNRESET:
+                    if exc.errno == errno.ECONNRESET:
                         # Source peer forcibly closed connection
                         _trace("%s errno.ECONNRESET from %s",
                                datetime.now(timezone.utc), src_peername)
                         break
-                    else:
-                        _trace("%s Unexpected errno=%s from %s\n%s",
-                               datetime.now(timezone.utc), exc.errno,
-                               src_peername, "".join(traceback.format_stack()))
-                        raise
+                    _trace("%s Unexpected errno=%s from %s\n%s",
+                           datetime.now(timezone.utc), exc.errno, src_peername,
+                           "".join(traceback.format_stack()))
+                    raise
 
                 if not nbytes:
                     # Source input EOF
@@ -438,19 +437,18 @@ class _TCPHandler(socketserver.StreamRequestHandler):
                             "the connection: errno.EPIPE",
                             datetime.now(timezone.utc), dest_sock.getpeername())
                         break
-                    elif exc.errno == errno.ECONNRESET:
+                    if exc.errno == errno.ECONNRESET:
                         # Destination peer forcibly closed connection
                         _trace(
                             "%s Destination peer %s forcibly closed "
                             "connection: errno.ECONNRESET",
                             datetime.now(timezone.utc), dest_sock.getpeername())
                         break
-                    else:
-                        _trace("%s Unexpected errno=%s in sendall to %s\n%s",
-                               datetime.now(timezone.utc), exc.errno,
-                               dest_sock.getpeername(),
-                               "".join(traceback.format_stack()))
-                        raise
+                    _trace("%s Unexpected errno=%s in sendall to %s\n%s",
+                           datetime.now(timezone.utc), exc.errno,
+                           dest_sock.getpeername(),
+                           "".join(traceback.format_stack()))
+                    raise
         except Exception:
             _trace("forward failed\n%s", "".join(traceback.format_exc()))
             raise
@@ -493,8 +491,7 @@ def echo(port=0):
             except pika._utils.SOCKET_ERROR as exc:
                 if exc.errno == errno.EINTR:
                     continue
-                else:
-                    raise
+                raise
 
             if not data:
                 break

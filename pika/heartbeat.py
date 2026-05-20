@@ -74,6 +74,7 @@ class HeartbeatChecker:
         self._heartbeat_frames_received = 0
         self._heartbeat_frames_sent = 0
         self._idle_byte_intervals = 0
+        self._idle_heartbeat_intervals = 0
 
         self._send_timer = None
         self._check_timer = None

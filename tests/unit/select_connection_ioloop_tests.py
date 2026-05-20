@@ -120,7 +120,7 @@ class IOLoopCloseClosesSubordinateObjectsTestSelect(IOLoopBaseTest):
     """ Test ioloop being closed """
     SELECT_POLLER = 'select'
 
-    def start_test(self):
+    def test_start(self):
         with mock.patch.multiple(self.ioloop,
                                  _timer=mock.DEFAULT,
                                  _poller=mock.DEFAULT,
@@ -135,7 +135,7 @@ class IOLoopCloseAfterStartReturnsTest(IOLoopBaseTest):
     """ Test IOLoop.close() after normal return from start(). """
     SELECT_POLLER = 'select'
 
-    def start_test(self):
+    def test_start(self):
         self.ioloop.stop()  # so start will terminate quickly
         self.start()
         self.ioloop.close()
@@ -146,7 +146,7 @@ class IOLoopStartReentrancyNotAllowedTestSelect(IOLoopBaseTest):
     """ Test calling IOLoop.start() while arleady in start() raises exception. """
     SELECT_POLLER = 'select'
 
-    def start_test(self):
+    def test_start(self):
         callback_completed = []
 
         def call_close_from_callback():
@@ -167,7 +167,7 @@ class IOLoopCloseBeforeStartReturnsTestSelect(IOLoopBaseTest):
     """ Test calling IOLoop.close() before return from start() raises exception. """
     SELECT_POLLER = 'select'
 
-    def start_test(self):
+    def test_start(self):
         callback_completed = []
 
         def call_close_from_callback():
@@ -188,7 +188,7 @@ class IOLoopThreadStopTestSelect(IOLoopBaseTest):
     """ Test ioloop being stopped by another Thread. """
     SELECT_POLLER = 'select'
 
-    def start_test(self):
+    def test_start(self):
         """Starts a thread that stops ioloop after a while and start polling"""
         timer = threading.Timer(
             0.1, lambda: self.ioloop.add_callback_threadsafe(self.ioloop.stop))
@@ -219,7 +219,7 @@ class IOLoopAddCallbackAfterCloseDoesNotRaiseTestSelect(IOLoopBaseTest):
     """ Test ioloop add_callback_threadsafe() after ioloop close doesn't raise exception. """
     SELECT_POLLER = 'select'
 
-    def start_test(self):
+    def test_start(self):
         # Simulate closing after start returns
         self.ioloop.stop()  # so that start() returns ASAP
         self.start()  # NOTE: Normal return from `start()` constitutes success
@@ -500,7 +500,7 @@ class IOLoopSimpleMessageTestCaseSelect(IOLoopSocketBaseSelect):
         self.assertEqual(msg, b'X')
         self.ioloop.stop()
 
-    def start_test(self):
+    def test_start(self):
         """Simple message Test"""
         self.start()
 
@@ -532,7 +532,6 @@ class IOLoopEintrTestCaseSelect(IOLoopBaseTest):
     def signal_handler(signum, interrupted_stack):
         """A signal handler that gets called in response to
            os.kill(signal.SIGUSR1)."""
-        pass
 
     def _eintr_read_handler(self, fileno, events):
         """Read from within poll loop that gets receives eintr error."""
@@ -615,7 +614,7 @@ class IOLoopEintrTestCaseKqueue(IOLoopEintrTestCaseSelect):
 
 class SelectPollerTestPollWithoutSockets(unittest.TestCase):
 
-    def start_test(self):
+    def test_start(self):
         timer = select_connection._Timer()
         poller = select_connection.SelectPoller(
             get_wait_seconds=timer.get_remaining_interval,
@@ -782,8 +781,7 @@ class DefaultPollerSocketEventsTestCase(unittest.TestCase):
         """Common logic for which_events_are_set_* tests. Runs the event loop
         while varying eventmasks at each socket event callback
 
-        :param ioloop:
-        :param sock:
+        :param sock: socket to watch for events
         :param requested_eventmasks: a mutable list of eventmasks to apply after
                                      each socket event callback
         :param msg_prefix: Message prefix to apply when printing watched vs.
@@ -1033,25 +1031,21 @@ class SelectPollerSocketEventsTestCase(DefaultPollerSocketEventsTestCase):
     """Runs `DefaultPollerSocketEventsTestCase` tests with forced use of
     SelectPoller
     """
-    pass
 
 
 @unittest.skipIf(not POLL_SUPPORTED, 'poll not supported')
 @mock.patch.multiple(select_connection, SELECT_TYPE='poll')
 class PollPollerSocketEventsTestCase(DefaultPollerSocketEventsTestCase):
     """Same as DefaultPollerSocketEventsTestCase but uses poll syscall"""
-    pass
 
 
 @unittest.skipIf(not EPOLL_SUPPORTED, 'epoll not supported')
 @mock.patch.multiple(select_connection, SELECT_TYPE='epoll')
 class EpollPollerSocketEventsTestCase(DefaultPollerSocketEventsTestCase):
     """Same as DefaultPollerSocketEventsTestCase but uses epoll syscall"""
-    pass
 
 
 @unittest.skipIf(not KQUEUE_SUPPORTED, 'kqueue not supported')
 @mock.patch.multiple(select_connection, SELECT_TYPE='kqueue')
 class KqueuePollerSocketEventsTestCase(DefaultPollerSocketEventsTestCase):
     """Same as DefaultPollerSocketEventsTestCase but uses kqueue syscall"""
-    pass

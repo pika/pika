@@ -15,6 +15,7 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
+    ClassVar,
     Dict,
     Optional,
     Sequence,
@@ -53,11 +54,24 @@ class Parameters:
 
     # Declare slots to protect against accidental assignment of an invalid
     # attribute
-    __slots__ = ('_blocked_connection_timeout', '_channel_max',
-                 '_client_properties', '_connection_attempts', '_credentials',
-                 '_frame_max', '_heartbeat', '_host', '_locale', '_port',
-                 '_retry_delay', '_socket_timeout', '_stack_timeout',
-                 '_ssl_options', '_virtual_host', '_tcp_options')
+    __slots__ = (
+        '_blocked_connection_timeout',
+        '_channel_max',
+        '_client_properties',
+        '_connection_attempts',
+        '_credentials',
+        '_frame_max',
+        '_heartbeat',
+        '_host',
+        '_locale',
+        '_port',
+        '_retry_delay',
+        '_socket_timeout',
+        '_ssl_options',
+        '_stack_timeout',
+        '_tcp_options',
+        '_virtual_host',
+    )
 
     DEFAULT_USERNAME = 'guest'
     DEFAULT_PASSWORD = 'guest'
@@ -318,7 +332,7 @@ class Parameters:
             raise ValueError(
                 f'Min AMQP 0.9.1 Frame Size is {spec.FRAME_MIN_SIZE}, but got {value!r}'
             )
-        elif value > spec.FRAME_MAX_SIZE:
+        if value > spec.FRAME_MAX_SIZE:
             raise ValueError(
                 f'Max AMQP 0.9.1 Frame Size is {spec.FRAME_MAX_SIZE}, but got {value!r}'
             )
@@ -987,7 +1001,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
     CONNECTION_OPEN = 5
     CONNECTION_CLOSING = 6  # client-initiated close in progress
 
-    _STATE_NAMES = {
+    _STATE_NAMES: ClassVar[dict[int, str]] = {
         CONNECTION_CLOSED: 'CLOSED',
         CONNECTION_INIT: 'INIT',
         CONNECTION_PROTOCOL: 'PROTOCOL',
@@ -2364,8 +2378,8 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
         marshaled_body_frames.append(frame_header.marshal())
 
         if content[1]:
-            chunks = int(math.ceil(float(length) / self._body_max_length))
-            for chunk in range(0, chunks):
+            chunks = math.ceil(float(length) / self._body_max_length)
+            for chunk in range(chunks):
                 start = chunk * self._body_max_length
                 end = start + self._body_max_length
                 if end > length:

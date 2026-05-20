@@ -93,12 +93,12 @@ class ExampleConsumer:
         LOGGER.error('Connection open failed: %s', err)
         self.reconnect()
 
-    def on_connection_closed(self, _unused_connection, reason):
+    def on_connection_closed(self, _connection, reason):
         """This method is invoked by pika when the connection to RabbitMQ is
         closed unexpectedly. Since it is unexpected, we will reconnect to
         RabbitMQ if it disconnects.
 
-        :param pika.connection.Connection connection: The closed connection obj
+        :param pika.connection.Connection _connection: The closed connection obj
         :param Exception reason: exception representing reason for loss of
             connection.
 
@@ -181,11 +181,11 @@ class ExampleConsumer:
                                        exchange_type=self.EXCHANGE_TYPE,
                                        callback=cb)
 
-    def on_exchange_declareok(self, _unused_frame, userdata):
+    def on_exchange_declareok(self, _frame, userdata):
         """Invoked by pika when RabbitMQ has finished the Exchange.Declare RPC
         command.
 
-        :param pika.Frame.Method unused_frame: Exchange.DeclareOk response frame
+        :param pika.Frame.Method _frame: Exchange.DeclareOk response frame
         :param str|unicode userdata: Extra user data (exchange name)
 
         """

@@ -17,7 +17,6 @@ from collections import namedtuple
 from typing import TYPE_CHECKING, Any, Callable
 
 import twisted.internet.base
-import twisted.python
 import twisted.python.failure
 from twisted.internet import defer, protocol, reactor
 from twisted.internet import error as twisted_error
@@ -607,11 +606,10 @@ class TwistedChannel:
             mandatory=mandatory)
         if not self._delivery_confirmation:
             return defer.succeed(result)
-        else:
-            # See https://www.rabbitmq.com/confirms.html#publisher-confirms
-            self._delivery_message_id += 1
-            self._deliveries[self._delivery_message_id] = defer.Deferred()
-            return self._deliveries[self._delivery_message_id]
+        # See https://www.rabbitmq.com/confirms.html#publisher-confirms
+        self._delivery_message_id += 1
+        self._deliveries[self._delivery_message_id] = defer.Deferred()
+        return self._deliveries[self._delivery_message_id]
 
     def basic_qos(self,
                   prefetch_size: int = 0,
@@ -1207,7 +1205,7 @@ class _TwistedConnectionAdapter(pika.connection.Connection):
         NOTE: `connection_made()` and `connection_lost()` are each called just
         once and in that order. All other callbacks are called between them.
 
-        :param Failure: A Twisted Failure instance wrapping an exception.
+        :param Failure error: A Twisted Failure instance wrapping an exception.
 
         """
         self._transport = None

@@ -42,8 +42,7 @@ def rpc_completion_callback(callback: Optional[Callable[..., Any]]) -> bool:
     if callable(callback):
         # nowait=False
         return False
-    else:
-        raise TypeError('completion callback must be callable if not None')
+    raise TypeError('completion callback must be callable if not None')
 
 
 def zero_or_greater(name: str, value: int) -> None:

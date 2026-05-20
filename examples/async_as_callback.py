@@ -134,8 +134,7 @@ class BasicMessageSender(BasicPikaClient):
     def encode_message(self, body: Dict, encoding_type: str = "bytes"):
         if encoding_type == "bytes":
             return msgpack.packb(body)
-        else:
-            raise NotImplementedError
+        raise NotImplementedError
 
     def send_message(
         self,
@@ -169,8 +168,7 @@ class BasicMessageReceiver(BasicPikaClient):
     def decode_message(self, body):
         if isinstance(body, bytes):
             return msgpack.unpackb(body)
-        else:
-            raise NotImplementedError
+        raise NotImplementedError
 
     def get_message(self, queue_name: str, auto_ack: bool = False):
         method_frame, header_frame, body = self.channel.basic_get(
@@ -178,9 +176,8 @@ class BasicMessageReceiver(BasicPikaClient):
         if method_frame:
             logger.debug(f"{method_frame}, {header_frame}, {body}")
             return method_frame, header_frame, body
-        else:
-            logger.debug("No message returned")
-            return None
+        logger.debug("No message returned")
+        return None
 
     def consume_messages(self, queue, callback):
         self.check_connection()

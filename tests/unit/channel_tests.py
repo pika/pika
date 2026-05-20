@@ -1607,7 +1607,7 @@ class ChannelTests(unittest.TestCase):
         expectation = [2, 3]
         self.obj._send_method(*expectation)
         self.obj.connection._send_method.assert_called_once_with(
-            *[self.obj.channel_number] + expectation)
+            self.obj.channel_number, *expectation)
 
     def test_set_state(self):
         self.obj._state = channel.Channel.CLOSED
