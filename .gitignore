@@ -22,4 +22,5 @@ env/
 testdata/*.conf
 # pyright type information
 typings/
+site/
 rabbitmq/

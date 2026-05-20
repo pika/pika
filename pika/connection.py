@@ -156,6 +156,7 @@ class Parameters:
     def __repr__(self) -> str:
         """Represent the info about the instance.
 
+        :returns: str
         :rtype: str
 
         """
@@ -284,6 +285,7 @@ class Parameters:
     ) -> (pika.credentials.PlainCredentials |
           pika.credentials.ExternalCredentials):
         """
+        :returns: one of the classes from `pika.credentials.VALID_TYPES`. Defaults
         :rtype: one of the classes from `pika.credentials.VALID_TYPES`. Defaults
             to `DEFAULT_CREDENTIALS`.
 
@@ -1028,10 +1030,12 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
             parameters.
         :param callable on_open_callback: Called when the connection is opened:
             on_open_callback(connection)
-        :param None | method on_open_error_callback: Called if the connection
+        :param on_open_error_callback: Callback (or None) with signature
+            ``(Connection, Exception) -> Any``; called if the connection
             can't be established or connection establishment is interrupted by
             `Connection.close()`: on_open_error_callback(Connection, exception).
-        :param None | method on_close_callback: Called when a previously fully
+        :param on_close_callback: Callback (or None) with signature
+            ``(Connection, Exception) -> Any``; called when a previously fully
             open connection is closed:
             `on_close_callback(Connection, exception)`, where `exception` is
             either an instance of `exceptions.ConnectionClosed` if closed by
@@ -1279,6 +1283,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
         :param callable on_open_callback: The callback when the channel is
             opened.  The callback will be invoked with the `Channel` instance
             as its only argument.
+        :returns: pika.channel.Channel
         :rtype: pika.channel.Channel
 
         """
@@ -1423,6 +1428,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
     def basic_nack(self) -> bool:
         """Specifies if the server supports basic.nack on the active connection.
 
+        :returns: bool
         :rtype: bool
 
         """
@@ -1433,6 +1439,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
         """Specifies if the server supports consumer cancel notification on the
         active connection.
 
+        :returns: bool
         :rtype: bool
 
         """
@@ -1443,6 +1450,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
         """Specifies if the active connection supports exchange to exchange
         bindings.
 
+        :returns: bool
         :rtype: bool
 
         """
@@ -1452,6 +1460,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
     def publisher_confirms(self) -> bool:
         """Specifies if the active connection can use publisher confirmations.
 
+        :returns: bool
         :rtype: bool
 
         """
@@ -1517,7 +1526,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
         """Asynchronously bring down the streaming transport layer and invoke
         `Connection._on_stream_terminated()` asynchronously when complete.
 
-        :raises: NotImplementedError
+        :raises NotImplementedError:
 
         """
         raise NotImplementedError
@@ -1564,7 +1573,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
         protocol.
 
         :param pika.frame.Method value: The frame to check
-        :raises: ProtocolVersionMismatch
+        :raises ProtocolVersionMismatch:
 
         """
         if ((value.method.version_major, value.method.version_minor)
@@ -1576,6 +1585,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
     def _client_properties(self) -> dict[str, Any]:
         """Return the client properties dictionary.
 
+        :returns: dict
         :rtype: dict
 
         """
@@ -1634,6 +1644,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
         """Create a heartbeat checker instance if there is a heartbeat interval
         set.
 
+        :returns: pika.heartbeat.Heartbeat|None
         :rtype: pika.heartbeat.Heartbeat|None
 
         """
@@ -1676,6 +1687,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
     def _get_body_frame_max_length(self) -> int:
         """Calculate the maximum amount of bytes that can be in a body frame.
 
+        :returns: int
         :rtype: int
 
         """
@@ -1713,6 +1725,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
         """Returns true if the frame is a method frame.
 
         :param pika.frame.Frame value: The frame to evaluate
+        :returns: bool
         :rtype: bool
 
         """
@@ -1721,6 +1734,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
     def _is_protocol_header_frame(self, value: frame.Frame) -> bool:
         """Returns True if it's a protocol header frame.
 
+        :returns: bool
         :rtype: bool
 
         """
@@ -1729,6 +1743,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
     def _next_channel_number(self) -> int:
         """Return the next available channel number or raise an exception.
 
+        :returns: int
         :rtype: int
 
         """
@@ -1879,7 +1894,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
         """Default behavior when the connecting connection cannot connect and
         user didn't supply own `on_connection_error` callback.
 
-        :raises: the given error
+        :raises Exception: the given error
 
         """
         raise error
@@ -1907,7 +1922,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
         from the server.
 
         :param pika.frame.Method method_frame: The frame received
-        :raises: UnexpectedFrameError
+        :raises UnexpectedFrameError:
 
         """
         self._set_connection_state(self.CONNECTION_START)
@@ -1932,6 +1947,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
 
         :param int client_value: The client value
         :param int server_value: The server value
+        :returns: int
         :rtype: int
 
         """
@@ -2048,7 +2064,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
         When connection terminates, the appropriate user callback will be
         invoked with the given error: "on open error" or "on connection closed".
 
-        :param Exception | None error: exception instance describing the reason
+        :param error: Exception (or None) describing the reason
             for termination; None for normal closing, such as upon receipt of
             Connection.CloseOk.
 
@@ -2076,7 +2092,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
         ON_CONNECTION_CLOSED callbacks, depending on whether the connection
         was opening or open.
 
-        :param Exception | None error: None means that the transport was aborted
+        :param error: Exception (or None). None means that the transport was aborted
             internally and exception in `self._error` represents the cause.
             Otherwise it's an exception object that describes the unexpected
             loss of connection.
@@ -2164,6 +2180,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
         and if it has any callbacks pending.
 
         :param pika.frame.Method frame_value: The frame to process
+        :returns: bool
         :rtype: bool
 
         """
@@ -2309,7 +2326,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
 
         :param pika.frame.Frame|pika.frame.ProtocolHeader frame_value: The
             frame to write
-        :raises: exceptions.ConnectionClosed
+        :raises exceptions.ConnectionClosed:
 
         """
         if self.is_closed:

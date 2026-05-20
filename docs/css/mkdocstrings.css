@@ -1,0 +1,83 @@
+/* Symbol kind badges (class, function, method, …) — see
+   https://mkdocstrings.github.io/python/usage/customization/ */
+
+[data-md-color-scheme='default'] {
+  --doc-symbol-parameter-fg-color: #df50af;
+  --doc-symbol-type_parameter-fg-color: #df50af;
+  --doc-symbol-attribute-fg-color: #0079ff;
+  --doc-symbol-function-fg-color: #00dfa2;
+  --doc-symbol-method-fg-color: #00dfa2;
+  --doc-symbol-class-fg-color: #d1b619;
+  --doc-symbol-type_alias-fg-color: #d1b619;
+  --doc-symbol-module-fg-color: #ff0060;
+
+  --doc-symbol-parameter-bg-color: #df50af1a;
+  --doc-symbol-type_parameter-bg-color: #df50af1a;
+  --doc-symbol-attribute-bg-color: #0079ff1a;
+  --doc-symbol-function-bg-color: #00dfa21a;
+  --doc-symbol-method-bg-color: #00dfa21a;
+  --doc-symbol-class-bg-color: #d1b6191a;
+  --doc-symbol-type_alias-bg-color: #d1b6191a;
+  --doc-symbol-module-bg-color: #ff00601a;
+}
+
+[data-md-color-scheme='slate'] {
+  --doc-symbol-parameter-fg-color: #ffa8cc;
+  --doc-symbol-type_parameter-fg-color: #ffa8cc;
+  --doc-symbol-attribute-fg-color: #963fb8;
+  --doc-symbol-function-fg-color: #6d67e4;
+  --doc-symbol-method-fg-color: #6d67e4;
+  --doc-symbol-class-fg-color: #46c2cb;
+  --doc-symbol-type_alias-fg-color: #46c2cb;
+  --doc-symbol-module-fg-color: #f2f7a1;
+
+  --doc-symbol-parameter-bg-color: #ffa8cc1a;
+  --doc-symbol-type_parameter-bg-color: #ffa8cc1a;
+  --doc-symbol-attribute-bg-color: #963fb81a;
+  --doc-symbol-function-bg-color: #6d67e41a;
+  --doc-symbol-method-bg-color: #6d67e41a;
+  --doc-symbol-class-bg-color: #46c2cb1a;
+  --doc-symbol-type_alias-bg-color: #46c2cb1a;
+  --doc-symbol-module-bg-color: #f2f7a11a;
+}
+
+/* Signature syntax highlighting aligned with Material code colors */
+.doc-signature .o {
+  color: var(--md-code-hl-special-color);
+}
+
+.doc-signature .kc {
+  color: var(--md-code-hl-constant-color);
+}
+
+.doc-signature .n > a[href^='https://docs.python.org/'][href*='/functions.html#'],
+.doc-signature .n > a[href^='https://docs.python.org/'][href*='/stdtypes.html#'] {
+  color: var(--md-code-hl-constant-color);
+}
+
+/* Nested API sections */
+div.doc-contents:not(.first) {
+  padding-left: 25px;
+  border-left: 0.05rem solid var(--md-typeset-table-color);
+}
+
+/*
+ * Class attributes (constants, simple assigns): with separate_signature,
+ * mkdocstrings renders `NAME = value` in the same full code panel as
+ * methods. That looks huge for one-line ints/strings. Tone it down without
+ * changing function/method blocks.
+ */
+.doc-attribute .doc-signature {
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.doc-attribute .doc-signature pre {
+  margin-top: 0.35rem;
+  margin-bottom: 0.5rem;
+  padding: 0.45rem 0.65rem;
+}
+
+.doc-attribute .doc-heading {
+  margin-bottom: 0.15rem;
+}
