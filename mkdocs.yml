@@ -119,6 +119,7 @@ nav:
       - Channel: modules/channel.md
       - Connection: modules/connection.md
       - Credentials: modules/credentials.md
+      - DeliveryMode: modules/delivery_mode.md
       - Exceptions: modules/exceptions.md
       - Parameters: modules/parameters.md
       - Specification: modules/spec.md
