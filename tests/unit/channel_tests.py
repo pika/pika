@@ -670,6 +670,16 @@ class ChannelTests(unittest.TestCase):
             # every consumer before closing the channel
             basic_cancel.assert_called_once_with(consumer_tag='abc')
 
+    def test_close_basic_cancel_called_for_all_consumers(self):
+        self.obj._set_state(self.obj.OPEN)
+        self.obj._consumers['abc'] = None
+        self.obj._consumers['def'] = None
+        with mock.patch.object(self.obj, 'basic_cancel') as basic_cancel:
+            self.obj.close()
+            assert basic_cancel.call_count == 2
+            basic_cancel.assert_any_call(consumer_tag='abc')
+            basic_cancel.assert_any_call(consumer_tag='def')
+
     def test_confirm_delivery_with_bad_callback_raises_value_error(self):
         self.assertRaises(ValueError, self.obj.confirm_delivery, 'bad-callback')
 
