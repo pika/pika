@@ -600,7 +600,8 @@ class ConsumerWorkPoolTests(unittest.TestCase):
 
         wrapper.add_callback_threadsafe.side_effect = execute_and_fire
 
-        with patch('pika.adapters.thread_safe_connection.LOGGER') as mock_logger:
+        with patch(
+                'pika.adapters.thread_safe_connection.LOGGER') as mock_logger:
             ch.basic_consume(queue='q', on_message_callback=exploding_callback)
             ch._consumer_work_pool.shutdown(wait=True)
             mock_logger.exception.assert_called_once()
@@ -696,7 +697,8 @@ class BlockingMethodTimeoutTests(unittest.TestCase):
         wrapper.add_callback_threadsafe.side_effect = never_respond
 
         with self.assertRaises(TimeoutError) as ctx:
-            ch.basic_consume(queue='q', on_message_callback=MagicMock(),
+            ch.basic_consume(queue='q',
+                             on_message_callback=MagicMock(),
                              timeout=0.05)
 
         self.assertIn('basic_consume', str(ctx.exception))
@@ -738,8 +740,10 @@ class BlockingMethodTimeoutTests(unittest.TestCase):
         mock_frame = MagicMock()
 
         def execute_and_fire(cb):
+
             def fake_qos(prefetch_size, prefetch_count, global_qos, callback):
                 callback(mock_frame)
+
             raw_ch.basic_qos.side_effect = fake_qos
             cb()
 

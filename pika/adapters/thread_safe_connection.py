@@ -176,7 +176,10 @@ class ThreadSafeChannel:
 
         self._wrapper.add_callback_threadsafe(_reject)
 
-    def basic_qos(self, prefetch_size=0, prefetch_count=0, global_qos=False,
+    def basic_qos(self,
+                  prefetch_size=0,
+                  prefetch_count=0,
+                  global_qos=False,
                   timeout=None):
         """Set channel QoS and block until Basic.QosOk arrives.
 
@@ -228,8 +231,7 @@ class ThreadSafeChannel:
         self._wrapper.add_callback_threadsafe(_qos)
 
         if not ready.wait(timeout=timeout):
-            raise TimeoutError(
-                f'basic_qos timed out after {timeout} seconds')
+            raise TimeoutError(f'basic_qos timed out after {timeout} seconds')
 
         with self._wrapper._channel_waiters_lock:
             try:
@@ -290,8 +292,8 @@ class ThreadSafeChannel:
             def _wrapped_callback(ch, method, properties, body):
                 try:
                     self._consumer_work_pool.submit(
-                        self._dispatch_consumer_callback,
-                        on_message_callback, method, properties, body)
+                        self._dispatch_consumer_callback, on_message_callback,
+                        method, properties, body)
                 except RuntimeError:
                     LOGGER.debug(
                         'Consumer delivery dropped: work pool shut down')
@@ -515,9 +517,8 @@ class ThreadSafeChannel:
         self._wrapper.add_callback_threadsafe(_close)
 
         if not ready.wait(timeout=timeout):
-            LOGGER.warning(
-                'Channel %s close timed out after %s seconds',
-                self._channel.channel_number, timeout)
+            LOGGER.warning('Channel %s close timed out after %s seconds',
+                           self._channel.channel_number, timeout)
 
         self._shutdown_pool()
 
