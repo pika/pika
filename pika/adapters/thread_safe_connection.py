@@ -584,7 +584,12 @@ class ThreadSafeConnection:
     :param callable | None on_close_callback:
         Called in the IOLoop thread when the connection is closed.
         Signature: ``on_close_callback(connection, reason)``
+    :param float | None timeout: Seconds to wait for the AMQP connection
+        to be established.  Defaults to ``None`` (wait indefinitely, relying
+        on the socket timeout in *parameters*).  On timeout the IOLoop is
+        stopped and :class:`TimeoutError` is raised.
     :raises Exception: if the connection cannot be established.
+    :raises TimeoutError: if *timeout* expires before the connection opens.
     """
 
     _instance_counter = itertools.count(1)
@@ -592,7 +597,8 @@ class ThreadSafeConnection:
     def __init__(self,
                  parameters,
                  on_open_error_callback=None,
-                 on_close_callback=None):
+                 on_close_callback=None,
+                 timeout=None):
         self._user_on_open_error_callback = on_open_error_callback
         self._user_on_close_callback = on_close_callback
 
@@ -627,11 +633,12 @@ class ThreadSafeConnection:
                             err[0] = self._closed_reason
                         evt.set()
                     self._blocking_waiters.clear()
-                self._shutdown_all_consumer_pools()
                 # Wake __init__ if it crashed before the connection opened.
                 if not self._connected_event.is_set():
                     self._connect_error = exc
                     self._connected_event.set()
+            # IOLoop has exited - safe to block waiting for pool workers.
+            self._shutdown_all_consumer_pools()
 
         self._ioloop_thread = threading.Thread(
             target=_run_ioloop,
@@ -641,7 +648,12 @@ class ThreadSafeConnection:
         self._ioloop_thread.start()
 
         # Block the calling thread until the connection is open or fails.
-        self._connected_event.wait()
+        if not self._connected_event.wait(timeout=timeout):
+            self._connect_error = TimeoutError(
+                f'connection attempt timed out after {timeout} seconds')
+            self._connection.ioloop.add_callback_threadsafe(
+                self._connection.ioloop.stop)
+            raise self._connect_error
         if self._connect_error is not None:
             raise self._connect_error
 
@@ -662,6 +674,9 @@ class ThreadSafeConnection:
 
     def _on_connection_closed(self, _connection, reason):
         # Connection is gone - stop the IOLoop so the thread exits.
+        # Pool shutdown happens after ioloop.start() returns in _run_ioloop
+        # (calling shutdown(wait=True) here would deadlock the IOLoop thread
+        # if a pool worker is mid-callback).
         self._connection.ioloop.stop()
         with self._channel_waiters_lock:
             self._closed_reason = reason
@@ -669,7 +684,6 @@ class ThreadSafeConnection:
                 err[0] = reason
                 evt.set()
             self._blocking_waiters.clear()
-        self._shutdown_all_consumer_pools()
         if self._user_on_close_callback:
             self._user_on_close_callback(_connection, reason)
 
@@ -684,14 +698,17 @@ class ThreadSafeConnection:
     # Public API
     # ------------------------------------------------------------------
 
-    def channel(self):
+    def channel(self, timeout=None):
         """Open a new channel and return a :class:`ThreadSafeChannel`.
 
         Blocks the calling thread until the channel is open.  The returned
         channel's methods are safe to call from any thread.
 
+        :param float | None timeout: Seconds to wait for Channel.OpenOk.
+            Defaults to ``None`` (wait indefinitely).
         :rtype: ThreadSafeChannel
         :raises Exception: if the connection is closed before the channel opens.
+        :raises TimeoutError: if *timeout* expires before the channel opens.
         """
         ready = threading.Event()
         result = [None]
@@ -715,7 +732,10 @@ class ThreadSafeConnection:
                 ready.set()
 
         self._connection.ioloop.add_callback_threadsafe(_open)
-        ready.wait()
+
+        if not ready.wait(timeout=timeout):
+            raise TimeoutError(
+                f'channel open timed out after {timeout} seconds')
 
         with self._channel_waiters_lock:
             try:

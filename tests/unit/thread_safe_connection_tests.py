@@ -796,6 +796,8 @@ class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
         self.assertIn(ch, conn._channels)
 
     def test_connection_close_shuts_down_channel_pools(self):
+        """Pool shutdown happens after ioloop.start() returns, not inside
+        _on_connection_closed (which runs on the IOLoop thread)."""
         conn, mock_conn, mock_ioloop = self._make_connection()
 
         def execute_scheduled(cb):
@@ -808,9 +810,13 @@ class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
 
         ch = conn.channel()
 
-        # Simulate _on_connection_closed
+        # _on_connection_closed wakes waiters but does NOT shut down pools
         conn._on_connection_closed(mock_conn, Exception('gone'))
+        self.assertFalse(ch._pool_shutdown)
 
+        # Pool shutdown happens when _run_ioloop calls it after ioloop.start()
+        # returns. Simulate that by calling it directly.
+        conn._shutdown_all_consumer_pools()
         self.assertTrue(ch._pool_shutdown)
 
     def test_ioloop_crash_shuts_down_channel_pools(self):
@@ -865,6 +871,46 @@ class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
         conn.close(timeout=0.1)
 
         self.assertTrue(ch._pool_shutdown)
+
+    def test_init_raises_timeout_error(self):
+        """Constructor must raise TimeoutError if connection is not established
+        within the specified timeout."""
+        with patch('pika.adapters.thread_safe_connection.SelectConnection'
+                  ) as MockSelectConn:
+            mock_conn = MagicMock()
+            mock_ioloop = MagicMock()
+            mock_conn.ioloop = mock_ioloop
+
+            def fake_init(parameters, on_open_callback, on_open_error_callback,
+                          on_close_callback):
+                # Never call on_open_callback - simulates stalled handshake
+                return mock_conn
+
+            MockSelectConn.side_effect = fake_init
+            MockSelectConn.return_value = mock_conn
+            mock_ioloop.start = MagicMock()  # IOLoop does nothing
+
+            with self.assertRaises(TimeoutError) as ctx:
+                ThreadSafeConnection(parameters='params', timeout=0.05)
+
+            self.assertIn('timed out', str(ctx.exception))
+            mock_ioloop.add_callback_threadsafe.assert_called()
+
+    def test_channel_raises_timeout_error(self):
+        """channel() must raise TimeoutError if Channel.OpenOk never arrives."""
+        conn, mock_conn, mock_ioloop = self._make_connection()
+
+        def never_respond(cb):
+            # Schedule the callback but Channel.OpenOk never fires
+            mock_conn.channel = MagicMock()
+            cb()
+
+        mock_ioloop.add_callback_threadsafe.side_effect = never_respond
+
+        with self.assertRaises(TimeoutError) as ctx:
+            conn.channel(timeout=0.05)
+
+        self.assertIn('channel open', str(ctx.exception))
 
 
 class ThreadSafeConnectionTests(unittest.TestCase):
