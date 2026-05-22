@@ -156,9 +156,10 @@ class ThreadSafeChannel:
                 ready.set()
 
             def _on_chan_close(ch, reason):
-                if error[0] is None:
-                    error[0] = reason
-                ready.set()
+                if not ready.is_set():
+                    if error[0] is None:
+                        error[0] = reason
+                    ready.set()
 
             try:
                 self._channel.add_on_close_callback(_on_chan_close)
@@ -244,9 +245,10 @@ class ThreadSafeChannel:
                 ready.set()
 
             def _on_chan_close(ch, reason):
-                if error[0] is None:
-                    error[0] = reason
-                ready.set()
+                if not ready.is_set():
+                    if error[0] is None:
+                        error[0] = reason
+                    ready.set()
 
             try:
                 self._channel.add_on_close_callback(_on_chan_close)
@@ -302,9 +304,10 @@ class ThreadSafeChannel:
                 ready.set()
 
             def _on_chan_close(ch, reason):
-                if error[0] is None:
-                    error[0] = reason
-                ready.set()
+                if not ready.is_set():
+                    if error[0] is None:
+                        error[0] = reason
+                    ready.set()
 
             try:
                 self._channel.add_on_close_callback(_on_chan_close)
@@ -360,9 +363,10 @@ class ThreadSafeChannel:
                 ready.set()
 
             def _on_chan_close(ch, reason):
-                if error[0] is None:
-                    error[0] = reason
-                ready.set()
+                if not ready.is_set():
+                    if error[0] is None:
+                        error[0] = reason
+                    ready.set()
 
             try:
                 self._channel.add_on_close_callback(_on_chan_close)
