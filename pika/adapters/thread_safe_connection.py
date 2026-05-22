@@ -25,6 +25,35 @@ class ThreadSafeChannel:
     Every write operation is routed through the parent connection's
     ``add_callback_threadsafe`` so that ``_tx_buffers`` is only ever
     touched from the IOLoop thread.
+
+    .. rubric:: IOLoop-thread callbacks
+
+    Some callbacks run directly in the IOLoop thread:
+
+    - The *on_message_callback* registered with :meth:`basic_consume`.
+    - Any callable passed to
+      :meth:`~ThreadSafeConnection.add_callback_threadsafe`.
+
+    All such callbacks must follow two rules:
+
+    **Return quickly.** The IOLoop thread drives all socket I/O and
+    heartbeat responses.  Blocking it - even briefly for a database
+    write or a lock acquire - causes heartbeat starvation and
+    broker-side connection teardown.  Hand off slow work to a worker
+    thread (e.g. via :class:`queue.Queue`) and acknowledge from that
+    thread using :meth:`basic_ack`, :meth:`basic_nack`, or
+    :meth:`basic_reject`.
+
+    **Never call blocking channel methods.**  :meth:`queue_declare`,
+    :meth:`basic_qos`, :meth:`basic_consume`, :meth:`basic_cancel`,
+    and :meth:`close` all block the calling thread waiting for a broker
+    response that the IOLoop must receive and dispatch.  Calling any of
+    them from the IOLoop thread deadlocks immediately and permanently.
+
+    :meth:`basic_ack`, :meth:`basic_nack`, :meth:`basic_reject`, and
+    :meth:`basic_publish` are safe to call from IOLoop-thread
+    callbacks: they schedule work via ``add_callback_threadsafe`` and
+    return immediately without blocking.
     """
 
     def __init__(self, channel, wrapper):
@@ -195,26 +224,8 @@ class ThreadSafeChannel:
                       arguments=None):
         """Register a consumer and block until Basic.ConsumeOk arrives.
 
-        The *on_message_callback* is invoked in the IOLoop thread each time
-        the broker delivers a message.
-
-        **The callback must return quickly.**  The IOLoop thread drives all
-        socket I/O and heartbeat responses; blocking it causes heartbeat
-        starvation and broker-side connection teardown.  Hand off slow work
-        to a worker thread (e.g. via :class:`queue.Queue`) and acknowledge
-        from that thread using :meth:`basic_ack`, :meth:`basic_nack`, or
-        :meth:`basic_reject`, which are safe to call from any thread.
-
-        **Never call blocking** :class:`ThreadSafeChannel` **methods**
-        (``queue_declare``, ``basic_qos``, ``basic_consume``, ``basic_cancel``,
-        ``close``) **from inside the callback.**  Those methods block the
-        calling thread waiting for a broker response that the IOLoop must
-        receive and dispatch — calling them from the IOLoop thread itself
-        will deadlock immediately and permanently.
-
-        Calling :meth:`basic_ack`, :meth:`basic_nack`, or :meth:`basic_reject`
-        from inside the callback is safe: they schedule work via
-        ``add_callback_threadsafe`` and return immediately without blocking.
+        The *on_message_callback* is invoked in the IOLoop thread on each
+        delivery; see the class-level IOLoop-thread callback rules.
 
         Safe to call from any thread.
 
