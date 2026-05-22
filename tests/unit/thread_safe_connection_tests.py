@@ -285,6 +285,34 @@ class ThreadSafeChannelTests(unittest.TestCase):
 
         self.assertEqual(tag, 'ctag1')
 
+    def test_basic_consume_wraps_callback_with_thread_safe_channel(self):
+        """on_message_callback must receive the ThreadSafeChannel, not the raw channel."""
+        ch, raw_ch, wrapper = self._make_channel()
+        mock_frame = MagicMock()
+        mock_frame.method.consumer_tag = 'ctag1'
+        received = []
+
+        def my_callback(channel, method, properties, body):
+            received.append(channel)
+
+        def execute_and_fire(cb):
+
+            def fake_consume(queue, on_message_callback, auto_ack, exclusive,
+                             consumer_tag, arguments, callback):
+                on_message_callback(raw_ch, 'method', 'props', b'body')
+                callback(mock_frame)
+
+            raw_ch.basic_consume.side_effect = fake_consume
+            cb()
+
+        wrapper.add_callback_threadsafe.side_effect = execute_and_fire
+
+        ch.basic_consume(queue='q', on_message_callback=my_callback)
+
+        self.assertEqual(len(received), 1)
+        self.assertIsInstance(received[0], ThreadSafeChannel)
+        self.assertIs(received[0], ch)
+
     def test_basic_consume_raises_when_connection_already_closed(self):
         ch, raw_ch, wrapper = self._make_channel()
         reason = Exception('closed')

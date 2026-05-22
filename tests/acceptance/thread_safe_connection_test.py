@@ -156,7 +156,6 @@ class TestConcurrentPublishAndConsume(ThreadSafeTestCaseBase):
         lock = threading.Lock()
 
         def on_message(channel, method, properties, body):
-            # Runs in the IOLoop thread - direct ack is safe here.
             channel.basic_ack(delivery_tag=method.delivery_tag)
             with lock:
                 received.append(body)

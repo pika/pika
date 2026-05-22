@@ -251,6 +251,9 @@ class ThreadSafeChannel:
 
         def _consume():
 
+            def _wrapped_callback(ch, method, properties, body):
+                on_message_callback(self, method, properties, body)
+
             def _on_consume_ok(method_frame):
                 result[0] = method_frame.method.consumer_tag
                 ready.set()
@@ -265,7 +268,7 @@ class ThreadSafeChannel:
                 self._channel.add_on_close_callback(_on_chan_close)
                 self._channel.basic_consume(
                     queue=queue,
-                    on_message_callback=on_message_callback,
+                    on_message_callback=_wrapped_callback,
                     auto_ack=auto_ack,
                     exclusive=exclusive,
                     consumer_tag=consumer_tag,
