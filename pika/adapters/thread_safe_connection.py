@@ -676,6 +676,19 @@ class ThreadSafeConnection:
             self._connection.ioloop.add_callback_threadsafe(
                 self._connection.ioloop.stop)
             self._ioloop_thread.join()
+            # _on_connection_closed may not have fired if the IOLoop was
+            # force-stopped before the broker sent Connection.CloseOk.
+            # Wake any threads still blocked so they do not hang forever.
+            forced = Exception(
+                'connection force-closed: broker did not respond to close')
+            with self._channel_waiters_lock:
+                if self._closed_reason is None:
+                    self._closed_reason = forced
+                    for evt, err in self._blocking_waiters:
+                        if err[0] is None:
+                            err[0] = self._closed_reason
+                        evt.set()
+                    self._blocking_waiters.clear()
 
     def __enter__(self):
         return self

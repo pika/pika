@@ -634,6 +634,25 @@ class ThreadSafeConnectionTests(unittest.TestCase):
             mock_ioloop.add_callback_threadsafe.call_args_list[1][0][0],
             mock_ioloop.stop)
         self.assertEqual(conn._ioloop_thread.join.call_count, 2)
+        # Force-stop must set _closed_reason so subsequent callers do not hang.
+        self.assertIsNotNone(conn._closed_reason)
+
+    def test_close_force_stop_wakes_blocked_waiters(self):
+        """Threads blocked when the IOLoop is force-stopped must be woken."""
+        conn, mock_conn, mock_ioloop = self._make_connection()
+        conn._ioloop_thread = MagicMock()
+        conn._ioloop_thread.is_alive.return_value = True
+
+        waiter_event = threading.Event()
+        waiter_error: list[BaseException | None] = [None]
+        conn._blocking_waiters.append((waiter_event, waiter_error))
+
+        conn.close(timeout=0.1)
+
+        self.assertTrue(waiter_event.is_set())
+        self.assertIsNotNone(waiter_error[0])
+        self.assertIsNotNone(conn._closed_reason)
+        self.assertEqual(conn._blocking_waiters, [])
 
     def test_close_safe_close_suppresses_connection_wrong_state_error(self):
         """_safe_close must swallow ConnectionWrongStateError so it does not
