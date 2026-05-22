@@ -532,6 +532,7 @@ class ConsumerWorkPoolTests(unittest.TestCase):
     def test_channel_close_waits_for_pending_callbacks(self):
         """close() must wait for in-flight callbacks to complete before returning."""
         import time
+
         from pika.exceptions import ChannelClosedByClient
 
         ch, raw_ch, wrapper = self._make_channel()
