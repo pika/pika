@@ -1,7 +1,7 @@
 """Thread-safe connection wrapper for pika.
 
 Runs SelectConnection's IOLoop in a dedicated background thread so that
-all socket I/O — including writes to _tx_buffers — stays confined to one
+all socket I/O - including writes to _tx_buffers - stays confined to one
 thread.  External threads publish by scheduling callbacks via
 add_callback_threadsafe, which uses an atomic deque append + a wakeup
 signal to hand work to the IOLoop thread without a lock.
@@ -10,6 +10,7 @@ This eliminates the ``IndexError: pop from an empty deque`` race seen when
 multiple threads call basic_publish() on a shared connection directly
 (issues #1144 and #511).
 """
+import concurrent.futures
 import itertools
 import logging
 import threading
@@ -26,39 +27,40 @@ class ThreadSafeChannel:
     ``add_callback_threadsafe`` so that ``_tx_buffers`` is only ever
     touched from the IOLoop thread.
 
+    .. rubric:: Consumer callback threading model
+
+    The *on_message_callback* registered with :meth:`basic_consume` is
+    dispatched on a per-channel worker thread, **not** the IOLoop
+    thread.  This means:
+
+    - Blocking operations (database writes, HTTP calls, even
+      :meth:`queue_declare` / :meth:`basic_qos` / :meth:`basic_cancel`)
+      are safe inside delivery callbacks.
+    - The IOLoop thread is never starved by slow consumer processing,
+      so heartbeats are always sent on time.
+    - Messages are delivered to the callback **in order** (a single
+      worker thread per channel).
+    - All :class:`ThreadSafeChannel` methods (:meth:`basic_ack`,
+      :meth:`basic_nack`, :meth:`basic_reject`, :meth:`basic_publish`,
+      :meth:`queue_declare`, etc.) are safe to call from within the
+      callback.
+
     .. rubric:: IOLoop-thread callbacks
 
-    Some callbacks run directly in the IOLoop thread:
-
-    - The *on_message_callback* registered with :meth:`basic_consume`.
-    - Any callable passed to
-      :meth:`~ThreadSafeConnection.add_callback_threadsafe`.
-
-    All such callbacks must follow two rules:
-
-    **Return quickly.** The IOLoop thread drives all socket I/O and
-    heartbeat responses.  Blocking it - even briefly for a database
-    write or a lock acquire - causes heartbeat starvation and
-    broker-side connection teardown.  Hand off slow work to a worker
-    thread (e.g. via :class:`queue.Queue`) and acknowledge from that
-    thread using :meth:`basic_ack`, :meth:`basic_nack`, or
-    :meth:`basic_reject`.
-
-    **Never call blocking channel methods.**  :meth:`queue_declare`,
-    :meth:`basic_qos`, :meth:`basic_consume`, :meth:`basic_cancel`,
-    and :meth:`close` all block the calling thread waiting for a broker
-    response that the IOLoop must receive and dispatch.  Calling any of
-    them from the IOLoop thread deadlocks immediately and permanently.
-
-    :meth:`basic_ack`, :meth:`basic_nack`, :meth:`basic_reject`, and
-    :meth:`basic_publish` are safe to call from IOLoop-thread
-    callbacks: they schedule work via ``add_callback_threadsafe`` and
-    return immediately without blocking.
+    Callables passed directly to
+    :meth:`~ThreadSafeConnection.add_callback_threadsafe` still run
+    on the IOLoop thread.  These must return quickly and must not call
+    blocking channel methods (which would deadlock).
     """
 
     def __init__(self, channel, wrapper):
         self._channel = channel
         self._wrapper = wrapper
+        self._consumer_work_pool = concurrent.futures.ThreadPoolExecutor(
+            max_workers=1,
+            thread_name_prefix='pika-consumer',
+        )
+        self._pool_shutdown = False
 
     def _check_not_closed(self):
         """Raise if the connection is known to be closed.
@@ -69,6 +71,23 @@ class ThreadSafeChannel:
         with self._wrapper._channel_waiters_lock:
             if self._wrapper._closed_reason is not None:
                 raise self._wrapper._closed_reason
+
+    def _dispatch_consumer_callback(self, callback, method, properties, body):
+        """Execute a consumer callback on the pool worker thread.
+
+        Catches and logs exceptions so that one failing delivery does not
+        prevent subsequent deliveries from being processed.
+        """
+        try:
+            callback(self, method, properties, body)
+        except Exception:
+            LOGGER.exception('Unhandled exception in consumer callback')
+
+    def _shutdown_pool(self):
+        """Shut down the consumer work pool, allowing in-flight work to finish."""
+        if not self._pool_shutdown:
+            self._pool_shutdown = True
+            self._consumer_work_pool.shutdown(wait=True)
 
     def basic_publish(self,
                       exchange,
@@ -157,7 +176,8 @@ class ThreadSafeChannel:
 
         self._wrapper.add_callback_threadsafe(_reject)
 
-    def basic_qos(self, prefetch_size=0, prefetch_count=0, global_qos=False):
+    def basic_qos(self, prefetch_size=0, prefetch_count=0, global_qos=False,
+                  timeout=None):
         """Set channel QoS and block until Basic.QosOk arrives.
 
         Safe to call from any thread.
@@ -165,9 +185,12 @@ class ThreadSafeChannel:
         :param int prefetch_size: Prefetch window in octets (0 = no limit).
         :param int prefetch_count: Prefetch window in whole messages (0 = no limit).
         :param bool global_qos: Apply QoS to all consumers on the channel.
+        :param float | None timeout: Seconds to wait for the response.
+            Defaults to ``None`` (wait indefinitely).
         :returns: The Basic.QosOk method frame.
         :rtype: pika.frame.Method
         :raises Exception: if the connection is closed before the response arrives.
+        :raises TimeoutError: if *timeout* expires before the response arrives.
         """
         ready = threading.Event()
         result = [None]
@@ -203,7 +226,10 @@ class ThreadSafeChannel:
                 ready.set()
 
         self._wrapper.add_callback_threadsafe(_qos)
-        ready.wait()
+
+        if not ready.wait(timeout=timeout):
+            raise TimeoutError(
+                f'basic_qos timed out after {timeout} seconds')
 
         with self._wrapper._channel_waiters_lock:
             try:
@@ -221,11 +247,18 @@ class ThreadSafeChannel:
                       auto_ack=False,
                       exclusive=False,
                       consumer_tag=None,
-                      arguments=None):
+                      arguments=None,
+                      timeout=None):
         """Register a consumer and block until Basic.ConsumeOk arrives.
 
-        The *on_message_callback* is invoked in the IOLoop thread on each
-        delivery; see the class-level IOLoop-thread callback rules.
+        The *on_message_callback* is dispatched on the channel's worker
+        thread, not the IOLoop thread.  All :class:`ThreadSafeChannel`
+        methods are safe to call from within the callback.
+
+        Because the channel uses a single worker thread, deliveries are
+        processed serially.  A callback that blocks (e.g. on a database
+        write or a call to :meth:`queue_declare`) delays subsequent
+        deliveries on the same channel until it returns.
 
         Safe to call from any thread.
 
@@ -236,9 +269,12 @@ class ThreadSafeChannel:
         :param bool exclusive: Request exclusive consumer access.
         :param str | None consumer_tag: Client-provided tag; generated if omitted.
         :param dict | None arguments: Additional AMQP arguments.
+        :param float | None timeout: Seconds to wait for the response.
+            Defaults to ``None`` (wait indefinitely).
         :returns: The consumer tag assigned by the broker.
         :rtype: str
         :raises Exception: if the connection is closed before the response arrives.
+        :raises TimeoutError: if *timeout* expires before the response arrives.
         """
         ready = threading.Event()
         result = [None]
@@ -252,7 +288,13 @@ class ThreadSafeChannel:
         def _consume():
 
             def _wrapped_callback(ch, method, properties, body):
-                on_message_callback(self, method, properties, body)
+                try:
+                    self._consumer_work_pool.submit(
+                        self._dispatch_consumer_callback,
+                        on_message_callback, method, properties, body)
+                except RuntimeError:
+                    LOGGER.debug(
+                        'Consumer delivery dropped: work pool shut down')
 
             def _on_consume_ok(method_frame):
                 result[0] = method_frame.method.consumer_tag
@@ -280,7 +322,10 @@ class ThreadSafeChannel:
                 ready.set()
 
         self._wrapper.add_callback_threadsafe(_consume)
-        ready.wait()
+
+        if not ready.wait(timeout=timeout):
+            raise TimeoutError(
+                f'basic_consume timed out after {timeout} seconds')
 
         with self._wrapper._channel_waiters_lock:
             try:
@@ -292,15 +337,18 @@ class ThreadSafeChannel:
             raise error[0]
         return result[0]
 
-    def basic_cancel(self, consumer_tag):
+    def basic_cancel(self, consumer_tag, timeout=None):
         """Cancel a consumer and block until Basic.CancelOk arrives.
 
         Safe to call from any thread.
 
         :param str consumer_tag: Tag returned by :meth:`basic_consume`.
+        :param float | None timeout: Seconds to wait for the response.
+            Defaults to ``None`` (wait indefinitely).
         :returns: The Basic.CancelOk method frame.
         :rtype: pika.frame.Method
         :raises Exception: if the connection is closed before the response arrives.
+        :raises TimeoutError: if *timeout* expires before the response arrives.
         """
         ready = threading.Event()
         result = [None]
@@ -334,7 +382,10 @@ class ThreadSafeChannel:
                 ready.set()
 
         self._wrapper.add_callback_threadsafe(_cancel)
-        ready.wait()
+
+        if not ready.wait(timeout=timeout):
+            raise TimeoutError(
+                f'basic_cancel timed out after {timeout} seconds')
 
         with self._wrapper._channel_waiters_lock:
             try:
@@ -352,14 +403,18 @@ class ThreadSafeChannel:
                       durable=False,
                       exclusive=False,
                       auto_delete=False,
-                      arguments=None):
+                      arguments=None,
+                      timeout=None):
         """Declare a queue and block the calling thread until Queue.DeclareOk arrives.
 
         Safe to call from any thread.
 
+        :param float | None timeout: Seconds to wait for the response.
+            Defaults to ``None`` (wait indefinitely).
         :returns: The Queue.DeclareOk method frame.
         :rtype: pika.frame.Method
         :raises Exception: if the connection is closed before the response arrives.
+        :raises TimeoutError: if *timeout* expires before the response arrives.
         """
         ready = threading.Event()
         result = [None]
@@ -398,7 +453,10 @@ class ThreadSafeChannel:
                 ready.set()
 
         self._wrapper.add_callback_threadsafe(_declare)
-        ready.wait()
+
+        if not ready.wait(timeout=timeout):
+            raise TimeoutError(
+                f'queue_declare timed out after {timeout} seconds')
 
         with self._wrapper._channel_waiters_lock:
             try:
@@ -410,14 +468,20 @@ class ThreadSafeChannel:
             raise error[0]
         return result[0]
 
-    def close(self, reply_code=0, reply_text='Normal shutdown'):
+    def close(self, reply_code=0, reply_text='Normal shutdown', timeout=10):
         """Close the channel and block until the Channel.CloseOk arrives.
+
+        Shuts down the consumer work pool after the channel is closed,
+        allowing any in-flight delivery callbacks to complete.
 
         If the channel is already closed or closing, returns immediately.
         Safe to call from any thread.
 
         :param int reply_code: Close reason code to send to the broker.
         :param str reply_text: Close reason text to send to the broker.
+        :param float | None timeout: Seconds to wait for Channel.CloseOk
+            before treating the channel as closed regardless.  Defaults to
+            10 seconds.  Pass ``None`` to wait indefinitely.
         :raises Exception: if the connection is closed or the channel is closed
             by the broker rather than by this client.
         """
@@ -449,7 +513,13 @@ class ThreadSafeChannel:
                 ready.set()
 
         self._wrapper.add_callback_threadsafe(_close)
-        ready.wait()
+
+        if not ready.wait(timeout=timeout):
+            LOGGER.warning(
+                'Channel %s close timed out after %s seconds',
+                self._channel.channel_number, timeout)
+
+        self._shutdown_pool()
 
         with self._wrapper._channel_waiters_lock:
             try:
@@ -532,6 +602,7 @@ class ThreadSafeConnection:
         self._closed_reason = None
         self._blocking_waiters: list[tuple[threading.Event,
                                            list[BaseException | None]]] = []
+        self._channels: list[ThreadSafeChannel] = []
 
         self._connection = SelectConnection(
             parameters=parameters,
@@ -555,6 +626,7 @@ class ThreadSafeConnection:
                             err[0] = self._closed_reason
                         evt.set()
                     self._blocking_waiters.clear()
+                self._shutdown_all_consumer_pools()
                 # Wake __init__ if it crashed before the connection opened.
                 if not self._connected_event.is_set():
                     self._connect_error = exc
@@ -588,7 +660,7 @@ class ThreadSafeConnection:
             self._user_on_open_error_callback(_connection, error)
 
     def _on_connection_closed(self, _connection, reason):
-        # Connection is gone — stop the IOLoop so the thread exits.
+        # Connection is gone - stop the IOLoop so the thread exits.
         self._connection.ioloop.stop()
         with self._channel_waiters_lock:
             self._closed_reason = reason
@@ -596,8 +668,16 @@ class ThreadSafeConnection:
                 err[0] = reason
                 evt.set()
             self._blocking_waiters.clear()
+        self._shutdown_all_consumer_pools()
         if self._user_on_close_callback:
             self._user_on_close_callback(_connection, reason)
+
+    def _shutdown_all_consumer_pools(self):
+        """Shut down all tracked channel consumer pools."""
+        with self._channel_waiters_lock:
+            channels = list(self._channels)
+        for ch in channels:
+            ch._shutdown_pool()
 
     # ------------------------------------------------------------------
     # Public API
@@ -645,7 +725,10 @@ class ThreadSafeConnection:
         if error[0] is not None:
             raise error[0]
 
-        return ThreadSafeChannel(result[0], self)
+        ch = ThreadSafeChannel(result[0], self)
+        with self._channel_waiters_lock:
+            self._channels.append(ch)
+        return ch
 
     def close(self, timeout=10):
         """Close the connection and block until the IOLoop thread exits.
@@ -707,6 +790,7 @@ class ThreadSafeConnection:
                             err[0] = self._closed_reason
                         evt.set()
                     self._blocking_waiters.clear()
+            self._shutdown_all_consumer_pools()
 
     def __enter__(self):
         return self

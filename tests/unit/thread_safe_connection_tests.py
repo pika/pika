@@ -309,6 +309,9 @@ class ThreadSafeChannelTests(unittest.TestCase):
 
         ch.basic_consume(queue='q', on_message_callback=my_callback)
 
+        # Wait for the worker pool to drain so the assertion is deterministic.
+        ch._consumer_work_pool.shutdown(wait=True)
+
         self.assertEqual(len(received), 1)
         self.assertIsInstance(received[0], ThreadSafeChannel)
         self.assertIs(received[0], ch)
@@ -421,6 +424,442 @@ class ThreadSafeChannelTests(unittest.TestCase):
             t.join()
 
         self.assertEqual(wrapper.add_callback_threadsafe.call_count, n)
+
+
+class ConsumerWorkPoolTests(unittest.TestCase):
+    """Tests for the per-channel consumer dispatch pool."""
+
+    def _make_channel(self):
+        raw_ch = MagicMock()
+        raw_ch.channel_number = 1
+        raw_ch.is_open = True
+        raw_ch.is_closed = False
+        wrapper = MagicMock()
+        wrapper._closed_reason = None
+        wrapper._channel_waiters_lock = threading.Lock()
+        wrapper._blocking_waiters = []
+        return ThreadSafeChannel(raw_ch, wrapper), raw_ch, wrapper
+
+    def test_callback_runs_on_worker_thread_not_ioloop(self):
+        """on_message_callback must execute on the pool thread, not the
+        thread that invoked the wrapped callback (which is the IOLoop thread)."""
+        ch, raw_ch, wrapper = self._make_channel()
+        mock_frame = MagicMock()
+        mock_frame.method.consumer_tag = 'ctag1'
+        callback_thread = []
+
+        def my_callback(channel, method, properties, body):
+            callback_thread.append(threading.current_thread())
+
+        def execute_and_fire(cb):
+
+            def fake_consume(queue, on_message_callback, auto_ack, exclusive,
+                             consumer_tag, arguments, callback):
+                on_message_callback(raw_ch, 'method', 'props', b'body')
+                callback(mock_frame)
+
+            raw_ch.basic_consume.side_effect = fake_consume
+            cb()
+
+        wrapper.add_callback_threadsafe.side_effect = execute_and_fire
+
+        ch.basic_consume(queue='q', on_message_callback=my_callback)
+        ch._consumer_work_pool.shutdown(wait=True)
+
+        self.assertEqual(len(callback_thread), 1)
+        self.assertIsNot(callback_thread[0], threading.current_thread())
+        self.assertIn('pika-consumer', callback_thread[0].name)
+
+    def test_callbacks_execute_in_order(self):
+        """Multiple deliveries must be dispatched in FIFO order."""
+        ch, raw_ch, wrapper = self._make_channel()
+        mock_frame = MagicMock()
+        mock_frame.method.consumer_tag = 'ctag1'
+        order = []
+
+        def my_callback(channel, method, properties, body):
+            order.append(body)
+
+        def execute_and_fire(cb):
+
+            def fake_consume(queue, on_message_callback, auto_ack, exclusive,
+                             consumer_tag, arguments, callback):
+                for i in range(10):
+                    on_message_callback(raw_ch, 'method', 'props', i)
+                callback(mock_frame)
+
+            raw_ch.basic_consume.side_effect = fake_consume
+            cb()
+
+        wrapper.add_callback_threadsafe.side_effect = execute_and_fire
+
+        ch.basic_consume(queue='q', on_message_callback=my_callback)
+        ch._consumer_work_pool.shutdown(wait=True)
+
+        self.assertEqual(order, list(range(10)))
+
+    def test_callback_exception_does_not_kill_pool(self):
+        """An exception in a delivery callback must not prevent subsequent
+        deliveries from being processed."""
+        ch, raw_ch, wrapper = self._make_channel()
+        mock_frame = MagicMock()
+        mock_frame.method.consumer_tag = 'ctag1'
+        delivered = []
+
+        def my_callback(channel, method, properties, body):
+            delivered.append(body)
+            if body == 'explode':
+                raise RuntimeError('boom')
+
+        def execute_and_fire(cb):
+
+            def fake_consume(queue, on_message_callback, auto_ack, exclusive,
+                             consumer_tag, arguments, callback):
+                on_message_callback(raw_ch, 'method', 'props', 'explode')
+                on_message_callback(raw_ch, 'method', 'props', 'after')
+                callback(mock_frame)
+
+            raw_ch.basic_consume.side_effect = fake_consume
+            cb()
+
+        wrapper.add_callback_threadsafe.side_effect = execute_and_fire
+
+        ch.basic_consume(queue='q', on_message_callback=my_callback)
+        ch._consumer_work_pool.shutdown(wait=True)
+
+        self.assertEqual(delivered, ['explode', 'after'])
+
+    def test_channel_close_waits_for_pending_callbacks(self):
+        """close() must wait for in-flight callbacks to complete before returning."""
+        import time
+        from pika.exceptions import ChannelClosedByClient
+
+        ch, raw_ch, wrapper = self._make_channel()
+        raw_ch.is_closed = False
+        raw_ch.is_closing = False
+        mock_frame = MagicMock()
+        mock_frame.method.consumer_tag = 'ctag1'
+        completed = threading.Event()
+
+        def slow_callback(channel, method, properties, body):
+            time.sleep(0.05)
+            completed.set()
+
+        call_count = [0]
+
+        def execute_and_fire(cb):
+            call_count[0] += 1
+            if call_count[0] == 1:
+                # First call: basic_consume setup
+                def fake_consume(queue, on_message_callback, auto_ack,
+                                 exclusive, consumer_tag, arguments, callback):
+                    on_message_callback(raw_ch, 'method', 'props', b'body')
+                    callback(mock_frame)
+
+                raw_ch.basic_consume.side_effect = fake_consume
+                cb()
+            else:
+                # Second call: channel close
+                close_callbacks = []
+                raw_ch.add_on_close_callback.side_effect = close_callbacks.append
+                raw_ch.close.side_effect = lambda reply_code, reply_text: \
+                    close_callbacks[-1](raw_ch, ChannelClosedByClient(reply_code, reply_text))
+                cb()
+
+        wrapper.add_callback_threadsafe.side_effect = execute_and_fire
+
+        ch.basic_consume(queue='q', on_message_callback=slow_callback)
+        ch.close()
+
+        self.assertTrue(completed.is_set())
+
+    def test_pool_uses_single_worker(self):
+        """The pool must use exactly one worker thread (for ordering)."""
+        ch, _, _ = self._make_channel()
+        self.assertEqual(ch._consumer_work_pool._max_workers, 1)
+
+    def test_callback_exception_is_logged(self):
+        """Exceptions in delivery callbacks must be logged, not swallowed silently."""
+        ch, raw_ch, wrapper = self._make_channel()
+        mock_frame = MagicMock()
+        mock_frame.method.consumer_tag = 'ctag1'
+
+        def exploding_callback(channel, method, properties, body):
+            raise ValueError('test error')
+
+        def execute_and_fire(cb):
+
+            def fake_consume(queue, on_message_callback, auto_ack, exclusive,
+                             consumer_tag, arguments, callback):
+                on_message_callback(raw_ch, 'method', 'props', b'body')
+                callback(mock_frame)
+
+            raw_ch.basic_consume.side_effect = fake_consume
+            cb()
+
+        wrapper.add_callback_threadsafe.side_effect = execute_and_fire
+
+        with patch('pika.adapters.thread_safe_connection.LOGGER') as mock_logger:
+            ch.basic_consume(queue='q', on_message_callback=exploding_callback)
+            ch._consumer_work_pool.shutdown(wait=True)
+            mock_logger.exception.assert_called_once()
+            self.assertIn('Unhandled exception',
+                          mock_logger.exception.call_args[0][0])
+
+    def test_submit_after_pool_shutdown_does_not_raise(self):
+        """Delivery arriving after pool shutdown must not crash the IOLoop."""
+        ch, raw_ch, wrapper = self._make_channel()
+        mock_frame = MagicMock()
+        mock_frame.method.consumer_tag = 'ctag1'
+        wrapped_cb_holder = []
+
+        def execute_and_fire(cb):
+
+            def fake_consume(queue, on_message_callback, auto_ack, exclusive,
+                             consumer_tag, arguments, callback):
+                wrapped_cb_holder.append(on_message_callback)
+                callback(mock_frame)
+
+            raw_ch.basic_consume.side_effect = fake_consume
+            cb()
+
+        wrapper.add_callback_threadsafe.side_effect = execute_and_fire
+
+        ch.basic_consume(queue='q', on_message_callback=MagicMock())
+
+        # Shut down the pool, then simulate a late delivery
+        ch._shutdown_pool()
+        # Must not raise RuntimeError
+        wrapped_cb_holder[0](raw_ch, 'method', 'props', b'late')
+
+    def test_shutdown_pool_is_idempotent(self):
+        """Calling _shutdown_pool() multiple times must not raise."""
+        ch, _, _ = self._make_channel()
+        ch._shutdown_pool()
+        ch._shutdown_pool()  # second call must be a no-op
+
+
+class BlockingMethodTimeoutTests(unittest.TestCase):
+    """Tests for timeout behavior on blocking methods."""
+
+    def _make_channel(self):
+        raw_ch = MagicMock()
+        raw_ch.channel_number = 1
+        raw_ch.is_open = True
+        raw_ch.is_closed = False
+        wrapper = MagicMock()
+        wrapper._closed_reason = None
+        wrapper._channel_waiters_lock = threading.Lock()
+        wrapper._blocking_waiters = []
+        return ThreadSafeChannel(raw_ch, wrapper), raw_ch, wrapper
+
+    def test_queue_declare_raises_timeout_error(self):
+        ch, raw_ch, wrapper = self._make_channel()
+
+        def never_respond(cb):
+            # Schedule the callback but the mock never fires _on_declare
+            raw_ch.add_on_close_callback = MagicMock()
+            raw_ch.queue_declare = MagicMock()
+            cb()
+
+        wrapper.add_callback_threadsafe.side_effect = never_respond
+
+        with self.assertRaises(TimeoutError) as ctx:
+            ch.queue_declare(queue='q', timeout=0.05)
+
+        self.assertIn('queue_declare', str(ctx.exception))
+
+    def test_basic_qos_raises_timeout_error(self):
+        ch, raw_ch, wrapper = self._make_channel()
+
+        def never_respond(cb):
+            raw_ch.add_on_close_callback = MagicMock()
+            raw_ch.basic_qos = MagicMock()
+            cb()
+
+        wrapper.add_callback_threadsafe.side_effect = never_respond
+
+        with self.assertRaises(TimeoutError) as ctx:
+            ch.basic_qos(prefetch_count=1, timeout=0.05)
+
+        self.assertIn('basic_qos', str(ctx.exception))
+
+    def test_basic_consume_raises_timeout_error(self):
+        ch, raw_ch, wrapper = self._make_channel()
+
+        def never_respond(cb):
+            raw_ch.add_on_close_callback = MagicMock()
+            raw_ch.basic_consume = MagicMock()
+            cb()
+
+        wrapper.add_callback_threadsafe.side_effect = never_respond
+
+        with self.assertRaises(TimeoutError) as ctx:
+            ch.basic_consume(queue='q', on_message_callback=MagicMock(),
+                             timeout=0.05)
+
+        self.assertIn('basic_consume', str(ctx.exception))
+
+    def test_basic_cancel_raises_timeout_error(self):
+        ch, raw_ch, wrapper = self._make_channel()
+
+        def never_respond(cb):
+            raw_ch.add_on_close_callback = MagicMock()
+            raw_ch.basic_cancel = MagicMock()
+            cb()
+
+        wrapper.add_callback_threadsafe.side_effect = never_respond
+
+        with self.assertRaises(TimeoutError) as ctx:
+            ch.basic_cancel('ctag1', timeout=0.05)
+
+        self.assertIn('basic_cancel', str(ctx.exception))
+
+    def test_channel_close_does_not_raise_on_timeout(self):
+        """close() should log and continue, not raise TimeoutError."""
+        ch, raw_ch, wrapper = self._make_channel()
+        raw_ch.is_closed = False
+        raw_ch.is_closing = False
+
+        def never_respond(cb):
+            raw_ch.add_on_close_callback = MagicMock()
+            raw_ch.close = MagicMock()
+            cb()
+
+        wrapper.add_callback_threadsafe.side_effect = never_respond
+
+        # Must not raise - close() treats timeout as "channel is dead"
+        ch.close(timeout=0.05)
+
+    def test_default_timeout_is_none_for_rpc_methods(self):
+        """RPC methods default to None (wait forever) for backwards compat."""
+        ch, raw_ch, wrapper = self._make_channel()
+        mock_frame = MagicMock()
+
+        def execute_and_fire(cb):
+            def fake_qos(prefetch_size, prefetch_count, global_qos, callback):
+                callback(mock_frame)
+            raw_ch.basic_qos.side_effect = fake_qos
+            cb()
+
+        wrapper.add_callback_threadsafe.side_effect = execute_and_fire
+
+        # Must not raise - default timeout=None means wait forever (but
+        # the response arrives immediately here)
+        result = ch.basic_qos(prefetch_count=1)
+        self.assertIs(result, mock_frame)
+
+
+class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
+    """Tests for connection-level consumer pool lifecycle management."""
+
+    def _make_connection(self):
+        with patch('pika.adapters.thread_safe_connection.SelectConnection'
+                  ) as MockSelectConn:
+            mock_conn = MagicMock()
+            mock_ioloop = MagicMock()
+            mock_conn.ioloop = mock_ioloop
+            mock_conn.is_open = True
+            mock_conn.is_closed = False
+            mock_conn.is_closing = False
+
+            def fake_init(parameters, on_open_callback, on_open_error_callback,
+                          on_close_callback):
+                on_open_callback(mock_conn)
+                return mock_conn
+
+            MockSelectConn.side_effect = fake_init
+            MockSelectConn.return_value = mock_conn
+
+            conn = ThreadSafeConnection(parameters='params')
+            conn._ioloop_thread.join(timeout=1)
+
+        return conn, mock_conn, mock_ioloop
+
+    def test_connection_tracks_channels(self):
+        conn, mock_conn, mock_ioloop = self._make_connection()
+
+        def execute_scheduled(cb):
+            mock_raw_ch = MagicMock()
+            mock_conn.channel.side_effect = lambda on_open_callback: \
+                on_open_callback(mock_raw_ch)
+            cb()
+
+        mock_ioloop.add_callback_threadsafe.side_effect = execute_scheduled
+
+        ch = conn.channel()
+        self.assertIn(ch, conn._channels)
+
+    def test_connection_close_shuts_down_channel_pools(self):
+        conn, mock_conn, mock_ioloop = self._make_connection()
+
+        def execute_scheduled(cb):
+            mock_raw_ch = MagicMock()
+            mock_conn.channel.side_effect = lambda on_open_callback: \
+                on_open_callback(mock_raw_ch)
+            cb()
+
+        mock_ioloop.add_callback_threadsafe.side_effect = execute_scheduled
+
+        ch = conn.channel()
+
+        # Simulate _on_connection_closed
+        conn._on_connection_closed(mock_conn, Exception('gone'))
+
+        self.assertTrue(ch._pool_shutdown)
+
+    def test_ioloop_crash_shuts_down_channel_pools(self):
+        """If the IOLoop crashes, all channel pools must be shut down."""
+        crash = RuntimeError('IOLoop crash')
+        gate = threading.Event()
+
+        with patch('pika.adapters.thread_safe_connection.SelectConnection'
+                  ) as MockSelectConn:
+            mock_conn = MagicMock()
+            mock_ioloop = MagicMock()
+            mock_conn.ioloop = mock_ioloop
+            mock_conn.is_open = True
+            mock_conn.is_closed = False
+
+            def fake_init(parameters, on_open_callback, on_open_error_callback,
+                          on_close_callback):
+                on_open_callback(mock_conn)
+                return mock_conn
+
+            MockSelectConn.side_effect = fake_init
+            MockSelectConn.return_value = mock_conn
+
+            def ioloop_start():
+                gate.wait(timeout=5)
+                raise crash
+
+            mock_ioloop.start.side_effect = ioloop_start
+            conn = ThreadSafeConnection(parameters='params')
+
+        # Manually add a channel to the tracking list
+        ch = ThreadSafeChannel(MagicMock(), conn)
+        with conn._channel_waiters_lock:
+            conn._channels.append(ch)
+
+        # Trigger the IOLoop crash
+        gate.set()
+        conn._ioloop_thread.join(timeout=2)
+
+        self.assertTrue(ch._pool_shutdown)
+
+    def test_force_stop_shuts_down_channel_pools(self):
+        """Force-stop path in close() must shut down channel pools."""
+        conn, mock_conn, mock_ioloop = self._make_connection()
+        conn._ioloop_thread = MagicMock()
+        conn._ioloop_thread.is_alive.return_value = True
+
+        ch = ThreadSafeChannel(MagicMock(), conn)
+        with conn._channel_waiters_lock:
+            conn._channels.append(ch)
+
+        conn.close(timeout=0.1)
+
+        self.assertTrue(ch._pool_shutdown)
 
 
 class ThreadSafeConnectionTests(unittest.TestCase):
