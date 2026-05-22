@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.1](https://github.com/pika/pika/tree/1.4.1) (2026-05-22)
+
+**Merged pull requests:**
+
+- Fix Channel.close() for channels with multiple consumers [\#1596](https://github.com/pika/pika/pull/1596) ([gbenson](https://github.com/gbenson))
+
 ## [1.4.0](https://github.com/pika/pika/tree/1.4.0) (2026-05-06)
 
 [Full Changelog](https://github.com/pika/pika/compare/1.4.0b0...1.4.0)
