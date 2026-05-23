@@ -19,6 +19,8 @@ from pika.adapters.select_connection import SelectConnection
 
 LOGGER = logging.getLogger(__name__)
 
+DEFAULT_RPC_TIMEOUT = 10
+
 
 class ThreadSafeChannel:
     """Thread-safe wrapper around :class:`pika.channel.Channel`.
@@ -180,7 +182,7 @@ class ThreadSafeChannel:
                   prefetch_size=0,
                   prefetch_count=0,
                   global_qos=False,
-                  timeout=None):
+                  timeout=DEFAULT_RPC_TIMEOUT):
         """Set channel QoS and block until Basic.QosOk arrives.
 
         Safe to call from any thread.
@@ -189,7 +191,8 @@ class ThreadSafeChannel:
         :param int prefetch_count: Prefetch window in whole messages (0 = no limit).
         :param bool global_qos: Apply QoS to all consumers on the channel.
         :param float | None timeout: Seconds to wait for the response.
-            Defaults to ``None`` (wait indefinitely).
+            Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
+            Pass ``None`` to wait indefinitely.
         :returns: The Basic.QosOk method frame.
         :rtype: pika.frame.Method
         :raises Exception: if the connection is closed before the response arrives.
@@ -250,7 +253,7 @@ class ThreadSafeChannel:
                       exclusive=False,
                       consumer_tag=None,
                       arguments=None,
-                      timeout=None):
+                      timeout=DEFAULT_RPC_TIMEOUT):
         """Register a consumer and block until Basic.ConsumeOk arrives.
 
         The *on_message_callback* is dispatched on the channel's worker
@@ -272,7 +275,8 @@ class ThreadSafeChannel:
         :param str | None consumer_tag: Client-provided tag; generated if omitted.
         :param dict | None arguments: Additional AMQP arguments.
         :param float | None timeout: Seconds to wait for the response.
-            Defaults to ``None`` (wait indefinitely).
+            Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
+            Pass ``None`` to wait indefinitely.
         :returns: The consumer tag assigned by the broker.
         :rtype: str
         :raises Exception: if the connection is closed before the response arrives.
@@ -339,14 +343,15 @@ class ThreadSafeChannel:
             raise error[0]
         return result[0]
 
-    def basic_cancel(self, consumer_tag, timeout=None):
+    def basic_cancel(self, consumer_tag, timeout=DEFAULT_RPC_TIMEOUT):
         """Cancel a consumer and block until Basic.CancelOk arrives.
 
         Safe to call from any thread.
 
         :param str consumer_tag: Tag returned by :meth:`basic_consume`.
         :param float | None timeout: Seconds to wait for the response.
-            Defaults to ``None`` (wait indefinitely).
+            Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
+            Pass ``None`` to wait indefinitely.
         :returns: The Basic.CancelOk method frame.
         :rtype: pika.frame.Method
         :raises Exception: if the connection is closed before the response arrives.
@@ -406,13 +411,14 @@ class ThreadSafeChannel:
                       exclusive=False,
                       auto_delete=False,
                       arguments=None,
-                      timeout=None):
+                      timeout=DEFAULT_RPC_TIMEOUT):
         """Declare a queue and block the calling thread until Queue.DeclareOk arrives.
 
         Safe to call from any thread.
 
         :param float | None timeout: Seconds to wait for the response.
-            Defaults to ``None`` (wait indefinitely).
+            Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
+            Pass ``None`` to wait indefinitely.
         :returns: The Queue.DeclareOk method frame.
         :rtype: pika.frame.Method
         :raises Exception: if the connection is closed before the response arrives.
@@ -585,9 +591,10 @@ class ThreadSafeConnection:
         Called in the IOLoop thread when the connection is closed.
         Signature: ``on_close_callback(connection, reason)``
     :param float | None timeout: Seconds to wait for the AMQP connection
-        to be established.  Defaults to ``None`` (wait indefinitely, relying
-        on the socket timeout in *parameters*).  On timeout the IOLoop is
-        stopped and :class:`TimeoutError` is raised.
+        to be established.  Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
+        Pass ``None`` to wait indefinitely (relying on the socket timeout
+        in *parameters*).  On timeout the IOLoop is stopped and
+        :class:`TimeoutError` is raised.
     :raises Exception: if the connection cannot be established.
     :raises TimeoutError: if *timeout* expires before the connection opens.
     """
@@ -598,7 +605,7 @@ class ThreadSafeConnection:
                  parameters,
                  on_open_error_callback=None,
                  on_close_callback=None,
-                 timeout=None):
+                 timeout=DEFAULT_RPC_TIMEOUT):
         self._user_on_open_error_callback = on_open_error_callback
         self._user_on_close_callback = on_close_callback
 
@@ -698,14 +705,15 @@ class ThreadSafeConnection:
     # Public API
     # ------------------------------------------------------------------
 
-    def channel(self, timeout=None):
+    def channel(self, timeout=DEFAULT_RPC_TIMEOUT):
         """Open a new channel and return a :class:`ThreadSafeChannel`.
 
         Blocks the calling thread until the channel is open.  The returned
         channel's methods are safe to call from any thread.
 
         :param float | None timeout: Seconds to wait for Channel.OpenOk.
-            Defaults to ``None`` (wait indefinitely).
+            Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
+            Pass ``None`` to wait indefinitely.
         :rtype: ThreadSafeChannel
         :raises Exception: if the connection is closed before the channel opens.
         :raises TimeoutError: if *timeout* expires before the channel opens.

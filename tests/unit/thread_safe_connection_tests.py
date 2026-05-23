@@ -734,8 +734,8 @@ class BlockingMethodTimeoutTests(unittest.TestCase):
         # Must not raise - close() treats timeout as "channel is dead"
         ch.close(timeout=0.05)
 
-    def test_default_timeout_is_none_for_rpc_methods(self):
-        """RPC methods default to None (wait forever) for backwards compat."""
+    def test_default_timeout_succeeds_when_response_is_immediate(self):
+        """RPC methods succeed normally when the response arrives before timeout."""
         ch, raw_ch, wrapper = self._make_channel()
         mock_frame = MagicMock()
 
@@ -749,8 +749,6 @@ class BlockingMethodTimeoutTests(unittest.TestCase):
 
         wrapper.add_callback_threadsafe.side_effect = execute_and_fire
 
-        # Must not raise - default timeout=None means wait forever (but
-        # the response arrives immediately here)
         result = ch.basic_qos(prefetch_count=1)
         self.assertIs(result, mock_frame)
 
