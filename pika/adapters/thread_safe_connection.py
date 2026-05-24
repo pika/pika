@@ -395,6 +395,47 @@ class ThreadSafeChannel:
             arguments=arguments,
         )
 
+    def exchange_declare(self,
+                         exchange,
+                         exchange_type='direct',
+                         passive=False,
+                         durable=False,
+                         auto_delete=False,
+                         internal=False,
+                         arguments=None,
+                         timeout=DEFAULT_RPC_TIMEOUT):
+        """Declare an exchange and block until Exchange.DeclareOk arrives.
+
+        Safe to call from any thread.
+
+        :param str exchange: The exchange name.
+        :param str exchange_type: The exchange type (direct, fanout, topic, headers).
+        :param bool passive: Only check if the exchange exists.
+        :param bool durable: Survive broker restart.
+        :param bool auto_delete: Delete when no queues are bound.
+        :param bool internal: Can only be published to by other exchanges.
+        :param dict | None arguments: Custom arguments for the exchange.
+        :param float | None timeout: Seconds to wait for the response.
+            Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
+            Pass ``None`` to wait indefinitely.
+        :returns: The Exchange.DeclareOk method frame.
+        :rtype: pika.frame.Method
+        :raises Exception: if the connection is closed before the response arrives.
+        :raises TimeoutError: if *timeout* expires before the response arrives.
+        """
+        return self._blocking_rpc(
+            'exchange_declare',
+            self._channel.exchange_declare,
+            timeout,
+            exchange=exchange,
+            exchange_type=exchange_type,
+            passive=passive,
+            durable=durable,
+            auto_delete=auto_delete,
+            internal=internal,
+            arguments=arguments,
+        )
+
     def close(self, reply_code=0, reply_text='Normal shutdown', timeout=10):
         """Close the channel and block until the Channel.CloseOk arrives.
 
