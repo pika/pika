@@ -436,6 +436,32 @@ class ThreadSafeChannel:
             arguments=arguments,
         )
 
+    def exchange_delete(self,
+                        exchange=None,
+                        if_unused=False,
+                        timeout=DEFAULT_RPC_TIMEOUT):
+        """Delete an exchange and block until Exchange.DeleteOk arrives.
+
+        Safe to call from any thread.
+
+        :param str | None exchange: The exchange name.
+        :param bool if_unused: Only delete if the exchange has no bindings.
+        :param float | None timeout: Seconds to wait for the response.
+            Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
+            Pass ``None`` to wait indefinitely.
+        :returns: The Exchange.DeleteOk method frame.
+        :rtype: pika.frame.Method
+        :raises Exception: if the connection is closed before the response arrives.
+        :raises TimeoutError: if *timeout* expires before the response arrives.
+        """
+        return self._blocking_rpc(
+            'exchange_delete',
+            self._channel.exchange_delete,
+            timeout,
+            exchange=exchange,
+            if_unused=if_unused,
+        )
+
     def close(self, reply_code=0, reply_text='Normal shutdown', timeout=10):
         """Close the channel and block until the Channel.CloseOk arrives.
 
