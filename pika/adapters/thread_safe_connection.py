@@ -91,6 +91,83 @@ class ThreadSafeChannel:
             self._pool_shutdown = True
             self._consumer_work_pool.shutdown(wait=True)
 
+    def _register_waiter(self):
+        """Create and register a blocking waiter.
+
+        :returns: (ready, error) tuple for use with ``ready.wait()``
+        :raises Exception: if the connection is already closed.
+        """
+        ready = threading.Event()
+        error: list[BaseException | None] = [None]
+        with self._wrapper._channel_waiters_lock:
+            if self._wrapper._closed_reason is not None:
+                raise self._wrapper._closed_reason
+            self._wrapper._blocking_waiters.append((ready, error))
+        return ready, error
+
+    def _unregister_waiter(self, ready, error):
+        """Remove a waiter from the blocking list."""
+        with self._wrapper._channel_waiters_lock:
+            try:
+                self._wrapper._blocking_waiters.remove((ready, error))
+            except ValueError:
+                pass
+
+    def _blocking_rpc(self, method_name, channel_method, timeout, *args,
+                      **kwargs):
+        """Execute a channel RPC and block until the broker responds.
+
+        Handles the waiter lifecycle: registers the calling thread's event
+        in ``_blocking_waiters``, schedules the RPC on the IOLoop thread,
+        waits for the response (or timeout/error), unregisters, and returns
+        the result or raises.
+
+        *channel_method* is called on the IOLoop thread with (*args,
+        **kwargs, callback=<success_cb>).  The success callback receives
+        the broker's response frame and must be accepted as a keyword
+        argument named ``callback``.
+
+        :param str method_name: Human-readable name for timeout messages.
+        :param callable channel_method: Bound method on the raw channel.
+        :param float | None timeout: Seconds to wait.
+        :returns: The broker response frame.
+        :raises TimeoutError: if *timeout* expires.
+        :raises Exception: if the connection or channel closes first.
+        """
+        ready, error = self._register_waiter()
+        result = [None]
+
+        def _invoke():
+
+            def _on_ok(method_frame):
+                result[0] = method_frame
+                ready.set()
+
+            def _on_chan_close(ch, reason):
+                if not ready.is_set():
+                    if error[0] is None:
+                        error[0] = reason
+                    ready.set()
+
+            try:
+                self._channel.add_on_close_callback(_on_chan_close)
+                channel_method(*args, **kwargs, callback=_on_ok)
+            except Exception as exc:
+                error[0] = exc
+                ready.set()
+
+        self._wrapper.add_callback_threadsafe(_invoke)
+
+        if not ready.wait(timeout=timeout):
+            raise TimeoutError(
+                f'{method_name} timed out after {timeout} seconds')
+
+        self._unregister_waiter(ready, error)
+
+        if error[0] is not None:
+            raise error[0]
+        return result[0]
+
     def basic_publish(self,
                       exchange,
                       routing_key,
@@ -198,53 +275,14 @@ class ThreadSafeChannel:
         :raises Exception: if the connection is closed before the response arrives.
         :raises TimeoutError: if *timeout* expires before the response arrives.
         """
-        ready = threading.Event()
-        result = [None]
-        error: list[BaseException | None] = [None]
-
-        with self._wrapper._channel_waiters_lock:
-            if self._wrapper._closed_reason is not None:
-                raise self._wrapper._closed_reason
-            self._wrapper._blocking_waiters.append((ready, error))
-
-        def _qos():
-
-            def _on_qos_ok(method_frame):
-                result[0] = method_frame
-                ready.set()
-
-            def _on_chan_close(ch, reason):
-                if not ready.is_set():
-                    if error[0] is None:
-                        error[0] = reason
-                    ready.set()
-
-            try:
-                self._channel.add_on_close_callback(_on_chan_close)
-                self._channel.basic_qos(
-                    prefetch_size=prefetch_size,
-                    prefetch_count=prefetch_count,
-                    global_qos=global_qos,
-                    callback=_on_qos_ok,
-                )
-            except Exception as exc:
-                error[0] = exc
-                ready.set()
-
-        self._wrapper.add_callback_threadsafe(_qos)
-
-        if not ready.wait(timeout=timeout):
-            raise TimeoutError(f'basic_qos timed out after {timeout} seconds')
-
-        with self._wrapper._channel_waiters_lock:
-            try:
-                self._wrapper._blocking_waiters.remove((ready, error))
-            except ValueError:
-                pass
-
-        if error[0] is not None:
-            raise error[0]
-        return result[0]
+        return self._blocking_rpc(
+            'basic_qos',
+            self._channel.basic_qos,
+            timeout,
+            prefetch_size=prefetch_size,
+            prefetch_count=prefetch_count,
+            global_qos=global_qos,
+        )
 
     def basic_consume(self,
                       queue,
@@ -282,66 +320,27 @@ class ThreadSafeChannel:
         :raises Exception: if the connection is closed before the response arrives.
         :raises TimeoutError: if *timeout* expires before the response arrives.
         """
-        ready = threading.Event()
-        result = [None]
-        error: list[BaseException | None] = [None]
 
-        with self._wrapper._channel_waiters_lock:
-            if self._wrapper._closed_reason is not None:
-                raise self._wrapper._closed_reason
-            self._wrapper._blocking_waiters.append((ready, error))
-
-        def _consume():
-
-            def _wrapped_callback(ch, method, properties, body):
-                try:
-                    self._consumer_work_pool.submit(
-                        self._dispatch_consumer_callback, on_message_callback,
-                        method, properties, body)
-                except RuntimeError:
-                    LOGGER.debug(
-                        'Consumer delivery dropped: work pool shut down')
-
-            def _on_consume_ok(method_frame):
-                result[0] = method_frame.method.consumer_tag
-                ready.set()
-
-            def _on_chan_close(ch, reason):
-                if not ready.is_set():
-                    if error[0] is None:
-                        error[0] = reason
-                    ready.set()
-
+        def _wrapped_callback(ch, method, properties, body):
             try:
-                self._channel.add_on_close_callback(_on_chan_close)
-                self._channel.basic_consume(
-                    queue=queue,
-                    on_message_callback=_wrapped_callback,
-                    auto_ack=auto_ack,
-                    exclusive=exclusive,
-                    consumer_tag=consumer_tag,
-                    arguments=arguments,
-                    callback=_on_consume_ok,
-                )
-            except Exception as exc:
-                error[0] = exc
-                ready.set()
+                self._consumer_work_pool.submit(
+                    self._dispatch_consumer_callback, on_message_callback,
+                    method, properties, body)
+            except RuntimeError:
+                LOGGER.debug('Consumer delivery dropped: work pool shut down')
 
-        self._wrapper.add_callback_threadsafe(_consume)
-
-        if not ready.wait(timeout=timeout):
-            raise TimeoutError(
-                f'basic_consume timed out after {timeout} seconds')
-
-        with self._wrapper._channel_waiters_lock:
-            try:
-                self._wrapper._blocking_waiters.remove((ready, error))
-            except ValueError:
-                pass
-
-        if error[0] is not None:
-            raise error[0]
-        return result[0]
+        frame = self._blocking_rpc(
+            'basic_consume',
+            self._channel.basic_consume,
+            timeout,
+            queue=queue,
+            on_message_callback=_wrapped_callback,
+            auto_ack=auto_ack,
+            exclusive=exclusive,
+            consumer_tag=consumer_tag,
+            arguments=arguments,
+        )
+        return frame.method.consumer_tag
 
     def basic_cancel(self, consumer_tag, timeout=DEFAULT_RPC_TIMEOUT):
         """Cancel a consumer and block until Basic.CancelOk arrives.
@@ -357,52 +356,12 @@ class ThreadSafeChannel:
         :raises Exception: if the connection is closed before the response arrives.
         :raises TimeoutError: if *timeout* expires before the response arrives.
         """
-        ready = threading.Event()
-        result = [None]
-        error: list[BaseException | None] = [None]
-
-        with self._wrapper._channel_waiters_lock:
-            if self._wrapper._closed_reason is not None:
-                raise self._wrapper._closed_reason
-            self._wrapper._blocking_waiters.append((ready, error))
-
-        def _cancel():
-
-            def _on_cancel_ok(method_frame):
-                result[0] = method_frame
-                ready.set()
-
-            def _on_chan_close(ch, reason):
-                if not ready.is_set():
-                    if error[0] is None:
-                        error[0] = reason
-                    ready.set()
-
-            try:
-                self._channel.add_on_close_callback(_on_chan_close)
-                self._channel.basic_cancel(
-                    consumer_tag=consumer_tag,
-                    callback=_on_cancel_ok,
-                )
-            except Exception as exc:
-                error[0] = exc
-                ready.set()
-
-        self._wrapper.add_callback_threadsafe(_cancel)
-
-        if not ready.wait(timeout=timeout):
-            raise TimeoutError(
-                f'basic_cancel timed out after {timeout} seconds')
-
-        with self._wrapper._channel_waiters_lock:
-            try:
-                self._wrapper._blocking_waiters.remove((ready, error))
-            except ValueError:
-                pass
-
-        if error[0] is not None:
-            raise error[0]
-        return result[0]
+        return self._blocking_rpc(
+            'basic_cancel',
+            self._channel.basic_cancel,
+            timeout,
+            consumer_tag=consumer_tag,
+        )
 
     def queue_declare(self,
                       queue,
@@ -424,57 +383,17 @@ class ThreadSafeChannel:
         :raises Exception: if the connection is closed before the response arrives.
         :raises TimeoutError: if *timeout* expires before the response arrives.
         """
-        ready = threading.Event()
-        result = [None]
-        error: list[BaseException | None] = [None]
-
-        with self._wrapper._channel_waiters_lock:
-            if self._wrapper._closed_reason is not None:
-                raise self._wrapper._closed_reason
-            self._wrapper._blocking_waiters.append((ready, error))
-
-        def _declare():
-
-            def _on_declare(method_frame):
-                result[0] = method_frame
-                ready.set()
-
-            def _on_chan_close(ch, reason):
-                if not ready.is_set():
-                    if error[0] is None:
-                        error[0] = reason
-                    ready.set()
-
-            try:
-                self._channel.add_on_close_callback(_on_chan_close)
-                self._channel.queue_declare(
-                    queue=queue,
-                    passive=passive,
-                    durable=durable,
-                    exclusive=exclusive,
-                    auto_delete=auto_delete,
-                    arguments=arguments,
-                    callback=_on_declare,
-                )
-            except Exception as exc:
-                error[0] = exc
-                ready.set()
-
-        self._wrapper.add_callback_threadsafe(_declare)
-
-        if not ready.wait(timeout=timeout):
-            raise TimeoutError(
-                f'queue_declare timed out after {timeout} seconds')
-
-        with self._wrapper._channel_waiters_lock:
-            try:
-                self._wrapper._blocking_waiters.remove((ready, error))
-            except ValueError:
-                pass
-
-        if error[0] is not None:
-            raise error[0]
-        return result[0]
+        return self._blocking_rpc(
+            'queue_declare',
+            self._channel.queue_declare,
+            timeout,
+            queue=queue,
+            passive=passive,
+            durable=durable,
+            exclusive=exclusive,
+            auto_delete=auto_delete,
+            arguments=arguments,
+        )
 
     def close(self, reply_code=0, reply_text='Normal shutdown', timeout=10):
         """Close the channel and block until the Channel.CloseOk arrives.
@@ -493,13 +412,7 @@ class ThreadSafeChannel:
         :raises Exception: if the connection is closed or the channel is closed
             by the broker rather than by this client.
         """
-        ready = threading.Event()
-        error: list[BaseException | None] = [None]
-
-        with self._wrapper._channel_waiters_lock:
-            if self._wrapper._closed_reason is not None:
-                raise self._wrapper._closed_reason
-            self._wrapper._blocking_waiters.append((ready, error))
+        ready, error = self._register_waiter()
 
         def _close():
             if self._channel.is_closed or self._channel.is_closing:
@@ -527,12 +440,7 @@ class ThreadSafeChannel:
                            self._channel.channel_number, timeout)
 
         self._shutdown_pool()
-
-        with self._wrapper._channel_waiters_lock:
-            try:
-                self._wrapper._blocking_waiters.remove((ready, error))
-            except ValueError:
-                pass
+        self._unregister_waiter(ready, error)
 
         if error[0] is not None:
             raise error[0]
