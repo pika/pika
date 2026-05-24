@@ -1,73 +1,63 @@
 # Release process
 
-* Update `CHANGELOG.md`. Be sure to use the `--since-tag X.Y.Z` argument:
-    ```
-    github_changelog_generator --token ghp_XXXX --user pika --project pika --since-tag 1.3.2 --future-release 1.4.0
-    ```
-    Review the generated file for invalid entries. More than likely you will have to hand-edit `CHANGELOG.md`
-* Update version in `pyproject.toml` and `pika/__init__.py`
-* Commit changes to `main` branch and push:
-    ```
-    git commit -a -m 'pika 1.4.0' && git push
-    ```
-* Ensure build is green
-* Tag version (using your GPG keyid) and push:
-    ```
-    git tag -a -s -u B1B82CC0CF84BA70147EBD05D99DE30E43EAE440 -m 'pika 1.4.0' '1.4.0' && git push --tags
-    ```
-* Ensure build is green (if one triggered)
-* Note the release's milestone number, then create release via GitHub Release UI or `gh` command like:
-    ```
-    # This creates artifacts to be uploaded:
-    python -m build --sdist --wheel --outdir dist/ .
+## Automated release
 
-    # This creates the release on GitHub:
-    gh release create '1.4.0' --notes 'https://pypi.org/project/pika/1.4.0/ | [GitHub milestone](https://github.com/pika/pika/milestone/23?closed=1)' ./dist/*
-    ```
-* Ensure the publish build succeeded. Example success output looks like this:
-    ```
-    Checking dist/pika-1.4.0-py3-none-any.whl: PASSED
-    Checking dist/pika-1.4.0.tar.gz: PASSED
-    Uploading distributions to https://upload.pypi.org/legacy/
-    Uploading pika-1.4.0-py3-none-any.whl
-    ...
-    ...
-    ...
-    View at:
-    https://pypi.org/project/pika/1.4.0/
-    ```
+Trigger the release workflow from GitHub Actions UI or CLI:
 
-* View the release on PyPI: https://pypi.org/project/pika/1.4.0/
-* Ensure the release works!
-  * Start RabbitMQ
-    ```
-    docker run --pull --detach --rm --publish 5672:5672 --publish 15672:15672 rabbitmq:4-management-alpine
-    ```
-  * Run example Pika program
-    ```
-    cd path/to/pika/examples
-    python -m venv venv
-    source ./venv/bin/activate
-    pip install pika==1.4.0
+```bash
+# Patch release (1.4.0 -> 1.4.1)
+gh workflow run release.yaml -f bump=patch
+
+# Minor release (1.4.0 -> 1.5.0)
+gh workflow run release.yaml -f bump=minor
+
+# Major release (1.4.0 -> 2.0.0)
+gh workflow run release.yaml -f bump=major
+
+# Pre-release to TestPyPI (1.4.0 -> 1.5.0b1)
+gh workflow run release.yaml -f bump=minor -f prerelease=true -f prerelease_tag=b1
+```
+
+### What happens
+
+1. `release.yaml` bumps version in `pyproject.toml` and `pika/__init__.py`
+2. `CHANGELOG.md` is auto-updated with changes since the last release (via `requarks/changelog-action`)
+3. Version bump and changelog are committed, tagged, and pushed
+4. Tag push triggers `publish.yaml` which runs CI and publishes to PyPI (via trusted publishing)
+5. A GitHub Release is created with auto-generated notes from merged PRs
+6. Pre-release tags (containing `a`, `alpha`, `b`, `beta`, `rc`, or `dev`) publish to TestPyPI instead
+
+### PR label categories
+
+Release notes are grouped by PR labels (configured in `.github/release.yml`):
+
+| Label                    | Section                  |
+|--------------------------|--------------------------|
+| `enhancement`, `feature` | Implemented enhancements |
+| `bug`, `fix`             | Fixed bugs               |
+| `documentation`, `docs`  | Documentation            |
+| everything else          | Other changes            |
+
+### Setup: trusted publishing
+
+PyPI trusted publishing must be configured for this to work. On PyPI:
+
+1. Go to the pika project settings on pypi.org
+2. Add a new "trusted publisher" for GitHub Actions
+3. Set repository to `pika/pika`, workflow to `publish.yaml`, environment to `pypi`
+4. Repeat on test.pypi.org with environment `testpypi`
+
+## Post-release verification
+
+After the release is published:
+
+1. Check PyPI: `https://pypi.org/project/pika/<version>/`
+2. Test the release:
+
+    ```bash
+    docker run --pull always --detach --rm --publish 5672:5672 --publish 15672:15672 rabbitmq:4-management-alpine
+    cd examples
+    python -m venv venv && source ./venv/bin/activate
+    pip install pika==<version>
     python ./asynchronous_publisher_example.py
     ```
-
-# Notes:
-
-* `github_changelog_generator`
-
-If you see this error when updating the changelog:
-
-```
-Warning: PR 46 merge commit was not found in the release branch or tagged git history and no rebased SHA comment was found
-/path/to/ruby/3.1.2/lib/ruby/gems/3.1.0/gems/github_changelog_generator-1.16.4/lib/github_changelog_generator/generator/generator_fetcher.rb:86:in `block in associate_tagged_prs': No merge sha found for PR 46 via the GitHub API (StandardError)
-        from /path/to/ruby/3.1.2/lib/ruby/gems/3.1.0/gems/github_changelog_generator-1.16.4/lib/github_changelog_generator/generator/generator_fetcher.rb:68:in `reject'
-        from /path/to/ruby/3.1.2/lib/ruby/gems/3.1.0/gems/github_changelog_generator-1.16.4/lib/github_changelog_generator/generator/generator_fetcher.rb:68:in `associate_tagged_prs'
-        from /path/to/ruby/3.1.2/lib/ruby/gems/3.1.0/gems/github_changelog_generator-1.16.4/lib/github_changelog_generator/generator/generator_fetcher.rb:48:in `add_first_occurring_tag_to_prs'
-        from /path/to/ruby/3.1.2/lib/ruby/gems/3.1.0/gems/github_changelog_generator-1.16.4/lib/github_changelog_generator/generator/generator.rb:152:in `fetch_issues_and_pr'
-        from /path/to/ruby/3.1.2/lib/ruby/gems/3.1.0/gems/github_changelog_generator-1.16.4/lib/github_changelog_generator/generator/generator.rb:55:in `block in compound_changelog'
-        from /path/to/ruby/3.1.2/lib/ruby/gems/3.1.0/gems/async-2.2.1/lib/async/task.rb:107:in `block in run'
-        from /path/to/ruby/3.1.2/lib/ruby/gems/3.1.0/gems/async-2.2.1/lib/async/task.rb:243:in `block in schedule'
-```
-
-...you will have to edit the `lib/github_changelog_generator/generator/generator_fetcher.rb` file to change the `raise` to a `STDERR.puts`.

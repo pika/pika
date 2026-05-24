@@ -1,0 +1,100 @@
+name: release
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: 'Version bump type'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+      prerelease:
+        description: 'Mark as pre-release (publishes to TestPyPI)'
+        required: false
+        type: boolean
+        default: false
+      prerelease_tag:
+        description: 'Pre-release suffix (e.g. b1, rc1). Required when prerelease is true.'
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Validate inputs
+        env:
+          PRERELEASE: ${{ inputs.prerelease }}
+          PRERELEASE_TAG: ${{ inputs.prerelease_tag }}
+        run: |
+          if [ "$PRERELEASE" = "true" ] && [ -z "$PRERELEASE_TAG" ]; then
+            echo "::error::prerelease_tag is required when prerelease is true (e.g. b1, rc1)"
+            exit 1
+          fi
+
+      - name: Compute new version
+        id: version
+        env:
+          PRERELEASE_TAG: ${{ inputs.prerelease_tag }}
+        run: |
+          current=$(grep -oP '^version = "\K[^"]+' pyproject.toml)
+          echo "current=$current" >> "$GITHUB_OUTPUT"
+
+          IFS='.' read -r major minor patch <<< "$(echo "$current" | sed 's/[a-zA-Z].*//')"
+
+          case "${{ inputs.bump }}" in
+            major) major=$((major + 1)); minor=0; patch=0 ;;
+            minor) minor=$((minor + 1)); patch=0 ;;
+            patch) patch=$((patch + 1)) ;;
+          esac
+
+          new_version="${major}.${minor}.${patch}"
+          if [ "${{ inputs.prerelease }}" = "true" ]; then
+            if ! echo "$PRERELEASE_TAG" | grep -qE '^[a-zA-Z0-9]+$'; then
+              echo "::error::prerelease_tag must be alphanumeric (e.g. b1, rc1)"
+              exit 1
+            fi
+            new_version="${new_version}${PRERELEASE_TAG}"
+          fi
+
+          echo "new=$new_version" >> "$GITHUB_OUTPUT"
+          echo "Bumping $current -> $new_version"
+
+      - name: Update version
+        run: |
+          sed -i 's/^version = ".*"/version = "${{ steps.version.outputs.new }}"/' pyproject.toml
+          sed -i "s/^__version__ = '.*'/__version__ = '${{ steps.version.outputs.new }}'/" pika/__init__.py
+
+      - name: Generate changelog
+        id: changelog
+        uses: requarks/changelog-action@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ steps.version.outputs.new }}
+          excludeTypes: ''
+          writeToFile: true
+          includeInvalidCommits: true
+
+      - name: Commit, tag, and push
+        run: |
+          git add pyproject.toml pika/__init__.py CHANGELOG.md
+          git commit -m "release: pika ${{ steps.version.outputs.new }}"
+          git tag -a "${{ steps.version.outputs.new }}" -m "pika ${{ steps.version.outputs.new }}"
+          git push origin HEAD:${{ github.ref }} --follow-tags
