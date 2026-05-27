@@ -45,18 +45,28 @@ jobs:
           disable_search: true
           flags: windows-py${{ matrix.python-version }}-tls-${{ matrix.test-tls }}
           fail_ci_if_error: false
+  get-versions:
+    name: read pinned versions
+    runs-on: ubuntu-latest
+    outputs:
+      rabbitmq: ${{ steps.v.outputs.rabbitmq }}
+    steps:
+      - uses: actions/checkout@v6
+      - id: v
+        run: echo "rabbitmq=$(jq -r .rabbitmq testdata/versions.json)" >> $GITHUB_OUTPUT
+
   build-linux:
     name: build/test on ubuntu-latest
     runs-on: ubuntu-latest
+    needs: get-versions
     strategy:
       matrix:
         python-version: [ '3.10', '3.11', '3.12', '3.13', '3.14' ]
     services:
       rabbitmq:
-        image: rabbitmq
+        image: rabbitmq:${{ needs.get-versions.outputs.rabbitmq }}
         ports:
           - 5672:5672
-          - 5671:5671
     steps:
       - uses: actions/checkout@v6
       - name: Set up Python ${{ matrix.python-version }}
