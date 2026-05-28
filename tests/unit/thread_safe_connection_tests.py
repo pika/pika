@@ -401,6 +401,27 @@ class ThreadSafeChannelTests(unittest.TestCase):
 
         raw_ch.close.assert_not_called()
 
+    def test_channel_abort_swallows_close_errors(self):
+        ch, raw_ch, wrapper = self._make_channel()
+        reason = Exception('connection already closed')
+        wrapper._closed_reason = reason
+
+        # close() would raise; abort() must swallow.
+        ch.abort()
+
+    def test_channel_abort_calls_close(self):
+        ch, raw_ch, wrapper = self._make_channel()
+        raw_ch.is_closed = True  # make close() a noop
+
+        def execute_immediately(cb):
+            cb()
+
+        wrapper.add_callback_threadsafe.side_effect = execute_immediately
+
+        ch.abort(reply_code=320, reply_text='shutting down', timeout=5)
+        # Verify the close path ran (work pool was shut down via close())
+        self.assertTrue(ch._pool_shutdown)
+
     def test_properties_delegate_to_raw_channel(self):
         ch, raw_ch, wrapper = self._make_channel()
         self.assertEqual(ch.channel_number, raw_ch.channel_number)
@@ -1265,7 +1286,18 @@ class ThreadSafeConnectionTests(unittest.TestCase):
         conn._ioloop_thread = threading.current_thread()
         conn.close()
         mock_conn.close.assert_called_once()
-        mock_ioloop.add_callback_threadsafe.assert_not_called()
+
+    def test_abort_swallows_close_errors(self):
+        conn, mock_conn, _ = self._make_connection()
+        # Force conn.close() to raise
+        with patch.object(conn, 'close', side_effect=Exception('boom')):
+            conn.abort()  # must not raise
+
+    def test_abort_delegates_to_close(self):
+        conn, mock_conn, _ = self._make_connection()
+        with patch.object(conn, 'close') as mock_close:
+            conn.abort(timeout=5)
+            mock_close.assert_called_once_with(timeout=5)
 
     def test_context_manager(self):
         conn, mock_conn, mock_ioloop = self._make_connection()

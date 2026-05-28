@@ -795,6 +795,28 @@ class ThreadSafeChannel:
         if error[0] is not None:
             raise error[0]
 
+    def abort(self, reply_code=0, reply_text='Normal shutdown', timeout=10):
+        """Close the channel, swallowing any errors.
+
+        Equivalent to :meth:`close` but never raises.  Useful in error-recovery
+        paths where the channel may already be in a bad state and the caller
+        only wants a best-effort shutdown.
+
+        Safe to call from any thread.
+
+        :param int reply_code: Close reason code to send to the broker.
+        :param str reply_text: Close reason text to send to the broker.
+        :param float | None timeout: Seconds to wait for Channel.CloseOk
+            before treating the channel as closed regardless.  Defaults to
+            10 seconds.  Pass ``None`` to wait indefinitely.
+        """
+        try:
+            self.close(reply_code=reply_code,
+                       reply_text=reply_text,
+                       timeout=timeout)
+        except Exception:
+            LOGGER.debug('channel abort() suppressed error', exc_info=True)
+
     @property
     def channel_number(self):
         return self._channel.channel_number
@@ -1079,6 +1101,26 @@ class ThreadSafeConnection:
                         evt.set()
                     self._blocking_waiters.clear()
             self._shutdown_all_consumer_pools()
+
+    def abort(self, timeout=10):
+        """Close the connection, swallowing any errors.
+
+        Equivalent to :meth:`close` but never raises.  Currently
+        :meth:`close` itself does not raise (it logs a warning on
+        timeout), but ``abort`` is provided for API symmetry with
+        other AMQP 0-9-1 clients and to make error-recovery intent
+        explicit at the call site.
+
+        Safe to call from any thread.
+
+        :param float | None timeout: Seconds to wait for a clean close before
+            force-stopping the IOLoop.  Defaults to 10 seconds.
+            Pass ``None`` to wait indefinitely.
+        """
+        try:
+            self.close(timeout=timeout)
+        except Exception:
+            LOGGER.debug('connection abort() suppressed error', exc_info=True)
 
     def __enter__(self):
         return self
