@@ -371,7 +371,10 @@ class ThreadSafeChannel:
 
         Dispatched on the per-channel worker thread (same as delivery
         callbacks), so the callback may safely call any
-        :class:`ThreadSafeChannel` method.
+        :class:`ThreadSafeChannel` method.  The RabbitMQ Java and .NET
+        clients run this listener inline on the I/O thread; pika's
+        wrapper deliberately diverges so a slow listener cannot stall
+        heartbeats.
 
         Safe to call from any thread.
 
@@ -409,7 +412,10 @@ class ThreadSafeChannel:
 
         Dispatched on the per-channel worker thread (same as delivery
         callbacks), so the callback may safely call any
-        :class:`ThreadSafeChannel` method.
+        :class:`ThreadSafeChannel` method.  The RabbitMQ Java and .NET
+        clients run this listener inline on the I/O thread; pika's
+        wrapper deliberately diverges so a slow listener cannot stall
+        heartbeats.
 
         Safe to call from any thread.
 
@@ -443,6 +449,9 @@ class ThreadSafeChannel:
 
         The *ack_nack_callback* is dispatched on the channel's worker
         thread (same as delivery callbacks), not the IOLoop thread.
+        The RabbitMQ Java and .NET clients run this listener inline on
+        the I/O thread; pika's wrapper deliberately diverges so a slow
+        listener cannot stall heartbeats.
 
         Safe to call from any thread.
 
@@ -1279,6 +1288,9 @@ class ThreadSafeConnection:
         Dispatched on a connection-level worker thread (one per
         connection), so the callback may safely call any
         :class:`ThreadSafeChannel` method without stalling heartbeats.
+        The RabbitMQ Java and .NET clients run this listener inline on
+        the I/O thread; pika's wrapper deliberately diverges so a slow
+        listener cannot stall heartbeats.
 
         Safe to call from any thread.
 
@@ -1298,7 +1310,10 @@ class ThreadSafeConnection:
         longer resource-constrained, letting publishers resume.
 
         Dispatched on the connection-level worker thread (same as
-        ``add_on_connection_blocked_callback``).
+        ``add_on_connection_blocked_callback``).  The RabbitMQ Java and
+        .NET clients run this listener inline on the I/O thread; pika's
+        wrapper deliberately diverges so a slow listener cannot stall
+        heartbeats.
 
         Safe to call from any thread.
 
