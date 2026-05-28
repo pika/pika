@@ -30,7 +30,7 @@ jobs:
           path: ~/installers
           key: ${{ runner.os }}-v0-${{ hashFiles('testdata/versions.json') }}
       - name: Install and start RabbitMQ
-        run: ./testdata/install.ps1
+        run: ./.ci/windows/gha-setup.ps1
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip wheel
@@ -102,7 +102,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
           architecture: x64
       - name: Install and start RabbitMQ
-        run: ./testdata/install-macos.sh
+        run: ./.ci/macos/gha-setup.sh
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip wheel

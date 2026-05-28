@@ -69,7 +69,7 @@ Write-Host "[INFO] Installer dir '$base_installers_dir' contents:"
 Get-ChildItem -Verbose -Path $base_installers_dir
 
 $pika_dir = $env:GITHUB_WORKSPACE
-$rabbitmq_conf_in_file = Join-Path -Path $pika_dir -ChildPath 'testdata' | Join-Path -ChildPath 'rabbitmq.conf.in'
+$rabbitmq_conf_in_file = Join-Path -Path $pika_dir -ChildPath '.ci' | Join-Path -ChildPath 'windows' | Join-Path -ChildPath 'rabbitmq.conf.in'
 $rabbitmq_appdata_dir = Join-Path -Path $env:AppData -ChildPath 'RabbitMQ'
 New-Item -Path $rabbitmq_appdata_dir -ItemType Directory
 $rabbitmq_conf_file = Join-Path -Path $rabbitmq_appdata_dir -ChildPath 'rabbitmq.conf'
