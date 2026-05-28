@@ -15,6 +15,7 @@ import itertools
 import logging
 import threading
 
+from pika import spec
 from pika.adapters.select_connection import SelectConnection
 
 LOGGER = logging.getLogger(__name__)
@@ -283,6 +284,72 @@ class ThreadSafeChannel:
             prefetch_count=prefetch_count,
             global_qos=global_qos,
         )
+
+    def basic_get(self, queue, auto_ack=False, timeout=DEFAULT_RPC_TIMEOUT):
+        """Get a single message from the broker and block until it arrives.
+
+        Returns a ``(method, properties, body)`` tuple if a message is
+        available, or ``(None, None, None)`` if the queue is empty.
+
+        Safe to call from any thread.
+
+        :param str queue: The queue to get a message from.
+        :param bool auto_ack: Do not require acknowledgement.
+        :param float | None timeout: Seconds to wait for the response.
+            Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
+            Pass ``None`` to wait indefinitely.
+        :returns: ``(method, properties, body)`` or ``(None, None, None)``.
+        :rtype: tuple
+        :raises Exception: if the connection is closed before the response arrives.
+        :raises TimeoutError: if *timeout* expires before the response arrives.
+        """
+        ready, error = self._register_waiter()
+        result = [None, None, None]
+
+        def _get():
+
+            def _on_get_ok(ch, method, properties, body):
+                result[0] = method
+                result[1] = properties
+                result[2] = body
+                ready.set()
+
+            def _on_get_empty(method_frame):
+                ready.set()
+
+            def _on_chan_close(ch, reason):
+                if not ready.is_set():
+                    if error[0] is None:
+                        error[0] = reason
+                    ready.set()
+
+            try:
+                self._channel.add_on_close_callback(_on_chan_close)
+                self._channel.add_callback(
+                    _on_get_empty,
+                    replies=[spec.Basic.GetEmpty],
+                    one_shot=True,
+                )
+                self._channel.basic_get(
+                    queue=queue,
+                    callback=_on_get_ok,
+                    auto_ack=auto_ack,
+                )
+            except Exception as exc:
+                error[0] = exc
+                ready.set()
+
+        self._wrapper.add_callback_threadsafe(_get)
+
+        if not ready.wait(timeout=timeout):
+            raise TimeoutError(
+                f'basic_get timed out after {timeout} seconds')
+
+        self._unregister_waiter(ready, error)
+
+        if error[0] is not None:
+            raise error[0]
+        return tuple(result)
 
     def confirm_delivery(self, ack_nack_callback, timeout=DEFAULT_RPC_TIMEOUT):
         """Enable publisher confirms and block until Confirm.SelectOk arrives.
