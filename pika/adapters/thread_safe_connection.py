@@ -436,6 +436,70 @@ class ThreadSafeChannel:
             arguments=arguments,
         )
 
+    def exchange_bind(self,
+                      destination,
+                      source,
+                      routing_key='',
+                      arguments=None,
+                      timeout=DEFAULT_RPC_TIMEOUT):
+        """Bind an exchange to another exchange and block until Exchange.BindOk.
+
+        Safe to call from any thread.
+
+        :param str destination: The destination exchange to bind.
+        :param str source: The source exchange to bind to.
+        :param str routing_key: The routing key to bind on.
+        :param dict | None arguments: Custom arguments for the binding.
+        :param float | None timeout: Seconds to wait for the response.
+            Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
+            Pass ``None`` to wait indefinitely.
+        :returns: The Exchange.BindOk method frame.
+        :rtype: pika.frame.Method
+        :raises Exception: if the connection is closed before the response arrives.
+        :raises TimeoutError: if *timeout* expires before the response arrives.
+        """
+        return self._blocking_rpc(
+            'exchange_bind',
+            self._channel.exchange_bind,
+            timeout,
+            destination=destination,
+            source=source,
+            routing_key=routing_key,
+            arguments=arguments,
+        )
+
+    def exchange_unbind(self,
+                        destination,
+                        source,
+                        routing_key='',
+                        arguments=None,
+                        timeout=DEFAULT_RPC_TIMEOUT):
+        """Unbind an exchange from another exchange and block until Exchange.UnbindOk.
+
+        Safe to call from any thread.
+
+        :param str destination: The destination exchange to unbind.
+        :param str source: The source exchange to unbind from.
+        :param str routing_key: The routing key to unbind.
+        :param dict | None arguments: Custom arguments for the unbinding.
+        :param float | None timeout: Seconds to wait for the response.
+            Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
+            Pass ``None`` to wait indefinitely.
+        :returns: The Exchange.UnbindOk method frame.
+        :rtype: pika.frame.Method
+        :raises Exception: if the connection is closed before the response arrives.
+        :raises TimeoutError: if *timeout* expires before the response arrives.
+        """
+        return self._blocking_rpc(
+            'exchange_unbind',
+            self._channel.exchange_unbind,
+            timeout,
+            destination=destination,
+            source=source,
+            routing_key=routing_key,
+            arguments=arguments,
+        )
+
     def exchange_delete(self,
                         exchange=None,
                         if_unused=False,
