@@ -342,8 +342,7 @@ class ThreadSafeChannel:
         self._wrapper.add_callback_threadsafe(_get)
 
         if not ready.wait(timeout=timeout):
-            raise TimeoutError(
-                f'basic_get timed out after {timeout} seconds')
+            raise TimeoutError(f'basic_get timed out after {timeout} seconds')
 
         self._unregister_waiter(ready, error)
 
@@ -373,11 +372,9 @@ class ThreadSafeChannel:
 
         def _wrapped_ack_nack(method_frame):
             try:
-                self._consumer_work_pool.submit(
-                    ack_nack_callback, method_frame)
+                self._consumer_work_pool.submit(ack_nack_callback, method_frame)
             except RuntimeError:
-                LOGGER.debug(
-                    'Publisher confirm dropped: work pool shut down')
+                LOGGER.debug('Publisher confirm dropped: work pool shut down')
 
         return self._blocking_rpc(
             'confirm_delivery',
