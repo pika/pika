@@ -802,6 +802,80 @@ class ConsumerWorkPoolTests(unittest.TestCase):
         self.assertIs(ctx.exception, reason)
         wrapper.add_callback_threadsafe.assert_not_called()
 
+    def test_return_listener_exception_is_logged_not_lost(self):
+        """An exception raised inside a return listener must be logged
+        (not silently dropped on an unobserved Future)."""
+        ch, raw_ch, wrapper = self._make_channel()
+
+        def boom(channel, method, properties, body):
+            raise RuntimeError('return-listener boom')
+
+        def execute_and_fire(cb):
+            cb()
+            wrapped = raw_ch.add_on_return_callback.call_args[0][0]
+            wrapped(raw_ch, 'method', 'props', b'body')
+
+        wrapper.add_callback_threadsafe.side_effect = execute_and_fire
+
+        with self.assertLogs('pika.adapters.thread_safe_connection',
+                             level='ERROR') as cm:
+            ch.add_on_return_callback(boom)
+            ch._consumer_work_pool.shutdown(wait=True)
+
+        self.assertTrue(
+            any('return listener' in msg for msg in cm.output),
+            msg=f'Expected "return listener" in logs, got: {cm.output}')
+
+    def test_cancel_listener_exception_is_logged_not_lost(self):
+        ch, raw_ch, wrapper = self._make_channel()
+
+        def boom(method_frame):
+            raise RuntimeError('cancel-listener boom')
+
+        def execute_and_fire(cb):
+            cb()
+            wrapped = raw_ch.add_on_cancel_callback.call_args[0][0]
+            wrapped('cancel-frame')
+
+        wrapper.add_callback_threadsafe.side_effect = execute_and_fire
+
+        with self.assertLogs('pika.adapters.thread_safe_connection',
+                             level='ERROR') as cm:
+            ch.add_on_cancel_callback(boom)
+            ch._consumer_work_pool.shutdown(wait=True)
+
+        self.assertTrue(
+            any('cancel listener' in msg for msg in cm.output),
+            msg=f'Expected "cancel listener" in logs, got: {cm.output}')
+
+    def test_publisher_confirm_callback_exception_is_logged_not_lost(self):
+        ch, raw_ch, wrapper = self._make_channel()
+        ok_frame = MagicMock()
+
+        def boom(method_frame):
+            raise RuntimeError('confirm boom')
+
+        def execute_and_fire(cb):
+
+            def fake_confirm(ack_nack_callback, callback):
+                ack_nack_callback('ack-frame')  # fire user cb via wrapper
+                callback(ok_frame)
+
+            raw_ch.confirm_delivery.side_effect = fake_confirm
+            cb()
+
+        wrapper.add_callback_threadsafe.side_effect = execute_and_fire
+
+        with self.assertLogs('pika.adapters.thread_safe_connection',
+                             level='ERROR') as cm:
+            ch.confirm_delivery(boom)
+            ch._consumer_work_pool.shutdown(wait=True)
+
+        self.assertTrue(
+            any('publisher confirm callback' in msg for msg in cm.output),
+            msg=
+            f'Expected "publisher confirm callback" in logs, got: {cm.output}')
+
 
 class BlockingMethodTimeoutTests(unittest.TestCase):
     """Tests for timeout behavior on blocking methods."""
@@ -1439,6 +1513,169 @@ class ThreadSafeConnectionTests(unittest.TestCase):
         with patch.object(conn, 'close') as mock_close:
             conn.abort(timeout=5)
             mock_close.assert_called_once_with(timeout=5)
+
+    def test_blocked_callback_routes_through_add_callback_threadsafe(self):
+        conn, mock_conn, mock_ioloop = self._make_connection()
+        # Wipe call count from setup
+        mock_ioloop.add_callback_threadsafe.reset_mock()
+        conn.add_on_connection_blocked_callback(MagicMock())
+        mock_ioloop.add_callback_threadsafe.assert_called_once()
+        mock_conn.add_on_connection_blocked_callback.assert_not_called()
+
+    def test_blocked_callback_registers_on_raw_connection(self):
+        conn, mock_conn, mock_ioloop = self._make_connection()
+
+        def execute_immediately(cb):
+            cb()
+
+        mock_ioloop.add_callback_threadsafe.side_effect = execute_immediately
+        conn.add_on_connection_blocked_callback(MagicMock())
+        mock_conn.add_on_connection_blocked_callback.assert_called_once()
+
+    def test_blocked_callback_dispatches_on_worker_thread(self):
+        import concurrent.futures
+        conn, mock_conn, mock_ioloop = self._make_connection()
+        # Recreate the work pool because _make_connection lets _run_ioloop
+        # exit, which shuts the pool down.
+        conn._connection_work_pool = concurrent.futures.ThreadPoolExecutor(
+            max_workers=1, thread_name_prefix='pika-conn-test')
+        conn._connection_pool_shutdown = False
+        callback_thread = []
+        received = []
+
+        def user_cb(connection, method_frame):
+            callback_thread.append(threading.current_thread())
+            received.append((connection, method_frame))
+
+        def execute_and_fire(cb):
+            cb()
+            wrapped = mock_conn.add_on_connection_blocked_callback.call_args[0][
+                0]
+            wrapped(mock_conn, 'blocked-frame')
+
+        mock_ioloop.add_callback_threadsafe.side_effect = execute_and_fire
+
+        conn.add_on_connection_blocked_callback(user_cb)
+        conn._shutdown_connection_pool()
+
+        self.assertEqual(len(received), 1)
+        self.assertIs(received[0][0], conn)
+        self.assertEqual(received[0][1], 'blocked-frame')
+        self.assertIsNot(callback_thread[0], threading.current_thread())
+        self.assertIn('pika-conn', callback_thread[0].name)
+
+    def test_blocked_callback_after_pool_shutdown_logs_and_drops(self):
+        conn, mock_conn, mock_ioloop = self._make_connection()
+        wrapped_holder = []
+
+        def execute_and_fire(cb):
+            cb()
+            wrapped_holder.append(
+                mock_conn.add_on_connection_blocked_callback.call_args[0][0])
+
+        mock_ioloop.add_callback_threadsafe.side_effect = execute_and_fire
+
+        conn.add_on_connection_blocked_callback(MagicMock())
+        conn._shutdown_connection_pool()
+        wrapped_holder[0](mock_conn, 'late-blocked')  # must not raise
+
+    def test_blocked_callback_raises_when_connection_closed(self):
+        conn, mock_conn, mock_ioloop = self._make_connection()
+        reason = Exception('closed')
+        conn._closed_reason = reason
+
+        with self.assertRaises(Exception) as ctx:
+            conn.add_on_connection_blocked_callback(MagicMock())
+
+        self.assertIs(ctx.exception, reason)
+
+    def test_unblocked_callback_routes_through_add_callback_threadsafe(self):
+        conn, mock_conn, mock_ioloop = self._make_connection()
+        mock_ioloop.add_callback_threadsafe.reset_mock()
+        conn.add_on_connection_unblocked_callback(MagicMock())
+        mock_ioloop.add_callback_threadsafe.assert_called_once()
+        mock_conn.add_on_connection_unblocked_callback.assert_not_called()
+
+    def test_unblocked_callback_dispatches_on_worker_thread(self):
+        import concurrent.futures
+        conn, mock_conn, mock_ioloop = self._make_connection()
+        conn._connection_work_pool = concurrent.futures.ThreadPoolExecutor(
+            max_workers=1, thread_name_prefix='pika-conn-test')
+        conn._connection_pool_shutdown = False
+        received = []
+
+        def user_cb(connection, method_frame):
+            received.append((connection, method_frame))
+
+        def execute_and_fire(cb):
+            cb()
+            wrapped = mock_conn.add_on_connection_unblocked_callback.call_args[
+                0][0]
+            wrapped(mock_conn, 'unblocked-frame')
+
+        mock_ioloop.add_callback_threadsafe.side_effect = execute_and_fire
+
+        conn.add_on_connection_unblocked_callback(user_cb)
+        conn._shutdown_connection_pool()
+
+        self.assertEqual(len(received), 1)
+        self.assertIs(received[0][0], conn)
+        self.assertEqual(received[0][1], 'unblocked-frame')
+
+    def test_unblocked_callback_raises_when_connection_closed(self):
+        conn, mock_conn, mock_ioloop = self._make_connection()
+        reason = Exception('closed')
+        conn._closed_reason = reason
+
+        with self.assertRaises(Exception) as ctx:
+            conn.add_on_connection_unblocked_callback(MagicMock())
+
+        self.assertIs(ctx.exception, reason)
+
+    def test_connection_pool_shutdown_is_idempotent(self):
+        conn, _, _ = self._make_connection()
+        conn._shutdown_connection_pool()
+        conn._shutdown_connection_pool()  # second call must be a no-op
+
+    def test_close_force_stop_shuts_down_connection_pool(self):
+        """When close() force-stops the IOLoop, the connection pool must be
+        shut down so no callback worker thread is left dangling."""
+        conn, mock_conn, _ = self._make_connection()
+        conn._ioloop_thread = MagicMock()
+        # First join() returns with thread still alive, second returns dead
+        conn._ioloop_thread.is_alive.return_value = True
+        conn.close(timeout=0.01)
+        self.assertTrue(conn._connection_pool_shutdown)
+
+    def test_connection_event_listener_exception_is_logged_not_lost(self):
+        """A blocked-listener exception must be logged, not silently lost
+        on an unobserved Future."""
+        import concurrent.futures
+        conn, mock_conn, mock_ioloop = self._make_connection()
+        conn._connection_work_pool = concurrent.futures.ThreadPoolExecutor(
+            max_workers=1, thread_name_prefix='pika-conn-test')
+        conn._connection_pool_shutdown = False
+
+        def boom(connection, method_frame):
+            raise RuntimeError('blocked-listener boom')
+
+        def execute_and_fire(cb):
+            cb()
+            wrapped = mock_conn.add_on_connection_blocked_callback.call_args[0][
+                0]
+            wrapped(mock_conn, 'blocked-frame')
+
+        mock_ioloop.add_callback_threadsafe.side_effect = execute_and_fire
+
+        with self.assertLogs('pika.adapters.thread_safe_connection',
+                             level='ERROR') as cm:
+            conn.add_on_connection_blocked_callback(boom)
+            conn._shutdown_connection_pool()
+
+        self.assertTrue(
+            any('add_on_connection_blocked_callback' in msg
+                for msg in cm.output),
+            msg=f'Expected listener label in logs, got: {cm.output}')
 
     def test_context_manager(self):
         conn, mock_conn, mock_ioloop = self._make_connection()

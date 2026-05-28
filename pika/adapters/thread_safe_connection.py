@@ -75,16 +75,24 @@ class ThreadSafeChannel:
             if self._wrapper._closed_reason is not None:
                 raise self._wrapper._closed_reason
 
-    def _dispatch_consumer_callback(self, callback, method, properties, body):
-        """Execute a consumer callback on the pool worker thread.
+    @staticmethod
+    def _safe_dispatch(label, callback, *args):
+        """Execute *callback* on the pool worker, logging any exception.
 
-        Catches and logs exceptions so that one failing delivery does not
-        prevent subsequent deliveries from being processed.
+        Used to wrap user callbacks before submitting them to a
+        :class:`concurrent.futures.ThreadPoolExecutor` so that exceptions
+        are not silently lost in the unobserved ``Future`` and so that one
+        failing dispatch does not prevent subsequent dispatches from being
+        processed.
+
+        :param str label: Human-readable name of the callback for log lines.
+        :param callable callback: The user callback.
+        :param args: Positional arguments forwarded to *callback*.
         """
         try:
-            callback(self, method, properties, body)
+            callback(*args)
         except Exception:
-            LOGGER.exception('Unhandled exception in consumer callback')
+            LOGGER.exception('Unhandled exception in %s', label)
 
     def _shutdown_pool(self):
         """Shut down the consumer work pool, allowing in-flight work to finish."""
@@ -376,7 +384,9 @@ class ThreadSafeChannel:
 
         def _wrapped(method_frame):
             try:
-                self._consumer_work_pool.submit(callback, method_frame)
+                self._consumer_work_pool.submit(self._safe_dispatch,
+                                                'cancel listener', callback,
+                                                method_frame)
             except RuntimeError:
                 LOGGER.debug(
                     'Server-initiated cancel dropped: work pool shut down')
@@ -414,8 +424,9 @@ class ThreadSafeChannel:
 
         def _wrapped(_raw_ch, method, properties, body):
             try:
-                self._consumer_work_pool.submit(callback, self, method,
-                                                properties, body)
+                self._consumer_work_pool.submit(self._safe_dispatch,
+                                                'return listener', callback,
+                                                self, method, properties, body)
             except RuntimeError:
                 LOGGER.debug('Returned message dropped: work pool shut down')
 
@@ -449,7 +460,9 @@ class ThreadSafeChannel:
 
         def _wrapped_ack_nack(method_frame):
             try:
-                self._consumer_work_pool.submit(ack_nack_callback, method_frame)
+                self._consumer_work_pool.submit(self._safe_dispatch,
+                                                'publisher confirm callback',
+                                                ack_nack_callback, method_frame)
             except RuntimeError:
                 LOGGER.debug('Publisher confirm dropped: work pool shut down')
 
@@ -499,9 +512,10 @@ class ThreadSafeChannel:
 
         def _wrapped_callback(ch, method, properties, body):
             try:
-                self._consumer_work_pool.submit(
-                    self._dispatch_consumer_callback, on_message_callback,
-                    method, properties, body)
+                self._consumer_work_pool.submit(self._safe_dispatch,
+                                                'consumer callback',
+                                                on_message_callback, self,
+                                                method, properties, body)
             except RuntimeError:
                 LOGGER.debug('Consumer delivery dropped: work pool shut down')
 
@@ -966,11 +980,22 @@ class ThreadSafeConnection:
         self._connect_error = None
         self._connected_event = threading.Event()
 
+        self._instance_id = next(self._instance_counter)
+
         self._channel_waiters_lock = threading.Lock()
         self._closed_reason = None
         self._blocking_waiters: list[tuple[threading.Event,
                                            list[BaseException | None]]] = []
         self._channels: list[ThreadSafeChannel] = []
+
+        # Single-worker pool for connection-level event callbacks
+        # (Connection.Blocked / Unblocked).  Keeps user code off the
+        # IOLoop thread so a slow listener cannot stall heartbeats.
+        self._connection_work_pool = concurrent.futures.ThreadPoolExecutor(
+            max_workers=1,
+            thread_name_prefix=f'pika-conn-{self._instance_id}',
+        )
+        self._connection_pool_shutdown = False
 
         self._connection = SelectConnection(
             parameters=parameters,
@@ -1000,10 +1025,11 @@ class ThreadSafeConnection:
                     self._connected_event.set()
             # IOLoop has exited - safe to block waiting for pool workers.
             self._shutdown_all_consumer_pools()
+            self._shutdown_connection_pool()
 
         self._ioloop_thread = threading.Thread(
             target=_run_ioloop,
-            name=f'pika-ioloop-{next(self._instance_counter)}',
+            name=f'pika-ioloop-{self._instance_id}',
             daemon=True,
         )
         self._ioloop_thread.start()
@@ -1054,6 +1080,12 @@ class ThreadSafeConnection:
             channels = list(self._channels)
         for ch in channels:
             ch._shutdown_pool()
+
+    def _shutdown_connection_pool(self):
+        """Shut down the connection-level event-callback pool."""
+        if not self._connection_pool_shutdown:
+            self._connection_pool_shutdown = True
+            self._connection_work_pool.shutdown(wait=True)
 
     # ------------------------------------------------------------------
     # Public API
@@ -1175,6 +1207,7 @@ class ThreadSafeConnection:
                         evt.set()
                     self._blocking_waiters.clear()
             self._shutdown_all_consumer_pools()
+            self._shutdown_connection_pool()
 
     def abort(self, timeout=10):
         """Close the connection, swallowing any errors.
@@ -1212,6 +1245,76 @@ class ThreadSafeConnection:
         :param callable callback: Zero-argument callable.
         """
         self._connection.ioloop.add_callback_threadsafe(callback)
+
+    def add_on_connection_blocked_callback(self, callback):
+        """Register a callback for ``Connection.Blocked`` notifications.
+
+        RabbitMQ sends ``Connection.Blocked`` when the broker is running
+        low on memory or disk.  In this state RabbitMQ stops processing
+        incoming data, so a publisher receiving this notification should
+        suspend publishing until the connection is unblocked.
+
+        Dispatched on a connection-level worker thread (one per
+        connection), so the callback may safely call any
+        :class:`ThreadSafeChannel` method without stalling heartbeats.
+
+        Safe to call from any thread.
+
+        :param callable callback:
+            ``callback(connection, method_frame)`` where *connection* is
+            this :class:`ThreadSafeConnection` and *method_frame* contains
+            a :class:`pika.spec.Connection.Blocked`.
+        :raises Exception: if the connection is already closed.
+        """
+        self._register_connection_event_callback(
+            'add_on_connection_blocked_callback', callback)
+
+    def add_on_connection_unblocked_callback(self, callback):
+        """Register a callback for ``Connection.Unblocked`` notifications.
+
+        Sent by RabbitMQ once a previously blocked connection is no
+        longer resource-constrained, letting publishers resume.
+
+        Dispatched on the connection-level worker thread (same as
+        ``add_on_connection_blocked_callback``).
+
+        Safe to call from any thread.
+
+        :param callable callback:
+            ``callback(connection, method_frame)`` where *connection* is
+            this :class:`ThreadSafeConnection` and *method_frame* contains
+            a :class:`pika.spec.Connection.Unblocked`.
+        :raises Exception: if the connection is already closed.
+        """
+        self._register_connection_event_callback(
+            'add_on_connection_unblocked_callback', callback)
+
+    def _register_connection_event_callback(self, raw_method_name, callback):
+        """Register a connection-level event callback via the IOLoop.
+
+        Wraps the user callback so it dispatches on the connection work
+        pool, then schedules registration with the underlying
+        :class:`pika.connection.Connection` on the IOLoop thread.
+        """
+        with self._channel_waiters_lock:
+            if self._closed_reason is not None:
+                raise self._closed_reason
+
+        def _wrapped(_raw_conn, method_frame):
+            try:
+                self._connection_work_pool.submit(
+                    ThreadSafeChannel._safe_dispatch, raw_method_name, callback,
+                    self, method_frame)
+            except RuntimeError:
+                LOGGER.debug('Connection event dropped: work pool shut down')
+
+        def _register():
+            try:
+                getattr(self._connection, raw_method_name)(_wrapped)
+            except Exception:
+                LOGGER.warning('%s failed', raw_method_name, exc_info=True)
+
+        self._connection.ioloop.add_callback_threadsafe(_register)
 
     @property
     def is_open(self):
