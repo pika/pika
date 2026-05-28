@@ -284,6 +284,41 @@ class ThreadSafeChannel:
             global_qos=global_qos,
         )
 
+    def confirm_delivery(self, ack_nack_callback, timeout=DEFAULT_RPC_TIMEOUT):
+        """Enable publisher confirms and block until Confirm.SelectOk arrives.
+
+        The *ack_nack_callback* is dispatched on the channel's worker
+        thread (same as delivery callbacks), not the IOLoop thread.
+
+        Safe to call from any thread.
+
+        :param callable ack_nack_callback:
+            ``callback(method_frame)`` called for each Basic.Ack or
+            Basic.Nack received from the broker.
+        :param float | None timeout: Seconds to wait for the response.
+            Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
+            Pass ``None`` to wait indefinitely.
+        :returns: The Confirm.SelectOk method frame.
+        :rtype: pika.frame.Method
+        :raises Exception: if the connection is closed before the response arrives.
+        :raises TimeoutError: if *timeout* expires before the response arrives.
+        """
+
+        def _wrapped_ack_nack(method_frame):
+            try:
+                self._consumer_work_pool.submit(
+                    ack_nack_callback, method_frame)
+            except RuntimeError:
+                LOGGER.debug(
+                    'Publisher confirm dropped: work pool shut down')
+
+        return self._blocking_rpc(
+            'confirm_delivery',
+            self._channel.confirm_delivery,
+            timeout,
+            ack_nack_callback=_wrapped_ack_nack,
+        )
+
     def basic_consume(self,
                       queue,
                       on_message_callback,
