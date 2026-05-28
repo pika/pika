@@ -752,6 +752,55 @@ class BlockingMethodTimeoutTests(unittest.TestCase):
         result = ch.basic_qos(prefetch_count=1)
         self.assertIs(result, mock_frame)
 
+    def test_timeout_unregisters_waiter(self):
+        """A timed-out RPC must not leave a stale entry in _blocking_waiters."""
+        ch, raw_ch, wrapper = self._make_channel()
+
+        def never_respond(cb):
+            raw_ch.add_on_close_callback = MagicMock()
+            raw_ch.queue_declare = MagicMock()
+            cb()
+
+        wrapper.add_callback_threadsafe.side_effect = never_respond
+
+        with self.assertRaises(TimeoutError):
+            ch.queue_declare(queue='q', timeout=0.05)
+
+        self.assertEqual(wrapper._blocking_waiters, [])
+
+    def test_basic_get_timeout_unregisters_waiter(self):
+        """basic_get timeout must not leak a waiter."""
+        ch, raw_ch, wrapper = self._make_channel()
+
+        def never_respond(cb):
+            raw_ch.add_on_close_callback = MagicMock()
+            raw_ch.add_callback = MagicMock()
+            raw_ch.basic_get = MagicMock()
+            cb()
+
+        wrapper.add_callback_threadsafe.side_effect = never_respond
+
+        with self.assertRaises(TimeoutError):
+            ch.basic_get(queue='q', timeout=0.05)
+
+        self.assertEqual(wrapper._blocking_waiters, [])
+
+    def test_close_timeout_unregisters_waiter(self):
+        """close() timeout must not leak a waiter."""
+        ch, raw_ch, wrapper = self._make_channel()
+        raw_ch.is_closed = False
+        raw_ch.is_closing = False
+
+        def never_respond(cb):
+            raw_ch.add_on_close_callback = MagicMock()
+            raw_ch.close = MagicMock()
+            cb()
+
+        wrapper.add_callback_threadsafe.side_effect = never_respond
+
+        ch.close(timeout=0.05)
+        self.assertEqual(wrapper._blocking_waiters, [])
+
 
 class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
     """Tests for connection-level consumer pool lifecycle management."""
@@ -909,6 +958,21 @@ class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
             conn.channel(timeout=0.05)
 
         self.assertIn('channel open', str(ctx.exception))
+
+    def test_channel_timeout_unregisters_waiter(self):
+        """channel() timeout must not leak a waiter."""
+        conn, mock_conn, mock_ioloop = self._make_connection()
+
+        def never_respond(cb):
+            mock_conn.channel = MagicMock()
+            cb()
+
+        mock_ioloop.add_callback_threadsafe.side_effect = never_respond
+
+        with self.assertRaises(TimeoutError):
+            conn.channel(timeout=0.05)
+
+        self.assertEqual(conn._blocking_waiters, [])
 
 
 class ThreadSafeConnectionTests(unittest.TestCase):

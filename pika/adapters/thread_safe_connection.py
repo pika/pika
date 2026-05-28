@@ -159,11 +159,12 @@ class ThreadSafeChannel:
 
         self._wrapper.add_callback_threadsafe(_invoke)
 
-        if not ready.wait(timeout=timeout):
-            raise TimeoutError(
-                f'{method_name} timed out after {timeout} seconds')
-
-        self._unregister_waiter(ready, error)
+        try:
+            if not ready.wait(timeout=timeout):
+                raise TimeoutError(
+                    f'{method_name} timed out after {timeout} seconds')
+        finally:
+            self._unregister_waiter(ready, error)
 
         if error[0] is not None:
             raise error[0]
@@ -341,10 +342,12 @@ class ThreadSafeChannel:
 
         self._wrapper.add_callback_threadsafe(_get)
 
-        if not ready.wait(timeout=timeout):
-            raise TimeoutError(f'basic_get timed out after {timeout} seconds')
-
-        self._unregister_waiter(ready, error)
+        try:
+            if not ready.wait(timeout=timeout):
+                raise TimeoutError(
+                    f'basic_get timed out after {timeout} seconds')
+        finally:
+            self._unregister_waiter(ready, error)
 
         if error[0] is not None:
             raise error[0]
@@ -781,12 +784,13 @@ class ThreadSafeChannel:
 
         self._wrapper.add_callback_threadsafe(_close)
 
-        if not ready.wait(timeout=timeout):
-            LOGGER.warning('Channel %s close timed out after %s seconds',
-                           self._channel.channel_number, timeout)
-
-        self._shutdown_pool()
-        self._unregister_waiter(ready, error)
+        try:
+            if not ready.wait(timeout=timeout):
+                LOGGER.warning('Channel %s close timed out after %s seconds',
+                               self._channel.channel_number, timeout)
+            self._shutdown_pool()
+        finally:
+            self._unregister_waiter(ready, error)
 
         if error[0] is not None:
             raise error[0]
@@ -995,15 +999,16 @@ class ThreadSafeConnection:
 
         self._connection.ioloop.add_callback_threadsafe(_open)
 
-        if not ready.wait(timeout=timeout):
-            raise TimeoutError(
-                f'channel open timed out after {timeout} seconds')
-
-        with self._channel_waiters_lock:
-            try:
-                self._blocking_waiters.remove((ready, error))
-            except ValueError:
-                pass
+        try:
+            if not ready.wait(timeout=timeout):
+                raise TimeoutError(
+                    f'channel open timed out after {timeout} seconds')
+        finally:
+            with self._channel_waiters_lock:
+                try:
+                    self._blocking_waiters.remove((ready, error))
+                except ValueError:
+                    pass
 
         if error[0] is not None:
             raise error[0]
