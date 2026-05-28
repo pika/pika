@@ -353,6 +353,45 @@ class ThreadSafeChannel:
             raise error[0]
         return tuple(result)
 
+    def add_on_return_callback(self, callback):
+        """Register a callback for messages returned by the broker.
+
+        When a message is published with ``mandatory=True`` and cannot be
+        routed to any queue, the broker returns it via a
+        :class:`pika.spec.Basic.Return`.  The *callback* receives the
+        returned message.
+
+        Dispatched on the per-channel worker thread (same as delivery
+        callbacks), so the callback may safely call any
+        :class:`ThreadSafeChannel` method.
+
+        Safe to call from any thread.
+
+        :param callable callback:
+            ``callback(channel, method, properties, body)`` where
+            *channel* is this :class:`ThreadSafeChannel`, *method* is a
+            :class:`pika.spec.Basic.Return`, *properties* is a
+            :class:`pika.spec.BasicProperties`, and *body* is :class:`bytes`.
+        :raises Exception: if the connection is already closed.
+        """
+        self._check_not_closed()
+
+        def _wrapped(_raw_ch, method, properties, body):
+            try:
+                self._consumer_work_pool.submit(callback, self, method,
+                                                properties, body)
+            except RuntimeError:
+                LOGGER.debug('Returned message dropped: work pool shut down')
+
+        def _register():
+            try:
+                self._channel.add_on_return_callback(_wrapped)
+            except Exception:
+                LOGGER.warning('add_on_return_callback failed',
+                               exc_info=True)
+
+        self._wrapper.add_callback_threadsafe(_register)
+
     def confirm_delivery(self, ack_nack_callback, timeout=DEFAULT_RPC_TIMEOUT):
         """Enable publisher confirms and block until Confirm.SelectOk arrives.
 

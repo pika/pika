@@ -661,6 +661,81 @@ class ConsumerWorkPoolTests(unittest.TestCase):
         ch._shutdown_pool()
         ch._shutdown_pool()  # second call must be a no-op
 
+    def test_add_on_return_callback_routes_through_add_callback_threadsafe(
+            self):
+        ch, raw_ch, wrapper = self._make_channel()
+        ch.add_on_return_callback(MagicMock())
+        wrapper.add_callback_threadsafe.assert_called_once()
+        raw_ch.add_on_return_callback.assert_not_called()
+
+    def test_add_on_return_callback_registers_on_raw_channel(self):
+        ch, raw_ch, wrapper = self._make_channel()
+
+        def execute_immediately(cb):
+            cb()
+
+        wrapper.add_callback_threadsafe.side_effect = execute_immediately
+
+        ch.add_on_return_callback(MagicMock())
+        raw_ch.add_on_return_callback.assert_called_once()
+
+    def test_add_on_return_callback_dispatches_on_worker_thread(self):
+        """Returned messages must run on the per-channel worker, not IOLoop."""
+        ch, raw_ch, wrapper = self._make_channel()
+        callback_thread = []
+        received = []
+
+        def user_cb(channel, method, properties, body):
+            callback_thread.append(threading.current_thread())
+            received.append((channel, method, properties, body))
+
+        def execute_and_fire(cb):
+            cb()
+            # Capture the wrapped callback the wrapper handed to raw_ch
+            wrapped = raw_ch.add_on_return_callback.call_args[0][0]
+            # Simulate the broker returning a message
+            wrapped(raw_ch, 'method', 'props', b'returned-body')
+
+        wrapper.add_callback_threadsafe.side_effect = execute_and_fire
+
+        ch.add_on_return_callback(user_cb)
+        ch._consumer_work_pool.shutdown(wait=True)
+
+        self.assertEqual(len(received), 1)
+        # First arg must be the ThreadSafeChannel, not the raw channel
+        self.assertIs(received[0][0], ch)
+        self.assertEqual(received[0][1:], ('method', 'props', b'returned-body'))
+        self.assertIsNot(callback_thread[0], threading.current_thread())
+        self.assertIn('pika-consumer', callback_thread[0].name)
+
+    def test_add_on_return_callback_after_pool_shutdown_logs_and_drops(self):
+        """A returned message arriving after pool shutdown must not raise."""
+        ch, raw_ch, wrapper = self._make_channel()
+        wrapped_holder = []
+
+        def execute_and_fire(cb):
+            cb()
+            wrapped_holder.append(
+                raw_ch.add_on_return_callback.call_args[0][0])
+
+        wrapper.add_callback_threadsafe.side_effect = execute_and_fire
+
+        ch.add_on_return_callback(MagicMock())
+        ch._shutdown_pool()
+        # Late return must be silently dropped
+        wrapped_holder[0](raw_ch, 'method', 'props', b'late')
+
+    def test_add_on_return_callback_raises_when_connection_closed(self):
+        ch, raw_ch, wrapper = self._make_channel()
+        reason = Exception('closed')
+        wrapper._closed_reason = reason
+
+        with self.assertRaises(Exception) as ctx:
+            ch.add_on_return_callback(MagicMock())
+
+        self.assertIs(ctx.exception, reason)
+        wrapper.add_callback_threadsafe.assert_not_called()
+
 
 class BlockingMethodTimeoutTests(unittest.TestCase):
     """Tests for timeout behavior on blocking methods."""
