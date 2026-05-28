@@ -98,14 +98,14 @@ def encode_value(pieces: list[bytes], value: Any) -> int:
         pieces.append(struct.pack('>cI', b'S', len(value)))
         pieces.append(value)
         return 5 + len(value)
-    elif isinstance(value, bytes):
+    if isinstance(value, bytes):
         pieces.append(struct.pack('>cI', b'x', len(value)))
         pieces.append(value)
         return 5 + len(value)
-    elif isinstance(value, bool):
+    if isinstance(value, bool):
         pieces.append(struct.pack('>cB', b't', int(value)))
         return 2
-    elif isinstance(value, int):
+    if isinstance(value, int):
         try:
             packed = struct.pack('>ci', b'I', value)
             pieces.append(packed)

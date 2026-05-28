@@ -16,7 +16,6 @@ from pika.delivery_mode import DeliveryMode
 from pika.spec import BasicProperties
 
 __all__ = [
-    'adapters',
     'AMQPConnectionWorkflow',
     'BaseConnection',
     'BasicProperties',
@@ -24,8 +23,9 @@ __all__ = [
     'ConnectionParameters',
     'DeliveryMode',
     'PlainCredentials',
-    'SelectConnection',
     'SSLOptions',
     'ThreadSafeConnection',
+    'SelectConnection',
     'URLParameters',
+    'adapters',
 ]

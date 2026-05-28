@@ -41,8 +41,8 @@ class DiagnosticUtilsTest(unittest.TestCase):
         for i in range(len(expected_args)):
             self.assertIs(bucket[0][0][i], expected_args[i])
 
-        for key in expected_kwargs.keys():
-            self.assertIs(bucket[0][1][key], expected_kwargs[key])
+        for key, expected_value in expected_kwargs.items():
+            self.assertIs(bucket[0][1][key], expected_value)
 
         # Now, repeat without any args/kwargs
         expected_args = ()

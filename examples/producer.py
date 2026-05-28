@@ -31,7 +31,7 @@ def getticker():
 
 _COUNT_ = 10
 
-for i in range(0, _COUNT_):
+for i in range(_COUNT_):
     ticker = getticker()
     msg = {
         'order.stop.create': {

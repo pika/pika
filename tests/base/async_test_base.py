@@ -94,8 +94,7 @@ class AsyncTestCase(unittest.TestCase):
         """
         if enable_tls():
             return self._new_tls_connection_params()
-        else:
-            return self._new_plaintext_connection_params()
+        return self._new_plaintext_connection_params()
 
     def _new_tls_connection_params(self):
         """
@@ -104,8 +103,7 @@ class AsyncTestCase(unittest.TestCase):
         """
         self.logger.info('testing using TLS/SSL connection to port 5671')
         url = 'amqps://localhost:5671/%2F?ssl_options=%7B%27ca_certs%27%3A%27testdata%2Fcerts%2Fca_certificate.pem%27%2C%27keyfile%27%3A%27testdata%2Fcerts%2Fclient_key.pem%27%2C%27certfile%27%3A%27testdata%2Fcerts%2Fclient_certificate.pem%27%7D'
-        params = pika.URLParameters(url)
-        return params
+        return pika.URLParameters(url)
 
     @staticmethod
     def _new_plaintext_connection_params():
@@ -122,8 +120,7 @@ class AsyncTestCase(unittest.TestCase):
         method_desc = super().shortDescription()
         if self.DESCRIPTION:
             return f"{self.DESCRIPTION} ({method_desc})"
-        else:
-            return method_desc
+        return method_desc
 
     def begin(self, channel):
         """Extend to start the actual tests on the channel"""

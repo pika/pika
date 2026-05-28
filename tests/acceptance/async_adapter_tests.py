@@ -510,7 +510,7 @@ class TestConsumeCancel(AsyncTestCase, AsyncAdapters):
                               callback=self.on_queue_declared)
 
     def on_queue_declared(self, frame):
-        for i in range(0, 100):
+        for i in range(100):
             msg_body = f'{self.__class__.__name__}:{i}:{time_now()}'
             self.channel.basic_publish('', self.queue_name, msg_body)
         self.ctag = self.channel.basic_consume(self.queue_name,
@@ -602,7 +602,7 @@ class TestNoDeadlockWhenClosingChannelWithPendingBlockedRequestsAndConcurrentCha
     def begin(self, channel):
         base_exch_name = self.__class__.__name__ + ':' + uuid.uuid1().hex
         self.channel.add_on_close_callback(self.on_channel_closed)
-        for i in range(0, 99):
+        for i in range(99):
             # Passively declare a non-existent exchange to force Channel.Close
             # from broker
             exch_name = base_exch_name + ':' + str(i)
@@ -837,7 +837,7 @@ class TestZ_PublishAndConsumeBig(BoundQueueTestCase, AsyncAdapters):
 
     @staticmethod
     def _get_msg_body():
-        return '\n'.join([f"{i}" for i in range(0, 2097152)])
+        return '\n'.join([f"{i}" for i in range(2097152)])
 
     def on_ready(self, frame):
         self.ctag = self.channel.basic_consume(self.queue, self.on_message)

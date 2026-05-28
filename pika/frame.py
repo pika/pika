@@ -119,10 +119,8 @@ class Body(Frame):
 
     def __init__(self, channel_number: int, fragment: bytes) -> None:
         """
-        Parameters:
-
-        - channel_number: int
-        - fragment: bytes
+        :param int channel_number: The channel number for the frame
+        :param bytes fragment: The fragment of the body
         """
         Frame.__init__(self, spec.FRAME_BODY, channel_number)
         self.fragment = fragment
@@ -244,10 +242,10 @@ def decode_frame(data_in: bytes) -> tuple[int, Frame | ProtocolHeader | None]:
         # Return the amount of data consumed and the Method object
         return frame_end, Method(channel_number, method)
 
-    elif frame_type == spec.FRAME_HEADER:
+    if frame_type == spec.FRAME_HEADER:
 
         # Return the header class and body size
-        class_id, weight, body_size = struct.unpack_from('>HHQ', frame_data)
+        class_id, _weight, body_size = struct.unpack_from('>HHQ', frame_data)
 
         # Get the Properties type
         properties = spec.props[class_id]()
@@ -258,12 +256,12 @@ def decode_frame(data_in: bytes) -> tuple[int, Frame | ProtocolHeader | None]:
         # Return a Header frame
         return frame_end, Header(channel_number, body_size, properties)
 
-    elif frame_type == spec.FRAME_BODY:
+    if frame_type == spec.FRAME_BODY:
 
         # Return the amount of data consumed and the Body frame w/ data
         return frame_end, Body(channel_number, frame_data)
 
-    elif frame_type == spec.FRAME_HEARTBEAT:
+    if frame_type == spec.FRAME_HEARTBEAT:
 
         # Return the amount of data and a Heartbeat frame
         return frame_end, Heartbeat()

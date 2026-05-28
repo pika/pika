@@ -559,11 +559,10 @@ class _AddressResolver:
                 self._cleanup()
 
                 return True
-            else:
-                LOGGER.debug(
-                    'Ignoring _AddressResolver cancel request when not ACTIVE; '
-                    '(%s:%s); state=%s', self._host, self._port, self._state)
-                return False
+            LOGGER.debug(
+                'Ignoring _AddressResolver cancel request when not ACTIVE; '
+                '(%s:%s); state=%s', self._host, self._port, self._state)
+            return False
 
     def _resolve(self) -> None:
         """Call `socket.getaddrinfo()` and return result via user's callback

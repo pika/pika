@@ -21,7 +21,6 @@ import pika.diagnostic_utils
 from pika.adapters.utils.nbio_interface import AbstractIOReference, AbstractStreamTransport
 
 if TYPE_CHECKING:
-    import pika.connection
     from pika.adapters.utils import nbio_interface
 
 # "Try again" error codes for non-blocking socket I/O - send()/recv().
@@ -85,8 +84,7 @@ def _retry_on_sigint(func):
             except pika._utils.SOCKET_ERROR as error:
                 if error.errno == errno.EINTR:
                     continue
-                else:
-                    raise
+                raise
 
     return retry_sigint_wrap
 

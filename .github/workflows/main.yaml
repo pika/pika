@@ -36,13 +36,14 @@ jobs:
           python -m pip install --upgrade pip wheel
           python -m pip install hatch
       - name: Test with pytest
-        run: hatch run test -- -v --cov=pika --cov-report=xml ${{ matrix.test-tls && '--use-tls' || '' }}
+        run: hatch run test -v --cov=pika --cov-report=xml:coverage.xml ${{ matrix.test-tls && '--use-tls' || '' }}
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v6
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage.xml
-          flags: windows,py${{ matrix.python-version }},tls-${{ matrix.test-tls }}
+          disable_search: true
+          flags: windows-py${{ matrix.python-version }}-tls-${{ matrix.test-tls }}
           fail_ci_if_error: false
   build-linux:
     name: build/test on ubuntu-latest
@@ -67,13 +68,14 @@ jobs:
           python -m pip install --upgrade pip wheel
           python -m pip install hatch
       - name: Test with pytest
-        run: hatch run test -- -v --cov=pika --cov-report=xml
+        run: hatch run test -v --cov=pika --cov-report=xml:coverage.xml
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v6
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage.xml
-          flags: linux,py${{ matrix.python-version }}
+          disable_search: true
+          flags: linux-py${{ matrix.python-version }}
           fail_ci_if_error: false
   build-macos:
     name: build/test on macos-latest
@@ -94,11 +96,12 @@ jobs:
           python -m pip install --upgrade pip wheel
           python -m pip install hatch
       - name: Test with pytest
-        run: hatch run test -- -v --cov=pika --cov-report=xml
+        run: hatch run test -v --cov=pika --cov-report=xml:coverage.xml
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v6
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage.xml
-          flags: macos,py${{ matrix.python-version }}
+          disable_search: true
+          flags: macos-py${{ matrix.python-version }}
           fail_ci_if_error: false

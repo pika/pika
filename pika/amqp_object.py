@@ -26,8 +26,7 @@ class AMQPObject:
     def __eq__(self, other: object) -> bool:
         if other is not None:
             return self.__dict__ == other.__dict__
-        else:
-            return False
+        return False
 
 
 class Class(AMQPObject):
