@@ -1,12 +1,28 @@
-name: pika (legacy Python)
+name: pika tests (reusable)
 
 on:
-  push:
-    branches:
-      - "**"
-  pull_request:
-    branches:
-      - main
+  workflow_call:
+    inputs:
+      python-versions:
+        description: 'JSON array of Python versions to test, e.g. ''["3.10","3.11"]'''
+        required: true
+        type: string
+      ubuntu-runner:
+        description: 'Ubuntu runner image, e.g. ubuntu-latest or ubuntu-22.04'
+        required: true
+        type: string
+      macos-runner:
+        description: 'macOS runner image, e.g. macos-latest or macos-15-intel'
+        required: true
+        type: string
+      legacy:
+        description: 'Apply legacy-Python tweaks (virtualenv pin)'
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      CODECOV_TOKEN:
+        required: false
 
 jobs:
   build-windows:
@@ -14,7 +30,7 @@ jobs:
     runs-on: windows-latest
     strategy:
       matrix:
-        python-version: [ '3.7', '3.8', '3.9' ]
+        python-version: ${{ fromJSON(inputs.python-versions) }}
         test-tls: [true, false]
     steps:
       - uses: actions/checkout@v6
@@ -22,21 +38,38 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
+      - name: Resolve RabbitMQ and Erlang versions
+        id: versions
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $rmq = (gh release view --repo rabbitmq/rabbitmq-server --json tagName --jq '.tagName | ltrimstr("v")')
+          if (-Not $rmq) { throw 'could not resolve RabbitMQ version' }
+          $otp_table = (gh api 'repos/erlang/otp/contents/otp_versions.table' -H 'Accept: application/vnd.github.raw')
+          $otp = ($otp_table -split "`n" `
+              | Select-String -Pattern '^OTP-27\.' `
+              | ForEach-Object { ($_.Line -split '\s+')[0] -replace '^OTP-','' } `
+              | Sort-Object -Property { [version]$_ } `
+              | Select-Object -Last 1)
+          if (-Not $otp) { throw 'could not resolve Erlang 27 version' }
+          "rabbitmq=$rmq" >> $env:GITHUB_OUTPUT
+          "erlang=$otp"   >> $env:GITHUB_OUTPUT
+          Write-Host "rabbitmq=$rmq erlang=$otp"
       - name: Cache installers
         uses: actions/cache@v5
         with:
-          # Note: the cache path is relative to the workspace directory
-          # https://docs.github.com/en/actions/using-workflows/caching-dependencies-to-speed-up-workflows#using-the-cache-action
           path: ~/installers
-          key: ${{ runner.os }}-v0-${{ hashFiles('.ci/windows/gha-setup.ps1') }}
+          key: ${{ runner.os }}-rmq${{ steps.versions.outputs.rabbitmq }}-otp${{ steps.versions.outputs.erlang }}
       - name: Install and start RabbitMQ
         env:
-          GH_TOKEN: ${{ github.token }}
+          RABBITMQ_VERSION: ${{ steps.versions.outputs.rabbitmq }}
+          ERLANG_VERSION: ${{ steps.versions.outputs.erlang }}
         run: ./.ci/windows/gha-setup.ps1
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip wheel
-          python -m pip install hatch "virtualenv<21.0.0"
+          python -m pip install hatch ${{ inputs.legacy && '"virtualenv<21.0.0"' || '' }}
       - name: Test with pytest
         run: hatch run test -v --cov=pika --cov-report=xml:coverage.xml ${{ matrix.test-tls && '--use-tls' || '' }}
       - name: Upload coverage to Codecov
@@ -44,15 +77,16 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage.xml
-          flags: windows-py${{ matrix.python-version }}-tls-${{ matrix.test-tls }}
           disable_search: true
+          flags: windows-py${{ matrix.python-version }}-tls-${{ matrix.test-tls }}
           fail_ci_if_error: false
+
   build-linux:
-    name: build/test on ubuntu-22.04
-    runs-on: ubuntu-22.04
+    name: build/test on ${{ inputs.ubuntu-runner }}
+    runs-on: ${{ inputs.ubuntu-runner }}
     strategy:
       matrix:
-        python-version: [ '3.7', '3.8', '3.9' ]
+        python-version: ${{ fromJSON(inputs.python-versions) }}
     services:
       rabbitmq:
         image: rabbitmq:latest
@@ -68,7 +102,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip wheel
-          python -m pip install hatch "virtualenv<21.0.0"
+          python -m pip install hatch ${{ inputs.legacy && '"virtualenv<21.0.0"' || '' }}
       - name: Test with pytest
         run: hatch run test -v --cov=pika --cov-report=xml:coverage.xml
       - name: Upload coverage to Codecov
@@ -79,19 +113,19 @@ jobs:
           disable_search: true
           flags: linux-py${{ matrix.python-version }}
           fail_ci_if_error: false
+
   build-macos:
-    name: build/test on macos-15-intel
-    runs-on: macos-15-intel
+    name: build/test on ${{ inputs.macos-runner }}
+    runs-on: ${{ inputs.macos-runner }}
     strategy:
       matrix:
-        python-version: [ '3.7', '3.8', '3.9' ]
+        python-version: ${{ fromJSON(inputs.python-versions) }}
     steps:
       - uses: actions/checkout@v6
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
-          architecture: x64
       - name: Install and start RabbitMQ
         env:
           GH_TOKEN: ${{ github.token }}
@@ -99,7 +133,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip wheel
-          python -m pip install hatch "virtualenv<21.0.0"
+          python -m pip install hatch ${{ inputs.legacy && '"virtualenv<21.0.0"' || '' }}
       - name: Test with pytest
         run: hatch run test -v --cov=pika --cov-report=xml:coverage.xml
       - name: Upload coverage to Codecov
