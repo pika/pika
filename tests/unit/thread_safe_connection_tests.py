@@ -1210,6 +1210,38 @@ class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
 
         self.assertEqual(conn._blocking_waiters, [])
 
+    def test_channel_raises_if_connection_closes_during_open(self):
+        """channel() must raise (not return a leaked channel) if the
+        connection closes between Channel.OpenOk and the caller waking.
+
+        Without the race guard, a ThreadSafeChannel would be appended to
+        _channels after _shutdown_all_consumer_pools() had already run,
+        leaking the per-channel consumer pool.
+        """
+        conn, mock_conn, mock_ioloop = self._make_connection()
+        mock_raw_ch = MagicMock()
+        reason = Exception('connection lost')
+
+        def execute_and_close(cb):
+
+            def fake_channel(on_open_callback):
+                # Channel.OpenOk fires...
+                on_open_callback(mock_raw_ch)
+                # ...and then the connection closes before the caller wakes.
+                conn._closed_reason = reason
+
+            mock_conn.channel.side_effect = fake_channel
+            cb()
+
+        mock_ioloop.add_callback_threadsafe.side_effect = execute_and_close
+
+        with self.assertRaises(Exception) as ctx:
+            conn.channel()
+
+        self.assertIs(ctx.exception, reason)
+        # Channel must NOT have been appended to _channels.
+        self.assertEqual(conn._channels, [])
+
 
 class ThreadSafeConnectionTests(unittest.TestCase):
 

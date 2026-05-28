@@ -1141,8 +1141,14 @@ class ThreadSafeConnection:
         if error[0] is not None:
             raise error[0]
 
-        ch = ThreadSafeChannel(result[0], self)
+        # Race guard: the connection may have closed on the IOLoop thread
+        # after _on_open fired but before we woke up.  Without this check,
+        # _shutdown_all_consumer_pools() would have already run and the
+        # newly-constructed channel's consumer pool would never be reached.
         with self._channel_waiters_lock:
+            if self._closed_reason is not None:
+                raise self._closed_reason
+            ch = ThreadSafeChannel(result[0], self)
             self._channels.append(ch)
         return ch
 
