@@ -102,7 +102,7 @@ class AsyncTestCase(unittest.TestCase):
 
         """
         self.logger.info('testing using TLS/SSL connection to port 5671')
-        url = 'amqps://localhost:5671/%2F?ssl_options=%7B%27ca_certs%27%3A%27testdata%2Fcerts%2Fca_certificate.pem%27%2C%27keyfile%27%3A%27testdata%2Fcerts%2Fclient_key.pem%27%2C%27certfile%27%3A%27testdata%2Fcerts%2Fclient_certificate.pem%27%7D'
+        url = 'amqps://localhost:5671/%2F?ssl_options=%7B%27ca_certs%27%3A%27tests%2Fcerts%2Fca_certificate.pem%27%2C%27keyfile%27%3A%27tests%2Fcerts%2Fclient_key.pem%27%2C%27certfile%27%3A%27tests%2Fcerts%2Fclient_certificate.pem%27%7D'
         return pika.URLParameters(url)
 
     @staticmethod
