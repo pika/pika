@@ -997,12 +997,20 @@ class ThreadSafeConnection:
         )
         self._connection_pool_shutdown = False
 
-        self._connection = SelectConnection(
-            parameters=parameters,
-            on_open_callback=self._on_connection_open,
-            on_open_error_callback=self._on_connection_open_error,
-            on_close_callback=self._on_connection_closed,
-        )
+        try:
+            self._connection = SelectConnection(
+                parameters=parameters,
+                on_open_callback=self._on_connection_open,
+                on_open_error_callback=self._on_connection_open_error,
+                on_close_callback=self._on_connection_closed,
+            )
+        except Exception:
+            # SelectConnection construction failed before the IOLoop thread
+            # started, so _run_ioloop's cleanup tail will never run.  Shut
+            # the connection-event pool down here to avoid leaking its
+            # worker thread.
+            self._shutdown_connection_pool()
+            raise
 
         def _run_ioloop():
             try:
@@ -1040,8 +1048,16 @@ class ThreadSafeConnection:
                 f'connection attempt timed out after {timeout} seconds')
             self._connection.ioloop.add_callback_threadsafe(
                 self._connection.ioloop.stop)
+            # Wait for the IOLoop thread to exit so it can shut down the
+            # consumer and connection pools before we raise.  Otherwise
+            # those pools' worker threads outlive __init__.
+            self._ioloop_thread.join(timeout=timeout)
             raise self._connect_error
         if self._connect_error is not None:
+            # IOLoop thread already exited (open-error path stops the
+            # IOLoop) but its cleanup tail may still be running; wait
+            # briefly so pool shutdown completes before we raise.
+            self._ioloop_thread.join(timeout=timeout)
             raise self._connect_error
 
     # ------------------------------------------------------------------

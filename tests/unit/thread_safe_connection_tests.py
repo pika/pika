@@ -1179,6 +1179,90 @@ class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
             self.assertIn('timed out', str(ctx.exception))
             mock_ioloop.add_callback_threadsafe.assert_called()
 
+    def test_init_failure_shuts_down_connection_pool(self):
+        """If SelectConnection construction raises, the connection-event
+        pool must be shut down before __init__ propagates the exception.
+        Otherwise its worker thread leaks for the lifetime of the process.
+        """
+        boom = RuntimeError('boom')
+        with patch('pika.adapters.thread_safe_connection.SelectConnection',
+                   side_effect=boom):
+            captured = []
+
+            # Capture the pool reference before __init__ raises so we can
+            # assert it shut down.  We patch ThreadPoolExecutor to record
+            # the instance that __init__ created.
+            real_executor_cls = (__import__('concurrent.futures',
+                                            fromlist=['ThreadPoolExecutor'
+                                                     ]).ThreadPoolExecutor)
+
+            def capturing_executor(*a, **kw):
+                inst = real_executor_cls(*a, **kw)
+                captured.append(inst)
+                return inst
+
+            with patch(
+                    'pika.adapters.thread_safe_connection.'
+                    'concurrent.futures.ThreadPoolExecutor',
+                    side_effect=capturing_executor):
+                with self.assertRaises(RuntimeError) as ctx:
+                    ThreadSafeConnection(parameters='params')
+            self.assertIs(ctx.exception, boom)
+            self.assertEqual(len(captured), 1)
+            # The captured executor must be shut down.  shutdown(wait=True)
+            # will be a no-op if already shut down, but submit() raises
+            # RuntimeError on a shut-down executor; use that as the probe.
+            with self.assertRaises(RuntimeError):
+                captured[0].submit(lambda: None)
+
+    def test_init_timeout_joins_ioloop_thread(self):
+        """When __init__ raises TimeoutError it must wait for the IOLoop
+        thread to exit so consumer/connection pools are shut down."""
+        with patch('pika.adapters.thread_safe_connection.SelectConnection'
+                  ) as MockSelectConn:
+            mock_conn = MagicMock()
+            mock_ioloop = MagicMock()
+            mock_conn.ioloop = mock_ioloop
+            stop_event = threading.Event()
+
+            def slow_start():
+                # Block until __init__ raises and signals us; then exit so
+                # _run_ioloop's cleanup tail runs.
+                stop_event.wait(timeout=2)
+
+            def stop_signal(_cb):
+                # The post-timeout add_callback_threadsafe(stop) lands here.
+                stop_event.set()
+
+            mock_ioloop.start = slow_start
+            mock_ioloop.add_callback_threadsafe.side_effect = stop_signal
+
+            def fake_init(parameters, on_open_callback, on_open_error_callback,
+                          on_close_callback):
+                return mock_conn
+
+            MockSelectConn.side_effect = fake_init
+            MockSelectConn.return_value = mock_conn
+
+            try:
+                ThreadSafeConnection(parameters='params', timeout=0.05)
+            except TimeoutError as exc:
+                # By the time the TimeoutError reaches us, the IOLoop
+                # thread must have been joined - i.e., it is no longer
+                # alive.  Find it via thread enumeration; the daemon flag
+                # is set, so it would otherwise outlive __init__.
+                live_ioloop_threads = [
+                    t for t in threading.enumerate()
+                    if t.name.startswith('pika-ioloop-') and t.is_alive()
+                ]
+                self.assertEqual(
+                    live_ioloop_threads, [],
+                    msg=f'IOLoop thread still alive after TimeoutError: '
+                    f'{live_ioloop_threads}')
+                self.assertIn('timed out', str(exc))
+            else:
+                self.fail('Expected TimeoutError')
+
     def test_channel_raises_timeout_error(self):
         """channel() must raise TimeoutError if Channel.OpenOk never arrives."""
         conn, mock_conn, mock_ioloop = self._make_connection()
