@@ -715,8 +715,7 @@ class ConsumerWorkPoolTests(unittest.TestCase):
 
         def execute_and_fire(cb):
             cb()
-            wrapped_holder.append(
-                raw_ch.add_on_return_callback.call_args[0][0])
+            wrapped_holder.append(raw_ch.add_on_return_callback.call_args[0][0])
 
         wrapper.add_callback_threadsafe.side_effect = execute_and_fire
 
@@ -732,6 +731,73 @@ class ConsumerWorkPoolTests(unittest.TestCase):
 
         with self.assertRaises(Exception) as ctx:
             ch.add_on_return_callback(MagicMock())
+
+        self.assertIs(ctx.exception, reason)
+        wrapper.add_callback_threadsafe.assert_not_called()
+
+    def test_add_on_cancel_callback_routes_through_add_callback_threadsafe(
+            self):
+        ch, raw_ch, wrapper = self._make_channel()
+        ch.add_on_cancel_callback(MagicMock())
+        wrapper.add_callback_threadsafe.assert_called_once()
+        raw_ch.add_on_cancel_callback.assert_not_called()
+
+    def test_add_on_cancel_callback_registers_on_raw_channel(self):
+        ch, raw_ch, wrapper = self._make_channel()
+
+        def execute_immediately(cb):
+            cb()
+
+        wrapper.add_callback_threadsafe.side_effect = execute_immediately
+
+        ch.add_on_cancel_callback(MagicMock())
+        raw_ch.add_on_cancel_callback.assert_called_once()
+
+    def test_add_on_cancel_callback_dispatches_on_worker_thread(self):
+        """Server-initiated cancel must run on the per-channel worker."""
+        ch, raw_ch, wrapper = self._make_channel()
+        callback_thread = []
+        received = []
+
+        def user_cb(method_frame):
+            callback_thread.append(threading.current_thread())
+            received.append(method_frame)
+
+        def execute_and_fire(cb):
+            cb()
+            wrapped = raw_ch.add_on_cancel_callback.call_args[0][0]
+            wrapped('cancel-frame')
+
+        wrapper.add_callback_threadsafe.side_effect = execute_and_fire
+
+        ch.add_on_cancel_callback(user_cb)
+        ch._consumer_work_pool.shutdown(wait=True)
+
+        self.assertEqual(received, ['cancel-frame'])
+        self.assertIsNot(callback_thread[0], threading.current_thread())
+        self.assertIn('pika-consumer', callback_thread[0].name)
+
+    def test_add_on_cancel_callback_after_pool_shutdown_logs_and_drops(self):
+        ch, raw_ch, wrapper = self._make_channel()
+        wrapped_holder = []
+
+        def execute_and_fire(cb):
+            cb()
+            wrapped_holder.append(raw_ch.add_on_cancel_callback.call_args[0][0])
+
+        wrapper.add_callback_threadsafe.side_effect = execute_and_fire
+
+        ch.add_on_cancel_callback(MagicMock())
+        ch._shutdown_pool()
+        wrapped_holder[0]('late-cancel')  # must not raise
+
+    def test_add_on_cancel_callback_raises_when_connection_closed(self):
+        ch, raw_ch, wrapper = self._make_channel()
+        reason = Exception('closed')
+        wrapper._closed_reason = reason
+
+        with self.assertRaises(Exception) as ctx:
+            ch.add_on_cancel_callback(MagicMock())
 
         self.assertIs(ctx.exception, reason)
         wrapper.add_callback_threadsafe.assert_not_called()

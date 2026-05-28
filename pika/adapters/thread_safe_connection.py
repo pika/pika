@@ -353,6 +353,42 @@ class ThreadSafeChannel:
             raise error[0]
         return tuple(result)
 
+    def add_on_cancel_callback(self, callback):
+        """Register a callback for server-initiated consumer cancellation.
+
+        The broker sends ``Basic.Cancel`` when a consumer is cancelled by
+        the server (for example, when the queue the consumer is bound to
+        is deleted).  Without registering this callback, a consumer can
+        silently stop receiving messages.
+
+        Dispatched on the per-channel worker thread (same as delivery
+        callbacks), so the callback may safely call any
+        :class:`ThreadSafeChannel` method.
+
+        Safe to call from any thread.
+
+        :param callable callback:
+            ``callback(method_frame)`` where *method_frame* contains a
+            :class:`pika.spec.Basic.Cancel`.
+        :raises Exception: if the connection is already closed.
+        """
+        self._check_not_closed()
+
+        def _wrapped(method_frame):
+            try:
+                self._consumer_work_pool.submit(callback, method_frame)
+            except RuntimeError:
+                LOGGER.debug(
+                    'Server-initiated cancel dropped: work pool shut down')
+
+        def _register():
+            try:
+                self._channel.add_on_cancel_callback(_wrapped)
+            except Exception:
+                LOGGER.warning('add_on_cancel_callback failed', exc_info=True)
+
+        self._wrapper.add_callback_threadsafe(_register)
+
     def add_on_return_callback(self, callback):
         """Register a callback for messages returned by the broker.
 
@@ -387,8 +423,7 @@ class ThreadSafeChannel:
             try:
                 self._channel.add_on_return_callback(_wrapped)
             except Exception:
-                LOGGER.warning('add_on_return_callback failed',
-                               exc_info=True)
+                LOGGER.warning('add_on_return_callback failed', exc_info=True)
 
         self._wrapper.add_callback_threadsafe(_register)
 
