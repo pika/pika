@@ -28,8 +28,10 @@ jobs:
           # Note: the cache path is relative to the workspace directory
           # https://docs.github.com/en/actions/using-workflows/caching-dependencies-to-speed-up-workflows#using-the-cache-action
           path: ~/installers
-          key: ${{ runner.os }}-v0-${{ hashFiles('testdata/versions.json') }}
+          key: ${{ runner.os }}-v0-${{ hashFiles('.ci/windows/gha-setup.ps1') }}
       - name: Install and start RabbitMQ
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: ./.ci/windows/gha-setup.ps1
       - name: Install dependencies
         run: |
@@ -45,26 +47,15 @@ jobs:
           disable_search: true
           flags: windows-py${{ matrix.python-version }}-tls-${{ matrix.test-tls }}
           fail_ci_if_error: false
-  get-versions:
-    name: read pinned versions
-    runs-on: ubuntu-latest
-    outputs:
-      rabbitmq: ${{ steps.v.outputs.rabbitmq }}
-    steps:
-      - uses: actions/checkout@v6
-      - id: v
-        run: echo "rabbitmq=$(jq -r .rabbitmq testdata/versions.json)" >> $GITHUB_OUTPUT
-
   build-linux:
     name: build/test on ubuntu-latest
     runs-on: ubuntu-latest
-    needs: get-versions
     strategy:
       matrix:
         python-version: [ '3.10', '3.11', '3.12', '3.13', '3.14' ]
     services:
       rabbitmq:
-        image: rabbitmq:${{ needs.get-versions.outputs.rabbitmq }}
+        image: rabbitmq:latest
         ports:
           - 5672:5672
     steps:
@@ -100,6 +91,8 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install and start RabbitMQ
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: ./.ci/macos/gha-setup.sh
       - name: Install dependencies
         run: |
