@@ -22,12 +22,12 @@ class ThreadSafeChannelTests(unittest.TestCase):
         return ThreadSafeChannel(raw_ch, wrapper), raw_ch, wrapper
 
     def test_basic_publish_routes_through_add_callback_threadsafe(self):
-        ch, raw_ch, wrapper = self._make_channel()
+        ch, _raw_ch, wrapper = self._make_channel()
         ch.basic_publish(exchange='ex', routing_key='rk', body=b'hello')
         wrapper.add_callback_threadsafe.assert_called_once()
 
     def test_basic_publish_does_not_call_raw_channel_directly(self):
-        ch, raw_ch, wrapper = self._make_channel()
+        ch, raw_ch, _wrapper = self._make_channel()
         ch.basic_publish(exchange='ex', routing_key='rk', body=b'hello')
         raw_ch.basic_publish.assert_not_called()
 
@@ -87,7 +87,7 @@ class ThreadSafeChannelTests(unittest.TestCase):
         raw_ch.basic_reject.assert_called_once()
 
     def test_basic_publish_raises_when_connection_already_closed(self):
-        ch, raw_ch, wrapper = self._make_channel()
+        ch, _raw_ch, wrapper = self._make_channel()
         reason = Exception('closed')
         wrapper._closed_reason = reason
 
@@ -98,7 +98,7 @@ class ThreadSafeChannelTests(unittest.TestCase):
         wrapper.add_callback_threadsafe.assert_not_called()
 
     def test_basic_ack_raises_when_connection_already_closed(self):
-        ch, raw_ch, wrapper = self._make_channel()
+        ch, _raw_ch, wrapper = self._make_channel()
         reason = Exception('closed')
         wrapper._closed_reason = reason
 
@@ -109,7 +109,7 @@ class ThreadSafeChannelTests(unittest.TestCase):
         wrapper.add_callback_threadsafe.assert_not_called()
 
     def test_basic_nack_raises_when_connection_already_closed(self):
-        ch, raw_ch, wrapper = self._make_channel()
+        ch, _raw_ch, wrapper = self._make_channel()
         reason = Exception('closed')
         wrapper._closed_reason = reason
 
@@ -120,7 +120,7 @@ class ThreadSafeChannelTests(unittest.TestCase):
         wrapper.add_callback_threadsafe.assert_not_called()
 
     def test_basic_reject_raises_when_connection_already_closed(self):
-        ch, raw_ch, wrapper = self._make_channel()
+        ch, _raw_ch, wrapper = self._make_channel()
         reason = Exception('closed')
         wrapper._closed_reason = reason
 
@@ -201,7 +201,7 @@ class ThreadSafeChannelTests(unittest.TestCase):
         )
 
     def test_queue_declare_raises_when_connection_already_closed(self):
-        ch, raw_ch, wrapper = self._make_channel()
+        ch, _raw_ch, wrapper = self._make_channel()
         reason = Exception('connection closed')
         wrapper._closed_reason = reason
 
@@ -212,7 +212,7 @@ class ThreadSafeChannelTests(unittest.TestCase):
         wrapper.add_callback_threadsafe.assert_not_called()
 
     def test_queue_declare_raises_when_connection_closes_while_waiting(self):
-        ch, raw_ch, wrapper = self._make_channel()
+        ch, _raw_ch, wrapper = self._make_channel()
         reason = Exception('connection lost')
 
         def close_while_waiting(cb):
@@ -256,7 +256,7 @@ class ThreadSafeChannelTests(unittest.TestCase):
         )
 
     def test_basic_qos_raises_when_connection_already_closed(self):
-        ch, raw_ch, wrapper = self._make_channel()
+        ch, _raw_ch, wrapper = self._make_channel()
         reason = Exception('closed')
         wrapper._closed_reason = reason
 
@@ -317,7 +317,7 @@ class ThreadSafeChannelTests(unittest.TestCase):
         self.assertIs(received[0], ch)
 
     def test_basic_consume_raises_when_connection_already_closed(self):
-        ch, raw_ch, wrapper = self._make_channel()
+        ch, _raw_ch, wrapper = self._make_channel()
         reason = Exception('closed')
         wrapper._closed_reason = reason
 
@@ -349,7 +349,7 @@ class ThreadSafeChannelTests(unittest.TestCase):
         )
 
     def test_basic_cancel_raises_when_connection_already_closed(self):
-        ch, raw_ch, wrapper = self._make_channel()
+        ch, _raw_ch, wrapper = self._make_channel()
         reason = Exception('closed')
         wrapper._closed_reason = reason
 
@@ -379,7 +379,7 @@ class ThreadSafeChannelTests(unittest.TestCase):
                                              reply_text='Normal shutdown')
 
     def test_channel_close_raises_when_connection_already_closed(self):
-        ch, raw_ch, wrapper = self._make_channel()
+        ch, _raw_ch, wrapper = self._make_channel()
         reason = Exception('connection closed')
         wrapper._closed_reason = reason
 
@@ -402,7 +402,7 @@ class ThreadSafeChannelTests(unittest.TestCase):
         raw_ch.close.assert_not_called()
 
     def test_channel_abort_swallows_close_errors(self):
-        ch, raw_ch, wrapper = self._make_channel()
+        ch, _raw_ch, wrapper = self._make_channel()
         reason = Exception('connection already closed')
         wrapper._closed_reason = reason
 
@@ -423,14 +423,14 @@ class ThreadSafeChannelTests(unittest.TestCase):
         self.assertTrue(ch._pool_shutdown)
 
     def test_properties_delegate_to_raw_channel(self):
-        ch, raw_ch, wrapper = self._make_channel()
+        ch, raw_ch, _wrapper = self._make_channel()
         self.assertEqual(ch.channel_number, raw_ch.channel_number)
         self.assertEqual(ch.is_open, raw_ch.is_open)
         self.assertEqual(ch.is_closed, raw_ch.is_closed)
 
     def test_concurrent_publishes_all_scheduled(self):
         """All publishes from N threads must each schedule exactly one callback."""
-        ch, raw_ch, wrapper = self._make_channel()
+        ch, _raw_ch, wrapper = self._make_channel()
         n = 20
         barrier = threading.Barrier(n)
 
@@ -725,7 +725,7 @@ class ConsumerWorkPoolTests(unittest.TestCase):
         wrapped_holder[0](raw_ch, 'method', 'props', b'late')
 
     def test_add_on_return_callback_raises_when_connection_closed(self):
-        ch, raw_ch, wrapper = self._make_channel()
+        ch, _raw_ch, wrapper = self._make_channel()
         reason = Exception('closed')
         wrapper._closed_reason = reason
 
@@ -792,7 +792,7 @@ class ConsumerWorkPoolTests(unittest.TestCase):
         wrapped_holder[0]('late-cancel')  # must not raise
 
     def test_add_on_cancel_callback_raises_when_connection_closed(self):
-        ch, raw_ch, wrapper = self._make_channel()
+        ch, _raw_ch, wrapper = self._make_channel()
         reason = Exception('closed')
         wrapper._closed_reason = reason
 
@@ -1143,7 +1143,7 @@ class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
 
     def test_force_stop_shuts_down_channel_pools(self):
         """Force-stop path in close() must shut down channel pools."""
-        conn, mock_conn, mock_ioloop = self._make_connection()
+        conn, _mock_conn, _mock_ioloop = self._make_connection()
         conn._ioloop_thread = MagicMock()
         conn._ioloop_thread.is_alive.return_value = True
 
@@ -1251,7 +1251,7 @@ class ThreadSafeConnectionTests(unittest.TestCase):
         return conn, mock_conn, mock_ioloop
 
     def test_ioloop_thread_is_started(self):
-        conn, _, mock_ioloop = self._make_connection()
+        _conn, _, mock_ioloop = self._make_connection()
         mock_ioloop.start.assert_called_once()
 
     def test_is_open_delegates_to_inner_connection(self):
@@ -1265,7 +1265,7 @@ class ThreadSafeConnectionTests(unittest.TestCase):
         self.assertTrue(conn.is_closed)
 
     def test_add_callback_threadsafe_delegates(self):
-        conn, mock_conn, mock_ioloop = self._make_connection()
+        conn, _mock_conn, mock_ioloop = self._make_connection()
         cb = MagicMock()
         conn.add_callback_threadsafe(cb)
         mock_ioloop.add_callback_threadsafe.assert_called_once_with(cb)
@@ -1308,7 +1308,7 @@ class ThreadSafeConnectionTests(unittest.TestCase):
         self.assertIs(ch._wrapper, conn)
 
     def test_channel_raises_when_connection_already_closed(self):
-        conn, mock_conn, _ = self._make_connection()
+        conn, _mock_conn, _ = self._make_connection()
         reason = Exception('already closed')
         conn._closed_reason = reason
 
@@ -1455,7 +1455,7 @@ class ThreadSafeConnectionTests(unittest.TestCase):
 
     def test_close_force_stop_wakes_blocked_waiters(self):
         """Threads blocked when the IOLoop is force-stopped must be woken."""
-        conn, mock_conn, mock_ioloop = self._make_connection()
+        conn, _mock_conn, _mock_ioloop = self._make_connection()
         conn._ioloop_thread = MagicMock()
         conn._ioloop_thread.is_alive.return_value = True
 
@@ -1488,7 +1488,7 @@ class ThreadSafeConnectionTests(unittest.TestCase):
         mock_conn.close.assert_called_once()
 
     def test_close_is_noop_when_already_closed(self):
-        conn, mock_conn, mock_ioloop = self._make_connection()
+        conn, _mock_conn, mock_ioloop = self._make_connection()
         conn._closed_reason = Exception('already closed')
         conn._ioloop_thread = MagicMock()
         conn.close()
@@ -1496,20 +1496,20 @@ class ThreadSafeConnectionTests(unittest.TestCase):
         conn._ioloop_thread.join.assert_not_called()
 
     def test_close_from_ioloop_thread_calls_connection_close_directly(self):
-        conn, mock_conn, mock_ioloop = self._make_connection()
+        conn, mock_conn, _mock_ioloop = self._make_connection()
         # Simulate close() being called from within the IOLoop thread itself
         conn._ioloop_thread = threading.current_thread()
         conn.close()
         mock_conn.close.assert_called_once()
 
     def test_abort_swallows_close_errors(self):
-        conn, mock_conn, _ = self._make_connection()
+        conn, _mock_conn, _ = self._make_connection()
         # Force conn.close() to raise
         with patch.object(conn, 'close', side_effect=Exception('boom')):
             conn.abort()  # must not raise
 
     def test_abort_delegates_to_close(self):
-        conn, mock_conn, _ = self._make_connection()
+        conn, _mock_conn, _ = self._make_connection()
         with patch.object(conn, 'close') as mock_close:
             conn.abort(timeout=5)
             mock_close.assert_called_once_with(timeout=5)
@@ -1580,7 +1580,7 @@ class ThreadSafeConnectionTests(unittest.TestCase):
         wrapped_holder[0](mock_conn, 'late-blocked')  # must not raise
 
     def test_blocked_callback_raises_when_connection_closed(self):
-        conn, mock_conn, mock_ioloop = self._make_connection()
+        conn, _mock_conn, _mock_ioloop = self._make_connection()
         reason = Exception('closed')
         conn._closed_reason = reason
 
@@ -1623,7 +1623,7 @@ class ThreadSafeConnectionTests(unittest.TestCase):
         self.assertEqual(received[0][1], 'unblocked-frame')
 
     def test_unblocked_callback_raises_when_connection_closed(self):
-        conn, mock_conn, mock_ioloop = self._make_connection()
+        conn, _mock_conn, _mock_ioloop = self._make_connection()
         reason = Exception('closed')
         conn._closed_reason = reason
 
@@ -1640,7 +1640,7 @@ class ThreadSafeConnectionTests(unittest.TestCase):
     def test_close_force_stop_shuts_down_connection_pool(self):
         """When close() force-stops the IOLoop, the connection pool must be
         shut down so no callback worker thread is left dangling."""
-        conn, mock_conn, _ = self._make_connection()
+        conn, _mock_conn, _ = self._make_connection()
         conn._ioloop_thread = MagicMock()
         # First join() returns with thread still alive, second returns dead
         conn._ioloop_thread.is_alive.return_value = True

@@ -30,6 +30,6 @@ __all__ = [
     'BaseConnection',
     'BlockingConnection',
     'IOLoop',
-    'ThreadSafeConnection',
     'SelectConnection',
+    'ThreadSafeConnection',
 ]

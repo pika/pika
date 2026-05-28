@@ -24,8 +24,8 @@ __all__ = [
     'DeliveryMode',
     'PlainCredentials',
     'SSLOptions',
-    'ThreadSafeConnection',
     'SelectConnection',
+    'ThreadSafeConnection',
     'URLParameters',
     'adapters',
 ]
