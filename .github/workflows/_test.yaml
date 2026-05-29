@@ -82,7 +82,7 @@ jobs:
           fail_ci_if_error: false
 
   build-linux:
-    name: build/test on ${{ inputs.ubuntu-runner }}
+    name: build/test on ${{ inputs.ubuntu-runner }} ${{ matrix.python-version }}
     runs-on: ${{ inputs.ubuntu-runner }}
     strategy:
       matrix:
@@ -115,7 +115,7 @@ jobs:
           fail_ci_if_error: false
 
   build-macos:
-    name: build/test on ${{ inputs.macos-runner }}
+    name: build/test on ${{ inputs.macos-runner }} ${{ matrix.python-version }}
     runs-on: ${{ inputs.macos-runner }}
     strategy:
       matrix:
