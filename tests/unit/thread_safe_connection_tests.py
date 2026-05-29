@@ -1077,7 +1077,7 @@ class BlockingRPCPassthroughTests(unittest.TestCase):
         result = ch.exchange_declare(exchange='ex', exchange_type='topic')
         self.assertIs(result, frame)
         raw_ch.exchange_declare.assert_called_once()
-        kwargs = raw_ch.exchange_declare.call_args.kwargs
+        kwargs = raw_ch.exchange_declare.call_args[1]
         self.assertEqual(kwargs['exchange'], 'ex')
         self.assertEqual(kwargs['exchange_type'], 'topic')
 
@@ -1085,7 +1085,7 @@ class BlockingRPCPassthroughTests(unittest.TestCase):
         ch, raw_ch, _w, frame = self._run_immediate_rpc('queue_bind')
         result = ch.queue_bind(queue='q', exchange='ex', routing_key='rk')
         self.assertIs(result, frame)
-        kwargs = raw_ch.queue_bind.call_args.kwargs
+        kwargs = raw_ch.queue_bind.call_args[1]
         self.assertEqual(kwargs['queue'], 'q')
         self.assertEqual(kwargs['exchange'], 'ex')
         self.assertEqual(kwargs['routing_key'], 'rk')
@@ -1094,14 +1094,14 @@ class BlockingRPCPassthroughTests(unittest.TestCase):
         ch, raw_ch, _w, frame = self._run_immediate_rpc('queue_unbind')
         result = ch.queue_unbind(queue='q', exchange='ex', routing_key='rk')
         self.assertIs(result, frame)
-        kwargs = raw_ch.queue_unbind.call_args.kwargs
+        kwargs = raw_ch.queue_unbind.call_args[1]
         self.assertEqual(kwargs['queue'], 'q')
 
     def test_queue_delete_returns_method_frame(self):
         ch, raw_ch, _w, frame = self._run_immediate_rpc('queue_delete')
         result = ch.queue_delete(queue='q', if_unused=True, if_empty=True)
         self.assertIs(result, frame)
-        kwargs = raw_ch.queue_delete.call_args.kwargs
+        kwargs = raw_ch.queue_delete.call_args[1]
         self.assertTrue(kwargs['if_unused'])
         self.assertTrue(kwargs['if_empty'])
 
@@ -1109,13 +1109,13 @@ class BlockingRPCPassthroughTests(unittest.TestCase):
         ch, raw_ch, _w, frame = self._run_immediate_rpc('queue_purge')
         result = ch.queue_purge(queue='q')
         self.assertIs(result, frame)
-        self.assertEqual(raw_ch.queue_purge.call_args.kwargs['queue'], 'q')
+        self.assertEqual(raw_ch.queue_purge.call_args[1]['queue'], 'q')
 
     def test_exchange_bind_returns_method_frame(self):
         ch, raw_ch, _w, frame = self._run_immediate_rpc('exchange_bind')
         result = ch.exchange_bind(destination='d', source='s', routing_key='rk')
         self.assertIs(result, frame)
-        kwargs = raw_ch.exchange_bind.call_args.kwargs
+        kwargs = raw_ch.exchange_bind.call_args[1]
         self.assertEqual(kwargs['destination'], 'd')
         self.assertEqual(kwargs['source'], 's')
 
@@ -1130,7 +1130,7 @@ class BlockingRPCPassthroughTests(unittest.TestCase):
         ch, raw_ch, _w, frame = self._run_immediate_rpc('exchange_delete')
         result = ch.exchange_delete(exchange='ex', if_unused=True)
         self.assertIs(result, frame)
-        self.assertTrue(raw_ch.exchange_delete.call_args.kwargs['if_unused'])
+        self.assertTrue(raw_ch.exchange_delete.call_args[1]['if_unused'])
 
 
 class BlockingRPCErrorPathTests(unittest.TestCase):
@@ -1338,7 +1338,7 @@ class CallbackRegistrationFailureTests(unittest.TestCase):
             ch.add_on_cancel_callback(MagicMock())
         mock_logger.warning.assert_called_once()
         self.assertIn('add_on_cancel_callback failed',
-                      mock_logger.warning.call_args.args[0])
+                      mock_logger.warning.call_args[0][0])
 
     def test_add_on_return_callback_logs_when_raw_register_raises(self):
         ch, raw_ch, wrapper = self._make_channel()
@@ -1349,7 +1349,7 @@ class CallbackRegistrationFailureTests(unittest.TestCase):
             ch.add_on_return_callback(MagicMock())
         mock_logger.warning.assert_called_once()
         self.assertIn('add_on_return_callback failed',
-                      mock_logger.warning.call_args.args[0])
+                      mock_logger.warning.call_args[0][0])
 
     def test_publisher_confirm_drops_when_pool_shut_down(self):
         """The wrapped ack/nack callback logs and drops if the consumer pool
@@ -1375,7 +1375,7 @@ class CallbackRegistrationFailureTests(unittest.TestCase):
             captured['wrapped'](MagicMock())
         mock_logger.debug.assert_called_once()
         self.assertIn('Publisher confirm dropped',
-                      mock_logger.debug.call_args.args[0])
+                      mock_logger.debug.call_args[0][0])
 
 
 class ConsumerPoolConnectionIntegrationTests(unittest.TestCase):
@@ -2274,7 +2274,7 @@ class ConnectionEventRegistrationFailureTests(unittest.TestCase):
             conn.add_on_connection_blocked_callback(MagicMock())
         mock_logger.warning.assert_called_once()
         self.assertIn('add_on_connection_blocked_callback',
-                      mock_logger.warning.call_args.args[1])
+                      mock_logger.warning.call_args[0][1])
 
 
 class ChannelOpenExceptionPathTests(unittest.TestCase):
