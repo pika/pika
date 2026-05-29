@@ -28,3 +28,15 @@ jobs:
       legacy: true
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  tests-passed:
+    runs-on: ubuntu-latest
+    needs: [test-modern, test-legacy]
+    if: always() # Ensures it runs even if the matrix fails
+    steps:
+      - name: Check test-modern status
+        if: ${{ needs.test-modern.result != 'success' }}
+        run: exit 1
+      - name: Check test-legacy status
+        if: ${{ needs.test-legacy.result != 'success' }}
+        run: exit 1
