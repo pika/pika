@@ -188,6 +188,12 @@ class ThreadSafeChannel:
 
         Safe to call from any thread simultaneously.
 
+        .. todo:: Expose an optional *pre_publish_hook* (or return a Future
+           with the delivery tag) so callers using publisher confirms can
+           correlate a publish with its sequence number without reaching
+           into ``_channel`` directly.  See pika-1582 confirms harness for
+           the motivating use-case.
+
         :raises Exception: if the connection is already closed.
         """
         self._check_not_closed()
