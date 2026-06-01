@@ -101,7 +101,7 @@ jobs:
           NEW_VERSION: ${{ steps.version.outputs.new }}
         run: |
           sed -i "s/^version = \".*\"/version = \"$NEW_VERSION\"/" pyproject.toml
-          sed -i "s/^__version__ = '.*'/__version__ = '$NEW_VERSION'/" pika/__init__.py
+          sed -i "s/^__version__ = ['\"].*['\"]/__version__ = '$NEW_VERSION'/" pika/__init__.py
 
       - name: Commit, tag, and push
         if: ${{ !inputs.dry_run }}
