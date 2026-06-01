@@ -8,6 +8,9 @@ set -o xtrace
 script_dir="$(CDPATH='' cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly script_dir
 echo "[INFO] script_dir: '$script_dir'"
+pika_dir="$(CDPATH='' cd "$script_dir/../.." && pwd)"
+readonly pika_dir
+echo "[INFO] pika_dir: '$pika_dir'"
 
 if [[ -n "${RABBITMQ_VERSION:-}" ]]
 then
@@ -56,6 +59,17 @@ then
     echo "[ERROR] rabbitmq-server executable not found in $rabbitmq_sbin" >&2
     exit 1
 fi
+
+# Enable the TLS listener (5671) alongside plaintext (5672), pointing at the
+# repo's test certs via the shared template. RABBITMQ_CONFIG_FILE is given
+# without the .conf extension, per RabbitMQ convention.
+readonly rabbitmq_conf_dir="$rabbitmq_home/etc/rabbitmq"
+mkdir -p "$rabbitmq_conf_dir"
+sed "s|PIKA_DIR|$pika_dir|g" "$script_dir/../rabbitmq.conf.in" \
+    > "$rabbitmq_conf_dir/rabbitmq.conf"
+export RABBITMQ_CONFIG_FILE="$rabbitmq_conf_dir/rabbitmq"
+echo '[INFO] RabbitMQ configuration:'
+cat "$rabbitmq_conf_dir/rabbitmq.conf"
 
 echo '[INFO] Starting RabbitMQ...'
 "$rabbitmq_server_cmd" -detached
