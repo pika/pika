@@ -61,6 +61,69 @@ class ThreadSafeChannelTests(unittest.TestCase):
         scheduled_cb()  # must not raise
         raw_ch.basic_publish.assert_called_once()
 
+    def test_on_publish_not_called_when_confirms_not_enabled(self):
+        """on_publish callback is ignored when confirm_delivery has not been
+        called (_next_publish_seq_no is None)."""
+        ch, raw_ch, wrapper = self._make_channel()
+        on_publish = MagicMock()
+        ch.basic_publish(exchange='ex',
+                         routing_key='rk',
+                         body=b'x',
+                         on_publish=on_publish)
+        scheduled_cb = wrapper.add_callback_threadsafe.call_args[0][0]
+        scheduled_cb()
+        raw_ch.basic_publish.assert_called_once()
+        on_publish.assert_not_called()
+
+    def test_on_publish_called_with_delivery_tag_when_confirms_enabled(self):
+        """After confirms are armed, on_publish receives monotonically
+        increasing delivery tags starting at 1."""
+        ch, _raw_ch, wrapper = self._make_channel()
+        ch._next_publish_seq_no = 0  # simulate confirm_delivery success
+        tags = []
+        ch.basic_publish(exchange='ex',
+                         routing_key='rk',
+                         body=b'a',
+                         on_publish=lambda tag: tags.append(tag))
+        wrapper.add_callback_threadsafe.call_args[0][0]()
+        ch.basic_publish(exchange='ex',
+                         routing_key='rk',
+                         body=b'b',
+                         on_publish=lambda tag: tags.append(tag))
+        wrapper.add_callback_threadsafe.call_args[0][0]()
+        ch.basic_publish(exchange='ex',
+                         routing_key='rk',
+                         body=b'c',
+                         on_publish=lambda tag: tags.append(tag))
+        wrapper.add_callback_threadsafe.call_args[0][0]()
+        self.assertEqual(tags, [1, 2, 3])
+
+    def test_on_publish_not_called_when_publish_raises(self):
+        """If the raw basic_publish raises, the tag is not consumed and
+        on_publish is not invoked."""
+        from pika.exceptions import ChannelWrongStateError
+        ch, raw_ch, wrapper = self._make_channel()
+        ch._next_publish_seq_no = 0
+        raw_ch.basic_publish.side_effect = ChannelWrongStateError('closed')
+        on_publish = MagicMock()
+        ch.basic_publish(exchange='ex',
+                         routing_key='rk',
+                         body=b'x',
+                         on_publish=on_publish)
+        scheduled_cb = wrapper.add_callback_threadsafe.call_args[0][0]
+        scheduled_cb()  # must not raise
+        on_publish.assert_not_called()
+        self.assertEqual(ch._next_publish_seq_no, 0)
+
+    def test_on_publish_none_is_noop_when_confirms_enabled(self):
+        """Passing on_publish=None (the default) does not increment the
+        tag counter even when confirms are armed."""
+        ch, _raw_ch, wrapper = self._make_channel()
+        ch._next_publish_seq_no = 0
+        ch.basic_publish(exchange='ex', routing_key='rk', body=b'x')
+        wrapper.add_callback_threadsafe.call_args[0][0]()
+        self.assertEqual(ch._next_publish_seq_no, 0)
+
     def test_basic_ack_callback_swallows_channel_wrong_state_error(self):
         from pika.exceptions import ChannelWrongStateError
         ch, raw_ch, wrapper = self._make_channel()
@@ -875,6 +938,25 @@ class ConsumerWorkPoolTests(unittest.TestCase):
             any('publisher confirm callback' in msg for msg in cm.output),
             msg=
             f'Expected "publisher confirm callback" in logs, got: {cm.output}')
+
+    def test_confirm_delivery_arms_publish_seq_no_counter(self):
+        """After confirm_delivery succeeds, _next_publish_seq_no is 0
+        (armed) so subsequent publishes with on_publish will track tags."""
+        ch, raw_ch, wrapper = self._make_channel()
+        self.assertIsNone(ch._next_publish_seq_no)
+        ok_frame = MagicMock()
+
+        def execute_and_fire(cb):
+
+            def fake_confirm(ack_nack_callback, callback):
+                callback(ok_frame)
+
+            raw_ch.confirm_delivery.side_effect = fake_confirm
+            cb()
+
+        wrapper.add_callback_threadsafe.side_effect = execute_and_fire
+        ch.confirm_delivery(MagicMock())
+        self.assertEqual(ch._next_publish_seq_no, 0)
 
 
 class BlockingMethodTimeoutTests(unittest.TestCase):

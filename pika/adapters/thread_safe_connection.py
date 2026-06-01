@@ -64,6 +64,7 @@ class ThreadSafeChannel:
             thread_name_prefix='pika-consumer',
         )
         self._pool_shutdown = False
+        self._next_publish_seq_no = None
 
     def _check_not_closed(self):
         """Raise if the connection is known to be closed.
@@ -183,17 +184,20 @@ class ThreadSafeChannel:
                       routing_key,
                       body,
                       properties=None,
-                      mandatory=False):
+                      mandatory=False,
+                      on_publish=None):
         """Schedule a publish in the IOLoop thread (fire-and-forget).
 
         Safe to call from any thread simultaneously.
 
-        .. todo:: Expose an optional *pre_publish_hook* (or return a Future
-           with the delivery tag) so callers using publisher confirms can
-           correlate a publish with its sequence number without reaching
-           into ``_channel`` directly.  See pika-1582 confirms harness for
-           the motivating use-case.
-
+        :param callable on_publish: Optional callback invoked on the
+            **IOLoop thread** immediately after the publish frame is
+            written successfully, with the delivery tag (int) as its
+            sole argument.  Only meaningful when publisher confirms are
+            enabled via :meth:`confirm_delivery`; ignored otherwise.
+            Must return quickly (same contract as any
+            :meth:`~ThreadSafeConnection.add_callback_threadsafe`
+            callback).
         :raises Exception: if the connection is already closed.
         """
         self._check_not_closed()
@@ -210,6 +214,10 @@ class ThreadSafeChannel:
             except Exception:
                 LOGGER.warning('basic_publish failed (channel may have closed)',
                                exc_info=True)
+                return
+            if on_publish is not None and self._next_publish_seq_no is not None:
+                self._next_publish_seq_no += 1
+                on_publish(self._next_publish_seq_no)
 
         self._wrapper.add_callback_threadsafe(_publish)
 
@@ -481,12 +489,14 @@ class ThreadSafeChannel:
             except RuntimeError:
                 LOGGER.debug('Publisher confirm dropped: work pool shut down')
 
-        return self._blocking_rpc(
+        result = self._blocking_rpc(
             'confirm_delivery',
             self._channel.confirm_delivery,
             timeout,
             ack_nack_callback=_wrapped_ack_nack,
         )
+        self._next_publish_seq_no = 0
+        return result
 
     def basic_consume(self,
                       queue,
