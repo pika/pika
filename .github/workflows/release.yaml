@@ -113,6 +113,14 @@ jobs:
           git tag -a "$NEW_VERSION" -m "pika $NEW_VERSION"
           git push origin HEAD:${{ github.ref }} --follow-tags
 
+      - name: Verify tag exists on remote
+        if: ${{ !inputs.dry_run }}
+        env:
+          NEW_VERSION: ${{ steps.version.outputs.new }}
+        run: |
+          git ls-remote --tags origin "refs/tags/$NEW_VERSION" | grep -q "$NEW_VERSION" \
+            || { echo "::error::Tag $NEW_VERSION not found on remote after push"; exit 1; }
+
       - name: Dry-run summary
         if: ${{ inputs.dry_run }}
         env:
