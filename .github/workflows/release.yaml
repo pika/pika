@@ -1,0 +1,222 @@
+name: release
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: 'Version bump type'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+      prerelease:
+        description: 'Mark as pre-release (publishes to TestPyPI)'
+        required: false
+        type: boolean
+        default: false
+      prerelease_tag:
+        description: 'Pre-release suffix (e.g. b1, rc1). Required when prerelease is true.'
+        required: false
+        type: string
+        default: ''
+      dry_run:
+        description: 'Compute and bump the version but do not commit, tag, or publish'
+        required: false
+        type: boolean
+        default: false
+
+# Serialize releases so two near-simultaneous dispatches cannot race on the
+# version bump.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: Bump version and tag
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.version.outputs.new }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Validate inputs
+        env:
+          PRERELEASE: ${{ inputs.prerelease }}
+          PRERELEASE_TAG: ${{ inputs.prerelease_tag }}
+        run: |
+          if [ "$PRERELEASE" = "true" ] && [ -z "$PRERELEASE_TAG" ]; then
+            echo "::error::prerelease_tag is required when prerelease is true (e.g. b1, rc1)"
+            exit 1
+          fi
+
+      - name: Compute new version
+        id: version
+        env:
+          BUMP: ${{ inputs.bump }}
+          PRERELEASE: ${{ inputs.prerelease }}
+          PRERELEASE_TAG: ${{ inputs.prerelease_tag }}
+        run: |
+          current=$(sed -nE 's/^version = "([^"]+)".*/\1/p' pyproject.toml)
+          echo "current=$current" >> "$GITHUB_OUTPUT"
+
+          IFS='.' read -r major minor patch <<< "${current%%[a-zA-Z]*}"
+
+          case "$BUMP" in
+            major) major=$((major + 1)); minor=0; patch=0 ;;
+            minor) minor=$((minor + 1)); patch=0 ;;
+            patch) patch=$((patch + 1)) ;;
+          esac
+
+          new_version="${major}.${minor}.${patch}"
+          if [ "$PRERELEASE" = "true" ]; then
+            if ! echo "$PRERELEASE_TAG" | grep -qE '^[a-zA-Z0-9]+$'; then
+              echo "::error::prerelease_tag must be alphanumeric (e.g. b1, rc1)"
+              exit 1
+            fi
+            new_version="${new_version}${PRERELEASE_TAG}"
+          fi
+
+          echo "new=$new_version" >> "$GITHUB_OUTPUT"
+          echo "Bumping $current -> $new_version"
+
+      - name: Update version
+        env:
+          NEW_VERSION: ${{ steps.version.outputs.new }}
+        run: |
+          sed -i "s/^version = \".*\"/version = \"$NEW_VERSION\"/" pyproject.toml
+          sed -i "s/^__version__ = ['\"].*['\"]/__version__ = '$NEW_VERSION'/" pika/__init__.py
+
+      - name: Commit, tag, and push
+        if: ${{ !inputs.dry_run }}
+        env:
+          NEW_VERSION: ${{ steps.version.outputs.new }}
+        run: |
+          git add pyproject.toml pika/__init__.py
+          git commit -m "release: pika $NEW_VERSION"
+          git tag -a "$NEW_VERSION" -m "pika $NEW_VERSION"
+          git push origin HEAD:${{ github.ref }} --follow-tags
+
+      - name: Verify tag exists on remote
+        if: ${{ !inputs.dry_run }}
+        env:
+          NEW_VERSION: ${{ steps.version.outputs.new }}
+        run: |
+          git ls-remote --tags origin "refs/tags/$NEW_VERSION" | grep -q "$NEW_VERSION" \
+            || { echo "::error::Tag $NEW_VERSION not found on remote after push"; exit 1; }
+
+      - name: Dry-run summary
+        if: ${{ inputs.dry_run }}
+        env:
+          NEW_VERSION: ${{ steps.version.outputs.new }}
+        run: |
+          echo "::notice::Dry run - would release pika $NEW_VERSION (no commit, tag, or publish)"
+          git --no-pager diff
+
+  # The PyPI publish jobs MUST live in this top-level workflow: PyPI trusted
+  # publishing matches the OIDC job_workflow_ref claim against the configured
+  # workflow filename and rejects tokens minted inside a reusable workflow.
+  publish-pypi:
+    name: Publish to PyPI
+    needs: release
+    if: ${{ !inputs.prerelease && !inputs.dry_run }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    environment:
+      name: pypi
+      url: https://pypi.org/project/pika/${{ needs.release.outputs.version }}/
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          ref: ${{ needs.release.outputs.version }}
+
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: '3.14'
+
+      - name: Build
+        run: |
+          python -m pip install build twine --upgrade
+          python -m build --sdist --wheel --outdir dist/ .
+          twine check dist/*
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # release/v1
+
+  publish-test-pypi:
+    name: Publish to TestPyPI
+    needs: release
+    if: ${{ inputs.prerelease && !inputs.dry_run }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/project/pika/${{ needs.release.outputs.version }}/
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          ref: ${{ needs.release.outputs.version }}
+
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: '3.14'
+
+      - name: Build
+        run: |
+          python -m pip install build twine --upgrade
+          python -m build --sdist --wheel --outdir dist/ .
+          twine check dist/*
+
+      - name: Publish to TestPyPI
+        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+
+  github-release:
+    name: Create GitHub Release
+    needs: [release, publish-pypi, publish-test-pypi]
+    if: always() && (needs.publish-pypi.result == 'success' || needs.publish-test-pypi.result == 'success')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.release.outputs.version }}
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.release.outputs.version }}
+          IS_PRERELEASE: ${{ inputs.prerelease }}
+        run: |
+          PRERELEASE_FLAG=""
+          if [ "$IS_PRERELEASE" = "true" ]; then
+            PRERELEASE_FLAG="--prerelease"
+          fi
+
+          gh release create "$TAG" \
+            --title "pika $TAG" \
+            --generate-notes \
+            $PRERELEASE_FLAG
