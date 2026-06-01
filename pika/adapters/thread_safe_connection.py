@@ -65,6 +65,7 @@ class ThreadSafeChannel:
         )
         self._pool_shutdown = False
         self._next_publish_seq_no = None
+        self._confirm_select_ok = None
 
     def _check_not_closed(self):
         """Raise if the connection is known to be closed.
@@ -462,6 +463,11 @@ class ThreadSafeChannel:
     def confirm_delivery(self, ack_nack_callback, timeout=DEFAULT_RPC_TIMEOUT):
         """Enable publisher confirms and block until Confirm.SelectOk arrives.
 
+        Idempotent: calling this method more than once on the same channel
+        returns the original Confirm.SelectOk without sending a frame to
+        the broker or resetting the delivery-tag counter, matching the
+        behavior of the RabbitMQ Java and .NET clients.
+
         The *ack_nack_callback* is dispatched on the channel's worker
         thread (same as delivery callbacks), not the IOLoop thread.
         The RabbitMQ Java and .NET clients run this listener inline on
@@ -481,6 +487,8 @@ class ThreadSafeChannel:
         :raises Exception: if the connection is closed before the response arrives.
         :raises TimeoutError: if *timeout* expires before the response arrives.
         """
+        if self._confirm_select_ok is not None:
+            return self._confirm_select_ok
 
         def _wrapped_ack_nack(method_frame):
             try:
@@ -497,6 +505,7 @@ class ThreadSafeChannel:
             ack_nack_callback=_wrapped_ack_nack,
         )
         self._next_publish_seq_no = 0
+        self._confirm_select_ok = result
         return result
 
     def basic_consume(self,

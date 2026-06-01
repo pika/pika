@@ -959,6 +959,34 @@ class ConsumerWorkPoolTests(unittest.TestCase):
         ch.confirm_delivery(MagicMock())
         self.assertEqual(ch._next_publish_seq_no, 0)
 
+    def test_confirm_delivery_is_idempotent(self):
+        """Calling confirm_delivery a second time returns the cached
+        Confirm.SelectOk without sending a frame or resetting the counter."""
+        ch, raw_ch, wrapper = self._make_channel()
+        ok_frame = MagicMock()
+
+        def execute_and_fire(cb):
+
+            def fake_confirm(ack_nack_callback, callback):
+                callback(ok_frame)
+
+            raw_ch.confirm_delivery.side_effect = fake_confirm
+            cb()
+
+        wrapper.add_callback_threadsafe.side_effect = execute_and_fire
+
+        result1 = ch.confirm_delivery(MagicMock())
+        self.assertIs(result1, ok_frame)
+
+        # Advance the counter to prove it is not reset on the second call
+        ch._next_publish_seq_no = 5
+
+        result2 = ch.confirm_delivery(MagicMock())
+        self.assertIs(result2, ok_frame)
+        self.assertEqual(ch._next_publish_seq_no, 5)
+        # Only one RPC should have been sent
+        self.assertEqual(wrapper.add_callback_threadsafe.call_count, 1)
+
     def test_next_publish_seq_no_property_none_before_confirms(self):
         """next_publish_seq_no returns None when confirms are not enabled."""
         ch, _raw_ch, _wrapper = self._make_channel()
