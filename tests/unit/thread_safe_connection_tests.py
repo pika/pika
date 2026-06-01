@@ -115,14 +115,15 @@ class ThreadSafeChannelTests(unittest.TestCase):
         on_publish.assert_not_called()
         self.assertEqual(ch._next_publish_seq_no, 0)
 
-    def test_on_publish_none_is_noop_when_confirms_enabled(self):
-        """Passing on_publish=None (the default) does not increment the
-        tag counter even when confirms are armed."""
+    def test_seq_no_increments_without_on_publish_when_confirms_enabled(self):
+        """The delivery tag counter advances on every successful publish
+        when confirms are armed, regardless of whether on_publish is
+        provided.  This matches the RabbitMQ Java and .NET client behavior."""
         ch, _raw_ch, wrapper = self._make_channel()
         ch._next_publish_seq_no = 0
         ch.basic_publish(exchange='ex', routing_key='rk', body=b'x')
         wrapper.add_callback_threadsafe.call_args[0][0]()
-        self.assertEqual(ch._next_publish_seq_no, 0)
+        self.assertEqual(ch._next_publish_seq_no, 1)
 
     def test_basic_ack_callback_swallows_channel_wrong_state_error(self):
         from pika.exceptions import ChannelWrongStateError
@@ -941,7 +942,7 @@ class ConsumerWorkPoolTests(unittest.TestCase):
 
     def test_confirm_delivery_arms_publish_seq_no_counter(self):
         """After confirm_delivery succeeds, _next_publish_seq_no is 0
-        (armed) so subsequent publishes with on_publish will track tags."""
+        (armed) so subsequent publishes will track tags."""
         ch, raw_ch, wrapper = self._make_channel()
         self.assertIsNone(ch._next_publish_seq_no)
         ok_frame = MagicMock()
@@ -957,6 +958,25 @@ class ConsumerWorkPoolTests(unittest.TestCase):
         wrapper.add_callback_threadsafe.side_effect = execute_and_fire
         ch.confirm_delivery(MagicMock())
         self.assertEqual(ch._next_publish_seq_no, 0)
+
+    def test_next_publish_seq_no_property_none_before_confirms(self):
+        """next_publish_seq_no returns None when confirms are not enabled."""
+        ch, _raw_ch, _wrapper = self._make_channel()
+        self.assertIsNone(ch.next_publish_seq_no)
+
+    def test_next_publish_seq_no_property_starts_at_one(self):
+        """next_publish_seq_no returns 1 immediately after confirm_delivery."""
+        ch, _raw_ch, _wrapper = self._make_channel()
+        ch._next_publish_seq_no = 0
+        self.assertEqual(ch.next_publish_seq_no, 1)
+
+    def test_next_publish_seq_no_property_advances_after_publish(self):
+        """next_publish_seq_no reflects the next tag to be assigned."""
+        ch, _raw_ch, wrapper = self._make_channel()
+        ch._next_publish_seq_no = 0
+        ch.basic_publish(exchange='ex', routing_key='rk', body=b'x')
+        wrapper.add_callback_threadsafe.call_args[0][0]()
+        self.assertEqual(ch.next_publish_seq_no, 2)
 
 
 class BlockingMethodTimeoutTests(unittest.TestCase):

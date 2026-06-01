@@ -215,9 +215,10 @@ class ThreadSafeChannel:
                 LOGGER.warning('basic_publish failed (channel may have closed)',
                                exc_info=True)
                 return
-            if on_publish is not None and self._next_publish_seq_no is not None:
+            if self._next_publish_seq_no is not None:
                 self._next_publish_seq_no += 1
-                on_publish(self._next_publish_seq_no)
+                if on_publish is not None:
+                    on_publish(self._next_publish_seq_no)
 
         self._wrapper.add_callback_threadsafe(_publish)
 
@@ -929,6 +930,24 @@ class ThreadSafeChannel:
                        timeout=timeout)
         except Exception:
             LOGGER.debug('channel abort() suppressed error', exc_info=True)
+
+    @property
+    def next_publish_seq_no(self):
+        """The delivery tag that will be assigned to the next published message.
+
+        Returns ``None`` if publisher confirms have not been enabled via
+        :meth:`confirm_delivery`.  Once confirms are enabled, returns an
+        integer starting at 1 that increments after each successful publish,
+        matching the behavior of the RabbitMQ Java and .NET clients.
+
+        This property is safe to read from any thread, but the value is
+        only stable if no other thread is concurrently publishing (the
+        counter advances on the IOLoop thread inside the scheduled publish
+        callback).
+        """
+        if self._next_publish_seq_no is None:
+            return None
+        return self._next_publish_seq_no + 1
 
     @property
     def channel_number(self):
