@@ -73,16 +73,21 @@ Key details:
 - Runs all `docker exec` CLI commands as `--user rabbitmq` (running as root can
   corrupt cookie file ownership)
 - Polls `rabbitmqctl await_startup` for up to 60 seconds
+- On success: dumps `rabbitmq-diagnostics listeners` and `status` to confirm
+  both ports (5672, 5671) are bound
 - On failure: dumps `docker ps`, `docker logs`, `docker inspect`, and
   `/var/lib/rabbitmq` listing for diagnostics
 
 ### macOS (`macos/gha-setup.sh`)
 
 Installs RabbitMQ natively:
-1. `brew install erlang@27`
-2. Downloads the generic-unix tarball from GitHub Releases
-3. Writes `rabbitmq.conf` from the shared template via sed
-4. Starts the server detached, waits for epmd + `rabbitmqctl await_startup`
+1. Resolves the latest RabbitMQ version from GitHub Releases (or uses
+   `RABBITMQ_VERSION` env var if set)
+2. `brew install erlang@27`
+3. Downloads the generic-unix tarball from GitHub Releases
+4. Writes `rabbitmq.conf` from the shared template via sed
+5. Starts the server detached, waits for epmd + `rabbitmqctl await_startup`
+6. Dumps `rabbitmq-diagnostics listeners` and `status` for TLS verification
 
 The `RABBITMQ_CONFIG_FILE` environment variable must point to the config path
 without the `.conf` extension (an Erlang/RabbitMQ convention).
