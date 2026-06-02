@@ -26,7 +26,7 @@ on:
 
 jobs:
   build-windows:
-    name: build/test on windows-latest
+    name: build/test on windows-latest py${{ matrix.python-version }} tls=${{ matrix.test-tls }}
     runs-on: windows-latest
     strategy:
       matrix:
