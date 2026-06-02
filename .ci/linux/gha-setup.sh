@@ -45,8 +45,12 @@ docker run --detach \
     --volume "$rabbitmq_conf:/etc/rabbitmq/rabbitmq.conf:ro" \
     "$rabbitmq_image"
 
+# Run CLI commands as the rabbitmq user. 'docker exec' defaults to root,
+# which can leave /var/lib/rabbitmq/.erlang.cookie owned/written by root
+# and trigger '.erlang.cookie: eacces' when the server (running as the
+# rabbitmq user) tries to read it.
 declare -i count=60
-until docker exec rabbitmq rabbitmqctl await_startup >/dev/null 2>&1
+until docker exec --user rabbitmq rabbitmq rabbitmqctl await_startup >/dev/null 2>&1
 do
     if (( --count == 0 ))
     then
@@ -54,11 +58,12 @@ do
         docker ps -a
         docker logs rabbitmq 2>&1 || true
         docker inspect rabbitmq --format '{{.State.Status}} {{.State.ExitCode}} {{.State.Error}}' || true
+        docker exec rabbitmq ls -la /var/lib/rabbitmq || true
         exit 1
     fi
     sleep 1
 done
 
 docker logs rabbitmq 2>&1 | tail -n 200 || true
-docker exec rabbitmq rabbitmq-diagnostics listeners
-docker exec rabbitmq rabbitmq-diagnostics status
+docker exec --user rabbitmq rabbitmq rabbitmq-diagnostics listeners
+docker exec --user rabbitmq rabbitmq rabbitmq-diagnostics status
