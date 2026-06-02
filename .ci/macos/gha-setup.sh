@@ -60,13 +60,11 @@ then
     exit 1
 fi
 
-# Enable the TLS listener (5671) alongside plaintext (5672), pointing at the
-# repo's test certs via the shared template. RABBITMQ_CONFIG_FILE is given
-# without the .conf extension, per RabbitMQ convention.
 readonly rabbitmq_conf_dir="$rabbitmq_home/etc/rabbitmq"
 mkdir -p "$rabbitmq_conf_dir"
 sed "s|PIKA_DIR|$pika_dir|g" "$script_dir/../rabbitmq.conf.in" \
     > "$rabbitmq_conf_dir/rabbitmq.conf"
+# RABBITMQ_CONFIG_FILE expects the path WITHOUT the .conf extension.
 export RABBITMQ_CONFIG_FILE="$rabbitmq_conf_dir/rabbitmq"
 echo '[INFO] RabbitMQ configuration:'
 cat "$rabbitmq_conf_dir/rabbitmq.conf"

@@ -21,11 +21,9 @@ else
 fi
 readonly rabbitmq_image
 
-# Override the shared template for Docker-on-Linux CI:
-#   - certs land at a normal container path (/etc/rabbitmq/certs)
-#   - loopback_users.guest=false so the guest user can connect through the
-#     published port (the runner -> Docker bridge is not loopback for rabbit)
-#   - log.console=true so 'docker logs rabbitmq' is useful on failure
+# loopback_users.guest=false: the runner -> Docker bridge is not loopback
+# from inside the container, so guest needs non-loopback auth to connect
+# through the published port.
 readonly rabbitmq_conf="${RUNNER_TEMP:-/tmp}/rabbitmq.conf"
 sed \
     -e "s|PIKA_DIR/tests/certs|/etc/rabbitmq/certs|g" \
@@ -45,10 +43,6 @@ docker run --detach \
     --volume "$rabbitmq_conf:/etc/rabbitmq/rabbitmq.conf:ro" \
     "$rabbitmq_image"
 
-# Run CLI commands as the rabbitmq user. 'docker exec' defaults to root,
-# which can leave /var/lib/rabbitmq/.erlang.cookie owned/written by root
-# and trigger '.erlang.cookie: eacces' when the server (running as the
-# rabbitmq user) tries to read it.
 declare -i count=60
 until docker exec --user rabbitmq rabbitmq rabbitmqctl await_startup >/dev/null 2>&1
 do
