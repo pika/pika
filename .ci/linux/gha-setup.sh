@@ -21,15 +21,7 @@ else
 fi
 readonly rabbitmq_image
 
-# loopback_users.guest=false: the runner -> Docker bridge is not loopback
-# from inside the container, so guest needs non-loopback auth to connect
-# through the published port.
-readonly rabbitmq_conf="${RUNNER_TEMP:-/tmp}/rabbitmq.conf"
-sed \
-    -e "s|PIKA_DIR/tests/certs|/etc/rabbitmq/certs|g" \
-    -e "s|loopback_users.guest = true|loopback_users.guest = false|g" \
-    -e "s|log.console = false|log.console = true|g" \
-    "$script_dir/../rabbitmq.conf.in" > "$rabbitmq_conf"
+readonly rabbitmq_conf="$script_dir/rabbitmq.conf"
 echo '[INFO] RabbitMQ configuration:'
 cat "$rabbitmq_conf"
 
