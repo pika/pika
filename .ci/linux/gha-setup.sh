@@ -21,58 +21,44 @@ else
 fi
 readonly rabbitmq_image
 
-# Mount only the certs (at a fixed /certs) rather than the whole repo: a
-# read-only bind mount of the repo at its host path inside the container
-# intermittently triggers an ".erlang.cookie: eacces" crash in the rabbitmq
-# image's entrypoint. The shared template's PIKA_DIR/tests/certs paths are
-# rewritten to /certs to match the mount.
+# Override the shared template for Docker-on-Linux CI:
+#   - certs land at a normal container path (/etc/rabbitmq/certs)
+#   - loopback_users.guest=false so the guest user can connect through the
+#     published port (the runner -> Docker bridge is not loopback for rabbit)
+#   - log.console=true so 'docker logs rabbitmq' is useful on failure
 readonly rabbitmq_conf="${RUNNER_TEMP:-/tmp}/rabbitmq.conf"
-sed "s|PIKA_DIR/tests/certs|/certs|g" "$script_dir/../rabbitmq.conf.in" > "$rabbitmq_conf"
+sed \
+    -e "s|PIKA_DIR/tests/certs|/etc/rabbitmq/certs|g" \
+    -e "s|loopback_users.guest = true|loopback_users.guest = false|g" \
+    -e "s|log.console = false|log.console = true|g" \
+    "$script_dir/../rabbitmq.conf.in" > "$rabbitmq_conf"
 echo '[INFO] RabbitMQ configuration:'
 cat "$rabbitmq_conf"
 
-# The rabbitmq image intermittently crashes on startup reading its own
-# .erlang.cookie ("eacces"); per upstream the documented recovery is to
-# restart so the cookie is regenerated. Recreate the container until it boots.
-start_rabbitmq() {
-    docker rm --force rabbitmq >/dev/null 2>&1 || true
-    docker run --detach --name rabbitmq \
-        --publish 5672:5672 \
-        --publish 5671:5671 \
-        --volume "$pika_dir/tests/certs:/certs:ro" \
-        --volume "$rabbitmq_conf:/etc/rabbitmq/rabbitmq.conf:ro" \
-        "$rabbitmq_image"
-}
+docker rm --force rabbitmq >/dev/null 2>&1 || true
+docker run --detach \
+    --name rabbitmq \
+    --hostname pika-rabbitmq \
+    --publish 5672:5672 \
+    --publish 5671:5671 \
+    --volume "$pika_dir/tests/certs:/etc/rabbitmq/certs:ro" \
+    --volume "$rabbitmq_conf:/etc/rabbitmq/rabbitmq.conf:ro" \
+    "$rabbitmq_image"
 
-readonly max_attempts=8
-started=false
-for (( attempt = 1; attempt <= max_attempts; attempt++ ))
+declare -i count=60
+until docker exec rabbitmq rabbitmqctl await_startup >/dev/null 2>&1
 do
-    echo "[INFO] Starting RabbitMQ (attempt $attempt/$max_attempts)..."
-    start_rabbitmq
-    for (( i = 0; i < 30; i++ ))
-    do
-        if docker exec rabbitmq rabbitmqctl await_startup >/dev/null 2>&1
-        then
-            started=true
-            break
-        fi
-        if [[ "$(docker inspect --format '{{.State.Status}}' rabbitmq 2>/dev/null)" != running ]]
-        then
-            echo '[WARNING] RabbitMQ container exited during startup:'
-            docker logs rabbitmq 2>&1 | tail -n 5
-            break
-        fi
-        sleep 2
-    done
-    [[ "$started" == true ]] && break
+    if (( --count == 0 ))
+    then
+        echo '[ERROR] RabbitMQ did not start in time' >&2
+        docker ps -a
+        docker logs rabbitmq 2>&1 || true
+        docker inspect rabbitmq --format '{{.State.Status}} {{.State.ExitCode}} {{.State.Error}}' || true
+        exit 1
+    fi
+    sleep 1
 done
 
-if [[ "$started" != true ]]
-then
-    echo "[ERROR] RabbitMQ failed to start after $max_attempts attempts" >&2
-    docker logs rabbitmq 2>&1 || true
-    exit 1
-fi
-
-docker exec rabbitmq rabbitmqctl status
+docker logs rabbitmq 2>&1 | tail -n 200 || true
+docker exec rabbitmq rabbitmq-diagnostics listeners
+docker exec rabbitmq rabbitmq-diagnostics status
