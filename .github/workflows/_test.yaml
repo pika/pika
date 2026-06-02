@@ -82,7 +82,7 @@ jobs:
           fail_ci_if_error: false
 
   build-linux:
-    name: build/test on ${{ inputs.ubuntu-runner }} ${{ matrix.python-version }}
+    name: build/test on ${{ inputs.ubuntu-runner }} (${{ matrix.python-version }}, ${{ matrix.test-tls }})
     runs-on: ${{ inputs.ubuntu-runner }}
     strategy:
       matrix:
@@ -112,7 +112,7 @@ jobs:
           fail_ci_if_error: false
 
   build-macos:
-    name: build/test on ${{ inputs.macos-runner }} ${{ matrix.python-version }}
+    name: build/test on ${{ inputs.macos-runner }} (${{ matrix.python-version }}, ${{ matrix.test-tls }})
     runs-on: ${{ inputs.macos-runner }}
     strategy:
       matrix:
