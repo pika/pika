@@ -50,6 +50,7 @@ fi
 readonly rabbitmq_sbin="$rabbitmq_home/sbin"
 readonly rabbitmq_server_cmd="$rabbitmq_sbin/rabbitmq-server"
 readonly rabbitmqctl_cmd="$rabbitmq_sbin/rabbitmqctl"
+readonly rabbitmq_diagnostics_cmd="$rabbitmq_sbin/rabbitmq-diagnostics"
 
 export PATH="$rabbitmq_sbin:$PATH"
 export RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS='-rabbitmq_stream advertised_host localhost'
@@ -82,3 +83,5 @@ done
 
 echo '[INFO] Waiting for RabbitMQ to start...'
 "$rabbitmqctl_cmd" await_startup
+"$rabbitmq_diagnostics_cmd" listeners
+"$rabbitmq_diagnostics_cmd" status
