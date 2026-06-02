@@ -26,7 +26,7 @@ on:
 
 jobs:
   build-windows:
-    name: build/test on windows-latest
+    name: build/test on windows-latest py${{ matrix.python-version }} tls=${{ matrix.test-tls }}
     runs-on: windows-latest
     strategy:
       matrix:
@@ -82,44 +82,42 @@ jobs:
           fail_ci_if_error: false
 
   build-linux:
-    name: build/test on ${{ inputs.ubuntu-runner }} ${{ matrix.python-version }}
+    name: build/test on ${{ inputs.ubuntu-runner }} py${{ matrix.python-version }} tls=${{ matrix.test-tls }}
     runs-on: ${{ inputs.ubuntu-runner }}
     strategy:
       matrix:
         python-version: ${{ fromJSON(inputs.python-versions) }}
-    services:
-      rabbitmq:
-        image: rabbitmq:latest
-        ports:
-          - 5672:5672
-          - 5671:5671
+        test-tls: [true, false]
     steps:
       - uses: actions/checkout@v6
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
+      - name: Install and start RabbitMQ
+        run: ./.ci/linux/gha-setup.sh
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip wheel
           python -m pip install hatch ${{ inputs.legacy && '"virtualenv<21.0.0"' || '' }}
       - name: Test with pytest
-        run: hatch run test -v --cov=pika --cov-report=xml:coverage.xml
+        run: hatch run test -v --cov=pika --cov-report=xml:coverage.xml ${{ matrix.test-tls && '--use-tls' || '' }}
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v6
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage.xml
           disable_search: true
-          flags: linux-py${{ matrix.python-version }}
+          flags: linux-py${{ matrix.python-version }}-tls-${{ matrix.test-tls }}
           fail_ci_if_error: false
 
   build-macos:
-    name: build/test on ${{ inputs.macos-runner }} ${{ matrix.python-version }}
+    name: build/test on ${{ inputs.macos-runner }} py${{ matrix.python-version }} tls=${{ matrix.test-tls }}
     runs-on: ${{ inputs.macos-runner }}
     strategy:
       matrix:
         python-version: ${{ fromJSON(inputs.python-versions) }}
+        test-tls: [true, false]
     steps:
       - uses: actions/checkout@v6
       - name: Set up Python ${{ matrix.python-version }}
@@ -135,12 +133,12 @@ jobs:
           python -m pip install --upgrade pip wheel
           python -m pip install hatch ${{ inputs.legacy && '"virtualenv<21.0.0"' || '' }}
       - name: Test with pytest
-        run: hatch run test -v --cov=pika --cov-report=xml:coverage.xml
+        run: hatch run test -v --cov=pika --cov-report=xml:coverage.xml ${{ matrix.test-tls && '--use-tls' || '' }}
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v6
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage.xml
           disable_search: true
-          flags: macos-py${{ matrix.python-version }}
+          flags: macos-py${{ matrix.python-version }}-tls-${{ matrix.test-tls }}
           fail_ci_if_error: false

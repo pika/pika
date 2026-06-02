@@ -8,6 +8,9 @@ set -o xtrace
 script_dir="$(CDPATH='' cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly script_dir
 echo "[INFO] script_dir: '$script_dir'"
+pika_dir="$(CDPATH='' cd "$script_dir/../.." && pwd)"
+readonly pika_dir
+echo "[INFO] pika_dir: '$pika_dir'"
 
 if [[ -n "${RABBITMQ_VERSION:-}" ]]
 then
@@ -47,6 +50,7 @@ fi
 readonly rabbitmq_sbin="$rabbitmq_home/sbin"
 readonly rabbitmq_server_cmd="$rabbitmq_sbin/rabbitmq-server"
 readonly rabbitmqctl_cmd="$rabbitmq_sbin/rabbitmqctl"
+readonly rabbitmq_diagnostics_cmd="$rabbitmq_sbin/rabbitmq-diagnostics"
 
 export PATH="$rabbitmq_sbin:$PATH"
 export RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS='-rabbitmq_stream advertised_host localhost'
@@ -56,6 +60,15 @@ then
     echo "[ERROR] rabbitmq-server executable not found in $rabbitmq_sbin" >&2
     exit 1
 fi
+
+readonly rabbitmq_conf_dir="$rabbitmq_home/etc/rabbitmq"
+mkdir -p "$rabbitmq_conf_dir"
+sed "s|PIKA_DIR|$pika_dir|g" "$script_dir/../rabbitmq.conf.in" \
+    > "$rabbitmq_conf_dir/rabbitmq.conf"
+# RABBITMQ_CONFIG_FILE expects the path WITHOUT the .conf extension.
+export RABBITMQ_CONFIG_FILE="$rabbitmq_conf_dir/rabbitmq"
+echo '[INFO] RabbitMQ configuration:'
+cat "$rabbitmq_conf_dir/rabbitmq.conf"
 
 echo '[INFO] Starting RabbitMQ...'
 "$rabbitmq_server_cmd" -detached
@@ -70,3 +83,5 @@ done
 
 echo '[INFO] Waiting for RabbitMQ to start...'
 "$rabbitmqctl_cmd" await_startup
+"$rabbitmq_diagnostics_cmd" listeners
+"$rabbitmq_diagnostics_cmd" status
