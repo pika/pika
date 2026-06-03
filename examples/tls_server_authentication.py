@@ -16,5 +16,5 @@ conn_params = pika.ConnectionParameters(port=5671, ssl_options=ssl_options)
 with pika.BlockingConnection(conn_params) as conn:
     ch = conn.channel()
     print(ch.queue_declare("sslq"))
-    ch.publish("", "sslq", "abc")
+    ch.basic_publish("", "sslq", b"abc")
     print(ch.basic_get("sslq"))
