@@ -1,6 +1,6 @@
 # Using the BlockingChannel.consume generator to consume messages
 
-<a id="example_blocking_basic_get"></a>
+<a id="example_blocking_consumer_generator"></a>
 
 The `BlockingChannel.consume` method is a generator that will return a tuple of method, properties and body.
 
