@@ -595,7 +595,7 @@ class Channel:
         self._closing_reason = exceptions.ChannelClosedByClient(
             reply_code, reply_text)
 
-        for consumer_tag in self._consumers.keys():
+        for consumer_tag in list(self._consumers.keys()):
             if consumer_tag not in self._cancelled:
                 self.basic_cancel(consumer_tag=consumer_tag)
 

@@ -4,11 +4,42 @@ Set-StrictMode -Version 2.0
 
 [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor 'Tls12'
 
-$versions_path = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath 'testdata' | Join-Path -ChildPath 'versions.json'
-$versions = Get-Content $versions_path | ConvertFrom-Json
-Write-Host "[INFO] versions: $versions"
-$erlang_ver = $versions.erlang
-$rabbitmq_ver = $versions.rabbitmq
+if ($env:ERLANG_VERSION)
+{
+    $erlang_ver = $env:ERLANG_VERSION
+    Write-Host "[INFO] erlang version (from ERLANG_VERSION): '$erlang_ver'"
+}
+else
+{
+    Write-Host '[INFO] Resolving latest Erlang 27 release from otp_versions.table...'
+    $otp_table = (gh api 'repos/erlang/otp/contents/otp_versions.table' -H 'Accept: application/vnd.github.raw')
+    $erlang_ver = ($otp_table -split "`n" `
+        | Select-String -Pattern '^OTP-27\.' `
+        | ForEach-Object { ($_.Line -split '\s+')[0] -replace '^OTP-','' } `
+        | Sort-Object -Property { [version]$_ } `
+        | Select-Object -Last 1)
+    if (-Not $erlang_ver)
+    {
+        throw '[ERROR] could not resolve latest Erlang 27 version'
+    }
+    Write-Host "[INFO] erlang version: '$erlang_ver'"
+}
+
+if ($env:RABBITMQ_VERSION)
+{
+    $rabbitmq_ver = $env:RABBITMQ_VERSION
+    Write-Host "[INFO] rabbitmq version (from RABBITMQ_VERSION): '$rabbitmq_ver'"
+}
+else
+{
+    Write-Host '[INFO] Resolving latest RabbitMQ release...'
+    $rabbitmq_ver = (gh release view --repo rabbitmq/rabbitmq-server --json tagName --jq '.tagName | ltrimstr("v")')
+    if (-Not $rabbitmq_ver)
+    {
+        throw '[ERROR] could not resolve latest RabbitMQ version'
+    }
+    Write-Host "[INFO] rabbitmq version: '$rabbitmq_ver'"
+}
 
 $base_installers_dir = Join-Path -Path $HOME -ChildPath 'installers'
 if (-Not (Test-Path $base_installers_dir))
@@ -69,7 +100,7 @@ Write-Host "[INFO] Installer dir '$base_installers_dir' contents:"
 Get-ChildItem -Verbose -Path $base_installers_dir
 
 $pika_dir = $env:GITHUB_WORKSPACE
-$rabbitmq_conf_in_file = Join-Path -Path $pika_dir -ChildPath 'testdata' | Join-Path -ChildPath 'rabbitmq.conf.in'
+$rabbitmq_conf_in_file = Join-Path -Path $pika_dir -ChildPath '.ci' | Join-Path -ChildPath 'rabbitmq.conf.in'
 $rabbitmq_appdata_dir = Join-Path -Path $env:AppData -ChildPath 'RabbitMQ'
 New-Item -Path $rabbitmq_appdata_dir -ItemType Directory
 $rabbitmq_conf_file = Join-Path -Path $rabbitmq_appdata_dir -ChildPath 'rabbitmq.conf'

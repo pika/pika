@@ -29,6 +29,12 @@ To run unit tests only (no RabbitMQ required), use
 
     hatch run unit
 
+Tests run in parallel by default via `pytest-xdist` (`-n auto --dist=loadscope`).
+`loadscope` keeps tests from the same class on the same worker, which some
+suites (e.g. `tests/unit/io_services_test_stubs_test.py`) require — their
+`tearDownClass` asserts that every dynamically generated test method ran.
+Pass `-n 0` to disable parallelism if needed.
+
 To start RabbitMQ via Docker for acceptance tests, use
 
     hatch run rabbitmq

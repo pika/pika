@@ -88,6 +88,12 @@ hatch run test
 hatch run rabbitmq
 ```
 
+Tests run in parallel by default via `pytest-xdist` (`-n auto
+--dist=loadscope`). `loadscope` is required so classes that generate test
+methods dynamically (e.g. `tests/unit/io_services_test_stubs_test.py`) stay on
+a single worker — their `tearDownClass` asserts every generated method ran.
+Pass `-n 0` to disable parallelism.
+
 ## PR conventions
 
 - Base branch is `main`.
