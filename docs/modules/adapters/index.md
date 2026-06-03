@@ -44,7 +44,7 @@ This threadsafe callback request mechanism may also be used to delegate publishi
 
 ## Connection recovery
 
-The Pika library requires connection recovery to be performed by the application code and strive to make it a straightforward process. Pika falls into the second category.
+Pika does not provide automatic connection recovery - applications handle reconnection themselves.
 
 Different connection adapters take different approaches to connection recovery.
 
