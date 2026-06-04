@@ -2,9 +2,18 @@
 
 ### Is Pika thread safe?
 
-Pika does not have any notion of threading in the code. If you want to use Pika with threading, make sure you have a Pika connection per thread, created in that thread.
+Pika provides [`ThreadSafeConnection`](modules/adapters/thread_safe.md) for multi-threaded applications. It wraps `SelectConnection` with a dedicated IOLoop thread and exposes a blocking API that is safe to call from any number of threads simultaneously. Consumer callbacks run on a per-channel worker thread, so blocking work inside a callback does not stall heartbeats or require manual callback scheduling.
 
-It is not safe to share one Pika connection across threads, with one exception: you may call the connection method `add_callback_threadsafe` from another thread to schedule a callback within an active Pika connection. See [connection adapters](modules/adapters/index.md) for more details.
+```python
+from pika.adapters.thread_safe_connection import ThreadSafeConnection
+
+conn = ThreadSafeConnection(pika.ConnectionParameters('localhost'))
+ch = conn.channel()
+# safe to call from any thread
+ch.basic_publish(exchange='', routing_key='q', body=b'hello')
+```
+
+The other connection adapters (`BlockingConnection`, `SelectConnection`, `AsyncioConnection`, etc.) are **not** thread-safe. Each connection instance is confined to the thread that created it. The only safe cross-thread operation on these adapters is calling `add_callback_threadsafe` to schedule a callback in the connection's IOLoop thread. See [connection adapters](modules/adapters/index.md) for details.
 
 ### How do I report a bug with Pika?
 

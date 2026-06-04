@@ -16,7 +16,8 @@ theme:
   name: material
 
   # Added modern visuals
-  favicon: assets/favicon.png
+  favicon: assets/pika.jpg
+  logo: assets/pika.jpg
   icon:
     repo: fontawesome/brands/github
 
@@ -116,6 +117,7 @@ nav:
           - Tornado: modules/adapters/tornado.md
           - Twisted: modules/adapters/twisted.md
           - Gevent: modules/adapters/gevent.md
+          - ThreadSafe: modules/adapters/thread_safe.md
       - Channel: modules/channel.md
       - Connection: modules/connection.md
       - Credentials: modules/credentials.md
@@ -141,6 +143,8 @@ nav:
       - Tornado Consumer: examples/tornado_consumer.md
       - TLS Mutual Authentication: examples/tls_mutual_authentication.md
       - TLS Server Authentication: examples/tls_server_authentication.md
+      - Thread-Safe Consumer: examples/threaded_consumer.md
+      - Thread-Safe Publisher: examples/threaded_publisher.md
       - Heartbeat and Blocked Timeouts: examples/heartbeat_and_blocked_timeouts.md
       - Direct Reply-To: examples/direct_reply_to.md
   - Contributing: contributing.md

@@ -29,8 +29,9 @@ Pika is a pure-Python implementation of the AMQP 0-9-1 protocol including Rabbit
   that supported Python 2.7.
 - Since threads aren't appropriate to every situation, it doesn't require
   threads. Pika core takes care not to forbid them, either. The same goes for
-  greenlets, callbacks, continuations, and generators. An instance of Pika's
-  built-in connection adapters isn't thread-safe, however.
+  greenlets, callbacks, continuations, and generators. Most connection adapters
+  are single-threaded; use `ThreadSafeConnection` when you need to publish or
+  consume from multiple threads.
 - People may be using direct sockets, plain old `select()`, or any of the
   wide variety of ways of getting network events to and from a Python
   application. Pika tries to stay compatible with all of these, and to make
@@ -92,6 +93,9 @@ Pika provides the following adapters:
   for use with [Tornado](https://tornadoweb.org)'s I/O loop.
 - `pika.adapters.twisted_connection.TwistedProtocolConnection` - asynchronous
   adapter for use with [Twisted](https://twistedmatrix.com)'s I/O loop.
+- `pika.adapters.thread_safe_connection.ThreadSafeConnection` - thread-safe
+  adapter that runs SelectConnection's IOLoop in a background thread. All
+  channel methods are safe to call from any thread simultaneously.
 
 ## Multiple connection parameters
 You can also pass multiple `pika.ConnectionParameters` instances for fault-tolerance as in the code snippet below (host names are just examples, of course). To enable retries, set `connection_attempts` and `retry_delay` as needed in the last `pika.ConnectionParameters` element of the sequence. Retries occur after connection attempts using all of the given connection parameters fail.
@@ -108,10 +112,32 @@ connection = pika.BlockingConnection(parameters)
 ```
 With non-blocking adapters, such as `pika.SelectConnection` and `pika.adapters.asyncio_connection.AsyncioConnection`, you can request a connection using multiple connection parameter instances via the connection adapter's `create_connection()` class method.
 
-## Requesting message acknowledgements from another thread
-The single-threaded usage constraint of an individual Pika connection adapter instance may result in a dropped AMQP/stream connection due to AMQP heartbeat timeout in consumers that take a long time to process an incoming message. A common solution is to delegate processing of the incoming messages to another thread, while the connection adapter's thread continues to service its I/O loop's message pump, permitting AMQP heartbeats and other I/O to be serviced in a timely fashion.
+## Threading
 
-Messages processed in another thread may not be acknowledged directly from that thread, since all accesses to the connection adapter instance must be from a single thread, which is the thread running the adapter's I/O loop. This is accomplished by requesting a callback to be executed in the adapter's I/O loop thread. For example, the callback function's implementation might look like this:
+### Using ThreadSafeConnection (recommended)
+
+`pika.adapters.thread_safe_connection.ThreadSafeConnection` is the simplest way to use Pika from multiple threads. It runs the IOLoop in a background thread and provides a blocking API that is safe to call from any number of threads simultaneously. Consumer callbacks run on a per-channel worker thread, so slow processing never stalls heartbeats:
+
+```python
+from pika.adapters.thread_safe_connection import ThreadSafeConnection
+
+conn = ThreadSafeConnection(pika.ConnectionParameters('localhost'))
+ch = conn.channel()
+
+def on_message(channel, method, properties, body):
+    process(body)
+    channel.basic_ack(method.delivery_tag)  # safe, no callback scheduling needed
+
+ch.basic_consume('work', on_message)
+```
+
+See [`examples/basic_consumer_threaded.py`](https://github.com/pika/pika/blob/main/examples/basic_consumer_threaded.py) and [`examples/basic_publisher_threaded.py`](https://github.com/pika/pika/blob/main/examples/basic_publisher_threaded.py).
+
+### Using add_callback_threadsafe (manual approach)
+
+For other adapters, each connection instance is confined to a single thread. The single-threaded constraint may result in a dropped connection due to AMQP heartbeat timeout in consumers that take a long time to process a message. A common solution is to delegate processing to another thread while the connection's IOLoop thread services heartbeats.
+
+Messages processed in another thread may not be acknowledged directly from that thread. Instead, schedule a callback in the adapter's IOLoop thread:
 
 ```python
 def ack_message(channel, delivery_tag):

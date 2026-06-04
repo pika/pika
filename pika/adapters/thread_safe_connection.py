@@ -140,7 +140,7 @@ class ThreadSafeChannel:
 
         :param str method_name: Human-readable name for timeout messages.
         :param callable channel_method: Bound method on the raw channel.
-        :param float | None timeout: Seconds to wait.
+        :param timeout: Seconds to wait.
         :returns: The broker response frame.
         :raises TimeoutError: if *timeout* expires.
         :raises Exception: if the connection or channel closes first.
@@ -293,7 +293,7 @@ class ThreadSafeChannel:
         :param int prefetch_size: Prefetch window in octets (0 = no limit).
         :param int prefetch_count: Prefetch window in whole messages (0 = no limit).
         :param bool global_qos: Apply QoS to all consumers on the channel.
-        :param float | None timeout: Seconds to wait for the response.
+        :param timeout: Seconds to wait for the response.
             Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
             Pass ``None`` to wait indefinitely.
         :returns: The Basic.QosOk method frame.
@@ -320,7 +320,7 @@ class ThreadSafeChannel:
 
         :param str queue: The queue to get a message from.
         :param bool auto_ack: Do not require acknowledgement.
-        :param float | None timeout: Seconds to wait for the response.
+        :param timeout: Seconds to wait for the response.
             Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
             Pass ``None`` to wait indefinitely.
         :returns: ``(method, properties, body)`` or ``(None, None, None)``.
@@ -479,7 +479,7 @@ class ThreadSafeChannel:
         :param callable ack_nack_callback:
             ``callback(method_frame)`` called for each Basic.Ack or
             Basic.Nack received from the broker.
-        :param float | None timeout: Seconds to wait for the response.
+        :param timeout: Seconds to wait for the response.
             Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
             Pass ``None`` to wait indefinitely.
         :returns: The Confirm.SelectOk method frame.
@@ -534,9 +534,9 @@ class ThreadSafeChannel:
             ``callback(channel, method, properties, body)``
         :param bool auto_ack: Disable manual acknowledgement.
         :param bool exclusive: Request exclusive consumer access.
-        :param str | None consumer_tag: Client-provided tag; generated if omitted.
-        :param dict | None arguments: Additional AMQP arguments.
-        :param float | None timeout: Seconds to wait for the response.
+        :param consumer_tag: Client-provided tag; generated if omitted.
+        :param arguments: Additional AMQP arguments.
+        :param timeout: Seconds to wait for the response.
             Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
             Pass ``None`` to wait indefinitely.
         :returns: The consumer tag assigned by the broker.
@@ -573,7 +573,7 @@ class ThreadSafeChannel:
         Safe to call from any thread.
 
         :param str consumer_tag: Tag returned by :meth:`basic_consume`.
-        :param float | None timeout: Seconds to wait for the response.
+        :param timeout: Seconds to wait for the response.
             Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
             Pass ``None`` to wait indefinitely.
         :returns: The Basic.CancelOk method frame.
@@ -600,7 +600,7 @@ class ThreadSafeChannel:
 
         Safe to call from any thread.
 
-        :param float | None timeout: Seconds to wait for the response.
+        :param timeout: Seconds to wait for the response.
             Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
             Pass ``None`` to wait indefinitely.
         :returns: The Queue.DeclareOk method frame.
@@ -639,8 +639,8 @@ class ThreadSafeChannel:
         :param bool durable: Survive broker restart.
         :param bool auto_delete: Delete when no queues are bound.
         :param bool internal: Can only be published to by other exchanges.
-        :param dict | None arguments: Custom arguments for the exchange.
-        :param float | None timeout: Seconds to wait for the response.
+        :param arguments: Custom arguments for the exchange.
+        :param timeout: Seconds to wait for the response.
             Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
             Pass ``None`` to wait indefinitely.
         :returns: The Exchange.DeclareOk method frame.
@@ -673,10 +673,10 @@ class ThreadSafeChannel:
 
         :param str queue: The queue to bind.
         :param str exchange: The exchange to bind to.
-        :param str | None routing_key: The routing key to bind on.
+        :param routing_key: The routing key to bind on.
             Defaults to the queue name.
-        :param dict | None arguments: Custom arguments for the binding.
-        :param float | None timeout: Seconds to wait for the response.
+        :param arguments: Custom arguments for the binding.
+        :param timeout: Seconds to wait for the response.
             Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
             Pass ``None`` to wait indefinitely.
         :returns: The Queue.BindOk method frame.
@@ -705,11 +705,11 @@ class ThreadSafeChannel:
         Safe to call from any thread.
 
         :param str queue: The queue to unbind.
-        :param str | None exchange: The exchange to unbind from.
-        :param str | None routing_key: The routing key to unbind.
+        :param exchange: The exchange to unbind from.
+        :param routing_key: The routing key to unbind.
             Defaults to the queue name.
-        :param dict | None arguments: Custom arguments for the unbinding.
-        :param float | None timeout: Seconds to wait for the response.
+        :param arguments: Custom arguments for the unbinding.
+        :param timeout: Seconds to wait for the response.
             Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
             Pass ``None`` to wait indefinitely.
         :returns: The Queue.UnbindOk method frame.
@@ -739,7 +739,7 @@ class ThreadSafeChannel:
         :param str queue: The queue to delete.
         :param bool if_unused: Only delete if the queue has no consumers.
         :param bool if_empty: Only delete if the queue is empty.
-        :param float | None timeout: Seconds to wait for the response.
+        :param timeout: Seconds to wait for the response.
             Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
             Pass ``None`` to wait indefinitely.
         :returns: The Queue.DeleteOk method frame.
@@ -762,7 +762,7 @@ class ThreadSafeChannel:
         Safe to call from any thread.
 
         :param str queue: The queue to purge.
-        :param float | None timeout: Seconds to wait for the response.
+        :param timeout: Seconds to wait for the response.
             Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
             Pass ``None`` to wait indefinitely.
         :returns: The Queue.PurgeOk method frame.
@@ -790,8 +790,8 @@ class ThreadSafeChannel:
         :param str destination: The destination exchange to bind.
         :param str source: The source exchange to bind to.
         :param str routing_key: The routing key to bind on.
-        :param dict | None arguments: Custom arguments for the binding.
-        :param float | None timeout: Seconds to wait for the response.
+        :param arguments: Custom arguments for the binding.
+        :param timeout: Seconds to wait for the response.
             Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
             Pass ``None`` to wait indefinitely.
         :returns: The Exchange.BindOk method frame.
@@ -822,8 +822,8 @@ class ThreadSafeChannel:
         :param str destination: The destination exchange to unbind.
         :param str source: The source exchange to unbind from.
         :param str routing_key: The routing key to unbind.
-        :param dict | None arguments: Custom arguments for the unbinding.
-        :param float | None timeout: Seconds to wait for the response.
+        :param arguments: Custom arguments for the unbinding.
+        :param timeout: Seconds to wait for the response.
             Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
             Pass ``None`` to wait indefinitely.
         :returns: The Exchange.UnbindOk method frame.
@@ -849,9 +849,9 @@ class ThreadSafeChannel:
 
         Safe to call from any thread.
 
-        :param str | None exchange: The exchange name.
+        :param exchange: The exchange name.
         :param bool if_unused: Only delete if the exchange has no bindings.
-        :param float | None timeout: Seconds to wait for the response.
+        :param timeout: Seconds to wait for the response.
             Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
             Pass ``None`` to wait indefinitely.
         :returns: The Exchange.DeleteOk method frame.
@@ -878,7 +878,7 @@ class ThreadSafeChannel:
 
         :param int reply_code: Close reason code to send to the broker.
         :param str reply_text: Close reason text to send to the broker.
-        :param float | None timeout: Seconds to wait for Channel.CloseOk
+        :param timeout: Seconds to wait for Channel.CloseOk
             before treating the channel as closed regardless.  Defaults to
             10 seconds.  Pass ``None`` to wait indefinitely.
         :raises Exception: if the connection is closed or the channel is closed
@@ -929,7 +929,7 @@ class ThreadSafeChannel:
 
         :param int reply_code: Close reason code to send to the broker.
         :param str reply_text: Close reason text to send to the broker.
-        :param float | None timeout: Seconds to wait for Channel.CloseOk
+        :param timeout: Seconds to wait for Channel.CloseOk
             before treating the channel as closed regardless.  Defaults to
             10 seconds.  Pass ``None`` to wait indefinitely.
         """
@@ -1005,13 +1005,13 @@ class ThreadSafeConnection:
 
     :param parameters: Connection parameters.
     :type parameters: pika.connection.Parameters
-    :param callable | None on_open_error_callback:
+    :param on_open_error_callback:
         Called in the IOLoop thread if the connection cannot be established.
         Signature: ``on_open_error_callback(connection, exception)``
-    :param callable | None on_close_callback:
+    :param on_close_callback:
         Called in the IOLoop thread when the connection is closed.
         Signature: ``on_close_callback(connection, reason)``
-    :param float | None timeout: Seconds to wait for the AMQP connection
+    :param timeout: Seconds to wait for the AMQP connection
         to be established.  Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
         Pass ``None`` to wait indefinitely (relying on the socket timeout
         in *parameters*).  On timeout the IOLoop is stopped and
@@ -1166,7 +1166,7 @@ class ThreadSafeConnection:
         Blocks the calling thread until the channel is open.  The returned
         channel's methods are safe to call from any thread.
 
-        :param float | None timeout: Seconds to wait for Channel.OpenOk.
+        :param timeout: Seconds to wait for Channel.OpenOk.
             Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
             Pass ``None`` to wait indefinitely.
         :rtype: ThreadSafeChannel
@@ -1237,7 +1237,7 @@ class ThreadSafeConnection:
 
         Calling ``close()`` on an already-closed connection is a no-op.
 
-        :param float | None timeout: Seconds to wait for a clean close before
+        :param timeout: Seconds to wait for a clean close before
             force-stopping the IOLoop. Defaults to 10 seconds, which is
             sufficient for a healthy broker on any reasonable network.
             Pass ``None`` to wait indefinitely.
@@ -1295,7 +1295,7 @@ class ThreadSafeConnection:
 
         Safe to call from any thread.
 
-        :param float | None timeout: Seconds to wait for a clean close before
+        :param timeout: Seconds to wait for a clean close before
             force-stopping the IOLoop.  Defaults to 10 seconds.
             Pass ``None`` to wait indefinitely.
         """

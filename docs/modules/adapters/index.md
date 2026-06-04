@@ -3,6 +3,7 @@ Pika uses connection adapters to provide a flexible method for adapting pika's c
 
 ## Adapters
 
+- [ThreadSafeConnection](thread_safe.md)
 - [BlockingConnection](blocking.md)
 - [SelectConnection](select.md)
 - [AsyncioConnection](asyncio.md)
@@ -10,8 +11,31 @@ Pika uses connection adapters to provide a flexible method for adapting pika's c
 - [TwistedProtocolConnection](twisted.md)
 - [GeventConnection](gevent.md)
 
-## Requesting message acknowledgements from another thread
-The single-threaded usage constraint of an individual Pika connection adapter instance may result in a dropped AMQP/stream connection due to AMQP heartbeat timeout in consumers that take a long time to process an incoming message. A common solution is to delegate processing of the incoming messages to another thread, while the connection adapter's thread continues to service its I/O loop's message pump, permitting AMQP heartbeats and other I/O to be serviced in a timely fashion.
+## Threading
+
+### Using ThreadSafeConnection (recommended)
+
+[ThreadSafeConnection](thread_safe.md) is the simplest way to use Pika from multiple threads. It runs the IOLoop in a background thread and provides a blocking, thread-safe API. Consumer callbacks run on a dedicated worker thread, so slow processing never stalls heartbeats, and you can call `basic_ack`, `basic_publish`, and other channel methods directly from the callback without any special coordination:
+
+```python
+from pika.adapters.thread_safe_connection import ThreadSafeConnection
+
+conn = ThreadSafeConnection(pika.ConnectionParameters('localhost'))
+ch = conn.channel()
+
+def on_message(channel, method, properties, body):
+    # This runs on a worker thread - safe to do blocking work here
+    process(body)
+    channel.basic_ack(method.delivery_tag)  # safe, no add_callback_threadsafe needed
+
+ch.basic_consume('work', on_message)
+```
+
+See the [Thread-Safe Consumer](../../examples/threaded_consumer.md) and [Thread-Safe Publisher](../../examples/threaded_publisher.md) examples.
+
+### Using add_callback_threadsafe (manual approach)
+
+For other adapters (`BlockingConnection`, `SelectConnection`, `AsyncioConnection`, etc.), each connection instance is confined to a single thread. The single-threaded usage constraint may result in a dropped AMQP/stream connection due to AMQP heartbeat timeout in consumers that take a long time to process an incoming message. A common solution is to delegate processing of the incoming messages to another thread, while the connection adapter's thread continues to service its I/O loop's message pump, permitting AMQP heartbeats and other I/O to be serviced in a timely fashion.
 
 Messages processed in another thread may not be acknowledged directly from that thread, since all accesses to the connection adapter instance must be from a single thread, which is the thread running the adapter's I/O loop. This is accomplished by requesting a callback to be executed in the adapter's I/O loop thread. For example, the callback function's implementation might look like this:
 
