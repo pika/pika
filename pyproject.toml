@@ -39,11 +39,12 @@ dependencies = []
 requires-python = ">=3.7"
 
 [project.readme]
-file = "README.rst"
-content-type = "text/x-rst"
+file = "README.md"
+content-type = "text/markdown"
 
 [project.urls]
-Homepage = "https://pika.readthedocs.io"
+Homepage = "https://pika.github.io/pika/"
+Documentation = "https://pika.github.io/pika/"
 Source = "https://github.com/pika/pika"
 
 [project.optional-dependencies]
@@ -99,7 +100,7 @@ include-package-data = false
 packages = ["pika", "pika.adapters", "pika.adapters.utils"]
 
 [tool.setuptools.package-data]
-"*" = ["LICENSE", "README.rst"]
+"*" = ["LICENSE", "README.md"]
 
 [tool.hatch.envs.default]
 dependencies = [
@@ -126,6 +127,35 @@ typecheck = "python -m mypy"
 unit = "pytest -n auto --dist=loadscope tests/unit/ {args}"
 test = "pytest -n auto --dist=loadscope {args}"
 rabbitmq = "docker run --name pika-rabbitmq --pull always --detach --rm --publish 5672:5672 --publish 15672:15672 rabbitmq:management-alpine"
+
+[tool.hatch.envs.examples]
+dependencies = [
+    "tornado",
+    "twisted",
+    "retry",
+    "msgpack",
+    "pydantic",
+]
+
+[tool.hatch.envs.examples.scripts]
+run = "python examples/{args}"
+
+[tool.hatch.envs.docs]
+dependencies = [
+    "mkdocs",
+    "mkdocs-material",
+    "mkdocstrings[python]",
+    "mike",
+    "gevent",
+    "tornado",
+    "twisted",
+    "ruff",
+]
+
+[tool.hatch.envs.docs.scripts]
+build = "mkdocs build --strict"
+serve = "mkdocs serve"
+serve-live = "mkdocs serve --livereload"
 
 [tool.pytest.ini_options]
 minversion = "7.0"

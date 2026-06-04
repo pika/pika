@@ -532,7 +532,7 @@ class Channel:
                              requeue the message. If requeue is false or the
                              requeue attempt fails the messages are discarded or
                              dead-lettered.
-        :raises: TypeError
+        :raises TypeError:
 
         """
         self._raise_if_not_open()
@@ -1278,7 +1278,7 @@ class Channel:
     def _on_flow(self, _method_frame_unused: frame.Method) -> None:
         """Called if the server sends a Channel.Flow frame.
 
-        :param pika.frame.Method method_frame_unused: The Channel.Flow frame
+        :param pika.frame.Method _method_frame_unused: The Channel.Flow frame
 
         """
         if self._has_on_flow_callback is False:
@@ -1374,7 +1374,7 @@ class Channel:
         the blocking state and send all the frames that stacked up while we
         were in the blocking state.
 
-        :param pika.frame.Method method_frame_unused: The method frame received
+        :param pika.frame.Method _method_frame_unused: The method frame received
 
         """
         LOGGER.debug('%i blocked frames', len(self._blocked))

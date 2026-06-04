@@ -336,11 +336,12 @@ class BlockingConnection:
     ) -> None:
         """Create a new instance of the Connection object.
 
-        :param None | pika.connection.Parameters | sequence parameters:
+        :param parameters:
             Connection parameters instance or non-empty sequence of them. If
             None, a `pika.connection.Parameters` instance will be created with
             default settings. See `pika.AMQPConnectionWorkflow` for more
             details about multiple parameter configurations and retries.
+            Type: `None | pika.connection.Parameters | sequence`.
         :param _impl_class: for tests/debugging only; implementation class;
             None=default
 
@@ -426,14 +427,15 @@ class BlockingConnection:
     ) -> select_connection.SelectConnection:
         """Run connection workflow, blocking until it completes.
 
-        :param None | pika.connection.Parameters | sequence configs: Connection
+        :param configs: Connection
             parameters instance or non-empty sequence of them.
-        :param None | SelectConnection impl_class: for tests/debugging only;
-            implementation class;
+            Type: `None | pika.connection.Parameters | sequence`.
+        :param impl_class: for tests/debugging only; implementation class.
+            Type: `None | SelectConnection`.
 
         :rtype: impl_class
 
-        :raises: exception on failure
+        :raises Exception: on failure
         """
 
         if configs is None:
@@ -514,7 +516,7 @@ class BlockingConnection:
         :param waiters: sequence of zero or more callables taking no args and
                         returning true when it's time to stop processing.
                         Their results are OR'ed together.
-        :raises: exceptions passed by impl if opening of connection fails or
+        :raises Exception: exceptions passed by impl if opening of connection fails or
             connection closes.
         """
         if self.is_closed:
@@ -1532,7 +1534,7 @@ class BlockingChannel:
                                       body: bytes):
         """Called by impl when a message is delivered for a consumer
 
-        :param Channel channel: The implementation channel object
+        :param Channel _channel: The implementation channel object
         :param spec.Basic.Deliver method:
         :param pika.spec.BasicProperties properties: message properties
         :param bytes body: delivered message body; empty string if no body

@@ -659,7 +659,7 @@ class TwistedChannel:
                              requeue the message. If requeue is false or the
                              requeue attempt fails the messages are discarded
                              or dead-lettered.
-        :raises: TypeError
+        :raises TypeError:
 
         """
         return self._channel.basic_reject(delivery_tag=delivery_tag,
