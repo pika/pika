@@ -23,7 +23,7 @@ def connection_ready(conn):
     return conn.ready
 
 
-_certs = Path('PIKA_DIR/testdata/certs')
+_certs = Path(__file__).resolve().parent.parent / 'tests' / 'certs'
 # Load the CA certificate to validate the server's identity
 with _certs.joinpath('ca_certificate.pem').open() as fd:
     ca_cert = ssl.Certificate.loadPEM(fd.read())

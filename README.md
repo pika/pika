@@ -16,6 +16,7 @@
   <a href='#introduction'><strong>Introduction</strong></a> ·
   <a href='#documentation'><strong>Documentation</strong></a> ·
   <a href='#example'><strong>Example</strong></a> ·
+  <a href='examples/'><strong>Examples</strong></a> ·
   <a href='#adapters'><strong>Adapters</strong></a> ·
   <a href='#contributing'><strong>Contributing</strong></a>
 </p>

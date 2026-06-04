@@ -128,6 +128,18 @@ unit = "pytest -n auto --dist=loadscope tests/unit/ {args}"
 test = "pytest -n auto --dist=loadscope {args}"
 rabbitmq = "docker run --name pika-rabbitmq --pull always --detach --rm --publish 5672:5672 --publish 15672:15672 rabbitmq:management-alpine"
 
+[tool.hatch.envs.examples]
+dependencies = [
+    "tornado",
+    "twisted",
+    "retry",
+    "msgpack",
+    "pydantic",
+]
+
+[tool.hatch.envs.examples.scripts]
+run = "python examples/{args}"
+
 [tool.hatch.envs.docs]
 dependencies = [
     "mkdocs",
