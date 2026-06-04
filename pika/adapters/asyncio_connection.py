@@ -240,7 +240,6 @@ class _AsyncioIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         :param on_done: User callback that takes the completion result
             or exception as its only arg. It will not be called if the operation
             was cancelled.
-        :returns: _AsyncioIOReference which is derived from
         :rtype: _AsyncioIOReference which is derived from
             nbio_interface.AbstractIOReference
 

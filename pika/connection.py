@@ -156,7 +156,6 @@ class Parameters:
     def __repr__(self) -> str:
         """Represent the info about the instance.
 
-        :returns: str
         :rtype: str
 
         """
@@ -285,7 +284,6 @@ class Parameters:
     ) -> (pika.credentials.PlainCredentials |
           pika.credentials.ExternalCredentials):
         """
-        :returns: one of the classes from `pika.credentials.VALID_TYPES`. Defaults
         :rtype: one of the classes from `pika.credentials.VALID_TYPES`. Defaults
             to `DEFAULT_CREDENTIALS`.
 
@@ -1283,7 +1281,6 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
         :param callable on_open_callback: The callback when the channel is
             opened.  The callback will be invoked with the `Channel` instance
             as its only argument.
-        :returns: pika.channel.Channel
         :rtype: pika.channel.Channel
 
         """
@@ -1428,7 +1425,6 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
     def basic_nack(self) -> bool:
         """Specifies if the server supports basic.nack on the active connection.
 
-        :returns: bool
         :rtype: bool
 
         """
@@ -1439,7 +1435,6 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
         """Specifies if the server supports consumer cancel notification on the
         active connection.
 
-        :returns: bool
         :rtype: bool
 
         """
@@ -1450,7 +1445,6 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
         """Specifies if the active connection supports exchange to exchange
         bindings.
 
-        :returns: bool
         :rtype: bool
 
         """
@@ -1460,7 +1454,6 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
     def publisher_confirms(self) -> bool:
         """Specifies if the active connection can use publisher confirmations.
 
-        :returns: bool
         :rtype: bool
 
         """
@@ -1585,7 +1578,6 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
     def _client_properties(self) -> dict[str, Any]:
         """Return the client properties dictionary.
 
-        :returns: dict
         :rtype: dict
 
         """
@@ -1644,7 +1636,6 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
         """Create a heartbeat checker instance if there is a heartbeat interval
         set.
 
-        :returns: pika.heartbeat.Heartbeat|None
         :rtype: pika.heartbeat.Heartbeat|None
 
         """
@@ -1687,7 +1678,6 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
     def _get_body_frame_max_length(self) -> int:
         """Calculate the maximum amount of bytes that can be in a body frame.
 
-        :returns: int
         :rtype: int
 
         """
@@ -1725,7 +1715,6 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
         """Returns true if the frame is a method frame.
 
         :param pika.frame.Frame value: The frame to evaluate
-        :returns: bool
         :rtype: bool
 
         """
@@ -1734,7 +1723,6 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
     def _is_protocol_header_frame(self, value: frame.Frame) -> bool:
         """Returns True if it's a protocol header frame.
 
-        :returns: bool
         :rtype: bool
 
         """
@@ -1743,7 +1731,6 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
     def _next_channel_number(self) -> int:
         """Return the next available channel number or raise an exception.
 
-        :returns: int
         :rtype: int
 
         """
@@ -1947,7 +1934,6 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
 
         :param int client_value: The client value
         :param int server_value: The server value
-        :returns: int
         :rtype: int
 
         """
@@ -2180,7 +2166,6 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
         and if it has any callbacks pending.
 
         :param pika.frame.Method frame_value: The frame to process
-        :returns: bool
         :rtype: bool
 
         """

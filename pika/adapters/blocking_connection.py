@@ -433,7 +433,6 @@ class BlockingConnection:
         :param impl_class: for tests/debugging only; implementation class.
             Type: `None | SelectConnection`.
 
-        :returns: impl_class
         :rtype: impl_class
 
         :raises Exception: on failure
@@ -932,7 +931,6 @@ class BlockingConnection:
         specify but it is recommended that you let Pika manage the channel
         numbers.
 
-        :returns: pika.adapters.blocking_connection.BlockingChannel
         :rtype: pika.adapters.blocking_connection.BlockingChannel
         """
         with _CallbackResult(self._OnChannelOpenedArgs) as opened_args:
@@ -977,7 +975,6 @@ class BlockingConnection:
     def basic_nack_supported(self) -> bool:
         """Specifies if the server supports basic.nack on the active connection.
 
-        :returns: bool
         :rtype: bool
 
         """
@@ -988,7 +985,6 @@ class BlockingConnection:
         """Specifies if the server supports consumer cancel notification on the
         active connection.
 
-        :returns: bool
         :rtype: bool
 
         """
@@ -999,7 +995,6 @@ class BlockingConnection:
         """Specifies if the active connection supports exchange to exchange
         bindings.
 
-        :returns: bool
         :rtype: bool
 
         """
@@ -1009,7 +1004,6 @@ class BlockingConnection:
     def publisher_confirms_supported(self) -> bool:
         """Specifies if the active connection can use publisher confirmations.
 
-        :returns: bool
         :rtype: bool
 
         """
@@ -1346,7 +1340,6 @@ class BlockingChannel:
         NOTE: inherited from legacy BlockingConnection; might be error-prone;
         use `channel_number` property instead.
 
-        :returns: int
         :rtype: int
 
         """
@@ -1384,7 +1377,6 @@ class BlockingChannel:
     def is_closed(self) -> bool:
         """Returns True if the channel is closed.
 
-        :returns: bool
         :rtype: bool
 
         """
@@ -1394,7 +1386,6 @@ class BlockingChannel:
     def is_open(self) -> bool:
         """Returns True if the channel is open.
 
-        :returns: bool
         :rtype: bool
 
         """
@@ -1405,7 +1396,6 @@ class BlockingChannel:
         """Property method that returns a list of consumer tags for active
         consumers
 
-        :returns: list
         :rtype: list
 
         """

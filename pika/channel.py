@@ -134,7 +134,6 @@ class Channel:
     def __int__(self) -> int:
         """Return the channel object as its channel number
 
-        :returns: int
         :rtype: int
 
         """
@@ -814,7 +813,6 @@ class Channel:
     def is_closed(self) -> bool:
         """Returns True if the channel is closed.
 
-        :returns: bool
         :rtype: bool
 
         """
@@ -825,7 +823,6 @@ class Channel:
         """Returns True if client-initiated closing of the channel is in
         progress.
 
-        :returns: bool
         :rtype: bool
 
         """
@@ -835,7 +832,6 @@ class Channel:
     def is_open(self) -> bool:
         """Returns True if the channel is open.
 
-        :returns: bool
         :rtype: bool
 
         """
@@ -845,7 +841,6 @@ class Channel:
     def is_opening(self) -> bool:
         """Returns True if the channel is opening.
 
-        :returns: bool
         :rtype: bool
 
         """

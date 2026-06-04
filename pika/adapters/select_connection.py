@@ -276,7 +276,6 @@ class _Timer:
         :param callable callback: The callback method, having the signature
             `callback()`
 
-        :returns: _Timeout
         :rtype: _Timeout
         :raises ValueError, TypeError
 
@@ -1231,7 +1230,6 @@ class PollPoller(_PollerBase):
     @staticmethod
     def _create_poller() -> Any:
         """
-        :returns: `select.poll`
         :rtype: `select.poll`
         """
         return getattr(select, 'poll')()
@@ -1326,7 +1324,6 @@ class EPollPoller(PollPoller):
     @staticmethod
     def _create_poller() -> Any:
         """
-        :returns: `select.poll`
         :rtype: `select.poll`
         """
         return getattr(select, 'epoll')()
