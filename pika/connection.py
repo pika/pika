@@ -102,55 +102,41 @@ class Parameters:
         # connection will be torn down, triggering the connection's
         # on_close_callback
         self._blocked_connection_timeout: float | None = None
-        self.blocked_connection_timeout = (
-            self.DEFAULT_BLOCKED_CONNECTION_TIMEOUT)
-
-        self._channel_max: int = None  # type: ignore[assignment]
-        self.channel_max = self.DEFAULT_CHANNEL_MAX
-
+        self._channel_max: int = 0
         self._client_properties: dict[str, Any] | None = None
-        self.client_properties = self.DEFAULT_CLIENT_PROPERTIES
-
-        self._connection_attempts: int = None  # type: ignore[assignment]
-        self.connection_attempts = self.DEFAULT_CONNECTION_ATTEMPTS
-
+        self._connection_attempts: int = 0
         self._credentials: (pika.credentials.PlainCredentials |
                             pika.credentials.ExternalCredentials
-                           ) = None  # type: ignore[assignment]
-        self.credentials = self.DEFAULT_CREDENTIALS
-
-        self._frame_max: int = None  # type: ignore[assignment]
-        self.frame_max = self.DEFAULT_FRAME_MAX
-
+                           ) = self.DEFAULT_CREDENTIALS
+        self._frame_max: int = 0
         self._heartbeat: None | (int |
                                  Callable[[Connection, float], int]) = None
-        self.heartbeat = self.DEFAULT_HEARTBEAT_TIMEOUT
-
-        self._host: str = None  # type: ignore[assignment]
-        self.host = self.DEFAULT_HOST
-
-        self._locale: str = None  # type: ignore[assignment]
-        self.locale = self.DEFAULT_LOCALE
-
-        self._port: int = None  # type: ignore[assignment]
-        self.port = self.DEFAULT_PORT
-
-        self._retry_delay: float = None  # type: ignore[assignment]
-        self.retry_delay = self.DEFAULT_RETRY_DELAY
-
+        self._host: str = ''
+        self._locale: str = ''
+        self._port: int = 0
+        self._retry_delay: float = 0.0
         self._socket_timeout: float | None = None
-        self.socket_timeout = self.DEFAULT_SOCKET_TIMEOUT
-
         self._stack_timeout: float | None = None
-        self.stack_timeout = self.DEFAULT_STACK_TIMEOUT
-
         self._ssl_options: SSLOptions | None = None
-        self.ssl_options = self.DEFAULT_SSL_OPTIONS
-
-        self._virtual_host: str = None  # type: ignore[assignment]
-        self.virtual_host = self.DEFAULT_VIRTUAL_HOST
-
+        self._virtual_host: str = ''
         self._tcp_options: dict[str, int] | None = None
+
+        self.blocked_connection_timeout = (
+            self.DEFAULT_BLOCKED_CONNECTION_TIMEOUT)
+        self.channel_max = self.DEFAULT_CHANNEL_MAX
+        self.client_properties = self.DEFAULT_CLIENT_PROPERTIES
+        self.connection_attempts = self.DEFAULT_CONNECTION_ATTEMPTS
+        self.credentials = self.DEFAULT_CREDENTIALS
+        self.frame_max = self.DEFAULT_FRAME_MAX
+        self.heartbeat = self.DEFAULT_HEARTBEAT_TIMEOUT
+        self.host = self.DEFAULT_HOST
+        self.locale = self.DEFAULT_LOCALE
+        self.port = self.DEFAULT_PORT
+        self.retry_delay = self.DEFAULT_RETRY_DELAY
+        self.socket_timeout = self.DEFAULT_SOCKET_TIMEOUT
+        self.stack_timeout = self.DEFAULT_STACK_TIMEOUT
+        self.ssl_options = self.DEFAULT_SSL_OPTIONS
+        self.virtual_host = self.DEFAULT_VIRTUAL_HOST
         self.tcp_options = self.DEFAULT_TCP_OPTIONS
 
     def __repr__(self) -> str:
@@ -803,9 +789,10 @@ class URLParameters(Parameters):
                          if self.ssl_options else self.DEFAULT_PORT)
 
         if parts.username is not None:
+            assert parts.password is not None
             self.credentials = pika.credentials.PlainCredentials(
                 url_unquote(parts.username),
-                url_unquote(parts.password))  # type: ignore
+                url_unquote(parts.password))
 
         # Get the Virtual Host
         if len(parts.path) > 1:
@@ -821,13 +808,13 @@ class URLParameters(Parameters):
                 raise ValueError(f'Unknown URL parameter: {name!r}')
 
             try:
-                (value,) = value  # type: ignore[assignment]
+                (single_value,) = value
             except ValueError:
                 raise ValueError(
                     f'Expected exactly one value for URL parameter '
                     f'{name}, but got {len(value)} values: {value}')
 
-            set_value(value)
+            set_value(single_value)
 
     def _set_url_blocked_connection_timeout(self, value: float) -> None:
         """Deserialize and apply the corresponding query string arg"""
@@ -1082,13 +1069,13 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
 
         # Attributes that will be properly initialized by _init_connection_state
         # and/or during connection handshake.
-        self.server_capabilities: dict[str,
-                                       bool] = None  # type: ignore[assignment]
+        self.server_capabilities: dict[str, bool] | None = None
         self.server_properties: dict[str, Any] | None = None
-        self._body_max_length: int = None  # type: ignore[assignment]
-        self.known_hosts: str = None  # type: ignore[assignment]
-        self._frame_buffer: bytes = None  # type: ignore[assignment]
-        self._channels: dict[int, Channel] = None  # type: ignore[assignment]
+        self._body_max_length: int = (
+            spec.FRAME_MAX_SIZE - spec.FRAME_HEADER_SIZE - spec.FRAME_END_SIZE)
+        self.known_hosts: str | None = None
+        self._frame_buffer: bytes = b''
+        self._channels: dict[int, Channel] = {}
 
         self._init_connection_state()
 
@@ -1428,6 +1415,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
         :rtype: bool
 
         """
+        assert self.server_capabilities is not None
         return self.server_capabilities.get('basic.nack', False)
 
     @property
@@ -1438,6 +1426,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
         :rtype: bool
 
         """
+        assert self.server_capabilities is not None
         return self.server_capabilities.get('consumer_cancel_notify', False)
 
     @property
@@ -1448,6 +1437,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
         :rtype: bool
 
         """
+        assert self.server_capabilities is not None
         return self.server_capabilities.get('exchange_exchange_bindings', False)
 
     @property
@@ -1457,6 +1447,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
         :rtype: bool
 
         """
+        assert self.server_capabilities is not None
         return self.server_capabilities.get('publisher_confirms', False)
 
     @abc.abstractmethod
@@ -1639,7 +1630,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
         :rtype: pika.heartbeat.Heartbeat|None
 
         """
-        if self.params.heartbeat is not None and self.params.heartbeat > 0:  # type: ignore
+        if isinstance(self.params.heartbeat, int) and self.params.heartbeat > 0:
             LOGGER.debug('Creating a HeartbeatChecker: %r',
                          self.params.heartbeat)
             return pika.heartbeat.HeartbeatChecker(self, self.params.heartbeat)
@@ -1783,10 +1774,10 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
             LOGGER.warning('_on_close_ready invoked when already closed')
             return
 
-        # NOTE: Assuming self._error is instance of exceptions.ConnectionClosed
+        assert isinstance(self._error, pika.exceptions.ConnectionClosed)
         self._send_connection_close(
-            self._error.reply_code,  # type: ignore
-            self._error.reply_text)  # type: ignore
+            self._error.reply_code,
+            self._error.reply_text)
 
     def _on_stream_connected(self) -> None:
         """Invoked when the socket is connected and it's time to start speaking
@@ -1825,8 +1816,9 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
                 '_blocked_conn_timer %s already set when '
                 '_on_connection_blocked is called', self._blocked_conn_timer)
         else:
+            assert self.params.blocked_connection_timeout is not None
             self._blocked_conn_timer = self._adapter_call_later(
-                self.params.blocked_connection_timeout,  # type: ignore
+                self.params.blocked_connection_timeout,
                 self._on_blocked_connection_timeout)
 
     def _on_connection_unblocked(
@@ -2260,7 +2252,8 @@ class Connection(pika._utils.AbstractBase):  # type: ignore
         # Validate the callback is callable
         if callback is not None:
             validators.require_callback(callback)
-            for reply in acceptable_replies:  # type: ignore
+            assert acceptable_replies is not None
+            for reply in acceptable_replies:
                 self.callbacks.add(channel_number, reply, callback)
 
         # Send the rpc call to RabbitMQ
