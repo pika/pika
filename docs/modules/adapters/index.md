@@ -4,12 +4,23 @@ Pika uses connection adapters to provide a flexible method for adapting pika's c
 ## Adapters
 
 - [ThreadSafeConnection](thread_safe.md)
-- [BlockingConnection](blocking.md)
+- [BlockingConnection](blocking.md) *(deprecated, removed in Pika 2.0)*
 - [SelectConnection](select.md)
 - [AsyncioConnection](asyncio.md)
-- [TornadoConnection](tornado.md)
-- [TwistedProtocolConnection](twisted.md)
-- [GeventConnection](gevent.md)
+- [TornadoConnection](tornado.md) *(deprecated, removed in Pika 2.0)*
+- [TwistedProtocolConnection](twisted.md) *(deprecated, removed in Pika 2.0)*
+- [GeventConnection](gevent.md) *(deprecated, removed in Pika 2.0)*
+
+> [!WARNING]
+> `BlockingConnection`, `TornadoConnection`, `TwistedProtocolConnection`, and
+> `GeventConnection` are deprecated and will be removed in Pika 2.0. The async
+> adapters exist to integrate Pika into a framework's event loop — a constraint
+> that no longer applies — and `BlockingConnection` runs the IOLoop on the
+> calling thread, which makes heartbeats fragile and the adapter non-thread-safe.
+> [`ThreadSafeConnection`](thread_safe.md) runs its own IOLoop on a background
+> thread and works with any framework (asyncio, Tornado, Twisted, Gevent,
+> Django, Flask, or plain synchronous code) without adapter-specific
+> integration.
 
 ## Threading
 

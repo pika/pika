@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import functools
 import logging
+import warnings
 from collections import namedtuple
 from typing import TYPE_CHECKING, Any, Callable
 
@@ -1247,6 +1248,14 @@ class TwistedProtocolConnection(protocol.Protocol):
     def __init__(self,
                  parameters: pika.connection.ConnectionParameters | None = None,
                  custom_reactor: Any = None):
+        warnings.warn(
+            "TwistedProtocolConnection is deprecated and will be removed in "
+            "Pika 2.0. Use ThreadSafeConnection instead, which works with any "
+            "framework including Twisted. See "
+            "https://pika.github.io/pika/modules/adapters/thread_safe/",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         self.ready: defer.Deferred[Any] | None = defer.Deferred()
         self.ready.addCallback(lambda _: self.connectionReady())
         self.closed: defer.Deferred[Any] | None = None

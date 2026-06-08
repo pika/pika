@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import logging
+import warnings
 from typing import TYPE_CHECKING, Any, Callable, Sequence
 
 from tornado import ioloop
@@ -58,6 +59,14 @@ class TornadoConnection(base_connection.BaseConnection):
             connection workflow via the `create_connection()` factory
 
         """
+        warnings.warn(
+            "TornadoConnection is deprecated and will be removed in Pika 2.0. "
+            "Use ThreadSafeConnection instead, which works with any framework "
+            "including Tornado. See "
+            "https://pika.github.io/pika/modules/adapters/thread_safe/",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         if isinstance(custom_ioloop, nbio_interface.AbstractIOServices):
             nbio = custom_ioloop
         else:
