@@ -1,0 +1,78 @@
+name: Deploy Docs
+
+# Build and publish the versioned MkDocs site to the `gh-pages` branch using
+# `mike`. GitHub Pages must be configured to serve from the `gh-pages` branch.
+#
+#   - push to `main`        -> publishes the `dev` version
+#   - stable release tag    -> publishes `MAJOR.MINOR` and moves the `latest`
+#                              alias (and the default redirect) to it
+#   - pre-release tag       -> publishes under the full tag, leaves `latest`
+#                              pointing at the last stable release
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+"
+      - "[0-9]+.[0-9]+.[0-9]+[a-zA-Z]*"
+  workflow_dispatch:
+
+# `mike` commits to and pushes the `gh-pages` branch.
+permissions:
+  contents: write
+
+# Serialize deploys so two runs cannot race on pushing `gh-pages`. Do not
+# cancel in progress: a half-finished `mike` push would leave the branch in an
+# inconsistent state.
+concurrency:
+  group: deploy-docs
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # `mike` needs the full history of `gh-pages` to amend it, and tags
+          # for version detection.
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install documentation dependencies
+        run: python -m pip install hatch
+
+      # Fail fast on broken docs before touching `gh-pages`. `docs:build` runs
+      # `mkdocs build --strict`.
+      - name: Validate documentation build
+        run: hatch run docs:build
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Deploy development docs
+        if: github.ref == 'refs/heads/main'
+        run: hatch run docs:mike deploy --push --update-aliases dev
+
+      - name: Deploy release docs
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          if echo "$TAG" | grep -qE '[a-zA-Z]'; then
+            # Pre-release: publish under its own tag and leave `latest` alone.
+            hatch run docs:mike deploy --push "$TAG"
+          else
+            # Stable release: publish MAJOR.MINOR so patch releases update the
+            # same version in place, and move `latest` to it.
+            docs_version="${TAG%.*}"
+            hatch run docs:mike deploy --push --update-aliases "$docs_version" latest
+            hatch run docs:mike set-default --push latest
+          fi
