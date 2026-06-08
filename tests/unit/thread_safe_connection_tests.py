@@ -496,6 +496,20 @@ class ThreadSafeChannelTests(unittest.TestCase):
         """All publishes from N threads must each schedule exactly one callback."""
         ch, _raw_ch, wrapper = self._make_channel()
         n = 20
+
+        # Count scheduled callbacks via a lock-guarded list rather than
+        # ``Mock.call_count``: the mock's internal bookkeeping is not
+        # thread-safe, so concurrent calls can lose an increment and make
+        # this assertion spuriously fail.
+        scheduled = []
+        scheduled_lock = threading.Lock()
+
+        def record(cb):
+            with scheduled_lock:
+                scheduled.append(cb)
+
+        wrapper.add_callback_threadsafe.side_effect = record
+
         barrier = threading.Barrier(n)
 
         def publish():
@@ -508,7 +522,7 @@ class ThreadSafeChannelTests(unittest.TestCase):
         for t in threads:
             t.join()
 
-        self.assertEqual(wrapper.add_callback_threadsafe.call_count, n)
+        self.assertEqual(len(scheduled), n)
 
 
 class ConsumerWorkPoolTests(unittest.TestCase):
