@@ -510,16 +510,23 @@ class _StreamingProtocolShim(nbio_interface.AbstractStreamProtocol):
 
     """
 
+    # Override abstract methods at class level to enable instantiation;
+    # actual implementations are assigned on the instance in __init__.
+    connection_made = None  # type: ignore[assignment]
+    connection_lost = None  # type: ignore[assignment]
+    eof_received = None  # type: ignore[assignment]
+    data_received = None  # type: ignore[assignment]
+
     def __init__(self, conn: BaseConnection) -> None:
         """
         :param BaseConnection conn:
         """
         self.conn = conn
 
-        self.connection_made = conn._proto_connection_made  # type: ignore[method-assign]
-        self.connection_lost = conn._proto_connection_lost  # type: ignore[method-assign]
-        self.eof_received = conn._proto_eof_received  # type: ignore[method-assign]
-        self.data_received = conn._proto_data_received  # type: ignore[method-assign]
+        self.connection_made = conn._proto_connection_made
+        self.connection_lost = conn._proto_connection_lost
+        self.eof_received = conn._proto_eof_received
+        self.data_received = conn._proto_data_received
 
     def __getattr__(self, attr: str) -> Any:
         """Proxy inexistent attribute requests to our connection instance

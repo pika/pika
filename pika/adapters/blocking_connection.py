@@ -395,8 +395,9 @@ class BlockingConnection:
         # Store exceptions for server-initiated channel closures
         self._server_channel_closures: deque[Exception] = deque()
 
-        # Perform connection workflow; assigned here so the attribute exists
-        # even if _create_connection raises.
+        # Perform connection workflow; pre-assign so that the attribute exists
+        # even if _create_connection raises (cleanup code accesses _impl).
+        self._impl: select_connection.SelectConnection = None  # type: ignore[assignment]
         self._impl = self._create_connection(parameters, _impl_class)
         self._impl.add_on_close_callback(self._closed_result.set_value_once)
 
