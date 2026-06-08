@@ -6,6 +6,7 @@ import logging
 import os
 import queue
 import threading
+import warnings
 from typing import TYPE_CHECKING, Any, Callable, Sequence
 
 import gevent  # type: ignore[import-untyped]
@@ -74,6 +75,14 @@ class GeventConnection(BaseConnection):
             establishment which is default; False for externally-managed
             connection workflow via the `create_connection()` factory
         """
+        warnings.warn(
+            "GeventConnection is deprecated and will be removed in Pika 2.0. "
+            "Use ThreadSafeConnection instead, which works with any framework "
+            "including Gevent. See "
+            "https://pika.github.io/pika/modules/adapters/thread_safe/",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         if pika._utils.ON_WINDOWS:
             raise RuntimeError('GeventConnection is not supported on Windows.')
 
