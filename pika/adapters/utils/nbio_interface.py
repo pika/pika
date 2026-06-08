@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     import ssl
 
 
-class AbstractIOServices(pika._utils.AbstractBase):  # type: ignore[misc]
+class AbstractIOServices(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]  # yapf: disable
     """Interface to I/O services required by `pika.adapters.BaseConnection` and
     related utilities.
 
@@ -224,7 +224,9 @@ class AbstractIOServices(pika._utils.AbstractBase):  # type: ignore[misc]
         raise NotImplementedError
 
 
-class AbstractFileDescriptorServices(pika._utils.AbstractBase):  # type: ignore[misc]
+class AbstractFileDescriptorServices(
+        pika._utils.AbstractBase  # type: ignore[valid-type, misc]
+):
     """Interface definition of common non-blocking file descriptor services
     required by some utility implementations.
 
@@ -290,7 +292,9 @@ class AbstractFileDescriptorServices(pika._utils.AbstractBase):  # type: ignore[
         raise NotImplementedError
 
 
-class AbstractTimerReference(pika._utils.AbstractBase):  # type: ignore[misc]
+class AbstractTimerReference(
+        pika._utils.AbstractBase  # type: ignore[valid-type, misc]
+):
     """Reference to asynchronous operation"""
 
     @abc.abstractmethod
@@ -300,7 +304,7 @@ class AbstractTimerReference(pika._utils.AbstractBase):  # type: ignore[misc]
         raise NotImplementedError
 
 
-class AbstractIOReference(pika._utils.AbstractBase):  # type: ignore[misc]
+class AbstractIOReference(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]  # yapf: disable
     """Reference to asynchronous I/O operation"""
 
     @abc.abstractmethod
@@ -313,7 +317,9 @@ class AbstractIOReference(pika._utils.AbstractBase):  # type: ignore[misc]
         raise NotImplementedError
 
 
-class AbstractStreamProtocol(pika._utils.AbstractBase):  # type: ignore[misc]
+class AbstractStreamProtocol(
+        pika._utils.AbstractBase  # type: ignore[valid-type, misc]
+):
     """Stream protocol interface. It's compatible with a subset of
     `asyncio.protocols.Protocol` for compatibility with asyncio-based
     `AbstractIOServices` implementation.
@@ -386,7 +392,9 @@ class AbstractStreamProtocol(pika._utils.AbstractBase):  # type: ignore[misc]
     #     raise NotImplementedError
 
 
-class AbstractStreamTransport(pika._utils.AbstractBase):  # type: ignore[misc]
+class AbstractStreamTransport(
+        pika._utils.AbstractBase  # type: ignore[valid-type, misc]
+):
     """Stream transport interface. It's compatible with a subset of
     `asyncio.transports.Transport` for compatibility with asyncio-based
     `AbstractIOServices` implementation.

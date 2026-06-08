@@ -71,7 +71,8 @@ class TornadoConnection(base_connection.BaseConnection):
             nbio = custom_ioloop
         else:
             nbio = (selector_ioloop_adapter.SelectorIOServicesAdapter(
-                custom_ioloop or ioloop.IOLoop.instance()))  # type: ignore[arg-type]
+                custom_ioloop or
+                ioloop.IOLoop.instance()))  # type: ignore[arg-type]
         super().__init__(
             parameters,
             on_open_callback,

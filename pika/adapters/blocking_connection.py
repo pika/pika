@@ -23,8 +23,17 @@ import logging
 import threading
 import warnings
 from collections import deque, namedtuple
-from typing import (TYPE_CHECKING, Any, Callable, Generator, Generic, NamedTuple, Sequence,
-                    TypeVar, cast)
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Generator,
+    Generic,
+    NamedTuple,
+    Sequence,
+    TypeVar,
+    cast,
+)
 
 import pika._utils
 import pika.channel
@@ -324,6 +333,7 @@ class BlockingConnection:
     learn more about the `blocked_connection_timeout` configuration.
 
     """
+
     class _OnClosedArgs(NamedTuple):
         connection: Any
         error: Any
@@ -711,10 +721,10 @@ class BlockingConnection:
 
         """
         self._impl.add_on_connection_blocked_callback(
-            functools.partial(self._on_connection_blocked,
-                              functools.partial(callback,
-                                                cast(pika.connection.Connection,
-                                                     self))))
+            functools.partial(
+                self._on_connection_blocked,
+                functools.partial(callback,
+                                  cast(pika.connection.Connection, self))))
 
     def add_on_connection_unblocked_callback(
         self, callback: Callable[[
@@ -733,10 +743,10 @@ class BlockingConnection:
 
         """
         self._impl.add_on_connection_unblocked_callback(
-            functools.partial(self._on_connection_unblocked,
-                              functools.partial(callback,
-                                                cast(pika.connection.Connection,
-                                                     self))))
+            functools.partial(
+                self._on_connection_unblocked,
+                functools.partial(callback,
+                                  cast(pika.connection.Connection, self))))
 
     def call_later(self, delay: float, callback: Callable[[], None]) -> int:
         """Create a single-shot timer to fire after delay seconds. Do not
@@ -759,8 +769,10 @@ class BlockingConnection:
         validators.require_callback(callback)
 
         evt = _TimerEvt(callback=callback)
-        timer_id = cast(int, self._impl._adapter_call_later(
-            delay, functools.partial(self._on_timer_ready, evt)))
+        timer_id = cast(
+            int,
+            self._impl._adapter_call_later(
+                delay, functools.partial(self._on_timer_ready, evt)))
         evt.timer_id = timer_id
 
         return timer_id

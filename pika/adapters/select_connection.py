@@ -404,8 +404,8 @@ class IOLoop(AbstractSelectorIOLoop):
         self._timer = _Timer()
 
         # Callbacks requested via `add_callback`
-        self._callbacks: collections.deque[Callable[[], None]] | list[
-            Any] = collections.deque()
+        self._callbacks: collections.deque[Callable[
+            [], None]] | list[Any] = collections.deque()
 
         self._poller = self._get_poller(self._get_remaining_interval,
                                         self.process_timeouts)
@@ -620,7 +620,7 @@ class IOLoop(AbstractSelectorIOLoop):
         self._poller.poll()
 
 
-class _PollerBase(pika._utils.AbstractBase):  # type: ignore[misc]
+class _PollerBase(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
     """Base class for select-based IOLoop implementations"""
 
     # Drop out of the poll loop every _MAX_POLL_TIMEOUT secs as a worst case;
@@ -1129,8 +1129,7 @@ class KQueuePoller(_PollerBase):
         while True:
             try:
                 assert self._kqueue is not None
-                kevents = self._kqueue.control(
-                    None, 1000, self._get_max_wait())
+                kevents = self._kqueue.control(None, 1000, self._get_max_wait())
                 break
             except _SELECT_ERRORS as error:
                 if _is_resumable(error):

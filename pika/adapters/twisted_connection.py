@@ -605,6 +605,7 @@ class TwistedChannel:
         if not self._delivery_confirmation:
             return defer.succeed(result)
         # See https://www.rabbitmq.com/confirms.html#publisher-confirms
+        assert self._delivery_message_id is not None
         self._delivery_message_id += 1
         self._deliveries[self._delivery_message_id] = defer.Deferred()
         return self._deliveries[self._delivery_message_id]
@@ -769,8 +770,8 @@ class TwistedChannel:
                     self._puback_return = None
                 else:
                     returned_messages = []
-                d.errback(
-                    exceptions.NackError(returned_messages))  # type: ignore[arg-type]
+                d.errback(exceptions.NackError(
+                    returned_messages))  # type: ignore[arg-type]
             else:
                 assert isinstance(method_frame.method, pika.spec.Basic.Ack)
                 if self._puback_return is not None:
@@ -1177,7 +1178,7 @@ class _TwistedConnectionAdapter(pika.connection.Connection):
 
         """
         assert self._transport is not None
-        self._transport.loseConnection()
+        self._transport.loseConnection()  # type: ignore[misc]
 
     def _adapter_emit_data(self, data: bytes) -> None:
         """Implement pure virtual
@@ -1185,7 +1186,7 @@ class _TwistedConnectionAdapter(pika.connection.Connection):
 
         """
         assert self._transport is not None
-        self._transport.write(data)
+        self._transport.write(data)  # type: ignore[call-arg, misc]
 
     def connection_made(
             self, transport: twisted.internet.interfaces.ITransport) -> None:
@@ -1361,13 +1362,12 @@ class TwistedProtocolConnection(protocol.Protocol):
             d.errback(exception)
         self._calls = set()
 
-        d = self.closed
-        self.closed = None
+        d, self.closed = self.closed, None  # type: ignore[assignment]
         if d:
             if isinstance(exception, Failure):
                 # Calling `callback` with a Failure instance will trigger the
                 # errback path.
-                exception = exception.value  # type: ignore[union-attr]
+                exception = exception.value  # type: ignore[assignment]
             d.callback(exception)
 
     def _clear_call(self, ret, d):

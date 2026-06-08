@@ -1631,8 +1631,8 @@ class ContentFrameAssembler:
         if self._seen_so_far == self._header_frame.body_size:
             return self._finish()
         if self._seen_so_far > self._header_frame.body_size:
-            raise exceptions.BodyTooLongError(
-                self._seen_so_far, self._header_frame.body_size)
+            raise exceptions.BodyTooLongError(self._seen_so_far,
+                                              self._header_frame.body_size)
         return None
 
     def _reset(self) -> None:

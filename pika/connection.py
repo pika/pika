@@ -105,9 +105,9 @@ class Parameters:
         self._channel_max: int = 0
         self._client_properties: dict[str, Any] | None = None
         self._connection_attempts: int = 0
-        self._credentials: (pika.credentials.PlainCredentials |
-                            pika.credentials.ExternalCredentials
-                           ) = self.DEFAULT_CREDENTIALS
+        self._credentials: (
+            pika.credentials.PlainCredentials |
+            pika.credentials.ExternalCredentials) = self.DEFAULT_CREDENTIALS
         self._frame_max: int = 0
         self._heartbeat: None | (int |
                                  Callable[[Connection, float], int]) = None
@@ -791,8 +791,7 @@ class URLParameters(Parameters):
         if parts.username is not None:
             assert parts.password is not None
             self.credentials = pika.credentials.PlainCredentials(
-                url_unquote(parts.username),
-                url_unquote(parts.password))
+                url_unquote(parts.username), url_unquote(parts.password))
 
         # Get the Virtual Host
         if len(parts.path) > 1:
@@ -968,7 +967,7 @@ class SSLOptions:
         self.server_hostname = server_hostname
 
 
-class Connection(pika._utils.AbstractBase):  # type: ignore[misc]
+class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
     """This is the core class that implements communication with RabbitMQ. This
     class should not be invoked directly but rather through the use of an
     adapter such as SelectConnection or BlockingConnection.
@@ -1071,8 +1070,9 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[misc]
         # and/or during connection handshake.
         self.server_capabilities: dict[str, bool] | None = None
         self.server_properties: dict[str, Any] | None = None
-        self._body_max_length: int = (
-            spec.FRAME_MAX_SIZE - spec.FRAME_HEADER_SIZE - spec.FRAME_END_SIZE)
+        self._body_max_length: int = (spec.FRAME_MAX_SIZE -
+                                      spec.FRAME_HEADER_SIZE -
+                                      spec.FRAME_END_SIZE)
         self.known_hosts: str | None = None
         self._frame_buffer: bytes = b''
         self._channels: dict[int, Channel] = {}
@@ -1775,9 +1775,8 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[misc]
             return
 
         assert isinstance(self._error, pika.exceptions.ConnectionClosed)
-        self._send_connection_close(
-            self._error.reply_code,
-            self._error.reply_text)
+        self._send_connection_close(self._error.reply_code,
+                                    self._error.reply_text)
 
     def _on_stream_connected(self) -> None:
         """Invoked when the socket is connected and it's time to start speaking

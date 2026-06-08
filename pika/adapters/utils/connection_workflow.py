@@ -145,9 +145,8 @@ class AMQPConnector:
         self._nbio: nbio_interface.AbstractIOServices | None = nbio
         self._addr_record: tuple | None = None
         self._conn_params: pika.connection.Parameters | None = None
-        self._on_done: Callable[
-            [pika.connection.Connection | BaseException],
-            None] | None = None
+        self._on_done: Callable[[pika.connection.Connection | BaseException],
+                                None] | None = None
         # TCP connection timeout
         self._tcp_timeout_ref: None | (
             nbio_interface.AbstractTimerReference) = None
@@ -473,9 +472,8 @@ class AMQPConnector:
         self._state = self._STATE_AMQP
         # We explicitly remove default handler because it raises an exception.
         assert self._amqp_conn is not None
-        self._amqp_conn.add_on_open_error_callback(
-            self._on_amqp_handshake_done,
-            remove_default=True)
+        self._amqp_conn.add_on_open_error_callback(self._on_amqp_handshake_done,
+                                                   remove_default=True)
         self._amqp_conn.add_on_open_callback(self._on_amqp_handshake_done)
 
     def _on_amqp_handshake_done(self,

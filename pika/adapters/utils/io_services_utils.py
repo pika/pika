@@ -111,11 +111,11 @@ class SocketConnectionMixin:
         :rtype: _AsyncServiceAsyncHandle
 
         """
-        return _AsyncSocketConnector(
-            nbio=cast('nbio_interface.AbstractFileDescriptorServices', self),
-            sock=sock,
-            resolved_addr=resolved_addr,
-            on_done=on_done).start()
+        return _AsyncSocketConnector(nbio=cast(
+            'nbio_interface.AbstractFileDescriptorServices', self),
+                                     sock=sock,
+                                     resolved_addr=resolved_addr,
+                                     on_done=on_done).start()
 
 
 class StreamingConnectionMixin:
@@ -148,13 +148,13 @@ class StreamingConnectionMixin:
 
         """
         try:
-            return _AsyncStreamConnector(
-                nbio=cast('nbio_interface.AbstractFileDescriptorServices', self),
-                protocol_factory=protocol_factory,
-                sock=sock,
-                ssl_context=ssl_context,
-                server_hostname=server_hostname,
-                on_done=on_done).start()
+            return _AsyncStreamConnector(nbio=cast(
+                'nbio_interface.AbstractFileDescriptorServices', self),
+                                         protocol_factory=protocol_factory,
+                                         sock=sock,
+                                         ssl_context=ssl_context,
+                                         server_hostname=server_hostname,
+                                         on_done=on_done).start()
         except Exception as error:
             _LOGGER.error('create_streaming_connection(%s) failed: %r', sock,
                           error)
@@ -249,8 +249,7 @@ class _AsyncSocketConnector:
         """
         if self._watching_socket_events:
             self._watching_socket_events = False
-            self._nbio.remove_writer(self._sock.fileno(
-            ))
+            self._nbio.remove_writer(self._sock.fileno())
 
     def start(self) -> AbstractIOReference:
         """Start asynchronous connection establishment.
@@ -265,8 +264,7 @@ class _AsyncSocketConnector:
 
         # Continue the rest of the operation on the I/O loop to avoid calling
         # user's completion callback from the scope of user's call
-        self._nbio.add_callback_threadsafe(
-            self._start_async)
+        self._nbio.add_callback_threadsafe(self._start_async)
 
         return _AsyncServiceAsyncHandle(self)
 
@@ -341,8 +339,7 @@ class _AsyncSocketConnector:
 
         # Get notified when the socket becomes writable
         try:
-            self._nbio.set_writer(self._sock.fileno(
-            ), self._on_writable)
+            self._nbio.set_writer(self._sock.fileno(), self._on_writable)
         except Exception as error:
             _LOGGER.exception('async.set_writer(%s) failed: %r', self._sock,
                               error)
@@ -647,9 +644,7 @@ class _AsyncStreamConnector:
                 # Create SSL streaming transport
                 try:
                     transport = _AsyncSSLTransport(
-                        cast(ssl.SSLSocket, self._sock),
-                        protocol,
-                        self._nbio)
+                        cast(ssl.SSLSocket, self._sock), protocol, self._nbio)
                 except Exception as error:
                     _LOGGER.exception('SSLTransport() failed: error=%r; %s',
                                       error, self._sock)
@@ -704,19 +699,15 @@ class _AsyncStreamConnector:
                 if error.errno == ssl.SSL_ERROR_WANT_READ:
                     _LOGGER.debug('SSL handshake wants read; %s.', self._sock)
                     self._watching_socket = True
-                    self._nbio.set_reader(
-                        self._sock.fileno(),
-                        self._do_ssl_handshake)
-                    self._nbio.remove_writer(
-                        self._sock.fileno())
+                    self._nbio.set_reader(self._sock.fileno(),
+                                          self._do_ssl_handshake)
+                    self._nbio.remove_writer(self._sock.fileno())
                 elif error.errno == ssl.SSL_ERROR_WANT_WRITE:
                     _LOGGER.debug('SSL handshake wants write. %s', self._sock)
                     self._watching_socket = True
-                    self._nbio.set_writer(
-                        self._sock.fileno(),
-                        self._do_ssl_handshake)
-                    self._nbio.remove_reader(
-                        self._sock.fileno())
+                    self._nbio.set_writer(self._sock.fileno(),
+                                          self._do_ssl_handshake)
+                    self._nbio.remove_reader(self._sock.fileno())
                 else:
                     # Outer catch will report it
                     raise
@@ -787,7 +778,8 @@ class _AsyncTransportBase(AbstractStreamTransport):
         self._sock: socket.socket | ssl.SSLSocket | None = sock
         self._protocol: nbio_interface.AbstractStreamProtocol | None = protocol
         self._nbio: (nbio_interface.AbstractIOServices |
-                     nbio_interface.AbstractFileDescriptorServices | None) = nbio
+                     nbio_interface.AbstractFileDescriptorServices |
+                     None) = nbio
 
         self._state = self._STATE_ACTIVE
         self._tx_buffers: collections.deque[bytes] = collections.deque()
@@ -874,8 +866,7 @@ class _AsyncTransportBase(AbstractStreamTransport):
 
             # Pass the data to the protocol
             try:
-                self._protocol.data_received(
-                    data)
+                self._protocol.data_received(data)
             except Exception as error:
                 _LOGGER.exception(
                     'protocol.data_received() failed: error=%r; %s', error,
@@ -1154,9 +1145,7 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
                     _LOGGER.info(
                         'protocol.eof_received() elected to keep open: %s',
                         self._sock)
-                    self._nbio.remove_reader(
-                        self._sock.fileno()
-                    )
+                    self._nbio.remove_reader(self._sock.fileno())
                 else:
                     _LOGGER.info('protocol.eof_received() elected to close: %s',
                                  self._sock)
@@ -1374,46 +1363,34 @@ class _AsyncSSLTransport(_AsyncTransportBase):
             # can be read without waiting for socket to become readable.
 
             # In case buffered input SSL data records still remain
-            self._nbio.add_callback_threadsafe(
-                self._on_socket_readable
-            )
+            self._nbio.add_callback_threadsafe(self._on_socket_readable)
 
         # Update consumer registration
         if next_consume_on_readable:
             if not self._ssl_readable_action:
-                self._nbio.set_reader(
-                    self._sock.fileno(
-                    ),
-                    self._on_socket_readable)
+                self._nbio.set_reader(self._sock.fileno(),
+                                      self._on_socket_readable)
             self._ssl_readable_action = self._consume
 
             # NOTE: can't use identity check, it fails for instance methods
             if self._ssl_writable_action == self._consume:
-                self._nbio.remove_writer(
-                    self._sock.fileno()
-                )
+                self._nbio.remove_writer(self._sock.fileno())
                 self._ssl_writable_action = None
         else:
             # WANT_WRITE
             if not self._ssl_writable_action:
-                self._nbio.set_writer(
-                    self._sock.fileno(
-                    ),
-                    self._on_socket_writable)
+                self._nbio.set_writer(self._sock.fileno(),
+                                      self._on_socket_writable)
             self._ssl_writable_action = self._consume
 
             if self._ssl_readable_action:
-                self._nbio.remove_reader(
-                    self._sock.fileno()
-                )
+                self._nbio.remove_reader(self._sock.fileno())
                 self._ssl_readable_action = None
 
         # Update producer registration
         if self._tx_buffers and not self._ssl_writable_action:
             self._ssl_writable_action = self._produce
-            self._nbio.set_writer(
-                self._sock.fileno(), self._on_socket_writable
-            )
+            self._nbio.set_writer(self._sock.fileno(), self._on_socket_writable)
 
     @_log_exceptions
     def _produce(self) -> None:
@@ -1464,38 +1441,28 @@ class _AsyncSSLTransport(_AsyncTransportBase):
 
             if next_produce_on_writable:
                 if not self._ssl_writable_action:
-                    self._nbio.set_writer(
-                        self._sock.fileno(
-                        ),
-                        self._on_socket_writable)
+                    self._nbio.set_writer(self._sock.fileno(),
+                                          self._on_socket_writable)
                 self._ssl_writable_action = self._produce
 
                 # NOTE: can't use identity check, it fails for instance methods
                 if self._ssl_readable_action == self._produce:
-                    self._nbio.remove_reader(
-                        self._sock.fileno()
-                    )
+                    self._nbio.remove_reader(self._sock.fileno())
                     self._ssl_readable_action = None
             else:
                 # WANT_READ
                 if not self._ssl_readable_action:
-                    self._nbio.set_reader(
-                        self._sock.fileno(
-                        ),
-                        self._on_socket_readable)
+                    self._nbio.set_reader(self._sock.fileno(),
+                                          self._on_socket_readable)
                 self._ssl_readable_action = self._produce
 
                 if self._ssl_writable_action:
-                    self._nbio.remove_writer(
-                        self._sock.fileno()
-                    )
+                    self._nbio.remove_writer(self._sock.fileno())
                     self._ssl_writable_action = None
         else:
             # NOTE: can't use identity check, it fails for instance methods
             if self._ssl_readable_action == self._produce:
-                self._nbio.remove_reader(
-                    self._sock.fileno()
-                )
+                self._nbio.remove_reader(self._sock.fileno())
                 self._ssl_readable_action = None
                 assert self._ssl_writable_action != self._produce, (
                     '_AsyncSSLTransport._produce(): with empty tx_buffers, '
@@ -1510,24 +1477,17 @@ class _AsyncSSLTransport(_AsyncTransportBase):
                     self._ssl_writable_action, 'readable_action:',
                     self._ssl_readable_action, 'state:', self._state)
                 self._ssl_writable_action = None
-                self._nbio.remove_writer(
-                    self._sock.fileno()
-                )
+                self._nbio.remove_writer(self._sock.fileno())
 
         # Update consumer registration
         if not self._ssl_readable_action:
             self._ssl_readable_action = self._consume
             assert self._nbio is not None
             assert self._sock is not None
-            self._nbio.set_reader(
-                self._sock.fileno(), self._on_socket_readable
-            )
+            self._nbio.set_reader(self._sock.fileno(), self._on_socket_readable)
             # In case input SSL data records have been buffered
-            self._nbio.add_callback_threadsafe(
-                self._on_socket_readable
-            )
-        elif self._sock is not None and cast(ssl.SSLSocket, self._sock).pending():
+            self._nbio.add_callback_threadsafe(self._on_socket_readable)
+        elif self._sock is not None and cast(ssl.SSLSocket,
+                                             self._sock).pending():
             assert self._nbio is not None
-            self._nbio.add_callback_threadsafe(
-                self._on_socket_readable
-            )
+            self._nbio.add_callback_threadsafe(self._on_socket_readable)
