@@ -1415,7 +1415,8 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         :rtype: bool
 
         """
-        assert self.server_capabilities is not None
+        if self.server_capabilities is None:
+            return False
         return self.server_capabilities.get('basic.nack', False)
 
     @property
@@ -1426,7 +1427,8 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         :rtype: bool
 
         """
-        assert self.server_capabilities is not None
+        if self.server_capabilities is None:
+            return False
         return self.server_capabilities.get('consumer_cancel_notify', False)
 
     @property
@@ -1437,7 +1439,8 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         :rtype: bool
 
         """
-        assert self.server_capabilities is not None
+        if self.server_capabilities is None:
+            return False
         return self.server_capabilities.get('exchange_exchange_bindings', False)
 
     @property
@@ -1447,7 +1450,8 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         :rtype: bool
 
         """
-        assert self.server_capabilities is not None
+        if self.server_capabilities is None:
+            return False
         return self.server_capabilities.get('publisher_confirms', False)
 
     @abc.abstractmethod
