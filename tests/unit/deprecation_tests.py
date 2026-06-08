@@ -10,6 +10,24 @@ from unittest import mock
 
 from pika.adapters import blocking_connection
 
+try:
+    import tornado  # noqa: F401
+    HAS_TORNADO = True
+except ImportError:
+    HAS_TORNADO = False
+
+try:
+    import gevent  # noqa: F401
+    HAS_GEVENT = True
+except ImportError:
+    HAS_GEVENT = False
+
+try:
+    import twisted  # noqa: F401
+    HAS_TWISTED = True
+except ImportError:
+    HAS_TWISTED = False
+
 
 class DeprecationTestCase(unittest.TestCase):
     """Base class with a helper to instantiate an adapter and assert that it
@@ -44,6 +62,7 @@ class BlockingConnectionDeprecationTests(DeprecationTestCase):
                 lambda: blocking_connection.BlockingConnection('params'))
 
 
+@unittest.skipUnless(HAS_TORNADO, 'tornado not installed')
 class TornadoConnectionDeprecationTests(DeprecationTestCase):
 
     def test_init_emits_deprecation_warning(self):
@@ -54,6 +73,7 @@ class TornadoConnectionDeprecationTests(DeprecationTestCase):
                                    tornado_connection.TornadoConnection)
 
 
+@unittest.skipUnless(HAS_GEVENT, 'gevent not installed')
 @unittest.skipIf(sys.platform == 'win32',
                  'GeventConnection is not supported on Windows')
 class GeventConnectionDeprecationTests(DeprecationTestCase):
@@ -66,6 +86,7 @@ class GeventConnectionDeprecationTests(DeprecationTestCase):
                                    gevent_connection.GeventConnection)
 
 
+@unittest.skipUnless(HAS_TWISTED, 'twisted not installed')
 class TwistedProtocolConnectionDeprecationTests(DeprecationTestCase):
 
     def test_init_emits_deprecation_warning(self):
