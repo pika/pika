@@ -170,3 +170,6 @@ addopts = [
     "--strict-config",
     "--tb=short",
 ]
+filterwarnings = [
+    "ignore:.*will be removed in Pika 2\\.0:DeprecationWarning",
+]
