@@ -95,7 +95,7 @@ class TornadoConnection(base_connection.BaseConnection):
 
         """
         nbio = selector_ioloop_adapter.SelectorIOServicesAdapter(
-            custom_ioloop or ioloop.IOLoop.instance())  # type: ignore
+            custom_ioloop or ioloop.IOLoop.instance())  # type: ignore[arg-type]
 
         def connection_factory(
                 params: connection.Parameters | None) -> TornadoConnection:

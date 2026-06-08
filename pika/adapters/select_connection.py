@@ -620,7 +620,7 @@ class IOLoop(AbstractSelectorIOLoop):
         self._poller.poll()
 
 
-class _PollerBase(pika._utils.AbstractBase):  # type: ignore
+class _PollerBase(pika._utils.AbstractBase):  # type: ignore[misc]
     """Base class for select-based IOLoop implementations"""
 
     # Drop out of the poll loop every _MAX_POLL_TIMEOUT secs as a worst case;

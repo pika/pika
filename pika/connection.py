@@ -968,7 +968,7 @@ class SSLOptions:
         self.server_hostname = server_hostname
 
 
-class Connection(pika._utils.AbstractBase):  # type: ignore
+class Connection(pika._utils.AbstractBase):  # type: ignore[misc]
     """This is the core class that implements communication with RabbitMQ. This
     class should not be invoked directly but rather through the use of an
     adapter such as SelectConnection or BlockingConnection.
