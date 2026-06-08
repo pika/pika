@@ -173,7 +173,8 @@ class SelectConnection(BaseConnection):
         :returns: Current size of output data buffered by the transport
         :rtype: int
         """
-        return self._transport.get_write_buffer_size()  # type: ignore
+        assert self._transport is not None
+        return self._transport.get_write_buffer_size()
 
 
 class _Timeout:
@@ -403,8 +404,8 @@ class IOLoop(AbstractSelectorIOLoop):
         self._timer = _Timer()
 
         # Callbacks requested via `add_callback`
-        self._callbacks: collections.deque[Callable[
-            [], None]] = collections.deque()
+        self._callbacks: collections.deque[Callable[[], None]] | list[
+            Any] = collections.deque()
 
         self._poller = self._get_poller(self._get_remaining_interval,
                                         self.process_timeouts)
@@ -423,7 +424,7 @@ class IOLoop(AbstractSelectorIOLoop):
             # Set _callbacks to empty list rather than None so that race from
             # another thread calling add_callback_threadsafe() won't result in
             # AttributeError
-            self._callbacks = []  # type: ignore
+            self._callbacks = []
 
     @staticmethod
     def _get_poller(get_wait_seconds: Callable[[], float | None],
@@ -527,6 +528,7 @@ class IOLoop(AbstractSelectorIOLoop):
 
         """
         # Avoid I/O starvation by postponing new callbacks to the next iteration
+        assert isinstance(self._callbacks, collections.deque)
         for _ in range(len(self._callbacks)):
             callback = self._callbacks.popleft()
             LOGGER.debug('process_timeouts: invoking callback=%r', callback)
@@ -646,16 +648,16 @@ class _PollerBase(pika._utils.AbstractBase):  # type: ignore
         self._waking_mutex = threading.Lock()
 
         # fd-to-handler function mappings
-        self._fd_handlers: dict[int, Callable[..., None]] = {}
+        self._fd_handlers: dict[int, Callable[..., None]] | None = {}
 
         # event-to-fdset mappings
-        self._fd_events: dict[int, set[int]] = {
+        self._fd_events: dict[int, set[int]] | None = {
             PollEvents.READ: set(),
             PollEvents.WRITE: set(),
             PollEvents.ERROR: set()
         }
 
-        self._processing_fd_event_map: dict[int, int] = {}
+        self._processing_fd_event_map: dict[int, int] | None = {}
 
         # Reentrancy tracker of the `start` method
         self._running = False
@@ -663,7 +665,9 @@ class _PollerBase(pika._utils.AbstractBase):  # type: ignore
         self._stopping = False
 
         # Create ioloop-interrupt socket pair and register read handler.
-        self._r_interrupt, self._w_interrupt = self._get_interrupt_pair()
+        r_interrupt, w_interrupt = self._get_interrupt_pair()
+        self._r_interrupt: socket.socket | None = r_interrupt
+        self._w_interrupt: socket.socket | None = w_interrupt
         self.add_handler(self._r_interrupt.fileno(), self._read_interrupt,
                          PollEvents.READ)
 
@@ -682,18 +686,18 @@ class _PollerBase(pika._utils.AbstractBase):  # type: ignore
 
         with self._waking_mutex:
             if self._w_interrupt is not None:
+                assert self._r_interrupt is not None
                 self.remove_handler(self._r_interrupt.fileno())
-                self._r_interrupt.close(
-                )  # pyright: ignore[reportOptionalMemberAccess]
-                self._r_interrupt = None  # type: ignore
+                self._r_interrupt.close()
+                self._r_interrupt = None
                 self._w_interrupt.close()
-                self._w_interrupt = None  # type: ignore
+                self._w_interrupt = None
 
         self.deactivate_poller()
 
-        self._fd_handlers = None  # type: ignore
-        self._fd_events = None  # type: ignore
-        self._processing_fd_event_map = None  # type: ignore
+        self._fd_handlers = None
+        self._fd_events = None
+        self._processing_fd_event_map = None
 
     def wake_threadsafe(self) -> None:
         """Wake up the poller as soon as possible. As the name indicates, this
@@ -742,6 +746,8 @@ class _PollerBase(pika._utils.AbstractBase):  # type: ignore
         :param int events: The event mask using READ, WRITE, ERROR
 
         """
+        assert self._fd_handlers is not None
+        assert self._fd_events is not None
         self._fd_handlers[fileno] = handler
         self._set_handler_events(fileno, events)
 
@@ -770,6 +776,9 @@ class _PollerBase(pika._utils.AbstractBase):  # type: ignore
         :param int fileno: The file descriptor
 
         """
+        assert self._fd_handlers is not None
+        assert self._fd_events is not None
+        assert self._processing_fd_event_map is not None
         try:
             del self._processing_fd_event_map[fileno]
         except KeyError:
@@ -791,6 +800,8 @@ class _PollerBase(pika._utils.AbstractBase):  # type: ignore
         :returns: a 2-tuple (events_cleared, events_set)
         :rtype: tuple
         """
+        assert self._fd_events is not None
+
         events_cleared = 0
         events_set = 0
 
@@ -810,6 +821,8 @@ class _PollerBase(pika._utils.AbstractBase):  # type: ignore
         """Activate the poller
 
         """
+        assert self._fd_events is not None
+
         # Activate the underlying poller and register current events
         self._init_poller()
         fd_to_events: dict[int, int] = collections.defaultdict(int)
@@ -928,6 +941,10 @@ class _PollerBase(pika._utils.AbstractBase):  # type: ignore
 
         :param dict fd_event_map: Map of fds to events received on them.
         """
+        assert self._processing_fd_event_map is not None
+        assert self._fd_events is not None
+        assert self._fd_handlers is not None
+
         # Reset the prior map; if the call is nested, this will suppress the
         # remaining dispatch in the earlier call.
         self._processing_fd_event_map.clear()
@@ -964,6 +981,7 @@ class _PollerBase(pika._utils.AbstractBase):  # type: ignore
         :param int _interrupt_fd: (unused) The file descriptor to read from
         :param int _events: (unused) The events generated for this fd
         """
+        assert self._r_interrupt is not None
         try:
             # NOTE Use recv instead of os.read for windows compatibility
             self._r_interrupt.recv(512)
@@ -987,6 +1005,8 @@ class SelectPoller(_PollerBase):
         whichever is sooner, and dispatch the corresponding event handlers.
 
         """
+        assert self._fd_events is not None
+
         while True:
             try:
                 if (self._fd_events[PollEvents.READ] or
@@ -1108,7 +1128,8 @@ class KQueuePoller(_PollerBase):
         """
         while True:
             try:
-                kevents = self._kqueue.control(  # type: ignore[attr-defined]
+                assert self._kqueue is not None
+                kevents = self._kqueue.control(
                     None, 1000, self._get_max_wait())
                 break
             except _SELECT_ERRORS as error:
@@ -1126,7 +1147,7 @@ class KQueuePoller(_PollerBase):
         """Notify the implementation to allocate the poller resource"""
         assert self._kqueue is None
 
-        self._kqueue = select.kqueue()  # type: ignore
+        self._kqueue = select.kqueue()  # type: ignore[attr-defined]
 
     def _uninit_poller(self) -> None:
         """Notify the implementation to release the poller resource"""
