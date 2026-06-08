@@ -1146,7 +1146,7 @@ class KQueuePoller(_PollerBase):
         """Notify the implementation to allocate the poller resource"""
         assert self._kqueue is None
 
-        self._kqueue = select.kqueue()  # type: ignore[attr-defined]
+        self._kqueue = select.kqueue()  # type: ignore[attr-defined, assignment, unused-ignore]
 
     def _uninit_poller(self) -> None:
         """Notify the implementation to release the poller resource"""
