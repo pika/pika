@@ -486,7 +486,8 @@ class _GeventAddressResolver:
             result = exc
 
         callback = functools.partial(self._dispatch_callback, result)
-        self._loop.add_callback(callback)  # type: ignore
+        assert self._loop is not None
+        self._loop.add_callback(callback)
 
     def _dispatch_callback(
         self, result: (list[tuple[Any, Any, int, str,
@@ -501,6 +502,7 @@ class _GeventAddressResolver:
             LOGGER.debug(
                 'Invoking async getaddrinfo() completion callback; host=%r',
                 self._ga_host)
-            self._on_done(result)  # type: ignore
+            assert self._on_done is not None
+            self._on_done(result)
         finally:
             self._cleanup()

@@ -439,14 +439,14 @@ class _TimerHandle(nbio_interface.AbstractTimerReference):
         :param AbstractSelectorIOLoop loop: the I/O loop instance that created
             the timeout.
         """
-        self._handle = handle
-        self._loop = loop
+        self._handle: object | None = handle
+        self._loop: AbstractSelectorIOLoop | None = loop
 
     def cancel(self) -> None:
         if self._loop is not None:
             self._loop.remove_timeout(self._handle)
             self._handle = None
-            self._loop = None  # type: ignore
+            self._loop = None
 
 
 class _SelectorIOLoopIOHandle(nbio_interface.AbstractIOReference):
@@ -554,7 +554,8 @@ class _AddressResolver:
                 self._state = self.CANCELED
 
                 # Attempt to cancel, but not guaranteed
-                self._threading_timer.cancel()  # type: ignore
+                assert self._threading_timer is not None
+                self._threading_timer.cancel()
 
                 self._cleanup()
 
@@ -585,7 +586,8 @@ class _AddressResolver:
         # Schedule result to be returned to user via user's event loop
         with self._mutex:
             if self._state == self.ACTIVE:
-                self._loop.add_callback(self._dispatch_result)  # type: ignore
+                assert self._loop is not None
+                self._loop.add_callback(self._dispatch_result)
             else:
                 LOGGER.debug(
                     'Asynchronous getaddrinfo cancellation detected; '
@@ -602,7 +604,8 @@ class _AddressResolver:
                 LOGGER.debug(
                     'Invoking asynchronous getaddrinfo() completion callback; '
                     'host=%r', self._host)
-                self._on_done(self._result)  # type: ignore
+                assert self._on_done is not None
+                self._on_done(self._result)
             finally:
                 self._cleanup()
         else:

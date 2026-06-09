@@ -129,7 +129,7 @@ class Channel:
 
         # opaque cookie value set by wrapper layer (e.g., BlockingConnection)
         # via _set_cookie
-        self._cookie = None
+        self._cookie: object = None
 
     def __int__(self) -> int:
         """Return the channel object as its channel number
@@ -915,10 +915,11 @@ class Channel:
         self._raise_if_not_open()
         nowait = validators.rpc_completion_callback(callback)
 
+        condition: Any
         if queue:
             condition = (spec.Queue.DeclareOk, {'queue': queue})
         else:
-            condition = spec.Queue.DeclareOk  # type: ignore[assignment]
+            condition = spec.Queue.DeclareOk
         replies = [condition] if not nowait else []
 
         return self._rpc(
@@ -1543,7 +1544,7 @@ class Channel:
         :param cookie: an opaque value; typically a proxy channel implementation
             instance (e.g., `BlockingChannel` instance)
         """
-        self._cookie = cookie  # type: ignore[assignment]
+        self._cookie = cookie
 
     def _set_state(self, connection_state: int) -> None:
         """Set the channel connection state to the specified state value.
@@ -1606,10 +1607,12 @@ class ContentFrameAssembler:
         :rtype: tuple(pika.frame.Method, pika.frame.Header, bytes)
 
         """
+        assert self._method_frame is not None
+        assert self._header_frame is not None
         content = (self._method_frame, self._header_frame,
                    b''.join(self._body_fragments))
         self._reset()
-        return content  # type: ignore[return-value]
+        return content
 
     def _handle_body_frame(
         self, body_frame: frame.Body
@@ -1624,11 +1627,12 @@ class ContentFrameAssembler:
         """
         self._seen_so_far += len(body_frame.fragment)
         self._body_fragments.append(body_frame.fragment)
-        if self._seen_so_far == self._header_frame.body_size:  # type: ignore
+        assert self._header_frame is not None
+        if self._seen_so_far == self._header_frame.body_size:
             return self._finish()
-        if self._seen_so_far > self._header_frame.body_size:  # type: ignore
-            raise exceptions.BodyTooLongError(
-                self._seen_so_far, self._header_frame.body_size)  # type: ignore
+        if self._seen_so_far > self._header_frame.body_size:
+            raise exceptions.BodyTooLongError(self._seen_so_far,
+                                              self._header_frame.body_size)
         return None
 
     def _reset(self) -> None:

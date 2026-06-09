@@ -8,7 +8,7 @@ from __future__ import annotations
 import abc
 import functools
 import logging
-from typing import Any, Callable, Sequence
+from typing import Any, Callable, Sequence, cast
 
 import pika.exceptions
 from pika import connection
@@ -202,7 +202,7 @@ class BaseConnection(connection.Connection):
                        native_loop=nbio.get_native_ioloop(),
                        on_done=functools.partial(
                            cls._unshim_connection_workflow_callback,
-                           on_done))  # type: ignore[arg-type]
+                           cast(Any, on_done)))
 
         return workflow
 
@@ -234,7 +234,7 @@ class BaseConnection(connection.Connection):
         :param timeout_id: Timeout handle to cancel.
         :rtype: None
         """
-        timeout_id.cancel()  # type: ignore
+        cast(nbio_interface.AbstractTimerReference, timeout_id).cancel()
 
     def _adapter_add_callback_threadsafe(self, callback: Callable[...,
                                                                   Any]) -> None:
@@ -274,7 +274,7 @@ class BaseConnection(connection.Connection):
             native_loop=self._nbio.get_native_ioloop(),
             on_done=functools.partial(
                 self._unshim_connection_workflow_callback,
-                self._on_connection_workflow_done))  # type: ignore
+                cast(Any, self._on_connection_workflow_done)))
 
     @staticmethod
     def _unshim_connection_workflow_callback(
@@ -315,7 +315,8 @@ class BaseConnection(connection.Connection):
 
             # This will result in call to _on_connection_workflow_done() upon
             # completion
-            self._connection_workflow.abort()  # type: ignore
+            assert self._connection_workflow is not None
+            self._connection_workflow.abort()
         else:
             # NOTE: we can't use self._connection_workflow.abort() in this case,
             # because it would result in infinite recursion as we're called
@@ -348,13 +349,12 @@ class BaseConnection(connection.Connection):
         # Notify protocol of failure
         if isinstance(conn_or_exc, Exception):
             self._transport = None
+            error: Exception | None
             if isinstance(conn_or_exc,
                           connection_workflow.AMQPConnectionWorkflowAborted):
                 LOGGER.info('Full-stack connection workflow aborted: %r',
                             conn_or_exc)
-                # So that _handle_connection_workflow_failure() will know it's
-                # not a failure
-                conn_or_exc = None  # type: ignore
+                error = None
             else:
                 LOGGER.error('Full-stack connection workflow failed: %r',
                              conn_or_exc)
@@ -364,11 +364,11 @@ class BaseConnection(connection.Connection):
                             conn_or_exc.exceptions[-1],
                             connection_workflow.AMQPConnectorSocketConnectError)
                    ):
-                    conn_or_exc = pika.exceptions.AMQPConnectionError(
-                        conn_or_exc)
+                    error = pika.exceptions.AMQPConnectionError(conn_or_exc)
+                else:
+                    error = conn_or_exc
 
-            self._handle_connection_workflow_failure(
-                conn_or_exc)  # pyright: ignore[reportArgumentType]
+            self._handle_connection_workflow_failure(error)
         else:
             # NOTE: On success, the stack will be up already, so there is no
             #       corresponding callback.
@@ -408,7 +408,8 @@ class BaseConnection(connection.Connection):
         else:
             # This completes asynchronously, culminating in call to our method
             # `connection_lost()`
-            self._transport.abort()  # type: ignore
+            assert self._transport is not None
+            self._transport.abort()
 
     def _adapter_emit_data(self, data: bytes) -> None:
         """Take ownership of data and send it to AMQP server as soon as
@@ -417,7 +418,8 @@ class BaseConnection(connection.Connection):
         :param bytes data:
 
         """
-        self._transport.write(data)  # type: ignore
+        assert self._transport is not None
+        self._transport.write(data)
 
     def _proto_connection_made(
             self, transport: nbio_interface.AbstractStreamTransport) -> None:
@@ -508,11 +510,12 @@ class _StreamingProtocolShim(nbio_interface.AbstractStreamProtocol):
 
     """
 
-    # Override AbstractStreamProtocol abstract methods to enable instantiation
-    connection_made = None  # type: ignore
-    connection_lost = None  # type: ignore
-    eof_received = None  # type: ignore
-    data_received = None  # type: ignore
+    # Override abstract methods at class level to enable instantiation;
+    # actual implementations are assigned on the instance in __init__.
+    connection_made = None  # type: ignore[assignment]
+    connection_lost = None  # type: ignore[assignment]
+    eof_received = None  # type: ignore[assignment]
+    data_received = None  # type: ignore[assignment]
 
     def __init__(self, conn: BaseConnection) -> None:
         """

@@ -30,11 +30,8 @@ def name_or_value(value: AMQPValue) -> str:
 
     """
     # Is it subclass of AMQPObject
-    try:
-        if issubclass(value, amqp_object.AMQPObject):  # type: ignore
-            return value.NAME  # type: ignore
-    except TypeError:
-        pass
+    if isinstance(value, type) and issubclass(value, amqp_object.AMQPObject):
+        return value.NAME
 
     # Is it a Pika frame object?
     if isinstance(value, frame.Method):
@@ -57,19 +54,19 @@ def sanitize_prefix(function: _Callback) -> _Callback:
 
     @functools.wraps(function)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
-        args = list(args)  # type: ignore
+        arg_list = list(args)
         offset = 1
         if 'prefix' in kwargs:
             kwargs['prefix'] = name_or_value(kwargs['prefix'])
-        elif len(args) - 1 >= offset:
-            args[offset] = name_or_value(args[offset])  # type: ignore
+        elif len(arg_list) - 1 >= offset:
+            arg_list[offset] = name_or_value(arg_list[offset])
             offset += 1
         if 'key' in kwargs:
             kwargs['key'] = name_or_value(kwargs['key'])
-        elif len(args) - 1 >= offset:
-            args[offset] = name_or_value(args[offset])  # type: ignore
+        elif len(arg_list) - 1 >= offset:
+            arg_list[offset] = name_or_value(arg_list[offset])
 
-        return function(*tuple(args), **kwargs)
+        return function(*arg_list, **kwargs)
 
     return cast(_Callback, wrapper)
 

@@ -561,6 +561,9 @@ class IOLoopEintrTestCaseSelect(IOLoopBaseTest):
         """Test that poll() is properly restarted after receiving EINTR error.
            Class of an exception raised to signal the error differs in one
            implementation of polling mechanism and another."""
+        if threading.current_thread() is not threading.main_thread():
+            self.skipTest("signal.signal() requires the main thread")
+
         is_resumable_mock.side_effect = is_resumable_raw
 
         timer = select_connection._Timer()

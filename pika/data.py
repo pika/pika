@@ -52,11 +52,11 @@ def decode_short_string(encoded: bytes, offset: int) -> tuple[str | bytes, int]:
     """
     length = struct.unpack_from('B', encoded, offset)[0]
     offset += 1
-    value = encoded[offset:offset + length]
+    raw = encoded[offset:offset + length]
     try:
-        value = value.decode('utf8')  # type: ignore[assignment]
+        value: str | bytes = raw.decode('utf8')
     except UnicodeDecodeError:
-        pass
+        value = raw
     offset += length
     return value, offset
 
@@ -73,7 +73,7 @@ def encode_table(pieces: list[bytes], table: dict[str, Any] | None) -> int:
     table = table or {}
     length_index = len(pieces)
     # placeholder overwritten by pieces[length_index] below
-    pieces.append(None)  # type: ignore[arg-type]
+    pieces.append(b'')
     tablesize = 0
     for (key, value) in table.items():
         tablesize += encode_short_string(pieces, key)

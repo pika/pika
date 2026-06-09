@@ -125,7 +125,7 @@ class TwistedChannel:
         self._queue_name_to_consumer_tags: dict[str, set[str]] = {}
         # Whether RabbitMQ delivery confirmation has been enabled
         self._delivery_confirmation = False
-        self._delivery_message_id: int = None  # type: ignore[assignment]
+        self._delivery_message_id: int | None = None
         self._deliveries: dict[int, defer.Deferred[Any]] = {}
         # Holds a ReceivedMessage object representing a message received via
         # Basic.Return in publisher-acknowledgments mode.
@@ -605,6 +605,7 @@ class TwistedChannel:
         if not self._delivery_confirmation:
             return defer.succeed(result)
         # See https://www.rabbitmq.com/confirms.html#publisher-confirms
+        assert self._delivery_message_id is not None
         self._delivery_message_id += 1
         self._deliveries[self._delivery_message_id] = defer.Deferred()
         return self._deliveries[self._delivery_message_id]
@@ -769,8 +770,8 @@ class TwistedChannel:
                     self._puback_return = None
                 else:
                     returned_messages = []
-                d.errback(
-                    exceptions.NackError(returned_messages))  # type: ignore
+                d.errback(exceptions.NackError(
+                    returned_messages))  # type: ignore[arg-type]
             else:
                 assert isinstance(method_frame.method, pika.spec.Basic.Ack)
                 if self._puback_return is not None:
@@ -778,7 +779,7 @@ class TwistedChannel:
                     returned_messages = [self._puback_return]
                     self._puback_return = None
                     d.errback(exceptions.UnroutableError(
-                        returned_messages))  # type: ignore
+                        returned_messages))  # type: ignore[arg-type]
                 else:
                     d.callback(method_frame.method)
 
@@ -1176,14 +1177,16 @@ class _TwistedConnectionAdapter(pika.connection.Connection):
          method.
 
         """
-        self._transport.loseConnection()  # type: ignore
+        assert self._transport is not None
+        self._transport.loseConnection()  # type: ignore[misc]
 
     def _adapter_emit_data(self, data: bytes) -> None:
         """Implement pure virtual
         :py:ref:meth:`pika.connection.Connection._adapter_emit_data()` method.
 
         """
-        self._transport.write(data)  # type: ignore
+        assert self._transport is not None
+        self._transport.write(data)  # type: ignore[call-arg, misc]
 
     def connection_made(
             self, transport: twisted.internet.interfaces.ITransport) -> None:
@@ -1364,7 +1367,7 @@ class TwistedProtocolConnection(protocol.Protocol):
             if isinstance(exception, Failure):
                 # Calling `callback` with a Failure instance will trigger the
                 # errback path.
-                exception = exception.value  # type: ignore
+                exception = exception.value  # type: ignore[assignment]
             d.callback(exception)
 
     def _clear_call(self, ret, d):

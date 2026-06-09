@@ -23,7 +23,17 @@ import logging
 import threading
 import warnings
 from collections import deque, namedtuple
-from typing import TYPE_CHECKING, Any, Callable, Generator, Generic, Sequence, TypeVar
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Generator,
+    Generic,
+    NamedTuple,
+    Sequence,
+    TypeVar,
+    cast,
+)
 
 import pika._utils
 import pika.channel
@@ -65,9 +75,8 @@ class _CallbackResult:
 
         """
         self._value_class = value_class
-        self._ready: bool = None  # type: ignore
-        self._values: list[Any] | None = None
-        self.reset()
+        self._ready: bool = False
+        self._values: tuple[Any, ...] | list[Any] | None = None
 
     def reset(self) -> None:
         """Reset value, but not _value_class"""
@@ -118,8 +127,9 @@ class _CallbackResult:
         :raises AssertionError: if result was already set
         """
         self.signal_once()
+        assert self._value_class is not None
         try:
-            self._values = (self._value_class(*args, **kwargs),)  # type: ignore
+            self._values = (self._value_class(*args, **kwargs),)
         except Exception:
             LOGGER.error(
                 "set_value_once failed: value_class=%r; args=%r; kwargs=%r",
@@ -132,8 +142,9 @@ class _CallbackResult:
             '_CallbackResult state is incompatible with append_element: '
             f'ready={self._ready!r}; values={self._values!r}')
 
+        assert self._value_class is not None
         try:
-            value = self._value_class(*args, **kwargs)  # type: ignore
+            value = self._value_class(*args, **kwargs)
         except Exception:
             LOGGER.error(
                 "append_element failed: value_class=%r; args=%r; kwargs=%r",
@@ -143,6 +154,7 @@ class _CallbackResult:
         if self._values is None:
             self._values = [value]
         else:
+            assert isinstance(self._values, list)
             self._values.append(value)
 
         self._ready = True
@@ -321,13 +333,13 @@ class BlockingConnection:
     learn more about the `blocked_connection_timeout` configuration.
 
     """
-    # Connection-closing callback args
-    _OnClosedArgs = namedtuple(  # type: ignore[name-match]
-        'BlockingConnection__OnClosedArgs', 'connection error')
 
-    # Channel-opened callback args
-    _OnChannelOpenedArgs = namedtuple(  # type: ignore[name-match]
-        'BlockingConnection__OnChannelOpenedArgs', 'channel')
+    class _OnClosedArgs(NamedTuple):
+        connection: Any
+        error: Any
+
+    class _OnChannelOpenedArgs(NamedTuple):
+        channel: Any
 
     def __init__(
             self,
@@ -383,8 +395,9 @@ class BlockingConnection:
         # Store exceptions for server-initiated channel closures
         self._server_channel_closures: deque[Exception] = deque()
 
-        # Perform connection workflow
-        self._impl: select_connection.SelectConnection = None  # type: ignore  # so that attribute is created in case below raises
+        # Perform connection workflow; pre-assign so that the attribute exists
+        # even if _create_connection raises (cleanup code accesses _impl).
+        self._impl: select_connection.SelectConnection = None  # type: ignore[assignment]
         self._impl = self._create_connection(parameters, _impl_class)
         self._impl.add_on_close_callback(self._closed_result.set_value_once)
 
@@ -465,13 +478,13 @@ class BlockingConnection:
             namedtuple('BlockingConnection_OnConnectionWorkflowDoneArgs',
                        'result'))
 
-        impl_class = impl_class or select_connection.SelectConnection  # type: ignore
+        resolved_impl_class = impl_class or select_connection.SelectConnection
 
         ioloop = select_connection.IOLoop()
 
         ioloop.activate_poller()
         try:
-            impl_class.create_connection(  # type: ignore
+            resolved_impl_class.create_connection(
                 configs,
                 on_done=on_cw_done_result.set_value_once,
                 custom_ioloop=ioloop)
@@ -709,9 +722,10 @@ class BlockingConnection:
 
         """
         self._impl.add_on_connection_blocked_callback(
-            functools.partial(self._on_connection_blocked,
-                              functools.partial(callback,
-                                                self)))  # type: ignore
+            functools.partial(
+                self._on_connection_blocked,
+                functools.partial(callback,
+                                  cast(pika.connection.Connection, self))))
 
     def add_on_connection_unblocked_callback(
         self, callback: Callable[[
@@ -730,9 +744,10 @@ class BlockingConnection:
 
         """
         self._impl.add_on_connection_unblocked_callback(
-            functools.partial(self._on_connection_unblocked,
-                              functools.partial(callback,
-                                                self)))  # type: ignore
+            functools.partial(
+                self._on_connection_unblocked,
+                functools.partial(callback,
+                                  cast(pika.connection.Connection, self))))
 
     def call_later(self, delay: float, callback: Callable[[], None]) -> int:
         """Create a single-shot timer to fire after delay seconds. Do not
@@ -755,11 +770,13 @@ class BlockingConnection:
         validators.require_callback(callback)
 
         evt = _TimerEvt(callback=callback)
-        timer_id = self._impl._adapter_call_later(
-            delay, functools.partial(self._on_timer_ready, evt))
+        timer_id = cast(
+            int,
+            self._impl._adapter_call_later(
+                delay, functools.partial(self._on_timer_ready, evt)))
         evt.timer_id = timer_id
 
-        return timer_id  # type: ignore
+        return timer_id
 
     def add_callback_threadsafe(self, callback: Callable[..., None]) -> None:
         """Requests a call to the given function as soon as possible in the
@@ -1253,32 +1270,20 @@ class BlockingChannel:
 
     """
 
-    # Used as value_class with _CallbackResult for receiving Basic.GetOk args
-    _RxMessageArgs = namedtuple(  # type: ignore
-        'BlockingChannel__RxMessageArgs',
-        [
-            'channel',  # implementation pika.Channel instance
-            'method',  # Basic.GetOk
-            'properties',  # pika.spec.BasicProperties
-            'body'  # bytes
-        ])
+    class _RxMessageArgs(NamedTuple):
+        channel: Any
+        method: Any
+        properties: Any
+        body: bytes
 
-    # For use as value_class with any _CallbackResult that expects method_frame
-    # as the only arg
-    _MethodFrameCallbackResultArgs = namedtuple(  # type: ignore
-        'BlockingChannel__MethodFrameCallbackResultArgs', 'method_frame')
+    class _MethodFrameCallbackResultArgs(NamedTuple):
+        method_frame: Any
 
-    # Broker's basic-ack/basic-nack args when delivery confirmation is enabled;
-    # may concern a single or multiple messages
-    _OnMessageConfirmationReportArgs = namedtuple(  # type: ignore
-        'BlockingChannel__OnMessageConfirmationReportArgs', 'method_frame')
+    class _OnMessageConfirmationReportArgs(NamedTuple):
+        method_frame: Any
 
-    # For use as value_class with _CallbackResult expecting Channel.Flow
-    # confirmation.
-    _FlowOkCallbackResultArgs = namedtuple(  # type: ignore
-        'BlockingChannel__FlowOkCallbackResultArgs',
-        'active'  # True if broker will start or continue sending; False if not
-    )
+    class _FlowOkCallbackResultArgs(NamedTuple):
+        active: bool
 
     _CONSUMER_CANCELLED_CB_KEY = 'blocking_channel_consumer_cancelled'
 
@@ -1565,8 +1570,8 @@ class BlockingChannel:
         :param evt: an object of type _ConsumerDeliveryEvt or
           _ConsumerCancellationEvt
         """
-        self._queue_consumer_generator.pending_events.append(  # type: ignore[union-attr]
-            evt)
+        assert self._queue_consumer_generator is not None
+        self._queue_consumer_generator.pending_events.append(evt)
         # Schedule termination of connection.process_data_events using a
         # negative channel number
         self.connection._request_channel_dispatch(-self.channel_number)
