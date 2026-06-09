@@ -18,6 +18,8 @@ import unittest
 from datetime import datetime, timezone
 from unittest import mock
 
+import pytest
+
 import pika
 import pika._utils
 from pika.adapters import select_connection
@@ -551,6 +553,7 @@ class IOLoopEintrTestCaseSelect(IOLoopBaseTest):
         self.poller.stop()
         self.fail('Eintr-test timed out')
 
+    @pytest.mark.forked
     @unittest.skipUnless(pika._utils.HAVE_SIGNAL,
                          "This platform doesn't support posix signals")
     @mock.patch('pika.adapters.select_connection._is_resumable')
@@ -560,10 +563,12 @@ class IOLoopEintrTestCaseSelect(IOLoopBaseTest):
             is_resumable_raw=pika.adapters.select_connection._is_resumable):
         """Test that poll() is properly restarted after receiving EINTR error.
            Class of an exception raised to signal the error differs in one
-           implementation of polling mechanism and another."""
-        if threading.current_thread() is not threading.main_thread():
-            self.skipTest("signal.signal() requires the main thread")
+           implementation of polling mechanism and another.
 
+           Forked into its own process (``@pytest.mark.forked``) so that
+           ``signal.signal()`` works: under ``pytest-xdist`` the test session
+           runs on a non-main thread, but after ``os.fork()`` the forking
+           thread becomes the child's main thread."""
         is_resumable_mock.side_effect = is_resumable_raw
 
         timer = select_connection._Timer()
