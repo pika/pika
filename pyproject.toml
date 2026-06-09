@@ -109,7 +109,6 @@ dependencies = [
     "gevent",
     "pytest>=7.0.0",
     "pytest-cov",
-    "pytest-forked",
     "pytest-timeout",
     "pytest-xdist",
     "tornado",
