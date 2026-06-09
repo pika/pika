@@ -26,6 +26,15 @@ from pika.adapters import select_connection
 
 LOGGER = logging.getLogger(__name__)
 
+# ``signal.signal()`` only works on the main thread, but under pytest-xdist the
+# test session runs on a worker thread.  Forking the test into its own process
+# makes the forking thread the child's main thread, so signals work again.
+# ``os.fork()`` (used by pytest-forked) is POSIX-only, so the marker is a no-op
+# elsewhere -- signal tests are skipped on those platforms anyway via
+# ``HAVE_SIGNAL``.
+_fork_for_signal = (pytest.mark.forked
+                    if pika._utils.HAVE_SIGNAL else lambda func: func)
+
 EPOLL_SUPPORTED = hasattr(select, 'epoll')
 POLL_SUPPORTED = hasattr(select, 'poll') and hasattr(select.poll(), 'modify')
 KQUEUE_SUPPORTED = hasattr(select, 'kqueue')
@@ -553,7 +562,7 @@ class IOLoopEintrTestCaseSelect(IOLoopBaseTest):
         self.poller.stop()
         self.fail('Eintr-test timed out')
 
-    @pytest.mark.forked
+    @_fork_for_signal
     @unittest.skipUnless(pika._utils.HAVE_SIGNAL,
                          "This platform doesn't support posix signals")
     @mock.patch('pika.adapters.select_connection._is_resumable')
