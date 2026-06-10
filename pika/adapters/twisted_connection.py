@@ -89,7 +89,7 @@ class ClosableDeferredQueue(defer.DeferredQueue):
 
         Errback the pending calls to :meth:`get()`.
 
-        :param Exception | None reason: The reason for closing the queue
+        :param reason: The reason for closing the queue
         """
         if self.closed:
             LOGGER.warning('Queue was already closed with reason: %s.',
@@ -214,7 +214,7 @@ class TwistedChannel:
             self,
             _method_frame: pika.frame.Method[pika.spec.Basic.Get]) -> None:
         """Callback the Basic.Get deferred with None.
-        :param pika.frame.Method[pika.spec.Basic.Get] _method_frame: Method frame from Basic.Get response (unused)
+        :param _method_frame: Method frame from Basic.Get response (unused)
         """
         if self._basic_get_deferred is None:
             LOGGER.warning("Got Basic.GetEmpty but no Basic.Get calls "
@@ -1151,7 +1151,7 @@ class _TwistedConnectionAdapter(pika.connection.Connection):
         :py:meth:`pika.connection.Connection._adapter_call_later()`.
 
         :param float delay: Delay in seconds
-        :param Callable[..., None] callback: The callback to call after the delay
+        :param callback: The callback to call after the delay
         :rtype: _TimerHandle
         """
         check_callback_arg(callback, 'callback')
@@ -1172,7 +1172,7 @@ class _TwistedConnectionAdapter(pika.connection.Connection):
         """Implement
         :py:meth:`pika.connection.Connection._adapter_add_callback_threadsafe()`.
 
-        :param Callable[..., None] callback: The callback to call from the thread
+        :param callback: The callback to call from the thread
         """
         check_callback_arg(callback, 'callback')
         self._reactor.callFromThread(

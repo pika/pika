@@ -1435,7 +1435,7 @@ class Channel:
 
         :param pika.amqp_object.Method method: The AMQP method to invoke
         :param callable callback: The callback for the RPC response
-        :param list|None acceptable_replies: A (possibly empty) sequence of
+        :param acceptable_replies: A (possibly empty) sequence of
             replies this RPC call expects or None
 
         """
@@ -1585,7 +1585,7 @@ class ContentFrameAssembler:
         setup in the rpc process and that don't have explicit reply types
         defined. This includes Basic.Publish, Basic.GetOk and Basic.Return
 
-        :param Method|Header|Body frame_value: The frame to process
+        :param frame_value: The frame to process
 
         :rtype: tuple[frame.Method, frame.Header, bytes] | None
         """

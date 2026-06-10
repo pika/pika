@@ -338,7 +338,7 @@ class Parameters:
     def heartbeat(
         self, value: None | (int | Callable[[Connection, float], int])) -> None:
         """
-        :param int|None|callable value: Controls AMQP heartbeat timeout negotiation
+        :param value: Controls AMQP heartbeat timeout negotiation
             during connection tuning. An integer value always overrides the value
             proposed by broker. Use 0 to deactivate heartbeats and None to always
             accept the broker's proposal. If a callable is given, it will be called
@@ -426,7 +426,7 @@ class Parameters:
     @retry_delay.setter
     def retry_delay(self, value: float) -> None:
         """
-        :param int | float value: interval between socket connection attempts;
+        :param value: interval between socket connection attempts;
             see also `connection_attempts`.
 
         """
@@ -448,7 +448,7 @@ class Parameters:
     @socket_timeout.setter
     def socket_timeout(self, value: float | None) -> None:
         """
-        :param int | float | None value: positive socket connect timeout in
+        :param value: positive socket connect timeout in
             seconds. None to disable this timeout.
 
         """
@@ -477,7 +477,7 @@ class Parameters:
     @stack_timeout.setter
     def stack_timeout(self, value: float | None) -> None:
         """
-        :param int | float | None value: positive full protocol stack
+        :param value: positive full protocol stack
             TCP/[SSL]/AMQP bring-up timeout in seconds. It's recommended to set
             this value higher than `socket_timeout`. None to disable this
             timeout.
@@ -505,10 +505,10 @@ class Parameters:
     @ssl_options.setter
     def ssl_options(self, value: SSLOptions | None) -> None:
         """
-        :param `pika.SSLOptions`|None value: None for plaintext or
+        :param value: None for plaintext or
             `pika.SSLOptions` instance for SSL/TLS. Defaults to None.
 
-        :param SSLOptions | None value: SSL options
+        :param value: SSL options
         """
         if not isinstance(value, (SSLOptions, type(None))):
             raise TypeError(
@@ -545,7 +545,7 @@ class Parameters:
     @tcp_options.setter
     def tcp_options(self, value: dict[str, int] | None) -> None:
         """
-        :param dict|None value: None or a dict of options to pass to the underlying
+        :param value: None or a dict of options to pass to the underlying
             socket. Currently supported are TCP_KEEPIDLE, TCP_KEEPINTVL, TCP_KEEPCNT
             and TCP_USER_TIMEOUT. Availability of these may depend on your platform.
         """
@@ -598,24 +598,24 @@ class ConnectionParameters(Parameters):
         :param pika.credentials.PlainCredentials credentials: auth credentials
         :param int channel_max: Maximum number of channels to allow
         :param int frame_max: The maximum byte size for an AMQP frame
-        :param int|None|callable heartbeat: Controls AMQP heartbeat timeout negotiation
+        :param heartbeat: Controls AMQP heartbeat timeout negotiation
             during connection tuning. An integer value always overrides the value
             proposed by broker. Use 0 to deactivate heartbeats and None to always
             accept the broker's proposal. If a callable is given, it will be called
             with the connection instance and the heartbeat timeout proposed by broker
             as its arguments. The callback should return a non-negative integer that
             will be used to override the broker's proposal.
-        :param `pika.SSLOptions`|None ssl_options: None for plaintext or
+        :param ssl_options: None for plaintext or
             `pika.SSLOptions` instance for SSL/TLS. Defaults to None.
         :param int connection_attempts: Maximum number of retry attempts
-        :param int|float retry_delay: Time to wait in seconds, before the next
-        :param int|float socket_timeout: Positive socket connect timeout in
+        :param retry_delay: Time to wait in seconds, before the next
+        :param socket_timeout: Positive socket connect timeout in
             seconds.
-        :param int|float stack_timeout: Positive full protocol stack
+        :param stack_timeout: Positive full protocol stack
             (TCP/[SSL]/AMQP) bring-up timeout in seconds. It's recommended to
             set this value higher than `socket_timeout`.
         :param str locale: Set the locale value
-        :param int|float|None blocked_connection_timeout: If not None,
+        :param blocked_connection_timeout: If not None,
             the value is a non-negative timeout, in seconds, for the
             connection to remain blocked (triggered by Connection.Blocked from
             broker); if the timeout expires before connection becomes unblocked,
@@ -980,7 +980,7 @@ class SSLOptions:
                  server_hostname: str | None = None) -> None:
         """
         :param ssl.SSLContext context: SSLContext instance
-        :param str|None server_hostname: SSLContext.wrap_socket, used to enable
+        :param server_hostname: SSLContext.wrap_socket, used to enable
             SNI
         """
         if not isinstance(context, ssl.SSLContext):
@@ -1488,7 +1488,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         specified number of seconds have elapsed, using a timer, or a
         thread, or similar.
 
-        :param float|int delay: The number of seconds to wait to call callback
+        :param delay: The number of seconds to wait to call callback
         :param callable callback: The callback will be called without args.
         :returns: Handle that can be passed to `_adapter_remove_timeout()` to
             cancel the callback.
@@ -1920,7 +1920,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         This is called once we have tuned the connection with the server and
         called the Connection.Open on the server and it has replied with
         Connection.Ok.
-        :param frame.Method[spec.Connection.OpenOk] method_frame: Server response frame
+        :param method_frame: Server response frame
         """
         self._opened = True
 
@@ -2212,7 +2212,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         self, frame_value: (frame.Frame | frame.ProtocolHeader)) -> None:
         """Process an inbound frame from the socket.
 
-        :param pika.frame.Frame|pika.frame.Method frame_value: The frame to
+        :param frame_value: The frame to
             process
 
         """
@@ -2340,7 +2340,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         """This appends the fully generated frame to send to the broker to the
         output buffer which will be then sent via the connection adapter.
 
-        :param pika.frame.Frame|pika.frame.ProtocolHeader frame_value: The
+        :param frame_value: The
             frame to write
         :raises exceptions.ConnectionClosed:
 

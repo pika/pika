@@ -142,8 +142,8 @@ class StreamingConnectionMixin:
         :param callable protocol_factory: factory to create protocol instance
         :param socket.socket sock: connected socket
         :param callable on_done: completion callback
-        :param ssl.SSLContext | None ssl_context: SSL context (optional)
-        :param str | None server_hostname: server hostname for SSL (optional)
+        :param ssl_context: SSL context (optional)
+        :param server_hostname: server hostname for SSL (optional)
         :rtype: AbstractIOReference
 
         """
@@ -209,7 +209,7 @@ class _AsyncSocketConnector:
                  sock: socket.socket, resolved_addr: tuple[str, int],
                  on_done: Callable[[BaseException | None], None]) -> None:
         """
-        :param AbstractIOServices | AbstractFileDescriptorServices nbio:
+        :param nbio:
         :param socket.socket sock: non-blocking socket that needs to be
             connected via `socket.socket.connect()`
         :param tuple resolved_addr: resolved destination address/port two-tuple
@@ -293,7 +293,7 @@ class _AsyncSocketConnector:
         """Advance to COMPLETED state, remove socket watcher, and invoke user's
         completion callback.
 
-        :param BaseException | None result: value to pass in user's callback
+        :param result: value to pass in user's callback
 
         """
         _LOGGER.debug('_AsyncSocketConnector._report_completion(%r); %s',
@@ -408,11 +408,11 @@ class _AsyncStreamConnector:
         See `AbstractIOServices.create_streaming_connection()` for detailed
         documentation of the corresponding args.
 
-        :param AbstractIOServices | AbstractFileDescriptorServices nbio:
+        :param nbio:
         :param callable protocol_factory:
         :param socket.socket sock:
-        :param ssl.SSLContext | None ssl_context:
-        :param str | None server_hostname:
+        :param ssl_context:
+        :param server_hostname:
         :param callable on_done:
 
         """
@@ -541,7 +541,7 @@ class _AsyncStreamConnector:
         """Advance to COMPLETED state, cancel async operation(s), and invoke
         user's completion callback.
 
-        :param BaseException | tuple result: value to pass in user's callback.
+        :param result: value to pass in user's callback.
             `tuple(transport, protocol)` on success, exception on error
 
         """
@@ -769,11 +769,11 @@ class _AsyncTransportBase(AbstractStreamTransport):
     ) -> None:
         """
 
-        :param socket.socket | ssl.SSLSocket sock: connected socket
+        :param sock: connected socket
         :param pika.adapters.utils.nbio_interface.AbstractStreamProtocol protocol:
             corresponding protocol in this transport/protocol pairing; the
             protocol already had its `connection_made()` method called.
-        :param AbstractIOServices | AbstractFileDescriptorServices nbio:
+        :param nbio:
 
         """
         _LOGGER.debug('_AsyncTransportBase.__init__: %s', sock)
@@ -972,7 +972,7 @@ class _AsyncTransportBase(AbstractStreamTransport):
         call to the protocol's `connection_lost()` method. No flushing of
         output buffers will take place.
 
-        :param BaseException | None error: None if being canceled by user,
+        :param error: None if being canceled by user,
             including via falsie return value from protocol.eof_received;
             otherwise the exception corresponding to the the failed connection.
         """
@@ -1028,7 +1028,7 @@ class _AsyncTransportBase(AbstractStreamTransport):
         by us in order to avoid reentry into user code from user's API call into
         the transport.
 
-        :param BaseException | None error: None if being canceled by user;
+        :param error: None if being canceled by user;
             otherwise the exception corresponding to the the failed connection.
         """
         _LOGGER.debug('Concluding transport shutdown: state=%s; error=%r',
@@ -1076,7 +1076,7 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
         :param pika.adapters.utils.nbio_interface.AbstractStreamProtocol protocol:
             corresponding protocol in this transport/protocol pairing; the
             protocol already had its `connection_made()` method called.
-        :param AbstractIOServices | AbstractFileDescriptorServices nbio:
+        :param nbio:
 
         """
         super().__init__(sock, protocol, nbio)
@@ -1230,7 +1230,7 @@ class _AsyncSSLTransport(_AsyncTransportBase):
         :param pika.adapters.utils.nbio_interface.AbstractStreamProtocol protocol:
             corresponding protocol in this transport/protocol pairing; the
             protocol already had its `connection_made()` method called.
-        :param AbstractIOServices | AbstractFileDescriptorServices nbio:
+        :param nbio:
 
         """
         super().__init__(sock, protocol, nbio)
