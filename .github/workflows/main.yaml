@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - chore/types-and-docstrings
   pull_request:
     branches:
       - main
