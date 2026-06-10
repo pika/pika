@@ -17,9 +17,9 @@ import itertools
 import logging
 import threading
 from threading import Event
-from typing import Any, Literal
+from typing import Any
 
-from typing_extensions import Self
+from typing_extensions import Literal, Self
 
 from pika import spec
 from pika.adapters.select_connection import SelectConnection
