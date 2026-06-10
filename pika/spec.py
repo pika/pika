@@ -11,7 +11,7 @@ rejected.
 
 """
 
-from typing import Self
+from typing_extensions import Self
 import struct
 from pika import amqp_object
 from pika import data
