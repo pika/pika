@@ -2332,7 +2332,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         self._send_method(0,
                           spec.Connection.TuneOk(
                               self.params.channel_max, self.params.frame_max,
-                              self.params.heartbeat))  # type: ignore[arg-type]
+                              self.params.heartbeat))
 
     def _send_frame(
         self, frame_value: (frame.Frame | frame.ProtocolHeader)) -> None:
