@@ -36,12 +36,12 @@ class BaseConnection(connection.Connection):
                  internal_connection_workflow: bool = True) -> None:
         """Create a new instance of the Connection object.
 
-        :param parameters: Connection parameters
-        :param on_open_callback: Method to call on connection open
-        :param on_open_error_callback: Called if the connection
+        :param None|pika.connection.Parameters parameters: Connection parameters
+        :param None|method on_open_callback: Method to call on connection open
+        :param None | method on_open_error_callback: Called if the connection
             can't be established or connection establishment is interrupted by
             `Connection.close()`: on_open_error_callback(Connection, exception).
-        :param on_close_callback: Called when a previously fully
+        :param None | method on_close_callback: Called when a previously fully
             open connection is closed:
             `on_close_callback(Connection, exception)`, where `exception` is
             either an instance of `exceptions.ConnectionClosed` if closed by
@@ -136,7 +136,7 @@ class BaseConnection(connection.Connection):
             `pika.connection.Parameters`-based objects.
         :param callable on_done: as defined in
             `connection_workflow.AbstractAMQPConnectionWorkflow.start()`.
-        :param custom_ioloop: Provide a custom I/O loop that is
+        :param object | None custom_ioloop: Provide a custom I/O loop that is
             native to the specific adapter implementation; if None, the adapter
             will use a default loop instance, which is typically a singleton.
         :param workflow:

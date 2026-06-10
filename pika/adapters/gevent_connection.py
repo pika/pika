@@ -55,15 +55,15 @@ class GeventConnection(BaseConnection):
         """Create a new GeventConnection instance and connect to RabbitMQ on
         Gevent's event-loop.
 
-        :param parameters: The connection
+        :param pika.connection.Parameters|None parameters: The connection
             parameters
-        :param on_open_callback: The method to call when the
+        :param callable|None on_open_callback: The method to call when the
             connection is open
-        :param on_open_error_callback: Called if the connection
+        :param callable|None on_open_error_callback: Called if the connection
             can't be established or connection establishment is interrupted by
             `Connection.close()`:
             on_open_error_callback(Connection, exception)
-        :param on_close_callback: Called when a previously fully
+        :param callable|None on_close_callback: Called when a previously fully
             open connection is closed:
             `on_close_callback(Connection, exception)`, where `exception` is
             either an instance of `exceptions.ConnectionClosed` if closed by
@@ -114,10 +114,10 @@ class GeventConnection(BaseConnection):
     ) -> connection_workflow.AbstractAMQPConnectionWorkflow:
         """Implement
         :py:classmethod::`pika.adapters.BaseConnection.create_connection()`.
-        :param connection_configs: One or more connection parameter objects
-        :param on_done: Callback to report when connection workflow is done
-        :param custom_ioloop: Optional custom Gevent ILoop to use for the connection workflow; if None, a new _GeventSelectorIOLoop will be created
-        :param workflow: Optional connection workflow instance to use
+        :param Sequence[connection.Parameters] connection_configs: One or more connection parameter objects
+        :param Callable[[connection.Connection | connection_workflow.AMQPConnectorException], None] on_done: Callback to report when connection workflow is done
+        :param gevent._interfaces.ILoop | None custom_ioloop: Optional custom Gevent ILoop to use for the connection workflow; if None, a new _GeventSelectorIOLoop will be created
+        :param None | connection_workflow.AbstractAMQPConnectionWorkflow workflow: Optional connection workflow instance to use
         :rtype: connection_workflow.AbstractAMQPConnectionWorkflow
         """
         custom_ioloop = (custom_ioloop or
@@ -362,7 +362,7 @@ class _GeventSelectorIOServicesAdapter(SelectorIOServicesAdapter):
         """Implement :py:meth:`.nbio_interface.AbstractIOServices.getaddrinfo()`.
         :param str host: Hostname or IP address
         :param int port: TCP port number
-        :param on_done: The callback to call with the result of getaddrinfo
+        :param Callable[..., None] on_done: The callback to call with the result of getaddrinfo
         :param int family: Socket address family (e.g. ``socket.AF_INET``)
         :param int socktype: Socket type (e.g. ``socket.SOCK_STREAM``)
         :param int proto: Protocol number (0 for default)

@@ -22,7 +22,7 @@ def require_callback(callback: Callable[..., Any],
 
     :raises: TypeError
 
-    :param callback: The callback to validate
+    :param Callable[..., Any] callback: The callback to validate
     :param str callback_name: Human-readable name of the callback, used in error messages
     """
     if not callable(callback):
@@ -37,7 +37,7 @@ def rpc_completion_callback(callback: Optional[Callable[..., Any]]) -> bool:
     :rtype: bool
     :raises: TypeError
 
-    :param callback: RPC completion callback, or None if no callback is expected (i.e. nowait=True)
+    :param Optional[Callable[..., Any]] callback: RPC completion callback, or None if no callback is expected (i.e. nowait=True)
     """
     if callback is None:
         # No callback means we will not expect a response

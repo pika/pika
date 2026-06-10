@@ -87,10 +87,10 @@ class AsyncioConnection(base_connection.BaseConnection):
         """Implement
         :py:classmethod::`pika.adapters.BaseConnection.create_connection()`.
 
-        :param connection_configs: One or more connection parameter objects
-        :param on_done: Callback to report when connection workflow is done
-        :param custom_ioloop: Optional custom event loop to use for the connection workflow
-        :param workflow: Optional connection workflow instance to use; if None, a default workflow will be created
+        :param Sequence[connection.Parameters] connection_configs: One or more connection parameter objects
+        :param Callable[[connection.Connection | connection_workflow.AMQPConnectorException], None] on_done: Callback to report when connection workflow is done
+        :param asyncio.AbstractEventLoop | None custom_ioloop: Optional custom event loop to use for the connection workflow
+        :param None | connection_workflow.AbstractAMQPConnectionWorkflow workflow: Optional connection workflow instance to use; if None, a default workflow will be created
         :rtype: connection_workflow.AbstractAMQPConnectionWorkflow
         """
         nbio = _AsyncioIOServicesAdapter(custom_ioloop)
@@ -130,7 +130,7 @@ class _AsyncioIOServicesAdapter(io_services_utils.SocketConnectionMixin,
 
     def __init__(self, loop: asyncio.AbstractEventLoop | None = None) -> None:
         """
-        :param loop: If None, uses the
+        :param asyncio.AbstractEventLoop | None loop: If None, uses the
             running event loop via asyncio.get_running_loop(), or creates
             a new one via asyncio.new_event_loop() when no loop is running
             (e.g. when called from a non-async thread).
@@ -174,7 +174,7 @@ class _AsyncioIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         """Implement
         :py:meth:`.utils.nbio_interface.AbstractIOServices.add_callback_threadsafe()`.
 
-        :param callback: The callback to call from the thread
+        :param Callable[[], None] callback: The callback to call from the thread
         """
         self._loop.call_soon_threadsafe(callback)
 
@@ -184,7 +184,7 @@ class _AsyncioIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         :py:meth:`.utils.nbio_interface.AbstractIOServices.call_later()`.
 
         :param float delay: Delay in seconds
-        :param callback: The callback to call after the delay
+        :param Callable[[], None] callback: The callback to call after the delay
         :rtype: _TimerHandle
         """
         return _TimerHandle(self._loop.call_later(delay, callback))
@@ -202,7 +202,7 @@ class _AsyncioIOServicesAdapter(io_services_utils.SocketConnectionMixin,
 
         :param str host: Hostname or IP address
         :param int port: TCP port number
-        :param on_done: The callback to call with the result of getaddrinfo
+        :param Callable[..., None] on_done: The callback to call with the result of getaddrinfo
         :param int family: Socket address family (e.g. ``socket.AF_INET``)
         :param int socktype: Socket type (e.g. ``socket.SOCK_STREAM``)
         :param int proto: Protocol number (0 for default)
@@ -222,7 +222,7 @@ class _AsyncioIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         :py:meth:`.utils.nbio_interface.AbstractFileDescriptorServices.set_reader()`.
 
         :param int fd: File descriptor
-        :param on_readable: The callback to call when the file descriptor is readable
+        :param Callable[[], None] on_readable: The callback to call when the file descriptor is readable
         """
         self._loop.add_reader(fd, on_readable)
         LOGGER.debug('set_reader(%s, _)', fd)
@@ -242,7 +242,7 @@ class _AsyncioIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         :py:meth:`.utils.nbio_interface.AbstractFileDescriptorServices.set_writer()`.
 
         :param int fd: File descriptor
-        :param on_writable: The callback to call when the file descriptor is writable
+        :param Callable[[], None] on_writable: The callback to call when the file descriptor is writable
         """
         self._loop.add_writer(fd, on_writable)
         LOGGER.debug('set_writer(%s, _)', fd)

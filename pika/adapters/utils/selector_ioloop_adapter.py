@@ -225,7 +225,7 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
     def call_later(self, delay, callback: Callable[..., None]) -> _TimerHandle:
         """Implement :py:meth:`.nbio_interface.AbstractIOServices.call_later()`.
 
-        :param callback: The callback to call after delay seconds
+        :param Callable[..., None] callback: The callback to call after delay seconds
         :rtype: _TimerHandle
         """
         return _TimerHandle(self._loop.call_later(delay, callback), self._loop)
@@ -242,7 +242,7 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
 
         :param str host: Hostname or IP address
         :param int port: TCP port number
-        :param on_done: Callback to report when done
+        :param Callable[..., None] on_done: Callback to report when done
         :param int family: Socket address family (e.g. ``socket.AF_INET``)
         :param int socktype: Socket type (e.g. ``socket.SOCK_STREAM``)
         :param int proto: Protocol number (0 for default)
@@ -264,7 +264,7 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         :py:meth:`.nbio_interface.AbstractFileDescriptorServices.set_reader()`.
 
         :param int fd: File descriptor
-        :param on_readable: The callback to call when the file descriptor is readable
+        :param Callable[[], None] on_readable: The callback to call when the file descriptor is readable
         """
         LOGGER.debug('SelectorIOServicesAdapter.set_reader(%s, %r)', fd,
                      on_readable)
@@ -329,7 +329,7 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         :py:meth:`.nbio_interface.AbstractFileDescriptorServices.set_writer()`.
 
         :param int fd: File descriptor
-        :param on_writable: The callback to call when the file descriptor is writable
+        :param Callable[[], None] on_writable: The callback to call when the file descriptor is writable
         """
         LOGGER.debug('SelectorIOServicesAdapter.set_writer(%s, %r)', fd,
                      on_writable)

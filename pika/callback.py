@@ -24,7 +24,7 @@ def name_or_value(value: AMQPValue) -> str:
     """Will take Frame objects, classes, etc and attempt to return a valid
     string identifier for them.
 
-    :param value: The
+    :param pika.amqp_object.AMQPObject|pika.frame.Frame|int|str value: The
         value to sanitize
     :rtype: str
 
@@ -140,8 +140,8 @@ class CallbackManager:
         CallbackManager will restrict processing of the callback to only
         the calling function/object that you specify.
 
-        :param prefix: Categorize the callback
-        :param key: The key for the callback
+        :param str|int prefix: Categorize the callback
+        :param str|dict key: The key for the callback
         :param callable callback: The callback to call
         :param bool one_shot: Remove this callback after it is called
         :param object only_caller: Only allow one_caller value to call the
@@ -201,8 +201,8 @@ class CallbackManager:
     def pending(self, prefix: _Prefix, key: AMQPValue) -> int | None:
         """Return count of callbacks for a given prefix or key or None
 
-        :param prefix: Categorize the callback
-        :param key: The key for the callback
+        :param str|int prefix: Categorize the callback
+        :param object|str|int key: The key for the callback
         :rtype: None or int
 
         """
@@ -219,8 +219,8 @@ class CallbackManager:
         require a specific function to call CallbackManager.process will
         not be processed.
 
-        :param prefix: Categorize the callback
-        :param key: The key for the callback
+        :param str|int prefix: Categorize the callback
+        :param object|str|int key: The key for the callback
         :param object caller: Who is firing the event
         :param list args: Any optional arguments
         :param dict keywords: Optional keyword arguments
@@ -333,7 +333,7 @@ class CallbackManager:
                                    event that fires the callback.
         :rtype: dict
 
-        :param arguments: arguments to attach to the callback dict
+        :param dict[str, Any] | None arguments: arguments to attach to the callback dict
         """
         value = {
             self.CALLBACK: callback,

@@ -35,7 +35,7 @@ class Frame(amqp_object.AMQPObject):
 
         :rtype: bytes
 
-        :param pieces: Encoded AMQP frame fragments to assemble
+        :param list[bytes] pieces: Encoded AMQP frame fragments to assemble
         """
         payload = b''.join(pieces)
         return struct.pack('>BHI', self.frame_type, self.channel_number,

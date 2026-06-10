@@ -219,11 +219,11 @@ class AbstractIOServices(pika._utils.AbstractBase):  # type: ignore[valid-type, 
             contain the linked transport/protocol pair having
             AbstractStreamTransport and AbstractStreamProtocol interfaces
             respectively.
-        :param ssl_context: if None, this will proceed as
+        :param None | ssl.SSLContext ssl_context: if None, this will proceed as
             a plaintext connection; otherwise, if not None, SSL session
             establishment will be performed prior to linking the transport and
             protocol.
-        :param server_hostname: For use during SSL session
+        :param str | None server_hostname: For use during SSL session
             establishment to match against the target server's certificate. The
             value `None` disables this check (which is a huge security risk)
         :rtype: AbstractIOReference
@@ -349,7 +349,7 @@ class AbstractStreamProtocol(
         NOTE: `connection_made()` and `connection_lost()` are each called just
         once and in that order. All other callbacks are called between them.
 
-        :param error: An exception (check for
+        :param BaseException | None error: An exception (check for
             `BaseException`) indicates connection failure. None indicates that
             connection was closed on this side, such as when it's aborted or
             when `AbstractStreamProtocol.eof_received()` returns a result that

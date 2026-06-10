@@ -126,7 +126,7 @@ class ThreadSafeChannel:
                            error: list[BaseException | None]) -> None:
         """Remove a waiter from the blocking list.
         :param Event ready: Threading event signalling that the RPC response has arrived
-        :param error: list containing an exception if the RPC response was an error, or None if it was successful
+        :param list[BaseException | None] error: list containing an exception if the RPC response was an error, or None if it was successful
         """
         with self._wrapper._channel_waiters_lock:
             try:
