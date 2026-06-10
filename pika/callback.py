@@ -77,6 +77,7 @@ def check_for_prefix_and_key(function: _Callback) -> _Callback:
 
     :rtype: _Callback
 
+    :param _Callback function: Callback to validate
     """
 
     @functools.wraps(function)
@@ -308,6 +309,7 @@ class CallbackManager:
         :param dict callback_dict: The callback dictionary to evaluate against
         :param list args: The arguments passed in as a list
 
+        :rtype: bool
         """
         if callback_dict[self.ARGUMENTS] is None:
             return True
@@ -331,6 +333,7 @@ class CallbackManager:
                                    event that fires the callback.
         :rtype: dict
 
+        :param dict[str, Any] | None arguments: arguments to attach to the callback dict
         """
         value = {
             self.CALLBACK: callback,

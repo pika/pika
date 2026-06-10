@@ -23,18 +23,19 @@ class TornadoConnection(base_connection.BaseConnection):
     """The TornadoConnection runs on the Tornado IOLoop.
     """
 
-    def __init__(
-            self,
-            parameters: connection.Parameters | None = None,
-            on_open_callback: None |
-        (Callable[[connection.Connection], None]) = None,
-            on_open_error_callback: None |
-        (Callable[[connection.Connection, BaseException], None]) = None,
-            on_close_callback: None |
-        (Callable[[connection.Connection, BaseException], None]) = None,
-            custom_ioloop: None |
-        (ioloop.IOLoop | nbio_interface.AbstractIOServices) = None,
-            internal_connection_workflow: bool = True):
+    def __init__(self,
+                 parameters: connection.Parameters | None = None,
+                 on_open_callback: None |
+                 (Callable[[connection.Connection], None]) = None,
+                 on_open_error_callback: None |
+                 (Callable[[connection.Connection, BaseException],
+                           None]) = None,
+                 on_close_callback: None |
+                 (Callable[[connection.Connection, BaseException],
+                           None]) = None,
+                 custom_ioloop: None |
+                 (ioloop.IOLoop | nbio_interface.AbstractIOServices) = None,
+                 internal_connection_workflow: bool = True) -> None:
         """Create a new instance of the TornadoConnection class, connecting
         to RabbitMQ automatically.
 
@@ -94,13 +95,21 @@ class TornadoConnection(base_connection.BaseConnection):
         """Implement
         :py:classmethod::`pika.adapters.BaseConnection.create_connection()`.
 
+        :param Sequence[connection.Parameters] connection_configs: One or more connection parameter objects
+        :param Callable[[connection.Connection | connection_workflow.AMQPConnectorException], None] on_done:  Callback to report when connection workflow is done
+        :param Any | None custom_ioloop: Optional custom IOLoop or nbio interface to use for the connection workflow
+        :param None | connection_workflow.AbstractAMQPConnectionWorkflow workflow: Optional connection workflow instance to use
+        :rtype: connection_workflow.AbstractAMQPConnectionWorkflow
         """
         nbio = selector_ioloop_adapter.SelectorIOServicesAdapter(
             custom_ioloop or ioloop.IOLoop.instance())  # type: ignore[arg-type]
 
         def connection_factory(
                 params: connection.Parameters | None) -> TornadoConnection:
-            """Connection factory."""
+            """Connection factory.
+            :param connection.Parameters | None params: Connection parameters
+            :rtype: TornadoConnection
+            """
             if params is None:
                 raise ValueError('Expected pika.connection.Parameters '
                                  'instance, but got None in params arg.')

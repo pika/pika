@@ -9,6 +9,8 @@ def require_string(value: Any, value_name: str) -> None:
 
     :raises: TypeError
 
+    :param Any value: The value to validate
+    :param str value_name: Human-readable name of the value, used in error messages
     """
     if not isinstance(value, str):
         raise TypeError(f'{value_name} must be a str, but got {value!r}')
@@ -20,6 +22,8 @@ def require_callback(callback: Callable[..., Any],
 
     :raises: TypeError
 
+    :param Callable[..., Any] callback: The callback to validate
+    :param str callback_name: Human-readable name of the callback, used in error messages
     """
     if not callable(callback):
         raise TypeError(
@@ -33,6 +37,7 @@ def rpc_completion_callback(callback: Optional[Callable[..., Any]]) -> bool:
     :rtype: bool
     :raises: TypeError
 
+    :param Optional[Callable[..., Any]] callback: RPC completion callback, or None if no callback is expected (i.e. nowait=True)
     """
     if callback is None:
         # No callback means we will not expect a response
@@ -51,6 +56,8 @@ def zero_or_greater(name: str, value: int) -> None:
 
     :raises: ValueError
 
+    :param str name: value name to use in error message
+    :param int value: value to check
     """
     if int(value) < 0:
         errmsg = f'{name} must be >= 0, but got {value}'

@@ -38,6 +38,7 @@ class AbstractIOServices(pika._utils.AbstractBase):  # type: ignore[valid-type, 
         """Returns the native I/O loop instance, such as Twisted reactor,
         asyncio's or tornado's event loop
 
+        :rtype: Any
         """
         raise NotImplementedError
 
@@ -148,6 +149,12 @@ class AbstractIOServices(pika._utils.AbstractBase):  # type: ignore[valid-type, 
             failure (check for `BaseException`) as its only arg. It will not be
             called if the operation was cancelled.
         :rtype: AbstractIOReference
+        :param str host: Hostname or IP address
+        :param int port: TCP port number
+        :param int family: Socket address family (e.g. ``socket.AF_INET``)
+        :param int socktype: Socket type (e.g. ``socket.SOCK_STREAM``)
+        :param int proto: Protocol number (0 for default)
+        :param int flags: :func:`socket.getaddrinfo` flags
         """
         raise NotImplementedError
 

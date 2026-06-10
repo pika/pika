@@ -508,6 +508,7 @@ class Parameters:
         :param `pika.SSLOptions`|None value: None for plaintext or
             `pika.SSLOptions` instance for SSL/TLS. Defaults to None.
 
+        :param SSLOptions | None value: SSL options
         """
         if not isinstance(value, (SSLOptions, type(None))):
             raise TypeError(
@@ -816,7 +817,9 @@ class URLParameters(Parameters):
             set_value(single_value)
 
     def _set_url_blocked_connection_timeout(self, value: float) -> None:
-        """Deserialize and apply the corresponding query string arg"""
+        """Deserialize and apply the corresponding query string arg
+        :param float value: Raw query-string value to deserialize
+        """
         try:
             blocked_connection_timeout = float(value)
         except ValueError as exc:
@@ -825,7 +828,9 @@ class URLParameters(Parameters):
         self.blocked_connection_timeout = blocked_connection_timeout
 
     def _set_url_channel_max(self, value: int) -> None:
-        """Deserialize and apply the corresponding query string arg"""
+        """Deserialize and apply the corresponding query string arg
+        :param int value: Raw query-string value to deserialize
+        """
         try:
             channel_max = int(value)
         except ValueError as exc:
@@ -833,11 +838,15 @@ class URLParameters(Parameters):
         self.channel_max = channel_max
 
     def _set_url_client_properties(self, value: str) -> None:
-        """Deserialize and apply the corresponding query string arg"""
+        """Deserialize and apply the corresponding query string arg
+        :param str value: Raw query-string value to deserialize
+        """
         self.client_properties = ast.literal_eval(value)
 
     def _set_url_connection_attempts(self, value: int) -> None:
-        """Deserialize and apply the corresponding query string arg"""
+        """Deserialize and apply the corresponding query string arg
+        :param int value: Raw query-string value to deserialize
+        """
         try:
             connection_attempts = int(value)
         except ValueError as exc:
@@ -846,7 +855,9 @@ class URLParameters(Parameters):
         self.connection_attempts = connection_attempts
 
     def _set_url_frame_max(self, value: int) -> None:
-        """Deserialize and apply the corresponding query string arg"""
+        """Deserialize and apply the corresponding query string arg
+        :param int value: Raw query-string value to deserialize
+        """
         try:
             frame_max = int(value)
         except ValueError as exc:
@@ -854,7 +865,9 @@ class URLParameters(Parameters):
         self.frame_max = frame_max
 
     def _set_url_heartbeat(self, value: int) -> None:
-        """Deserialize and apply the corresponding query string arg"""
+        """Deserialize and apply the corresponding query string arg
+        :param int value: Raw query-string value to deserialize
+        """
         try:
             heartbeat_timeout = int(value)
         except ValueError as exc:
@@ -862,11 +875,15 @@ class URLParameters(Parameters):
         self.heartbeat = heartbeat_timeout
 
     def _set_url_locale(self, value: str) -> None:
-        """Deserialize and apply the corresponding query string arg"""
+        """Deserialize and apply the corresponding query string arg
+        :param str value: Raw query-string value to deserialize
+        """
         self.locale = value
 
     def _set_url_retry_delay(self, value: float) -> None:
-        """Deserialize and apply the corresponding query string arg"""
+        """Deserialize and apply the corresponding query string arg
+        :param float value: Raw query-string value to deserialize
+        """
         try:
             retry_delay = float(value)
         except ValueError as exc:
@@ -874,7 +891,9 @@ class URLParameters(Parameters):
         self.retry_delay = retry_delay
 
     def _set_url_socket_timeout(self, value: float) -> None:
-        """Deserialize and apply the corresponding query string arg"""
+        """Deserialize and apply the corresponding query string arg
+        :param float value: Raw query-string value to deserialize
+        """
         try:
             socket_timeout = float(value)
         except ValueError as exc:
@@ -882,7 +901,9 @@ class URLParameters(Parameters):
         self.socket_timeout = socket_timeout
 
     def _set_url_stack_timeout(self, value: float) -> None:
-        """Deserialize and apply the corresponding query string arg"""
+        """Deserialize and apply the corresponding query string arg
+        :param float value: Raw query-string value to deserialize
+        """
         try:
             stack_timeout = float(value)
         except ValueError as exc:
@@ -892,6 +913,7 @@ class URLParameters(Parameters):
     def _set_url_ssl_options(self, value: str) -> None:
         """Deserialize and apply the corresponding query string arg
 
+        :param str value: Raw query-string value to deserialize
         """
         opts = ast.literal_eval(value)
         if opts is None:
@@ -938,7 +960,9 @@ class URLParameters(Parameters):
                                                server_hostname=server_hostname)
 
     def _set_url_tcp_options(self, value: str) -> None:
-        """Deserialize and apply the corresponding query string arg"""
+        """Deserialize and apply the corresponding query string arg
+        :param str value: Raw query-string value to deserialize
+        """
         self.tcp_options = ast.literal_eval(value)
 
 
@@ -1386,6 +1410,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
     def is_closed(self) -> bool:
         """
         Returns a boolean reporting the current connection state.
+        :rtype: bool
         """
         return self.connection_state == self.CONNECTION_CLOSED
 
@@ -1394,6 +1419,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         """
         Returns True if connection is in the process of closing due to
         client-initiated `close` request, but closing is not yet complete.
+        :rtype: bool
         """
         return self.connection_state == self.CONNECTION_CLOSING
 
@@ -1401,6 +1427,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
     def is_open(self) -> bool:
         """
         Returns a boolean reporting the current connection state.
+        :rtype: bool
         """
         return self.connection_state == self.CONNECTION_OPEN
 
@@ -1622,6 +1649,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
             opened.  The callback will be invoked with the `Channel` instance
             as its only argument.
 
+        :rtype: Channel
         """
         LOGGER.debug('Creating channel %s', channel_number)
         return pika.channel.Channel(self, channel_number, on_open_callback)
@@ -1720,6 +1748,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
 
         :rtype: bool
 
+        :param frame.Frame value: Frame to inspect
         """
         return isinstance(value, frame.ProtocolHeader)
 
@@ -1809,6 +1838,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
 
         :param pika.frame.Method method_frame: method frame having `method`
             member of type `pika.spec.Connection.Blocked`
+        :param Connection _connection: The connection instance (unused)
         """
         LOGGER.warning('Received %s from broker', method_frame)
 
@@ -1831,6 +1861,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
 
         :param pika.frame.Method method_frame: method frame having `method`
             member of type `pika.spec.Connection.Blocked`
+        :param Connection _connection: The connection instance (unused)
         """
         LOGGER.info('Received %s from broker', method_frame)
 
@@ -1878,6 +1909,8 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
 
         :raises Exception: the given error
 
+        :param Connection _connection_unused: The connection instance (unused)
+        :param Exception error: The exception that caused the failure
         """
         raise error
 
@@ -1887,6 +1920,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         This is called once we have tuned the connection with the server and
         called the Connection.Open on the server and it has replied with
         Connection.Ok.
+        :param frame.Method[spec.Connection.OpenOk] method_frame: Server response frame
         """
         self._opened = True
 
@@ -2232,12 +2266,13 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         for method_cls in method_classes:
             self.callbacks.remove(str(channel_number), method_cls)
 
-    def _rpc(self,
-             channel_number: int,
-             method: amqp_object.Method,
-             callback: Callable[..., Any] | None = None,
-             acceptable_replies: None |
-             (Sequence[type[amqp_object.Method]]) = None):
+    def _rpc(
+        self,
+        channel_number: int,
+        method: amqp_object.Method,
+        callback: Callable[..., Any] | None = None,
+        acceptable_replies: None | (Sequence[type[amqp_object.Method]]) = None
+    ) -> None:
         """Make an RPC call for the given callback, channel number and method.
         acceptable_replies lists out what responses we'll process from the
         server with the specified callback.
@@ -2294,11 +2329,10 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
 
     def _send_connection_tune_ok(self) -> None:
         """Send a Connection.TuneOk frame"""
-        self._send_method(
-            0,
-            spec.Connection.TuneOk(
-                self.params.channel_max, self.params.frame_max,
-                self.params.heartbeat))  # pyright: ignore[reportArgumentType]
+        self._send_method(0,
+                          spec.Connection.TuneOk(
+                              self.params.channel_max, self.params.frame_max,
+                              self.params.heartbeat))  # type: ignore[arg-type]
 
     def _send_frame(
         self, frame_value: (frame.Frame | frame.ProtocolHeader)) -> None:

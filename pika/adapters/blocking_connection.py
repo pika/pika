@@ -46,6 +46,7 @@ import pika.validators as validators
 from pika.adapters import select_connection
 from pika.adapters.utils import connection_workflow
 from pika.exchange_type import ExchangeType
+from pika.spec import Basic
 
 if TYPE_CHECKING:
     from traceback import TracebackException
@@ -65,7 +66,7 @@ class _CallbackResult:
     """
     __slots__ = ('_ready', '_value_class', '_values')
 
-    def __init__(self, value_class: Callable[..., Any] | None = None):
+    def __init__(self, value_class: Callable[..., Any] | None = None) -> None:
         """
         :param callable value_class: only needed if the CallbackResult
                                      instance will be used with
@@ -109,7 +110,9 @@ class _CallbackResult:
 
     @property
     def ready(self) -> bool:
-        """True if the object is in a signaled state"""
+        """True if the object is in a signaled state
+        :rtype: bool
+        """
         return self._ready
 
     def signal_once(self, *_args: Any, **_kwargs: Any) -> None:
@@ -232,7 +235,7 @@ class _TimerEvt:
     """Represents a timer created via `BlockingConnection.call_later`"""
     __slots__ = ('_callback', 'timer_id')
 
-    def __init__(self, callback: Callable[..., None]):
+    def __init__(self, callback: Callable[..., None]) -> None:
         """
         :param callback: see callback in `BlockingConnection.call_later`
         """
@@ -433,6 +436,7 @@ class BlockingConnection:
         dispatcher and False if caller higher up in the call stack already owns
         it. Only managed code that gets ownership (got True) is permitted to
         dispatch
+        :rtype: Generator[bool, Any, None]
         """
         try:
             # __enter__ part
@@ -551,7 +555,7 @@ class BlockingConnection:
         #   empty outbound buffer and no waiters
         #         OR
         #   empty outbound buffer and any waiter is ready
-        def is_done():
+        def is_done() -> bool:
             return (self._closed_result.ready or
                     ((not self._impl._transport or
                       self._impl._get_write_buffer_size() == 0) and
@@ -910,7 +914,7 @@ class BlockingConnection:
         """
         with self._acquire_event_dispatch() as dispatch_acquired:
             # Check if we can actually process pending events
-            def common_terminator():
+            def common_terminator() -> bool:
                 return bool(
                     dispatch_acquired and
                     (self._channels_pending_dispatch or self._ready_events))
@@ -959,6 +963,7 @@ class BlockingConnection:
         numbers.
 
         :rtype: pika.adapters.blocking_connection.BlockingChannel
+        :param int | None channel_number: optional channel number to use
         """
         with _CallbackResult(self._OnChannelOpenedArgs) as opened_args:
             impl_channel = self._impl.channel(
@@ -984,6 +989,7 @@ class BlockingConnection:
     def is_closed(self) -> bool:
         """
         Returns a boolean reporting the current connection state.
+        :rtype: bool
         """
         return self._impl.is_closed
 
@@ -991,6 +997,7 @@ class BlockingConnection:
     def is_open(self) -> bool:
         """
         Returns a boolean reporting the current connection state.
+        :rtype: bool
         """
         return self._impl.is_open
 
@@ -1089,8 +1096,10 @@ class _ConsumerCancellationEvt(_ChannelPendingEvt):
         return f'<{self.__class__.__name__} method_frame={self.method_frame!r}>'
 
     @property
-    def method(self):
-        """method of type spec.Basic.Cancel"""
+    def method(self) -> Basic.Cancel:
+        """method of type spec.Basic.Cancel
+        :rtype: Basic.Cancel
+        """
         return self.method_frame.method
 
 
@@ -1169,15 +1178,17 @@ class _ConsumerInfo:
     TEARING_DOWN = 3
     CANCELLED_BY_BROKER = 4
 
-    def __init__(self,
-                 consumer_tag: str,
-                 auto_ack: bool,
-                 on_message_callback: None | (Callable[[
-                     BlockingChannel, pika.spec.Basic.Deliver, pika.spec.
-                     BasicProperties, bytes
-                 ], None]) = None,
-                 alternate_event_sink: None |
-                 (Callable[[_ChannelPendingEvt], None]) = None):
+    def __init__(
+        self,
+        consumer_tag: str,
+        auto_ack: bool,
+        on_message_callback: None | (Callable[[
+            BlockingChannel, pika.spec.Basic.Deliver, pika.spec.
+            BasicProperties, bytes
+        ], None]) = None,
+        alternate_event_sink: None |
+        (Callable[[_ChannelPendingEvt], None]) = None
+    ) -> None:
         """
         NOTE: exactly one of callback/alternate_event_sink musts be non-None.
 
@@ -1208,22 +1219,30 @@ class _ConsumerInfo:
 
     @property
     def setting_up(self) -> bool:
-        """True if in SETTING_UP state"""
+        """True if in SETTING_UP state
+        :rtype: bool
+        """
         return self.state == self.SETTING_UP
 
     @property
     def active(self) -> bool:
-        """True if in ACTIVE state"""
+        """True if in ACTIVE state
+        :rtype: bool
+        """
         return self.state == self.ACTIVE
 
     @property
     def tearing_down(self) -> bool:
-        """True if in TEARING_DOWN state"""
+        """True if in TEARING_DOWN state
+        :rtype: bool
+        """
         return self.state == self.TEARING_DOWN
 
     @property
     def cancelled_by_broker(self) -> bool:
-        """True if in CANCELLED_BY_BROKER state"""
+        """True if in CANCELLED_BY_BROKER state
+        :rtype: bool
+        """
         return self.state == self.CANCELLED_BY_BROKER
 
 
@@ -1288,7 +1307,7 @@ class BlockingChannel:
     _CONSUMER_CANCELLED_CB_KEY = 'blocking_channel_consumer_cancelled'
 
     def __init__(self, channel_impl: pika.channel.Channel,
-                 connection: BlockingConnection):
+                 connection: BlockingConnection) -> None:
         """Create a new instance of the Channel
 
         :param pika.channel.Channel channel_impl: Channel implementation object
@@ -1380,12 +1399,16 @@ class BlockingChannel:
 
     @property
     def channel_number(self) -> int:
-        """Channel number"""
+        """Channel number
+        :rtype: int
+        """
         return self._impl.channel_number
 
     @property
     def connection(self) -> BlockingConnection:
-        """The channel's BlockingConnection instance"""
+        """The channel's BlockingConnection instance
+        :rtype: BlockingConnection
+        """
         return self._connection
 
     @property
@@ -1418,7 +1441,7 @@ class BlockingChannel:
 
     _ALWAYS_READY_WAITERS = ((lambda: True),)
 
-    def _flush_output(self, *waiters: Callable[[], bool]):
+    def _flush_output(self, *waiters: Callable[[], bool]) -> None:
         """ Flush output and process input while waiting for any of the given
         callbacks to return true. The wait is aborted upon channel-close or
         connection-close.
@@ -1471,7 +1494,7 @@ class BlockingChannel:
 
         self._puback_return = ReturnedMessage(method, properties, body)
 
-    def _add_pending_event(self, evt: _ChannelPendingEvt):
+    def _add_pending_event(self, evt: _ChannelPendingEvt) -> None:
         """Append an event to the channel's list of events that are ready for
         dispatch to user and signal our connection that this channel is ready
         for event dispatch
@@ -1546,7 +1569,7 @@ class BlockingChannel:
     def _on_consumer_message_delivery(self, _channel: pika.channel.Channel,
                                       method: pika.spec.Basic.Deliver,
                                       properties: pika.spec.BasicProperties,
-                                      body: bytes):
+                                      body: bytes) -> None:
         """Called by impl when a message is delivered for a consumer
 
         :param Channel _channel: The implementation channel object
@@ -1712,7 +1735,7 @@ class BlockingChannel:
                       auto_ack: bool = False,
                       exclusive: bool = False,
                       consumer_tag: str | None = None,
-                      arguments: dict[str, Any] | None = None):
+                      arguments: dict[str, Any] | None = None) -> str:
         """Sends the AMQP command Basic.Consume to the broker and binds messages
         for the consumer_tag to the consumer callback. If you do not pass in
         a consumer_tag, one will be automatically generated for you. Returns
@@ -1757,18 +1780,20 @@ class BlockingChannel:
                                         consumer_tag=consumer_tag,
                                         arguments=arguments)
 
-    def _basic_consume_impl(self,
-                            queue: str,
-                            auto_ack: bool,
-                            exclusive: bool,
-                            consumer_tag: str | None,
-                            arguments: dict[str, Any] | None = None,
-                            on_message_callback: None | (Callable[[
-                                BlockingChannel, pika.spec.Basic.Deliver, pika.
-                                spec.BasicProperties, bytes
-                            ], None]) = None,
-                            alternate_event_sink: None |
-                            (Callable[[_ChannelPendingEvt], None]) = None):
+    def _basic_consume_impl(
+        self,
+        queue: str,
+        auto_ack: bool,
+        exclusive: bool,
+        consumer_tag: str | None,
+        arguments: dict[str, Any] | None = None,
+        on_message_callback: None | (Callable[[
+            BlockingChannel, pika.spec.Basic.Deliver, pika.spec.
+            BasicProperties, bytes
+        ], None]) = None,
+        alternate_event_sink: None |
+        (Callable[[_ChannelPendingEvt], None]) = None
+    ) -> str:
         """The low-level implementation used by `basic_consume` and `consume`.
         See `basic_consume` docstring for more info.
 
@@ -1787,6 +1812,13 @@ class BlockingChannel:
         :raises pika.exceptions.DuplicateConsumerTag: if consumer with given
             consumer_tag is already present.
 
+        :param str queue: Queue name
+        :param bool auto_ack: If True, the broker acknowledges messages automatically
+        :param bool exclusive: If True, restrict access to the current connection
+        :param str | None consumer_tag: if specified, only the consumer with the given tag will be cancelled
+        :param dict[str, Any] | None arguments: Custom key/value pair arguments for the consumer
+        :param None | Callable[[BlockingChannel, pika.spec.Basic.Deliver, pika.spec.BasicProperties, bytes], None] on_message_callback: Callback for delivered messages
+        :rtype: str
         """
         if (on_message_callback is None) == (alternate_event_sink is None):
             raise ValueError(
@@ -2002,6 +2034,7 @@ class BlockingChannel:
         NOTE: pending non-ackable messages will be lost; pending ackable
         messages will be rejected.
 
+        :param str | None consumer_tag: if specified, only the consumer with the given tag will be cancelled
         """
         if consumer_tag:
             self.basic_cancel(consumer_tag)
@@ -2059,6 +2092,7 @@ class BlockingChannel:
             NEW in pika 0.10.0
         :raises ChannelClosed: when this channel is closed by broker.
 
+        :rtype: Generator[tuple[pika.spec.Basic.Deliver | None, pika.spec.BasicProperties | None, bytes | None]]
         """
         self._impl._raise_if_not_open()
 

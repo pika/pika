@@ -114,14 +114,21 @@ class GeventConnection(BaseConnection):
     ) -> connection_workflow.AbstractAMQPConnectionWorkflow:
         """Implement
         :py:classmethod::`pika.adapters.BaseConnection.create_connection()`.
+        :param Sequence[connection.Parameters] connection_configs: One or more connection parameter objects
+        :param Callable[[connection.Connection | connection_workflow.AMQPConnectorException], None] on_done: Callback to report when connection workflow is done
+        :param gevent._interfaces.ILoop | None custom_ioloop: Optional custom Gevent ILoop to use for the connection workflow; if None, a new _GeventSelectorIOLoop will be created
+        :param None | connection_workflow.AbstractAMQPConnectionWorkflow workflow: Optional connection workflow instance to use
+        :rtype: connection_workflow.AbstractAMQPConnectionWorkflow
         """
         custom_ioloop = (custom_ioloop or
                          _GeventSelectorIOLoop(gevent.get_hub()))
 
         nbio = _GeventSelectorIOServicesAdapter(custom_ioloop)
 
-        def connection_factory(params):
-            """Connection factory."""
+        def connection_factory(params) -> GeventConnection:
+            """Connection factory.
+            :rtype: Self
+            """
             if params is None:
                 raise ValueError('Expected pika.connection.Parameters '
                                  'instance, but got None in params arg.')
@@ -157,7 +164,9 @@ class _TSafeCallbackQueue:
 
     @property
     def fd(self) -> int:
-        """The file-descriptor to register for READ events in the IO loop."""
+        """The file-descriptor to register for READ events in the IO loop.
+        :rtype: int
+        """
         return self._read_fd
 
     def add_callback_threadsafe(self, callback: Callable[[], None]) -> None:
@@ -216,7 +225,7 @@ class _GeventSelectorIOLoop(AbstractSelectorIOLoop):
         # For adding callbacks from other threads. See `add_callback(..)`.
         self._callback_queue = _TSafeCallbackQueue()
 
-        def run_callback_in_main_thread(fd, events):
+        def run_callback_in_main_thread(fd, events) -> None:
             """Swallow the fd and events arguments."""
             del fd
             del events
@@ -351,6 +360,14 @@ class _GeventSelectorIOServicesAdapter(SelectorIOServicesAdapter):
                     proto: int = 0,
                     flags: int = 0) -> nbio_interface.AbstractIOReference:
         """Implement :py:meth:`.nbio_interface.AbstractIOServices.getaddrinfo()`.
+        :param str host: Hostname or IP address
+        :param int port: TCP port number
+        :param Callable[..., None] on_done: The callback to call with the result of getaddrinfo
+        :param int family: Socket address family (e.g. ``socket.AF_INET``)
+        :param int socktype: Socket type (e.g. ``socket.SOCK_STREAM``)
+        :param int proto: Protocol number (0 for default)
+        :param int flags: :func:`socket.getaddrinfo` flags
+        :rtype: nbio_interface.AbstractIOReference
         """
         resolver = _GeventAddressResolver(native_loop=self._loop,
                                           host=host,

@@ -49,7 +49,7 @@ class PlainCredentials:
     def __init__(self,
                  username: str,
                  password: str,
-                 erase_on_connect: bool = False):
+                 erase_on_connect: bool = False) -> None:
         """Create a new instance of PlainCredentials
 
         :param str username: The username to authenticate with

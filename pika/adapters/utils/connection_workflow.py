@@ -52,7 +52,7 @@ class AMQPConnectorPhaseErrorBase(AMQPConnectorException):
 
     """
 
-    def __init__(self, exception: BaseException, *args: Any):
+    def __init__(self, exception: BaseException, *args: Any) -> None:
         """
 
         :param BaseException exception: error that occurred while waiting for a
@@ -62,7 +62,7 @@ class AMQPConnectorPhaseErrorBase(AMQPConnectorException):
         super().__init__(*args)
         self.exception = exception
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'{self.__class__.__name__}: {self.exception!r}'
 
 
@@ -95,7 +95,7 @@ class AMQPConnectionWorkflowFailed(AMQPConnectorException):
 
     """
 
-    def __init__(self, exceptions: Sequence[BaseException], *args: Any):
+    def __init__(self, exceptions: Sequence[BaseException], *args: Any) -> None:
         """
         :param sequence exceptions: Exceptions that occurred during the
             workflow.
@@ -128,7 +128,7 @@ class AMQPConnector:
     def __init__(self,
                  conn_factory: Callable[[pika.connection.Parameters],
                                         nbio_interface.AbstractStreamProtocol],
-                 nbio: nbio_interface.AbstractIOServices):
+                 nbio: nbio_interface.AbstractIOServices) -> None:
         """
 
         :param callable conn_factory: A function that takes
@@ -685,6 +685,9 @@ class AMQPConnectionWorkflow(AbstractAMQPConnectionWorkflow):
         as the overall number of connection attempts of the entire
         `connection_configs` sequence and pause between each sequence.
 
+        :param Sequence[pika.connection.Parameters] connection_configs: A sequence of one or more `pika.connection.Parameters`-based objects.
+        :param Callable[..., Any] connector_factory: call it without args to obtain a new instance of `AMQPConnector` for each connection attempt. See `AMQPConnector` for details.
+        :param Callable[[pika.connection.Connection | AMQPConnectorException], None] on_done: Function to call upon completion of the workflow: `on_done(pika.connection.Connection | AMQPConnectionWorkflowFailed | AMQPConnectionWorkflowAborted)`. `Connection`-based adapter on success, `AMQPConnectionWorkflowFailed` on failure, `AMQPConnectionWorkflowAborted` if workflow was aborted.
         """
         if self._state != self._STATE_INIT:
             raise AMQPConnectorWrongState(

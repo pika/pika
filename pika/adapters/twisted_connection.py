@@ -21,6 +21,7 @@ import twisted.internet.base
 import twisted.python.failure
 from twisted.internet import defer, protocol, reactor
 from twisted.internet import error as twisted_error
+from twisted.internet.defer import Deferred
 from twisted.python.failure import Failure
 
 import pika.connection
@@ -46,7 +47,9 @@ class ClosableDeferredQueue(defer.DeferredQueue):
     to call get() or put() return a Failure wrapping that exception.
     """
 
-    def __init__(self, size: int | None = None, backlog: int | None = None):
+    def __init__(self,
+                 size: int | None = None,
+                 backlog: int | None = None) -> None:
         self.closed: Exception | None = None
         super().__init__(size, backlog)
 
@@ -56,6 +59,8 @@ class ClosableDeferredQueue(defer.DeferredQueue):
         Like the original :meth:`DeferredQueue.put` method, but returns an
         errback if the queue is closed.
 
+        :param Any obj: Object to adapt into a Twisted ``IProtocol``
+        :rtype: None | defer.Deferred[Any]
         """
         if self.closed:
             LOGGER.error('Impossible to put to the queue, it is closed.')
@@ -84,6 +89,7 @@ class ClosableDeferredQueue(defer.DeferredQueue):
 
         Errback the pending calls to :meth:`get()`.
 
+        :param Exception | None reason: The reason for closing the queue
         """
         if self.closed:
             LOGGER.warning('Queue was already closed with reason: %s.',
@@ -171,6 +177,7 @@ class TwistedChannel:
         :param pika.frame.Method method_frame: method frame with the
             `spec.Basic.Cancel` method
 
+        :rtype: pika.frame.Method[pika.spec.Basic.Cancel] | pika.frame.Method[pika.spec.Basic.CancelOk]
         """
         return self._on_consumer_cancelled(method_frame)
 
@@ -185,6 +192,7 @@ class TwistedChannel:
         :param pika.frame.Method frame: method frame with the
             `spec.Basic.Cancel` or `spec.Basic.CancelOk` method
 
+        :rtype: pika.frame.Method[pika.spec.Basic.Cancel] | pika.frame.Method[pika.spec.Basic.CancelOk]
         """
         consumer_tag = frame.method.consumer_tag
         if consumer_tag not in self._consumers:
@@ -206,6 +214,7 @@ class TwistedChannel:
             self,
             _method_frame: pika.frame.Method[pika.spec.Basic.Get]) -> None:
         """Callback the Basic.Get deferred with None.
+        :param pika.frame.Method[pika.spec.Basic.Get] _method_frame: Method frame from Basic.Get response (unused)
         """
         if self._basic_get_deferred is None:
             LOGGER.warning("Got Basic.GetEmpty but no Basic.Get calls "
@@ -220,6 +229,8 @@ class TwistedChannel:
         the original method's callback would receive more than one argument,
         the Deferred fires with a tuple of argument values.
 
+        :param str name: Attribute name to look up on the underlying channel
+        :rtype: Callable[..., defer.Deferred[Any]]
         """
         method = getattr(self._channel, name)
 
@@ -232,7 +243,7 @@ class TwistedChannel:
             self._calls.add(d)
             d.addCallback(self._clear_call, d)
 
-            def single_argument(*args):
+            def single_argument(*args) -> None:
                 """
                 Make sure that the deferred is called with a single argument.
                 In case the original callback fires with more than one, convert
@@ -319,8 +330,8 @@ class TwistedChannel:
 
     # Public Channel methods
 
-    def add_on_return_callback(self, callback: Callable[[ReceivedMessage],
-                                                        None]):
+    def add_on_return_callback(
+            self, callback: Callable[[ReceivedMessage], None]) -> None:
         """Pass a callback function that will be called when a published
         message is rejected and returned by the server via `Basic.Return`.
 
@@ -441,7 +452,7 @@ class TwistedChannel:
         d: defer.Deferred[Any] = defer.Deferred()
         self._calls.add(d)
 
-        def on_consume_ok(frame):
+        def on_consume_ok(frame) -> None:
             consumer_tag = frame.method.consumer_tag
             self._queue_name_to_consumer_tags.setdefault(
                 queue, set()).add(consumer_tag)
@@ -449,7 +460,7 @@ class TwistedChannel:
             self._calls.discard(d)
             d.callback((queue_obj, consumer_tag))
 
-        def on_message_callback(_channel, method, properties, body):
+        def on_message_callback(_channel, method, properties, body) -> None:
             """Add the ReceivedMessage to the queue, while replacing the
             channel implementation.
             """
@@ -511,7 +522,7 @@ class TwistedChannel:
         if self._basic_get_deferred is not None:
             raise exceptions.DuplicateGetOkCallback()
 
-        def create_namedtuple(result):
+        def create_namedtuple(result) -> ReceivedMessage | None:
             if result is None:
                 return None
             _channel, method, properties, body = result
@@ -1122,7 +1133,7 @@ class _TwistedConnectionAdapter(pika.connection.Connection):
                  (Callable[[pika.connection.Connection, Exception], Any]),
                  on_close_callback: None |
                  (Callable[[pika.connection.Connection, Exception], Any]),
-                 custom_reactor: Any = None):
+                 custom_reactor: Any = None) -> None:
         super().__init__(parameters=parameters,
                          on_open_callback=on_open_callback,
                          on_open_error_callback=on_open_error_callback,
@@ -1134,10 +1145,14 @@ class _TwistedConnectionAdapter(pika.connection.Connection):
             twisted.internet.interfaces.ITransport
         ) = None  # to be provided by `connection_made()`
 
-    def _adapter_call_later(self, delay: float, callback: Callable[..., None]):
+    def _adapter_call_later(self, delay: float,
+                            callback: Callable[..., None]) -> _TimerHandle:
         """Implement
         :py:meth:`pika.connection.Connection._adapter_call_later()`.
 
+        :param float delay: Delay in seconds
+        :param Callable[..., None] callback: The callback to call after the delay
+        :rtype: _TimerHandle
         """
         check_callback_arg(callback, 'callback')
         return _TimerHandle(
@@ -1148,6 +1163,7 @@ class _TwistedConnectionAdapter(pika.connection.Connection):
         """Implement
         :py:meth:`pika.connection.Connection._adapter_remove_timeout()`.
 
+        :param Any timeout_id: Opaque timeout handle returned by ``callLater``
         """
         timeout_id.cancel()
 
@@ -1156,6 +1172,7 @@ class _TwistedConnectionAdapter(pika.connection.Connection):
         """Implement
         :py:meth:`pika.connection.Connection._adapter_add_callback_threadsafe()`.
 
+        :param Callable[..., None] callback: The callback to call from the thread
         """
         check_callback_arg(callback, 'callback')
         self._reactor.callFromThread(
@@ -1184,6 +1201,7 @@ class _TwistedConnectionAdapter(pika.connection.Connection):
         """Implement pure virtual
         :py:ref:meth:`pika.connection.Connection._adapter_emit_data()` method.
 
+        :param bytes data: Raw bytes to write to the transport
         """
         assert self._transport is not None
         self._transport.write(data)  # type: ignore[call-arg, misc]
@@ -1250,7 +1268,7 @@ class TwistedProtocolConnection(protocol.Protocol):
 
     def __init__(self,
                  parameters: pika.connection.ConnectionParameters | None = None,
-                 custom_reactor: Any = None):
+                 custom_reactor: Any = None) -> None:
         warnings.warn(
             "TwistedProtocolConnection is deprecated and will be removed in "
             "Pika 2.0. Use ThreadSafeConnection instead, which works with any "
@@ -1271,7 +1289,8 @@ class TwistedProtocolConnection(protocol.Protocol):
         )
         self._calls: set[defer.Deferred[Any]] = set()
 
-    def channel(self, channel_number: int | None = None):
+    def channel(self,
+                channel_number: int | None = None) -> Deferred[TwistedChannel]:
         """Create a new channel with the next available channel number or pass
         in a channel number to use. Must be non-zero if you would like to
         specify but it is recommended that you let Pika manage the channel
@@ -1336,6 +1355,7 @@ class TwistedProtocolConnection(protocol.Protocol):
     ) -> (TwistedProtocolConnection | defer.Deferred[TwistedProtocolConnection]
          ):
         """This method will be called when the underlying connection is ready.
+        :rtype: TwistedProtocolConnection | defer.Deferred[TwistedProtocolConnection]
         """
         return self
 

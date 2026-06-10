@@ -36,6 +36,7 @@ class AbstractSelectorIOLoop:
         Implementation note: the implementations can simply replace these
         READ/WRITE/ERROR properties with class-level attributes
 
+        :rtype: int
         """
 
     @property
@@ -44,6 +45,7 @@ class AbstractSelectorIOLoop:
         """The value of the I/O loop's WRITE flag; READ/WRITE/ERROR may be used
         with bitwise operators as expected
 
+        :rtype: int
         """
 
     @property
@@ -52,6 +54,7 @@ class AbstractSelectorIOLoop:
         """The value of the I/O loop's ERROR flag; READ/WRITE/ERROR may be used
         with bitwise operators as expected
 
+        :rtype: int
         """
 
     @abc.abstractmethod
@@ -166,7 +169,7 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
 
     """
 
-    def __init__(self, native_loop: AbstractSelectorIOLoop):
+    def __init__(self, native_loop: AbstractSelectorIOLoop) -> None:
         """
         :param AbstractSelectorIOLoop native_loop: An instance compatible with
             the `AbstractSelectorIOLoop` interface, but not necessarily derived
@@ -190,6 +193,7 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         """Implement
         :py:meth:`.nbio_interface.AbstractIOServices.get_native_ioloop()`.
 
+        :rtype: AbstractSelectorIOLoop
         """
         return self._loop
 
@@ -211,7 +215,7 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         """
         self._loop.stop()
 
-    def add_callback_threadsafe(self, callback):
+    def add_callback_threadsafe(self, callback) -> None:
         """Implement
         :py:meth:`.nbio_interface.AbstractIOServices.add_callback_threadsafe()`.
 
@@ -221,6 +225,8 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
     def call_later(self, delay, callback: Callable[..., None]) -> _TimerHandle:
         """Implement :py:meth:`.nbio_interface.AbstractIOServices.call_later()`.
 
+        :param Callable[..., None] callback: The callback to call after delay seconds
+        :rtype: _TimerHandle
         """
         return _TimerHandle(self._loop.call_later(delay, callback), self._loop)
 
@@ -234,6 +240,14 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
                     flags: int = 0) -> nbio_interface.AbstractIOReference:
         """Implement :py:meth:`.nbio_interface.AbstractIOServices.getaddrinfo()`.
 
+        :param str host: Hostname or IP address
+        :param int port: TCP port number
+        :param Callable[..., None] on_done: Callback to report when done
+        :param int family: Socket address family (e.g. ``socket.AF_INET``)
+        :param int socktype: Socket type (e.g. ``socket.SOCK_STREAM``)
+        :param int proto: Protocol number (0 for default)
+        :param int flags: :func:`socket.getaddrinfo` flags
+        :rtype: nbio_interface.AbstractIOReference
         """
         return _SelectorIOLoopIOHandle(
             _AddressResolver(native_loop=self._loop,
@@ -249,6 +263,8 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         """Implement
         :py:meth:`.nbio_interface.AbstractFileDescriptorServices.set_reader()`.
 
+        :param int fd: File descriptor
+        :param Callable[[], None] on_readable: The callback to call when the file descriptor is readable
         """
         LOGGER.debug('SelectorIOServicesAdapter.set_reader(%s, %r)', fd,
                      on_readable)
@@ -278,6 +294,8 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         """Implement
         :py:meth:`.nbio_interface.AbstractFileDescriptorServices.remove_reader()`.
 
+        :param int fd: File descriptor
+        :rtype: bool
         """
         LOGGER.debug('SelectorIOServicesAdapter.remove_reader(%s)', fd)
 
@@ -310,6 +328,8 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         """Implement
         :py:meth:`.nbio_interface.AbstractFileDescriptorServices.set_writer()`.
 
+        :param int fd: File descriptor
+        :param Callable[[], None] on_writable: The callback to call when the file descriptor is writable
         """
         LOGGER.debug('SelectorIOServicesAdapter.set_writer(%s, %r)', fd,
                      on_writable)
@@ -342,6 +362,8 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         """Implement
         :py:meth:`.nbio_interface.AbstractFileDescriptorServices.remove_writer()`.
 
+        :param int fd: File descriptor
+        :rtype: bool
         """
         LOGGER.debug('SelectorIOServicesAdapter.remove_writer(%s)', fd)
 
@@ -415,7 +437,7 @@ class _FileDescriptorCallbacks:
 
     def __init__(self,
                  reader: Callable[[], None] | None = None,
-                 writer: Callable[[], None] | None = None):
+                 writer: Callable[[], None] | None = None) -> None:
         """Initialize file descriptor callbacks.
 
         :param reader: Read callback.
@@ -431,7 +453,7 @@ class _TimerHandle(nbio_interface.AbstractTimerReference):
 
     """
 
-    def __init__(self, handle: object, loop: AbstractSelectorIOLoop):
+    def __init__(self, handle: object, loop: AbstractSelectorIOLoop) -> None:
         """
 
         :param opaque handle: timer handle from the underlying loop

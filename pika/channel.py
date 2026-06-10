@@ -1587,6 +1587,7 @@ class ContentFrameAssembler:
 
         :param Method|Header|Body frame_value: The frame to process
 
+        :rtype: tuple[frame.Method, frame.Header, bytes] | None
         """
         if (isinstance(frame_value, frame.Method) and
                 spec.has_content(frame_value.method.INDEX)):

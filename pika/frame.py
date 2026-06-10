@@ -35,6 +35,7 @@ class Frame(amqp_object.AMQPObject):
 
         :rtype: bytes
 
+        :param list[bytes] pieces: Encoded AMQP frame fragments to assemble
         """
         payload = b''.join(pieces)
         return struct.pack('>BHI', self.frame_type, self.channel_number,
@@ -165,7 +166,7 @@ class ProtocolHeader(amqp_object.AMQPObject):
     def __init__(self,
                  major: int | None = None,
                  minor: int | None = None,
-                 revision: int | None = None):
+                 revision: int | None = None) -> None:
         """Construct a Protocol Header frame object for the specified AMQP
         version
 

@@ -175,7 +175,7 @@ class _AsyncServiceAsyncHandle(AbstractIOReference):
 
     """
 
-    def __init__(self, subject: Any):
+    def __init__(self, subject: Any) -> None:
         """
         :param subject: subject of the reference containing a `cancel()` method
 
@@ -207,7 +207,7 @@ class _AsyncSocketConnector:
     def __init__(self, nbio: (nbio_interface.AbstractIOServices |
                               nbio_interface.AbstractFileDescriptorServices),
                  sock: socket.socket, resolved_addr: tuple[str, int],
-                 on_done: Callable[[BaseException | None], None]):
+                 on_done: Callable[[BaseException | None], None]) -> None:
         """
         :param AbstractIOServices | AbstractFileDescriptorServices nbio:
         :param socket.socket sock: non-blocking socket that needs to be
@@ -761,10 +761,12 @@ class _AsyncTransportBase(AbstractStreamTransport):
         def __init__(self) -> None:
             super().__init__(-1, 'End of input stream (EOF)')
 
-    def __init__(self, sock: socket.socket | ssl.SSLSocket,
-                 protocol: nbio_interface.AbstractStreamProtocol,
-                 nbio: (nbio_interface.AbstractIOServices |
-                        nbio_interface.AbstractFileDescriptorServices)):
+    def __init__(
+        self, sock: socket.socket | ssl.SSLSocket,
+        protocol: nbio_interface.AbstractStreamProtocol,
+        nbio: (nbio_interface.AbstractIOServices |
+               nbio_interface.AbstractFileDescriptorServices)
+    ) -> None:
         """
 
         :param socket.socket | ssl.SSLSocket sock: connected socket
@@ -1062,10 +1064,12 @@ class _AsyncPlaintextTransport(_AsyncTransportBase):
 
     """
 
-    def __init__(self, sock: socket.socket | ssl.SSLSocket,
-                 protocol: nbio_interface.AbstractStreamProtocol,
-                 nbio: (nbio_interface.AbstractIOServices |
-                        nbio_interface.AbstractFileDescriptorServices)):
+    def __init__(
+        self, sock: socket.socket | ssl.SSLSocket,
+        protocol: nbio_interface.AbstractStreamProtocol,
+        nbio: (nbio_interface.AbstractIOServices |
+               nbio_interface.AbstractFileDescriptorServices)
+    ) -> None:
         """
 
         :param socket.socket sock: non-blocking connected socket
