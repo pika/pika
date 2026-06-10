@@ -115,9 +115,9 @@ class GeventConnection(BaseConnection):
         """Implement
         :py:classmethod::`pika.adapters.BaseConnection.create_connection()`.
         :param Sequence[connection.Parameters] connection_configs: One or more connection parameter objects
-        :param Callable[[connection.Connection | connection_workflow.AMQPConnectorException], None] on_done: Callback to report when connection workflow is done
-        :param gevent._interfaces.ILoop | None custom_ioloop: Optional custom Gevent ILoop to use for the connection workflow; if None, a new _GeventSelectorIOLoop will be created
-        :param None | connection_workflow.AbstractAMQPConnectionWorkflow workflow: Optional connection workflow instance to use
+        :param Callable[[connection.Connection|connection_workflow.AMQPConnectorException],None] on_done: Callback to report when connection workflow is done
+        :param gevent._interfaces.ILoop|None custom_ioloop: Optional custom Gevent ILoop to use for the connection workflow; if None, a new _GeventSelectorIOLoop will be created
+        :param None|connection_workflow.AbstractAMQPConnectionWorkflow workflow: Optional connection workflow instance to use
         :rtype: connection_workflow.AbstractAMQPConnectionWorkflow
         """
         custom_ioloop = (custom_ioloop or

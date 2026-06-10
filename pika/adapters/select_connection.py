@@ -151,9 +151,9 @@ class SelectConnection(BaseConnection):
         :py:classmethod::`pika.adapters.BaseConnection.create_connection()`.
 
         :param Sequence[connection.Parameters] connection_configs: One or more connection parameter objects
-        :param Callable[[connection.Connection | connection_workflow.AMQPConnectorException], None] on_done: Callback to report when connection workflow is done
-        :param Any | None custom_ioloop: Optional custom IOLoop or nbio interface to use for the connection workflow
-        :param None | connection_workflow.AbstractAMQPConnectionWorkflow workflow: Optional connection workflow instance to use; if None, a default workflow will be created
+        :param Callable[[connection.Connection|connection_workflow.AMQPConnectorException],None] on_done: Callback to report when connection workflow is done
+        :param Any|None custom_ioloop: Optional custom IOLoop or nbio interface to use for the connection workflow
+        :param None|connection_workflow.AbstractAMQPConnectionWorkflow workflow: Optional connection workflow instance to use; if None, a default workflow will be created
         :rtype: connection_workflow.AbstractAMQPConnectionWorkflow
         """
         nbio = SelectorIOServicesAdapter(custom_ioloop or IOLoop())

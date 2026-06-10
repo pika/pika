@@ -89,7 +89,7 @@ class ClosableDeferredQueue(defer.DeferredQueue):
 
         Errback the pending calls to :meth:`get()`.
 
-        :param Exception | None reason: The reason for closing the queue
+        :param Exception|None reason: The reason for closing the queue
         """
         if self.closed:
             LOGGER.warning('Queue was already closed with reason: %s.',

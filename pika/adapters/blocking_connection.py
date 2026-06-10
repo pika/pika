@@ -963,7 +963,7 @@ class BlockingConnection:
         numbers.
 
         :rtype: pika.adapters.blocking_connection.BlockingChannel
-        :param int | None channel_number: optional channel number to use
+        :param int|None channel_number: optional channel number to use
         """
         with _CallbackResult(self._OnChannelOpenedArgs) as opened_args:
             impl_channel = self._impl.channel(
@@ -1815,9 +1815,9 @@ class BlockingChannel:
         :param str queue: Queue name
         :param bool auto_ack: If True, the broker acknowledges messages automatically
         :param bool exclusive: If True, restrict access to the current connection
-        :param str | None consumer_tag: if specified, only the consumer with the given tag will be cancelled
-        :param dict[str, Any] | None arguments: Custom key/value pair arguments for the consumer
-        :param None | Callable[[BlockingChannel, pika.spec.Basic.Deliver, pika.spec.BasicProperties, bytes], None] on_message_callback: Callback for delivered messages
+        :param str|None consumer_tag: if specified, only the consumer with the given tag will be cancelled
+        :param dict[str,Any]|None arguments: Custom key/value pair arguments for the consumer
+        :param None|Callable[[BlockingChannel,pika.spec.Basic.Deliver,pika.spec.BasicProperties,bytes],None] on_message_callback: Callback for delivered messages
         :rtype: str
         """
         if (on_message_callback is None) == (alternate_event_sink is None):
@@ -2034,7 +2034,7 @@ class BlockingChannel:
         NOTE: pending non-ackable messages will be lost; pending ackable
         messages will be rejected.
 
-        :param str | None consumer_tag: if specified, only the consumer with the given tag will be cancelled
+        :param str|None consumer_tag: if specified, only the consumer with the given tag will be cancelled
         """
         if consumer_tag:
             self.basic_cancel(consumer_tag)
