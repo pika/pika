@@ -97,6 +97,7 @@ class AsyncioConnection(base_connection.BaseConnection):
 
         def connection_factory(params) -> AsyncioConnection:
             """Connection factory.
+            :param params: Connection parameters
             :rtype: Self
             """
             if params is None:

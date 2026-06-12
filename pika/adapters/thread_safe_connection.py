@@ -628,6 +628,12 @@ class ThreadSafeChannel:
 
         Safe to call from any thread.
 
+        :param queue: The queue name. If empty, the broker will generate a unique name.
+        :param passive: If True, only check whether the queue or exchange exists
+        :param durable: If True, the queue survives broker restart
+        :param exclusive: If True, restrict access to the current connection
+        :param auto_delete: If True, delete the queue or exchange when no longer in use
+        :param arguments: Custom arguments for the queue declaration
         :param timeout: Seconds to wait for the response.
             Defaults to :data:`DEFAULT_RPC_TIMEOUT` (10 s).
             Pass ``None`` to wait indefinitely.
@@ -635,10 +641,6 @@ class ThreadSafeChannel:
         :rtype: pika.frame.Method
         :raises Exception: if the connection is closed before the response arrives.
         :raises TimeoutError: if *timeout* expires before the response arrives.
-        :param passive: If True, only check whether the queue or exchange exists
-        :param durable: If True, the queue survives broker restart
-        :param exclusive: If True, restrict access to the current connection
-        :param auto_delete: If True, delete the queue or exchange when no longer in use
         """
         return self._blocking_rpc(
             'queue_declare',
@@ -1416,6 +1418,7 @@ class ThreadSafeConnection:
         pool, then schedules registration with the underlying
         :class:`pika.connection.Connection` on the IOLoop thread.
         :param raw_method_name: Unqualified AMQP method name (e.g. ``"Basic.Publish"``)
+        :param callback: User callback to dispatch on the connection work pool."
         """
         with self._channel_waiters_lock:
             if self._closed_reason is not None:
