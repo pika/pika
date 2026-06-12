@@ -225,6 +225,7 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
     def call_later(self, delay, callback: Callable[..., None]) -> _TimerHandle:
         """Implement :py:meth:`.nbio_interface.AbstractIOServices.call_later()`.
 
+        :param delay: The number of seconds to wait to call callback
         :param callback: The callback to call after delay seconds
         :rtype: _TimerHandle
         """

@@ -126,6 +126,8 @@ class GeventConnection(BaseConnection):
 
         def connection_factory(params) -> GeventConnection:
             """Connection factory.
+
+            :param params: Connection parameters
             :rtype: Self
             """
             if params is None:

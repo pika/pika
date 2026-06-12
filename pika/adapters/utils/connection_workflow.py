@@ -687,6 +687,7 @@ class AMQPConnectionWorkflow(AbstractAMQPConnectionWorkflow):
 
         :param connection_configs: A sequence of one or more `pika.connection.Parameters`-based objects.
         :param connector_factory: call it without args to obtain a new instance of `AMQPConnector` for each connection attempt. See `AMQPConnector` for details.
+        :param native_loop: Native I/O loop passed by app to the adapter or obtained by the adapter by default.
         :param on_done: Function to call upon completion of the workflow: `on_done(pika.connection.Connection | AMQPConnectionWorkflowFailed | AMQPConnectionWorkflowAborted)`. `Connection`-based adapter on success, `AMQPConnectionWorkflowFailed` on failure, `AMQPConnectionWorkflowAborted` if workflow was aborted.
         """
         if self._state != self._STATE_INIT:
