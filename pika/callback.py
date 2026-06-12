@@ -202,7 +202,7 @@ class CallbackManager:
 
         :param prefix: Categorize the callback
         :param key: The key for the callback
-        :rtype: None or int
+        :rtype: int | None
 
         """
         if prefix not in self._stack or key not in self._stack[prefix]:

@@ -41,7 +41,7 @@ def time_now() -> float:
 def as_bytes(value: str | bytes) -> bytes:
     """Returns value as bytes.
 
-    :param value: string or bytes value to convert
+    :param value: value to convert
     :rtype: bytes
     """
     if not isinstance(value, bytes):

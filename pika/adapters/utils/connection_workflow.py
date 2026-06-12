@@ -168,7 +168,7 @@ class AMQPConnector:
 
         :param addr_record: a single resolved address record compatible
             with `socket.getaddrinfo()` format.
-        :param conn_params:
+        :param conn_params: Connection parameters to use for this connection.
         :param on_done: Function to call upon completion of the
             workflow: `on_done(pika.connection.Connection | BaseException)`. If
             exception, it's going to be one of the following:
@@ -486,9 +486,8 @@ class AMQPConnector:
 
         Reports AMQPConnectorAMQPHandshakeError if AMQP handshake failed.
 
-        :param connection:
-        :param error: None on success, otherwise
-            failure
+        :param connection: AMQP connection instance from the callback.
+        :param error: None on success, otherwise failure
 
         """
         assert self._conn_params is not None
@@ -779,8 +778,7 @@ class AMQPConnectionWorkflow(AbstractAMQPConnectionWorkflow):
     ) -> None:
         """Clean up and invoke client's `on_done` callback.
 
-        :param result:
-            value to pass to user's `on_done` callback.
+        :param result: value to pass to user's `on_done` callback.
         """
         if isinstance(result, BaseException):
             _LOG.error('AMQPConnectionWorkflow - reporting failure: %r', result)
