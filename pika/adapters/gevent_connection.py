@@ -117,7 +117,6 @@ class GeventConnection(BaseConnection):
         :param on_done: Callback to report when connection workflow is done
         :param custom_ioloop: Optional custom Gevent ILoop to use for the connection workflow; if None, a new _GeventSelectorIOLoop will be created
         :param workflow: Optional connection workflow instance to use
-        :rtype: connection_workflow.AbstractAMQPConnectionWorkflow
         """
         custom_ioloop = (custom_ioloop or
                          _GeventSelectorIOLoop(gevent.get_hub()))
@@ -128,7 +127,6 @@ class GeventConnection(BaseConnection):
             """Connection factory.
 
             :param params: Connection parameters
-            :rtype: Self
             """
             if params is None:
                 raise ValueError('Expected pika.connection.Parameters '
@@ -165,9 +163,7 @@ class _TSafeCallbackQueue:
 
     @property
     def fd(self) -> int:
-        """The file-descriptor to register for READ events in the IO loop.
-        :rtype: int
-        """
+        """The file-descriptor to register for READ events in the IO loop."""
         return self._read_fd
 
     def add_callback_threadsafe(self, callback: Callable[[], None]) -> None:
@@ -368,7 +364,6 @@ class _GeventSelectorIOServicesAdapter(SelectorIOServicesAdapter):
         :param socktype: Socket type (e.g. ``socket.SOCK_STREAM``)
         :param proto: Protocol number (0 for default)
         :param flags: :func:`socket.getaddrinfo` flags
-        :rtype: nbio_interface.AbstractIOReference
         """
         resolver = _GeventAddressResolver(native_loop=self._loop,
                                           host=host,

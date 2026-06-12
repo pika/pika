@@ -38,7 +38,6 @@ class AbstractIOServices(pika._utils.AbstractBase):  # type: ignore[valid-type, 
         """Returns the native I/O loop instance, such as Twisted reactor,
         asyncio's or tornado's event loop
 
-        :rtype: Any
         """
         raise NotImplementedError
 

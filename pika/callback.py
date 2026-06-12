@@ -202,7 +202,6 @@ class CallbackManager:
 
         :param prefix: Categorize the callback
         :param key: The key for the callback
-        :rtype: int | None
 
         """
         if prefix not in self._stack or key not in self._stack[prefix]:
@@ -308,7 +307,6 @@ class CallbackManager:
         :param callback_dict: The callback dictionary to evaluate against
         :param args: The arguments passed in as a list
 
-        :rtype: bool
         """
         if callback_dict[self.ARGUMENTS] is None:
             return True

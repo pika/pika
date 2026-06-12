@@ -36,7 +36,6 @@ class AbstractSelectorIOLoop:
         Implementation note: the implementations can simply replace these
         READ/WRITE/ERROR properties with class-level attributes
 
-        :rtype: int
         """
 
     @property
@@ -45,7 +44,6 @@ class AbstractSelectorIOLoop:
         """The value of the I/O loop's WRITE flag; READ/WRITE/ERROR may be used
         with bitwise operators as expected
 
-        :rtype: int
         """
 
     @property
@@ -54,7 +52,6 @@ class AbstractSelectorIOLoop:
         """The value of the I/O loop's ERROR flag; READ/WRITE/ERROR may be used
         with bitwise operators as expected
 
-        :rtype: int
         """
 
     @abc.abstractmethod
@@ -193,7 +190,6 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         """Implement
         :py:meth:`.nbio_interface.AbstractIOServices.get_native_ioloop()`.
 
-        :rtype: AbstractSelectorIOLoop
         """
         return self._loop
 
@@ -227,7 +223,6 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
 
         :param delay: The number of seconds to wait to call callback
         :param callback: The callback to call after delay seconds
-        :rtype: _TimerHandle
         """
         return _TimerHandle(self._loop.call_later(delay, callback), self._loop)
 
@@ -248,7 +243,6 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         :param socktype: Socket type (e.g. ``socket.SOCK_STREAM``)
         :param proto: Protocol number (0 for default)
         :param flags: :func:`socket.getaddrinfo` flags
-        :rtype: nbio_interface.AbstractIOReference
         """
         return _SelectorIOLoopIOHandle(
             _AddressResolver(native_loop=self._loop,
@@ -296,7 +290,6 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         :py:meth:`.nbio_interface.AbstractFileDescriptorServices.remove_reader()`.
 
         :param fd: File descriptor
-        :rtype: bool
         """
         LOGGER.debug('SelectorIOServicesAdapter.remove_reader(%s)', fd)
 
@@ -364,7 +357,6 @@ class SelectorIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         :py:meth:`.nbio_interface.AbstractFileDescriptorServices.remove_writer()`.
 
         :param fd: File descriptor
-        :rtype: bool
         """
         LOGGER.debug('SelectorIOServicesAdapter.remove_writer(%s)', fd)
 

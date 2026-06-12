@@ -99,7 +99,6 @@ class TornadoConnection(base_connection.BaseConnection):
         :param on_done:  Callback to report when connection workflow is done
         :param custom_ioloop: Optional custom IOLoop or nbio interface to use for the connection workflow
         :param workflow: Optional connection workflow instance to use
-        :rtype: connection_workflow.AbstractAMQPConnectionWorkflow
         """
         nbio = selector_ioloop_adapter.SelectorIOServicesAdapter(
             custom_ioloop or ioloop.IOLoop.instance())  # type: ignore[arg-type]
@@ -108,7 +107,6 @@ class TornadoConnection(base_connection.BaseConnection):
                 params: connection.Parameters | None) -> TornadoConnection:
             """Connection factory.
             :param params: Connection parameters
-            :rtype: TornadoConnection
             """
             if params is None:
                 raise ValueError('Expected pika.connection.Parameters '

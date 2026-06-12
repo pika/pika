@@ -1408,7 +1408,6 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
     def is_closed(self) -> bool:
         """
         Returns a boolean reporting the current connection state.
-        :rtype: bool
         """
         return self.connection_state == self.CONNECTION_CLOSED
 
@@ -1417,7 +1416,6 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         """
         Returns True if connection is in the process of closing due to
         client-initiated `close` request, but closing is not yet complete.
-        :rtype: bool
         """
         return self.connection_state == self.CONNECTION_CLOSING
 
@@ -1425,7 +1423,6 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
     def is_open(self) -> bool:
         """
         Returns a boolean reporting the current connection state.
-        :rtype: bool
         """
         return self.connection_state == self.CONNECTION_OPEN
 
@@ -1647,7 +1644,6 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
             opened.  The callback will be invoked with the `Channel` instance
             as its only argument.
 
-        :rtype: Channel
         """
         LOGGER.debug('Creating channel %s', channel_number)
         return pika.channel.Channel(self, channel_number, on_open_callback)

@@ -15,7 +15,6 @@ import struct
 from pika import amqp_object
 from pika import data
 
-
 PROTOCOL_VERSION = (0, 9, 1)
 PORT = 5672
 
@@ -114,7 +113,15 @@ class Basic(amqp_object.Class):
         INDEX = 0x003C0014  # 60, 20; 3932180
         NAME = 'Basic.Consume'
 
-        def __init__(self, ticket=0, queue='', consumer_tag='', no_local=False, no_ack=False, exclusive=False, nowait=False, arguments=None):
+        def __init__(self,
+                     ticket=0,
+                     queue='',
+                     consumer_tag='',
+                     no_local=False,
+                     no_ack=False,
+                     exclusive=False,
+                     nowait=False,
+                     arguments=None):
             self.ticket = ticket
             self.queue = queue
             self.consumer_tag = consumer_tag
@@ -132,7 +139,8 @@ class Basic(amqp_object.Class):
             self.ticket = struct.unpack_from('>H', encoded, offset)[0]
             offset += 2
             self.queue, offset = data.decode_short_string(encoded, offset)
-            self.consumer_tag, offset = data.decode_short_string(encoded, offset)
+            self.consumer_tag, offset = data.decode_short_string(
+                encoded, offset)
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
             self.no_local = (bit_buffer & (1 << 0)) != 0
@@ -177,7 +185,8 @@ class Basic(amqp_object.Class):
             return False
 
         def decode(self, encoded, offset=0):
-            self.consumer_tag, offset = data.decode_short_string(encoded, offset)
+            self.consumer_tag, offset = data.decode_short_string(
+                encoded, offset)
             return self
 
         def encode(self):
@@ -201,7 +210,8 @@ class Basic(amqp_object.Class):
             return True
 
         def decode(self, encoded, offset=0):
-            self.consumer_tag, offset = data.decode_short_string(encoded, offset)
+            self.consumer_tag, offset = data.decode_short_string(
+                encoded, offset)
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
             self.nowait = (bit_buffer & (1 << 0)) != 0
@@ -231,7 +241,8 @@ class Basic(amqp_object.Class):
             return False
 
         def decode(self, encoded, offset=0):
-            self.consumer_tag, offset = data.decode_short_string(encoded, offset)
+            self.consumer_tag, offset = data.decode_short_string(
+                encoded, offset)
             return self
 
         def encode(self):
@@ -246,7 +257,12 @@ class Basic(amqp_object.Class):
         INDEX = 0x003C0028  # 60, 40; 3932200
         NAME = 'Basic.Publish'
 
-        def __init__(self, ticket=0, exchange='', routing_key='', mandatory=False, immediate=False):
+        def __init__(self,
+                     ticket=0,
+                     exchange='',
+                     routing_key='',
+                     mandatory=False,
+                     immediate=False):
             self.ticket = ticket
             self.exchange = exchange
             self.routing_key = routing_key
@@ -290,7 +306,11 @@ class Basic(amqp_object.Class):
         INDEX = 0x003C0032  # 60, 50; 3932210
         NAME = 'Basic.Return'
 
-        def __init__(self, reply_code=None, reply_text='', exchange=None, routing_key=None):
+        def __init__(self,
+                     reply_code=None,
+                     reply_text='',
+                     exchange=None,
+                     routing_key=None):
             self.reply_code = reply_code
             self.reply_text = reply_text
             self.exchange = exchange
@@ -327,7 +347,12 @@ class Basic(amqp_object.Class):
         INDEX = 0x003C003C  # 60, 60; 3932220
         NAME = 'Basic.Deliver'
 
-        def __init__(self, consumer_tag=None, delivery_tag=None, redelivered=False, exchange=None, routing_key=None):
+        def __init__(self,
+                     consumer_tag=None,
+                     delivery_tag=None,
+                     redelivered=False,
+                     exchange=None,
+                     routing_key=None):
             self.consumer_tag = consumer_tag
             self.delivery_tag = delivery_tag
             self.redelivered = redelivered
@@ -339,7 +364,8 @@ class Basic(amqp_object.Class):
             return False
 
         def decode(self, encoded, offset=0):
-            self.consumer_tag, offset = data.decode_short_string(encoded, offset)
+            self.consumer_tag, offset = data.decode_short_string(
+                encoded, offset)
             self.delivery_tag = struct.unpack_from('>Q', encoded, offset)[0]
             offset += 8
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
@@ -407,7 +433,12 @@ class Basic(amqp_object.Class):
         INDEX = 0x003C0047  # 60, 71; 3932231
         NAME = 'Basic.GetOk'
 
-        def __init__(self, delivery_tag=None, redelivered=False, exchange=None, routing_key=None, message_count=None):
+        def __init__(self,
+                     delivery_tag=None,
+                     redelivered=False,
+                     exchange=None,
+                     routing_key=None,
+                     message_count=None):
             self.delivery_tag = delivery_tag
             self.redelivered = redelivered
             self.exchange = exchange
@@ -645,7 +676,12 @@ class Connection(amqp_object.Class):
         INDEX = 0x000A000A  # 10, 10; 655370
         NAME = 'Connection.Start'
 
-        def __init__(self, version_major=0, version_minor=9, server_properties=None, mechanisms='PLAIN', locales='en_US'):
+        def __init__(self,
+                     version_major=0,
+                     version_minor=9,
+                     server_properties=None,
+                     mechanisms='PLAIN',
+                     locales='en_US'):
             self.version_major = version_major
             self.version_minor = version_minor
             self.server_properties = server_properties
@@ -661,7 +697,8 @@ class Connection(amqp_object.Class):
             offset += 1
             self.version_minor = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
-            (self.server_properties, offset) = data.decode_table(encoded, offset)
+            (self.server_properties,
+             offset) = data.decode_table(encoded, offset)
             length = struct.unpack_from('>I', encoded, offset)[0]
             offset += 4
             self.mechanisms = encoded[offset:offset + length]
@@ -679,12 +716,14 @@ class Connection(amqp_object.Class):
             data.encode_table(pieces, self.server_properties)
             assert isinstance(self.mechanisms, (str, bytes)),\
                    'A non-string value was supplied for self.mechanisms'
-            value = self.mechanisms.encode('utf-8') if isinstance(self.mechanisms, str) else self.mechanisms
+            value = self.mechanisms.encode('utf-8') if isinstance(
+                self.mechanisms, str) else self.mechanisms
             pieces.append(struct.pack('>I', len(value)))
             pieces.append(value)
             assert isinstance(self.locales, (str, bytes)),\
                    'A non-string value was supplied for self.locales'
-            value = self.locales.encode('utf-8') if isinstance(self.locales, str) else self.locales
+            value = self.locales.encode('utf-8') if isinstance(
+                self.locales, str) else self.locales
             pieces.append(struct.pack('>I', len(value)))
             pieces.append(value)
             return pieces
@@ -694,7 +733,11 @@ class Connection(amqp_object.Class):
         INDEX = 0x000A000B  # 10, 11; 655371
         NAME = 'Connection.StartOk'
 
-        def __init__(self, client_properties=None, mechanism='PLAIN', response=None, locale='en_US'):
+        def __init__(self,
+                     client_properties=None,
+                     mechanism='PLAIN',
+                     response=None,
+                     locale='en_US'):
             self.client_properties = client_properties
             self.mechanism = mechanism
             self.response = response
@@ -705,7 +748,8 @@ class Connection(amqp_object.Class):
             return False
 
         def decode(self, encoded, offset=0):
-            (self.client_properties, offset) = data.decode_table(encoded, offset)
+            (self.client_properties,
+             offset) = data.decode_table(encoded, offset)
             self.mechanism, offset = data.decode_short_string(encoded, offset)
             length = struct.unpack_from('>I', encoded, offset)[0]
             offset += 4
@@ -722,7 +766,8 @@ class Connection(amqp_object.Class):
             data.encode_short_string(pieces, self.mechanism)
             assert isinstance(self.response, (str, bytes)),\
                    'A non-string value was supplied for self.response'
-            value = self.response.encode('utf-8') if isinstance(self.response, str) else self.response
+            value = self.response.encode('utf-8') if isinstance(
+                self.response, str) else self.response
             pieces.append(struct.pack('>I', len(value)))
             pieces.append(value)
             assert isinstance(self.locale, (str, bytes)),\
@@ -753,7 +798,8 @@ class Connection(amqp_object.Class):
             pieces = list()
             assert isinstance(self.challenge, (str, bytes)),\
                    'A non-string value was supplied for self.challenge'
-            value = self.challenge.encode('utf-8') if isinstance(self.challenge, str) else self.challenge
+            value = self.challenge.encode('utf-8') if isinstance(
+                self.challenge, str) else self.challenge
             pieces.append(struct.pack('>I', len(value)))
             pieces.append(value)
             return pieces
@@ -781,7 +827,8 @@ class Connection(amqp_object.Class):
             pieces = list()
             assert isinstance(self.response, (str, bytes)),\
                    'A non-string value was supplied for self.response'
-            value = self.response.encode('utf-8') if isinstance(self.response, str) else self.response
+            value = self.response.encode('utf-8') if isinstance(
+                self.response, str) else self.response
             pieces.append(struct.pack('>I', len(value)))
             pieces.append(value)
             return pieces
@@ -861,8 +908,10 @@ class Connection(amqp_object.Class):
             return True
 
         def decode(self, encoded, offset=0):
-            self.virtual_host, offset = data.decode_short_string(encoded, offset)
-            self.capabilities, offset = data.decode_short_string(encoded, offset)
+            self.virtual_host, offset = data.decode_short_string(
+                encoded, offset)
+            self.capabilities, offset = data.decode_short_string(
+                encoded, offset)
             bit_buffer = struct.unpack_from('B', encoded, offset)[0]
             offset += 1
             self.insist = (bit_buffer & (1 << 0)) != 0
@@ -910,7 +959,11 @@ class Connection(amqp_object.Class):
         INDEX = 0x000A0032  # 10, 50; 655410
         NAME = 'Connection.Close'
 
-        def __init__(self, reply_code=None, reply_text='', class_id=None, method_id=None):
+        def __init__(self,
+                     reply_code=None,
+                     reply_text='',
+                     class_id=None,
+                     method_id=None):
             self.reply_code = reply_code
             self.reply_text = reply_text
             self.class_id = class_id
@@ -1026,7 +1079,8 @@ class Connection(amqp_object.Class):
             pieces = list()
             assert isinstance(self.new_secret, (str, bytes)),\
                    'A non-string value was supplied for self.new_secret'
-            value = self.new_secret.encode('utf-8') if isinstance(self.new_secret, str) else self.new_secret
+            value = self.new_secret.encode('utf-8') if isinstance(
+                self.new_secret, str) else self.new_secret
             pieces.append(struct.pack('>I', len(value)))
             pieces.append(value)
             assert isinstance(self.reason, (str, bytes)),\
@@ -1105,7 +1159,8 @@ class Channel(amqp_object.Class):
             pieces = list()
             assert isinstance(self.channel_id, (str, bytes)),\
                    'A non-string value was supplied for self.channel_id'
-            value = self.channel_id.encode('utf-8') if isinstance(self.channel_id, str) else self.channel_id
+            value = self.channel_id.encode('utf-8') if isinstance(
+                self.channel_id, str) else self.channel_id
             pieces.append(struct.pack('>I', len(value)))
             pieces.append(value)
             return pieces
@@ -1167,7 +1222,11 @@ class Channel(amqp_object.Class):
         INDEX = 0x00140028  # 20, 40; 1310760
         NAME = 'Channel.Close'
 
-        def __init__(self, reply_code=None, reply_text='', class_id=None, method_id=None):
+        def __init__(self,
+                     reply_code=None,
+                     reply_text='',
+                     class_id=None,
+                     method_id=None):
             self.reply_code = reply_code
             self.reply_text = reply_text
             self.class_id = class_id
@@ -1227,7 +1286,13 @@ class Access(amqp_object.Class):
         INDEX = 0x001E000A  # 30, 10; 1966090
         NAME = 'Access.Request'
 
-        def __init__(self, realm='/data', exclusive=False, passive=True, active=True, write=True, read=True):
+        def __init__(self,
+                     realm='/data',
+                     exclusive=False,
+                     passive=True,
+                     active=True,
+                     write=True,
+                     read=True):
             self.realm = realm
             self.exclusive = exclusive
             self.passive = passive
@@ -1302,7 +1367,16 @@ class Exchange(amqp_object.Class):
         INDEX = 0x0028000A  # 40, 10; 2621450
         NAME = 'Exchange.Declare'
 
-        def __init__(self, ticket=0, exchange=None, type='direct', passive=False, durable=False, auto_delete=False, internal=False, nowait=False, arguments=None):
+        def __init__(self,
+                     ticket=0,
+                     exchange=None,
+                     type='direct',
+                     passive=False,
+                     durable=False,
+                     auto_delete=False,
+                     internal=False,
+                     nowait=False,
+                     arguments=None):
             self.ticket = ticket
             self.exchange = exchange
             self.type = type
@@ -1380,7 +1454,11 @@ class Exchange(amqp_object.Class):
         INDEX = 0x00280014  # 40, 20; 2621460
         NAME = 'Exchange.Delete'
 
-        def __init__(self, ticket=0, exchange=None, if_unused=False, nowait=False):
+        def __init__(self,
+                     ticket=0,
+                     exchange=None,
+                     if_unused=False,
+                     nowait=False):
             self.ticket = ticket
             self.exchange = exchange
             self.if_unused = if_unused
@@ -1438,7 +1516,13 @@ class Exchange(amqp_object.Class):
         INDEX = 0x0028001E  # 40, 30; 2621470
         NAME = 'Exchange.Bind'
 
-        def __init__(self, ticket=0, destination=None, source=None, routing_key='', nowait=False, arguments=None):
+        def __init__(self,
+                     ticket=0,
+                     destination=None,
+                     source=None,
+                     routing_key='',
+                     nowait=False,
+                     arguments=None):
             self.ticket = ticket
             self.destination = destination
             self.source = source
@@ -1505,7 +1589,13 @@ class Exchange(amqp_object.Class):
         INDEX = 0x00280028  # 40, 40; 2621480
         NAME = 'Exchange.Unbind'
 
-        def __init__(self, ticket=0, destination=None, source=None, routing_key='', nowait=False, arguments=None):
+        def __init__(self,
+                     ticket=0,
+                     destination=None,
+                     source=None,
+                     routing_key='',
+                     nowait=False,
+                     arguments=None):
             self.ticket = ticket
             self.destination = destination
             self.source = source
@@ -1578,7 +1668,15 @@ class Queue(amqp_object.Class):
         INDEX = 0x0032000A  # 50, 10; 3276810
         NAME = 'Queue.Declare'
 
-        def __init__(self, ticket=0, queue='', passive=False, durable=False, exclusive=False, auto_delete=False, nowait=False, arguments=None):
+        def __init__(self,
+                     ticket=0,
+                     queue='',
+                     passive=False,
+                     durable=False,
+                     exclusive=False,
+                     auto_delete=False,
+                     nowait=False,
+                     arguments=None):
             self.ticket = ticket
             self.queue = queue
             self.passive = passive
@@ -1663,7 +1761,13 @@ class Queue(amqp_object.Class):
         INDEX = 0x00320014  # 50, 20; 3276820
         NAME = 'Queue.Bind'
 
-        def __init__(self, ticket=0, queue='', exchange=None, routing_key='', nowait=False, arguments=None):
+        def __init__(self,
+                     ticket=0,
+                     queue='',
+                     exchange=None,
+                     routing_key='',
+                     nowait=False,
+                     arguments=None):
             self.ticket = ticket
             self.queue = queue
             self.exchange = exchange
@@ -1787,7 +1891,12 @@ class Queue(amqp_object.Class):
         INDEX = 0x00320028  # 50, 40; 3276840
         NAME = 'Queue.Delete'
 
-        def __init__(self, ticket=0, queue='', if_unused=False, if_empty=False, nowait=False):
+        def __init__(self,
+                     ticket=0,
+                     queue='',
+                     if_unused=False,
+                     if_empty=False,
+                     nowait=False):
             self.ticket = ticket
             self.queue = queue
             self.if_unused = if_unused
@@ -1852,7 +1961,12 @@ class Queue(amqp_object.Class):
         INDEX = 0x00320032  # 50, 50; 3276850
         NAME = 'Queue.Unbind'
 
-        def __init__(self, ticket=0, queue='', exchange=None, routing_key='', arguments=None):
+        def __init__(self,
+                     ticket=0,
+                     queue='',
+                     exchange=None,
+                     routing_key='',
+                     arguments=None):
             self.ticket = ticket
             self.queue = queue
             self.exchange = exchange
@@ -2099,7 +2213,21 @@ class BasicProperties(amqp_object.Properties):
     FLAG_APP_ID = (1 << 3)
     FLAG_CLUSTER_ID = (1 << 2)
 
-    def __init__(self, content_type=None, content_encoding=None, headers=None, delivery_mode=None, priority=None, correlation_id=None, reply_to=None, expiration=None, message_id=None, timestamp=None, type=None, user_id=None, app_id=None, cluster_id=None):
+    def __init__(self,
+                 content_type=None,
+                 content_encoding=None,
+                 headers=None,
+                 delivery_mode=None,
+                 priority=None,
+                 correlation_id=None,
+                 reply_to=None,
+                 expiration=None,
+                 message_id=None,
+                 timestamp=None,
+                 type=None,
+                 user_id=None,
+                 app_id=None,
+                 cluster_id=None):
         self.content_type = content_type
         self.content_encoding = content_encoding
         self.headers = headers
@@ -2126,11 +2254,13 @@ class BasicProperties(amqp_object.Properties):
                 break
             flagword_index += 1
         if flags & BasicProperties.FLAG_CONTENT_TYPE:
-            self.content_type, offset = data.decode_short_string(encoded, offset)
+            self.content_type, offset = data.decode_short_string(
+                encoded, offset)
         else:
             self.content_type = None
         if flags & BasicProperties.FLAG_CONTENT_ENCODING:
-            self.content_encoding, offset = data.decode_short_string(encoded, offset)
+            self.content_encoding, offset = data.decode_short_string(
+                encoded, offset)
         else:
             self.content_encoding = None
         if flags & BasicProperties.FLAG_HEADERS:
@@ -2148,7 +2278,8 @@ class BasicProperties(amqp_object.Properties):
         else:
             self.priority = None
         if flags & BasicProperties.FLAG_CORRELATION_ID:
-            self.correlation_id, offset = data.decode_short_string(encoded, offset)
+            self.correlation_id, offset = data.decode_short_string(
+                encoded, offset)
         else:
             self.correlation_id = None
         if flags & BasicProperties.FLAG_REPLY_TO:
@@ -2263,6 +2394,7 @@ class BasicProperties(amqp_object.Properties):
                 break
         return flag_pieces + pieces
 
+
 methods = {
     0x003C000A: Basic.Qos,
     0x003C000B: Basic.QosOk,
@@ -2332,9 +2464,7 @@ methods = {
     0x0055000B: Confirm.SelectOk
 }
 
-props = {
-    0x003C: BasicProperties
-}
+props = {0x003C: BasicProperties}
 
 
 def has_content(methodNumber):

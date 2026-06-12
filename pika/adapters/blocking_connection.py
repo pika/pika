@@ -110,9 +110,7 @@ class _CallbackResult:
 
     @property
     def ready(self) -> bool:
-        """True if the object is in a signaled state
-        :rtype: bool
-        """
+        """True if the object is in a signaled state"""
         return self._ready
 
     def signal_once(self, *_args: Any, **_kwargs: Any) -> None:
@@ -436,7 +434,6 @@ class BlockingConnection:
         dispatcher and False if caller higher up in the call stack already owns
         it. Only managed code that gets ownership (got True) is permitted to
         dispatch
-        :rtype: Generator[bool, Any, None]
         """
         try:
             # __enter__ part
@@ -988,7 +985,6 @@ class BlockingConnection:
     def is_closed(self) -> bool:
         """
         Returns a boolean reporting the current connection state.
-        :rtype: bool
         """
         return self._impl.is_closed
 
@@ -996,7 +992,6 @@ class BlockingConnection:
     def is_open(self) -> bool:
         """
         Returns a boolean reporting the current connection state.
-        :rtype: bool
         """
         return self._impl.is_open
 
@@ -1097,7 +1092,6 @@ class _ConsumerCancellationEvt(_ChannelPendingEvt):
     @property
     def method(self) -> Basic.Cancel:
         """method of type spec.Basic.Cancel
-        :rtype: Basic.Cancel
         """
         return self.method_frame.method
 
@@ -1218,30 +1212,22 @@ class _ConsumerInfo:
 
     @property
     def setting_up(self) -> bool:
-        """True if in SETTING_UP state
-        :rtype: bool
-        """
+        """True if in SETTING_UP state"""
         return self.state == self.SETTING_UP
 
     @property
     def active(self) -> bool:
-        """True if in ACTIVE state
-        :rtype: bool
-        """
+        """True if in ACTIVE state"""
         return self.state == self.ACTIVE
 
     @property
     def tearing_down(self) -> bool:
-        """True if in TEARING_DOWN state
-        :rtype: bool
-        """
+        """True if in TEARING_DOWN state"""
         return self.state == self.TEARING_DOWN
 
     @property
     def cancelled_by_broker(self) -> bool:
-        """True if in CANCELLED_BY_BROKER state
-        :rtype: bool
-        """
+        """True if in CANCELLED_BY_BROKER state"""
         return self.state == self.CANCELLED_BY_BROKER
 
 
@@ -1398,15 +1384,12 @@ class BlockingChannel:
 
     @property
     def channel_number(self) -> int:
-        """Channel number
-        :rtype: int
-        """
+        """Channel number"""
         return self._impl.channel_number
 
     @property
     def connection(self) -> BlockingConnection:
         """The channel's BlockingConnection instance
-        :rtype: BlockingConnection
         """
         return self._connection
 
@@ -1816,7 +1799,6 @@ class BlockingChannel:
 
         :raises pika.exceptions.DuplicateConsumerTag: if consumer with given
             consumer_tag is already present.
-        :rtype: str
         """
         if (on_message_callback is None) == (alternate_event_sink is None):
             raise ValueError(
@@ -2090,7 +2072,6 @@ class BlockingChannel:
             NEW in pika 0.10.0
         :raises ChannelClosed: when this channel is closed by broker.
 
-        :rtype: Generator[tuple[pika.spec.Basic.Deliver | None, pika.spec.BasicProperties | None, bytes | None]]
         """
         self._impl._raise_if_not_open()
 

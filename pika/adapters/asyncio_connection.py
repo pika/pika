@@ -91,14 +91,12 @@ class AsyncioConnection(base_connection.BaseConnection):
         :param on_done: Callback to report when connection workflow is done
         :param custom_ioloop: Optional custom event loop to use for the connection workflow
         :param workflow: Optional connection workflow instance to use; if None, a default workflow will be created
-        :rtype: connection_workflow.AbstractAMQPConnectionWorkflow
         """
         nbio = _AsyncioIOServicesAdapter(custom_ioloop)
 
         def connection_factory(params) -> AsyncioConnection:
             """Connection factory.
             :param params: Connection parameters
-            :rtype: Self
             """
             if params is None:
                 raise ValueError('Expected pika.connection.Parameters '
@@ -148,7 +146,6 @@ class _AsyncioIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         """Implement
         :py:meth:`.utils.nbio_interface.AbstractIOServices.get_native_ioloop()`.
 
-        :rtype: asyncio.AbstractEventLoop
         """
         return self._loop
 
@@ -186,7 +183,6 @@ class _AsyncioIOServicesAdapter(io_services_utils.SocketConnectionMixin,
 
         :param delay: Delay in seconds
         :param callback: The callback to call after the delay
-        :rtype: _TimerHandle
         """
         return _TimerHandle(self._loop.call_later(delay, callback))
 
@@ -208,7 +204,6 @@ class _AsyncioIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         :param socktype: Socket type (e.g. ``socket.SOCK_STREAM``)
         :param proto: Protocol number (0 for default)
         :param flags: :func:`socket.getaddrinfo` flags
-        :rtype: nbio_interface.AbstractIOReference
         """
         return self._schedule_and_wrap_in_io_ref(
             self._loop.getaddrinfo(host,
@@ -233,7 +228,6 @@ class _AsyncioIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         :py:meth:`.utils.nbio_interface.AbstractFileDescriptorServices.remove_reader()`.
 
         :param fd: File descriptor
-        :rtype: bool
         """
         LOGGER.debug('remove_reader(%s)', fd)
         return self._loop.remove_reader(fd)
@@ -253,7 +247,6 @@ class _AsyncioIOServicesAdapter(io_services_utils.SocketConnectionMixin,
         :py:meth:`.utils.nbio_interface.AbstractFileDescriptorServices.remove_writer()`.
 
         :param fd: File descriptor
-        :rtype: bool
         """
         LOGGER.debug('remove_writer(%s)', fd)
         return self._loop.remove_writer(fd)

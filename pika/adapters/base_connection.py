@@ -193,7 +193,6 @@ class BaseConnection(connection.Connection):
 
         def create_connector() -> connection_workflow.AMQPConnector:
             """`AMQPConnector` factory.
-            :rtype: connection_workflow.AMQPConnector
             """
             return connection_workflow.AMQPConnector(
                 lambda params: _StreamingProtocolShim(connection_factory(params)
@@ -267,7 +266,6 @@ class BaseConnection(connection.Connection):
 
         def create_connector() -> connection_workflow.AMQPConnector:
             """`AMQPConnector` factory
-            :rtype: connection_workflow.AMQPConnector
             """
             return connection_workflow.AMQPConnector(
                 lambda _params: _StreamingProtocolShim(self), self._nbio)

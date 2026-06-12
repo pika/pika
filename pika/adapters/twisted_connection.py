@@ -59,8 +59,7 @@ class ClosableDeferredQueue(defer.DeferredQueue):
         Like the original :meth:`DeferredQueue.put` method, but returns an
         errback if the queue is closed.
 
-        :param obj: Object to adapt into a Twisted ``IProtocol``
-        :rtype: None | defer.Deferred[Any]
+        :param obj: Object to put into the queue
         """
         if self.closed:
             LOGGER.error('Impossible to put to the queue, it is closed.')
@@ -177,7 +176,6 @@ class TwistedChannel:
         :param method_frame: method frame with the
             `spec.Basic.Cancel` method
 
-        :rtype: pika.frame.Method[pika.spec.Basic.Cancel] | pika.frame.Method[pika.spec.Basic.CancelOk]
         """
         return self._on_consumer_cancelled(method_frame)
 
@@ -192,7 +190,6 @@ class TwistedChannel:
         :param frame: method frame with the
             `spec.Basic.Cancel` or `spec.Basic.CancelOk` method
 
-        :rtype: pika.frame.Method[pika.spec.Basic.Cancel] | pika.frame.Method[pika.spec.Basic.CancelOk]
         """
         consumer_tag = frame.method.consumer_tag
         if consumer_tag not in self._consumers:
@@ -230,7 +227,6 @@ class TwistedChannel:
         the Deferred fires with a tuple of argument values.
 
         :param name: Attribute name to look up on the underlying channel
-        :rtype: Callable[..., defer.Deferred[Any]]
         """
         method = getattr(self._channel, name)
 
@@ -1152,7 +1148,6 @@ class _TwistedConnectionAdapter(pika.connection.Connection):
 
         :param delay: Delay in seconds
         :param callback: The callback to call after the delay
-        :rtype: _TimerHandle
         """
         check_callback_arg(callback, 'callback')
         return _TimerHandle(
@@ -1355,7 +1350,6 @@ class TwistedProtocolConnection(protocol.Protocol):
     ) -> (TwistedProtocolConnection | defer.Deferred[TwistedProtocolConnection]
          ):
         """This method will be called when the underlying connection is ready.
-        :rtype: TwistedProtocolConnection | defer.Deferred[TwistedProtocolConnection]
         """
         return self
 

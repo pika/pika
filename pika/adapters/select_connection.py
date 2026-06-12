@@ -74,7 +74,6 @@ def _is_resumable(exc: SELECT_ERROR_T) -> bool:
     """Check if caught exception represents EINTR error.
     :param exc: exception; must be one of classes in _SELECT_ERRORS
 
-    :rtype: bool
     """
     checker = _SELECT_ERROR_CHECKERS.get(exc.__class__, None)
     if checker is not None:
@@ -153,14 +152,12 @@ class SelectConnection(BaseConnection):
         :param on_done: Callback to report when connection workflow is done
         :param custom_ioloop: Optional custom IOLoop or nbio interface to use for the connection workflow
         :param workflow: Optional connection workflow instance to use; if None, a default workflow will be created
-        :rtype: connection_workflow.AbstractAMQPConnectionWorkflow
         """
         nbio = SelectorIOServicesAdapter(custom_ioloop or IOLoop())
 
         def connection_factory(params) -> SelectConnection:
             """Connection factory.
             :param params: Connection parameters
-            :rtype: Self
             """
             if params is None:
                 raise ValueError('Expected pika.connection.Parameters '
@@ -979,7 +976,6 @@ class _PollerBase(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         from another thread. Socketpair() is not supported on some OS (Win)
         so use a pair of simple TCP sockets instead. The sockets will be
         closed and garbage collected by python when the ioloop itself is.
-        :rtype: tuple[socket.socket, socket.socket]
         """
         return pika._utils.nonblocking_socketpair()
 
