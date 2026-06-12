@@ -73,7 +73,7 @@ jobs:
       - name: Test with pytest
         run: hatch run test -v --cov=pika --cov-report=xml:coverage.xml ${{ matrix.test-tls && '--use-tls' || '' }}
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage.xml
@@ -103,7 +103,7 @@ jobs:
       - name: Test with pytest
         run: hatch run test -v --cov=pika --cov-report=xml:coverage.xml ${{ matrix.test-tls && '--use-tls' || '' }}
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage.xml
@@ -135,7 +135,7 @@ jobs:
       - name: Test with pytest
         run: hatch run test -v --cov=pika --cov-report=xml:coverage.xml ${{ matrix.test-tls && '--use-tls' || '' }}
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage.xml
