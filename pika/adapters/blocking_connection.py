@@ -620,7 +620,7 @@ class BlockingConnection:
         """Handle expiry of a timer that was registered via
         `_adapter_call_later()`
 
-        :param _TimerEvt evt:
+        :param evt:
 
         """
         self._ready_events.append(evt)
@@ -847,8 +847,8 @@ class BlockingConnection:
         """RabbitMQ AMQP extension - This method updates the secret used to authenticate this connection.
         It is used when secrets have an expiration date and need to be renewed, like OAuth 2 tokens.
 
-        :param string new_secret: The new secret
-        :param string reason: The reason for the secret update
+        :param new_secret: The new secret
+        :param reason: The reason for the secret update
 
         :raises pika.exceptions.ConnectionWrongStateError: if connection is
             not open.
@@ -1498,7 +1498,7 @@ class BlockingChannel:
         dispatch to user and signal our connection that this channel is ready
         for event dispatch
 
-        :param _ChannelPendingEvt evt: an event derived from _ChannelPendingEvt
+        :param evt: an event derived from _ChannelPendingEvt
         """
         self._pending_events.append(evt)
         self.connection._request_channel_dispatch(self.channel_number)

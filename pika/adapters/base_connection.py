@@ -132,7 +132,7 @@ class BaseConnection(connection.Connection):
 
         See also `_start_connection_workflow()`.
 
-        :param sequence connection_configs: A sequence of one or more
+        :param connection_configs: A sequence of one or more
             `pika.connection.Parameters`-based objects.
         :param on_done: as defined in
             `connection_workflow.AbstractAMQPConnectionWorkflow.start()`.
@@ -163,7 +163,7 @@ class BaseConnection(connection.Connection):
     ) -> connection_workflow.AbstractAMQPConnectionWorkflow:
         """Helper function for custom implementations of `create_connection()`.
 
-        :param sequence connection_configs: A sequence of one or more
+        :param connection_configs: A sequence of one or more
             `pika.connection.Parameters`-based objects.
         :param connection_factory: A function that takes
             `pika.connection.Parameters` as its only arg and returns a brand new

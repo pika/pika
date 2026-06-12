@@ -311,7 +311,7 @@ class _Timer:
     def remove_timeout(self, timeout: _Timeout) -> None:
         """Cancel the timeout
 
-        :param _Timeout timeout: The timer to cancel
+        :param timeout: The timer to cancel
 
         """
         # NOTE removing from the heap is difficult, so we just deactivate the
@@ -1102,7 +1102,7 @@ class KQueuePoller(_PollerBase):
     def _map_event(kevent: Any) -> int:
         """return the event type associated with a kevent object
 
-        :param kevent kevent: a kevent object as returned by kqueue.control()
+        :param kevent: a kevent object as returned by kqueue.control()
         :rtype: int
 
         """

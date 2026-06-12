@@ -144,17 +144,17 @@ class AbstractIOServices(pika._utils.AbstractBase):  # type: ignore[valid-type, 
 
         See `socket.getaddrinfo()` for the standard args.
 
+        :param host: Hostname or IP address
+        :param port: TCP port number
         :param on_done: user callback that takes the return value of
             `socket.getaddrinfo()` upon successful completion or exception upon
             failure (check for `BaseException`) as its only arg. It will not be
             called if the operation was cancelled.
-        :rtype: AbstractIOReference
-        :param host: Hostname or IP address
-        :param port: TCP port number
         :param family: Socket address family (e.g. ``socket.AF_INET``)
         :param socktype: Socket type (e.g. ``socket.SOCK_STREAM``)
         :param proto: Protocol number (0 for default)
         :param flags: :func:`socket.getaddrinfo` flags
+        :rtype: AbstractIOReference
         """
         raise NotImplementedError
 
@@ -249,7 +249,7 @@ class AbstractFileDescriptorServices(
         Replace prior reader, if any, for the given file descriptor.
 
         :param fd: file descriptor
-        :param callable on_readable: a callback taking no args to be notified
+        :param on_readable: a callback taking no args to be notified
             when fd becomes readable.
 
         """
@@ -281,7 +281,7 @@ class AbstractFileDescriptorServices(
             when connection establishment fails.
 
         :param fd: file descriptor
-        :param callable on_writable: a callback taking no args to be notified
+        :param on_writable: a callback taking no args to be notified
             when fd becomes writable.
 
         """

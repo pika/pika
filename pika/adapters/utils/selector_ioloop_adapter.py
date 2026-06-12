@@ -456,7 +456,7 @@ class _TimerHandle(nbio_interface.AbstractTimerReference):
     def __init__(self, handle: object, loop: AbstractSelectorIOLoop) -> None:
         """
 
-        :param opaque handle: timer handle from the underlying loop
+        :param handle: timer handle from the underlying loop
             implementation that may be passed to its `remove_timeout()` method
         :param loop: the I/O loop instance that created
             the timeout.

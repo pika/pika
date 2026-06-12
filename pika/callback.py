@@ -47,7 +47,7 @@ def name_or_value(value: AMQPValue) -> str:
 def sanitize_prefix(function: _Callback) -> _Callback:
     """Automatically call name_or_value on the prefix passed in.
 
-    :param _Callback function: The function to wrap
+    :param function: The function to wrap
     :rtype: _Callback
     """
 
@@ -74,9 +74,9 @@ def check_for_prefix_and_key(function: _Callback) -> _Callback:
     """Automatically return false if the key or prefix is not in the callbacks
     for the instance.
 
+    :param function: Callback to validate
     :rtype: _Callback
 
-    :param _Callback function: Callback to validate
     """
 
     @functools.wraps(function)
@@ -186,7 +186,7 @@ class CallbackManager:
         """Remove all callbacks from the stack by a prefix. Returns True
         if keys were there to be removed
 
-        :param str or int prefix: The prefix for keeping track of callbacks with
+        :param prefix: The prefix for keeping track of callbacks with
         :rtype: bool
 
         """

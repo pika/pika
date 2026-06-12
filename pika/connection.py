@@ -1033,8 +1033,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         Available Parameters classes are the ConnectionParameters class and
         URLParameters class.
 
-        :param parameters: Read-only connection
-            parameters.
+        :param parameters: Read-only connection parameters.
         :param on_open_callback: Called when the connection is opened:
             on_open_callback(connection)
         :param on_open_error_callback: Callback (or None) with signature
@@ -1500,7 +1499,7 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
     def _adapter_remove_timeout(self, timeout_id: object) -> None:
         """Adapters should override: Remove a timeout
 
-        :param opaque timeout_id: The timeout handle to remove
+        :param timeout_id: The timeout handle to remove
 
         """
         raise NotImplementedError

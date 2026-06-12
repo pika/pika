@@ -97,7 +97,7 @@ class AMQPConnectionWorkflowFailed(AMQPConnectorException):
 
     def __init__(self, exceptions: Sequence[BaseException], *args: Any) -> None:
         """
-        :param sequence exceptions: Exceptions that occurred during the
+        :param exceptions: Exceptions that occurred during the
             workflow.
         :param args: args to pass to base class
 
@@ -550,7 +550,7 @@ class AbstractAMQPConnectionWorkflow(
         """Asynchronously perform the workflow until success or all retries
         are exhausted. Called by the adapter.
 
-        :param sequence connection_configs: A sequence of one or more
+        :param connection_configs: A sequence of one or more
             `pika.connection.Parameters`-based objects. Will attempt to connect
             using each config in the given order.
         :param connector_factory: call it without args to obtain a new

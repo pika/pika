@@ -360,7 +360,7 @@ class TwistedChannel:
         confirm mode. The acknowledgement can be for a single message or a
         set of messages up to and including a specific message.
 
-        :param integer delivery_tag: int/long The server-assigned delivery tag
+        :param delivery_tag: int/long The server-assigned delivery tag
         :param multiple: If set to True, the delivery tag is treated as
                               "up to and including", so that multiple messages
                               can be acknowledged with a single method. If set
@@ -552,7 +552,7 @@ class TwistedChannel:
         It can be used to interrupt and cancel large incoming messages, or
         return untreatable messages to their original queue.
 
-        :param integer delivery_tag: int/long The server-assigned delivery tag
+        :param delivery_tag: int/long The server-assigned delivery tag
         :param multiple: If set to True, the delivery tag is treated as
                               "up to and including", so that multiple messages
                               can be acknowledged with a single method. If set
@@ -667,7 +667,7 @@ class TwistedChannel:
         message. It can be used to interrupt and cancel large incoming
         messages, or return untreatable messages to their original queue.
 
-        :param integer delivery_tag: int/long The server-assigned delivery tag
+        :param delivery_tag: int/long The server-assigned delivery tag
         :param requeue: If requeue is true, the server will attempt to
                              requeue the message. If requeue is false or the
                              requeue attempt fails the messages are discarded
