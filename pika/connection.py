@@ -1744,9 +1744,8 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
     def _is_protocol_header_frame(self, value: frame.Frame) -> bool:
         """Returns True if it's a protocol header frame.
 
-        :rtype: bool
-
         :param value: Frame to inspect
+        :rtype: bool
         """
         return isinstance(value, frame.ProtocolHeader)
 
@@ -1905,10 +1904,9 @@ class Connection(pika._utils.AbstractBase):  # type: ignore[valid-type, misc]
         """Default behavior when the connecting connection cannot connect and
         user didn't supply own `on_connection_error` callback.
 
-        :raises Exception: the given error
-
         :param _connection_unused: The connection instance (unused)
         :param error: The exception that caused the failure
+        :raises Exception: the given error
         """
         raise error
 

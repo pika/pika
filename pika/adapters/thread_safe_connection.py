@@ -267,10 +267,10 @@ class ThreadSafeChannel:
 
         Safe to call from any thread simultaneously.
 
-        :raises Exception: if the connection is already closed.
         :param delivery_tag: Server-assigned delivery tag
         :param multiple: If True, apply to all messages up to and including this delivery tag
         :param requeue: If True, requeue the message on the broker
+        :raises Exception: if the connection is already closed.
         """
         self._check_not_closed()
 
@@ -290,9 +290,9 @@ class ThreadSafeChannel:
 
         Safe to call from any thread simultaneously.
 
-        :raises Exception: if the connection is already closed.
         :param delivery_tag: Server-assigned delivery tag
         :param requeue: If True, requeue the message on the broker
+        :raises Exception: if the connection is already closed.
         """
         self._check_not_closed()
 

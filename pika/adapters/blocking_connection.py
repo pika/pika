@@ -961,8 +961,8 @@ class BlockingConnection:
         specify but it is recommended that you let Pika manage the channel
         numbers.
 
-        :rtype: pika.adapters.blocking_connection.BlockingChannel
         :param channel_number: optional channel number to use
+        :rtype: pika.adapters.blocking_connection.BlockingChannel
         """
         with _CallbackResult(self._OnChannelOpenedArgs) as opened_args:
             impl_channel = self._impl.channel(
@@ -1807,16 +1807,15 @@ class BlockingChannel:
             callback instead of being deposited in the channel's
             `_pending_events` container. Signature:
             alternate_event_sink(evt)
-
-        :raises pika.exceptions.DuplicateConsumerTag: if consumer with given
-            consumer_tag is already present.
-
         :param queue: Queue name
         :param auto_ack: If True, the broker acknowledges messages automatically
         :param exclusive: If True, restrict access to the current connection
         :param consumer_tag: if specified, only the consumer with the given tag will be cancelled
         :param arguments: Custom key/value pair arguments for the consumer
         :param on_message_callback: Callback for delivered messages
+
+        :raises pika.exceptions.DuplicateConsumerTag: if consumer with given
+            consumer_tag is already present.
         :rtype: str
         """
         if (on_message_callback is None) == (alternate_event_sink is None):
